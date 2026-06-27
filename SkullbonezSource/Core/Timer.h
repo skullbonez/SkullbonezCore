@@ -14,6 +14,10 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - m_performanceFrequency is captured once and every returned time is seconds.
+  - FPS counters are a one-second bucket separate from interval timing.
+
 Related:
   - SkullbonezSource/Core/Timer.cpp
   - Agentic/Reference/runtime-reference.md

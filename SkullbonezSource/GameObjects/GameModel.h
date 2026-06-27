@@ -17,6 +17,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - m_worldEnvironment and m_terrain are borrowed scene pointers; GameModel must
+    not own or destroy them.
+  - m_boundingVolume is authoritative collision geometry; cached radius, area,
+    volume, and inertia values are derived data.
+
 Related:
   - SkullbonezSource/GameObjects/GameModel.cpp
   - Agentic/Reference/runtime-reference.md

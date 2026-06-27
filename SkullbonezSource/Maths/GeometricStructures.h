@@ -12,6 +12,12 @@ Glossary:
   Engine module: A source file with one focused responsibility inside the
   SkullbonezCore runtime.
 
+Invariants:
+  - Small geometry structs are plain data contracts shared by math, physics,
+    terrain, and rendering code.
+  - Ray.vector3 is a displacement vector, not necessarily a normalized
+    direction; callers own the parameter range interpretation.
+
 Related:
   - Agentic/Reference/comment-style-guide.md
 */

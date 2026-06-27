@@ -8,6 +8,13 @@ Mental model:
   It owns pass objects and the frame pass order, while the passes borrow named
   services through RuntimeRenderHost.
 
+Glossary:
+  RuntimeRenderer: Owner of pass instances and the frame pass order.
+  Pass order: The stable sequence of sky, shadows, reflection, objects, terrain,
+  water, post effects, and UI/text.
+  Backend-owned resource: GPU object that must be released before backend
+  teardown.
+
 Invariants:
   - RuntimeRenderer owns pass instances; Run owns one RuntimeRenderer.
   - RenderFrame preserves the existing pass order and frame graph snapshot.

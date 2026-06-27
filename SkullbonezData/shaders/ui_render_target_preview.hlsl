@@ -16,6 +16,10 @@ Glossary:
 Invariants:
   - CPU-side dynamic vertex attributes are float2 position followed by float2 UV.
   - Texture slot t0 is the selected render target or buffer SRV.
+
+Related:
+  - SkullbonezSource/UI/UITabProfiler.cpp
+  - Agentic/Reference/comment-style-guide.md
 */
 #pragma pack_matrix(column_major)
 

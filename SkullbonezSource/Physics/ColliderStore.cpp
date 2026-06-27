@@ -14,6 +14,12 @@ Glossary:
   Replay body id: Stable per-scene id used when replay and diagnostics name a
     physics body across frames.
 
+Invariants:
+  - Collider records stay in GameModelCollection model order so body/collider
+    handles share the same compatibility index.
+  - Refresh snapshots collision metadata only; model pose and solver state
+    remain owned elsewhere.
+
 Related:
   - SkullbonezSource/Physics/ColliderStore.h
 */
@@ -28,28 +34,39 @@ using SkullbonezCore::GameObjects::GameModel;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::PhysicsColliderHandle;
 
 
 ColliderStore::ColliderStore()
 {
     m_colliders.reserve( MAX_GAME_MODELS );
+    m_modelColliderHandles.reserve( MAX_GAME_MODELS );
 }
 
 
 void ColliderStore::Clear()
 {
     m_colliders.clear();
+    m_modelColliderHandles.clear();
 }
 
 
 void ColliderStore::Refresh( std::vector<GameModel>& models )
 {
+    // Invariant: compatibility handles mirror model indices until the physics
+    // facade owns allocation. Do not sort or compact this store independently.
     m_colliders.resize( models.size() );
+    m_modelColliderHandles.resize( models.size() );
     for ( std::size_t i = 0; i < models.size(); ++i )
     {
         GameModel& model = models[i];
         ColliderRecord& record = m_colliders[i];
+        const uint32_t modelIndex = static_cast<uint32_t>( i );
+        record.handle = MakeCompatibilityPhysicsColliderHandle( modelIndex );
+        record.body = MakeCompatibilityPhysicsBodyHandle( modelIndex );
+        record.legacyModelIndex = static_cast<int>( i );
         record.replayBodyId = model.GetReplayBodyId();
+        record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
         record.shape = model.GetCollisionShape();
         record.boundingRadius = model.GetBoundingRadius();
         record.restitution = model.GetCoefficientRestitution();
@@ -67,6 +84,7 @@ void ColliderStore::Refresh( std::vector<GameModel>& models )
         {
             record.shapeKind = ColliderShapeKind::Sphere;
         }
+        m_modelColliderHandles[i] = record.handle;
     }
 }
 
@@ -86,6 +104,43 @@ int ColliderStore::Count() const
 bool ColliderStore::Empty() const
 {
     return m_colliders.empty();
+}
+
+
+PhysicsColliderHandle ColliderStore::HandleForModelIndex( int modelIndex ) const
+{
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_modelColliderHandles.size() ) )
+    {
+        return PhysicsColliderHandle{};
+    }
+
+    return m_modelColliderHandles[static_cast<std::size_t>( modelIndex )];
+}
+
+
+int ColliderStore::ModelIndexForHandle( PhysicsColliderHandle handle ) const
+{
+    if ( !Contains( handle ) )
+    {
+        return -1;
+    }
+
+    return m_colliders[static_cast<std::size_t>( handle.index )].legacyModelIndex;
+}
+
+
+bool ColliderStore::Contains( PhysicsColliderHandle handle ) const
+{
+    if ( !handle.IsValid() || handle.generation != PHYSICS_COMPATIBILITY_HANDLE_GENERATION )
+    {
+        return false;
+    }
+    if ( handle.index >= m_colliders.size() )
+    {
+        return false;
+    }
+
+    return m_colliders[static_cast<std::size_t>( handle.index )].handle == handle;
 }
 
 

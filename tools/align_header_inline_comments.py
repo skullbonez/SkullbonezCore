@@ -1,9 +1,22 @@
 """Align trailing inline comments in C++ headers.
 
-This is intentionally a header-only post-pass for clang-format. Public header
-declarations often carry short caller-contract comments; keeping those comments
-in one file-wide vertical column makes the declaration blocks easier to scan
-without changing source files where local implementation comments live.
+Mental model:
+  This is a header-only post-pass for clang-format. Public header declarations
+  often carry caller-contract comments; keeping them in one file-wide vertical
+  column makes declaration blocks easier to scan without touching implementation
+  files.
+
+Glossary:
+  Trailing inline comment: A // comment after code on the same line.
+  Column limit: Maximum preferred line width used when aligning comments.
+
+Invariants:
+  - Only C++ header-style trailing comments are aligned; preprocessor lines,
+    comment-only lines, and clang-format directives are skipped.
+  - The script rewrites text layout only and must not change code tokens.
+
+Related:
+  - Agentic/Reference/comment-style-guide.md
 """
 
 from __future__ import annotations

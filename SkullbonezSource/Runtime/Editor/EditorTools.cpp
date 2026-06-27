@@ -24,9 +24,19 @@ Related:
 */
 #include "EditorTools.h"
 
+#include "../CameraCollection.h"
+#include "../InputController.h"
+#include "../RuntimeCommandQueue.h"
+#include "../RuntimeFileWriter.h"
+#include "../Scene/SceneRuntime.h"
+#include "../Tools/RuntimeTools.h"
+#include "../../Core/Common.h"
+#include "../../GameObjects/GameModelCollection.h"
 #include "../../UI/UITabEditor.h"
+#include "../../World/WorldEnvironment.h"
 
 #include <algorithm>
+#include <utility>
 
 using SkullbonezCore::Math::Vector::Vector3;
 
@@ -159,6 +169,9 @@ Vector3 EditorDefaultPlacementScale( int objectType )
 Vector3 EditorClampPlacementScale( int objectType, const Vector3& scale )
 {
     const int type = ClampEditorObjectType( objectType );
+    // Concept: Object families define the shape of the scale value. Trees and
+    // buildings ignore user scale, balls use one radius, hulls use hull-local
+    // factors, and boxes use world half extents.
     if ( EditorPlacementUsesTreeScaleLock( type ) )
     {
         return Vector3( 1.0f, 1.0f, 1.0f );
@@ -211,6 +224,190 @@ Vector3 EditorPlacementScaleFromGesture( int objectType,
     scale.z += dragPixelsY / EDITOR_PLACEMENT_SCALE_PIXELS_PER_UNIT;
     scale.y += static_cast<float>( wheelSteps ) * EDITOR_PLACEMENT_SCALE_WHEEL_UNIT;
     return EditorClampPlacementScale( type, scale );
+}
+
+
+void ResetEditorUnfocusedInputState( EditorGizmoContext context )
+{
+    // Lifetime: Losing focus cancels gesture-owned state only. Persistent
+    // editor choices such as object type and static/dynamic placement survive
+    // so toggling focus does not rewrite the authoring mode.
+    context.editor.viewportLookActive = false;
+    context.editor.altShortcutWasDown = false;
+    context.editor.tabShortcutWasDown = false;
+    context.editor.tildeShortcutWasDown = false;
+    context.editor.placementScaleActive = false;
+    context.editor.placementScaleWheelSteps = 0;
+    CancelEditorGizmoDragState( context );
+    context.editor.gizmoDragStartAxisT = 0.0f;
+    context.editor.gizmoDragStartRotationAngle = 0.0f;
+    context.editor.gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
+    context.editor.gizmoDragStartOrientation = Math::Orientation::IDENTITY_QUATERNION;
+}
+
+
+void ClearEditorManipulationState( EditorGizmoContext context )
+{
+    context.editor.placementPreviewVisible = false;
+    context.editor.placementScaleActive = false;
+    context.editor.placementScaleWheelSteps = 0;
+    context.editor.placementScale = EditorDefaultPlacementScale( context.editor.objectType );
+    context.editor.placementScaleStart = context.editor.placementScale;
+    CancelEditorGizmoDragState( context );
+    context.editor.placementAltitudeSteps = 0;
+    context.editor.placementYawRadians = 0.0f;
+}
+
+
+EditorKeyboardShortcutResult HandleEditorKeyboardShortcuts( EditorKeyboardShortcutContext context )
+{
+    EditorKeyboardShortcutResult result;
+    result.altDown = Hardware::Input::IsKeyDown( VK_MENU );
+    result.togglePlacementMode =
+        InputController::CaptureKeyboardActionPress( context.input, RuntimeInputAction::ToggleEditorTool, VK_MENU );
+    return result;
+}
+
+
+EditorPlacementModeChangeResult
+SetEditorPlacementMode( EditorGizmoContext context, bool enabled, bool clearManipulation )
+{
+    context.editor.placementModeEnabled = context.editor.editorModeEnabled && enabled;
+    context.editor.viewportLookActive = false;
+    if ( clearManipulation )
+    {
+        ClearEditorManipulationState( context );
+    }
+
+    EditorPlacementModeChangeResult result;
+    result.placementModeEnabled = context.editor.placementModeEnabled;
+    result.worldOwner =
+        result.placementModeEnabled ? WorldInteractionOwner::EditorPlacement : WorldInteractionOwner::EditorGizmo;
+    return result;
+}
+
+
+EditorPlacementModeChangeResult ToggleEditorPlacementMode( EditorGizmoContext context )
+{
+    return SetEditorPlacementMode( context, !context.editor.placementModeEnabled, true );
+}
+
+
+void EnterEditorModeState( EditorGizmoContext context, RunCameraMode restoreCameraMode )
+{
+    context.editor.editorModeEnabled = true;
+    context.editor.placementModeEnabled = true;
+    context.editor.viewportLookActive = false;
+    ClearEditorManipulationState( context );
+    context.editor.restoreCameraModeAfterEditor = restoreCameraMode;
+}
+
+
+void ExitEditorModeState( EditorGizmoContext context )
+{
+    context.editor.editorModeEnabled = false;
+    context.editor.viewportLookActive = false;
+    context.editor.placementPreviewVisible = false;
+    context.editor.placementModeEnabled = false;
+    CancelEditorGizmoDragState( context );
+    context.editor.placementScaleActive = false;
+    context.editor.placementScaleWheelSteps = 0;
+    context.editor.placementScale = EditorDefaultPlacementScale( context.editor.objectType );
+    context.editor.placementScaleStart = context.editor.placementScale;
+    context.editor.placementAltitudeSteps = 0;
+    context.editor.placementYawRadians = 0.0f;
+    context.editor.restoreCameraModeAfterEditor = RunCameraMode::Demo;
+}
+
+
+bool SetEditorPlaceStaticObject( RunEditorPlacementState& editor, bool placeStaticObject )
+{
+    if ( editor.placeStaticObject == placeStaticObject )
+    {
+        return false;
+    }
+
+    editor.placeStaticObject = placeStaticObject;
+    return true;
+}
+
+
+void ToggleEditorPlaceStaticObject( RunEditorPlacementState& editor )
+{
+    editor.placeStaticObject = !editor.placeStaticObject;
+}
+
+
+void ToggleEditorTerrainAlign( RunEditorPlacementState& editor )
+{
+    editor.autoTerrainAlign = !editor.autoTerrainAlign;
+    editor.placementPreviewVisible = false;
+    editor.placementScaleActive = false;
+    editor.placementScaleWheelSteps = 0;
+}
+
+
+EditorObjectTypeRequestResult
+SelectEditorObjectType( EditorGizmoContext context, int requestedObjectType, bool enterPlacementMode )
+{
+    EditorObjectTypeRequestResult result;
+    const int objectType = ClampEditorObjectType( requestedObjectType );
+    if ( objectType != context.editor.objectType )
+    {
+        context.editor.objectType = objectType;
+        ClearEditorManipulationState( context );
+        result.objectTypeChanged = true;
+    }
+    else if ( enterPlacementMode )
+    {
+        ClearEditorManipulationState( context );
+    }
+    result.enterPlacementMode = enterPlacementMode && context.editor.editorModeEnabled;
+    return result;
+}
+
+
+void HandleEditorSaveHotkeys( EditorSaveHotkeyContext context )
+{
+    if ( InputController::CaptureKeyboardActionPress( context.input, RuntimeInputAction::SaveSceneSnapshot, VK_F2 ) )
+    {
+        static int sSnapshotSeq = 0;
+        char path[256] = {};
+        if ( RuntimeFileWriter::NextNumberedPath( path,
+                                                  sizeof( path ),
+                                                  "Scenes",
+                                                  "snapshot_",
+                                                  ".scene.json",
+                                                  sSnapshotSeq,
+                                                  100 ) )
+        {
+            context.models.SaveSceneSnapshot( path,
+                                              context.scene.isScenePhysics,
+                                              context.scene.isSceneText,
+                                              context.world,
+                                              context.cameras.GetCameraTranslation(),
+                                              context.cameras.GetCameraView(),
+                                              context.cameras.GetCameraUp() );
+        }
+    }
+
+    if ( InputController::CaptureKeyboardActionPress( context.input, RuntimeInputAction::SaveScreenshot, VK_F3 ) )
+    {
+        static int sScreenshotSeq = 0;
+        char path[256] = {};
+        if ( RuntimeFileWriter::NextNumberedPath( path,
+                                                  sizeof( path ),
+                                                  "Screenshots",
+                                                  "screenshot_",
+                                                  ".bmp",
+                                                  sScreenshotSeq,
+                                                  100 ) )
+        {
+            RuntimeCommand command{ RuntimeCommandType::SaveScreenshot };
+            command.text = path;
+            context.commands.Push( std::move( command ) );
+        }
+    }
 }
 } // namespace RunInternal
 } // namespace Basics

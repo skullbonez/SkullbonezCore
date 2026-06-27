@@ -16,6 +16,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - m_gameModels is the stable scene-order owner; collaborators mirror or view
+    that order rather than replacing it.
+  - Replay body ids are assigned monotonically per collection so diagnostics can
+    identify bodies across frames.
+
 Related:
   - SkullbonezSource/GameObjects/GameModelCollection.cpp
   - Agentic/Reference/runtime-reference.md

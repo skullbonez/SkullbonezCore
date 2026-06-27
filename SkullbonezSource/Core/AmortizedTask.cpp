@@ -14,6 +14,12 @@ Glossary:
   Atomic cursor: Thread-safe index used to claim each slice once.
   Budget: Maximum item count processed by one submitted chunk.
 
+Invariants:
+  - At most one worker chunk is in flight per task; SubmitTick is a no-op while
+    the previous chunk still owns the cursor.
+  - The cursor only advances by claimed budgets, and completion is published
+    after the last claimed range reaches totalItems.
+
 Related:
   - SkullbonezSource/Core/AmortizedTask.h
   - SkullbonezSource/Core/WorkerPool.h
@@ -48,6 +54,8 @@ void AmortizedTask::SubmitTick( WorkerPool& pool )
     bool expected = false;
     if ( !m_inFlight.compare_exchange_strong( expected, true, std::memory_order_acq_rel ) )
     {
+        // Invariant: callers may tick this every frame, but the worker owns the
+        // current range until it clears m_inFlight.
         return;
     }
 

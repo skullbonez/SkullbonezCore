@@ -136,6 +136,9 @@ bool EditorTreeNamesShareInstancePrefix( const char* a, const char* b, size_t pr
 
 template <typename THull> void ApplyRootedTreeCompatibilityClearanceToHulls( std::vector<THull>& hulls )
 {
+    // Why: Older rooted-tree scenes placed trunk foliage too low relative to the
+    // root hull. Apply the compatibility lift only to matching fixed parts so
+    // saved legacy scenes keep their intended clearance without moving roots.
     for ( const THull& root : hulls )
     {
         const float liftY = SkullbonezCore::Assets::EditorTreeRootedAboveRootLiftY( root.name );
@@ -219,6 +222,8 @@ std::string JsonTypeName( const Json& value )
 
 [[noreturn]] void Fail( const std::string& path, const std::string& detail )
 {
+    // Concept: Parser failures include the file path and logical context because
+    // scene JSON is edited by humans and validation scripts.
     std::ostringstream message;
     message << detail << " in " << path << "  (TestScene::LoadFromFile)";
     throw std::runtime_error( message.str() );
@@ -719,6 +724,11 @@ class TestSceneParser
             float x = 0.0f, y = 0.0f, z = 0.0f;
             ReadVec3( *velocity, path, "asset.velocity", x, y, z );
         }
+        if ( const Json* angularVelocity = FindMember( asset, "angularVelocity" ) )
+        {
+            float x = 0.0f, y = 0.0f, z = 0.0f;
+            ReadVec3( *angularVelocity, path, "asset.angularVelocity", x, y, z );
+        }
         if ( const Json* release = FindMember( asset, "contactReleaseOnImpact" ) )
         {
             ReadBool( *release, path, "asset.contactReleaseOnImpact" );
@@ -857,7 +867,11 @@ class TestSceneParser
                                    bool hasInstanceVelocity,
                                    float instanceVelX,
                                    float instanceVelY,
-                                   float instanceVelZ )
+                                   float instanceVelZ,
+                                   bool hasInstanceAngularVelocity,
+                                   float instanceAngVelX,
+                                   float instanceAngVelY,
+                                   float instanceAngVelZ )
     {
         CheckGeneratedSceneName( objectName, path, "asset instance name" );
 
@@ -889,6 +903,18 @@ class TestSceneParser
             velY += partY;
             velZ += partZ;
             hasVelocity = true;
+        }
+
+        float angVelX = instanceAngVelX, angVelY = instanceAngVelY, angVelZ = instanceAngVelZ;
+        bool hasAngularVelocity = hasInstanceAngularVelocity;
+        if ( const Json* angularVelocity = FindMember( asset, "angularVelocity" ) )
+        {
+            float partX = 0.0f, partY = 0.0f, partZ = 0.0f;
+            ReadVec3( *angularVelocity, path, "asset.angularVelocity", partX, partY, partZ );
+            angVelX += partX;
+            angVelY += partY;
+            angVelZ += partZ;
+            hasAngularVelocity = true;
         }
 
         bool fixed = false;
@@ -939,6 +965,10 @@ class TestSceneParser
         if ( hasVelocity )
         {
             object["velocity"] = Json::array( { velX, velY, velZ } );
+        }
+        if ( hasAngularVelocity )
+        {
+            object["angularVelocity"] = Json::array( { angVelX, angVelY, angVelZ } );
         }
 
         ApplyConvexHull( object, path, false );
@@ -1000,6 +1030,19 @@ class TestSceneParser
             hasInstanceVelocity = true;
         }
 
+        bool hasInstanceAngularVelocity = false;
+        float instanceAngVelX = 0.0f, instanceAngVelY = 0.0f, instanceAngVelZ = 0.0f;
+        if ( const Json* angularVelocity = FindMember( instance, "angularVelocity" ) )
+        {
+            ReadVec3( *angularVelocity,
+                      path,
+                      "assetInstance.angularVelocity",
+                      instanceAngVelX,
+                      instanceAngVelY,
+                      instanceAngVelZ );
+            hasInstanceAngularVelocity = true;
+        }
+
         const std::string type = ReadString( RequireMember( *asset, path, "asset", "type" ), path, "asset.type" );
         if ( type == "convexHull" )
         {
@@ -1020,7 +1063,11 @@ class TestSceneParser
                                       hasInstanceVelocity,
                                       instanceVelX,
                                       instanceVelY,
-                                      instanceVelZ );
+                                      instanceVelZ,
+                                      hasInstanceAngularVelocity,
+                                      instanceAngVelX,
+                                      instanceAngVelY,
+                                      instanceAngVelZ );
             return;
         }
 
@@ -1049,7 +1096,11 @@ class TestSceneParser
                                           hasInstanceVelocity,
                                           instanceVelX,
                                           instanceVelY,
-                                          instanceVelZ );
+                                          instanceVelZ,
+                                          hasInstanceAngularVelocity,
+                                          instanceAngVelX,
+                                          instanceAngVelY,
+                                          instanceAngVelZ );
             }
             return;
         }
@@ -2071,6 +2122,11 @@ class TestSceneParser
         {
             ReadVec3( *velocity, path, "convexHull.velocity", hull.velX, hull.velY, hull.velZ );
             hull.hasInitVelocity = true;
+        }
+        if ( const Json* angularVelocity = FindMember( object, "angularVelocity" ) )
+        {
+            ReadVec3( *angularVelocity, path, "convexHull.angularVelocity", hull.angVelX, hull.angVelY, hull.angVelZ );
+            hull.hasInitAngularVelocity = true;
         }
         m_scene.m_convexHulls.push_back( hull );
     }

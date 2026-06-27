@@ -8,6 +8,16 @@ Mental model:
   produces transition/policy records; Run performs subsystem-specific cleanup
   from those records.
 
+Glossary:
+  Workspace: Coarse runtime mode such as live, inspect, edit, or replay.
+  Owner: The tool or subsystem currently allowed to consume world input.
+  Gesture: Active pointer operation that owns capture until it ends.
+
+Invariants:
+  - The controller does not clear hover, replay, editor, or physics state
+    directly; it returns transition records for Run to apply.
+  - Pointer capture, owner, and gesture must describe the same active operation.
+
 Related:
   - SkullbonezSource/Runtime/RuntimeInteractionController.h
   - SkullbonezSource/Runtime/RunInput.cpp
@@ -41,6 +51,9 @@ bool IsActiveGestureValid( const RuntimeInteractionGesture& gesture,
                            RuntimePointerCaptureOwner captureOwner,
                            WorldInteractionOwner owner )
 {
+    // Invariant: every non-empty gesture must have both a compatible pointer
+    // capture owner and a world owner. This keeps replay, editor, and
+    // manipulator drags from overlapping after mode transitions.
     switch ( gesture.kind )
     {
     case RuntimeInteractionGestureKind::None:

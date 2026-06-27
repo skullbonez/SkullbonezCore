@@ -2,8 +2,32 @@
 File: SkullbonezSource/Runtime/RunInteractionAutomation.cpp
 Purpose:
   Drives deterministic runtime world-click scripts through the normal input path.
+
+Mental model:
+  Interaction automation is a validation driver. It asks the same picking,
+  replay, camera, and world-input code that an operator would use, then writes a
+  compact JSON report for the test harness.
+
+Glossary:
+  World click: Automation request that projects a screen-space click into the
+  scene and routes it through the active runtime owner.
+  Prediction target: Replay body selected for future-path diagnostics.
+  Automation report: JSON side-channel describing what the scripted interaction
+  observed without mutating validation baselines directly.
+
+Invariants:
+  - Scripts must exercise normal runtime routing, not bypass tool ownership or
+    replay state with hidden direct mutations.
+  - Reported samples are snapshots of already-owned runtime state; this file
+    must not become a second owner for replay or picker lifetimes.
+
+Related:
+  - SkullbonezSource/Runtime/RuntimePickService.h
+  - SkullbonezSource/Runtime/RuntimeInteractionController.h
+  - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 */
 #include "RunInternal.h"
+#include "Replay/ReplayOverlayLayout.h"
 #include "RuntimeFileWriter.h"
 #include "RuntimePickService.h"
 
@@ -15,6 +39,7 @@ Purpose:
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Basics::ReplayOverlay;
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
@@ -29,6 +54,57 @@ void CopyText( char* destination, std::size_t destinationSize, const std::string
     {
         strcpy_s( destination, destinationSize, value.c_str() );
     }
+}
+
+Json Vec3Json( const Vector3& value )
+{
+    return Json::array( { value.x, value.y, value.z } );
+}
+
+const RunReplayPredictionBodySample* FindPredictionBodyById( const RunReplayPredictionFrame& frame, ReplayBodyId id )
+{
+    for ( const RunReplayPredictionBodySample& body : frame.bodies )
+    {
+        if ( body.id.value == id.value )
+        {
+            return &body;
+        }
+    }
+    return nullptr;
+}
+
+bool TryPredictionTargetDisplacement( const ReplayRuntime& replayRuntime,
+                                      float& outDisplacement,
+                                      Vector3* outFirst = nullptr,
+                                      Vector3* outLast = nullptr )
+{
+    // Concept: automation reports compare the first and last prediction sample
+    // for the selected replay body. Missing target data is a clean "not ready",
+    // not an error state for the running scene.
+    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = replayRuntime.ActivePredictionFrames();
+    const ReplayBodyId targetId = replayRuntime.PathVisualizer().targetId;
+    if ( targetId.value == 0 || activePredictionFrames.empty() )
+    {
+        return false;
+    }
+
+    const RunReplayPredictionBodySample* first = FindPredictionBodyById( activePredictionFrames.front(), targetId );
+    const RunReplayPredictionBodySample* last = FindPredictionBodyById( activePredictionFrames.back(), targetId );
+    if ( !first || !last )
+    {
+        return false;
+    }
+
+    outDisplacement = VectorMag( last->position - first->position );
+    if ( outFirst )
+    {
+        *outFirst = first->position;
+    }
+    if ( outLast )
+    {
+        *outLast = last->position;
+    }
+    return true;
 }
 
 const char* CameraModeName( RunCameraMode mode )
@@ -232,6 +308,8 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "replayPathTarget";
     case RunInteractionAutomationAssertKind::PredictionPathVisible:
         return "predictionPathVisible";
+    case RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin:
+        return "predictionTargetDisplacementMin";
     case RunInteractionAutomationAssertKind::GizmoVisible:
         return "gizmoVisible";
     }
@@ -420,6 +498,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::PredictionPathVisible;
             outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "predictionTargetDisplacementMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin;
+            outAction.numberValue = member.value().get<float>();
         }
         else if ( name == "gizmoVisible" )
         {
@@ -637,8 +720,8 @@ void Run::TickInteractionAutomationBeforeInput()
         case RunInteractionAutomationActionType::ClickReplayControl:
             if ( strcmp( action.text, "predict" ) == 0 )
             {
-                const int screenW = WindowScreenWidth();
-                const int screenH = WindowScreenHeight();
+                const int screenW = RuntimeWindowScreenWidth( m_systems, Cfg() );
+                const int screenH = RuntimeWindowScreenHeight( m_systems, Cfg() );
                 const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
                 const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
                 if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
@@ -820,12 +903,29 @@ void Run::TickInteractionAutomationAfterRender()
         case RunInteractionAutomationAssertKind::PredictionPathVisible:
         {
             const bool visible =
-                m_replayRuntime.PathVisualizer().hasTarget &&
-                ( !m_replayRuntime.PathVisualizer().futureNodes.empty() ||
-                  !m_replayRuntime.Prediction().frames.empty() || !m_replayRuntime.Prediction().futureNodes.empty() );
+                m_replayRuntime.PathVisualizer().hasTarget && ( !m_replayRuntime.PathVisualizer().futureNodes.empty() ||
+                                                                !m_replayRuntime.ActivePredictionFrames().empty() ||
+                                                                !m_replayRuntime.Prediction().futureNodes.empty() );
             expected = BoolString( action.boolValue );
             actual = BoolString( visible );
             passed = visible == action.boolValue;
+            break;
+        }
+        case RunInteractionAutomationAssertKind::PredictionTargetDisplacementMin:
+        {
+            float displacement = 0.0f;
+            const bool valid = TryPredictionTargetDisplacement( m_replayRuntime, displacement );
+            {
+                std::ostringstream stream;
+                stream << ">=" << action.numberValue;
+                expected = stream.str();
+            }
+            {
+                std::ostringstream stream;
+                stream << ( valid ? displacement : 0.0f );
+                actual = stream.str();
+            }
+            passed = valid && displacement >= action.numberValue;
             break;
         }
         case RunInteractionAutomationAssertKind::GizmoVisible:
@@ -928,10 +1028,19 @@ void Run::WriteInteractionAutomationReport()
         selectedIndex >= 0 && ( m_runtimeTools.Editor().editorModeEnabled || InspectGizmoInteractionActive() );
     const bool predictionPathVisible =
         m_replayRuntime.PathVisualizer().hasTarget &&
-        ( !m_replayRuntime.PathVisualizer().futureNodes.empty() || !m_replayRuntime.Prediction().frames.empty() ||
+        ( !m_replayRuntime.PathVisualizer().futureNodes.empty() || !m_replayRuntime.ActivePredictionFrames().empty() ||
           !m_replayRuntime.Prediction().futureNodes.empty() );
+    const std::vector<RunReplayPredictionFrame>& activePredictionFrames = m_replayRuntime.ActivePredictionFrames();
+    bool predictionTargetDisplacementValid = false;
+    Vector3 predictionTargetFirst = ZERO_VECTOR;
+    Vector3 predictionTargetLast = ZERO_VECTOR;
+    float predictionTargetDisplacement = 0.0f;
+    predictionTargetDisplacementValid = TryPredictionTargetDisplacement( m_replayRuntime,
+                                                                         predictionTargetDisplacement,
+                                                                         &predictionTargetFirst,
+                                                                         &predictionTargetLast );
 
-    const std::string* scenePath = CurrentSceneQueuePath();
+    const std::string* scenePath = m_sceneController.CurrentPath();
     Json report;
     report["ok"] = !state.failed;
     report["scene"] = scenePath ? *scenePath : "";
@@ -953,8 +1062,16 @@ void Run::WriteInteractionAutomationReport()
                 m_replayRuntime.PathVisualizer().hasTarget ? m_replayRuntime.PathVisualizer().targetName : "" },
               { "replayPathTargetCount", static_cast<int>( m_replayRuntime.PathVisualizer().targets.size() ) },
               { "predictionPathVisible", predictionPathVisible },
+              { "predictionActiveFrameCount", static_cast<int>( activePredictionFrames.size() ) },
               { "predictionFrameCount", static_cast<int>( m_replayRuntime.Prediction().frames.size() ) },
+              { "predictionBuildFrameCount", static_cast<int>( m_replayRuntime.Prediction().buildFrames.size() ) },
+              { "predictionTargetDisplacementValid", predictionTargetDisplacementValid },
+              { "predictionTargetFirst", Vec3Json( predictionTargetFirst ) },
+              { "predictionTargetLast", Vec3Json( predictionTargetLast ) },
+              { "predictionTargetDisplacement", predictionTargetDisplacement },
               { "predictionFutureNodeCount", static_cast<int>( m_replayRuntime.Prediction().futureNodes.size() ) },
+              { "predictionFutureNodeBuildFrameCount",
+                static_cast<int>( m_replayRuntime.Prediction().futureNodesBuiltFrameCount ) },
               { "replayFutureNodeCount", static_cast<int>( m_replayRuntime.PathVisualizer().futureNodes.size() ) } };
 
     std::ofstream output;

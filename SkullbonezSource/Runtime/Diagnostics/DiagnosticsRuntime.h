@@ -45,7 +45,12 @@ class DiagnosticsRuntime
     const RunPerfLogState& PerfLog() const;
 
     void ClosePerfLog();
+    void ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint );
     void LogPerfMemory( int pass, const char* checkpoint );
+    void ResetPerfLogForSceneLoad();
+    void ConfigurePerfLogFlush( bool enabled, int interval );
+    void OpenScenePerfLog( const char* path, int pass );
+    bool PerfTestActive() const;
     void TickPerfLog( const RuntimePerfTickContext& context );
     const MainMemoryStats& RefreshMainMemoryStats( const ReplayRuntime& replay,
                                                    const GameObjects::GameModelCollection& models,
@@ -120,6 +125,8 @@ class DiagnosticsRuntime
     void EndPhysicsDiagnosticsRun( const RunSceneState& scene, const char* status );
 #endif
 
+    // Invariant: UI stress state is deterministic scene-driven input churn.
+    // Keep it cheap and seed-based so validation can reproduce failures.
     struct UIStressState
     {
         bool enabled = false;                       // Deterministic scene-driven UI stress runner

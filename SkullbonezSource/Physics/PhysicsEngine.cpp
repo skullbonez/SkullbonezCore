@@ -7,6 +7,13 @@ Mental model:
   This file is intentionally boring migration glue. It gives runtime code one
   physics owner without changing PhysicsScene or PhysicsWorld execution order.
 
+Glossary:
+  Facade: Narrow public boundary that forwards commands while hiding solver
+  internals.
+  Store refresh: Deterministic copy between compatibility GameModel state and
+  physics-owned body/collider/render stores.
+  Replay restore: Replacement of live solver state from a saved replay sample.
+
 Invariants:
   - Step and replay restore forward directly to PhysicsScene.
   - Store refreshes keep their existing body/collider/render ordering.
@@ -50,6 +57,12 @@ void PhysicsEngine::RefreshBodyStore( GameModelCollection& collection )
 }
 
 
+void PhysicsEngine::ClearPendingBodyImpulses()
+{
+    m_scene.ClearPendingBodyImpulses();
+}
+
+
 void PhysicsEngine::RefreshColliderStore( GameModelCollection& collection )
 {
     m_scene.RefreshColliderStore( collection );
@@ -85,8 +98,7 @@ void PhysicsEngine::ApplyBodyImpulse( GameModelCollection& collection,
                                       const Math::Vector::Vector3& impulse,
                                       const Math::Vector::Vector3& localApplicationPoint )
 {
-    SetPendingBodyImpulse( collection, bodyIndex, impulse, localApplicationPoint );
-    WakeBody( collection, bodyIndex );
+    m_scene.ApplyBodyImpulse( collection, bodyIndex, impulse, localApplicationPoint );
 }
 
 
@@ -95,8 +107,7 @@ void PhysicsEngine::SetPendingBodyImpulse( GameModelCollection& collection,
                                            const Math::Vector::Vector3& impulse,
                                            const Math::Vector::Vector3& localApplicationPoint )
 {
-    collection.GetModelAtIndex( bodyIndex ).SetImpulseForce( impulse, localApplicationPoint );
-    collection.InvalidatePhysicsStreams();
+    m_scene.SetPendingBodyImpulse( collection, bodyIndex, impulse, localApplicationPoint );
 }
 
 

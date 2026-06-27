@@ -1,0 +1,139 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "physics": true,
+    "text": false,
+    "world": {
+      "gravity": 0.0,
+      "fluidHeight": -1000.0,
+      "fluidDensity": 0.0
+    }
+  },
+  "runtime": {
+    "vsync": false
+  },
+  "ui": {
+    "minimized": true,
+    "tab": "profiler",
+    "blur": true,
+    "testPattern": false
+  },
+  "playback": {
+    "frames": 180,
+    "fixedStep": true,
+    "exitOnComplete": false
+  },
+  "terrain": {
+    "flatSlope": {
+      "baseY": 0.0,
+      "slopeX": 0.0,
+      "slopeZ": 0.0
+    }
+  },
+  "debug": {
+    "waterHidden": true,
+    "terrainHidden": true
+  },
+  "cameras": [
+    {
+      "name": "prediction_overview",
+      "position": [
+        525,
+        150,
+        680
+      ],
+      "view": [
+        535,
+        80,
+        510
+      ],
+      "up": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "type": "box",
+      "name": "prediction_striker",
+      "position": [
+        480,
+        80,
+        500
+      ],
+      "halfExtents": [
+        5.0,
+        5.0,
+        5.0
+      ],
+      "mass": 8.0,
+      "restitution": 0.94,
+      "fixed": false,
+      "velocity": [
+        20,
+        0,
+        0
+      ]
+    },
+    {
+      "type": "ball",
+      "name": "prediction_target_01",
+      "position": [
+        570,
+        80,
+        500
+      ],
+      "radius": 6.0,
+      "mass": 8.0,
+      "moment": 12.0,
+      "restitution": 0.94,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "prediction_target_02",
+      "position": [
+        630,
+        80,
+        512
+      ],
+      "radius": 6.0,
+      "mass": 8.0,
+      "moment": 12.0,
+      "restitution": 0.94,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "prediction_target_03",
+      "position": [
+        690,
+        80,
+        490
+      ],
+      "radius": 6.0,
+      "mass": 8.0,
+      "moment": 12.0,
+      "restitution": 0.94,
+      "fixed": false
+    },
+    {
+      "type": "ball",
+      "name": "prediction_target_04",
+      "position": [
+        750,
+        80,
+        505
+      ],
+      "radius": 6.0,
+      "mass": 8.0,
+      "moment": 12.0,
+      "restitution": 0.94,
+      "fixed": false
+    }
+  ]
+}

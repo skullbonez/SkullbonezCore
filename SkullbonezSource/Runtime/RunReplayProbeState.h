@@ -8,6 +8,18 @@ Mental model:
   restore, and save coverage after the scene has enough captured samples. They
   are not part of the normal replay owner state in ReplayRuntime.
 
+Glossary:
+  Scrub probe: Debug launch path that seeks into captured replay history.
+  Restore probe: Debug launch path that restores a historical replay sample
+  into the live scene.
+  Save probe: Debug launch path that writes a replay artifact after enough
+  timeline coverage exists.
+
+Invariants:
+  - Probe state exists only in debug builds and is driven by CLI test paths.
+  - Completion flags are one-shot guards so a successful probe does not repeat
+    every frame after its minimum sample count is reached.
+
 Related:
   - SkullbonezSource/Runtime/Run.h
   - SkullbonezSource/Runtime/Run.cpp

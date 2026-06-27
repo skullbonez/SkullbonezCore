@@ -9,6 +9,12 @@ Mental model:
   callers should use without exposing GameModelCollection, PhysicsWorld, or
   solver-private containers.
 
+Glossary:
+  Body: Simulated object state such as pose, velocity, mass, and sleep flag.
+  Collider: Shape and material-adjacent collision metadata paired with a body.
+  Facade: Narrow public boundary that hides solver implementation containers.
+  View: Immutable span-like snapshot exposed to callers without ownership.
+
 Invariants:
   - Public API structs do not include or require GameModelCollection.
   - Descriptors describe intent; later facade code owns allocation order and

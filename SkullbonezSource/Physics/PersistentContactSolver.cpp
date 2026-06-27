@@ -38,6 +38,7 @@ Related:
 #include "ContactSolverCommon.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "ObjectContactManifold.h"
+#include "PhysicsBodyStore.h"
 #include "PhysicsWorld.h"
 #include "../Core/Profiler.h"
 
@@ -84,6 +85,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
     auto& m_terrainContactManifolds = context.terrainContactManifolds;
     auto& m_terrainRestApplied = context.terrainRestApplied;
     auto& m_sleepSupportedThisFrame = context.sleepSupportedThisFrame;
+    auto& m_bodyRecords = context.bodyRecords;
     auto RecordPhysicsPipelineStage = [&]( const PhysicsPipelineRecord& record )
     { context.RecordPhysicsPipelineStage( record ); };
     auto MarkCollisionVisualContact = [&]( int index ) { context.MarkCollisionVisualContact( index ); };
@@ -211,6 +213,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
         for ( int i = 0; i < modelCount; ++i )
         {
             GameModel& model = m_gameModels[i];
+            const PhysicsBodyRecord& record = m_bodyRecords[static_cast<size_t>( i )];
             SolverBodyState& body = m_solverBodies[i];
             if ( m_sleepState[i] || m_soaIsFixed[i] )
             {
@@ -224,15 +227,15 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             }
             else
             {
-                body.linearVelocity = model.GetVelocity();
-                body.angularVelocity = model.GetAngularVelocity();
-                body.invMass = model.GetInvertedMass();
-                body.invInertia = model.GetInvertedRotationalInertia();
+                body.linearVelocity = record.linearVelocity;
+                body.angularVelocity = record.angularVelocity;
+                body.invMass = record.invMass;
+                body.invInertia = record.invRotationalInertia;
                 body.useWorldInertia = model.UsesWorldInertia();
             }
             if ( body.useWorldInertia )
             {
-                Quaternion orientation = model.GetOrientation();
+                Quaternion orientation = record.orientation;
                 body.orientation = orientation.GetOrientationMatrix();
             }
         }
@@ -336,7 +339,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             record.bodyA = aIndex;
             record.bodyB = bIndex;
             record.normal = normal;
-            record.point = ( m_gameModels[aIndex].GetPosition() + m_gameModels[bIndex].GetPosition() ) * 0.5f;
+            record.point = ( m_bodyRecords[static_cast<size_t>( aIndex )].position +
+                             m_bodyRecords[static_cast<size_t>( bIndex )].position ) *
+                           0.5f;
             record.scalarA = normal.y;
             RecordPhysicsPipelineStage( record );
         }
@@ -348,7 +353,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             record.bodyA = bIndex;
             record.bodyB = aIndex;
             record.normal = -normal;
-            record.point = ( m_gameModels[aIndex].GetPosition() + m_gameModels[bIndex].GetPosition() ) * 0.5f;
+            record.point = ( m_bodyRecords[static_cast<size_t>( aIndex )].position +
+                             m_bodyRecords[static_cast<size_t>( bIndex )].position ) *
+                           0.5f;
             record.scalarA = -normal.y;
             RecordPhysicsPipelineStage( record );
         }
@@ -506,7 +513,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             GameModel& a = m_gameModels[aIndex];
             GameModel& b = m_gameModels[bIndex];
 
-            Vector3 centerDelta = b.GetPosition() - a.GetPosition();
+            Vector3 centerDelta = m_bodyRecords[static_cast<size_t>( bIndex )].position -
+                                  m_bodyRecords[static_cast<size_t>( aIndex )].position;
             float contactDistance =
                 conservativeContactRadius( a ) + conservativeContactRadius( b ) + Cfg().contactEpsilon;
             if ( Vector::VectorMagSquared( centerDelta ) > contactDistance * contactDistance )
@@ -893,7 +901,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                 record.bodyA = c.bodyA;
                 record.bodyB = c.bodyB;
                 record.featureId = c.featureId;
-                record.point = m_gameModels[c.bodyA].GetPosition() + c.rA;
+                record.point = m_bodyRecords[static_cast<size_t>( c.bodyA )].position + c.rA;
                 record.normal = c.normal;
                 record.scalarA = c.warmStarted ? 1.0f : 0.0f;
                 record.scalarB = c.accN;
@@ -990,7 +998,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                 record.bodyB = c.bodyB;
                 record.iteration = iter;
                 record.featureId = c.featureId;
-                record.point = m_gameModels[c.bodyA].GetPosition() + c.rA;
+                record.point = m_bodyRecords[static_cast<size_t>( c.bodyA )].position + c.rA;
                 record.normal = c.normal;
                 record.scalarA = deltaN;
                 record.scalarB = c.accN;
@@ -1116,13 +1124,14 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             Physics::PhysicsPipelineRecord record;
             record.stage = Physics::PhysicsPipelineStage::VelocityWriteback;
             record.bodyA = i;
-            record.point = m_gameModels[i].GetPosition();
+            record.point = m_bodyRecords[static_cast<size_t>( i )].position;
             record.scalarA = Vector::VectorMag( m_solverBodies[i].linearVelocity );
             record.scalarB = Vector::VectorMag( m_solverBodies[i].angularVelocity );
             RecordPhysicsPipelineStage( record );
 
-            m_gameModels[i].SetLinearVelocity( m_solverBodies[i].linearVelocity );
-            m_gameModels[i].SetAngularVelocity( m_solverBodies[i].angularVelocity );
+            m_bodyRecords[static_cast<size_t>( i )].linearVelocity = m_solverBodies[i].linearVelocity;
+            m_bodyRecords[static_cast<size_t>( i )].angularVelocity = m_solverBodies[i].angularVelocity;
+            context.bodyStore.WriteBackToModelAt( m_gameModels, i );
         }
     }
 
@@ -1148,7 +1157,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             out.bodyA = c.bodyA;
             out.bodyB = c.bodyB;
             out.featureId = c.featureId;
-            out.point = m_gameModels[c.bodyA].GetPosition() + c.rA;
+            out.point = m_bodyRecords[static_cast<size_t>( c.bodyA )].position + c.rA;
             out.normal = c.isTerrain ? c.terrainNormal : c.normal;
             out.tangent1 = c.tangent1;
             out.tangent2 = c.tangent2;
@@ -1205,16 +1214,18 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             record.bodyA = c.bodyA;
             record.bodyB = c.bodyB;
             record.featureId = c.featureId;
-            record.point = a.GetPosition() + c.rA;
+            record.point = m_bodyRecords[static_cast<size_t>( c.bodyA )].position + c.rA;
             record.normal = c.normal;
             record.scalarA = correctionMagnitude;
             record.scalarB = c.penetration;
             record.scalarC = rowContactSlop;
             RecordPhysicsPipelineStage( record );
-            a.SetPosition( a.GetPosition() - correction * invMassA );
+            m_bodyRecords[static_cast<size_t>( c.bodyA )].position -= correction * invMassA;
+            context.bodyStore.WriteBackToModelAt( m_gameModels, c.bodyA );
             if ( b )
             {
-                b->SetPosition( b->GetPosition() + correction * invMassB );
+                m_bodyRecords[static_cast<size_t>( c.bodyB )].position += correction * invMassB;
+                context.bodyStore.WriteBackToModelAt( m_gameModels, c.bodyB );
             }
         }
     }
@@ -1253,7 +1264,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             record.bodyA = c.bodyA;
             record.bodyB = c.bodyB;
             record.featureId = c.featureId;
-            record.point = m_gameModels[c.bodyA].GetPosition() + c.rA;
+            record.point = m_bodyRecords[static_cast<size_t>( c.bodyA )].position + c.rA;
             record.normal = c.normal;
             record.scalarA = c.accN;
             record.scalarB = c.accT1;
@@ -1298,7 +1309,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
 
             const float mass = (std::max)( 0.001f, fixedModel.GetMass() );
             const float impulseSpeed = c.accN / mass;
-            const Vector3 otherVelocity = otherModel.GetVelocity();
+            const Vector3 otherVelocity = m_bodyRecords[static_cast<size_t>( otherIndex )].linearVelocity;
             const float carriedSpeed = (std::max)( 0.0f, otherVelocity * releaseDir );
             const float releaseSpeed = std::clamp( (std::max)( impulseSpeed, carriedSpeed * 0.35f ), 1.5f, 36.0f );
 
@@ -1320,12 +1331,16 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             }
 
             fixedModel.SetFixed( false );
-            fixedModel.SetLinearVelocity( releaseDir * releaseSpeed + tangentVelocity );
-            fixedModel.SetAngularVelocity( angularVelocity );
+            context.bodyStore.CaptureMutableStateFromModelAt( m_gameModels, fixedIndex );
+            m_bodyRecords[static_cast<size_t>( fixedIndex )].linearVelocity =
+                releaseDir * releaseSpeed + tangentVelocity;
+            m_bodyRecords[static_cast<size_t>( fixedIndex )].angularVelocity = angularVelocity;
+            context.bodyStore.WriteBackToModelAt( m_gameModels, fixedIndex );
             context.WakeModel( collection, fixedIndex );
-            collection.ReleaseAttachedFixedTreeParts( fixedIndex,
-                                                      fixedModel.GetVelocity(),
-                                                      fixedModel.GetAngularVelocity() );
+            collection.ReleaseAttachedFixedTreeParts(
+                fixedIndex,
+                m_bodyRecords[static_cast<size_t>( fixedIndex )].linearVelocity,
+                m_bodyRecords[static_cast<size_t>( fixedIndex )].angularVelocity );
         };
 
         for ( const PersistentContact& c : m_persistentContacts )

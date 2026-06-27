@@ -7,6 +7,16 @@ Mental model:
   The UI is immediate-mode-style: each frame reads engine state, computes hit
   boxes, emits draw commands, and returns requests for the run loop to apply.
 
+Glossary:
+  Sky feature: Toggle for a render pass such as clouds, god rays, or volumetric
+    light.
+  Sky slider: UI row that maps mouse position to a cinematic render parameter.
+  Cinematic command: Intent returned for the run loop to apply to render config.
+
+Invariants:
+  - Slider specs must stay aligned with UISkyTabState slot count.
+  - The tab emits commands only; render config is mutated by runtime code.
+
 Related:
   - SkullbonezSource/UI/UITabSky.h
   - SkullbonezSource/UI/UITabCinematic.cpp
@@ -38,6 +48,8 @@ constexpr float UI_SKY_ROW_H = 42.0f;
 
 struct SkySliderSpec
 {
+    // Concept: One row in the Sky tab. Keeping param/range/step together
+    // prevents draw, hit-test, and command mapping from drifting apart.
     const char* section;
     const char* label;
     SkullbonezCore::UI::UICinematicParam param;
@@ -268,6 +280,8 @@ bool HandleContentClick( UISkyTabState& state,
                          float scrolledY,
                          float contentW )
 {
+    // Invariant: Click handling sets the same bounds used by Draw, so hit boxes
+    // and visible controls stay coupled.
     const UIRect saveBounds = SkySaveButtonBounds( contentX, scrolledY, contentW );
     state.saveButton.SetBounds( saveBounds.x, saveBounds.y, saveBounds.w, saveBounds.h );
     if ( state.saveButton.HitTest( mouseX, mouseY ) )
@@ -307,6 +321,8 @@ bool HandleContentClick( UISkyTabState& state,
 
 bool UpdateActiveSlider( UISkyTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result )
 {
+    // Lifetime: activeSlider is a global UI capture id. Accept only the Sky tab
+    // range so dragging between tabs cannot write the wrong command.
     const int skySlider = SkySliderIndexFromActiveSlider( activeSlider );
     if ( skySlider < 0 )
     {

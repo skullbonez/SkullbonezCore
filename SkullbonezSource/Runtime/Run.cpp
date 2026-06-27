@@ -27,8 +27,11 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "Editor/EditorOverlayTools.h"
+#include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
+#include "Scene/SceneRuntimeLoad.h"
 #include "../UI/UIInput.h"
 
 #include <cmath>
@@ -42,18 +45,10 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Basics::ReplayOverlay;
 
 namespace
 {
-constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
-constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED = 2u;
-constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
-constexpr uint32_t REPLAY_LAUNCHER_FIRE_PROJECTILE = 1u;
-constexpr uint32_t REPLAY_EDITOR_PLACE_FIXED = 1u;
-constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
-constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
-constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
-constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
@@ -61,32 +56,6 @@ constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
 constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
-
-uint32_t ReplayFloatBits( float value )
-{
-    uint32_t bits = 0;
-    static_assert( sizeof( bits ) == sizeof( value ), "Replay float payloads assume 32-bit floats." );
-    std::memcpy( &bits, &value, sizeof( bits ) );
-    return bits;
-}
-
-int32_t ReplayFloatBitsSigned( float value )
-{
-    const uint32_t bits = ReplayFloatBits( value );
-    int32_t signedBits = 0;
-    std::memcpy( &signedBits, &bits, sizeof( signedBits ) );
-    return signedBits;
-}
-
-void HashReplayFloat( uint64_t& hash, float value )
-{
-    const uint32_t bits = ReplayFloatBits( value );
-    for ( int shift = 0; shift < 32; shift += 8 )
-    {
-        hash ^= static_cast<uint64_t>( ( bits >> shift ) & 0xFFu );
-        hash *= REPLAY_EVENT_FNV_PRIME;
-    }
-}
 
 void HashReplayInt( uint64_t& hash, int32_t value )
 {
@@ -98,83 +67,7 @@ void HashReplayInt( uint64_t& hash, int32_t value )
     }
 }
 
-void AppendReplayFloatHex( char*& cursor, std::size_t& remaining, float value )
-{
-    if ( remaining == 0 )
-    {
-        return;
-    }
-
-    const int written = std::snprintf( cursor, remaining, "%08X", ReplayFloatBits( value ) );
-    if ( written < 0 )
-    {
-        cursor[0] = '\0';
-        return;
-    }
-    const std::size_t consumed = (std::min)( static_cast<std::size_t>( written ), remaining > 0 ? remaining - 1 : 0 );
-    cursor += consumed;
-    remaining -= consumed;
-}
-
-void AppendReplayVectorHex( char*& cursor, std::size_t& remaining, const Vector3& value )
-{
-    AppendReplayFloatHex( cursor, remaining, value.x );
-    AppendReplayFloatHex( cursor, remaining, value.y );
-    AppendReplayFloatHex( cursor, remaining, value.z );
-}
-
-
-void AppendReplayQuaternionHex( char*& cursor, std::size_t& remaining, const Quaternion& value )
-{
-    float x = 0.0f;
-    float y = 0.0f;
-    float z = 0.0f;
-    float w = 1.0f;
-    value.GetComponents( x, y, z, w );
-    AppendReplayFloatHex( cursor, remaining, x );
-    AppendReplayFloatHex( cursor, remaining, y );
-    AppendReplayFloatHex( cursor, remaining, z );
-    AppendReplayFloatHex( cursor, remaining, w );
-}
-
-const ReplayPresentationSample*
-LoadedPresentationSampleAtNormalized( const std::vector<ReplayPresentationSample>& samples, float normalized )
-{
-    if ( samples.empty() )
-    {
-        return nullptr;
-    }
-
-    const float t = std::clamp( normalized, 0.0f, 1.0f );
-    const std::size_t maxOffset = samples.size() - 1;
-    const std::size_t offset = (std::min)( maxOffset, static_cast<std::size_t>( t * maxOffset + 0.5f ) );
-    return &samples[offset];
-}
 } // namespace
-
-
-SceneRuntimeCoordinatorCallbacks Run::BuildSceneRuntimeCoordinatorCallbacks()
-{
-    SceneRuntimeCoordinatorCallbacks callbacks;
-    callbacks.user = this;
-    callbacks.enterInteractiveSceneRun = []( void* user ) { static_cast<Run*>( user )->EnterInteractiveSceneRun(); };
-    callbacks.clearCurrentSceneAutomation = []( void* user )
-    {
-        Run& run = *static_cast<Run*>( user );
-        run.SceneState().isExitOnComplete = false;
-        run.m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
-    };
-    callbacks.loadScene =
-        []( void* user, int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
-    { static_cast<Run*>( user )->LoadScene( index, preserveUIState, suppressExitOnComplete, preserveRuntimeState ); };
-    callbacks.currentSceneBrowserIndex = []( void* user ) -> int
-    { return static_cast<Run*>( user )->CurrentSceneBrowserIndex(); };
-    callbacks.isCinematicTabActive = []( void* user ) -> bool
-    { return static_cast<Run*>( user )->m_UI.GetActiveTab() == InGameUITab::Cinematic; };
-    callbacks.applyCinematicModeFromBrowserIndex = []( void* user, int index ) -> bool
-    { return static_cast<Run*>( user )->ApplyCinematicModeFromBrowserIndex( index ); };
-    return callbacks;
-}
 
 
 RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
@@ -193,12 +86,7 @@ RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
     bindings.rayCastTest = &m_runtimeTools.RayCastTest();
     bindings.editor = &m_runtimeTools.Editor();
     bindings.mousePickup = &m_runtimeTools.MousePickup();
-    bindings.replayScrubber = &m_replayRuntime.Scrubber();
-    bindings.replayPrediction = &m_replayRuntime.Prediction();
-    bindings.replayFocusModelMask = &m_replayRuntime.FocusModelMask();
-    bindings.replayPathVisualizer = &m_replayRuntime.PathVisualizer();
-    bindings.replayCamera = &m_replayRuntime.Camera();
-    bindings.replayVelocityEdit = &m_replayRuntime.VelocityEdit();
+    bindings.replayRuntime = &m_replayRuntime;
     bindings.launcherLaser = &m_runtimeTools.Laser();
     bindings.ui = &m_UI;
     bindings.runtimeInput = &m_runtimeInput;
@@ -215,38 +103,93 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
     RuntimeRenderHostCallbacks callbacks;
     callbacks.user = this;
     callbacks.activeCinematicConfig = []( void* user ) -> CinematicRenderConfig&
-    { return static_cast<Run*>( user )->ActiveCinematicConfig(); };
+    {
+        Run* run = static_cast<Run*>( user );
+        return RuntimeActiveCinematicConfig( run->SceneState(), Cfg() );
+    };
     callbacks.isCinematicRenderingEnabled = []( void* user ) -> bool
-    { return static_cast<Run*>( user )->IsCinematicRenderingEnabled(); };
+    {
+        Run* run = static_cast<Run*>( user );
+        return RuntimeCinematicRenderingEnabled( run->SceneState(),
+                                                 Cfg(),
+                                                 run->m_launchOptions,
+                                                 run->m_debug,
+                                                 IsGfxReady() );
+    };
     callbacks.isLauncherCameraMode = []( void* user ) -> bool
     { return static_cast<Run*>( user )->IsLauncherCameraMode(); };
     callbacks.textureHandle = []( void* user, uint32_t textureHash ) -> uint32_t
-    { return static_cast<Run*>( user )->TextureHandle( textureHash ); };
+    {
+        Run* run = static_cast<Run*>( user );
+        if ( !run->m_systems.textures )
+        {
+            throw std::runtime_error( "Texture collection is not initialised." );
+        }
+        return run->m_systems.textures->GetTextureHandle( textureHash );
+    };
     callbacks.selectRenderTexture = []( void* user, uint32_t textureHash )
-    { static_cast<Run*>( user )->SelectRenderTexture( textureHash ); };
-    callbacks.windowScreenWidth = []( void* user ) -> int { return static_cast<Run*>( user )->WindowScreenWidth(); };
-    callbacks.windowScreenHeight = []( void* user ) -> int { return static_cast<Run*>( user )->WindowScreenHeight(); };
+    {
+        Run* run = static_cast<Run*>( user );
+        if ( !run->m_systems.textures )
+        {
+            throw std::runtime_error( "Texture collection is not initialised." );
+        }
+        run->m_systems.textures->SelectTexture( textureHash );
+    };
+    callbacks.windowScreenWidth = []( void* user ) -> int
+    {
+        Run* run = static_cast<Run*>( user );
+        return RuntimeWindowScreenWidth( run->m_systems, Cfg() );
+    };
+    callbacks.windowScreenHeight = []( void* user ) -> int
+    {
+        Run* run = static_cast<Run*>( user );
+        return RuntimeWindowScreenHeight( run->m_systems, Cfg() );
+    };
     callbacks.logRenderResourceLifecycleStep = []( void* user, const char* phase, const char* step )
     { static_cast<Run*>( user )->LogRenderResourceLifecycleStep( phase, step ); };
-    callbacks.currentReplayScrubSample = []( void* user ) -> const ReplayPresentationSample*
-    { return static_cast<Run*>( user )->CurrentReplayScrubSample(); };
-    callbacks.currentReplaySolverScrubSample = []( void* user ) -> const ReplaySolverFrameSample*
-    { return static_cast<Run*>( user )->CurrentReplaySolverScrubSample(); };
-    callbacks.currentReplayPredictionScrubFrame = []( void* user ) -> const RunReplayPredictionFrame*
-    { return static_cast<Run*>( user )->CurrentReplayPredictionScrubFrame(); };
     callbacks.renderEditorOverlay = []( void* user,
                                         const Math::Transformation::Matrix4& viewProjection,
                                         const Math::Vector::Vector3& cameraEye,
                                         const Math::Vector::Vector3& cameraUp )
-    { static_cast<Run*>( user )->RenderEditorOverlay( viewProjection, cameraEye, cameraUp ); };
+    {
+        Run* run = static_cast<Run*>( user );
+        RunEditorTracer& tracer = run->m_runtimeTools.EditorTracer();
+        tracer.Clear();
+
+        int attachedTargetIndex = -1;
+        if ( run->IsAttachedCameraMode() )
+        {
+            int targetIndex = -1;
+            if ( run->TryResolveAttachedCameraTarget( targetIndex ) )
+            {
+                attachedTargetIndex = targetIndex;
+            }
+        }
+
+        BuildEditorToolOverlayTrace( { run->m_runtimeTools.Editor(),
+                                       run->m_runtimeTools.RayCastTest(),
+                                       run->m_runtimeTools.MousePickup(),
+                                       run->m_cGameModelCollection,
+                                       tracer },
+                                     { run->m_debug.physicsDebugContactLinger,
+                                       run->InspectGizmoInteractionActive(),
+                                       Input::IsKeyDown( VK_CONTROL ),
+                                       attachedTargetIndex,
+                                       run->m_attachedCamera.activeFollow } );
+        run->RenderReplayPathVisualizer( tracer );
+        run->RenderReplayCauseFocusOverlay( tracer );
+        run->RenderReplayVelocityEditOverlay( tracer );
+        tracer.Render( viewProjection );
+        run->m_runtimeTools.Laser().Render( viewProjection, cameraEye, cameraUp );
+    };
     callbacks.refreshRuntimeViewModel = []( void* user ) { static_cast<Run*>( user )->RefreshRuntimeViewModel(); };
     callbacks.sceneState = []( void* user ) -> const RunSceneState& { return static_cast<Run*>( user )->SceneState(); };
-    callbacks.shouldRenderReplayScrubber = []( void* user ) -> bool
-    { return static_cast<Run*>( user )->ShouldRenderReplayScrubber(); };
-    callbacks.renderReplayScrubberOverlay = []( void* user )
-    { static_cast<Run*>( user )->RenderReplayScrubberOverlay(); };
     callbacks.currentSceneBrowserIndex = []( void* user ) -> int
-    { return static_cast<Run*>( user )->CurrentSceneBrowserIndex(); };
+    {
+        Run& run = *static_cast<Run*>( user );
+        return CurrentSceneBrowserIndex( run.m_sceneController, run.m_sceneBrowser );
+    };
     callbacks.cameraModeEnabledMask = []( void* user ) -> uint32_t
     { return static_cast<Run*>( user )->CameraModeEnabledMask(); };
     callbacks.cameraModeLabel = []( void* user, RunCameraMode mode ) -> const char*
@@ -259,25 +202,17 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
                                                                 nowSeconds,
                                                                 false );
     };
-    callbacks.buildReplayFocusModelMask = []( void* user ) -> bool
-    { return static_cast<Run*>( user )->BuildReplayFocusModelMask(); };
-    callbacks.renderReplayPredictionGhosts = []( void* user,
-                                                 const RenderFrameContext& frame,
-                                                 const CinematicRenderConfig* cinematic,
-                                                 const Rendering::ShadowFrameData* shadow )
-    { static_cast<Run*>( user )->RenderReplayPredictionGhosts( frame, cinematic, shadow ); };
     return callbacks;
 }
 
 
 Run::Run( std::vector<std::string> sceneQueue )
-    : m_sceneController( std::move( sceneQueue ) ),
-      m_sceneCoordinator( m_sceneController, BuildSceneRuntimeCoordinatorCallbacks() ),
+    : m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
       m_renderHost( BuildRuntimeRenderHostBindings(), BuildRuntimeRenderHostCallbacks() ), m_renderer( m_renderHost )
 {
     BindEngineContext();
     RefreshRuntimeViewModel();
-    RefreshSceneBrowserList();
+    RefreshSceneBrowserList( m_sceneBrowser );
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
     m_defaultCinematicRender = Cfg().cinematicRender;
@@ -329,7 +264,11 @@ Run::~Run()
 
     if ( m_diagnosticsRuntime.MainMemoryDumpRequested() )
     {
-        WriteMainMemoryDump( "shutdown" );
+        m_diagnosticsRuntime.WriteMainMemoryDump( m_replayRuntime,
+                                                  m_cGameModelCollection,
+                                                  SceneState(),
+                                                  "shutdown",
+                                                  m_timers.simulationTimer.GetTotalTime() );
     }
     m_diagnosticsRuntime.ClosePerfLog();
     m_replayRuntime.FlushHashLogs();
@@ -501,6 +440,7 @@ void Run::RegisterBuiltInAssets()
     m_systems.assets.RegisterAssetLibrarySourceAsset( "assetlib.low_poly_nature",
                                                       "assets/low_poly_nature.assets.json" );
     m_systems.assets.RegisterAssetLibrarySourceAsset( "assetlib.buildings", "assets/buildings.assets.json" );
+    m_systems.assets.RegisterAssetLibrarySourceAsset( "assetlib.physics_props", "assets/physics_props.assets.json" );
 
     auto contract = []( bool usesTexture, bool usesLighting, bool usesInstancing, bool depthOnly, bool postProcess )
     {
@@ -606,40 +546,6 @@ std::string Run::ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind kind,
 }
 
 
-TextureCollection& Run::Textures()
-{
-    if ( !m_systems.textures )
-    {
-        throw std::runtime_error( "Texture collection is not initialised." );
-    }
-    return *m_systems.textures;
-}
-
-
-uint32_t Run::TextureHandle( uint32_t textureHash )
-{
-    return Textures().GetTextureHandle( textureHash );
-}
-
-
-void Run::SelectRenderTexture( uint32_t textureHash )
-{
-    Textures().SelectTexture( textureHash );
-}
-
-
-int Run::WindowScreenWidth() const
-{
-    return m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.x ) : Cfg().window.screenX;
-}
-
-
-int Run::WindowScreenHeight() const
-{
-    return m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.y ) : Cfg().window.screenY;
-}
-
-
 void Run::DumpTextureAssets( FILE* out ) const
 {
     if ( m_systems.textures )
@@ -707,7 +613,7 @@ void Run::SetTornadoOverride( bool enabled )
     {
         m_runtimeSettings.tornadoVisual.enabled = enabled;
     }
-    SyncTornadoFieldToPhysics();
+    SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
 }
 
 
@@ -715,7 +621,7 @@ void Run::SetTornadoVectorFieldOverride( bool enabled )
 {
     m_launchOptions.tornadoVectors = enabled;
     m_runtimeSettings.tornadoField.visualizeVelocityField = enabled;
-    SyncTornadoFieldToPhysics();
+    SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
 }
 
 
@@ -763,7 +669,10 @@ void Run::SetReplayRecording( bool enabled, int retentionSeconds, const char* ha
 {
     const ReplayRuntime::RecordingConfigResult replayConfig =
         m_replayRuntime.ConfigureRecording( enabled, retentionSeconds, hashLogPath );
-    ResetReplayScrubber();
+    if ( m_replayRuntime.ResetScrubberState() )
+    {
+        ExitReplayInspectionCamera();
+    }
     if ( replayConfig.presentationStats.enabled )
     {
         printf( "[replay] Capture enabled: retention_seconds=%d retention_frames=%llu checkpoint_interval_frames=%d "
@@ -873,7 +782,25 @@ bool Run::LoadReplayPresentationArtifact( const char* path, bool activateScrubbe
 
     if ( activateScrubber )
     {
-        ArmLoadedReplayPresentationScrubber( 0.25f );
+        if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
+        {
+            m_replayRuntime.SetLiveAdvanceHeld( false );
+        }
+        CancelReplayToolDragState();
+
+        m_replayRuntime.ClearCameraFocusForRestore();
+        ExitReplayInspectionCamera();
+        m_replayRuntime.ArmLoadedPresentationScrubber( 0.25f, m_timers.simulationTimer.GetTotalTime() );
+        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
+                                                            InteractionExitReason::EnterReplay );
+        if ( m_replayRuntime.ShouldUseInspectionCamera() )
+        {
+            EnterReplayInspectionCamera();
+        }
+        else
+        {
+            ExitReplayInspectionCamera();
+        }
     }
 
     printf( "[replay] Loaded v2 presentation artifact: path=%s samples=%llu bodies=%llu first_frame=%llu "
@@ -897,581 +824,60 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
     CancelReplayToolDragState();
     if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
     {
-        SetReplayLiveAdvanceHeld( false );
+        m_replayRuntime.SetLiveAdvanceHeld( false );
     }
-    ResetReplayScrubber();
+    if ( m_replayRuntime.ResetScrubberState() )
+    {
+        ExitReplayInspectionCamera();
+    }
     m_replayRuntime.LoadedPresentation() = RunLoadedReplayPresentationState{};
-    ClearReplayPathVisualizer();
+    m_replayRuntime.ClearCameraFocusForRestore();
+    ExitReplayInspectionCamera();
+    m_replayRuntime.ClearPathVisualizerState();
     m_replayRuntime.VelocityEdit() = RunReplayVelocityEditState{};
     if ( !m_replayRuntime.IsPresentationEnabled() )
     {
         return;
     }
 
-    const std::string* scenePath = CurrentSceneQueuePath();
+    const std::string* scenePath = m_sceneController.CurrentPath();
     const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
     m_replayRuntime.ResetTimeline( sceneLabel );
-    RecordReplayEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
-    RecordReplayGeneratedSceneConfigEvent();
+    m_replayRuntime.RecordEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
+    if ( !( SceneState().isSceneMode && SceneState().solverBallCount <= 0 && SceneState().solverBoxCount <= 0 ) )
+    {
+        uint32_t flags = 0;
+        flags |= ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 )
+                     ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS
+                     : 0u;
+        flags |= m_sceneUIOverrides.modelCountOverride >= 0 ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
+        flags |= ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
+                     ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS
+                     : 0u;
+        flags |= ( static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride )
+                   << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
+                 REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
+
+        uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+        HashReplayInt( hash, SceneState().modelCount );
+        HashReplayInt( hash, SceneState().solverBallCount );
+        HashReplayInt( hash, SceneState().solverBoxCount );
+        HashReplayInt( hash, static_cast<int32_t>( SceneState().rngSeed ) );
+        HashReplayInt( hash, static_cast<int32_t>( ActiveGameModelCapacity() ) );
+        HashReplayInt( hash, static_cast<int32_t>( m_launchOptions.generatedObjectTypeOverride ) );
+
+        m_replayRuntime.RecordEvent( ReplayEventKind::GeneratedSceneConfig,
+                                     0,
+                                     flags,
+                                     SceneState().modelCount,
+                                     SceneState().solverBallCount,
+                                     SceneState().solverBoxCount,
+                                     static_cast<int32_t>( SceneState().rngSeed ),
+                                     hash,
+                                     "generated_scene_config" );
+    }
     m_solverReplayMismatch.reports = 0;
     m_solverReplayMismatch.suppressed = false;
-}
-
-ReplayFrameIndex Run::NextReplayEventFrameIndex() const
-{
-    return m_replayRuntime.NextEventFrameIndex();
-}
-
-
-void Run::RecordReplayEvent( ReplayEventKind kind,
-                             ReplayFrameIndex frameIndex,
-                             uint32_t flags,
-                             int32_t value0,
-                             int32_t value1,
-                             int32_t value2,
-                             int32_t value3,
-                             uint64_t data0,
-                             const char* text )
-{
-    m_replayRuntime.RecordEvent( kind, frameIndex, flags, value0, value1, value2, value3, data0, text );
-}
-
-
-void Run::RecordReplayWorldOverrideEvent( float previousGravity,
-                                          float previousFluidHeight,
-                                          float previousFluidDensity,
-                                          float gravity,
-                                          float fluidHeight,
-                                          float fluidDensity )
-{
-    uint32_t flags = 0;
-    flags |= previousGravity != gravity ? REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED : 0u;
-    flags |= previousFluidHeight != fluidHeight ? REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED : 0u;
-    flags |= previousFluidDensity != fluidDensity ? REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED : 0u;
-    if ( flags == 0 )
-    {
-        return;
-    }
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    HashReplayFloat( hash, gravity );
-    HashReplayFloat( hash, fluidHeight );
-    HashReplayFloat( hash, fluidDensity );
-
-    RecordReplayEvent( ReplayEventKind::WorldOverride,
-                       NextReplayEventFrameIndex(),
-                       flags,
-                       ReplayFloatBitsSigned( gravity ),
-                       ReplayFloatBitsSigned( fluidHeight ),
-                       ReplayFloatBitsSigned( fluidDensity ),
-                       0,
-                       hash,
-                       "world_override" );
-}
-
-
-void Run::RecordReplayLauncherConfigEvent( uint32_t changedFlags )
-{
-    if ( changedFlags == 0 )
-    {
-        return;
-    }
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    HashReplayFloat( hash, m_runtimeTools.RayCastTest().impulseStrength );
-    HashReplayFloat( hash, m_runtimeTools.RayCastTest().projectileSpeed );
-
-    RecordReplayEvent( ReplayEventKind::LauncherConfig,
-                       NextReplayEventFrameIndex(),
-                       changedFlags,
-                       ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().impulseStrength ),
-                       ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().projectileSpeed ),
-                       0,
-                       0,
-                       hash,
-                       "launcher_config" );
-}
-
-
-void Run::RecordReplayLauncherFireEvent( const Vector3& rayOrigin,
-                                         const Vector3& rayDirection,
-                                         const Vector3& cameraUp )
-{
-    char payload[96] = {};
-    char* cursor = payload;
-    std::size_t remaining = sizeof( payload );
-    const int prefixWritten = std::snprintf( cursor, remaining, "ray9:" );
-    if ( prefixWritten > 0 )
-    {
-        const std::size_t consumed =
-            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
-        cursor += consumed;
-        remaining -= consumed;
-    }
-    AppendReplayVectorHex( cursor, remaining, rayOrigin );
-    AppendReplayVectorHex( cursor, remaining, rayDirection );
-    AppendReplayVectorHex( cursor, remaining, cameraUp );
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    HashReplayFloat( hash, rayOrigin.x );
-    HashReplayFloat( hash, rayOrigin.y );
-    HashReplayFloat( hash, rayOrigin.z );
-    HashReplayFloat( hash, rayDirection.x );
-    HashReplayFloat( hash, rayDirection.y );
-    HashReplayFloat( hash, rayDirection.z );
-    HashReplayFloat( hash, cameraUp.x );
-    HashReplayFloat( hash, cameraUp.y );
-    HashReplayFloat( hash, cameraUp.z );
-
-    const bool projectile = m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile;
-    const uint32_t flags = projectile ? REPLAY_LAUNCHER_FIRE_PROJECTILE : 0u;
-    RecordReplayEvent( ReplayEventKind::LauncherFire,
-                       NextReplayEventFrameIndex(),
-                       flags,
-                       projectile ? 1 : 0,
-                       ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().impulseStrength ),
-                       ReplayFloatBitsSigned( m_runtimeTools.RayCastTest().projectileSpeed ),
-                       m_cGameModelCollection.GetModelCount(),
-                       hash,
-                       payload );
-}
-
-
-void Run::RecordReplayGeneratedSceneConfigEvent()
-{
-    if ( SceneState().isSceneMode && SceneState().solverBallCount <= 0 && SceneState().solverBoxCount <= 0 )
-    {
-        return;
-    }
-
-    uint32_t flags = 0;
-    flags |= ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 )
-                 ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS
-                 : 0u;
-    flags |= m_sceneUIOverrides.modelCountOverride >= 0 ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
-    flags |= ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
-                 ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS
-                 : 0u;
-    flags |= ( static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride )
-               << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
-             REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    HashReplayInt( hash, SceneState().modelCount );
-    HashReplayInt( hash, SceneState().solverBallCount );
-    HashReplayInt( hash, SceneState().solverBoxCount );
-    HashReplayInt( hash, static_cast<int32_t>( SceneState().rngSeed ) );
-    HashReplayInt( hash, static_cast<int32_t>( ActiveGameModelCapacity() ) );
-    HashReplayInt( hash, static_cast<int32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-
-    RecordReplayEvent( ReplayEventKind::GeneratedSceneConfig,
-                       0,
-                       flags,
-                       SceneState().modelCount,
-                       SceneState().solverBallCount,
-                       SceneState().solverBoxCount,
-                       static_cast<int32_t>( SceneState().rngSeed ),
-                       hash,
-                       "generated_scene_config" );
-}
-
-
-void Run::RecordReplayEditorPlaceEvent( int objectType,
-                                        bool fixedObject,
-                                        bool terrainAlign,
-                                        int modelCountBefore,
-                                        const Vector3& terrainPoint,
-                                        const Vector3& placementScale,
-                                        float placementYawRadians )
-{
-    char payload[80] = {};
-    char* cursor = payload;
-    std::size_t remaining = sizeof( payload );
-    const int prefixWritten = std::snprintf( cursor, remaining, "place7:" );
-    if ( prefixWritten > 0 )
-    {
-        const std::size_t consumed =
-            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
-        cursor += consumed;
-        remaining -= consumed;
-    }
-    AppendReplayVectorHex( cursor, remaining, terrainPoint );
-    AppendReplayVectorHex( cursor, remaining, placementScale );
-    AppendReplayFloatHex( cursor, remaining, placementYawRadians );
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    HashReplayInt( hash, objectType );
-    HashReplayInt( hash, fixedObject ? 1 : 0 );
-    HashReplayInt( hash, terrainAlign ? 1 : 0 );
-    HashReplayInt( hash, modelCountBefore );
-    HashReplayFloat( hash, terrainPoint.x );
-    HashReplayFloat( hash, terrainPoint.y );
-    HashReplayFloat( hash, terrainPoint.z );
-    HashReplayFloat( hash, placementScale.x );
-    HashReplayFloat( hash, placementScale.y );
-    HashReplayFloat( hash, placementScale.z );
-    HashReplayFloat( hash, placementYawRadians );
-
-    uint32_t flags = 0;
-    flags |= fixedObject ? REPLAY_EDITOR_PLACE_FIXED : 0u;
-    flags |= terrainAlign ? REPLAY_EDITOR_PLACE_TERRAIN_ALIGN : 0u;
-
-    RecordReplayEvent( ReplayEventKind::EditorPlace,
-                       NextReplayEventFrameIndex(),
-                       flags,
-                       objectType,
-                       fixedObject ? 1 : 0,
-                       terrainAlign ? 1 : 0,
-                       modelCountBefore,
-                       hash,
-                       payload );
-}
-
-
-void Run::RecordReplayEditorTransformEvent( int modelIndex,
-                                            uint32_t changedFlags,
-                                            const GameModel& model,
-                                            int scaleAxis,
-                                            float scaleFactor )
-{
-    changedFlags &= REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
-    if ( changedFlags == 0 )
-    {
-        return;
-    }
-    if ( ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE ) == 0 )
-    {
-        scaleAxis = -1;
-        scaleFactor = 1.0f;
-    }
-    else if ( scaleAxis < 0 || scaleAxis > 2 || !std::isfinite( scaleFactor ) || scaleFactor <= 0.0f )
-    {
-        return;
-    }
-
-    char payload[96] = {};
-    char* cursor = payload;
-    std::size_t remaining = sizeof( payload );
-    const int prefixWritten =
-        std::snprintf( cursor, remaining, ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE ) ? "xform8:" : "xform7:" );
-    if ( prefixWritten > 0 )
-    {
-        const std::size_t consumed =
-            (std::min)( static_cast<std::size_t>( prefixWritten ), remaining > 0 ? remaining - 1 : 0 );
-        cursor += consumed;
-        remaining -= consumed;
-    }
-    AppendReplayVectorHex( cursor, remaining, model.GetPosition() );
-    AppendReplayQuaternionHex( cursor, remaining, model.GetOrientation() );
-    if ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE )
-    {
-        AppendReplayFloatHex( cursor, remaining, scaleFactor );
-    }
-
-    float qx = 0.0f;
-    float qy = 0.0f;
-    float qz = 0.0f;
-    float qw = 1.0f;
-    model.GetOrientation().GetComponents( qx, qy, qz, qw );
-
-    uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-    HashReplayInt( hash, modelIndex );
-    HashReplayInt( hash, static_cast<int32_t>( model.GetReplayBodyId() ) );
-    HashReplayInt( hash, m_cGameModelCollection.GetModelCount() );
-    HashReplayInt( hash, static_cast<int32_t>( changedFlags ) );
-    HashReplayInt( hash, scaleAxis );
-    HashReplayFloat( hash, model.GetPosition().x );
-    HashReplayFloat( hash, model.GetPosition().y );
-    HashReplayFloat( hash, model.GetPosition().z );
-    HashReplayFloat( hash, qx );
-    HashReplayFloat( hash, qy );
-    HashReplayFloat( hash, qz );
-    HashReplayFloat( hash, qw );
-    HashReplayFloat( hash, scaleFactor );
-
-    RecordReplayEvent( ReplayEventKind::EditorTransform,
-                       NextReplayEventFrameIndex(),
-                       changedFlags,
-                       modelIndex,
-                       static_cast<int32_t>( model.GetReplayBodyId() ),
-                       m_cGameModelCollection.GetModelCount(),
-                       scaleAxis,
-                       hash,
-                       payload );
-}
-
-
-bool Run::HasLoadedReplayPresentation() const
-{
-    return m_replayRuntime.LoadedPresentation().enabled && m_replayRuntime.LoadedPresentation().samples.size() >= 2;
-}
-
-
-const ReplayPresentationSample* Run::LoadedReplayPresentationSampleAtNormalized( float normalized ) const
-{
-    if ( !HasLoadedReplayPresentation() )
-    {
-        return nullptr;
-    }
-
-    return LoadedPresentationSampleAtNormalized( m_replayRuntime.LoadedPresentation().samples, normalized );
-}
-
-
-const ReplayPresentationSample* Run::LoadedReplayPresentationLatestSample() const
-{
-    return HasLoadedReplayPresentation() ? &m_replayRuntime.LoadedPresentation().samples.back() : nullptr;
-}
-
-
-void Run::ArmLoadedReplayPresentationScrubber( float normalized )
-{
-    if ( !HasLoadedReplayPresentation() )
-    {
-        return;
-    }
-
-    if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
-    {
-        SetReplayLiveAdvanceHeld( false );
-    }
-    CancelReplayToolDragState();
-
-    ClearReplayPathVisualizer();
-    SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
-                                                        InteractionExitReason::EnterReplay );
-    m_replayRuntime.Prediction().enabled = false;
-    m_replayRuntime.Prediction().horizonDragging = false;
-    m_replayRuntime.VelocityEdit() = RunReplayVelocityEditState{};
-    m_replayRuntime.Scrubber().activeTrack = RunReplayTrack::Presentation;
-    ReplayScrubberSetTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation, normalized );
-    m_replayRuntime.Scrubber().solverPosition = 1.0f;
-    m_replayRuntime.Scrubber().dragging = false;
-    m_replayRuntime.Scrubber().historicalSamplePaused = true;
-    m_replayRuntime.Scrubber().mouseCaptured = false;
-    m_replayRuntime.Scrubber().visible = true;
-    m_replayRuntime.Scrubber().visibleUntil = m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-    UpdateReplayInspectionCamera();
-}
-
-
-void Run::ResetReplayScrubber()
-{
-    if ( m_replayRuntime.Camera().active && !m_replayRuntime.Scrubber().liveAdvanceHeld )
-    {
-        ExitReplayInspectionCamera();
-    }
-
-    const bool leftWasDown = m_replayRuntime.Scrubber().leftWasDown;
-    const bool restoreWasDown = m_replayRuntime.Scrubber().restoreWasDown;
-    const bool restoreConsumedThisFrame = m_replayRuntime.Scrubber().restoreConsumedThisFrame;
-    const bool liveAdvanceHeld = m_replayRuntime.Scrubber().liveAdvanceHeld;
-    const bool pauseRestoreFlyMode = m_replayRuntime.Scrubber().pauseRestoreFlyMode;
-    const bool pauseRestoreLauncherMode = m_replayRuntime.Scrubber().pauseRestoreLauncherMode;
-    m_replayRuntime.Scrubber() = RunReplayScrubberState{};
-    m_replayRuntime.Scrubber().leftWasDown = leftWasDown;
-    m_replayRuntime.Scrubber().restoreWasDown = restoreWasDown;
-    m_replayRuntime.Scrubber().restoreConsumedThisFrame = restoreConsumedThisFrame;
-    m_replayRuntime.Scrubber().liveAdvanceHeld = liveAdvanceHeld;
-    m_replayRuntime.Scrubber().pauseRestoreFlyMode = pauseRestoreFlyMode;
-    m_replayRuntime.Scrubber().pauseRestoreLauncherMode = pauseRestoreLauncherMode;
-}
-
-
-bool Run::ShouldRenderReplayScrubber() const
-{
-    if ( m_runtimeTools.Editor().editorModeEnabled || !m_UI.IsVisible() || !m_UI.IsMinimized() )
-    {
-        return false;
-    }
-
-    const bool loadedPresentation = HasLoadedReplayPresentation();
-    const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
-    const bool solverReplayAvailable = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
-    return ( loadedPresentation || solverReplayAvailable ) &&
-           ( m_replayRuntime.Scrubber().visible || m_replayRuntime.Scrubber().dragging ||
-             m_replayRuntime.Scrubber().historicalSamplePaused || m_replayRuntime.Scrubber().liveAdvanceHeld );
-}
-
-
-bool Run::IsReplayScrubPaused() const
-{
-    if ( !m_replayRuntime.Scrubber().historicalSamplePaused )
-    {
-        return false;
-    }
-
-    if ( m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation && HasLoadedReplayPresentation() )
-    {
-        return LoadedReplayPresentationSampleAtNormalized(
-                   ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation ) ) != nullptr;
-    }
-
-    const float position =
-        ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), m_replayRuntime.Scrubber().activeTrack );
-    const float presentT =
-        m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver
-            ? ReplayScrubberPresentTrackPosition( m_replayRuntime.Solver().GetStats(), m_replayRuntime.Prediction() )
-            : 1.0f;
-    if ( ReplayScrubberAtPresentTrackPosition( position, presentT ) )
-    {
-        return false;
-    }
-
-    if ( m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Presentation )
-    {
-        return m_replayRuntime.Presentation().IsEnabled() &&
-               m_replayRuntime.Presentation().SampleAtNormalized( position ) != nullptr;
-    }
-
-    if ( ReplayScrubberTrackPositionIsFuture( position, presentT ) )
-    {
-        return CurrentReplayPredictionScrubFrame() != nullptr;
-    }
-
-    return m_replayRuntime.Solver().IsEnabled() &&
-           m_replayRuntime.Solver().SampleAtNormalized(
-               ReplayScrubberSolverNormalizedFromTrack( position, presentT ) ) != nullptr;
-}
-
-
-const ReplayPresentationSample* Run::CurrentReplayScrubSample() const
-{
-    if ( m_replayRuntime.Scrubber().activeTrack != RunReplayTrack::Presentation )
-    {
-        return nullptr;
-    }
-
-    if ( HasLoadedReplayPresentation() )
-    {
-        return m_replayRuntime.Scrubber().historicalSamplePaused
-                   ? LoadedReplayPresentationSampleAtNormalized(
-                         ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation ) )
-                   : nullptr;
-    }
-
-    if ( !IsReplayScrubPaused() )
-    {
-        return nullptr;
-    }
-
-    return m_replayRuntime.Presentation().SampleAtNormalized(
-        ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation ) );
-}
-
-
-const ReplaySolverFrameSample* Run::CurrentReplaySolverScrubSample() const
-{
-    if ( m_replayRuntime.Scrubber().activeTrack != RunReplayTrack::Solver || !IsReplayScrubPaused() )
-    {
-        return nullptr;
-    }
-
-    const float position = ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Solver );
-    const float presentT =
-        ReplayScrubberPresentTrackPosition( m_replayRuntime.Solver().GetStats(), m_replayRuntime.Prediction() );
-    if ( ReplayScrubberTrackPositionIsFuture( position, presentT ) )
-    {
-        return nullptr;
-    }
-
-    return m_replayRuntime.Solver().SampleAtNormalized( ReplayScrubberSolverNormalizedFromTrack( position, presentT ) );
-}
-
-
-const RunReplayPredictionFrame* Run::CurrentReplayPredictionScrubFrame() const
-{
-    if ( m_replayRuntime.Scrubber().activeTrack != RunReplayTrack::Solver ||
-         !m_replayRuntime.Scrubber().historicalSamplePaused || !m_replayRuntime.Prediction().enabled ||
-         m_replayRuntime.Prediction().frames.size() < 2 )
-    {
-        return nullptr;
-    }
-
-    const float position = ReplayScrubberTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Solver );
-    const float presentT =
-        ReplayScrubberPresentTrackPosition( m_replayRuntime.Solver().GetStats(), m_replayRuntime.Prediction() );
-    if ( !ReplayScrubberTrackPositionIsFuture( position, presentT ) )
-    {
-        return nullptr;
-    }
-
-    const float predictionT = ReplayScrubberPredictionNormalizedFromTrack( position, presentT );
-    const std::size_t frameCount = m_replayRuntime.Prediction().frames.size();
-    const std::size_t frameIndex =
-        (std::min)( frameCount - 1,
-                    static_cast<std::size_t>( std::round( predictionT * static_cast<float>( frameCount - 1 ) ) ) );
-    return &m_replayRuntime.Prediction().frames[frameIndex];
-}
-
-bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track )
-{
-    static int sReplaySeq = 0;
-    static int sSolverReplaySeq = 0;
-
-    char path[256] = {};
-    bool saved = false;
-    int& sequence = track == RunReplayTrack::Solver ? sSolverReplaySeq : sReplaySeq;
-    const char* prefix = track == RunReplayTrack::Solver ? "solver_replay_" : "replay_v2_";
-    if ( RuntimeFileWriter::NextNumberedPath( path, sizeof( path ), "replays", prefix, ".skreplay", sequence ) )
-    {
-        saved = track == RunReplayTrack::Solver ? m_replayRuntime.SaveSolverReplay( path )
-                                                : m_replayRuntime.SavePresentationWithSolverHashes( path );
-    }
-
-    const double now = m_timers.simulationTimer.GetTotalTime();
-    m_replayRuntime.Scrubber().saveMessageTrack = track;
-    if ( saved )
-    {
-        const char* fileName = strrchr( path, '\\' );
-        if ( !fileName )
-        {
-            fileName = strrchr( path, '/' );
-        }
-        fileName = fileName ? fileName + 1 : path;
-        sprintf_s( m_replayRuntime.Scrubber().saveMessage,
-                   sizeof( m_replayRuntime.Scrubber().saveMessage ),
-                   "SAVED %s",
-                   fileName );
-    }
-    else
-    {
-        sprintf_s( m_replayRuntime.Scrubber().saveMessage,
-                   sizeof( m_replayRuntime.Scrubber().saveMessage ),
-                   "REPLAY SAVE FAILED" );
-    }
-    m_replayRuntime.Scrubber().saveMessageUntil = now + 2.5;
-    m_replayRuntime.Scrubber().visibleUntil = now + REPLAY_SCRUBBER_VISIBLE_SECONDS;
-    m_replayRuntime.Scrubber().visible = true;
-    return saved;
-}
-
-
-void Run::RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample )
-{
-    m_runtimeTools.RayCastTest().lines = {};
-    const std::size_t lineCount = (std::min)( sample.rayLines.size(), RunRayCastTestState::MAX_LINES );
-    for ( std::size_t i = 0; i < lineCount; ++i )
-    {
-        RunRayCastTestLine& line = m_runtimeTools.RayCastTest().lines[i];
-        line.start = sample.rayLines[i].start;
-        line.end = sample.rayLines[i].end;
-        line.ageSeconds = sample.rayLines[i].ageSeconds;
-        line.active = sample.rayLines[i].active;
-        line.hit = sample.rayLines[i].hit;
-    }
-    m_runtimeTools.RayCastTest().nextLine = sample.nextRayLine % static_cast<int>( RunRayCastTestState::MAX_LINES );
-    if ( m_runtimeTools.RayCastTest().nextLine < 0 )
-    {
-        m_runtimeTools.RayCastTest().nextLine += static_cast<int>( RunRayCastTestState::MAX_LINES );
-    }
-    m_runtimeTools.RayCastTest().fireMode = sample.fireMode == ReplayLauncherFireMode::Projectile
-                                                ? RunLauncherFireMode::Projectile
-                                                : RunLauncherFireMode::Laser;
-    m_runtimeTools.RayCastTest().visualizeRays = sample.visualizeRays;
-    m_runtimeTools.RayCastTest().impulseStrength = sample.impulseStrength;
-    m_runtimeTools.RayCastTest().projectileSpeed = sample.projectileSpeed;
-    m_runtimeTools.Laser().RestoreShots( sample.laserShots, sample.nextLaserShot );
 }
 
 
@@ -1481,7 +887,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
     {
         if ( outReason && reasonSize > 0 )
         {
-            sprintf_s( outReason, reasonSize, "%s", message ? message : "restore failed" );
+            strncpy_s( outReason, reasonSize, message ? message : "restore failed", _TRUNCATE );
         }
     };
 
@@ -1542,6 +948,8 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         model.SetAngularVelocity( body.angularVelocity );
         model.ClearImpulseForce();
     }
+    m_cGameModelCollection.GetPhysicsEngine().RefreshBodyStore( m_cGameModelCollection );
+    m_cGameModelCollection.GetPhysicsEngine().ClearPendingBodyImpulses();
 
     if ( !m_cGameModelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot(
              sample.worldSnapshot,
@@ -1577,7 +985,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         m_systems.cameras->SetCamera();
     }
 
-    RestoreReplayLauncherVisualSample( sample.launcherVisual );
+    m_runtimeTools.RestoreReplayLauncherVisualSample( sample.launcherVisual );
     writeReason( "applied" );
     return true;
 }
@@ -1599,7 +1007,7 @@ bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& referen
     }
 
     ReplayLauncherVisualSample launcherVisual;
-    BuildReplayLauncherVisualSample( launcherVisual );
+    m_runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
     ReplayCaptureInput input;
     input.branch = reference.branch;
@@ -1638,7 +1046,7 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     {
         if ( outReason && reasonSize > 0 )
         {
-            sprintf_s( outReason, reasonSize, "%s", message ? message : "restore failed" );
+            strncpy_s( outReason, reasonSize, message ? message : "restore failed", _TRUNCATE );
         }
     };
 
@@ -1710,15 +1118,15 @@ bool Run::RestoreReplaySolverSampleAsLive( const ReplaySolverFrameSample& sample
     restoredBranch.sourceSolverHash = sample.solverHash;
     m_replayRuntime.Branch() = restoredBranch;
     ResetReplayTimelineForActiveScene( true );
-    RecordReplayEvent( ReplayEventKind::BranchRestore,
-                       0,
-                       0,
-                       static_cast<int32_t>( parentBranchId ),
-                       sample.sceneFrame,
-                       0,
-                       0,
-                       sample.solverHash,
-                       "hash-verified solver restore" );
+    m_replayRuntime.RecordEvent( ReplayEventKind::BranchRestore,
+                                 0,
+                                 0,
+                                 static_cast<int32_t>( parentBranchId ),
+                                 sample.sceneFrame,
+                                 0,
+                                 0,
+                                 sample.solverHash,
+                                 "hash-verified solver restore" );
     writeReason( "restored hash match" );
     return true;
 }
@@ -1914,7 +1322,7 @@ void Run::RunSceneLoadOnly( const char* snapshotOutPath )
 void Run::LogSceneFinished( const char* reason )
 {
     const char* scenePath = "generated";
-    const std::string* currentScenePath = CurrentSceneQueuePath();
+    const std::string* currentScenePath = m_sceneController.CurrentPath();
     if ( currentScenePath && !currentScenePath->empty() )
     {
         scenePath = currentScenePath->c_str();

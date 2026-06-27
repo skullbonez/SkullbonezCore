@@ -17,6 +17,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - InputState is a frame snapshot; command-edge memory lives in
+    RuntimeInputContext, not in raw device polling.
+  - Key enum order is storage ABI for the bit mask and should be appended to,
+    not reordered.
+
 Related:
   - SkullbonezSource/Runtime/Input.cpp
   - Agentic/Reference/runtime-reference.md

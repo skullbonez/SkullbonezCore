@@ -57,6 +57,8 @@ bool ConsumeFilterKeyPress( SkullbonezCore::UI::SceneTab::UISceneTabState& state
 
 void AppendFilterChar( SkullbonezCore::UI::SceneTab::UISceneTabState& state, char value )
 {
+    // Invariant: The scene filter doubles as the create-scene name buffer, so
+    // keep it bounded and reset combo scroll whenever it changes.
     const size_t len = strlen( state.filter );
     if ( len >= sizeof( state.filter ) - 1 )
     {
@@ -83,6 +85,8 @@ void BackspaceFilter( SkullbonezCore::UI::SceneTab::UISceneTabState& state )
 void RequestNewScene( SkullbonezCore::UI::SceneTab::UISceneTabState& state,
                       SkullbonezCore::UI::InGameUIInputResult& result )
 {
+    // Concept: The UI requests creation by name; scene runtime owns sanitizing,
+    // writing the starter file, refreshing the browser, and loading it.
     if ( state.filter[0] == '\0' )
     {
         return;
@@ -557,6 +561,8 @@ bool HandleContentClick( UISceneTabState& state,
                          float rowBase,
                          float contentW )
 {
+    // Invariant: Scene selection, reset, and save buttons return command
+    // intents. Scene load/reset side effects stay outside UI.
     SetSceneHeaderBounds( combo,
                           resetSceneButton,
                           resetDefaultsButton,

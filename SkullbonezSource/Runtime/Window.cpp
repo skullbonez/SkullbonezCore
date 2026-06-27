@@ -12,6 +12,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Window dimensions are client-area dimensions and drive both renderer resize
+    and the perspective/text projections.
+  - The singleton pointer is a legacy access shim around static storage; native
+    HWND/HDC lifetime still follows CreateAppWindow and OS messages.
+
 Related:
   - SkullbonezSource/Runtime/Window.h
   - Agentic/Reference/runtime-reference.md
@@ -79,7 +85,8 @@ void Window::HandleScreenResize()
     int w = cWindow->m_sWindowDimensions.x;
     int h = cWindow->m_sWindowDimensions.y;
 
-    // Skip resize when minimized or before backend is initialized
+    // Hazard: minimized windows report zero client area; resizing the backend
+    // to zero dimensions would invalidate swap-chain and projection state.
     if ( w <= 0 || h <= 0 || !IsGfxReady() )
     {
         return;

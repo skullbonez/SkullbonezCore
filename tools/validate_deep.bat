@@ -8,6 +8,19 @@
 @rem   This script is for deliberate broad sweeps where the extra runtime
 @rem   launches are worth the cost.
 @rem
+@rem Glossary:
+@rem   Deep validation: Expensive broad run that layers renderer, physics, perf,
+@rem   and metadata checks.
+@rem   Ready builds: Build availability precheck reused by validation scripts.
+@rem
+@rem Invariants:
+@rem   - This script is opt-in and must not become the default cheap PR gate.
+@rem   - Build-assumption environment variables are saved and restored.
+@rem
+@rem Related:
+@rem   - tools/validate_full.bat
+@rem   - AGENTS.md
+@rem
 @echo off
 setlocal
 REM ===============================================================

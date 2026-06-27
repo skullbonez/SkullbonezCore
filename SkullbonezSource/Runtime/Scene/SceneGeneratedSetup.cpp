@@ -8,6 +8,19 @@ Mental model:
   receives explicit borrowed context from Run and fills the existing camera and
   model subsystems without changing spawn order or RNG consumption.
 
+Glossary:
+  Generated scene: Demo scene built from deterministic code rather than a
+    `.scene.json` file.
+  RNG (Random Number Generator): Local MSVC-compatible generator used for
+    stable object placement.
+  Solver object: Exact-count generated ball or box used by solver validation.
+
+Invariants:
+  - RNG consumption is part of generated scene determinism.
+  - Generated object count and ordering feed replay, physics baselines, and
+    camera tracking.
+  - Setup borrows live model/camera/world storage and does not own it.
+
 Related:
   - SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
@@ -36,8 +49,8 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 int NextSceneRand( unsigned int& state )
 {
-    // Match the MSVC CRT sequence so seeded scene layouts stay stable while avoiding
-    // global RNG state.
+    // Invariant: Match the MSVC CRT sequence so seeded scene layouts stay
+    // stable while avoiding global RNG state.
     state = state * 214013u + 2531011u;
     return static_cast<int>( ( state >> 16 ) & 0x7fffu );
 }
@@ -71,6 +84,9 @@ void SceneGeneratedSetup::SetUpCameras( SceneGeneratedCameraContext context )
 
 void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, int count )
 {
+    // Concept: Generated demos consume one deterministic RNG stream. Keep object
+    // family decisions and per-object random draws in the same order unless
+    // every generated-scene baseline is intentionally refreshed.
     context.scene.modelCount = count;
     context.scene.solverBallCount = 0;
     context.scene.solverBoxCount = 0;

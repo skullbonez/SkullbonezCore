@@ -56,6 +56,8 @@ struct GameModelBodyStream;
 
 namespace Physics
 {
+class PhysicsBodyStore;
+struct PhysicsBodyRecord;
 struct PersistentContactSolverContext;
 struct SleepSupportPropagationContext;
 
@@ -71,14 +73,16 @@ class PhysicsWorld
     std::vector<std::pair<int, int>> m_candidatePairs;
     std::vector<float> m_timeRemaining;
 
-    // Sleep policy state.
+    // Sleep policy working state.
     //
     // Sleeping is a performance and stability optimization: bodies that are
     // supported and quiet can stop integrating until something wakes them. The
-    // "supported" and "inhibited" arrays are rebuilt each frame from contacts;
-    // m_sleepState/m_sleepCounter persist across frames. A fully submerged
-    // sleeping sphere also gets a one-way lock so water-floor balls behave like
-    // static rocks instead of rejoining buoyancy/contact churn.
+    // "supported" and "inhibited" arrays are rebuilt each frame from contacts.
+    // PhysicsBodyStore owns the persisted sleep flag; m_sleepState is the
+    // solver's model-indexed compatibility mirror for existing diagnostics and
+    // sleep algorithms. A fully submerged sleeping sphere also gets a one-way
+    // lock so water-floor balls behave like static rocks instead of rejoining
+    // buoyancy/contact churn.
     std::vector<uint8_t> m_sleepSupportedThisFrame;
     std::vector<uint8_t> m_sleepInhibitedThisFrame;
     std::vector<uint8_t> m_sleepState;
@@ -264,7 +268,7 @@ class PhysicsWorld
     bool m_diagnosticsSuppressed = false;
 #endif
 
-    void RunSolverPhysics( GameObjects::GameModelCollection& collection, float dt );
+    void RunSolverPhysics( GameObjects::GameModelCollection& collection, PhysicsBodyStore& bodyStore, float dt );
     void SolvePersistentObjectContacts( GameObjects::GameModelCollection& collection, float dt );
 #ifdef _DEBUG
     void EmitPhysicsDiagnosticsFrame( GameObjects::GameModelCollection& collection, float dt );
@@ -275,7 +279,7 @@ class PhysicsWorld
                                    int bodyB,
                                    float collisionTime,
                                    float availableTime );
-    PersistentContactSolverContext CreatePersistentContactSolverContext();
+    PersistentContactSolverContext CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore );
     SleepSupportPropagationContext CreateSleepSupportPropagationContext();
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record );
     void EnsureCollisionVisualBuffers( int modelCount );
@@ -285,6 +289,7 @@ class PhysicsWorld
                                const GameObjects::GameModelBodyStream& bodyStream,
                                int index );
     void LockUnderwaterSleeperIfReady( GameObjects::GameModelCollection& collection,
+                                       PhysicsBodyStore& bodyStore,
                                        const GameObjects::GameModelBodyStream& bodyStream,
                                        int index );
     bool IsUnderwaterSleepLocked( GameObjects::GameModelCollection& collection,
@@ -292,23 +297,40 @@ class PhysicsWorld
                                   int index );
     void MarkCollisionVisualContact( int index );
     void MarkFixedContact( GameObjects::GameModelCollection& collection, int index );
-    void ApplyTornadoField( GameObjects::GameModelCollection& collection, float dt );
+    void ApplyTornadoField( GameObjects::GameModelCollection& collection, PhysicsBodyStore& bodyStore, float dt );
     void PropagateSleepSupport( GameObjects::GameModelCollection& collection );
     void AppendPointJointSupportEdges( int modelCount );
     void ForgetPersistentContactCacheForBody( int bodyIndex );
-    bool WakeDynamicBodyState( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
-    void WakeSleepVisualIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
-    void WakePointJointIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
-    void
-    WakeRestingContactIsland( GameObjects::GameModelCollection& collection, int index, float dt, bool applyForces );
+    bool WakeDynamicBodyState( GameObjects::GameModelCollection& collection,
+                               PhysicsBodyStore* bodyStore,
+                               int index,
+                               float dt,
+                               bool applyForces );
+    void WakeSleepVisualIsland( GameObjects::GameModelCollection& collection,
+                                PhysicsBodyStore* bodyStore,
+                                int index,
+                                float dt,
+                                bool applyForces );
+    void WakePointJointIsland( GameObjects::GameModelCollection& collection,
+                               PhysicsBodyStore* bodyStore,
+                               int index,
+                               float dt,
+                               bool applyForces );
+    void WakeRestingContactIsland( GameObjects::GameModelCollection& collection,
+                                   PhysicsBodyStore* bodyStore,
+                                   int index,
+                                   float dt,
+                                   bool applyForces );
     bool IsPointJointPair( int bodyA, int bodyB ) const;
-    void WakePointJointConnectedBodies( GameObjects::GameModelCollection& collection, float dt );
+    void WakePointJointConnectedBodies( GameObjects::GameModelCollection& collection,
+                                        PhysicsBodyStore& bodyStore,
+                                        float dt );
 
   public:
     PhysicsWorld();
 
     void Clear();
-    void RunPhysics( GameObjects::GameModelCollection& collection, float fChangeInTime );
+    void RunPhysics( GameObjects::GameModelCollection& collection, PhysicsBodyStore& bodyStore, float fChangeInTime );
     void WakeModel( GameObjects::GameModelCollection& collection, int index );
     void SeedModelAsleep( GameObjects::GameModelCollection& collection, int index );
     void SetPhysicsSleepEnabled( bool enabled );
@@ -375,6 +397,8 @@ struct PersistentContactSolverContext
     std::vector<TerrainContactManifold>& terrainContactManifolds;
     std::array<uint8_t, MAX_GAME_MODELS>& terrainRestApplied;
     std::vector<uint8_t>& sleepSupportedThisFrame;
+    std::vector<PhysicsBodyRecord>& bodyRecords;
+    PhysicsBodyStore& bodyStore;
     PhysicsWorld& world;
 
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record ) const;

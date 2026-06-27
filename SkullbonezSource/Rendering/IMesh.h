@@ -14,6 +14,11 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - Mesh implementations own GPU buffers; callers may draw or query metadata but
+    must not assume native buffer layout.
+  - Vertex-buffer GPU VA is exposed only for acceleration-structure builds.
+
 Related:
   - Agentic/Reference/comment-style-guide.md
 */

@@ -163,9 +163,11 @@ struct SceneConvexHull
     float restitution;
     float eulerX, eulerY, eulerZ;
     float velX, velY, velZ;
+    float angVelX, angVelY, angVelZ;
     float contactReleaseImpulseThreshold;
     bool hasInitOrient;
     bool hasInitVelocity;
+    bool hasInitAngularVelocity;
     bool isFixed;
     bool isSleeping;
     bool contactReleaseOnImpact;

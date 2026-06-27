@@ -12,6 +12,12 @@ Glossary:
   OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
   collision tests.
 
+Invariants:
+  - RotationMatrix stores an orthogonal basis; callers use TransposeMultiply as
+    the inverse only under that assumption.
+  - SupportExtentY expects local half-extents and returns the world-space
+    downward extent for terrain/support tests.
+
 Related:
   - SkullbonezSource/Maths/RotationMatrix.cpp
   - Agentic/Reference/comment-style-guide.md

@@ -12,6 +12,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - AssetId values are AssetSystem-owned identities and must not be invented by
+    callers.
+  - Shader and texture source records describe load intent; backend GPU resource
+    lifetime is owned by renderer-facing systems.
+
 Related:
   - SkullbonezSource/Assets/AssetSystem.cpp
   - Agentic/Reference/runtime-reference.md

@@ -15,6 +15,12 @@ Glossary:
     shaders, textures, or descriptor rows.
   Replay body id: Stable per-scene id shared with physics/replay records.
 
+Invariants:
+  - Records stay in GameModelCollection model order and compatibility handles
+    mirror model indices.
+  - Refresh snapshots CPU draw intent only; it does not create or destroy GPU
+    resources.
+
 Related:
   - SkullbonezSource/Rendering/RenderInstanceStore.h
 */
@@ -26,6 +32,7 @@ Related:
 #include "../GameObjects/GameModel.h"
 
 using SkullbonezCore::GameObjects::GameModel;
+using SkullbonezCore::Rendering::RenderInstanceHandle;
 using SkullbonezCore::Rendering::RenderInstanceRecord;
 using SkullbonezCore::Rendering::RenderInstanceStore;
 
@@ -33,27 +40,36 @@ using SkullbonezCore::Rendering::RenderInstanceStore;
 RenderInstanceStore::RenderInstanceStore()
 {
     m_instances.reserve( MAX_GAME_MODELS );
+    m_modelInstanceHandles.reserve( MAX_GAME_MODELS );
 }
 
 
 void RenderInstanceStore::Clear()
 {
     m_instances.clear();
+    m_modelInstanceHandles.clear();
 }
 
 
 void RenderInstanceStore::Refresh( std::vector<GameModel>& models )
 {
+    // Invariant: render instance handles intentionally mirror model slots until
+    // a future renderer-facing allocation owner replaces compatibility ids.
     m_instances.resize( models.size() );
+    m_modelInstanceHandles.resize( models.size() );
     for ( std::size_t i = 0; i < models.size(); ++i )
     {
         GameModel& model = models[i];
         RenderInstanceRecord& record = m_instances[i];
+        const uint32_t modelIndex = static_cast<uint32_t>( i );
+        record.handle = MakeCompatibilityRenderInstanceHandle( modelIndex );
+        record.legacyModelIndex = static_cast<int>( i );
         record.replayBodyId = model.GetReplayBodyId();
         record.modelMatrix = model.GetModelMatrix();
         record.material = model.GetRenderMaterial();
         record.isFixed = model.IsFixed();
         record.fixedContactAlpha = model.GetFixedContactHighlightAlpha();
+        m_modelInstanceHandles[i] = record.handle;
     }
 }
 
@@ -73,6 +89,43 @@ int RenderInstanceStore::Count() const
 bool RenderInstanceStore::Empty() const
 {
     return m_instances.empty();
+}
+
+
+RenderInstanceHandle RenderInstanceStore::HandleForModelIndex( int modelIndex ) const
+{
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_modelInstanceHandles.size() ) )
+    {
+        return RenderInstanceHandle{};
+    }
+
+    return m_modelInstanceHandles[static_cast<std::size_t>( modelIndex )];
+}
+
+
+int RenderInstanceStore::ModelIndexForHandle( RenderInstanceHandle handle ) const
+{
+    if ( !Contains( handle ) )
+    {
+        return -1;
+    }
+
+    return m_instances[static_cast<std::size_t>( handle.index )].legacyModelIndex;
+}
+
+
+bool RenderInstanceStore::Contains( RenderInstanceHandle handle ) const
+{
+    if ( !handle.IsValid() || handle.generation != RENDER_INSTANCE_COMPATIBILITY_HANDLE_GENERATION )
+    {
+        return false;
+    }
+    if ( handle.index >= m_instances.size() )
+    {
+        return false;
+    }
+
+    return m_instances[static_cast<std::size_t>( handle.index )].handle == handle;
 }
 
 

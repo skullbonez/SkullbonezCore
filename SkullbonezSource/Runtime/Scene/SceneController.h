@@ -13,6 +13,12 @@ Glossary:
   Scene queue: Ordered authored scene list, with an empty path selecting the
   generated demo scene.
 
+Invariants:
+  - SceneController owns queue/index bookkeeping, not renderer or physics side
+    effects.
+  - Empty queue path is the generated demo scene sentinel.
+  - Queue index lookups must normalize path separators before matching.
+
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntime.h
   - SkullbonezSource/Runtime/Scene/RunScene.cpp

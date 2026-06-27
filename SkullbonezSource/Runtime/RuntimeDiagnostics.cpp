@@ -15,6 +15,12 @@ Glossary:
   Side-channel log: Artifact written for diagnostics without changing runtime
   behavior.
 
+Invariants:
+  - Diagnostics may sample and flush artifacts, but must not mutate simulation
+    or render ownership.
+  - Large process-memory sampling is batched so diagnostics do not allocate or
+    block unpredictably inside a validation frame.
+
 Related:
   - SkullbonezSource/Runtime/RuntimeDiagnostics.h
   - Agentic/Reference/comment-style-guide.md
@@ -49,11 +55,22 @@ void FlushPerfLogIfNeeded( RunPerfLogState& perfLog )
     }
 }
 
+void FlushPendingPerfLogWrites( RunPerfLogState& perfLog )
+{
+    if ( perfLog.perfLogFile && perfLog.perfLogWritesSinceFlush > 0 )
+    {
+        fflush( perfLog.perfLogFile );
+        perfLog.perfLogWritesSinceFlush = 0;
+    }
+}
+
 bool FlushWorkingSetQueryBatch( HANDLE process,
                                 std::vector<PSAPI_WORKING_SET_EX_INFORMATION>& pages,
                                 uint64_t& privateWorkingSetBytes,
                                 uint64_t pageSize )
 {
+    // Hazard: QueryWorkingSetEx can fail for a region without invalidating the
+    // whole sample. The caller tracks success separately from the byte count.
     if ( pages.empty() )
     {
         return true;
@@ -189,9 +206,17 @@ void RuntimeDiagnostics::ClosePerfLog( RunPerfLogState& perfLog )
 {
     if ( perfLog.perfLogFile )
     {
+        FlushPendingPerfLogWrites( perfLog );
         fclose( perfLog.perfLogFile );
         perfLog.perfLogFile = nullptr;
     }
+}
+
+
+void RuntimeDiagnostics::ClosePerfLogWithMemoryCheckpoint( RunPerfLogState& perfLog, int pass, const char* checkpoint )
+{
+    LogPerfMemory( perfLog, pass, checkpoint );
+    ClosePerfLog( perfLog );
 }
 
 MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMemory()
@@ -254,6 +279,50 @@ void RuntimeDiagnostics::LogPerfMemory( RunPerfLogState& perfLog, int pass, cons
     }
 }
 
+
+void RuntimeDiagnostics::ResetPerfLogForSceneLoad( RunPerfLogState& perfLog )
+{
+    perfLog.isPerfTest = false;
+    perfLog.perfHeaderWritten = false;
+    perfLog.perfLogPath[0] = '\0';
+    perfLog.isPerfLogFlushEnabled = false;
+    perfLog.perfLogFlushInterval = 0;
+    perfLog.perfLogWritesSinceFlush = 0;
+}
+
+
+void RuntimeDiagnostics::ConfigurePerfLogFlush( RunPerfLogState& perfLog, bool enabled, int interval )
+{
+    perfLog.isPerfLogFlushEnabled = enabled;
+    perfLog.perfLogFlushInterval = interval;
+}
+
+
+void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass )
+{
+    if ( !path || path[0] == '\0' )
+    {
+        return;
+    }
+
+    perfLog.isPerfTest = true;
+    strcpy_s( perfLog.perfLogPath, sizeof( perfLog.perfLogPath ), path );
+    const char* mode = ( pass == 0 ) ? "w" : "a";
+    fopen_s( &perfLog.perfLogFile, perfLog.perfLogPath, mode );
+    if ( perfLog.perfLogFile )
+    {
+        perfLog.perfLogWritesSinceFlush = 0;
+        LogPerfMemory( perfLog, pass + 1, "start" );
+    }
+}
+
+
+bool RuntimeDiagnostics::PerfTestActive( const RunPerfLogState& perfLog )
+{
+    return perfLog.isPerfTest;
+}
+
+
 void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, const RuntimePerfTickContext& context )
 {
     if ( !perfLog.isPerfTest || !perfLog.perfLogFile )
@@ -279,6 +348,11 @@ void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, const RuntimePer
 
     ++perfLog.perfLogWritesSinceFlush;
     FlushPerfLogIfNeeded( perfLog );
+
+    if ( context.frame % 60 == 0 )
+    {
+        LogPerfMemory( perfLog, context.pass, "periodic" );
+    }
 }
 
 #ifdef _DEBUG

@@ -12,6 +12,12 @@ Glossary:
   Engine module: A source file with one focused responsibility inside the
   SkullbonezCore runtime.
 
+Invariants:
+  - Plane representation is dot(normal, point) = distance, with normal expected
+    to be unit length.
+  - Triangle normal direction follows the engine's counter-clockwise winding
+    convention; callers depend on signed distance polarity.
+
 Related:
   - SkullbonezSource/Maths/GeometricMath.h
   - Agentic/Reference/comment-style-guide.md

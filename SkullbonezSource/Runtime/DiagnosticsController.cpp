@@ -44,9 +44,39 @@ void DiagnosticsController::ClosePerfLog()
 }
 
 
+void DiagnosticsController::ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint )
+{
+    RuntimeDiagnostics::ClosePerfLogWithMemoryCheckpoint( m_perfLog, pass, checkpoint );
+}
+
+
 void DiagnosticsController::LogPerfMemory( int pass, const char* checkpoint )
 {
     RuntimeDiagnostics::LogPerfMemory( m_perfLog, pass, checkpoint );
+}
+
+
+void DiagnosticsController::ResetPerfLogForSceneLoad()
+{
+    RuntimeDiagnostics::ResetPerfLogForSceneLoad( m_perfLog );
+}
+
+
+void DiagnosticsController::ConfigurePerfLogFlush( bool enabled, int interval )
+{
+    RuntimeDiagnostics::ConfigurePerfLogFlush( m_perfLog, enabled, interval );
+}
+
+
+void DiagnosticsController::OpenScenePerfLog( const char* path, int pass )
+{
+    RuntimeDiagnostics::OpenScenePerfLog( m_perfLog, path, pass );
+}
+
+
+bool DiagnosticsController::PerfTestActive() const
+{
+    return RuntimeDiagnostics::PerfTestActive( m_perfLog );
 }
 
 

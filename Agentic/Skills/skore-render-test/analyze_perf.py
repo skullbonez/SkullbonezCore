@@ -79,11 +79,7 @@ def parse_csv(path):
         for line in f:
             line = line.strip()
             if line.startswith("# MEM"):
-                parts = line.split()
-                checkpoint = parts[2]
-                pass_num = int(parts[3].split("=")[1])
-                mb = float(parts[4].split("=")[1])
-                mem.append({"checkpoint": checkpoint, "pass": pass_num, "working_set_mb": mb})
+                mem.append(parse_memory_checkpoint(line))
             elif line.startswith("pass,frame,"):
                 # Dynamic header — discover marker columns
                 cols = line.split(",")
@@ -97,6 +93,38 @@ def parse_csv(path):
                     row[name] = float(cols[2 + i]) if (2 + i) < len(cols) else 0.0
                 frames.append(row)
     return marker_names, frames, mem
+
+
+def parse_memory_checkpoint(line):
+    """Parse a # MEM checkpoint line from old or current perf CSV logs."""
+    parts = line.split()
+    if len(parts) < 4:
+        raise ValueError(f"Malformed memory checkpoint line: {line}")
+
+    fields = {}
+    for token in parts[3:]:
+        if "=" not in token:
+            continue
+        key, value = token.split("=", 1)
+        fields[key] = value
+
+    if "pass" not in fields:
+        raise ValueError(f"Memory checkpoint is missing pass=: {line}")
+
+    mb_value = None
+    for key in ("task_manager_mb", "mb", "working_set_mb", "private_working_set_mb"):
+        mb_value = fields.get(key)
+        if mb_value is not None:
+            break
+
+    if mb_value is None:
+        raise ValueError(f"Memory checkpoint is missing a memory MB field: {line}")
+
+    return {
+        "checkpoint": parts[2],
+        "pass": int(fields["pass"]),
+        "working_set_mb": float(mb_value),
+    }
 
 
 def compute_stats(values):

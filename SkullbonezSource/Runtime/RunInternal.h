@@ -18,6 +18,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Types in this header are private to split Run implementation files; public
+    runtime contracts belong in narrower headers.
+  - Inline helpers may synchronize borrowed subsystem state, but they do not
+    own renderer, physics, UI, or replay lifetimes.
+
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -89,217 +95,21 @@ inline constexpr float NO_WATER_TERRAIN_CLEARANCE = 100.0f;
 inline constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
 inline constexpr long CAMERA_MOUSE_MAX_DELTA_PIXELS = 96;
 inline constexpr long CAMERA_MOUSE_SPIKE_DELTA_PIXELS = 320;
-inline constexpr float REPLAY_SCRUBBER_HOT_ZONE_HEIGHT =
-    78.0f;                                                 // Bottom-screen hover strip that reveals replay controls.
-inline constexpr float REPLAY_SCRUBBER_PANEL_HEIGHT = 50.0f;
-inline constexpr float REPLAY_SCRUBBER_PANEL_MAX_WIDTH = 1080.0f;
-inline constexpr float REPLAY_SCRUBBER_PANEL_MARGIN = 18.0f;
-inline constexpr float REPLAY_SCRUBBER_TRACK_HEIGHT = 8.0f;
-inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_SIZE = 22.0f;
-inline constexpr float REPLAY_SCRUBBER_LOAD_BUTTON_WIDTH = 48.0f;
-inline constexpr float REPLAY_SCRUBBER_SAVE_BUTTON_GAP = 10.0f;
-inline constexpr float REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH = 630.0f;
-inline constexpr float REPLAY_SCRUBBER_BRANCH_BUTTON_WIDTH = 74.0f;
-inline constexpr float REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH = 58.0f;
-inline constexpr float REPLAY_SCRUBBER_VELOCITY_BUTTON_WIDTH = 86.0f;
-inline constexpr float REPLAY_SCRUBBER_PREDICT_TOGGLE_WIDTH = 104.0f;
-inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 140.0f;
-inline constexpr float REPLAY_SCRUBBER_RAGDOLL_TOGGLE_WIDTH = 78.0f;
-inline constexpr float REPLAY_SCRUBBER_LIVE_THRESHOLD = 0.995f;
-inline constexpr double REPLAY_SCRUBBER_VISIBLE_SECONDS = 1.40;
-inline constexpr float REPLAY_PREDICTION_MIN_SECONDS = 1.0f;
-inline constexpr float REPLAY_PREDICTION_MAX_SECONDS = REPLAY_FUTURE_BUFFER_SECONDS;
 inline constexpr double REPLAY_PREDICTION_REFRESH_SECONDS = 0.35;
 inline constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
-inline constexpr float REPLAY_SCRUBBER_PRESENT_EPSILON = 0.0035f;
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_MAX = 140.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_ANGULAR_MAX = 5.0f;
 inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_EXTRA = 36.0f;
-inline constexpr float REPLAY_CAUSE_TREE_PANEL_WIDTH = 312.0f;
-inline constexpr float REPLAY_CAUSE_TREE_PANEL_MARGIN = 18.0f;
-inline constexpr float REPLAY_CAUSE_TREE_PANEL_TOP = 84.0f;
-inline constexpr float REPLAY_CAUSE_TREE_ROW_HEIGHT = 22.0f;
-inline constexpr float REPLAY_CAUSE_TREE_HEADER_HEIGHT = 42.0f;
 #ifdef _DEBUG
 inline constexpr const char* LAUNCHER_REPRO_SNAPSHOT_PATH = "Debug/launcher_repro_snapshots.txt";
 inline constexpr double LAUNCHER_REPRO_MESSAGE_SECONDS = 3.0;
 #endif
 
-inline UI::UIRect ReplayScrubberPanelRect( int screenW, int screenH )
+inline void SyncTornadoRuntimeSettingsToPhysics( GameObjects::GameModelCollection& modelCollection,
+                                                 const RunRuntimeSettings& runtimeSettings )
 {
-    const float width =
-        (std::min)( REPLAY_SCRUBBER_PANEL_MAX_WIDTH,
-                    (std::max)( 260.0f, static_cast<float>( screenW ) - REPLAY_SCRUBBER_PANEL_MARGIN * 2.0f ) );
-    const float x = ( static_cast<float>( screenW ) - width ) * 0.5f;
-    const float y =
-        (std::max)( 0.0f, static_cast<float>( screenH ) - REPLAY_SCRUBBER_PANEL_HEIGHT - REPLAY_SCRUBBER_PANEL_MARGIN );
-    return { x, y, width, REPLAY_SCRUBBER_PANEL_HEIGHT };
-}
-
-inline float ReplayScrubberRowCenterY( const UI::UIRect& panel, RunReplayTrack track )
-{
-    (void)track;
-    return panel.y + panel.h * 0.5f;
-}
-
-inline UI::UIRect ReplayScrubberTrackRect( int screenW, int screenH, RunReplayTrack track )
-{
-    const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
-    constexpr float leftInset = 70.0f + REPLAY_SCRUBBER_SAVE_BUTTON_SIZE + REPLAY_SCRUBBER_SAVE_BUTTON_GAP +
-                                REPLAY_SCRUBBER_LOAD_BUTTON_WIDTH + REPLAY_SCRUBBER_SAVE_BUTTON_GAP;
-    constexpr float rightInset = 10.0f + REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH;
-    return { panel.x + leftInset,
-             ReplayScrubberRowCenterY( panel, track ) - REPLAY_SCRUBBER_TRACK_HEIGHT * 0.5f,
-             (std::max)( 80.0f, panel.w - leftInset - rightInset ),
-             REPLAY_SCRUBBER_TRACK_HEIGHT };
-}
-
-inline UI::UIRect ReplayScrubberSaveButtonRect( int screenW, int screenH, RunReplayTrack trackName )
-{
-    const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
-    const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, trackName );
-    return { panel.x + 70.0f,
-             track.y - ( REPLAY_SCRUBBER_SAVE_BUTTON_SIZE - track.h ) * 0.5f,
-             REPLAY_SCRUBBER_SAVE_BUTTON_SIZE,
-             REPLAY_SCRUBBER_SAVE_BUTTON_SIZE };
-}
-
-inline UI::UIRect ReplayScrubberLoadButtonRect( int screenW, int screenH, RunReplayTrack trackName )
-{
-    const UI::UIRect save = ReplayScrubberSaveButtonRect( screenW, screenH, trackName );
-    return { save.x + save.w + REPLAY_SCRUBBER_SAVE_BUTTON_GAP, save.y, REPLAY_SCRUBBER_LOAD_BUTTON_WIDTH, save.h };
-}
-
-inline UI::UIRect ReplayScrubberBranchButtonRect( int screenW, int screenH )
-{
-    const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
-    return { panel.x + panel.w - REPLAY_SCRUBBER_RIGHT_CONTROL_WIDTH,
-             panel.y + 14.0f,
-             REPLAY_SCRUBBER_BRANCH_BUTTON_WIDTH,
-             22.0f };
-}
-
-inline UI::UIRect ReplayScrubberPauseButtonRect( int screenW, int screenH )
-{
-    const UI::UIRect branch = ReplayScrubberBranchButtonRect( screenW, screenH );
-    return { branch.x + branch.w + 10.0f, branch.y, REPLAY_SCRUBBER_PAUSE_BUTTON_WIDTH, 22.0f };
-}
-
-inline UI::UIRect ReplayScrubberVelocityEditToggleRect( int screenW, int screenH )
-{
-    const UI::UIRect pause = ReplayScrubberPauseButtonRect( screenW, screenH );
-    return { pause.x + pause.w + 10.0f, pause.y, REPLAY_SCRUBBER_VELOCITY_BUTTON_WIDTH, pause.h };
-}
-
-inline UI::UIRect ReplayScrubberPredictControlRect( int screenW, int screenH )
-{
-    const UI::UIRect velocity = ReplayScrubberVelocityEditToggleRect( screenW, screenH );
-    return { velocity.x + velocity.w + 10.0f + REPLAY_SCRUBBER_PREDICT_TOGGLE_WIDTH + 8.0f,
-             velocity.y,
-             REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH,
-             velocity.h };
-}
-
-inline UI::UIRect ReplayScrubberPredictToggleRect( int screenW, int screenH )
-{
-    const UI::UIRect velocity = ReplayScrubberVelocityEditToggleRect( screenW, screenH );
-    return { velocity.x + velocity.w + 10.0f, velocity.y, REPLAY_SCRUBBER_PREDICT_TOGGLE_WIDTH, velocity.h };
-}
-
-inline UI::UIRect ReplayScrubberPredictHorizonRect( int screenW, int screenH )
-{
-    const UI::UIRect control = ReplayScrubberPredictControlRect( screenW, screenH );
-    return { control.x + 8.0f, control.y + 7.0f, (std::max)( 40.0f, control.w - 44.0f ), 8.0f };
-}
-
-inline UI::UIRect ReplayScrubberRagdollVisualToggleRect( int screenW, int screenH )
-{
-    const UI::UIRect predict = ReplayScrubberPredictControlRect( screenW, screenH );
-    return { predict.x + predict.w + 8.0f, predict.y, REPLAY_SCRUBBER_RAGDOLL_TOGGLE_WIDTH, predict.h };
-}
-
-inline float ReplayPredictionHorizonT( float seconds )
-{
-    return std::clamp(
-        ( seconds - REPLAY_PREDICTION_MIN_SECONDS ) / ( REPLAY_PREDICTION_MAX_SECONDS - REPLAY_PREDICTION_MIN_SECONDS ),
-        0.0f,
-        1.0f );
-}
-
-inline float ReplayPredictionHorizonFromMouse( int mouseX, const UI::UIRect& horizon )
-{
-    const float t =
-        horizon.w > 1.0f ? std::clamp( ( static_cast<float>( mouseX ) - horizon.x ) / horizon.w, 0.0f, 1.0f ) : 1.0f;
-    const float seconds =
-        REPLAY_PREDICTION_MIN_SECONDS + t * ( REPLAY_PREDICTION_MAX_SECONDS - REPLAY_PREDICTION_MIN_SECONDS );
-    return std::clamp( std::round( seconds ), REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS );
-}
-
-inline float ReplayScrubberRetainedPastSeconds( const ReplayRecorderStats& stats )
-{
-    if ( !stats.enabled || stats.sampleCount < 2 )
-    {
-        return PHYSICS_FIXED_DT;
-    }
-    return static_cast<float>( stats.sampleCount - 1 ) * PHYSICS_FIXED_DT;
-}
-
-inline float ReplayPredictionAvailableFutureSeconds( const RunReplayPredictionState& prediction )
-{
-    if ( !prediction.enabled || prediction.frames.size() < 2 )
-    {
-        return 0.0f;
-    }
-    return static_cast<float>( prediction.frames.back().frameIndex ) * PHYSICS_FIXED_DT;
-}
-
-inline float ReplayScrubberPresentTrackPosition( const ReplayRecorderStats& stats,
-                                                 const RunReplayPredictionState& prediction )
-{
-    const float pastSeconds = (std::max)( PHYSICS_FIXED_DT, ReplayScrubberRetainedPastSeconds( stats ) );
-    const float futureSeconds = ReplayPredictionAvailableFutureSeconds( prediction );
-    if ( futureSeconds <= PHYSICS_FIXED_DT )
-    {
-        return 1.0f;
-    }
-    return std::clamp( pastSeconds / ( pastSeconds + futureSeconds ), 0.05f, 0.995f );
-}
-
-inline bool ReplayScrubberTimelineHasFuture( float presentT )
-{
-    return presentT < REPLAY_SCRUBBER_LIVE_THRESHOLD;
-}
-
-inline bool ReplayScrubberAtPresentTrackPosition( float position, float presentT )
-{
-    if ( !ReplayScrubberTimelineHasFuture( presentT ) )
-    {
-        return position >= REPLAY_SCRUBBER_LIVE_THRESHOLD;
-    }
-    return fabsf( position - presentT ) <= REPLAY_SCRUBBER_PRESENT_EPSILON;
-}
-
-inline bool ReplayScrubberTrackPositionIsFuture( float position, float presentT )
-{
-    return ReplayScrubberTimelineHasFuture( presentT ) && position > presentT + REPLAY_SCRUBBER_PRESENT_EPSILON;
-}
-
-inline float ReplayScrubberSolverNormalizedFromTrack( float position, float presentT )
-{
-    if ( !ReplayScrubberTimelineHasFuture( presentT ) )
-    {
-        return std::clamp( position, 0.0f, 1.0f );
-    }
-    return std::clamp( position / (std::max)( presentT, 0.0001f ), 0.0f, 1.0f );
-}
-
-inline float ReplayScrubberPredictionNormalizedFromTrack( float position, float presentT )
-{
-    if ( !ReplayScrubberTimelineHasFuture( presentT ) )
-    {
-        return 0.0f;
-    }
-    return std::clamp( ( position - presentT ) / ( 1.0f - presentT ), 0.0f, 1.0f );
+    modelCollection.SetTornadoFieldConfig( runtimeSettings.tornadoField );
+    modelCollection.SetTornadoSystemConfig( runtimeSettings.tornadoSystem );
 }
 
 inline bool ReplayModelIsRagdollPart( const GameModel& model )
@@ -310,160 +120,6 @@ inline bool ReplayModelIsRagdollPart( const GameModel& model )
 inline bool ReplayModelIsRagdollTorso( const GameModel& model )
 {
     return ReplayModelIsRagdollPart( model ) && model.GetRuntimeCollectionPartIndex() == 0;
-}
-
-inline UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )
-{
-    return { 0.0f,
-             (std::max)( 0.0f, static_cast<float>( screenH ) - REPLAY_SCRUBBER_HOT_ZONE_HEIGHT ),
-             static_cast<float>( screenW ),
-             REPLAY_SCRUBBER_HOT_ZONE_HEIGHT };
-}
-
-inline UI::UIRect ReplayCauseTreePanelRect( int screenW, int screenH )
-{
-    const UI::UIRect scrubber = ReplayScrubberPanelRect( screenW, screenH );
-    const float width =
-        (std::min)( REPLAY_CAUSE_TREE_PANEL_WIDTH,
-                    (std::max)( 220.0f, static_cast<float>( screenW ) - REPLAY_CAUSE_TREE_PANEL_MARGIN * 2.0f ) );
-    const float x = (std::max)( REPLAY_CAUSE_TREE_PANEL_MARGIN,
-                                static_cast<float>( screenW ) - width - REPLAY_CAUSE_TREE_PANEL_MARGIN );
-    const float y = REPLAY_CAUSE_TREE_PANEL_TOP;
-    const float maxHeight = (std::max)( 120.0f, scrubber.y - y - REPLAY_CAUSE_TREE_PANEL_MARGIN );
-    const float height = (std::min)( 420.0f, maxHeight );
-    return { x, y, width, height };
-}
-
-inline UI::UIRect ReplayCauseTreeRowRect( const UI::UIRect& panel, int visibleRow )
-{
-    return {
-        panel.x + 10.0f,
-        panel.y + REPLAY_CAUSE_TREE_HEADER_HEIGHT + static_cast<float>( visibleRow ) * REPLAY_CAUSE_TREE_ROW_HEIGHT,
-        panel.w - 20.0f,
-        REPLAY_CAUSE_TREE_ROW_HEIGHT - 3.0f };
-}
-
-inline int ReplayCauseTreeVisibleRowCapacity( const UI::UIRect& panel )
-{
-    return (std::max)( 0,
-                       static_cast<int>( ( panel.h - REPLAY_CAUSE_TREE_HEADER_HEIGHT - 10.0f ) /
-                                         REPLAY_CAUSE_TREE_ROW_HEIGHT ) );
-}
-
-inline constexpr float REPLAY_CAUSE_WINDOW_TITLE_HEIGHT = 38.0f;
-inline constexpr float REPLAY_CAUSE_WINDOW_ROW_HEIGHT = 38.0f;
-inline constexpr float REPLAY_CAUSE_WINDOW_PADDING = 12.0f;
-inline constexpr float REPLAY_CAUSE_WINDOW_RESIZE_SIZE = 18.0f;
-inline constexpr int REPLAY_CAUSE_WINDOW_MIN_W = 320;
-inline constexpr int REPLAY_CAUSE_WINDOW_MIN_H = 180;
-
-inline UI::UIRect ReplayCauseWindowRect( const RunReplayCauseTreeState& state )
-{
-    return { static_cast<float>( state.x ),
-             static_cast<float>( state.y ),
-             static_cast<float>( state.width ),
-             static_cast<float>( state.height ) };
-}
-
-inline UI::UIRect ReplayCauseWindowTitleRect( const RunReplayCauseTreeState& state )
-{
-    const UI::UIRect panel = ReplayCauseWindowRect( state );
-    return { panel.x, panel.y, panel.w, REPLAY_CAUSE_WINDOW_TITLE_HEIGHT };
-}
-
-inline UI::UIRect ReplayCauseWindowContentRect( const RunReplayCauseTreeState& state )
-{
-    const UI::UIRect panel = ReplayCauseWindowRect( state );
-    return { panel.x + REPLAY_CAUSE_WINDOW_PADDING,
-             panel.y + REPLAY_CAUSE_WINDOW_TITLE_HEIGHT + 7.0f,
-             panel.w - REPLAY_CAUSE_WINDOW_PADDING * 2.0f,
-             panel.h - REPLAY_CAUSE_WINDOW_TITLE_HEIGHT - REPLAY_CAUSE_WINDOW_PADDING - 7.0f };
-}
-
-inline UI::UIRect ReplayCauseWindowResizeRect( const RunReplayCauseTreeState& state )
-{
-    const UI::UIRect panel = ReplayCauseWindowRect( state );
-    return { panel.x + panel.w - REPLAY_CAUSE_WINDOW_RESIZE_SIZE,
-             panel.y + panel.h - REPLAY_CAUSE_WINDOW_RESIZE_SIZE,
-             REPLAY_CAUSE_WINDOW_RESIZE_SIZE,
-             REPLAY_CAUSE_WINDOW_RESIZE_SIZE };
-}
-
-inline float ReplayCauseWindowContentHeight( const RunReplayCauseTreeState& state )
-{
-    return static_cast<float>( state.rows.size() ) * REPLAY_CAUSE_WINDOW_ROW_HEIGHT;
-}
-
-inline float ReplayCauseWindowMaxScroll( const RunReplayCauseTreeState& state )
-{
-    const UI::UIRect content = ReplayCauseWindowContentRect( state );
-    return (std::max)( 0.0f, ReplayCauseWindowContentHeight( state ) - content.h );
-}
-
-inline void ClampReplayCauseWindow( RunReplayCauseTreeState& state, int screenW, int screenH )
-{
-    state.width = (std::max)( REPLAY_CAUSE_WINDOW_MIN_W,
-                              (std::min)( state.width, (std::max)( REPLAY_CAUSE_WINDOW_MIN_W, screenW - 16 ) ) );
-    state.height = (std::max)( REPLAY_CAUSE_WINDOW_MIN_H,
-                               (std::min)( state.height, (std::max)( REPLAY_CAUSE_WINDOW_MIN_H, screenH - 16 ) ) );
-    state.x = std::clamp( state.x, 8, (std::max)( 8, screenW - state.width - 8 ) );
-    state.y = std::clamp( state.y, 8, (std::max)( 8, screenH - state.height - 8 ) );
-    state.scrollY = std::clamp( state.scrollY, 0.0f, ReplayCauseWindowMaxScroll( state ) );
-}
-
-inline void EnsureReplayCauseWindowPlacement( RunReplayCauseTreeState& state, int screenW, int screenH )
-{
-    if ( !state.hasWindowPlacement )
-    {
-        state.width = (std::min)( 380, (std::max)( REPLAY_CAUSE_WINDOW_MIN_W, screenW - 48 ) );
-        state.height = (std::min)( 520, (std::max)( REPLAY_CAUSE_WINDOW_MIN_H, screenH - 160 ) );
-        state.x = (std::max)( 12, screenW - state.width - 24 );
-        state.y = 72;
-        state.hasWindowPlacement = true;
-    }
-    ClampReplayCauseWindow( state, screenW, screenH );
-}
-
-inline float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int screenH, RunReplayTrack trackName )
-{
-    const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, trackName );
-    return track.w > 1.0f ? std::clamp( ( static_cast<float>( mouseX ) - track.x ) / track.w, 0.0f, 1.0f ) : 1.0f;
-}
-
-inline float ReplayScrubberTrackPosition( const RunReplayScrubberState& state, RunReplayTrack track )
-{
-    return track == RunReplayTrack::Solver ? state.solverPosition : state.presentationPosition;
-}
-
-inline void ReplayScrubberSetTrackPosition( RunReplayScrubberState& state, RunReplayTrack track, float position )
-{
-    const float clamped = std::clamp( position, 0.0f, 1.0f );
-    if ( track == RunReplayTrack::Solver )
-    {
-        state.solverPosition = clamped;
-    }
-    else
-    {
-        state.presentationPosition = clamped;
-    }
-
-    if ( state.activeTrack == track )
-    {
-        state.position = clamped;
-    }
-}
-
-inline void ReplayScrubberSyncActivePosition( RunReplayScrubberState& state )
-{
-    state.position = ReplayScrubberTrackPosition( state, state.activeTrack );
-}
-
-inline void ReplayScrubberSetAllTrackPositions( RunReplayScrubberState& state, float position )
-{
-    const float clamped = std::clamp( position, 0.0f, 1.0f );
-    state.presentationPosition = clamped;
-    state.solverPosition = clamped;
-    state.position = clamped;
 }
 
 inline void DrawUITestPattern( int screenW, int screenH )
@@ -499,100 +155,37 @@ inline void DrawUITestPattern( int screenW, int screenH )
     Text::Text2d::FlushQuads();
 }
 
-inline void
-ApplyCinematicSceneOverrides( CinematicRenderConfig& target, uint64_t mask, const CinematicRenderConfig& source )
+inline int RuntimeWindowScreenWidth( const RunSubsystemState& systems, const EngineConfig& config )
 {
-    // Scene files do not have to specify every cinematic value. The mask says
-    // which fields were actually present, so loading a scene only replaces those
-    // values and keeps all other defaults from engine.cfg.
-#define APPLY_CINEMATIC_OVERRIDE( bit, field )                                                                         \
-    if ( ( mask & ( bit ) ) != 0 )                                                                                     \
-    {                                                                                                                  \
-        target.field = source.field;                                                                                   \
-    }
+    return systems.window ? static_cast<int>( systems.window->m_sWindowDimensions.x ) : config.window.screenX;
+}
 
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_RENDERING, enabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_ATMOSPHERE, skyAtmosphereEnabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_CLOUDS, cloudsEnabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_GOD_RAYS, godRaysEnabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_VOLUMETRIC_LIGHTING, volumetricLightingEnabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BLOOM, bloomEnabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG, fogEnabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_RELIEF_ENABLED, terrainReliefEnabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_EXPOSURE, exposure )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_GAMMA, gamma )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_SCREEN_X, sunScreenX )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_SCREEN_Y, sunScreenY )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_COLOR_R, sunColorR )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_COLOR_G, sunColorG )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_COLOR_B, sunColorB )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_INTENSITY, sunIntensity )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_HORIZON_R, skyHorizonR )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_HORIZON_G, skyHorizonG )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_HORIZON_B, skyHorizonB )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_ZENITH_R, skyZenithR )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_ZENITH_G, skyZenithG )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_ZENITH_B, skyZenithB )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_GLOW_STRENGTH, skyGlowStrength )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_CLOUD_COVERAGE, cloudCoverage )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_CLOUD_SOFTNESS, cloudSoftness )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_CLOUD_SCALE, cloudScale )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_CLOUD_INTENSITY, cloudIntensity )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_SHAFT_STRENGTH, sunShaftStrength )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_SHAFT_FALLOFF, sunShaftFalloff )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_VOLUMETRIC_STRENGTH, volumetricStrength )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_VOLUMETRIC_DENSITY, volumetricDensity )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_VOLUMETRIC_DECAY, volumetricDecay )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BLOOM_THRESHOLD, bloomThreshold )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BLOOM_KNEE, bloomKnee )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BLOOM_STRENGTH, bloomStrength )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BLOOM_RADIUS, bloomRadius )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_RELIEF, terrainRelief )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_DEPTH, basinDepth )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_RIM_LIFT, basinRimLift )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SHADOWS, shadowsEnabled )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SHADOW_MAP_SIZE, shadowMapSize )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SHADOW_PCF_RADIUS, shadowPcfRadius )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SHADOW_STRENGTH, shadowStrength )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SHADOW_SOFTNESS, shadowSoftness )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SHADOW_DEPTH_BIAS, shadowDepthBias )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SHADOW_SLOPE_BIAS, shadowSlopeBias )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SHADOW_MAX_DISTANCE, shadowMaxDistance )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_COLOR_R, fogColorR )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_COLOR_G, fogColorG )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_COLOR_B, fogColorB )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_START, fogStart )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_END, fogEnd )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_DENSITY, fogDensity )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_MAX_OPACITY, fogMaxOpacity )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_MODES, skyMode )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_MODES, terrainMode )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_MODES, objectStyle )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_MODES, waterMode )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_GRADE, styleSaturation )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_GRADE, styleContrast )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_GRADE, styleVignette )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_TINT, terrainTintR )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_TINT, terrainTintG )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_TINT, terrainTintB )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_ACCENT, terrainAccentR )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_ACCENT, terrainAccentG )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_ACCENT, terrainAccentB )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_GRID, terrainGridScale )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_GRID, terrainGridStrength )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_TINT, waterTintR )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_TINT, waterTintG )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_TINT, waterTintB )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_PROFILE, waterAlpha )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_PROFILE, waterReflectionStrength )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_PROFILE, waterGlintStrength )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_MASK, basinCenterX )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_MASK, basinCenterZ )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_MASK, basinRadiusX )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_MASK, basinRadiusZ )
-    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_MASK, basinFeather )
+inline int RuntimeWindowScreenHeight( const RunSubsystemState& systems, const EngineConfig& config )
+{
+    return systems.window ? static_cast<int>( systems.window->m_sWindowDimensions.y ) : config.window.screenY;
+}
 
-#undef APPLY_CINEMATIC_OVERRIDE
+inline CinematicRenderConfig& RuntimeActiveCinematicConfig( RunSceneState& scene, EngineConfig& config )
+{
+    return scene.isSceneMode ? scene.cinematicRender : config.cinematicRender;
+}
+
+inline const CinematicRenderConfig& RuntimeActiveCinematicConfig( const RunSceneState& scene,
+                                                                  const EngineConfig& config )
+{
+    return scene.isSceneMode ? scene.cinematicRender : config.cinematicRender;
+}
+
+inline bool RuntimeCinematicRenderingEnabled( const RunSceneState& scene,
+                                              const EngineConfig& config,
+                                              const RunLaunchOptions& launchOptions,
+                                              const RunDebugState& debug,
+                                              bool gfxReady )
+{
+    const bool enabled = launchOptions.hasCinematicRenderingOverride
+                             ? launchOptions.cinematicRendering
+                             : RuntimeActiveCinematicConfig( scene, config ).enabled;
+    return enabled && gfxReady && !debug.isTextOnly;
 }
 
 inline const char* FileNameFromPath( const char* path )
@@ -618,49 +211,6 @@ inline std::string NormalizeScenePath( const std::string& path )
     std::replace( normalized.begin(), normalized.end(), '\\', '/' );
     return normalized;
 }
-
-// Captures the part of a live run that belongs to the operator's current scene
-// configuration rather than the simulation instance.  A normal Reset button
-// should rebuild bodies, timers, contact caches, screenshots, and diagnostics;
-// it should not silently undo debug overlays, physics debug settings, time scale,
-// fixed-step mode, world sliders, or generated-count overrides.  Scene changes
-// and Reset To Defaults skip this snapshot so the file/config becomes authority.
-struct SceneRuntimeResetSnapshot
-{
-    RunRuntimeSettings runtimeSettings;                    // Live runtime toggles changed while operating the current scene
-    RunDebugState
-        debug;                                             // Debug overlays/visualizers, including the C-key physics debug mode and associated alpha/linger knobs
-    bool isScenePhysics =
-        true;                                              // Live scene simulation toggle; reset should rebuild the run, not silently re-enable physics
-    bool isSceneText = true;                               // Live text/HUD toggle from the scene controls
-    bool isFixedStep = false;                              // Live stepping mode; resetting the simulation should not change how it advances
-    bool isExitOnComplete = false;                         // Interactive reset preserves the user's automation/hold choice
-    bool isInteractiveRun = false;                         // Once a user owns the scene, a reset should not go back to CLI auto-quit behavior
-    int targetFrameCount = -1;                             // Live frame-count control from the UI
-    float timeScale = 1.0f;                                // Live time-scale control from the UI/scene controls
-    float worldGravity = 0.0f;                             // Live world/environment sliders
-    float worldFluidHeight = 0.0f;
-    float worldFluidDensity = 0.0f;
-    bool hasCinematicRenderingOverride = false;
-    bool isCinematicRenderingEnabled = false;
-    bool hasCinematicExposure = false;
-    float cinematicExposure = 1.0f;
-    bool hasCinematicGamma = false;
-    float cinematicGamma = 2.2f;
-    uint64_t cinematicOverrideMask = 0;
-    uint64_t uiCinematicOverrideMask = 0;
-    CinematicRenderConfig cinematicRender;
-    float uiTimeScaleOverride =
-        0.0f;                                              // UI overrides feed object setup during reload, so they must survive before the scene rebuilds
-    int uiModelCountOverride = -1;
-    int uiSolverBallCountOverride = -1;
-    int uiSolverBoxCountOverride = -1;
-    int trackBallIndex = -1;                               // Scene-tab camera tracking controls
-    float trackHeight = 300.0f;
-    float autoCycleInterval = -1.0f;
-    float autoCycleAccum = 0.0f;
-    int autoCycleShotsTaken = 0;
-};
 } // namespace RunInternal
 } // namespace Basics
 } // namespace SkullbonezCore

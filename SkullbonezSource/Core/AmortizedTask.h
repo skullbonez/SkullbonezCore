@@ -14,6 +14,12 @@ Glossary:
   thread.
   In-flight chunk: Submitted worker slice that has not yet marked completion.
 
+Invariants:
+  - WorkFunction receives half-open ranges [begin, end) and must tolerate
+    smaller final chunks.
+  - Reset restarts the cursor but preserves the configured work callback and
+    current per-tick budget.
+
 Related:
   - Agentic/Plans/worker-system-plan.md
   - SkullbonezSource/Core/WorkerPool.h

@@ -18,6 +18,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - DX12 is the only runtime renderer; retired renderer flags are parsed only
+    to produce clear failures for old command lines.
+  - Startup options are resolved before Run owns subsystems so validation
+    launches are deterministic from their CLI.
+
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md

@@ -12,6 +12,11 @@ Glossary:
   Engine module: A source file with one focused responsibility inside the
   SkullbonezCore runtime.
 
+Invariants:
+  - Matrix storage is column-major and must match shader constant upload layout.
+  - DX12 projection callers use the ZeroToOne variants so clip-space depth is
+    in [0,1].
+
 Related:
   - SkullbonezSource/Maths/Matrix4.h
   - Agentic/Reference/comment-style-guide.md

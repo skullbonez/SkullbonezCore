@@ -12,6 +12,11 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - m_textures is fixed to TOTAL_TEXTURE_COUNT; hash lookup must resolve to one
+    resident slot before binding.
+  - m_assets is borrowed and may be null for legacy direct texture loads.
+
 Related:
   - SkullbonezSource/Assets/TextureCollection.cpp
   - Agentic/Reference/comment-style-guide.md

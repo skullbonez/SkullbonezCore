@@ -193,11 +193,19 @@ RUNTIME_SCENE_PREFIXES = (
     "SceneAuthoredSetup",
     "SceneGeneratedSetup",
     "SceneRuntime",
+    "SceneRuntimeCreate",
     "SceneRuntimeCoordinator",
+    "SceneRuntimeDefaults",
+    "SceneRuntimeGeneratedControls",
+    "SceneRuntimeLoad",
+    "SceneRuntimeReset",
+    "SceneRuntimeStyle",
 )
 
 RUNTIME_REPLAY_PREFIXES = (
     "ReplayExporter",
+    "ReplayOverlayLayout",
+    "ReplayOverlayRenderer",
     "ReplayRecorder",
     "ReplayRuntime",
     "ReplaySolverSnapshot",
@@ -215,6 +223,7 @@ RUNTIME_RENDER_PREFIXES = (
 
 RUNTIME_EDITOR_PREFIXES = (
     "EditorTools",
+    "EditorOverlayTools",
     "EditorHullAssets",
     "LauncherLaser",
     "LauncherTools",

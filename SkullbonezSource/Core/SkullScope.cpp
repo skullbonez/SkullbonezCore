@@ -14,6 +14,12 @@ Glossary:
   CSV (Comma-Separated Values): Text table format used for byte-exact physics
   regression output.
 
+Invariants:
+  - SkullScope emits append-only debug NDJSON and must not replace the
+    byte-exact physics CSV validation artifact.
+  - Frame emission samples retained physics diagnostics; it does not mutate the
+    solver, contacts, sleep islands, or spatial grid.
+
 Related:
   - SkullbonezSource/Core/SkullScope.h
   - Agentic/Reference/comment-style-guide.md

@@ -12,6 +12,12 @@ Glossary:
   Presentation track: Render-facing replay samples used for visual scrubbing.
   Solver track: Physics-facing samples and snapshots used for deterministic
     inspection and rollback.
+  Cause tree: Replay contact graph used by the tool UI to explain which body or
+    contact caused another replay body to matter.
+  UI (User Interface): Runtime controls and overlays that expose replay state
+    to the player or debugging workflow.
+  Velocity edit: Replay tool that displays and edits linear/angular velocity on
+    the current path target.
   Runtime state: UI and tool state that belongs to replay but is still consumed
     by Run while the subsystem is being separated.
   Prediction cache: Incremental future-path data built from predicted solver
@@ -284,6 +290,7 @@ struct RunReplayPredictionState
     std::size_t futureNodesBuiltContactIndex = 0;
     ReplayBodyId futureNodesBuiltTargetId;
     bool futureNodesBuiltRagdollVisuals = true;
+    bool futureNodesBuiltFromBuildFrames = false;
     bool futureNodesCacheValid = false;
 };
 
@@ -373,13 +380,38 @@ class ReplayRuntime
 
     RunReplayPredictionState& Prediction();
     const RunReplayPredictionState& Prediction() const;
+    const std::vector<RunReplayPredictionFrame>& ActivePredictionFrames() const;
+    void ClearPredictionFutureNodeCache();
+    void CancelPredictionJob( bool clearSamples );
+    void ClearPredictionCache();
+    void MarkPredictionDirty();
+    void ClearPathVisualizerState();
 
     RunReplayCauseTreeState& CauseTree();
     const RunReplayCauseTreeState& CauseTree() const;
 
     RunReplayVelocityEditState& VelocityEdit();
     const RunReplayVelocityEditState& VelocityEdit() const;
+    bool SetVelocityEditEnabled( bool enabled );
     void SetVelocityEditAltKeyDown( bool isDown );
+    float TrackPosition( RunReplayTrack track ) const;
+    void SetTrackPosition( RunReplayTrack track, float position );
+    void SyncActiveTrackPosition();
+    void SetAllTrackPositions( float position );
+    bool ResetScrubberState();
+    bool SetLiveAdvanceHeld( bool held );
+    float SolverPresentTrackPosition() const;
+    static bool TimelineHasFuture( float presentT );
+    static bool AtPresentTrackPosition( float position, float presentT );
+    static bool TrackPositionIsFuture( float position, float presentT );
+    static float SolverNormalizedFromTrack( float position, float presentT );
+    static float PredictionNormalizedFromTrack( float position, float presentT );
+    bool ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible, bool uiMinimized ) const;
+    bool ShouldUseInspectionCamera() const;
+    bool InspectionActive() const;
+    bool InspectionMouseLookActive( bool rightMouseDown, bool uiWantsNativeCursor, bool uiBlocksCameraMouse ) const;
+    bool ArmLoadedPresentationScrubber( float normalized, double now );
+    void ClearCameraFocusForRestore();
 
     RecordingConfigResult ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath );
     void FlushHashLogs();
@@ -398,8 +430,22 @@ class ReplayRuntime
     bool ApplyPredictionFrameForRender( GameObjects::GameModelCollection& models,
                                         const RunReplayPredictionFrame& frame );
     void RestoreRenderPose( GameObjects::GameModelCollection& models );
+    bool HasLoadedPresentation() const;
+    const ReplayPresentationSample* LoadedPresentationSampleAtNormalized( float normalized ) const;
+    const ReplayPresentationSample* LoadedPresentationLatestSample() const;
+    bool IsScrubPaused() const;
+    const ReplayPresentationSample* CurrentScrubSample() const;
+    const ReplaySolverFrameSample* CurrentSolverScrubSample() const;
+    const RunReplayPredictionFrame* CurrentPredictionScrubFrame() const;
+    bool ResolveCauseTreeBodyPosition( ReplayBodyId id,
+                                       const std::vector<GameObjects::GameModel>& models,
+                                       Math::Vector::Vector3& outPosition,
+                                       float* outRadius ) const;
+    int ResolveVelocityEditModelIndex( const std::vector<GameObjects::GameModel>& models ) const;
+    bool BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models );
     bool BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models );
     const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const;
+    bool BuildFocusModelMask( const GameObjects::GameModelCollection& models );
     std::vector<uint8_t>& FocusModelMask();
     const std::vector<uint8_t>& FocusModelMask() const;
     bool HasLauncherVisualBackup() const;
@@ -416,6 +462,33 @@ class ReplayRuntime
                       int32_t value3,
                       uint64_t data0,
                       const char* text );
+    void RecordWorldOverrideEvent( float previousGravity,
+                                   float previousFluidHeight,
+                                   float previousFluidDensity,
+                                   float gravity,
+                                   float fluidHeight,
+                                   float fluidDensity );
+    void RecordLauncherConfigEvent( uint32_t changedFlags, float impulseStrength, float projectileSpeed );
+    void RecordLauncherFireEvent( const Math::Vector::Vector3& rayOrigin,
+                                  const Math::Vector::Vector3& rayDirection,
+                                  const Math::Vector::Vector3& cameraUp,
+                                  bool projectile,
+                                  float impulseStrength,
+                                  float projectileSpeed,
+                                  int modelCount );
+    void RecordEditorPlaceEvent( int objectType,
+                                 bool fixedObject,
+                                 bool terrainAlign,
+                                 int modelCountBefore,
+                                 const Math::Vector::Vector3& terrainPoint,
+                                 const Math::Vector::Vector3& placementScale,
+                                 float placementYawRadians );
+    void RecordEditorTransformEvent( int modelIndex,
+                                     uint32_t changedFlags,
+                                     const GameObjects::GameModel& model,
+                                     int modelCount,
+                                     int scaleAxis,
+                                     float scaleFactor );
     bool SaveSolverReplay( const char* path ) const;
     bool SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result = nullptr ) const;
 

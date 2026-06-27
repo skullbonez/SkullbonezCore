@@ -12,6 +12,12 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - Screenshot state is per-run state; interval counters and one-shot flags are
+    consumed by TickScreenshots rather than by render backends.
+  - RuntimeCaptureSink owns the actual write side effect so capture policy can
+    be tested without a renderer.
+
 Related:
   - SkullbonezSource/Runtime/CaptureSystem.cpp
   - Agentic/Reference/comment-style-guide.md

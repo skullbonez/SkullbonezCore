@@ -12,6 +12,12 @@ Glossary:
   requested tick instead of wall-clock time.
   Accumulator: Stored fractional tick state that carries time across frames.
 
+Invariants:
+  - Fixed-step mode ignores wall-clock accumulation and commits whole
+    PHYSICS_FIXED_DT ticks from the time-scale accumulator.
+  - Variable-time scenes still run physics in fixed-size steps capped by
+    PHYSICS_MAX_STEPS_PER_FRAME to avoid runaway catch-up.
+
 Related:
   - SkullbonezSource/Physics/SimulationSystem.h
   - Agentic/Reference/runtime-reference.md
@@ -71,6 +77,8 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
         m_fixedStepTickAccumulator += (std::max)( 0.0f, input.timeScale );
         const int ticksThisFrame = (std::min)( static_cast<int>( std::floor( m_fixedStepTickAccumulator ) ),
                                                FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME );
+        // Hazard: enormous time_scale values must not create unbounded
+        // validation frames. Leftover fractional ticks remain deterministic.
         m_fixedStepTickAccumulator -= static_cast<float>( ticksThisFrame );
 
         if ( ticksThisFrame > 0 )

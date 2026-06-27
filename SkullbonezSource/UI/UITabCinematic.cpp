@@ -50,8 +50,8 @@ constexpr float UI_CINEMATIC_ROW_H = 42.0f;
 
 struct CinematicSliderSpec
 {
-    // One row in the Cine tab. Keeping label/range/step together makes it clear
-    // which UI slider controls which render setting.
+    // Concept: One row in the Cine tab. Keeping label/range/step together makes
+    // it clear which UI slider controls which render setting.
     const char* section;
     const char* label;
     SkullbonezCore::UI::UICinematicParam param;
@@ -561,6 +561,8 @@ bool HandleContentClick( UICinematicTabState& state,
 
 bool UpdateActiveSlider( UICinematicTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result )
 {
+    // Lifetime: activeSlider is shared across all tabs. The Cine tab accepts
+    // only its own id range before writing a cinematic command.
     const int cinematicSlider = CinematicSliderIndexFromActiveSlider( activeSlider );
     if ( cinematicSlider < 0 )
     {

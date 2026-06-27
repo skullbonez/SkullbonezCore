@@ -35,6 +35,7 @@ Related:
 
 #include "../Core/Config.h"
 #include "../GameObjects/GameModelCollection.h"
+#include "PhysicsBodyStore.h"
 #include "ObjectContactManifold.h"
 #include "../Core/Profiler.h"
 #include "../Core/WorkerPool.h"
@@ -456,6 +457,7 @@ bool PhysicsWorld::IsFullySubmergedBall( GameModelCollection& collection,
 
 
 void PhysicsWorld::LockUnderwaterSleeperIfReady( GameModelCollection& collection,
+                                                 PhysicsBodyStore& bodyStore,
                                                  const GameModelBodyStream& bodyStream,
                                                  int index )
 {
@@ -473,8 +475,14 @@ void PhysicsWorld::LockUnderwaterSleeperIfReady( GameModelCollection& collection
     {
         m_timeRemaining[index] = 0.0f;
     }
-    m_gameModels[index].SetLinearVelocity( ZERO_VECTOR );
-    m_gameModels[index].SetAngularVelocity( ZERO_VECTOR );
+    PhysicsBodyRecord* record = bodyStore.MutableRecordForModelIndex( index );
+    if ( record )
+    {
+        record->linearVelocity = ZERO_VECTOR;
+        record->angularVelocity = ZERO_VECTOR;
+        record->isSleeping = true;
+        bodyStore.WriteBackToModelAt( m_gameModels, index );
+    }
 }
 
 
@@ -482,6 +490,7 @@ bool PhysicsWorld::IsUnderwaterSleepLocked( GameModelCollection& collection,
                                             const GameModelBodyStream& bodyStream,
                                             int index )
 {
+    (void)collection;
     EnsureUnderwaterSleepLockBuffer( bodyStream.count );
     if ( index < 0 || index >= bodyStream.count )
     {
@@ -492,7 +501,6 @@ bool PhysicsWorld::IsUnderwaterSleepLocked( GameModelCollection& collection,
         return true;
     }
 
-    LockUnderwaterSleeperIfReady( collection, bodyStream, index );
     return m_underwaterSleepLocked[index] != 0;
 }
 
@@ -530,7 +538,7 @@ void PhysicsWorld::RecordPhysicsPipelineStage( const PhysicsPipelineRecord& reco
 }
 
 
-PersistentContactSolverContext PhysicsWorld::CreatePersistentContactSolverContext()
+PersistentContactSolverContext PhysicsWorld::CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore )
 {
     return PersistentContactSolverContext{ m_candidatePairs,
                                            m_sleepState,
@@ -545,6 +553,8 @@ PersistentContactSolverContext PhysicsWorld::CreatePersistentContactSolverContex
                                            m_terrainContactManifolds,
                                            m_terrainRestApplied,
                                            m_sleepSupportedThisFrame,
+                                           bodyStore.MutableRecords(),
+                                           bodyStore,
                                            *this };
 }
 
@@ -618,7 +628,7 @@ const std::vector<PointJointConstraint>& PhysicsWorld::GetPointJointConstraints(
 }
 
 
-void PhysicsWorld::RunPhysics( GameModelCollection& collection, float fChangeInTime )
+void PhysicsWorld::RunPhysics( GameModelCollection& collection, PhysicsBodyStore& bodyStore, float fChangeInTime )
 {
     // Concept: one fixed physics tick has a predictable data flow.
     //
@@ -634,6 +644,7 @@ void PhysicsWorld::RunPhysics( GameModelCollection& collection, float fChangeInT
     // baselines even when the final scene "looks" similar.
     auto& m_gameModels = collection.PhysicsModels();
     const int modelCount = static_cast<int>( m_gameModels.size() );
+    bodyStore.WriteBackToModels( m_gameModels );
     EnsureCollisionVisualBuffers( modelCount );
     if ( !m_collisionVisualFrameActive )
     {
@@ -657,6 +668,7 @@ void PhysicsWorld::RunPhysics( GameModelCollection& collection, float fChangeInT
         m_sleepState.assign( modelCount, 0 );
         m_sleepCounter.assign( modelCount, 0 );
     }
+    bodyStore.CopySleepStatesTo( m_sleepState );
     EnsureUnderwaterSleepLockBuffer( modelCount );
     if ( !m_sleepEnabled )
     {
@@ -684,7 +696,8 @@ void PhysicsWorld::RunPhysics( GameModelCollection& collection, float fChangeInT
     }
 
     (void)collection.GetBodyStream();
-    RunSolverPhysics( collection, fChangeInTime );
+    RunSolverPhysics( collection, bodyStore, fChangeInTime );
+    bodyStore.CopySleepStatesFrom( m_sleepState );
 
 #ifdef _DEBUG
     if ( !m_diagnosticsSuppressed )
@@ -722,6 +735,16 @@ void PhysicsWorld::WakeModel( GameModelCollection& collection, int index )
     if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
     {
         GameModelBodyStream bodyStream = collection.GetBodyStream();
+        if ( !m_underwaterSleepLocked[index] && m_sleepState[index] &&
+             IsFullySubmergedBall( collection, bodyStream, index ) )
+        {
+            m_underwaterSleepLocked[index] = 1;
+            if ( index < static_cast<int>( m_timeRemaining.size() ) )
+            {
+                m_timeRemaining[index] = 0.0f;
+            }
+            return;
+        }
         if ( IsUnderwaterSleepLocked( collection, bodyStream, index ) )
         {
             return;
@@ -730,9 +753,9 @@ void PhysicsWorld::WakeModel( GameModelCollection& collection, int index )
     if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
     {
         collection.InvalidatePhysicsStreams();
-        WakeSleepVisualIsland( collection, index, 0.0f, false );
-        WakePointJointIsland( collection, index, 0.0f, false );
-        WakeRestingContactIsland( collection, index, 0.0f, false );
+        WakeSleepVisualIsland( collection, nullptr, index, 0.0f, false );
+        WakePointJointIsland( collection, nullptr, index, 0.0f, false );
+        WakeRestingContactIsland( collection, nullptr, index, 0.0f, false );
     }
 }
 
@@ -772,8 +795,6 @@ void PhysicsWorld::SeedModelAsleep( GameModelCollection& collection, int index )
     EnsureUnderwaterSleepLockBuffer( modelCount );
 
     collection.InvalidatePhysicsStreams();
-    m_gameModels[index].SetLinearVelocity( ZERO_VECTOR );
-    m_gameModels[index].SetAngularVelocity( ZERO_VECTOR );
     m_sleepState[index] = 1;
     m_sleepCounter[index] = static_cast<uint8_t>( (std::min)( Cfg().physicsSleepFrames, 255 ) );
     m_underwaterSleepLocked[index] = 0;
@@ -804,7 +825,7 @@ void PhysicsWorld::SetPhysicsSleepEnabled( bool enabled )
 }
 
 
-void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt )
+void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, PhysicsBodyStore& bodyStore, float dt )
 {
     const TornadoFieldConfig& config = m_tornadoField.GetConfig();
     const float step = (std::max)( 0.0f, dt );
@@ -821,6 +842,7 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
 
     PROFILE_SCOPED( "Frame/Physics/TornadoField" );
     auto& m_gameModels = collection.PhysicsModels();
+    std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
     auto sampleAcceleration =
         [&]( const Vector3& position, TornadoFieldConfig& outBestConfig, float& outBestAccelerationSq ) -> Vector3
     {
@@ -862,7 +884,8 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
 
             TornadoFieldConfig bestConfig;
             float bestAccelerationSq = 0.0f;
-            const Vector3 acceleration = sampleAcceleration( model.GetPosition(), bestConfig, bestAccelerationSq );
+            const Vector3 acceleration =
+                sampleAcceleration( bodyRecords[static_cast<size_t>( i )].position, bestConfig, bestAccelerationSq );
             const float releaseAcceleration = (std::max)( 16.0f, model.GetContactReleaseImpulseThreshold() * 32.0f );
             if ( bestAccelerationSq < releaseAcceleration * releaseAcceleration )
             {
@@ -872,8 +895,11 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
             const Vector3 seedLinearVelocity =
                 ClampVectorMagnitude( acceleration * 0.08f, (std::max)( 10.0f, bestConfig.maxDeltaVelocity * 1.5f ) );
             model.SetFixed( false );
-            model.SetLinearVelocity( seedLinearVelocity );
-            model.SetAngularVelocity( Vector3( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f ) );
+            bodyStore.CaptureMutableStateFromModelAt( m_gameModels, i );
+            PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( i )];
+            record.linearVelocity = seedLinearVelocity;
+            record.angularVelocity = Vector3( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f );
+            bodyStore.WriteBackToModelAt( m_gameModels, i );
             WakeModel( collection, i );
             collection.ReleaseAttachedFixedTreeParts(
                 i,
@@ -884,6 +910,7 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
     }
     if ( releasedFixedParts )
     {
+        bodyStore.LoadFromModels( m_gameModels, m_sleepState );
         collection.InvalidatePhysicsStreams();
     }
 
@@ -900,7 +927,7 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
             return;
         }
 
-        const Vector3 position = m_gameModels[i].GetPosition();
+        const Vector3 position = bodyRecords[static_cast<size_t>( i )].position;
         TornadoFieldConfig bestConfig;
         float bestAccelerationSq = 0.0f;
         Vector3 acceleration = sampleAcceleration( position, bestConfig, bestAccelerationSq );
@@ -923,10 +950,11 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
             m_sleepCounter[i] = 0;
             m_sleepIslandVisualId[i] = 0;
             m_timeRemaining[i] = dt;
-            m_gameModels[i].ApplyForces( dt );
+            bodyRecords[static_cast<size_t>( i )].isSleeping = false;
+            bodyStore.ApplyCompatibilityForces( m_gameModels, i, dt );
         }
 
-        Vector3 velocity = m_gameModels[i].GetVelocity();
+        Vector3 velocity = bodyRecords[static_cast<size_t>( i )].linearVelocity;
         m_tornadoCaptureSeconds[i] += step;
         m_tornadoEjectCooldownSeconds[i] = (std::max)( 0.0f, m_tornadoEjectCooldownSeconds[i] - step );
 
@@ -973,7 +1001,8 @@ void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, float dt 
         }
 
         velocity += ClampVectorMagnitude( acceleration * step, maxDeltaVelocity );
-        m_gameModels[i].SetLinearVelocity( velocity );
+        bodyRecords[static_cast<size_t>( i )].linearVelocity = velocity;
+        bodyStore.WriteBackToModelAt( m_gameModels, i );
     };
 
     if ( Cfg().physicsParallel && Cfg().physicsParallelTornadoField )
@@ -1166,7 +1195,11 @@ void PhysicsWorld::ForgetPersistentContactCacheForBody( int bodyIndex )
 }
 
 
-bool PhysicsWorld::WakeDynamicBodyState( GameModelCollection& collection, int index, float dt, bool applyForces )
+bool PhysicsWorld::WakeDynamicBodyState( GameModelCollection& collection,
+                                         PhysicsBodyStore* bodyStore,
+                                         int index,
+                                         float dt,
+                                         bool applyForces )
 {
     auto& models = collection.PhysicsModels();
     if ( index < 0 || index >= static_cast<int>( models.size() ) || models[index].IsFixed() ||
@@ -1183,6 +1216,10 @@ bool PhysicsWorld::WakeDynamicBodyState( GameModelCollection& collection, int in
         index < static_cast<int>( m_underwaterSleepLocked.size() ) && m_underwaterSleepLocked[index] != 0;
 
     m_sleepState[index] = 0;
+    if ( bodyStore )
+    {
+        bodyStore->WakeBody( index );
+    }
     if ( index < static_cast<int>( m_sleepCounter.size() ) )
     {
         m_sleepCounter[index] = 0;
@@ -1201,7 +1238,14 @@ bool PhysicsWorld::WakeDynamicBodyState( GameModelCollection& collection, int in
     }
     if ( applyForces && wasSleeping && dt > TOLERANCE )
     {
-        models[index].ApplyForces( dt );
+        if ( bodyStore )
+        {
+            bodyStore->ApplyCompatibilityForces( models, index, dt );
+        }
+        else
+        {
+            models[index].ApplyForces( dt );
+        }
     }
     // Hazard: waking a body must also forget any cached contact impulses that
     // involve that body. Warm-start impulses are great for resting contact, but
@@ -1213,7 +1257,11 @@ bool PhysicsWorld::WakeDynamicBodyState( GameModelCollection& collection, int in
 }
 
 
-void PhysicsWorld::WakeSleepVisualIsland( GameModelCollection& collection, int index, float dt, bool applyForces )
+void PhysicsWorld::WakeSleepVisualIsland( GameModelCollection& collection,
+                                          PhysicsBodyStore* bodyStore,
+                                          int index,
+                                          float dt,
+                                          bool applyForces )
 {
     // Concept: m_sleepIslandVisualId is the persisted identity of a group that
     // deactivated together. Contacts may be pruned while the group sleeps, so
@@ -1232,13 +1280,13 @@ void PhysicsWorld::WakeSleepVisualIsland( GameModelCollection& collection, int i
         {
             if ( m_sleepIslandVisualId[i] == visualId )
             {
-                changed = WakeDynamicBodyState( collection, i, dt, applyForces ) || changed;
+                changed = WakeDynamicBodyState( collection, bodyStore, i, dt, applyForces ) || changed;
             }
         }
     }
     else
     {
-        changed = WakeDynamicBodyState( collection, index, dt, applyForces );
+        changed = WakeDynamicBodyState( collection, bodyStore, index, dt, applyForces );
     }
 
     if ( changed )
@@ -1248,7 +1296,11 @@ void PhysicsWorld::WakeSleepVisualIsland( GameModelCollection& collection, int i
 }
 
 
-void PhysicsWorld::WakePointJointIsland( GameModelCollection& collection, int index, float dt, bool applyForces )
+void PhysicsWorld::WakePointJointIsland( GameModelCollection& collection,
+                                         PhysicsBodyStore* bodyStore,
+                                         int index,
+                                         float dt,
+                                         bool applyForces )
 {
     // Hazard: solving a ragdoll with one awake piece and several sleeping pieces
     // treats the sleepers as temporary static anchors. Wake the whole constraint
@@ -1335,7 +1387,7 @@ void PhysicsWorld::WakePointJointIsland( GameModelCollection& collection, int in
         {
             continue;
         }
-        changed = WakeDynamicBodyState( collection, i, dt, applyForces ) || changed;
+        changed = WakeDynamicBodyState( collection, bodyStore, i, dt, applyForces ) || changed;
     }
 
     if ( changed )
@@ -1345,7 +1397,11 @@ void PhysicsWorld::WakePointJointIsland( GameModelCollection& collection, int in
 }
 
 
-void PhysicsWorld::WakeRestingContactIsland( GameModelCollection& collection, int index, float dt, bool applyForces )
+void PhysicsWorld::WakeRestingContactIsland( GameModelCollection& collection,
+                                             PhysicsBodyStore* bodyStore,
+                                             int index,
+                                             float dt,
+                                             bool applyForces )
 {
     auto& models = collection.PhysicsModels();
     const int modelCount = static_cast<int>( models.size() );
@@ -1355,6 +1411,7 @@ void PhysicsWorld::WakeRestingContactIsland( GameModelCollection& collection, in
     }
 
     GameModelBodyStream bodyStream = collection.GetBodyStream();
+    const std::vector<PhysicsBodyRecord>* bodyRecords = bodyStore ? &bodyStore->Records() : nullptr;
     std::vector<uint8_t> visited( static_cast<size_t>( modelCount ), 0 );
     std::vector<int> wakeQueue;
     wakeQueue.reserve( static_cast<size_t>( modelCount ) );
@@ -1375,8 +1432,10 @@ void PhysicsWorld::WakeRestingContactIsland( GameModelCollection& collection, in
 
     auto isLikelyRestingNeighbor = [&]( int a, int b ) -> bool
     {
-        const Vector3 posA = models[static_cast<size_t>( a )].GetPosition();
-        const Vector3 posB = models[static_cast<size_t>( b )].GetPosition();
+        const Vector3 posA = bodyRecords ? ( *bodyRecords )[static_cast<size_t>( a )].position
+                                         : models[static_cast<size_t>( a )].GetPosition();
+        const Vector3 posB = bodyRecords ? ( *bodyRecords )[static_cast<size_t>( b )].position
+                                         : models[static_cast<size_t>( b )].GetPosition();
         const float radiusA = (std::max)( 0.01f, models[static_cast<size_t>( a )].GetBoundingRadius() );
         const float radiusB = (std::max)( 0.01f, models[static_cast<size_t>( b )].GetBoundingRadius() );
         if ( posB.y + radiusB + EXPLICIT_WAKE_VERTICAL_SLOP < posA.y - radiusA )
@@ -1411,7 +1470,7 @@ void PhysicsWorld::WakeRestingContactIsland( GameModelCollection& collection, in
 
             visited[static_cast<size_t>( candidate )] = 1;
             wakeQueue.push_back( candidate );
-            changed = WakeDynamicBodyState( collection, candidate, dt, applyForces ) || changed;
+            changed = WakeDynamicBodyState( collection, bodyStore, candidate, dt, applyForces ) || changed;
         }
     }
 
@@ -1449,7 +1508,9 @@ bool PhysicsWorld::IsPointJointPair( int bodyA, int bodyB ) const
 }
 
 
-void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collection, float dt )
+void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collection,
+                                                  PhysicsBodyStore& bodyStore,
+                                                  float dt )
 {
     if ( m_pointJointConstraints.empty() || static_cast<int>( m_sleepState.size() ) <= 0 )
     {
@@ -1457,6 +1518,7 @@ void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collectio
     }
 
     auto& models = collection.PhysicsModels();
+    const std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.Records();
     const int modelCount = static_cast<int>( models.size() );
     m_sleepIslandParent.assign( modelCount, 0 );
     m_sleepIslandRank.assign( modelCount, 0 );
@@ -1524,7 +1586,7 @@ void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collectio
 
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( m_sleepPointJointBody[i] == 0 || models[i].IsFixed() )
+        if ( m_sleepPointJointBody[i] == 0 || bodyRecords[static_cast<size_t>( i )].isFixed )
         {
             continue;
         }
@@ -1543,8 +1605,8 @@ void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collectio
     bool changed = false;
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( m_sleepPointJointBody[i] == 0 || models[i].IsFixed() || i >= static_cast<int>( m_sleepState.size() ) ||
-             m_sleepState[i] == 0 )
+        if ( m_sleepPointJointBody[i] == 0 || bodyRecords[static_cast<size_t>( i )].isFixed ||
+             i >= static_cast<int>( m_sleepState.size() ) || m_sleepState[i] == 0 )
         {
             continue;
         }
@@ -1552,7 +1614,7 @@ void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collectio
         const int root = findIsland( i );
         if ( m_sleepIslandHasAwake[root] != 0 && m_sleepIslandCanSleep[root] != 0 )
         {
-            changed = WakeDynamicBodyState( collection, i, dt, true ) || changed;
+            changed = WakeDynamicBodyState( collection, &bodyStore, i, dt, true ) || changed;
         }
     }
 
@@ -1563,11 +1625,12 @@ void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collectio
 }
 
 
-void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
+void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, PhysicsBodyStore& bodyStore, float dt )
 {
     auto& m_gameModels = collection.PhysicsModels();
     const GameModelBodyStream bodyStream = collection.GetBodyStream();
     const int modelCount = bodyStream.count;
+    std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
 
     // Sleep thresholds are config-backed because they directly trade CPU cost
     // against visible settling behavior. Higher thresholds keep bodies awake
@@ -1590,7 +1653,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     {
         if ( m_sleepState[x] )
         {
-            LockUnderwaterSleeperIfReady( collection, bodyStream, x );
+            LockUnderwaterSleeperIfReady( collection, bodyStore, bodyStream, x );
         }
     }
 
@@ -1608,7 +1671,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
             m_timeRemaining[x] = 0.0f;
             return;
         }
-        m_gameModels[x].ApplyForces( dt );
+        bodyStore.ApplyCompatibilityForces( m_gameModels, x, dt );
     };
 
     if ( Cfg().physicsParallel && Cfg().physicsParallelApplyForces )
@@ -1629,7 +1692,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     }
     PROFILE_END( "Frame/Physics/ApplyForces" );
 
-    ApplyTornadoField( collection, dt );
+    ApplyTornadoField( collection, bodyStore, dt );
 
     // Broadphase: build spatial grid from all object positions (include sleeping for wake detection)
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
@@ -1641,7 +1704,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         for ( int i = 0; i < modelCount; ++i )
         {
             const float radius = bodyStream.boundingRadii[i];
-            const Vector3 displacement = m_gameModels[i].GetVelocity() * dt;
+            const Vector3 displacement = bodyRecords[static_cast<size_t>( i )].linearVelocity * dt;
             const float displacementSq = Vector::VectorMagSquared( displacement );
             if ( !bodyStream.isFixed[i] && displacementSq > radius * radius )
             {
@@ -1691,7 +1754,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
             return false;
         }
 
-        const Vector3 displacement = m_gameModels[index].GetVelocity() * dt;
+        const Vector3 displacement = bodyRecords[static_cast<size_t>( index )].linearVelocity * dt;
         const float displacementSq = Vector::VectorMagSquared( displacement );
         const float minSweepDistance = (std::max)( radius * 2.0f, PHYSICS_FAST_SWEEP_MIN_DISTANCE );
         return displacementSq > minSweepDistance * minSweepDistance;
@@ -1700,8 +1763,9 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     auto sweptSegmentTouchesExpandedBody = [&]( int movingIndex, int targetIndex ) -> bool
     {
         const Vector3 relativeStart = bodyStream.positions[movingIndex] - bodyStream.positions[targetIndex];
-        const Vector3 relativeDisplacement =
-            ( m_gameModels[movingIndex].GetVelocity() - m_gameModels[targetIndex].GetVelocity() ) * dt;
+        const Vector3 relativeDisplacement = ( bodyRecords[static_cast<size_t>( movingIndex )].linearVelocity -
+                                               bodyRecords[static_cast<size_t>( targetIndex )].linearVelocity ) *
+                                             dt;
         const float relativeLengthSq = Vector::VectorMagSquared( relativeDisplacement );
         if ( relativeLengthSq <= TOLERANCE * TOLERANCE )
         {
@@ -1779,8 +1843,11 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
             record.stage = Physics::PhysicsPipelineStage::BroadphaseCandidate;
             record.bodyA = pair.first;
             record.bodyB = pair.second;
-            record.point = ( m_gameModels[pair.first].GetPosition() + m_gameModels[pair.second].GetPosition() ) * 0.5f;
-            Vector3 delta = m_gameModels[pair.second].GetPosition() - m_gameModels[pair.first].GetPosition();
+            record.point = ( bodyRecords[static_cast<size_t>( pair.first )].position +
+                             bodyRecords[static_cast<size_t>( pair.second )].position ) *
+                           0.5f;
+            Vector3 delta = bodyRecords[static_cast<size_t>( pair.second )].position -
+                            bodyRecords[static_cast<size_t>( pair.first )].position;
             float deltaMag = Vector::VectorMag( delta );
             record.normal = deltaMag > TOLERANCE ? delta / deltaMag : Vector3( 0.0f, 1.0f, 0.0f );
             record.scalarA = static_cast<float>( candidatePairs.size() );
@@ -1818,8 +1885,9 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
                                     record.stage = Physics::PhysicsPipelineStage::SleepPrunedPair;
                                     record.bodyA = a;
                                     record.bodyB = b;
-                                    record.point =
-                                        ( m_gameModels[a].GetPosition() + m_gameModels[b].GetPosition() ) * 0.5f;
+                                    record.point = ( bodyRecords[static_cast<size_t>( a )].position +
+                                                     bodyRecords[static_cast<size_t>( b )].position ) *
+                                                   0.5f;
                                     record.scalarA = 1.0f;
                                     RecordPhysicsPipelineStage( record );
                                 }
@@ -1831,8 +1899,8 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     auto hasWakeEnergy = [&]( int awakeIndex ) -> bool
     {
-        const Vector3& vel = m_gameModels[awakeIndex].GetVelocity();
-        const Vector3& omega = m_gameModels[awakeIndex].GetAngularVelocity();
+        const Vector3& vel = bodyRecords[static_cast<size_t>( awakeIndex )].linearVelocity;
+        const Vector3& omega = bodyRecords[static_cast<size_t>( awakeIndex )].angularVelocity;
         float speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
         float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
         return speedSq >= SLEEP_LINEAR_SQ || omegaSq >= SLEEP_ANGULAR_SQ;
@@ -1853,7 +1921,8 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         m_sleepCounter[sleepingIndex] = 0;
         m_sleepIslandVisualId[sleepingIndex] = 0;
         m_timeRemaining[sleepingIndex] = dt;
-        m_gameModels[sleepingIndex].ApplyForces( dt );
+        bodyRecords[static_cast<size_t>( sleepingIndex )].isSleeping = false;
+        bodyStore.ApplyCompatibilityForces( m_gameModels, sleepingIndex, dt );
     };
 
     auto hasPersistentWakeContact = [&]( int awakeIndex, int sleepingIndex ) -> bool
@@ -1880,17 +1949,23 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         // Temporarily place both bodies at a candidate time, ask the exact
         // narrowphase whether they touch there, then restore positions. This is
         // a query only; it must leave the world exactly as it found it.
-        const Vector3 startA = m_gameModels[a].GetPosition();
-        const Vector3 startB = m_gameModels[b].GetPosition();
-        m_gameModels[a].SetPosition( startA + m_gameModels[a].GetVelocity() * time );
-        m_gameModels[b].SetPosition( startB + m_gameModels[b].GetVelocity() * time );
+        const Vector3 startA = bodyRecords[static_cast<size_t>( a )].position;
+        const Vector3 startB = bodyRecords[static_cast<size_t>( b )].position;
+        bodyRecords[static_cast<size_t>( a )].position =
+            startA + bodyRecords[static_cast<size_t>( a )].linearVelocity * time;
+        bodyRecords[static_cast<size_t>( b )].position =
+            startB + bodyRecords[static_cast<size_t>( b )].linearVelocity * time;
+        bodyStore.WriteBackToModelAt( m_gameModels, a );
+        bodyStore.WriteBackToModelAt( m_gameModels, b );
 
         ObjectContactManifold manifold;
         const bool hit =
             BuildObjectContactManifold( m_gameModels[a], m_gameModels[b], a, b, Cfg().contactEpsilon, manifold );
 
-        m_gameModels[a].SetPosition( startA );
-        m_gameModels[b].SetPosition( startB );
+        bodyRecords[static_cast<size_t>( a )].position = startA;
+        bodyRecords[static_cast<size_t>( b )].position = startB;
+        bodyStore.WriteBackToModelAt( m_gameModels, a );
+        bodyStore.WriteBackToModelAt( m_gameModels, b );
         return hit;
     };
 
@@ -1987,7 +2062,9 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
     auto writeObjectCollisionCellEvent = [&]( ObjectNarrowphaseEvent& event, int bodyA, int bodyB )
     {
-        const Vector3 midpoint = ( m_gameModels[bodyA].GetPosition() + m_gameModels[bodyB].GetPosition() ) * 0.5f;
+        const Vector3 midpoint = ( bodyRecords[static_cast<size_t>( bodyA )].position +
+                                   bodyRecords[static_cast<size_t>( bodyB )].position ) *
+                                 0.5f;
         const int16_t cx = static_cast<int16_t>( floorf( midpoint.x * invCellSize ) );
         const int16_t cy = static_cast<int16_t>( floorf( midpoint.y * invCellSize ) );
         const int16_t cz = static_cast<int16_t>( floorf( midpoint.z * invCellSize ) );
@@ -2055,13 +2132,15 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
                         record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
                         record.bodyA = y;
                         record.bodyB = x;
-                        record.point = ( m_gameModels[y].GetPosition() + m_gameModels[x].GetPosition() ) * 0.5f;
+                        record.point = ( bodyRecords[static_cast<size_t>( y )].position +
+                                         bodyRecords[static_cast<size_t>( x )].position ) *
+                                       0.5f;
                         record.scalarA = colTime;
                         record.scalarB = availableTime;
                         recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
                         emitObjectCollisionTimeEvent( event, y, x, colTime, availableTime );
 
-                        m_gameModels[y].UpdatePosition( colTime );
+                        bodyStore.IntegrateBodyPose( m_gameModels, y, colTime );
                         m_timeRemaining[y] = (std::max)( 0.0f, m_timeRemaining[y] - colTime );
                         if ( !sleepingLocked )
                         {
@@ -2078,7 +2157,9 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
                     record.stage = Physics::PhysicsPipelineStage::WakeDecision;
                     record.bodyA = y;
                     record.bodyB = x;
-                    record.point = ( m_gameModels[y].GetPosition() + m_gameModels[x].GetPosition() ) * 0.5f;
+                    record.point = ( bodyRecords[static_cast<size_t>( y )].position +
+                                     bodyRecords[static_cast<size_t>( x )].position ) *
+                                   0.5f;
                     record.scalarA = sleepingLocked ? 0.0f : 1.0f;
                     recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::WakeDecision, record );
 
@@ -2110,13 +2191,15 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
                         record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
                         record.bodyA = x;
                         record.bodyB = y;
-                        record.point = ( m_gameModels[x].GetPosition() + m_gameModels[y].GetPosition() ) * 0.5f;
+                        record.point = ( bodyRecords[static_cast<size_t>( x )].position +
+                                         bodyRecords[static_cast<size_t>( y )].position ) *
+                                       0.5f;
                         record.scalarA = colTime;
                         record.scalarB = availableTime;
                         recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
                         emitObjectCollisionTimeEvent( event, x, y, colTime, availableTime );
 
-                        m_gameModels[x].UpdatePosition( colTime );
+                        bodyStore.IntegrateBodyPose( m_gameModels, x, colTime );
                         m_timeRemaining[x] = (std::max)( 0.0f, m_timeRemaining[x] - colTime );
                         if ( !sleepingLocked )
                         {
@@ -2133,7 +2216,9 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
                     record.stage = Physics::PhysicsPipelineStage::WakeDecision;
                     record.bodyA = x;
                     record.bodyB = y;
-                    record.point = ( m_gameModels[x].GetPosition() + m_gameModels[y].GetPosition() ) * 0.5f;
+                    record.point = ( bodyRecords[static_cast<size_t>( x )].position +
+                                     bodyRecords[static_cast<size_t>( y )].position ) *
+                                   0.5f;
                     record.scalarA = sleepingLocked ? 0.0f : 1.0f;
                     recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::WakeDecision, record );
 
@@ -2168,14 +2253,16 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
             record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
             record.bodyA = x;
             record.bodyB = y;
-            record.point = ( m_gameModels[x].GetPosition() + m_gameModels[y].GetPosition() ) * 0.5f;
+            record.point =
+                ( bodyRecords[static_cast<size_t>( x )].position + bodyRecords[static_cast<size_t>( y )].position ) *
+                0.5f;
             record.scalarA = colTime;
             record.scalarB = availableTime;
             recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
             emitObjectCollisionTimeEvent( event, x, y, colTime, availableTime );
 
-            m_gameModels[x].UpdatePosition( colTime );
-            m_gameModels[y].UpdatePosition( colTime );
+            bodyStore.IntegrateBodyPose( m_gameModels, x, colTime );
+            bodyStore.IntegrateBodyPose( m_gameModels, y, colTime );
             m_timeRemaining[x] = (std::max)( 0.0f, m_timeRemaining[x] - colTime );
             m_timeRemaining[y] = (std::max)( 0.0f, m_timeRemaining[y] - colTime );
 
@@ -2190,7 +2277,9 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
             record.stage = Physics::PhysicsPipelineStage::SweptObjectMiss;
             record.bodyA = x;
             record.bodyB = y;
-            record.point = ( m_gameModels[x].GetPosition() + m_gameModels[y].GetPosition() ) * 0.5f;
+            record.point =
+                ( bodyRecords[static_cast<size_t>( x )].position + bodyRecords[static_cast<size_t>( y )].position ) *
+                0.5f;
             record.scalarA = availableTime;
             recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectMiss, record );
         }
@@ -2381,7 +2470,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     {
         if ( m_gameModels[x].IsResponseRequired() )
         {
-            m_gameModels[x].UpdatePosition( colTime );
+            bodyStore.IntegrateBodyPose( m_gameModels, x, colTime );
             const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
             // BuildTerrainContactManifold is the handoff from terrain-specific
             // collision data to solver-neutral contact geometry. The old
@@ -2396,7 +2485,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
             record.stage = Physics::PhysicsPipelineStage::TerrainHit;
             record.bodyA = x;
             record.bodyB = TERRAIN_BODY_INDEX;
-            record.point = hasManifold ? manifold.points[0].point : m_gameModels[x].GetPosition();
+            record.point = hasManifold ? manifold.points[0].point : bodyRecords[static_cast<size_t>( x )].position;
             record.normal = hasManifold ? manifold.normal : ZERO_VECTOR;
             record.scalarA = colTime;
             record.scalarB = hasManifold && manifold.supportsRestingPolicy ? 1.0f : 0.0f;
@@ -2454,10 +2543,10 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
     PROFILE_END( "Frame/Physics/Terrain/Detect" );
     PROFILE_END( "Frame/Physics/Terrain" );
 
-    PersistentContactSolverContext solverContext = CreatePersistentContactSolverContext();
+    PersistentContactSolverContext solverContext = CreatePersistentContactSolverContext( bodyStore );
     m_contactSolver.Solve( solverContext, collection, dt );
-    WakePointJointConnectedBodies( collection, dt );
-    Ragdoll::SolvePointJoints( collection, m_pointJointConstraints, m_sleepState, dt );
+    WakePointJointConnectedBodies( collection, bodyStore, dt );
+    Ragdoll::SolvePointJoints( collection, bodyStore, m_pointJointConstraints, m_sleepState, dt );
     AppendPointJointSupportEdges( modelCount );
     // Object contacts are converted into stack support only after terrain
     // response has had a chance to seed true support for this frame.
@@ -2478,7 +2567,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
 
         if ( m_timeRemaining[x] > 0.0f )
         {
-            m_gameModels[x].UpdatePosition( m_timeRemaining[x] );
+            bodyStore.IntegrateBodyPose( m_gameModels, x, m_timeRemaining[x] );
         }
     };
 
@@ -2659,12 +2748,12 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
             continue;
         }
 
-        auto orientationA = m_gameModels[a].GetOrientation();
-        auto orientationB = m_gameModels[b].GetOrientation();
+        auto orientationA = bodyRecords[static_cast<size_t>( a )].orientation;
+        auto orientationB = bodyRecords[static_cast<size_t>( b )].orientation;
         const auto rotA = orientationA.GetOrientationMatrix();
         const auto rotB = orientationB.GetOrientationMatrix();
-        const Vector3 anchorA = m_gameModels[a].GetPosition() + rotA * constraint.localAnchorA;
-        const Vector3 anchorB = m_gameModels[b].GetPosition() + rotB * constraint.localAnchorB;
+        const Vector3 anchorA = bodyRecords[static_cast<size_t>( a )].position + rotA * constraint.localAnchorA;
+        const Vector3 anchorB = bodyRecords[static_cast<size_t>( b )].position + rotB * constraint.localAnchorB;
         const float distance = Vector::VectorMag( anchorB - anchorA );
         const float allowedDistance =
             constraint.slack + (std::max)( POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE,
@@ -2689,8 +2778,8 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         const int root = findIsland( x );
         m_sleepIslandHasAwake[root] = 1;
 
-        const Vector3& vel = m_gameModels[x].GetVelocity();
-        const Vector3& omega = m_gameModels[x].GetAngularVelocity();
+        const Vector3& vel = bodyRecords[static_cast<size_t>( x )].linearVelocity;
+        const Vector3& omega = bodyRecords[static_cast<size_t>( x )].angularVelocity;
         float speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
         float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
         bool supported = x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0;
@@ -2760,7 +2849,7 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
         record.stage = Physics::PhysicsPipelineStage::SleepIslandDecision;
         record.bodyA = x;
         record.bodyB = root;
-        record.point = m_gameModels[x].GetPosition();
+        record.point = bodyRecords[static_cast<size_t>( x )].position;
         record.scalarA = quiet ? 1.0f : 0.0f;
         record.scalarB = supported ? 1.0f : 0.0f;
         record.scalarC = terrainInhibitBlocksSleep ? 1.0f : ( pointJointErrorBlocksSleep ? 2.0f : 0.0f );
@@ -2868,16 +2957,18 @@ void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, float dt )
             record.stage = Physics::PhysicsPipelineStage::SleepIslandDecision;
             record.bodyA = x;
             record.bodyB = root;
-            record.point = m_gameModels[x].GetPosition();
+            record.point = bodyRecords[static_cast<size_t>( x )].position;
             record.scalarA = 1.0f;
             record.scalarB = static_cast<float>( m_sleepIslandAssignedVisualId[root] );
             record.scalarC = static_cast<float>( m_sleepCounter[x] );
             RecordPhysicsPipelineStage( record );
             // Zeroing velocities at the island sleep transition prevents tiny
             // residual solver drift from reappearing when the body later wakes.
-            m_gameModels[x].SetLinearVelocity( Math::Vector::ZERO_VECTOR );
-            m_gameModels[x].SetAngularVelocity( Math::Vector::ZERO_VECTOR );
-            LockUnderwaterSleeperIfReady( collection, bodyStream, x );
+            bodyRecords[static_cast<size_t>( x )].linearVelocity = Math::Vector::ZERO_VECTOR;
+            bodyRecords[static_cast<size_t>( x )].angularVelocity = Math::Vector::ZERO_VECTOR;
+            bodyRecords[static_cast<size_t>( x )].isSleeping = true;
+            bodyStore.WriteBackToModelAt( m_gameModels, x );
+            LockUnderwaterSleeperIfReady( collection, bodyStore, bodyStream, x );
         }
     }
     PROFILE_END( "Frame/Physics/Integrate" );

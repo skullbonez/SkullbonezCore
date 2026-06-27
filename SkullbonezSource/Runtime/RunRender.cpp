@@ -48,150 +48,23 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
 
-// The cinematic settings can come from two places:
-//  1. a .scene.json file, when a test/preview scene is loaded, or
-//  2. the normal engine config, when the app is running without a scene override.
-// This helper hides that choice so the render code below can just ask for "the
-// current cinematic look" without caring where it was authored.
-CinematicRenderConfig& Run::ActiveCinematicConfig()
+namespace
 {
-    return SceneState().isSceneMode ? SceneState().cinematicRender : Cfg().cinematicRender;
-}
-
-
-const CinematicRenderConfig& Run::ActiveCinematicConfig() const
+RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
+                                              SkullbonezCore::GameObjects::GameModelCollection& models,
+                                              SkullbonezCore::Environment::WorldEnvironment& world,
+                                              SkullbonezCore::UI::InGameUI& ui )
 {
-    return SceneState().isSceneMode ? SceneState().cinematicRender : Cfg().cinematicRender;
+    return RuntimeRenderInputs{ RuntimeRenderServices{ *systems.textures,
+                                                       models,
+                                                       world,
+                                                       systems.terrain.get(),
+                                                       *systems.cameras,
+                                                       *systems.window,
+                                                       ui,
+                                                       systems.skyBox } };
 }
-
-
-bool Run::IsCinematicRenderingEnabled() const
-{
-    // Command line switches win over config/scene values. That lets us launch
-    // the same scene in plain mode or cinematic mode while debugging.
-    const bool enabled = m_launchOptions.hasCinematicRenderingOverride ? m_launchOptions.cinematicRendering
-                                                                       : ActiveCinematicConfig().enabled;
-
-    // Text-only mode deliberately skips all 3D rendering, so cinematic mode must
-    // also stay off there. The UI text renderer handles that path by itself.
-    return enabled && IsGfxReady() && !m_debug.isTextOnly;
-}
-
-
-void Run::ApplyReplayRenderStateForFrame()
-{
-    if ( const RunReplayPredictionFrame* predictionFrame = CurrentReplayPredictionScrubFrame() )
-    {
-        m_replayRuntime.ApplyPredictionFrameForRender( m_cGameModelCollection, *predictionFrame );
-    }
-    else if ( const ReplayPresentationSample* replaySample = CurrentReplayScrubSample() )
-    {
-        m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, *replaySample );
-    }
-    else if ( const ReplaySolverFrameSample* solverSample = CurrentReplaySolverScrubSample() )
-    {
-        m_replayRuntime.ApplySolverSampleForRender( m_cGameModelCollection, *solverSample );
-        ApplyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
-    }
-}
-
-
-void Run::RestoreReplayRenderStateForFrame()
-{
-    m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
-    RestoreReplayLauncherVisualForRender();
-}
-
-
-void Run::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
-                                        const CinematicRenderConfig* cinematic,
-                                        const Rendering::ShadowFrameData* shadow )
-{
-    PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
-    const std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.Models();
-    if ( !m_replayRuntime.BuildPredictionGhostDrawRequests( models ) )
-    {
-        return;
-    }
-
-    SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
-    RenderHelper::DrawBoxBatchBegin( frame.baseView,
-                                     frame.projection,
-                                     frame.lightPosition,
-                                     true,
-                                     cinematic,
-                                     shadow,
-                                     1.0f );
-
-    for ( const ReplayPredictionGhostDrawRequest& request : m_replayRuntime.PredictionGhostDrawRequests() )
-    {
-        if ( request.modelIndex < 0 || request.modelIndex >= static_cast<int>( models.size() ) )
-        {
-            continue;
-        }
-
-        const GameObjects::GameModel& model = models[static_cast<std::size_t>( request.modelIndex )];
-        const BoundingBox* box = std::get_if<BoundingBox>( &model.GetCollisionShape() );
-        if ( !box )
-        {
-            continue;
-        }
-
-        Rendering::RenderMaterial material = model.GetRenderMaterial();
-        material.baseColor[3] = request.alpha;
-        const Matrix4 modelMatrix =
-            box->GetModelMatrix( request.position, Matrix4::FromQuaternion( request.orientation ) );
-        RenderHelper::DrawBoxBatchModel( modelMatrix, material );
-    }
-
-    RenderHelper::DrawBoxBatchEnd();
-}
-
-
-void Run::ApplyReplayLauncherVisualSampleForRender( const ReplayLauncherVisualSample& sample )
-{
-    if ( m_replayRuntime.HasLauncherVisualBackup() )
-    {
-        return;
-    }
-
-    ReplayLauncherVisualSample liveSample;
-    BuildReplayLauncherVisualSample( liveSample );
-    m_replayRuntime.StoreLauncherVisualBackup( liveSample );
-    RestoreReplayLauncherVisualSample( sample );
-}
-
-
-void Run::RestoreReplayLauncherVisualForRender()
-{
-    if ( !m_replayRuntime.HasLauncherVisualBackup() )
-    {
-        return;
-    }
-
-    RestoreReplayLauncherVisualSample( m_replayRuntime.LauncherVisualBackup() );
-    m_replayRuntime.ClearLauncherVisualBackup();
-}
-
-
-RuntimeRenderServices Run::BuildRuntimeRenderServices()
-{
-    return RuntimeRenderServices{ *m_systems.textures,
-                                  m_cGameModelCollection,
-                                  m_cWorldEnvironment,
-                                  m_systems.terrain.get(),
-                                  *m_systems.cameras,
-                                  *m_systems.window,
-                                  m_UI,
-                                  m_systems.skyBox };
-}
-
-
-RuntimeRenderInputs Run::BuildRuntimeRenderInputs()
-{
-    return RuntimeRenderInputs{ BuildRuntimeRenderServices() };
-}
-
+} // namespace
 
 RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
                                                              bool cinematicRender,
@@ -329,10 +202,11 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     const bool collisionStateColorsVisible = host.m_debug.isCollisionVisualizer;
     const bool debugTransparentBodyPass =
         host.m_debug.isPhysicsDebugTransparent && host.m_debug.physicsDebugAlpha < 1.0f;
-    const bool replayPredictionOverlayActive = host.m_replayPrediction.enabled;
+    const bool replayPredictionOverlayActive = host.m_replayRuntime.Prediction().enabled;
     const bool replayFocusFadeActive = !replayPredictionOverlayActive && !collisionStateColorsVisible &&
                                        !debugTransparentBodyPass && host.BuildReplayFocusModelMask();
-    const std::vector<uint8_t>* replayFocusModelMask = replayFocusFadeActive ? &host.m_replayFocusModelMask : nullptr;
+    const std::vector<uint8_t>* replayFocusModelMask =
+        replayFocusFadeActive ? &host.m_replayRuntime.FocusModelMask() : nullptr;
     const bool transparentBodyPass = debugTransparentBodyPass || replayFocusFadeActive;
     const float bodyRenderAlpha = debugTransparentBodyPass ? host.m_debug.physicsDebugAlpha : 1.0f;
     const float collisionVisualizerAlphaOverride = debugTransparentBodyPass ? bodyRenderAlpha : -1.0f;
@@ -511,22 +385,63 @@ void Run::Render()
     // reads one coherent eye/view/up triple for this frame.
     m_systems.cameras->SetCamera();
 
-    ApplyReplayRenderStateForFrame();
+    const auto applyReplayLauncherVisualSampleForRender = [&]( const ReplayLauncherVisualSample& sample )
+    {
+        if ( m_replayRuntime.HasLauncherVisualBackup() )
+        {
+            return;
+        }
 
-    m_renderer.RenderFrame( BuildRuntimeRenderInputs() );
-    RestoreReplayRenderStateForFrame();
+        ReplayLauncherVisualSample liveSample;
+        m_runtimeTools.BuildReplayLauncherVisualSample( liveSample );
+        m_replayRuntime.StoreLauncherVisualBackup( liveSample );
+        m_runtimeTools.RestoreReplayLauncherVisualSample( sample );
+    };
+
+    const auto restoreReplayLauncherVisualForRender = [&]()
+    {
+        if ( !m_replayRuntime.HasLauncherVisualBackup() )
+        {
+            return;
+        }
+
+        m_runtimeTools.RestoreReplayLauncherVisualSample( m_replayRuntime.LauncherVisualBackup() );
+        m_replayRuntime.ClearLauncherVisualBackup();
+    };
+
+    const auto applyReplayRenderStateForFrame = [&]()
+    {
+        if ( const RunReplayPredictionFrame* predictionFrame = m_replayRuntime.CurrentPredictionScrubFrame() )
+        {
+            m_replayRuntime.ApplyPredictionFrameForRender( m_cGameModelCollection, *predictionFrame );
+        }
+        else if ( const ReplayPresentationSample* replaySample = m_replayRuntime.CurrentScrubSample() )
+        {
+            m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, *replaySample );
+        }
+        else if ( const ReplaySolverFrameSample* solverSample = m_replayRuntime.CurrentSolverScrubSample() )
+        {
+            m_replayRuntime.ApplySolverSampleForRender( m_cGameModelCollection, *solverSample );
+            applyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
+        }
+    };
+
+    const auto restoreReplayRenderStateForFrame = [&]()
+    {
+        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+        restoreReplayLauncherVisualForRender();
+    };
+
+    applyReplayRenderStateForFrame();
+
+    m_renderer.RenderFrame( BuildRuntimeRenderInputs( m_systems, m_cGameModelCollection, m_cWorldEnvironment, m_UI ) );
+    restoreReplayRenderStateForFrame();
 }
 
 
 void Run::DrawPrimitives()
 {
-    m_renderer.RenderFrame( BuildRuntimeRenderInputs() );
-}
-
-
-void Run::SetUpCameras()
-{
-    SceneGeneratedSetup::SetUpCameras( BuildSceneGeneratedCameraContext() );
+    m_renderer.RenderFrame( BuildRuntimeRenderInputs( m_systems, m_cGameModelCollection, m_cWorldEnvironment, m_UI ) );
 }
 
 

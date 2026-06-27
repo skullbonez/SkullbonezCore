@@ -12,6 +12,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Platform profiler calls must be optional; engine profiling remains valid
+    when PIX headers or runtime capture tooling are unavailable.
+  - CPU range depth is thread-local so worker markers cannot corrupt main-thread
+    begin/end nesting.
+
 Related:
   - SkullbonezSource/Core/PlatformProfiler.h
   - Agentic/Reference/runtime-reference.md
@@ -62,6 +68,8 @@ enum class MarkerContext
 
 uint32_t HashRuntimeName( const char* name )
 {
+    // Concept: runtime-generated marker names use the same FNV-1a family as
+    // compile-time profiler markers so colors remain stable across captures.
     uint32_t hash = 2166136261u;
     if ( !name )
     {

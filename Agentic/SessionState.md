@@ -7,14 +7,14 @@ audits when it is still useful.
 
 | Field | Value |
 |-------|-------|
-| Branch | `nightrunner-24th-june-refactor` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Runtime run decomposition is committed through the Phase 5 replay render-state slice on `nightrunner-24th-june-refactor`: Phase 4D removes normal-runtime physics friendship leaks, and Phase 5 now gives `ReplayRuntime` ownership of presentation/solver/event recorders, live branch provenance, recording configuration, timeline reset, per-step capture, event stamping, replay save/export delegation, and render pose override/restore state while `Run` keeps compatibility accessors for remaining scrub/restore/path/UI slices. |
-| Active objective | Implement `Agentic/Plans/runtime-run-decomposition-plan.md` with the repo-local orchestrator skill. Validate and commit per phase before advancing. |
-| Pending work | Runtime run decomposition is active. Phase 5 still needs replay-owned selection/prediction/velocity state extraction and render-facing replay focus/ghost data. Do not delete legacy replay exporters. Runtime input follow-up remains: Launcher mode and Free/Inspect camera mode do not need right-click hold for camera rotation; other modes should require right-click hold, and every mode should still offer right-click rotate when appropriate. |
+| Branch | `nightrunner-26th-July` in worktree `C:\SkullbonezCore` |
+| Last committed milestone | Runtime run composition-root shrink final pass is complete: render input builders, window-size wrappers, and cinematic config/rendering wrappers were removed from private `Run.h`; the ratchet is 129; commits `2a5da3e1`, `5b5ca6a4`, and `4887ad5e` are pushed. |
+| Active objective | None from `run-composition-root-shrink-plan.md`; the plan and pause handoff have been moved to `Agentic/Plans/Done/` after end-only rubber-duck review. |
+| Pending work | Future plans can still target broad scene-load ownership, replay inspection entry/exit, replay solver restore helpers, and deeper render-host splitting. These were identified as larger architecture candidates, not safe final wrapper slices for the closed run-shrink handoff. |
 | Blockers | None known. |
 | Orchestrator policy | The old `Agentic/Orchestrator` JSON policy/queue/state-machine path was removed; use the `orchestrator` skill instead. |
 | Worktree expectation | Do not assume cleanliness; run `git status --short --branch` before editing or committing. |
-| Validation | Runtime run decomposition Phase 0 is documentation-only: no validation required. Phase 1 render-input plumbing is covered by `tools\validate_fast.bat` and direct `python tools\validate_project_filters.py`; logs are in `Agentic\Logs\runtime_run_phase1_validate_fast.log` and `Agentic\Logs\runtime_run_phase1_validate_project_filters.log`. Phase 2A render pass contract promotion is covered by `tools\validate_fast.bat`, direct `python tools\validate_project_filters.py`, and `tools\validate_dx12_renderer.bat` using the freshly built Profile binary; logs are in `Agentic\Logs\runtime_run_phase2a_validate_fast.log`, `Agentic\Logs\runtime_run_phase2a_validate_project_filters.log`, and `Agentic\Logs\runtime_run_phase2a_validate_dx12_renderer_prebuilt.log`. Phase 2B RuntimeRenderer ownership is covered by `tools\validate_full.bat`; log is in `Agentic\Logs\runtime_run_phase2b_validate_full.log`. Phase 2C render dependency narrowing is covered by focused `tools\validate_build.bat Profile`, direct `python tools\validate_project_filters.py`, `tools\validate_format.bat`, and final `tools\validate_full.bat`; logs are in `TestOutput\validation\phase2c_profile_build.log`, `TestOutput\validation\phase2c_project_filters.log`, `TestOutput\validation\phase2c_validate_format.log`, and `TestOutput\validation\phase2c_validate_full.log`. Phase 3A scene lifecycle decision extraction is covered by focused `tools\validate_build.bat Profile`, direct `python tools\validate_project_filters.py`, `tools\validate_format.bat`, and final `tools\validate_full.bat`; logs are in `TestOutput\validation\phase3a_profile_build.log`, `TestOutput\validation\phase3a_project_filters.log`, `TestOutput\validation\phase3a_validate_format.log`, and `TestOutput\validation\phase3a_validate_full.log`. Phase 3B generated scene setup extraction is covered by focused `tools\validate_build.bat Profile`, direct `python tools\validate_project_filters.py`, `tools\validate_format.bat`, `tools\validate_fast.bat`, and final `tools\validate_full.bat`; logs are in `TestOutput\validation\phase3b_profile_build.log`, `TestOutput\validation\phase3b_project_filters.log`, `TestOutput\validation\phase3b_format.log`, `TestOutput\validation\phase3b_validate_fast.log`, and `TestOutput\validation\phase3b_validate_full.log`. Phase 3C authored scene setup extraction is covered by focused `tools\validate_build.bat Profile`, direct `python tools\validate_project_filters.py`, `tools\validate_format.bat`, `tools\validate_fast.bat`, and final `tools\validate_full.bat`; logs are in `TestOutput\validation\phase3c_profile_build.log`, `TestOutput\validation\phase3c_project_filters.log`, `TestOutput\validation\phase3c_format.log`, `TestOutput\validation\phase3c_validate_fast.log`, and `TestOutput\validation\phase3c_validate_full.log`. Phase 4A public physics API scaffolding is covered by focused `tools\validate_build.bat Profile`, direct `python tools\validate_project_filters.py`, `tools\validate_format.bat`, and final `tools\validate_fast.bat`; logs are in `TestOutput\validation\phase4a_profile_build.log`, `TestOutput\validation\phase4a_project_filters.log`, `TestOutput\validation\phase4a_format.log`, and `TestOutput\validation\phase4a_validate_fast.log`. Phase 4B PhysicsEngine facade introduction is covered by focused `tools\validate_build.bat Profile`, direct `python tools\validate_project_filters.py`, `tools\validate_format.bat`, `tools\validate_fast.bat`, and final `tools\validate_physics.bat`; logs are in `TestOutput\validation\phase4b_profile_build.log`, `TestOutput\validation\phase4b_project_filters.log`, `TestOutput\validation\phase4b_format.log`, `TestOutput\validation\phase4b_validate_fast.log`, and `TestOutput\validation\phase4b_validate_physics.log`. Phase 4C scene-caller physics command routing is covered by focused `tools\validate_build.bat Profile`, `tools\validate_format.bat`, `tools\validate_physics.bat`, and final `tools\validate_full.bat`; logs are in `TestOutput\validation\phase4c_scene_profile_build.log`, `TestOutput\validation\phase4c_scene_format.log`, `TestOutput\validation\phase4c_scene_validate_physics.log`, and `TestOutput\validation\phase4c_scene_validate_full.log`. Phase 4D collection-boundary cleanup is covered by focused `tools\validate_build.bat Profile`, `tools\validate_format.bat`, `tools\validate_physics.bat`, and final `tools\validate_full.bat`; logs are in `TestOutput\validation\phase4d_collection_friend_profile_build.log`, `TestOutput\validation\phase4d_collection_friend_format.log`, `TestOutput\validation\phase4d_collection_friend_validate_physics.log`, and `TestOutput\validation\phase4d_collection_friend_validate_full.log`. |
+| Validation | Final run-shrink pass validation: each code chunk passed direct `check_runtime_boundaries.py`, targeted Profile build, `tools\validate_fast.bat`, and `tools\validate_full.bat`. Latest full gate was `runtime_cinematic_helpers_validate_full.log`, passed in 28.5s with DX12 validation errors 0, screenshots matching baselines, and byte-exact `physics_regression_solver.csv`. Documentation move requires no validation. |
 
 ## Active Notes
 
@@ -36,6 +36,383 @@ audits when it is still useful.
   answer or handoff.
 - Implementing work from `Agentic/Plans` defaults to
   `Agentic/Skills/orchestrator/SKILL.md`.
+- Runtime run composition shrink editor placement slice moved terrain
+  hit/preview/commit helpers to `EditorTools`; replay restore now refreshes the
+  body store and clears pending impulses after applying serialized body state,
+  and replay v2 tooling understands snapshot version 2 tornado-system data.
+- Runtime run composition shrink scene reset preserve/restore slice moves
+  `SceneRuntimeResetSnapshot`, reset capture/restore, and scene UI override
+  clearing out of `Run`/`RunInternal` into `Runtime/Scene/SceneRuntimeReset`.
+  `Run::LoadScene` still sequences the load, but now passes an explicit
+  `SceneRuntimeResetContext` into scene-owned helpers. Guardrails lower the
+  `Run.h` private-method ratchet to 227, block the old `Run.h` helper
+  declarations, block `Run::...SceneRuntimeReset...` source definitions, block
+  the snapshot returning to `RunInternal.h`, and teach project-filter validation
+  that `SceneRuntimeReset.*` belongs under `Runtime/Scene`. Rubber-duck reviewer
+  Heisenberg found no behavior blocker after the split; the initial coordinator
+  coupling/API-shape concern was addressed by moving the helpers into a
+  dedicated reset module with non-const mutation context.
+- Scene reset preserve/restore validation: initial targeted Profile builds
+  passed in 43.97s and 43.59s
+  (`TestOutput\validation\agent_logs\scene_reset_context_profile_build.log`,
+  `TestOutput\validation\agent_logs\scene_reset_module_profile_build.log`).
+  Final gates passed: `tools\validate_fast.bat` 56.66s
+  (`TestOutput\validation\agent_logs\scene_reset_module_validate_fast.log`),
+  direct `check_runtime_boundaries.py` 0.62s
+  (`TestOutput\validation\agent_logs\scene_reset_module_check_runtime_boundaries.log`),
+  direct `validate_project_filters.py` 0.77s
+  (`TestOutput\validation\agent_logs\scene_reset_module_validate_project_filters.log`),
+  and `tools\validate_full.bat` 25.00s
+  (`TestOutput\validation\agent_logs\scene_reset_module_validate_full.log`).
+  Full gate passed project filters, runtime boundaries, Profile/Debug builds,
+  DX12 renderer validation with 0 InfoQueue errors and matching screenshots,
+  and byte-exact `physics_regression_solver.csv`.
+- Runtime run composition shrink scene load-begin slice moves the first phase of
+  `Run::LoadScene` into `Runtime/Scene/SceneRuntimeLoad`: queue index
+  validation, interactive-run policy, automation-exit suppression, preserve vs.
+  clear reset-state selection, GPU flush-before-teardown, `SceneController`
+  begin-load bookkeeping, active scene-path handoff, and cine-browser selection.
+  `Run` no longer declares or defines `HasSceneQueueEntry`,
+  `HasCurrentSceneQueueEntry`, or `CurrentSceneQueuePath`; split Run files now
+  read `m_sceneController` directly. Guardrails lower the `Run.h`
+  private-method ratchet to 224, block those old wrapper declarations and
+  definitions, and teach project-filter validation that `SceneRuntimeLoad.*`
+  belongs under `Runtime/Scene`. Rubber-duck reviewer Curie found no blocking
+  behavior defect; non-blocking residual risks are duplicated cine/path
+  normalization and the intentionally narrow wrapper-name guardrail.
+- Scene load-begin validation: targeted Profile build after formatting passed
+  in 42.98s
+  (`TestOutput\validation\agent_logs\scene_load_begin_profile_build_post_format.log`).
+  Final gates passed: `tools\validate_fast.bat` 89.71s
+  (`TestOutput\validation\agent_logs\scene_load_begin_validate_fast.log`),
+  direct `check_runtime_boundaries.py` 0.66s
+  (`TestOutput\validation\agent_logs\scene_load_begin_runtime_boundaries.log`),
+  direct `validate_project_filters.py` 0.75s
+  (`TestOutput\validation\agent_logs\scene_load_begin_project_filters.log`),
+  and `tools\validate_full.bat` 25.84s
+  (`TestOutput\validation\agent_logs\scene_load_begin_validate_full.log`).
+  Full gate passed project filters, runtime boundaries, Profile/Debug builds,
+  DX12 renderer validation with 0 InfoQueue errors and matching screenshots,
+  and byte-exact `physics_regression_solver.csv`.
+- Runtime run composition shrink diagnostics perf-memory wrapper slice removes
+  `Run::LogPerfMemory`. Periodic and scene-start memory checkpoints now call
+  `DiagnosticsRuntime::LogPerfMemory` directly, and scene-load end/checkpoint,
+  pending flush, and close behavior is owned by
+  `RuntimeDiagnostics::ClosePerfLogWithMemoryCheckpoint` through the
+  diagnostics controller/runtime facade. `RunScene` still owns perf-log open and
+  raw `PerfLog()` setup; that remains scene-load lifecycle debt for a later
+  slice. Guardrails lower the `Run.h` private-method ratchet to 223 and block
+  `Run::LogPerfMemory` declarations/definitions from returning. Rubber-duck
+  reviewer Averroes found no blocking source defect or ordering drift; the only
+  commit blocker was missing final validation evidence, now resolved.
+- Diagnostics perf-memory wrapper validation: targeted Profile build passed in
+  43.75s
+  (`TestOutput\validation\agent_logs\perf_memory_wrapper_profile_build.log`).
+  Final gates passed: `tools\validate_fast.bat` 50.74s
+  (`TestOutput\validation\agent_logs\perf_memory_wrapper_validate_fast.log`),
+  direct `check_runtime_boundaries.py` 0.70s
+  (`TestOutput\validation\agent_logs\perf_memory_wrapper_runtime_boundaries.log`),
+  and `tools\validate_full.bat` 25.43s
+  (`TestOutput\validation\agent_logs\perf_memory_wrapper_validate_full.log`).
+  Full gate passed project filters, runtime boundaries, Profile/Debug builds,
+  DX12 renderer validation with 0 InfoQueue errors and matching screenshots,
+  and byte-exact `physics_regression_solver.csv`.
+- Runtime run composition shrink scene-control wrapper slice removes
+  `LoadSceneFromBrowserIndex`, `LoadDemoSceneFromUI`,
+  `ApplyAdjacentCinematicMode`, `LoadAdjacentSceneFromBrowser`,
+  `ResetCurrentScene`, and `AdvanceScene` from `Run`. Scene-browser,
+  demo-scene, adjacent-scene, reset, and scene-advance call sites now call
+  `SceneRuntimeCoordinator` directly with the same paths, preserve flags,
+  perf-test state, perf pass reference, and interactive-run preserve flag. The
+  `Run.h` private-method ratchet is now 217 and boundary guardrails reject
+  those wrapper declarations/definitions from returning. Rubber-duck reviewer
+  Chandrasekhar found no blocking behavior defect; the remaining non-blocking
+  risk is that guardrails are exact-name checks, with renamed wrappers covered
+  only by the broader method-count ratchet and review.
+- Scene-control wrapper validation: targeted Profile build passed in 41.73s
+  (`TestOutput\validation\agent_logs\scene_control_wrapper_profile_build.log`).
+  Final gates passed: `tools\validate_fast.bat` in about 46.2s
+  (`TestOutput\validation\agent_logs\scene_control_wrapper_validate_fast.log`),
+  direct `check_runtime_boundaries.py` in 0.79s
+  (`TestOutput\validation\agent_logs\scene_control_wrapper_runtime_boundaries.log`),
+  and `tools\validate_full.bat` in 25.08s
+  (`TestOutput\validation\agent_logs\scene_control_wrapper_validate_full.log`).
+  Full gate passed project filters, runtime boundaries, Profile/Debug builds,
+  DX12 renderer validation with 0 InfoQueue errors and matching screenshots,
+  and byte-exact `physics_regression_solver.csv`.
+- Runtime run composition shrink scene coordinator intent slice removes
+  `SceneRuntimeCoordinatorCallbacks` and
+  `Run::BuildSceneRuntimeCoordinatorCallbacks`. `SceneRuntimeCoordinator` now
+  stores only `SceneController&` and returns `SceneRuntimeControlAction` values
+  for load, clear-automation, and cinematic-style intents. Existing `Run`
+  call sites execute those actions locally, preserving the old
+  `EnterInteractiveSceneRun`, `LoadScene`, clear-automation,
+  `ApplyCinematicModeFromBrowserIndex`, reset, and advance/no-next behavior
+  without adding a new `Run` helper. The `Run.h` private-method ratchet is now
+  216, and boundary guardrails reject the callback builder/state from
+  returning. Rubber-duck reviewer Popper found no blocking behavior defect;
+  remaining non-blocking risks are exact-name callback guardrails and duplicated
+  local action executors.
+- Scene coordinator intent validation: targeted Profile build passed in 42.43s
+  (`TestOutput\validation\agent_logs\scene_coordinator_intent_profile_build.log`).
+  Final gates passed: `tools\validate_fast.bat` in about 45.3s
+  (`TestOutput\validation\agent_logs\scene_coordinator_intent_validate_fast.log`),
+  direct `check_runtime_boundaries.py` in 0.82s
+  (`TestOutput\validation\agent_logs\scene_coordinator_intent_runtime_boundaries.log`),
+  and `tools\validate_full.bat` in 25.31s
+  (`TestOutput\validation\agent_logs\scene_coordinator_intent_validate_full.log`).
+  Full gate passed project filters, runtime boundaries, Profile/Debug builds,
+  DX12 renderer validation with 0 InfoQueue errors and matching screenshots,
+  and byte-exact `physics_regression_solver.csv`.
+- Runtime run composition shrink diagnostics perf-log lifecycle slice removes
+  `Run::TickPerfLog`. `RunFrame` now calls
+  `DiagnosticsRuntime::TickPerfLog` directly, periodic memory checkpoints moved
+  into `RuntimeDiagnostics::TickPerfLog`, and scene-load perf-log
+  reset/config/open behavior moved behind diagnostics runtime/controller APIs.
+  `RunFrame` and `RunInput` now read perf-test state through
+  `DiagnosticsRuntime::PerfTestActive()`. The `Run.h` private-method ratchet is
+  now 215, and boundary guardrails reject `Run::TickPerfLog` and direct
+  `RunScene` perf-log lifecycle field/file access from returning. Rubber-duck
+  reviewer Einstein found no blocking defect; the only non-blocking finding was
+  a broad `fopen_s` guardrail, which was tightened before final validation.
+- Diagnostics perf-log lifecycle validation: targeted Profile build passed in
+  43.85s
+  (`TestOutput\validation\agent_logs\perf_log_lifecycle_profile_build.log`).
+  Final gates passed: `tools\validate_fast.bat` in about 47.7s
+  (`TestOutput\validation\agent_logs\perf_log_lifecycle_validate_fast.log`),
+  direct `check_runtime_boundaries.py` in 0.89s
+  (`TestOutput\validation\agent_logs\perf_log_lifecycle_runtime_boundaries.log`),
+  and `tools\validate_full.bat` in 24.84s
+  (`TestOutput\validation\agent_logs\perf_log_lifecycle_validate_full.log`).
+  Full gate passed project filters, runtime boundaries, Profile/Debug builds,
+  DX12 renderer validation with 0 InfoQueue errors and matching screenshots,
+  and byte-exact `physics_regression_solver.csv`.
+- Runtime run composition shrink editor gizmo slice moved editor transform
+  gizmo math and selected-object transform mutation to `EditorTools`; no
+  dedicated automated live translate/rotate/scale drag smoke exists yet, though
+  interaction-click and replay artifact gates cover selection/visibility and
+  encoded editor-transform replay samples.
+- Runtime run composition shrink editor UI/mode command slice moves unfocused
+  editor reset, manipulation clear, placement-mode state selection, editor
+  keyboard shortcut capture, editor mode state entry/exit, static-placement
+  toggles, terrain-align toggles, and object-type selection into `EditorTools`.
+  `RunInput` still applies interaction transitions, world-owner selection,
+  camera labels, fly-camera enter/exit/reset, cursor ownership, mouse release,
+  and runtime input action reporting. The `Run.h` private-method ratchet is now
+  233 and blocks the old editor UI/mode helper names from returning.
+- Editor UI/mode command validation: targeted Profile build 7.85s
+  (`TestOutput\validation\run_composition_editor_ui_profile_build.log`), fast
+  gate 87.20s (`TestOutput\validation\run_composition_editor_ui_validate_fast.log`),
+  runtime-boundary gate 0.51s
+  (`TestOutput\validation\run_composition_editor_ui_validate_runtime_boundaries.log`),
+  interaction-click gate 6.54s
+  (`TestOutput\validation\run_composition_editor_ui_validate_interaction_clicks.log`),
+  and full gate 24.08s
+  (`TestOutput\validation\run_composition_editor_ui_validate_full.log`). Full
+  gate passed project filters, runtime boundaries, Profile/Debug builds with 0
+  warnings/errors, DX12 validation errors 0 with screenshots matching baselines,
+  and byte-exact `physics_regression_solver.csv`. Rubber-duck reviewer Confucius
+  found no blocking behavior parity defect.
+- Runtime run composition shrink editor overlay/preview slice moves editor
+  interaction preview refresh and deterministic tool-overlay trace construction
+  into `EditorOverlayTools` helpers implemented beside the editor math. `Run`
+  still owns mouse-ray building, invalid-selection command dispatch,
+  attached-camera target resolution, replay overlay append, tracer render, and
+  launcher laser render. The `Run.h` private-method ratchet is now 231 and
+  blocks editor overlay/interaction-preview helper names from returning.
+- Editor overlay/preview validation: targeted Profile build 6.69s
+  (`TestOutput\validation\profile_build_editor_overlay.log`), runtime-boundary
+  gate 0.51s
+  (`TestOutput\validation\validate_runtime_boundaries_editor_overlay.log`),
+  fast gate 13.17s
+  (`TestOutput\validation\validate_fast_editor_overlay_final.log`),
+  interaction-click gate 7.10s
+  (`TestOutput\validation\validate_interaction_clicks_editor_overlay.log`),
+  and DX12 renderer gate 16.64s
+  (`TestOutput\validation\validate_dx12_renderer_editor_overlay_final.log`).
+  Gates passed with 0-warning/error builds, runtime-boundary 0 errors, project
+  filters clean, live inspect-gizmo and replay-prediction click reports passing,
+  DX12 validation errors 0, and screenshots matching committed baselines.
+  Rubber-duck reviewer Locke found no extraction behavior blocker; the first
+  review blocked on dirty DX12 build-log evidence and an under-matching guardrail
+  regex, both fixed before final validation.
+- Runtime run composition shrink replay render-query owner slice moves loaded
+  replay presentation sampling, current scrub sample/frame queries, and replay
+  focus-mask building into `ReplayRuntime`. `RuntimeRenderHost` now borrows a
+  single replay owner instead of six replay sub-state bindings and no longer
+  callback-bounces replay sample/focus queries into `Run`. The boundary checker
+  blocks the old helper names, old host replay bindings/callbacks, and now
+  counts pointer/ref-return private declarations; the widened `Run.h` ratchet is
+  measured at 235.
+- Replay render-query validation: final Profile build 1.21s
+  (`TestOutput\validation\replay_render_query_profile_build.log`), fast gate
+  52.58s (`TestOutput\validation\replay_render_query_validate_fast.log`),
+  runtime-boundary gate 0.47s
+  (`TestOutput\validation\replay_render_query_validate_runtime_boundaries.log`),
+  replay artifact gate 22.97s
+  (`TestOutput\validation\replay_render_query_validate_replay_v2_artifact.log`),
+  interaction-click gate 6.93s
+  (`TestOutput\validation\replay_render_query_validate_interaction_clicks.log`),
+  DX12 renderer gate 16.46s
+  (`TestOutput\validation\replay_render_query_validate_dx12_renderer.log`), and
+  full gate 23.01s
+  (`TestOutput\validation\replay_render_query_validate_full.log`). Gates passed
+  with formatting clean, runtime-boundary 0 errors, Profile/Debug 0-warning
+  builds, replay save/restore/query checks, interaction reports passing, DX12
+  validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Copernicus first
+  blocked on the pointer-return ratchet gap, then confirmed the fix and found no
+  new blocker.
+- Runtime run composition shrink replay scrubber timeline owner slice moves
+  scrubber timeline math and track-position mutation out of `RunInternal.h`
+  into `ReplayRuntime`. `Run` still dispatches scrubber input and overlay
+  drawing, but those paths now call replay-owner APIs. `Run::ShouldRenderReplayScrubber`
+  and `RuntimeRenderHostCallbacks::shouldRenderReplayScrubber` are removed;
+  `RuntimeRenderHost` asks `ReplayRuntime::ShouldRenderScrubber(...)`
+  directly. The boundary checker now blocks the removed `Run.h` wrapper, the
+  removed host callback field, and reintroduced `RunInternal.h` scrubber helper
+  definitions including `static inline` variants; the `Run.h` private-method
+  ratchet is now 234.
+- Replay scrubber timeline owner validation: final Profile build 40.89s
+  (`TestOutput\validation\replay_scrubber_owner_profile_build.log`), fast gate
+  51.03s (`TestOutput\validation\replay_scrubber_owner_validate_fast.log`),
+  runtime-boundary gate 0.52s
+  (`TestOutput\validation\replay_scrubber_owner_validate_runtime_boundaries.log`),
+  replay artifact gate 22.75s
+  (`TestOutput\validation\replay_scrubber_owner_validate_replay_v2_artifact.log`),
+  interaction-click gate 6.45s
+  (`TestOutput\validation\replay_scrubber_owner_validate_interaction_clicks.log`),
+  DX12 renderer gate 16.74s
+  (`TestOutput\validation\replay_scrubber_owner_validate_dx12_renderer.log`),
+  and full gate 23.07s
+  (`TestOutput\validation\replay_scrubber_owner_validate_full.log`). Gates
+  passed with formatting clean, runtime-boundary 0 errors, Profile/Debug
+  0-warning builds, replay save/restore/query checks, interaction reports
+  passing, DX12 validation errors 0 with screenshots matching baselines, and
+  byte-exact `physics_regression_solver.csv`. Rubber-duck reviewer Arendt found
+  no blocking defect; the non-blocking guardrail regex concern was tightened
+  before final validation.
+- Runtime run composition shrink replay prediction ghost host slice removes
+  `Run::RenderReplayPredictionGhosts` and the render-host
+  `renderReplayPredictionGhosts` callback bridge. `RuntimeRenderHost` now draws
+  replay prediction ghosts directly through `ReplayRuntime` draw requests,
+  `GameModelCollection` model data, and its existing texture-selection service.
+  The draw body lives out-of-line in `Runtime/Render/RuntimeRenderHost.cpp` so
+  the central host header stays lean. The boundary checker blocks the removed
+  `Run.h` helper, the removed callback typedef/field, and lowers the `Run.h`
+  private-method ratchet to 233.
+- Replay prediction ghost host validation: final Profile build 40.28s
+  (`TestOutput\validation\replay_prediction_ghost_host_profile_build.log`),
+  fast gate 48.25s
+  (`TestOutput\validation\replay_prediction_ghost_host_validate_fast.log`),
+  runtime-boundary gate 0.51s
+  (`TestOutput\validation\replay_prediction_ghost_host_validate_runtime_boundaries.log`),
+  replay artifact gate 22.63s
+  (`TestOutput\validation\replay_prediction_ghost_host_validate_replay_v2_artifact.log`),
+  DX12 renderer gate 17.39s
+  (`TestOutput\validation\replay_prediction_ghost_host_validate_dx12_renderer.log`),
+  and full gate 23.09s
+  (`TestOutput\validation\replay_prediction_ghost_host_validate_full.log`).
+  Gates passed with formatting clean, project filters clean, runtime-boundary 0
+  errors, Profile/Debug 0-warning builds, replay save/load/restore/query
+  checks, DX12 validation errors 0 with screenshots matching baselines, and
+  byte-exact `physics_regression_solver.csv`. Rubber-duck reviewer Aquinas
+  found no blocking defect; the non-blocking header-churn concern was fixed by
+  moving the implementation out of the header before final validation.
+- Runtime run composition shrink replay cause-tree row owner slice moves
+  cause-tree row construction from `Run::BuildReplayCauseTreeRows` into
+  `ReplayRuntime::BuildCauseTreeRows`. Replay cause-tree input and overlay
+  callers now ask the replay owner to build rows while continuing to own UI
+  window placement/scroll clamping. The boundary checker blocks both the old
+  `BuildReplayCauseTreeRows` name and renamed `BuildCauseTreeRows` wrappers on
+  `Run`, including synthetic header and source self-tests; the `Run.h`
+  private-method ratchet is now 232.
+- Replay cause-tree row owner validation: targeted Profile build 43.02s
+  (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_profile_build.log`),
+  fast gate 49.66s
+  (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_fast.log`),
+  runtime-boundary gate 0.55s
+  (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_runtime_boundaries.log`),
+  replay artifact gate 22.99s
+  (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_replay_v2_artifact.log`),
+  interaction-click gate 6.80s
+  (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_interaction_clicks.log`),
+  DX12 renderer gate 16.69s
+  (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_dx12_renderer.log`),
+  and full gate 22.91s
+  (`TestOutput\validation\agent_logs\cause_tree_replay_runtime_validate_full.log`).
+  Gates passed with formatting clean, runtime-boundary 0 errors, Profile/Debug
+  0-warning builds, replay save/load/restore/query checks, interaction reports
+  passing, DX12 validation errors 0 with screenshots matching baselines, and
+  byte-exact `physics_regression_solver.csv`. Rubber-duck reviewer Peirce found
+  no blocking defect; the non-blocking guardrail naming concern was tightened
+  before final validation.
+- Runtime run composition shrink replay scrubber overlay host slice removes
+  `Run::RenderReplayScrubberOverlay`, `Run::RenderReplayCauseTreeOverlay`, and
+  the render-host `renderReplayScrubberOverlay` callback bridge.
+  `RuntimeRenderHost` now renders the replay scrubber and cause-tree overlays
+  directly through its replay/runtime state bindings. The boundary checker
+  blocks the removed `Run.h` declarations, removed `Run::RenderReplay...`
+  source definitions, and removed host callback field; the `Run.h`
+  private-method ratchet is now 230.
+- Replay scrubber overlay host validation: targeted Profile build 40.73s
+  (`TestOutput\validation\agent_logs\replay_scrubber_host_profile_build.log`),
+  fast gate 48.28s
+  (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_fast.log`),
+  runtime-boundary gate 0.60s
+  (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_runtime_boundaries.log`),
+  replay artifact gate 22.88s
+  (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_replay_v2_artifact.log`),
+  interaction-click gate 6.47s
+  (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_interaction_clicks.log`),
+  DX12 renderer gate 16.63s
+  (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_dx12_renderer.log`),
+  and full gate 23.06s
+  (`TestOutput\validation\agent_logs\replay_scrubber_host_validate_full.log`).
+  Gates passed with formatting clean, runtime-boundary 0 errors, Profile/Debug
+  0-warning builds, replay save/load/restore/query checks, interaction reports
+  passing, DX12 validation errors 0 with screenshots matching baselines, and
+  byte-exact `physics_regression_solver.csv`. Rubber-duck reviewer Linnaeus
+  found no blocking code defect; the remaining non-blocking architecture risk is
+  that replay overlay drawing still lives in `RunUiTextPass.cpp` and uses
+  `RunInternal.h` helpers, making that the next shrink target.
+- Runtime run composition shrink replay overlay layout/renderer slice moves
+  replay scrubber and cause-tree rectangle helpers from `RunInternal.h` to
+  `ReplayOverlayLayout`, and moves the scrubber/cause-tree drawing bodies from
+  `RunUiTextPass.cpp` to `ReplayOverlayRenderer`. `RuntimeRenderHost` now builds
+  a replay overlay render context and forwards to replay-owned drawing functions;
+  `RunUiTextPass` only invokes the host pass hook. Runtime boundary guardrails
+  now block reintroduced replay overlay layout helpers in `RunInternal.h` and
+  replay overlay render definitions in `RunUiTextPass.cpp`; project-filter
+  validation recognizes the new replay overlay source/header prefixes.
+- Replay overlay layout/renderer validation: fast gate 61.74s
+  (`TestOutput\validation\agent_logs\replay_overlay_renderer_validate_fast.log`),
+  direct runtime-boundary check 0.55s
+  (`TestOutput\validation\agent_logs\replay_overlay_renderer_check_runtime_boundaries_py.log`),
+  runtime-boundary gate 0.58s
+  (`TestOutput\validation\agent_logs\replay_overlay_renderer_validate_runtime_boundaries.log`),
+  direct project-filter check 0.77s
+  (`TestOutput\validation\agent_logs\replay_overlay_renderer_validate_project_filters_py.log`),
+  replay artifact gate 23.31s
+  (`TestOutput\validation\agent_logs\replay_overlay_renderer_validate_replay_v2_artifact.log`),
+  interaction-click gate 6.54s
+  (`TestOutput\validation\agent_logs\replay_overlay_renderer_validate_interaction_clicks.log`),
+  DX12 renderer gate about 17.14s
+  (`TestOutput\validation\agent_logs\replay_overlay_renderer_validate_dx12_renderer.log`),
+  and full gate 23.50s
+  (`TestOutput\validation\agent_logs\replay_overlay_renderer_validate_full.log`).
+  The full sequence took 134.13s and passed with formatting clean, project
+  filters clean, runtime-boundary 0 errors, Profile/Debug 0-warning builds,
+  replay save/load/restore/query checks, interaction reports passing, DX12
+  validation errors 0 with screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`. Rubber-duck reviewer Aristotle found no code
+  blocker; validation then exposed the missing project-filter prefix, which was
+  fixed before the final gate. Final rubber-duck reviewer Galileo found that the
+  `RunUiTextPass.cpp` guardrail only blocked the old host-method overlay
+  definitions, not the new replay free-function renderers; the regex and
+  synthetic self-tests were tightened, then `validate_fast`, direct
+  `check_runtime_boundaries.py`, and `validate_runtime_boundaries` reran in
+  14.91s and passed.
 - Runtime run decomposition Phase 2C removed direct `Run&` ownership from
   `RuntimeRenderer` and render passes, but `RuntimeRenderHost` is intentionally
   still a broad bridge over Run-owned editor, replay, scene/UI, physics-debug,

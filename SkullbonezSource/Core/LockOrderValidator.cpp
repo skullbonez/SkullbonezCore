@@ -15,6 +15,12 @@ Glossary:
   edges contain a cycle.
   Debug build: Configuration where validation asserts are active.
 
+Invariants:
+  - Debug tracking records observed lock order only; Profile and Release builds
+    must not pay graph-validation costs.
+  - A thread's held-lock stack must be updated after cycle detection so failed
+    acquisitions report the order that introduced the problem.
+
 Related:
   - SkullbonezSource/Core/LockOrderValidator.h
 */
@@ -40,6 +46,8 @@ std::atomic<uint32_t> g_nextLockId{ 1 };
 std::atomic<uint32_t> g_nextThreadId{ 1 };
 
 #ifdef _DEBUG
+// Lifetime: each debug thread keeps its own acquisition stack while the global
+// graph records order edges across all threads.
 thread_local std::vector<uint32_t> g_heldLocks;
 thread_local uint32_t g_threadId = g_nextThreadId.fetch_add( 1, std::memory_order_relaxed );
 

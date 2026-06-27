@@ -12,6 +12,12 @@ Glossary:
   Engine module: A source file with one focused responsibility inside the
   SkullbonezCore runtime.
 
+Invariants:
+  - Normalise throws on an exact zero vector; callers handling optional
+    directions must test or provide a fallback first.
+  - Debug default construction poisons components with NaN to expose
+    use-before-init bugs.
+
 Related:
   - SkullbonezSource/Maths/Vector3.h
   - Agentic/Reference/comment-style-guide.md

@@ -15,6 +15,11 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - m_sWindowDimensions stores client width/height, not monitor or full window
+    bounds.
+  - projectionMatrix must be rebuilt whenever the client size changes.
+
 Related:
   - SkullbonezSource/Runtime/Window.cpp
   - Agentic/Reference/runtime-reference.md

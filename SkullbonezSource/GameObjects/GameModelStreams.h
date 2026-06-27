@@ -15,6 +15,11 @@ Glossary:
   Hot loop: Per-frame or per-body loop where cache misses and allocations are
   visible performance costs.
 
+Invariants:
+  - Returned streams are read-only borrowed views and must not outlive the
+    model/cache mutation boundary that produced them.
+  - Render streams require model matrices; body streams require only body data.
+
 Related:
   - SkullbonezSource/GameObjects/GameModelStreams.cpp
   - SkullbonezSource/GameObjects/GameModelSoACache.h

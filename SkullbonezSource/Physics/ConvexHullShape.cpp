@@ -15,6 +15,12 @@ Glossary:
   Support mapping: Query that returns the hull point farthest along a direction,
   used by convex collision tests.
 
+Invariants:
+  - Runtime hull loading trusts baked topology order and validates shape data
+    rather than deriving new topology at load time.
+  - Missing legacy mass metadata uses a compatibility default with a warning so
+    old assets remain loadable without silently changing validation behavior.
+
 Related:
   - SkullbonezSource/Physics/ConvexHullShape.h
   - SkullbonezSource/Physics/ObjectContactManifold.cpp
@@ -123,6 +129,8 @@ uint16_t ParseUint16OrThrow( const char* value, const char* path, int lineNumber
 
 void RequireNoExtraTokens( char* context, const char* path, int lineNumber, const char* directive )
 {
+    // Hazard: hull files are deterministic physics inputs. Extra tokens usually
+    // mean the bake format changed or the asset is corrupted, so fail loudly.
     if ( strtok_s( nullptr, " \t\r\n", &context ) )
     {
         char msg[384];

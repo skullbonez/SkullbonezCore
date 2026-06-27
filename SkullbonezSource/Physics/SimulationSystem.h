@@ -13,6 +13,12 @@ Glossary:
   requested tick instead of wall-clock time.
   Accumulator: Stored fractional tick state that carries time across frames.
 
+Invariants:
+  - SimulationTickInput borrows GameModelCollection and callbacks only for the
+    duration of Tick.
+  - Result deltas report what was committed this call; accumulator state remains
+    private to SimulationSystem.
+
 Related:
   - SkullbonezSource/Physics/SimulationSystem.cpp
   - SkullbonezSource/Runtime/RunFrame.cpp

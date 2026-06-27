@@ -12,6 +12,12 @@ Glossary:
   Engine module: A source file with one focused responsibility inside the
   SkullbonezCore runtime.
 
+Invariants:
+  - Plane representation is dot(normal, point) = distance, with normal expected
+    to be unit length.
+  - NO_COLLISION marks ray/plane misses and must not be confused with a valid
+    collision time.
+
 Related:
   - SkullbonezSource/Maths/GeometricMath.cpp
   - Agentic/Reference/comment-style-guide.md

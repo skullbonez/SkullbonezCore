@@ -16,6 +16,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Camera slots are fixed-size and keyed by m_cameraHashes; scene code must
+    register a camera before selecting it by hash.
+  - m_terrain is borrowed scene state and must not be freed by the camera
+    collection.
+
 Related:
   - SkullbonezSource/Runtime/CameraCollection.cpp
   - Agentic/Reference/runtime-reference.md

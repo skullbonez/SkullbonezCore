@@ -12,6 +12,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - m_view is a look-at target, not a direction vector; movement updates both
+    eye and target when the camera translates.
+  - m_viewMagnitude tracks the eye-to-target distance when orbit-style updates
+    need to preserve the current zoom.
+
 Related:
   - SkullbonezSource/Runtime/Camera.h
   - Agentic/Reference/runtime-reference.md

@@ -12,6 +12,10 @@ Glossary:
   Placement mode: Editor state where a picked object kind can be inserted into
   the active scene.
 
+Invariants:
+  - Object labels must stay in the same order as `EditorTab::OBJECT_*`.
+  - The tab emits command intents only; it never mutates scene objects directly.
+
 Related:
   - SkullbonezSource/UI/UITabEditor.h
   - SkullbonezSource/Runtime/RunInput.cpp
@@ -75,6 +79,8 @@ const char* const kEditorObjectOptions[] = {
     "Triple decker low",
     "Triple decker high",
 };
+// Invariant: This label table is the UI-facing form of the editor object enum.
+// Runtime placement uses the integer id, so table order is part of the contract.
 static_assert( sizeof( kEditorObjectOptions ) / sizeof( kEditorObjectOptions[0] ) ==
                SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT );
 

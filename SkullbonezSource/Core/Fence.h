@@ -13,6 +13,12 @@ Glossary:
   Signal: Completion notification from one worker job.
   Wait: Blocking call that sleeps until the fence has no remaining signals.
 
+Invariants:
+  - Reset publishes the exact number of required signals before any worker uses
+    the fence for a new batch.
+  - Signal may be called from workers, but Wait owns the blocking side and
+    observes completion through the atomic remaining count.
+
 Related:
   - Agentic/Plans/worker-system-plan.md
   - SkullbonezSource/Core/WorkerPool.h
@@ -49,6 +55,8 @@ class Fence
 
     void Signal()
     {
+        // Why: the atomic decrement publishes completion even when the final
+        // signal arrives before the waiter reaches condition_variable::wait.
         const int previous = m_remaining.fetch_sub( 1, std::memory_order_acq_rel );
         if ( previous <= 1 )
         {

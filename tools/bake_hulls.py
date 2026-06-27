@@ -1,5 +1,24 @@
 # File: tools/bake_hulls.py
 # Purpose: Serialize convex hull runtime topology and mass data into .hull files.
+#
+# Mental model:
+#   Hull source data is an authored deterministic physics input. This tool
+#   validates topology, derives runtime metadata, and either checks or rewrites
+#   the serialized .hull file.
+#
+# Glossary:
+#   Source hull: Authored vertices and faces stored in a .hull file.
+#   Baked hull: Runtime-ready centered vertices, faces, edges, mass, inertia,
+#   and area data.
+#   Winding: Vertex order that determines face normal direction.
+#
+# Invariants:
+#   - Baked output order must be deterministic for byte-exact physics behavior.
+#   - Invalid or degenerate geometry fails loudly instead of guessing topology.
+#
+# Related:
+#   - tools/bake_hulls.bat
+#   - AGENTS.md
 
 from __future__ import annotations
 

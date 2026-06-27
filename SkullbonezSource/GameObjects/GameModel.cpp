@@ -24,6 +24,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - GameModel owns per-object physics/render data, but multi-body response is
+    finalized by GameModelCollection and the physics solver.
+  - Collision-shape scalar caches must be refreshed whenever the authoritative
+    shape changes.
+
 Related:
   - SkullbonezSource/GameObjects/GameModel.h
   - Agentic/Reference/runtime-reference.md

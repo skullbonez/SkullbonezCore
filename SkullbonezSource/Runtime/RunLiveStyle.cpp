@@ -12,11 +12,18 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Live style polling is opt-in and style-only; it must not reload scene
+    physics or replace runtime-owned bodies.
+  - Control file paths are resolved once from the configured directory so
+    relative automation behaves the same in validation and interactive runs.
+
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "Scene/SceneRuntimeStyle.h"
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -65,6 +72,8 @@ void JoinControlPath( const char* directory, const char* fileName, char* out, si
 
 uint64_t FileStamp( const char* path )
 {
+    // Why: live style files are tiny, so a combined timestamp/size stamp avoids
+    // rereading every frame while still catching rapid save updates.
     WIN32_FILE_ATTRIBUTE_DATA data = {};
     if ( !path || !GetFileAttributesExA( path, GetFileExInfoStandard, &data ) )
     {
@@ -249,7 +258,13 @@ void Run::TickLiveStyleControl()
         try
         {
             const TestScene styleScene = TestScene::LoadStyleFromFile( m_liveStyle.stylePath );
-            ApplyLiveStyleScene( styleScene );
+            ApplyLiveStyleScene( SceneRuntimeStyleContext{ m_launchOptions,
+                                                           SceneState(),
+                                                           m_sceneBrowser,
+                                                           m_cGameModelCollection,
+                                                           RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                                           m_defaultCinematicRender },
+                                 styleScene );
             ++m_liveStyle.styleApplyCount;
             WriteStatus( m_liveStyle, "style_applied", m_liveStyle.stylePath );
             printf( "[style-harness] Applied %s\n", m_liveStyle.stylePath );

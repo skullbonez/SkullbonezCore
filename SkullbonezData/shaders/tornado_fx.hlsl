@@ -8,6 +8,16 @@ Mental model:
   transforms positions, keeps ribbons soft, and breaks dust quads into mottled
   terrain-faded clumps.
 
+Glossary:
+  Ribbon: World-space strip used for the tornado funnel shell.
+  Dust billboard: Quad whose opacity is shaped in the pixel shader.
+  Terrain fade: Alpha falloff based on height above the authored terrain plane.
+
+Invariants:
+  - Input layout is position, color, then fx payload; CPU generation must match
+    those semantics exactly.
+  - fx.z selects dust behavior; non-dust ribbon pixels return the CPU color.
+
 Related:
   - SkullbonezSource/Runtime/RunPasses.cpp
 */

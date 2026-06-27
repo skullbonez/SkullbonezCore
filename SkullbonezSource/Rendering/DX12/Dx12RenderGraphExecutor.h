@@ -14,6 +14,13 @@ Glossary:
   Resource barrier: DX12 synchronization command that transitions or orders GPU
   resource use.
 
+Invariants:
+  - DryRun records barrier candidates only; it must never call ResourceBarrier.
+  - EmitBarriers requires both a command list and native resource identity before
+    a transition can be emitted.
+  - UAV access reports ordering-review cases separately from concrete transition
+    barriers.
+
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12RenderGraphExecutor.cpp
   - SkullbonezSource/Rendering/RenderGraph.h

@@ -25,6 +25,10 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../RunInternal.h"
+#include "../RuntimeTuning.h"
+#include "SceneRuntimeLoad.h"
+#include "SceneRuntimeReset.h"
+#include "SceneRuntimeStyle.h"
 #include "../Editor/EditorHullAssets.h"
 #include "../../Physics/ObjectContactManifold.h"
 #include "../../Physics/Ragdoll.h"
@@ -78,99 +82,6 @@ Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eul
 }
 
 
-bool SceneNameEndsWithPartSuffix( const char* name, const char* suffix )
-{
-    if ( !name || !suffix )
-    {
-        return false;
-    }
-    const size_t nameLength = strlen( name );
-    const size_t suffixLength = strlen( suffix );
-    if ( nameLength <= suffixLength || name[nameLength - suffixLength - 1] != '_' )
-    {
-        return false;
-    }
-    return strcmp( name + nameLength - suffixLength, suffix ) == 0;
-}
-
-
-bool IsSimpleRagdollPartName( const char* name )
-{
-    static const char* partSuffixes[] = {
-        "torso",
-        "head",
-        "upper_arm_l",
-        "lower_arm_l",
-        "upper_arm_r",
-        "lower_arm_r",
-        "upper_leg_l",
-        "lower_leg_l",
-        "upper_leg_r",
-        "lower_leg_r",
-    };
-    for ( const char* suffix : partSuffixes )
-    {
-        if ( SceneNameEndsWithPartSuffix( name, suffix ) )
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-
-bool TryGetSimpleRagdollPartPrefixLength( const char* name, const char* suffix, size_t& outPrefixLength )
-{
-    outPrefixLength = 0;
-    if ( !SceneNameEndsWithPartSuffix( name, suffix ) )
-    {
-        return false;
-    }
-
-    outPrefixLength = strlen( name ) - strlen( suffix );
-    return true;
-}
-
-
-bool IsSimpleRagdollNeckJointName( const char* bodyA, const char* bodyB )
-{
-    size_t torsoPrefixLength = 0;
-    size_t headPrefixLength = 0;
-    return TryGetSimpleRagdollPartPrefixLength( bodyA, "torso", torsoPrefixLength ) &&
-           TryGetSimpleRagdollPartPrefixLength( bodyB, "head", headPrefixLength ) &&
-           torsoPrefixLength == headPrefixLength && strncmp( bodyA, bodyB, torsoPrefixLength ) == 0;
-}
-
-
-bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const GameModel& model )
-{
-    if ( IsSimpleRagdollPartName( model.GetName() ) )
-    {
-        return false;
-    }
-    if ( strcmp( material.target, "all" ) == 0 )
-    {
-        return true;
-    }
-    if ( strcmp( material.target, "balls" ) == 0 )
-    {
-        return model.IsSphere();
-    }
-    if ( strcmp( material.target, "boxes" ) == 0 )
-    {
-        return model.IsBox();
-    }
-    if ( strcmp( material.target, "hulls" ) == 0 || strcmp( material.target, "convex_hulls" ) == 0 )
-    {
-        return model.IsConvexHull();
-    }
-    if ( strncmp( material.target, "prefix:", 7 ) == 0 )
-    {
-        return strncmp( model.GetName(), material.target + 7, strlen( material.target + 7 ) ) == 0;
-    }
-    return strcmp( material.target, model.GetName() ) == 0;
-}
-
 bool SceneNameStartsWith( const char* name, const char* prefix )
 {
     return name && strncmp( name, prefix, strlen( prefix ) ) == 0;
@@ -196,122 +107,6 @@ bool IsCineScenePath( const std::string& path )
     const char* name = FileNameFromPath( path.c_str() );
     return strncmp( name, "concept_", 8 ) == 0 || strncmp( name, "cinematic_", 10 ) == 0 ||
            strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
-}
-
-bool IsSceneJsonFile( const std::filesystem::path& path )
-{
-    const std::string name = path.filename().string();
-    return name.size() > 11 && name.compare( name.size() - 11, 11, ".scene.json" ) == 0;
-}
-
-bool IsSceneNameChar( char value )
-{
-    return ( value >= 'a' && value <= 'z' ) || ( value >= 'A' && value <= 'Z' ) || ( value >= '0' && value <= '9' ) ||
-           value == '-' || value == '_';
-}
-
-std::string SanitizeSceneFileName( const char* requestedName )
-{
-    std::string clean;
-    if ( requestedName )
-    {
-        for ( const char* cursor = requestedName; *cursor != '\0' && clean.size() < 48; ++cursor )
-        {
-            const char value = *cursor;
-            if ( IsSceneNameChar( value ) )
-            {
-                clean.push_back( value );
-            }
-            else if ( value == ' ' || value == '.' )
-            {
-                clean.push_back( '_' );
-            }
-        }
-    }
-
-    while ( !clean.empty() && clean.front() == '_' )
-    {
-        clean.erase( clean.begin() );
-    }
-    while ( !clean.empty() && clean.back() == '_' )
-    {
-        clean.pop_back();
-    }
-    return clean;
-}
-
-std::filesystem::path UniqueScenePath( const std::filesystem::path& sceneDir, const std::string& baseName )
-{
-    std::filesystem::path candidate = sceneDir / ( baseName + ".scene.json" );
-    if ( !std::filesystem::exists( candidate ) )
-    {
-        return candidate;
-    }
-
-    for ( int suffix = 2; suffix < 1000; ++suffix )
-    {
-        char numberedName[80] = {};
-        snprintf( numberedName, sizeof( numberedName ), "%s_%02d.scene.json", baseName.c_str(), suffix );
-        candidate = sceneDir / numberedName;
-        if ( !std::filesystem::exists( candidate ) )
-        {
-            return candidate;
-        }
-    }
-    return std::filesystem::path();
-}
-
-bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string& displayName )
-{
-    std::ofstream output( path, std::ios::trunc );
-    if ( !output )
-    {
-        return false;
-    }
-
-    Json scene;
-    scene["format"] = "skullbonez.scene.json";
-    scene["version"] = 1;
-    scene["name"] = displayName;
-    scene["simulation"] = {
-        { "physics", true },
-        { "text", true },
-        { "world",
-          {
-              { "gravity", -9.81f },
-              { "fluidHeight", 0.0f },
-              { "fluidDensity", 0.0f },
-          } },
-    };
-    scene["editor"] = {
-        { "editableScene", true },
-    };
-    scene["playback"] = {
-        { "frames", "unlimited" },
-        { "fixedStep", true },
-    };
-    scene["debug"] = {
-        { "waterHidden", true },
-    };
-    scene["terrain"] = {
-        { "flatSlope",
-          {
-              { "baseY", 30.0f },
-              { "slopeX", 0.0f },
-              { "slopeZ", 0.0f },
-          } },
-    };
-    scene["cameras"] = Json::array( {
-        {
-            { "name", "main" },
-            { "position", Json::array( { 500.0f, 120.0f, 760.0f } ) },
-            { "view", Json::array( { 500.0f, 45.0f, 500.0f } ) },
-            { "up", Json::array( { 0.0f, 1.0f, 0.0f } ) },
-        },
-    } );
-    scene["objects"] = Json::array();
-    output << scene.dump( 2 ) << '\n';
-    return output.good();
 }
 
 Json& EnsureJsonObject( Json& parent, const char* key )
@@ -459,211 +254,150 @@ const char* WaterReflectionJsonValue( bool noReflect, bool rtReflect )
     return rtReflect ? "dxr" : "fbo";
 }
 
-bool ConfigLineMatchesKey( const std::string& line, const char* key )
+SceneAuthoredCameraContext BuildSceneAuthoredCameraContext( SkullbonezCore::Environment::CameraCollection*& cameras,
+                                                            SkullbonezCore::Geometry::Terrain& terrain )
 {
-    size_t start = line.find_first_not_of( " \t" );
-    if ( start == std::string::npos || line[start] == '#' )
-    {
-        return false;
-    }
-
-    const size_t keyLen = strlen( key );
-    if ( line.compare( start, keyLen, key ) != 0 )
-    {
-        return false;
-    }
-
-    size_t pos = start + keyLen;
-    while ( pos < line.size() && ( line[pos] == ' ' || line[pos] == '\t' ) )
-    {
-        ++pos;
-    }
-    return pos < line.size() && line[pos] == '=';
+    return SceneAuthoredCameraContext{ cameras, terrain };
 }
 
-bool ReplaceConfigLine( std::vector<std::string>& lines, const char* key, const std::string& value )
+SceneAuthoredModelContext
+BuildSceneAuthoredModelContext( RunSceneState& sceneState,
+                                SkullbonezCore::Environment::WorldEnvironment& world,
+                                SkullbonezCore::Geometry::Terrain* terrain,
+                                SkullbonezCore::GameObjects::GameModelCollection& models,
+                                SkullbonezCore::Physics::PhysicsEngine& physics,
+                                std::vector<RunRequiredContactState>& requiredContacts,
+                                std::vector<RunRequiredBroadphaseXCellsState>& requiredBroadphaseXCells )
 {
-    const std::string lineText = std::string( key ) + " = " + value;
-    bool replaced = false;
-    for ( size_t i = 0; i < lines.size(); )
-    {
-        if ( ConfigLineMatchesKey( lines[i], key ) )
-        {
-            if ( !replaced )
-            {
-                lines[i] = lineText;
-                replaced = true;
-                ++i;
-            }
-            else
-            {
-                lines.erase( lines.begin() + static_cast<std::ptrdiff_t>( i ) );
-            }
-            continue;
-        }
-        ++i;
-    }
-    return replaced;
+    return SceneAuthoredModelContext{ sceneState,
+                                      world,
+                                      terrain,
+                                      models,
+                                      physics,
+                                      requiredContacts,
+                                      requiredBroadphaseXCells };
 }
 
-size_t OrdinaryConfigInsertIndex( const std::vector<std::string>& lines )
+SceneGeneratedCameraContext BuildSceneGeneratedCameraContext( SkullbonezCore::Environment::CameraCollection*& cameras,
+                                                              SkullbonezCore::Geometry::Terrain& terrain )
 {
-    for ( size_t i = 0; i < lines.size(); ++i )
-    {
-        if ( lines[i].find( "Ordinary rendering" ) != std::string::npos )
-        {
-            size_t sectionBody = i + 1;
-            while ( sectionBody < lines.size() &&
-                    ( lines[sectionBody].empty() ||
-                      lines[sectionBody].find(
-                          "# ---------------------------------------------------------------------------" ) !=
-                          std::string::npos ) )
-            {
-                ++sectionBody;
-            }
-
-            for ( size_t j = sectionBody; j < lines.size(); ++j )
-            {
-                if ( lines[j].find( "# ---------------------------------------------------------------------------" ) !=
-                     std::string::npos )
-                {
-                    return j;
-                }
-            }
-            return lines.size();
-        }
-    }
-
-    for ( size_t i = 0; i < lines.size(); ++i )
-    {
-        if ( lines[i].find( "Cinematic rendering" ) != std::string::npos )
-        {
-            return i > 1 ? i - 1 : i;
-        }
-    }
-    return lines.size();
+    return SceneGeneratedCameraContext{ cameras, terrain };
 }
 
-size_t CinematicConfigInsertIndex( const std::vector<std::string>& lines )
+SceneGeneratedModelContext BuildSceneGeneratedModelContext( RunSceneState& scene,
+                                                            const EngineConfig& config,
+                                                            SkullbonezCore::Environment::WorldEnvironment& world,
+                                                            SkullbonezCore::Geometry::Terrain* terrain,
+                                                            SkullbonezCore::GameObjects::GameModelCollection& models,
+                                                            SkullbonezCore::Physics::PhysicsEngine& physics,
+                                                            GeneratedObjectTypeOverride objectTypeOverride )
 {
-    for ( size_t i = 0; i < lines.size(); ++i )
-    {
-        if ( lines[i].find( "Cinematic rendering" ) != std::string::npos )
-        {
-            size_t sectionBody = i + 1;
-            while ( sectionBody < lines.size() &&
-                    ( lines[sectionBody].empty() ||
-                      lines[sectionBody].find(
-                          "# ---------------------------------------------------------------------------" ) !=
-                          std::string::npos ) )
-            {
-                ++sectionBody;
-            }
-
-            for ( size_t j = sectionBody; j < lines.size(); ++j )
-            {
-                if ( lines[j].find( "# ---------------------------------------------------------------------------" ) !=
-                     std::string::npos )
-                {
-                    return j;
-                }
-            }
-            return lines.size();
-        }
-    }
-
-    for ( size_t i = 0; i < lines.size(); ++i )
-    {
-        if ( lines[i].find( "Physics" ) != std::string::npos )
-        {
-            return i > 1 ? i - 1 : i;
-        }
-    }
-    return lines.size();
+    return SceneGeneratedModelContext{ scene, config, world, terrain, models, physics, objectTypeOverride };
 }
 
-void AppendMissingOrdinaryConfigLines( std::vector<std::string>& lines, std::vector<std::string>& missing )
+void UpdateWorldTerrainBounds( WorldEnvironment& world, Terrain* terrain )
 {
-    if ( missing.empty() )
+    if ( !terrain )
     {
         return;
     }
 
-    std::vector<std::string> insertLines;
-    const bool hasOrdinarySection =
-        std::any_of( lines.begin(),
-                     lines.end(),
-                     []( const std::string& line ) { return line.find( "Ordinary rendering" ) != std::string::npos; } );
-    if ( !hasOrdinarySection )
-    {
-        insertLines.push_back( "# ---------------------------------------------------------------------------" );
-        insertLines.push_back( "# Ordinary rendering" );
-        insertLines.push_back( "# ---------------------------------------------------------------------------" );
-    }
-    insertLines.insert( insertLines.end(), missing.begin(), missing.end() );
-    insertLines.push_back( "" );
-
-    const size_t insertIndex = OrdinaryConfigInsertIndex( lines );
-    lines.insert( lines.begin() + static_cast<std::ptrdiff_t>( insertIndex ), insertLines.begin(), insertLines.end() );
+    XZBounds tb = terrain->GetXZBounds();
+    world.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 }
 
-void AppendMissingCinematicConfigLines( std::vector<std::string>& lines, std::vector<std::string>& missing )
+void ApplyConfiguredWorldEnvironment( WorldEnvironment& world, const EngineConfig& cfg, Terrain* terrain )
 {
-    if ( missing.empty() )
+    world = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
+    UpdateWorldTerrainBounds( world, terrain );
+}
+
+void ApplyNoWaterOverride( WorldEnvironment& world, Terrain* terrain, bool noWater )
+{
+    if ( !noWater || !terrain )
     {
         return;
     }
 
-    std::vector<std::string> insertLines;
-    const bool hasCinematicSection = std::any_of( lines.begin(),
-                                                  lines.end(),
-                                                  []( const std::string& line )
-                                                  { return line.find( "Cinematic rendering" ) != std::string::npos; } );
-    if ( !hasCinematicSection )
-    {
-        insertLines.push_back( "# ---------------------------------------------------------------------------" );
-        insertLines.push_back( "# Cinematic rendering" );
-        insertLines.push_back( "# ---------------------------------------------------------------------------" );
-    }
-    insertLines.insert( insertLines.end(), missing.begin(), missing.end() );
-    insertLines.push_back( "" );
+    world.SetFluidSurfaceHeight( terrain->GetMinHeight() - NO_WATER_TERRAIN_CLEARANCE );
+}
 
-    const size_t insertIndex = CinematicConfigInsertIndex( lines );
-    lines.insert( lines.begin() + static_cast<std::ptrdiff_t>( insertIndex ), insertLines.begin(), insertLines.end() );
+void UseDefaultTerrain( RunSubsystemState& systems,
+                        WorldEnvironment& world,
+                        const std::string& terrainRawPath,
+                        IRenderBackend* renderer )
+{
+    if ( !systems.terrain || systems.isFlatSlopeTerrain )
+    {
+        if ( renderer )
+        {
+            renderer->FlushGPU();
+        }
+        systems.terrain = std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15 );
+        systems.isFlatSlopeTerrain = false;
+    }
+
+    UpdateWorldTerrainBounds( world, systems.terrain.get() );
+}
+
+void UseFlatSlopeTerrain( RunSubsystemState& systems,
+                          WorldEnvironment& world,
+                          float baseY,
+                          float slopeX,
+                          float slopeZ,
+                          IRenderBackend* renderer )
+{
+    if ( renderer )
+    {
+        renderer->FlushGPU();
+    }
+    systems.terrain = std::make_unique<Terrain>( baseY, slopeX, slopeZ );
+    systems.isFlatSlopeTerrain = true;
+
+    UpdateWorldTerrainBounds( world, systems.terrain.get() );
+}
+
+bool SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
+                                       const RunSceneState& sceneState,
+                                       SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                       WorldEnvironment& world,
+                                       CameraCollection& cameras,
+                                       bool waterHidden,
+                                       bool terrainHidden )
+{
+    return modelCollection.SaveSceneSnapshot( scenePath.c_str(),
+                                              sceneState.isScenePhysics,
+                                              sceneState.isSceneText,
+                                              world,
+                                              cameras.GetCameraTranslation(),
+                                              cameras.GetCameraView(),
+                                              cameras.GetCameraUp(),
+                                              true,
+                                              sceneState.isFixedStep,
+                                              waterHidden,
+                                              terrainHidden,
+                                              sceneState.hasFlatSlope,
+                                              sceneState.flatBaseY,
+                                              sceneState.flatSlopeX,
+                                              sceneState.flatSlopeZ );
+}
+
+void ApplyTornadoDefaultsForActiveScene( RunRuntimeSettings& runtimeSettings,
+                                         WorldEnvironment& world,
+                                         const CinematicRenderConfig& cinematic )
+{
+    TornadoFieldConfig field = runtimeSettings.tornadoField;
+    const float basinRadius = (std::max)( cinematic.basinRadiusX, cinematic.basinRadiusZ );
+
+    field.center = Vector3( cinematic.basinCenterX, world.GetFluidSurfaceHeight(), cinematic.basinCenterZ );
+    field.radius = std::clamp( basinRadius * 1.28f, 180.0f, 340.0f );
+    field.height = (std::max)( 130.0f, field.radius * 0.66f );
+    field.inwardAcceleration = 150.0f;
+    field.swirlAcceleration = 185.0f;
+    field.liftAcceleration = 64.0f;
+    runtimeSettings.tornadoField = field;
 }
 } // namespace
-
-SceneAuthoredCameraContext Run::BuildSceneAuthoredCameraContext()
-{
-    return SceneAuthoredCameraContext{ m_systems.cameras, *m_systems.terrain };
-}
-
-SceneAuthoredModelContext Run::BuildSceneAuthoredModelContext()
-{
-    return SceneAuthoredModelContext{ SceneState(),
-                                      m_cWorldEnvironment,
-                                      m_systems.terrain.get(),
-                                      m_cGameModelCollection,
-                                      m_cGameModelCollection.GetPhysicsEngine(),
-                                      m_requiredSceneContacts,
-                                      m_requiredBroadphaseXCells };
-}
-
-SceneGeneratedCameraContext Run::BuildSceneGeneratedCameraContext()
-{
-    return SceneGeneratedCameraContext{ m_systems.cameras, *m_systems.terrain };
-}
-
-SceneGeneratedModelContext Run::BuildSceneGeneratedModelContext()
-{
-    return SceneGeneratedModelContext{ SceneState(),
-                                       Cfg(),
-                                       m_cWorldEnvironment,
-                                       m_systems.terrain.get(),
-                                       m_cGameModelCollection,
-                                       m_cGameModelCollection.GetPhysicsEngine(),
-                                       m_launchOptions.generatedObjectTypeOverride };
-}
 
 void Run::UpdateRequiredSceneContacts()
 {
@@ -809,187 +543,43 @@ bool Run::RequiredSceneBroadphaseXCellsComplete() const
 }
 
 
-bool Run::HasSceneQueueEntry( int index ) const
-{
-    return m_sceneController.HasEntry( index );
-}
-
-
-bool Run::HasCurrentSceneQueueEntry() const
-{
-    return m_sceneController.HasCurrentEntry();
-}
-
-
-const std::string* Run::CurrentSceneQueuePath() const
-{
-    return m_sceneController.CurrentPath();
-}
-
-
-SceneRuntimeResetSnapshot Run::CaptureSceneRuntimeResetSnapshot()
-{
-    // Standard reset is a simulation rebuild, not a scene/config reload.  Capture
-    // every operator-facing scene control before LoadScene reapplies file defaults.
-    // Transient run artifacts such as frame counters, screenshot/perf files, timers,
-    // contact caches, and generated object transforms intentionally reset below.
-    SceneRuntimeResetSnapshot snapshot;
-    snapshot.runtimeSettings = m_runtimeSettings;
-    snapshot.debug = m_debug;
-    snapshot.isScenePhysics = SceneState().isScenePhysics;
-    snapshot.isSceneText = SceneState().isSceneText;
-    snapshot.isFixedStep = SceneState().isFixedStep;
-    snapshot.isExitOnComplete = SceneState().isExitOnComplete;
-    snapshot.isInteractiveRun = SceneState().isInteractiveRun;
-    snapshot.targetFrameCount = SceneState().targetFrameCount;
-    snapshot.timeScale = SceneState().timeScale;
-    snapshot.worldGravity = m_cWorldEnvironment.GetGravity();
-    snapshot.worldFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
-    snapshot.worldFluidDensity = m_cWorldEnvironment.GetFluidDensity();
-    // Preserve live Cine-tab edits across a scene reset/reload. Without this,
-    // pressing reset would snap the visual look back to the file/defaults.
-    snapshot.hasCinematicRenderingOverride = SceneState().hasCinematicRenderingOverride;
-    snapshot.isCinematicRenderingEnabled = SceneState().isCinematicRenderingEnabled;
-    snapshot.hasCinematicExposure = SceneState().hasCinematicExposure;
-    snapshot.cinematicExposure = SceneState().cinematicExposure;
-    snapshot.hasCinematicGamma = SceneState().hasCinematicGamma;
-    snapshot.cinematicGamma = SceneState().cinematicGamma;
-    snapshot.cinematicOverrideMask = SceneState().cinematicOverrideMask;
-    snapshot.uiCinematicOverrideMask = SceneState().uiCinematicOverrideMask;
-    snapshot.cinematicRender = SceneState().cinematicRender;
-    snapshot.uiTimeScaleOverride = m_sceneUIOverrides.timeScaleOverride;
-    snapshot.uiModelCountOverride = m_sceneUIOverrides.modelCountOverride;
-    snapshot.uiSolverBallCountOverride = m_sceneUIOverrides.solverBallCountOverride;
-    snapshot.uiSolverBoxCountOverride = m_sceneUIOverrides.solverBoxCountOverride;
-    snapshot.trackBallIndex = m_camera.trackBallIndex;
-    snapshot.trackHeight = m_camera.trackHeight;
-    snapshot.autoCycleInterval = m_camera.autoCycleInterval;
-    snapshot.autoCycleAccum = m_camera.autoCycleAccum;
-    snapshot.autoCycleShotsTaken = m_camera.autoCycleShotsTaken;
-    return snapshot;
-}
-
-
-void Run::RestoreSceneRuntimeResetSnapshot( const SceneRuntimeResetSnapshot& snapshot, bool suppressExitOnComplete )
-{
-    // Restore live run controls that do not affect object construction.  Timers,
-    // frame counters, diagnostics/perf files, screenshots, input edge states, and
-    // object transforms stay reset because they belong to the simulation run itself.
-    m_runtimeSettings = snapshot.runtimeSettings;
-    m_debug = snapshot.debug;
-    SceneState().isScenePhysics = snapshot.isScenePhysics;
-    SceneState().isSceneText = snapshot.isSceneText;
-    SceneState().timeScale = snapshot.timeScale;
-    SceneState().isFixedStep = snapshot.isFixedStep;
-    SceneState().isInteractiveRun = snapshot.isInteractiveRun || suppressExitOnComplete;
-    SceneState().isExitOnComplete = SceneState().isInteractiveRun ? false : snapshot.isExitOnComplete;
-    SceneState().targetFrameCount = snapshot.targetFrameCount;
-    // Re-apply preserved runtime/UI cinematic state after the scene rebuilds.
-    SceneState().hasCinematicRenderingOverride = snapshot.hasCinematicRenderingOverride;
-    SceneState().isCinematicRenderingEnabled = snapshot.isCinematicRenderingEnabled;
-    SceneState().hasCinematicExposure = snapshot.hasCinematicExposure;
-    SceneState().cinematicExposure = snapshot.cinematicExposure;
-    SceneState().hasCinematicGamma = snapshot.hasCinematicGamma;
-    SceneState().cinematicGamma = snapshot.cinematicGamma;
-    SceneState().cinematicOverrideMask = snapshot.cinematicOverrideMask;
-    SceneState().uiCinematicOverrideMask = snapshot.uiCinematicOverrideMask;
-    SceneState().cinematicRender = snapshot.cinematicRender;
-    m_sceneUIOverrides.timeScaleOverride = snapshot.uiTimeScaleOverride;
-    m_sceneUIOverrides.modelCountOverride = snapshot.uiModelCountOverride;
-    m_sceneUIOverrides.solverBallCountOverride = snapshot.uiSolverBallCountOverride;
-    m_sceneUIOverrides.solverBoxCountOverride = snapshot.uiSolverBoxCountOverride;
-    m_camera.trackHeight = snapshot.trackHeight;
-    m_camera.trackBallIndex = ( snapshot.trackBallIndex >= 0 && snapshot.trackBallIndex < SceneState().modelCount )
-                                  ? snapshot.trackBallIndex
-                                  : -1;
-    m_camera.autoCycleInterval = snapshot.autoCycleInterval;
-    m_camera.autoCycleAccum = snapshot.autoCycleAccum;
-    m_camera.autoCycleShotsTaken = snapshot.autoCycleShotsTaken;
-    m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
-    m_physicsDebugVisualizer.SetContactLingerSeconds( m_debug.physicsDebugContactLinger );
-}
-
-
-void Run::ClearSceneRuntimeUIOverrides()
-{
-    // Scene changes and the explicit Reset Defaults command must make the scene
-    // file/config authoritative again.  UI sliders are live overrides, so clearing
-    // them here prevents stale counts or time scale from leaking into unrelated scenes.
-    m_sceneUIOverrides.timeScaleOverride = 0.0f;
-    m_sceneUIOverrides.modelCountOverride = -1;
-    m_sceneUIOverrides.solverBallCountOverride = -1;
-    m_sceneUIOverrides.solverBoxCountOverride = -1;
-}
-
-
 void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
     SceneController& runtime = m_sceneController;
+    SceneRuntimeResetContext resetContext{ m_runtimeSettings,
+                                           m_debug,
+                                           SceneState(),
+                                           m_sceneUIOverrides,
+                                           m_camera,
+                                           m_cWorldEnvironment,
+                                           m_physicsDebugVisualizer };
+    SceneRuntimeLoadBeginContext loadBeginContext{ runtime,
+                                                   resetContext,
+                                                   m_sceneBrowser,
+                                                   IsGfxReady() ? &Gfx() : nullptr,
+                                                   m_launchOptions.interactiveSceneRun };
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( "scene_reload" );
 #endif
-    if ( !runtime.HasEntry( index ) )
+    const SceneRuntimeLoadBeginResult loadBegin =
+        BeginSceneRuntimeLoad( loadBeginContext, index, suppressExitOnComplete, preserveRuntimeState );
+    if ( !loadBegin.shouldLoad )
     {
         return;
     }
 
-    if ( suppressExitOnComplete )
-    {
-        SceneState().isInteractiveRun = true;
-    }
-    if ( m_launchOptions.interactiveSceneRun )
-    {
-        SceneState().isInteractiveRun = true;
-    }
-    const bool suppressAutomationExit = SceneState().isInteractiveRun || suppressExitOnComplete;
-    const bool shouldPreserveRuntimeState = preserveRuntimeState && runtime.HasCurrentEntry();
-    SceneRuntimeResetSnapshot resetSnapshot;
-    if ( shouldPreserveRuntimeState )
-    {
-        resetSnapshot = CaptureSceneRuntimeResetSnapshot();
-    }
-    else
-    {
-        ClearSceneRuntimeUIOverrides();
-    }
+    const bool suppressAutomationExit = loadBegin.suppressAutomationExit;
+    const bool shouldPreserveRuntimeState = loadBegin.shouldPreserveRuntimeState;
+    const SceneRuntimeResetSnapshot& resetSnapshot = loadBegin.resetSnapshot;
+    const std::string& scenePath = *loadBegin.scenePath;
 
-    // Flush GPU before destroying scene resources to avoid use-after-free
-    if ( IsGfxReady() )
-    {
-        Gfx().FlushGPU();
-    }
-
-    runtime.BeginLoad( index );
-    const std::string& scenePath = runtime.PathAt( index );
-    if ( !shouldPreserveRuntimeState )
-    {
-        m_sceneBrowser.selectedCineModeSceneIndex =
-            ( !scenePath.empty() && IsCineScenePath( scenePath ) ) ? CurrentSceneBrowserIndex() : -1;
-    }
-
-    // Close previous perf log if open
-    if ( m_diagnosticsRuntime.PerfLog().perfLogFile )
-    {
-        LogPerfMemory( "end" );
-        if ( m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush > 0 )
-        {
-            fflush( m_diagnosticsRuntime.PerfLog().perfLogFile );
-            m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush = 0;
-        }
-        fclose( m_diagnosticsRuntime.PerfLog().perfLogFile );
-        m_diagnosticsRuntime.PerfLog().perfLogFile = nullptr;
-    }
+    m_diagnosticsRuntime.ClosePerfLogWithMemoryCheckpoint( sPerfPass + 1, "end" );
 
     // Reset scene-local state; operator HUD preferences are restored below.
     SceneState().ResetForLoad( Cfg().cinematicRender );
-    m_diagnosticsRuntime.PerfLog().isPerfTest = false;
-    m_diagnosticsRuntime.PerfLog().perfHeaderWritten = false;
+    m_diagnosticsRuntime.ResetPerfLogForSceneLoad();
     m_simulation.Reset();
     m_diagnosticsRuntime.Capture().ResetScreenshot();
-    m_diagnosticsRuntime.PerfLog().perfLogPath[0] = '\0';
-    m_diagnosticsRuntime.PerfLog().isPerfLogFlushEnabled = false;
-    m_diagnosticsRuntime.PerfLog().perfLogFlushInterval = 0;
-    m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush = 0;
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
     m_diagnosticsRuntime.UIStress() = DiagnosticsRuntime::UIStressState{};
@@ -1006,7 +596,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         m_interaction.ResetForScene( InteractionExitReason::LoadScene );
     }
     SetCameraModeLabelAfterInteractionTransition( scenePath.empty() ? RunCameraMode::Demo : RunCameraMode::Scene );
-    ClearRayCastTestLines();
+    m_runtimeTools.ClearRayCastTestLines();
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
     m_debug.isWaterRTReflect = false;
@@ -1073,34 +663,58 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         }
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
-        UseDefaultTerrain();
-        ApplyConfiguredWorldEnvironment();
-        ApplyNoWaterOverride();
+        UseDefaultTerrain(
+            m_systems,
+            m_cWorldEnvironment,
+            ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", Cfg().terrainRaw ),
+            IsGfxReady() ? &Gfx() : nullptr );
+        ApplyConfiguredWorldEnvironment( m_cWorldEnvironment, Cfg(), m_systems.terrain.get() );
+        ApplyNoWaterOverride( m_cWorldEnvironment, m_systems.terrain.get(), m_launchOptions.noWater );
         if ( shouldPreserveRuntimeState )
         {
             // Restore setup-affecting live controls before the generated model pool is rebuilt.
             // Other visual/debug controls are restored later after scene JSON has loaded.
-            ApplyUIWorldOverride( resetSnapshot.worldGravity,
+            ApplyUIWorldOverride( m_cWorldEnvironment,
+                                  m_replayRuntime,
+                                  resetSnapshot.worldGravity,
                                   resetSnapshot.worldFluidHeight,
                                   resetSnapshot.worldFluidDensity );
         }
 
         SceneState().isSceneMode = false;
-        SetUpCameras();
+        SceneGeneratedSetup::SetUpCameras( BuildSceneGeneratedCameraContext( m_systems.cameras, *m_systems.terrain ) );
         if ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
         {
-            SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
-                                                     (std::max)( 0, m_sceneUIOverrides.solverBallCountOverride ),
-                                                     (std::max)( 0, m_sceneUIOverrides.solverBoxCountOverride ) );
+            SceneGeneratedSetup::SetUpSolverObjects(
+                BuildSceneGeneratedModelContext( SceneState(),
+                                                 Cfg(),
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 m_cGameModelCollection,
+                                                 m_cGameModelCollection.GetPhysicsEngine(),
+                                                 m_launchOptions.generatedObjectTypeOverride ),
+                (std::max)( 0, m_sceneUIOverrides.solverBallCountOverride ),
+                (std::max)( 0, m_sceneUIOverrides.solverBoxCountOverride ) );
         }
         else
         {
-            SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(),
-                                                  m_sceneUIOverrides.modelCountOverride >= 0
-                                                      ? m_sceneUIOverrides.modelCountOverride
-                                                      : DEFAULT_GAME_MODELS );
+            SceneGeneratedSetup::SetUpGameModels(
+                BuildSceneGeneratedModelContext( SceneState(),
+                                                 Cfg(),
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 m_cGameModelCollection,
+                                                 m_cGameModelCollection.GetPhysicsEngine(),
+                                                 m_launchOptions.generatedObjectTypeOverride ),
+                m_sceneUIOverrides.modelCountOverride >= 0 ? m_sceneUIOverrides.modelCountOverride
+                                                           : DEFAULT_GAME_MODELS );
         }
-        ApplyDemoHeroStyleOverride();
+        ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext{ m_launchOptions,
+                                                              SceneState(),
+                                                              m_sceneBrowser,
+                                                              m_cGameModelCollection,
+                                                              RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                                              m_defaultCinematicRender } );
         const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
         sprintf_s( titleText, "%s [%s]", TITLE_TEXT, rendererName );
@@ -1121,8 +735,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                                                        : m_startup.workerThreads );
         SceneState().isScenePhysics = scene.IsPhysicsEnabled();
         SceneState().isSceneText = scene.IsTextEnabled();
-        m_diagnosticsRuntime.PerfLog().isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();
-        m_diagnosticsRuntime.PerfLog().perfLogFlushInterval = scene.GetPerfLogFlushInterval();
+        m_diagnosticsRuntime.ConfigurePerfLogFlush( scene.IsPerfLogFlushEnabled(), scene.GetPerfLogFlushInterval() );
         m_debug.physicsDebugFlags = scene.GetPhysicsDebugFlags();
         m_debug.isPhysicsDebugTransparent = scene.IsPhysicsDebugTransparent();
         m_debug.physicsDebugAlpha = scene.GetPhysicsDebugAlpha();
@@ -1300,17 +913,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         const char* pPerfPath = scene.GetPerfLogPath();
         if ( pPerfPath[0] != '\0' )
         {
-            m_diagnosticsRuntime.PerfLog().isPerfTest = true;
-            strcpy_s( m_diagnosticsRuntime.PerfLog().perfLogPath,
-                      sizeof( m_diagnosticsRuntime.PerfLog().perfLogPath ),
-                      pPerfPath );
-            const char* mode = ( sPerfPass == 0 ) ? "w" : "a";
-            fopen_s( &m_diagnosticsRuntime.PerfLog().perfLogFile, m_diagnosticsRuntime.PerfLog().perfLogPath, mode );
-            if ( m_diagnosticsRuntime.PerfLog().perfLogFile )
-            {
-                m_diagnosticsRuntime.PerfLog().perfLogWritesSinceFlush = 0;
-                LogPerfMemory( "start" );
-            }
+            m_diagnosticsRuntime.OpenScenePerfLog( pPerfPath, sPerfPass );
         }
 
         // Override RNG seed for deterministic scenes. CLI --seed wins so a launcher snapshot can
@@ -1334,15 +937,24 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
             SceneState().flatBaseY = scene.GetFlatBaseY();
             SceneState().flatSlopeX = scene.GetFlatSlopeX();
             SceneState().flatSlopeZ = scene.GetFlatSlopeZ();
-            UseFlatSlopeTerrain( scene.GetFlatBaseY(), scene.GetFlatSlopeX(), scene.GetFlatSlopeZ() );
+            UseFlatSlopeTerrain( m_systems,
+                                 m_cWorldEnvironment,
+                                 scene.GetFlatBaseY(),
+                                 scene.GetFlatSlopeX(),
+                                 scene.GetFlatSlopeZ(),
+                                 IsGfxReady() ? &Gfx() : nullptr );
         }
         else
         {
             SceneState().hasFlatSlope = false;
-            UseDefaultTerrain();
+            UseDefaultTerrain(
+                m_systems,
+                m_cWorldEnvironment,
+                ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", Cfg().terrainRaw ),
+                IsGfxReady() ? &Gfx() : nullptr );
         }
 
-        ApplyConfiguredWorldEnvironment();
+        ApplyConfiguredWorldEnvironment( m_cWorldEnvironment, Cfg(), m_systems.terrain.get() );
         // Override world environment if scene specifies world values
         if ( scene.HasWorldOverride() )
         {
@@ -1350,42 +962,74 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                                     scene.GetWorldFluidDensity(),
                                                     Cfg().gasDensity,
                                                     scene.GetWorldGravity() );
-            UpdateWorldTerrainBounds();
+            UpdateWorldTerrainBounds( m_cWorldEnvironment, m_systems.terrain.get() );
         }
-        ApplyNoWaterOverride();
+        ApplyNoWaterOverride( m_cWorldEnvironment, m_systems.terrain.get(), m_launchOptions.noWater );
         if ( shouldPreserveRuntimeState )
         {
             // World sliders/keyboard water edits are part of the live scene controls.
             // Restore them after terrain/world JSON and --no-water have resolved,
             // so a plain reset keeps the operator's current environment.
-            ApplyUIWorldOverride( resetSnapshot.worldGravity,
+            ApplyUIWorldOverride( m_cWorldEnvironment,
+                                  m_replayRuntime,
+                                  resetSnapshot.worldGravity,
                                   resetSnapshot.worldFluidHeight,
                                   resetSnapshot.worldFluidDensity );
         }
 
-        SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext(), scene );
+        SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext( m_systems.cameras, *m_systems.terrain ),
+                                          scene );
 
         if ( m_sceneUIOverrides.solverBallCountOverride >= 0 || m_sceneUIOverrides.solverBoxCountOverride >= 0 )
         {
-            SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
-                                                     (std::max)( 0, m_sceneUIOverrides.solverBallCountOverride ),
-                                                     (std::max)( 0, m_sceneUIOverrides.solverBoxCountOverride ) );
+            SceneGeneratedSetup::SetUpSolverObjects(
+                BuildSceneGeneratedModelContext( SceneState(),
+                                                 Cfg(),
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 m_cGameModelCollection,
+                                                 m_cGameModelCollection.GetPhysicsEngine(),
+                                                 m_launchOptions.generatedObjectTypeOverride ),
+                (std::max)( 0, m_sceneUIOverrides.solverBallCountOverride ),
+                (std::max)( 0, m_sceneUIOverrides.solverBoxCountOverride ) );
         }
         else if ( m_sceneUIOverrides.modelCountOverride >= 0 )
         {
-            SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(),
-                                                  m_sceneUIOverrides.modelCountOverride );
+            SceneGeneratedSetup::SetUpGameModels(
+                BuildSceneGeneratedModelContext( SceneState(),
+                                                 Cfg(),
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 m_cGameModelCollection,
+                                                 m_cGameModelCollection.GetPhysicsEngine(),
+                                                 m_launchOptions.generatedObjectTypeOverride ),
+                m_sceneUIOverrides.modelCountOverride );
         }
         else if ( scene.GetSolverBallCount() > 0 || scene.GetSolverBoxCount() > 0 )
         {
             // Exact-count solver spawn — explicit ball/box split for benchmarks.
-            SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
-                                                     scene.GetSolverBallCount(),
-                                                     scene.GetSolverBoxCount() );
+            SceneGeneratedSetup::SetUpSolverObjects(
+                BuildSceneGeneratedModelContext( SceneState(),
+                                                 Cfg(),
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 m_cGameModelCollection,
+                                                 m_cGameModelCollection.GetPhysicsEngine(),
+                                                 m_launchOptions.generatedObjectTypeOverride ),
+                scene.GetSolverBallCount(),
+                scene.GetSolverBoxCount() );
         }
         else
         {
-            SceneAuthoredSetup::SetUpGameModels( BuildSceneAuthoredModelContext(), scene );
+            SceneAuthoredSetup::SetUpGameModels(
+                BuildSceneAuthoredModelContext( SceneState(),
+                                                m_cWorldEnvironment,
+                                                m_systems.terrain.get(),
+                                                m_cGameModelCollection,
+                                                m_cGameModelCollection.GetPhysicsEngine(),
+                                                m_requiredSceneContacts,
+                                                m_requiredBroadphaseXCells ),
+                scene );
         }
 
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
@@ -1446,7 +1090,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 
     if ( shouldPreserveRuntimeState )
     {
-        RestoreSceneRuntimeResetSnapshot( resetSnapshot, suppressExitOnComplete );
+        RestoreSceneRuntimeResetSnapshot( resetContext, resetSnapshot, suppressExitOnComplete );
     }
 
     // CLI --time-scale and --fixed-step override anything the scene file sets.
@@ -1466,7 +1110,9 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     {
         m_runtimeSettings.tornadoField = Physics::TornadoFieldConfig();
         m_runtimeSettings.tornadoSystem = Physics::TornadoSystemConfig();
-        ApplyTornadoDefaultsForActiveScene();
+        ApplyTornadoDefaultsForActiveScene( m_runtimeSettings,
+                                            m_cWorldEnvironment,
+                                            RuntimeActiveCinematicConfig( SceneState(), Cfg() ) );
         if ( hasSceneTornadoSystem )
         {
             m_runtimeSettings.tornadoSystem = sceneTornadoSystem;
@@ -1495,7 +1141,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         m_runtimeSettings.tornadoField.visualizeVelocityField = true;
         m_runtimeSettings.tornadoSystem.visualizeVelocityField = true;
     }
-    SyncTornadoFieldToPhysics();
+    SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
     m_cGameModelCollection.SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
     if ( m_launchOptions.frameCountOverride > 0 )
     {
@@ -1512,7 +1158,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     }
     if ( m_launchOptions.hasCinematicShadowsOverride )
     {
-        ActiveCinematicConfig().shadowsEnabled = m_launchOptions.cinematicShadows;
+        RuntimeActiveCinematicConfig( SceneState(), Cfg() ).shadowsEnabled = m_launchOptions.cinematicShadows;
         SceneState().cinematicOverrideMask |= SCENE_CINE_SHADOWS;
     }
     if ( m_launchOptions.hasPhysicsDebugFlagsOverride )
@@ -1600,42 +1246,22 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
 }
 
 
-bool Run::SaveCurrentEditableSceneSnapshot()
-{
-    const std::string* scenePath = CurrentSceneQueuePath();
-    if ( !SceneState().isSceneMode || !scenePath || scenePath->empty() )
-    {
-        return false;
-    }
-
-    return m_cGameModelCollection.SaveSceneSnapshot( scenePath->c_str(),
-                                                     SceneState().isScenePhysics,
-                                                     SceneState().isSceneText,
-                                                     m_cWorldEnvironment,
-                                                     m_systems.cameras->GetCameraTranslation(),
-                                                     m_systems.cameras->GetCameraView(),
-                                                     m_systems.cameras->GetCameraUp(),
-                                                     true,
-                                                     SceneState().isFixedStep,
-                                                     m_debug.isWaterHidden,
-                                                     m_debug.isTerrainHidden,
-                                                     SceneState().hasFlatSlope,
-                                                     SceneState().flatBaseY,
-                                                     SceneState().flatSlopeX,
-                                                     SceneState().flatSlopeZ );
-}
-
-
 bool Run::SaveCurrentSceneDefaults()
 {
-    const std::string* scenePath = CurrentSceneQueuePath();
+    const std::string* scenePath = m_sceneController.CurrentPath();
     if ( !SceneState().isSceneMode || !scenePath || scenePath->empty() )
     {
         return false;
     }
     if ( SceneState().isEditableScene )
     {
-        return SaveCurrentEditableSceneSnapshot();
+        return SaveCurrentEditableSceneSnapshot( *scenePath,
+                                                 SceneState(),
+                                                 m_cGameModelCollection,
+                                                 m_cWorldEnvironment,
+                                                 *m_systems.cameras,
+                                                 m_debug.isWaterHidden,
+                                                 m_debug.isTerrainHidden );
     }
 
     std::ifstream input( *scenePath );
@@ -1744,674 +1370,4 @@ bool Run::SaveCurrentSceneDefaults()
 
     output << root.dump( 2 ) << '\n';
     return output.good();
-}
-
-
-bool Run::SaveRenderDefaults()
-{
-    const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
-    std::ifstream input( configPath );
-    if ( !input )
-    {
-        return false;
-    }
-
-    std::vector<std::string> lines;
-    std::string line;
-    while ( std::getline( input, line ) )
-    {
-        if ( !line.empty() && line.back() == '\r' )
-        {
-            line.pop_back();
-        }
-        lines.push_back( line );
-    }
-
-    const OrdinaryRenderConfig& ordinary = Cfg().ordinaryRender;
-    std::vector<std::string> missing;
-    char buf[128] = {};
-
-    const auto setText = [&]( const char* key, const char* value )
-    {
-        const std::string lineText = std::string( key ) + " = " + value;
-        if ( !ReplaceConfigLine( lines, key, value ) )
-        {
-            missing.push_back( lineText );
-        }
-    };
-    const auto setBool = [&]( const char* key, bool value )
-    {
-        snprintf( buf, sizeof( buf ), "%d", value ? 1 : 0 );
-        setText( key, buf );
-    };
-    const auto setInt = [&]( const char* key, int value )
-    {
-        snprintf( buf, sizeof( buf ), "%d", value );
-        setText( key, buf );
-    };
-    const auto setFloat = [&]( const char* key, float value, const char* format )
-    {
-        snprintf( buf, sizeof( buf ), format, value );
-        setText( key, buf );
-    };
-
-    setFloat( "ordinary_sun_intensity", ordinary.sunIntensity, "%.2f" );
-    setFloat( "ordinary_sun_color_r", ordinary.sunColorR, "%.2f" );
-    setFloat( "ordinary_sun_color_g", ordinary.sunColorG, "%.2f" );
-    setFloat( "ordinary_sun_color_b", ordinary.sunColorB, "%.2f" );
-    setFloat( "ordinary_ambient_strength", ordinary.ambientStrength, "%.2f" );
-    setFloat( "ordinary_sky_ambient_r", ordinary.skyAmbientR, "%.2f" );
-    setFloat( "ordinary_sky_ambient_g", ordinary.skyAmbientG, "%.2f" );
-    setFloat( "ordinary_sky_ambient_b", ordinary.skyAmbientB, "%.2f" );
-    setFloat( "ordinary_ground_ambient_r", ordinary.groundAmbientR, "%.2f" );
-    setFloat( "ordinary_ground_ambient_g", ordinary.groundAmbientG, "%.2f" );
-    setFloat( "ordinary_ground_ambient_b", ordinary.groundAmbientB, "%.2f" );
-    setBool( "ordinary_shadows", ordinary.shadowsEnabled );
-    setBool( "ordinary_shadow_terrain_casts", ordinary.shadowTerrainCasts );
-    setBool( "ordinary_shadow_objects_cast", ordinary.shadowObjectsCast );
-    setBool( "ordinary_shadow_terrain_receives", ordinary.shadowTerrainReceives );
-    setBool( "ordinary_shadow_objects_receive", ordinary.shadowObjectsReceive );
-    setInt( "ordinary_shadow_map_size", ordinary.shadowMapSize );
-    setInt( "ordinary_shadow_pcf_radius", ordinary.shadowPcfRadius );
-    setFloat( "ordinary_shadow_strength", ordinary.shadowStrength, "%.2f" );
-    setFloat( "ordinary_shadow_softness", ordinary.shadowSoftness, "%.2f" );
-    setFloat( "ordinary_shadow_depth_bias", ordinary.shadowDepthBias, "%.5f" );
-    setFloat( "ordinary_shadow_slope_bias", ordinary.shadowSlopeBias, "%.5f" );
-    setFloat( "ordinary_shadow_max_distance", ordinary.shadowMaxDistance, "%.1f" );
-    setFloat( "ordinary_water_tint_r", ordinary.waterTintR, "%.3f" );
-    setFloat( "ordinary_water_tint_g", ordinary.waterTintG, "%.3f" );
-    setFloat( "ordinary_water_tint_b", ordinary.waterTintB, "%.3f" );
-    setFloat( "ordinary_water_alpha", ordinary.waterAlpha, "%.2f" );
-    setFloat( "ordinary_water_reflection_strength", ordinary.waterReflectionStrength, "%.2f" );
-    setFloat( "ordinary_water_fresnel_f0", ordinary.waterFresnelF0, "%.3f" );
-    setFloat( "ordinary_ball_roughness_scale", ordinary.ballRoughnessScale, "%.2f" );
-    setFloat( "ordinary_ball_specular_scale", ordinary.ballSpecularScale, "%.2f" );
-    setFloat( "ordinary_box_roughness_scale", ordinary.boxRoughnessScale, "%.2f" );
-    setFloat( "ordinary_box_specular_scale", ordinary.boxSpecularScale, "%.2f" );
-
-    AppendMissingOrdinaryConfigLines( lines, missing );
-
-    std::ofstream output( configPath, std::ios::trunc );
-    if ( !output )
-    {
-        return false;
-    }
-    for ( const std::string& outLine : lines )
-    {
-        output << outLine << '\n';
-    }
-    return output.good();
-}
-
-bool Run::SaveSkyDefaults()
-{
-    const std::string configPath = std::string( DATA_ROOT ) + "engine.cfg";
-    std::ifstream input( configPath );
-    if ( !input )
-    {
-        return false;
-    }
-
-    std::vector<std::string> lines;
-    std::string line;
-    while ( std::getline( input, line ) )
-    {
-        if ( !line.empty() && line.back() == '\r' )
-        {
-            line.pop_back();
-        }
-        lines.push_back( line );
-    }
-
-    const CinematicRenderConfig& cinematic = ActiveCinematicConfig();
-    std::vector<std::string> missing;
-    char buf[128] = {};
-
-    const auto setText = [&]( const char* key, const char* value )
-    {
-        const std::string lineText = std::string( key ) + " = " + value;
-        if ( !ReplaceConfigLine( lines, key, value ) )
-        {
-            missing.push_back( lineText );
-        }
-    };
-    const auto setBool = [&]( const char* key, bool value )
-    {
-        snprintf( buf, sizeof( buf ), "%d", value ? 1 : 0 );
-        setText( key, buf );
-    };
-    const auto setInt = [&]( const char* key, int value )
-    {
-        snprintf( buf, sizeof( buf ), "%d", value );
-        setText( key, buf );
-    };
-    const auto setFloat = [&]( const char* key, float value, const char* format )
-    {
-        snprintf( buf, sizeof( buf ), format, value );
-        setText( key, buf );
-    };
-
-    setBool( "cinematic_sky_atmosphere", cinematic.skyAtmosphereEnabled );
-    setBool( "cinematic_clouds", cinematic.cloudsEnabled );
-    setBool( "cinematic_god_rays", cinematic.godRaysEnabled );
-    setBool( "cinematic_volumetric_lighting", cinematic.volumetricLightingEnabled );
-    setFloat( "cinematic_exposure", cinematic.exposure, "%.2f" );
-    setFloat( "cinematic_gamma", cinematic.gamma, "%.2f" );
-    setFloat( "cinematic_sun_screen_x", cinematic.sunScreenX, "%.3f" );
-    setFloat( "cinematic_sun_screen_y", cinematic.sunScreenY, "%.3f" );
-    setFloat( "cinematic_sun_color_r", cinematic.sunColorR, "%.2f" );
-    setFloat( "cinematic_sun_color_g", cinematic.sunColorG, "%.2f" );
-    setFloat( "cinematic_sun_color_b", cinematic.sunColorB, "%.2f" );
-    setFloat( "cinematic_sun_intensity", cinematic.sunIntensity, "%.2f" );
-    setFloat( "cinematic_sky_horizon_r", cinematic.skyHorizonR, "%.2f" );
-    setFloat( "cinematic_sky_horizon_g", cinematic.skyHorizonG, "%.2f" );
-    setFloat( "cinematic_sky_horizon_b", cinematic.skyHorizonB, "%.2f" );
-    setFloat( "cinematic_sky_zenith_r", cinematic.skyZenithR, "%.2f" );
-    setFloat( "cinematic_sky_zenith_g", cinematic.skyZenithG, "%.2f" );
-    setFloat( "cinematic_sky_zenith_b", cinematic.skyZenithB, "%.2f" );
-    setFloat( "cinematic_sky_glow_strength", cinematic.skyGlowStrength, "%.2f" );
-    setFloat( "cinematic_cloud_coverage", cinematic.cloudCoverage, "%.2f" );
-    setFloat( "cinematic_cloud_softness", cinematic.cloudSoftness, "%.2f" );
-    setFloat( "cinematic_cloud_scale", cinematic.cloudScale, "%.2f" );
-    setFloat( "cinematic_cloud_intensity", cinematic.cloudIntensity, "%.2f" );
-    setFloat( "cinematic_sun_shaft_strength", cinematic.sunShaftStrength, "%.2f" );
-    setFloat( "cinematic_sun_shaft_falloff", cinematic.sunShaftFalloff, "%.2f" );
-    setFloat( "cinematic_volumetric_strength", cinematic.volumetricStrength, "%.2f" );
-    setFloat( "cinematic_volumetric_density", cinematic.volumetricDensity, "%.2f" );
-    setFloat( "cinematic_volumetric_decay", cinematic.volumetricDecay, "%.3f" );
-    setInt( "cinematic_sky_mode", cinematic.skyMode );
-    setFloat( "cinematic_style_saturation", cinematic.styleSaturation, "%.2f" );
-    setFloat( "cinematic_style_contrast", cinematic.styleContrast, "%.2f" );
-    setFloat( "cinematic_style_vignette", cinematic.styleVignette, "%.2f" );
-
-    AppendMissingCinematicConfigLines( lines, missing );
-
-    std::ofstream output( configPath, std::ios::trunc );
-    if ( !output )
-    {
-        return false;
-    }
-    for ( const std::string& outLine : lines )
-    {
-        output << outLine << '\n';
-    }
-    return output.good();
-}
-
-
-void Run::RefreshSceneBrowserList()
-{
-    m_sceneBrowser.paths.clear();
-    m_sceneBrowser.names.clear();
-    m_sceneBrowser.namePtrs.clear();
-
-    const std::filesystem::path sceneDir = std::filesystem::path( DATA_ROOT ) / "scenes";
-    try
-    {
-        if ( !std::filesystem::exists( sceneDir ) )
-        {
-            return;
-        }
-
-        for ( const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator( sceneDir ) )
-        {
-            if ( !entry.is_regular_file() || !IsSceneJsonFile( entry.path() ) )
-            {
-                continue;
-            }
-            m_sceneBrowser.paths.push_back( NormalizeScenePath( entry.path().generic_string() ) );
-        }
-    }
-    catch ( const std::filesystem::filesystem_error& e )
-    {
-        Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"", e.what() );
-        m_sceneBrowser.paths.clear();
-    }
-
-    std::sort( m_sceneBrowser.paths.begin(), m_sceneBrowser.paths.end() );
-    m_sceneBrowser.paths.erase( std::unique( m_sceneBrowser.paths.begin(), m_sceneBrowser.paths.end() ),
-                                m_sceneBrowser.paths.end() );
-    m_sceneBrowser.names.reserve( m_sceneBrowser.paths.size() );
-    m_sceneBrowser.namePtrs.reserve( m_sceneBrowser.paths.size() );
-    for ( const std::string& path : m_sceneBrowser.paths )
-    {
-        m_sceneBrowser.names.emplace_back( FileNameFromPath( path.c_str() ) );
-    }
-    for ( const std::string& name : m_sceneBrowser.names )
-    {
-        m_sceneBrowser.namePtrs.push_back( name.c_str() );
-    }
-}
-
-
-int Run::CurrentSceneBrowserIndex() const
-{
-    const std::string* currentScenePath = CurrentSceneQueuePath();
-    if ( !currentScenePath )
-    {
-        return -1;
-    }
-
-    const std::string currentPath = NormalizeScenePath( *currentScenePath );
-    for ( int i = 0; i < static_cast<int>( m_sceneBrowser.paths.size() ); ++i )
-    {
-        if ( NormalizeScenePath( m_sceneBrowser.paths[i] ) == currentPath )
-        {
-            return i;
-        }
-    }
-    return -1;
-}
-
-
-bool Run::CreateSceneFromUI( const char* requestedName )
-{
-    const std::string cleanName = SanitizeSceneFileName( requestedName );
-    if ( cleanName.empty() )
-    {
-        return false;
-    }
-
-    const std::filesystem::path sceneDir = std::filesystem::path( DATA_ROOT ) / "scenes";
-    std::error_code ec;
-    std::filesystem::create_directories( sceneDir, ec );
-    if ( ec )
-    {
-        Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"mkdir\" message=\"%s\"",
-                           cleanName.c_str(),
-                           ec.message().c_str() );
-        return false;
-    }
-
-    const std::filesystem::path scenePath = UniqueScenePath( sceneDir, cleanName );
-    if ( scenePath.empty() || !WriteStarterSceneFile( scenePath, cleanName ) )
-    {
-        Log().WriteEventf( "scene_create_failed name=\"%s\" reason=\"write\"", cleanName.c_str() );
-        return false;
-    }
-
-    RefreshSceneBrowserList();
-    const std::string normalizedPath = NormalizeScenePath( scenePath.generic_string() );
-    for ( int i = 0; i < static_cast<int>( m_sceneBrowser.paths.size() ); ++i )
-    {
-        if ( NormalizeScenePath( m_sceneBrowser.paths[i] ) == normalizedPath )
-        {
-            LoadSceneFromBrowserIndex( i );
-            return true;
-        }
-    }
-
-    EnterInteractiveSceneRun();
-    LoadScene( m_sceneController.Append( normalizedPath ), true, true );
-    return true;
-}
-
-
-void Run::LoadSceneFromBrowserIndex( int index )
-{
-    m_sceneCoordinator.LoadSceneFromBrowserIndex( index, m_sceneBrowser.paths );
-}
-
-
-void Run::LoadDemoSceneFromUI()
-{
-    m_sceneCoordinator.LoadDemoSceneFromUI();
-}
-
-
-bool Run::ApplyCinematicModeFromBrowserIndex( int index )
-{
-    EnterInteractiveSceneRun();
-    m_launchOptions.hasCinematicRenderingOverride = false;
-
-    auto resetObjectMaterials = [&]()
-    {
-        for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
-        {
-            GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
-            if ( !IsSimpleRagdollPartName( model.GetName() ) )
-            {
-                model.SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
-            }
-        }
-    };
-
-    auto applyObjectMaterials = [&]( const TestScene& styleScene )
-    {
-        resetObjectMaterials();
-        for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
-        {
-            const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );
-            for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
-            {
-                GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
-                if ( SceneMaterialTargetMatches( material, model ) )
-                {
-                    model.SetRenderMaterial( material.material );
-                }
-            }
-        }
-    };
-
-    CinematicRenderConfig& cinematic = ActiveCinematicConfig();
-    if ( index < 0 )
-    {
-        cinematic = m_defaultCinematicRender;
-        if ( SceneState().isSceneMode )
-        {
-            SceneState().hasCinematicRenderingOverride = false;
-            SceneState().isCinematicRenderingEnabled = cinematic.enabled;
-            SceneState().hasCinematicExposure = false;
-            SceneState().cinematicExposure = cinematic.exposure;
-            SceneState().hasCinematicGamma = false;
-            SceneState().cinematicGamma = cinematic.gamma;
-            SceneState().cinematicOverrideMask = 0;
-            SceneState().uiCinematicOverrideMask = 0;
-        }
-        resetObjectMaterials();
-        m_sceneBrowser.selectedCineModeSceneIndex = -1;
-        return true;
-    }
-
-    if ( index >= static_cast<int>( m_sceneBrowser.paths.size() ) || !IsCineScenePath( m_sceneBrowser.paths[index] ) )
-    {
-        return false;
-    }
-
-    TestScene lookScene = TestScene::LoadFromFile( m_sceneBrowser.paths[index].c_str() );
-    cinematic = m_defaultCinematicRender;
-    ApplyCinematicSceneOverrides( cinematic,
-                                  lookScene.GetCinematicOverrideMask(),
-                                  lookScene.GetCinematicRenderConfig() );
-    if ( SceneState().isSceneMode )
-    {
-        SceneState().hasCinematicRenderingOverride = lookScene.HasCinematicRenderingOverride();
-        SceneState().isCinematicRenderingEnabled = lookScene.IsCinematicRenderingEnabled();
-        SceneState().hasCinematicExposure = lookScene.HasCinematicExposure();
-        SceneState().cinematicExposure = lookScene.GetCinematicExposure();
-        SceneState().hasCinematicGamma = lookScene.HasCinematicGamma();
-        SceneState().cinematicGamma = lookScene.GetCinematicGamma();
-        SceneState().cinematicOverrideMask = lookScene.GetCinematicOverrideMask();
-        SceneState().uiCinematicOverrideMask = 0;
-    }
-    applyObjectMaterials( lookScene );
-    m_sceneBrowser.selectedCineModeSceneIndex = index;
-    return true;
-}
-
-
-void Run::ApplyLiveStyleScene( const TestScene& styleScene )
-{
-    m_launchOptions.hasCinematicRenderingOverride = false;
-
-    for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
-    {
-        GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
-        if ( !IsSimpleRagdollPartName( model.GetName() ) )
-        {
-            model.SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
-        }
-    }
-
-    for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
-    {
-        const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );
-        for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
-        {
-            GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
-            if ( SceneMaterialTargetMatches( material, model ) )
-            {
-                model.SetRenderMaterial( material.material );
-            }
-        }
-    }
-
-    CinematicRenderConfig& cinematic = ActiveCinematicConfig();
-    cinematic = m_defaultCinematicRender;
-    ApplyCinematicSceneOverrides( cinematic,
-                                  styleScene.GetCinematicOverrideMask(),
-                                  styleScene.GetCinematicRenderConfig() );
-    if ( SceneState().isSceneMode )
-    {
-        SceneState().hasCinematicRenderingOverride = styleScene.HasCinematicRenderingOverride();
-        SceneState().isCinematicRenderingEnabled = styleScene.IsCinematicRenderingEnabled();
-        SceneState().hasCinematicExposure = styleScene.HasCinematicExposure();
-        SceneState().cinematicExposure = styleScene.GetCinematicExposure();
-        SceneState().hasCinematicGamma = styleScene.HasCinematicGamma();
-        SceneState().cinematicGamma = styleScene.GetCinematicGamma();
-        SceneState().cinematicOverrideMask = styleScene.GetCinematicOverrideMask();
-        SceneState().uiCinematicOverrideMask = 0;
-    }
-    m_sceneBrowser.selectedCineModeSceneIndex = -1;
-}
-
-
-void Run::ApplyDemoHeroStyleOverride()
-{
-    if ( !m_launchOptions.demoHeroStyle || SceneState().isSceneMode )
-    {
-        return;
-    }
-
-    const std::string stylePath = std::string( DATA_ROOT ) + "styles/low_poly_art_style.style.json";
-    const TestScene styleScene = TestScene::LoadStyleFromFile( stylePath.c_str() );
-    ApplyLiveStyleScene( styleScene );
-    printf( "[scene] Applied low-poly hero rendering mode to generated demo scene.\n" );
-}
-
-
-bool Run::ApplyAdjacentCinematicMode( int direction )
-{
-    return m_sceneCoordinator.ApplyAdjacentCinematicMode( direction,
-                                                          m_sceneBrowser.paths,
-                                                          m_sceneBrowser.selectedCineModeSceneIndex );
-}
-
-
-void Run::LoadAdjacentSceneFromBrowser( int direction )
-{
-    m_sceneCoordinator.LoadAdjacentSceneFromBrowser( direction, m_sceneBrowser.paths );
-}
-
-
-void Run::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
-{
-    m_sceneCoordinator.ResetCurrentScene( preserveUIState, suppressExitOnComplete, preserveRuntimeState );
-}
-
-
-void Run::ApplyUIModelCountOverride( int count )
-{
-    m_sceneUIOverrides.modelCountOverride = std::clamp( count, 0, ActiveGameModelCapacity() );
-    m_sceneUIOverrides.solverBallCountOverride = -1;
-    m_sceneUIOverrides.solverBoxCountOverride = -1;
-    if ( !HasCurrentSceneQueueEntry() )
-    {
-        return;
-    }
-
-    if ( IsGfxReady() )
-    {
-        Gfx().FlushGPU();
-    }
-    m_cGameModelCollection.Clear();
-    ClearRayCastTestLines();
-    m_simulation.Reset();
-    SceneState().currentFrame = 0;
-    SceneState().isTestComplete = false;
-    if ( m_sceneUIOverrides.modelCountOverride <= 0 )
-    {
-        SceneState().modelCount = 0;
-        m_camera.trackBallIndex = -1;
-        ResetReplayTimelineForActiveScene();
-        PROFILE_SCHEDULE_RESET();
-        return;
-    }
-
-    const unsigned int seed = SceneState().rngSeed > 0 ? SceneState().rngSeed : 1u;
-    SceneState().rngState = seed;
-    SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(), m_sceneUIOverrides.modelCountOverride );
-    if ( m_camera.trackBallIndex >= m_sceneUIOverrides.modelCountOverride )
-    {
-        m_camera.trackBallIndex = m_sceneUIOverrides.modelCountOverride - 1;
-    }
-    ResetReplayTimelineForActiveScene();
-    PROFILE_SCHEDULE_RESET();
-}
-
-
-void Run::ApplyUISolverObjectCounts( int balls, int boxes )
-{
-    const int modelCapacity = ActiveGameModelCapacity();
-    balls = std::clamp( balls, 0, modelCapacity );
-    boxes = std::clamp( boxes, 0, modelCapacity );
-    if ( balls + boxes > modelCapacity )
-    {
-        boxes = (std::max)( 0, modelCapacity - balls );
-    }
-    m_sceneUIOverrides.solverBallCountOverride = balls;
-    m_sceneUIOverrides.solverBoxCountOverride = boxes;
-    m_sceneUIOverrides.modelCountOverride = -1;
-    if ( !HasCurrentSceneQueueEntry() )
-    {
-        return;
-    }
-
-    if ( IsGfxReady() )
-    {
-        Gfx().FlushGPU();
-    }
-    m_cGameModelCollection.Clear();
-    ClearRayCastTestLines();
-    m_simulation.Reset();
-    SceneState().currentFrame = 0;
-    SceneState().isTestComplete = false;
-
-    const unsigned int seed = SceneState().rngSeed > 0 ? SceneState().rngSeed : 1u;
-    SceneState().rngState = seed;
-    SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(),
-                                             m_sceneUIOverrides.solverBallCountOverride,
-                                             m_sceneUIOverrides.solverBoxCountOverride );
-    if ( SceneState().modelCount <= 0 )
-    {
-        m_camera.trackBallIndex = -1;
-    }
-    else if ( m_camera.trackBallIndex >= SceneState().modelCount )
-    {
-        m_camera.trackBallIndex = SceneState().modelCount - 1;
-    }
-    ResetReplayTimelineForActiveScene();
-    PROFILE_SCHEDULE_RESET();
-}
-
-
-void Run::ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity )
-{
-    const float previousGravity = m_cWorldEnvironment.GetGravity();
-    const float previousFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
-    const float previousFluidDensity = m_cWorldEnvironment.GetFluidDensity();
-    m_cWorldEnvironment.SetGravity( gravity );
-    m_cWorldEnvironment.SetFluidSurfaceHeight( fluidHeight );
-    m_cWorldEnvironment.SetFluidDensity( fluidDensity );
-    RecordReplayWorldOverrideEvent( previousGravity,
-                                    previousFluidHeight,
-                                    previousFluidDensity,
-                                    gravity,
-                                    fluidHeight,
-                                    fluidDensity );
-}
-
-
-void Run::ApplyConfiguredWorldEnvironment()
-{
-    const EngineConfig& cfg = Cfg();
-    m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
-    UpdateWorldTerrainBounds();
-}
-
-
-void Run::ApplyNoWaterOverride()
-{
-    if ( !m_launchOptions.noWater || !m_systems.terrain )
-    {
-        return;
-    }
-
-    m_cWorldEnvironment.SetFluidSurfaceHeight( m_systems.terrain->GetMinHeight() - NO_WATER_TERRAIN_CLEARANCE );
-}
-
-
-void Run::ApplyTornadoDefaultsForActiveScene()
-{
-    Physics::TornadoFieldConfig field = m_runtimeSettings.tornadoField;
-    const CinematicRenderConfig& cinematic = ActiveCinematicConfig();
-    const float basinRadius = (std::max)( cinematic.basinRadiusX, cinematic.basinRadiusZ );
-
-    field.center =
-        Vector3( cinematic.basinCenterX, m_cWorldEnvironment.GetFluidSurfaceHeight(), cinematic.basinCenterZ );
-    field.radius = std::clamp( basinRadius * 1.28f, 180.0f, 340.0f );
-    field.height = (std::max)( 130.0f, field.radius * 0.66f );
-    field.inwardAcceleration = 150.0f;
-    field.swirlAcceleration = 185.0f;
-    field.liftAcceleration = 64.0f;
-    m_runtimeSettings.tornadoField = field;
-}
-
-
-void Run::SyncTornadoFieldToPhysics()
-{
-    m_cGameModelCollection.SetTornadoFieldConfig( m_runtimeSettings.tornadoField );
-    m_cGameModelCollection.SetTornadoSystemConfig( m_runtimeSettings.tornadoSystem );
-}
-
-
-void Run::UseDefaultTerrain()
-{
-    if ( !m_systems.terrain || m_systems.isFlatSlopeTerrain )
-    {
-        if ( IsGfxReady() )
-        {
-            Gfx().FlushGPU();
-        }
-        const std::string terrainRawPath =
-            ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", Cfg().terrainRaw );
-        m_systems.terrain = std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15 );
-        m_systems.isFlatSlopeTerrain = false;
-    }
-
-    UpdateWorldTerrainBounds();
-}
-
-
-void Run::UseFlatSlopeTerrain( float baseY, float slopeX, float slopeZ )
-{
-    if ( IsGfxReady() )
-    {
-        Gfx().FlushGPU();
-    }
-    m_systems.terrain = std::make_unique<Terrain>( baseY, slopeX, slopeZ );
-    m_systems.isFlatSlopeTerrain = true;
-
-    UpdateWorldTerrainBounds();
-}
-
-
-void Run::UpdateWorldTerrainBounds()
-{
-    if ( !m_systems.terrain )
-    {
-        return;
-    }
-
-    XZBounds tb = m_systems.terrain->GetXZBounds();
-    m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
-}
-
-
-bool Run::AdvanceScene()
-{
-    const bool preserveInteractiveUI = SceneState().isInteractiveRun;
-    return m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfLog().isPerfTest,
-                                            sPerfPass,
-                                            preserveInteractiveUI );
 }

@@ -157,6 +157,9 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
                                 float flatSlopeX,
                                 float flatSlopeZ )
 {
+    // Invariant: Editable scene saves emit state-form objects whose positions,
+    // velocities, sleeping flags, and materials can round-trip through
+    // TestSceneParser without reinterpreting authored placement offsets.
     const std::vector<GameModel>& m_gameModels = collection.Models();
     const std::vector<uint8_t>& sleepStates = collection.GetSleepStates();
 
@@ -213,6 +216,8 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
 
     for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
     {
+        // Concept: Shape variants map to saved scene state records. These are
+        // live simulation snapshots, not original authored spawn commands.
         const char* name = m_gameModels[i].GetName();
         char safeName[64];
         if ( !name[0] )

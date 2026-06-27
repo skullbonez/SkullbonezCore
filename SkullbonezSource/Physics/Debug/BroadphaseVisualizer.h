@@ -15,6 +15,12 @@ Glossary:
   and penetration.
   Heat: Per-cell collision count used only to darken the debug color.
 
+Invariants:
+  - Visualizer state is explanatory overlay state and never participates in
+    solver, broadphase, or narrowphase decisions.
+  - m_cells has fixed capacity so enabling the overlay cannot introduce
+    unbounded per-frame allocation.
+
 Related:
   - SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp
   - Agentic/Reference/comment-style-guide.md

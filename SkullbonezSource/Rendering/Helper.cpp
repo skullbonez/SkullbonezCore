@@ -17,6 +17,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - C++ constant-buffer structs must match reflected HLSL cbuffer size and
+    field order, or the draw that depends on them must be skipped.
+  - Static mesh/shader handles are backend resources and must be reset before
+    backend teardown or recreation.
+
 Related:
   - SkullbonezSource/Rendering/Helper.h
   - Agentic/Reference/runtime-reference.md

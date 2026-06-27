@@ -8,6 +8,14 @@ Mental model:
   and the individual pass classes create, reset, and consume these resources
   while Run still owns the broader backend teardown order.
 
+Glossary:
+  Pass resource: Backend-owned framebuffer, shader, or vertex buffer attached
+  to a named render pass.
+  Shadow frame data: Borrowed per-frame receiver payload containing light
+  matrices and texture handles.
+  Backend teardown: Ordered release of GPU resources before the renderer is
+  destroyed or rebuilt.
+
 Invariants:
   - RunRenderPassResources owns backend/device resources and must be reset
     while the renderer backend is still alive.

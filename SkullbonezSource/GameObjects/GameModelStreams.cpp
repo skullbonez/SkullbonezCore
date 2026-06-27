@@ -14,6 +14,11 @@ Glossary:
   Cache validity: Flagged state showing whether the SoA arrays mirror the
   current GameModel list.
 
+Invariants:
+  - Stream providers return borrowed views into GameModelSoACache and never
+    allocate independent stream storage.
+  - Providers must refresh the relevant cache before returning pointers.
+
 Related:
   - SkullbonezSource/GameObjects/GameModelStreams.h
   - Agentic/Reference/comment-style-guide.md

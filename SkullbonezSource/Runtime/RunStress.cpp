@@ -12,11 +12,19 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - UI stress randomness is deterministic from UIStressState so crashes can be
+    reproduced from the same launch options.
+  - Runtime churn remains disabled in this sweep unless the matching render and
+    physics validation gates are intentionally selected.
+
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "RuntimeTuning.h"
+#include "Scene/SceneRuntimeGeneratedControls.h"
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -25,38 +33,44 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
 
-unsigned int Run::NextUIStressRandom()
+namespace
 {
-    m_diagnosticsRuntime.UIStress().randomState = m_diagnosticsRuntime.UIStress().randomState * 1664525u + 1013904223u;
-    return m_diagnosticsRuntime.UIStress().randomState;
+using UIStressState = DiagnosticsRuntime::UIStressState;
+
+unsigned int NextUIStressRandom( UIStressState& stress )
+{
+    stress.randomState = stress.randomState * 1664525u + 1013904223u;
+    return stress.randomState;
 }
 
 
-int Run::NextUIStressInt( int maxExclusive )
+int NextUIStressInt( UIStressState& stress, int maxExclusive )
 {
     if ( maxExclusive <= 0 )
     {
         return 0;
     }
-    return static_cast<int>( NextUIStressRandom() % static_cast<unsigned int>( maxExclusive ) );
+    return static_cast<int>( NextUIStressRandom( stress ) % static_cast<unsigned int>( maxExclusive ) );
 }
 
 
-float Run::NextUIStressFloat( float minValue, float maxValue )
+float NextUIStressFloat( UIStressState& stress, float minValue, float maxValue )
 {
-    const float unit = static_cast<float>( NextUIStressRandom() & 0xFFFFu ) / 65535.0f;
+    const float unit = static_cast<float>( NextUIStressRandom( stress ) & 0xFFFFu ) / 65535.0f;
     return minValue + ( maxValue - minValue ) * unit;
 }
+} // namespace
 
 
 void Run::RunUIStressActions()
 {
-    if ( !m_diagnosticsRuntime.UIStress().enabled || !m_systems.window )
+    UIStressState& stress = m_diagnosticsRuntime.UIStress();
+    if ( !stress.enabled || !m_systems.window )
     {
         return;
     }
 
-    ++m_diagnosticsRuntime.UIStress().framesRun;
+    ++stress.framesRun;
     const double UINow = m_timers.simulationTimer.GetTotalTime();
     const int screenW = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.x ) );
     const int screenH = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.y ) );
@@ -64,58 +78,88 @@ void Run::RunUIStressActions()
     m_UI.SetVisible( true, UINow );
     m_UI.SetMinimized( false, UINow );
 
-    m_UI.SetMouseOverride( true, NextUIStressInt( screenW ), NextUIStressInt( screenH ) );
+    m_UI.SetMouseOverride( true, NextUIStressInt( stress, screenW ), NextUIStressInt( stress, screenH ) );
 
     // This gate is a UI control-state crash sweep. Runtime rebuilds and world
     // debug toggles belong to render/physics validation, so they stay frozen here.
     const bool allowRuntimeChurn = false;
-    if ( m_diagnosticsRuntime.UIStress().framesRun == 18 )
+    const auto makeSceneGeneratedControlContext = [this]() -> SceneRuntimeGeneratedControlContext
     {
-        const int modelCount = 96 + NextUIStressInt( 160 );
+        return SceneRuntimeGeneratedControlContext{ SceneState(),
+                                                    m_sceneUIOverrides,
+                                                    m_camera,
+                                                    m_sceneController,
+                                                    Cfg(),
+                                                    m_cWorldEnvironment,
+                                                    m_systems.terrain.get(),
+                                                    m_cGameModelCollection,
+                                                    m_simulation,
+                                                    m_runtimeTools,
+                                                    IsGfxReady() ? &Gfx() : nullptr,
+                                                    m_launchOptions.generatedObjectTypeOverride,
+                                                    ActiveGameModelCapacity() };
+    };
+    const auto executeSceneGeneratedControlAction = [this]( const SceneRuntimeGeneratedControlAction& action )
+    {
+        if ( action.resetReplayTimeline )
+        {
+            ResetReplayTimelineForActiveScene();
+        }
+        if ( action.scheduleProfileReset )
+        {
+            PROFILE_SCHEDULE_RESET();
+        }
+    };
+    if ( stress.framesRun == 18 )
+    {
+        const int modelCount = 96 + NextUIStressInt( stress, 160 );
         if ( allowRuntimeChurn )
         {
-            ApplyUIModelCountOverride( modelCount );
+            executeSceneGeneratedControlAction(
+                ApplyUIModelCountOverride( makeSceneGeneratedControlContext(), modelCount ) );
         }
     }
-    if ( m_diagnosticsRuntime.UIStress().framesRun == 42 )
+    if ( stress.framesRun == 42 )
     {
-        const int balls = 24 + NextUIStressInt( 220 );
-        const int boxes = NextUIStressInt( 1000 - balls + 1 );
+        const int balls = 24 + NextUIStressInt( stress, 220 );
+        const int boxes = NextUIStressInt( stress, 1000 - balls + 1 );
         if ( allowRuntimeChurn )
         {
-            ApplyUISolverObjectCounts( balls, boxes );
+            executeSceneGeneratedControlAction(
+                ApplyUISolverObjectCounts( makeSceneGeneratedControlContext(), balls, boxes ) );
         }
     }
-    const int actionCount = std::clamp( m_diagnosticsRuntime.UIStress().actionsPerFrame, 1, 32 );
+    const int actionCount = std::clamp( stress.actionsPerFrame, 1, 32 );
     for ( int i = 0; i < actionCount; ++i )
     {
-        switch ( NextUIStressInt( 24 ) )
+        switch ( NextUIStressInt( stress, 24 ) )
         {
         case 0:
-            m_UI.SetActiveTab( static_cast<InGameUITab>( NextUIStressInt( static_cast<int>( InGameUITab::Count ) ) ) );
+            m_UI.SetActiveTab(
+                static_cast<InGameUITab>( NextUIStressInt( stress, static_cast<int>( InGameUITab::Count ) ) ) );
             break;
         case 1:
-            m_UI.SetScrollY( NextUIStressFloat( 0.0f, 900.0f ) );
+            m_UI.SetScrollY( NextUIStressFloat( stress, 0.0f, 900.0f ) );
             break;
         case 2:
             // Keep the PRNG sequence stable while leaving backdrop blur to validate_ui.bat.
             // Stress runs churn control state; blur's DX12 readback path has its own pixel gate.
-            (void)NextUIStressInt( 2 );
+            (void)NextUIStressInt( stress, 2 );
             break;
         case 3:
-            m_UI.SetProfilerTimelineEnabled( NextUIStressInt( 2 ) != 0 );
+            m_UI.SetProfilerTimelineEnabled( NextUIStressInt( stress, 2 ) != 0 );
             break;
         case 4:
-            m_UI.SetPerformanceHistogramEnabled( NextUIStressInt( 2 ) != 0 );
+            m_UI.SetPerformanceHistogramEnabled( NextUIStressInt( stress, 2 ) != 0 );
             break;
         case 5:
-            m_UI.SetRendererComboOpen( NextUIStressInt( 2 ) != 0 );
+            m_UI.SetRendererComboOpen( NextUIStressInt( stress, 2 ) != 0 );
             break;
         case 6:
-            m_UI.SetWaterComboOpen( NextUIStressInt( 2 ) != 0 );
+            m_UI.SetWaterComboOpen( NextUIStressInt( stress, 2 ) != 0 );
             break;
         case 7:
-            m_UI.SetSceneComboOpen( NextUIStressInt( 2 ) != 0 );
+            m_UI.SetSceneComboOpen( NextUIStressInt( stress, 2 ) != 0 );
             break;
         case 8:
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
@@ -133,7 +177,7 @@ void Run::RunUIStressActions()
                                                PHYSICS_DEBUG_CONTACTS,
                                                PHYSICS_DEBUG_SLEEP,
                                                PHYSICS_DEBUG_ALL };
-            const int flagIndex = NextUIStressInt( 4 );
+            const int flagIndex = NextUIStressInt( stress, 4 );
             if ( allowRuntimeChurn )
             {
                 m_debug.physicsDebugFlags = kFlags[flagIndex];
@@ -189,7 +233,7 @@ void Run::RunUIStressActions()
             break;
         case 18:
         {
-            const int mode = NextUIStressInt( 3 );
+            const int mode = NextUIStressInt( stress, 3 );
             if ( allowRuntimeChurn )
             {
                 m_debug.isWaterRTReflect = mode == 1;
@@ -199,7 +243,7 @@ void Run::RunUIStressActions()
         }
         case 19:
         {
-            const float timeScale = NextUIStressFloat( 0.10f, 4.00f );
+            const float timeScale = NextUIStressFloat( stress, 0.10f, 4.00f );
             if ( allowRuntimeChurn )
             {
                 m_sceneUIOverrides.timeScaleOverride = timeScale;
@@ -210,7 +254,7 @@ void Run::RunUIStressActions()
         }
         case 20:
         {
-            const float alpha = NextUIStressFloat( 0.05f, 1.00f );
+            const float alpha = NextUIStressFloat( stress, 0.05f, 1.00f );
             if ( allowRuntimeChurn )
             {
                 m_debug.physicsDebugAlpha = alpha;
@@ -219,7 +263,7 @@ void Run::RunUIStressActions()
         }
         case 21:
         {
-            const float contactLinger = NextUIStressFloat( 0.00f, 5.00f );
+            const float contactLinger = NextUIStressFloat( stress, 0.00f, 5.00f );
             if ( allowRuntimeChurn )
             {
                 m_debug.physicsDebugContactLinger = contactLinger;
@@ -228,17 +272,18 @@ void Run::RunUIStressActions()
         }
         case 22:
         {
-            const float gravity = -NextUIStressFloat( 0.0f, 80.0f );
-            const float fluidHeight = NextUIStressFloat( -40.0f, 140.0f );
-            const float fluidDensity = NextUIStressFloat( 0.0f, 5.0f );
+            const float gravity = -NextUIStressFloat( stress, 0.0f, 80.0f );
+            const float fluidHeight = NextUIStressFloat( stress, -40.0f, 140.0f );
+            const float fluidDensity = NextUIStressFloat( stress, 0.0f, 5.0f );
             if ( allowRuntimeChurn )
             {
-                ApplyUIWorldOverride( gravity, fluidHeight, fluidDensity );
+                ApplyUIWorldOverride( m_cWorldEnvironment, m_replayRuntime, gravity, fluidHeight, fluidDensity );
             }
             break;
         }
         case 23:
-            m_UI.SetActiveTab( static_cast<InGameUITab>( NextUIStressInt( static_cast<int>( InGameUITab::Count ) ) ) );
+            m_UI.SetActiveTab(
+                static_cast<InGameUITab>( NextUIStressInt( stress, static_cast<int>( InGameUITab::Count ) ) ) );
             break;
         default:
             break;

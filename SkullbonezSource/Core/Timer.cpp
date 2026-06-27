@@ -12,6 +12,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Timer construction fails fast when high-resolution counters are unavailable
+    because frame pacing and profiling depend on sub-frame timing.
+  - Elapsed intervals use the last StartTimer/StopTimer pair; total time remains
+    relative to construction.
+
 Related:
   - SkullbonezSource/Core/Timer.h
   - Agentic/Reference/runtime-reference.md

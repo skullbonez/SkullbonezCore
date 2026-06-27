@@ -12,6 +12,12 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - ShadowFrameData is frame-local render input; it does not own the depth
+    texture backing its opaque handle.
+  - Disabled receivers must clear the shadow texture binding so stale descriptor
+    state cannot affect later draws.
+
 Related:
   - Agentic/Reference/comment-style-guide.md
 */

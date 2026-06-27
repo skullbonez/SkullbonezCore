@@ -12,6 +12,12 @@ Glossary:
   Engine module: A source file with one focused responsibility inside the
   SkullbonezCore runtime.
 
+Invariants:
+  - This overlay reads broadphase/debug cell data only; it must not feed state
+    back into collision detection.
+  - Tracked cell state is capped and visual-only, so overflow drops debug cells
+    instead of reallocating during a frame.
+
 Related:
   - SkullbonezSource/Physics/Debug/BroadphaseVisualizer.h
   - Agentic/Reference/comment-style-guide.md
@@ -85,6 +91,8 @@ int BroadphaseVisualizer::FindOrAddCell( int64_t key, int16_t ix, int16_t iy, in
     }
     if ( m_cellCount >= MAX_TRACKED_CELLS )
     {
+        // Hazard: this is a debug renderer. Dropping excess visualization cells
+        // is preferable to unbounded allocation while physics is stepping.
         return -1; // Silently drop if at capacity
     }
     TrackedCell& cell = m_cells[m_cellCount];

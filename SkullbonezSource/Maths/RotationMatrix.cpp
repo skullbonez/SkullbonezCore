@@ -12,6 +12,11 @@ Glossary:
   Engine module: A source file with one focused responsibility inside the
   SkullbonezCore runtime.
 
+Invariants:
+  - RotationMatrix represents an orthogonal 3x3 rotation basis; TransposeMultiply
+    is treated as inverse rotation.
+  - Component layout matches the row/column use documented in RotationMatrix.h.
+
 Related:
   - SkullbonezSource/Maths/RotationMatrix.h
   - Agentic/Reference/comment-style-guide.md

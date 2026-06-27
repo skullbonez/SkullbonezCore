@@ -12,6 +12,12 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - The graph records pass/resource intent and diagnostics; this slice does not
+    own GPU allocation or command execution.
+  - Pass resource accesses must name concrete states so DX12 barrier diagnostics
+    can reason about transitions.
+
 Related:
   - SkullbonezSource/Rendering/RenderGraph.h
   - Agentic/Reference/comment-style-guide.md

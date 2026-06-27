@@ -8,6 +8,11 @@ Mental model:
   Ragdoll owns prefab construction, while PointJointConstraint is generic solver
   data that can later move under a broader constraint module.
 
+Glossary:
+  Point joint: Constraint that keeps two local anchors near each other.
+  Slack: Allowed anchor separation before the solver applies correction.
+  Preview lines: Editor-only visualization geometry for placement feedback.
+
 Invariants:
   - Constraint order is deterministic and scene-authored.
   - Constraint bodies refer to GameModelCollection indices for the active scene.
@@ -44,6 +49,7 @@ class GameModelCollection;
 namespace Physics
 {
 class PhysicsEngine;
+class PhysicsBodyStore;
 
 struct PointJointConstraint
 {
@@ -92,6 +98,7 @@ class Ragdoll
                                    Geometry::Terrain* terrain,
                                    const RagdollBuildOptions& options );
     static void SolvePointJoints( GameObjects::GameModelCollection& collection,
+                                  PhysicsBodyStore& bodyStore,
                                   const std::vector<PointJointConstraint>& constraints,
                                   const std::vector<uint8_t>& sleepState,
                                   float dt );

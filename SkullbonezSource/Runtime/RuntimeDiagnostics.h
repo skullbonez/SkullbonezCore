@@ -87,7 +87,12 @@ class RuntimeDiagnostics
   public:
     static MainMemoryProcessStats SampleProcessMemory();
     static void ClosePerfLog( RunPerfLogState& perfLog );
+    static void ClosePerfLogWithMemoryCheckpoint( RunPerfLogState& perfLog, int pass, const char* checkpoint );
     static void LogPerfMemory( RunPerfLogState& perfLog, int pass, const char* checkpoint );
+    static void ResetPerfLogForSceneLoad( RunPerfLogState& perfLog );
+    static void ConfigurePerfLogFlush( RunPerfLogState& perfLog, bool enabled, int interval );
+    static void OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass );
+    static bool PerfTestActive( const RunPerfLogState& perfLog );
     static void TickPerfLog( RunPerfLogState& perfLog, const RuntimePerfTickContext& context );
 
 #ifdef _DEBUG

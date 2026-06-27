@@ -73,6 +73,8 @@ void SetContentBounds( SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
                        float firstToggleY,
                        float contentW )
 {
+    // Invariant: Physics tab draw and hit testing both use this layout helper,
+    // so moving a row here moves the visible control and its interaction box.
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
     const float col1 = contentX;
     const float col2 = contentX + colW + 18.0f;
@@ -127,6 +129,8 @@ int ContentHeight()
 
 void ResetPreviewState( UIPhysicsTabState& state )
 {
+    // Concept: Preview values are transient drag feedback. Runtime settings
+    // change only after command handling applies the result.
     state.previewAlpha = -1.0f;
     state.previewContactLinger = -1.0f;
     state.previewRayImpulse = -1.0f;
@@ -148,6 +152,8 @@ bool HandleContentClick( UIPhysicsTabState& state,
                          float rowBase,
                          float contentW )
 {
+    // Invariant: This function emits commands only. Physics debug state and
+    // world forces are mutated by runtime command handling.
     SetContentBounds( state, contentX, rowBase, contentW );
 
     if ( state.toggles[0].HitTest( mouseX, mouseY ) )

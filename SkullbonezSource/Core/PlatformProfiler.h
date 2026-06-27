@@ -12,6 +12,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - All functions are safe to call when platform profiling is unavailable; they
+    become no-ops or deterministic helpers.
+  - Decorated marker names must fit caller-provided buffers and remain
+    null-terminated.
+
 Related:
   - SkullbonezSource/Core/PlatformProfiler.cpp
   - Agentic/Reference/runtime-reference.md

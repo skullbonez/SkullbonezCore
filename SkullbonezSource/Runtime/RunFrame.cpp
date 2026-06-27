@@ -12,6 +12,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Replay event payload bits are decoded without numeric conversion so saved
+    timelines reproduce exact float values.
+  - Frame work updates input, simulation, capture, rendering, and diagnostics
+    in a stable order used by validation and replay comparisons.
+
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -19,7 +25,10 @@ Related:
 #include "RunInternal.h"
 
 #include "CaptureSystem.h"
+#include "Editor/EditorTools.h"
 #include "Replay/ReplayV2Artifact.h"
+#include "RuntimeTuning.h"
+#include "Scene/SceneRuntimeStyle.h"
 
 #include <cmath>
 #include <cstdint>
@@ -54,6 +63,63 @@ constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
+
+// Concept: replay flags are compact wire-format fields. Keep these masks local
+// to decode logic so new replay payload versions do not inherit accidental UI
+// or runtime enum values.
+
+void CompareLatestReplaySamples( ReplayRuntime& replayRuntime, RunReplayMismatchState& mismatchState )
+{
+    const ReplayPresentationSample* presentation = replayRuntime.Presentation().LatestSample();
+    const ReplaySolverFrameSample* solver = replayRuntime.Solver().LatestSample();
+    if ( !presentation || !solver )
+    {
+        return;
+    }
+
+    const bool matches = presentation->frameIndex == solver->frameIndex &&
+                         presentation->stateHash == solver->presentationHash &&
+                         presentation->bodies.size() == solver->bodies.size();
+    if ( matches )
+    {
+        return;
+    }
+
+    if ( mismatchState.reports < 8 )
+    {
+        ++mismatchState.reports;
+        fprintf( stderr,
+                 "[replay] Solver/presentation capture mismatch #%u: presentation_frame=%llu solver_frame=%llu "
+                 "presentation_hash=0x%016llX solver_presentation_hash=0x%016llX solver_hash=0x%016llX "
+                 "presentation_bodies=%llu solver_bodies=%llu\n",
+                 mismatchState.reports,
+                 static_cast<unsigned long long>( presentation->frameIndex ),
+                 static_cast<unsigned long long>( solver->frameIndex ),
+                 static_cast<unsigned long long>( presentation->stateHash ),
+                 static_cast<unsigned long long>( solver->presentationHash ),
+                 static_cast<unsigned long long>( solver->solverHash ),
+                 static_cast<unsigned long long>( presentation->bodies.size() ),
+                 static_cast<unsigned long long>( solver->bodies.size() ) );
+    }
+    else if ( !mismatchState.suppressed )
+    {
+        mismatchState.suppressed = true;
+        fprintf( stderr,
+                 "[replay] Further solver/presentation capture mismatch diagnostics suppressed for this replay "
+                 "timeline.\n" );
+    }
+}
+
+SceneGeneratedModelContext BuildSceneGeneratedModelContext( RunSceneState& scene,
+                                                            const EngineConfig& config,
+                                                            SkullbonezCore::Environment::WorldEnvironment& world,
+                                                            SkullbonezCore::Geometry::Terrain* terrain,
+                                                            SkullbonezCore::GameObjects::GameModelCollection& models,
+                                                            SkullbonezCore::Physics::PhysicsEngine& physics,
+                                                            GeneratedObjectTypeOverride objectTypeOverride )
+{
+    return SceneGeneratedModelContext{ scene, config, world, terrain, models, physics, objectTypeOverride };
+}
 
 float ReplayEventFloatFromBits( int32_t signedBits )
 {
@@ -241,7 +307,7 @@ void WriteReplayProbeReason( char* outReason, std::size_t reasonSize, const char
 {
     if ( outReason && reasonSize > 0 )
     {
-        sprintf_s( outReason, reasonSize, "%s", reason ? reason : "event replay failed" );
+        strncpy_s( outReason, reasonSize, reason ? reason : "event replay failed", _TRUNCATE );
     }
 }
 
@@ -424,7 +490,10 @@ void Run::Execute()
             }
 #endif
 
-            TickPerfLog();
+            m_diagnosticsRuntime.TickPerfLog( RuntimePerfTickContext{ sPerfPass + 1,
+                                                                      SceneState().currentFrame + 1,
+                                                                      m_timers.physicsTime,
+                                                                      m_timers.renderTime } );
 
             if ( TickSceneAdvance() )
             {
@@ -437,7 +506,7 @@ void Run::Execute()
 
 void Run::TickPhysics( double secondsPerFrame )
 {
-    if ( IsReplayScrubPaused() )
+    if ( m_replayRuntime.IsScrubPaused() )
     {
         PROFILE_SCOPED( "Frame/Replay/ScrubCamera" );
         UpdateLogic( 0.0f, static_cast<float>( secondsPerFrame ) );
@@ -454,16 +523,18 @@ void Run::TickPhysics( double secondsPerFrame )
 #else
     constexpr bool physicsCapture = false;
 #endif
-    const RuntimeInteractionFramePolicy policy =
-        m_interaction.BuildFramePolicy( RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
-                                                                      stepRequested,
-                                                                      false,
-                                                                      replayLiveAdvanceHeld,
-                                                                      Input::IsRightMouseDown(),
-                                                                      m_runtimeTools.Editor().viewportLookActive,
-                                                                      ReplayInspectionMouseLookActive(),
-                                                                      physicsCapture,
-                                                                      SceneState().timeScale } );
+    const RuntimeInteractionFramePolicy policy = m_interaction.BuildFramePolicy(
+        RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
+                                      stepRequested,
+                                      false,
+                                      replayLiveAdvanceHeld,
+                                      Input::IsRightMouseDown(),
+                                      m_runtimeTools.Editor().viewportLookActive,
+                                      m_replayRuntime.InspectionMouseLookActive( Input::IsRightMouseDown(),
+                                                                                 m_UI.WantsNativeMouseCursor(),
+                                                                                 m_UI.BlocksCameraMouse() ),
+                                      physicsCapture,
+                                      SceneState().timeScale } );
     const bool manipulatorPhysics = policy.manipulatorActive;
     const SimulationTickResult tick = m_simulation.Tick(
         SimulationTickInput{ secondsPerFrame,
@@ -478,21 +549,11 @@ void Run::TickPhysics( double secondsPerFrame )
                              this,
                              ( manipulatorPhysics || replayCapture ) ? &Run::AfterPhysicsStepThunk : nullptr,
                              this } );
-    TickRayCastTestLines( static_cast<float>( secondsPerFrame ) );
+    m_runtimeTools.TickRayCastTestLines( static_cast<float>( secondsPerFrame ) );
     m_runtimeTools.Laser().Update( static_cast<float>( secondsPerFrame ) );
     if ( tick.shouldUpdateLogic )
     {
         UpdateLogic( tick.simulationDt, tick.cameraDt );
-    }
-}
-
-
-void Run::CaptureReplayPhysicsStepThunk( void* userData )
-{
-    Run* run = static_cast<Run*>( userData );
-    if ( run )
-    {
-        run->CaptureReplayPhysicsStep();
     }
 }
 
@@ -522,17 +583,9 @@ void Run::AfterPhysicsStep()
     RestoreMousePickupAngularVelocity();
     if ( m_replayRuntime.IsCaptureEnabled() )
     {
-        CaptureReplayPhysicsStep();
-    }
-}
-
-
-void Run::CaptureReplayPhysicsStep()
-{
-    {
         PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
         ReplayLauncherVisualSample launcherVisual;
-        BuildReplayLauncherVisualSample( launcherVisual );
+        m_runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
 
         ReplayCaptureInput input;
         input.sceneFrame = SceneState().currentFrame;
@@ -548,290 +601,12 @@ void Run::CaptureReplayPhysicsStep()
         input.models = &m_cGameModelCollection;
         input.launcherVisual = &launcherVisual;
         m_replayRuntime.CaptureFrame( input );
-        CompareLatestReplaySamples();
-    }
+        CompareLatestReplaySamples( m_replayRuntime, m_solverReplayMismatch );
 #ifdef _DEBUG
-    TickReplayScrubProbe();
-    TickReplayRestoreProbe();
-    TickReplaySaveProbe();
+        TickReplayScrubProbe();
+        TickReplayRestoreProbe();
+        TickReplaySaveProbe();
 #endif
-}
-
-
-void Run::BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const
-{
-    outSample = ReplayLauncherVisualSample();
-    outSample.nextRayLine = m_runtimeTools.RayCastTest().nextLine;
-    outSample.fireMode = m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile
-                             ? ReplayLauncherFireMode::Projectile
-                             : ReplayLauncherFireMode::Laser;
-    outSample.visualizeRays = m_runtimeTools.RayCastTest().visualizeRays;
-    outSample.impulseStrength = m_runtimeTools.RayCastTest().impulseStrength;
-    outSample.projectileSpeed = m_runtimeTools.RayCastTest().projectileSpeed;
-    outSample.rayLines.reserve( RunRayCastTestState::MAX_LINES );
-    for ( const RunRayCastTestLine& line : m_runtimeTools.RayCastTest().lines )
-    {
-        ReplayRayCastLineSample sample;
-        sample.start = line.start;
-        sample.end = line.end;
-        sample.ageSeconds = line.ageSeconds;
-        sample.active = line.active;
-        sample.hit = line.hit;
-        outSample.rayLines.push_back( sample );
-    }
-    m_runtimeTools.Laser().CaptureShots( outSample.laserShots, outSample.nextLaserShot );
-}
-
-bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char* outReason, std::size_t reasonSize )
-{
-    if ( event.payloadVersion != 1 )
-    {
-        WriteReplayProbeReason( outReason, reasonSize, "unsupported replay event payload version" );
-        return false;
-    }
-
-    switch ( event.kind )
-    {
-    case ReplayEventKind::TimelineStart:
-        WriteReplayProbeReason( outReason, reasonSize, "ignored" );
-        return true;
-    case ReplayEventKind::RuntimeCommand:
-    {
-        const RuntimeCommandType commandType = static_cast<RuntimeCommandType>( event.value0 );
-        switch ( commandType )
-        {
-        case RuntimeCommandType::SaveScreenshot:
-        case RuntimeCommandType::SaveSceneDefaults:
-        case RuntimeCommandType::SaveRenderDefaults:
-        case RuntimeCommandType::SaveSkyDefaults:
-        case RuntimeCommandType::Quit:
-        case RuntimeCommandType::None:
-            WriteReplayProbeReason( outReason, reasonSize, "ignored non-solver runtime command" );
-            return true;
-        case RuntimeCommandType::ResetCurrentScene:
-        case RuntimeCommandType::LoadSceneIndex:
-        case RuntimeCommandType::LoadDemoScene:
-        case RuntimeCommandType::CreateScene:
-        case RuntimeCommandType::AdvanceScene:
-        default:
-            WriteReplayProbeReason( outReason, reasonSize, "unsupported runtime timeline mutation event" );
-            return false;
-        }
-    }
-    case ReplayEventKind::BranchRestore:
-        WriteReplayProbeReason( outReason, reasonSize, "unsupported timeline mutation event" );
-        return false;
-    case ReplayEventKind::WorldOverride:
-        if ( event.flags & REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED )
-        {
-            m_cWorldEnvironment.SetGravity( ReplayEventFloatFromBits( event.value0 ) );
-        }
-        if ( event.flags & REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED )
-        {
-            m_cWorldEnvironment.SetFluidSurfaceHeight( ReplayEventFloatFromBits( event.value1 ) );
-        }
-        if ( event.flags & REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED )
-        {
-            m_cWorldEnvironment.SetFluidDensity( ReplayEventFloatFromBits( event.value2 ) );
-        }
-        WriteReplayProbeReason( outReason, reasonSize, "applied world override" );
-        return true;
-    case ReplayEventKind::LauncherConfig:
-        m_runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value0 );
-        m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value1 );
-        WriteReplayProbeReason( outReason, reasonSize, "applied launcher config" );
-        return true;
-    case ReplayEventKind::LauncherFire:
-    {
-        Vector3 rayOrigin;
-        Vector3 rayDirection;
-        Vector3 cameraUp;
-        if ( !DecodeReplayRay9Payload( event, rayOrigin, rayDirection, cameraUp ) )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "invalid launcher fire payload" );
-            return false;
-        }
-        m_runtimeTools.RayCastTest().fireMode = ( event.flags & REPLAY_LAUNCHER_FIRE_PROJECTILE ) != 0
-                                                    ? RunLauncherFireMode::Projectile
-                                                    : RunLauncherFireMode::Laser;
-        m_runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value1 );
-        m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value2 );
-        if ( m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile )
-        {
-            FireLauncherProjectile( rayOrigin, rayDirection, cameraUp );
-        }
-        else
-        {
-            FireLauncherLaser( rayOrigin, rayDirection, cameraUp );
-        }
-        WriteReplayProbeReason( outReason, reasonSize, "applied launcher fire" );
-        return true;
-    }
-    case ReplayEventKind::GeneratedSceneConfig:
-        if ( SceneState().modelCount != event.value0 || SceneState().solverBallCount != event.value1 ||
-             SceneState().solverBoxCount != event.value2 ||
-             static_cast<int32_t>( SceneState().rngSeed ) != event.value3 )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "generated scene config event does not match live state" );
-            return false;
-        }
-        WriteReplayProbeReason( outReason, reasonSize, "verified generated scene config" );
-        return true;
-    case ReplayEventKind::EditorPlace:
-    {
-        Vector3 terrainPoint;
-        Vector3 placementScale;
-        float placementYawRadians = 0.0f;
-        if ( !DecodeReplayPlacePayload( event, terrainPoint, placementScale, placementYawRadians ) )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "invalid editor placement payload" );
-            return false;
-        }
-
-        const int modelCountBefore = m_cGameModelCollection.GetModelCount();
-        if ( event.value3 != modelCountBefore )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "editor placement model count precondition mismatch" );
-            return false;
-        }
-
-        const Vector3 previousPlacementScale = m_runtimeTools.Editor().placementScale;
-        const bool previousTerrainAlign = m_runtimeTools.Editor().autoTerrainAlign;
-        const float previousPlacementYawRadians = m_runtimeTools.Editor().placementYawRadians;
-        m_runtimeTools.Editor().placementScale = placementScale;
-        m_runtimeTools.Editor().autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
-        m_runtimeTools.Editor().placementYawRadians = placementYawRadians;
-        const bool placed = PlaceEditorObjectAtTerrainPoint( event.value0,
-                                                             ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
-                                                             terrainPoint,
-                                                             false );
-        m_runtimeTools.Editor().placementScale = previousPlacementScale;
-        m_runtimeTools.Editor().autoTerrainAlign = previousTerrainAlign;
-        m_runtimeTools.Editor().placementYawRadians = previousPlacementYawRadians;
-        if ( !placed )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "failed to replay editor placement" );
-            return false;
-        }
-        WriteReplayProbeReason( outReason, reasonSize, "applied editor placement" );
-        return true;
-    }
-    case ReplayEventKind::EditorTransform:
-    {
-        if ( event.flags == 0 || ( event.flags & ~REPLAY_EDITOR_TRANSFORM_SUPPORTED ) != 0 )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "unsupported editor transform flags" );
-            return false;
-        }
-
-        Vector3 position;
-        Quaternion orientation;
-        float scaleFactor = 1.0f;
-        bool hasScaleFactor = false;
-        if ( !DecodeReplayTransformPayload( event, position, orientation, scaleFactor, hasScaleFactor ) )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "invalid editor transform payload" );
-            return false;
-        }
-        if ( ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE ) != 0 &&
-             ( !hasScaleFactor || event.value3 < 0 || event.value3 > 2 || !std::isfinite( scaleFactor ) ||
-               scaleFactor <= 0.0f ) )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "invalid editor transform scale payload" );
-            return false;
-        }
-
-        if ( event.value2 != m_cGameModelCollection.GetModelCount() )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "editor transform model count precondition mismatch" );
-            return false;
-        }
-        if ( event.value0 < 0 || event.value0 >= m_cGameModelCollection.GetModelCount() )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "editor transform model index is out of range" );
-            return false;
-        }
-
-        GameModel& model = m_cGameModelCollection.GetModelAtIndex( event.value0 );
-        if ( model.GetReplayBodyId() != static_cast<uint32_t>( event.value1 ) )
-        {
-            WriteReplayProbeReason( outReason, reasonSize, "editor transform replay body id mismatch" );
-            return false;
-        }
-
-        if ( event.flags & REPLAY_EDITOR_TRANSFORM_TRANSLATE )
-        {
-            model.SetPosition( position );
-        }
-        if ( event.flags & REPLAY_EDITOR_TRANSFORM_ROTATE )
-        {
-            model.SetOrientation( orientation );
-        }
-        if ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE )
-        {
-            const CollisionShape baseShape = model.GetCollisionShape();
-            if ( !model.ScaleCollisionShapeAxisFromBase( baseShape, event.value3, scaleFactor ) )
-            {
-                WriteReplayProbeReason( outReason, reasonSize, "failed to replay editor transform scale" );
-                return false;
-            }
-        }
-        model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
-        model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
-        if ( !model.IsFixed() )
-        {
-            m_cGameModelCollection.GetPhysicsEngine().WakeBody( m_cGameModelCollection, event.value0 );
-        }
-        m_cGameModelCollection.InvalidatePhysicsStreams();
-        WriteReplayProbeReason( outReason, reasonSize, "applied editor transform" );
-        return true;
-    }
-    default:
-        WriteReplayProbeReason( outReason, reasonSize, "unsupported replay event kind" );
-        return false;
-    }
-}
-
-
-void Run::CompareLatestReplaySamples()
-{
-    const ReplayPresentationSample* presentation = m_replayRuntime.Presentation().LatestSample();
-    const ReplaySolverFrameSample* solver = m_replayRuntime.Solver().LatestSample();
-    if ( !presentation || !solver )
-    {
-        return;
-    }
-
-    const bool matches = presentation->frameIndex == solver->frameIndex &&
-                         presentation->stateHash == solver->presentationHash &&
-                         presentation->bodies.size() == solver->bodies.size();
-    if ( matches )
-    {
-        return;
-    }
-
-    if ( m_solverReplayMismatch.reports < 8 )
-    {
-        ++m_solverReplayMismatch.reports;
-        fprintf( stderr,
-                 "[replay] Solver/presentation capture mismatch #%u: presentation_frame=%llu solver_frame=%llu "
-                 "presentation_hash=0x%016llX solver_presentation_hash=0x%016llX solver_hash=0x%016llX "
-                 "presentation_bodies=%llu solver_bodies=%llu\n",
-                 m_solverReplayMismatch.reports,
-                 static_cast<unsigned long long>( presentation->frameIndex ),
-                 static_cast<unsigned long long>( solver->frameIndex ),
-                 static_cast<unsigned long long>( presentation->stateHash ),
-                 static_cast<unsigned long long>( solver->presentationHash ),
-                 static_cast<unsigned long long>( solver->solverHash ),
-                 static_cast<unsigned long long>( presentation->bodies.size() ),
-                 static_cast<unsigned long long>( solver->bodies.size() ) );
-    }
-    else if ( !m_solverReplayMismatch.suppressed )
-    {
-        m_solverReplayMismatch.suppressed = true;
-        fprintf( stderr,
-                 "[replay] Further solver/presentation capture mismatch diagnostics suppressed for this replay "
-                 "timeline.\n" );
     }
 }
 
@@ -1035,14 +810,36 @@ void Run::TickReplaySaveProbe()
         m_replaySaveProbe.eventCoverageInjected = true;
         const float currentGravity = m_cWorldEnvironment.GetGravity();
         const float probeGravity = currentGravity != 0.0f ? currentGravity * 0.95f : -0.25f;
-        ApplyUIWorldOverride( probeGravity,
+        ApplyUIWorldOverride( m_cWorldEnvironment,
+                              m_replayRuntime,
+                              probeGravity,
                               m_cWorldEnvironment.GetFluidSurfaceHeight(),
                               m_cWorldEnvironment.GetFluidDensity() );
         m_runtimeTools.Editor().placementScale = Vector3( 2.0f, 2.0f, 2.0f );
         m_runtimeTools.Editor().autoTerrainAlign = false;
         const int modelCountBeforePlace = m_cGameModelCollection.GetModelCount();
-        if ( PlaceEditorObjectAtTerrainPoint( UI::EditorTab::OBJECT_BOX, true, Vector3( 18.0f, 0.0f, 18.0f ) ) )
+        EditorObjectPlacementContext placementContext{ m_runtimeTools.Editor(),
+                                                       m_cGameModelCollection,
+                                                       SceneState(),
+                                                       m_cWorldEnvironment,
+                                                       m_systems.terrain.get(),
+                                                       ActiveGameModelCapacity() };
+        EditorObjectPlacementRequest placementRequest{ UI::EditorTab::OBJECT_BOX, true, Vector3( 18.0f, 0.0f, 18.0f ) };
+        EditorObjectPlacementResult placementResult;
+        if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
         {
+            EnterInteractiveSceneRun();
+            PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
+        }
+        if ( placementResult.placed )
+        {
+            m_replayRuntime.RecordEditorPlaceEvent( placementResult.objectType,
+                                                    placementResult.fixedObject,
+                                                    placementResult.autoTerrainAlign,
+                                                    placementResult.modelCountBefore,
+                                                    placementResult.terrainPoint,
+                                                    placementResult.placementScale,
+                                                    placementResult.placementYawRadians );
             GameModel& placedModel = m_cGameModelCollection.GetModelAtIndex( modelCountBeforePlace );
             placedModel.SetPosition( placedModel.GetPosition() + Vector3( 4.0f, 0.0f, 0.0f ) );
             Quaternion placedOrientation = placedModel.GetOrientation();
@@ -1060,16 +857,42 @@ void Run::TickReplaySaveProbe()
             placedModel.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             placedModel.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             m_cGameModelCollection.InvalidatePhysicsStreams();
-            RecordReplayEditorTransformEvent(
+            m_replayRuntime.RecordEditorTransformEvent(
                 modelCountBeforePlace,
                 REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE,
                 placedModel,
+                m_cGameModelCollection.GetModelCount(),
                 PROBE_SCALE_AXIS,
                 PROBE_SCALE_FACTOR );
         }
         m_runtimeTools.RayCastTest().projectileSpeed += 1.0f;
-        RecordReplayLauncherConfigEvent( 2u );
-        FireRayCastTest();
+        m_replayRuntime.RecordLauncherConfigEvent( 2u,
+                                                   m_runtimeTools.RayCastTest().impulseStrength,
+                                                   m_runtimeTools.RayCastTest().projectileSpeed );
+        Vector3 rayOrigin;
+        Vector3 rayDirection;
+        Vector3 cameraUp;
+        if ( m_runtimeTools.TryBuildLauncherCameraRay( m_systems.cameras, rayOrigin, rayDirection, cameraUp ) )
+        {
+            m_replayRuntime.RecordLauncherFireEvent(
+                rayOrigin,
+                rayDirection,
+                cameraUp,
+                m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile,
+                m_runtimeTools.RayCastTest().impulseStrength,
+                m_runtimeTools.RayCastTest().projectileSpeed,
+                m_cGameModelCollection.GetModelCount() );
+            if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 ActiveGameModelCapacity(),
+                                                 rayOrigin,
+                                                 rayDirection,
+                                                 cameraUp ) )
+            {
+                SceneState().modelCount = m_cGameModelCollection.GetModelCount();
+            }
+        }
     }
     if ( stats.sampleCount < static_cast<std::size_t>( m_replaySaveProbe.minSampleCount ) )
     {
@@ -1211,14 +1034,37 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
         return delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
     };
 
-    if ( !HasLoadedReplayPresentation() )
+    if ( !m_replayRuntime.HasLoadedPresentation() )
     {
         throw std::runtime_error( "replay load probe requires a loaded v2 presentation artifact" );
     }
 
-    ArmLoadedReplayPresentationScrubber( std::clamp( normalized, 0.0f, 1.0f ) );
-    const ReplayPresentationSample* selected = CurrentReplayScrubSample();
-    const ReplayPresentationSample* latest = LoadedReplayPresentationLatestSample();
+    if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
+    {
+        m_replayRuntime.SetLiveAdvanceHeld( false );
+    }
+    CancelReplayToolDragState();
+
+    m_replayRuntime.ClearCameraFocusForRestore();
+    ExitReplayInspectionCamera();
+    const bool armed = m_replayRuntime.ArmLoadedPresentationScrubber( std::clamp( normalized, 0.0f, 1.0f ),
+                                                                      m_timers.simulationTimer.GetTotalTime() );
+    if ( !armed )
+    {
+        throw std::runtime_error( "replay load probe could not arm the loaded presentation scrubber" );
+    }
+    SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
+                                                        InteractionExitReason::EnterReplay );
+    if ( m_replayRuntime.ShouldUseInspectionCamera() )
+    {
+        EnterReplayInspectionCamera();
+    }
+    else
+    {
+        ExitReplayInspectionCamera();
+    }
+    const ReplayPresentationSample* selected = m_replayRuntime.CurrentScrubSample();
+    const ReplayPresentationSample* latest = m_replayRuntime.LoadedPresentationLatestSample();
     if ( !selected || !latest )
     {
         throw std::runtime_error( "replay load probe could not select a loaded presentation sample" );
@@ -1437,6 +1283,243 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         return false;
     };
 
+    auto applyReplayEventForRestoreTarget =
+        [&]( const ReplayEventSample& event, char* eventOutReason, std::size_t eventReasonSize ) -> bool
+    {
+        if ( event.payloadVersion != 1 )
+        {
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported replay event payload version" );
+            return false;
+        }
+
+        switch ( event.kind )
+        {
+        case ReplayEventKind::TimelineStart:
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "ignored" );
+            return true;
+        case ReplayEventKind::RuntimeCommand:
+        {
+            const RuntimeCommandType commandType = static_cast<RuntimeCommandType>( event.value0 );
+            switch ( commandType )
+            {
+            case RuntimeCommandType::SaveScreenshot:
+            case RuntimeCommandType::SaveSceneDefaults:
+            case RuntimeCommandType::SaveRenderDefaults:
+            case RuntimeCommandType::SaveSkyDefaults:
+            case RuntimeCommandType::Quit:
+            case RuntimeCommandType::None:
+                WriteReplayProbeReason( eventOutReason, eventReasonSize, "ignored non-solver runtime command" );
+                return true;
+            case RuntimeCommandType::ResetCurrentScene:
+            case RuntimeCommandType::LoadSceneIndex:
+            case RuntimeCommandType::LoadDemoScene:
+            case RuntimeCommandType::CreateScene:
+            case RuntimeCommandType::AdvanceScene:
+            default:
+                WriteReplayProbeReason( eventOutReason,
+                                        eventReasonSize,
+                                        "unsupported runtime timeline mutation event" );
+                return false;
+            }
+        }
+        case ReplayEventKind::BranchRestore:
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported timeline mutation event" );
+            return false;
+        case ReplayEventKind::WorldOverride:
+            if ( event.flags & REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED )
+            {
+                m_cWorldEnvironment.SetGravity( ReplayEventFloatFromBits( event.value0 ) );
+            }
+            if ( event.flags & REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED )
+            {
+                m_cWorldEnvironment.SetFluidSurfaceHeight( ReplayEventFloatFromBits( event.value1 ) );
+            }
+            if ( event.flags & REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED )
+            {
+                m_cWorldEnvironment.SetFluidDensity( ReplayEventFloatFromBits( event.value2 ) );
+            }
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied world override" );
+            return true;
+        case ReplayEventKind::LauncherConfig:
+            m_runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value0 );
+            m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value1 );
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied launcher config" );
+            return true;
+        case ReplayEventKind::LauncherFire:
+        {
+            Vector3 rayOrigin;
+            Vector3 rayDirection;
+            Vector3 cameraUp;
+            if ( !DecodeReplayRay9Payload( event, rayOrigin, rayDirection, cameraUp ) )
+            {
+                WriteReplayProbeReason( eventOutReason, eventReasonSize, "invalid launcher fire payload" );
+                return false;
+            }
+            m_runtimeTools.RayCastTest().fireMode = ( event.flags & REPLAY_LAUNCHER_FIRE_PROJECTILE ) != 0
+                                                        ? RunLauncherFireMode::Projectile
+                                                        : RunLauncherFireMode::Laser;
+            m_runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value1 );
+            m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value2 );
+            if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 ActiveGameModelCapacity(),
+                                                 rayOrigin,
+                                                 rayDirection,
+                                                 cameraUp ) )
+            {
+                SceneState().modelCount = m_cGameModelCollection.GetModelCount();
+            }
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied launcher fire" );
+            return true;
+        }
+        case ReplayEventKind::GeneratedSceneConfig:
+            if ( SceneState().modelCount != event.value0 || SceneState().solverBallCount != event.value1 ||
+                 SceneState().solverBoxCount != event.value2 ||
+                 static_cast<int32_t>( SceneState().rngSeed ) != event.value3 )
+            {
+                WriteReplayProbeReason( eventOutReason,
+                                        eventReasonSize,
+                                        "generated scene config event does not match live state" );
+                return false;
+            }
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "verified generated scene config" );
+            return true;
+        case ReplayEventKind::EditorPlace:
+        {
+            Vector3 terrainPoint;
+            Vector3 placementScale;
+            float placementYawRadians = 0.0f;
+            if ( !DecodeReplayPlacePayload( event, terrainPoint, placementScale, placementYawRadians ) )
+            {
+                WriteReplayProbeReason( eventOutReason, eventReasonSize, "invalid editor placement payload" );
+                return false;
+            }
+
+            const int modelCountBefore = m_cGameModelCollection.GetModelCount();
+            if ( event.value3 != modelCountBefore )
+            {
+                WriteReplayProbeReason( eventOutReason,
+                                        eventReasonSize,
+                                        "editor placement model count precondition mismatch" );
+                return false;
+            }
+
+            const Vector3 previousPlacementScale = m_runtimeTools.Editor().placementScale;
+            const bool previousTerrainAlign = m_runtimeTools.Editor().autoTerrainAlign;
+            const float previousPlacementYawRadians = m_runtimeTools.Editor().placementYawRadians;
+            m_runtimeTools.Editor().placementScale = placementScale;
+            m_runtimeTools.Editor().autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
+            m_runtimeTools.Editor().placementYawRadians = placementYawRadians;
+            EditorObjectPlacementContext placementContext{ m_runtimeTools.Editor(),
+                                                           m_cGameModelCollection,
+                                                           SceneState(),
+                                                           m_cWorldEnvironment,
+                                                           m_systems.terrain.get(),
+                                                           ActiveGameModelCapacity() };
+            EditorObjectPlacementRequest placementRequest{ event.value0,
+                                                           ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
+                                                           terrainPoint };
+            EditorObjectPlacementResult placementResult;
+            bool placed = false;
+            if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
+            {
+                EnterInteractiveSceneRun();
+                placed = PlaceEditorObjectAtTerrainPoint( placementContext, placementRequest, placementResult );
+            }
+            m_runtimeTools.Editor().placementScale = previousPlacementScale;
+            m_runtimeTools.Editor().autoTerrainAlign = previousTerrainAlign;
+            m_runtimeTools.Editor().placementYawRadians = previousPlacementYawRadians;
+            if ( !placed )
+            {
+                WriteReplayProbeReason( eventOutReason, eventReasonSize, "failed to replay editor placement" );
+                return false;
+            }
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied editor placement" );
+            return true;
+        }
+        case ReplayEventKind::EditorTransform:
+        {
+            if ( event.flags == 0 || ( event.flags & ~REPLAY_EDITOR_TRANSFORM_SUPPORTED ) != 0 )
+            {
+                WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported editor transform flags" );
+                return false;
+            }
+
+            Vector3 position;
+            Quaternion orientation;
+            float scaleFactor = 1.0f;
+            bool hasScaleFactor = false;
+            if ( !DecodeReplayTransformPayload( event, position, orientation, scaleFactor, hasScaleFactor ) )
+            {
+                WriteReplayProbeReason( eventOutReason, eventReasonSize, "invalid editor transform payload" );
+                return false;
+            }
+            if ( ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE ) != 0 &&
+                 ( !hasScaleFactor || event.value3 < 0 || event.value3 > 2 || !std::isfinite( scaleFactor ) ||
+                   scaleFactor <= 0.0f ) )
+            {
+                WriteReplayProbeReason( eventOutReason, eventReasonSize, "invalid editor transform scale payload" );
+                return false;
+            }
+
+            if ( event.value2 != m_cGameModelCollection.GetModelCount() )
+            {
+                WriteReplayProbeReason( eventOutReason,
+                                        eventReasonSize,
+                                        "editor transform model count precondition mismatch" );
+                return false;
+            }
+            if ( event.value0 < 0 || event.value0 >= m_cGameModelCollection.GetModelCount() )
+            {
+                WriteReplayProbeReason( eventOutReason,
+                                        eventReasonSize,
+                                        "editor transform model index is out of range" );
+                return false;
+            }
+
+            GameModel& model = m_cGameModelCollection.GetModelAtIndex( event.value0 );
+            if ( model.GetReplayBodyId() != static_cast<uint32_t>( event.value1 ) )
+            {
+                WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform replay body id mismatch" );
+                return false;
+            }
+
+            if ( event.flags & REPLAY_EDITOR_TRANSFORM_TRANSLATE )
+            {
+                model.SetPosition( position );
+            }
+            if ( event.flags & REPLAY_EDITOR_TRANSFORM_ROTATE )
+            {
+                model.SetOrientation( orientation );
+            }
+            if ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE )
+            {
+                const CollisionShape baseShape = model.GetCollisionShape();
+                if ( !model.ScaleCollisionShapeAxisFromBase( baseShape, event.value3, scaleFactor ) )
+                {
+                    WriteReplayProbeReason( eventOutReason,
+                                            eventReasonSize,
+                                            "failed to replay editor transform scale" );
+                    return false;
+                }
+            }
+            model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+            model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+            if ( !model.IsFixed() )
+            {
+                m_cGameModelCollection.GetPhysicsEngine().WakeBody( m_cGameModelCollection, event.value0 );
+            }
+            m_cGameModelCollection.InvalidatePhysicsStreams();
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied editor transform" );
+            return true;
+        }
+        default:
+            WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported replay event kind" );
+            return false;
+        }
+    };
+
     if ( !path || path[0] == '\0' )
     {
         return failWithDiagnostic( "replay v2 target restore requires a v2 artifact path", target, checkpoint );
@@ -1621,7 +1704,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         }
 
         m_cGameModelCollection.Clear();
-        ClearRayCastTestLines();
+        m_runtimeTools.ClearRayCastTestLines();
         m_simulation.Reset();
         SceneState().rngSeed = static_cast<unsigned int>( event.value3 );
         SceneState().rngState = static_cast<unsigned int>( event.value3 );
@@ -1632,11 +1715,28 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 
         if ( exactSolverCounts || uiSolverCounts )
         {
-            SceneGeneratedSetup::SetUpSolverObjects( BuildSceneGeneratedModelContext(), event.value1, event.value2 );
+            SceneGeneratedSetup::SetUpSolverObjects(
+                BuildSceneGeneratedModelContext( SceneState(),
+                                                 Cfg(),
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 m_cGameModelCollection,
+                                                 m_cGameModelCollection.GetPhysicsEngine(),
+                                                 m_launchOptions.generatedObjectTypeOverride ),
+                event.value1,
+                event.value2 );
         }
         else
         {
-            SceneGeneratedSetup::SetUpGameModels( BuildSceneGeneratedModelContext(), event.value0 );
+            SceneGeneratedSetup::SetUpGameModels(
+                BuildSceneGeneratedModelContext( SceneState(),
+                                                 Cfg(),
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 m_cGameModelCollection,
+                                                 m_cGameModelCollection.GetPhysicsEngine(),
+                                                 m_launchOptions.generatedObjectTypeOverride ),
+                event.value0 );
         }
         m_cGameModelCollection.InvalidatePhysicsStreams();
 
@@ -1741,7 +1841,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 }
 
                 char eventReason[160] = {};
-                if ( !ApplyReplayEventForRestoreTarget( event, eventReason, sizeof( eventReason ) ) )
+                if ( !applyReplayEventForRestoreTarget( event, eventReason, sizeof( eventReason ) ) )
                 {
                     char message[320] = {};
                     sprintf_s( message,
@@ -1756,7 +1856,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 ++eventsApplied;
             }
 
-            TickRayCastTestLines( PHYSICS_FIXED_DT );
+            m_runtimeTools.TickRayCastTestLines( PHYSICS_FIXED_DT );
             m_runtimeTools.Laser().Update( PHYSICS_FIXED_DT );
             m_cGameModelCollection.EndCollisionVisualFrame();
             ++currentSceneFrame;
@@ -1954,15 +2054,15 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         restoredBranch.sourceSolverHash = target->solverHash;
         m_replayRuntime.Branch() = restoredBranch;
         ResetReplayTimelineForActiveScene( true );
-        RecordReplayEvent( ReplayEventKind::BranchRestore,
-                           0,
-                           0,
-                           static_cast<int32_t>( parentBranchId ),
-                           target->sceneFrame,
-                           0,
-                           0,
-                           target->solverHash,
-                           "hash-verified v2 file restore" );
+        m_replayRuntime.RecordEvent( ReplayEventKind::BranchRestore,
+                                     0,
+                                     0,
+                                     static_cast<int32_t>( parentBranchId ),
+                                     target->sceneFrame,
+                                     0,
+                                     0,
+                                     target->solverHash,
+                                     "hash-verified v2 file restore" );
         outResult.branchId = restoredBranch.branchId;
         outResult.parentBranchId = parentBranchId;
         outResult.madeLiveBranch = true;
@@ -2009,6 +2109,7 @@ void Run::VerifyReplaySolverTargetFileProbe( const char* path )
             static_cast<unsigned long long>( result.solverHash ),
             static_cast<unsigned long long>( result.presentationHash ),
             static_cast<unsigned long long>( result.fileBytes ) );
+    PostQuitMessage( 0 );
 }
 
 void Run::VerifyReplaySolverFailureFileProbe( const char* path )
@@ -2044,7 +2145,7 @@ void Run::VerifyReplaySolverBranchFileProbe( const char* path )
     }
     m_replayRuntime.Scrubber().historicalSamplePaused = true;
     m_replayRuntime.Scrubber().activeTrack = RunReplayTrack::Presentation;
-    ReplayScrubberSetTrackPosition( m_replayRuntime.Scrubber(), RunReplayTrack::Presentation, 1.0f );
+    m_replayRuntime.SetTrackPosition( RunReplayTrack::Presentation, 1.0f );
 
     RunReplayV2TargetRestoreResult result;
     char reason[256] = {};
@@ -2116,6 +2217,41 @@ bool Run::TickScreenshots()
 {
     PROFILE_BEGIN( "Frame/PostDraw/Screenshots" );
 
+    auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
+    {
+        if ( action.enterInteractiveSceneRun )
+        {
+            EnterInteractiveSceneRun();
+        }
+
+        switch ( action.type )
+        {
+        case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
+            SceneState().isExitOnComplete = false;
+            m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+            return true;
+        case SceneRuntimeControlActionType::LoadScene:
+            LoadScene( action.index,
+                       action.preserveUIState,
+                       action.suppressExitOnComplete,
+                       action.preserveRuntimeState );
+            return true;
+        case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
+            EnterInteractiveSceneRun();
+            return ApplyCinematicModeFromBrowserIndex(
+                SceneRuntimeStyleContext{ m_launchOptions,
+                                          SceneState(),
+                                          m_sceneBrowser,
+                                          m_cGameModelCollection,
+                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          m_defaultCinematicRender },
+                action.index );
+        case SceneRuntimeControlActionType::None:
+            return false;
+        }
+        return false;
+    };
+
     struct ScreenshotSink final : RuntimeCaptureSink
     {
         explicit ScreenshotSink( Run& owner ) : run( owner )
@@ -2131,7 +2267,7 @@ bool Run::TickScreenshots()
     };
 
     ScreenshotSink sink( *this );
-    const std::string* scenePath = CurrentSceneQueuePath();
+    const std::string* scenePath = m_sceneController.CurrentPath();
     const RuntimeCaptureResult result = m_diagnosticsRuntime.Capture().TickScreenshots(
         RuntimeCaptureSceneContext{ SceneState().isSceneMode,
                                     SceneState().isInteractiveRun,
@@ -2164,7 +2300,9 @@ bool Run::TickScreenshots()
         PostQuitMessage( 0 );
         break;
     case RuntimeCaptureAutomation::AdvanceSceneOrQuit:
-        if ( !AdvanceScene() )
+        if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                                          sPerfPass,
+                                                                          SceneState().isInteractiveRun ) ) )
         {
             PostQuitMessage( 0 );
         }
@@ -2227,22 +2365,43 @@ void Run::TickAutoCycle()
 }
 
 
-void Run::TickPerfLog()
-{
-    m_diagnosticsRuntime.TickPerfLog( RuntimePerfTickContext{ sPerfPass + 1,
-                                                              SceneState().currentFrame + 1,
-                                                              m_timers.physicsTime,
-                                                              m_timers.renderTime } );
-
-    if ( ( SceneState().currentFrame + 1 ) % 60 == 0 )
-    {
-        LogPerfMemory( "periodic" );
-    }
-}
-
-
 bool Run::TickSceneAdvance()
 {
+    auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
+    {
+        if ( action.enterInteractiveSceneRun )
+        {
+            EnterInteractiveSceneRun();
+        }
+
+        switch ( action.type )
+        {
+        case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
+            SceneState().isExitOnComplete = false;
+            m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+            return true;
+        case SceneRuntimeControlActionType::LoadScene:
+            LoadScene( action.index,
+                       action.preserveUIState,
+                       action.suppressExitOnComplete,
+                       action.preserveRuntimeState );
+            return true;
+        case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
+            EnterInteractiveSceneRun();
+            return ApplyCinematicModeFromBrowserIndex(
+                SceneRuntimeStyleContext{ m_launchOptions,
+                                          SceneState(),
+                                          m_sceneBrowser,
+                                          m_cGameModelCollection,
+                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          m_defaultCinematicRender },
+                action.index );
+        case SceneRuntimeControlActionType::None:
+            return false;
+        }
+        return false;
+    };
+
     ++SceneState().currentFrame;
 
     const bool hasRequiredContactGate = !m_requiredSceneContacts.empty();
@@ -2258,7 +2417,9 @@ bool Run::TickSceneAdvance()
 #endif
         if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
         {
-            if ( !AdvanceScene() )
+            if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                                              sPerfPass,
+                                                                              SceneState().isInteractiveRun ) ) )
             {
                 PostQuitMessage( 0 );
             }
@@ -2326,7 +2487,9 @@ bool Run::TickSceneAdvance()
 
             if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
             {
-                if ( !AdvanceScene() )
+                if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                                                  sPerfPass,
+                                                                                  SceneState().isInteractiveRun ) ) )
                 {
                     PostQuitMessage( 0 );
                 }
@@ -2358,13 +2521,15 @@ bool Run::TickSceneAdvance()
     }
 
     // Perf-log scenes without an explicit frame count still use a timed pass duration.
-    if ( m_diagnosticsRuntime.PerfLog().isPerfTest && SceneState().targetFrameCount <= 0 &&
+    if ( m_diagnosticsRuntime.PerfTestActive() && SceneState().targetFrameCount <= 0 &&
          m_timers.simulationTimer.GetTimeSinceLastStart() > PERF_TEST_PASS_SECONDS )
     {
 #ifdef _DEBUG
         LogSceneFinished( "perf_duration" );
 #endif
-        if ( !AdvanceScene() )
+        if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                                          sPerfPass,
+                                                                          SceneState().isInteractiveRun ) ) )
         {
             if ( CanSceneAutomationQuit() )
             {

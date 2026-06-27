@@ -1268,7 +1268,7 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
         m_liveVisualTimeSeconds = static_cast<float>( sourceSeconds );
         m_hasLiveVisualTime = true;
     }
-    else if ( !useReplayTime && !m_host.m_replayScrubber.liveAdvanceHeld )
+    else if ( !useReplayTime && !m_host.m_replayRuntime.Scrubber().liveAdvanceHeld )
     {
         m_liveVisualTimeSeconds += static_cast<float>( sourceSeconds - m_lastLiveVisualSourceSeconds );
     }
@@ -1656,11 +1656,12 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
         return true;
     }
 
-    if ( m_host.m_replayPathVisualizer.hasTarget || m_host.m_replayCamera.focusKind != RunReplayCameraFocusKind::None )
+    if ( m_host.m_replayRuntime.PathVisualizer().hasTarget ||
+         m_host.m_replayRuntime.Camera().focusKind != RunReplayCameraFocusKind::None )
     {
         return true;
     }
-    if ( m_host.m_replayVelocityEdit.enabled && !m_host.m_editor.editorModeEnabled )
+    if ( m_host.m_replayRuntime.VelocityEdit().enabled && !m_host.m_editor.editorModeEnabled )
     {
         return true;
     }

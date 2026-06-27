@@ -12,6 +12,12 @@ Glossary:
   Engine module: A source file with one focused responsibility inside the
   SkullbonezCore runtime.
 
+Invariants:
+  - Orientation quaternions should remain normalized before conversion to
+    matrices or solver rows.
+  - RotateAboutXYZ treats xyz as one angular-displacement vector rather than an
+    ordered Euler rotation.
+
 Related:
   - SkullbonezSource/Maths/Quaternion.h
   - Agentic/Reference/comment-style-guide.md

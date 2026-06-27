@@ -13,14 +13,27 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - This file arbitrates ownership before mutating world state; UI, editor,
+    replay, launcher, and camera modes must not all consume the same gesture.
+  - Camera vectors are normalized defensively because scene and replay targets
+    may be absent, stale, or degenerate for a frame.
+
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "Editor/EditorTools.h"
 #include "InputController.h"
+#include "Replay/ReplayOverlayLayout.h"
 #include "RuntimePickService.h"
+#include "Scene/SceneRuntimeCreate.h"
 #include "RuntimeTuning.h"
+#include "Scene/SceneRuntimeDefaults.h"
+#include "Scene/SceneRuntimeGeneratedControls.h"
+#include "Scene/SceneRuntimeLoad.h"
+#include "Scene/SceneRuntimeStyle.h"
 #include "../UI/UIInput.h"
 #include "../UI/UILayout.h"
 
@@ -66,6 +79,9 @@ bool IsFiniteVector( const Vector3& v )
 
 bool TryNormalizeVector( Vector3& v )
 {
+    // Hazard: attachment and replay camera targets can briefly collapse to a
+    // zero-length vector after a reset or stale body recovery. Callers must use
+    // a fallback instead of feeding NaNs into camera matrices.
     if ( !IsFiniteVector( v ) )
     {
         return false;
@@ -403,15 +419,18 @@ RuntimeInputSnapshot Run::BuildRuntimeInputSnapshot( const RuntimeMouseEdges& mo
         snapshot.pointer.button = RuntimePointerButton::Right;
     }
 
-    snapshot.frameInput = RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
-                                                        Input::IsKeyDown( VK_SPACE ),
-                                                        IsReplayScrubPaused(),
-                                                        m_replayRuntime.Scrubber().liveAdvanceHeld,
-                                                        mouseEdges.rightDown,
-                                                        m_runtimeTools.Editor().viewportLookActive,
-                                                        ReplayInspectionMouseLookActive(),
-                                                        false,
-                                                        SceneState().timeScale };
+    snapshot.frameInput =
+        RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
+                                      Input::IsKeyDown( VK_SPACE ),
+                                      m_replayRuntime.IsScrubPaused(),
+                                      m_replayRuntime.Scrubber().liveAdvanceHeld,
+                                      mouseEdges.rightDown,
+                                      m_runtimeTools.Editor().viewportLookActive,
+                                      m_replayRuntime.InspectionMouseLookActive( Input::IsRightMouseDown(),
+                                                                                 m_UI.WantsNativeMouseCursor(),
+                                                                                 m_UI.BlocksCameraMouse() ),
+                                      false,
+                                      SceneState().timeScale };
     return snapshot;
 }
 
@@ -450,7 +469,30 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
          !uiWantsNativeMouseCursor )
     {
         EnterInteractiveSceneRun();
-        FireRayCastTest();
+        Vector3 rayOrigin;
+        Vector3 rayDirection;
+        Vector3 cameraUp;
+        if ( m_runtimeTools.TryBuildLauncherCameraRay( m_systems.cameras, rayOrigin, rayDirection, cameraUp ) )
+        {
+            m_replayRuntime.RecordLauncherFireEvent(
+                rayOrigin,
+                rayDirection,
+                cameraUp,
+                m_runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile,
+                m_runtimeTools.RayCastTest().impulseStrength,
+                m_runtimeTools.RayCastTest().projectileSpeed,
+                m_cGameModelCollection.GetModelCount() );
+            if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
+                                                 m_cWorldEnvironment,
+                                                 m_systems.terrain.get(),
+                                                 ActiveGameModelCapacity(),
+                                                 rayOrigin,
+                                                 rayDirection,
+                                                 cameraUp ) )
+            {
+                SceneState().modelCount = m_cGameModelCollection.GetModelCount();
+            }
+        }
         UpdateRuntimeInputModeAfterAction( RuntimeInputAction::FireLauncher, RuntimeInputActionSource::Mouse );
         consumedWorldClick = true;
     }
@@ -613,7 +655,7 @@ bool Run::HasActiveEditorInteractionState() const
 bool Run::InspectGizmoInteractionActive() const
 {
     return !m_runtimeTools.Editor().editorModeEnabled && m_camera.mode == RunCameraMode::Inspect &&
-           !ReplayInspectionActive();
+           !m_replayRuntime.InspectionActive();
 }
 
 
@@ -621,10 +663,12 @@ void Run::ClearReplayInteractionForRuntimeTransition()
 {
     CancelReplayToolDragState();
 
-    m_replayRuntime.Scrubber().liveAdvanceHeld = false;
-    m_replayRuntime.Camera().ownsSimulationPause = false;
-    ResetReplayScrubber();
-    ReplayScrubberSetAllTrackPositions( m_replayRuntime.Scrubber(), 1.0f );
+    m_replayRuntime.SetLiveAdvanceHeld( false );
+    if ( m_replayRuntime.ResetScrubberState() )
+    {
+        ExitReplayInspectionCamera();
+    }
+    m_replayRuntime.SetAllTrackPositions( 1.0f );
     m_replayRuntime.Scrubber().visible = false;
     m_replayRuntime.Scrubber().dragging = false;
     m_replayRuntime.Scrubber().mouseCaptured = false;
@@ -633,14 +677,16 @@ void Run::ClearReplayInteractionForRuntimeTransition()
     m_replayRuntime.Scrubber().saveHovered = false;
     m_replayRuntime.Scrubber().loadHovered = false;
 
-    ClearReplayPathVisualizer();
+    m_replayRuntime.ClearCameraFocusForRestore();
+    ExitReplayInspectionCamera();
+    m_replayRuntime.ClearPathVisualizerState();
     m_replayRuntime.Prediction().enabled = false;
     m_replayRuntime.Prediction().checkboxHovered = false;
     m_replayRuntime.Prediction().decreaseHovered = false;
     m_replayRuntime.Prediction().increaseHovered = false;
     m_replayRuntime.Prediction().horizonHovered = false;
     m_replayRuntime.Prediction().horizonDragging = false;
-    ClearReplayPredictionCache();
+    m_replayRuntime.ClearPredictionCache();
 
     m_replayRuntime.VelocityEdit() = RunReplayVelocityEditState{};
     m_replayRuntime.CauseTree().hoveredRow = -1;
@@ -658,7 +704,7 @@ void Run::ClearReplayInteractionForRuntimeTransition()
 
 void Run::ClearEditorInteractionForRuntimeTransition( bool clearSelection )
 {
-    ClearEditorManipulationState();
+    RunInternal::ClearEditorManipulationState( { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
     m_runtimeTools.Editor().viewportLookActive = false;
     m_runtimeTools.Editor().placementModeEnabled = false;
     m_runtimeTools.Editor().hotGizmoAxis = -1;
@@ -1613,20 +1659,6 @@ void Run::CycleCameraMode()
 }
 
 
-bool Run::ReplayInspectionActive() const
-{
-    return m_replayRuntime.Camera().active || m_replayRuntime.Scrubber().historicalSamplePaused ||
-           m_replayRuntime.Scrubber().liveAdvanceHeld;
-}
-
-
-bool Run::ReplayInspectionMouseLookActive() const
-{
-    return ReplayInspectionActive() && Input::IsRightMouseDown() && !m_UI.WantsNativeMouseCursor() &&
-           !m_UI.BlocksCameraMouse();
-}
-
-
 bool Run::MouseLookOwnsCursor() const
 {
     if ( !Input::IsAppFocused() )
@@ -1644,9 +1676,12 @@ bool Run::MouseLookOwnsCursor() const
         return m_runtimeTools.Editor().viewportLookActive || Input::IsRightMouseDown();
     }
 
-    if ( ReplayInspectionActive() )
+    if ( m_replayRuntime.InspectionActive() )
     {
-        return ReplayInspectionMouseLookActive() || Input::IsRightMouseDown();
+        return m_replayRuntime.InspectionMouseLookActive( Input::IsRightMouseDown(),
+                                                          m_UI.WantsNativeMouseCursor(),
+                                                          m_UI.BlocksCameraMouse() ) ||
+               Input::IsRightMouseDown();
     }
 
     return Input::IsRightMouseDown();
@@ -1730,7 +1765,10 @@ void Run::TakeInput()
         CancelCameraLookGesture();
         CancelReplayToolDragState();
         Input::SetSystemCursorVisible( true );
-        ResetReplayScrubber();
+        if ( m_replayRuntime.ResetScrubberState() )
+        {
+            ExitReplayInspectionCamera();
+        }
         m_replayRuntime.Prediction().checkboxHovered = false;
         m_replayRuntime.Prediction().decreaseHovered = false;
         m_replayRuntime.Prediction().increaseHovered = false;
@@ -1755,7 +1793,8 @@ void Run::TakeInput()
             m_replayRuntime.CauseTree().draggingWindow = false;
             m_replayRuntime.CauseTree().resizingWindow = false;
         }
-        ResetEditorUnfocusedInputState();
+        RunInternal::ResetEditorUnfocusedInputState(
+            { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
         InputController::ResetUnfocusedInput( m_camera,
                                               m_inputLatches.leftSceneCycleWasDown,
                                               m_inputLatches.rightSceneCycleWasDown );
@@ -1781,6 +1820,75 @@ void Run::TakeInput()
         UIBlocksKeyboardBeforeInput,
         m_UI.BlocksCameraMouse() );
     bool keyboardToggleEditorMode = false;
+    auto editorGizmoContext = [this]()
+    { return RunInternal::EditorGizmoContext{ m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction }; };
+    auto applyEditorPlacementModeChange =
+        [this, &editorGizmoContext]( RuntimeInputActionSource source, bool enabled, bool clearManipulation )
+    {
+        EnterInteractiveSceneRun();
+        const RunInternal::EditorPlacementModeChangeResult placementMode =
+            RunInternal::SetEditorPlacementMode( editorGizmoContext(), enabled, clearManipulation );
+        SetWorldInteractionOwnerAfterInteractionTransition( placementMode.worldOwner,
+                                                            InteractionExitReason::EnterEdit );
+        ReleaseMouseToUI();
+        ApplyCursorOwnership();
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTool, source );
+    };
+    auto applyEditorPlacementModeToggle = [this, &editorGizmoContext]( RuntimeInputActionSource source )
+    {
+        EnterInteractiveSceneRun();
+        const RunInternal::EditorPlacementModeChangeResult placementMode =
+            RunInternal::ToggleEditorPlacementMode( editorGizmoContext() );
+        SetWorldInteractionOwnerAfterInteractionTransition( placementMode.worldOwner,
+                                                            InteractionExitReason::EnterEdit );
+        ReleaseMouseToUI();
+        ApplyCursorOwnership();
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTool, source );
+    };
+    auto applyEditorModeToggle = [this, &editorGizmoContext]( RuntimeInputActionSource source )
+    {
+        EnterInteractiveSceneRun();
+        const bool enteringEditor = !m_runtimeTools.Editor().editorModeEnabled;
+        if ( enteringEditor )
+        {
+            const RuntimeInteractionTransition transition = m_interaction.EnterEdit();
+            ApplyRuntimeInteractionTransitionCleanup( transition );
+            const bool wasFlyMode = IsFlyCameraMode();
+            RunInternal::EnterEditorModeState( editorGizmoContext(),
+                                               NormalizeCameraModeForCurrentScene( m_camera.mode ) );
+            CancelMousePickup();
+            SetCameraModeLabelAfterInteractionTransition( RunCameraMode::Inspect );
+            if ( !wasFlyMode )
+            {
+                EnterFlyModeCamera();
+            }
+            else
+            {
+                InputController::ResetMouseLook( m_camera );
+            }
+            ApplyCursorOwnership();
+        }
+        else
+        {
+            const RunCameraMode restoreMode =
+                NormalizeCameraModeForCurrentScene( m_runtimeTools.Editor().restoreCameraModeAfterEditor );
+            const RuntimeInteractionTransition transition = EnterInteractionForCameraMode( restoreMode );
+            ApplyRuntimeInteractionTransitionCleanup( transition );
+            const bool wasFlyMode = IsFlyCameraMode();
+            RunInternal::ExitEditorModeState( editorGizmoContext() );
+            SetCameraModeLabelAfterInteractionTransition( restoreMode );
+            if ( wasFlyMode && !IsFlyCameraMode() )
+            {
+                ExitFlyModeCamera();
+            }
+            else
+            {
+                InputController::ResetMouseLook( m_camera );
+            }
+            ApplyCursorOwnership();
+        }
+        UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditor, source );
+    };
     if ( !UIBlocksKeyboardBeforeInput )
     {
         keyboardToggleEditorMode =
@@ -1856,21 +1964,88 @@ void Run::TakeInput()
                                                               VK_RETURN ) &&
                  IsLauncherCameraMode() && !m_replayRuntime.Scrubber().restoreConsumedThisFrame )
             {
-                WriteLauncherReproSnapshot();
+                const double simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
+                const LauncherReproSnapshotStatus snapshotStatus =
+                    m_runtimeTools.WriteLauncherReproSnapshot( { m_cGameModelCollection,
+                                                                 m_systems.cameras,
+                                                                 m_systems.terrain.get(),
+                                                                 m_cWorldEnvironment,
+                                                                 SceneState(),
+                                                                 m_sceneController.CurrentPath(),
+                                                                 m_launchOptions,
+                                                                 m_runtimeSettings,
+                                                                 m_debug,
+                                                                 IsGfxReady() ? Gfx().GetRendererName() : "DirectX 12",
+                                                                 simulationSeconds } );
+                const char* snapshotMessage = "Failed to write repro snapshot";
+                if ( snapshotStatus == LauncherReproSnapshotStatus::Wrote )
+                {
+                    sprintf_s( m_debug.reproSnapshotMessage,
+                               sizeof( m_debug.reproSnapshotMessage ),
+                               "Repro snapshot: %s",
+                               LAUNCHER_REPRO_SNAPSHOT_PATH );
+                }
+                else if ( snapshotStatus == LauncherReproSnapshotStatus::NoTarget )
+                {
+                    snapshotMessage = "No repro target under crosshair";
+                }
+                if ( snapshotStatus != LauncherReproSnapshotStatus::Wrote )
+                {
+                    sprintf_s( m_debug.reproSnapshotMessage,
+                               sizeof( m_debug.reproSnapshotMessage ),
+                               "%s",
+                               snapshotMessage );
+                }
+                m_debug.reproSnapshotMessageUntil = simulationSeconds + LAUNCHER_REPRO_MESSAGE_SECONDS;
             }
         }
 #endif
 
         if ( m_runtimeTools.Editor().editorModeEnabled )
         {
-            HandleEditorKeyboardShortcuts();
+            const RunInternal::EditorKeyboardShortcutResult editorShortcuts =
+                RunInternal::HandleEditorKeyboardShortcuts( { m_runtimeInput } );
+            m_replayRuntime.SetVelocityEditAltKeyDown( editorShortcuts.altDown );
+            if ( editorShortcuts.togglePlacementMode )
+            {
+                applyEditorPlacementModeToggle( RuntimeInputActionSource::Keyboard );
+            }
         }
         else
         {
             const bool altDown = Input::IsKeyDown( VK_MENU );
             if ( altDown && !m_replayRuntime.VelocityEdit().keyboardAltWasDown )
             {
-                SetReplayVelocityEditEnabled( !m_replayRuntime.VelocityEdit().enabled );
+                const bool enableVelocityEdit = !m_replayRuntime.VelocityEdit().enabled;
+                if ( m_replayRuntime.SetVelocityEditEnabled( enableVelocityEdit ) )
+                {
+                    CancelReplayToolDragState();
+                    if ( enableVelocityEdit )
+                    {
+                        EnterInteractiveSceneRun();
+                        if ( m_replayRuntime.SetLiveAdvanceHeld( true ) )
+                        {
+                            if ( m_replayRuntime.ShouldUseInspectionCamera() )
+                            {
+                                EnterReplayInspectionCamera();
+                            }
+                            else
+                            {
+                                ExitReplayInspectionCamera();
+                            }
+                        }
+                        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
+                                                                            InteractionExitReason::EnterReplay );
+                    }
+                    else if ( m_interaction.Owner() == WorldInteractionOwner::ReplayVelocityEdit )
+                    {
+                        SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayScrub,
+                                                                            InteractionExitReason::EnterReplay );
+                    }
+                }
+                m_replayRuntime.Scrubber().visibleUntil =
+                    m_timers.simulationTimer.GetTotalTime() + ReplayOverlay::REPLAY_SCRUBBER_VISIBLE_SECONDS;
+                m_replayRuntime.Scrubber().visible = true;
             }
             m_replayRuntime.VelocityEdit().keyboardAltWasDown = altDown;
             m_runtimeInput.SetActionDown( RuntimeInputAction::ToggleEditorTool, altDown );
@@ -2065,14 +2240,59 @@ void Run::TakeInput()
             }
         }
 
+        auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
+        {
+            if ( action.enterInteractiveSceneRun )
+            {
+                EnterInteractiveSceneRun();
+            }
+
+            switch ( action.type )
+            {
+            case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
+                SceneState().isExitOnComplete = false;
+                m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+                return true;
+            case SceneRuntimeControlActionType::LoadScene:
+                LoadScene( action.index,
+                           action.preserveUIState,
+                           action.suppressExitOnComplete,
+                           action.preserveRuntimeState );
+                return true;
+            case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
+                EnterInteractiveSceneRun();
+                return ApplyCinematicModeFromBrowserIndex(
+                    SceneRuntimeStyleContext{ m_launchOptions,
+                                              SceneState(),
+                                              m_sceneBrowser,
+                                              m_cGameModelCollection,
+                                              RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                              m_defaultCinematicRender },
+                    action.index );
+            case SceneRuntimeControlActionType::None:
+                return false;
+            }
+            return false;
+        };
+
         if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
                                                           RuntimeInputAction::NavigateScenePrevious,
                                                           VK_LEFT ) )
         {
             EnterInteractiveSceneRun();
-            if ( !ApplyAdjacentCinematicMode( -1 ) )
+            const int currentSceneBrowserIndex = CurrentSceneBrowserIndex( m_sceneController, m_sceneBrowser );
+            const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
+            if ( !executeSceneControlAction(
+                     m_sceneCoordinator.ApplyAdjacentCinematicMode( -1,
+                                                                    m_sceneBrowser.paths,
+                                                                    m_sceneBrowser.selectedCineModeSceneIndex,
+                                                                    currentSceneBrowserIndex,
+                                                                    isCinematicTabActive ) ) )
             {
-                LoadAdjacentSceneFromBrowser( -1 );
+                executeSceneControlAction(
+                    m_sceneCoordinator.LoadAdjacentSceneFromBrowser( -1,
+                                                                     m_sceneBrowser.paths,
+                                                                     currentSceneBrowserIndex ) );
             }
         }
         if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
@@ -2080,9 +2300,19 @@ void Run::TakeInput()
                                                           VK_RIGHT ) )
         {
             EnterInteractiveSceneRun();
-            if ( !ApplyAdjacentCinematicMode( 1 ) )
+            const int currentSceneBrowserIndex = CurrentSceneBrowserIndex( m_sceneController, m_sceneBrowser );
+            const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
+            if ( !executeSceneControlAction(
+                     m_sceneCoordinator.ApplyAdjacentCinematicMode( 1,
+                                                                    m_sceneBrowser.paths,
+                                                                    m_sceneBrowser.selectedCineModeSceneIndex,
+                                                                    currentSceneBrowserIndex,
+                                                                    isCinematicTabActive ) ) )
             {
-                LoadAdjacentSceneFromBrowser( 1 );
+                executeSceneControlAction(
+                    m_sceneCoordinator.LoadAdjacentSceneFromBrowser( 1,
+                                                                     m_sceneBrowser.paths,
+                                                                     currentSceneBrowserIndex ) );
             }
         }
     }
@@ -2101,7 +2331,7 @@ void Run::TakeInput()
     int editorUnhandledWheelDelta = 0;
     if ( m_systems.window )
     {
-        const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex();
+        const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex( m_sceneController, m_sceneBrowser );
         InGameUIInputResult UIResult =
             m_UI.UpdateInput( m_systems.window->m_sWindow,
                               static_cast<int>( m_systems.window->m_sWindowDimensions.x ),
@@ -2179,7 +2409,50 @@ void Run::TakeInput()
             ApplyCameraMode( static_cast<RunCameraMode>( uiCommands.run.requestedCameraMode ),
                              RuntimeInputActionSource::UI );
         }
-        ApplyEditorUICommands( uiCommands, keyboardToggleEditorMode );
+        if ( uiCommands.editor.requestPlaceStatic &&
+             RunInternal::SetEditorPlaceStaticObject( m_runtimeTools.Editor(),
+                                                      uiCommands.editor.requestedPlaceStatic ) )
+        {
+            EnterInteractiveSceneRun();
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorStaticPlacement,
+                                               RuntimeInputActionSource::UI );
+        }
+        if ( uiCommands.editor.requestedObjectType >= 0 )
+        {
+            const RunInternal::EditorObjectTypeRequestResult objectTypeRequest =
+                RunInternal::SelectEditorObjectType( editorGizmoContext(),
+                                                     uiCommands.editor.requestedObjectType,
+                                                     uiCommands.editor.enterPlacementMode );
+            if ( objectTypeRequest.enterPlacementMode )
+            {
+                applyEditorPlacementModeChange( RuntimeInputActionSource::UI, true, false );
+            }
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleEditorPlacementType,
+                                               RuntimeInputActionSource::UI );
+        }
+        if ( uiCommands.editor.toggleEditorMode || keyboardToggleEditorMode )
+        {
+            applyEditorModeToggle( keyboardToggleEditorMode ? RuntimeInputActionSource::Keyboard
+                                                            : RuntimeInputActionSource::UI );
+        }
+        if ( uiCommands.editor.togglePlacementMode )
+        {
+            applyEditorPlacementModeToggle( RuntimeInputActionSource::UI );
+        }
+        if ( uiCommands.editor.togglePlaceStatic )
+        {
+            EnterInteractiveSceneRun();
+            RunInternal::ToggleEditorPlaceStaticObject( m_runtimeTools.Editor() );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorStaticPlacement,
+                                               RuntimeInputActionSource::UI );
+        }
+        if ( uiCommands.editor.toggleTerrainAlign )
+        {
+            EnterInteractiveSceneRun();
+            RunInternal::ToggleEditorTerrainAlign( m_runtimeTools.Editor() );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleEditorTerrainAlign,
+                                               RuntimeInputActionSource::UI );
+        }
         if ( uiCommands.physics.toggleCollisionVisualizer )
         {
             m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
@@ -2329,7 +2602,7 @@ void Run::TakeInput()
         }
         if ( tornadoFieldChanged )
         {
-            SyncTornadoFieldToPhysics();
+            SyncTornadoRuntimeSettingsToPhysics( m_cGameModelCollection, m_runtimeSettings );
         }
         if ( uiCommands.physics.toggleTerrainContactProbe )
         {
@@ -2374,11 +2647,13 @@ void Run::TakeInput()
         }
         if ( uiCommands.sceneOptions.toggleShadows )
         {
-            if ( IsCinematicRenderingEnabled() )
+            if ( RuntimeCinematicRenderingEnabled( SceneState(), Cfg(), m_launchOptions, m_debug, IsGfxReady() ) )
             {
-                const bool shadowsActive = ActiveCinematicConfig().shadowsEnabled;
+                const bool shadowsActive = RuntimeActiveCinematicConfig( SceneState(), Cfg() ).shadowsEnabled;
                 m_launchOptions.hasCinematicShadowsOverride = false;
-                SetCinematicShadowsEnabledFromUI( ActiveCinematicConfig(), SceneState(), !shadowsActive );
+                SetCinematicShadowsEnabledFromUI( RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                                  SceneState(),
+                                                  !shadowsActive );
             }
             else
             {
@@ -2457,8 +2732,10 @@ void Run::TakeInput()
                 std::clamp( uiCommands.physics.requestedRayCastImpulseStrength,
                             UI_RAY_IMPULSE_MIN,
                             UI_RAY_IMPULSE_MAX );
-            RecordReplayLauncherConfigEvent( previousImpulse != m_runtimeTools.RayCastTest().impulseStrength ? 1u
-                                                                                                             : 0u );
+            m_replayRuntime.RecordLauncherConfigEvent(
+                previousImpulse != m_runtimeTools.RayCastTest().impulseStrength ? 1u : 0u,
+                m_runtimeTools.RayCastTest().impulseStrength,
+                m_runtimeTools.RayCastTest().projectileSpeed );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetRayCastImpulseStrength,
                                                RuntimeInputActionSource::UI );
         }
@@ -2469,14 +2746,45 @@ void Run::TakeInput()
                 std::clamp( uiCommands.physics.requestedLauncherProjectileSpeed,
                             UI_LAUNCHER_PROJECTILE_SPEED_MIN,
                             UI_LAUNCHER_PROJECTILE_SPEED_MAX );
-            RecordReplayLauncherConfigEvent(
-                previousProjectileSpeed != m_runtimeTools.RayCastTest().projectileSpeed ? 2u : 0u );
+            m_replayRuntime.RecordLauncherConfigEvent(
+                previousProjectileSpeed != m_runtimeTools.RayCastTest().projectileSpeed ? 2u : 0u,
+                m_runtimeTools.RayCastTest().impulseStrength,
+                m_runtimeTools.RayCastTest().projectileSpeed );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetLauncherProjectileSpeed,
                                                RuntimeInputActionSource::UI );
         }
+        const auto makeSceneGeneratedControlContext = [this]() -> SceneRuntimeGeneratedControlContext
+        {
+            return SceneRuntimeGeneratedControlContext{ SceneState(),
+                                                        m_sceneUIOverrides,
+                                                        m_camera,
+                                                        m_sceneController,
+                                                        Cfg(),
+                                                        m_cWorldEnvironment,
+                                                        m_systems.terrain.get(),
+                                                        m_cGameModelCollection,
+                                                        m_simulation,
+                                                        m_runtimeTools,
+                                                        IsGfxReady() ? &Gfx() : nullptr,
+                                                        m_launchOptions.generatedObjectTypeOverride,
+                                                        ActiveGameModelCapacity() };
+        };
+        const auto executeSceneGeneratedControlAction = [this]( const SceneRuntimeGeneratedControlAction& action )
+        {
+            if ( action.resetReplayTimeline )
+            {
+                ResetReplayTimelineForActiveScene();
+            }
+            if ( action.scheduleProfileReset )
+            {
+                PROFILE_SCHEDULE_RESET();
+            }
+        };
         if ( uiCommands.sceneOptions.requestedModelCount >= 0 )
         {
-            ApplyUIModelCountOverride( uiCommands.sceneOptions.requestedModelCount );
+            executeSceneGeneratedControlAction(
+                ApplyUIModelCountOverride( makeSceneGeneratedControlContext(),
+                                           uiCommands.sceneOptions.requestedModelCount ) );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetModelCount, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.profiler.requestedWorkerThreads >= -1 )
@@ -2489,9 +2797,10 @@ void Run::TakeInput()
             const int modelCapacity = ActiveGameModelCapacity();
             const int boxes = m_sceneUIOverrides.solverBoxCountOverride >= 0 ? m_sceneUIOverrides.solverBoxCountOverride
                                                                              : SceneState().solverBoxCount;
-            ApplyUISolverObjectCounts(
+            executeSceneGeneratedControlAction( ApplyUISolverObjectCounts(
+                makeSceneGeneratedControlContext(),
                 std::clamp( uiCommands.run.requestedSolverBallCount, 0, (std::max)( 0, modelCapacity - boxes ) ),
-                boxes );
+                boxes ) );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetSolverCounts, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.run.requestedSolverBoxCount >= 0 )
@@ -2500,9 +2809,10 @@ void Run::TakeInput()
             const int balls = m_sceneUIOverrides.solverBallCountOverride >= 0
                                   ? m_sceneUIOverrides.solverBallCountOverride
                                   : SceneState().solverBallCount;
-            ApplyUISolverObjectCounts(
+            executeSceneGeneratedControlAction( ApplyUISolverObjectCounts(
+                makeSceneGeneratedControlContext(),
                 balls,
-                std::clamp( uiCommands.run.requestedSolverBoxCount, 0, (std::max)( 0, modelCapacity - balls ) ) );
+                std::clamp( uiCommands.run.requestedSolverBoxCount, 0, (std::max)( 0, modelCapacity - balls ) ) ) );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetSolverCounts, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.water.requestWorldGravity || uiCommands.water.requestWorldFluidHeight ||
@@ -2516,7 +2826,9 @@ void Run::TakeInput()
             const float fluidDensity = uiCommands.water.requestWorldFluidDensity
                                            ? uiCommands.water.requestedWorldFluidDensity
                                            : m_cWorldEnvironment.GetFluidDensity();
-            ApplyUIWorldOverride( std::clamp( gravity, -100.0f, 0.0f ),
+            ApplyUIWorldOverride( m_cWorldEnvironment,
+                                  m_replayRuntime,
+                                  std::clamp( gravity, -100.0f, 0.0f ),
                                   std::clamp( fluidHeight, -100.0f, 200.0f ),
                                   std::clamp( fluidDensity, 0.0f, 5.0f ) );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyWorldWaterSettings,
@@ -2526,7 +2838,7 @@ void Run::TakeInput()
         {
             // Master Cine switch. Clearing m_launchOptions.hasCinematicRenderingOverride lets
             // the runtime toggle become the new source of truth after launch.
-            CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), Cfg() );
             const bool currentlyEnabled =
                 m_launchOptions.hasCinematicRenderingOverride ? m_launchOptions.cinematicRendering : cinematic.enabled;
             cinematic.enabled = !currentlyEnabled;
@@ -2548,12 +2860,20 @@ void Run::TakeInput()
         }
         if ( uiCommands.cinematic.requestedModeSceneIndex >= -1 )
         {
-            ApplyCinematicModeFromBrowserIndex( uiCommands.cinematic.requestedModeSceneIndex );
+            EnterInteractiveSceneRun();
+            ApplyCinematicModeFromBrowserIndex(
+                SceneRuntimeStyleContext{ m_launchOptions,
+                                          SceneState(),
+                                          m_sceneBrowser,
+                                          m_cGameModelCollection,
+                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          m_defaultCinematicRender },
+                uiCommands.cinematic.requestedModeSceneIndex );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SelectCinematicScene, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.cinematic.requestedFeature != UICinematicFeature::None )
         {
-            CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), Cfg() );
             if ( uiCommands.cinematic.requestedFeature == UICinematicFeature::Shadows )
             {
                 m_launchOptions.hasCinematicShadowsOverride = false;
@@ -2564,7 +2884,7 @@ void Run::TakeInput()
         }
         if ( uiCommands.cinematic.requestedParam != UICinematicParam::None )
         {
-            CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), Cfg() );
             ApplyCinematicUIParam( cinematic,
                                    SceneState(),
                                    uiCommands.cinematic.requestedParam,
@@ -2635,7 +2955,12 @@ void Run::TakeInput()
         return;
     }
 
-    HandleEditorSaveHotkeys();
+    HandleEditorSaveHotkeys( { m_runtimeInput,
+                               m_cGameModelCollection,
+                               SceneState(),
+                               m_cWorldEnvironment,
+                               *m_systems.cameras,
+                               m_runtimeCommands } );
 
     // R: reset/reload the current scene from scratch. Backspace remains as a scene-mode alias.
     {
@@ -2741,6 +3066,41 @@ void Run::TakeInput()
 
 bool Run::DrainRuntimeCommands()
 {
+    auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
+    {
+        if ( action.enterInteractiveSceneRun )
+        {
+            EnterInteractiveSceneRun();
+        }
+
+        switch ( action.type )
+        {
+        case SceneRuntimeControlActionType::ClearCurrentSceneAutomation:
+            SceneState().isExitOnComplete = false;
+            m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+            return true;
+        case SceneRuntimeControlActionType::LoadScene:
+            LoadScene( action.index,
+                       action.preserveUIState,
+                       action.suppressExitOnComplete,
+                       action.preserveRuntimeState );
+            return true;
+        case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
+            EnterInteractiveSceneRun();
+            return ApplyCinematicModeFromBrowserIndex(
+                SceneRuntimeStyleContext{ m_launchOptions,
+                                          SceneState(),
+                                          m_sceneBrowser,
+                                          m_cGameModelCollection,
+                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          m_defaultCinematicRender },
+                action.index );
+        case SceneRuntimeControlActionType::None:
+            return false;
+        }
+        return false;
+    };
+
     bool processed = false;
     RuntimeCommand command;
     while ( m_runtimeCommands.TryPop( command ) )
@@ -2749,17 +3109,22 @@ bool Run::DrainRuntimeCommands()
         switch ( command.type )
         {
         case RuntimeCommandType::LoadSceneIndex:
-            LoadSceneFromBrowserIndex( command.index );
+            executeSceneControlAction(
+                m_sceneCoordinator.LoadSceneFromBrowserIndex( command.index, m_sceneBrowser.paths ) );
             break;
         case RuntimeCommandType::LoadDemoScene:
-            LoadDemoSceneFromUI();
+            executeSceneControlAction( m_sceneCoordinator.LoadDemoSceneFromUI() );
             break;
         case RuntimeCommandType::ResetCurrentScene:
             EnterInteractiveSceneRun();
-            ResetCurrentScene( command.preserveUIState, command.suppressExitOnComplete, command.preserveRuntimeState );
+            executeSceneControlAction( m_sceneCoordinator.ResetCurrentScene( command.preserveUIState,
+                                                                             command.suppressExitOnComplete,
+                                                                             command.preserveRuntimeState ) );
             break;
         case RuntimeCommandType::CreateScene:
-            CreateSceneFromUI( command.text.c_str() );
+            executeSceneControlAction(
+                CreateSceneFromUI( SceneRuntimeCreateContext{ m_sceneController, m_sceneBrowser },
+                                   command.text.c_str() ) );
             break;
         case RuntimeCommandType::SaveScreenshot:
             if ( !command.text.empty() )
@@ -2771,13 +3136,15 @@ bool Run::DrainRuntimeCommands()
             SaveCurrentSceneDefaults();
             break;
         case RuntimeCommandType::SaveRenderDefaults:
-            SaveRenderDefaults();
+            SaveRenderDefaults( Cfg().ordinaryRender );
             break;
         case RuntimeCommandType::SaveSkyDefaults:
-            SaveSkyDefaults();
+            SaveSkyDefaults( RuntimeActiveCinematicConfig( SceneState(), Cfg() ) );
             break;
         case RuntimeCommandType::AdvanceScene:
-            if ( !AdvanceScene() )
+            if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                                              sPerfPass,
+                                                                              SceneState().isInteractiveRun ) ) )
             {
                 PostQuitMessage( 0 );
             }
@@ -2790,15 +3157,16 @@ bool Run::DrainRuntimeCommands()
         }
         if ( command.type != RuntimeCommandType::None )
         {
-            RecordReplayEvent( ReplayEventKind::RuntimeCommand,
-                               NextReplayEventFrameIndex(),
-                               ReplayRuntimeCommandFlags( command ),
-                               static_cast<int32_t>( command.type ),
-                               command.index,
-                               0,
-                               0,
-                               0,
-                               command.text.empty() ? ReplayRuntimeCommandName( command.type ) : command.text.c_str() );
+            m_replayRuntime.RecordEvent(
+                ReplayEventKind::RuntimeCommand,
+                m_replayRuntime.NextEventFrameIndex(),
+                ReplayRuntimeCommandFlags( command ),
+                static_cast<int32_t>( command.type ),
+                command.index,
+                0,
+                0,
+                0,
+                command.text.empty() ? ReplayRuntimeCommandName( command.type ) : command.text.c_str() );
         }
     }
 

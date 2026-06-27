@@ -8,6 +8,12 @@ Mental model:
   point-to-point constraint data. This keeps the hacky ragdoll feature isolated
   and leaves a clear migration path to a full constraint solver.
 
+Glossary:
+  Point joint: Constraint that keeps two local anchors near each other.
+  Slack: Allowed anchor separation before the solver pushes the bodies back
+  toward the constraint.
+  Neck swing limit: Special angular clamp applied to the head/torso joint.
+
 Invariants:
   - Body and constraint creation order must stay deterministic.
   - Constraint solving must not allocate per row while physics is stepping.
@@ -21,6 +27,7 @@ Related:
 #include "../GameObjects/GameModel.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "ContactSolverCommon.h"
+#include "PhysicsBodyStore.h"
 #include "PhysicsEngine.h"
 #include "PhysicsMass.h"
 
@@ -107,6 +114,8 @@ float ClampRagdollScale( float scale )
 
 const SimplePartDef* SimpleParts()
 {
+    // Invariant: this table order is the prefab body index order and is paired
+    // with SimpleJoints plus SIMPLE_PART_COUNT.
     static const SimplePartDef parts[PART_COUNT] = {
         { "torso", Vector3( 0.0f, 12.8f, 0.0f ), Vector3( 2.2f, 3.2f, 1.1f ), 0.18f, 0.62f, 0.72f, 1.0f },
         { "head", Vector3( 0.0f, 17.25f, 0.0f ), Vector3( 1.2f, 1.2f, 1.2f ), 0.15f, 0.95f, 0.82f, 0.58f },
@@ -210,23 +219,22 @@ void AppendPreviewBox( std::vector<float>& lineData,
     }
 }
 
-RotationMatrix BodyRotation( const GameModel& model )
+RotationMatrix BodyRotation( const PhysicsBodyRecord& record )
 {
-    Quaternion q = model.GetOrientation();
+    Quaternion q = record.orientation;
     return q.GetOrientationMatrix();
 }
 
-Vector3 ApplyModelInvInertia( GameModel& model, const Vector3& value )
+Vector3 ApplyRecordInvInertia( const GameModel& model, const PhysicsBodyRecord& record, const Vector3& value )
 {
-    const Vector3& invInertia = model.GetInvertedRotationalInertia();
     if ( !model.UsesWorldInertia() )
     {
-        return VectorMultiply( invInertia, value );
+        return VectorMultiply( record.invRotationalInertia, value );
     }
 
-    const RotationMatrix rotation = BodyRotation( model );
+    const RotationMatrix rotation = BodyRotation( record );
     const Vector3 local = rotation.TransposeMultiply( value );
-    return rotation * VectorMultiply( invInertia, local );
+    return rotation * VectorMultiply( record.invRotationalInertia, local );
 }
 
 Vector3 ClampVectorMagnitude( const Vector3& value, float limit )
@@ -246,14 +254,16 @@ Vector3 ClampVectorMagnitude( const Vector3& value, float limit )
     return value * ( limit / sqrtf( magSq ) );
 }
 
-void ClampRagdollBodyVelocity( GameModel& model )
+void ClampRagdollBodyVelocity( PhysicsBodyRecord& record )
 {
-    model.SetLinearVelocity( ClampVectorMagnitude( model.GetVelocity(), RAGDOLL_JOINT_MAX_LINEAR_SPEED ) );
-    model.SetAngularVelocity( ClampVectorMagnitude( model.GetAngularVelocity(), RAGDOLL_JOINT_MAX_ANGULAR_SPEED ) );
+    record.linearVelocity = ClampVectorMagnitude( record.linearVelocity, RAGDOLL_JOINT_MAX_LINEAR_SPEED );
+    record.angularVelocity = ClampVectorMagnitude( record.angularVelocity, RAGDOLL_JOINT_MAX_ANGULAR_SPEED );
 }
 
-void ApplyConstraintImpulse( GameModel& a,
-                             GameModel& b,
+void ApplyConstraintImpulse( const GameModel& aModel,
+                             const GameModel& bModel,
+                             PhysicsBodyRecord& a,
+                             PhysicsBodyRecord& b,
                              const Vector3& rA,
                              const Vector3& rB,
                              const Vector3& impulse,
@@ -262,13 +272,13 @@ void ApplyConstraintImpulse( GameModel& a,
 {
     if ( invMassA > 0.0f )
     {
-        a.SetLinearVelocity( a.GetVelocity() + impulse * invMassA );
-        a.SetAngularVelocity( a.GetAngularVelocity() + ApplyModelInvInertia( a, CrossProduct( rA, impulse ) ) );
+        a.linearVelocity += impulse * invMassA;
+        a.angularVelocity += ApplyRecordInvInertia( aModel, a, CrossProduct( rA, impulse ) );
     }
     if ( invMassB > 0.0f )
     {
-        b.SetLinearVelocity( b.GetVelocity() - impulse * invMassB );
-        b.SetAngularVelocity( b.GetAngularVelocity() - ApplyModelInvInertia( b, CrossProduct( rB, impulse ) ) );
+        b.linearVelocity -= impulse * invMassB;
+        b.angularVelocity -= ApplyRecordInvInertia( bModel, b, CrossProduct( rB, impulse ) );
     }
     if ( invMassA > 0.0f )
     {
@@ -288,10 +298,12 @@ bool IsBodySleeping( int bodyIndex, const std::vector<uint8_t>& sleepState )
 
 
 bool ApplyNeckSwingLimits( std::vector<GameModel>& models,
+                           PhysicsBodyStore& bodyStore,
                            const std::vector<PointJointConstraint>& constraints,
                            const std::vector<uint8_t>& sleepState )
 {
     const int modelCount = static_cast<int>( models.size() );
+    std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
     bool changed = false;
     for ( const PointJointConstraint& constraint : constraints )
     {
@@ -305,15 +317,14 @@ bool ApplyNeckSwingLimits( std::vector<GameModel>& models,
             continue;
         }
 
-        GameModel& torso = models[static_cast<size_t>( constraint.bodyA )];
-        GameModel& head = models[static_cast<size_t>( constraint.bodyB )];
-        if ( head.IsFixed() || IsBodySleeping( constraint.bodyB, sleepState ) )
+        PhysicsBodyRecord& headRecord = bodyRecords[static_cast<size_t>( constraint.bodyB )];
+        if ( headRecord.isFixed || IsBodySleeping( constraint.bodyB, sleepState ) )
         {
             continue;
         }
 
-        const RotationMatrix torsoRot = BodyRotation( torso );
-        const RotationMatrix headRot = BodyRotation( head );
+        const RotationMatrix torsoRot = BodyRotation( bodyRecords[static_cast<size_t>( constraint.bodyA )] );
+        const RotationMatrix headRot = BodyRotation( headRecord );
         Vector3 torsoUp = torsoRot * Vector3( 0.0f, 1.0f, 0.0f );
         Vector3 headUp = headRot * Vector3( 0.0f, 1.0f, 0.0f );
         torsoUp.Normalise();
@@ -334,10 +345,11 @@ bool ApplyNeckSwingLimits( std::vector<GameModel>& models,
 
         const float correctionAngle =
             (std::min)( acosf( dot ) - RAGDOLL_NECK_MAX_SWING_RADIANS, RAGDOLL_NECK_MAX_CORRECTION_RADIANS );
-        Quaternion orientation = head.GetOrientation();
+        Quaternion orientation = headRecord.orientation;
         orientation.RotateAboutAxis( correctionAxis, correctionAngle );
-        head.SetOrientation( orientation );
-        head.SetAngularVelocity( head.GetAngularVelocity() * RAGDOLL_NECK_ANGULAR_DAMPING );
+        headRecord.orientation = orientation;
+        headRecord.angularVelocity = headRecord.angularVelocity * RAGDOLL_NECK_ANGULAR_DAMPING;
+        bodyStore.WriteBackToModelAt( models, constraint.bodyB );
         changed = true;
     }
     return changed;
@@ -456,6 +468,7 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
 }
 
 void Ragdoll::SolvePointJoints( GameModelCollection& collection,
+                                PhysicsBodyStore& bodyStore,
                                 const std::vector<PointJointConstraint>& constraints,
                                 const std::vector<uint8_t>& sleepState,
                                 float dt )
@@ -466,6 +479,7 @@ void Ragdoll::SolvePointJoints( GameModelCollection& collection,
     }
 
     std::vector<GameModel>& models = collection.PhysicsModels();
+    std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
     const int modelCount = static_cast<int>( models.size() );
     const float invDt = 1.0f / dt;
     for ( int iteration = 0; iteration < RAGDOLL_SOLVER_ITERATIONS; ++iteration )
@@ -480,24 +494,26 @@ void Ragdoll::SolvePointJoints( GameModelCollection& collection,
 
             GameModel& a = models[static_cast<size_t>( constraint.bodyA )];
             GameModel& b = models[static_cast<size_t>( constraint.bodyB )];
+            PhysicsBodyRecord& bodyA = bodyRecords[static_cast<size_t>( constraint.bodyA )];
+            PhysicsBodyRecord& bodyB = bodyRecords[static_cast<size_t>( constraint.bodyB )];
             const bool aSleeping =
                 constraint.bodyA < static_cast<int>( sleepState.size() ) && sleepState[constraint.bodyA] != 0;
             const bool bSleeping =
                 constraint.bodyB < static_cast<int>( sleepState.size() ) && sleepState[constraint.bodyB] != 0;
-            const float invMassA = ( a.IsFixed() || aSleeping ) ? 0.0f : a.GetInvertedMass();
-            const float invMassB = ( b.IsFixed() || bSleeping ) ? 0.0f : b.GetInvertedMass();
+            const float invMassA = ( bodyA.isFixed || aSleeping ) ? 0.0f : bodyA.invMass;
+            const float invMassB = ( bodyB.isFixed || bSleeping ) ? 0.0f : bodyB.invMass;
             const float totalInvMass = invMassA + invMassB;
             if ( totalInvMass <= TOLERANCE )
             {
                 continue;
             }
 
-            const RotationMatrix rotA = BodyRotation( a );
-            const RotationMatrix rotB = BodyRotation( b );
+            const RotationMatrix rotA = BodyRotation( bodyA );
+            const RotationMatrix rotB = BodyRotation( bodyB );
             const Vector3 rA = rotA * constraint.localAnchorA;
             const Vector3 rB = rotB * constraint.localAnchorB;
-            const Vector3 anchorA = a.GetPosition() + rA;
-            const Vector3 anchorB = b.GetPosition() + rB;
+            const Vector3 anchorA = bodyA.position + rA;
+            const Vector3 anchorB = bodyB.position + rB;
             Vector3 error = anchorB - anchorA;
             float distance = VectorMag( error );
             if ( distance <= constraint.slack && iteration > 0 )
@@ -511,8 +527,8 @@ void Ragdoll::SolvePointJoints( GameModelCollection& collection,
                 axis = error / distance;
             }
 
-            const Vector3 velA = a.GetVelocity() + CrossProduct( a.GetAngularVelocity(), rA );
-            const Vector3 velB = b.GetVelocity() + CrossProduct( b.GetAngularVelocity(), rB );
+            const Vector3 velA = bodyA.linearVelocity + CrossProduct( bodyA.angularVelocity, rA );
+            const Vector3 velB = bodyB.linearVelocity + CrossProduct( bodyB.angularVelocity, rB );
             const float relVel = ( velB - velA ) * axis;
             const float distanceError = (std::max)( 0.0f, distance - constraint.slack );
             const float biasSpeed =
@@ -526,11 +542,21 @@ void Ragdoll::SolvePointJoints( GameModelCollection& collection,
                 axis,
                 rA,
                 rB,
-                [&]( const Vector3& v ) { return invMassA > 0.0f ? ApplyModelInvInertia( a, v ) : ZERO_VECTOR; },
-                [&]( const Vector3& v ) { return invMassB > 0.0f ? ApplyModelInvInertia( b, v ) : ZERO_VECTOR; } );
+                [&]( const Vector3& v )
+                { return invMassA > 0.0f ? ApplyRecordInvInertia( a, bodyA, v ) : ZERO_VECTOR; },
+                [&]( const Vector3& v )
+                { return invMassB > 0.0f ? ApplyRecordInvInertia( b, bodyB, v ) : ZERO_VECTOR; } );
             if ( effectiveMass > 0.0f )
             {
-                ApplyConstraintImpulse( a, b, rA, rB, axis * ( effectiveMass * velocityTarget ), invMassA, invMassB );
+                ApplyConstraintImpulse( a,
+                                        b,
+                                        bodyA,
+                                        bodyB,
+                                        rA,
+                                        rB,
+                                        axis * ( effectiveMass * velocityTarget ),
+                                        invMassA,
+                                        invMassB );
             }
 
             if ( distanceError > TOLERANCE )
@@ -540,16 +566,19 @@ void Ragdoll::SolvePointJoints( GameModelCollection& collection,
                 const Vector3 correction = axis * ( correctionAmount / totalInvMass );
                 if ( invMassA > 0.0f )
                 {
-                    a.SetPosition( a.GetPosition() + correction * invMassA );
+                    bodyA.position += correction * invMassA;
+                    bodyStore.WriteBackToModelAt( models, constraint.bodyA );
                 }
                 if ( invMassB > 0.0f )
                 {
-                    b.SetPosition( b.GetPosition() - correction * invMassB );
+                    bodyB.position -= correction * invMassB;
+                    bodyStore.WriteBackToModelAt( models, constraint.bodyB );
                 }
             }
         }
     }
 
-    ApplyNeckSwingLimits( models, constraints, sleepState );
+    ApplyNeckSwingLimits( models, bodyStore, constraints, sleepState );
+    bodyStore.WriteBackToModels( models );
     collection.InvalidatePhysicsStreams();
 }

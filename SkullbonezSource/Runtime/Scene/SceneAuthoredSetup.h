@@ -9,6 +9,13 @@ Mental model:
   validation gates. Run still supplies the live storage while scene ownership is
   extracted one reversible slice at a time.
 
+Glossary:
+  Authored scene: Parsed `.scene.json` data that explicitly drives runtime
+    setup.
+  Required contact: Validation gate requiring two named bodies to touch.
+  Required broadphase cells: Validation gate requiring the broadphase grid to
+    activate a particular x-cell span.
+
 Invariants:
   - Context structs borrow state and are not retained by setup helpers.
   - Authored scene setup preserves model insertion order and gate resolution.

@@ -14,6 +14,11 @@ Glossary:
   output rather than renderer screenshots.
   Scene authoring JSON: Structured fields accepted by .scene.json and .style.json files.
 
+Invariants:
+  Fixtures are checked-in contract inputs and must stay small enough for unit tests.
+  Tests inspect parsed data directly instead of depending on renderer output or
+  runtime launch state.
+
 Related:
   - SkullbonezSource/Scene/TestScene.h
   - SkullbonezSource/Scene/TestSceneParser.cpp

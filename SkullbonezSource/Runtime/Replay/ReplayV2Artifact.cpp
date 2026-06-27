@@ -10,6 +10,10 @@ Mental model:
   verification work.
 
 Glossary:
+  ABI (Application Binary Interface): Byte-level file contract used by saved
+    replay artifacts and replay_query tooling.
+  JSON (JavaScript Object Notation): Text metadata format used for the manifest
+    chunk and legacy replay exports.
   MANI: UTF-8 JSON manifest chunk with human-readable file facts.
   BODY: Body dictionary chunk.
   PRES: Presentation frame chunk with dense 32-byte pose records.
@@ -19,6 +23,7 @@ Glossary:
   HASH: Optional per-tick presentation/solver hash records.
   SCHK: Optional sparse solver checkpoint records.
   INDX: Frame seek index into the presentation chunk.
+  POD (Plain Old Data): Trivially copyable value written as raw bytes.
 
 Invariants:
   - Numeric payloads are emitted in the host little-endian layout used by the
@@ -727,6 +732,9 @@ bool ReadChunkTable( const std::vector<uint8_t>& fileBytes, std::vector<ChunkTab
 {
     outChunks.clear();
 
+    // Concept: the chunk table is the trusted map of the binary file. Validate
+    // the global header first, then validate each chunk range before any parser
+    // receives a cursor into payload bytes.
     ByteCursor header;
     if ( !MakeCursor( fileBytes, 0, fileBytes.size(), header ) )
     {
@@ -1088,6 +1096,9 @@ bool ParsePresentationSamples( const std::vector<uint8_t>& fileBytes,
     outSamples.reserve( frameCount );
     for ( const IndexedFrame& indexed : indexedFrames )
     {
+        // Invariant: INDX offsets are relative to the PRES payload, not the
+        // whole file. Add the chunk offset only after proving the relative seek
+        // stays inside the presentation chunk.
         if ( indexed.presentationChunkOffset > chunk.size )
         {
             return false;
@@ -2033,6 +2044,9 @@ bool BuildChunks( const std::vector<ReplayPresentationSample>& samples,
     dictionary.reserve( samples.front().bodies.size() );
     index.reserve( samples.size() );
 
+    // Concept: BODY deduplicates body identity, PRES stores dense render poses,
+    // and optional solver/event chunks attach restore data to the same frame
+    // ids. Keep this relationship stable for replay_query and old artifacts.
     for ( const ReplayPresentationSample& sample : samples )
     {
         IndexedFrame frame;
@@ -2107,6 +2121,8 @@ bool BuildFileBytes( const std::vector<Chunk>& chunks, std::vector<uint8_t>& out
 
     std::vector<uint64_t> chunkOffsets;
     chunkOffsets.reserve( chunks.size() );
+    // Why: payload offsets are computed before writing bytes so the chunk table
+    // can be emitted once at the front without seeking or patching the file.
     for ( const Chunk& chunk : chunks )
     {
         chunkOffsets.push_back( nextChunkOffset );
@@ -2327,6 +2343,8 @@ bool ReplayV2Artifact::LoadPresentation( const char* path,
     const ChunkTableEntry* presentationChunk = FindChunk( chunkTable, "PRES" );
     const ChunkTableEntry* indexChunk = FindChunk( chunkTable, "INDX" );
     const ChunkTableEntry* branchChunk = FindChunk( chunkTable, "BRAN" );
+    // Invariant: BODY, PRES, and INDX form the minimum render-preview artifact.
+    // Branch data is optional so old or partial files remain readable.
     if ( !bodyChunk || !presentationChunk || !indexChunk )
     {
         return false;
@@ -2393,6 +2411,9 @@ bool ReplayV2Artifact::LoadSolverCheckpoints( const char* path,
     const ChunkTableEntry* checkpointChunk = FindChunk( chunkTable, "SCHK" );
     const ChunkTableEntry* branchChunk = FindChunk( chunkTable, "BRAN" );
     const ChunkTableEntry* eventCursorChunk = FindChunk( chunkTable, "ECUR" );
+    // Invariant: solver restore requires a body dictionary and checkpoint
+    // payloads. Branch/event cursors improve rollback provenance but are not
+    // required for basic checkpoint loading.
     if ( !bodyChunk || !checkpointChunk )
     {
         return false;

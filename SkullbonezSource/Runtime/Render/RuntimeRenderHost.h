@@ -5,14 +5,21 @@ Purpose:
 
 Mental model:
   RuntimeRenderer owns pass order and pass objects. RuntimeRenderHost is the
-  explicit bridge to state still owned by Run while later phases continue moving
-  replay, editor, scene, and UI presentation behind narrower services.
+  explicit bridge to runtime services while later phases continue moving editor,
+  scene, and UI presentation behind narrower services.
+
+Glossary:
+  Render host: Borrowed service view used by render passes while Run remains
+  the broader composition root.
+  Binding: Pointer set that connects host methods to current runtime owners.
+  Callback: Transitional function pointer used for behavior still implemented
+  on Run.
 
 Invariants:
   - RuntimeRenderHost does not own the referenced state.
   - All references must outlive RuntimeRenderer and its passes.
   - Callback functions are bound once by Run construction; they preserve the
-    existing Run-side behavior until later phases move those services behind
+    remaining Run-side behavior until later phases move those services behind
     narrower owners.
 
 Related:
@@ -27,10 +34,12 @@ Related:
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
 #include "../../Rendering/Shadow.h"
+#include "../../UI/UI.h"
+#include "../Replay/ReplayRuntime.h"
+#include "../Tools/RuntimeTools.h"
 
 #include <array>
 #include <cstdint>
-#include <vector>
 
 namespace SkullbonezCore
 {
@@ -67,18 +76,18 @@ struct RunDebugState;
 struct RunEditorPlacementState;
 struct RunMousePickupState;
 struct RunRayCastTestState;
-struct RunReplayCameraState;
-struct RunReplayPathVisualizerState;
 struct RunReplayPredictionFrame;
-struct RunReplayPredictionState;
-struct RunReplayScrubberState;
-struct RunReplayVelocityEditState;
 struct RunRuntimeSettings;
 struct RunSceneBrowserState;
 struct RunSceneState;
 struct RunSubsystemState;
 struct RunTimerState;
+class ReplayRuntime;
 struct RuntimeViewModel;
+namespace ReplayOverlay
+{
+struct ReplayOverlayRenderContext;
+}
 
 struct RuntimeRenderHostBindings
 {
@@ -95,12 +104,7 @@ struct RuntimeRenderHostBindings
     RunRayCastTestState* rayCastTest = nullptr;
     RunEditorPlacementState* editor = nullptr;
     RunMousePickupState* mousePickup = nullptr;
-    RunReplayScrubberState* replayScrubber = nullptr;
-    RunReplayPredictionState* replayPrediction = nullptr;
-    std::vector<uint8_t>* replayFocusModelMask = nullptr;
-    RunReplayPathVisualizerState* replayPathVisualizer = nullptr;
-    RunReplayCameraState* replayCamera = nullptr;
-    RunReplayVelocityEditState* replayVelocityEdit = nullptr;
+    ReplayRuntime* replayRuntime = nullptr;
     LauncherLaser* launcherLaser = nullptr;
     UI::InGameUI* ui = nullptr;
     RuntimeInputContext* runtimeInput = nullptr;
@@ -118,9 +122,6 @@ struct RuntimeRenderHostCallbacks
     using SelectRenderTextureFn = void ( * )( void* user, uint32_t textureHash );
     using IntFn = int ( * )( void* user );
     using LogLifecycleStepFn = void ( * )( void* user, const char* phase, const char* step );
-    using ReplayPresentationSampleFn = const ReplayPresentationSample* (*)( void* user );
-    using ReplaySolverSampleFn = const ReplaySolverFrameSample* (*)( void* user );
-    using ReplayPredictionFrameFn = const RunReplayPredictionFrame* (*)( void* user );
     using RenderEditorOverlayFn = void ( * )( void* user,
                                               const Math::Transformation::Matrix4& viewProjection,
                                               const Math::Vector::Vector3& cameraEye,
@@ -130,11 +131,6 @@ struct RuntimeRenderHostCallbacks
     using CameraModeEnabledMaskFn = uint32_t ( * )( void* user );
     using CameraModeLabelFn = const char* (*)( void* user, RunCameraMode mode );
     using MainMemoryStatsFn = MainMemoryStats ( * )( void* user, double nowSeconds );
-    using ReplayFocusMaskFn = bool ( * )( void* user );
-    using ReplayPredictionGhostsFn = void ( * )( void* user,
-                                                 const RenderFrameContext& frame,
-                                                 const CinematicRenderConfig* cinematic,
-                                                 const Rendering::ShadowFrameData* shadow );
 
     void* user = nullptr;
     ActiveCinematicConfigFn activeCinematicConfig = nullptr;
@@ -145,20 +141,13 @@ struct RuntimeRenderHostCallbacks
     IntFn windowScreenWidth = nullptr;
     IntFn windowScreenHeight = nullptr;
     LogLifecycleStepFn logRenderResourceLifecycleStep = nullptr;
-    ReplayPresentationSampleFn currentReplayScrubSample = nullptr;
-    ReplaySolverSampleFn currentReplaySolverScrubSample = nullptr;
-    ReplayPredictionFrameFn currentReplayPredictionScrubFrame = nullptr;
     RenderEditorOverlayFn renderEditorOverlay = nullptr;
     VoidFn refreshRuntimeViewModel = nullptr;
     SceneStateFn sceneState = nullptr;
-    BoolFn shouldRenderReplayScrubber = nullptr;
-    VoidFn renderReplayScrubberOverlay = nullptr;
     IntFn currentSceneBrowserIndex = nullptr;
     CameraModeEnabledMaskFn cameraModeEnabledMask = nullptr;
     CameraModeLabelFn cameraModeLabel = nullptr;
     MainMemoryStatsFn refreshMainMemoryStats = nullptr;
-    ReplayFocusMaskFn buildReplayFocusModelMask = nullptr;
-    ReplayPredictionGhostsFn renderReplayPredictionGhosts = nullptr;
 };
 
 class RuntimeRenderHost
@@ -172,11 +161,8 @@ class RuntimeRenderHost
           m_physicsDebugVisualizer( *bindings.physicsDebugVisualizer ),
           m_dxrReflectionTransforms( *bindings.dxrReflectionTransforms ), m_rayCastTest( *bindings.rayCastTest ),
           m_editor( *bindings.editor ), m_mousePickup( *bindings.mousePickup ),
-          m_replayScrubber( *bindings.replayScrubber ), m_replayPrediction( *bindings.replayPrediction ),
-          m_replayFocusModelMask( *bindings.replayFocusModelMask ),
-          m_replayPathVisualizer( *bindings.replayPathVisualizer ), m_replayCamera( *bindings.replayCamera ),
-          m_replayVelocityEdit( *bindings.replayVelocityEdit ), m_launcherLaser( *bindings.launcherLaser ),
-          m_UI( *bindings.ui ), m_runtimeInput( *bindings.runtimeInput ), m_camera( *bindings.camera ),
+          m_replayRuntime( *bindings.replayRuntime ), m_launcherLaser( *bindings.launcherLaser ), m_UI( *bindings.ui ),
+          m_runtimeInput( *bindings.runtimeInput ), m_camera( *bindings.camera ),
           m_runtimeViewModel( *bindings.runtimeViewModel ), m_sceneController( *bindings.sceneController ),
           m_sceneBrowser( *bindings.sceneBrowser ), m_callbacks( callbacks )
     {
@@ -224,17 +210,17 @@ class RuntimeRenderHost
 
     const ReplayPresentationSample* CurrentReplayScrubSample() const
     {
-        return m_callbacks.currentReplayScrubSample( m_callbacks.user );
+        return m_replayRuntime.CurrentScrubSample();
     }
 
     const ReplaySolverFrameSample* CurrentReplaySolverScrubSample() const
     {
-        return m_callbacks.currentReplaySolverScrubSample( m_callbacks.user );
+        return m_replayRuntime.CurrentSolverScrubSample();
     }
 
     const RunReplayPredictionFrame* CurrentReplayPredictionScrubFrame() const
     {
-        return m_callbacks.currentReplayPredictionScrubFrame( m_callbacks.user );
+        return m_replayRuntime.CurrentPredictionScrubFrame();
     }
 
     void RenderEditorOverlay( const Math::Transformation::Matrix4& viewProjection,
@@ -256,13 +242,10 @@ class RuntimeRenderHost
 
     bool ShouldRenderReplayScrubber() const
     {
-        return m_callbacks.shouldRenderReplayScrubber( m_callbacks.user );
+        return m_replayRuntime.ShouldRenderScrubber( m_editor.editorModeEnabled, m_UI.IsVisible(), m_UI.IsMinimized() );
     }
 
-    void RenderReplayScrubberOverlay() const
-    {
-        m_callbacks.renderReplayScrubberOverlay( m_callbacks.user );
-    }
+    void RenderReplayScrubberOverlay() const;
 
     int CurrentSceneBrowserIndex() const
     {
@@ -287,15 +270,12 @@ class RuntimeRenderHost
 
     bool BuildReplayFocusModelMask() const
     {
-        return m_callbacks.buildReplayFocusModelMask( m_callbacks.user );
+        return m_replayRuntime.BuildFocusModelMask( m_cGameModelCollection );
     }
 
     void RenderReplayPredictionGhosts( const RenderFrameContext& frame,
                                        const CinematicRenderConfig* cinematic,
-                                       const Rendering::ShadowFrameData* shadow ) const
-    {
-        m_callbacks.renderReplayPredictionGhosts( m_callbacks.user, frame, cinematic, shadow );
-    }
+                                       const Rendering::ShadowFrameData* shadow ) const;
 
     RunSubsystemState& m_systems;
     RunDebugState& m_debug;
@@ -310,12 +290,7 @@ class RuntimeRenderHost
     RunRayCastTestState& m_rayCastTest;
     RunEditorPlacementState& m_editor;
     RunMousePickupState& m_mousePickup;
-    RunReplayScrubberState& m_replayScrubber;
-    RunReplayPredictionState& m_replayPrediction;
-    std::vector<uint8_t>& m_replayFocusModelMask;
-    RunReplayPathVisualizerState& m_replayPathVisualizer;
-    RunReplayCameraState& m_replayCamera;
-    RunReplayVelocityEditState& m_replayVelocityEdit;
+    ReplayRuntime& m_replayRuntime;
     LauncherLaser& m_launcherLaser;
     UI::InGameUI& m_UI;
     RuntimeInputContext& m_runtimeInput;
@@ -325,6 +300,9 @@ class RuntimeRenderHost
     RunSceneBrowserState& m_sceneBrowser;
 
   private:
+    ReplayOverlay::ReplayOverlayRenderContext BuildReplayOverlayRenderContext() const;
+    void RenderReplayCauseTreeOverlay() const;
+
     RuntimeRenderHostCallbacks m_callbacks;
 };
 

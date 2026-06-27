@@ -19,6 +19,12 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Public macros are the supported entry points; direct calls risk mismatched
+    marker hashes and begin/end pairs.
+  - Marker arrays are fixed-capacity runtime storage, so adding broad marker
+    families must account for MAX_MARKERS and MAX_DEPTH.
+
 Related:
   - SkullbonezSource/Core/Profiler.cpp
   - Agentic/Reference/runtime-reference.md

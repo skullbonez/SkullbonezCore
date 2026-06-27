@@ -14,6 +14,12 @@ Glossary:
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
 
+Invariants:
+  - Text and quad batches use fixed vertex layouts that must match their
+    shaders and backend upload calls.
+  - Font atlas resources are backend-owned and must be released before renderer
+    teardown or rebuild.
+
 Related:
   - SkullbonezSource/Rendering/Text.h
   - Agentic/Reference/comment-style-guide.md

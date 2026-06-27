@@ -9,6 +9,12 @@ Mental model:
   GameModelCollection storage. Generations make stale handles explicit once the
   authoritative physics facade starts allocating and recycling ids.
 
+Glossary:
+  Handle: Index plus generation pair used as opaque identity for physics-owned
+  storage.
+  Generation: Version counter that makes stale recycled handles detectable.
+  Scene object id: Stable scene/replay correlation id independent of storage.
+
 Invariants:
   - Index/generation handles are identity only; they do not expose storage.
   - PhysicsSceneObjectId value 0 is reserved for "not assigned".
@@ -26,6 +32,7 @@ namespace SkullbonezCore
 namespace Physics
 {
 inline constexpr uint32_t INVALID_PHYSICS_HANDLE_INDEX = 0xffffffffu;
+inline constexpr uint32_t PHYSICS_COMPATIBILITY_HANDLE_GENERATION = 1u;
 
 struct PhysicsBodyHandle
 {
@@ -69,6 +76,29 @@ struct PhysicsSceneObjectId
         return value != 0;
     }
 };
+
+inline PhysicsBodyHandle MakeCompatibilityPhysicsBodyHandle( uint32_t modelIndex )
+{
+    PhysicsBodyHandle handle;
+    handle.index = modelIndex;
+    handle.generation = PHYSICS_COMPATIBILITY_HANDLE_GENERATION;
+    return handle;
+}
+
+inline PhysicsColliderHandle MakeCompatibilityPhysicsColliderHandle( uint32_t modelIndex )
+{
+    PhysicsColliderHandle handle;
+    handle.index = modelIndex;
+    handle.generation = PHYSICS_COMPATIBILITY_HANDLE_GENERATION;
+    return handle;
+}
+
+inline PhysicsSceneObjectId MakePhysicsSceneObjectIdFromReplayBodyId( uint32_t replayBodyId )
+{
+    PhysicsSceneObjectId id;
+    id.value = replayBodyId;
+    return id;
+}
 
 inline bool operator==( const PhysicsBodyHandle& lhs, const PhysicsBodyHandle& rhs )
 {
