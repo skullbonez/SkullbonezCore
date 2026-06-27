@@ -5,14 +5,17 @@
 #   Check that Run.h stays a runtime composition root instead of regrowing
 #   extracted subsystem ownership, and prevent new physics dependencies on the
 #   legacy GameModelCollection world container or raytracing calls on the wide
-#   render backend facade.
+#   render backend facade. It also blocks direct scheduling regressions for
+#   passes that already moved to render graph callback ownership.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
 #   helper back to Run. Physics data ownership is similarly easy to regress by
 #   threading GameModelCollection into one more API. Render ownership can regress
-#   when DXR reflection calls creep back onto Gfx(). This check is intentionally
-#   small: it watches the boundaries named by the active architecture plans.
+#   when DXR reflection calls creep back onto Gfx(), or when a graph-owned pass
+#   is called directly from the runtime frame loop again. This check is
+#   intentionally small: it watches the boundaries named by the active
+#   architecture plans.
 #
 # Glossary:
 #   Composition root: Top-level owner that wires subsystems together.
@@ -26,6 +29,8 @@
 #     surface while stores and handles become authoritative.
 #   - Raytracing calls go through IRenderRayTracing/GfxRayTracing instead of the
 #     wide IRenderBackend/Gfx facade.
+#   - Graph-owned render passes stay scheduled through render graph callback
+#     helpers after migration.
 #
 # Related:
 #   - Agentic/Plans/runtime-run-decomposition-plan.md
@@ -50,6 +55,7 @@ RUN_INTERNAL_HEADER = Path("SkullbonezSource/Runtime/RunInternal.h")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
 IRENDER_BACKEND_HEADER = Path("SkullbonezSource/Rendering/IRenderBackend.h")
+RUN_RENDER_SOURCE = Path("SkullbonezSource/Runtime/RunRender.cpp")
 RUN_INPUT_SOURCE = Path("SkullbonezSource/Runtime/RunInput.cpp")
 RUN_SCENE_SOURCE = Path("SkullbonezSource/Runtime/Scene/RunScene.cpp")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
@@ -66,6 +72,9 @@ IRENDER_BACKEND_RAYTRACING_DECLARATION_PATTERN = re.compile(
     r"\b(?:virtual\s+)?(?:void|uint32_t|uint64_t|int)\s+"
     r"(?:InitDXR|DispatchReflectionRays|BuildTLAS|GetReflectionUAVTexture|ShutdownDXR|"
     r"GetInstancedMeshStaticVBVA|GetInstancedMeshStaticStride)\s*\("
+)
+GRAPH_OWNED_RENDER_PASS_DIRECT_CALL_PATTERN = re.compile(
+    r"\bm_(?:volumetricPass|tonemapPass)\s*\.\s*Render\s*\("
 )
 MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 129
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
@@ -1287,6 +1296,26 @@ def check_irender_backend_raytracing_declarations_text(path: Path, text: str) ->
 def check_irender_backend_raytracing_declarations(repo: Path) -> list[BoundaryError]:
     path = repo / IRENDER_BACKEND_HEADER
     return check_irender_backend_raytracing_declarations_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_graph_owned_render_pass_scheduling_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    errors: list[BoundaryError] = []
+    for match in GRAPH_OWNED_RENDER_PASS_DIRECT_CALL_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "graph-owned render pass direct scheduling is blocked",
+                "Use the RuntimeRenderer render graph helper so migrated pass callbacks keep resource declarations and dry-run checks.",
+            )
+        )
+    return errors
+
+
+def check_graph_owned_render_pass_scheduling(repo: Path) -> list[BoundaryError]:
+    path = repo / RUN_RENDER_SOURCE
+    return check_graph_owned_render_pass_scheduling_text(path, path.read_text(encoding="utf-8"))
 
 
 def render_host_member_declarations(body: str) -> list[tuple[str, int]]:
@@ -2628,6 +2657,35 @@ def run_self_tests() -> list[str]:
         )
     ):
         failures.append("IRenderBackend raytracing declaration synthetic surface was not rejected")
+
+    allowed_graph_owned_pass_scheduling = """
+    void RuntimeRenderer::RenderFrame()
+    {
+        ExecuteVolumetricThroughRenderGraph( frame );
+        ExecuteTonemapThroughRenderGraph( frame, volumetricReady, volumetricReady );
+    }
+    """
+    if check_graph_owned_render_pass_scheduling_text(
+        Path("synthetic/RunRender.cpp"),
+        allowed_graph_owned_pass_scheduling,
+    ):
+        failures.append("allowed graph-owned pass helper scheduling synthetic surface failed")
+
+    old_direct_graph_owned_pass_scheduling = """
+    void RuntimeRenderer::RenderFrame()
+    {
+        m_volumetricPass.Render( frame );
+        m_tonemapPass.Render( frame, false, true );
+    }
+    """
+    if not any(
+        error.message == "graph-owned render pass direct scheduling is blocked"
+        for error in check_graph_owned_render_pass_scheduling_text(
+            Path("synthetic/RunRender.cpp"),
+            old_direct_graph_owned_pass_scheduling,
+        )
+    ):
+        failures.append("direct graph-owned pass scheduling synthetic surface was not rejected")
 
     grown_run_header = allowed_run_header.replace("void Render();", "void Render();\n        void NewHelper();")
     if not any(
@@ -4753,6 +4811,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_deleted_physics_model_view_guardrails(repo))
     errors.extend(check_direct_gfx_raytracing_guardrails(repo))
     errors.extend(check_irender_backend_raytracing_declarations(repo))
+    errors.extend(check_graph_owned_render_pass_scheduling(repo))
     return errors
 
 

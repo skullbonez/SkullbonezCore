@@ -12,6 +12,7 @@ Validation for this plan edit: Documentation-only. No repository validation requ
 - [x] 2026-06-27: Added runtime boundary guardrails for direct `Gfx().DXR`-style calls and for reintroducing DXR declarations to `IRenderBackend.h`.
 - [x] 2026-06-27: Validated the raytracing-interface slice with `tools\validate_fast.bat`, `tools\validate_dx12_renderer.bat`, and `tools\validate_full.bat`.
 - [x] 2026-06-27: Moved `VolumetricLightPass` command recording into the render graph callback path and marked callback ownership in frame graph diagnostics.
+- [x] 2026-06-27: Added a runtime-boundary guardrail blocking direct `VolumetricLightPass`/`ToneMapPass` scheduling after graph callback migration.
 
 ## Goal
 
@@ -226,7 +227,7 @@ Searches to run before declaring cleanup done:
 
 - [ ] `rg "IRenderBackend" SkullbonezSource`
 - [ ] `rg "Gfx\(|GetRenderBackend|RenderBackendDX12" SkullbonezSource`
-- [ ] `rg "Execute.*Pass|Run.*Pass|Render.*Pass" SkullbonezSource/Runtime SkullbonezSource/Rendering`
+- [x] `rg "Execute.*Pass|Run.*Pass|Render.*Pass" SkullbonezSource/Runtime SkullbonezSource/Rendering`
 - [ ] `rg "RenderGraph" SkullbonezSource/Runtime SkullbonezSource/Rendering`
 - [ ] `rg "D3D12|ComPtr<ID3D12|DXGI" SkullbonezSource/Runtime SkullbonezSource/Rendering`
 - [ ] `rg "DXR|Dxr|Raytrac|Reflection" SkullbonezSource/Runtime/Run.h SkullbonezSource/Runtime/RunInternal.h`
