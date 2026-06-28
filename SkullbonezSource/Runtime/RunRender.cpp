@@ -401,7 +401,6 @@ RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRender
     frame.cinematic = cinematicRender ? &renderConfig : nullptr;
     frame.scene = &services.models;
     frame.renderCommands = &services.renderCommands;
-    frame.renderResources = &services.renderResources;
     frame.renderDiagnostics = &services.renderDiagnostics;
     frame.windowWidth = (std::max)( 1, m_host.WindowScreenWidth() );
     frame.windowHeight = (std::max)( 1, m_host.WindowScreenHeight() );
@@ -439,6 +438,17 @@ RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRender
 }
 
 
+RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( const RuntimeRenderInputs& renderInputs,
+                                                                   bool cinematicRender ) const
+{
+    const RuntimeRenderServices& services = renderInputs.services;
+    return RenderResourceContext{ cinematicRender,
+                                  services.renderResources,
+                                  (std::max)( 1, m_host.WindowScreenWidth() ),
+                                  (std::max)( 1, m_host.WindowScreenHeight() ) };
+}
+
+
 RuntimeRenderer::RuntimeRenderer( RuntimeRenderHost& host )
     : m_host( host ), m_fullscreenQuadPass( host ), m_skyPass( host ), m_sceneTargetPass( host ), m_shadowPass( host ),
       m_reflectionPass( host ), m_objectPass( host ), m_terrainPass( host ), m_waterPass( host ),
@@ -448,21 +458,18 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderHost& host )
 }
 
 
-void RuntimeRenderer::EnsureFrameResources( const RuntimeRenderInputs& renderInputs,
-                                            bool cinematicRender,
-                                            const CinematicRenderConfig& renderConfig )
+void RuntimeRenderer::EnsureFrameResources( const RenderResourceContext& resources )
 {
-    if ( cinematicRender )
+    if ( resources.cinematicEnabled )
     {
         // Lifetime: cinematic resources are lazy. A window resize or backend
         // rebuild drops them; the next cinematic frame recreates the targets and
         // shader objects with the current window dimensions.
-        RenderFrameContext preFrame = BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
-        m_fullscreenQuadPass.EnsureGpuResources( preFrame );
-        m_skyPass.EnsureGpuResources( preFrame );
-        m_sceneTargetPass.EnsureGpuResources( preFrame );
-        m_volumetricPass.EnsureGpuResources( preFrame );
-        m_tonemapPass.EnsureGpuResources( preFrame );
+        m_fullscreenQuadPass.EnsureGpuResources( resources );
+        m_skyPass.EnsureGpuResources( resources );
+        m_sceneTargetPass.EnsureGpuResources( resources );
+        m_volumetricPass.EnsureGpuResources( resources );
+        m_tonemapPass.EnsureGpuResources( resources );
     }
 }
 
@@ -490,7 +497,8 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     const CinematicRenderConfig& activeShadowStyle = cinematicRender ? renderConfig : ordinaryShadowConfig;
     const bool shadowMapsEnabled = activeShadowStyle.shadowsEnabled && services.renderReady && !host.m_debug.isTextOnly;
 
-    EnsureFrameResources( renderInputs, cinematicRender, renderConfig );
+    const RenderResourceContext resourceContext = BuildRenderResourceContext( renderInputs, cinematicRender );
+    EnsureFrameResources( resourceContext );
 
     const bool useCinematicTarget = cinematicRender && m_sceneTargetPass.IsReady();
     if ( cinematicRender && !useCinematicTarget )
@@ -511,11 +519,11 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     // These passes currently borrow subsystem-owned mesh/material resources,
     // but keeping the ensure calls in the frame story gives future extraction
     // work an obvious place to move those GPU resources.
-    m_objectPass.EnsureGpuResources( frame );
-    m_terrainPass.EnsureGpuResources( frame );
-    m_waterPass.EnsureGpuResources( frame );
-    m_tornadoVisualPass.EnsureGpuResources( frame );
-    m_debugOverlayPass.EnsureGpuResources( frame );
+    m_objectPass.EnsureGpuResources( resourceContext );
+    m_terrainPass.EnsureGpuResources( resourceContext );
+    m_waterPass.EnsureGpuResources( resourceContext );
+    m_tornadoVisualPass.EnsureGpuResources( resourceContext );
+    m_debugOverlayPass.EnsureGpuResources( resourceContext );
 
     // Defer the first DX12 command-list open until after CPU-side model prep so
     // allocator waits do not block work that can overlap the previous frame.
@@ -526,6 +534,10 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 
     const CinematicRenderConfig* activeCinematic = frame.cinematic;
     const CinematicRenderConfig* activeShadowConfig = shadowMapsEnabled ? &activeShadowStyle : nullptr;
+    if ( activeShadowConfig )
+    {
+        m_shadowPass.EnsureGpuResources( resourceContext, *activeShadowConfig );
+    }
     ShadowPassOutput shadowPass = m_shadowPass.Render( { frame, activeShadowConfig } );
     const Rendering::ShadowFrameData* terrainShadowFrame = shadowPass.terrainShadow;
     const Rendering::ShadowFrameData* objectShadowFrame = shadowPass.objectShadow;
@@ -562,7 +574,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     reflection.reflectionSampleViewProjection = frame.reflectionViewProjection;
     if ( reflectionPassNeeded )
     {
-        m_reflectionPass.EnsureGpuResources( frame );
+        m_reflectionPass.EnsureGpuResources( resourceContext );
         reflection = m_reflectionPass.Render( { frame,
                                                 activeCinematic,
                                                 objectShadowFrame,

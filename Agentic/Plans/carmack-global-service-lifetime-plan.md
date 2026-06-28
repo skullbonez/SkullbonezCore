@@ -338,6 +338,41 @@ require `tools\validate_full.bat`.
   Residual non-blocking notes: the guardrail is still a counted ratchet rather
   than a semantic bootstrap/normal-path classifier, and broader service
   classification remains open.
+- [x] 2026-06-28: Split runtime render-pass resource creation onto a dedicated
+  `RenderResourceContext` so `RenderFrameContext` no longer carries the
+  resource-factory service through ordinary draw methods. This does not lower
+  the counted global-service surface because the previous slice already removed
+  `RunPasses.cpp` direct `Gfx()` calls, but it narrows when the borrowed factory
+  is visible: `RuntimeRenderer` builds the resource context for
+  `EnsureGpuResources()` calls and ensures shadow targets before
+  `ShadowPass::Render()`. Broader service classification remains open because
+  `RuntimeRenderServices` still carries the factory to the renderer owner.
+  Comment-style audit: inspected `RuntimeRenderInputs.h`,
+  `RuntimeRenderPasses.h`, `RuntimeRenderer.h`, `RunPasses.cpp`, and
+  `RunRender.cpp`; learning headers remain present, and the new resource
+  context is named in local glossaries and lifetime comments.
+  Validation:
+  focused `tools\validate_build.bat Profile` passed in 48.25s with 0 warnings
+  and 0 errors
+  (`TestOutput\validation\agent_logs\render_resource_context_validate_build_profile.log`);
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.73s
+  (`TestOutput\validation\agent_logs\render_resource_context_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed on rerun in 101.63s after scoped header
+  alignment fixes
+  (`TestOutput\validation\agent_logs\render_resource_context_validate_fast_rerun.log`);
+  `tools\validate_dx12_renderer.bat` passed in 17.73s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\render_resource_context_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.52s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\render_resource_context_validate_full.log`);
+  `tools\validate_perf.bat` completed in 22.13s
+  (`TestOutput\validation\agent_logs\render_resource_context_validate_perf.log`).
+  Perf warnings are recorded: DX12 perf comparison was skipped due a
+  machine-label mismatch, and physics_bench reported 9 warning failures
+  including `Frame.avg +55.4%` and `Frame/Input.avg +72.5%`; this slice did not
+  touch physics/input code, but the warning-bearing output is not claimed as a
+  clean perf pass.
 
 ## Current Counted Global-Service Surface
 
@@ -457,6 +492,9 @@ bridges tiny, named, and fenced.
 - [x] Route `RunPasses.cpp` framebuffer creation, fullscreen dynamic
   vertex-buffer lifetime, render-target size queries, and reflection capability
   queries through borrowed render services instead of direct `Gfx()` calls.
+- [x] Split runtime pass resource creation/rebuild calls onto
+  `RenderResourceContext` so `RenderFrameContext` no longer carries the
+  resource-factory service into draw methods.
 - [ ] Route shader and texture creation through an asset/render context passed
   from runtime-owned services.
 - [ ] Replace `ActiveAssetSystem()` in scene parsing and editor tools with an

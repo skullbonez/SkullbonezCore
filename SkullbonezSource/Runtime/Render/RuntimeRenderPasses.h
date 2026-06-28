@@ -12,6 +12,8 @@ Glossary:
   Pass: Ordered unit of frame rendering owned by RuntimeRenderer.
   Frame context: Per-frame camera, projection, lighting, water, and scene view
   bundle shared by passes.
+  Resource context: Creation/rebuild-only render factory bundle used by
+  EnsureGpuResources methods, not by draw methods.
   Pass resources: Backend-owned objects such as framebuffers, shaders, and
   vertex buffers used by a pass.
 
@@ -105,15 +107,22 @@ struct RenderFrameContext
     // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
     // must not store it beyond the current RenderFrame call.
     Rendering::IRenderCommandContext* renderCommands = nullptr;
-    // Lifetime: borrowed from RuntimeRenderInputs for lazy resource
-    // create/rebuild work. It is separate from renderCommands so draw code does
-    // not need the backend's resource factory surface.
-    Rendering::IRenderResourceFactory* renderResources = nullptr;
     // Lifetime: borrowed from RuntimeRenderInputs for capability checks and
     // tracing decisions in this frame only.
     Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
     int windowWidth = 1;                    // Active render-target width sampled from the runtime window service.
     int windowHeight = 1;                   // Active render-target height sampled from the runtime window service.
+};
+
+struct RenderResourceContext
+{
+    // Creation/rebuild-only contract. Passes receive this context from
+    // RuntimeRenderer::EnsureFrameResources() or explicit ensure calls, while
+    // draw methods keep using RenderFrameContext.
+    bool cinematicEnabled = false;
+    Rendering::IRenderResourceFactory& renderResources;
+    int windowWidth = 1;                    // Active render-target width used for resize-sensitive GPU objects.
+    int windowHeight = 1;                   // Active render-target height used for resize-sensitive GPU objects.
 };
 
 struct ObjectPassInputs
@@ -243,7 +252,7 @@ class FullscreenQuadPass
     {
     }
 
-    void EnsureGpuResources( const RenderFrameContext& frame );
+    void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources );
     uint32_t QuadVB() const;
 
@@ -265,7 +274,7 @@ class SkyPass
     {
     }
 
-    void EnsureGpuResources( const RenderFrameContext& frame );
+    void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
     void Render( const RenderFrameContext& frame, const Math::Transformation::Matrix4& view, SkyPassMode mode );
 
@@ -289,7 +298,7 @@ class SceneTargetPass
     {
     }
 
-    void EnsureGpuResources( const RenderFrameContext& frame );
+    void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
     bool IsReady() const;
     void Begin( const RenderFrameContext& frame, SkyPass& skyPass );
@@ -312,7 +321,7 @@ class ShadowPass
     {
     }
 
-    void EnsureGpuResources( const RenderFrameContext& frame, const CinematicRenderConfig& cinematic );
+    void EnsureGpuResources( const RenderResourceContext& resources, const CinematicRenderConfig& cinematic );
     void ReleaseGpuResources();
     ShadowPassOutput Render( const ShadowPassInputs& inputs );
 
@@ -349,7 +358,7 @@ class ReflectionPass
     {
     }
 
-    void EnsureGpuResources( const RenderFrameContext& frame );
+    void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
     ReflectionPassOutput Render( const ReflectionPassInputs& inputs, SkyPass& skyPass );
 
@@ -371,7 +380,7 @@ class ObjectPass
     {
     }
 
-    void EnsureGpuResources( const RenderFrameContext& frame );
+    void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
     void Render( const ObjectPassInputs& inputs );
 
@@ -392,7 +401,7 @@ class TerrainPass
     {
     }
 
-    void EnsureGpuResources( const RenderFrameContext& frame );
+    void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
     void Render( const TerrainPassInputs& inputs );
 
@@ -413,7 +422,7 @@ class WaterPass
     {
     }
 
-    void EnsureGpuResources( const RenderFrameContext& frame );
+    void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
     void Render( const WaterPassInputs& inputs );
     const WaterPassDebugInfo& LastDebugInfo() const
@@ -439,7 +448,7 @@ class TornadoVisualPass
     {
     }
 
-    void EnsureGpuResources( const RenderFrameContext& frame );
+    void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
     bool Render( const TornadoVisualPassInputs& inputs );
 
@@ -466,7 +475,7 @@ class DebugOverlayPass
     {
     }
 
-    void EnsureGpuResources( const RenderFrameContext& frame );
+    void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
     void Render( const DebugOverlayPassInputs& inputs );
 
@@ -489,7 +498,7 @@ class VolumetricPass
     {
     }
 
-    void EnsureGpuResources( const RenderFrameContext& frame );
+    void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
     bool CanRender( const RenderFrameContext& frame ) const;
     bool Render( const RenderFrameContext& frame );
@@ -512,7 +521,7 @@ class TonemapPass
     {
     }
 
-    void EnsureGpuResources( const RenderFrameContext& frame );
+    void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
     void Render( const RenderFrameContext& frame, bool sceneAlreadyUnbound, bool volumetricReady );
 

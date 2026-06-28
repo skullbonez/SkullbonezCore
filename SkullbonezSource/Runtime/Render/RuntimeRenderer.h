@@ -12,6 +12,8 @@ Glossary:
   RuntimeRenderer: Owner of pass instances and the frame pass order.
   Pass order: The stable sequence of sky, shadows, reflection, objects, terrain,
   water, post effects, and UI/text.
+  Resource context: Creation/rebuild-only view of the renderer factory and
+  resize-sensitive dimensions.
   Backend-owned resource: GPU object that must be released before backend
   teardown.
 
@@ -40,9 +42,7 @@ class RuntimeRenderer
   public:
     explicit RuntimeRenderer( RuntimeRenderHost& host );
 
-    void EnsureFrameResources( const RuntimeRenderInputs& renderInputs,
-                               bool cinematicRender,
-                               const CinematicRenderConfig& renderConfig );
+    void EnsureFrameResources( const RenderResourceContext& resources );
     void RenderFrame( const RuntimeRenderInputs& renderInputs );
     void ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources );
 
@@ -66,6 +66,8 @@ class RuntimeRenderer
     RenderFrameContext BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
                                                 bool cinematicRender,
                                                 const CinematicRenderConfig& renderConfig ) const;
+    RenderResourceContext BuildRenderResourceContext( const RuntimeRenderInputs& renderInputs,
+                                                      bool cinematicRender ) const;
     bool ExecuteSceneTargetBeginThroughRenderGraph( const RenderFrameContext& frame );
     GraphPassResult ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget );
     bool ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget );

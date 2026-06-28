@@ -377,6 +377,48 @@ storage changes, also run `tools\validate_perf.bat`.
   live. Residual non-blocking notes: resource-factory access is still carried by
   the frame context rather than a dedicated create/rebuild context, and the
   `Gfx()` guardrail remains count-based.
+- [x] 2026-06-28: Split runtime pass resource creation onto
+  `RenderResourceContext` so ordinary `RenderFrameContext` no longer exposes
+  `IRenderResourceFactory` to draw methods. `RuntimeRenderer` now builds a
+  creation/rebuild-only resource context from the borrowed factory and window
+  dimensions, passes it to `EnsureGpuResources()` calls, and ensures shadow
+  targets before `ShadowPass::Render()` instead of creating resources inside
+  the draw method. `RuntimeRenderServices` still carries the borrowed factory
+  to `RuntimeRenderer`, so the broad resource-factory checklist item remains
+  open until all caller groups are phase-scoped.
+  Comment-style audit: inspected `RuntimeRenderInputs.h`,
+  `RuntimeRenderPasses.h`, `RuntimeRenderer.h`, `RunPasses.cpp`, and
+  `RunRender.cpp`; learning headers remain present, and the new resource
+  context is named in the local glossaries and lifetime comments.
+  Validation:
+  focused `tools\validate_build.bat Profile` passed in 48.25s with 0 warnings
+  and 0 errors
+  (`TestOutput\validation\agent_logs\render_resource_context_validate_build_profile.log`);
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.73s
+  (`TestOutput\validation\agent_logs\render_resource_context_runtime_boundaries.log`);
+  `tools\validate_fast.bat` initially failed on the touched header inline-comment
+  alignment pipeline, the two touched headers were fixed with
+  `tools\align_header_inline_comments.py --write`, and the rerun passed in
+  101.63s
+  (`TestOutput\validation\agent_logs\render_resource_context_validate_fast_rerun.log`);
+  `tools\validate_dx12_renderer.bat` passed in 17.73s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\render_resource_context_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.52s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\render_resource_context_validate_full.log`);
+  `tools\validate_perf.bat` completed in 22.13s
+  (`TestOutput\validation\agent_logs\render_resource_context_validate_perf.log`).
+  Perf warnings are accepted as residual evidence, not hidden: DX12 perf
+  comparison was skipped due a machine-label mismatch, and physics_bench
+  reported 9 perf warning failures including `Frame.avg +55.4%` and
+  `Frame/Input.avg +72.5%`; this slice did not touch physics/input code, but
+  the warning-bearing perf output remains recorded for follow-up.
+  Rubber-duck review: the cross-plan review identified the per-frame factory
+  exposure as a non-blocking boundary gap. This slice resolves that specific
+  gap for runtime pass draw contexts; remaining blockers are the full
+  `IRenderBackend` inventory/call-site map and the `GfxRayTracing()` accessor
+  still used in ordinary pass code.
 
 ## Problem Statement
 
@@ -471,6 +513,9 @@ compatibility facade while call sites migrate.
   capability queries through borrowed `IRenderResourceFactory`,
   `IRenderDiagnostics`, and sampled window dimensions; remove the
   `RunPasses.cpp` direct `Gfx()` allowlist by lowering it from 13 to 0.
+- [x] Split runtime pass resource creation/rebuild calls onto
+  `RenderResourceContext` so `RenderFrameContext` no longer carries
+  `IRenderResourceFactory` into draw methods.
 - [ ] Pass capture/readback capability only to screenshot and validation paths.
 - [ ] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
 - [ ] Pass GPU profiler capability only to profiler marker code.
@@ -519,7 +564,7 @@ Remaining `IRenderBackend` surface after the 2026-06-28 capability-interface sli
 - [ ] For plan-only edits: no validation required.
 - [x] For capability header or DX12 backend changes: run `tools\validate_dx12_renderer.bat`.
 - [x] For runtime render orchestration changes: run `tools\validate_full.bat` if multiple areas are touched.
-- [ ] For upload, dynamic geometry, telemetry, or per-frame adapter changes: run `tools\validate_perf.bat`.
+- [x] For upload, dynamic geometry, telemetry, or per-frame adapter changes: run `tools\validate_perf.bat`.
 - [x] Verify `dx12_validation.txt` reports zero DX12 validation errors.
 - [x] Verify DX12 screenshots match committed baselines unless a visual change is intentional and reviewed.
 

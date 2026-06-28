@@ -82,8 +82,8 @@ struct RuntimeRenderServices
     // for exactly this render call; pass code must not store it.
     Rendering::IRenderCommandContext& renderCommands;
     // Lifetime: this factory facet is valid only while the current backend is
-    // alive. Resource ensure code may use it; draw code should use
-    // renderCommands instead.
+    // alive. RuntimeRenderer narrows it into RenderResourceContext for
+    // create/rebuild phases; draw code should use renderCommands instead.
     Rendering::IRenderResourceFactory& renderResources;
     // Lifetime: this diagnostics facet is sampled for frame-time feature
     // decisions and draw tracing; passes must not cache capability flags across
