@@ -7,6 +7,16 @@ tooling, tests
 Validation note: plan-only edits require no validation. PR-bound implementation
 should choose the narrowest gate from `AGENTS.md`; broad lifetime changes usually
 require `tools\validate_full.bat`.
+Batching policy: do not run heavy repository validation for every small Carmack
+slice. Cheap checks such as `git diff --check`, formatting, focused static
+guardrails, or targeted builds may run per slice when useful. Heavy gates
+(`tools\validate_full.bat`, `tools\validate_dx12_renderer.bat`,
+`tools\validate_physics.bat`, `tools\validate_perf.bat`, and deep/stress gates)
+should run after a batch of up to 10 completed slices, before plan completion,
+or before PR handoff, whichever comes first. Run a heavy gate earlier only when
+the slice changes risky behavior, baselines, resource/barrier lifetime,
+deterministic physics output, or leaves uncertainty that cheap checks cannot
+answer.
 
 ## Completed Slices
 
@@ -938,20 +948,27 @@ Shutdown order:
 
 ## Validation Checklist
 
+- [ ] Batch heavy validation after up to 10 completed Carmack slices, before plan
+  completion, or before PR handoff; do not run full gates for every tiny
+  ratchet slice unless the change is high-risk.
 - [ ] For plan-only edits: no validation required.
   - [x] 2026-06-28 review-checklist entry slice was plan-only; no repository
     validation required.
   - [x] 2026-06-28 lifetime-order documentation slice was plan-only; no
     repository validation required.
-- [x] For runtime-wide lifetime or startup/shutdown changes: run `tools\validate_full.bat`.
+- [x] For runtime-wide lifetime or startup/shutdown changes: include
+  `tools\validate_full.bat` in the next heavy validation batch.
   - [x] 2026-06-28 EngineContext borrowed-binding assertion slice:
     `tools\validate_full.bat` passed in 34.11s; log:
     `TestOutput\validation\agent_logs\engine_context_assertions_validate_full.log`.
-- [x] For renderer service access changes: run `tools\validate_dx12_renderer.bat`.
+- [x] For renderer service access changes: include
+  `tools\validate_dx12_renderer.bat` in the next heavy validation batch.
 - [ ] For asset registration, scene asset loading, hull asset, or scene JSON
-  behavior changes: run `tools\validate_full.bat`.
-- [x] For input/window changes: run `tools\validate_full.bat`; add focused
-  launch/click validation if interaction behavior changes.
+  behavior changes: include `tools\validate_full.bat` in the next heavy
+  validation batch.
+- [x] For input/window changes: include `tools\validate_full.bat` in the next
+  heavy validation batch; add focused launch/click validation if interaction
+  behavior changes.
   - [x] 2026-06-28 input callback bridge documentation slice was comment-only;
     no repository validation required. `git diff --check` passed and the scoped
     comment-style audit inspected `SkullbonezSource/Runtime/Input.cpp`.

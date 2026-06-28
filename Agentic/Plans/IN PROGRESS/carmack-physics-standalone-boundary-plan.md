@@ -7,6 +7,16 @@ Validation note: plan-only edits require no validation. PR-bound implementation
 must use the smallest matching gate from `AGENTS.md`; physics-visible behavior
 requires `tools\validate_physics.bat`, with `tools\validate_physics_deep.bat`
 when SkullScope baselines or broad physics diagnostics change.
+Batching policy: do not run heavy repository validation for every small Carmack
+slice. Cheap checks such as `git diff --check`, formatting, focused static
+guardrails, standalone smoke/builds, or narrow unit-style probes may run per
+slice when useful. Heavy gates (`tools\validate_physics.bat`,
+`tools\validate_physics_deep.bat`, `tools\validate_full.bat`,
+`tools\validate_perf.bat`, and deep/stress gates) should run after a batch of
+up to 10 completed slices, before plan completion, or before PR handoff,
+whichever comes first. Run a heavy gate earlier only when the slice changes
+baselines, deterministic step output, handle lifetime/deletion semantics, broad
+runtime integration, or leaves uncertainty that cheap checks cannot answer.
 
 ## Completed Slices
 
@@ -392,8 +402,12 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 
 ## Validation Checklist
 
+- [ ] Batch heavy validation after up to 10 completed Carmack slices, before plan
+  completion, or before PR handoff; do not run physics/full/perf/deep gates for
+  every tiny slice unless the change is high-risk.
 - [ ] For plan-only edits: no validation required.
-- [x] For physics step, store, collision, solver, sleep, or rigid-body changes: run `tools\validate_physics.bat`.
+- [x] For physics step, store, collision, solver, sleep, or rigid-body changes:
+  include `tools\validate_physics.bat` in the next heavy validation batch.
   - [x] 2026-06-28 activation slice validation:
     `TestOutput\validation\agent_logs\physics_standalone_activation_validate_fast_final.log`
     reported source formatting clean, project filters `0 errors`, runtime
@@ -427,9 +441,13 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
     hash=0xE3F090306CC1FE70`, `physics_regression_solver.csv (20001 lines,
     byte-exact match)`, Profile/Debug builds `0 Warning(s)` and `0 Error(s)`,
     and `VALIDATE_PHYSICS: ALL PASSED`.
-- [ ] For SkullScope baseline/query changes: run `tools\validate_physics_deep.bat`.
-- [ ] For broad runtime integration changes: run `tools\validate_full.bat`.
-- [ ] For hot-path storage or iteration changes: run `tools\validate_perf.bat` and document any warnings.
+- [ ] For SkullScope baseline/query changes: include
+  `tools\validate_physics_deep.bat` in the next heavy validation batch.
+- [ ] For broad runtime integration changes: include `tools\validate_full.bat`
+  in the next heavy validation batch.
+- [ ] For hot-path storage or iteration changes: include
+  `tools\validate_perf.bat` in the next heavy validation batch and document any
+  warnings.
 - [ ] Quote the relevant validation output in the handoff; do not claim success without command output.
 
 ## Independent Review Checklist

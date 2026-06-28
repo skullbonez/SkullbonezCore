@@ -7,6 +7,16 @@ Validation note: plan-only edits require no validation. PR-bound render graph,
 resource barrier, descriptor, render target, or screenshot-visible work requires
 `tools\validate_dx12_renderer.bat`; allocation-sensitive render work also
 requires `tools\validate_perf.bat`.
+Batching policy: do not run heavy repository validation for every small Carmack
+slice. Cheap checks such as `git diff --check`, formatting, focused static
+guardrails, graph diagnostics, or targeted builds may run per slice when useful.
+Heavy gates (`tools\validate_dx12_renderer.bat`, `tools\validate_full.bat`,
+`tools\validate_perf.bat`, and deep/stress gates) should run after a batch of
+up to 10 completed slices, before plan completion, or before PR handoff,
+whichever comes first. Run a heavy gate earlier only when the slice changes
+barrier/resource lifetime, screenshot-visible pass behavior, transient
+allocation policy, descriptor ownership, or leaves uncertainty that cheap checks
+cannot answer.
 
 ## Completed Slices
 
@@ -371,13 +381,21 @@ Latest validation evidence available before the next pass-family migration:
 
 ## Validation Checklist
 
+- [ ] Batch heavy validation after up to 10 completed Carmack slices, before plan
+  completion, or before PR handoff; do not run DX12/full/perf gates for every
+  tiny pass migration unless the change is high-risk.
 - [ ] For plan-only edits: no validation required.
-- [x] After each pass migration: run `tools\validate_dx12_renderer.bat`.
-- [x] For barrier or resource lifetime changes: run `tools\validate_dx12_renderer.bat` and verify `dx12_validation.txt` is zero-error.
-- [x] For transient allocation or descriptor storage changes: run `tools\validate_perf.bat`.
+- [x] After pass-migration batches: include
+  `tools\validate_dx12_renderer.bat` in the next heavy validation batch.
+- [x] For barrier or resource lifetime changes: include
+  `tools\validate_dx12_renderer.bat` in the next heavy validation batch and
+  verify `dx12_validation.txt` is zero-error.
+- [x] For transient allocation or descriptor storage changes: include
+  `tools\validate_perf.bat` in the next heavy validation batch.
   Current slice completed with exit code 0, but the log includes machine-mismatch
   and unrelated `physics_bench` regression warnings.
-- [ ] For broad runtime render host changes: run `tools\validate_full.bat`.
+- [ ] For broad runtime render host changes: include `tools\validate_full.bat`
+  in the next heavy validation batch.
   Current slice attempted this before the stop. Build and DX12 phases passed,
   then physics validation failed on `physics_regression_solver.csv` row count;
   no more validation was run after the user requested it.
@@ -396,6 +414,7 @@ Latest validation evidence available before the next pass-family migration:
 - [ ] Production frame pass execution is graph-owned.
 - [ ] Transient frame resources are graph-owned or explicitly imported.
 - [ ] Manual barriers are gone from migrated pass families or explicitly reviewed.
-- [x] DX12 validation and screenshot baselines pass after each slice.
+- [x] DX12 validation and screenshot baselines pass at batch gates, plan
+  completion, or PR handoff.
 - [ ] Performance evidence shows graph ownership did not introduce recurring
   steady-frame allocation or measurable hot-path regression.

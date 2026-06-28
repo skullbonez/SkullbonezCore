@@ -7,6 +7,16 @@ Validation note: plan-only edits require no validation. PR-bound renderer
 interface or DX12 backend changes require `tools\validate_dx12_renderer.bat`.
 If hot-path command submission, descriptor upload, dynamic geometry, or telemetry
 storage changes, also run `tools\validate_perf.bat`.
+Batching policy: do not run heavy repository validation for every small Carmack
+slice. Cheap checks such as `git diff --check`, formatting, focused static
+guardrails, or targeted builds may run per slice when useful. Heavy gates
+(`tools\validate_dx12_renderer.bat`, `tools\validate_full.bat`,
+`tools\validate_perf.bat`, and deep/stress gates) should run after a batch of
+up to 10 completed slices, before plan completion, or before PR handoff,
+whichever comes first. Run a heavy gate earlier only when the slice changes
+barrier/resource lifetime, screenshot-visible renderer behavior, backend
+interfaces, hot-path allocation, or leaves uncertainty that cheap checks cannot
+answer.
 
 ## Completed Slices
 
@@ -722,12 +732,18 @@ Remaining `IRenderBackend` surface after the 2026-06-28 capability-interface sli
 
 ## Validation Checklist
 
+- [x] Batch heavy validation after up to 10 completed Carmack slices, before plan
+  completion, or before PR handoff; do not run DX12/full/perf gates for every
+  tiny slice unless the change is high-risk.
 - [x] For plan-only edits: no validation required.
   - [x] 2026-06-28 stale-comment source review was plan-only; no repository
     validation required.
-- [x] For capability header or DX12 backend changes: run `tools\validate_dx12_renderer.bat`.
-- [x] For runtime render orchestration changes: run `tools\validate_full.bat` if multiple areas are touched.
-- [x] For upload, dynamic geometry, telemetry, or per-frame adapter changes: run `tools\validate_perf.bat`.
+- [x] For capability header or DX12 backend changes: include
+  `tools\validate_dx12_renderer.bat` in the next heavy validation batch.
+- [x] For runtime render orchestration changes: include `tools\validate_full.bat`
+  in the next heavy validation batch if multiple areas are touched.
+- [x] For upload, dynamic geometry, telemetry, or per-frame adapter changes:
+  include `tools\validate_perf.bat` in the next heavy validation batch.
 - [x] Verify `dx12_validation.txt` reports zero DX12 validation errors.
 - [x] Verify DX12 screenshots match committed baselines unless a visual change is intentional and reviewed.
 
