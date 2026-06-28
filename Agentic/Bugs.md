@@ -27,6 +27,18 @@ Should simply be --scene stacking or --suite myTests
 
 ## RUNTIME BUGS
 
+## TODO: Chase camera is 90 degrees out
+
+The chase camera orientation is rotated 90 degrees from the expected follow
+view. Investigate the camera basis/target transform used by chase mode and
+restore the intended forward alignment.
+
+## TODO: Launcher mode should not require right click
+
+Launcher mode still needs right click before shooting. That input requirement
+blocks firing and should be removed so launcher mode can shoot without the
+extra right-click gate.
+
 
 ## TODO: Profiler tree accounting hides unbucketed physics time
 
@@ -49,4 +61,3 @@ the parent total can be explained from the visible rows.
 UI next prev buttons busted, should be a combo box anyway, also I want to create a scene that shows a collision with a catto step by step
 
 ## BUG - Trees - if you shoot any part of them they need to wake, we need a concept of an entire tree to fix this sort of thing.  A tree class.
-
