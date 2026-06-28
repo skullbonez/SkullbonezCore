@@ -901,8 +901,9 @@ void SceneTargetPass::Begin( const RenderFrameContext& frame, SkyPass& skyPass )
     // to the backbuffer with the cinematic effects applied.
     CinematicScenePassResources& scene = m_host.m_systems.renderPasses.cinematicScene;
     scene.hdrTarget->Bind();
-    Gfx().SetViewport( 0, 0, scene.hdrTarget->GetWidth(), scene.hdrTarget->GetHeight() );
-    Gfx().Clear( true, true );
+    Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
+    renderCommands.SetViewport( 0, 0, scene.hdrTarget->GetWidth(), scene.hdrTarget->GetHeight() );
+    renderCommands.Clear( true, true );
 
     PROFILE_GPU_BEGIN( "Frame/Render/CinematicSky" );
     {

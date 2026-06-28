@@ -230,6 +230,29 @@ require `tools\validate_full.bat`.
   restore relies on window and backend dimensions staying in lockstep, and the
   DX12 validation suite is broad renderer coverage rather than
   tonemap-scene-specific visual proof.
+- [x] 2026-06-28: Routed `SceneTargetPass::Begin()` HDR target viewport and
+  clear calls through `RenderFrameContext`'s borrowed `IRenderCommandContext`
+  instead of direct `Gfx()` calls. This lowers `RunPasses.cpp` direct `Gfx()`
+  debt from 21 to 19 and the plan's total counted `Gfx()` surface from 216 to
+  214. The broad render-pass/global-service migration remains open for the
+  fullscreen quad helper, resource creation, reflection, and DXR paths.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; the change uses the existing borrowed
+  command context and preserves the current HDR scene-target invariant.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.98s
+  (`TestOutput\validation\agent_logs\scene_target_command_state_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.71s
+  (`TestOutput\validation\agent_logs\scene_target_command_state_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 18.44s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\scene_target_command_state_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 29.01s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\scene_target_command_state_validate_full.log`).
+  Rubber-duck review: Raman found no blockers. Non-blocking note: the `Gfx()`
+  guardrail remains a count ratchet rather than semantic per-call tracking, so
+  future slices still need focused diff review.
 
 ## Current Counted Global-Service Surface
 
@@ -240,7 +263,7 @@ string literals.
 | Pattern | Current count |
 |---------|---------------|
 | `Cfg()` | 239 |
-| `Gfx()` | 216 |
+| `Gfx()` | 214 |
 | `GfxRayTracing()` | 5 |
 | `ActiveAssetSystem()` | 4 |
 | `CreateShaderFromActiveAssets()` | 16 |
@@ -339,6 +362,8 @@ bridges tiny, named, and fenced.
 - [x] Route tonemap pass viewport/depth/blend state through
   `RenderFrameContext`'s borrowed command context instead of direct `Gfx()`
   calls.
+- [x] Route HDR scene-target viewport/clear through `RenderFrameContext`'s
+  borrowed command context instead of direct `Gfx()` calls.
 - [ ] Route shader and texture creation through an asset/render context passed
   from runtime-owned services.
 - [ ] Replace `ActiveAssetSystem()` in scene parsing and editor tools with an

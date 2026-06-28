@@ -263,6 +263,30 @@ storage changes, also run `tools\validate_perf.bat`.
   restore relies on window and backend dimensions staying in lockstep, and the
   DX12 validation suite is broad renderer coverage rather than
   tonemap-scene-specific visual proof.
+- [x] 2026-06-28: Migrated `SceneTargetPass::Begin()` HDR target viewport and
+  clear calls from direct `Gfx()` access to the borrowed
+  `IRenderCommandContext` already carried by `RenderFrameContext`. This removes
+  two more `RunPasses.cpp` `Gfx()` calls and lowers the file allowlist from 21
+  to 19; the fullscreen quad helper, resource creation, reflection, and DXR
+  paths remain open.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; both touched source-bearing files retain
+  learning headers, and the existing scene-target invariant already explains
+  why world rendering switches to the HDR target before post effects.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.98s
+  (`TestOutput\validation\agent_logs\scene_target_command_state_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.71s
+  (`TestOutput\validation\agent_logs\scene_target_command_state_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 18.44s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\scene_target_command_state_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 29.01s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\scene_target_command_state_validate_full.log`).
+  Rubber-duck review: Raman found no blockers. Non-blocking note: the `Gfx()`
+  guardrail remains a count ratchet rather than semantic per-call tracking, so
+  future slices still need focused diff review.
 
 ## Problem Statement
 
@@ -343,6 +367,9 @@ compatibility facade while call sites migrate.
 - [x] Route tonemap pass viewport/depth/blend state through
   `RenderFrameContext`'s borrowed `IRenderCommandContext` and lower the
   `RunPasses.cpp` direct `Gfx()` allowlist from 32 to 21.
+- [x] Route HDR scene-target viewport/clear through `RenderFrameContext`'s
+  borrowed `IRenderCommandContext` and lower the `RunPasses.cpp` direct
+  `Gfx()` allowlist from 21 to 19.
 - [ ] Pass capture/readback capability only to screenshot and validation paths.
 - [ ] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
 - [ ] Pass GPU profiler capability only to profiler marker code.
