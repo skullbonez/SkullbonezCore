@@ -59,6 +59,32 @@ storage changes, also run `tools\validate_perf.bat`.
   (`TestOutput\validation\agent_logs\render_backend_aggregate_guardrail_runtime_boundaries.log`);
   `tools\validate_fast.bat` passed in 18.03s
   (`TestOutput\validation\agent_logs\render_backend_aggregate_guardrail_validate_fast.log`).
+- [x] 2026-06-28: Extended `RuntimeRenderServices` with the borrowed render
+  command capability plus a captured ready flag. `RuntimeRenderer::RenderFrame()`
+  now uses the borrowed command context for frame clears and the borrowed ready
+  flag for the shadow-map decision, reducing `RunRender.cpp` direct `Gfx()`
+  calls from 2 to 1. The global-service checker allowlist was lowered to match
+  the new count.
+  Comment-style audit: inspected `RuntimeRenderInputs.h`, `RunRender.cpp`, and
+  `tools\check_runtime_boundaries.py`; the touched source retains learning
+  headers, and the new render-service fields include a `Lifetime:` note for the
+  borrowed backend command facet.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.69s
+  (`TestOutput\validation\agent_logs\runtime_render_services_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 23.60s
+  (`TestOutput\validation\agent_logs\runtime_render_services_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 17.81s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\runtime_render_services_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.30s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\runtime_render_services_validate_full.log`).
+  Rubber-duck review: McClintock found no code blockers after the context was
+  narrowed to the command capability. The reviewer flagged stale DX12/full
+  evidence from before that narrowing, plus two non-blocking clarity issues; the
+  validation was rerun, an `Invariant:` comment was added near the readiness
+  guard, and the global plan's broad borrowed-context checkbox was left open.
 
 ## Problem Statement
 
@@ -165,7 +191,7 @@ Remaining `IRenderBackend` surface after the 2026-06-28 capability-interface sli
 
 - [ ] For plan-only edits: no validation required.
 - [x] For capability header or DX12 backend changes: run `tools\validate_dx12_renderer.bat`.
-- [ ] For runtime render orchestration changes: run `tools\validate_full.bat` if multiple areas are touched.
+- [x] For runtime render orchestration changes: run `tools\validate_full.bat` if multiple areas are touched.
 - [ ] For upload, dynamic geometry, telemetry, or per-frame adapter changes: run `tools\validate_perf.bat`.
 - [x] Verify `dx12_validation.txt` reports zero DX12 validation errors.
 - [x] Verify DX12 screenshots match committed baselines unless a visual change is intentional and reviewed.

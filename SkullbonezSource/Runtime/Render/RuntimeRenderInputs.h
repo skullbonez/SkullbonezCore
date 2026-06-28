@@ -52,6 +52,11 @@ class SkyBox;
 class Terrain;
 } // namespace Geometry
 
+namespace Rendering
+{
+class IRenderCommandContext;
+} // namespace Rendering
+
 namespace UI
 {
 class InGameUI;
@@ -71,6 +76,10 @@ struct RuntimeRenderServices
     Window& window;
     UI::InGameUI& ui;
     Geometry::SkyBox* skyBox;
+    // Lifetime: this command facet is borrowed from the process-bound backend
+    // for exactly this render call; pass code must not store it.
+    Rendering::IRenderCommandContext& renderCommands;
+    bool renderReady = false;
 };
 
 struct RuntimeRenderInputs

@@ -154,7 +154,9 @@ void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
 RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                               SkullbonezCore::GameObjects::GameModelCollection& models,
                                               SkullbonezCore::Environment::WorldEnvironment& world,
-                                              SkullbonezCore::UI::InGameUI& ui )
+                                              SkullbonezCore::UI::InGameUI& ui,
+                                              SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                              bool renderReady )
 {
     return RuntimeRenderInputs{ RuntimeRenderServices{ *systems.textures,
                                                        models,
@@ -163,7 +165,9 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                                        *systems.cameras,
                                                        *systems.window,
                                                        ui,
-                                                       systems.skyBox } };
+                                                       systems.skyBox,
+                                                       renderCommands,
+                                                       renderReady } };
 }
 } // namespace
 
@@ -457,6 +461,7 @@ void RuntimeRenderer::EnsureFrameResources( const RuntimeRenderInputs& renderInp
 void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 {
     RuntimeRenderHost& host = m_host;
+    const RuntimeRenderServices& services = renderInputs.services;
     const bool cinematicRender = host.IsCinematicRenderingEnabled();
     const CinematicRenderConfig& renderConfig = host.ActiveCinematicConfig();
     const OrdinaryRenderConfig& ordinaryRender = Cfg().ordinaryRender;
@@ -474,7 +479,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     ordinaryShadowConfig.shadowSlopeBias = ordinaryRender.shadowSlopeBias;
     ordinaryShadowConfig.shadowMaxDistance = ordinaryRender.shadowMaxDistance;
     const CinematicRenderConfig& activeShadowStyle = cinematicRender ? renderConfig : ordinaryShadowConfig;
-    const bool shadowMapsEnabled = activeShadowStyle.shadowsEnabled && IsGfxReady() && !host.m_debug.isTextOnly;
+    const bool shadowMapsEnabled = activeShadowStyle.shadowsEnabled && services.renderReady && !host.m_debug.isTextOnly;
 
     EnsureFrameResources( renderInputs, cinematicRender, renderConfig );
 
@@ -483,7 +488,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     {
         // If the cinematic target could not be created, fall back to the normal
         // backbuffer clear so the frame still renders instead of showing stale data.
-        Gfx().Clear( true, true );
+        services.renderCommands.Clear( true, true );
     }
 
     // Build the shared pass contract once, after camera update and before any
@@ -507,7 +512,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     // allocator waits do not block work that can overlap the previous frame.
     if ( !cinematicRender )
     {
-        Gfx().Clear( true, true );
+        services.renderCommands.Clear( true, true );
     }
 
     const CinematicRenderConfig* activeCinematic = frame.cinematic;
@@ -761,7 +766,25 @@ void Run::Render()
 
     applyReplayRenderStateForFrame();
 
-    m_renderer.RenderFrame( BuildRuntimeRenderInputs( m_systems, m_cGameModelCollection, m_cWorldEnvironment, m_UI ) );
+    const bool renderReady = IsGfxReady();
+    if ( !renderReady )
+    {
+        restoreReplayRenderStateForFrame();
+        return;
+    }
+
+    // Invariant: render inputs only borrow command capabilities after the
+    // process-bound backend is ready. The captured flag records that guard for
+    // frame decisions without making the command context nullable.
+    IRenderBackend& renderBackend = Gfx();
+    SkullbonezCore::Rendering::IRenderCommandContext& renderCommands =
+        static_cast<SkullbonezCore::Rendering::IRenderCommandContext&>( renderBackend );
+    m_renderer.RenderFrame( BuildRuntimeRenderInputs( m_systems,
+                                                      m_cGameModelCollection,
+                                                      m_cWorldEnvironment,
+                                                      m_UI,
+                                                      renderCommands,
+                                                      renderReady ) );
     restoreReplayRenderStateForFrame();
 }
 

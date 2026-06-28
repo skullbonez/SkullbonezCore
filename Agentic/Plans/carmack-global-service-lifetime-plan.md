@@ -28,6 +28,32 @@ require `tools\validate_full.bat`.
   `Agentic\Reference\comment-style-guide.md`; the learning header remains
   present, and the new ratchet/allowlist comments state the invariant and
   limits of the guardrail.
+- [x] 2026-06-28: Extended runtime render services so renderer-facing frame code
+  can borrow an explicit render command capability instead of reaching through
+  `Gfx()` for these frame operations.
+  `RuntimeRenderer::RenderFrame()` now clears through the borrowed command
+  context and checks the captured render-ready flag; `RunRender.cpp` direct
+  `Gfx()` calls fell from 2 to 1, and the guardrail allowlist was lowered to
+  that new count. Comment-style audit: inspected `RuntimeRenderInputs.h`,
+  `RunRender.cpp`, and `tools\check_runtime_boundaries.py`; the new context
+  fields have a `Lifetime:` note for the borrowed command facet and no ownership
+  moved out of `Run`.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.69s
+  (`TestOutput\validation\agent_logs\runtime_render_services_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 23.60s
+  (`TestOutput\validation\agent_logs\runtime_render_services_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 17.81s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\runtime_render_services_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.30s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\runtime_render_services_validate_full.log`).
+  Rubber-duck review: McClintock found no code blockers after the context was
+  narrowed to the command capability. The review's stale-validation blocker was
+  resolved by rerunning DX12 and full validation after the final source edit,
+  and the broad borrowed-context checklist item remains open for future
+  non-render contexts.
 
 ## Current Counted Global-Service Surface
 
@@ -38,7 +64,7 @@ string literals.
 | Pattern | Current count |
 |---------|---------------|
 | `Cfg()` | 239 |
-| `Gfx()` | 294 |
+| `Gfx()` | 293 |
 | `GfxRayTracing()` | 5 |
 | `ActiveAssetSystem()` | 4 |
 | `CreateShaderFromActiveAssets()` | 16 |
@@ -103,7 +129,7 @@ bridges tiny, named, and fenced.
 
 - [ ] Define or extend an `EngineServices` or equivalent context for process
   services that must be shared.
-- [ ] Define or extend a `RenderServices`/`RenderContext` for renderer-facing
+- [x] Define or extend a `RenderServices`/`RenderContext` for renderer-facing
   services instead of direct `Gfx()` calls.
 - [ ] Define or extend an `AssetContext` for asset lookup and source records
   instead of `ActiveAssetSystem()`.
@@ -172,8 +198,8 @@ bridges tiny, named, and fenced.
 ## Validation Checklist
 
 - [ ] For plan-only edits: no validation required.
-- [ ] For runtime-wide lifetime or startup/shutdown changes: run `tools\validate_full.bat`.
-- [ ] For renderer service access changes: run `tools\validate_dx12_renderer.bat`.
+- [x] For runtime-wide lifetime or startup/shutdown changes: run `tools\validate_full.bat`.
+- [x] For renderer service access changes: run `tools\validate_dx12_renderer.bat`.
 - [ ] For asset registration, scene asset loading, hull asset, or scene JSON
   behavior changes: run `tools\validate_full.bat`.
 - [ ] For input/window changes: run `tools\validate_full.bat`; add focused
