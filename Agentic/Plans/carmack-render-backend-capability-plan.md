@@ -450,6 +450,19 @@ storage changes, also run `tools\validate_perf.bat`.
   allocation path changes. Rubber-duck review found no blockers: the null DXR
   pointer preserves planar fallback, and pass code now receives an explicit
   borrowed capability instead of touching global raytracing state.
+- [x] 2026-06-28: Completed the `IRenderBackend` inventory and call-site map
+  against the Carmack problem statement. `IRenderBackend` itself still declares
+  no render methods; its remaining public surface is inherited from
+  `IRenderDeviceLifecycle`, `IRenderResourceFactory`, `IRenderCommandContext`,
+  `IRenderDiagnostics`, and `IRenderCaptureBackend`, while `IRenderRayTracing`
+  stays outside the facade. The inventory below records every inherited method
+  name, categorizes the surface, and maps the remaining direct `Gfx()` clusters
+  to the narrow capability they should receive. Validation was not run because
+  this is a plan-only documentation slice. Rubber-duck review found no blocker:
+  the snapshot makes the wide-contract debt explicit without changing runtime
+  behavior. Residual debt is implementation work, especially UI/text,
+  `RenderHelper`, scene setup, window/frame lifecycle, and debug overlay
+  migration.
 
 ## Problem Statement
 
@@ -490,11 +503,51 @@ compatibility facade while call sites migrate.
 
 ### Inventory
 
-- [ ] List every method in `SkullbonezSource/Rendering/IRenderBackend.h`.
-- [ ] Categorize methods into lifecycle, frame state, resource creation, texture binding, capture/readback, draw tracing, GPU profiling, platform markers, dynamic geometry, debug lines, instancing, and compatibility.
-- [ ] Run `rg "Gfx\\(|IRenderBackend|SetGfxBackend|DestroyGfxBackend|IsGfxReady" SkullbonezSource`.
-- [ ] Map each call site to its required capability.
-- [ ] Mark any call site that currently asks for the wide backend only because no narrow service exists yet.
+- [x] List every method in `SkullbonezSource/Rendering/IRenderBackend.h`.
+- [x] Categorize methods into lifecycle, frame state, resource creation, texture binding, capture/readback, draw tracing, GPU profiling, platform markers, dynamic geometry, debug lines, instancing, and compatibility.
+- [x] Run `rg "Gfx\\(|IRenderBackend|SetGfxBackend|DestroyGfxBackend|IsGfxReady" SkullbonezSource`.
+- [x] Map each call site to its required capability.
+- [x] Mark any call site that currently asks for the wide backend only because no narrow service exists yet.
+
+#### Inventory Snapshot, 2026-06-28
+
+`IRenderBackend` own methods: none. It has a virtual destructor only and remains
+an inherited compatibility aggregate.
+
+Global compatibility accessors still declared near the facade:
+
+| Accessor | Category | Notes |
+|----------|----------|-------|
+| `Gfx()` | Compatibility service locator | Returns the wide facade; existing callers should move to borrowed capability contexts. |
+| `IsGfxReady()` | Lifecycle readiness | Used by bootstrap, frame, window, and compatibility cleanup code before borrowing capabilities. |
+| `SetGfxBackend()` | Bootstrap lifecycle | Takes ownership of the process renderer. |
+| `DestroyGfxBackend()` | Shutdown lifecycle | Clears raytracing alias and releases backend ownership. |
+| `GfxRayTracing()` | DXR compatibility service locator | Separate from `IRenderBackend`; remaining callers are `RunRender.cpp`, `RunUiTextPass.cpp`, and `RunScene.cpp`. |
+| `IsGfxRayTracingReady()` | DXR readiness | Guards optional raytracing setup, preview, and dispatch. |
+| `SetGfxRayTracingBackend()` | Bootstrap DXR alias | Stores a borrowed alias to the active backend's raytracing facet. |
+
+Remaining inherited method surface:
+
+| Capability | Methods | Migration target |
+|------------|---------|------------------|
+| `IRenderDeviceLifecycle` | `Init`, `Shutdown`, `Present`, `SetVsyncEnabled`, `IsVsyncEnabled`, `Finish`, `FlushGPU`, `Resize`, `GetWidth`, `GetHeight` | Bootstrap, window, frame-present, resize, and teardown contexts only. |
+| `IRenderResourceFactory` | `CreateShader`, `CreateMesh`, `CreateFramebuffer`, `CreateTexture2D`, `DeleteTexture`, `CreateDynamicVB`, `DestroyDynamicVB`, `CreateInstancedMesh`, `DestroyInstancedMesh` | Load, rebuild, and release phases through resource contexts. |
+| `IRenderCommandContext` | `SetViewport`, `Clear`, `SetClearColor`, `SetClearDepth`, `SetDepthTest`, `SetDepthWrite`, `SetBlend`, `SetBlendFunc`, `SetCullFace`, `SetPolygonOffset`, `SetClipPlane`, `BindTexture`, `IsDepthTestEnabled`, `IsDepthWriteEnabled`, `IsBlendEnabled`, `IsCullFaceEnabled`, `GetBlendFunc`, `UploadAndDrawDynamicVB`, `DrawLinesColored`, `DrawTransientColoredTriangles`, `UploadInstanceData`, `DrawInstancedMesh` | Frame render contexts, UI/text contexts, debug overlay contexts, and helper draw contexts. |
+| `IRenderDiagnostics` | `GetRendererName`, `GetCapabilities`, `ResetFrameDrawCalls`, `RecordDrawCall`, `GetFrameDrawCallCount`, `GetFrameDrawCallTrace`, `PushDrawCallTraceScope`, `PopDrawCallTraceScope`, `GpuTimerBegin`, `GpuTimerEnd`, `GpuTimerInvalidate`, `GpuTimerRead`, `PlatformProfilerGpuBegin`, `PlatformProfilerGpuEnd`, `PlatformProfilerGpuMarker` | Diagnostics, profiler, UI telemetry, and capability-query contexts. |
+| `IRenderCaptureBackend` | `SupportsBackbufferCapture`, `CaptureBackbuffer` | `GfxCapture()` and screenshot/readback validation paths only. |
+| `IRenderRayTracing` | `InitDXR`, `DispatchReflectionRays`, `BuildTLAS`, `GetReflectionUAVTexture`, `ShutdownDXR`, `GetInstancedMeshStaticVBVA`, `GetInstancedMeshStaticStride` | Separate DXR setup/dispatch/preview contexts, not the wide backend facade. |
+
+Current direct `Gfx()` cluster map from the inventory search:
+
+| Cluster | Representative files | Required capability |
+|---------|----------------------|---------------------|
+| Bootstrap/shutdown/device lifecycle | `Runtime/Init.cpp`, `Runtime/Window.cpp`, `Runtime/RunFrame.cpp`, `Runtime/RunScene.cpp`, `Runtime/RunStress.cpp`, `Runtime/RunInput.cpp` | `IRenderDeviceLifecycle` plus readiness checks. |
+| Runtime composition and teardown | `Runtime/Run.cpp`, `Runtime/RunRender.cpp` | Borrowed lifecycle/resource/diagnostics contexts from the composition root. |
+| Shared render helper resources and draws | `Rendering/Helper.cpp`, `Rendering/Shadow.h`, `Rendering/Text.cpp` | Split resource factory from command context; keep static helper caches behind explicit renderer services. |
+| UI and backdrop previews | `UI/UI.cpp`, `UI/UIBackdropBlur.cpp`, `UI/UITabProfiler.cpp`, `Runtime/RunUiTextPass.cpp` | UI resource, command, diagnostics, and optional DXR preview context. |
+| Editor/debug overlays | `Runtime/Editor/LauncherLaser.cpp`, `Runtime/Editor/RunEditorTracer.inl`, `Physics/Debug/*`, `Physics/TornadoField.cpp` | Debug line/transient geometry command context plus resource factory where buffers are created. |
+| World/asset renderer resources | `World/Terrain.cpp`, `World/SkyBox.cpp`, `World/WorldEnvironment.cpp`, `Assets/AssetSystem.cpp`, `Assets/TextureCollection.cpp` | Asset/render resource context during load and rebuild. |
+| DXR setup and preview | `Runtime/Scene/RunScene.cpp`, `Runtime/RunUiTextPass.cpp`, `Runtime/RunRender.cpp` | Separate `IRenderRayTracing` context; `RunRender.cpp` is currently the clean composition example. |
 
 ### Capability Interfaces
 
