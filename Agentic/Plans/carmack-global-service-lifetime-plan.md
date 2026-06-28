@@ -10,6 +10,17 @@ require `tools\validate_full.bat`.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Added debug assertions for `EngineContext` borrowed runtime
+  bindings before they are used. `EngineContext::Bind()` now asserts that the
+  complete Run-owned service graph is present, both `Bindings()` accessors
+  assert before handing out borrowed pointers, and
+  `RuntimeViewModelBuilder::Build()` asserts before its release-safe default
+  fallback can mask an unbound context. Rubber-duck review by Faraday found one
+  blocking bypass through the view-model builder and one non-blocking startup
+  false-positive check; the bypass was fixed before validation. Final
+  `tools\validate_full.bat` passed with runtime boundaries clean, Profile/Debug
+  builds at 0 warnings/errors, DX12 InfoQueue errors at 0 with matching
+  screenshots, and byte-exact `physics_regression_solver.csv`.
 - [x] 2026-06-28: Documented the current startup bind order and shutdown/backend
   resource release order. The lifetime-order section now records how `Init.cpp`
   owns worker/window/backend creation, how `Run::Run()` binds `EngineContext`,
@@ -719,7 +730,11 @@ bridges tiny, named, and fenced.
 - [x] Document startup bind order for renderer, assets, textures, window,
   cameras, input, diagnostics, and scene services.
 - [x] Document shutdown unbind order and backend resource release order.
-- [ ] Add assertions that borrowed service pointers are bound before use.
+- [x] Add assertions that borrowed service pointers are bound before use.
+  - [x] 2026-06-28 `EngineContext::Bind()`, both `Bindings()` accessors, and
+    `RuntimeViewModelBuilder::Build()` now assert in Debug builds before
+    incomplete borrowed runtime service bindings can be used or silently
+    converted into a default presentation snapshot.
 - [x] Add a local assertion before runtime render-pass texture-slot helpers use
   `RenderFrameContext::renderCommands`.
 - [ ] Add assertions that services are unbound before destruction when callbacks
@@ -778,6 +793,9 @@ Shutdown order:
   - [x] 2026-06-28 lifetime-order documentation slice was plan-only; no
     repository validation required.
 - [x] For runtime-wide lifetime or startup/shutdown changes: run `tools\validate_full.bat`.
+  - [x] 2026-06-28 EngineContext borrowed-binding assertion slice:
+    `tools\validate_full.bat` passed in 34.11s; log:
+    `TestOutput\validation\agent_logs\engine_context_assertions_validate_full.log`.
 - [x] For renderer service access changes: run `tools\validate_dx12_renderer.bat`.
 - [ ] For asset registration, scene asset loading, hull asset, or scene JSON
   behavior changes: run `tools\validate_full.bat`.
@@ -830,6 +848,11 @@ Reviewer notes, 2026-06-28:
   cleanup wording around `UnregisterClass(...)` and `Window::Destroy()`. The
   non-blocking worker self-test ordering note was also folded into the startup
   table.
+- Faraday blocked the borrowed-binding assertion slice because
+  `RuntimeViewModelBuilder::Build()` still returned a default snapshot before
+  calling `EngineContext::Bindings()`, bypassing the new fail-fast path. The
+  follow-up assertion in the view-model builder fixed that blocker; no normal
+  startup/shutdown false positive remained in review.
 
 ## Definition Of Done
 
