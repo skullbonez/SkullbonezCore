@@ -43,6 +43,7 @@ Related:
 #include "RuntimeTuning.h"
 #include "../Core/PlatformProfiler.h"
 #include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/IRenderRayTracing.h"
 #include "../Rendering/IRenderResourceFactory.h"
 
 using namespace SkullbonezCore::Basics;
@@ -933,14 +934,14 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
     PROFILE_GPU_BEGIN( "Frame/Render/Reflection" );
     DRAW_CALL_TRACE_SCOPE( "Frame/Render/Reflection" );
     const auto renderCapabilities = RenderDiagnostics( inputs.frame ).GetCapabilities();
-    const bool useDxrReflection = renderCapabilities.supportsDxrReflection && IsGfxRayTracingReady() &&
+    Rendering::IRenderRayTracing* rayTracing = inputs.frame.renderRayTracing;
+    const bool useDxrReflection = renderCapabilities.supportsDxrReflection && rayTracing &&
                                   m_host.m_debug.isWaterRTReflect && !m_host.m_debug.isWaterNoReflect &&
                                   !inputs.collisionStateColorsVisible && !inputs.transparentBodyPass;
     output.usedDxr = useDxrReflection;
 
     if ( useDxrReflection )
     {
-        auto& rayTracing = GfxRayTracing();
         // Lifetime: the DX12 backend owns the raytracing acceleration
         // structures. The scene view streams current per-model transforms into
         // the TLAS before dispatching one reflection ray per texture pixel.
@@ -952,7 +953,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
 
         // Terrain/sphere BLAS objects are owned by the DX12 backend, so the
         // runtime supplies only per-instance sphere transforms here.
-        rayTracing.BuildTLAS( m_host.m_dxrReflectionTransforms.data(), ballCount, 0, 0 );
+        rayTracing->BuildTLAS( m_host.m_dxrReflectionTransforms.data(), ballCount, 0, 0 );
 
         // Ray generation reconstructs world-space rays from screen pixels, so
         // it needs the inverse of the main camera view-projection matrix.
@@ -968,22 +969,22 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         uint32_t skyLeftHandle = m_host.TextureHandle( TEXTURE_SKY_LEFT );
         uint32_t skyFrontHandle = m_host.TextureHandle( TEXTURE_SKY_FRONT );
         uint32_t skyBackHandle = m_host.TextureHandle( TEXTURE_SKY_BACK );
-        rayTracing.DispatchReflectionRays( invVP.Data(),
-                                           cameraPos,
-                                           inputs.frame.waterY,
-                                           simTime,
-                                           inputs.frame.lightPosition,
-                                           m_host.WindowScreenWidth() * 2,
-                                           m_host.WindowScreenHeight() * 2,
-                                           sphereHandle,
-                                           terrainHandle,
-                                           skyUpHandle,
-                                           skyDownHandle,
-                                           skyRightHandle,
-                                           skyLeftHandle,
-                                           skyFrontHandle,
-                                           skyBackHandle );
-        output.reflectionTextureHandle = rayTracing.GetReflectionUAVTexture();
+        rayTracing->DispatchReflectionRays( invVP.Data(),
+                                            cameraPos,
+                                            inputs.frame.waterY,
+                                            simTime,
+                                            inputs.frame.lightPosition,
+                                            m_host.WindowScreenWidth() * 2,
+                                            m_host.WindowScreenHeight() * 2,
+                                            sphereHandle,
+                                            terrainHandle,
+                                            skyUpHandle,
+                                            skyDownHandle,
+                                            skyRightHandle,
+                                            skyLeftHandle,
+                                            skyFrontHandle,
+                                            skyBackHandle );
+        output.reflectionTextureHandle = rayTracing->GetReflectionUAVTexture();
         output.reflectionSampleViewProjection = inputs.frame.viewProjection;
     }
     else

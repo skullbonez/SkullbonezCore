@@ -373,6 +373,33 @@ require `tools\validate_full.bat`.
   including `Frame.avg +55.4%` and `Frame/Input.avg +72.5%`; this slice did not
   touch physics/input code, but the warning-bearing output is not claimed as a
   clean perf pass.
+- [x] 2026-06-28: Routed the remaining `RunPasses.cpp` direct
+  `GfxRayTracing()` access through a borrowed nullable `IRenderRayTracing*`
+  supplied by `Run::Render()`. This keeps normal reflection pass code on the
+  explicit frame context while preserving the composition root as the place that
+  samples global raytracing readiness. The counted global-service surface is
+  unchanged: `GfxRayTracing()` remains at 5 because this slice moved the call
+  from pass code to `RunRender.cpp` rather than deleting the process-global
+  accessor. Other `GfxRayTracing()` callers and broader per-site global
+  classification remain open.
+  Comment-style audit: inspected `RuntimeRenderInputs.h`,
+  `RuntimeRenderPasses.h`, `RunPasses.cpp`, `RunRender.cpp`, and
+  `tools\check_runtime_boundaries.py`; touched files retain learning headers,
+  and the new DXR comments include local glossary definitions and lifetime
+  notes.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.87s
+  (`TestOutput\validation\agent_logs\render_dxr_capability_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 103.96s
+  (`TestOutput\validation\agent_logs\render_dxr_capability_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 17.64s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\render_dxr_capability_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.76s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\render_dxr_capability_validate_full.log`).
+  Rubber-duck review found no blockers; residual debt is the unchanged global
+  count and remaining non-composition `GfxRayTracing()` callers.
 
 ## Current Counted Global-Service Surface
 
@@ -495,6 +522,9 @@ bridges tiny, named, and fenced.
 - [x] Split runtime pass resource creation/rebuild calls onto
   `RenderResourceContext` so `RenderFrameContext` no longer carries the
   resource-factory service into draw methods.
+- [x] Route reflection-pass DXR access through a borrowed nullable
+  `IRenderRayTracing*` in `RenderFrameContext` instead of direct
+  `GfxRayTracing()` access in `RunPasses.cpp`.
 - [ ] Route shader and texture creation through an asset/render context passed
   from runtime-owned services.
 - [ ] Replace `ActiveAssetSystem()` in scene parsing and editor tools with an

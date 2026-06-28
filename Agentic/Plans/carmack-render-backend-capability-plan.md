@@ -419,6 +419,37 @@ storage changes, also run `tools\validate_perf.bat`.
   gap for runtime pass draw contexts; remaining blockers are the full
   `IRenderBackend` inventory/call-site map and the `GfxRayTracing()` accessor
   still used in ordinary pass code.
+- [x] 2026-06-28: Routed the reflection pass DXR dependency through an optional
+  borrowed `IRenderRayTracing*` carried by `RuntimeRenderServices` and
+  `RenderFrameContext`. `RunPasses.cpp` no longer calls `GfxRayTracing()`;
+  `Run::Render()` remains the composition point that samples
+  `IsGfxRayTracingReady()` and publishes the nullable DXR facet to the frame.
+  The counted `GfxRayTracing()` allowlist is unchanged because ownership moved
+  from pass code to the composition root instead of deleting the global access.
+  Remaining render-capability debt includes the full `IRenderBackend`
+  inventory/call-site map and other `GfxRayTracing()` callers outside
+  `RunPasses.cpp`.
+  Comment-style audit: inspected `RuntimeRenderInputs.h`,
+  `RuntimeRenderPasses.h`, `RunPasses.cpp`, `RunRender.cpp`, and
+  `tools\check_runtime_boundaries.py`; touched source-bearing files keep
+  learning headers, and the new DXR field comments are backed by local glossary
+  entries plus frame-borrowed lifetime notes.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.87s
+  (`TestOutput\validation\agent_logs\render_dxr_capability_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 103.96s
+  (`TestOutput\validation\agent_logs\render_dxr_capability_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 17.64s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\render_dxr_capability_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.76s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\render_dxr_capability_validate_full.log`).
+  Perf validation was not run for this slice because it changed capability
+  plumbing only, with no upload, dynamic geometry, telemetry, or per-frame
+  allocation path changes. Rubber-duck review found no blockers: the null DXR
+  pointer preserves planar fallback, and pass code now receives an explicit
+  borrowed capability instead of touching global raytracing state.
 
 ## Problem Statement
 
@@ -516,6 +547,9 @@ compatibility facade while call sites migrate.
 - [x] Split runtime pass resource creation/rebuild calls onto
   `RenderResourceContext` so `RenderFrameContext` no longer carries
   `IRenderResourceFactory` into draw methods.
+- [x] Route reflection-pass DXR dispatch through an optional borrowed
+  `IRenderRayTracing*` in `RenderFrameContext` instead of pass-local
+  `GfxRayTracing()` access.
 - [ ] Pass capture/readback capability only to screenshot and validation paths.
 - [ ] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
 - [ ] Pass GPU profiler capability only to profiler marker code.

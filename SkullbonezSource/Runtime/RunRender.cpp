@@ -158,6 +158,7 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                               SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
                                               SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
                                               SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics,
+                                              SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing,
                                               bool renderReady )
 {
     return RuntimeRenderInputs{ RuntimeRenderServices{ *systems.textures,
@@ -171,6 +172,7 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                                        renderCommands,
                                                        renderResources,
                                                        renderDiagnostics,
+                                                       renderRayTracing,
                                                        renderReady } };
 }
 } // namespace
@@ -402,6 +404,7 @@ RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRender
     frame.scene = &services.models;
     frame.renderCommands = &services.renderCommands;
     frame.renderDiagnostics = &services.renderDiagnostics;
+    frame.renderRayTracing = services.renderRayTracing;
     frame.windowWidth = (std::max)( 1, m_host.WindowScreenWidth() );
     frame.windowHeight = (std::max)( 1, m_host.WindowScreenHeight() );
 
@@ -804,6 +807,8 @@ void Run::Render()
         static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( renderBackend );
     SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics =
         static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( renderBackend );
+    SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing =
+        IsGfxRayTracingReady() ? &GfxRayTracing() : nullptr;
     m_renderer.RenderFrame( BuildRuntimeRenderInputs( m_systems,
                                                       m_cGameModelCollection,
                                                       m_cWorldEnvironment,
@@ -811,6 +816,7 @@ void Run::Render()
                                                       renderCommands,
                                                       renderResources,
                                                       renderDiagnostics,
+                                                      renderRayTracing,
                                                       renderReady ) );
     restoreReplayRenderStateForFrame();
 }

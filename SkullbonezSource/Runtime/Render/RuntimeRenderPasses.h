@@ -16,6 +16,8 @@ Glossary:
   EnsureGpuResources methods, not by draw methods.
   Pass resources: Backend-owned objects such as framebuffers, shaders, and
   vertex buffers used by a pass.
+  DXR (DirectX Raytracing): Optional render capability used for hardware ray
+  traversal and reflection dispatch when the active backend supports it.
 
 Invariants:
   - Pass input/output structs borrow data for one frame only.
@@ -46,6 +48,7 @@ namespace Rendering
 {
 class IRenderCommandContext;
 class IRenderDiagnostics;
+class IRenderRayTracing;
 class IRenderResourceFactory;
 } // namespace Rendering
 
@@ -110,6 +113,10 @@ struct RenderFrameContext
     // Lifetime: borrowed from RuntimeRenderInputs for capability checks and
     // tracing decisions in this frame only.
     Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
+    // Lifetime: optional DXR capability borrowed for this frame only. It stays
+    // nullable so the reflection pass can fall back to planar rendering when
+    // raytracing is unavailable.
+    Rendering::IRenderRayTracing* renderRayTracing = nullptr;
     int windowWidth = 1;                    // Active render-target width sampled from the runtime window service.
     int windowHeight = 1;                   // Active render-target height sampled from the runtime window service.
 };
