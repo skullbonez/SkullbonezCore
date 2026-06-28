@@ -19,6 +19,8 @@ Glossary:
   commit or PR.
   Override mask: Bitfield that records which optional JSON fields were authored
   so unspecified values keep engine.cfg defaults.
+  Asset system: Runtime-owned registry that resolves logical asset-library names
+    without requiring the parser to query process-global state.
 
 Invariants:
   - Command-line and scene JSON fields are user-facing compatibility
@@ -42,12 +44,16 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
 namespace Basics
 {
 class TestScene;
 class TestSceneParser;
-TestScene LoadTestSceneFromFileImpl( const char* path );
-TestScene LoadStyleSceneFromFileImpl( const char* path );
+TestScene LoadTestSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
+TestScene LoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
 
 struct SceneCamera
 {
@@ -413,8 +419,8 @@ class TestScene
   private:
     // Parser-local construction helpers populate the immutable scene record in
     // one pass; runtime systems use public read-only access below.
-    friend TestScene LoadTestSceneFromFileImpl( const char* path );
-    friend TestScene LoadStyleSceneFromFileImpl( const char* path );
+    friend TestScene LoadTestSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
+    friend TestScene LoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
     friend class TestSceneParser;
 
     std::vector<SceneCamera> m_cameras;
@@ -442,7 +448,15 @@ class TestScene
   public:
     TestScene();
     static TestScene LoadFromFile( const char* path );
+
+    // Runtime callers pass the owned asset registry so scene asset-library
+    // tokens resolve without touching ActiveAssetSystem().
+    static TestScene LoadFromFile( const char* path, const Assets::AssetSystem& assets );
     static TestScene LoadStyleFromFile( const char* path );
+
+    // Style scenes use the same parser and may include asset-library references
+    // through shared scene snippets, so they accept the explicit registry too.
+    static TestScene LoadStyleFromFile( const char* path, const Assets::AssetSystem& assets );
 
     bool IsPhysicsEnabled() const;
     bool IsTextEnabled() const;

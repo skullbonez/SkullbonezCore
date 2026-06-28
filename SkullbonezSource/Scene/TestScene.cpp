@@ -34,13 +34,25 @@ TestScene::TestScene()
 
 TestScene TestScene::LoadFromFile( const char* path )
 {
-    return LoadTestSceneFromFileImpl( path );
+    return LoadTestSceneFromFileImpl( path, nullptr );
+}
+
+
+TestScene TestScene::LoadFromFile( const char* path, const Assets::AssetSystem& assets )
+{
+    return LoadTestSceneFromFileImpl( path, &assets );
 }
 
 
 TestScene TestScene::LoadStyleFromFile( const char* path )
 {
-    return LoadStyleSceneFromFileImpl( path );
+    return LoadStyleSceneFromFileImpl( path, nullptr );
+}
+
+
+TestScene TestScene::LoadStyleFromFile( const char* path, const Assets::AssetSystem& assets )
+{
+    return LoadStyleSceneFromFileImpl( path, &assets );
 }
 
 

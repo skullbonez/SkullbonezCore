@@ -2249,6 +2249,7 @@ bool Run::TickScreenshots()
                                           SceneState(),
                                           m_sceneController.Browser(),
                                           m_cGameModelCollection,
+                                          m_systems.assets,
                                           RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                           m_defaultCinematicRender },
                 action.index );
@@ -2399,6 +2400,7 @@ bool Run::TickSceneAdvance()
                                           SceneState(),
                                           m_sceneController.Browser(),
                                           m_cGameModelCollection,
+                                          m_systems.assets,
                                           RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                           m_defaultCinematicRender },
                 action.index );

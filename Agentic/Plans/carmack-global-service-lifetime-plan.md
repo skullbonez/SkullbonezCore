@@ -10,6 +10,21 @@ require `tools\validate_full.bat`.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Routed scene/style parsing asset-library lookup through an
+  explicit borrowed `AssetSystem` instead of `ActiveAssetSystem()`. Runtime
+  scene loads, live-style reloads, cinematic style browser loads, and demo hero
+  style loading now pass `m_systems.assets` into `TestScene` parser overloads;
+  tools or standalone parser callers can still use the old path-convention
+  fallback by omitting the registry. The runtime-boundary ratchet removed the
+  `TestSceneParser.cpp` `ActiveAssetSystem()` allowlist row. Editor placement
+  still has one `ActiveAssetSystem()` lookup behind its static building-library
+  cache and remains open as a separate slice. Rubber-duck review by Harvey
+  found one blocking documentation mismatch: the current-count snapshot still
+  claimed `ActiveAssetSystem()` count `4` and still listed
+  `TestSceneParser.cpp`. The snapshot now records count `3` and removes the
+  parser row. Final evidence: `tools\check_runtime_boundaries.py`,
+  `tools\validate_fast.bat`, and `tools\validate_full.bat` all passed; logs are
+  under `TestOutput\validation\agent_logs\scene_parser_asset_context_*`.
 - [x] 2026-06-28: Added an explicit renderer-global file-classification fence
   to `tools\check_runtime_boundaries.py`. The existing global-service ratchet
   still preserves current counts, but direct `Gfx()` and `GfxRayTracing()` calls
@@ -430,7 +445,7 @@ string literals.
 | `Cfg()` | 239 |
 | `Gfx()` | 196 |
 | `GfxRayTracing()` | 5 |
-| `ActiveAssetSystem()` | 4 |
+| `ActiveAssetSystem()` | 3 |
 | `CreateShaderFromActiveAssets()` | 16 |
 | `TextureCollection::Instance()` | 3 |
 | `CameraCollection::Instance()` | 4 |
@@ -505,7 +520,6 @@ why that current debt exists and which migration bucket should own it.
 | `SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp` | `CameraCollection::Instance()=1` | normal runtime path | Generated scene setup still reaches camera singleton. |
 | `SkullbonezSource/Runtime/Window.cpp` | `Cfg()=6`, `Gfx()=1`, `Window::Instance()=3`, `pInstance=4` | OS callback bridge | Window singleton and resize/message integration bridge. |
 | `SkullbonezSource/Runtime/Window.h` | `pInstance=1` | OS callback bridge | Window singleton storage declaration. |
-| `SkullbonezSource/Scene/TestSceneParser.cpp` | `ActiveAssetSystem()=1` | asset lookup | Scene parsing still reaches active asset system. |
 | `SkullbonezSource/UI/UI.cpp` | `CreateShaderFromActiveAssets()=1`, `Gfx()=16` | render pass | UI rendering still reaches shader factory and renderer globally. |
 | `SkullbonezSource/UI/UIBackdropBlur.cpp` | `CreateShaderFromActiveAssets()=1`, `Gfx()=14` | render pass | Backdrop blur render/capture path still reaches globals. |
 | `SkullbonezSource/UI/UITabProfiler.cpp` | `Gfx()=1`, `Profiler::Instance()=6` | diagnostics | Profiler UI tab still samples renderer/profiler globals. |
@@ -649,6 +663,8 @@ bridges tiny, named, and fenced.
   from runtime-owned services.
 - [ ] Replace `ActiveAssetSystem()` in scene parsing and editor tools with an
   explicit asset context.
+  - [x] 2026-06-28 scene/style parser calls now accept an explicit borrowed
+    `AssetSystem` from runtime-owned services; editor placement remains open.
 - [ ] Replace `TextureCollection::Instance()` normal-path lookups with runtime
   owned texture service references.
 - [ ] Replace `CameraCollection::Instance()` normal-path lookups with explicit
@@ -742,6 +758,9 @@ Reviewer notes, 2026-06-28:
   before commit. Residual non-blocking note: the `g_*` pattern counts references
   as well as declarations, which is conservative but acceptable for this
   new-code ratchet.
+- Harvey blocked the scene parser asset-context slice until the current counted
+  surface table matched the lowered `ActiveAssetSystem()` ratchet. The snapshot
+  now removes `TestSceneParser.cpp` and records `ActiveAssetSystem()` count `3`.
 
 ## Definition Of Done
 

@@ -9,13 +9,16 @@ Mental model:
   action makes a run interactive; this module owns applying the style payload.
 
 Glossary:
+  Asset system: Runtime-owned registry used to resolve logical scene/style asset
+    references without falling back to process-global lookup.
   Cinematic override: Bitmask-selected render fields layered over defaults.
   Style scene: Authored scene used as material/cinematic source data.
   Live style: Runtime object/material changes applied without reloading.
 
 Invariants:
   - Helpers do not create or destroy scene models.
-  - Context borrows active cinematic and model state only for the call.
+  - Context borrows active cinematic, model state, and asset metadata only for
+    the call.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.cpp
@@ -31,6 +34,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
 namespace GameObjects
 {
 class GameModelCollection;
@@ -45,6 +52,7 @@ struct SceneRuntimeStyleContext
     RunSceneState& scene;
     RunSceneBrowserState& sceneBrowser;
     GameObjects::GameModelCollection& models;
+    const Assets::AssetSystem& assets;
     CinematicRenderConfig& activeCinematic;
     const CinematicRenderConfig& defaultCinematic;
 };

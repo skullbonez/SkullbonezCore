@@ -707,6 +707,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                                               SceneState(),
                                                               m_sceneController.Browser(),
                                                               m_cGameModelCollection,
+                                                              m_systems.assets,
                                                               RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                                               m_defaultCinematicRender } );
         const char* rendererName = Gfx().GetRendererName();
@@ -717,7 +718,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     else
     {
         SceneState().isSceneMode = true;
-        TestScene scene = TestScene::LoadFromFile( scenePath.c_str() );
+        TestScene scene = TestScene::LoadFromFile( scenePath.c_str(), m_systems.assets );
         hasSceneTornadoSystem = scene.HasTornadoSystem();
         if ( hasSceneTornadoSystem )
         {

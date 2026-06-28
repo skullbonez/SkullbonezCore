@@ -2267,6 +2267,7 @@ void Run::TakeInput()
                                               SceneState(),
                                               m_sceneController.Browser(),
                                               m_cGameModelCollection,
+                                              m_systems.assets,
                                               RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                               m_defaultCinematicRender },
                     action.index );
@@ -2871,6 +2872,7 @@ void Run::TakeInput()
                                           SceneState(),
                                           m_sceneController.Browser(),
                                           m_cGameModelCollection,
+                                          m_systems.assets,
                                           RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                           m_defaultCinematicRender },
                 uiCommands.cinematic.requestedModeSceneIndex );
@@ -3097,6 +3099,7 @@ bool Run::DrainRuntimeCommands()
                                           SceneState(),
                                           m_sceneController.Browser(),
                                           m_cGameModelCollection,
+                                          m_systems.assets,
                                           RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                           m_defaultCinematicRender },
                 action.index );

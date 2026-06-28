@@ -291,7 +291,7 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
         return false;
     }
 
-    TestScene lookScene = TestScene::LoadFromFile( context.sceneBrowser.paths[index].c_str() );
+    TestScene lookScene = TestScene::LoadFromFile( context.sceneBrowser.paths[index].c_str(), context.assets );
     context.activeCinematic = context.defaultCinematic;
     ApplyCinematicSceneOverrides( context.activeCinematic,
                                   lookScene.GetCinematicOverrideMask(),
@@ -345,7 +345,7 @@ bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context )
     }
 
     const std::string stylePath = std::string( DATA_ROOT ) + "styles/low_poly_art_style.style.json";
-    const TestScene styleScene = TestScene::LoadStyleFromFile( stylePath.c_str() );
+    const TestScene styleScene = TestScene::LoadStyleFromFile( stylePath.c_str(), context.assets );
     ApplyLiveStyleScene( context, styleScene );
     printf( "[scene] Applied low-poly hero rendering mode to generated demo scene.\n" );
     return true;

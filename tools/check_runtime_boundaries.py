@@ -539,7 +539,6 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Runtime/Window.cpp", "Window::Instance()", 3 ),
             ( "SkullbonezSource/Runtime/Window.cpp", "pInstance", 4 ),
             ( "SkullbonezSource/Runtime/Window.h", "pInstance", 1 ),
-            ( "SkullbonezSource/Scene/TestSceneParser.cpp", "ActiveAssetSystem()", 1 ),
             ( "SkullbonezSource/UI/UI.cpp", "CreateShaderFromActiveAssets()", 1 ),
             ( "SkullbonezSource/UI/UI.cpp", "Gfx()", 16 ),
             ( "SkullbonezSource/UI/UIBackdropBlur.cpp", "CreateShaderFromActiveAssets()", 1 ),

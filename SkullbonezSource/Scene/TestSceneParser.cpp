@@ -9,6 +9,8 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Asset system: Runtime-owned registry used to resolve logical asset-library
+    names before falling back to conventional data paths.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -615,6 +617,7 @@ class TestSceneParser
 {
   private:
     TestScene m_scene;
+    const Assets::AssetSystem* m_assets = nullptr;
     std::vector<Json> m_assetDefinitions;
 
     std::string ResolveStylePath( const std::string& token ) const
@@ -635,17 +638,17 @@ class TestSceneParser
             return token;
         }
 
-        const Assets::AssetSystem* assets = Assets::ActiveAssetSystem();
-        if ( assets )
+        if ( m_assets )
         {
-            if ( const Assets::AssetLibrarySourceAsset* library = assets->FindAssetLibrarySourceAsset( token.c_str() ) )
+            if ( const Assets::AssetLibrarySourceAsset* library =
+                     m_assets->FindAssetLibrarySourceAsset( token.c_str() ) )
             {
                 return library->resolvedPath;
             }
 
             const std::string prefixedToken = std::string( "assetlib." ) + token;
             if ( const Assets::AssetLibrarySourceAsset* library =
-                     assets->FindAssetLibrarySourceAsset( prefixedToken.c_str() ) )
+                     m_assets->FindAssetLibrarySourceAsset( prefixedToken.c_str() ) )
             {
                 return library->resolvedPath;
             }
@@ -2696,6 +2699,12 @@ class TestSceneParser
     }
 
   public:
+    // Lifetime: the parser only borrows the asset registry during this parse.
+    // A null registry keeps standalone tools on the historical path fallback.
+    explicit TestSceneParser( const Assets::AssetSystem* assets ) : m_assets( assets )
+    {
+    }
+
     TestScene LoadScene( const char* path )
     {
         LoadDocumentIntoScene( path ? path : "", false, 0 );
@@ -2713,14 +2722,14 @@ class TestSceneParser
     }
 };
 
-TestScene LoadTestSceneFromFileImpl( const char* path )
+TestScene LoadTestSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets )
 {
-    return TestSceneParser().LoadScene( path );
+    return TestSceneParser( assets ).LoadScene( path );
 }
 
-TestScene LoadStyleSceneFromFileImpl( const char* path )
+TestScene LoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets )
 {
-    return TestSceneParser().LoadStyle( path );
+    return TestSceneParser( assets ).LoadStyle( path );
 }
 } // namespace Basics
 } // namespace SkullbonezCore
