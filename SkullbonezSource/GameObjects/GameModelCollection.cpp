@@ -27,6 +27,7 @@ Related:
 */
 #include "GameModelCollection.h"
 
+#include "GameModelCollectionPhysicsAdapter.h"
 #include "../Core/MainMemoryStats.h"
 #include "../Core/SkullScope.h"
 #include "../Physics/Debug/CollisionVisualizer.h"
@@ -658,19 +659,21 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 
 void GameModelCollection::WakeModel( int index )
 {
-    m_physicsEngine.WakeBody( *this, BodyHandleForModelIndex( index ) );
+    // Why: these legacy entry points still speak model indices, but physics
+    // commands should cross the boundary as validated body handles.
+    GameModelCollectionPhysicsAdapter( *this ).WakeBodyForModelIndex( index );
 }
 
 
 void GameModelCollection::SeedModelAsleep( int index )
 {
-    m_physicsEngine.SeedBodyAsleep( *this, BodyHandleForModelIndex( index ) );
+    GameModelCollectionPhysicsAdapter( *this ).SeedBodyAsleepForModelIndex( index );
 }
 
 
 void GameModelCollection::ApplyBodyImpulse( int index, const Vector3& impulse, const Vector3& localApplicationPoint )
 {
-    m_physicsEngine.ApplyBodyImpulse( *this, BodyHandleForModelIndex( index ), impulse, localApplicationPoint );
+    GameModelCollectionPhysicsAdapter( *this ).ApplyBodyImpulseForModelIndex( index, impulse, localApplicationPoint );
 }
 
 
@@ -678,7 +681,9 @@ void GameModelCollection::SetPendingBodyImpulse( int index,
                                                  const Vector3& impulse,
                                                  const Vector3& localApplicationPoint )
 {
-    m_physicsEngine.SetPendingBodyImpulse( *this, BodyHandleForModelIndex( index ), impulse, localApplicationPoint );
+    GameModelCollectionPhysicsAdapter( *this ).SetPendingBodyImpulseForModelIndex( index,
+                                                                                   impulse,
+                                                                                   localApplicationPoint );
 }
 
 

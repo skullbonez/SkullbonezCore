@@ -10,6 +10,40 @@ when SkullScope baselines or broad physics diagnostics change.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Added `GameModelCollectionPhysicsAdapter` as the named
+  runtime/game-object compatibility bridge for physics commands. The adapter
+  maps legacy model indices and `PhysicsSceneObjectId` values to
+  `PhysicsBodyHandle`, rejects invalid or ambiguous identities before entering
+  `PhysicsEngine`, and keeps current `GameModelCollection` wake, seed-asleep,
+  immediate impulse, and pending impulse methods behind one deletion target.
+  This does not complete replay/editor/runtime storage migration: those callers
+  still present model indices until a later slice moves their state to durable
+  physics handles. Rubber-duck review by Plato found no blockers and one
+  non-blocking ambiguity risk: duplicate replay-derived scene object ids would
+  silently select the first matching model. The adapter now fails closed on
+  duplicate scene ids before final validation. Comment-style audit inspected
+  `GameModelCollectionPhysicsAdapter.h`, `GameModelCollectionPhysicsAdapter.cpp`,
+  `GameModelCollection.h`, `GameModelCollection.cpp`, and
+  `tools\validate_project_filters.py`; the touched source files now carry the
+  bridge/deletion-target vocabulary, invalid/ambiguous identity invariant, and
+  old-wrapper compatibility rationale. Targeted pre-review checks:
+  `git diff --check` passed
+  aside from expected project-file line-ending warnings,
+  `python tools\validate_project_filters.py` passed with `0 errors`,
+  `python tools\check_runtime_boundaries.py` passed with `0 errors`, and
+  `tools\validate_build.bat Profile` passed with `0 Warning(s)` and
+  `0 Error(s)`. Final validation: `tools\validate_fast.bat` passed with source
+  formatting clean, project filters `0 errors`, runtime boundaries `0 errors`,
+  Profile/Debug builds at `0 Warning(s)` and `0 Error(s)`, and
+  `VALIDATE_FAST: ALL PASSED`
+  (`TestOutput\validation\agent_logs\game_model_physics_adapter_validate_fast_final.log`);
+  `python tools\validate_project_filters.py` passed with `0 errors`
+  (`TestOutput\validation\agent_logs\game_model_physics_adapter_validate_project_filters_final.log`);
+  `tools\validate_physics.bat` passed with standalone smoke
+  `lifecycle_checks=pass hash=0x32EC17812CDAA435`, byte-exact
+  `physics_regression_solver.csv`, Profile/Debug builds ready, and
+  `VALIDATE_PHYSICS: ALL PASSED`
+  (`TestOutput\validation\agent_logs\game_model_physics_adapter_validate_physics_final.log`).
 - [x] 2026-06-28: Added standalone handle-based activation commands to the
   public physics API beachhead. `PhysicsStandaloneWorld` now applies
   `PhysicsActivationCommand` without model-index lookup for `WakeBody`,
@@ -283,11 +317,11 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 
 ### Runtime Adapter
 
-- [ ] Introduce a named runtime/game-object adapter that maps scene objects to physics handles.
-- [ ] Move existing `GameModelCollection` compatibility methods behind that adapter or delete them as call sites migrate.
+- [x] Introduce a named runtime/game-object adapter that maps scene objects to physics handles.
+- [x] Move existing `GameModelCollection` compatibility methods behind that adapter or delete them as call sites migrate.
 - [ ] Make replay/editor/runtime callers store physics handles where they currently store model indices for physics commands.
 - [ ] Keep model indices only for UI selection or render presentation where they are genuinely presentation concepts.
-- [ ] Add migration comments to any remaining temporary model-index bridge.
+- [x] Add migration comments to any remaining temporary model-index bridge.
 
 ### Guardrails
 
@@ -297,7 +331,7 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
   exact `*PhysicsModelsForCompatibility()` borrower lines and rejects duplicate
   or new compatibility vector access in synthetic tests.
 - [x] Add synthetic positive and negative tests for the boundary checker.
-- [ ] Teach project-filter validation about any new physics API or adapter files.
+- [x] Teach project-filter validation about any new physics API or adapter files.
 
 ### Tests And Evidence
 
@@ -398,10 +432,18 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
     blockers. Non-blocking findings were resolved before commit: same-body
     point joints are rejected, endpoint-update smoke coverage was added, and
     validation evidence/hash was recorded here.
+  - [x] 2026-06-28 runtime-adapter slice rubber-duck review by Plato found no
+    blockers. One non-blocking duplicate-identity risk was resolved before
+    commit by making `BodyHandleForSceneObjectId` return an invalid handle when
+    multiple models map to the same replay-derived scene object id. Missing
+    evidence reminders: final validation still had to run after review, and no
+    focused adapter-unit evidence exists yet. Final validation passed after the
+    duplicate-id fix.
 - [ ] Resolve blocking review findings before committing PR-bound code.
   - [x] No blocking activation slice findings remained before commit.
   - [x] No blocking query slice findings remained before commit.
   - [x] No blocking point-joint slice findings remained before commit.
+  - [x] No blocking runtime-adapter slice findings remained before commit.
 
 ## Definition Of Done
 

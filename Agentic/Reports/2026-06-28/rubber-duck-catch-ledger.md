@@ -16,8 +16,8 @@ for the whole Carmack run, not only from this file forward.
 | Source | Blocking findings caught | Non-blocking findings caught |
 |--------|--------------------------|------------------------------|
 | Reconstructed from existing plan notes | 7 | 8 |
-| Live tracked in this ledger | 3 | 4 |
-| Total so far | 10 | 12 |
+| Live tracked in this ledger | 3 | 5 |
+| Total so far | 10 | 13 |
 
 ## Ledger
 
@@ -31,6 +31,13 @@ for the whole Carmack run, not only from this file forward.
 | Global-service lifetime owners | Banach | 0 | 2 | Clarified `RuntimeRenderHost` owns render scratch only and borrows services; left broader catalog completeness as a non-blocking note. | Live subagent review before commit `5f5b6de9`. |
 | Standalone physics ordering comments | Sartre | 1 | 0 | Added glossary definitions for `AABB` and `STL` after the comment-style blocker; kept replay wording future-facing. | Live subagent review before commit `ef18a787`. |
 | Counted global-service allowlist classification | Bernoulli | 1 | 0 | Split counted allowlist-row classification from still-open per-site hit classification so the checklist no longer overclaims completion. | Live subagent review before this commit. |
+| GameModel physics command adapter | Plato | 0 | 1 | Made duplicate replay-derived scene object ids fail closed in `BodyHandleForSceneObjectId` instead of silently selecting the first matching model. | Live subagent review before this commit; missing evidence reminders: final validation still required, and no focused adapter-unit evidence exists yet. |
+
+## Review Accounting
+
+| Run id | Plan path | Reviewer | Prompt chars | Response chars | Token accounting | Elapsed | Verdict | Follow-up |
+|--------|-----------|----------|--------------|----------------|------------------|---------|---------|-----------|
+| carmack-physics-runtime-adapter-duck-01 | `Agentic/Plans/carmack-physics-standalone-boundary-plan.md` | Plato / `019f0cf9-b479-7720-995c-d5161f7a5426` | 2331 | 1548 | n/a | ~15m | 0 blockers, 1 non-blocking catch, 2 missing-evidence reminders | Duplicate scene ids now fail closed; final validation still required before commit. |
 
 ## Update Rule
 
@@ -39,4 +46,7 @@ Before each future reviewed commit:
 1. Add one row for the reviewer result.
 2. Increment blocking and non-blocking totals.
 3. Record the exact pre-commit change caused by each blocking finding.
-4. Do not count issues caught after commit as pre-commit catches.
+4. Track missing-evidence reminders in review accounting, but keep them out of
+   blocking/non-blocking catch totals unless the reviewer classifies them as
+   findings.
+5. Do not count issues caught after commit as pre-commit catches.

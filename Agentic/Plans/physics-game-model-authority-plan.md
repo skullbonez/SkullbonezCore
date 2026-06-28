@@ -15,6 +15,17 @@ Validation for this plan edit: Documentation-only. No repository validation requ
 - [x] 2026-06-27: Added a counted runtime-boundary allowlist so current `PhysicsModels()` compatibility callers are explicit and any new direct caller fails validation.
 - [x] 2026-06-28: Deleted the neutral `GameModelCollection::PhysicsModels()` API name; remaining vector borrowers now call explicit compatibility accessors.
 - [x] 2026-06-28: Added a counted guardrail for the named physics model vector compatibility accessors so the temporary seam cannot grow accidentally.
+- [x] 2026-06-28: Added `GameModelCollectionPhysicsAdapter` as the explicit
+  compatibility boundary for existing model-index physics commands. The old
+  `WakeModel`, `SeedModelAsleep`, `ApplyBodyImpulse`, and
+  `SetPendingBodyImpulse` entry points now resolve `PhysicsBodyHandle` through
+  the adapter before calling `PhysicsEngine`, and the adapter also provides a
+  `PhysicsSceneObjectId` lookup path for scene/runtime migration. Duplicate
+  replay-derived scene object ids fail closed instead of choosing the first
+  vector slot. This is a bridge, not final authority: replay, editor, and
+  runtime callers still need durable handle storage in later slices. Validation
+  evidence is recorded in
+  `Agentic/Plans/carmack-physics-standalone-boundary-plan.md`.
 
 ## Goal
 
@@ -114,6 +125,9 @@ Prerequisite handle-bootstrap slice:
 - [ ] Promote the existing `PhysicsBodyHandle` path out of model-index compatibility.
 - [x] Add or reuse a deterministic compatibility body handle mapping owned by the physics/body store layer.
 - [ ] Ensure the mapping can resolve old model-index callers only at explicit compatibility boundaries.
+  - [x] 2026-06-28 adapter slice routes touched model-index command callers
+    through `GameModelCollectionPhysicsAdapter`, giving the compatibility
+    mapping one named deletion target.
 - [ ] Ensure new physics APIs accept stable handles or store rows, not raw `GameModel` indices.
 - [x] Document any remaining compatibility handle conversion with a deletion target in this plan.
 - [x] Prove the bootstrap does not change body iteration order or replay ordering.
@@ -166,6 +180,9 @@ Create durable handles before moving ownership. The stores cannot be authoritati
 - [ ] Preserve deterministic iteration order for physics stepping and replay output.
 - [ ] Replace new or touched model-index APIs with stable handles.
 - [ ] Keep temporary model-index adapters only at old call boundaries.
+  - [x] 2026-06-28 adapter slice keeps the temporary model-index command bridge
+    at the old `GameModelCollection` entry points instead of adding another
+    physics-facing model-index API.
 - [ ] Add comments documenting handle lifetime, ownership, and invalidation rules.
 - [ ] Add focused tests or assertions for stale handle rejection if the codebase has a suitable local test path.
 

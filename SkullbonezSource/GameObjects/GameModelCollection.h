@@ -56,6 +56,7 @@ class WorldEnvironment;
 namespace GameObjects
 {
 class GameModelRenderer;
+class GameModelCollectionPhysicsAdapter;
 
 /* -- Game Model Collection
 --------------------------------------------------------------------------------------------------------------------------------------
@@ -68,6 +69,10 @@ class GameModelRenderer;
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class GameModelCollection : public Rendering::IRenderSceneView, public Physics::PhysicsModelAccess
 {
+    // Why: the adapter is the named compatibility bridge while old
+    // model-indexed callers migrate to durable physics handles.
+    friend class GameModelCollectionPhysicsAdapter;
+
   private:
     std::vector<GameModel> m_gameModels;
     GameModelSoACache m_soaCache;
