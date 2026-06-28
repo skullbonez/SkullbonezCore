@@ -211,7 +211,7 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | Left Click | In Attach mode, select or clear the attached camera target. Outside UI/editor/Attach ownership, select or clear replay path targets. In launcher mode, fire the selected launcher action from the camera instead. Laser mode shows a short ribbon to the aimed hit; projectile mode shoots a small dynamic ball. |
 | Shift+Left Click | Add another replay path history target and make it the prediction root. |
 | Ctrl+Left Click | In launcher mode, select or clear the replay path target without firing. Combine with Shift to add targets. |
-| F1 | In Attach mode, cycle attached-camera submodes: fixed relative, velocity forward, and ragdoll eyes when the target supports it. |
+| F1 | In Attach mode, cycle attached-camera submodes: fixed relative, velocity chase, and ragdoll eyes when the target supports it. |
 | Enter | In Attach mode, pin/unpin the camera so the mouse can operate UI/replay controls without losing the current world-space view. In launcher mode, write Debug-build repro data for the object under the crosshair to `Debug/launcher_repro_snapshots.txt`. While the replay scrubber is paused on the solver or `V2 FILE` row, trigger the same restore path as the scrubber `BRANCH` button. |
 | R | Reset or rerun the current scene/generated demo while preserving live controls. |
 | F2 | Save a scene snapshot. |
@@ -236,7 +236,7 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | F7 / F8 | Step the physics pipeline debug overlay to the previous or next Catto stage. |
 | G | Toggle broadphase visualizer, or cycle the tracked ball when ball tracking is active and the visualizer is off. |
 
-Fly, launcher, and Attach active-follow mode use WASD, mouse look, Shift for faster movement, and Space to step physics while fly/Attach mode is paused. Attach mode follows a selected object and can be selected from the camera combo or by cycling camera modes with Tab.
+Fly, launcher, and Attach active-follow mode use WASD, mouse look, Shift for faster movement, and Space to step physics while fly/Attach mode is paused. Attach mode follows a selected object and can be selected from the camera combo or by cycling camera modes with Tab. Velocity chase keeps the camera behind the selected object's linear velocity while mouse input temporarily offsets the orbit and then blends back after release.
 
 ## Test Scenes
 
