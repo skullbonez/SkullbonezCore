@@ -113,7 +113,7 @@ IRENDER_BACKEND_DIRECT_METHOD_PATTERN = re.compile(
     re.S,
 )
 GRAPH_OWNED_RENDER_PASS_DIRECT_CALL_PATTERN = re.compile(
-    r"\bm_(?:(?:tornadoVisualPass|debugOverlayPass|volumetricPass|tonemapPass|uiTextPass)\s*\.\s*Render|"
+    r"\bm_(?:(?:skyPass|tornadoVisualPass|debugOverlayPass|volumetricPass|tonemapPass|uiTextPass)\s*\.\s*Render|"
     r"sceneTargetPass\s*\.\s*Begin)\s*\("
 )
 GRAPH_OWNED_RENDER_PASS_MANUAL_BARRIER_PATTERN = re.compile(
@@ -3511,6 +3511,7 @@ def run_self_tests() -> list[str]:
     void RuntimeRenderer::RenderFrame()
     {
         ExecuteSceneTargetBeginThroughRenderGraph( frame );
+        ExecuteSkyboxThroughRenderGraph( frame );
         ExecuteTornadoVisualThroughRenderGraph( frame, useCinematicTarget );
         ExecuteDebugOverlayThroughRenderGraph( frame, useCinematicTarget );
         ExecuteCinematicPostThroughRenderGraph( frame );
@@ -3527,6 +3528,7 @@ def run_self_tests() -> list[str]:
     void RuntimeRenderer::RenderFrame()
     {
         m_sceneTargetPass.Begin( frame, m_skyPass );
+        m_skyPass.Render( frame, frame.baseView, SkyPassMode::CubemapOnly );
         m_tornadoVisualPass.Render( frame );
         m_debugOverlayPass.Render( frame );
         m_volumetricPass.Render( frame );

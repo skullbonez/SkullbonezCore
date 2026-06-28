@@ -44,6 +44,7 @@ struct RenderSceneSnapshot
     bool terrainPassRendered = false;        // Terrain pass actually drew terrain this frame.
     bool waterPassRendered = false;          // Water pass actually drew fluid this frame.
     bool waterSamplesReflection = false;     // Water sampled a non-zero reflection texture handle.
+    bool skyboxCallbackOwned = false;        // Ordinary skybox scheduling ran through the executable render graph.
     bool sceneTargetCallbackOwned = false;   // Cinematic scene-target begin ran through the executable render graph.
     bool tornadoVisualRendered = false;      // Sparse tornado production visual drew after water with depth write disabled.
     bool tornadoVisualCallbackOwned = false; // Tornado visual scheduling ran through the executable render graph.

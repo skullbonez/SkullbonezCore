@@ -74,6 +74,12 @@ struct SceneTargetGraphCallbackData
     const RenderFrameContext* frame = nullptr;
 };
 
+struct SkyboxGraphCallbackData
+{
+    SkyPass* skyPass = nullptr;
+    const RenderFrameContext* frame = nullptr;
+};
+
 struct UiTextGraphCallbackData
 {
     UiTextPass* uiTextPass = nullptr;
@@ -120,6 +126,16 @@ void ExecuteSceneTargetGraphCallback( const SkullbonezCore::Rendering::RenderGra
         throw std::runtime_error( "CinematicSceneBegin graph callback missing execution data" );
     }
     data->sceneTargetPass->Begin( *data->frame, *data->skyPass );
+}
+
+void ExecuteSkyboxGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
+{
+    auto* data = static_cast<SkyboxGraphCallbackData*>( userData );
+    if ( !data || !data->skyPass || !data->frame )
+    {
+        throw std::runtime_error( "SkyboxPass graph callback missing execution data" );
+    }
+    data->skyPass->Render( *data->frame, data->frame->baseView, SkyPassMode::CubemapOnly );
 }
 
 void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
@@ -178,6 +194,32 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                                        renderReady } };
 }
 } // namespace
+
+bool RuntimeRenderer::ExecuteSkyboxThroughRenderGraph( const RenderFrameContext& frame )
+{
+    Rendering::RenderGraph graph;
+    const Rendering::RenderGraphResourceHandle backbuffer =
+        graph.AddExternalResource( "SwapchainBackbuffer", Rendering::RenderGraphResourceAccess::RenderTarget );
+
+    const uint32_t skyboxPass = graph.AddPass( "SkyboxPass",
+                                               Rendering::RenderGraphQueueType::Graphics,
+                                               Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+    graph.AddWrite( skyboxPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+
+    SkyboxGraphCallbackData callbackData;
+    callbackData.skyPass = &m_skyPass;
+    callbackData.frame = &frame;
+    graph.SetPassCallback( skyboxPass, ExecuteSkyboxGraphCallback, &callbackData, true, "Frame/Render/Skybox" );
+
+    // Invariant: the ordinary skybox still draws through SkyPass; the graph now
+    // owns the scheduling point and resource declaration before live execution.
+    graph.Compile();
+    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
+    const Rendering::RenderGraphCallbackExecutionResult executed =
+        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
+    return executed.executedPassCount == 1u;
+}
+
 
 bool RuntimeRenderer::ExecuteSceneTargetBeginThroughRenderGraph( const RenderFrameContext& frame )
 {
@@ -570,12 +612,13 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     // Invariant: sky and reflection both consume the interpolated render camera
     // from RenderFrameContext. Using the selected destination camera here would
     // stretch reflected geometry during camera transitions.
+    bool skyboxCallbackOwned = false;
     if ( !cinematicRender )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Skybox" );
         {
             DRAW_CALL_TRACE_SCOPE( "Frame/Render/Skybox" );
-            m_skyPass.Render( frame, frame.baseView, SkyPassMode::CubemapOnly );
+            skyboxCallbackOwned = ExecuteSkyboxThroughRenderGraph( frame );
         }
         PROFILE_GPU_END( "Frame/Render/Skybox" );
     }
@@ -686,6 +729,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     frameSnapshot.waterPassRendered = waterDebug.rendered;
     frameSnapshot.waterSamplesReflection =
         waterDebug.rendered && !waterDebug.noReflection && waterDebug.reflectionValid;
+    frameSnapshot.skyboxCallbackOwned = skyboxCallbackOwned;
     frameSnapshot.sceneTargetCallbackOwned = sceneTargetCallbackOwned;
     frameSnapshot.tornadoVisualRendered = tornadoVisualGraph.rendered;
     frameSnapshot.tornadoVisualCallbackOwned = tornadoVisualGraph.callbackOwned;

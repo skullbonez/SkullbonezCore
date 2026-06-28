@@ -45,6 +45,7 @@ bool IsSameSnapshot( const RenderSceneSnapshot& lhs, const RenderSceneSnapshot& 
            lhs.objectTransparentPass == rhs.objectTransparentPass &&
            lhs.terrainPassRendered == rhs.terrainPassRendered && lhs.waterPassRendered == rhs.waterPassRendered &&
            lhs.waterSamplesReflection == rhs.waterSamplesReflection &&
+           lhs.skyboxCallbackOwned == rhs.skyboxCallbackOwned &&
            lhs.sceneTargetCallbackOwned == rhs.sceneTargetCallbackOwned &&
            lhs.tornadoVisualCallbackOwned == rhs.tornadoVisualCallbackOwned &&
            lhs.debugOverlayCallbackOwned == rhs.debugOverlayCallbackOwned &&
@@ -169,6 +170,10 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
     {
         const uint32_t skyPass = graph.AddPass( "SkyboxPass" );
         graph.AddWrite( skyPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+        if ( snapshot.skyboxCallbackOwned )
+        {
+            graph.SetPassCallback( skyPass, DiagnosticCallbackMarker, nullptr, true, "Frame/Render/Skybox" );
+        }
     }
 
     if ( snapshot.reflectionUsedDxr )
@@ -310,6 +315,7 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
     out << "water_pass_rendered=" << ( snapshot.waterPassRendered ? "true" : "false" ) << "\n";
     out << "water_samples_reflection=" << ( snapshot.waterSamplesReflection ? "true" : "false" ) << "\n";
     out << "scene_target_callback_owned=" << ( snapshot.sceneTargetCallbackOwned ? "true" : "false" ) << "\n";
+    out << "skybox_callback_owned=" << ( snapshot.skyboxCallbackOwned ? "true" : "false" ) << "\n";
     out << "tornado_visual_callback_owned=" << ( snapshot.tornadoVisualCallbackOwned ? "true" : "false" ) << "\n";
     out << "debug_overlay_callback_owned=" << ( snapshot.debugOverlayCallbackOwned ? "true" : "false" ) << "\n";
     out << "volumetric_callback_owned=" << ( snapshot.volumetricCallbackOwned ? "true" : "false" ) << "\n";

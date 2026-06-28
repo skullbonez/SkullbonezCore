@@ -10,6 +10,28 @@ requires `tools\validate_perf.bat`.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Moved the ordinary `SkyboxPass` under live render graph
+  callback ownership. `RuntimeRenderer::RenderFrame()` now schedules the
+  non-cinematic skybox through `ExecuteSkyboxThroughRenderGraph()`, declaring
+  the `SwapchainBackbuffer` render-target write, dry-running the callback before
+  live command recording, and preserving the existing `SkyPass::Render()` body.
+  Frame graph diagnostics now record `skybox_callback_owned=true`, and
+  `tools\check_runtime_boundaries.py` blocks direct `m_skyPass.Render(...)`
+  scheduling from returning beside the graph helper.
+  Comment-style audit: inspected `RunRender.cpp`, `RuntimeRenderer.h`,
+  `RenderSceneSnapshot.h`, `RenderPipeline.cpp`, and
+  `tools\check_runtime_boundaries.py`; the new callback handoff documents the
+  graph scheduling invariant and reuses the existing pass/resource mental model
+  headers.
+  Validation:
+  `cmd /c tools\validate_full.bat` passed from
+  `TestOutput\validation\agent_logs\skybox_graph_callback_validate_full.log`,
+  including project filters, runtime boundaries, Profile and Debug builds with
+  0 warnings, DX12 InfoQueue reporting 0 validation errors, matching DX12
+  screenshots (`TestOutput\validation\dx12_renderer\20260628T090432Z\manifest.json`),
+  standalone physics smoke, and byte-exact `physics_regression_solver.csv`.
+  `Debug\dx12_frame_graph_actual.txt` shows `skybox_callback_owned=true` and
+  `SkyboxPass execution=Callback`.
 - [x] 2026-06-28: Added the runtime-facing manual-barrier guardrail for
   graph-owned pass families. `tools\check_runtime_boundaries.py` now scans
   `RunRender.cpp`, `RunPasses.cpp`, and `RunUiTextPass.cpp` for DX12-style
@@ -161,7 +183,7 @@ Production pass ownership in `RuntimeRenderer`:
 |---------------|---------------------------|--------------------|
 | Backbuffer clear | Manual in `RuntimeRenderer::RenderFrame()` | Diagnostic-only in executed-frame dump. |
 | `ShadowPass` terrain/object maps | Manual pass body | Diagnostic-only `ShadowMapPass` in executed-frame dump. |
-| `SkyPass` cubemap/cinematic sky | Manual pass body; cinematic begin calls sky through callback-owned scene target | Diagnostic-only `SkyboxPass` except cinematic begin callback handoff. |
+| `SkyPass` cubemap/cinematic sky | Ordinary cubemap sky is callback-owned; cinematic begin calls sky through callback-owned scene target | Live `SkyboxPass` callback for ordinary backbuffer write; cinematic begin callback handoff. |
 | `ReflectionPass` raster or DXR | Manual pass body | Diagnostic-only `RasterReflectionPass` or `DxrReflectionPass`. |
 | `SceneTargetPass::Begin` | Callback-owned when cinematic target is live | Live `CinematicSceneBegin` graph callback with color/depth writes. |
 | `ObjectPass` opaque | Manual pass body | Diagnostic-only `ObjectOpaquePass`. |
@@ -232,6 +254,8 @@ Latest validation evidence available before the next pass-family migration:
 - [x] Require each callback-owned pass to declare at least one read or write.
 - [x] Validate callback dry-run before execute mode.
 - [x] Record callback-owned status in frame graph diagnostics.
+- [x] Move ordinary `SkyboxPass` scheduling under a graph callback with a
+  declared `SwapchainBackbuffer` write and `skybox_callback_owned` diagnostics.
 - [ ] Repeat pass migration in small slices until every production pass is graph-owned.
 
 ### Resource Declaration
