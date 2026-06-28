@@ -594,12 +594,14 @@ bridges tiny, named, and fenced.
   migration slice.
 - [x] Add synthetic checker tests that reject a new normal-path global service
   access.
-- [ ] Add a review checklist entry asking whether a new dependency should be a
+- [x] Add a review checklist entry asking whether a new dependency should be a
   borrowed context instead of a global.
 
 ## Validation Checklist
 
 - [ ] For plan-only edits: no validation required.
+  - [x] 2026-06-28 review-checklist entry slice was plan-only; no repository
+    validation required.
 - [x] For runtime-wide lifetime or startup/shutdown changes: run `tools\validate_full.bat`.
 - [x] For renderer service access changes: run `tools\validate_dx12_renderer.bat`.
 - [ ] For asset registration, scene asset loading, hull asset, or scene JSON
@@ -617,6 +619,9 @@ bridges tiny, named, and fenced.
 - [x] Ask the reviewer to inspect startup/shutdown lifetime order and borrowed
   pointer safety.
 - [x] Ask the reviewer to search for new normal-path global access.
+- [x] Ask whether any new dependency should be passed as an explicit borrowed
+  context instead of reached through `Gfx()`, `ActiveAssetSystem()`, `Cfg()`,
+  singleton `Instance()`, `pInstance`, or `g_*` process state.
 - [x] Record review findings in a report or this plan.
 - [x] Resolve blocking findings before committing PR-bound code.
 

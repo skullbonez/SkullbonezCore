@@ -642,7 +642,15 @@ Current direct `Gfx()` cluster map from the inventory search:
 - [x] Add a plan-local table of remaining `IRenderBackend` methods after each slice.
 - [ ] Delete facade methods when no direct caller needs them.
 - [ ] Update `RenderCapabilities` if capability discovery moves to narrower services.
-- [ ] Remove stale comments that imply GL/DX11 parity or multi-backend runtime selection.
+- [x] Remove stale comments that imply GL/DX11 parity or multi-backend runtime selection.
+  2026-06-28 active-source review:
+  `rg "\bDX11\b|OpenGL|GL/DX11|renderer parity|multi-backend|backend selection|runtime renderer" SkullbonezSource -g "*.h" -g "*.cpp" -g "*.inl"`
+  found only retired-renderer/compatibility notes or current DX12 owner wording
+  in active source:
+  `Runtime/Init.cpp` parser diagnostics, `Runtime/Run.h` retired renderer
+  glossary text, `RunInput.cpp`'s retired Q-key renderer switch message,
+  `UICommands.h`'s retired compatibility field, and
+  `RuntimeRenderer.h`'s current DX12 render-pass owner header.
 
 Remaining `IRenderBackend` surface after the 2026-06-28 capability-interface slice:
 
@@ -667,6 +675,8 @@ Remaining `IRenderBackend` surface after the 2026-06-28 capability-interface sli
 ## Validation Checklist
 
 - [ ] For plan-only edits: no validation required.
+  - [x] 2026-06-28 stale-comment source review was plan-only; no repository
+    validation required.
 - [x] For capability header or DX12 backend changes: run `tools\validate_dx12_renderer.bat`.
 - [x] For runtime render orchestration changes: run `tools\validate_full.bat` if multiple areas are touched.
 - [x] For upload, dynamic geometry, telemetry, or per-frame adapter changes: run `tools\validate_perf.bat`.
