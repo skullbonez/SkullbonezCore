@@ -85,6 +85,34 @@ storage changes, also run `tools\validate_perf.bat`.
   evidence from before that narrowing, plus two non-blocking clarity issues; the
   validation was rerun, an `Invariant:` comment was added near the readiness
   guard, and the global plan's broad borrowed-context checkbox was left open.
+- [x] 2026-06-28: Carried the borrowed render command capability from
+  `RuntimeRenderServices` into `RenderFrameContext` and migrated the
+  `RunPasses.cpp` texture-slot hygiene helpers (`ClearRenderTextureSlotsExcept`,
+  `ClearAllRenderTextureSlots`, and `BindRenderTextureSlots`) off direct
+  `Gfx()` access. `RunPasses.cpp` direct `Gfx()` debt fell from 98 to 96; the
+  broad render-pass backend migration remains open because viewport, clear,
+  depth/blend/cull, dynamic geometry, and resource creation calls still use the
+  compatibility facade.
+  Comment-style audit: inspected `RuntimeRenderPasses.h`, `RunPasses.cpp`,
+  `RunRender.cpp`, and `tools\check_runtime_boundaries.py`; the new
+  `RenderFrameContext` command pointer has a `Lifetime:` note, and
+  `RunPasses.cpp` asserts the borrowed pointer is bound before helper use.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.78s
+  (`TestOutput\validation\agent_logs\render_frame_command_context_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.35s
+  (`TestOutput\validation\agent_logs\render_frame_command_context_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 18.01s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\render_frame_command_context_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.25s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\render_frame_command_context_validate_full.log`).
+  Rubber-duck review: Hubble found no blockers. Non-blocking notes: the command
+  pointer remains nullable/assert-only for future direct default construction,
+  the slice should be recorded as texture-slot helper progress only, and the
+  `Gfx()` guardrail is still a counted ratchet rather than a semantic per-call
+  classifier.
 
 ## Problem Statement
 
@@ -144,6 +172,9 @@ compatibility facade while call sites migrate.
 ### Call-Site Migration
 
 - [ ] Route runtime render passes through `RuntimeRenderHost` capability groups rather than direct wide-backend access.
+- [x] Route runtime render-pass texture-slot hygiene helpers through
+  `RenderFrameContext`'s borrowed `IRenderCommandContext` and lower the
+  `RunPasses.cpp` direct `Gfx()` allowlist from 98 to 96.
 - [ ] Pass capture/readback capability only to screenshot and validation paths.
 - [ ] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
 - [ ] Pass GPU profiler capability only to profiler marker code.

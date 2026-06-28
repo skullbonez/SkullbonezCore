@@ -54,6 +54,30 @@ require `tools\validate_full.bat`.
   resolved by rerunning DX12 and full validation after the final source edit,
   and the broad borrowed-context checklist item remains open for future
   non-render contexts.
+- [x] 2026-06-28: Threaded the borrowed render command capability into
+  `RenderFrameContext` and switched the runtime render-pass texture-slot hygiene
+  helpers away from direct `Gfx()` access. This lowers `RunPasses.cpp` direct
+  `Gfx()` debt from 98 to 96 and the plan's total counted `Gfx()` surface from
+  293 to 291. The broader render-pass/global-service migration remains open
+  because the same file still has many compatibility-facade calls for viewport,
+  clear, depth/blend/cull, draw state, resource creation, and DXR decisions.
+  Comment-style audit: inspected `RuntimeRenderPasses.h`, `RunPasses.cpp`,
+  `RunRender.cpp`, and `tools\check_runtime_boundaries.py`; the command pointer
+  is lifetime-annotated and asserted before helper use.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.78s
+  (`TestOutput\validation\agent_logs\render_frame_command_context_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.35s
+  (`TestOutput\validation\agent_logs\render_frame_command_context_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 18.01s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\render_frame_command_context_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.25s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\render_frame_command_context_validate_full.log`).
+  Rubber-duck review: Hubble found no blockers; the reviewer called out the
+  nullable/assert-only command pointer and counted-ratchet limits as residual
+  risks to keep visible in later slices.
 
 ## Current Counted Global-Service Surface
 
@@ -64,7 +88,7 @@ string literals.
 | Pattern | Current count |
 |---------|---------------|
 | `Cfg()` | 239 |
-| `Gfx()` | 293 |
+| `Gfx()` | 291 |
 | `GfxRayTracing()` | 5 |
 | `ActiveAssetSystem()` | 4 |
 | `CreateShaderFromActiveAssets()` | 16 |
@@ -144,6 +168,9 @@ bridges tiny, named, and fenced.
 
 - [ ] Route render pass backend access through render capability/context
   arguments.
+- [x] Route render pass texture-slot hygiene helpers through
+  `RenderFrameContext`'s borrowed command context instead of direct `Gfx()`
+  calls.
 - [ ] Route shader and texture creation through an asset/render context passed
   from runtime-owned services.
 - [ ] Replace `ActiveAssetSystem()` in scene parsing and editor tools with an
@@ -175,6 +202,8 @@ bridges tiny, named, and fenced.
   cameras, input, diagnostics, and scene services.
 - [ ] Document shutdown unbind order and backend resource release order.
 - [ ] Add assertions that borrowed service pointers are bound before use.
+- [x] Add a local assertion before runtime render-pass texture-slot helpers use
+  `RenderFrameContext::renderCommands`.
 - [ ] Add assertions that services are unbound before destruction when callbacks
   can fire late.
 - [ ] Keep `Run.h` as composition root wiring, not a bag of service-locator

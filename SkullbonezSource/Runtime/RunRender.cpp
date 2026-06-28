@@ -396,6 +396,7 @@ RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRender
     frame.cinematicEnabled = cinematicRender;
     frame.cinematic = cinematicRender ? &renderConfig : nullptr;
     frame.scene = &services.models;
+    frame.renderCommands = &services.renderCommands;
 
     // Ordinary and cinematic rendering both use a directional sun (w = 0).
     // Keeping one sun-vector contract makes direct BRDF lighting and shadow-map

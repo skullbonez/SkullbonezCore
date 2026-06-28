@@ -60,23 +60,29 @@ constexpr std::size_t TORNADO_VISUAL_FLOATS_PER_VERTEX = 11u;
 constexpr float TORNADO_FX_KIND_RIBBON = 0.0f;
 constexpr float TORNADO_FX_KIND_DUST = 1.0f;
 
-void ClearRenderTextureSlotsExcept( unsigned int keptSlots )
+void ClearRenderTextureSlotsExcept( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                    unsigned int keptSlots )
 {
     for ( int slot = 0; slot < RENDER_TEXTURE_SLOT_COUNT; ++slot )
     {
         if ( ( keptSlots & ( 1u << slot ) ) == 0u )
         {
-            Gfx().BindTexture( 0, slot );
+            renderCommands.BindTexture( 0, slot );
         }
     }
 }
 
-void ClearAllRenderTextureSlots()
+void ClearAllRenderTextureSlots( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands )
 {
-    ClearRenderTextureSlotsExcept( 0u );
+    ClearRenderTextureSlotsExcept( renderCommands, 0u );
 }
 
-void BindRenderTextureSlots( uint32_t slot0, uint32_t slot1, uint32_t slot2, uint32_t slot3, uint32_t slot4 = 0 )
+void BindRenderTextureSlots( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                             uint32_t slot0,
+                             uint32_t slot1,
+                             uint32_t slot2,
+                             uint32_t slot3,
+                             uint32_t slot4 = 0 )
 {
     // Contract: ordinary raster shaders expose t0..t4. Slot t4 is reserved for
     // the object material table, but pass hygiene still clears it to the typed
@@ -85,8 +91,14 @@ void BindRenderTextureSlots( uint32_t slot0, uint32_t slot1, uint32_t slot2, uin
     const uint32_t handles[RENDER_TEXTURE_SLOT_COUNT] = { slot0, slot1, slot2, slot3, slot4 };
     for ( int slot = 0; slot < RENDER_TEXTURE_SLOT_COUNT; ++slot )
     {
-        Gfx().BindTexture( handles[slot], slot );
+        renderCommands.BindTexture( handles[slot], slot );
     }
+}
+
+SkullbonezCore::Rendering::IRenderCommandContext& RenderCommands( const RenderFrameContext& frame )
+{
+    assert( frame.renderCommands && "RenderFrameContext requires a render command context" );
+    return *frame.renderCommands;
 }
 
 float Clamp01( float value )
@@ -667,6 +679,7 @@ ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
 void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
                                   const Rendering::ShadowFrameData& shadowFrame,
                                   const CinematicRenderConfig& cinematic,
+                                  Rendering::IRenderCommandContext& renderCommands,
                                   bool renderTerrain,
                                   bool renderObjects,
                                   Rendering::IRenderSceneView& scene,
@@ -709,7 +722,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
     // Pass contract: shadow depth shaders write depth only and sample no
     // textures. Clear inherited slots so descriptor state from the visible
     // scene cannot leak into this off-screen pass.
-    ClearAllRenderTextureSlots();
+    ClearAllRenderTextureSlots( renderCommands );
 
     if ( renderTerrain && cinematic.shadowTerrainCasts && !m_host.m_debug.isTerrainHidden && m_host.m_systems.terrain )
     {
@@ -794,6 +807,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                 RenderShadowMap( *shadows.terrainTarget,
                                  shadows.terrainFrame,
                                  *inputs.cinematic,
+                                 RenderCommands( inputs.frame ),
                                  true,
                                  true,
                                  *inputs.frame.scene,
@@ -809,6 +823,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                 RenderShadowMap( *shadows.objectTarget,
                                  shadows.objectFrame,
                                  *inputs.cinematic,
+                                 RenderCommands( inputs.frame ),
                                  false,
                                  true,
                                  *inputs.frame.scene,
@@ -846,7 +861,7 @@ void SkyPass::RenderCinematicSky( const RenderFrameContext& frame, const Math::T
     // Pass contract: this generated sky samples no textures. Clear inherited
     // SRV slots before the fullscreen draw so stale pass inputs cannot be
     // recopied by the backend while the sky shader is active.
-    ClearAllRenderTextureSlots();
+    ClearAllRenderTextureSlots( RenderCommands( frame ) );
     sky.atmosphereShader->Use();
     BindSkyPassParams( *sky.atmosphereShader, view, frame.projection, cinematic );
     DrawFullscreenQuad( fullscreen.quadVB );
@@ -873,7 +888,7 @@ void SkyPass::Render( const RenderFrameContext& frame, const Math::Transformatio
                       Matrix4::Scale( Cfg().skyboxScale );
     // Pass contract: cube-map skybox faces sample only slot 0. Slots owned by
     // water, post, or shadows must not leak into these six mesh draws.
-    ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_0 );
+    ClearRenderTextureSlotsExcept( RenderCommands( frame ), RENDER_TEXTURE_SLOT_0 );
     m_host.m_systems.skyBox->Render( skyView, frame.projection );
 }
 
@@ -992,7 +1007,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         {
             // Pass contract: collision-state solids are vertex-colored and do
             // not sample textures.
-            ClearAllRenderTextureSlots();
+            ClearAllRenderTextureSlots( RenderCommands( inputs.frame ) );
             if ( inputs.frame.scene )
             {
                 inputs.frame.scene->RenderCollisionStateSolids( m_host.m_collisionVisualizer,
@@ -1007,8 +1022,9 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             // Pass contract: reflected lit models read material color from slot
             // 0 and optional shadow depth from slot 3.
             ClearRenderTextureSlotsExcept(
+                RenderCommands( inputs.frame ),
                 RENDER_TEXTURE_SLOT_0 |
-                ( inputs.objectShadow && inputs.objectShadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
+                    ( inputs.objectShadow && inputs.objectShadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
             m_host.SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
             if ( inputs.frame.scene )
             {
@@ -1050,7 +1066,7 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
     {
         // Pass contract: collision-state solids are vertex-colored and do not
         // sample textures.
-        ClearAllRenderTextureSlots();
+        ClearAllRenderTextureSlots( RenderCommands( inputs.frame ) );
         if ( inputs.frame.scene )
         {
             inputs.frame.scene->RenderCollisionStateSolids( m_host.m_collisionVisualizer,
@@ -1064,8 +1080,9 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
     {
         // Pass contract: lit model shaders read the material texture in slot 0
         // and optionally the shadow depth texture in slot 3.
-        ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_0 |
-                                       ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
+        ClearRenderTextureSlotsExcept(
+            RenderCommands( inputs.frame ),
+            RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
         m_host.SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
         if ( inputs.frame.scene )
         {
@@ -1106,8 +1123,9 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
     DRAW_CALL_TRACE_SCOPE( "Frame/Render/Terrain" );
     // Pass contract: terrain reads ground albedo from slot 0 and optional
     // shadow depth from slot 3.
-    ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_0 |
-                                   ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
+    ClearRenderTextureSlotsExcept(
+        RenderCommands( inputs.frame ),
+        RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
     m_host.SelectRenderTexture( TEXTURE_GROUND );
     m_host.m_systems.terrain->Render( inputs.frame.baseView,
                                       inputs.frame.projection,
@@ -1152,7 +1170,7 @@ void WaterPass::Render( const WaterPassInputs& inputs )
     PROFILE_GPU_BEGIN( "Frame/Render/Water" );
     DRAW_CALL_TRACE_SCOPE( "Frame/Render/Water" );
     // Pass contract: water samples only the reflection texture in slot 1.
-    ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_1 );
+    ClearRenderTextureSlotsExcept( RenderCommands( inputs.frame ), RENDER_TEXTURE_SLOT_1 );
     float waterTime = inputs.freezeTime ? inputs.frozenTime
                                         : static_cast<float>( m_host.m_timers.simulationTimer.GetTimeSinceLastStart() );
     m_debugInfo.rendered = true;
@@ -1488,7 +1506,7 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
 
     PROFILE_GPU_BEGIN( "Frame/Render/TornadoVisual" );
     DRAW_CALL_TRACE_SCOPE( "Frame/Render/TornadoVisual" );
-    ClearAllRenderTextureSlots();
+    ClearAllRenderTextureSlots( RenderCommands( inputs.frame ) );
     const bool depthTestWasEnabled = Gfx().IsDepthTestEnabled();
     const bool depthWriteWasEnabled = Gfx().IsDepthWriteEnabled();
     const bool blendWasEnabled = Gfx().IsBlendEnabled();
@@ -1768,7 +1786,8 @@ bool VolumetricPass::Render( const RenderFrameContext& frame )
         // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
         // depth. The shader uses depth to tell sky pixels from solid geometry so
         // rays pass through sky and fade when they cross hills/balls.
-        BindRenderTextureSlots( scene.hdrTarget->GetColorTextureHandle(),
+        BindRenderTextureSlots( RenderCommands( frame ),
+                                scene.hdrTarget->GetColorTextureHandle(),
                                 scene.hdrTarget->GetDepthTextureHandle(),
                                 0,
                                 0 );
@@ -1859,7 +1878,8 @@ void TonemapPass::Render( const RenderFrameContext& frame, bool sceneAlreadyUnbo
         // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth buffer,
         // and slot 2 is either the volumetric-light texture or a harmless fallback
         // when that pass is disabled.
-        BindRenderTextureSlots( scene.hdrTarget->GetColorTextureHandle(),
+        BindRenderTextureSlots( RenderCommands( frame ),
+                                scene.hdrTarget->GetColorTextureHandle(),
                                 scene.hdrTarget->GetDepthTextureHandle(),
                                 volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle()
                                                                      : scene.hdrTarget->GetColorTextureHandle(),

@@ -40,6 +40,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Rendering
+{
+class IRenderCommandContext;
+} // namespace Rendering
+
 namespace Basics
 {
 class RuntimeRenderHost;
@@ -93,6 +98,11 @@ struct RenderFrameContext
     // transforms, and debug scene overlays. The adapter is owned by Run;
     // passes borrow it only for this frame.
     Rendering::IRenderSceneView* scene = nullptr;
+
+    // Lifetime: borrowed from RuntimeRenderInputs for this frame only. It is
+    // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
+    // must not store it beyond the current RenderFrame call.
+    Rendering::IRenderCommandContext* renderCommands = nullptr;
 };
 
 struct ObjectPassInputs
@@ -305,6 +315,7 @@ class ShadowPass
     void RenderShadowMap( Rendering::IFramebuffer& target,
                           const Rendering::ShadowFrameData& shadowFrame,
                           const CinematicRenderConfig& cinematic,
+                          Rendering::IRenderCommandContext& renderCommands,
                           bool renderTerrain,
                           bool renderObjects,
                           Rendering::IRenderSceneView& scene,
