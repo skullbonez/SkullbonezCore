@@ -5,9 +5,9 @@
 @rem   and physical line counts by common SkullbonezCore file category.
 @rem
 @rem Mental model:
-@rem   The Python helper owns the existing logical LOC report for first-party C++
-@rem   source. The footer uses git-tracked files so generated, ignored, and build
-@rem   output directories do not inflate the file inventory.
+@rem   The Python helper owns the logical LOC report for first-party engine code
+@rem   and shaders. The footer uses git-tracked files so generated, ignored, and
+@rem   build output directories do not inflate the file inventory.
 @rem
 @rem Glossary:
 @rem   LOC (Lines Of Code): Logical non-comment, non-blank source lines reported
@@ -208,6 +208,7 @@ $totalCodeLoc = ($rows | Where-Object { $null -ne $_.CodeLoc } | Measure-Object 
 Write-Host ''
 Write-Host 'Tracked File Summary'
 $sectionOrder = @('Engine', 'Assets', 'Third-party', 'Tools', 'Docs')
+$sectionSeparator = '=' * 25
 
 foreach ($section in $sectionOrder) {
     $sectionRows = @($rows | Where-Object { $_.Section -eq $section })
@@ -221,7 +222,9 @@ foreach ($section in $sectionOrder) {
     $sectionLocText = if ($null -ne $sectionCodeLoc -and $sectionCodeLoc -gt 0) { $sectionCodeLoc.ToString('N0') } else { '-' }
 
     Write-Host ''
-    Write-Host $section
+    Write-Host $sectionSeparator
+    Write-Host $section.ToUpperInvariant()
+    Write-Host $sectionSeparator
     "{0,-18} {1,8} {2,12} {3,12}" -f 'Category', 'Files', 'Physical', 'Code LOC'
     "{0,-18} {1,8} {2,12} {3,12}" -f '--------', '-----', '--------', '--------'
     foreach ($row in $sectionRows) {
