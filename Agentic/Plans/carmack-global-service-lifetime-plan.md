@@ -204,6 +204,32 @@ require `tools\validate_full.bat`.
   restore relies on window and backend dimensions staying in lockstep, and the
   DX12 validation suite is broad renderer coverage rather than
   volumetric-scene-specific visual proof.
+- [x] 2026-06-28: Routed `TonemapPass::Render()` viewport and depth/blend state
+  through `RenderFrameContext`'s borrowed `IRenderCommandContext` instead of
+  direct `Gfx()` calls. This lowers `RunPasses.cpp` direct `Gfx()` debt from 32
+  to 21 and the plan's total counted `Gfx()` surface from 227 to 216. The broad
+  render-pass/global-service migration remains open for the fullscreen quad
+  helper, resource creation, reflection, and DXR paths.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; the change uses the existing borrowed
+  command context and preserves the current screen-space state restore
+  contract.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 5.00s
+  (`TestOutput\validation\agent_logs\tonemap_command_state_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.77s
+  (`TestOutput\validation\agent_logs\tonemap_command_state_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 18.39s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\tonemap_command_state_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 29.77s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\tonemap_command_state_validate_full.log`).
+  Rubber-duck review: Gibbs found no blockers. Non-blocking notes: this slice
+  intentionally preserves legacy depth-write restore semantics, the viewport
+  restore relies on window and backend dimensions staying in lockstep, and the
+  DX12 validation suite is broad renderer coverage rather than
+  tonemap-scene-specific visual proof.
 
 ## Current Counted Global-Service Surface
 
@@ -214,7 +240,7 @@ string literals.
 | Pattern | Current count |
 |---------|---------------|
 | `Cfg()` | 239 |
-| `Gfx()` | 227 |
+| `Gfx()` | 216 |
 | `GfxRayTracing()` | 5 |
 | `ActiveAssetSystem()` | 4 |
 | `CreateShaderFromActiveAssets()` | 16 |
@@ -308,6 +334,9 @@ bridges tiny, named, and fenced.
 - [x] Route shadow-map viewport/clear/depth/blend/cull/polygon-offset state
   through its existing command context argument instead of direct `Gfx()` calls.
 - [x] Route volumetric pass viewport/depth/blend state through
+  `RenderFrameContext`'s borrowed command context instead of direct `Gfx()`
+  calls.
+- [x] Route tonemap pass viewport/depth/blend state through
   `RenderFrameContext`'s borrowed command context instead of direct `Gfx()`
   calls.
 - [ ] Route shader and texture creation through an asset/render context passed

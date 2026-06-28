@@ -1860,13 +1860,14 @@ void TonemapPass::Render( const RenderFrameContext& frame, bool sceneAlreadyUnbo
     {
         scene.hdrTarget->Unbind();
     }
-    Gfx().SetViewport( 0, 0, Gfx().GetWidth(), Gfx().GetHeight() );
+    Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
+    renderCommands.SetViewport( 0, 0, m_host.WindowScreenWidth(), m_host.WindowScreenHeight() );
 
-    const bool depthWasEnabled = Gfx().IsDepthTestEnabled();
-    const bool blendWasEnabled = Gfx().IsBlendEnabled();
-    Gfx().SetDepthTest( false );
-    Gfx().SetDepthWrite( false );
-    Gfx().SetBlend( false );
+    const bool depthWasEnabled = renderCommands.IsDepthTestEnabled();
+    const bool blendWasEnabled = renderCommands.IsBlendEnabled();
+    renderCommands.SetDepthTest( false );
+    renderCommands.SetDepthWrite( false );
+    renderCommands.SetBlend( false );
 
     // Concept: "resolve" means "turn our off-screen cinematic render target
     // into the final image on the window." This is where the HDR scene becomes
@@ -1883,7 +1884,7 @@ void TonemapPass::Render( const RenderFrameContext& frame, bool sceneAlreadyUnbo
         // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth buffer,
         // and slot 2 is either the volumetric-light texture or a harmless fallback
         // when that pass is disabled.
-        BindRenderTextureSlots( RenderCommands( frame ),
+        BindRenderTextureSlots( renderCommands,
                                 scene.hdrTarget->GetColorTextureHandle(),
                                 scene.hdrTarget->GetDepthTextureHandle(),
                                 volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle()
@@ -1896,9 +1897,9 @@ void TonemapPass::Render( const RenderFrameContext& frame, bool sceneAlreadyUnbo
         }
     }
 
-    Gfx().SetDepthTest( depthWasEnabled );
-    Gfx().SetDepthWrite( depthWasEnabled );
-    Gfx().SetBlend( blendWasEnabled );
+    renderCommands.SetDepthTest( depthWasEnabled );
+    renderCommands.SetDepthWrite( depthWasEnabled );
+    renderCommands.SetBlend( blendWasEnabled );
     if ( detailMarkers )
     {
         PROFILE_GPU_END( "Frame/Render/Tonemap" );

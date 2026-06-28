@@ -237,6 +237,32 @@ storage changes, also run `tools\validate_perf.bat`.
   restore relies on window and backend dimensions staying in lockstep, and the
   DX12 validation suite is broad renderer coverage rather than
   volumetric-scene-specific visual proof.
+- [x] 2026-06-28: Migrated `TonemapPass::Render()` viewport and depth/blend
+  state save, mutation, and restore from direct `Gfx()` calls to the borrowed
+  `IRenderCommandContext` already carried by `RenderFrameContext`. This removes
+  eleven more `RunPasses.cpp` `Gfx()` calls and lowers the file allowlist from
+  32 to 21; the fullscreen quad helper, resource creation, reflection, and DXR
+  paths remain open.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; both touched source-bearing files retain
+  learning headers, and this slice preserves the existing screen-space pass
+  state restore contract instead of folding behavior cleanup into the migration.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 5.00s
+  (`TestOutput\validation\agent_logs\tonemap_command_state_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.77s
+  (`TestOutput\validation\agent_logs\tonemap_command_state_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 18.39s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\tonemap_command_state_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 29.77s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\tonemap_command_state_validate_full.log`).
+  Rubber-duck review: Gibbs found no blockers. Non-blocking notes: this slice
+  intentionally preserves legacy depth-write restore semantics, the viewport
+  restore relies on window and backend dimensions staying in lockstep, and the
+  DX12 validation suite is broad renderer coverage rather than
+  tonemap-scene-specific visual proof.
 
 ## Problem Statement
 
@@ -314,6 +340,9 @@ compatibility facade while call sites migrate.
 - [x] Route volumetric pass viewport/depth/blend state through
   `RenderFrameContext`'s borrowed `IRenderCommandContext` and lower the
   `RunPasses.cpp` direct `Gfx()` allowlist from 44 to 32.
+- [x] Route tonemap pass viewport/depth/blend state through
+  `RenderFrameContext`'s borrowed `IRenderCommandContext` and lower the
+  `RunPasses.cpp` direct `Gfx()` allowlist from 32 to 21.
 - [ ] Pass capture/readback capability only to screenshot and validation paths.
 - [ ] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
 - [ ] Pass GPU profiler capability only to profiler marker code.
