@@ -137,6 +137,29 @@ storage changes, also run `tools\validate_perf.bat`.
   pass still restores depth write from the depth-test snapshot, which matches
   the pre-existing behavior but remains state-contract debt for a later command
   state cleanup.
+- [x] 2026-06-28: Migrated `WaterPass::Render()` depth/blend state save,
+  mutation, and restore from direct `Gfx()` calls to the borrowed
+  `IRenderCommandContext` already carried by `RenderFrameContext`. This removes
+  twelve more `RunPasses.cpp` `Gfx()` calls and lowers the file allowlist from
+  88 to 76; shadow, reflection, tornado, volumetric, tonemap, viewport, clear,
+  resource creation, and DXR paths remain open.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; the water pass keeps the existing
+  pass-contract comments and introduces no new ownership.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.84s
+  (`TestOutput\validation\agent_logs\water_command_state_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.55s
+  (`TestOutput\validation\agent_logs\water_command_state_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 17.55s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\water_command_state_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.22s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\water_command_state_validate_full.log`).
+  Rubber-duck review: Dewey found no blockers. Non-blocking note: the
+  `Gfx()` guardrail remains a ceiling ratchet, not semantic same-file
+  classification, so future slices still need focused review.
 
 ## Problem Statement
 
@@ -202,6 +225,9 @@ compatibility facade while call sites migrate.
 - [x] Route generated cinematic sky depth/blend state through
   `RenderFrameContext`'s borrowed `IRenderCommandContext` and lower the
   `RunPasses.cpp` direct `Gfx()` allowlist from 96 to 88.
+- [x] Route water depth/blend state through `RenderFrameContext`'s borrowed
+  `IRenderCommandContext` and lower the `RunPasses.cpp` direct `Gfx()`
+  allowlist from 88 to 76.
 - [ ] Pass capture/readback capability only to screenshot and validation paths.
 - [ ] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
 - [ ] Pass GPU profiler capability only to profiler marker code.

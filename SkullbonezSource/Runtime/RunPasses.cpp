@@ -1171,7 +1171,8 @@ void WaterPass::Render( const WaterPassInputs& inputs )
     PROFILE_GPU_BEGIN( "Frame/Render/Water" );
     DRAW_CALL_TRACE_SCOPE( "Frame/Render/Water" );
     // Pass contract: water samples only the reflection texture in slot 1.
-    ClearRenderTextureSlotsExcept( RenderCommands( inputs.frame ), RENDER_TEXTURE_SLOT_1 );
+    Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
+    ClearRenderTextureSlotsExcept( renderCommands, RENDER_TEXTURE_SLOT_1 );
     float waterTime = inputs.freezeTime ? inputs.frozenTime
                                         : static_cast<float>( m_host.m_timers.simulationTimer.GetTimeSinceLastStart() );
     m_debugInfo.rendered = true;
@@ -1182,16 +1183,16 @@ void WaterPass::Render( const WaterPassInputs& inputs )
     reflectionInput.noReflection = inputs.noReflection;
     reflectionInput.raytraced = inputs.reflection.usedDxr;
 
-    const bool depthTestWasEnabled = Gfx().IsDepthTestEnabled();
-    const bool depthWriteWasEnabled = Gfx().IsDepthWriteEnabled();
-    const bool blendWasEnabled = Gfx().IsBlendEnabled();
+    const bool depthTestWasEnabled = renderCommands.IsDepthTestEnabled();
+    const bool depthWriteWasEnabled = renderCommands.IsDepthWriteEnabled();
+    const bool blendWasEnabled = renderCommands.IsBlendEnabled();
     Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
     Rendering::BlendFactor blendDst = Rendering::BlendFactor::Zero;
-    Gfx().GetBlendFunc( blendSrc, blendDst );
-    Gfx().SetBlend( true );
-    Gfx().SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::OneMinusSrcAlpha );
-    Gfx().SetDepthTest( true );
-    Gfx().SetDepthWrite( false );
+    renderCommands.GetBlendFunc( blendSrc, blendDst );
+    renderCommands.SetBlend( true );
+    renderCommands.SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::OneMinusSrcAlpha );
+    renderCommands.SetDepthTest( true );
+    renderCommands.SetDepthWrite( false );
     m_host.m_cWorldEnvironment.RenderFluid( inputs.frame.baseView,
                                             inputs.frame.projection,
                                             inputs.frame.eye,
@@ -1200,10 +1201,10 @@ void WaterPass::Render( const WaterPassInputs& inputs )
                                             inputs.flatWater,
                                             inputs.frame.cinematicEnabled,
                                             inputs.cinematic );
-    Gfx().SetDepthWrite( depthWriteWasEnabled );
-    Gfx().SetDepthTest( depthTestWasEnabled );
-    Gfx().SetBlendFunc( blendSrc, blendDst );
-    Gfx().SetBlend( blendWasEnabled );
+    renderCommands.SetDepthWrite( depthWriteWasEnabled );
+    renderCommands.SetDepthTest( depthTestWasEnabled );
+    renderCommands.SetBlendFunc( blendSrc, blendDst );
+    renderCommands.SetBlend( blendWasEnabled );
     PROFILE_GPU_END( "Frame/Render/Water" );
 }
 

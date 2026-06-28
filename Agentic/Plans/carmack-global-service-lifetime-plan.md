@@ -103,6 +103,30 @@ require `tools\validate_full.bat`.
   pass still restores depth write from the depth-test snapshot, which matches
   the pre-existing behavior but remains state-contract debt for a later command
   state cleanup.
+- [x] 2026-06-28: Routed `WaterPass::Render()` depth/blend state through
+  `RenderFrameContext`'s borrowed `IRenderCommandContext` instead of direct
+  `Gfx()` calls. This lowers `RunPasses.cpp` direct `Gfx()` debt from 88 to 76
+  and the plan's total counted `Gfx()` surface from 283 to 271. The broad
+  render-pass/global-service migration remains open for shadow, reflection,
+  tornado, volumetric, tonemap, viewport, clear, resource creation, and DXR
+  paths.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; the change uses the existing borrowed
+  frame command context and does not introduce new ownership.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.84s
+  (`TestOutput\validation\agent_logs\water_command_state_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.55s
+  (`TestOutput\validation\agent_logs\water_command_state_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 17.55s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\water_command_state_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.22s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\water_command_state_validate_full.log`).
+  Rubber-duck review: Dewey found no blockers. Non-blocking note: the
+  `Gfx()` guardrail remains a ceiling ratchet, not semantic same-file
+  classification, so future slices still need focused review.
 
 ## Current Counted Global-Service Surface
 
@@ -113,7 +137,7 @@ string literals.
 | Pattern | Current count |
 |---------|---------------|
 | `Cfg()` | 239 |
-| `Gfx()` | 283 |
+| `Gfx()` | 271 |
 | `GfxRayTracing()` | 5 |
 | `ActiveAssetSystem()` | 4 |
 | `CreateShaderFromActiveAssets()` | 16 |
@@ -199,6 +223,8 @@ bridges tiny, named, and fenced.
 - [x] Route generated cinematic sky depth/blend state through
   `RenderFrameContext`'s borrowed command context instead of direct `Gfx()`
   calls.
+- [x] Route water depth/blend state through `RenderFrameContext`'s borrowed
+  command context instead of direct `Gfx()` calls.
 - [ ] Route shader and texture creation through an asset/render context passed
   from runtime-owned services.
 - [ ] Replace `ActiveAssetSystem()` in scene parsing and editor tools with an
