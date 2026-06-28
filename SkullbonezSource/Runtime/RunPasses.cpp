@@ -269,12 +269,13 @@ void BindSkyPassParams( SkullbonezCore::Rendering::IShader& shader,
 void BindVolumetricPassParams( SkullbonezCore::Rendering::IShader& shader,
                                const Vector3& eye,
                                const Matrix4& viewProjection,
-                               const CinematicRenderConfig& cinematic )
+                               const CinematicRenderConfig& cinematic,
+                               const EngineConfig& config )
 {
     const ScreenSunPosition sunScreen = ProjectCinematicSunToScreen( eye, viewProjection, cinematic );
     shader.SetInt( "uSceneTex", 0 );
     shader.SetInt( "uDepthTex", 1 );
-    shader.SetVec4( "uDepthParams", Cfg().frustumNear, Cfg().frustumFar, 0.0f, 0.0f );
+    shader.SetVec4( "uDepthParams", config.frustumNear, config.frustumFar, 0.0f, 0.0f );
     shader.SetVec4( "uSunShaftParams",
                     sunScreen.x,
                     sunScreen.y,
@@ -297,6 +298,7 @@ void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader,
                             const Vector3& eye,
                             const Matrix4& viewProjection,
                             const CinematicRenderConfig& cinematic,
+                            const EngineConfig& config,
                             bool volumetricReady )
 {
     const ScreenSunPosition sunScreen = ProjectCinematicSunToScreen( eye, viewProjection, cinematic );
@@ -305,7 +307,7 @@ void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader,
     shader.SetInt( "uVolumetricTex", 2 );
     shader.SetFloat( "uExposure", cinematic.exposure );
     shader.SetFloat( "uGamma", cinematic.gamma );
-    shader.SetVec4( "uDepthParams", Cfg().frustumNear, Cfg().frustumFar, 0.0f, 0.0f );
+    shader.SetVec4( "uDepthParams", config.frustumNear, config.frustumFar, 0.0f, 0.0f );
     shader.SetVec4( "uFogParams",
                     cinematic.fogStart,
                     cinematic.fogEnd,
@@ -1001,7 +1003,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
                                     reflectionResources.target->GetHeight() );
         renderCommands.Clear( true, true );
 
-        // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight).
+        // Skybox reflected (XZ follows eye; Y anchored by the borrowed render config).
         // Cinematic mode can reflect the generated sunset sky into the water
         // instead of the usual cube-map sky.
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Skybox" );
@@ -1803,7 +1805,7 @@ bool VolumetricPass::Render( const RenderFrameContext& frame )
         }
         DRAW_CALL_TRACE_SCOPE( "Draw" );
         volumetric.shader->Use();
-        BindVolumetricPassParams( *volumetric.shader, frame.eye, frame.viewProjection, cinematic );
+        BindVolumetricPassParams( *volumetric.shader, frame.eye, frame.viewProjection, cinematic, m_host.m_config );
         // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
         // depth. The shader uses depth to tell sky pixels from solid geometry so
         // rays pass through sky and fade when they cross hills/balls.
@@ -1896,7 +1898,12 @@ void TonemapPass::Render( const RenderFrameContext& frame, bool sceneAlreadyUnbo
         DRAW_CALL_TRACE_SCOPE( "Draw" );
         tonemap.shader->Use();
         const CinematicRenderConfig& cinematic = m_host.ActiveCinematicConfig();
-        BindTonemapPassParams( *tonemap.shader, frame.eye, frame.viewProjection, cinematic, volumetricReady );
+        BindTonemapPassParams( *tonemap.shader,
+                               frame.eye,
+                               frame.viewProjection,
+                               cinematic,
+                               m_host.m_config,
+                               volumetricReady );
         // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth buffer,
         // and slot 2 is either the volumetric-light texture or a harmless fallback
         // when that pass is disabled.

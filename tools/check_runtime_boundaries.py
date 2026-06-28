@@ -522,7 +522,7 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Runtime/RunInput.cpp", "Gfx()", 4 ),
             ( "SkullbonezSource/Runtime/RunInteractionAutomation.cpp", "Cfg()", 1 ),
             ( "SkullbonezSource/Runtime/RunLiveStyle.cpp", "Cfg()", 1 ),
-            ( "SkullbonezSource/Runtime/RunPasses.cpp", "Cfg()", 4 ),
+            ( "SkullbonezSource/Runtime/RunPasses.cpp", "Cfg()", 2 ),
             ( "SkullbonezSource/Runtime/RunRender.cpp", "Cfg()", 3 ),
             ( "SkullbonezSource/Runtime/RunRender.cpp", "Gfx()", 1 ),
             ( "SkullbonezSource/Runtime/RunRender.cpp", "GfxRayTracing()", 1 ),

@@ -10,6 +10,26 @@ require `tools\validate_full.bat`.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Routed volumetric and tonemap shader depth-parameter helpers
+  through the render host's borrowed `EngineConfig` instead of reading `Cfg()`
+  directly. The helper signatures now receive config from their pass call sites,
+  preserving the same `frustumNear`/`frustumFar` values while removing the last
+  direct `Cfg()` calls from those shader-binding helpers. The boundary ratchet
+  lowered `RunPasses.cpp` `Cfg()` debt from 4 to 2 and total counted `Cfg()`
+  debt from 230 to 228. Comment audit inspected `RunPasses.cpp` and
+  `tools/check_runtime_boundaries.py`; a stale reflected-sky comment was updated
+  to name the borrowed render config instead of `Cfg()`. Rubber-duck review
+  intentionally deferred until this plan is complete. Evidence:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors
+  (`TestOutput\validation\agent_logs\runpasses_shader_config_runtime_boundaries.log`),
+  `tools\validate_format.bat` passed
+  (`TestOutput\validation\agent_logs\runpasses_shader_config_validate_format.log`),
+  `tools\validate_fast.bat` passed in 24.84s
+  (`TestOutput\validation\agent_logs\runpasses_shader_config_validate_fast.log`),
+  `tools\validate_full.bat` passed in 30.44s with 0 DX12 validation errors,
+  matching screenshots, and byte-exact `physics_regression_solver.csv`
+  (`TestOutput\validation\agent_logs\runpasses_shader_config_validate_full.log`),
+  and `git diff --check` passed.
 - [x] 2026-06-28: Grouped repeated runtime config reads through existing
   borrowed or local `EngineConfig` references. `SkyPass::Render()` now uses the
   render host's borrowed config for cube-map sky height/scale; replay-generated
@@ -584,7 +604,7 @@ string literals.
 
 | Pattern | Current count |
 |---------|---------------|
-| `Cfg()` | 230 |
+| `Cfg()` | 228 |
 | `Gfx()` | 190 |
 | `GfxRayTracing()` | 4 |
 | `ActiveAssetSystem()` | 2 |
@@ -649,7 +669,7 @@ why that current debt exists and which migration bucket should own it.
 | `SkullbonezSource/Runtime/RunInput.cpp` | `Cfg()=22`, `Gfx()=4` | normal runtime path | Input/tool routing still reads config and renderer state globally. |
 | `SkullbonezSource/Runtime/RunInteractionAutomation.cpp` | `Cfg()=1` | test/tool | Interaction automation tuning still reads global config. |
 | `SkullbonezSource/Runtime/RunLiveStyle.cpp` | `Cfg()=1` | normal runtime path | Live style path still reads config globally. |
-| `SkullbonezSource/Runtime/RunPasses.cpp` | `Cfg()=4` | render pass | Pass code still reads global config after renderer access migration. |
+| `SkullbonezSource/Runtime/RunPasses.cpp` | `Cfg()=2` | render pass | Pass code still reads global config after renderer access migration. |
 | `SkullbonezSource/Runtime/RunRender.cpp` | `Cfg()=3`, `Gfx()=1`, `GfxRayTracing()=1` | render pass | Render composition root still samples renderer services before passing borrowed capabilities. |
 | `SkullbonezSource/Runtime/RunStress.cpp` | `Cfg()=1`, `Gfx()=2` | test/tool | Stress harness still reads config/renderer globally. |
 | `SkullbonezSource/Runtime/RunUiTextPass.cpp` | `Cfg()=1`, `Profiler::Instance()=2`, `WorkerPool::Instance()=1` | render pass | UI text pass still mixes profiler, worker, and config globals; renderer and DXR capability access now come from caller-supplied inputs. |
@@ -827,6 +847,9 @@ bridges tiny, named, and fenced.
   - [x] 2026-06-28 repeated config reads in sky rendering, replay-generated
     scene rebuilds, camera update tuning, and replay-control automation are now
     grouped through existing borrowed or local config references.
+  - [x] 2026-06-28 volumetric and tonemap shader depth-parameter helpers now
+    receive `EngineConfig` from the render host instead of reading `Cfg()`
+    directly.
 
 ### OS Callback Bridges
 
