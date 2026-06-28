@@ -60,6 +60,7 @@ constexpr float ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MAX = 1.35f;
 constexpr float ATTACHED_CAMERA_ORBIT_MIN_DISTANCE_RADIUS = 1.25f;
 constexpr float ATTACHED_CAMERA_ORBIT_MAX_DISTANCE_RADIUS = 40.0f;
 constexpr float ATTACHED_CAMERA_ORBIT_WHEEL_FACTOR = 0.88f;
+constexpr float ATTACHED_CAMERA_CHASE_RECENTER_RATE = 4.5f;
 
 bool CameraModeUsesFlyControls( RunCameraMode mode, bool attachActiveFollow )
 {
@@ -212,6 +213,25 @@ float WrapAttachedCameraOrbitYaw( float yaw )
     return yaw;
 }
 
+float BlendAttachedCameraOrbitYaw( float currentYaw, float targetYaw, float blend )
+{
+    return WrapAttachedCameraOrbitYaw( currentYaw +
+                                       WrapAttachedCameraOrbitYaw( targetYaw - currentYaw ) * blend );
+}
+
+
+float AttachedCameraBlendAlpha( float dt )
+{
+    if ( !std::isfinite( dt ) || dt <= 0.0f )
+    {
+        return 0.0f;
+    }
+    return std::clamp( 1.0f - expf( -ATTACHED_CAMERA_CHASE_RECENTER_RATE * dt ),
+                       0.0f,
+                       1.0f );
+}
+
+
 float AttachedCameraOrbitMinDistance( const GameModel& model )
 {
     return (std::max)( 1.0f, AttachedCameraModelRadius( model ) * ATTACHED_CAMERA_ORBIT_MIN_DISTANCE_RADIUS );
@@ -247,6 +267,20 @@ Vector3 AttachedCameraOrbitOffset( float yaw, float pitch, float distance )
     const float cosPitch = cosf( pitch );
     return Vector3( sinf( yaw ) * cosPitch * distance, sinf( pitch ) * distance, cosf( yaw ) * cosPitch * distance );
 }
+
+bool TryBuildAttachedCameraChaseOrbit( Vector3 forward, float& outYaw, float& outPitch )
+{
+    if ( !TryNormalizeVector( forward ) )
+    {
+        return false;
+    }
+
+    const Vector3 chaseOffset = -forward;
+    outYaw = WrapAttachedCameraOrbitYaw( atan2f( chaseOffset.x, chaseOffset.z ) );
+    outPitch = ClampAttachedCameraOrbitPitch( asinf( std::clamp( chaseOffset.y, -1.0f, 1.0f ) ) );
+    return true;
+}
+
 
 const char* ReplayRuntimeCommandName( RuntimeCommandType type )
 {
@@ -886,7 +920,7 @@ const char* Run::CameraModeLabel( RunCameraMode mode ) const
         const char* submode = "Fixed";
         if ( m_attachedCamera.submode == AttachedCameraSubmode::VelocityForward )
         {
-            submode = "Velocity";
+            submode = "Chase";
         }
         else if ( m_attachedCamera.submode == AttachedCameraSubmode::RagdollEyes )
         {
@@ -1430,7 +1464,7 @@ void Run::TickAttachedCameraOrbitInput( int unhandledWheelDelta )
 }
 
 
-void Run::TickAttachedCamera()
+void Run::TickAttachedCamera( float cameraDt )
 {
     if ( !IsAttachedCameraMode() || !m_attachedCamera.activeFollow || !m_systems.cameras )
     {
@@ -1475,7 +1509,8 @@ void Run::TickAttachedCamera()
         CaptureAttachedCameraOrbit( target );
     }
 
-    if ( m_camera.input.xMove != 0 || m_camera.input.yMove != 0 )
+    const bool manualOrbitInput = m_camera.input.xMove != 0 || m_camera.input.yMove != 0;
+    if ( manualOrbitInput )
     {
         m_attachedCamera.orbitYawRadians =
             WrapAttachedCameraOrbitYaw( m_attachedCamera.orbitYawRadians +
@@ -1488,9 +1523,6 @@ void Run::TickAttachedCamera()
     m_attachedCamera.orbitDistance = ClampAttachedCameraOrbitDistance( target, m_attachedCamera.orbitDistance );
 
     const Vector3 targetPosition = target.GetPosition();
-    const Vector3 eye = targetPosition + AttachedCameraOrbitOffset( m_attachedCamera.orbitYawRadians,
-                                                                    m_attachedCamera.orbitPitchRadians,
-                                                                    m_attachedCamera.orbitDistance );
     Vector3 view = targetPosition;
     Vector3 up = Vector3( 0.0f, 1.0f, 0.0f );
     if ( m_attachedCamera.submode == AttachedCameraSubmode::VelocityForward )
@@ -1503,14 +1535,35 @@ void Run::TickAttachedCamera()
                             : m_systems.cameras->GetCameraView() - m_systems.cameras->GetCameraTranslation();
             if ( !TryNormalizeVector( direction ) )
             {
-                direction = NormalizedOr( view - eye, Vector3( 0.0f, 0.0f, 1.0f ) );
+                const Vector3 orbitEye = targetPosition + AttachedCameraOrbitOffset( m_attachedCamera.orbitYawRadians,
+                                                                                     m_attachedCamera.orbitPitchRadians,
+                                                                                     m_attachedCamera.orbitDistance );
+                direction = NormalizedOr( view - orbitEye, Vector3( 0.0f, 0.0f, 1.0f ) );
             }
+        }
+        float chaseYaw = 0.0f;
+        float chasePitch = ATTACHED_CAMERA_ORBIT_DEFAULT_PITCH;
+        if ( TryBuildAttachedCameraChaseOrbit( direction, chaseYaw, chasePitch ) && !manualOrbitInput )
+        {
+            // Concept: Chase mode is elastic. Mouse input temporarily offsets
+            // the orbit, then the resting camera eases back to the side
+            // opposite the target's linear velocity.
+            const float blend = AttachedCameraBlendAlpha( cameraDt );
+            m_attachedCamera.orbitYawRadians =
+                BlendAttachedCameraOrbitYaw( m_attachedCamera.orbitYawRadians, chaseYaw, blend );
+            m_attachedCamera.orbitPitchRadians =
+                ClampAttachedCameraOrbitPitch( m_attachedCamera.orbitPitchRadians +
+                                               ( chasePitch - m_attachedCamera.orbitPitchRadians ) * blend );
         }
         view = targetPosition +
                direction * (std::max)( AttachedCameraModelRadius( target ), m_attachedCamera.orbitDistance * 0.25f );
         m_attachedCamera.lastLookDirection = direction;
         m_attachedCamera.hasLastLookDirection = true;
     }
+
+    const Vector3 eye = targetPosition + AttachedCameraOrbitOffset( m_attachedCamera.orbitYawRadians,
+                                                                    m_attachedCamera.orbitPitchRadians,
+                                                                    m_attachedCamera.orbitDistance );
 
     if ( !IsFiniteVector( eye ) || !IsFiniteVector( view ) || !IsFiniteVector( up ) ||
          VectorMagSquared( view - eye ) <= TOLERANCE * TOLERANCE )

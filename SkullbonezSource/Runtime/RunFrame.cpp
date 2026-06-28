@@ -2581,7 +2581,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     // existing 60 Hz tuning while making the result frame-rate independent.
     const EngineConfig& config = Cfg();
     MoveCamera( cameraDt * config.keySpeed, CAMERA_MOUSE_REFERENCE_DT * config.mouseSensitivity );
-    TickAttachedCamera();
+    TickAttachedCamera( cameraDt );
 
     UpdateWaterHeightControls( simulationDt );
 

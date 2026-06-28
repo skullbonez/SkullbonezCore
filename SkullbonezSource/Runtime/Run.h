@@ -232,10 +232,11 @@ class Run
     bool
     TickAttachedCameraWorldClick( const RuntimeMouseEdges& mouseEdges,
                                   bool suppressWorldActionThisFrame );     // Consumes Attach left-click target selection.
-    void CycleAttachedCameraSubmode();                                     // F1 cycles Fixed, Velocity, and available Eyes modes.
+    void CycleAttachedCameraSubmode();                                     // F1 cycles Fixed, Chase, and available Eyes modes.
     void ToggleAttachedCameraPin();                                        // Enter pins/unpins camera follow while in Attach.
     void TickAttachedCameraOrbitInput( int unhandledWheelDelta );          // Mouse wheel adjusts Attach orbit distance.
-    void TickAttachedCamera();                                             // Applies the active follow solve to CameraCollection.
+    void TickAttachedCamera(
+        float cameraDt );                                                  // Applies active follow; cameraDt is real seconds for chase blending.
     void CaptureAttachedCameraFixedOffset( const GameObjects::GameModel& model );
     void CaptureAttachedCameraOrbit(
         const GameObjects::GameModel& model );                             // Seeds upright Attach orbit from the current camera pose.
