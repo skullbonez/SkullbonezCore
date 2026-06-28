@@ -45,6 +45,7 @@ bool IsSameSnapshot( const RenderSceneSnapshot& lhs, const RenderSceneSnapshot& 
            lhs.objectTransparentPass == rhs.objectTransparentPass &&
            lhs.terrainPassRendered == rhs.terrainPassRendered && lhs.waterPassRendered == rhs.waterPassRendered &&
            lhs.waterSamplesReflection == rhs.waterSamplesReflection &&
+           lhs.sceneTargetCallbackOwned == rhs.sceneTargetCallbackOwned &&
            lhs.tornadoVisualCallbackOwned == rhs.tornadoVisualCallbackOwned &&
            lhs.debugOverlayCallbackOwned == rhs.debugOverlayCallbackOwned &&
            lhs.volumetricCallbackOwned == rhs.volumetricCallbackOwned && lhs.volumetricReady == rhs.volumetricReady &&
@@ -111,7 +112,10 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
     if ( snapshot.useCinematicTarget )
     {
         sceneColor = graph.AddExternalResource( "CinematicSceneColor", RenderGraphResourceAccess::PixelShaderResource );
-        sceneDepth = graph.AddExternalResource( "CinematicSceneDepth", RenderGraphResourceAccess::PixelShaderResource );
+        // Handoff: the DX12 framebuffer tracks the exact scene-depth state
+        // across first frame, resize, and post-chain reads. The diagnostic graph
+        // records the concrete pass writes/reads without inventing that source state.
+        sceneDepth = graph.AddExternalResource( "CinematicSceneDepth", RenderGraphResourceAccess::Unknown );
         if ( snapshot.volumetricReady )
         {
             volumetricLight =
@@ -188,6 +192,14 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
         const uint32_t sceneBegin = graph.AddPass( "CinematicSceneBegin" );
         graph.AddWrite( sceneBegin, sceneColor, RenderGraphResourceAccess::RenderTarget );
         graph.AddWrite( sceneBegin, sceneDepth, RenderGraphResourceAccess::DepthWrite );
+        if ( snapshot.sceneTargetCallbackOwned )
+        {
+            graph.SetPassCallback( sceneBegin,
+                                   DiagnosticCallbackMarker,
+                                   nullptr,
+                                   true,
+                                   "Frame/Render/CinematicSceneBegin" );
+        }
     }
 
     if ( snapshot.objectOpaquePass )
@@ -297,6 +309,7 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
     out << "terrain_pass_rendered=" << ( snapshot.terrainPassRendered ? "true" : "false" ) << "\n";
     out << "water_pass_rendered=" << ( snapshot.waterPassRendered ? "true" : "false" ) << "\n";
     out << "water_samples_reflection=" << ( snapshot.waterSamplesReflection ? "true" : "false" ) << "\n";
+    out << "scene_target_callback_owned=" << ( snapshot.sceneTargetCallbackOwned ? "true" : "false" ) << "\n";
     out << "tornado_visual_callback_owned=" << ( snapshot.tornadoVisualCallbackOwned ? "true" : "false" ) << "\n";
     out << "debug_overlay_callback_owned=" << ( snapshot.debugOverlayCallbackOwned ? "true" : "false" ) << "\n";
     out << "volumetric_callback_owned=" << ( snapshot.volumetricCallbackOwned ? "true" : "false" ) << "\n";

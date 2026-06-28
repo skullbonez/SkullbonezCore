@@ -66,6 +66,7 @@ class RuntimeRenderer
     RenderFrameContext BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
                                                 bool cinematicRender,
                                                 const CinematicRenderConfig& renderConfig ) const;
+    bool ExecuteSceneTargetBeginThroughRenderGraph( const RenderFrameContext& frame );
     GraphPassResult ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget );
     bool ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget );
     CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const RenderFrameContext& frame );

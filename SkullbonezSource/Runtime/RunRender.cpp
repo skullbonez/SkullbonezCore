@@ -67,6 +67,13 @@ struct DebugOverlayGraphCallbackData
     const RenderFrameContext* frame = nullptr;
 };
 
+struct SceneTargetGraphCallbackData
+{
+    SceneTargetPass* sceneTargetPass = nullptr;
+    SkyPass* skyPass = nullptr;
+    const RenderFrameContext* frame = nullptr;
+};
+
 struct UiTextGraphCallbackData
 {
     UiTextPass* uiTextPass = nullptr;
@@ -100,6 +107,17 @@ void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGr
         throw std::runtime_error( "DebugOverlayPass graph callback missing execution data" );
     }
     data->debugOverlayPass->Render( { *data->frame } );
+}
+
+void ExecuteSceneTargetGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
+                                      void* userData )
+{
+    auto* data = static_cast<SceneTargetGraphCallbackData*>( userData );
+    if ( !data || !data->sceneTargetPass || !data->skyPass || !data->frame )
+    {
+        throw std::runtime_error( "CinematicSceneBegin graph callback missing execution data" );
+    }
+    data->sceneTargetPass->Begin( *data->frame, *data->skyPass );
 }
 
 void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
@@ -148,6 +166,45 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                                        systems.skyBox } };
 }
 } // namespace
+
+bool RuntimeRenderer::ExecuteSceneTargetBeginThroughRenderGraph( const RenderFrameContext& frame )
+{
+    Rendering::RenderGraph graph;
+    const Rendering::RenderGraphResourceHandle sceneColor =
+        graph.AddExternalResource( "CinematicSceneColor", Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    // Handoff: FramebufferDX12 tracks whether depth starts this pass as a fresh
+    // DepthWrite texture or a shader-readable texture from the previous post
+    // chain. Keep the initial graph state unknown until the graph owns FBO state.
+    const Rendering::RenderGraphResourceHandle sceneDepth =
+        graph.AddExternalResource( "CinematicSceneDepth", Rendering::RenderGraphResourceAccess::Unknown );
+
+    const uint32_t sceneBeginPass = graph.AddPass( "CinematicSceneBegin",
+                                                   Rendering::RenderGraphQueueType::Graphics,
+                                                   Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+    graph.AddWrite( sceneBeginPass, sceneColor, Rendering::RenderGraphResourceAccess::RenderTarget );
+    graph.AddWrite( sceneBeginPass, sceneDepth, Rendering::RenderGraphResourceAccess::DepthWrite );
+
+    SceneTargetGraphCallbackData callbackData;
+    callbackData.sceneTargetPass = &m_sceneTargetPass;
+    callbackData.skyPass = &m_skyPass;
+    callbackData.frame = &frame;
+    graph.SetPassCallback( sceneBeginPass,
+                           ExecuteSceneTargetGraphCallback,
+                           &callbackData,
+                           true,
+                           "Frame/Render/CinematicSceneBegin" );
+
+    // Invariant: cinematic scene targets rest as shader resources after the
+    // post chain consumes them. SceneTargetPass::Begin still performs the live
+    // bind/clear handoff, while this graph records the transition intent and
+    // owns the callback scheduling point.
+    graph.Compile();
+    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
+    const Rendering::RenderGraphCallbackExecutionResult executed =
+        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
+    return executed.executedPassCount == 1u;
+}
+
 
 RuntimeRenderer::GraphPassResult
 RuntimeRenderer::ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget )
@@ -502,9 +559,10 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
                                               m_skyPass );
     }
 
+    bool sceneTargetCallbackOwned = false;
     if ( useCinematicTarget )
     {
-        m_sceneTargetPass.Begin( frame, m_skyPass );
+        sceneTargetCallbackOwned = ExecuteSceneTargetBeginThroughRenderGraph( frame );
     }
 
     // Opaque bodies render before terrain/water unless debug transparency asks
@@ -592,6 +650,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     frameSnapshot.waterPassRendered = waterDebug.rendered;
     frameSnapshot.waterSamplesReflection =
         waterDebug.rendered && !waterDebug.noReflection && waterDebug.reflectionValid;
+    frameSnapshot.sceneTargetCallbackOwned = sceneTargetCallbackOwned;
     frameSnapshot.tornadoVisualRendered = tornadoVisualGraph.rendered;
     frameSnapshot.tornadoVisualCallbackOwned = tornadoVisualGraph.callbackOwned;
     frameSnapshot.debugOverlayCallbackOwned = debugOverlayCallbackOwned;
