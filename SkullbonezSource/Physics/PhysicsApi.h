@@ -10,6 +10,8 @@ Mental model:
   solver-private containers.
 
 Glossary:
+  Activation command: Handle-based request to wake a body, seed it asleep, or
+    toggle the standalone world's sleep gate.
   Body: Simulated object state such as pose, velocity, mass, and sleep flag.
   Broadphase query: Cheap spatial query that returns candidate bodies, not exact
     narrowphase contacts.
@@ -19,6 +21,9 @@ Glossary:
   Facade: Narrow public boundary that hides solver implementation containers.
   Ray cast: Query that shoots a line segment through physics space and returns
     the closest candidate hit.
+  Sleep: Optional optimization that skips integration for quiet dynamic bodies
+    while the world sleep gate is enabled.
+  Wake: Clearing a body's sleep flag so later steps can integrate it.
   Standalone world: Public physics owner that can step without runtime or
     game-object storage.
   View: Immutable span-like snapshot exposed to callers without ownership.
@@ -205,9 +210,9 @@ struct PhysicsStepDesc
 
 struct PhysicsActivationCommand
 {
-    PhysicsActivationCommandKind kind = PhysicsActivationCommandKind::WakeBody;
-    PhysicsBodyHandle body;
-    bool enabled = true;
+    PhysicsActivationCommandKind kind = PhysicsActivationCommandKind::WakeBody;      // Operation selector.
+    PhysicsBodyHandle body;                                                          // Target for body commands; ignored by SetSleepEnabled.
+    bool enabled = true;                                                             // Desired sleep-gate value for SetSleepEnabled.
 };
 
 struct PhysicsRayCastDesc
@@ -362,6 +367,7 @@ struct PhysicsStandaloneSmokeResult
     uint32_t pointJointCount = 0;
     uint32_t broadphaseQueryCount = 0;
     uint32_t stepCount = 0;
+    bool activationCommandsPassed = false;
     bool rayCastHit = false;
     Math::Vector::Vector3 finalPosition = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 finalLinearVelocity = Math::Vector::ZERO_VECTOR;
@@ -411,6 +417,16 @@ class PhysicsStandaloneWorld
 
     // Advances awake dynamic bodies by one deterministic semi-implicit Euler step.
     bool Step( const PhysicsStepDesc& desc );
+
+    // Applies a handle-based wake/sleep command without model-index lookup.
+    // Fixed, stale, or invalid body targets fail for body commands without
+    // mutating storage. SetSleepEnabled ignores the body field and uses enabled.
+    bool ApplyActivationCommand( const PhysicsActivationCommand& command );
+
+    // Returns the standalone world's sleep gate. Disabling sleep wakes all
+    // bodies and makes create/update/query/step paths treat body sleep flags as
+    // inactive until the gate is re-enabled.
+    bool SleepEnabled() const;
 
     // Conservatively ray-casts live collider bounding spheres in deterministic
     // collider slot order and returns the closest hit.
@@ -479,6 +495,7 @@ class PhysicsStandaloneWorld
     mutable std::vector<PhysicsBodyHandle>
         m_broadphaseQueryScratch;                                                    // Filtered body handles returned by broadphase queries.
     uint32_t m_nextInitialGeneration = PHYSICS_STANDALONE_HANDLE_INITIAL_GENERATION; // Generation base after Clear().
+    bool m_sleepEnabled = true;                                                      // Standalone sleep gate controlled by activation commands.
 };
 
 PhysicsStandaloneSmokeResult RunPhysicsStandaloneSmoke();

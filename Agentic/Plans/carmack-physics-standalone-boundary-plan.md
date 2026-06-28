@@ -10,6 +10,34 @@ when SkullScope baselines or broad physics diagnostics change.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Added standalone handle-based activation commands to the
+  public physics API beachhead. `PhysicsStandaloneWorld` now applies
+  `PhysicsActivationCommand` without model-index lookup for `WakeBody`,
+  `SeedBodyAsleep`, and `SetSleepEnabled`; fixed, stale, or invalid body
+  targets fail without mutating storage, disabling sleep wakes all live bodies
+  and makes later create/update/step/query paths treat bodies as awake, and
+  `SleepEnabled()` exposes the standalone sleep gate. The standalone smoke
+  now proves invalid command rejection, fixed-body rejection, seed-asleep
+  velocity clearing, sleep-disable wake behavior, disabled-sleep seed rejection,
+  sleep-disabled create/update/step/query behavior, re-enable/reseed/wake
+  behavior, activation-body deletion, and stale-command rejection while
+  preserving the main body's deterministic final state. Rubber-duck review
+  initially found blocking durable sleep-gate and command-contract clarity
+  gaps; both were fixed before commit.
+  Comment-style audit: inspected `PhysicsApi.h` and `PhysicsApi.cpp`; the new
+  glossary entries, API comments, and local invariant comment name the
+  handle-only command path, sleep/wake vocabulary, `SetSleepEnabled` body-field
+  contract, fixed/stale failure behavior, and sleep-disable wake semantics.
+  Final
+  validation: `tools\validate_fast.bat` passed with formatting clean, project
+  filters `0 errors`, runtime boundaries `0 errors`, and Profile/Debug builds
+  at `0 Warning(s)`/`0 Error(s)`
+  (`TestOutput\validation\agent_logs\physics_standalone_activation_validate_fast_final.log`);
+  `tools\validate_physics.bat` passed with standalone smoke
+  `lifecycle_checks=pass hash=0x32EC17812CDAA435`, byte-exact
+  `physics_regression_solver.csv`, and Profile/Debug builds at
+  `0 Warning(s)`/`0 Error(s)`
+  (`TestOutput\validation\agent_logs\physics_standalone_activation_validate_physics_final.log`).
 - [x] 2026-06-28: Added standalone conservative query methods to the public
   physics API beachhead. `PhysicsStandaloneWorld::RayCast` now scans live
   collider bounding spheres in deterministic collider-slot order and returns
@@ -203,6 +231,8 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
   collection views keyed by `PhysicsConstraintHandle`.
 - [x] Add standalone conservative ray-cast and broadphase AABB query methods
   that return physics handles instead of model indices.
+- [x] Add standalone wake, seed-asleep, and sleep-enable commands that target
+  physics handles instead of model indices.
 - [ ] Add or expose a `PhysicsWorldHandle` or equivalent owner token if multiple isolated worlds are needed.
 - [ ] Keep command targets as `PhysicsBodyHandle`, `PhysicsColliderHandle`, and `PhysicsConstraintHandle`; do not add model-index fields to new API structs.
 - [ ] Add immutable body, collider, contact, island, and diagnostic view structs that do not expose solver-private vectors.
@@ -269,6 +299,10 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
     collider shape, and an intentionally too-small supplied collider
     broadphase radius, proving the conservative query envelope is clamped and
     rotated rather than trusting caller-provided radius data.
+- [x] Extend standalone smoke evidence to cover wake, seed-asleep,
+  sleep-disable, sleep-enable, fixed-body rejection, invalid-command rejection,
+  durable sleep-disabled create/update/step/query behavior, and stale
+  activation command rejection.
 - [ ] Add a runtime integration sample proving scene objects still mirror physics body state after a step.
 - [ ] Add focused replay restore evidence if handles replace model indices in replay state.
 - [ ] If SkullScope output changes, update the query baseline only from final Debug artifacts and report query-size accounting.
@@ -277,6 +311,17 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 
 - [ ] For plan-only edits: no validation required.
 - [x] For physics step, store, collision, solver, sleep, or rigid-body changes: run `tools\validate_physics.bat`.
+  - [x] 2026-06-28 activation slice validation:
+    `TestOutput\validation\agent_logs\physics_standalone_activation_validate_fast_final.log`
+    reported source formatting clean, project filters `0 errors`, runtime
+    boundaries `0 errors`, Profile/Debug builds `0 Warning(s)` and
+    `0 Error(s)`, and `VALIDATE_FAST: ALL PASSED`.
+  - [x] 2026-06-28 activation slice validation:
+    `TestOutput\validation\agent_logs\physics_standalone_activation_validate_physics_final.log`
+    reported standalone smoke `lifecycle_checks=pass
+    hash=0x32EC17812CDAA435`, `physics_regression_solver.csv (20001 lines,
+    byte-exact match)`, Profile/Debug builds `0 Warning(s)` and `0 Error(s)`,
+    and `VALIDATE_PHYSICS: ALL PASSED`.
   - [x] 2026-06-28 query slice validation:
     `TestOutput\validation\agent_logs\physics_standalone_queries_validate_fast_final.log`
     reported source formatting clean, project filters `0 errors`, runtime
@@ -310,6 +355,18 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 - [ ] Ask the reviewer to verify that deterministic ordering is explicit and validation-visible.
 - [ ] Ask the reviewer to inspect handle lifetime, stale-handle behavior, and body deletion.
 - [ ] Record blocking and non-blocking findings in a report or this plan.
+  - [x] 2026-06-28 activation slice rubber-duck review by Avicenna initially
+    found blocking gaps: sleep-disable was a one-shot wake instead of a durable
+    gate across create/update/step/query, `SetSleepEnabled` did not clearly
+    document that it ignores the body handle, and glossary coverage did not
+    define activation/sleep/wake vocabulary. The slice now makes sleep-disabled
+    bodies behave awake across those paths, documents the global command
+    contract, expands glossary/API comments, and smoke-tests the durable
+    sleep-disabled create/update/step/query edge. Follow-up review found no
+    blockers. Non-blocking notes: the `SleepEnabled()` comment was broadened to
+    match the durable gate behavior, and detailed activation subchecks are
+    source-backed lifecycle checks while the validation log prints only
+    `lifecycle_checks=pass hash=0x32EC17812CDAA435`.
   - [x] 2026-06-28 query slice rubber-duck review by Chandrasekhar initially
     found blocking false-negative risks for local-offset/oriented colliders and
     undersized cached broadphase radii. The slice now rotates local offsets,
@@ -324,6 +381,7 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
     point joints are rejected, endpoint-update smoke coverage was added, and
     validation evidence/hash was recorded here.
 - [ ] Resolve blocking review findings before committing PR-bound code.
+  - [x] No blocking activation slice findings remained before commit.
   - [x] No blocking query slice findings remained before commit.
   - [x] No blocking point-joint slice findings remained before commit.
 

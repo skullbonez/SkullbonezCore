@@ -11,6 +11,8 @@ Mental model:
   migrate away from the compatibility path.
 
 Glossary:
+  Activation command: Handle-based request to wake a body, seed it asleep, or
+    toggle the standalone world's sleep gate.
   Standalone world: Public physics owner that can be constructed without runtime
     or scene/game-object storage.
   Handle generation: Counter paired with a slot index so stale handles fail
@@ -20,6 +22,8 @@ Glossary:
   Ray cast: Query that reports the closest collider candidate along a directed
     segment.
   Broadphase query: Cheap AABB query that returns candidate bodies in slot order.
+  Sleep gate: World policy deciding whether sleeping body flags are honored by
+    steps and queries.
   Determinism: Same fixed-step inputs produce the same final state and hash.
 
 Invariants:
@@ -47,12 +51,15 @@ using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::VectorMag;
 using SkullbonezCore::Physics::PHYSICS_COMPATIBILITY_HANDLE_GENERATION;
 using SkullbonezCore::Physics::PHYSICS_STANDALONE_HANDLE_INITIAL_GENERATION;
+using SkullbonezCore::Physics::PhysicsActivationCommand;
+using SkullbonezCore::Physics::PhysicsActivationCommandKind;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyUpdateDesc;
 using SkullbonezCore::Physics::PhysicsBodyView;
 using SkullbonezCore::Physics::PhysicsBroadphaseCellQueryDesc;
+using SkullbonezCore::Physics::PhysicsBroadphaseQueryResultView;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsColliderUpdateDesc;
@@ -117,6 +124,7 @@ uint64_t HashSmokeResult( const PhysicsStandaloneSmokeResult& result )
     hash = HashU32( hash, result.pointJointCount );
     hash = HashU32( hash, result.broadphaseQueryCount );
     hash = HashU32( hash, result.stepCount );
+    hash = HashU32( hash, result.activationCommandsPassed ? 1u : 0u );
     hash = HashU32( hash, result.rayCastHit ? 1u : 0u );
     hash = HashVector( hash, result.finalPosition );
     return HashVector( hash, result.finalLinearVelocity );
@@ -134,13 +142,16 @@ float ComputeInverseMass( PhysicsBodyMotionKind motionKind, float mass )
     return motionKind == PhysicsBodyMotionKind::Fixed || mass <= 0.0f ? 0.0f : 1.0f / mass;
 }
 
-bool BodyPassesQueryFilters( const PhysicsBodyView& body, bool includeFixedBodies, bool includeSleepingBodies )
+bool BodyPassesQueryFilters( const PhysicsBodyView& body,
+                             bool includeFixedBodies,
+                             bool includeSleepingBodies,
+                             bool sleepEnabled )
 {
     if ( !includeFixedBodies && body.motionKind == PhysicsBodyMotionKind::Fixed )
     {
         return false;
     }
-    return includeSleepingBodies || !body.sleeping;
+    return includeSleepingBodies || !sleepEnabled || !body.sleeping;
 }
 
 float ConservativeShapeRadius( const SkullbonezCore::Math::CollisionDetection::CollisionShape& shape )
@@ -244,6 +255,7 @@ void PhysicsStandaloneWorld::Clear()
     m_pointJointViewScratch.clear();
     m_broadphaseQueryScratch.clear();
     m_nextInitialGeneration = NextStandaloneInitialGeneration( m_nextInitialGeneration );
+    m_sleepEnabled = true;
 }
 
 
@@ -310,7 +322,7 @@ bool PhysicsStandaloneWorld::UpdateBody( const PhysicsBodyUpdateDesc& desc )
     }
     if ( desc.updateMask & PHYSICS_BODY_UPDATE_SLEEP_STATE )
     {
-        body.sleeping = desc.sleeping;
+        body.sleeping = m_sleepEnabled && desc.sleeping;
     }
     return true;
 }
@@ -529,7 +541,7 @@ bool PhysicsStandaloneWorld::Step( const PhysicsStepDesc& desc )
         }
 
         PhysicsBodyView& body = m_bodies[i];
-        if ( body.motionKind == PhysicsBodyMotionKind::Fixed || body.sleeping )
+        if ( body.motionKind == PhysicsBodyMotionKind::Fixed || ( m_sleepEnabled && body.sleeping ) )
         {
             continue;
         }
@@ -540,6 +552,65 @@ bool PhysicsStandaloneWorld::Step( const PhysicsStepDesc& desc )
         body.position += body.linearVelocity * desc.deltaSeconds;
     }
     return true;
+}
+
+
+bool PhysicsStandaloneWorld::ApplyActivationCommand( const PhysicsActivationCommand& command )
+{
+    if ( command.kind == PhysicsActivationCommandKind::SetSleepEnabled )
+    {
+        m_sleepEnabled = command.enabled;
+        if ( !m_sleepEnabled )
+        {
+            // Invariant: disabling sleep makes Step() treat every live body as
+            // awake, mirroring the legacy world path that clears sleep state.
+            for ( std::size_t i = 0; i < m_bodies.size(); ++i )
+            {
+                if ( m_alive[i] )
+                {
+                    m_bodies[i].sleeping = false;
+                }
+            }
+        }
+        return true;
+    }
+
+    if ( !IsAlive( command.body ) )
+    {
+        return false;
+    }
+
+    PhysicsBodyView& body = m_bodies[command.body.index];
+    if ( body.motionKind == PhysicsBodyMotionKind::Fixed )
+    {
+        return false;
+    }
+
+    switch ( command.kind )
+    {
+    case PhysicsActivationCommandKind::WakeBody:
+        body.sleeping = false;
+        return true;
+    case PhysicsActivationCommandKind::SeedBodyAsleep:
+        if ( !m_sleepEnabled )
+        {
+            return false;
+        }
+        body.linearVelocity = Vector3( 0.0f, 0.0f, 0.0f );
+        body.angularVelocity = Vector3( 0.0f, 0.0f, 0.0f );
+        body.sleeping = true;
+        return true;
+    case PhysicsActivationCommandKind::SetSleepEnabled:
+        break;
+    }
+
+    return false;
+}
+
+
+bool PhysicsStandaloneWorld::SleepEnabled() const
+{
+    return m_sleepEnabled;
 }
 
 
@@ -571,7 +642,8 @@ PhysicsRayCastHit PhysicsStandaloneWorld::RayCast( const PhysicsRayCastDesc& des
 
         const PhysicsColliderView& collider = m_colliders[i];
         const PhysicsBodyView* body = Body( collider.body );
-        if ( !body || !BodyPassesQueryFilters( *body, desc.includeFixedBodies, desc.includeSleepingBodies ) )
+        if ( !body ||
+             !BodyPassesQueryFilters( *body, desc.includeFixedBodies, desc.includeSleepingBodies, m_sleepEnabled ) )
         {
             continue;
         }
@@ -608,8 +680,10 @@ PhysicsStandaloneWorld::QueryBroadphaseCells( const PhysicsBroadphaseCellQueryDe
 
     for ( std::size_t bodyIndex = 0; bodyIndex < m_bodies.size(); ++bodyIndex )
     {
-        if ( !m_alive[bodyIndex] ||
-             !BodyPassesQueryFilters( m_bodies[bodyIndex], desc.includeFixedBodies, desc.includeSleepingBodies ) )
+        if ( !m_alive[bodyIndex] || !BodyPassesQueryFilters( m_bodies[bodyIndex],
+                                                             desc.includeFixedBodies,
+                                                             desc.includeSleepingBodies,
+                                                             m_sleepEnabled ) )
         {
             continue;
         }
@@ -752,7 +826,7 @@ PhysicsBodyView PhysicsStandaloneWorld::MakeBodyView( const PhysicsBodyCreateDes
     view.inverseMass = ComputeInverseMass( desc.motionKind, desc.mass );
     view.boundingRadius = ConservativeShapeRadius( desc.shape );
     view.motionKind = desc.motionKind;
-    view.sleeping = desc.startsAsleep;
+    view.sleeping = m_sleepEnabled && desc.startsAsleep;
     return view;
 }
 
@@ -856,6 +930,14 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     endpointDesc.position = Vector3( 0.0f, 4.0f, 1.0f );
     endpointDesc.mass = 5.0f;
     const PhysicsBodyHandle endpointBody = world.CreateBody( endpointDesc );
+
+    PhysicsBodyCreateDesc activationDesc;
+    activationDesc.sceneObjectId = PhysicsSceneObjectId{ 10u };
+    activationDesc.position = Vector3( 4.0f, 6.0f, 2.0f );
+    activationDesc.linearVelocity = Vector3( 1.0f, 2.0f, 3.0f );
+    activationDesc.angularVelocity = Vector3( 0.1f, 0.2f, 0.3f );
+    activationDesc.mass = 6.0f;
+    const PhysicsBodyHandle activationBody = world.CreateBody( activationDesc );
 
     const bool invalidBodyColliderRejected = !world.CreateCollider( PhysicsColliderCreateDesc{} ).IsValid();
     const bool invalidPointJointRejected = !world.CreatePointJoint( PhysicsPointJointCreateDesc{} ).IsValid();
@@ -993,6 +1075,9 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     const bool fixedMassConsistent = updatedTransientBody &&
                                      updatedTransientBody->motionKind == PhysicsBodyMotionKind::Fixed &&
                                      updatedTransientBody->inverseMass == 0.0f;
+    PhysicsActivationCommand fixedActivationCommand;
+    fixedActivationCommand.body = transientBody;
+    const bool fixedActivationRejected = !world.ApplyActivationCommand( fixedActivationCommand );
     const bool destroyedTransient = world.DestroyBody( transientBody );
     const bool staleHandleRejected = world.Body( transientBody ) == nullptr && !world.UpdateBody( transientUpdate ) &&
                                      !world.DestroyBody( transientBody );
@@ -1015,6 +1100,93 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     staleBodyPointJointDesc.bodyB = transientBody;
     const bool staleBodyPointJointCreationRejected = !world.CreatePointJoint( staleBodyPointJointDesc ).IsValid();
 
+    PhysicsActivationCommand invalidActivationCommand;
+    const bool invalidActivationRejected = !world.ApplyActivationCommand( invalidActivationCommand );
+    PhysicsActivationCommand seedActivationCommand;
+    seedActivationCommand.kind = PhysicsActivationCommandKind::SeedBodyAsleep;
+    seedActivationCommand.body = activationBody;
+    const bool seededActivationBody = world.ApplyActivationCommand( seedActivationCommand );
+    const PhysicsBodyView* seededActivationView = world.Body( activationBody );
+    const bool seededActivationConsistent = seededActivationBody && seededActivationView &&
+                                            seededActivationView->sleeping &&
+                                            seededActivationView->linearVelocity == Vector3( 0.0f, 0.0f, 0.0f ) &&
+                                            seededActivationView->angularVelocity == Vector3( 0.0f, 0.0f, 0.0f );
+
+    PhysicsActivationCommand disableSleepCommand;
+    disableSleepCommand.kind = PhysicsActivationCommandKind::SetSleepEnabled;
+    disableSleepCommand.enabled = false;
+    const bool disabledSleep = world.ApplyActivationCommand( disableSleepCommand ) && !world.SleepEnabled();
+    const PhysicsBodyView* sleepDisabledActivationView = world.Body( activationBody );
+    const bool disableSleepWokeBodies = sleepDisabledActivationView && !sleepDisabledActivationView->sleeping;
+    const bool seedRejectedWhileSleepDisabled = !world.ApplyActivationCommand( seedActivationCommand ) &&
+                                                world.Body( activationBody ) && !world.Body( activationBody )->sleeping;
+
+    PhysicsActivationCommand enableSleepCommand;
+    enableSleepCommand.kind = PhysicsActivationCommandKind::SetSleepEnabled;
+    enableSleepCommand.enabled = true;
+    const bool enabledSleep = world.ApplyActivationCommand( enableSleepCommand ) && world.SleepEnabled();
+    const bool reseededActivationBody = world.ApplyActivationCommand( seedActivationCommand );
+    const PhysicsBodyView* reseededActivationView = world.Body( activationBody );
+    const bool reseededActivationConsistent =
+        reseededActivationBody && reseededActivationView && reseededActivationView->sleeping;
+
+    PhysicsActivationCommand wakeActivationCommand;
+    wakeActivationCommand.kind = PhysicsActivationCommandKind::WakeBody;
+    wakeActivationCommand.body = activationBody;
+    const bool wokeActivationBody = world.ApplyActivationCommand( wakeActivationCommand );
+    const PhysicsBodyView* wokeActivationView = world.Body( activationBody );
+    const bool wokeActivationConsistent = wokeActivationBody && wokeActivationView && !wokeActivationView->sleeping;
+    const bool destroyedActivationBody = world.DestroyBody( activationBody );
+    const bool staleActivationRejected = !world.ApplyActivationCommand( wakeActivationCommand );
+
+    PhysicsStandaloneWorld sleepGateWorld;
+    PhysicsActivationCommand disableSleepGateCommand;
+    disableSleepGateCommand.kind = PhysicsActivationCommandKind::SetSleepEnabled;
+    disableSleepGateCommand.enabled = false;
+    const bool sleepGateDisabled =
+        sleepGateWorld.ApplyActivationCommand( disableSleepGateCommand ) && !sleepGateWorld.SleepEnabled();
+
+    PhysicsBodyCreateDesc sleepGateBodyDesc;
+    sleepGateBodyDesc.sceneObjectId = PhysicsSceneObjectId{ 11u };
+    sleepGateBodyDesc.shape = BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
+    sleepGateBodyDesc.linearVelocity = Vector3( 1.0f, 0.0f, 0.0f );
+    sleepGateBodyDesc.startsAsleep = true;
+    const PhysicsBodyHandle sleepGateBody = sleepGateWorld.CreateBody( sleepGateBodyDesc );
+    const PhysicsBodyView* sleepGateCreatedView = sleepGateWorld.Body( sleepGateBody );
+    const bool sleepDisabledCreateAwake = sleepGateCreatedView && !sleepGateCreatedView->sleeping;
+
+    PhysicsBodyUpdateDesc sleepGateUpdate;
+    sleepGateUpdate.body = sleepGateBody;
+    sleepGateUpdate.updateMask = PHYSICS_BODY_UPDATE_SLEEP_STATE;
+    sleepGateUpdate.sleeping = true;
+    const bool sleepDisabledUpdateAccepted = sleepGateWorld.UpdateBody( sleepGateUpdate );
+    const PhysicsBodyView* sleepGateUpdatedView = sleepGateWorld.Body( sleepGateBody );
+    const bool sleepDisabledUpdateStayedAwake =
+        sleepDisabledUpdateAccepted && sleepGateUpdatedView && !sleepGateUpdatedView->sleeping;
+
+    PhysicsStepDesc sleepGateStep;
+    sleepGateStep.deltaSeconds = 0.5f;
+    sleepGateStep.fixedStep = true;
+    const bool sleepDisabledStepSucceeded = sleepGateWorld.Step( sleepGateStep );
+    const PhysicsBodyView* sleepGateSteppedView = sleepGateWorld.Body( sleepGateBody );
+    const bool sleepDisabledStepIntegrated = sleepDisabledStepSucceeded && sleepGateSteppedView &&
+                                             sleepGateSteppedView->position == Vector3( 0.5f, 0.0f, 0.0f );
+
+    PhysicsBroadphaseCellQueryDesc sleepGateQuery;
+    sleepGateQuery.min = Vector3( -1.0f, -1.0f, -1.0f );
+    sleepGateQuery.max = Vector3( 2.0f, 1.0f, 1.0f );
+    sleepGateQuery.includeSleepingBodies = false;
+    const PhysicsBroadphaseQueryResultView sleepGateQueryView = sleepGateWorld.QueryBroadphaseCells( sleepGateQuery );
+    const bool sleepDisabledQueryIncludesBody = sleepGateQueryView.bodyCount == 1u && sleepGateQueryView.bodies &&
+                                                sleepGateQueryView.bodies[0] == sleepGateBody;
+
+    const bool activationCommandsConsistent =
+        invalidActivationRejected && fixedActivationRejected && seededActivationConsistent && disabledSleep &&
+        disableSleepWokeBodies && seedRejectedWhileSleepDisabled && enabledSleep && reseededActivationConsistent &&
+        wokeActivationConsistent && destroyedActivationBody && staleActivationRejected && sleepGateDisabled &&
+        sleepDisabledCreateAwake && sleepDisabledUpdateStayedAwake && sleepDisabledStepIntegrated &&
+        sleepDisabledQueryIncludesBody;
+
     PhysicsStepDesc stepDesc;
     stepDesc.deltaSeconds = 0.25f;
     stepDesc.fixedStep = true;
@@ -1036,6 +1208,7 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     result.colliderCount = world.Colliders().colliderCount;
     result.pointJointCount = world.PointJoints().pointJointCount;
     result.stepCount = STEP_COUNT;
+    result.activationCommandsPassed = activationCommandsConsistent;
 
     const PhysicsBodyView* finalBody = world.Body( body );
     if ( finalBody )
@@ -1086,12 +1259,13 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         destroyedTransient && staleHandleRejected && childColliderStaleAfterBodyDestroy &&
         movedConstraintSurvivedOldEndpointDestroy && destroyedEndpoint && connectedConstraintStaleAfterBodyDestroy &&
         staleEndpointHandleRejected && staleBodyColliderCreationRejected && staleBodyPointJointCreationRejected &&
-        rayCastConsistent && broadphaseQueryConsistent;
+        activationCommandsConsistent && rayCastConsistent && broadphaseQueryConsistent;
 
     result.deterministicHash = HashSmokeResult( result );
     result.passed = stepped && result.lifecycleChecksPassed && finalBody && result.bodyCount == 1u &&
                     result.colliderCount == 1u && result.pointJointCount == 0u && result.broadphaseQueryCount == 1u &&
-                    result.rayCastHit && result.finalPosition == Vector3( 3.0f, 9.0f, -2.0f ) &&
+                    result.activationCommandsPassed && result.rayCastHit &&
+                    result.finalPosition == Vector3( 3.0f, 9.0f, -2.0f ) &&
                     result.finalLinearVelocity == Vector3( 2.0f, -4.0f, 0.0f );
     return result;
 }
