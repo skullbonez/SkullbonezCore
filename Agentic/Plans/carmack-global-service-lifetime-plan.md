@@ -10,6 +10,17 @@ require `tools\validate_full.bat`.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Documented the current startup bind order and shutdown/backend
+  resource release order. The lifetime-order section now records how `Init.cpp`
+  owns worker/window/backend creation, how `Run::Run()` binds `EngineContext`,
+  how `Run::Initialise()` binds window/renderer/title, texture and active asset
+  bridges, built-in assets, terrain, skybox, UI text, cameras, and first scene
+  load, and how `Run::~Run` flushes GPU work, releases backend-owned runtime
+  resources, unbinds the active asset bridge, then returns to `Init.cpp` for
+  worker/backend/window/COM teardown. Rubber-duck review by Sagan found three
+  blocking documentation inaccuracies and one non-blocking ordering note; all
+  were fixed before commit. Documentation-only slice; no repository validation
+  required.
 - [x] 2026-06-28: Routed editor placement's building asset-library lookup
   through explicit borrowed `AssetSystem` context instead of
   `ActiveAssetSystem()`. Placement preview, overlay ghost tracing, placement
@@ -705,9 +716,9 @@ bridges tiny, named, and fenced.
 
 ### Lifetime Order
 
-- [ ] Document startup bind order for renderer, assets, textures, window,
+- [x] Document startup bind order for renderer, assets, textures, window,
   cameras, input, diagnostics, and scene services.
-- [ ] Document shutdown unbind order and backend resource release order.
+- [x] Document shutdown unbind order and backend resource release order.
 - [ ] Add assertions that borrowed service pointers are bound before use.
 - [x] Add a local assertion before runtime render-pass texture-slot helpers use
   `RenderFrameContext::renderCommands`.
@@ -715,6 +726,33 @@ bridges tiny, named, and fenced.
   can fire late.
 - [ ] Keep `Run.h` as composition root wiring, not a bag of service-locator
   helpers.
+
+#### Runtime Service Lifetime Order, 2026-06-28
+
+Startup order:
+
+| Order | Owner | Current bind / creation step | Notes |
+|-------|-------|------------------------------|-------|
+| 1 | `Init.cpp` / process entry | `CoInitializeEx`, command-line parsing, and config checks. | Startup can exit before worker/window/backend creation if arguments are invalid. |
+| 2 | `WorkerPool::Instance()` | `WorkerPool::Instance().Initialise(Cfg().workerThreads)`. | Worker self-test runs only after the pool is initialized; self-test mode then shuts the pool down and exits before window/backend creation. |
+| 3 | `Window::Instance()` | `Window::Instance()`, `CreateAppWindow(...)`, and `GetDC(...)`. | Win32 window/device context exist before DX12 backend init. |
+| 4 | Renderer backend | `InitRenderBackend(window)` creates `RenderBackendDX12`, calls `backend->Init(...)`, then `SetGfxBackend(...)` and `SetGfxRayTracingBackend(...)`. | `SetGfxBackend` owns the backend; `GfxRayTracing()` is a borrowed alias cleared by `DestroyGfxBackend()`. |
+| 5 | Window resize bridge | `window->HandleScreenResize()` after backend bind. | Backend exists when resize handling queries/rebuilds render state. |
+| 6 | `Run` scoped runtime | `RunApp(window, args)` constructs `Run`; `Run` destructor runs before backend/window teardown. | `Init.cpp` explicitly scopes `Run` so runtime render resources release while DX12 is alive. |
+| 7 | `EngineContext` borrowed runtime graph | `Run::Run()` calls `BindEngineContext()` before `Run::Initialise()`. | `EngineContext` borrows scene, simulation, capture, diagnostics, commands, subsystem state, runtime settings, input, camera/debug, world, and model storage owned by `Run`. |
+| 8 | Runtime service aliases | `Run::Initialise()` binds `m_systems.window = Window::Instance()`, reads `Gfx().GetRendererName()`, and sets the window title. | Window and renderer are preconditions for `Run::Initialise()`. |
+| 9 | Asset/texture bridge | `TextureCollection::Instance()`, `TextureCollection::BindAssetSystem(&m_systems.assets)`, `BindActiveAssetSystem(&m_systems.assets)`, then `RegisterBuiltInAssets()`. | Texture and shader compatibility helpers still borrow the runtime-owned `AssetSystem` through this bridge. |
+| 10 | Initial render resource records | `RebuildRegisteredRenderResources()` resets render helper caches, re-registers built-in source records, and rebuilds textures. | Shader source records are registered through built-in assets; shader objects are still created lazily by callers such as UI/render helper paths. |
+| 11 | Terrain/world/sky/UI/camera scene setup | Terrain is constructed from registered source asset path; skybox singleton is created/reset; world environment receives config and terrain bounds; UI text resources are ensured; camera singleton is bound; `LoadScene(0)` starts scene runtime. | Scene services are last because they depend on asset, terrain, render, world, and camera state. |
+
+Shutdown order:
+
+| Order | Owner | Current unbind / release step | Notes |
+|-------|-------|-------------------------------|-------|
+| 1 | `Run::~Run()` | If `Gfx()` is ready, flush GPU work before releasing runtime-owned render resources. | Prevents queued GPU work from reading resources while runtime owners destroy them. |
+| 2 | `Run::ReleaseBackendOwnedRenderResources("shutdown_release")` | Releases world environment render resources, helper resources, game-model resources, collision visualizer, UI resources, runtime render-pass resources, profiler GPU queries, texture collection GPU textures, camera resources, skybox resources, and launcher laser resources. | World environment reset is followed by an immediate flush because it can record upload commands before later release steps. |
+| 3 | Asset bridge | `Run::~Run()` calls `BindActiveAssetSystem(nullptr)`. | The active asset compatibility bridge must be unbound while runtime-owned `m_systems.assets` still exists. |
+| 4 | Worker/backend/window/COM cleanup | After `RunApp()` returns, `WorkerPool::Instance().Shutdown()` runs, then `CleanupWindow(...)` calls `DestroyGfxBackend()`, releases the Win32 device context, restores fullscreen cursor/display state if needed, unregisters the window class, and calls `Window::Destroy()` to clear the singleton pointer. `CoUninitialize()` completes process teardown after cleanup returns. | `DestroyGfxBackend()` clears raytracing alias state before releasing the backend owner; current `Window::Destroy()` does not destroy the HWND, it clears `Window::pInstance`. |
 
 ### Guardrails
 
@@ -737,6 +775,8 @@ bridges tiny, named, and fenced.
 - [ ] For plan-only edits: no validation required.
   - [x] 2026-06-28 review-checklist entry slice was plan-only; no repository
     validation required.
+  - [x] 2026-06-28 lifetime-order documentation slice was plan-only; no
+    repository validation required.
 - [x] For runtime-wide lifetime or startup/shutdown changes: run `tools\validate_full.bat`.
 - [x] For renderer service access changes: run `tools\validate_dx12_renderer.bat`.
 - [ ] For asset registration, scene asset loading, hull asset, or scene JSON
@@ -784,6 +824,12 @@ Reviewer notes, 2026-06-28:
   user-owned/uncommitted. Pauli's missing-evidence reminders were cleared by the
   touched-source comment-style audit plus final logged runtime-boundary,
   `validate_fast`, and `validate_full` gates.
+- Sagan blocked the lifetime-order documentation slice until it included
+  `Run::Run()` / `EngineContext` bindings, stopped overclaiming shader resource
+  creation in `RebuildRegisteredRenderResources()`, and corrected the window
+  cleanup wording around `UnregisterClass(...)` and `Window::Destroy()`. The
+  non-blocking worker self-test ordering note was also folded into the startup
+  table.
 
 ## Definition Of Done
 
