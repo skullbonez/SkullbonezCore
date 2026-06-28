@@ -27,6 +27,24 @@ storage changes, also run `tools\validate_perf.bat`.
   Rubber-duck review: Lagrange found a blocking broad `RenderCapabilities`
   leak on the first pass; the follow-up review confirmed the blocker resolved
   and found no new blockers.
+- [x] 2026-06-28: Formalized the wide render backend surface into
+  `IRenderDeviceLifecycle`, `IRenderResourceFactory`, `IRenderCommandContext`,
+  and `IRenderDiagnostics`, while keeping `IRenderBackend` as a temporary
+  inherited aggregate for existing `Gfx()` call sites. `IRenderRayTracing`
+  remains separate and is not inherited by the facade. New interface headers
+  include ownership/lifetime learning headers, and
+  `tools\validate_project_filters.py` now recognizes the new render interface
+  files. Rubber-duck review found no code blockers; non-blocking notes about
+  broad `RenderCapabilities` metadata and `GfxRayTracing()` sharing the
+  compatibility header remain tracked for later call-site/header migration.
+  Validation:
+  `tools\validate_project_filters.bat` passed in 0.86s
+  (`TestOutput\validation\agent_logs\render_capability_interfaces_project_filters.log`);
+  `tools\validate_fast.bat` passed in 124.41s
+  (`TestOutput\validation\agent_logs\render_capability_interfaces_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 17.92s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\render_capability_interfaces_validate_dx12_renderer.log`).
 
 ## Problem Statement
 
@@ -76,12 +94,12 @@ compatibility facade while call sites migrate.
 ### Capability Interfaces
 
 - [x] Keep `IRenderCaptureBackend` as the capture/readback surface and move capture-only callers to it.
-- [ ] Add or formalize `IRenderDeviceLifecycle` for init, shutdown, resize, present, finish, flush, and vsync.
-- [ ] Add or formalize `IRenderResourceFactory` for shader, mesh, framebuffer, texture, instanced mesh, and dynamic buffer creation.
-- [ ] Add or formalize `IRenderCommandContext` for frame draw state, clears, viewport, blend, depth, cull, texture binding, and draw calls.
-- [ ] Add or formalize `IRenderDiagnostics` for draw-call trace, GPU timers, platform markers, and backend validation metadata.
-- [ ] Keep `IRenderRayTracing` separate; do not move DXR methods back onto the wide backend.
-- [ ] Document ownership and lifetime for each capability interface in its header.
+- [x] Add or formalize `IRenderDeviceLifecycle` for init, shutdown, resize, present, finish, flush, and vsync.
+- [x] Add or formalize `IRenderResourceFactory` for shader, mesh, framebuffer, texture, instanced mesh, and dynamic buffer creation.
+- [x] Add or formalize `IRenderCommandContext` for frame draw state, clears, viewport, blend, depth, cull, texture binding, and draw calls.
+- [x] Add or formalize `IRenderDiagnostics` for draw-call trace, GPU timers, platform markers, and backend validation metadata.
+- [x] Keep `IRenderRayTracing` separate; do not move DXR methods back onto the wide backend.
+- [x] Document ownership and lifetime for each capability interface in its header.
 
 ### Call-Site Migration
 
@@ -95,7 +113,7 @@ compatibility facade while call sites migrate.
 
 ### DX12 Adapter Shape
 
-- [ ] Have `RenderBackendDX12` implement the narrow capability interfaces directly or through small adapter objects.
+- [x] Have `RenderBackendDX12` implement the narrow capability interfaces through the temporary `IRenderBackend` aggregate; direct base-list or adapter migration is still pending.
 - [ ] Keep adapter methods thin enough that DX12 state ownership remains in the backend implementation.
 - [ ] Do not introduce new per-frame heap allocation through adapters.
 - [ ] Preserve backend-owned resource release order during shutdown, resize, and rebuild.
@@ -103,11 +121,23 @@ compatibility facade while call sites migrate.
 
 ### Compatibility Facade Retirement
 
-- [ ] Leave `IRenderBackend` forwarding or aggregating capabilities only while callers migrate.
-- [ ] Add a plan-local table of remaining `IRenderBackend` methods after each slice.
+- [x] Leave `IRenderBackend` forwarding or aggregating capabilities only while callers migrate.
+- [x] Add a plan-local table of remaining `IRenderBackend` methods after each slice.
 - [ ] Delete facade methods when no direct caller needs them.
 - [ ] Update `RenderCapabilities` if capability discovery moves to narrower services.
 - [ ] Remove stale comments that imply GL/DX11 parity or multi-backend runtime selection.
+
+Remaining `IRenderBackend` surface after the 2026-06-28 capability-interface slice:
+
+| Capability | Public callable surface still reachable through `IRenderBackend&` | Notes |
+|------------|-----------------|-------|
+| Own methods | 0 | The facade declares no render methods of its own. |
+| `IRenderDeviceLifecycle` | 10 | Init/shutdown/resize/present/finish/flush/vsync/size still reachable for compatibility. |
+| `IRenderResourceFactory` | 9 | Resource creation/destruction remains inherited until creation paths receive the narrower factory. |
+| `IRenderCommandContext` | 22 | Draw state, texture binding, dynamic geometry upload/draw, debug lines, transient triangles, and instanced draw calls remain inherited until render passes migrate. |
+| `IRenderDiagnostics` | 16 | Draw trace, GPU timers, platform markers, renderer name, and broad `RenderCapabilities` metadata remain inherited. |
+| `IRenderCaptureBackend` | 2 | Capture remains separately callable through `GfxCapture()`; inherited access remains only because `IRenderBackend` is the temporary aggregate. |
+| `IRenderRayTracing` | 0 | DXR methods are still reachable only through `GfxRayTracing()` / `IRenderRayTracing`, not through `IRenderBackend`. |
 
 ### Guardrails
 
@@ -115,7 +145,7 @@ compatibility facade while call sites migrate.
 - [ ] Add a ratchet for `IRenderBackend.h` method count or public declaration count.
 - [ ] Add a guardrail that blocks new direct `Gfx()` calls outside approved bootstrap and compatibility files.
 - [ ] Add synthetic checker tests for allowed narrow capability use and rejected wide-backend use.
-- [ ] Teach project-filter validation about any new render interface files.
+- [x] Teach project-filter validation about any new render interface files.
 
 ## Validation Checklist
 
@@ -130,13 +160,13 @@ compatibility facade while call sites migrate.
 
 - [x] Ask a rubber-duck reviewer to inspect whether new interfaces are genuinely narrower or just the old backend split into names.
 - [x] Ask the reviewer to look for new hidden global access or new `Gfx()` use.
-- [ ] Ask the reviewer to check DX12 resource lifetime and shutdown/resize behavior.
+- [x] Ask the reviewer to check DX12 resource lifetime and shutdown/resize behavior.
 - [x] Record review findings in a report or this plan.
 - [x] Resolve blocking review findings before committing PR-bound code.
 
 ## Definition Of Done
 
 - [ ] Ordinary runtime render pass code no longer depends on the full `IRenderBackend`.
-- [ ] `IRenderBackend.h` is reduced to a temporary facade or deleted.
+- [x] `IRenderBackend.h` is reduced to a temporary facade or deleted.
 - [ ] Guardrails prevent re-widening the backend contract.
-- [ ] DX12 renderer validation passes with zero InfoQueue errors and matching screenshots.
+- [x] DX12 renderer validation passes with zero InfoQueue errors and matching screenshots.
