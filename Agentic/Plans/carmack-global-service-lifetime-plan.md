@@ -10,6 +10,24 @@ require `tools\validate_full.bat`.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Added an explicit renderer-global file-classification fence
+  to `tools\check_runtime_boundaries.py`. The existing global-service ratchet
+  still preserves current counts, but direct `Gfx()` and `GfxRayTracing()` calls
+  now also require a named compatibility-location classification such as
+  runtime composition root, backend accessor definition, UI compatibility, or
+  render helper compatibility. Synthetic tests prove count allowances alone do
+  not approve a new unclassified `Gfx()` or `GfxRayTracing()` file. This
+  resolves the renderer-specific bootstrap/compatibility guardrail while the
+  broader per-site classification of all remaining globals stays open under
+  Inventory.
+  Comment-style audit: inspected `tools\check_runtime_boundaries.py`; the
+  learning header now names the renderer-global classification fence and the
+  new allowlist comment explains the invariant.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors
+  (`TestOutput\validation\agent_logs\renderer_global_classification_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed
+  (`TestOutput\validation\agent_logs\renderer_global_classification_validate_fast.log`).
 - [x] 2026-06-28: Added a counted global-service access ratchet to
   `tools\check_runtime_boundaries.py`. The guardrail ignores comments and string
   literals, preserves the current compatibility surface as counted debt, and
@@ -569,7 +587,8 @@ bridges tiny, named, and fenced.
   `Gfx()`, `ActiveAssetSystem()`, `CreateShaderFromActiveAssets()`, and
   singleton `Instance()` calls outside allowlisted bootstrap/bridge files.
   2026-06-28 note: implemented as a counted new-code ratchet for current source
-  files; the stricter bootstrap/bridge classification is still open under
+  files, with an explicit file-classification fence for direct renderer globals;
+  the broader per-site bootstrap/bridge classification is still open under
   Inventory.
 - [x] Add counted allowlists for remaining globals and lower them after each
   migration slice.

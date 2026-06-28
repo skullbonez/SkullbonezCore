@@ -8,7 +8,9 @@
 #   physics facades, or raytracing calls on the wide render backend facade. It
 #   also blocks direct scheduling or manual-barrier regressions for passes that
 #   already moved to render graph callback ownership, and new normal-path global
-#   service access while explicit service contexts are built.
+#   service access while explicit service contexts are built. Renderer globals
+#   have an extra file-classification fence so count allowances do not silently
+#   approve a new compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -41,7 +43,8 @@
 #   - Unknown render graph resource states remain explicitly counted handoffs
 #     until the graph owns concrete initial access for migrated resources.
 #   - Existing global service calls are counted debt; adding new ones requires
-#     migrating the caller or lowering another allowlist entry first.
+#     migrating the caller or lowering another allowlist entry first. Direct
+#     renderer service calls also need an approved debt-location classification.
 #
 # Related:
 #   - Agentic/Plans/runtime-run-decomposition-plan.md
@@ -205,6 +208,40 @@ GLOBAL_SERVICE_ACCESS_PATTERNS: tuple[tuple[str, re.Pattern[str], str, str], ...
         "Route diagnostics/profiling through an explicit diagnostics context before adding another profiler singleton call.",
     ),
 )
+GLOBAL_RENDERER_SERVICE_LABELS = { "Gfx()", "GfxRayTracing()" }
+# Location classifications are a second fence over the counted Gfx() ratchet:
+# they make each remaining direct renderer-service file an explicitly reviewed
+# compatibility location instead of letting a raw count entry approve a new file.
+GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS: dict[Path, str] = {
+    Path("SkullbonezSource/Assets/AssetSystem.cpp"): "asset shader factory compatibility",
+    Path("SkullbonezSource/Assets/TextureCollection.cpp"): "asset texture backend compatibility",
+    Path("SkullbonezSource/Core/Profiler.cpp"): "diagnostics/profiler bridge",
+    Path("SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp"): "physics debug visualizer compatibility",
+    Path("SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp"): "physics debug visualizer compatibility",
+    Path("SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp"): "physics debug visualizer compatibility",
+    Path("SkullbonezSource/Physics/TornadoField.cpp"): "physics debug rendering compatibility",
+    Path("SkullbonezSource/Rendering/Helper.cpp"): "render helper compatibility",
+    Path("SkullbonezSource/Rendering/IRenderBackend.cpp"): "backend accessor definition",
+    Path("SkullbonezSource/Rendering/IRenderBackend.h"): "backend accessor declaration and tracing RAII",
+    Path("SkullbonezSource/Rendering/Shadow.h"): "shadow texture binding compatibility",
+    Path("SkullbonezSource/Rendering/Text.cpp"): "text renderer compatibility",
+    Path("SkullbonezSource/Runtime/Editor/LauncherLaser.cpp"): "editor transient geometry compatibility",
+    Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.inl"): "editor debug tracing compatibility",
+    Path("SkullbonezSource/Runtime/Run.cpp"): "runtime composition root",
+    Path("SkullbonezSource/Runtime/RunFrame.cpp"): "runtime frame lifecycle",
+    Path("SkullbonezSource/Runtime/RunInput.cpp"): "runtime input/settings bridge",
+    Path("SkullbonezSource/Runtime/RunRender.cpp"): "runtime render service composition",
+    Path("SkullbonezSource/Runtime/RunStress.cpp"): "runtime stress harness bridge",
+    Path("SkullbonezSource/Runtime/RunUiTextPass.cpp"): "UI text pass compatibility",
+    Path("SkullbonezSource/Runtime/Scene/RunScene.cpp"): "scene/runtime render setup compatibility",
+    Path("SkullbonezSource/Runtime/Window.cpp"): "window resize bridge",
+    Path("SkullbonezSource/UI/UI.cpp"): "UI render compatibility",
+    Path("SkullbonezSource/UI/UIBackdropBlur.cpp"): "UI backdrop render compatibility",
+    Path("SkullbonezSource/UI/UITabProfiler.cpp"): "UI diagnostics compatibility",
+    Path("SkullbonezSource/World/SkyBox.cpp"): "world skybox resource compatibility",
+    Path("SkullbonezSource/World/Terrain.cpp"): "world terrain resource compatibility",
+    Path("SkullbonezSource/World/WorldEnvironment.cpp"): "world environment render compatibility",
+}
 GENERIC_INSTANCE_ACCESS_PATTERN = re.compile(r"\b(?P<class_name>[A-Za-z_]\w*)\s*::\s*Instance\s*\(")
 NAMED_GLOBAL_SERVICE_INSTANCE_CLASSES = {
     "TextureCollection",
@@ -2051,6 +2088,16 @@ def check_global_service_access_guardrails_text(
     for offset, label, message, detail in sorted(matches):
         key = ( key_path, label )
         seen[key] += 1
+        if label in GLOBAL_RENDERER_SERVICE_LABELS and key_path not in GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS:
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, offset),
+                    "global renderer service access is outside approved compatibility files",
+                    "Borrow a renderer capability/context, or first classify this file as explicit renderer-service debt in the Carmack global/backend plans.",
+                )
+            )
+            continue
         if seen[key] > allowed.get(key, 0):
             errors.append(BoundaryError(path, line_for_offset(stripped, offset), message, detail))
 
@@ -3660,6 +3707,34 @@ def run_self_tests() -> list[str]:
         allowlist=synthetic_global_service_allowlist,
     ):
         failures.append("count-allowed global service synthetic surface was rejected")
+
+    unclassified_global_renderer_path = Path("SkullbonezSource/Runtime/NewRenderPath.cpp")
+    synthetic_unclassified_renderer_allowlist: Counter[tuple[Path, str]] = Counter(
+        { ( unclassified_global_renderer_path, "Gfx()" ): 1 }
+    )
+    if not any(
+        error.message == "global renderer service access is outside approved compatibility files"
+        for error in check_global_service_access_guardrails_text(
+            unclassified_global_renderer_path,
+            "void NewRenderPath() { Gfx().Present(); }",
+            allowlist=synthetic_unclassified_renderer_allowlist,
+        )
+    ):
+        failures.append("unclassified count-allowed Gfx synthetic surface was not rejected")
+
+    unclassified_global_dxr_path = Path("SkullbonezSource/Runtime/NewDxrPath.cpp")
+    synthetic_unclassified_dxr_allowlist: Counter[tuple[Path, str]] = Counter(
+        { ( unclassified_global_dxr_path, "GfxRayTracing()" ): 1 }
+    )
+    if not any(
+        error.message == "global renderer service access is outside approved compatibility files"
+        for error in check_global_service_access_guardrails_text(
+            unclassified_global_dxr_path,
+            "void NewDxrPath() { GfxRayTracing().GetReflectionUAVTexture(); }",
+            allowlist=synthetic_unclassified_dxr_allowlist,
+        )
+    ):
+        failures.append("unclassified count-allowed GfxRayTracing synthetic surface was not rejected")
 
     grown_global_service_access = """
     void BootstrapRenderer() { Gfx().Present(); }

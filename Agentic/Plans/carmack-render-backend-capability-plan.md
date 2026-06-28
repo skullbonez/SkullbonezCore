@@ -10,6 +10,24 @@ storage changes, also run `tools\validate_perf.bat`.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Added an explicit file-classification fence for direct
+  renderer globals in `tools\check_runtime_boundaries.py`. `Gfx()` and
+  `GfxRayTracing()` now require both the existing per-file count allowance and
+  an approved renderer-service debt classification, so a count entry alone
+  cannot approve a new compatibility location. Synthetic tests prove an
+  unclassified `Gfx()` file and an unclassified `GfxRayTracing()` file are
+  rejected even when a synthetic count allowlist permits the call. This closes
+  the backend-plan guardrail for blocking new direct `Gfx()` calls outside
+  approved bootstrap/compatibility files; existing classified files remain
+  counted migration debt.
+  Comment-style audit: inspected `tools\check_runtime_boundaries.py`; the
+  learning header now names the renderer-global classification fence and the
+  new allowlist comment explains the invariant.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors
+  (`TestOutput\validation\agent_logs\renderer_global_classification_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed
+  (`TestOutput\validation\agent_logs\renderer_global_classification_validate_fast.log`).
 - [x] 2026-06-28: Split the capture/readback capability into
   `IRenderCaptureBackend.h`, added `GfxCapture()` as the narrow borrowed
   capability accessor, gave the capture interface a capture-only
@@ -642,7 +660,7 @@ Remaining `IRenderBackend` surface after the 2026-06-28 capability-interface sli
 
 - [x] Extend `tools\check_runtime_boundaries.py` to reject new DXR methods on `IRenderBackend`.
 - [x] Add a ratchet for `IRenderBackend.h` method count or public declaration count.
-- [ ] Add a guardrail that blocks new direct `Gfx()` calls outside approved bootstrap and compatibility files.
+- [x] Add a guardrail that blocks new direct `Gfx()` calls outside approved bootstrap and compatibility files.
 - [x] Add synthetic checker tests for allowed narrow capability use and rejected wide-backend use.
 - [x] Teach project-filter validation about any new render interface files.
 
