@@ -982,10 +982,14 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
     {
         // Invariant: the planar path binds only its own reflection target and
         // restores the viewport to the window size before water renders.
+        Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
         ReflectionPassResources& reflectionResources = m_host.m_systems.renderPasses.reflection;
         reflectionResources.target->Bind();
-        Gfx().SetViewport( 0, 0, reflectionResources.target->GetWidth(), reflectionResources.target->GetHeight() );
-        Gfx().Clear( true, true );
+        renderCommands.SetViewport( 0,
+                                    0,
+                                    reflectionResources.target->GetWidth(),
+                                    reflectionResources.target->GetHeight() );
+        renderCommands.Clear( true, true );
 
         // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight).
         // Cinematic mode can reflect the generated sunset sky into the water
@@ -1002,14 +1006,14 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         // below-surface visual from the main scene.
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
         DRAW_CALL_TRACE_SCOPE( "Frame/Render/Reflection/Balls" );
-        Gfx().SetClipPlane( 0, true );
+        renderCommands.SetClipPlane( 0, true );
         RenderHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
         m_host.m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
         if ( inputs.collisionStateColorsVisible )
         {
             // Pass contract: collision-state solids are vertex-colored and do
             // not sample textures.
-            ClearAllRenderTextureSlots( RenderCommands( inputs.frame ) );
+            ClearAllRenderTextureSlots( renderCommands );
             if ( inputs.frame.scene )
             {
                 inputs.frame.scene->RenderCollisionStateSolids( m_host.m_collisionVisualizer,
@@ -1024,7 +1028,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             // Pass contract: reflected lit models read material color from slot
             // 0 and optional shadow depth from slot 3.
             ClearRenderTextureSlotsExcept(
-                RenderCommands( inputs.frame ),
+                renderCommands,
                 RENDER_TEXTURE_SLOT_0 |
                     ( inputs.objectShadow && inputs.objectShadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
             m_host.SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
@@ -1038,13 +1042,13 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
                                                   inputs.bodyAlpha );
             }
         }
-        Gfx().SetClipPlane( 0, false );
+        renderCommands.SetClipPlane( 0, false );
         RenderHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         m_host.m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
 
         reflectionResources.target->Unbind();
-        Gfx().SetViewport( 0, 0, m_host.WindowScreenWidth(), m_host.WindowScreenHeight() );
+        renderCommands.SetViewport( 0, 0, m_host.WindowScreenWidth(), m_host.WindowScreenHeight() );
         output.reflectionTextureHandle = reflectionResources.target->GetColorTextureHandle();
         output.reflectionSampleViewProjection = inputs.frame.reflectionViewProjection;
     }

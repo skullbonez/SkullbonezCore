@@ -281,6 +281,31 @@ require `tools\validate_full.bat`.
   Rubber-duck review: Bohr found no blockers. Non-blocking notes: perf evidence
   is advisory/noisy on this machine, and the `Gfx()` guardrail remains
   count-based rather than semantic per-call tracking.
+- [x] 2026-06-28: Routed planar reflection viewport, clear, clip-plane
+  enable/disable, and final viewport restore through `RenderFrameContext`'s
+  borrowed `IRenderCommandContext` instead of direct `Gfx()` calls. This lowers
+  `RunPasses.cpp` direct `Gfx()` debt from 18 to 13 and the plan's total
+  counted `Gfx()` surface from 213 to 208. The broad render-pass/global-service
+  migration remains open for reflection capability queries, DXR dispatch,
+  framebuffer creation, size queries, and fullscreen quad resource lifetime.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; the change uses the existing borrowed
+  command context and preserves the current planar reflection state contract.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 5.11s
+  (`TestOutput\validation\agent_logs\reflection_command_state_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.90s
+  (`TestOutput\validation\agent_logs\reflection_command_state_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 18.38s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\reflection_command_state_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.97s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\reflection_command_state_validate_full.log`).
+  Rubber-duck review: Nietzsche found no blockers and verified no stale
+  allowlist mismatch: actual total `Gfx()` count 208, allowlist total 208, and
+  `RunPasses.cpp` actual/allowlist 13/13. Non-blocking note: the `Gfx()`
+  guardrail remains count-based rather than semantic per-call tracking.
 
 ## Current Counted Global-Service Surface
 
@@ -291,7 +316,7 @@ string literals.
 | Pattern | Current count |
 |---------|---------------|
 | `Cfg()` | 239 |
-| `Gfx()` | 213 |
+| `Gfx()` | 208 |
 | `GfxRayTracing()` | 5 |
 | `ActiveAssetSystem()` | 4 |
 | `CreateShaderFromActiveAssets()` | 16 |
@@ -394,6 +419,9 @@ bridges tiny, named, and fenced.
   borrowed command context instead of direct `Gfx()` calls.
 - [x] Route the shared fullscreen quad dynamic draw helper through a borrowed
   command context instead of direct `Gfx()` calls.
+- [x] Route planar reflection viewport/clear/clip-plane state through
+  `RenderFrameContext`'s borrowed command context instead of direct `Gfx()`
+  calls.
 - [ ] Route shader and texture creation through an asset/render context passed
   from runtime-owned services.
 - [ ] Replace `ActiveAssetSystem()` in scene parsing and editor tools with an

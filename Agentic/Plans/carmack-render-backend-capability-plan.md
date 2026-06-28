@@ -316,6 +316,32 @@ storage changes, also run `tools\validate_perf.bat`.
   Rubber-duck review: Bohr found no blockers. Non-blocking notes: perf evidence
   is advisory/noisy on this machine, and the `Gfx()` guardrail remains
   count-based rather than semantic per-call tracking.
+- [x] 2026-06-28: Migrated the planar reflection pass viewport, clear,
+  clip-plane enable/disable, and final viewport restore from direct `Gfx()`
+  calls to the borrowed `IRenderCommandContext` already carried by
+  `RenderFrameContext`. This removes five more `RunPasses.cpp` `Gfx()` calls
+  and lowers the file allowlist from 18 to 13; reflection capability queries,
+  DXR dispatch, framebuffer creation, size queries, and fullscreen quad
+  resource lifetime remain open.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; both touched source-bearing files retain
+  learning headers, and the reflection block already carries the two-path
+  concept, planar viewport invariant, and water-surface clip-plane reason.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 5.11s
+  (`TestOutput\validation\agent_logs\reflection_command_state_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.90s
+  (`TestOutput\validation\agent_logs\reflection_command_state_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 18.38s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\reflection_command_state_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.97s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\reflection_command_state_validate_full.log`).
+  Rubber-duck review: Nietzsche found no blockers and verified no stale
+  allowlist mismatch: actual total `Gfx()` count 208, allowlist total 208, and
+  `RunPasses.cpp` actual/allowlist 13/13. Non-blocking note: the `Gfx()`
+  guardrail remains count-based rather than semantic per-call tracking.
 
 ## Problem Statement
 
@@ -402,6 +428,9 @@ compatibility facade while call sites migrate.
 - [x] Route the shared fullscreen quad dynamic draw helper through a borrowed
   `IRenderCommandContext` and lower the `RunPasses.cpp` direct `Gfx()`
   allowlist from 19 to 18.
+- [x] Route planar reflection viewport/clear/clip-plane state through
+  `RenderFrameContext`'s borrowed `IRenderCommandContext` and lower the
+  `RunPasses.cpp` direct `Gfx()` allowlist from 18 to 13.
 - [ ] Pass capture/readback capability only to screenshot and validation paths.
 - [ ] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
 - [ ] Pass GPU profiler capability only to profiler marker code.
