@@ -13,6 +13,8 @@ Glossary:
   Body: Simulated object state such as pose, velocity, mass, and sleep flag.
   Collider: Shape and material-adjacent collision metadata paired with a body.
   Facade: Narrow public boundary that hides solver implementation containers.
+  Standalone world: Public physics owner that can step without runtime or
+    game-object storage.
   View: Immutable span-like snapshot exposed to callers without ownership.
 
 Invariants:
@@ -29,6 +31,7 @@ Related:
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include "CollisionShape.h"
 #include "PhysicsHandles.h"
@@ -186,10 +189,12 @@ struct PhysicsPointJointUpdateDesc
 
 struct PhysicsStepDesc
 {
-    float deltaSeconds = 0.0f;
-    uint64_t frameIndex = 0;
-    bool fixedStep = true;
-    bool scenePhysicsEnabled = true;
+    float deltaSeconds = 0.0f;                                                       // Seconds to integrate; negative values are invalid.
+    uint64_t frameIndex = 0;                                                         // Deterministic caller frame id for traceable samples.
+    bool fixedStep = true;                                                           // True when deltaSeconds comes from a fixed tick schedule.
+    // m/s^2-style acceleration applied to awake dynamic bodies.
+    Math::Vector::Vector3 worldLinearAcceleration = Math::Vector::ZERO_VECTOR;
+    bool scenePhysicsEnabled = true;                                                 // False means the step is a no-op, not an error.
 };
 
 struct PhysicsActivationCommand
@@ -299,5 +304,61 @@ struct PhysicsReplaySolverSnapshotView
     const Basics::ReplaySolverWorldSnapshot* snapshot = nullptr;
     uint32_t modelCount = 0;
 };
+
+struct PhysicsStandaloneSmokeResult
+{
+    bool passed = false;
+    bool lifecycleChecksPassed = false;
+    PhysicsBodyHandle body;
+    uint32_t bodyCount = 0;
+    uint32_t stepCount = 0;
+    Math::Vector::Vector3 finalPosition = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 finalLinearVelocity = Math::Vector::ZERO_VECTOR;
+    uint64_t deterministicHash = 0;
+};
+
+class PhysicsStandaloneWorld
+{
+  public:
+    // Clears all bodies and advances the initial generation for future slots.
+    // Existing handles become invalid even when the same slot index is reused.
+    void Clear();
+
+    // Creates one body from descriptor data without consulting GameModel or scene
+    // storage. Creation order is the deterministic body order.
+    PhysicsBodyHandle CreateBody( const PhysicsBodyCreateDesc& desc );
+
+    // Applies masked public fields to a live body. Stale handles fail without
+    // mutating any other slot.
+    bool UpdateBody( const PhysicsBodyUpdateDesc& desc );
+
+    // Tombstones a live body and advances its generation so stale handles fail.
+    bool DestroyBody( PhysicsBodyHandle body );
+
+    // Advances awake dynamic bodies by one deterministic semi-implicit Euler step.
+    bool Step( const PhysicsStepDesc& desc );
+
+    // Returns a live body view, or null for stale/dead handles. The pointer is
+    // owned by this world and is invalidated by later mutation.
+    const PhysicsBodyView* Body( PhysicsBodyHandle body ) const;
+
+    // Returns alive bodies in deterministic slot order. The view points at
+    // internal scratch storage and is valid until the next Bodies() call or
+    // non-const world mutation.
+    PhysicsBodyCollectionView Bodies() const;
+
+  private:
+    bool IsAlive( PhysicsBodyHandle body ) const;
+    PhysicsBodyView MakeBodyView( const PhysicsBodyCreateDesc& desc, PhysicsBodyHandle body ) const;
+
+    std::vector<PhysicsBodyView> m_bodies;                                           // Slot-indexed body records; tombstoned slots may be reused.
+    std::vector<uint32_t> m_generations;                                             // Per-slot stale-handle counter.
+    std::vector<uint8_t> m_alive;                                                    // 0/1 slot liveness for compact deterministic scans.
+    std::vector<uint32_t> m_freeIndices;                                             // Reusable tombstoned slots; pop_back gives deterministic reuse order.
+    mutable std::vector<PhysicsBodyView> m_bodyViewScratch;                          // Filtered alive-body view returned by Bodies().
+    uint32_t m_nextInitialGeneration = PHYSICS_STANDALONE_HANDLE_INITIAL_GENERATION; // Generation base after Clear().
+};
+
+PhysicsStandaloneSmokeResult RunPhysicsStandaloneSmoke();
 } // namespace Physics
 } // namespace SkullbonezCore

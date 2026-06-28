@@ -16,13 +16,17 @@ Glossary:
   SDF (Signed Distance Field): Texture representation used for crisp scalable
   text rendering.
   Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+    commit or PR.
+  Standalone physics smoke: Early-exit validation mode that exercises public
+    physics API construction without runtime/window/renderer ownership.
 
 Invariants:
   - DX12 is the only runtime renderer; retired renderer flags are parsed only
     to produce clear failures for old command lines.
   - Startup options are resolved before Run owns subsystems so validation
     launches are deterministic from their CLI.
+  - Early-exit smoke modes must return before worker, window, renderer, or Run
+    startup if their evidence claims subsystem isolation.
 
 Related:
   - Agentic/Reference/runtime-reference.md
@@ -36,6 +40,7 @@ Related:
 #include "../Core/Timer.h"
 #include "../Rendering/IRenderBackend.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
+#include "../Physics/PhysicsApi.h"
 #include "../Core/PlatformProfiler.h"
 #include "../Core/WorkerPool.h"
 #include <cerrno>
@@ -553,6 +558,45 @@ bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode )
         fprintf( stderr, "[gen-atlas] FAILED.\n" );
         outExitCode = 1;
     }
+    return true;
+}
+
+bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outExitCode )
+{
+    if ( !HasOption( commandLine, "--physics-standalone-smoke" ) &&
+         !HasOption( commandLine, "--physics_standalone_smoke" ) )
+    {
+        return false;
+    }
+
+    // Why: this option runs before WorkerPool, Window, renderer, Run, or scene
+    // setup so it proves the public physics API can be constructed by itself.
+    const PhysicsStandaloneSmokeResult result = RunPhysicsStandaloneSmoke();
+    fprintf( stdout,
+             "[physics-standalone-smoke] bodies=%u steps=%u final_position=(%.6f,%.6f,%.6f) "
+             "final_velocity=(%.6f,%.6f,%.6f) lifecycle_checks=%s hash=0x%016llX\n",
+             result.bodyCount,
+             result.stepCount,
+             result.finalPosition.x,
+             result.finalPosition.y,
+             result.finalPosition.z,
+             result.finalLinearVelocity.x,
+             result.finalLinearVelocity.y,
+             result.finalLinearVelocity.z,
+             result.lifecycleChecksPassed ? "pass" : "fail",
+             static_cast<unsigned long long>( result.deterministicHash ) );
+
+    if ( !result.passed )
+    {
+        fprintf(
+            stderr,
+            "FAIL: standalone physics smoke final state or lifecycle checks did not match the expected sample.\n" );
+        outExitCode = 1;
+        return true;
+    }
+
+    fprintf( stdout, "PASS: standalone physics smoke matched expected deterministic final state.\n" );
+    outExitCode = 0;
     return true;
 }
 
@@ -2675,6 +2719,13 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     if ( HandleGenAtlas( commandLine, atlasExitCode ) )
     {
         return atlasExitCode;
+    }
+
+    int standalonePhysicsExitCode = 0;
+    if ( HandlePhysicsStandaloneSmoke( commandLine, standalonePhysicsExitCode ) )
+    {
+        CoUninitialize();
+        return standalonePhysicsExitCode;
     }
 
     ParsedArgs args;

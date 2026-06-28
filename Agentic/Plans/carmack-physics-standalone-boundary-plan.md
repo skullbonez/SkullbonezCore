@@ -10,6 +10,28 @@ when SkullScope baselines or broad physics diagnostics change.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Added the first model-free standalone physics API smoke path.
+  `PhysicsStandaloneWorld` now supports deterministic body create, update,
+  delete, query, and fixed-step integration through `PhysicsApi` without
+  `Run`, renderer setup, scene parsing, `GameModel`, or `GameModelCollection`.
+  `--physics-standalone-smoke` runs before worker/window/renderer startup and
+  validates create/update/delete/query/step behavior through a four-step sample
+  with an exact final body state, lifecycle checks, and a printed deterministic
+  hash. `tools\validate_physics.bat` now runs this smoke before the existing
+  byte-exact `physics_regression_solver.csv` gate. This is a standalone
+  ownership beachhead, not full solver independence: collision, contacts, sleep
+  islands, and compatibility `PhysicsModelAccess` migration remain open below.
+  Rubber-duck review found no blockers; its two non-blocking nits were fixed
+  before commit by keeping motion-kind and inverse-mass updates consistent and
+  expanding the smoke to cover update/delete/stale-handle checks. Validation
+  evidence:
+  `tools\validate_fast.bat` passed with 0 filter/runtime-boundary errors and
+  Profile/Debug builds ready
+  (`TestOutput\validation\agent_logs\physics_standalone_smoke_validate_fast_after_rubber_duck_fixes.log`);
+  `tools\validate_physics.bat` passed, including
+  `lifecycle_checks=pass`, `hash=0xFF0FDFDB66F68C05`, exact final state, and
+  byte-exact `physics_regression_solver.csv`
+  (`TestOutput\validation\agent_logs\physics_standalone_smoke_validate_physics_after_rubber_duck_fixes.log`).
 - [x] 2026-06-28: Removed `GameModelCollection*` from
   `SimulationTickInput`; `SimulationSystem` now borrows a
   `SimulationPhysicsStep` context and calls `PhysicsEngine::Step(...)` through
@@ -160,8 +182,8 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 
 ### Tests And Evidence
 
-- [ ] Add a small standalone physics smoke command or tool that constructs a physics world without `Run`, renderer, scene parser, or `GameModelCollection`.
-- [ ] Add a deterministic fixed-step standalone sample with a known final body state or hash.
+- [x] Add a small standalone physics smoke command or tool that constructs a physics world without `Run`, renderer, scene parser, or `GameModelCollection`.
+- [x] Add a deterministic fixed-step standalone sample with a known final body state or hash.
 - [ ] Add a runtime integration sample proving scene objects still mirror physics body state after a step.
 - [ ] Add focused replay restore evidence if handles replace model indices in replay state.
 - [ ] If SkullScope output changes, update the query baseline only from final Debug artifacts and report query-size accounting.

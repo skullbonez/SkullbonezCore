@@ -159,6 +159,7 @@
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelStreams.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelSoACache.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsApi.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsEngine.cpp" />
