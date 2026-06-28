@@ -15,6 +15,8 @@ Glossary:
     or scene/game-object storage.
   Handle generation: Counter paired with a slot index so stale handles fail
     after deletion and reuse.
+  Point joint: Constraint record that keeps two local body anchors associated
+    without exposing legacy model indices.
   Determinism: Same fixed-step inputs produce the same final state and hash.
 
 Invariants:
@@ -45,6 +47,10 @@ using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsColliderUpdateDesc;
 using SkullbonezCore::Physics::PhysicsColliderView;
+using SkullbonezCore::Physics::PhysicsConstraintHandle;
+using SkullbonezCore::Physics::PhysicsPointJointCreateDesc;
+using SkullbonezCore::Physics::PhysicsPointJointUpdateDesc;
+using SkullbonezCore::Physics::PhysicsPointJointView;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Physics::PhysicsStandaloneSmokeResult;
 using SkullbonezCore::Physics::PhysicsStandaloneWorld;
@@ -92,8 +98,11 @@ uint64_t HashSmokeResult( const PhysicsStandaloneSmokeResult& result )
     hash = HashU32( hash, result.body.generation );
     hash = HashU32( hash, result.collider.index );
     hash = HashU32( hash, result.collider.generation );
+    hash = HashU32( hash, result.constraint.index );
+    hash = HashU32( hash, result.constraint.generation );
     hash = HashU32( hash, result.bodyCount );
     hash = HashU32( hash, result.colliderCount );
+    hash = HashU32( hash, result.pointJointCount );
     hash = HashU32( hash, result.stepCount );
     hash = HashVector( hash, result.finalPosition );
     return HashVector( hash, result.finalLinearVelocity );
@@ -138,6 +147,11 @@ void PhysicsStandaloneWorld::Clear()
     m_colliderAlive.clear();
     m_freeColliderIndices.clear();
     m_colliderViewScratch.clear();
+    m_pointJoints.clear();
+    m_constraintGenerations.clear();
+    m_constraintAlive.clear();
+    m_freeConstraintIndices.clear();
+    m_pointJointViewScratch.clear();
     m_nextInitialGeneration = NextStandaloneInitialGeneration( m_nextInitialGeneration );
 }
 
@@ -226,13 +240,21 @@ bool PhysicsStandaloneWorld::DestroyBody( PhysicsBodyHandle body )
     }
     m_freeIndices.push_back( body.index );
 
-    // Invariant: body lifetime owns child collider validity. Standalone callers
-    // should see collider handles fail immediately after their body is deleted.
+    // Invariant: body lifetime owns child collider and connected constraint
+    // validity. Standalone callers should see dependent handles fail
+    // immediately after their body is deleted.
     for ( std::size_t i = 0; i < m_colliders.size(); ++i )
     {
         if ( m_colliderAlive[i] && m_colliders[i].body == body )
         {
             TombstoneColliderSlot( static_cast<uint32_t>( i ) );
+        }
+    }
+    for ( std::size_t i = 0; i < m_pointJoints.size(); ++i )
+    {
+        if ( m_constraintAlive[i] && ( m_pointJoints[i].bodyA == body || m_pointJoints[i].bodyB == body ) )
+        {
+            TombstoneConstraintSlot( static_cast<uint32_t>( i ) );
         }
     }
     return true;
@@ -306,6 +328,87 @@ bool PhysicsStandaloneWorld::DestroyCollider( PhysicsColliderHandle collider )
     }
 
     TombstoneColliderSlot( collider.index );
+    return true;
+}
+
+
+PhysicsConstraintHandle PhysicsStandaloneWorld::CreatePointJoint( const PhysicsPointJointCreateDesc& desc )
+{
+    if ( !IsAlive( desc.bodyA ) || !IsAlive( desc.bodyB ) || desc.bodyA == desc.bodyB )
+    {
+        return PhysicsConstraintHandle{};
+    }
+
+    uint32_t index = 0;
+    if ( !m_freeConstraintIndices.empty() )
+    {
+        index = m_freeConstraintIndices.back();
+        m_freeConstraintIndices.pop_back();
+    }
+    else
+    {
+        index = static_cast<uint32_t>( m_pointJoints.size() );
+        m_pointJoints.push_back( PhysicsPointJointView{} );
+        m_constraintGenerations.push_back( m_nextInitialGeneration );
+        m_constraintAlive.push_back( 0 );
+    }
+
+    PhysicsConstraintHandle handle;
+    handle.index = index;
+    handle.generation = m_constraintGenerations[index];
+
+    m_pointJoints[index] = MakePointJointView( desc, handle );
+    m_constraintAlive[index] = 1;
+    return handle;
+}
+
+
+bool PhysicsStandaloneWorld::UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc )
+{
+    if ( !IsAlive( desc.constraint ) )
+    {
+        return false;
+    }
+    if ( ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_BODIES ) != 0 &&
+         ( !IsAlive( desc.bodyA ) || !IsAlive( desc.bodyB ) || desc.bodyA == desc.bodyB ) )
+    {
+        return false;
+    }
+
+    PhysicsPointJointView& joint = m_pointJoints[desc.constraint.index];
+    if ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_BODIES )
+    {
+        joint.bodyA = desc.bodyA;
+        joint.bodyB = desc.bodyB;
+    }
+    if ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_ANCHORS )
+    {
+        joint.localAnchorA = desc.localAnchorA;
+        joint.localAnchorB = desc.localAnchorB;
+    }
+    if ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_SOLVER )
+    {
+        joint.slack = desc.slack;
+        joint.stiffness = desc.stiffness;
+        joint.damping = desc.damping;
+    }
+    if ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_GROUP )
+    {
+        joint.groupId = desc.groupId;
+        joint.flags = desc.flags;
+    }
+    return true;
+}
+
+
+bool PhysicsStandaloneWorld::DestroyConstraint( PhysicsConstraintHandle constraint )
+{
+    if ( !IsAlive( constraint ) )
+    {
+        return false;
+    }
+
+    TombstoneConstraintSlot( constraint.index );
     return true;
 }
 
@@ -391,6 +494,30 @@ SkullbonezCore::Physics::PhysicsColliderCollectionView PhysicsStandaloneWorld::C
 }
 
 
+const PhysicsPointJointView* PhysicsStandaloneWorld::PointJoint( PhysicsConstraintHandle constraint ) const
+{
+    return IsAlive( constraint ) ? &m_pointJoints[constraint.index] : nullptr;
+}
+
+
+SkullbonezCore::Physics::PhysicsPointJointCollectionView PhysicsStandaloneWorld::PointJoints() const
+{
+    m_pointJointViewScratch.clear();
+    for ( std::size_t i = 0; i < m_pointJoints.size(); ++i )
+    {
+        if ( m_constraintAlive[i] )
+        {
+            m_pointJointViewScratch.push_back( m_pointJoints[i] );
+        }
+    }
+
+    SkullbonezCore::Physics::PhysicsPointJointCollectionView view;
+    view.pointJoints = m_pointJointViewScratch.empty() ? nullptr : m_pointJointViewScratch.data();
+    view.pointJointCount = static_cast<uint32_t>( m_pointJointViewScratch.size() );
+    return view;
+}
+
+
 bool PhysicsStandaloneWorld::IsAlive( PhysicsBodyHandle body ) const
 {
     return body.IsValid() && body.index < m_bodies.size() && m_alive[body.index] != 0 &&
@@ -402,6 +529,15 @@ bool PhysicsStandaloneWorld::IsAlive( PhysicsColliderHandle collider ) const
 {
     return collider.IsValid() && collider.index < m_colliders.size() && m_colliderAlive[collider.index] != 0 &&
            m_colliderGenerations[collider.index] == collider.generation && IsAlive( m_colliders[collider.index].body );
+}
+
+
+bool PhysicsStandaloneWorld::IsAlive( PhysicsConstraintHandle constraint ) const
+{
+    return constraint.IsValid() && constraint.index < m_pointJoints.size() &&
+           m_constraintAlive[constraint.index] != 0 &&
+           m_constraintGenerations[constraint.index] == constraint.generation &&
+           IsAlive( m_pointJoints[constraint.index].bodyA ) && IsAlive( m_pointJoints[constraint.index].bodyB );
 }
 
 
@@ -444,6 +580,24 @@ PhysicsColliderView PhysicsStandaloneWorld::MakeColliderView( const PhysicsColli
 }
 
 
+PhysicsPointJointView PhysicsStandaloneWorld::MakePointJointView( const PhysicsPointJointCreateDesc& desc,
+                                                                  PhysicsConstraintHandle constraint ) const
+{
+    PhysicsPointJointView view;
+    view.constraint = constraint;
+    view.bodyA = desc.bodyA;
+    view.bodyB = desc.bodyB;
+    view.localAnchorA = desc.localAnchorA;
+    view.localAnchorB = desc.localAnchorB;
+    view.slack = desc.slack;
+    view.stiffness = desc.stiffness;
+    view.damping = desc.damping;
+    view.groupId = desc.groupId;
+    view.flags = desc.flags;
+    return view;
+}
+
+
 void PhysicsStandaloneWorld::TombstoneColliderSlot( uint32_t index )
 {
     if ( index >= m_colliders.size() || !m_colliderAlive[index] )
@@ -458,6 +612,24 @@ void PhysicsStandaloneWorld::TombstoneColliderSlot( uint32_t index )
         m_colliderGenerations[index] = m_nextInitialGeneration;
     }
     m_freeColliderIndices.push_back( index );
+}
+
+
+void PhysicsStandaloneWorld::TombstoneConstraintSlot( uint32_t index )
+{
+    if ( index >= m_pointJoints.size() || !m_constraintAlive[index] )
+    {
+        return;
+    }
+
+    m_constraintAlive[index] = 0;
+    ++m_constraintGenerations[index];
+    if ( m_constraintGenerations[index] == 0 ||
+         m_constraintGenerations[index] == PHYSICS_COMPATIBILITY_HANDLE_GENERATION )
+    {
+        m_constraintGenerations[index] = m_nextInitialGeneration;
+    }
+    m_freeConstraintIndices.push_back( index );
 }
 
 
@@ -481,7 +653,18 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     transientDesc.mass = 3.0f;
     const PhysicsBodyHandle transientBody = world.CreateBody( transientDesc );
 
+    PhysicsBodyCreateDesc endpointDesc;
+    endpointDesc.sceneObjectId = PhysicsSceneObjectId{ 9u };
+    endpointDesc.position = Vector3( 0.0f, 4.0f, 1.0f );
+    endpointDesc.mass = 5.0f;
+    const PhysicsBodyHandle endpointBody = world.CreateBody( endpointDesc );
+
     const bool invalidBodyColliderRejected = !world.CreateCollider( PhysicsColliderCreateDesc{} ).IsValid();
+    const bool invalidPointJointRejected = !world.CreatePointJoint( PhysicsPointJointCreateDesc{} ).IsValid();
+    PhysicsPointJointCreateDesc selfPointJointDesc;
+    selfPointJointDesc.bodyA = body;
+    selfPointJointDesc.bodyB = body;
+    const bool selfPointJointRejected = !world.CreatePointJoint( selfPointJointDesc ).IsValid();
 
     PhysicsBodyUpdateDesc transientUpdate;
     transientUpdate.body = transientBody;
@@ -537,6 +720,72 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     transientColliderDesc.boundingRadius = 1.0f;
     const PhysicsColliderHandle transientCollider = world.CreateCollider( transientColliderDesc );
 
+    PhysicsPointJointCreateDesc pointJointDesc;
+    pointJointDesc.bodyA = body;
+    pointJointDesc.bodyB = transientBody;
+    pointJointDesc.localAnchorA = Vector3( 0.0f, 0.5f, 0.0f );
+    pointJointDesc.localAnchorB = Vector3( 0.0f, -0.5f, 0.0f );
+    pointJointDesc.slack = 0.5f;
+    pointJointDesc.stiffness = 0.4f;
+    pointJointDesc.damping = 0.2f;
+    pointJointDesc.groupId = 11u;
+    pointJointDesc.flags = 3u;
+    const PhysicsConstraintHandle constraint = world.CreatePointJoint( pointJointDesc );
+
+    PhysicsPointJointUpdateDesc pointJointUpdate;
+    pointJointUpdate.constraint = constraint;
+    pointJointUpdate.updateMask =
+        PHYSICS_POINT_JOINT_UPDATE_ANCHORS | PHYSICS_POINT_JOINT_UPDATE_SOLVER | PHYSICS_POINT_JOINT_UPDATE_GROUP;
+    pointJointUpdate.localAnchorA = Vector3( 1.0f, 0.0f, 0.0f );
+    pointJointUpdate.localAnchorB = Vector3( -1.0f, 0.0f, 0.0f );
+    pointJointUpdate.slack = 0.75f;
+    pointJointUpdate.stiffness = 0.6f;
+    pointJointUpdate.damping = 0.45f;
+    pointJointUpdate.groupId = 17u;
+    pointJointUpdate.flags = 7u;
+    const bool updatedPointJoint = world.UpdatePointJoint( pointJointUpdate );
+    const PhysicsPointJointView* updatedPointJointView = world.PointJoint( constraint );
+    const bool pointJointUpdateConsistent =
+        updatedPointJointView && updatedPointJointView->bodyA == body &&
+        updatedPointJointView->bodyB == transientBody &&
+        updatedPointJointView->localAnchorA == Vector3( 1.0f, 0.0f, 0.0f ) &&
+        updatedPointJointView->localAnchorB == Vector3( -1.0f, 0.0f, 0.0f ) && updatedPointJointView->slack == 0.75f &&
+        updatedPointJointView->stiffness == 0.6f && updatedPointJointView->damping == 0.45f &&
+        updatedPointJointView->groupId == 17u && updatedPointJointView->flags == 7u;
+
+    PhysicsPointJointUpdateDesc invalidEndpointUpdate;
+    invalidEndpointUpdate.constraint = constraint;
+    invalidEndpointUpdate.updateMask = PHYSICS_POINT_JOINT_UPDATE_BODIES;
+    invalidEndpointUpdate.bodyA = body;
+    invalidEndpointUpdate.bodyB = body;
+    const bool invalidEndpointUpdateRejected =
+        !world.UpdatePointJoint( invalidEndpointUpdate ) && world.PointJoint( constraint ) &&
+        world.PointJoint( constraint )->bodyA == body && world.PointJoint( constraint )->bodyB == transientBody;
+
+    PhysicsPointJointUpdateDesc endpointUpdate;
+    endpointUpdate.constraint = constraint;
+    endpointUpdate.updateMask = PHYSICS_POINT_JOINT_UPDATE_BODIES;
+    endpointUpdate.bodyA = body;
+    endpointUpdate.bodyB = endpointBody;
+    const bool updatedPointJointBodies = world.UpdatePointJoint( endpointUpdate );
+    const PhysicsPointJointView* endpointUpdatedPointJointView = world.PointJoint( constraint );
+    const bool pointJointEndpointUpdateConsistent =
+        updatedPointJointBodies && endpointUpdatedPointJointView && endpointUpdatedPointJointView->bodyA == body &&
+        endpointUpdatedPointJointView->bodyB == endpointBody &&
+        endpointUpdatedPointJointView->localAnchorA == Vector3( 1.0f, 0.0f, 0.0f ) &&
+        endpointUpdatedPointJointView->localAnchorB == Vector3( -1.0f, 0.0f, 0.0f ) &&
+        endpointUpdatedPointJointView->groupId == 17u && endpointUpdatedPointJointView->flags == 7u;
+
+    PhysicsPointJointCreateDesc directDestroyJointDesc;
+    directDestroyJointDesc.bodyA = body;
+    directDestroyJointDesc.bodyB = transientBody;
+    const PhysicsConstraintHandle directDestroyJoint = world.CreatePointJoint( directDestroyJointDesc );
+    const bool destroyedDirectConstraint = world.DestroyConstraint( directDestroyJoint );
+    const bool staleDirectConstraintRejected =
+        world.PointJoint( directDestroyJoint ) == nullptr &&
+        !world.UpdatePointJoint( PhysicsPointJointUpdateDesc{ directDestroyJoint } ) &&
+        !world.DestroyConstraint( directDestroyJoint );
+
     const bool updatedTransient = world.UpdateBody( transientUpdate );
     const PhysicsBodyView* updatedTransientBody = world.Body( transientBody );
     const bool fixedMassConsistent = updatedTransientBody &&
@@ -549,9 +798,20 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         world.Collider( transientCollider ) == nullptr &&
         !world.UpdateCollider( PhysicsColliderUpdateDesc{ transientCollider } ) &&
         !world.DestroyCollider( transientCollider );
+    const bool movedConstraintSurvivedOldEndpointDestroy = world.PointJoint( constraint ) != nullptr;
+    const bool destroyedEndpoint = world.DestroyBody( endpointBody );
+    const bool connectedConstraintStaleAfterBodyDestroy =
+        world.PointJoint( constraint ) == nullptr &&
+        !world.UpdatePointJoint( PhysicsPointJointUpdateDesc{ constraint } ) && !world.DestroyConstraint( constraint );
+    const bool staleEndpointHandleRejected =
+        world.Body( endpointBody ) == nullptr && !world.DestroyBody( endpointBody );
     PhysicsColliderCreateDesc staleBodyColliderDesc;
     staleBodyColliderDesc.body = transientBody;
     const bool staleBodyColliderCreationRejected = !world.CreateCollider( staleBodyColliderDesc ).IsValid();
+    PhysicsPointJointCreateDesc staleBodyPointJointDesc;
+    staleBodyPointJointDesc.bodyA = body;
+    staleBodyPointJointDesc.bodyB = transientBody;
+    const bool staleBodyPointJointCreationRejected = !world.CreatePointJoint( staleBodyPointJointDesc ).IsValid();
 
     PhysicsStepDesc stepDesc;
     stepDesc.deltaSeconds = 0.25f;
@@ -569,13 +829,19 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     PhysicsStandaloneSmokeResult result;
     result.body = body;
     result.collider = collider;
+    result.constraint = constraint;
     result.bodyCount = world.Bodies().bodyCount;
     result.colliderCount = world.Colliders().colliderCount;
+    result.pointJointCount = world.PointJoints().pointJointCount;
     result.stepCount = STEP_COUNT;
-    result.lifecycleChecksPassed = invalidBodyColliderRejected && updatedCollider && colliderUpdateConsistent &&
-                                   destroyedDirectCollider && staleDirectColliderRejected && updatedTransient &&
-                                   fixedMassConsistent && destroyedTransient && staleHandleRejected &&
-                                   childColliderStaleAfterBodyDestroy && staleBodyColliderCreationRejected;
+    result.lifecycleChecksPassed =
+        invalidBodyColliderRejected && invalidPointJointRejected && selfPointJointRejected && updatedCollider &&
+        colliderUpdateConsistent && destroyedDirectCollider && staleDirectColliderRejected && updatedPointJoint &&
+        pointJointUpdateConsistent && invalidEndpointUpdateRejected && pointJointEndpointUpdateConsistent &&
+        destroyedDirectConstraint && staleDirectConstraintRejected && updatedTransient && fixedMassConsistent &&
+        destroyedTransient && staleHandleRejected && childColliderStaleAfterBodyDestroy &&
+        movedConstraintSurvivedOldEndpointDestroy && destroyedEndpoint && connectedConstraintStaleAfterBodyDestroy &&
+        staleEndpointHandleRejected && staleBodyColliderCreationRejected && staleBodyPointJointCreationRejected;
 
     const PhysicsBodyView* finalBody = world.Body( body );
     if ( finalBody )
@@ -586,7 +852,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
 
     result.deterministicHash = HashSmokeResult( result );
     result.passed = stepped && result.lifecycleChecksPassed && finalBody && result.bodyCount == 1u &&
-                    result.colliderCount == 1u && result.finalPosition == Vector3( 3.0f, 9.0f, -2.0f ) &&
+                    result.colliderCount == 1u && result.pointJointCount == 0u &&
+                    result.finalPosition == Vector3( 3.0f, 9.0f, -2.0f ) &&
                     result.finalLinearVelocity == Vector3( 2.0f, -4.0f, 0.0f );
     return result;
 }

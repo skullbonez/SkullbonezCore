@@ -12,6 +12,8 @@ Mental model:
 Glossary:
   Body: Simulated object state such as pose, velocity, mass, and sleep flag.
   Collider: Shape and material-adjacent collision metadata paired with a body.
+  Constraint: Solver relationship between bodies; the standalone API currently
+    stores point joints as constraint-handle records.
   Facade: Narrow public boundary that hides solver implementation containers.
   Standalone world: Public physics owner that can step without runtime or
     game-object storage.
@@ -282,6 +284,26 @@ struct PhysicsColliderCollectionView
     uint32_t colliderCount = 0;
 };
 
+struct PhysicsPointJointView
+{
+    PhysicsConstraintHandle constraint;
+    PhysicsBodyHandle bodyA;
+    PhysicsBodyHandle bodyB;
+    Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;
+    float slack = 0.25f;
+    float stiffness = 0.22f;
+    float damping = 0.35f;
+    uint32_t groupId = 0;
+    uint8_t flags = 0;
+};
+
+struct PhysicsPointJointCollectionView
+{
+    const PhysicsPointJointView* pointJoints = nullptr;
+    uint32_t pointJointCount = 0;
+};
+
 struct PhysicsRenderInstanceView
 {
     PhysicsBodyHandle body;
@@ -330,8 +352,10 @@ struct PhysicsStandaloneSmokeResult
     bool lifecycleChecksPassed = false;
     PhysicsBodyHandle body;
     PhysicsColliderHandle collider;
+    PhysicsConstraintHandle constraint;
     uint32_t bodyCount = 0;
     uint32_t colliderCount = 0;
+    uint32_t pointJointCount = 0;
     uint32_t stepCount = 0;
     Math::Vector::Vector3 finalPosition = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 finalLinearVelocity = Math::Vector::ZERO_VECTOR;
@@ -368,6 +392,17 @@ class PhysicsStandaloneWorld
     // Tombstones a live collider and advances its generation so stale handles fail.
     bool DestroyCollider( PhysicsColliderHandle collider );
 
+    // Creates a point joint between two live bodies. Invalid or stale body
+    // handles return an invalid constraint handle without mutating storage.
+    PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
+
+    // Applies masked public fields to a live point joint. Stale handles fail
+    // without mutating any other slot.
+    bool UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc );
+
+    // Tombstones a live constraint and advances its generation so stale handles fail.
+    bool DestroyConstraint( PhysicsConstraintHandle constraint );
+
     // Advances awake dynamic bodies by one deterministic semi-implicit Euler step.
     bool Step( const PhysicsStepDesc& desc );
 
@@ -389,12 +424,25 @@ class PhysicsStandaloneWorld
     // non-const world mutation.
     PhysicsColliderCollectionView Colliders() const;
 
+    // Returns a live point-joint view, or null for stale/dead handles. The
+    // pointer is owned by this world and is invalidated by later mutation.
+    const PhysicsPointJointView* PointJoint( PhysicsConstraintHandle constraint ) const;
+
+    // Returns alive point joints in deterministic slot order. The view points at
+    // internal scratch storage and is valid until the next PointJoints() call or
+    // non-const world mutation.
+    PhysicsPointJointCollectionView PointJoints() const;
+
   private:
     bool IsAlive( PhysicsBodyHandle body ) const;
     bool IsAlive( PhysicsColliderHandle collider ) const;
+    bool IsAlive( PhysicsConstraintHandle constraint ) const;
     PhysicsBodyView MakeBodyView( const PhysicsBodyCreateDesc& desc, PhysicsBodyHandle body ) const;
     PhysicsColliderView MakeColliderView( const PhysicsColliderCreateDesc& desc, PhysicsColliderHandle collider ) const;
+    PhysicsPointJointView MakePointJointView( const PhysicsPointJointCreateDesc& desc,
+                                              PhysicsConstraintHandle constraint ) const;
     void TombstoneColliderSlot( uint32_t index );
+    void TombstoneConstraintSlot( uint32_t index );
 
     std::vector<PhysicsBodyView> m_bodies;                                           // Slot-indexed body records; tombstoned slots may be reused.
     std::vector<uint32_t> m_generations;                                             // Per-slot stale-handle counter.
@@ -406,6 +454,12 @@ class PhysicsStandaloneWorld
     std::vector<uint8_t> m_colliderAlive;                                            // 0/1 collider liveness for compact deterministic scans.
     std::vector<uint32_t> m_freeColliderIndices;                                     // Reusable tombstoned collider slots.
     mutable std::vector<PhysicsColliderView> m_colliderViewScratch;                  // Filtered alive-collider view returned by Colliders().
+    std::vector<PhysicsPointJointView> m_pointJoints;                                // Slot-indexed public constraint records.
+    std::vector<uint32_t> m_constraintGenerations;                                   // Per-constraint stale-handle counter.
+    std::vector<uint8_t> m_constraintAlive;                                          // 0/1 constraint liveness for deterministic scans.
+    std::vector<uint32_t> m_freeConstraintIndices;                                   // Reusable tombstoned constraint slots.
+    mutable std::vector<PhysicsPointJointView>
+        m_pointJointViewScratch;                                                     // Filtered alive-point-joint view returned by PointJoints().
     uint32_t m_nextInitialGeneration = PHYSICS_STANDALONE_HANDLE_INITIAL_GENERATION; // Generation base after Clear().
 };
 

@@ -171,6 +171,8 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 - [ ] Extend `SkullbonezSource/Physics/PhysicsApi.h` with any missing create, update, query, delete, and step descriptors needed by runtime callers.
 - [x] Add standalone collider create, update, delete, query, and immutable
   collection views to the public physics API beachhead.
+- [x] Add standalone point-joint create, update, delete, query, and immutable
+  collection views keyed by `PhysicsConstraintHandle`.
 - [ ] Add or expose a `PhysicsWorldHandle` or equivalent owner token if multiple isolated worlds are needed.
 - [ ] Keep command targets as `PhysicsBodyHandle`, `PhysicsColliderHandle`, and `PhysicsConstraintHandle`; do not add model-index fields to new API structs.
 - [ ] Add immutable body, collider, contact, island, and diagnostic view structs that do not expose solver-private vectors.
@@ -190,8 +192,15 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 - [ ] Make `PhysicsBodyStore` the authoritative owner for pose, velocity, mass, sleep, and solver-visible body state.
 - [ ] Make `ColliderStore` the authoritative owner for shape, material response, broadphase radius, and collision metadata.
 - [ ] Make point joints and ragdoll constraints refer to physics handles rather than model indices.
+  - [x] Standalone point-joint records now refer to `PhysicsBodyHandle` endpoints
+    and stale through `PhysicsConstraintHandle`; legacy scene/ragdoll
+    `PointJointConstraint` migration remains.
 - [ ] Route body deletion through one deterministic path that invalidates handles, collider rows, constraints, contacts, and replay references.
+  - [x] Standalone body deletion tombstones child colliders and connected point
+    joints so stale handles fail predictably.
 - [ ] Add a deterministic tombstone or generation policy so stale handles fail predictably.
+  - [x] Standalone body, collider, and point-joint slots use generation
+    tombstones and deterministic alive-slot iteration.
 - [ ] Keep render instance updates as a mirror after physics mutation, not a dependency used during step.
 
 ### Runtime Adapter
@@ -216,6 +225,14 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 
 - [x] Add a small standalone physics smoke command or tool that constructs a physics world without `Run`, renderer, scene parser, or `GameModelCollection`.
 - [x] Add a deterministic fixed-step standalone sample with a known final body state or hash.
+- [x] Extend standalone smoke evidence to cover point-joint create, update,
+  direct delete, connected-body delete, and stale-handle rejection.
+  - [x] 2026-06-28 point-joint slice also rejects same-body joints, rejects
+    invalid endpoint updates, proves valid endpoint moves, proves old-endpoint
+    body deletion does not stale a moved joint, and proves new-endpoint deletion
+    stales the connected constraint.
+  - [x] Final smoke evidence:
+    `lifecycle_checks=pass hash=0xE3F090306CC1FE70`.
 - [ ] Add a runtime integration sample proving scene objects still mirror physics body state after a step.
 - [ ] Add focused replay restore evidence if handles replace model indices in replay state.
 - [ ] If SkullScope output changes, update the query baseline only from final Debug artifacts and report query-size accounting.
@@ -224,6 +241,17 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 
 - [ ] For plan-only edits: no validation required.
 - [x] For physics step, store, collision, solver, sleep, or rigid-body changes: run `tools\validate_physics.bat`.
+  - [x] 2026-06-28 point-joint slice validation:
+    `TestOutput\validation\agent_logs\physics_standalone_point_joint_validate_fast_final.log`
+    reported source formatting clean, project filters `0 errors`, runtime
+    boundaries `0 errors`, Profile/Debug builds `0 Warning(s)` and
+    `0 Error(s)`, and `VALIDATE_FAST: ALL PASSED`.
+  - [x] 2026-06-28 point-joint slice validation:
+    `TestOutput\validation\agent_logs\physics_standalone_point_joint_validate_physics_final.log`
+    reported standalone smoke `lifecycle_checks=pass
+    hash=0xE3F090306CC1FE70`, `physics_regression_solver.csv (20001 lines,
+    byte-exact match)`, Profile/Debug builds `0 Warning(s)` and `0 Error(s)`,
+    and `VALIDATE_PHYSICS: ALL PASSED`.
 - [ ] For SkullScope baseline/query changes: run `tools\validate_physics_deep.bat`.
 - [ ] For broad runtime integration changes: run `tools\validate_full.bat`.
 - [ ] For hot-path storage or iteration changes: run `tools\validate_perf.bat` and document any warnings.
@@ -235,7 +263,12 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 - [ ] Ask the reviewer to verify that deterministic ordering is explicit and validation-visible.
 - [ ] Ask the reviewer to inspect handle lifetime, stale-handle behavior, and body deletion.
 - [ ] Record blocking and non-blocking findings in a report or this plan.
+  - [x] 2026-06-28 point-joint slice rubber-duck review by Feynman found no
+    blockers. Non-blocking findings were resolved before commit: same-body
+    point joints are rejected, endpoint-update smoke coverage was added, and
+    validation evidence/hash was recorded here.
 - [ ] Resolve blocking review findings before committing PR-bound code.
+  - [x] No blocking point-joint slice findings remained before commit.
 
 ## Definition Of Done
 
