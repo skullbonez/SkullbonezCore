@@ -37,6 +37,7 @@ Related:
 #include "../../World/WorldEnvironment.h"
 
 #include <algorithm>
+#include <cassert>
 #include <utility>
 
 namespace SkullbonezCore
@@ -59,7 +60,10 @@ int NextSceneRand( unsigned int& state )
 
 void SceneGeneratedSetup::SetUpCameras( SceneGeneratedCameraContext context )
 {
-    context.cameras = Environment::CameraCollection::Instance();
+    // Invariant: generated setup uses the camera service supplied by Run's
+    // runtime systems; falling back to the camera singleton would hide ownership
+    // regressions in scene load code.
+    assert( context.cameras && "SceneGeneratedSetup requires an explicit camera service" );
 
     context.cameras->AddCamera( Vector3( 321.0f, 110.0f, 557.0f ), // Position
                                 Vector3( 581.0f, 40.0f, 633.0f ),  // View

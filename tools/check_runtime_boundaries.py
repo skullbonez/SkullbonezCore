@@ -539,8 +539,6 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "Gfx()", 9 ),
             ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "GfxRayTracing()", 1 ),
             ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "WorkerPool::Instance()", 1 ),
-            ( "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp", "CameraCollection::Instance()", 1 ),
-            ( "SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp", "CameraCollection::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Window.cpp", "Cfg()", 6 ),
             ( "SkullbonezSource/Runtime/Window.cpp", "Gfx()", 1 ),
             ( "SkullbonezSource/Runtime/Window.cpp", "Window::Instance()", 3 ),

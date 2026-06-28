@@ -43,6 +43,7 @@ Related:
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
 
+#include <cassert>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -212,7 +213,9 @@ int FindModelByName( const std::vector<GameModel>& models, const char* name )
 
 void SceneAuthoredSetup::SetUpCameras( SceneAuthoredCameraContext context, const TestScene& scene )
 {
-    context.cameras = Environment::CameraCollection::Instance();
+    // Invariant: authored setup mutates the camera service supplied by Run's
+    // runtime systems; scene helpers must not reacquire the camera singleton.
+    assert( context.cameras && "SceneAuthoredSetup requires an explicit camera service" );
 
     bool hasFreeCamera = false;
     Vector3 firstPosition( 900.0f, 110.0f, 900.0f );

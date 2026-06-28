@@ -10,6 +10,25 @@ require `tools\validate_full.bat`.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Routed authored and generated scene camera setup through the
+  runtime-owned camera service passed in the scene setup context instead of
+  reacquiring `CameraCollection::Instance()`. `SceneAuthoredSetup` and
+  `SceneGeneratedSetup` now assert that their borrowed camera pointer is present
+  before mutating scene cameras, preserving the existing camera insertion and
+  terrain-bound behavior while making scene load ownership explicit. The
+  runtime-boundary ratchet removed the `SceneAuthoredSetup.cpp` and
+  `SceneGeneratedSetup.cpp` `CameraCollection::Instance()` allowlist rows,
+  leaving only camera bootstrap/owner definitions as counted singleton debt.
+  Rubber-duck review intentionally deferred until this plan is complete. Evidence:
+  `python tools\check_runtime_boundaries.py` passed in 4.82s
+  (`TestOutput\validation\agent_logs\camera_scene_context_runtime_boundaries.log`),
+  `tools\validate_format.bat` passed in 7.31s
+  (`TestOutput\validation\agent_logs\camera_scene_context_validate_format.log`),
+  `tools\validate_fast.bat` passed in 256.23s
+  (`TestOutput\validation\agent_logs\camera_scene_context_validate_fast.log`),
+  `tools\validate_full.bat` passed in 30.13s
+  (`TestOutput\validation\agent_logs\camera_scene_context_validate_full.log`),
+  and `git diff --check` passed.
 - [x] 2026-06-28: Added a narrow HWND-bound lifecycle for Win32 callback-fed
   input accumulators. `Input::BindCallbackBridge()` arms wheel/raw mouse queues
   for the active `HWND`, WndProc passes the originating `HWND` into accumulator
@@ -753,6 +772,9 @@ bridges tiny, named, and fenced.
   owned texture service references.
 - [ ] Replace `CameraCollection::Instance()` normal-path lookups with explicit
   camera service references.
+  - [x] 2026-06-28 authored/generated scene setup now uses the
+    `SceneAuthoredCameraContext` / `SceneGeneratedCameraContext` camera service
+    supplied by `RunScene.cpp`, rather than reacquiring the camera singleton.
 - [ ] Replace `Window::Instance()` normal-path lookups with explicit window
   service references after bootstrap.
 - [ ] Replace `SkyBox::Instance()` with runtime/world-owned skybox lifetime or a
