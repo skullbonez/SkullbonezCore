@@ -9,7 +9,7 @@
 @rem   rows, then parses the few numeric fields needed for the compact report.
 @rem
 @rem Invariants:
-@rem   - Output stays compact: Date, Input, Output, Cached, Input-Cached, Cost.
+@rem   - Output stays compact: Date, Input, Output, Cached, Input-Fresh, Cost.
 @rem   - The cost estimate uses GPT-5.5 default token rates:
 @rem     uncached input $5.00/M, cached input $0.50/M, output $30.00/M.
 @rem
@@ -184,8 +184,8 @@ $totalCached = [int64]0
 $totalUncached = [int64]0
 $totalCost = [double]0.0
 
-"{0,-12} {1,16} {2,12} {3,16} {4,16} {5,12}" -f 'Date', 'Input', 'Output', 'Cached', 'Input-Cached', 'Cost'
-"{0,-12} {1,16} {2,12} {3,16} {4,16} {5,12}" -f '----', '-----', '------', '------', '------------', '----'
+"{0,-12} {1,16} {2,12} {3,16} {4,16} {5,12}" -f 'Date', 'Input', 'Output', 'Cached', 'Input-Fresh', 'Cost'
+"{0,-12} {1,16} {2,12} {3,16} {4,16} {5,12}" -f '----', '-----', '------', '------', '-----------', '----'
 foreach ($row in $rows) {
     $totalInput += $row.Input
     $totalOutput += $row.Output
@@ -201,7 +201,7 @@ foreach ($row in $rows) {
         $row.Uncached,
         ('$' + $row.Cost.ToString('N2'))
 }
-"{0,-12} {1,16} {2,12} {3,16} {4,16} {5,12}" -f '----', '-----', '------', '------', '------------', '----'
+"{0,-12} {1,16} {2,12} {3,16} {4,16} {5,12}" -f '----', '-----', '------', '------', '-----------', '----'
 "{0,-12} {1,16:N0} {2,12:N0} {3,16:N0} {4,16:N0} {5,12}" -f `
     'TOTAL',
     $totalInput,
@@ -209,3 +209,4 @@ foreach ($row in $rows) {
     $totalCached,
     $totalUncached,
     ('$' + $totalCost.ToString('N2'))
+
