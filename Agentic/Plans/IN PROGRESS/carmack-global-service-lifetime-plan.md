@@ -547,7 +547,7 @@ string literals.
 | `ActiveAssetSystem()` | 2 |
 | `CreateShaderFromActiveAssets()` | 16 |
 | `TextureCollection::Instance()` | 3 |
-| `CameraCollection::Instance()` | 4 |
+| `CameraCollection::Instance()` | 2 |
 | `Window::Instance()` | 8 |
 | `SkyBox::Instance()` | 2 |
 | `WorkerPool::Instance()` | 18 |
@@ -614,8 +614,6 @@ why that current debt exists and which migration bucket should own it.
 | `SkullbonezSource/Runtime/RuntimeDiagnostics.cpp` | `Profiler::Instance()=2` | diagnostics | Runtime diagnostics still samples profiler singleton. |
 | `SkullbonezSource/Runtime/RuntimeTuning.cpp` | `Cfg()=1`, `WorkerPool::Instance()=1` | normal runtime path | Runtime tuning still reads config/worker globals. |
 | `SkullbonezSource/Runtime/Scene/RunScene.cpp` | `Cfg()=18`, `Gfx()=9`, `GfxRayTracing()=1`, `WorkerPool::Instance()=1` | normal runtime path | Scene load/reset still borrows config, renderer, DXR, and worker services globally. |
-| `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp` | `CameraCollection::Instance()=1` | normal runtime path | Authored scene setup still reaches camera singleton. |
-| `SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp` | `CameraCollection::Instance()=1` | normal runtime path | Generated scene setup still reaches camera singleton. |
 | `SkullbonezSource/Runtime/Window.cpp` | `Cfg()=6`, `Gfx()=1`, `Window::Instance()=3`, `pInstance=4` | OS callback bridge | Window singleton and resize/message integration bridge. |
 | `SkullbonezSource/Runtime/Window.h` | `pInstance=1` | OS callback bridge | Window singleton storage declaration. |
 | `SkullbonezSource/UI/UI.cpp` | `CreateShaderFromActiveAssets()=1`, `Gfx()=16` | render pass | UI rendering still reaches shader factory and renderer globally. |
