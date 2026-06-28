@@ -448,7 +448,9 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 ## Definition Of Done
 
 - [ ] `GameModelCollection` is no longer on the normal physics step boundary.
-- [ ] Standalone physics can be constructed and stepped from a small harness.
+- [x] Standalone physics can be constructed and stepped from a small harness.
+  - [x] `--physics-standalone-smoke` constructs `PhysicsStandaloneWorld` before
+    worker/window/renderer startup and is part of `tools\validate_physics.bat`.
 - [ ] Runtime scene objects adapt to physics handles instead of serving as solver authority.
 - [ ] Boundary guardrails reject reintroducing broad game-object ownership into physics.
 - [ ] Required validation passes with byte-exact physics baselines or a documented intentional baseline refresh.

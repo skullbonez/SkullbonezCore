@@ -2,7 +2,8 @@
 
 Date: 2026-06-28
 Branch: `Night-Runner-27th-June`
-Scope: Carmack plan implementation and review slices.
+Scope: Carmack plan implementation and review slices represented in this
+ledger.
 
 Purpose: track how much the independent rubber-duck reviewers catch before each
 commit. Count blocking findings separately from non-blocking findings, and name
@@ -10,14 +11,15 @@ the concrete change that happened because of the review.
 
 ## Running Totals
 
-Rows reconstructed from existing plan notes are included so the count is useful
-for the whole Carmack run, not only from this file forward.
+Rows reconstructed from existing plan notes are included, but this is a
+ledger-backed tracked total rather than an exhaustive audit of every historical
+reviewer mention in every plan.
 
 | Source | Blocking findings caught | Non-blocking findings caught |
 |--------|--------------------------|------------------------------|
 | Reconstructed from existing plan notes | 7 | 8 |
-| Live tracked in this ledger | 13 | 12 |
-| Total so far | 20 | 20 |
+| Live tracked in this ledger | 15 | 15 |
+| Total tracked so far | 22 | 23 |
 
 ## Ledger
 
@@ -38,6 +40,7 @@ for the whole Carmack run, not only from this file forward.
 | Runtime borrowed-binding assertions | Faraday | 1 | 1 | Added the missing `RuntimeViewModelBuilder::Build()` debug assertion so the view-model fallback cannot hide an unbound `EngineContext`, and confirmed normal startup/shutdown does not false-positive. | Live subagent review before this commit; final `validate_full` passed before commit. |
 | Input callback bridge comments | Kepler | 2 | 2 | Split true callback-fed wheel/raw mouse accumulators from cursor policy and automation override state, corrected the mouse-wheel consumer/reset path, expanded raw mouse reset wording, and widened the file invariant to frame/UI snapshots. | Live subagent review before this commit; comment-only, no repository validation required. |
 | Input callback bridge lifecycle | Mencius | 3 | 1 | Tightened bind/unbind assertions, gated raw-input registration on the bound HWND, confirmed startup order, and updated the stale plan checklist before validation. | Live subagent review before this commit; final validation passed before commit. |
+| Carmack report reconciliation | Turing | 2 | 3 | Marked the stale cross-plan review as historical, fixed the post-plan review's standalone-smoke and citation drift, ticked only the physics standalone-smoke DoD item, and scoped ledger totals as tracked rather than exhaustive. | Live subagent review before this commit; docs-only, no repository validation required. |
 
 ## Review Accounting
 
@@ -53,6 +56,7 @@ for the whole Carmack run, not only from this file forward.
 | carmack-global-input-callback-comments-duck-02 | `Agentic/Plans/carmack-global-service-lifetime-plan.md` | Kepler / `019f0d3a-d65e-72b1-af69-76f23a1fc69e` | 1212 | 987 | n/a | <1m | 0 blockers, 1 non-blocking catch, 0 missing-evidence reminders | Original blockers fixed; final `InputState` wording was widened to frame/UI snapshots before commit. |
 | carmack-global-input-callback-lifecycle-duck-01 | `Agentic/Plans/carmack-global-service-lifetime-plan.md` | Mencius / `019f0d44-33db-79d2-967e-65ffdd33dc8b` | 1185 | 2436 | n/a | ~12m | 2 blockers, 1 non-blocking catch, 4 missing-evidence reminders | Bind/unbind assertions were too permissive and raw-input registration was not gated on the bound HWND; fixed before follow-up. |
 | carmack-global-input-callback-lifecycle-duck-02 | `Agentic/Plans/carmack-global-service-lifetime-plan.md` | Mencius / `019f0d44-33db-79d2-967e-65ffdd33dc8b` | 1152 | 1732 | n/a | ~8m | 1 blocker, 0 non-blocking catches, 3 missing-evidence reminders | Source blockers fixed; stale plan checklist updated before validation; final validation passed before commit. |
+| carmack-cross-plan-report-reconciliation-duck-01 | Active Carmack plans and reports | Turing / `019f0d54-fb71-7e93-9713-3fc9b748e821` | ~2600 | ~3600 | n/a | ~35m | 2 blockers, 3 non-blocking catches, 3 missing-evidence reminders | Stale report claims reconciled; standalone-smoke DoD checked; ledger scope narrowed to tracked totals. |
 
 ## Update Rule
 

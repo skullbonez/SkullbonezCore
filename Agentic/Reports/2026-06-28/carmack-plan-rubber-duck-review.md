@@ -1,9 +1,19 @@
-# Carmack Plan Rubber-Duck Review
+# Carmack Plan Rubber-Duck Review (Historical)
 
 Date: 2026-06-28
 Branch: Night-Runner-27th-June
+Status: Superseded by later 2026-06-28 commits and the current post-plan review.
 Scope: Cross-check active Carmack plans against their problem statements before
 continuing one-slice-at-a-time commits.
+
+## Current Status Note
+
+This report is historical. It was accurate when written, but later commits on
+2026-06-28 resolved or narrowed several findings below, including the
+render-resource factory/DXR capability notes, standalone physics smoke evidence,
+global-service classification, and allocation baseline evidence. Use
+`Agentic/Reports/2026-06-28/carmack-test-post-plan-review.md` plus the current
+active plans as the live status snapshot.
 
 ## Expected Outcome
 
@@ -154,4 +164,3 @@ Next step:
 
 Leave this unchecked for the current branch goal unless the user explicitly
 resumes option 3 implementation.
-
