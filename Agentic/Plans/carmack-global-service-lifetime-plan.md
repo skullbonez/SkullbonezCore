@@ -127,6 +127,31 @@ require `tools\validate_full.bat`.
   Rubber-duck review: Dewey found no blockers. Non-blocking note: the
   `Gfx()` guardrail remains a ceiling ratchet, not semantic same-file
   classification, so future slices still need focused review.
+- [x] 2026-06-28: Routed `TornadoVisualPass::Render()` depth/blend/cull state
+  and transient colored-triangle draw through `RenderFrameContext`'s borrowed
+  `IRenderCommandContext` instead of direct `Gfx()` calls. This lowers
+  `RunPasses.cpp` direct `Gfx()` debt from 76 to 60 and the plan's total
+  counted `Gfx()` surface from 271 to 255. The broad render-pass/global-service
+  migration remains open for shadow, reflection, volumetric, tonemap, viewport,
+  clear, resource creation, and DXR paths.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; the change uses the existing borrowed
+  frame command context and does not introduce new ownership.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.72s
+  (`TestOutput\validation\agent_logs\tornado_command_state_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.34s
+  (`TestOutput\validation\agent_logs\tornado_command_state_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 17.58s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\tornado_command_state_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.89s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\tornado_command_state_validate_full.log`).
+  Rubber-duck review: Hume found no blockers. Non-blocking note: the DX12
+  validation suite is broad renderer coverage rather than tornado-scene-specific
+  visual proof, so this slice is recorded as a command-context/global-access
+  ratchet with full renderer safety-net evidence.
 
 ## Current Counted Global-Service Surface
 
@@ -137,7 +162,7 @@ string literals.
 | Pattern | Current count |
 |---------|---------------|
 | `Cfg()` | 239 |
-| `Gfx()` | 271 |
+| `Gfx()` | 255 |
 | `GfxRayTracing()` | 5 |
 | `ActiveAssetSystem()` | 4 |
 | `CreateShaderFromActiveAssets()` | 16 |
@@ -225,6 +250,9 @@ bridges tiny, named, and fenced.
   calls.
 - [x] Route water depth/blend state through `RenderFrameContext`'s borrowed
   command context instead of direct `Gfx()` calls.
+- [x] Route tornado visual depth/blend/cull state and transient triangle draw
+  through `RenderFrameContext`'s borrowed command context instead of direct
+  `Gfx()` calls.
 - [ ] Route shader and texture creation through an asset/render context passed
   from runtime-owned services.
 - [ ] Replace `ActiveAssetSystem()` in scene parsing and editor tools with an

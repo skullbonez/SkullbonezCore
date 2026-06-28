@@ -160,6 +160,31 @@ storage changes, also run `tools\validate_perf.bat`.
   Rubber-duck review: Dewey found no blockers. Non-blocking note: the
   `Gfx()` guardrail remains a ceiling ratchet, not semantic same-file
   classification, so future slices still need focused review.
+- [x] 2026-06-28: Migrated `TornadoVisualPass::Render()` depth/blend/cull state
+  save, mutation, restore, and transient colored-triangle draw from direct
+  `Gfx()` calls to the borrowed `IRenderCommandContext` already carried by
+  `RenderFrameContext`. This removes sixteen more `RunPasses.cpp` `Gfx()` calls
+  and lowers the file allowlist from 76 to 60; shadow, reflection, volumetric,
+  tonemap, viewport, clear, resource creation, and DXR paths remain open.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; both touched source-bearing files retain
+  learning headers, and this slice introduces no new ownership or local
+  rendering vocabulary.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.72s
+  (`TestOutput\validation\agent_logs\tornado_command_state_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.34s
+  (`TestOutput\validation\agent_logs\tornado_command_state_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 17.58s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\tornado_command_state_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.89s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\tornado_command_state_validate_full.log`).
+  Rubber-duck review: Hume found no blockers. Non-blocking note: the DX12
+  validation suite is broad renderer coverage rather than tornado-scene-specific
+  visual proof, so this slice is recorded as a command-context/global-access
+  ratchet with full renderer safety-net evidence.
 
 ## Problem Statement
 
@@ -228,6 +253,9 @@ compatibility facade while call sites migrate.
 - [x] Route water depth/blend state through `RenderFrameContext`'s borrowed
   `IRenderCommandContext` and lower the `RunPasses.cpp` direct `Gfx()`
   allowlist from 88 to 76.
+- [x] Route tornado visual depth/blend/cull state and transient triangle draw
+  through `RenderFrameContext`'s borrowed `IRenderCommandContext` and lower the
+  `RunPasses.cpp` direct `Gfx()` allowlist from 76 to 60.
 - [ ] Pass capture/readback capability only to screenshot and validation paths.
 - [ ] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
 - [ ] Pass GPU profiler capability only to profiler marker code.

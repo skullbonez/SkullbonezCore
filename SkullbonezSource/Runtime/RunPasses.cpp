@@ -1508,28 +1508,30 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
 
     PROFILE_GPU_BEGIN( "Frame/Render/TornadoVisual" );
     DRAW_CALL_TRACE_SCOPE( "Frame/Render/TornadoVisual" );
-    ClearAllRenderTextureSlots( RenderCommands( inputs.frame ) );
-    const bool depthTestWasEnabled = Gfx().IsDepthTestEnabled();
-    const bool depthWriteWasEnabled = Gfx().IsDepthWriteEnabled();
-    const bool blendWasEnabled = Gfx().IsBlendEnabled();
-    const bool cullWasEnabled = Gfx().IsCullFaceEnabled();
+    Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
+    ClearAllRenderTextureSlots( renderCommands );
+    const bool depthTestWasEnabled = renderCommands.IsDepthTestEnabled();
+    const bool depthWriteWasEnabled = renderCommands.IsDepthWriteEnabled();
+    const bool blendWasEnabled = renderCommands.IsBlendEnabled();
+    const bool cullWasEnabled = renderCommands.IsCullFaceEnabled();
     Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
     Rendering::BlendFactor blendDst = Rendering::BlendFactor::Zero;
-    Gfx().GetBlendFunc( blendSrc, blendDst );
+    renderCommands.GetBlendFunc( blendSrc, blendDst );
 
-    Gfx().SetDepthTest( true );
-    Gfx().SetDepthWrite( false );
-    Gfx().SetBlend( true );
-    Gfx().SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::OneMinusSrcAlpha );
-    Gfx().SetCullFace( false );
-    Gfx().DrawTransientColoredTriangles( m_vertices.data(),
-                                         static_cast<int>( m_vertices.size() / TORNADO_VISUAL_FLOATS_PER_VERTEX ),
-                                         inputs.frame.viewProjection.Data() );
-    Gfx().SetCullFace( cullWasEnabled );
-    Gfx().SetBlendFunc( blendSrc, blendDst );
-    Gfx().SetBlend( blendWasEnabled );
-    Gfx().SetDepthWrite( depthWriteWasEnabled );
-    Gfx().SetDepthTest( depthTestWasEnabled );
+    renderCommands.SetDepthTest( true );
+    renderCommands.SetDepthWrite( false );
+    renderCommands.SetBlend( true );
+    renderCommands.SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::OneMinusSrcAlpha );
+    renderCommands.SetCullFace( false );
+    renderCommands.DrawTransientColoredTriangles(
+        m_vertices.data(),
+        static_cast<int>( m_vertices.size() / TORNADO_VISUAL_FLOATS_PER_VERTEX ),
+        inputs.frame.viewProjection.Data() );
+    renderCommands.SetCullFace( cullWasEnabled );
+    renderCommands.SetBlendFunc( blendSrc, blendDst );
+    renderCommands.SetBlend( blendWasEnabled );
+    renderCommands.SetDepthWrite( depthWriteWasEnabled );
+    renderCommands.SetDepthTest( depthTestWasEnabled );
     PROFILE_GPU_END( "Frame/Render/TornadoVisual" );
     return true;
 }
