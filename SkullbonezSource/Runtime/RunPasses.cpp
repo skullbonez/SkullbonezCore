@@ -222,11 +222,11 @@ constexpr float FULLSCREEN_QUAD_VERTS[] = {
     -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,  1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f,
 };
 
-void DrawFullscreenQuad( uint32_t quadVB )
+void DrawFullscreenQuad( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands, uint32_t quadVB )
 {
     // Shared post vertex contract: clip-space xy followed by UV. Keeping one
     // copy prevents sky, volumetric, and tonemap from quietly drifting apart.
-    Gfx().UploadAndDrawDynamicVB( quadVB, FULLSCREEN_QUAD_VERTS, 6 );
+    renderCommands.UploadAndDrawDynamicVB( quadVB, FULLSCREEN_QUAD_VERTS, 6 );
 }
 
 void BindSkyPassParams( SkullbonezCore::Rendering::IShader& shader,
@@ -865,7 +865,7 @@ void SkyPass::RenderCinematicSky( const RenderFrameContext& frame, const Math::T
     ClearAllRenderTextureSlots( renderCommands );
     sky.atmosphereShader->Use();
     BindSkyPassParams( *sky.atmosphereShader, view, frame.projection, cinematic );
-    DrawFullscreenQuad( fullscreen.quadVB );
+    DrawFullscreenQuad( renderCommands, fullscreen.quadVB );
 
     renderCommands.SetDepthTest( depthWasEnabled );
     renderCommands.SetDepthWrite( depthWasEnabled );
@@ -1797,7 +1797,7 @@ bool VolumetricPass::Render( const RenderFrameContext& frame )
                                 scene.hdrTarget->GetDepthTextureHandle(),
                                 0,
                                 0 );
-        DrawFullscreenQuad( fullscreen.quadVB );
+        DrawFullscreenQuad( renderCommands, fullscreen.quadVB );
         if ( detailMarkers )
         {
             PROFILE_GPU_END( "Frame/Render/VolumetricLight/Draw" );
@@ -1891,7 +1891,7 @@ void TonemapPass::Render( const RenderFrameContext& frame, bool sceneAlreadyUnbo
                                 volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle()
                                                                      : scene.hdrTarget->GetColorTextureHandle(),
                                 0 );
-        DrawFullscreenQuad( fullscreen.quadVB );
+        DrawFullscreenQuad( renderCommands, fullscreen.quadVB );
         if ( detailMarkers )
         {
             PROFILE_GPU_END( "Frame/Render/Tonemap/Draw" );

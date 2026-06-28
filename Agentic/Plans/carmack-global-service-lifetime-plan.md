@@ -253,6 +253,34 @@ require `tools\validate_full.bat`.
   Rubber-duck review: Raman found no blockers. Non-blocking note: the `Gfx()`
   guardrail remains a count ratchet rather than semantic per-call tracking, so
   future slices still need focused diff review.
+- [x] 2026-06-28: Routed the shared `DrawFullscreenQuad()` dynamic-geometry draw
+  helper through an explicit borrowed `IRenderCommandContext&` instead of
+  direct `Gfx()` access. This lowers `RunPasses.cpp` direct `Gfx()` debt from 19
+  to 18 and the plan's total counted `Gfx()` surface from 214 to 213. The broad
+  render-pass/global-service migration remains open for fullscreen quad
+  resource creation/destruction, framebuffer creation, reflection, and DXR
+  paths.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; the change uses existing borrowed command
+  contexts at the cinematic sky, volumetric-light, and tonemap call sites.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.85s
+  (`TestOutput\validation\agent_logs\fullscreen_quad_command_draw_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.99s
+  (`TestOutput\validation\agent_logs\fullscreen_quad_command_draw_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 18.26s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\fullscreen_quad_command_draw_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 29.49s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\fullscreen_quad_command_draw_validate_full.log`);
+  `tools\validate_perf.bat` completed in 22.48s with exit 0
+  (`TestOutput\validation\agent_logs\fullscreen_quad_command_draw_validate_perf.log`).
+  Perf review note: the DX12 comparison was skipped for machine mismatch, and
+  the script reported physics-bench warnings outside this render-helper slice.
+  Rubber-duck review: Bohr found no blockers. Non-blocking notes: perf evidence
+  is advisory/noisy on this machine, and the `Gfx()` guardrail remains
+  count-based rather than semantic per-call tracking.
 
 ## Current Counted Global-Service Surface
 
@@ -263,7 +291,7 @@ string literals.
 | Pattern | Current count |
 |---------|---------------|
 | `Cfg()` | 239 |
-| `Gfx()` | 214 |
+| `Gfx()` | 213 |
 | `GfxRayTracing()` | 5 |
 | `ActiveAssetSystem()` | 4 |
 | `CreateShaderFromActiveAssets()` | 16 |
@@ -364,6 +392,8 @@ bridges tiny, named, and fenced.
   calls.
 - [x] Route HDR scene-target viewport/clear through `RenderFrameContext`'s
   borrowed command context instead of direct `Gfx()` calls.
+- [x] Route the shared fullscreen quad dynamic draw helper through a borrowed
+  command context instead of direct `Gfx()` calls.
 - [ ] Route shader and texture creation through an asset/render context passed
   from runtime-owned services.
 - [ ] Replace `ActiveAssetSystem()` in scene parsing and editor tools with an

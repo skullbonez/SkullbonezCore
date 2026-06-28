@@ -287,6 +287,35 @@ storage changes, also run `tools\validate_perf.bat`.
   Rubber-duck review: Raman found no blockers. Non-blocking note: the `Gfx()`
   guardrail remains a count ratchet rather than semantic per-call tracking, so
   future slices still need focused diff review.
+- [x] 2026-06-28: Migrated the shared `DrawFullscreenQuad()` helper from direct
+  `Gfx().UploadAndDrawDynamicVB()` access to an explicit borrowed
+  `IRenderCommandContext&`, then passed the existing command context from the
+  cinematic sky, volumetric-light, and tonemap call sites. This removes one
+  more `RunPasses.cpp` `Gfx()` call and lowers the file allowlist from 19 to
+  18; fullscreen quad resource creation/destruction, framebuffer creation,
+  reflection, and DXR paths remain open.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; both touched source-bearing files retain
+  learning headers, and the existing fullscreen vertex-contract comment still
+  explains the shared helper behavior.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.85s
+  (`TestOutput\validation\agent_logs\fullscreen_quad_command_draw_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.99s
+  (`TestOutput\validation\agent_logs\fullscreen_quad_command_draw_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 18.26s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\fullscreen_quad_command_draw_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 29.49s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\fullscreen_quad_command_draw_validate_full.log`);
+  `tools\validate_perf.bat` completed in 22.48s with exit 0
+  (`TestOutput\validation\agent_logs\fullscreen_quad_command_draw_validate_perf.log`).
+  Perf review note: the DX12 comparison was skipped for machine mismatch, and
+  the script reported physics-bench warnings outside this render-helper slice.
+  Rubber-duck review: Bohr found no blockers. Non-blocking notes: perf evidence
+  is advisory/noisy on this machine, and the `Gfx()` guardrail remains
+  count-based rather than semantic per-call tracking.
 
 ## Problem Statement
 
@@ -370,6 +399,9 @@ compatibility facade while call sites migrate.
 - [x] Route HDR scene-target viewport/clear through `RenderFrameContext`'s
   borrowed `IRenderCommandContext` and lower the `RunPasses.cpp` direct
   `Gfx()` allowlist from 21 to 19.
+- [x] Route the shared fullscreen quad dynamic draw helper through a borrowed
+  `IRenderCommandContext` and lower the `RunPasses.cpp` direct `Gfx()`
+  allowlist from 19 to 18.
 - [ ] Pass capture/readback capability only to screenshot and validation paths.
 - [ ] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
 - [ ] Pass GPU profiler capability only to profiler marker code.
