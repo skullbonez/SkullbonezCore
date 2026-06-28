@@ -442,6 +442,78 @@ string literals.
 | `pInstance` | 20 |
 | Mutable `g_*` process global | 86 |
 
+## Current Counted Global-Service Allowlist Classification
+
+Grouped by source file. Each `label=count` entry corresponds to one counted
+allowlist row in `tools\check_runtime_boundaries.py`; the classification names
+why that current debt exists and which migration bucket should own it.
+
+| File | Counted labels | Classification | Owner / migration note |
+|------|----------------|----------------|------------------------|
+| `SkullbonezSource/Assets/AssetSystem.cpp` | `ActiveAssetSystem()=1`, `CreateShaderFromActiveAssets()=1`, `Gfx()=2`, `g_*=5` | asset lookup | Asset system singleton, source-record storage, and shader creation should move behind an explicit asset/render context. |
+| `SkullbonezSource/Assets/AssetSystem.h` | `ActiveAssetSystem()=1`, `CreateShaderFromActiveAssets()=1` | asset lookup | Header exposes the current asset lookup helpers; future callers should borrow an asset context. |
+| `SkullbonezSource/Assets/TextureCollection.cpp` | `Gfx()=3`, `TextureCollection::Instance()=1` | asset lookup | Texture lifetime remains singleton-backed and renderer-coupled until a runtime-owned texture service exists. |
+| `SkullbonezSource/Core/Common.h` | `Cfg()=2`, `EngineConfig::Instance()=1` | bootstrap | Convenience config accessor shim; keep as legacy debt while runtime config snapshots replace normal-path reads. |
+| `SkullbonezSource/Core/Config.cpp` | `EngineConfig::Instance()=1` | bootstrap | Config owner singleton implementation. |
+| `SkullbonezSource/Core/LockOrderValidator.cpp` | `LockOrderValidator::Instance()=5`, `g_*=12` | diagnostics | Global lock-order diagnostics state. |
+| `SkullbonezSource/Core/PlatformProfiler.cpp` | `g_*=12` | diagnostics | Platform profiler marker bridge and process-local telemetry. |
+| `SkullbonezSource/Core/Profiler.cpp` | `Gfx()=9`, `Profiler::Instance()=2` | diagnostics | Profiler UI/marker diagnostics still sample renderer and singleton state. |
+| `SkullbonezSource/Core/Profiler.h` | `Profiler::Instance()=11` | diagnostics | Profiler accessor surface. |
+| `SkullbonezSource/Core/WorkerPool.cpp` | `WorkerPool::Instance()=2`, `g_*=8` | normal runtime path | Worker service singleton and queue state; should become a borrowed worker service before more runtime use grows. |
+| `SkullbonezSource/GameObjects/GameModel.cpp` | `Cfg()=10` | normal runtime path | Model defaults still read global config. |
+| `SkullbonezSource/Physics/BoundingSphere.cpp` | `Cfg()=1` | normal runtime path | Physics helper still reads global config. |
+| `SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp` | `Gfx()=2` | diagnostics | Physics debug visualizer renderer access. |
+| `SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp` | `CreateShaderFromActiveAssets()=1`, `Gfx()=14` | diagnostics | Collision visualizer shader/render access. |
+| `SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp` | `Gfx()=2` | diagnostics | Physics line visualizer renderer access. |
+| `SkullbonezSource/Physics/PersistentContactSolver.cpp` | `Cfg()=26` | normal runtime path | Solver parameters still read global config; physics context should own the snapshot. |
+| `SkullbonezSource/Physics/PhysicsWorld.cpp` | `Cfg()=18`, `WorkerPool::Instance()=6` | normal runtime path | Physics world still borrows config/worker service globally. |
+| `SkullbonezSource/Physics/RigidBody.cpp` | `Cfg()=3` | normal runtime path | Rigid-body defaults still read global config. |
+| `SkullbonezSource/Physics/TornadoField.cpp` | `Gfx()=2` | test/tool | Tornado visual/debug draw helper still uses global renderer access. |
+| `SkullbonezSource/Rendering/GameModelRenderer.cpp` | `Cfg()=3`, `WorkerPool::Instance()=2` | render pass | Renderer worker/config access should come from render services. |
+| `SkullbonezSource/Rendering/Helper.cpp` | `Cfg()=2`, `Gfx()=34`, `CreateShaderFromActiveAssets()=2` | render pass | Shared renderer helpers remain wide-backend and asset-factory debt. |
+| `SkullbonezSource/Rendering/IRenderBackend.cpp` | `Gfx()=2`, `GfxRayTracing()=1` | render pass | Backend facade compatibility; capability interfaces should replace wide access. |
+| `SkullbonezSource/Rendering/IRenderBackend.h` | `Gfx()=3`, `GfxRayTracing()=1` | render pass | Backend facade header still exposes compatibility helpers. |
+| `SkullbonezSource/Rendering/Shadow.h` | `Gfx()=2` | render pass | Shadow helper still reaches global backend. |
+| `SkullbonezSource/Rendering/Text.cpp` | `Cfg()=2`, `Gfx()=33`, `CreateShaderFromActiveAssets()=3` | render pass | Text rendering should receive config, renderer, and shader services explicitly. |
+| `SkullbonezSource/Runtime/Camera.cpp` | `Cfg()=22` | normal runtime path | Camera behavior still reads global config. |
+| `SkullbonezSource/Runtime/CameraCollection.cpp` | `CameraCollection::Instance()=1`, `Cfg()=1`, `pInstance=6` | normal runtime path | Legacy camera singleton and config access. |
+| `SkullbonezSource/Runtime/CameraCollection.h` | `pInstance=1` | normal runtime path | Legacy camera singleton storage declaration. |
+| `SkullbonezSource/Runtime/Editor/LauncherLaser.cpp` | `CreateShaderFromActiveAssets()=1`, `Gfx()=18` | test/tool | Launcher/editor visual feedback should borrow render services. |
+| `SkullbonezSource/Runtime/Editor/LauncherTools.cpp` | `Cfg()=3` | test/tool | Launcher tool tuning still reads global config. |
+| `SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.inl` | `ActiveAssetSystem()=1` | test/tool | Editor placement asset lookup should receive an asset context. |
+| `SkullbonezSource/Runtime/Editor/RunEditorTracer.inl` | `Gfx()=1` | test/tool | Editor tracer draw path should borrow render command/context services. |
+| `SkullbonezSource/Runtime/Init.cpp` | `Cfg()=16`, `Window::Instance()=1`, `WorkerPool::Instance()=3`, `g_*=6` | bootstrap | Startup command-line/config/window/worker binding surface. |
+| `SkullbonezSource/Runtime/Input.cpp` | `Window::Instance()=3`, `g_*=43` | OS callback bridge | Win32 input accumulators and focus/window bridge. |
+| `SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp` | `Cfg()=4` | render pass | Render host still reads config instead of receiving a render/runtime config snapshot. |
+| `SkullbonezSource/Runtime/Replay/RunReplayCauseTreeTools.inl` | `Cfg()=2` | normal runtime path | Replay cause-tree UI/tool tuning still reads global config. |
+| `SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl` | `WorkerPool::Instance()=2` | normal runtime path | Replay prediction should borrow worker services from runtime context. |
+| `SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.inl` | `Cfg()=2` | normal runtime path | Replay scrubber tuning still reads global config. |
+| `SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl` | `Cfg()=2` | normal runtime path | Replay velocity-edit tuning still reads global config. |
+| `SkullbonezSource/Runtime/Run.cpp` | `CameraCollection::Instance()=1`, `Cfg()=8`, `Gfx()=8`, `Profiler::Instance()=1`, `SkyBox::Instance()=1`, `TextureCollection::Instance()=1`, `Window::Instance()=1` | normal runtime path | Composition-root compatibility; migrate to bound services before normal paths call globals directly. |
+| `SkullbonezSource/Runtime/RunFrame.cpp` | `Cfg()=7`, `Gfx()=5`, `Profiler::Instance()=3` | normal runtime path | Frame loop still samples config, renderer, and profiler globals. |
+| `SkullbonezSource/Runtime/RunInput.cpp` | `Cfg()=22`, `Gfx()=4` | normal runtime path | Input/tool routing still reads config and renderer state globally. |
+| `SkullbonezSource/Runtime/RunInteractionAutomation.cpp` | `Cfg()=2` | test/tool | Interaction automation tuning still reads global config. |
+| `SkullbonezSource/Runtime/RunLiveStyle.cpp` | `Cfg()=1` | normal runtime path | Live style path still reads config globally. |
+| `SkullbonezSource/Runtime/RunPasses.cpp` | `Cfg()=6` | render pass | Pass code still reads global config after renderer access migration. |
+| `SkullbonezSource/Runtime/RunRender.cpp` | `Cfg()=3`, `Gfx()=1`, `GfxRayTracing()=1` | render pass | Render composition root still samples renderer services before passing borrowed capabilities. |
+| `SkullbonezSource/Runtime/RunStress.cpp` | `Cfg()=1`, `Gfx()=2` | test/tool | Stress harness still reads config/renderer globally. |
+| `SkullbonezSource/Runtime/RunUiTextPass.cpp` | `Cfg()=1`, `Gfx()=2`, `Profiler::Instance()=2`, `WorkerPool::Instance()=1`, `GfxRayTracing()=1` | render pass | UI text pass still mixes renderer, profiler, worker, and config globals. |
+| `SkullbonezSource/Runtime/RuntimeDiagnostics.cpp` | `Profiler::Instance()=2` | diagnostics | Runtime diagnostics still samples profiler singleton. |
+| `SkullbonezSource/Runtime/RuntimeTuning.cpp` | `Cfg()=1`, `WorkerPool::Instance()=1` | normal runtime path | Runtime tuning still reads config/worker globals. |
+| `SkullbonezSource/Runtime/Scene/RunScene.cpp` | `Cfg()=18`, `Gfx()=9`, `GfxRayTracing()=1`, `WorkerPool::Instance()=1` | normal runtime path | Scene load/reset still borrows config, renderer, DXR, and worker services globally. |
+| `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp` | `CameraCollection::Instance()=1` | normal runtime path | Authored scene setup still reaches camera singleton. |
+| `SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp` | `CameraCollection::Instance()=1` | normal runtime path | Generated scene setup still reaches camera singleton. |
+| `SkullbonezSource/Runtime/Window.cpp` | `Cfg()=6`, `Gfx()=1`, `Window::Instance()=3`, `pInstance=4` | OS callback bridge | Window singleton and resize/message integration bridge. |
+| `SkullbonezSource/Runtime/Window.h` | `pInstance=1` | OS callback bridge | Window singleton storage declaration. |
+| `SkullbonezSource/Scene/TestSceneParser.cpp` | `ActiveAssetSystem()=1` | asset lookup | Scene parsing still reaches active asset system. |
+| `SkullbonezSource/UI/UI.cpp` | `CreateShaderFromActiveAssets()=1`, `Gfx()=16` | render pass | UI rendering still reaches shader factory and renderer globally. |
+| `SkullbonezSource/UI/UIBackdropBlur.cpp` | `CreateShaderFromActiveAssets()=1`, `Gfx()=14` | render pass | Backdrop blur render/capture path still reaches globals. |
+| `SkullbonezSource/UI/UITabProfiler.cpp` | `Gfx()=1`, `Profiler::Instance()=6` | diagnostics | Profiler UI tab still samples renderer/profiler globals. |
+| `SkullbonezSource/World/SkyBox.cpp` | `Cfg()=2`, `CreateShaderFromActiveAssets()=1`, `Gfx()=1`, `SkyBox::Instance()=1`, `TextureCollection::Instance()=1`, `pInstance=7` | render pass | Skybox lifetime/render resources remain singleton and texture-service debt. |
+| `SkullbonezSource/World/SkyBox.h` | `pInstance=1` | render pass | Skybox singleton storage declaration. |
+| `SkullbonezSource/World/Terrain.cpp` | `Cfg()=22`, `CreateShaderFromActiveAssets()=2`, `Gfx()=2` | render pass | Terrain runtime/render setup still reads config and shader/backend globals. |
+| `SkullbonezSource/World/WorldEnvironment.cpp` | `Cfg()=20`, `CreateShaderFromActiveAssets()=2`, `Gfx()=3` | normal runtime path | World/fluid environment still mixes config and render resource globals. |
+
 ## Existing Service Lifetime Owners
 
 This 2026-06-28 inventory is the preferred reuse surface before adding any new
@@ -505,9 +577,15 @@ bridges tiny, named, and fenced.
 ### Inventory
 
 - [x] Run `rg "Gfx\\(|GfxRayTracing\\(|Cfg\\(|ActiveAssetSystem\\(|CreateShaderFromActiveAssets\\(|::Instance\\(|pInstance|g_[A-Za-z_]" SkullbonezSource`.
-- [ ] Classify each hit as `bootstrap`, `shutdown`, `OS callback bridge`,
-  `normal runtime path`, `render pass`, `asset lookup`, `diagnostics`, or
-  `test/tool`.
+- [x] Classify each current counted allowlist row as `bootstrap`, `shutdown`,
+  `OS callback bridge`, `normal runtime path`, `render pass`, `asset lookup`,
+  `diagnostics`, or `test/tool`.
+  - [x] 2026-06-28 current global-service classification table groups every
+    counted allowlist row by source file and assigns each row to one migration
+    bucket.
+- [ ] Classify each individual source hit as `bootstrap`, `shutdown`,
+  `OS callback bridge`, `normal runtime path`, `render pass`, `asset lookup`,
+  `diagnostics`, or `test/tool`.
 - [x] Record the current allowlist in this plan before changing source.
 - [x] Identify service lifetime owners already available in `Run`,
   `EngineContext`, `RuntimeRenderHost`, `RuntimeTools`, `DiagnosticsRuntime`, and

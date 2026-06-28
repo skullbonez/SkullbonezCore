@@ -16,8 +16,8 @@ for the whole Carmack run, not only from this file forward.
 | Source | Blocking findings caught | Non-blocking findings caught |
 |--------|--------------------------|------------------------------|
 | Reconstructed from existing plan notes | 7 | 8 |
-| Live tracked in this ledger | 2 | 4 |
-| Total so far | 9 | 12 |
+| Live tracked in this ledger | 3 | 4 |
+| Total so far | 10 | 12 |
 
 ## Ledger
 
@@ -30,6 +30,7 @@ for the whole Carmack run, not only from this file forward.
 | Allocation policy baseline evidence | Herschel | 1 | 2 | Replaced a replay-themed scene candidate with an explicitly replay-enabled launch, and called out that the perf log is local/ignored while durable excerpts live in the plan. | Live subagent review before commit `87e17f19`. |
 | Global-service lifetime owners | Banach | 0 | 2 | Clarified `RuntimeRenderHost` owns render scratch only and borrows services; left broader catalog completeness as a non-blocking note. | Live subagent review before commit `5f5b6de9`. |
 | Standalone physics ordering comments | Sartre | 1 | 0 | Added glossary definitions for `AABB` and `STL` after the comment-style blocker; kept replay wording future-facing. | Live subagent review before commit `ef18a787`. |
+| Counted global-service allowlist classification | Bernoulli | 1 | 0 | Split counted allowlist-row classification from still-open per-site hit classification so the checklist no longer overclaims completion. | Live subagent review before this commit. |
 
 ## Update Rule
 
