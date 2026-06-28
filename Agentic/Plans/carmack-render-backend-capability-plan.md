@@ -10,6 +10,26 @@ storage changes, also run `tools\validate_perf.bat`.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Routed `UiTextPass` renderer-name, draw-count, FPS fallback,
+  and DXR reflection-preview sampling through explicit `UiTextPassInputs`
+  instead of direct `Gfx()` / `GfxRayTracing()` calls. `RunFrame.cpp` now
+  borrows `IRenderDiagnostics` once at the frame composition point for UI draw
+  accounting, while `RuntimeRenderer` refreshes an optional borrowed
+  `IRenderRayTracing*` during world rendering and clears it before text-only
+  frames or backend resource release. The runtime-boundary ratchet was lowered:
+  `RunUiTextPass.cpp` no longer has any direct renderer-global allowance, and
+  `RunFrame.cpp` direct `Gfx()` debt fell from 5 to 4.
+  Comment-style audit: inspected `RuntimeRenderPasses.h`, `RuntimeRenderer.h`,
+  `RunFrame.cpp`, `RunRender.cpp`, `RunUiTextPass.cpp`, and
+  `tools\check_runtime_boundaries.py`; the new UI input contract and cached
+  optional DXR pointer document borrowed lifetime and text-only behavior.
+  Validation:
+  `cmd /c tools\validate_full.bat` passed, including project filters, runtime
+  boundaries, Profile and Debug builds with 0 warnings, DX12 InfoQueue reporting
+  0 validation errors, matching DX12 screenshots
+  (`TestOutput\validation\dx12_renderer\20260628T085736Z\manifest.json`), the
+  standalone physics smoke, and byte-exact `physics_regression_solver.csv`.
+  Log: `TestOutput\validation\agent_logs\ui_text_capability_validate_full.log`.
 - [x] 2026-06-28: Added an explicit file-classification fence for direct
   renderer globals in `tools\check_runtime_boundaries.py`. `Gfx()` and
   `GfxRayTracing()` now require both the existing per-file count allowance and
@@ -621,6 +641,9 @@ Current direct `Gfx()` cluster map from the inventory search:
 - [x] Route reflection-pass DXR dispatch through an optional borrowed
   `IRenderRayTracing*` in `RenderFrameContext` instead of pass-local
   `GfxRayTracing()` access.
+- [x] Route UI text renderer diagnostics and DXR preview sampling through
+  `UiTextPassInputs`, remove `RunUiTextPass.cpp` direct `Gfx()` /
+  `GfxRayTracing()` access, and lower the matching guardrail allowlists.
 - [ ] Pass capture/readback capability only to screenshot and validation paths.
 - [ ] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
 - [ ] Pass GPU profiler capability only to profiler marker code.

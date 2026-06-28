@@ -198,6 +198,15 @@ struct WaterPassInputs
     float frozenTime;                       // Simulation time captured when water animation was frozen.
 };
 
+struct UiTextPassInputs
+{
+    // UI/text can run even when text-only mode skips RuntimeRenderer::RenderFrame(),
+    // so it borrows only the narrow render facets sampled by overlays.
+    Rendering::IRenderDiagnostics& renderDiagnostics;
+    Rendering::IRenderRayTracing* renderRayTracing;
+    double secondsPerFrame = 0.0;
+};
+
 struct WaterPassDebugInfo
 {
     bool rendered = false;
@@ -553,7 +562,7 @@ class UiTextPass
     void EnsureGpuResources();
     void ReleaseGpuResources();
     bool ShouldRender() const;
-    void Render( double secondsPerFrame );
+    void Render( const UiTextPassInputs& inputs );
 
   private:
     RuntimeRenderHost& m_host;

@@ -48,7 +48,8 @@ class RuntimeRenderer
 
     void EnsureUiTextResources();
     bool ShouldRenderUiText() const;
-    void RenderUiText( double dSecondsPerFrame );
+    void SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing );
+    void RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics, double dSecondsPerFrame );
 
   private:
     struct CinematicPostGraphResult
@@ -72,7 +73,9 @@ class RuntimeRenderer
     GraphPassResult ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget );
     bool ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget );
     CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const RenderFrameContext& frame );
-    bool ExecuteUiTextThroughRenderGraph( double secondsPerFrame );
+    bool ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
+                                          Rendering::IRenderRayTracing* renderRayTracing,
+                                          double secondsPerFrame );
 
     RuntimeRenderHost& m_host;
     FullscreenQuadPass m_fullscreenQuadPass;  // Shared full-screen vertex buffer pass used by sky/post effects.
@@ -88,6 +91,9 @@ class RuntimeRenderer
     VolumetricPass m_volumetricPass;          // Half-resolution cinematic light-shaft pass.
     TonemapPass m_tonemapPass;                // HDR-to-backbuffer resolve pass.
     UiTextPass m_uiTextPass;                  // HUD/UI/text pass.
+    // Lifetime: borrowed only for the next UI pass after world rendering, then
+    // refreshed or cleared before backend release and text-only frames.
+    Rendering::IRenderRayTracing* m_uiTextRayTracing = nullptr;
 };
 } // namespace Basics
 } // namespace SkullbonezCore

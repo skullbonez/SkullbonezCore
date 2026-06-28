@@ -416,14 +416,17 @@ void Run::Execute()
 
             if ( m_renderer.ShouldRenderUiText() )
             {
-                const int uiDrawCallStart = Gfx().GetFrameDrawCallCount();
+                IRenderBackend& renderBackend = Gfx();
+                SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics =
+                    static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( renderBackend );
+                const int uiDrawCallStart = renderDiagnostics.GetFrameDrawCallCount();
                 PROFILE_BEGIN( "Frame/UI" );
                 {
                     DRAW_CALL_TRACE_SCOPE( "Frame/UI" );
-                    m_renderer.RenderUiText( secondsPerFrame );
+                    m_renderer.RenderUiText( renderDiagnostics, secondsPerFrame );
                 }
                 PROFILE_END( "Frame/UI" );
-                const int uiDrawCallEnd = Gfx().GetFrameDrawCallCount();
+                const int uiDrawCallEnd = renderDiagnostics.GetFrameDrawCallCount();
                 m_timers.lastUIDrawCalls = (std::max)( 0, uiDrawCallEnd - uiDrawCallStart );
             }
             else

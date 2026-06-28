@@ -77,6 +77,8 @@ struct SceneTargetGraphCallbackData
 struct UiTextGraphCallbackData
 {
     UiTextPass* uiTextPass = nullptr;
+    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
+    SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = nullptr;
     double secondsPerFrame = 0.0;
 };
 
@@ -123,11 +125,11 @@ void ExecuteSceneTargetGraphCallback( const SkullbonezCore::Rendering::RenderGra
 void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
 {
     auto* data = static_cast<UiTextGraphCallbackData*>( userData );
-    if ( !data || !data->uiTextPass )
+    if ( !data || !data->uiTextPass || !data->renderDiagnostics )
     {
         throw std::runtime_error( "UiTextPass graph callback missing execution data" );
     }
-    data->uiTextPass->Render( data->secondsPerFrame );
+    data->uiTextPass->Render( { *data->renderDiagnostics, data->renderRayTracing, data->secondsPerFrame } );
 }
 
 void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
@@ -366,7 +368,9 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
 }
 
 
-bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( double secondsPerFrame )
+bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
+                                                       Rendering::IRenderRayTracing* renderRayTracing,
+                                                       double secondsPerFrame )
 {
     Rendering::RenderGraph graph;
     const Rendering::RenderGraphResourceHandle backbuffer =
@@ -379,6 +383,8 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( double secondsPerFrame )
 
     UiTextGraphCallbackData callbackData;
     callbackData.uiTextPass = &m_uiTextPass;
+    callbackData.renderDiagnostics = &renderDiagnostics;
+    callbackData.renderRayTracing = renderRayTracing;
     callbackData.secondsPerFrame = secondsPerFrame;
     graph.SetPassCallback( uiTextPass, ExecuteUiTextGraphCallback, &callbackData, true, "Frame/UI" );
 
@@ -481,6 +487,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 {
     RuntimeRenderHost& host = m_host;
     const RuntimeRenderServices& services = renderInputs.services;
+    m_uiTextRayTracing = services.renderRayTracing;
     const bool cinematicRender = host.IsCinematicRenderingEnabled();
     const CinematicRenderConfig& renderConfig = host.ActiveCinematicConfig();
     const OrdinaryRenderConfig& ordinaryRender = Cfg().ordinaryRender;
@@ -704,6 +711,7 @@ void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::IRenderResourceFa
     m_skyPass.ReleaseGpuResources();
     m_fullscreenQuadPass.ReleaseGpuResources( renderResources );
     m_uiTextPass.ReleaseGpuResources();
+    m_uiTextRayTracing = nullptr;
 }
 
 
@@ -719,14 +727,22 @@ bool RuntimeRenderer::ShouldRenderUiText() const
 }
 
 
-void RuntimeRenderer::RenderUiText( double dSecondsPerFrame )
+void RuntimeRenderer::SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing )
 {
-    (void)ExecuteUiTextThroughRenderGraph( dSecondsPerFrame );
+    m_uiTextRayTracing = renderRayTracing;
+}
+
+
+void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics, double dSecondsPerFrame )
+{
+    (void)ExecuteUiTextThroughRenderGraph( renderDiagnostics, m_uiTextRayTracing, dSecondsPerFrame );
 }
 
 
 void Run::Render()
 {
+    m_renderer.SetUiTextRayTracingCapability( nullptr );
+
     // In text_only mode all 3D rendering is skipped. UiTextPass handles the display.
     if ( m_debug.isTextOnly )
     {
@@ -809,6 +825,7 @@ void Run::Render()
         static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( renderBackend );
     SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing =
         IsGfxRayTracingReady() ? &GfxRayTracing() : nullptr;
+    m_renderer.SetUiTextRayTracingCapability( renderRayTracing );
     m_renderer.RenderFrame( BuildRuntimeRenderInputs( m_systems,
                                                       m_cGameModelCollection,
                                                       m_cWorldEnvironment,

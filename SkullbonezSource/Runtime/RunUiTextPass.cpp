@@ -52,9 +52,9 @@ bool UiTextPass::ShouldRender() const
 }
 
 
-void UiTextPass::Render( double dSecondsPerFrame )
+void UiTextPass::Render( const UiTextPassInputs& inputs )
 {
-    const int uiPassDrawCallStart = Gfx().GetFrameDrawCallCount();
+    const int uiPassDrawCallStart = inputs.renderDiagnostics.GetFrameDrawCallCount();
 
     // Invariant: rolling diagnostics update before any overlay early return so
     // FPS, physics time, render time, and scene energy age at the same cadence.
@@ -68,9 +68,9 @@ void UiTextPass::Render( double dSecondsPerFrame )
 
     if ( m_host.m_timers.timeSinceLastRender > 0.5f )
     {
-        if ( dSecondsPerFrame )
+        if ( inputs.secondsPerFrame )
         {
-            m_host.m_timers.rollingFpsTime = 1.0f / static_cast<float>( dSecondsPerFrame );
+            m_host.m_timers.rollingFpsTime = 1.0f / static_cast<float>( inputs.secondsPerFrame );
             m_host.m_timers.rollingPhysicsTime = m_host.m_timers.physicsTime;
             m_host.m_timers.rollingRenderTime = m_host.m_timers.renderTime;
         }
@@ -92,7 +92,7 @@ void UiTextPass::Render( double dSecondsPerFrame )
                                                     static_cast<double>( m_host.m_timers.sceneEnergySampleCount ) );
     }
 
-    const char* rendererName = Gfx().GetRendererName();
+    const char* rendererName = inputs.renderDiagnostics.GetRendererName();
 
     // text_only mode: solid background + full-screen pangram, no HUD/profiler
     if ( m_host.m_debug.isTextOnly )
@@ -249,9 +249,10 @@ void UiTextPass::Render( double dSecondsPerFrame )
         UIData.selectedSceneOption = m_host.CurrentSceneBrowserIndex();
         UIData.selectedCineModeSceneOption = m_host.m_sceneBrowser.selectedCineModeSceneIndex;
         UIData.UIDrawCalls = m_host.m_timers.lastUIDrawCalls;
-        UIData.fps = m_host.m_timers.rollingFpsTime > 0.0f
-                         ? m_host.m_timers.rollingFpsTime
-                         : ( dSecondsPerFrame > 0.0 ? 1.0f / static_cast<float>( dSecondsPerFrame ) : 0.0f );
+        UIData.fps =
+            m_host.m_timers.rollingFpsTime > 0.0f
+                ? m_host.m_timers.rollingFpsTime
+                : ( inputs.secondsPerFrame > 0.0 ? 1.0f / static_cast<float>( inputs.secondsPerFrame ) : 0.0f );
         UIData.renderMs = ( m_host.m_timers.rollingRenderTime > 0.0f ? m_host.m_timers.rollingRenderTime
                                                                      : m_host.m_timers.renderTime ) *
                           1000.0f;
@@ -429,7 +430,8 @@ void UiTextPass::Render( double dSecondsPerFrame )
                                    true,
                                    cinematicTargetsAvailable && UIData.cinematic.volumetricLightingEnabled );
 
-            const uint32_t dxrReflection = IsGfxRayTracingReady() ? GfxRayTracing().GetReflectionUAVTexture() : 0;
+            const uint32_t dxrReflection =
+                inputs.renderRayTracing ? inputs.renderRayTracing->GetReflectionUAVTexture() : 0;
             addPreview( "DXR Reflection",
                         dxrReflection,
                         m_host.WindowScreenWidth() * 2,
