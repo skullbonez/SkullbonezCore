@@ -41,6 +41,30 @@ Install the Codex CLI package used by the roadmap orchestrator:
 python -m pip install --user openai-codex
 ```
 
+Optional: install CodeGraph for local code-intelligence lookups. CodeGraph is
+not required for builds, validation, or agent startup; it helps agents query
+symbols, callers, callees, and impact before opening large source files.
+
+```powershell
+$installer = Join-Path $env:TEMP 'codegraph-install.ps1'
+Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.ps1' -OutFile $installer
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer
+codegraph install --target codex --location global --yes
+codegraph telemetry off
+codegraph init .
+```
+
+The repository ignores the generated `.codegraph/` directory. After large source
+changes, refresh the local index with:
+
+```powershell
+codegraph sync .
+```
+
+Use `codegraph index .` instead when a full rebuild is needed. If CodeGraph is
+not installed or its index is stale, continue with the normal `rg` and targeted
+file-read workflow.
+
 Verify the tools:
 
 ```powershell
@@ -50,6 +74,13 @@ git --version
 python -c "import PIL; print(PIL.__version__)"
 winget --version
 tools\orchestrator.bat doctor
+```
+
+If you installed optional CodeGraph, verify the local index from the repository
+root:
+
+```powershell
+codegraph status .
 ```
 
 ## Validation Scripts

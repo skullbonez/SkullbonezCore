@@ -54,6 +54,27 @@ If a review tool creates a separate worktree, keep it read-only. Keep one active
 implementation plan at a time unless the user explicitly asks for a different
 queue policy.
 
+## Rubber-Duck Accounting
+
+Keep an in-memory row for every rubber-duck review pass. Assign each pass a
+stable run id such as `<plan-stem>-duck-01`, `<plan-stem>-duck-02`, and so on.
+For each row, record:
+
+- plan path,
+- run id and reviewer/thread identifier,
+- pass reason, such as initial review or follow-up after fixes,
+- prompt/context characters sent to the sub-agent, including any pasted diff or
+  artifact text,
+- review response characters returned by the sub-agent,
+- token counts if the sub-agent tool exposes them, otherwise `n/a`,
+- elapsed wall-clock time for the review pass when measurable,
+- verdict and whether follow-up work was required.
+
+Do not invent token counts. If token usage is unavailable, report character
+counts and mark token columns `n/a`. Keep this accounting separate from
+SkullScope diagnostics accounting; it measures review-agent prompt/response
+usage, not repository artifacts or validation logs.
+
 ## Plan Loop
 
 For each plan, in order:
@@ -75,7 +96,8 @@ Return findings with file/line references and a clear verdict.
 
 5. Address blocking rubber-duck findings in the main agent before committing.
 6. Repeat the rubber-duck pass if the fix changed meaningful behavior or
-   touched the reviewed risk area.
+   touched the reviewed risk area. Record every repeat as its own accounting
+   row.
 7. Run the smallest required pre-commit validation from `AGENTS.md` for that
    plan's final changed-file set. Documentation-only changes require no
    validation.
@@ -116,3 +138,10 @@ Report:
 - Any skipped plan, blocker, dirty user-owned file, or residual risk.
 - Total elapsed wall-clock time and timings for long builds, validations,
   launches, or investigations.
+- A final rubber-duck accounting table, one row per review pass:
+
+```markdown
+| Plan | Duck run | Reviewer/thread | Reason | Prompt chars | Response chars | Tokens | Elapsed | Verdict | Follow-up |
+|------|----------|-----------------|--------|--------------|----------------|--------|---------|---------|-----------|
+| Agentic/Plans/example.md | example-duck-01 | thread id/name | Initial review | 1234 | 5678 | n/a | 2m 10s | No blockers | None |
+```
