@@ -10,6 +10,33 @@ when SkullScope baselines or broad physics diagnostics change.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Extended the standalone public physics API slice with
+  collider handles and immutable collider views. `PhysicsStandaloneWorld` now
+  supports collider create, masked update, destroy, single-collider query, and
+  deterministic collection query without `GameModelCollection`; invalid body
+  handles return invalid collider handles, direct collider deletion advances the
+  collider generation, and body deletion tombstones child colliders so stale
+  collider handles fail predictably. The standalone smoke now exercises body
+  and collider stale-handle behavior and preserves the exact body final state
+  while updating the deterministic smoke hash to `0xB7270DA8DDE3289E`.
+  Comment-style audit: inspected `PhysicsApi.h` and `PhysicsApi.cpp`; the
+  learning headers already describe standalone handles, views, stale-handle
+  generations, and deterministic smoke expectations, and the new collider
+  methods carry local lifecycle comments.
+  Targeted implementation check:
+  `tools\validate_build.bat Debug` passed with 0 warnings/errors
+  (`TestOutput\validation\agent_logs\physics_standalone_collider_validate_build_debug_during_impl.log`);
+  `Debug\SKULLBONEZ_CORE.exe --physics-standalone-smoke` passed with
+  `lifecycle_checks=pass`
+  (`TestOutput\validation\agent_logs\physics_standalone_collider_smoke_during_impl.log`).
+  Rubber-duck review found no blockers and suggested tightening smoke evidence
+  for stale body collider creation plus all updated collider fields; both were
+  added before commit. Final validation:
+  `tools\validate_fast.bat` passed
+  (`TestOutput\validation\agent_logs\physics_standalone_collider_validate_fast_final.log`);
+  `tools\validate_physics.bat` passed with byte-exact
+  `physics_regression_solver.csv`
+  (`TestOutput\validation\agent_logs\physics_standalone_collider_validate_physics_final.log`).
 - [x] 2026-06-28: Added the first model-free standalone physics API smoke path.
   `PhysicsStandaloneWorld` now supports deterministic body create, update,
   delete, query, and fixed-step integration through `PhysicsApi` without
@@ -142,6 +169,8 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 ### Public Physics API
 
 - [ ] Extend `SkullbonezSource/Physics/PhysicsApi.h` with any missing create, update, query, delete, and step descriptors needed by runtime callers.
+- [x] Add standalone collider create, update, delete, query, and immutable
+  collection views to the public physics API beachhead.
 - [ ] Add or expose a `PhysicsWorldHandle` or equivalent owner token if multiple isolated worlds are needed.
 - [ ] Keep command targets as `PhysicsBodyHandle`, `PhysicsColliderHandle`, and `PhysicsConstraintHandle`; do not add model-index fields to new API structs.
 - [ ] Add immutable body, collider, contact, island, and diagnostic view structs that do not expose solver-private vectors.
@@ -176,7 +205,10 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 ### Guardrails
 
 - [x] Tighten `tools\check_runtime_boundaries.py` so new public physics facade headers cannot accept `GameModelCollection&`, `GameModelCollection*`, raw `GameModel&`, or raw `std::vector<GameModel>&`.
-- [ ] Count-guard any temporary compatibility adapter call sites and lower the count after each slice.
+- [x] Count-guard any temporary compatibility adapter call sites and lower the count after each slice.
+  2026-06-28 note: `PHYSICS_MODELS_COMPAT_ACCESS_ALLOWLIST` already guards
+  exact `*PhysicsModelsForCompatibility()` borrower lines and rejects duplicate
+  or new compatibility vector access in synthetic tests.
 - [x] Add synthetic positive and negative tests for the boundary checker.
 - [ ] Teach project-filter validation about any new physics API or adapter files.
 

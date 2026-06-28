@@ -263,6 +263,25 @@ struct PhysicsBodyCollectionView
     uint32_t bodyCount = 0;
 };
 
+struct PhysicsColliderView
+{
+    PhysicsColliderHandle collider;
+    PhysicsBodyHandle body;
+    PhysicsSceneObjectId sceneObjectId;
+    Math::CollisionDetection::CollisionShape shape;
+    float boundingRadius = 0.0f;
+    float restitution = 0.0f;
+    float friction = 0.0f;
+    float projectedSurfaceArea = 0.0f;
+    float dragCoefficient = 0.0f;
+};
+
+struct PhysicsColliderCollectionView
+{
+    const PhysicsColliderView* colliders = nullptr;
+    uint32_t colliderCount = 0;
+};
+
 struct PhysicsRenderInstanceView
 {
     PhysicsBodyHandle body;
@@ -310,7 +329,9 @@ struct PhysicsStandaloneSmokeResult
     bool passed = false;
     bool lifecycleChecksPassed = false;
     PhysicsBodyHandle body;
+    PhysicsColliderHandle collider;
     uint32_t bodyCount = 0;
+    uint32_t colliderCount = 0;
     uint32_t stepCount = 0;
     Math::Vector::Vector3 finalPosition = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 finalLinearVelocity = Math::Vector::ZERO_VECTOR;
@@ -332,8 +353,20 @@ class PhysicsStandaloneWorld
     // mutating any other slot.
     bool UpdateBody( const PhysicsBodyUpdateDesc& desc );
 
-    // Tombstones a live body and advances its generation so stale handles fail.
+    // Tombstones a live body and its colliders, then advances generations so
+    // stale handles fail.
     bool DestroyBody( PhysicsBodyHandle body );
+
+    // Creates a collider for a live body. Invalid or stale body handles return
+    // an invalid collider handle without mutating storage.
+    PhysicsColliderHandle CreateCollider( const PhysicsColliderCreateDesc& desc );
+
+    // Applies masked public fields to a live collider. Stale handles fail
+    // without mutating any other slot.
+    bool UpdateCollider( const PhysicsColliderUpdateDesc& desc );
+
+    // Tombstones a live collider and advances its generation so stale handles fail.
+    bool DestroyCollider( PhysicsColliderHandle collider );
 
     // Advances awake dynamic bodies by one deterministic semi-implicit Euler step.
     bool Step( const PhysicsStepDesc& desc );
@@ -347,15 +380,32 @@ class PhysicsStandaloneWorld
     // non-const world mutation.
     PhysicsBodyCollectionView Bodies() const;
 
+    // Returns a live collider view, or null for stale/dead handles. The pointer
+    // is owned by this world and is invalidated by later mutation.
+    const PhysicsColliderView* Collider( PhysicsColliderHandle collider ) const;
+
+    // Returns alive colliders in deterministic slot order. The view points at
+    // internal scratch storage and is valid until the next Colliders() call or
+    // non-const world mutation.
+    PhysicsColliderCollectionView Colliders() const;
+
   private:
     bool IsAlive( PhysicsBodyHandle body ) const;
+    bool IsAlive( PhysicsColliderHandle collider ) const;
     PhysicsBodyView MakeBodyView( const PhysicsBodyCreateDesc& desc, PhysicsBodyHandle body ) const;
+    PhysicsColliderView MakeColliderView( const PhysicsColliderCreateDesc& desc, PhysicsColliderHandle collider ) const;
+    void TombstoneColliderSlot( uint32_t index );
 
     std::vector<PhysicsBodyView> m_bodies;                                           // Slot-indexed body records; tombstoned slots may be reused.
     std::vector<uint32_t> m_generations;                                             // Per-slot stale-handle counter.
     std::vector<uint8_t> m_alive;                                                    // 0/1 slot liveness for compact deterministic scans.
     std::vector<uint32_t> m_freeIndices;                                             // Reusable tombstoned slots; pop_back gives deterministic reuse order.
     mutable std::vector<PhysicsBodyView> m_bodyViewScratch;                          // Filtered alive-body view returned by Bodies().
+    std::vector<PhysicsColliderView> m_colliders;                                    // Slot-indexed collider records paired with body handles.
+    std::vector<uint32_t> m_colliderGenerations;                                     // Per-collider stale-handle counter.
+    std::vector<uint8_t> m_colliderAlive;                                            // 0/1 collider liveness for compact deterministic scans.
+    std::vector<uint32_t> m_freeColliderIndices;                                     // Reusable tombstoned collider slots.
+    mutable std::vector<PhysicsColliderView> m_colliderViewScratch;                  // Filtered alive-collider view returned by Colliders().
     uint32_t m_nextInitialGeneration = PHYSICS_STANDALONE_HANDLE_INITIAL_GENERATION; // Generation base after Clear().
 };
 
