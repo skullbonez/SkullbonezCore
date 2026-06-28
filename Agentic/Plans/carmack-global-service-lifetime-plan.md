@@ -10,6 +10,14 @@ require `tools\validate_full.bat`.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Documented the Win32 input callback bridge accumulators in
+  `Input.cpp` without changing behavior. The file now separates callback-fed
+  wheel/raw mouse queues from cursor policy and scripted automation override
+  state, names `WndProc` as the callback writer, records the UI and camera
+  consumers/reset paths, and leaves bind/unbind lifecycle work open. Rubber-duck
+  review by Kepler found two blocking stale/incorrect comment claims and two
+  non-blocking wording issues; all were fixed. Comment-only source/documentation
+  slice; no repository validation required.
 - [x] 2026-06-28: Added debug assertions for `EngineContext` borrowed runtime
   bindings before they are used. `EngineContext::Bind()` now asserts that the
   complete Run-owned service graph is present, both `Bindings()` accessors
@@ -719,8 +727,14 @@ bridges tiny, named, and fenced.
 
 - [ ] Keep Win32 input globals only behind a tiny bridge if callback signatures
   require process-static state.
-- [ ] Add comments naming who samples, resets, and owns each callback
+- [x] Add comments naming who samples, resets, and owns each callback
   accumulator.
+  - [x] 2026-06-28 `Input.cpp` now names `WndProc` as the wheel/raw mouse
+    writer, `UIInput::CaptureSnapshot()`/`InGameUI::UpdateInput()` as the wheel
+    consumer, `RunInput` camera mouse-look sampling as the raw-delta consumer,
+    `InputController` focus/mouse-look reset helpers as reset paths, and
+    separates cursor policy plus `RunInteractionAutomation` overrides from
+    callback accumulator state.
 - [ ] Add an explicit bind/unbind lifecycle for callback bridge state.
 - [ ] Ensure callback bridge teardown cannot leave dangling service pointers.
 - [ ] Add focused tests or debug assertions for callback bridge lifecycle.
@@ -801,6 +815,9 @@ Shutdown order:
   behavior changes: run `tools\validate_full.bat`.
 - [ ] For input/window changes: run `tools\validate_full.bat`; add focused
   launch/click validation if interaction behavior changes.
+  - [x] 2026-06-28 input callback bridge documentation slice was comment-only;
+    no repository validation required. `git diff --check` passed and the scoped
+    comment-style audit inspected `SkullbonezSource/Runtime/Input.cpp`.
 - [x] For guardrail-tooling changes: run `python tools\check_runtime_boundaries.py`
   and `tools\validate_fast.bat`.
 - [x] Quote validation output and log paths in the handoff.
@@ -853,6 +870,11 @@ Reviewer notes, 2026-06-28:
   calling `EngineContext::Bindings()`, bypassing the new fail-fast path. The
   follow-up assertion in the view-model builder fixed that blocker; no normal
   startup/shutdown false positive remained in review.
+- Kepler blocked the input callback bridge documentation slice because the first
+  comment draft called cursor policy and automation override state callback
+  accumulators, and misnamed the mouse-wheel consumer/reset path. Follow-up
+  review confirmed those blockers were fixed; the final non-blocking invariant
+  wording catch was also corrected before commit.
 
 ## Definition Of Done
 

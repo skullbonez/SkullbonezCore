@@ -16,8 +16,8 @@ for the whole Carmack run, not only from this file forward.
 | Source | Blocking findings caught | Non-blocking findings caught |
 |--------|--------------------------|------------------------------|
 | Reconstructed from existing plan notes | 7 | 8 |
-| Live tracked in this ledger | 8 | 9 |
-| Total so far | 15 | 17 |
+| Live tracked in this ledger | 10 | 11 |
+| Total so far | 17 | 19 |
 
 ## Ledger
 
@@ -36,6 +36,7 @@ for the whole Carmack run, not only from this file forward.
 | Editor placement asset context | Pauli | 0 | 2 | Accepted the one-shot process-static building catalog cache as a residual design constraint and reminded the agent to keep unrelated dirty startup/tooling docs unstaged. | Live subagent review before this commit; missing-evidence reminders cleared by comment audit and final validation. |
 | Runtime lifetime-order docs | Sagan | 3 | 1 | Added the missing `Run::Run()`/`EngineContext` bind step, corrected `RebuildRegisteredRenderResources()` wording to texture/source-record work, fixed cleanup wording around `UnregisterClass(...)`/`Window::Destroy()`, and moved worker self-test after worker-pool init. | Live subagent review before this commit; docs-only, no repository validation required. |
 | Runtime borrowed-binding assertions | Faraday | 1 | 1 | Added the missing `RuntimeViewModelBuilder::Build()` debug assertion so the view-model fallback cannot hide an unbound `EngineContext`, and confirmed normal startup/shutdown does not false-positive. | Live subagent review before this commit; final `validate_full` passed before commit. |
+| Input callback bridge comments | Kepler | 2 | 2 | Split true callback-fed wheel/raw mouse accumulators from cursor policy and automation override state, corrected the mouse-wheel consumer/reset path, expanded raw mouse reset wording, and widened the file invariant to frame/UI snapshots. | Live subagent review before this commit; comment-only, no repository validation required. |
 
 ## Review Accounting
 
@@ -47,6 +48,8 @@ for the whole Carmack run, not only from this file forward.
 | carmack-global-lifetime-order-docs-duck-01 | `Agentic/Plans/carmack-global-service-lifetime-plan.md` | Sagan / `019f0d29-5316-70f1-ab15-1c1a1f4c11ac` | 1303 | 2312 | n/a | ~10m | 3 blockers, 1 non-blocking catch, 0 missing-evidence reminders | Missing EngineContext bind, render-resource overclaim, cleanup wording, and worker self-test ordering fixed before commit. |
 | carmack-global-engine-context-assertions-duck-01 | `Agentic/Plans/carmack-global-service-lifetime-plan.md` | Faraday / `019f0d33-6682-7340-853f-cc686a4f671c` | 1080 | 1978 | n/a | ~1m23s | 1 blocker, 1 non-blocking catch, 2 missing-evidence reminders | RuntimeViewModel fallback bypassed `EngineContext::Bindings()` assertions; fixed before follow-up. |
 | carmack-global-engine-context-assertions-duck-02 | `Agentic/Plans/carmack-global-service-lifetime-plan.md` | Faraday / `019f0d33-6682-7340-853f-cc686a4f671c` | 743 | 798 | n/a | <1m | 0 blockers, 0 non-blocking catches, 2 missing-evidence reminders | Original blocker fixed; final validation passed before commit. |
+| carmack-global-input-callback-comments-duck-01 | `Agentic/Plans/carmack-global-service-lifetime-plan.md` | Kepler / `019f0d3a-d65e-72b1-af69-76f23a1fc69e` | 1102 | 2354 | n/a | ~8m | 2 blockers, 1 non-blocking catch, 1 missing-evidence reminder | Cursor policy and automation were misclassified as callback accumulators, and the wheel consumer/reset path was misnamed; fixed before follow-up. |
+| carmack-global-input-callback-comments-duck-02 | `Agentic/Plans/carmack-global-service-lifetime-plan.md` | Kepler / `019f0d3a-d65e-72b1-af69-76f23a1fc69e` | 1212 | 987 | n/a | <1m | 0 blockers, 1 non-blocking catch, 0 missing-evidence reminders | Original blockers fixed; final `InputState` wording was widened to frame/UI snapshots before commit. |
 
 ## Update Rule
 
