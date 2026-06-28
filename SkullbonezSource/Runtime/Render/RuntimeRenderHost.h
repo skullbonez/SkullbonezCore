@@ -14,8 +14,10 @@ Glossary:
   Binding: Pointer set that connects host methods to current runtime owners.
   Callback: Transitional function pointer used for behavior still implemented
     on Run.
-  DXR reflection transform buffer: Host-owned per-frame scratch matrix data
-    streamed from the scene view into the DX12 TLAS build.
+  EngineConfig: Live process configuration object; the host borrows it so render
+    passes do not reacquire the global config singleton.
+  DXR (DirectX Raytracing) reflection transform buffer: Host-owned per-frame
+    scratch matrix data streamed from the scene view into the DX12 TLAS build.
 
 Invariants:
   - RuntimeRenderHost does not own the referenced state.
@@ -177,8 +179,8 @@ struct RuntimeRenderHostCallbacks
 class RuntimeRenderHost
 {
   public:
-    RuntimeRenderHost( RuntimeRenderHostBindings bindings, RuntimeRenderHostCallbacks callbacks )
-        : m_systems( *bindings.runtime.systems ), m_debug( *bindings.diagnostics.debug ),
+    RuntimeRenderHost( RuntimeRenderHostBindings bindings, RuntimeRenderHostCallbacks callbacks, EngineConfig& config )
+        : m_systems( *bindings.runtime.systems ), m_config( config ), m_debug( *bindings.diagnostics.debug ),
           m_timers( *bindings.diagnostics.timers ), m_launchOptions( *bindings.runtime.launchOptions ),
           m_runtimeSettings( *bindings.runtime.runtimeSettings ),
           m_cGameModelCollection( *bindings.world.gameModelCollection ),
@@ -314,6 +316,7 @@ class RuntimeRenderHost
                                        const Rendering::ShadowFrameData* shadow ) const;
 
     RunSubsystemState& m_systems;
+    EngineConfig& m_config; // Borrowed live config owned by the process config singleton.
     RunDebugState& m_debug;
     RunTimerState& m_timers;
     const RunLaunchOptions& m_launchOptions;
@@ -324,7 +327,7 @@ class RuntimeRenderHost
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
     std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms =
-        {}; // Scratch matrices for DXR TLAS instance upload.
+        {};                 // Scratch matrices for DXR TLAS instance upload.
     RuntimeTools& m_runtimeTools;
     RunRayCastTestState& m_rayCastTest;
     RunEditorPlacementState& m_editor;

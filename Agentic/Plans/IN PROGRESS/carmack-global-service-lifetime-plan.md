@@ -10,6 +10,27 @@ require `tools\validate_full.bat`.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Routed `RuntimeRenderHost` helper config reads through a
+  borrowed live `EngineConfig` reference supplied by `Run` construction instead
+  of calling `Cfg()` inside render-host methods. `ActiveCinematicConfig()`,
+  `IsCinematicRenderingEnabled()`, and render-host window-size fallbacks now use
+  the borrowed config; the boundary ratchet removed the
+  `RuntimeRenderHost.cpp` `Cfg()` row and raised `Run.cpp`'s composition-root
+  count by one, lowering total counted `Cfg()` debt from 239 to 236. Comment
+  audit inspected `RuntimeRenderHost.h/.cpp`, `Run.cpp`, and
+  `tools/check_runtime_boundaries.py`; the host header now defines
+  `EngineConfig` and expands `DXR` in its glossary. Rubber-duck review
+  intentionally deferred until this plan is complete. Evidence:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors
+  (`TestOutput\validation\agent_logs\render_host_config_context_runtime_boundaries.log`),
+  `tools\validate_format.bat` passed
+  (`TestOutput\validation\agent_logs\render_host_config_context_validate_format.log`),
+  `tools\validate_fast.bat` passed
+  (`TestOutput\validation\agent_logs\render_host_config_context_validate_fast.log`),
+  `tools\validate_full.bat` passed in 30.08s with 0 DX12 validation errors,
+  matching screenshots, and byte-exact `physics_regression_solver.csv`
+  (`TestOutput\validation\agent_logs\render_host_config_context_validate_full.log`),
+  and `git diff --check` passed.
 - [x] 2026-06-28: Routed authored and generated scene camera setup through the
   runtime-owned camera service passed in the scene setup context instead of
   reacquiring `CameraCollection::Instance()`. `SceneAuthoredSetup` and
@@ -541,7 +562,7 @@ string literals.
 
 | Pattern | Current count |
 |---------|---------------|
-| `Cfg()` | 239 |
+| `Cfg()` | 236 |
 | `Gfx()` | 190 |
 | `GfxRayTracing()` | 4 |
 | `ActiveAssetSystem()` | 2 |
@@ -597,12 +618,11 @@ why that current debt exists and which migration bucket should own it.
 | `SkullbonezSource/Runtime/Editor/RunEditorTracer.inl` | `Gfx()=1` | test/tool | Editor tracer draw path should borrow render command/context services. |
 | `SkullbonezSource/Runtime/Init.cpp` | `Cfg()=16`, `Window::Instance()=1`, `WorkerPool::Instance()=3`, `g_*=6` | bootstrap | Startup command-line/config/window/worker binding surface. |
 | `SkullbonezSource/Runtime/Input.cpp` | `Window::Instance()=3`, `g_*=43` | OS callback bridge | Win32 input accumulators and focus/window bridge. |
-| `SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp` | `Cfg()=4` | render pass | Render host still reads config instead of receiving a render/runtime config snapshot. |
 | `SkullbonezSource/Runtime/Replay/RunReplayCauseTreeTools.inl` | `Cfg()=2` | normal runtime path | Replay cause-tree UI/tool tuning still reads global config. |
 | `SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl` | `WorkerPool::Instance()=2` | normal runtime path | Replay prediction should borrow worker services from runtime context. |
 | `SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.inl` | `Cfg()=2` | normal runtime path | Replay scrubber tuning still reads global config. |
 | `SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl` | `Cfg()=2` | normal runtime path | Replay velocity-edit tuning still reads global config. |
-| `SkullbonezSource/Runtime/Run.cpp` | `CameraCollection::Instance()=1`, `Cfg()=8`, `Gfx()=8`, `Profiler::Instance()=1`, `SkyBox::Instance()=1`, `TextureCollection::Instance()=1`, `Window::Instance()=1` | normal runtime path | Composition-root compatibility; migrate to bound services before normal paths call globals directly. |
+| `SkullbonezSource/Runtime/Run.cpp` | `CameraCollection::Instance()=1`, `Cfg()=9`, `Gfx()=8`, `Profiler::Instance()=1`, `SkyBox::Instance()=1`, `TextureCollection::Instance()=1`, `Window::Instance()=1` | normal runtime path | Composition-root compatibility; migrate to bound services before normal paths call globals directly. |
 | `SkullbonezSource/Runtime/RunFrame.cpp` | `Cfg()=7`, `Gfx()=1`, `Profiler::Instance()=3` | normal runtime path | Frame loop now samples the renderer once per frame turn before borrowing narrow lifecycle and diagnostics facets; config and profiler globals remain. |
 | `SkullbonezSource/Runtime/RunInput.cpp` | `Cfg()=22`, `Gfx()=4` | normal runtime path | Input/tool routing still reads config and renderer state globally. |
 | `SkullbonezSource/Runtime/RunInteractionAutomation.cpp` | `Cfg()=2` | test/tool | Interaction automation tuning still reads global config. |
@@ -779,6 +799,9 @@ bridges tiny, named, and fenced.
   scene-render resource owner.
 - [ ] Keep config reads grouped through launch/runtime config context where
   possible; do not spread new `Cfg()` calls.
+  - [x] 2026-06-28 `RuntimeRenderHost` now borrows the live `EngineConfig`
+    from `Run` construction instead of reading `Cfg()` inside render-host
+    helper methods.
 
 ### OS Callback Bridges
 

@@ -149,7 +149,8 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
 
 Run::Run( std::vector<std::string> sceneQueue )
     : m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
-      m_renderHost( BuildRuntimeRenderHostBindings(), BuildRuntimeRenderHostCallbacks() ), m_renderer( m_renderHost )
+      m_renderHost( BuildRuntimeRenderHostBindings(), BuildRuntimeRenderHostCallbacks(), Cfg() ),
+      m_renderer( m_renderHost )
 {
     BindEngineContext();
     RefreshRuntimeViewModel();

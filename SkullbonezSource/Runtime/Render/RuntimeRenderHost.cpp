@@ -48,13 +48,13 @@ using namespace SkullbonezCore::Basics;
 
 CinematicRenderConfig& RuntimeRenderHost::ActiveCinematicConfig() const
 {
-    return RunInternal::RuntimeActiveCinematicConfig( m_sceneController.State(), Cfg() );
+    return RunInternal::RuntimeActiveCinematicConfig( m_sceneController.State(), m_config );
 }
 
 bool RuntimeRenderHost::IsCinematicRenderingEnabled() const
 {
     return RunInternal::RuntimeCinematicRenderingEnabled( m_sceneController.State(),
-                                                          Cfg(),
+                                                          m_config,
                                                           m_launchOptions,
                                                           m_debug,
                                                           IsGfxReady() );
@@ -88,12 +88,12 @@ void RuntimeRenderHost::SelectRenderTexture( uint32_t textureHash ) const
 
 int RuntimeRenderHost::WindowScreenWidth() const
 {
-    return RunInternal::RuntimeWindowScreenWidth( m_systems, Cfg() );
+    return RunInternal::RuntimeWindowScreenWidth( m_systems, m_config );
 }
 
 int RuntimeRenderHost::WindowScreenHeight() const
 {
-    return RunInternal::RuntimeWindowScreenHeight( m_systems, Cfg() );
+    return RunInternal::RuntimeWindowScreenHeight( m_systems, m_config );
 }
 
 const RunSceneState& RuntimeRenderHost::SceneState() const
