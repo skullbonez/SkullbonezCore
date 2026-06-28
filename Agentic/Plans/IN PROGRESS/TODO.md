@@ -241,6 +241,14 @@ Build probe warning after the GameModel config slice:
 - A focused Debug `ClCompile` for `Init.cpp` after the worker-service routing
   slice passed in 4.89s with 0 warnings and 0 errors. The known Profile
   `Init.cpp` codegen crash remains intentionally unclaimed.
+- 2026-06-29 post-archive broad gate: `tools\validate_full.bat` was run after
+  the documentation/comment archive commit to test the remaining dirty source
+  worktree. Phase 0 passed (`validate_project_filters` 0 errors and
+  `validate_runtime_boundaries` 0 errors), then Phase 1 failed during
+  `tools\validate_build.bat Profile` with the same `CL.exe` codegen access
+  violation: `MSB6006: "CL.exe" exited with code -1073741819`. The run ended
+  after `00:01:39.11` with 0 warnings and 1 error. Log:
+  `TestOutput\validation\agent_logs\nightrunner_validate_full_after_plan_archive.log`.
 - A later focused Profile `ClCompile` for the render shadow-prep worker routing
   slice passed in 5.19s with 0 warnings and 0 errors for
   `GameModelRenderer.cpp`, `GameModelCollection.cpp`, and `RunPasses.cpp`.
