@@ -31,7 +31,8 @@
 #     surface while stores and handles become authoritative.
 #   - Public physics facades expose handles, descriptors, views, or the named
 #     PhysicsModelAccess bridge instead of game-object storage types.
-#   - Raytracing calls go through IRenderRayTracing/GfxRayTracing instead of the
+#   - IRenderBackend stays a temporary aggregate of named render capabilities;
+#     raytracing calls go through IRenderRayTracing/GfxRayTracing instead of the
 #     wide IRenderBackend/Gfx facade.
 #   - Graph-owned render passes stay scheduled through render graph callback
 #     helpers after migration.
@@ -93,6 +94,13 @@ IRENDER_BACKEND_RAYTRACING_DECLARATION_PATTERN = re.compile(
     r"\b(?:virtual\s+)?(?:void|uint32_t|uint64_t|int)\s+"
     r"(?:InitDXR|DispatchReflectionRays|BuildTLAS|GetReflectionUAVTexture|ShutdownDXR|"
     r"GetInstancedMeshStaticVBVA|GetInstancedMeshStaticStride)\s*\("
+)
+IRENDER_BACKEND_CLASS_PATTERN = re.compile(r"\bclass\s+IRenderBackend\b[^{]*\{", re.S)
+IRENDER_BACKEND_DIRECT_METHOD_PATTERN = re.compile(
+    r"(?:^|[;\n])\s*(?:virtual\s+)?"
+    r"(?:[A-Za-z_:][A-Za-z0-9_:<>,]*[\s*&]+)+"
+    r"([A-Za-z_]\w*)\s*\([^;{}]*\)\s*(?:const\s*)?(?:override\s*)?(?:=\s*(?:0|default))?\s*;",
+    re.S,
 )
 GRAPH_OWNED_RENDER_PASS_DIRECT_CALL_PATTERN = re.compile(
     r"\bm_(?:(?:tornadoVisualPass|debugOverlayPass|volumetricPass|tonemapPass|uiTextPass)\s*\.\s*Render|"
@@ -1386,6 +1394,17 @@ def extract_struct_body(stripped: str, struct_name: str) -> tuple[int, str] | No
     return open_brace_offset + 1, stripped[open_brace_offset + 1 : close_brace_offset]
 
 
+def extract_class_body(stripped: str, class_name: str) -> tuple[int, int, int, str] | None:
+    match = re.search(rf"\bclass\s+{re.escape(class_name)}\b[^\{{]*\{{", stripped, flags=re.S)
+    if not match:
+        return None
+    open_brace_offset = stripped.find("{", match.start(), match.end())
+    if open_brace_offset < 0:
+        return None
+    close_brace_offset = find_matching_close_brace(stripped, open_brace_offset)
+    return match.start(), open_brace_offset + 1, close_brace_offset, stripped[open_brace_offset + 1 : close_brace_offset]
+
+
 def line_for_struct_offset(stripped: str, body_start_offset: int, local_offset: int) -> int:
     return line_for_offset(stripped, body_start_offset + local_offset)
 
@@ -1747,6 +1766,46 @@ def check_irender_backend_raytracing_declarations_text(path: Path, text: str) ->
 def check_irender_backend_raytracing_declarations(repo: Path) -> list[BoundaryError]:
     path = repo / IRENDER_BACKEND_HEADER
     return check_irender_backend_raytracing_declarations_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_irender_backend_aggregate_contract_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    class_body = extract_class_body(stripped, "IRenderBackend")
+    if class_body is None:
+        return []
+
+    class_start, body_start, _body_end, body = class_body
+    class_header = stripped[class_start:body_start]
+    errors: list[BoundaryError] = []
+
+    if re.search(r"\bIRenderRayTracing\b", class_header):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, class_start),
+                "IRenderBackend must not inherit raytracing",
+                "Keep DXR on IRenderRayTracing/GfxRayTracing so the aggregate facade does not expose raytracing commands.",
+            )
+        )
+
+    for match in IRENDER_BACKEND_DIRECT_METHOD_PATTERN.finditer(body):
+        method_name = match.group(1)
+        if method_name == "IRenderBackend":
+            continue
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, body_start + match.start(1)),
+                "IRenderBackend direct methods are blocked",
+                "Put new render behavior on a named capability interface instead of regrowing the temporary aggregate facade.",
+            )
+        )
+    return errors
+
+
+def check_irender_backend_aggregate_contract(repo: Path) -> list[BoundaryError]:
+    path = repo / IRENDER_BACKEND_HEADER
+    return check_irender_backend_aggregate_contract_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_graph_owned_render_pass_scheduling_text(path: Path, text: str) -> list[BoundaryError]:
@@ -3182,6 +3241,58 @@ def run_self_tests() -> list[str]:
         )
     ):
         failures.append("IRenderBackend raytracing declaration synthetic surface was not rejected")
+
+    allowed_irender_backend_aggregate = """
+    class IRenderBackend : public IRenderDeviceLifecycle,
+                           public IRenderResourceFactory,
+                           public IRenderCommandContext,
+                           public IRenderDiagnostics,
+                           public IRenderCaptureBackend
+    {
+      public:
+        ~IRenderBackend() override = default;
+    };
+    """
+    if check_irender_backend_aggregate_contract_text(
+        Path("synthetic/IRenderBackend.h"),
+        allowed_irender_backend_aggregate,
+    ):
+        failures.append("allowed IRenderBackend aggregate synthetic surface failed")
+
+    old_irender_backend_raytracing_inheritance = """
+    class IRenderBackend : public IRenderDeviceLifecycle,
+                           public IRenderRayTracing
+    {
+      public:
+        ~IRenderBackend() override = default;
+    };
+    """
+    if not any(
+        error.message == "IRenderBackend must not inherit raytracing"
+        for error in check_irender_backend_aggregate_contract_text(
+            Path("synthetic/IRenderBackend.h"),
+            old_irender_backend_raytracing_inheritance,
+        )
+    ):
+        failures.append("IRenderBackend raytracing inheritance synthetic surface was not rejected")
+
+    old_irender_backend_direct_method = """
+    class IRenderBackend : public IRenderDeviceLifecycle
+    {
+      public:
+        ~IRenderBackend() override = default;
+        virtual void Clear( bool color, bool depth ) = 0;
+        RenderCapabilities GetCapabilities() const;
+    };
+    """
+    if not any(
+        error.message == "IRenderBackend direct methods are blocked"
+        for error in check_irender_backend_aggregate_contract_text(
+            Path("synthetic/IRenderBackend.h"),
+            old_irender_backend_direct_method,
+        )
+    ):
+        failures.append("IRenderBackend direct method synthetic surface was not rejected")
 
     allowed_graph_owned_pass_scheduling = """
     void RuntimeRenderer::RenderFrame()
@@ -5648,6 +5759,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_named_physics_models_compat_access_guardrails(repo))
     errors.extend(check_direct_gfx_raytracing_guardrails(repo))
     errors.extend(check_irender_backend_raytracing_declarations(repo))
+    errors.extend(check_irender_backend_aggregate_contract(repo))
     errors.extend(check_graph_owned_render_pass_scheduling(repo))
     errors.extend(check_global_service_access_guardrails(repo))
     return errors

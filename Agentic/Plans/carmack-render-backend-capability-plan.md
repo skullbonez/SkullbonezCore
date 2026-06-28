@@ -45,6 +45,20 @@ storage changes, also run `tools\validate_perf.bat`.
   `tools\validate_dx12_renderer.bat` passed in 17.92s with 0 DX12 validation
   errors and matching screenshots
   (`TestOutput\validation\agent_logs\render_capability_interfaces_validate_dx12_renderer.log`).
+- [x] 2026-06-28: Strengthened `tools\check_runtime_boundaries.py` so
+  `IRenderBackend` must remain a methodless temporary aggregate of named render
+  capabilities. The guardrail rejects direct methods on `IRenderBackend`, blocks
+  `IRenderBackend` from inheriting `IRenderRayTracing`, and keeps the existing
+  DXR method-declaration and direct `Gfx().<raytracing>` checks in force.
+  Synthetic checker tests cover allowed aggregate inheritance plus rejected
+  direct methods and rejected raytracing inheritance. Rubber-duck review found
+  no blockers; the reviewer noted the direct-method regex is intentionally a
+  common-declaration ratchet, not a full C++ parser for exotic forms. Validation
+  evidence: `python tools\check_runtime_boundaries.py` passed with 0 errors in
+  4.85s
+  (`TestOutput\validation\agent_logs\render_backend_aggregate_guardrail_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 18.03s
+  (`TestOutput\validation\agent_logs\render_backend_aggregate_guardrail_validate_fast.log`).
 
 ## Problem Statement
 
@@ -141,10 +155,10 @@ Remaining `IRenderBackend` surface after the 2026-06-28 capability-interface sli
 
 ### Guardrails
 
-- [ ] Extend `tools\check_runtime_boundaries.py` to reject new DXR methods on `IRenderBackend`.
-- [ ] Add a ratchet for `IRenderBackend.h` method count or public declaration count.
+- [x] Extend `tools\check_runtime_boundaries.py` to reject new DXR methods on `IRenderBackend`.
+- [x] Add a ratchet for `IRenderBackend.h` method count or public declaration count.
 - [ ] Add a guardrail that blocks new direct `Gfx()` calls outside approved bootstrap and compatibility files.
-- [ ] Add synthetic checker tests for allowed narrow capability use and rejected wide-backend use.
+- [x] Add synthetic checker tests for allowed narrow capability use and rejected wide-backend use.
 - [x] Teach project-filter validation about any new render interface files.
 
 ## Validation Checklist
