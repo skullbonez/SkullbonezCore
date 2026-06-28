@@ -490,6 +490,29 @@ require `tools\validate_full.bat`.
   (`TestOutput\validation\agent_logs\render_dxr_capability_validate_full.log`).
   Rubber-duck review found no blockers; residual debt is the unchanged global
   count and remaining non-composition `GfxRayTracing()` callers.
+- [x] 2026-06-28: Narrowed the frame loop's renderer service lifetime by
+  sampling `Gfx()` once per frame turn and using borrowed
+  `IRenderDiagnostics` and `IRenderDeviceLifecycle` facets for draw-call reset,
+  optional pipeline drain, UI draw-call accounting, and present. This lowers
+  `RunFrame.cpp` direct `Gfx()` debt from 4 to 1 and the plan's total counted
+  `Gfx()` surface from 193 to 190 while keeping the composition-root-style
+  frame loop as the only service sampling point for these frame operations.
+  The checker allowlist now ratchets `RunFrame.cpp` to one renderer-service
+  sample. Comment-style audit: inspected `RunFrame.cpp` and
+  `tools\check_runtime_boundaries.py`; `RunFrame.cpp` retains its learning
+  header and the new lifetime comment names the borrowed renderer facets.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.79s
+  (`TestOutput\validation\agent_logs\frame_render_service_lifetime_runtime_boundaries.log`);
+  `tools\validate_format.bat` passed in 7.22s
+  (`TestOutput\validation\agent_logs\frame_render_service_lifetime_validate_format.log`);
+  `git diff --check` passed in 0.13s
+  (`TestOutput\validation\agent_logs\frame_render_service_lifetime_diff_check.log`);
+  `tools\validate_full.bat` passed in 36.16s, including DX12 validation with 0
+  InfoQueue errors, matching screenshots, standalone physics smoke, and
+  byte-exact `physics_regression_solver.csv`
+  (`TestOutput\validation\agent_logs\frame_render_service_lifetime_validate_full.log`).
+  No rubber-duck review was run for this slice per current user instruction.
 
 ## Current Counted Global-Service Surface
 
@@ -500,8 +523,8 @@ string literals.
 | Pattern | Current count |
 |---------|---------------|
 | `Cfg()` | 239 |
-| `Gfx()` | 196 |
-| `GfxRayTracing()` | 5 |
+| `Gfx()` | 190 |
+| `GfxRayTracing()` | 4 |
 | `ActiveAssetSystem()` | 2 |
 | `CreateShaderFromActiveAssets()` | 16 |
 | `TextureCollection::Instance()` | 3 |
@@ -561,14 +584,14 @@ why that current debt exists and which migration bucket should own it.
 | `SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.inl` | `Cfg()=2` | normal runtime path | Replay scrubber tuning still reads global config. |
 | `SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl` | `Cfg()=2` | normal runtime path | Replay velocity-edit tuning still reads global config. |
 | `SkullbonezSource/Runtime/Run.cpp` | `CameraCollection::Instance()=1`, `Cfg()=8`, `Gfx()=8`, `Profiler::Instance()=1`, `SkyBox::Instance()=1`, `TextureCollection::Instance()=1`, `Window::Instance()=1` | normal runtime path | Composition-root compatibility; migrate to bound services before normal paths call globals directly. |
-| `SkullbonezSource/Runtime/RunFrame.cpp` | `Cfg()=7`, `Gfx()=5`, `Profiler::Instance()=3` | normal runtime path | Frame loop still samples config, renderer, and profiler globals. |
+| `SkullbonezSource/Runtime/RunFrame.cpp` | `Cfg()=7`, `Gfx()=1`, `Profiler::Instance()=3` | normal runtime path | Frame loop now samples the renderer once per frame turn before borrowing narrow lifecycle and diagnostics facets; config and profiler globals remain. |
 | `SkullbonezSource/Runtime/RunInput.cpp` | `Cfg()=22`, `Gfx()=4` | normal runtime path | Input/tool routing still reads config and renderer state globally. |
 | `SkullbonezSource/Runtime/RunInteractionAutomation.cpp` | `Cfg()=2` | test/tool | Interaction automation tuning still reads global config. |
 | `SkullbonezSource/Runtime/RunLiveStyle.cpp` | `Cfg()=1` | normal runtime path | Live style path still reads config globally. |
 | `SkullbonezSource/Runtime/RunPasses.cpp` | `Cfg()=6` | render pass | Pass code still reads global config after renderer access migration. |
 | `SkullbonezSource/Runtime/RunRender.cpp` | `Cfg()=3`, `Gfx()=1`, `GfxRayTracing()=1` | render pass | Render composition root still samples renderer services before passing borrowed capabilities. |
 | `SkullbonezSource/Runtime/RunStress.cpp` | `Cfg()=1`, `Gfx()=2` | test/tool | Stress harness still reads config/renderer globally. |
-| `SkullbonezSource/Runtime/RunUiTextPass.cpp` | `Cfg()=1`, `Gfx()=2`, `Profiler::Instance()=2`, `WorkerPool::Instance()=1`, `GfxRayTracing()=1` | render pass | UI text pass still mixes renderer, profiler, worker, and config globals. |
+| `SkullbonezSource/Runtime/RunUiTextPass.cpp` | `Cfg()=1`, `Profiler::Instance()=2`, `WorkerPool::Instance()=1` | render pass | UI text pass still mixes profiler, worker, and config globals; renderer and DXR capability access now come from caller-supplied inputs. |
 | `SkullbonezSource/Runtime/RuntimeDiagnostics.cpp` | `Profiler::Instance()=2` | diagnostics | Runtime diagnostics still samples profiler singleton. |
 | `SkullbonezSource/Runtime/RuntimeTuning.cpp` | `Cfg()=1`, `WorkerPool::Instance()=1` | normal runtime path | Runtime tuning still reads config/worker globals. |
 | `SkullbonezSource/Runtime/Scene/RunScene.cpp` | `Cfg()=18`, `Gfx()=9`, `GfxRayTracing()=1`, `WorkerPool::Instance()=1` | normal runtime path | Scene load/reset still borrows config, renderer, DXR, and worker services globally. |
@@ -715,6 +738,9 @@ bridges tiny, named, and fenced.
 - [x] Route reflection-pass DXR access through a borrowed nullable
   `IRenderRayTracing*` in `RenderFrameContext` instead of direct
   `GfxRayTracing()` access in `RunPasses.cpp`.
+- [x] Route frame-loop draw-call reset, optional pipeline drain, UI draw-call
+  accounting, and present through one frame-level renderer borrow plus narrow
+  diagnostics/lifecycle facets instead of repeated direct `Gfx()` calls.
 - [ ] Route shader and texture creation through an asset/render context passed
   from runtime-owned services.
 - [x] Replace `ActiveAssetSystem()` in scene parsing and editor tools with an

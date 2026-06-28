@@ -348,7 +348,15 @@ void Run::Execute()
             m_timers.frameTimer.StartTimer();
             PROFILE_FRAME_BEGIN();
             m_timers.workTimer.StartTimer();
-            Gfx().ResetFrameDrawCalls();
+            // Lifetime: borrow the active renderer once for this frame turn.
+            // Narrow facets keep reset, GPU-drain, UI accounting, and present
+            // from each resampling the process-global renderer service.
+            IRenderBackend& frameRenderBackend = Gfx();
+            SkullbonezCore::Rendering::IRenderDiagnostics& frameRenderDiagnostics =
+                static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( frameRenderBackend );
+            SkullbonezCore::Rendering::IRenderDeviceLifecycle& renderLifecycle =
+                static_cast<SkullbonezCore::Rendering::IRenderDeviceLifecycle&>( frameRenderBackend );
+            frameRenderDiagnostics.ResetFrameDrawCalls();
 
             PROFILE_BEGIN( "Frame/Input" );
             TickInteractionAutomationBeforeInput();
@@ -403,7 +411,7 @@ void Run::Execute()
             if ( m_runtimeSettings.isPipelineSyncEnabled )
             {
                 PROFILE_BEGIN( "Frame/PipelineSync" );
-                Gfx().Finish();
+                renderLifecycle.Finish();
                 PROFILE_END( "Frame/PipelineSync" );
             }
 
@@ -416,17 +424,14 @@ void Run::Execute()
 
             if ( m_renderer.ShouldRenderUiText() )
             {
-                IRenderBackend& renderBackend = Gfx();
-                SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics =
-                    static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( renderBackend );
-                const int uiDrawCallStart = renderDiagnostics.GetFrameDrawCallCount();
+                const int uiDrawCallStart = frameRenderDiagnostics.GetFrameDrawCallCount();
                 PROFILE_BEGIN( "Frame/UI" );
                 {
                     DRAW_CALL_TRACE_SCOPE( "Frame/UI" );
-                    m_renderer.RenderUiText( renderDiagnostics, secondsPerFrame );
+                    m_renderer.RenderUiText( frameRenderDiagnostics, secondsPerFrame );
                 }
                 PROFILE_END( "Frame/UI" );
-                const int uiDrawCallEnd = renderDiagnostics.GetFrameDrawCallCount();
+                const int uiDrawCallEnd = frameRenderDiagnostics.GetFrameDrawCallCount();
                 m_timers.lastUIDrawCalls = (std::max)( 0, uiDrawCallEnd - uiDrawCallStart );
             }
             else
@@ -456,7 +461,7 @@ void Run::Execute()
                 static_cast<float>( std::clamp( m_timers.workTimer.GetElapsedTime(), 0.0, 0.25 ) * 1000.0 );
 
             PROFILE_BEGIN( "Frame/VsyncWait" );
-            Gfx().Present();
+            renderLifecycle.Present();
             PROFILE_END( "Frame/VsyncWait" );
 
             m_timers.frameTimer.StopTimer();

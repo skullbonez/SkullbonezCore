@@ -507,7 +507,7 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Runtime/Run.cpp", "TextureCollection::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Run.cpp", "Window::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/RunFrame.cpp", "Cfg()", 7 ),
-            ( "SkullbonezSource/Runtime/RunFrame.cpp", "Gfx()", 4 ),
+            ( "SkullbonezSource/Runtime/RunFrame.cpp", "Gfx()", 1 ),
             ( "SkullbonezSource/Runtime/RunFrame.cpp", "Profiler::Instance()", 3 ),
             ( "SkullbonezSource/Runtime/RunInput.cpp", "Cfg()", 22 ),
             ( "SkullbonezSource/Runtime/RunInput.cpp", "Gfx()", 4 ),
