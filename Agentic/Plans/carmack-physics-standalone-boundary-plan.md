@@ -33,6 +33,15 @@ when SkullScope baselines or broad physics diagnostics change.
   (`TestOutput\validation\agent_logs\physics_public_facade_guardrail_runtime_boundaries.log`);
   `tools\validate_fast.bat` passed in 17.87s
   (`TestOutput\validation\agent_logs\physics_public_facade_guardrail_validate_fast.log`).
+- [x] 2026-06-28: Completed the compatibility-borrower inventory against the
+  Carmack standalone physics problem statement. The inventory below records the
+  exact search scope, reconciles the current guardrail allowlists, and splits
+  borrowers into step-critical, diagnostics, replay, scene setup, editor/tool,
+  and render mirror groups. Validation was not run because this is a plan-only
+  documentation slice. Rubber-duck review found no blocker: `SimulationSystem`
+  is already off the `GameModelCollection*` step boundary, but
+  `PhysicsModelAccess` and named compatibility vector borrowers still represent
+  the migration front for standalone embedding.
 
 ## Problem Statement
 
@@ -71,11 +80,42 @@ commands, and read-only views, with no normal physics step dependency on
 
 ### Inventory And Slicing
 
-- [ ] Run `rg "GameModelCollection|PhysicsModelAccess|MutablePhysicsModelsForCompatibility|PhysicsModelsForCompatibility" SkullbonezSource/Physics SkullbonezSource/GameObjects SkullbonezSource/Runtime`.
-- [ ] Reconcile every hit against `tools\check_runtime_boundaries.py` allowlists.
-- [ ] List every current compatibility borrower in this plan before modifying source.
-- [ ] Split borrowers into `step-critical`, `diagnostics`, `replay`, `scene setup`, `editor/tool`, and `render mirror` groups.
-- [ ] Choose one borrower group for the first PR-bound slice; do not combine all groups in one change.
+- [x] Run `rg "GameModelCollection|PhysicsModelAccess|MutablePhysicsModelsForCompatibility|PhysicsModelsForCompatibility" SkullbonezSource/Physics SkullbonezSource/GameObjects SkullbonezSource/Runtime`.
+- [x] Reconcile every hit against `tools\check_runtime_boundaries.py` allowlists.
+- [x] List every current compatibility borrower in this plan before modifying source.
+- [x] Split borrowers into `step-critical`, `diagnostics`, `replay`, `scene setup`, `editor/tool`, and `render mirror` groups.
+- [x] Choose one borrower group for the first PR-bound slice; do not combine all groups in one change.
+
+#### Compatibility Borrower Inventory, 2026-06-28
+
+Search used:
+`rg "GameModelCollection|PhysicsModelAccess|MutablePhysicsModelsForCompatibility|PhysicsModelsForCompatibility" SkullbonezSource/Physics SkullbonezSource/GameObjects SkullbonezSource/Runtime`.
+
+Guardrail reconciliation:
+
+| Guardrail | Current status |
+|-----------|----------------|
+| Public facade check | `PhysicsApi.h` and `PhysicsEngine.h` reject new `GameModelCollection`, raw `GameModel`, and `std::vector<GameModel>&` facade dependencies. |
+| `PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST` | Allows only physics debug visualizers and `Ragdoll::AddSimpleHumanoid(...)` creation signatures inside physics-facing files. |
+| `PHYSICS_MODELS_ACCESS_ALLOWLIST` | Empty; the old neutral `PhysicsModels()` name is fully blocked. |
+| `PHYSICS_MODELS_COMPAT_ACCESS_ALLOWLIST` | Contains the two named compatibility accessor definitions plus the current runtime/replay/editor vector borrowers. New calls fail until another borrower is removed or a count is deliberately updated. |
+
+Borrower groups:
+
+| Group | Current borrowers | Standalone risk | Suggested next slice |
+|-------|-------------------|-----------------|----------------------|
+| Step-critical | `SimulationSystem` now receives `SimulationPhysicsStep` and `PhysicsEngine::Step(PhysicsModelAccess&, ...)`; `PhysicsWorld`, `PhysicsBodyStore`, `ColliderStore`, `PersistentContactSolver`, and `SleepIslandSystem` still use `PhysicsModelAccess`. | Solver internals still read/write legacy `GameModel` ranges through the compatibility interface. | Move one store-owned datum from `GameModel` access into `PhysicsBodyStore` or `ColliderStore`, then rerun `validate_physics`. |
+| Diagnostics and SkullScope | `PhysicsDiagnosticsSink`, `PhysicsWorld::EmitPhysicsDiagnosticsFrame`, `EmitPhysicsCollisionTime`, `GameModelCollection::EmitSkullScopeFrame`, `RuntimeDiagnostics`, and `DiagnosticsRuntime`. | Diagnostics still ask for model-backed state instead of immutable physics views. | Introduce a diagnostics sink/view boundary before touching SkullScope baseline output. |
+| Replay | `ReplayRuntime`, `ReplayRecorder`, `RunReplayPredictionHelpers.inl`, `RunReplayPredictionVisualizer.inl`, `RunReplayVelocityEdit.inl`, `RunReplayCauseTreeTools.inl`, and `RunReplayQueryTools.inl`. | Replay samples and restores model-index state directly; handle lifetime and deterministic stale-handle behavior are not yet proven. | Count-guard replay compatibility vector borrowers, then migrate one replay restore/read path to physics handles or body views. |
+| Scene setup | `RunScene.cpp`, `SceneAuthoredSetup`, `SceneGeneratedSetup`, `SceneRuntimeGeneratedControls`, `SceneRuntimeStyle`, and `Ragdoll::AddSimpleHumanoid(...)`. | Scene creation still treats `GameModelCollection` as the place where physics bodies are born. | Add a runtime/game-object adapter that maps scene objects to physics handles while keeping scene JSON behavior unchanged. |
+| Editor/tool | `RunMousePickupTools.inl`, `RunEditorTools.cpp`, `EditorOverlayTools`, `RuntimeTools`, launcher tools, and interaction commands. | Editor and launcher commands still store model indices for physics actions. | Keep model indices presentation-only, then route actual physics commands through handles. |
+| Render mirror and presentation | `GameModelCollection` render streams, `RuntimeRenderHost`, `RunRender.cpp`, `RunPasses.cpp`, `RunUiTextPass.cpp`, `RuntimeViewModel`, and `EngineContext`. | Render state is intentionally a mirror, but it still shares the model collection that physics mutates. | Treat render streams as post-step mirrors and avoid pulling renderer concepts into physics API work. |
+| Physics debug visualizers | `CollisionVisualizer` and `PhysicsDebugVisualizer` are explicitly allowlisted. | Visualization currently reads model collection state for colors, contacts, sleep, and wireframes. | Migrate debug visualizers after immutable body/contact/island views exist. |
+
+First PR-bound borrower group already chosen and completed: `step-critical`
+simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
+`GameModelCollection*` from the normal step input while preserving
+`PhysicsModelAccess` as the temporary solver/store compatibility boundary.
 
 ### Public Physics API
 
