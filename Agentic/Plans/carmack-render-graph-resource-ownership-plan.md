@@ -73,6 +73,16 @@ requires `tools\validate_perf.bat`.
   rechecked the final parser and found no remaining blockers; residual risk is
   limited to the checker being source-scanner based rather than a full C++
   parser.
+- [x] 2026-06-28: Completed the render graph inventory snapshot against the
+  Carmack problem statement. The inventory below lists every `RuntimeRenderer`
+  pass, classifies current production execution as callback-owned or manual,
+  records the frame resources still owned outside the graph, and names the DX12
+  transition/barrier and descriptor hot spots that block graph-owned resource
+  lifetime. Validation was not run for this plan-only documentation slice; the
+  snapshot records the latest branch evidence to use before moving the next pass
+  family. Rubber-duck review found no blocker: the graph is useful as a
+  scheduling/declaration bridge today, but transient allocation, descriptor
+  lifetime, and most world pass execution remain explicit unfinished work.
 
 ## Problem Statement
 
@@ -112,17 +122,89 @@ while keeping DX12-specific emission inside the backend executor.
 
 ### Inventory
 
-- [ ] List every `RuntimeRenderer` pass and whether it is callback-owned,
+- [x] List every `RuntimeRenderer` pass and whether it is callback-owned,
   declaration-only, or manual.
-- [ ] List every render target, framebuffer, backbuffer, depth target, shadow map,
+- [x] List every render target, framebuffer, backbuffer, depth target, shadow map,
   reflection target, volumetric target, water target, and UI/dynamic buffer used
   in a frame.
-- [ ] List every manual transition, UAV barrier, resource release hook, and
+- [x] List every manual transition, UAV barrier, resource release hook, and
   backend state change that is not graph-owned.
-- [ ] List all DX12 descriptor heaps, descriptor ranges, and resource handles used
+- [x] List all DX12 descriptor heaps, descriptor ranges, and resource handles used
   by migrated passes.
-- [ ] Capture the current DX12 validation and screenshot baseline evidence before
+- [x] Capture the current DX12 validation and screenshot baseline evidence before
   moving the next pass family.
+
+#### Inventory Snapshot, 2026-06-28
+
+Production pass ownership in `RuntimeRenderer`:
+
+| Pass or phase | Production execution owner | Current graph role |
+|---------------|---------------------------|--------------------|
+| Backbuffer clear | Manual in `RuntimeRenderer::RenderFrame()` | Diagnostic-only in executed-frame dump. |
+| `ShadowPass` terrain/object maps | Manual pass body | Diagnostic-only `ShadowMapPass` in executed-frame dump. |
+| `SkyPass` cubemap/cinematic sky | Manual pass body; cinematic begin calls sky through callback-owned scene target | Diagnostic-only `SkyboxPass` except cinematic begin callback handoff. |
+| `ReflectionPass` raster or DXR | Manual pass body | Diagnostic-only `RasterReflectionPass` or `DxrReflectionPass`. |
+| `SceneTargetPass::Begin` | Callback-owned when cinematic target is live | Live `CinematicSceneBegin` graph callback with color/depth writes. |
+| `ObjectPass` opaque | Manual pass body | Diagnostic-only `ObjectOpaquePass`. |
+| `TerrainPass` | Manual pass body | Diagnostic-only `TerrainPass`. |
+| `WaterPass` | Manual pass body | Diagnostic-only `WaterPass`. |
+| `TornadoVisualPass` | Callback-owned | Live graph callback with color/depth writes. |
+| `ObjectPass` transparent/focus fade | Manual pass body | Diagnostic-only `ObjectTransparentPass`. |
+| Replay prediction ghosts | Manual host helper | Not yet represented as a separate graph pass. |
+| `DebugOverlayPass` | Callback-owned | Live graph callback with color/depth writes. |
+| `VolumetricPass` | Callback-owned when cinematic volumetric is enabled and ready | Live `VolumetricLightPass` callback with scene color/depth reads and volumetric write. |
+| `TonemapPass` | Callback-owned when cinematic target is live | Live `ToneMapPass` callback with scene/volumetric reads and backbuffer write. |
+| `UiTextPass` | Callback-owned in the late UI frame path | Live `UiTextPass` callback writing the backbuffer. |
+| Present | Manual lifecycle call in `RunFrame.cpp` | Diagnostic-only `Present` pass in executed-frame dump. |
+
+Frame resources and owners:
+
+| Resource | Current owner | Graph name or status |
+|----------|---------------|----------------------|
+| Swap-chain backbuffer | DX12 backend/swap chain | `SwapchainBackbuffer`, imported external. |
+| Main depth stencil | DX12 backend | `MainDepthStencil`, imported external. |
+| Cinematic HDR color/depth | `CinematicScenePassResources::hdrTarget` framebuffer | `CinematicSceneColor` and `CinematicSceneDepth`; depth still imports with `Unknown` in handoff paths. |
+| Terrain/object shadow maps | `ShadowPassResources::terrainTarget` and `objectTarget` framebuffers | `TerrainShadowMapDepth` and `ObjectShadowMapDepth`; diagnostic graph only. |
+| Raster reflection color/depth | `ReflectionPassResources::target` framebuffer | `RasterReflectionColor` and `RasterReflectionDepth`; diagnostic graph only. |
+| DXR reflection texture | DX12 raytracing backend UAV/SRV texture | `DxrReflectionTexture`; diagnostic graph only for write/read intent. |
+| Volumetric light target | `VolumetricLightPassResources::target` framebuffer | `VolumetricLight`; callback-owned pass uses imported external target. |
+| Fullscreen quad dynamic VB | `FullscreenPassResources::quadVB` | Not graph-owned; shared by sky, volumetric, and tonemap. |
+| UI/text font texture and dynamic VBs | `Text2d` static resources plus `UiTextPass` scheduling | Not graph-owned; UI pass only declares the backbuffer write. |
+| Material/object textures and instanced meshes | Asset, texture, and render helper systems | Not graph-owned; bound through existing engine texture/mesh handles. |
+
+Manual transition, barrier, and release hot spots:
+
+| Hot spot | Current owner | Graph gap |
+|----------|---------------|-----------|
+| `FramebufferDX12::Bind/Unbind` | FBO object transitions color/depth between render target/depth write and shader-resource states. | Graph records intent but does not own FBO first-state or steady-state transitions. |
+| `RenderBackendDX12::PrepareDraw` / backbuffer prep | Backend transitions present/backbuffer state before drawing. | Backbuffer transitions are backend-owned outside compiled graph execution. |
+| Texture upload and mip generation | `RenderBackendDX12.Textures.cpp` uses graph executor helpers and UAV barriers. | Not tied to frame pass declarations or transient resource policy. |
+| Mesh upload | `MeshDX12.cpp` emits final vertex-buffer transition through graph executor helper. | Load-time resource transition, not frame graph-owned. |
+| DXR BLAS/TLAS builds | `BLASDX12.cpp` and `TLASDX12.cpp` emit raw UAV `ResourceBarrier()` calls after acceleration-structure builds. | UAV ordering is not graph-declared yet. |
+| DXR reflection texture | `RenderBackendDX12.DXR.cpp` owns UAV/SRV descriptors and state toggling. | Graph has diagnostic resource name only; descriptor and state lifetime stay backend-local. |
+| Backbuffer readback | `RenderBackendDX12.Readback.cpp` transitions to copy source and restores state. | Capture path is outside frame graph ownership. |
+| Pass resource release | `RuntimeRenderer::ReleaseBackendOwnedResources()` and pass `ReleaseGpuResources()` methods. | Release order is manual, consumer-before-producer, not graph lifetime policy. |
+
+Descriptor and handle inventory:
+
+| Descriptor or handle family | Current owner | Graph ownership gap |
+|-----------------------------|---------------|---------------------|
+| RTV/DSV CPU descriptor rows | `Dx12CpuDescriptorAllocator` and framebuffer/swap-chain resources. | Graph does not allocate render/depth descriptors for transient targets. |
+| Static SRV/UAV rows | `Dx12DescriptorAllocator::AllocateStatic()` for textures, FBO SRVs, null descriptors, and DXR views. | Lifetime follows backend objects, not graph resource descriptors. |
+| Transient shader-visible ranges | `Dx12DescriptorAllocator::AllocateTransient()` / `AllocateTransientRange()` during draw/dispatch. | Per-frame descriptor reuse is backend-owned and not tied to graph pass lifetimes. |
+| Engine texture handles | Backend texture registry, `IFramebuffer` texture handles, `IRenderRayTracing::GetReflectionUAVTexture()`. | Graph records names, not handles; binding still uses ad hoc runtime/backend lookups. |
+| Native DX12 resource pointers | Optional diagnostic identity in `RenderGraphResourceDesc::nativeResource`. | Diagnostic-only; graph must not dereference or release native resources. |
+
+Latest validation evidence available before the next pass-family migration:
+
+- `tools\validate_dx12_renderer.bat` passed in 17.64s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\render_dxr_capability_validate_dx12_renderer.log`).
+- `tools\validate_full.bat` passed in 28.76s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\render_dxr_capability_validate_full.log`).
+- Prior render-graph callback/Unknown-access guardrail slices have their own
+  DX12 and fast validation logs listed in Completed Slices above.
 
 ### Pass Execution Ownership
 
