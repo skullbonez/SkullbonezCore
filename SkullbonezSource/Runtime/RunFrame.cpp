@@ -824,6 +824,7 @@ void Run::TickReplaySaveProbe()
                                                        SceneState(),
                                                        m_cWorldEnvironment,
                                                        m_systems.terrain.get(),
+                                                       m_systems.assets,
                                                        ActiveGameModelCapacity() };
         EditorObjectPlacementRequest placementRequest{ UI::EditorTab::OBJECT_BOX, true, Vector3( 18.0f, 0.0f, 18.0f ) };
         EditorObjectPlacementResult placementResult;
@@ -1419,6 +1420,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                                            SceneState(),
                                                            m_cWorldEnvironment,
                                                            m_systems.terrain.get(),
+                                                           m_systems.assets,
                                                            ActiveGameModelCapacity() };
             EditorObjectPlacementRequest placementRequest{ event.value0,
                                                            ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,

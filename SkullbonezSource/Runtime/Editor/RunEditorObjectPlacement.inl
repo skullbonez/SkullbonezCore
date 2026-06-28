@@ -41,7 +41,7 @@ static bool TryResolveEditorObjectPlacementPreflight( EditorObjectPlacementConte
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
     const EditorHouseDefinition* house = EditorHouseDefinitionForType( type );
     const EditorBuildingDefinition* building = EditorBuildingDefinitionForType( type );
-    const int buildingPartCount = building ? EditorBuildingPartCount( type ) : 0;
+    const int buildingPartCount = building ? EditorBuildingPartCount( type, context.assets ) : 0;
     const bool isRagdollType = type == UI::EditorTab::OBJECT_RAGDOLL || type == UI::EditorTab::OBJECT_RAGDOLL_SLEEP;
     if ( building && buildingPartCount <= 0 )
     {
@@ -159,7 +159,12 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         const Vector3 halfExtents = placementScale;
         const float mass = CalculateBoxMass( halfExtents );
         Vector3 center;
-        if ( !TryComputeEditorObjectCenter( type, terrainPoint, placementScale, placementOrientation, center ) )
+        if ( !TryComputeEditorObjectCenter( type,
+                                            terrainPoint,
+                                            placementScale,
+                                            placementOrientation,
+                                            context.assets,
+                                            center ) )
         {
             return;
         }
@@ -296,6 +301,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         const Vector3 base = terrainPoint + placementRotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
         const bool ok = ForEachEditorBuildingPart(
             type,
+            context.assets,
             [&]( const Json& part )
             {
                 if ( failed )

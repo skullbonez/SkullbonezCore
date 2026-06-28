@@ -275,7 +275,9 @@ constexpr EditorBuildingDefinition EDITOR_BUILDING_ASSETS[] = {
 
 
 #include "RunEditorPlacementAssets.inl"
-float EditorPlacementAltitudeStepSize( int objectType, const Vector3& placementScale )
+float EditorPlacementAltitudeStepSize( int objectType,
+                                       const Vector3& placementScale,
+                                       const SkullbonezCore::Assets::AssetSystem& assets )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const Vector3 scale = EditorClampPlacementScale( type, placementScale );
@@ -297,7 +299,7 @@ float EditorPlacementAltitudeStepSize( int objectType, const Vector3& placementS
         }
         if ( EditorBuildingDefinitionForType( type ) )
         {
-            return EditorBuildingVerticalSize( type );
+            return EditorBuildingVerticalSize( type, assets );
         }
         if ( EditorHouseDefinitionForType( type ) )
         {
@@ -940,7 +942,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
         previewNeedsMouseRay && TryBuildMouseWorldRay( previewRayOrigin, previewRayDirection );
 
     const EditorInteractionPreviewResult previewResult = UpdateEditorInteractionPreview(
-        { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction, m_systems.terrain.get() },
+        { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction, m_systems.terrain.get(), m_systems.assets },
         { m_UI.BlocksCameraMouse(),
           previewInspectGizmoActive,
           hasPreviewMouseRay,
@@ -977,6 +979,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                                                SceneState(),
                                                                m_cWorldEnvironment,
                                                                m_systems.terrain.get(),
+                                                               m_systems.assets,
                                                                ActiveGameModelCapacity() };
                 EditorObjectPlacementRequest placementRequest{ m_runtimeTools.Editor().objectType,
                                                                m_runtimeTools.Editor().placeStaticObject,
@@ -1464,6 +1467,7 @@ bool TryComputeEditorObjectCenter( int objectType,
                                    const Vector3& terrainPoint,
                                    const Vector3& placementScale,
                                    const Quaternion& orientation,
+                                   const Assets::AssetSystem& assets,
                                    Vector3& outCenter )
 {
     const int type = std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
@@ -1517,7 +1521,7 @@ bool TryComputeEditorObjectCenter( int objectType,
     {
         Vector3 minV;
         Vector3 maxV;
-        if ( !TryComputeEditorBuildingWorldBounds( type, terrainPoint, orientation, minV, maxV ) )
+        if ( !TryComputeEditorBuildingWorldBounds( type, terrainPoint, orientation, assets, minV, maxV ) )
         {
             return false;
         }
@@ -1581,7 +1585,7 @@ bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
         // Invariant: Placement altitude is applied before normal/orientation
         // lookup so preview and commit agree about the authored terrain point.
         terrainPoint.y += static_cast<float>( context.editor.placementAltitudeSteps ) *
-                          EditorPlacementAltitudeStepSize( objectType, context.editor.placementScale );
+                          EditorPlacementAltitudeStepSize( objectType, context.editor.placementScale, context.assets );
     }
 
     Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
@@ -1600,6 +1604,7 @@ bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
                                         terrainPoint,
                                         context.editor.placementScale,
                                         placementOrientation,
+                                        context.assets,
                                         center ) )
     {
         return false;

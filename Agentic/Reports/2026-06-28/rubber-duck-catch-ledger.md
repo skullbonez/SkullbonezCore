@@ -16,8 +16,8 @@ for the whole Carmack run, not only from this file forward.
 | Source | Blocking findings caught | Non-blocking findings caught |
 |--------|--------------------------|------------------------------|
 | Reconstructed from existing plan notes | 7 | 8 |
-| Live tracked in this ledger | 4 | 5 |
-| Total so far | 11 | 13 |
+| Live tracked in this ledger | 4 | 7 |
+| Total so far | 11 | 15 |
 
 ## Ledger
 
@@ -33,6 +33,7 @@ for the whole Carmack run, not only from this file forward.
 | Counted global-service allowlist classification | Bernoulli | 1 | 0 | Split counted allowlist-row classification from still-open per-site hit classification so the checklist no longer overclaims completion. | Live subagent review before this commit. |
 | GameModel physics command adapter | Plato | 0 | 1 | Made duplicate replay-derived scene object ids fail closed in `BodyHandleForSceneObjectId` instead of silently selecting the first matching model. | Live subagent review before this commit; missing evidence reminders: final validation still required, and no focused adapter-unit evidence exists yet. |
 | Scene parser asset context | Harvey | 1 | 0 | Removed stale `TestSceneParser.cpp` `ActiveAssetSystem()` debt from the global-service plan snapshot and lowered the plan's total `ActiveAssetSystem()` count from 4 to 3. | Live subagent review before this commit; missing evidence reminder cleared by final validation. |
+| Editor placement asset context | Pauli | 0 | 2 | Accepted the one-shot process-static building catalog cache as a residual design constraint and reminded the agent to keep unrelated dirty startup/tooling docs unstaged. | Live subagent review before this commit; missing-evidence reminders cleared by comment audit and final validation. |
 
 ## Review Accounting
 
@@ -40,6 +41,7 @@ for the whole Carmack run, not only from this file forward.
 |--------|-----------|----------|--------------|----------------|------------------|---------|---------|-----------|
 | carmack-physics-runtime-adapter-duck-01 | `Agentic/Plans/carmack-physics-standalone-boundary-plan.md` | Plato / `019f0cf9-b479-7720-995c-d5161f7a5426` | 2331 | 1548 | n/a | ~15m | 0 blockers, 1 non-blocking catch, 2 missing-evidence reminders | Duplicate scene ids now fail closed; final validation still required before commit. |
 | carmack-global-scene-parser-assets-duck-01 | `Agentic/Plans/carmack-global-service-lifetime-plan.md` | Harvey / `019f0d0c-e183-77f2-a350-55be236546f6` | 2194 | 1490 | n/a | 2m37s | 1 blocker, 0 non-blocking catches, 1 missing-evidence reminder | Stale plan count/table fixed; final validation passed before commit. |
+| carmack-global-editor-placement-assets-duck-01 | `Agentic/Plans/carmack-global-service-lifetime-plan.md` | Pauli / `019f0d1f-56e3-7ab0-9504-8a41a88c8d78` | 1702 | 2450 | n/a | ~3m19s | 0 blockers, 2 non-blocking catches, 3 missing-evidence reminders | One-shot cache left as intentional residual, user-owned dirty docs left unstaged, and final comment-audit/validation evidence completed before commit. |
 
 ## Update Rule
 

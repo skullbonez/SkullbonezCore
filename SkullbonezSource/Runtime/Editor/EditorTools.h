@@ -9,6 +9,8 @@ Mental model:
   side effects that can be described with explicit borrowed context.
 
 Glossary:
+  Asset system: Runtime-owned registry that resolves editor asset-library names
+    without querying process-global state.
   Placement gesture: Mouse drag and wheel input used to size an object before
     placement commits.
   Hull scale: Per-axis size multiplier for convex hull editor assets.
@@ -19,6 +21,7 @@ Invariants:
   - Scale helpers must be deterministic and side-effect free.
   - Command helpers must take every mutable service through an explicit context.
   - Object-type helpers must stay aligned with the editor tab object enum.
+  - Preview, preflight, and commit contexts must borrow the same asset registry.
 
 Related:
   - SkullbonezSource/Runtime/RunInput.cpp
@@ -35,6 +38,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
 namespace Environment
 {
 class CameraCollection;
@@ -79,6 +86,7 @@ struct EditorPlacementPreviewContext
 {
     RunEditorPlacementState& editor;
     Geometry::Terrain* terrain;
+    const Assets::AssetSystem& assets;
 };
 
 struct EditorObjectPlacementContext
@@ -88,6 +96,7 @@ struct EditorObjectPlacementContext
     RunSceneState& scene;
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain;
+    const Assets::AssetSystem& assets;
     int activeModelCapacity;
 };
 
@@ -161,6 +170,7 @@ bool TryComputeEditorObjectCenter( int objectType,
                                    const Math::Vector::Vector3& terrainPoint,
                                    const Math::Vector::Vector3& placementScale,
                                    const Math::Orientation::Quaternion& orientation,
+                                   const Assets::AssetSystem& assets,
                                    Math::Vector::Vector3& outCenter );
 bool TryUpdateEditorPlacementPreview( EditorPlacementPreviewContext context,
                                       int objectType,

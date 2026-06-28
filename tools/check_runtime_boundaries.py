@@ -487,7 +487,6 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Runtime/Editor/LauncherLaser.cpp", "CreateShaderFromActiveAssets()", 1 ),
             ( "SkullbonezSource/Runtime/Editor/LauncherLaser.cpp", "Gfx()", 18 ),
             ( "SkullbonezSource/Runtime/Editor/LauncherTools.cpp", "Cfg()", 3 ),
-            ( "SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.inl", "ActiveAssetSystem()", 1 ),
             ( "SkullbonezSource/Runtime/Editor/RunEditorTracer.inl", "Gfx()", 1 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "Cfg()", 16 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "Window::Instance()", 1 ),

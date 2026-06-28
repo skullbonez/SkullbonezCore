@@ -8,11 +8,15 @@ Mental model:
   registered asset and hull recipe knowledge separate from input routing and gizmo mutation.
 
 Glossary:
+  Asset system: Runtime-owned registry used to resolve editor asset-library
+    names before falling back to conventional data paths.
   Placement recipe: Data and helper logic used to preview or spawn one editor object type.
   Authored hull: Baked convex hull asset used for editor-placeable collision geometry.
 
 Invariants:
   - Preview bounds and placement commit must read the same asset recipe helpers.
+  - Building-library path lookup borrows the runtime asset system; the parsed
+    catalog cache is read-only after first load.
   - This file must only be included from RunEditorTools.cpp inside the anonymous namespace.
 
 Related:
@@ -35,16 +39,12 @@ const EditorBuildingDefinition* EditorBuildingDefinitionForType( int objectType 
 }
 
 
-std::string EditorResolveBuildingAssetLibraryPath()
+std::string EditorResolveBuildingAssetLibraryPath( const SkullbonezCore::Assets::AssetSystem& assets )
 {
-    const SkullbonezCore::Assets::AssetSystem* assets = SkullbonezCore::Assets::ActiveAssetSystem();
-    if ( assets )
+    if ( const SkullbonezCore::Assets::AssetLibrarySourceAsset* library =
+             assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) )
     {
-        if ( const SkullbonezCore::Assets::AssetLibrarySourceAsset* library =
-                 assets->FindAssetLibrarySourceAsset( "assetlib.buildings" ) )
-        {
-            return library->resolvedPath;
-        }
+        return library->resolvedPath;
     }
     return "SkullbonezData/assets/buildings.assets.json";
 }
@@ -61,18 +61,19 @@ const Json* EditorJsonFindMember( const Json& object, const char* name )
 }
 
 
-const Json* CachedEditorBuildingLibrary()
+const Json* CachedEditorBuildingLibrary( const SkullbonezCore::Assets::AssetSystem& assets )
 {
     // Lifetime: The building asset catalog is process-static editor data.
     // It is read-only after the first successful parse, so placement preview and
-    // commit paths share one stable recipe source without repeated disk IO.
+    // commit paths share one stable recipe source without repeated disk IO. The
+    // first caller resolves the path through the borrowed runtime AssetSystem.
     static Json library;
     static bool loaded = false;
     static bool valid = false;
     if ( !loaded )
     {
         loaded = true;
-        const std::string path = EditorResolveBuildingAssetLibraryPath();
+        const std::string path = EditorResolveBuildingAssetLibraryPath( assets );
         std::ifstream file( path );
         if ( file )
         {
@@ -88,21 +89,21 @@ const Json* CachedEditorBuildingLibrary()
 }
 
 
-const Json* CachedEditorBuildingAsset( int objectType )
+const Json* CachedEditorBuildingAsset( int objectType, const SkullbonezCore::Assets::AssetSystem& assets )
 {
     const EditorBuildingDefinition* building = EditorBuildingDefinitionForType( objectType );
-    const Json* library = CachedEditorBuildingLibrary();
+    const Json* library = CachedEditorBuildingLibrary( assets );
     if ( !building || !library )
     {
         return nullptr;
     }
 
-    const Json* assets = EditorJsonFindMember( *library, "assets" );
-    if ( !assets || !assets->is_array() )
+    const Json* assetArray = EditorJsonFindMember( *library, "assets" );
+    if ( !assetArray || !assetArray->is_array() )
     {
         return nullptr;
     }
-    for ( const Json& asset : *assets )
+    for ( const Json& asset : *assetArray )
     {
         const Json* name = EditorJsonFindMember( asset, "name" );
         if ( name && name->is_string() && name->get<std::string>() == building->assetName )
@@ -333,9 +334,9 @@ Quaternion EditorBuildingPartOrientation( const Quaternion& placementOrientation
 }
 
 
-int EditorBuildingPartCount( int objectType )
+int EditorBuildingPartCount( int objectType, const SkullbonezCore::Assets::AssetSystem& assets )
 {
-    const Json* asset = CachedEditorBuildingAsset( objectType );
+    const Json* asset = CachedEditorBuildingAsset( objectType, assets );
     if ( !asset )
     {
         return 0;
@@ -350,12 +351,13 @@ int EditorBuildingPartCount( int objectType )
 }
 
 
-template <typename Fn> bool ForEachEditorBuildingPart( int objectType, Fn&& fn )
+template <typename Fn>
+bool ForEachEditorBuildingPart( int objectType, const SkullbonezCore::Assets::AssetSystem& assets, Fn&& fn )
 {
     // Invariant: Asset-library part order is the spawn order. Preview bounds,
     // collision hull lookup, material selection, and actual placement must all
     // visit parts through this helper to stay identical.
-    const Json* asset = CachedEditorBuildingAsset( objectType );
+    const Json* asset = CachedEditorBuildingAsset( objectType, assets );
     if ( !asset )
     {
         return false;
@@ -398,12 +400,13 @@ const ConvexHullShape* CachedEditorBuildingHull( const std::string& hullPath )
 }
 
 
-float EditorBuildingVerticalSize( int objectType )
+float EditorBuildingVerticalSize( int objectType, const SkullbonezCore::Assets::AssetSystem& assets )
 {
     float minY = FLT_MAX;
     float maxY = -FLT_MAX;
     const bool ok = ForEachEditorBuildingPart(
         objectType,
+        assets,
         [&]( const Json& part )
         {
             const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
@@ -431,6 +434,7 @@ float EditorBuildingVerticalSize( int objectType )
 bool TryComputeEditorBuildingWorldBounds( int objectType,
                                           const Vector3& terrainPoint,
                                           const Quaternion& placementOrientation,
+                                          const SkullbonezCore::Assets::AssetSystem& assets,
                                           Vector3& outMin,
                                           Vector3& outMax )
 {
@@ -441,6 +445,7 @@ bool TryComputeEditorBuildingWorldBounds( int objectType,
     const Vector3 base = terrainPoint + placementRotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
     const bool ok = ForEachEditorBuildingPart(
         objectType,
+        assets,
         [&]( const Json& part )
         {
             const std::string hullPath = EditorJsonStringOr( part, "hull", "" );

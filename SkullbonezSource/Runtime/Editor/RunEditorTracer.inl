@@ -171,7 +171,8 @@ void RunEditorTracer::AddPlacementGhost( int objectType,
                                          const Vector3& center,
                                          const Vector3& terrainPoint,
                                          const Vector3& placementScale,
-                                         const Quaternion& orientation )
+                                         const Quaternion& orientation,
+                                         const Assets::AssetSystem& assets )
 {
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const Vector3 scale = EditorClampPlacementScale( type, placementScale );
@@ -211,6 +212,7 @@ void RunEditorTracer::AddPlacementGhost( int objectType,
         const Vector3 base = terrainPoint + rotation * Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
         ForEachEditorBuildingPart(
             type,
+            assets,
             [&]( const Json& part )
             {
                 const std::string hullPath = EditorJsonStringOr( part, "hull", "" );

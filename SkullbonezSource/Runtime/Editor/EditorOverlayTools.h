@@ -10,6 +10,8 @@ Mental model:
   explicit borrowed state.
 
 Glossary:
+  Asset system: Runtime-owned registry borrowed by placement preview when a
+    placeable recipe lives in an asset library.
   Preview state: Editor-owned placement or gizmo data refreshed from current
     input before the render overlay is built.
   Tool overlay trace: Deterministic line/ghost geometry appended for editor,
@@ -22,6 +24,7 @@ Invariants:
     pointers or own runtime services.
   - Preview updates may mutate editor state, but overlay tracing must be a
     read-only projection of the current tool state.
+  - Placement preview uses the same borrowed asset registry as placement commit.
 
 Related:
   - SkullbonezSource/Runtime/Editor/RunEditorTools.cpp
@@ -33,6 +36,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
 namespace GameObjects
 {
 class GameModelCollection;
@@ -57,6 +64,7 @@ struct EditorInteractionPreviewContext
     GameObjects::GameModelCollection& models;
     RuntimeInteractionController& interaction;
     Geometry::Terrain* terrain;
+    const Assets::AssetSystem& assets;
 };
 
 struct EditorInteractionPreviewInput
@@ -81,6 +89,7 @@ struct EditorToolOverlayTraceContext
     const RunRayCastTestState& rayCastTest;
     const RunMousePickupState& mousePickup;
     const GameObjects::GameModelCollection& models;
+    const Assets::AssetSystem& assets;
     RunEditorTracer& tracer;
 };
 

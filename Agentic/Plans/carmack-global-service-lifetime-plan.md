@@ -10,15 +10,31 @@ require `tools\validate_full.bat`.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Routed editor placement's building asset-library lookup
+  through explicit borrowed `AssetSystem` context instead of
+  `ActiveAssetSystem()`. Placement preview, overlay ghost tracing, placement
+  preflight, and placement commit now receive `m_systems.assets` through editor
+  context structs; the process-static parsed building catalog remains read-only
+  after first load. The runtime-boundary ratchet removed the
+  `RunEditorPlacementAssets.inl` `ActiveAssetSystem()` allowlist row, lowering
+  the remaining active-asset compatibility surface to the asset-system helper
+  declarations/definitions only. Rubber-duck review by Pauli found no blockers,
+  two non-blocking residual notes, and three missing-evidence reminders: the
+  one-shot parsed building catalog cache is intentionally preserved, unrelated
+  user-owned dirty docs remain unstaged, and evidence was completed before
+  commit. Comment-style audit inspected the touched source-bearing files.
+  Final evidence: `python tools\check_runtime_boundaries.py`,
+  `tools\validate_fast.bat`, and `tools\validate_full.bat` all passed; logs are
+  under `TestOutput\validation\agent_logs\editor_asset_context_*`.
 - [x] 2026-06-28: Routed scene/style parsing asset-library lookup through an
   explicit borrowed `AssetSystem` instead of `ActiveAssetSystem()`. Runtime
   scene loads, live-style reloads, cinematic style browser loads, and demo hero
   style loading now pass `m_systems.assets` into `TestScene` parser overloads;
   tools or standalone parser callers can still use the old path-convention
   fallback by omitting the registry. The runtime-boundary ratchet removed the
-  `TestSceneParser.cpp` `ActiveAssetSystem()` allowlist row. Editor placement
-  still has one `ActiveAssetSystem()` lookup behind its static building-library
-  cache and remains open as a separate slice. Rubber-duck review by Harvey
+  `TestSceneParser.cpp` `ActiveAssetSystem()` allowlist row. That slice left
+  editor placement's static building-library cache as separate follow-up debt,
+  which the editor placement slice above now closes. Rubber-duck review by Harvey
   found one blocking documentation mismatch: the current-count snapshot still
   claimed `ActiveAssetSystem()` count `4` and still listed
   `TestSceneParser.cpp`. The snapshot now records count `3` and removes the
@@ -445,7 +461,7 @@ string literals.
 | `Cfg()` | 239 |
 | `Gfx()` | 196 |
 | `GfxRayTracing()` | 5 |
-| `ActiveAssetSystem()` | 3 |
+| `ActiveAssetSystem()` | 2 |
 | `CreateShaderFromActiveAssets()` | 16 |
 | `TextureCollection::Instance()` | 3 |
 | `CameraCollection::Instance()` | 4 |
@@ -495,7 +511,6 @@ why that current debt exists and which migration bucket should own it.
 | `SkullbonezSource/Runtime/CameraCollection.h` | `pInstance=1` | normal runtime path | Legacy camera singleton storage declaration. |
 | `SkullbonezSource/Runtime/Editor/LauncherLaser.cpp` | `CreateShaderFromActiveAssets()=1`, `Gfx()=18` | test/tool | Launcher/editor visual feedback should borrow render services. |
 | `SkullbonezSource/Runtime/Editor/LauncherTools.cpp` | `Cfg()=3` | test/tool | Launcher tool tuning still reads global config. |
-| `SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.inl` | `ActiveAssetSystem()=1` | test/tool | Editor placement asset lookup should receive an asset context. |
 | `SkullbonezSource/Runtime/Editor/RunEditorTracer.inl` | `Gfx()=1` | test/tool | Editor tracer draw path should borrow render command/context services. |
 | `SkullbonezSource/Runtime/Init.cpp` | `Cfg()=16`, `Window::Instance()=1`, `WorkerPool::Instance()=3`, `g_*=6` | bootstrap | Startup command-line/config/window/worker binding surface. |
 | `SkullbonezSource/Runtime/Input.cpp` | `Window::Instance()=3`, `g_*=43` | OS callback bridge | Win32 input accumulators and focus/window bridge. |
@@ -661,10 +676,12 @@ bridges tiny, named, and fenced.
   `GfxRayTracing()` access in `RunPasses.cpp`.
 - [ ] Route shader and texture creation through an asset/render context passed
   from runtime-owned services.
-- [ ] Replace `ActiveAssetSystem()` in scene parsing and editor tools with an
+- [x] Replace `ActiveAssetSystem()` in scene parsing and editor tools with an
   explicit asset context.
   - [x] 2026-06-28 scene/style parser calls now accept an explicit borrowed
-    `AssetSystem` from runtime-owned services; editor placement remains open.
+    `AssetSystem` from runtime-owned services.
+  - [x] 2026-06-28 editor placement preview, tracing, preflight, and commit now
+    borrow `AssetSystem` from runtime-owned services.
 - [ ] Replace `TextureCollection::Instance()` normal-path lookups with runtime
   owned texture service references.
 - [ ] Replace `CameraCollection::Instance()` normal-path lookups with explicit
@@ -761,6 +778,12 @@ Reviewer notes, 2026-06-28:
 - Harvey blocked the scene parser asset-context slice until the current counted
   surface table matched the lowered `ActiveAssetSystem()` ratchet. The snapshot
   now removes `TestSceneParser.cpp` and records `ActiveAssetSystem()` count `3`.
+- Pauli found no blocking defect in the editor placement asset-context slice.
+  Non-blocking residuals: the parsed building catalog remains a one-shot
+  process-static cache by design for this slice, and unrelated dirty docs stay
+  user-owned/uncommitted. Pauli's missing-evidence reminders were cleared by the
+  touched-source comment-style audit plus final logged runtime-boundary,
+  `validate_fast`, and `validate_full` gates.
 
 ## Definition Of Done
 

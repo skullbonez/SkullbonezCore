@@ -58,9 +58,10 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
         {
             terrainPlacementForPreview = &terrainPlacement;
         }
-        context.editor.placementPreviewVisible = TryUpdateEditorPlacementPreview( { context.editor, context.terrain },
-                                                                                  context.editor.objectType,
-                                                                                  terrainPlacementForPreview );
+        context.editor.placementPreviewVisible =
+            TryUpdateEditorPlacementPreview( { context.editor, context.terrain, context.assets },
+                                             context.editor.objectType,
+                                             terrainPlacementForPreview );
     }
 
     if ( context.editor.selectedModelIndex >= context.models.GetModelCount() )
@@ -111,7 +112,8 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
                                           context.editor.placementCenter,
                                           context.editor.placementTerrainPoint,
                                           context.editor.placementScale,
-                                          context.editor.placementOrientation );
+                                          context.editor.placementOrientation,
+                                          context.assets );
     }
 
     if ( ( context.editor.editorModeEnabled || input.inspectGizmoActive ) && !context.editor.placementModeEnabled &&

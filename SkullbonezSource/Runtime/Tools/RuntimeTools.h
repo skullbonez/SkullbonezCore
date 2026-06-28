@@ -9,6 +9,8 @@ Mental model:
   ownership live here instead of directly on Run.
 
 Glossary:
+  Asset system: Runtime-owned registry borrowed by editor ghost tracing when a
+    placeable recipe comes from an asset library.
   Tool state: Runtime-owned launcher, mouse-pickup, editor, and overlay-trace
     data that persists between frames.
   Replay visual sample: Compact snapshot of tool visuals restored while replay
@@ -20,7 +22,7 @@ Glossary:
 
 Invariants:
   - RuntimeTools owns transient tool state only; world, model, terrain, camera,
-    and physics services are borrowed through method parameters.
+    asset, and physics services are borrowed through method parameters.
   - Fixed-capacity arrays must stay bounded and replay-restorable.
   - Stored model indices are frame-local references and must be validated before
     use after model collection edits.
@@ -51,6 +53,11 @@ namespace SkullbonezCore::GameObjects
 class GameModel;
 class GameModelCollection;
 } // namespace SkullbonezCore::GameObjects
+
+namespace SkullbonezCore::Assets
+{
+class AssetSystem;
+}
 
 namespace SkullbonezCore::Geometry
 {
@@ -212,7 +219,8 @@ class RunEditorTracer
                             const Math::Vector::Vector3& center,
                             const Math::Vector::Vector3& terrainPoint,
                             const Math::Vector::Vector3& placementScale,
-                            const Math::Orientation::Quaternion& orientation );
+                            const Math::Orientation::Quaternion& orientation,
+                            const Assets::AssetSystem& assets );
     void
     AddRayCastTestLine( const Math::Vector::Vector3& start, const Math::Vector::Vector3& end, float alpha, bool hit );
     void AddReplayPathSegment( const Math::Vector::Vector3& start,
