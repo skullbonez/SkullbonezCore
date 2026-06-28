@@ -16,8 +16,8 @@ for the whole Carmack run, not only from this file forward.
 | Source | Blocking findings caught | Non-blocking findings caught |
 |--------|--------------------------|------------------------------|
 | Reconstructed from existing plan notes | 7 | 8 |
-| Live tracked in this ledger | 10 | 11 |
-| Total so far | 17 | 19 |
+| Live tracked in this ledger | 13 | 12 |
+| Total so far | 20 | 20 |
 
 ## Ledger
 
@@ -37,6 +37,7 @@ for the whole Carmack run, not only from this file forward.
 | Runtime lifetime-order docs | Sagan | 3 | 1 | Added the missing `Run::Run()`/`EngineContext` bind step, corrected `RebuildRegisteredRenderResources()` wording to texture/source-record work, fixed cleanup wording around `UnregisterClass(...)`/`Window::Destroy()`, and moved worker self-test after worker-pool init. | Live subagent review before this commit; docs-only, no repository validation required. |
 | Runtime borrowed-binding assertions | Faraday | 1 | 1 | Added the missing `RuntimeViewModelBuilder::Build()` debug assertion so the view-model fallback cannot hide an unbound `EngineContext`, and confirmed normal startup/shutdown does not false-positive. | Live subagent review before this commit; final `validate_full` passed before commit. |
 | Input callback bridge comments | Kepler | 2 | 2 | Split true callback-fed wheel/raw mouse accumulators from cursor policy and automation override state, corrected the mouse-wheel consumer/reset path, expanded raw mouse reset wording, and widened the file invariant to frame/UI snapshots. | Live subagent review before this commit; comment-only, no repository validation required. |
+| Input callback bridge lifecycle | Mencius | 3 | 1 | Tightened bind/unbind assertions, gated raw-input registration on the bound HWND, confirmed startup order, and updated the stale plan checklist before validation. | Live subagent review before this commit; final validation passed before commit. |
 
 ## Review Accounting
 
@@ -50,6 +51,8 @@ for the whole Carmack run, not only from this file forward.
 | carmack-global-engine-context-assertions-duck-02 | `Agentic/Plans/carmack-global-service-lifetime-plan.md` | Faraday / `019f0d33-6682-7340-853f-cc686a4f671c` | 743 | 798 | n/a | <1m | 0 blockers, 0 non-blocking catches, 2 missing-evidence reminders | Original blocker fixed; final validation passed before commit. |
 | carmack-global-input-callback-comments-duck-01 | `Agentic/Plans/carmack-global-service-lifetime-plan.md` | Kepler / `019f0d3a-d65e-72b1-af69-76f23a1fc69e` | 1102 | 2354 | n/a | ~8m | 2 blockers, 1 non-blocking catch, 1 missing-evidence reminder | Cursor policy and automation were misclassified as callback accumulators, and the wheel consumer/reset path was misnamed; fixed before follow-up. |
 | carmack-global-input-callback-comments-duck-02 | `Agentic/Plans/carmack-global-service-lifetime-plan.md` | Kepler / `019f0d3a-d65e-72b1-af69-76f23a1fc69e` | 1212 | 987 | n/a | <1m | 0 blockers, 1 non-blocking catch, 0 missing-evidence reminders | Original blockers fixed; final `InputState` wording was widened to frame/UI snapshots before commit. |
+| carmack-global-input-callback-lifecycle-duck-01 | `Agentic/Plans/carmack-global-service-lifetime-plan.md` | Mencius / `019f0d44-33db-79d2-967e-65ffdd33dc8b` | 1185 | 2436 | n/a | ~12m | 2 blockers, 1 non-blocking catch, 4 missing-evidence reminders | Bind/unbind assertions were too permissive and raw-input registration was not gated on the bound HWND; fixed before follow-up. |
+| carmack-global-input-callback-lifecycle-duck-02 | `Agentic/Plans/carmack-global-service-lifetime-plan.md` | Mencius / `019f0d44-33db-79d2-967e-65ffdd33dc8b` | 1152 | 1732 | n/a | ~8m | 1 blocker, 0 non-blocking catches, 3 missing-evidence reminders | Source blockers fixed; stale plan checklist updated before validation; final validation passed before commit. |
 
 ## Update Rule
 

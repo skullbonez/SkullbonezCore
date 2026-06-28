@@ -10,6 +10,17 @@ require `tools\validate_full.bat`.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Added a narrow HWND-bound lifecycle for Win32 callback-fed
+  input accumulators. `Input::BindCallbackBridge()` arms wheel/raw mouse queues
+  for the active `HWND`, WndProc passes the originating `HWND` into accumulator
+  calls, `Input::UnbindCallbackBridge()` clears queued state during cleanup
+  before backend/window class teardown, and Debug assertions catch double-bind,
+  unbound unbind, wrong-window unbind, and raw-input registration before the
+  bridge is bound. Rubber-duck review by Mencius found two blocking lifecycle
+  assertion/gating holes, one non-blocking startup-order check, and one blocking
+  stale-plan completion issue; all were fixed. Runtime input/window behavior
+  change; final `tools\validate_full.bat` passed in 140.80s and focused
+  `tools\validate_interaction_clicks.bat` passed in 5.74s before commit.
 - [x] 2026-06-28: Documented the Win32 input callback bridge accumulators in
   `Input.cpp` without changing behavior. The file now separates callback-fed
   wheel/raw mouse queues from cursor policy and scripted automation override
@@ -735,9 +746,18 @@ bridges tiny, named, and fenced.
     `InputController` focus/mouse-look reset helpers as reset paths, and
     separates cursor policy plus `RunInteractionAutomation` overrides from
     callback accumulator state.
-- [ ] Add an explicit bind/unbind lifecycle for callback bridge state.
-- [ ] Ensure callback bridge teardown cannot leave dangling service pointers.
-- [ ] Add focused tests or debug assertions for callback bridge lifecycle.
+- [x] Add an explicit bind/unbind lifecycle for callback bridge state.
+  - [x] 2026-06-28 `Input::BindCallbackBridge()` and
+    `Input::UnbindCallbackBridge()` now bind callback-fed wheel/raw mouse queues
+    to the active `HWND`; WndProc accumulators ignore late or foreign-window
+    callbacks.
+- [x] Ensure callback bridge teardown cannot leave dangling service pointers.
+  - [x] 2026-06-28 `CleanupWindow()` unbinds the input callback bridge while
+    `window->m_sWindow` still names the Win32 window used by WndProc and before
+    backend/window class teardown.
+- [x] Add focused tests or debug assertions for callback bridge lifecycle.
+  - [x] 2026-06-28 Debug assertions catch double-bind, unbound unbind,
+    wrong-window unbind, and raw-input registration before the bridge is bound.
 
 ### Lifetime Order
 
@@ -813,11 +833,16 @@ Shutdown order:
 - [x] For renderer service access changes: run `tools\validate_dx12_renderer.bat`.
 - [ ] For asset registration, scene asset loading, hull asset, or scene JSON
   behavior changes: run `tools\validate_full.bat`.
-- [ ] For input/window changes: run `tools\validate_full.bat`; add focused
+- [x] For input/window changes: run `tools\validate_full.bat`; add focused
   launch/click validation if interaction behavior changes.
   - [x] 2026-06-28 input callback bridge documentation slice was comment-only;
     no repository validation required. `git diff --check` passed and the scoped
     comment-style audit inspected `SkullbonezSource/Runtime/Input.cpp`.
+  - [x] 2026-06-28 input callback bridge lifecycle slice:
+    `tools\validate_full.bat` passed in 140.80s; log:
+    `TestOutput\validation\agent_logs\input_callback_bridge_validate_full.log`.
+    `tools\validate_interaction_clicks.bat` passed in 5.74s; log:
+    `TestOutput\validation\agent_logs\input_callback_bridge_validate_interaction_clicks.log`.
 - [x] For guardrail-tooling changes: run `python tools\check_runtime_boundaries.py`
   and `tools\validate_fast.bat`.
 - [x] Quote validation output and log paths in the handoff.
@@ -875,6 +900,12 @@ Reviewer notes, 2026-06-28:
   accumulators, and misnamed the mouse-wheel consumer/reset path. Follow-up
   review confirmed those blockers were fixed; the final non-blocking invariant
   wording catch was also corrected before commit.
+- Mencius blocked the input callback bridge lifecycle slice because the first
+  code draft allowed same-window rebind/unbound unbind, let
+  `RegisterRawMouseInput()` reset state for an unbound `HWND`, and then left the
+  plan stale after code fixes. The final code gates callback accumulators on the
+  bound `HWND`, tightens lifecycle assertions, and updates only the narrow
+  callback lifecycle/debug-assertion items.
 
 ## Definition Of Done
 

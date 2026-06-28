@@ -31,6 +31,7 @@ Related:
 #include "Input.h"
 #include "Window.h"
 
+#include <cassert>
 
 using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Basics;
@@ -39,8 +40,9 @@ namespace
 {
 // Lifetime: Win32 calls WndProc without a Run instance, so callback-fed mouse
 // queues stay process-local behind Input's static API. Keep new callback
-// accumulator state documented here until the bridge gains an explicit
-// bind/unbind lifecycle.
+// accumulator state behind the bound HWND so late or foreign callbacks cannot
+// mutate stale frame input.
+HWND s_callbackBridgeWindow = nullptr;
 // WndProc WM_MOUSEWHEEL writes; UIInput::CaptureSnapshot() consumes once per
 // frame through InGameUI::UpdateInput() from RunInput.cpp. Focus-loss cleanup
 // also drains it through InputController::ResetUnfocusedInput().
@@ -66,6 +68,11 @@ long g_rawMouseLastAbsoluteY = 0;
 Input::AutomationState g_automationState;
 
 constexpr int RAW_MOUSE_ABSOLUTE_RANGE = 65535;
+
+bool IsCallbackBridgeBoundForWindow( HWND window )
+{
+    return window && s_callbackBridgeWindow == window;
+}
 
 void EnsureShowCursorVisible()
 {
@@ -195,6 +202,12 @@ bool Input::IsKeyToggled( int virtualKey )
 
 bool Input::RegisterRawMouseInput( HWND window )
 {
+    assert( IsCallbackBridgeBoundForWindow( window ) &&
+            "Raw mouse input must register through the bound callback bridge HWND" );
+    if ( !IsCallbackBridgeBoundForWindow( window ) )
+    {
+        return false;
+    }
     if ( !window )
     {
         return false;
@@ -216,9 +229,39 @@ bool Input::RegisterRawMouseInput( HWND window )
 }
 
 
-void Input::AccumulateRawMouseDelta( HRAWINPUT rawInput )
+void Input::BindCallbackBridge( HWND window )
 {
-    if ( !rawInput || !IsAppFocused() )
+    assert( window && "Input callback bridge requires a live HWND" );
+    assert( !s_callbackBridgeWindow && "Input callback bridge is already bound" );
+    if ( !window )
+    {
+        return;
+    }
+
+    s_callbackBridgeWindow = window;
+    (void)ConsumeMouseWheelDelta();
+    ResetMouseLookDeltas();
+}
+
+
+void Input::UnbindCallbackBridge( HWND window )
+{
+    assert( s_callbackBridgeWindow && "Input callback bridge must be bound before unbind" );
+    assert( s_callbackBridgeWindow == window && "Input callback bridge unbound with a different HWND" );
+    if ( s_callbackBridgeWindow != window )
+    {
+        return;
+    }
+
+    s_callbackBridgeWindow = nullptr;
+    (void)ConsumeMouseWheelDelta();
+    ResetMouseLookDeltas();
+}
+
+
+void Input::AccumulateRawMouseDelta( HWND window, HRAWINPUT rawInput )
+{
+    if ( !IsCallbackBridgeBoundForWindow( window ) || !rawInput || !IsAppFocused() )
     {
         return;
     }
@@ -389,9 +432,9 @@ int Input::ConsumeMouseWheelDelta()
 }
 
 
-void Input::AccumulateMouseWheelDelta( int delta )
+void Input::AccumulateMouseWheelDelta( HWND window, int delta )
 {
-    if ( !IsAppFocused() )
+    if ( !IsCallbackBridgeBoundForWindow( window ) || !IsAppFocused() )
     {
         return;
     }

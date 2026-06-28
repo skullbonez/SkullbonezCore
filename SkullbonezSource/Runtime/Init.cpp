@@ -2660,6 +2660,13 @@ int RunApp( Window* window, ParsedArgs& args )
 
 void CleanupWindow( Window* window, HINSTANCE hInstance )
 {
+    // Lifetime: disarm callback-fed input queues while the HWND still names
+    // the window that WndProc used, before backend/window class teardown.
+    if ( window->m_sWindow )
+    {
+        Input::UnbindCallbackBridge( window->m_sWindow );
+    }
+
     DestroyGfxBackend();
 
     if ( window->m_sDevice )
