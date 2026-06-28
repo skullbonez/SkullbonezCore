@@ -442,6 +442,30 @@ string literals.
 | `pInstance` | 20 |
 | Mutable `g_*` process global | 86 |
 
+## Existing Service Lifetime Owners
+
+This 2026-06-28 inventory is the preferred reuse surface before adding any new
+service context. The important split is ownership versus borrowing: `Run` owns
+most process-lifetime systems, while contexts such as `EngineContext` and
+`RuntimeRenderHost` should remain borrowed views over those owners.
+
+| Owner/view | Owns lifetime? | Current service boundary | Use before adding |
+|------------|----------------|--------------------------|-------------------|
+| `Run` (`SkullbonezSource/Runtime/Run.h`) | Yes | Process composition root for scene, diagnostics, systems, input, interaction, simulation, replay, UI, tools, world, model collection, command queue, render host, and renderer. | Top-level bind order, shutdown order, and remaining composition-root sampling of globals such as renderer capabilities. |
+| `EngineContext` (`SkullbonezSource/Runtime/EngineContext.h`) | No, borrowed view | Binds pointers to `SceneController`, `SimulationController`, capture/diagnostics controllers, command queue, systems, runtime settings, input, camera/debug state, world, and models. | Runtime extraction slices that need a declared boundary without directly reaching through `Run` members. |
+| `RuntimeRenderHost` (`SkullbonezSource/Runtime/Render/RuntimeRenderHost.h`) | Owns render scratch only; borrows services | Groups render-facing runtime, world, scene, replay overlay, tool overlay, UI, and diagnostics views; owns DXR reflection transform scratch. | Render-pass dependencies that would otherwise call `Run`, `Gfx()`, or unrelated singleton services. |
+| `RuntimeTools` (`SkullbonezSource/Runtime/Tools/RuntimeTools.h`) | Yes, for transient tool state | Owns launcher/raycast state, launcher laser, mouse pickup state, editor placement state, and editor tracer feedback. | Launcher, editor, mouse-pickup, and transient overlay state before adding more tool fields to `Run`. |
+| `DiagnosticsRuntime` (`SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.h`) | Yes | Owns capture controller, diagnostics controller, perf log state, main-memory dump path/cache, UI stress state, and Debug-only physics diagnostics helpers. | Capture, perf, SkullScope, memory dump, and validation artifact state before reaching through global diagnostics or ad hoc file paths. |
+| `SceneController` (`SkullbonezSource/Runtime/Scene/SceneController.h`) | Yes | Owns scene runtime, scene queue/index bookkeeping, browser state, and scene UI overrides. | Scene queue/runtime state and scene UI policy before adding scene fields to `Run` or accessing globals from scene code. |
+| `RuntimeRenderer` (`SkullbonezSource/Runtime/Render/RuntimeRenderer.h`) | Yes | Owns runtime render pass objects and frame render ordering. | Render pass sequencing and pass-owned resources before growing `Run::Render()` as a service locator. |
+| `RuntimeCommandQueue` (`SkullbonezSource/Runtime/RuntimeCommandQueue.h`) | Yes | Owns deferred runtime/tool command intent drained at frame boundaries. | Cross-system UI/tool/runtime mutations before adding process globals or synchronous callback state. |
+| `SimulationController` (`SkullbonezSource/Runtime/SimulationController.h`) | Yes | Owns fixed-step accumulator and simulation tick policy. | Simulation timing and fixed-step state before passing raw timing globals through physics/runtime callers. |
+
+Rubber-duck review: Banach found no blockers and confirmed that all six
+checklist owners are present. Non-blocking clarity feedback narrowed the
+`RuntimeRenderHost` lifetime wording so the table cannot be read as ownership
+of borrowed runtime services.
+
 ## Problem Statement
 
 The Carmack-test verdict flagged remaining globals and singletons as a serious
@@ -485,7 +509,7 @@ bridges tiny, named, and fenced.
   `normal runtime path`, `render pass`, `asset lookup`, `diagnostics`, or
   `test/tool`.
 - [x] Record the current allowlist in this plan before changing source.
-- [ ] Identify service lifetime owners already available in `Run`,
+- [x] Identify service lifetime owners already available in `Run`,
   `EngineContext`, `RuntimeRenderHost`, `RuntimeTools`, `DiagnosticsRuntime`, and
   `SceneController`.
 
