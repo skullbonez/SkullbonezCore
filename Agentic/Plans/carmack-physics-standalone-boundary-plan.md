@@ -21,6 +21,18 @@ when SkullScope baselines or broad physics diagnostics change.
   `tools\validate_fast.bat` passed; `python tools\check_runtime_boundaries.py`
   passed with 0 errors; `tools\validate_physics.bat` passed with byte-exact
   `physics_regression_solver.csv`.
+- [x] 2026-06-28: Added a public-physics-facade guardrail to
+  `tools\check_runtime_boundaries.py` so `PhysicsApi.h` and `PhysicsEngine.h`
+  reject new `GameModelCollection`, raw `GameModel`, or
+  `std::vector<GameModel>&` dependencies. The rule still permits the temporary
+  `PhysicsModelAccess` compatibility boundary while forcing new public facade
+  work toward handles, descriptors, immutable views, or a deliberately named
+  adapter. Rubber-duck review found no blockers and two non-blocking wording
+  and synthetic-test nits, both addressed before commit. Validation evidence:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.85s
+  (`TestOutput\validation\agent_logs\physics_public_facade_guardrail_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 17.87s
+  (`TestOutput\validation\agent_logs\physics_public_facade_guardrail_validate_fast.log`).
 
 ## Problem Statement
 
@@ -101,9 +113,9 @@ commands, and read-only views, with no normal physics step dependency on
 
 ### Guardrails
 
-- [ ] Tighten `tools\check_runtime_boundaries.py` so new physics APIs cannot accept `GameModelCollection&`, `GameModelCollection*`, or raw `std::vector<GameModel>&`.
+- [x] Tighten `tools\check_runtime_boundaries.py` so new public physics facade headers cannot accept `GameModelCollection&`, `GameModelCollection*`, raw `GameModel&`, or raw `std::vector<GameModel>&`.
 - [ ] Count-guard any temporary compatibility adapter call sites and lower the count after each slice.
-- [ ] Add synthetic positive and negative tests for the boundary checker.
+- [x] Add synthetic positive and negative tests for the boundary checker.
 - [ ] Teach project-filter validation about any new physics API or adapter files.
 
 ### Tests And Evidence

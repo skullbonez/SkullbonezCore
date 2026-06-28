@@ -4,10 +4,11 @@
 # Purpose:
 #   Check that Run.h stays a runtime composition root instead of regrowing
 #   extracted subsystem ownership, and prevent new physics dependencies on the
-#   legacy GameModelCollection world container or raytracing calls on the wide
-#   render backend facade. It also blocks direct scheduling regressions for
-#   passes that already moved to render graph callback ownership, and new
-#   normal-path global service access while explicit service contexts are built.
+#   legacy GameModelCollection world container, new game-object types on public
+#   physics facades, or raytracing calls on the wide render backend facade. It
+#   also blocks direct scheduling regressions for passes that already moved to
+#   render graph callback ownership, and new normal-path global service access
+#   while explicit service contexts are built.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -28,6 +29,8 @@
 #   - Subsystems may borrow explicit service/context structs, but not store Run.
 #   - Physics may only keep the current GameModelCollection compatibility
 #     surface while stores and handles become authoritative.
+#   - Public physics facades expose handles, descriptors, views, or the named
+#     PhysicsModelAccess bridge instead of game-object storage types.
 #   - Raytracing calls go through IRenderRayTracing/GfxRayTracing instead of the
 #     wide IRenderBackend/Gfx facade.
 #   - Graph-owned render passes stay scheduled through render graph callback
@@ -70,6 +73,17 @@ PHYSICS_DELETED_MODEL_VIEW_PATTERN = re.compile(r"\b(?:MakePhysicsModelView|Phys
 PHYSICS_MODELS_ACCESS_PATTERN = re.compile(r"\bPhysicsModels\s*\(")
 PHYSICS_MODELS_COMPAT_ACCESS_PATTERN = re.compile(
     r"\b(?:MutablePhysicsModelsForCompatibility|PhysicsModelsForCompatibility)\s*\("
+)
+PUBLIC_PHYSICS_FACADE_HEADERS = (
+    Path("SkullbonezSource/Physics/PhysicsApi.h"),
+    Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+)
+# Invariant: PhysicsApi/PhysicsEngine are the front door for new physics callers.
+# Keep them on handles, descriptors, immutable views, or the deliberately named
+# PhysicsModelAccess compatibility bridge until the old collection path is gone.
+PUBLIC_PHYSICS_FACADE_GAME_OBJECT_PATTERN = re.compile(
+    r"\b(?:GameObjects\s*::\s*)?(?:GameModelCollection|GameModel)\b|"
+    r"\bstd\s*::\s*vector\s*<\s*(?:GameObjects\s*::\s*)?GameModel\b"
 )
 DIRECT_GFX_RAYTRACING_PATTERN = re.compile(
     r"\bGfx\s*\(\s*\)\s*\.\s*(?:InitDXR|DispatchReflectionRays|BuildTLAS|GetReflectionUAVTexture|"
@@ -1546,6 +1560,29 @@ def check_physics_game_model_collection_guardrails(repo: Path) -> list[BoundaryE
                 path.relative_to(repo),
             )
         )
+    return errors
+
+
+def check_public_physics_facade_game_object_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PUBLIC_PHYSICS_FACADE_GAME_OBJECT_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "public physics facade game-object dependency is blocked",
+                "Keep PhysicsApi/PhysicsEngine signatures on handles, descriptors, views, or PhysicsModelAccess compatibility only.",
+            )
+        )
+    return errors
+
+
+def check_public_physics_facade_game_object_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in PUBLIC_PHYSICS_FACADE_HEADERS:
+        path = repo / relative_path
+        errors.extend(check_public_physics_facade_game_object_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -5234,6 +5271,108 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old PhysicsWorld collection step synthetic surface was not rejected")
 
+    allowed_public_physics_facade = """
+    struct PhysicsBodyCreateDesc;
+    struct PhysicsBodyCollectionView;
+    class PhysicsEngine
+    {
+      public:
+        PhysicsBodyHandle CreateBody( const PhysicsBodyCreateDesc& desc );
+        PhysicsBodyCollectionView Bodies() const;
+        void Step( PhysicsModelAccess& modelAccess, float deltaSeconds );
+    };
+    """
+    if check_public_physics_facade_game_object_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+        allowed_public_physics_facade,
+    ):
+        failures.append("allowed public physics facade synthetic surface was rejected")
+
+    old_public_physics_collection_api = """
+    class PhysicsEngine
+    {
+      public:
+        void Step( GameObjects::GameModelCollection& collection, float deltaSeconds );
+    };
+    """
+    if not any(
+        error.message == "public physics facade game-object dependency is blocked"
+        for error in check_public_physics_facade_game_object_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+            old_public_physics_collection_api,
+        )
+    ):
+        failures.append("public physics GameModelCollection facade synthetic surface was not rejected")
+
+    old_public_physics_collection_pointer_api = """
+    class PhysicsEngine
+    {
+      public:
+        void AttachWorld( GameModelCollection* collection );
+    };
+    """
+    if not any(
+        error.message == "public physics facade game-object dependency is blocked"
+        for error in check_public_physics_facade_game_object_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+            old_public_physics_collection_pointer_api,
+        )
+    ):
+        failures.append("public physics GameModelCollection pointer synthetic surface was not rejected")
+
+    old_public_physics_model_ref_api = """
+    namespace GameObjects
+    {
+        class GameModel;
+    }
+    class PhysicsEngine
+    {
+      public:
+        void RefreshBody( GameObjects::GameModel& model );
+    };
+    """
+    if not any(
+        error.message == "public physics facade game-object dependency is blocked"
+        for error in check_public_physics_facade_game_object_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+            old_public_physics_model_ref_api,
+        )
+    ):
+        failures.append("public physics raw GameModel reference synthetic surface was not rejected")
+
+    old_public_physics_vector_api = """
+    class PhysicsEngine
+    {
+      public:
+        void RefreshBodies( std::vector<GameObjects::GameModel>& models );
+    };
+    """
+    if not any(
+        error.message == "public physics facade game-object dependency is blocked"
+        for error in check_public_physics_facade_game_object_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+            old_public_physics_vector_api,
+        )
+    ):
+        failures.append("public physics raw GameModel vector synthetic surface was not rejected")
+
+    public_facade_comment_only_text = """
+    // GameModelCollection and std::vector<GameModel>& are migration notes only.
+    /*
+       A PhysicsEngine facade must not accept GameModel here.
+    */
+    class PhysicsEngine
+    {
+      public:
+        PhysicsBodyCollectionView Bodies() const;
+    };
+    """
+    if check_public_physics_facade_game_object_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+        public_facade_comment_only_text,
+    ):
+        failures.append("public physics facade comment-only synthetic surface was rejected")
+
     deleted_model_view_text = """
     void GameModelCollection::MakePhysicsModelView();
     class PhysicsModelView;
@@ -5503,6 +5642,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_ui_text_pass_replay_overlay_guardrails(repo))
     errors.extend(check_interaction_guardrails(repo))
     errors.extend(check_physics_game_model_collection_guardrails(repo))
+    errors.extend(check_public_physics_facade_game_object_guardrails(repo))
     errors.extend(check_deleted_physics_model_view_guardrails(repo))
     errors.extend(check_physics_models_access_guardrails(repo))
     errors.extend(check_named_physics_models_compat_access_guardrails(repo))
