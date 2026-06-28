@@ -1,7 +1,7 @@
 # Engine Architecture Next Steps Plan
 
 Date: 2026-06-26
-Status: Active source-audited implementation plan; first branch slice selected
+Status: Superseded roadmap; not authoritative for implementation
 Impact area: runtime architecture, physics data ownership, DX12 renderer, render graph, assets, scene system, diagnostics
 Validation for this document-only change: none required
 
@@ -558,6 +558,16 @@ Do not parallelize:
 
 ## Handoff Notes
 
+- 2026-06-28 supersession audit: this roadmap is no longer the authoritative
+  implementation plan. Its work is now owned by narrower active plans:
+  `run-shell-extraction-plan.md`, `carmack-global-service-lifetime-plan.md`,
+  `carmack-physics-standalone-boundary-plan.md`,
+  `physics-game-model-authority-plan.md`,
+  `carmack-render-graph-resource-ownership-plan.md`, and
+  `render-graph-irender-interface-plan.md`.
+- Rubber-duck verdict: no blocking issue found for moving this document to
+  `Done` as a superseded roadmap, provided future agents do not treat its
+  success criteria as closed implementation evidence.
 - Implementation from this plan should use
   `Agentic/Skills/orchestrator/SKILL.md` unless the user explicitly asks to
   bypass it.

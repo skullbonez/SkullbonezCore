@@ -50,6 +50,34 @@ human-quality inspection against the guide, not a percentage target.
 - Final handoff for each subsystem must include checked count, deferred count,
   unchecked files, and validation status.
 
+## 2026-06-28 Inline And HLSL Reconciliation
+
+- Reran `git ls-files` for tracked `.inl` and HLSL files.
+- Added the previously missing inline-helper checklist section below; all
+  tracked `.inl` files have learning headers and were inspected against the
+  comment-style guide.
+- Added small local `Concept:`, `Why:`, `Invariant:`, and `Lifetime:` comments
+  to the two sparsest large inline helpers:
+  `RunEditorPlacementAssets.inl` and `UIEditorMiniPalette.inl`.
+- Rechecked all 21 tracked HLSL files for required learning-header fields and
+  technical binding comments; no shader comment edits were needed.
+- Completion reconciliation found 14 tracked source-bearing files that had been
+  added after the original checklist was written. Each is now listed below and
+  inspected against `Agentic/Skills/comment-style-audit/skill.md`.
+
+## 2026-06-29 HLSL Glossary Recheck
+
+- Reran `git ls-files "*.inl" "*.hlsl" "*.hlsli"` and confirmed the tracked
+  inline/shader inventory is still 35 files: 14 `.inl` files and 21 HLSL files.
+- The focused header-field scan across those 35 files found no missing `File:`,
+  `Purpose:`, `Mental model:`, `Glossary:`, `Invariants:`, or `Related:`
+  fields.
+- Added glossary-only comment entries for `HLSL (High-Level Shader Language)`
+  and `Root signature` to all 21 tracked shader headers because the shader
+  headers and invariants rely on those terms.
+- `git diff --check -- SkullbonezData/shaders/*.hlsl` reported no whitespace
+  errors after the comment-only shader glossary pass.
+
 ## Completeness Validation
 
 Use `git ls-files` for inventory. Do not use `rg` as the source of truth because
@@ -70,6 +98,29 @@ heading before the pass starts and before it is reported complete.
 Comment-only source changes require no repository validation once the final diff
 is confirmed to contain only comments/docs. If any code behavior changes, stop
 and use the validation map in `AGENTS.md`.
+
+## Completion Review
+
+2026-06-28 completion audit:
+
+- `git ls-files SkullbonezSource SkullbonezData/shaders tools Agentic/Tests`
+  for source-bearing extensions returned 427 files. The checklist below now
+  contains exactly 427 checked entries, with 0 missing and 0 extra paths.
+- Header-field scan across the same 427 files found no missing `File:`,
+  `Purpose:`, `Mental model:`, `Glossary:`, `Invariants:`, or `Related:`
+  fields after adding the missing `Glossary:` section to
+  `tools/codex_usage_daily.bat` and the missing `File:`/`Purpose:` fields to
+  `tools/align_header_inline_comments.py`.
+- Tracked `.inl` and HLSL inventory remains 14 inline helper files and 21 HLSL
+  files; the inline/HLSL header and technical binding-comment scans returned no
+  missing fields.
+- Rubber-duck verdict: no blocking issue found for moving this plan to `Done`.
+  Residual risk is semantic comment quality across a broad repository-wide pass;
+  the completion evidence is the per-file checklist, current source inventory
+  reconciliation, header-field scan, and targeted inspection of the newly
+  reconciled files.
+- Validation: no repository validation required; changes are comment/document
+  only.
 
 ## Recommended Order
 
@@ -195,7 +246,7 @@ and use the validation map in `AGENTS.md`.
 - [x] `SkullbonezSource/UI/UIWindowChrome.cpp`
 - [x] `SkullbonezSource/UI/UIWindowChrome.h`
 
-## Runtime / Scene (23 files)
+## Runtime / Scene (25 files)
 
 - [x] `SkullbonezSource/Runtime/Scene/RunScene.cpp`
 - [x] `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp`
@@ -220,8 +271,10 @@ and use the validation map in `AGENTS.md`.
 - [x] `SkullbonezSource/Runtime/Scene/SceneRuntimeReset.h`
 - [x] `SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.cpp`
 - [x] `SkullbonezSource/Runtime/Scene/SceneRuntimeStyle.h`
+- [x] `SkullbonezSource/Runtime/Scene/SceneRuntimeUiOptions.cpp`
+- [x] `SkullbonezSource/Runtime/Scene/SceneRuntimeUiOptions.h`
 
-## Runtime / Core (50 files)
+## Runtime / Core (51 files)
 
 - [x] `SkullbonezSource/Runtime/Camera.cpp`
 - [x] `SkullbonezSource/Runtime/Camera.h`
@@ -261,6 +314,7 @@ and use the validation map in `AGENTS.md`.
 - [x] `SkullbonezSource/Runtime/RuntimeDiagnostics.h`
 - [x] `SkullbonezSource/Runtime/RuntimeFileWriter.cpp`
 - [x] `SkullbonezSource/Runtime/RuntimeFileWriter.h`
+- [x] `SkullbonezSource/Runtime/RuntimeInteractionCommands.h`
 - [x] `SkullbonezSource/Runtime/RuntimeInteractionController.cpp`
 - [x] `SkullbonezSource/Runtime/RuntimeInteractionController.h`
 - [x] `SkullbonezSource/Runtime/RuntimePickService.cpp`
@@ -298,7 +352,7 @@ and use the validation map in `AGENTS.md`.
 - [x] `SkullbonezSource/Core/WorkerPool.cpp`
 - [x] `SkullbonezSource/Core/WorkerPool.h`
 
-## Physics (40 files)
+## Physics (42 files)
 
 - [x] `SkullbonezSource/Physics/BoundingBox.cpp`
 - [x] `SkullbonezSource/Physics/BoundingBox.h`
@@ -314,6 +368,7 @@ and use the validation map in `AGENTS.md`.
 - [x] `SkullbonezSource/Physics/ObjectContactManifold.h`
 - [x] `SkullbonezSource/Physics/PersistentContactSolver.cpp`
 - [x] `SkullbonezSource/Physics/PersistentContactSolver.h`
+- [x] `SkullbonezSource/Physics/PhysicsApi.cpp`
 - [x] `SkullbonezSource/Physics/PhysicsApi.h`
 - [x] `SkullbonezSource/Physics/PhysicsBodyStore.cpp`
 - [x] `SkullbonezSource/Physics/PhysicsBodyStore.h`
@@ -323,6 +378,7 @@ and use the validation map in `AGENTS.md`.
 - [x] `SkullbonezSource/Physics/PhysicsEngine.h`
 - [x] `SkullbonezSource/Physics/PhysicsHandles.h`
 - [x] `SkullbonezSource/Physics/PhysicsMass.h`
+- [x] `SkullbonezSource/Physics/PhysicsModelAccess.h`
 - [x] `SkullbonezSource/Physics/PhysicsScene.cpp`
 - [x] `SkullbonezSource/Physics/PhysicsScene.h`
 - [x] `SkullbonezSource/Physics/PhysicsWorld.cpp`
@@ -341,12 +397,14 @@ and use the validation map in `AGENTS.md`.
 - [x] `SkullbonezSource/Physics/TornadoField.cpp`
 - [x] `SkullbonezSource/Physics/TornadoField.h`
 
-## GameObjects (8 files)
+## GameObjects (10 files)
 
 - [x] `SkullbonezSource/GameObjects/GameModel.cpp`
 - [x] `SkullbonezSource/GameObjects/GameModel.h`
 - [x] `SkullbonezSource/GameObjects/GameModelCollection.cpp`
 - [x] `SkullbonezSource/GameObjects/GameModelCollection.h`
+- [x] `SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp`
+- [x] `SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.h`
 - [x] `SkullbonezSource/GameObjects/GameModelSoACache.cpp`
 - [x] `SkullbonezSource/GameObjects/GameModelSoACache.h`
 - [x] `SkullbonezSource/GameObjects/GameModelStreams.cpp`
@@ -361,7 +419,7 @@ and use the validation map in `AGENTS.md`.
 - [x] `SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp`
 - [x] `SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h`
 
-## Rendering (25 files)
+## Rendering (31 files)
 
 - [x] `SkullbonezSource/Rendering/DrawCallTrace.cpp`
 - [x] `SkullbonezSource/Rendering/DrawCallTrace.h`
@@ -369,6 +427,12 @@ and use the validation map in `AGENTS.md`.
 - [x] `SkullbonezSource/Rendering/GameModelRenderer.h`
 - [x] `SkullbonezSource/Rendering/Helper.cpp`
 - [x] `SkullbonezSource/Rendering/Helper.h`
+- [x] `SkullbonezSource/Rendering/IRenderCaptureBackend.h`
+- [x] `SkullbonezSource/Rendering/IRenderCommandContext.h`
+- [x] `SkullbonezSource/Rendering/IRenderDeviceLifecycle.h`
+- [x] `SkullbonezSource/Rendering/IRenderDiagnostics.h`
+- [x] `SkullbonezSource/Rendering/IRenderRayTracing.h`
+- [x] `SkullbonezSource/Rendering/IRenderResourceFactory.h`
 - [x] `SkullbonezSource/Rendering/IFramebuffer.h`
 - [x] `SkullbonezSource/Rendering/IMesh.h`
 - [x] `SkullbonezSource/Rendering/IRenderBackend.cpp`
@@ -436,6 +500,23 @@ and use the validation map in `AGENTS.md`.
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderResources.h`
 - [x] `SkullbonezSource/Runtime/Render/RuntimeRenderer.h`
 
+## Inline Helpers (14 files)
+
+- [x] `SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl`
+- [x] `SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl`
+- [x] `SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl`
+- [x] `SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.inl`
+- [x] `SkullbonezSource/Runtime/Editor/RunEditorTracer.inl`
+- [x] `SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl`
+- [x] `SkullbonezSource/Runtime/Replay/RunReplayCauseTreeTools.inl`
+- [x] `SkullbonezSource/Runtime/Replay/RunReplayImportExport.inl`
+- [x] `SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl`
+- [x] `SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl`
+- [x] `SkullbonezSource/Runtime/Replay/RunReplayQueryTools.inl`
+- [x] `SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.inl`
+- [x] `SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl`
+- [x] `SkullbonezSource/UI/UIEditorMiniPalette.inl`
+
 ## Maths (11 files)
 
 - [x] `SkullbonezSource/Maths/GeometricMath.cpp`
@@ -474,7 +555,7 @@ and use the validation map in `AGENTS.md`.
 - [x] `SkullbonezData/shaders/water_calm.hlsl`
 - [x] `SkullbonezData/shaders/water_ocean.hlsl`
 
-## Tools / Validation and Scripts (66 files)
+## Tools / Validation and Scripts (67 files)
 
 - [x] `tools/agent_validate.bat`
 - [x] `tools/align_header_inline_comments.py`
@@ -493,6 +574,7 @@ and use the validation map in `AGENTS.md`.
 - [x] `tools/check_runtime_boundaries.py`
 - [x] `tools/check_shooting_reaction.py`
 - [x] `tools/check_ui_blur.py`
+- [x] `tools/codex_usage_daily.bat`
 - [x] `tools/export_screenshot_png.py`
 - [x] `tools/find_clang_format.bat`
 - [x] `tools/find_git.bat`

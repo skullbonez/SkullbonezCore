@@ -1,9 +1,21 @@
 # Run Shell Extraction Plan
 
 Date: 2026-06-25
-Status: Draft follow-up plan; Phase 0 ownership map and guardrails complete
+Status: Deferred to `Agentic/Plans/IN PROGRESS/TODO.md`; archived plan is not source-complete.
 Impact area: runtime architecture, renderer orchestration, scene system, replay, editor tools, diagnostics
 Validation for this document-only change: none required
+
+## 2026-06-29 Deferred Archive Disposition
+
+This plan is being archived as a deferred coordination record, not as
+source-complete implementation evidence. The remaining completion gates are too
+broad for the current plan-clearing pass and remain source-backed. Their active
+owner is now `Agentic/Plans/IN PROGRESS/TODO.md` under
+`2026-06-29 Deferred Plan Owner Index / Run Shell Extraction`.
+
+Any checked item below that says `Transferred to TODO 2026-06-29` means the work
+was moved to that TODO owner. It does not mean the underlying source migration
+is implemented.
 
 ## Goal
 
@@ -75,9 +87,10 @@ ReplayRuntime, RuntimeTools, DiagnosticsRuntime
 ## Non-Goals
 
 - Do not rewrite physics storage here; use
-  `Agentic/Plans/game-model-data-boundary-plan.md`.
+  `Agentic/Plans/IN PROGRESS/physics-game-model-authority-plan.md` and the
+  Carmack standalone physics boundary plan.
 - Do not replace global service access here; use
-  `Agentic/Plans/global-service-context-plan.md`.
+  `Agentic/Plans/IN PROGRESS/carmack-global-service-lifetime-plan.md`.
 - Do not redesign UI layout or visual style.
 - Do not finish the render graph as part of this plan unless a narrow render
   host removal slice requires a small graph-facing adapter.
@@ -114,6 +127,35 @@ Validation:
 
 - `tools\validate_fast.bat`
 - `tools\validate_select.bat runtime-boundaries`
+
+## Completion Audit
+
+2026-06-28 audit note: this plan is not complete even though it previously had
+zero unchecked Markdown checklist items. The remaining phases are numbered task
+lists, and the current source still has `Run` wiring the broad runtime graph and
+`RuntimeRenderHost` acting as a compatibility bridge over grouped runtime views.
+At that time, this plan had to stay in `IN PROGRESS` until the gates below were
+resolved or explicitly deprecated by a newer plan.
+
+2026-06-28 recheck: CodeGraph source review still shows `RuntimeRenderHost`
+borrowing runtime systems, diagnostics, world, tools, replay, UI, scene, and
+callbacks through one compatibility bridge, so Phase 1 is not complete.
+
+2026-06-29 rubber-duck recheck: Darwin found blockers to moving this plan to
+`Done` as source-complete. The remaining gates below are source-backed;
+`RuntimeRenderHost` still borrows broad runtime/world/scene/replay/tool/UI/
+diagnostics state and callback surface, while
+`python tools\check_runtime_boundaries.py` passing only proves the guardrails
+are clean. Schrodinger later accepted moving this plan to `Done` only as an
+archived/deferred record after `TODO.md` became the authoritative owner for
+every remaining gate.
+
+- [x] (Transferred to TODO 2026-06-29; not source-complete.) Complete or supersede Phase 1 render-host service narrowing.
+- [x] (Transferred to TODO 2026-06-29; not source-complete.) Complete or supersede Phase 2 tool/replay behavior extraction.
+- [x] (Transferred to TODO 2026-06-29; not source-complete.) Complete or supersede Phase 3 scene-lifecycle side-effect extraction.
+- [x] (Transferred to TODO 2026-06-29; not source-complete.) Complete or supersede Phase 4 compatibility-surface collapse.
+- [x] (Transferred to TODO 2026-06-29; not source-complete.) Recheck success criteria against `Run.h`, `RuntimeRenderHost.h`, and
+  runtime-boundary guardrails before any `Done` move.
 
 ## Phase 1: Narrow Render Host Services
 

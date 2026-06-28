@@ -1,7 +1,7 @@
 # Game Model Data Boundary Plan
 
 Date: 2026-06-25
-Status: Draft follow-up plan; Phase 0 inventory complete
+Status: Superseded roadmap; not authoritative for implementation
 Impact area: physics, game object storage, rendering streams, replay, scene system, diagnostics
 Validation for this document-only change: none required
 
@@ -241,5 +241,14 @@ Validation:
 
 ## Handoff Notes
 
+- 2026-06-28 supersession audit: this broad data-boundary roadmap is now
+  superseded by `physics-game-model-authority-plan.md` and
+  `carmack-physics-standalone-boundary-plan.md` for active physics/store work.
+  Source review still shows the architecture is not complete, so this document
+  must not be cited as completion evidence for physics, render instances, scene
+  entity metadata, or `GameModelCollection` retirement.
+- Rubber-duck verdict: no blocking issue found for moving this document to
+  `Done` as a superseded roadmap, with all active implementation authority
+  remaining in the narrower plans above.
 Implement this in small slices through the repo-local orchestrator skill. Treat
 physics baseline changes as behavior changes, not storage refactor fallout.

@@ -9,6 +9,10 @@ Mental model:
   terrain-faded clumps.
 
 Glossary:
+  HLSL (High-Level Shader Language): Shader language used by this file; the
+    CPU-side renderer compiles it and binds resources by the declared registers.
+  Root signature: CPU-defined binding contract that must match the shader's
+    constant buffers, textures, samplers, and UAV/SRV register declarations.
   Ribbon: World-space strip used for the tornado funnel shell.
   Dust billboard: Quad whose opacity is shaped in the pixel shader.
   Terrain fade: Alpha falloff based on height above the authored terrain plane.

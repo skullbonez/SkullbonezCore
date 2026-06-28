@@ -24,8 +24,14 @@ Determine the branch before edits:
   remove, normalize, prefix, suffix, or replace any part of the requested name.
 - If the current branch is already `nightrunner-*`, reuse it unless the user
   asked for a different branch.
-- Otherwise create `nightrunner-<local-date-slug>`, such as
-  `nightrunner-20th-june`.
+- Otherwise, first look for an existing reusable nightrunner branch before
+  creating anything new. Prefer the most recently updated local branch from
+  `git branch --list "nightrunner-*" --sort=-committerdate`; if none exists,
+  look for the most recently updated remote-tracking branch from
+  `git branch -r --list "origin/nightrunner-*" --sort=-committerdate` and
+  create a local tracking branch for it.
+- Create `nightrunner-<local-date-slug>`, such as `nightrunner-20th-june`,
+  only when no reusable local or remote-tracking nightrunner branch exists.
 
 ## Startup
 
@@ -83,9 +89,13 @@ For each plan, in order:
    archival/report expectations.
 2. Complete exactly that plan in the main agent. Do not launch an implementation
    worker or ask a sub-agent to edit files.
-3. Inspect the result with `git status --short` and targeted file reads or
+3. Before treating a plan as complete, inspect every file named or clearly
+   covered by the plan, plus the plan checklist itself. Confirm the work is
+   actually done in those files; do not rely only on unchecked-item counts,
+   stale notes, or a sample of files.
+4. Inspect the result with `git status --short` and targeted file reads or
    diffs.
-4. Launch a separate read-only rubber-duck review sub-agent:
+5. Launch a separate read-only rubber-duck review sub-agent:
 
 ```text
 Use $rubber-duck to review the completed work for <plan-path> on branch <branch>.
@@ -94,20 +104,25 @@ baseline mistakes, determinism risks, DX12 validation risks, and hot-path alloca
 Return findings with file/line references and a clear verdict.
 ```
 
-5. Address blocking rubber-duck findings in the main agent before committing.
-6. Repeat the rubber-duck pass if the fix changed meaningful behavior or
+6. Address blocking rubber-duck findings in the main agent before committing.
+7. Repeat the rubber-duck pass if the fix changed meaningful behavior or
    touched the reviewed risk area. Record every repeat as its own accounting
    row.
-7. Run the smallest required pre-commit validation from `AGENTS.md` for that
+8. Move the plan file to `Agentic/Plans/Done` only after the file-by-file
+   completion check and rubber-duck review both confirm there are no blockers.
+   This applies even when the checklist has zero unchecked items. If the plan is
+   still blocked, incomplete, or too large to close safely, leave it in
+   `Agentic/Plans/IN PROGRESS` and add explicit TODO notes there instead.
+9. Run the smallest required pre-commit validation from `AGENTS.md` for that
    plan's final changed-file set. Documentation-only changes require no
    validation.
-8. Run `git status --short --branch` before staging.
-9. Stage only files belonging to the completed plan and its required
+10. Run `git status --short --branch` before staging.
+11. Stage only files belonging to the completed plan and its required
     reports/session-state updates.
-10. Commit with useful notes: what changed, why, implementation details by
+12. Commit with useful notes: what changed, why, implementation details by
     area, exact validation command and result, and baseline/report/session-state
     updates.
-11. Push normally. Never force-push.
+13. Push normally. Never force-push.
 
 Only advance to the next plan after the current plan is reviewed, validated as
 required, committed, and pushed.

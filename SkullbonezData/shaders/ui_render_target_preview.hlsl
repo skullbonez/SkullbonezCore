@@ -8,6 +8,10 @@ Mental model:
   texture handle plus a mode flag for color, HDR color, or depth display.
 
 Glossary:
+  HLSL (High-Level Shader Language): Shader language used by this file; the
+    CPU-side renderer compiles it and binds resources by the declared registers.
+  Root signature: CPU-defined binding contract that must match the shader's
+    constant buffers, textures, samplers, and UAV/SRV register declarations.
   HDR (High Dynamic Range): Floating-point scene color that can hold values
   brighter than display white until tonemapping resolves it.
   SRV (Shader Resource View): Descriptor row used when shaders read a texture or

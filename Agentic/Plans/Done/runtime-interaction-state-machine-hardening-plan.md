@@ -1,9 +1,21 @@
 # Runtime Interaction State Machine Hardening Plan
 
 Date: 2026-06-25
-Status: Active implementation plan; multiple behavior-preserving slices landed
+Status: Deferred to `Agentic/Plans/IN PROGRESS/TODO.md`; archived plan is not source-complete.
 Impact area: runtime input, editor tools, replay UI, camera policy, tool physics stepping
 Validation for this document-only change: none required
+
+## 2026-06-29 Deferred Archive Disposition
+
+This plan is being archived as a deferred coordination record, not as
+source-complete implementation evidence. The remaining completion gates are too
+broad for the current plan-clearing pass and remain source-backed. Their active
+owner is now `Agentic/Plans/IN PROGRESS/TODO.md` under
+`2026-06-29 Deferred Plan Owner Index / Runtime Interaction State Machine`.
+
+Any checked item below that says `Transferred to TODO 2026-06-29` means the work
+was moved to that TODO owner. It does not mean the underlying source migration
+is implemented.
 
 ## Goal
 
@@ -1040,6 +1052,41 @@ Rollback:
 
 Run these during implementation slices as focused manual checks. Formal
 repository validation remains the PR/commit gate.
+
+## Completion Audit
+
+2026-06-28 audit note: this plan is not complete even though it previously had
+zero unchecked Markdown checklist items. `RuntimeInteractionController`,
+`RuntimeInputSnapshot`, command/event records, and `RuntimePickService` exist,
+but current source still shows `Run::TakeInput()` and `RouteRuntimePointerInput`
+owning tool-specific world-click routing, launcher fire, replay target picking,
+and compatibility cleanup. At that time, this plan had to stay in `IN PROGRESS`
+until the gates below were complete or explicitly superseded.
+
+2026-06-28 recheck: CodeGraph source review still shows
+`RouteRuntimePointerInput(...)` sequentially trying editor world click, mouse
+pickup, attach-camera click, replay path target picking, and launcher fire from
+`RunInput.cpp`, so the remaining tool/router gates are source-backed.
+
+2026-06-29 rubber-duck recheck: Darwin found blockers to moving this plan to
+`Done` as source-complete. The remaining gates below are still source-backed;
+`Run::TakeInput()` and `RouteRuntimePointerInput(...)` continue to own
+tool-specific routing, launcher fire, replay target picking, and compatibility
+cleanup. Passing `python tools\check_runtime_boundaries.py` proves only that the
+current guardrails pass. Schrodinger later accepted moving this plan to `Done`
+only as an archived/deferred record after `TODO.md` became the authoritative
+owner for every remaining gate.
+
+- [x] (Transferred to TODO 2026-06-29; not source-complete.) Finish migrating launcher, manipulator, editor, inspect, and replay tools
+  into explicit tool/gesture owners outside `Run::TakeInput()`.
+- [x] (Transferred to TODO 2026-06-29; not source-complete.) Replace remaining direct tool-specific world-click branches in
+  `RouteRuntimePointerInput(...)` with controller/router decisions and commands.
+- [x] (Transferred to TODO 2026-06-29; not source-complete.) Make replay scrub/live hold, velocity edit, prediction, cause-tree, and
+  path/branch target interactions fully gesture-owned.
+- [x] (Transferred to TODO 2026-06-29; not source-complete.) Verify manipulator physics policy is explicit and does not depend on
+  inspect step-held behavior.
+- [x] (Transferred to TODO 2026-06-29; not source-complete.) Recheck final acceptance criteria and manual matrix before any `Done`
+  move.
 
 Camera and capture:
 
