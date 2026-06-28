@@ -113,6 +113,30 @@ storage changes, also run `tools\validate_perf.bat`.
   the slice should be recorded as texture-slot helper progress only, and the
   `Gfx()` guardrail is still a counted ratchet rather than a semantic per-call
   classifier.
+- [x] 2026-06-28: Migrated generated cinematic sky depth/blend state in
+  `SkyPass::RenderCinematicSky()` from direct `Gfx()` calls to the borrowed
+  `IRenderCommandContext` already carried by `RenderFrameContext`. This removes
+  eight more `RunPasses.cpp` `Gfx()` calls and lowers the file allowlist from
+  96 to 88; viewport, clear, resource creation, dynamic geometry, and many
+  other pass calls still use the compatibility facade and remain open debt.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; the touched sky pass state block keeps
+  the existing pass-contract comments and no new ownership is introduced.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.81s
+  (`TestOutput\validation\agent_logs\sky_command_state_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.45s
+  (`TestOutput\validation\agent_logs\sky_command_state_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 17.68s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\sky_command_state_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.45s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\sky_command_state_validate_full.log`).
+  Rubber-duck review: Hilbert found no blockers. Non-blocking note: the sky
+  pass still restores depth write from the depth-test snapshot, which matches
+  the pre-existing behavior but remains state-contract debt for a later command
+  state cleanup.
 
 ## Problem Statement
 
@@ -175,6 +199,9 @@ compatibility facade while call sites migrate.
 - [x] Route runtime render-pass texture-slot hygiene helpers through
   `RenderFrameContext`'s borrowed `IRenderCommandContext` and lower the
   `RunPasses.cpp` direct `Gfx()` allowlist from 98 to 96.
+- [x] Route generated cinematic sky depth/blend state through
+  `RenderFrameContext`'s borrowed `IRenderCommandContext` and lower the
+  `RunPasses.cpp` direct `Gfx()` allowlist from 96 to 88.
 - [ ] Pass capture/readback capability only to screenshot and validation paths.
 - [ ] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
 - [ ] Pass GPU profiler capability only to profiler marker code.

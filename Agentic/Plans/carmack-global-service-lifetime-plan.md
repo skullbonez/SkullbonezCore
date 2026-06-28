@@ -78,6 +78,31 @@ require `tools\validate_full.bat`.
   Rubber-duck review: Hubble found no blockers; the reviewer called out the
   nullable/assert-only command pointer and counted-ratchet limits as residual
   risks to keep visible in later slices.
+- [x] 2026-06-28: Routed generated cinematic sky depth/blend state through
+  `RenderFrameContext`'s borrowed `IRenderCommandContext` instead of direct
+  `Gfx()` calls. This lowers `RunPasses.cpp` direct `Gfx()` debt from 96 to 88
+  and the plan's total counted `Gfx()` surface from 291 to 283. The broad
+  normal-path render-pass migration remains open because other state,
+  viewport, clear, resource, dynamic geometry, and DXR paths still reach the
+  compatibility facade.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; the change uses the existing borrowed
+  frame command context and does not introduce new ownership.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.81s
+  (`TestOutput\validation\agent_logs\sky_command_state_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.45s
+  (`TestOutput\validation\agent_logs\sky_command_state_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 17.68s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\sky_command_state_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.45s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\sky_command_state_validate_full.log`).
+  Rubber-duck review: Hilbert found no blockers. Non-blocking note: the sky
+  pass still restores depth write from the depth-test snapshot, which matches
+  the pre-existing behavior but remains state-contract debt for a later command
+  state cleanup.
 
 ## Current Counted Global-Service Surface
 
@@ -88,7 +113,7 @@ string literals.
 | Pattern | Current count |
 |---------|---------------|
 | `Cfg()` | 239 |
-| `Gfx()` | 291 |
+| `Gfx()` | 283 |
 | `GfxRayTracing()` | 5 |
 | `ActiveAssetSystem()` | 4 |
 | `CreateShaderFromActiveAssets()` | 16 |
@@ -169,6 +194,9 @@ bridges tiny, named, and fenced.
 - [ ] Route render pass backend access through render capability/context
   arguments.
 - [x] Route render pass texture-slot hygiene helpers through
+  `RenderFrameContext`'s borrowed command context instead of direct `Gfx()`
+  calls.
+- [x] Route generated cinematic sky depth/blend state through
   `RenderFrameContext`'s borrowed command context instead of direct `Gfx()`
   calls.
 - [ ] Route shader and texture creation through an asset/render context passed

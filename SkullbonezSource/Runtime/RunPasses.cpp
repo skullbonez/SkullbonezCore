@@ -852,23 +852,24 @@ void SkyPass::RenderCinematicSky( const RenderFrameContext& frame, const Math::T
 
     // The sky is painted as a full-screen background. It should not test against
     // terrain depth and it should not blend with whatever was previously there.
-    const bool depthWasEnabled = Gfx().IsDepthTestEnabled();
-    const bool blendWasEnabled = Gfx().IsBlendEnabled();
-    Gfx().SetDepthTest( false );
-    Gfx().SetDepthWrite( false );
-    Gfx().SetBlend( false );
+    Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
+    const bool depthWasEnabled = renderCommands.IsDepthTestEnabled();
+    const bool blendWasEnabled = renderCommands.IsBlendEnabled();
+    renderCommands.SetDepthTest( false );
+    renderCommands.SetDepthWrite( false );
+    renderCommands.SetBlend( false );
 
     // Pass contract: this generated sky samples no textures. Clear inherited
     // SRV slots before the fullscreen draw so stale pass inputs cannot be
     // recopied by the backend while the sky shader is active.
-    ClearAllRenderTextureSlots( RenderCommands( frame ) );
+    ClearAllRenderTextureSlots( renderCommands );
     sky.atmosphereShader->Use();
     BindSkyPassParams( *sky.atmosphereShader, view, frame.projection, cinematic );
     DrawFullscreenQuad( fullscreen.quadVB );
 
-    Gfx().SetDepthTest( depthWasEnabled );
-    Gfx().SetDepthWrite( depthWasEnabled );
-    Gfx().SetBlend( blendWasEnabled );
+    renderCommands.SetDepthTest( depthWasEnabled );
+    renderCommands.SetDepthWrite( depthWasEnabled );
+    renderCommands.SetBlend( blendWasEnabled );
 }
 
 
