@@ -152,6 +152,32 @@ require `tools\validate_full.bat`.
   validation suite is broad renderer coverage rather than tornado-scene-specific
   visual proof, so this slice is recorded as a command-context/global-access
   ratchet with full renderer safety-net evidence.
+- [x] 2026-06-28: Routed `ShadowPass::RenderShadowMap()` viewport/clear,
+  depth/blend/cull state, polygon offset, and final viewport restore through
+  its existing `IRenderCommandContext` argument instead of direct `Gfx()` calls.
+  This lowers `RunPasses.cpp` direct `Gfx()` debt from 60 to 44 and the plan's
+  total counted `Gfx()` surface from 255 to 239. The broad
+  render-pass/global-service migration remains open for shadow target creation,
+  reflection, volumetric, tonemap, resource creation, and DXR paths.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; the change uses the existing borrowed
+  command context and preserves the current shadow-map state restore contract.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.78s
+  (`TestOutput\validation\agent_logs\shadow_command_state_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.36s
+  (`TestOutput\validation\agent_logs\shadow_command_state_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 18.02s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\shadow_command_state_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.80s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\shadow_command_state_validate_full.log`).
+  Rubber-duck review: Huygens found no blockers. Non-blocking notes: this slice
+  intentionally preserves legacy shadow state restore semantics rather than
+  fixing depth-write/cull restore debt, the viewport restore relies on window
+  and backend dimensions staying in lockstep, and the DX12 validation suite is
+  broad renderer coverage rather than a shadow-scene-specific visual proof.
 
 ## Current Counted Global-Service Surface
 
@@ -162,7 +188,7 @@ string literals.
 | Pattern | Current count |
 |---------|---------------|
 | `Cfg()` | 239 |
-| `Gfx()` | 255 |
+| `Gfx()` | 239 |
 | `GfxRayTracing()` | 5 |
 | `ActiveAssetSystem()` | 4 |
 | `CreateShaderFromActiveAssets()` | 16 |
@@ -253,6 +279,8 @@ bridges tiny, named, and fenced.
 - [x] Route tornado visual depth/blend/cull state and transient triangle draw
   through `RenderFrameContext`'s borrowed command context instead of direct
   `Gfx()` calls.
+- [x] Route shadow-map viewport/clear/depth/blend/cull/polygon-offset state
+  through its existing command context argument instead of direct `Gfx()` calls.
 - [ ] Route shader and texture creation through an asset/render context passed
   from runtime-owned services.
 - [ ] Replace `ActiveAssetSystem()` in scene parsing and editor tools with an

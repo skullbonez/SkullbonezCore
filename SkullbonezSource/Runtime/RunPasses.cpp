@@ -702,23 +702,23 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
     // color target on some backends, but receivers sample only the depth texture
     // handle stored in ShadowFrameData.
     target.Bind();
-    Gfx().SetViewport( 0, 0, target.GetWidth(), target.GetHeight() );
-    Gfx().Clear( true, true );
+    renderCommands.SetViewport( 0, 0, target.GetWidth(), target.GetHeight() );
+    renderCommands.Clear( true, true );
 
     // Shadow depth writes must be opaque and depth-only. Save the caller's
     // blend/depth state because this pass runs in the middle of RenderFrame()
     // before reflection, world rendering, water, UI, and debug overlays.
-    const bool depthWasEnabled = Gfx().IsDepthTestEnabled();
-    const bool blendWasEnabled = Gfx().IsBlendEnabled();
-    Gfx().SetDepthTest( true );
-    Gfx().SetDepthWrite( true );
-    Gfx().SetBlend( false );
-    Gfx().SetCullFace( true );
+    const bool depthWasEnabled = renderCommands.IsDepthTestEnabled();
+    const bool blendWasEnabled = renderCommands.IsBlendEnabled();
+    renderCommands.SetDepthTest( true );
+    renderCommands.SetDepthWrite( true );
+    renderCommands.SetBlend( false );
+    renderCommands.SetCullFace( true );
 
     // Polygon offset reduces self-shadow acne on terrain and object faces. The
     // shader-side receiver bias handles comparison precision; this rasterizer
     // bias handles the depth values written into the map.
-    Gfx().SetPolygonOffset( true, 2.0f, 4.0f );
+    renderCommands.SetPolygonOffset( true, 2.0f, 4.0f );
     // Pass contract: shadow depth shaders write depth only and sample no
     // textures. Clear inherited slots so descriptor state from the visible
     // scene cannot leak into this off-screen pass.
@@ -757,12 +757,12 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
         }
     }
 
-    Gfx().SetPolygonOffset( false );
-    Gfx().SetDepthTest( depthWasEnabled );
-    Gfx().SetDepthWrite( depthWasEnabled );
-    Gfx().SetBlend( blendWasEnabled );
+    renderCommands.SetPolygonOffset( false );
+    renderCommands.SetDepthTest( depthWasEnabled );
+    renderCommands.SetDepthWrite( depthWasEnabled );
+    renderCommands.SetBlend( blendWasEnabled );
     target.Unbind();
-    Gfx().SetViewport( 0, 0, Gfx().GetWidth(), Gfx().GetHeight() );
+    renderCommands.SetViewport( 0, 0, m_host.WindowScreenWidth(), m_host.WindowScreenHeight() );
 }
 
 

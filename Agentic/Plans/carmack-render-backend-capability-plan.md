@@ -185,6 +185,32 @@ storage changes, also run `tools\validate_perf.bat`.
   validation suite is broad renderer coverage rather than tornado-scene-specific
   visual proof, so this slice is recorded as a command-context/global-access
   ratchet with full renderer safety-net evidence.
+- [x] 2026-06-28: Migrated `ShadowPass::RenderShadowMap()` viewport/clear,
+  depth/blend/cull state, polygon offset, and final viewport restore from
+  direct `Gfx()` calls to the `IRenderCommandContext` already passed into the
+  helper. This removes sixteen more `RunPasses.cpp` `Gfx()` calls and lowers
+  the file allowlist from 60 to 44; shadow target creation, reflection,
+  volumetric, tonemap, resource creation, and DXR paths remain open.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; both touched source-bearing files retain
+  learning headers, and this slice preserves the existing shadow-map state
+  restore contract instead of folding behavior cleanup into the migration.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.78s
+  (`TestOutput\validation\agent_logs\shadow_command_state_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.36s
+  (`TestOutput\validation\agent_logs\shadow_command_state_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 18.02s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\shadow_command_state_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.80s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\shadow_command_state_validate_full.log`).
+  Rubber-duck review: Huygens found no blockers. Non-blocking notes: this slice
+  intentionally preserves legacy shadow state restore semantics rather than
+  fixing depth-write/cull restore debt, the viewport restore relies on window
+  and backend dimensions staying in lockstep, and the DX12 validation suite is
+  broad renderer coverage rather than a shadow-scene-specific visual proof.
 
 ## Problem Statement
 
@@ -256,6 +282,9 @@ compatibility facade while call sites migrate.
 - [x] Route tornado visual depth/blend/cull state and transient triangle draw
   through `RenderFrameContext`'s borrowed `IRenderCommandContext` and lower the
   `RunPasses.cpp` direct `Gfx()` allowlist from 76 to 60.
+- [x] Route shadow-map viewport/clear/depth/blend/cull/polygon-offset state
+  through the existing `IRenderCommandContext` argument and lower the
+  `RunPasses.cpp` direct `Gfx()` allowlist from 60 to 44.
 - [ ] Pass capture/readback capability only to screenshot and validation paths.
 - [ ] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
 - [ ] Pass GPU profiler capability only to profiler marker code.
