@@ -8,6 +8,14 @@
 @rem   source. The script uses ripgrep when available to pull only token-count
 @rem   rows, then parses the few numeric fields needed for the compact report.
 @rem
+@rem Glossary:
+@rem   Cached token: Prompt token reported by Codex as reusable context, billed
+@rem     at a lower estimated rate than uncached input.
+@rem   Session file: Local JSONL-style Codex transcript containing timestamped
+@rem     telemetry events.
+@rem   Cost estimate: Local arithmetic over token counts and model rates; it is
+@rem     not an invoice or billing-system source of truth.
+@rem
 @rem Invariants:
 @rem   - Output stays compact: Date, Input, Output, Cached, Input-Fresh, Cost.
 @rem   - The cost estimate uses GPT-5.5 default token rates:

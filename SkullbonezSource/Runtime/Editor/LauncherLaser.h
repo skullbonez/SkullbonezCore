@@ -16,6 +16,8 @@ Glossary:
 
 Invariants:
   - LauncherLaser owns only transient render feedback.
+  - Shader creation borrows the caller's AssetSystem; the laser must not call
+    the active asset bridge from its tool-owned render state.
   - Replay snapshots must preserve enough state to restore visible shots.
 
 Related:
@@ -34,8 +36,15 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
+
 namespace Rendering
 {
+class IRenderCommandContext;
+class IRenderResourceFactory;
 class IShader;
 }
 
@@ -77,7 +86,7 @@ class LauncherLaser
     std::unique_ptr<Rendering::IShader> m_shader;
     uint32_t m_dynamicVB = 0;
 
-    void EnsureResources();
+    void EnsureResources( const Assets::AssetSystem& assets, Rendering::IRenderResourceFactory& renderResources );
     void EmitVertex( const Math::Vector::Vector3& p, float r, float g, float b, float a );
     void EmitQuad( const Math::Vector::Vector3& a,
                    const Math::Vector::Vector3& b,
@@ -110,7 +119,7 @@ class LauncherLaser
     LauncherLaser();
     ~LauncherLaser();
 
-    void ResetResources();
+    void ResetResources( Rendering::IRenderResourceFactory* renderResources = nullptr );
     void Clear();
     void Fire( const Math::Vector::Vector3& rayOrigin,
                const Math::Vector::Vector3& rayDirection,
@@ -121,7 +130,10 @@ class LauncherLaser
     bool HasActiveShots() const;
     void CaptureShots( std::vector<LauncherLaserShotSnapshot>& outShots, int& outNextShot ) const;
     void RestoreShots( const std::vector<LauncherLaserShotSnapshot>& shots, int nextShot );
-    void Render( const Math::Transformation::Matrix4& viewProjection,
+    void Render( const Assets::AssetSystem& assets,
+                 Rendering::IRenderCommandContext& renderCommands,
+                 Rendering::IRenderResourceFactory& renderResources,
+                 const Math::Transformation::Matrix4& viewProjection,
                  const Math::Vector::Vector3& cameraEye,
                  const Math::Vector::Vector3& cameraUp );
 };

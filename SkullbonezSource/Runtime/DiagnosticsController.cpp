@@ -80,9 +80,9 @@ bool DiagnosticsController::PerfTestActive() const
 }
 
 
-void DiagnosticsController::TickPerfLog( const RuntimePerfTickContext& context )
+void DiagnosticsController::TickPerfLog( const RuntimePerfTickContext& context, Profiler& profiler )
 {
-    RuntimeDiagnostics::TickPerfLog( m_perfLog, context );
+    RuntimeDiagnostics::TickPerfLog( m_perfLog, context, profiler );
 }
 
 

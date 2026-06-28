@@ -37,6 +37,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
+
 namespace Basics
 {
 class RuntimeRenderer
@@ -48,10 +53,14 @@ class RuntimeRenderer
     void RenderFrame( const RuntimeRenderInputs& renderInputs );
     void ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources );
 
-    void EnsureUiTextResources();
+    void EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources );
     bool ShouldRenderUiText() const;
     void SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing );
-    void RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics, double dSecondsPerFrame );
+    void RenderUiText( Assets::AssetSystem& assets,
+                       Rendering::IRenderCommandContext& renderCommands,
+                       Rendering::IRenderResourceFactory& renderResources,
+                       Rendering::IRenderDiagnostics& renderDiagnostics,
+                       double dSecondsPerFrame );
 
   private:
     struct CinematicPostGraphResult
@@ -120,9 +129,14 @@ class RuntimeRenderer
                                                 bool useCinematicTarget,
                                                 const CinematicRenderConfig* activeCinematic,
                                                 const Rendering::ShadowFrameData* objectShadow );
-    bool ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget );
+    bool ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame,
+                                                const RenderResourceContext& resources,
+                                                bool useCinematicTarget );
     CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const RenderFrameContext& frame );
-    bool ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
+    bool ExecuteUiTextThroughRenderGraph( Assets::AssetSystem& assets,
+                                          Rendering::IRenderCommandContext& renderCommands,
+                                          Rendering::IRenderResourceFactory& renderResources,
+                                          Rendering::IRenderDiagnostics& renderDiagnostics,
                                           Rendering::IRenderRayTracing* renderRayTracing,
                                           double secondsPerFrame );
 

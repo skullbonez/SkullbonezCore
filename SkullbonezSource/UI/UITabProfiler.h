@@ -10,12 +10,16 @@ Mental model:
 Glossary:
   Draw command: Lightweight record describing a UI shape or text batch to
   render later in the frame.
+  Profiler view: Borrowed marker/timing source supplied by InGameUI frame data
+    instead of reacquired through a singleton.
   Hit box: Screen-space rectangle used to decide whether mouse input targets a
   widget.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
-  constants.
+    constants.
+  - Profiler pointers are optional during first-frame/input-only layout; marker
+    rows must handle null without losing draw-call trace rows.
 
 Related:
   - SkullbonezSource/UI/UITabProfiler.cpp
@@ -23,6 +27,7 @@ Related:
 */
 #pragma once
 
+#include "../Rendering/DrawCallTrace.h"
 #include "UICheckBox.h"
 #include "UISlider.h"
 
@@ -30,6 +35,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Basics
+{
+class Profiler;
+}
+
 namespace UI
 {
 
@@ -87,10 +97,16 @@ void SetTimelineEnabled( UIProfilerTabState& state, bool enabled );
 void SetPerformanceHistogramEnabled( UIProfilerTabState& state, bool enabled );
 
 void ResetPreviewState( UIProfilerTabState& state );
-void ApplyDefaultExpansion( UIProfilerTabState& state );
-void ApplyExpandAll( UIProfilerTabState& state );
+void ApplyDefaultExpansion( UIProfilerTabState& state,
+                            const Basics::Profiler* profiler,
+                            const Rendering::DrawCallTraceSnapshot& drawTrace );
+void ApplyExpandAll( UIProfilerTabState& state,
+                     const Basics::Profiler* profiler,
+                     const Rendering::DrawCallTraceSnapshot& drawTrace );
 
-int ContentHeight( const UIProfilerTabState& state );
+int ContentHeight( const UIProfilerTabState& state,
+                   const Basics::Profiler* profiler,
+                   const Rendering::DrawCallTraceSnapshot& drawTrace );
 bool HandleContentClick( UIProfilerTabState& state,
                          InGameUIInputResult& result,
                          int& activeSlider,
@@ -101,7 +117,9 @@ bool HandleContentClick( UIProfilerTabState& state,
                          int mouseX,
                          int mouseY,
                          int currentWorkerThreads,
-                         int maxWorkerThreads );
+                         int maxWorkerThreads,
+                         const Basics::Profiler* profiler,
+                         const Rendering::DrawCallTraceSnapshot& drawTrace );
 bool UpdateActiveSlider( UIProfilerTabState& state,
                          int activeSlider,
                          int mouseX,

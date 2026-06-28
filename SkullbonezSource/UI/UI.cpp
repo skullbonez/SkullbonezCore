@@ -12,10 +12,14 @@ Glossary:
   render later in the frame.
   Hit box: Screen-space rectangle used to decide whether mouse input targets a
   widget.
+  Render resource factory: Borrowed renderer capability used by preview widgets
+  that lazily allocate shader or dynamic vertex-buffer resources.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
-  constants.
+    constants.
+  - UI-owned preview resources are backend-specific and must be rebuilt or
+    released through the active render resource factory.
 
 Related:
   - SkullbonezSource/UI/UI.h
@@ -23,7 +27,8 @@ Related:
 */
 #include "UI.h"
 #include "../Assets/AssetSystem.h"
-#include "../Rendering/IRenderBackend.h"
+#include "../Rendering/IRenderCommandContext.h"
+#include "../Rendering/IRenderResourceFactory.h"
 #include "../Maths/Matrix4.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
 #include "../Core/Profiler.h"
@@ -169,7 +174,38 @@ uint32_t HashRenderTargetPreviewCatalog( uint32_t hash, const InGameUIFrameData&
 }
 
 
-uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
+uint32_t HashDrawCallTraceSnapshot( uint32_t hash,
+                                    const SkullbonezCore::Rendering::DrawCallTraceSnapshot& snapshot )
+{
+    hash = HashInt( hash, snapshot.nodeCount );
+    hash = HashInt( hash, snapshot.nodeOverflowCount );
+    hash = HashInt( hash, snapshot.eventCount );
+    hash = HashInt( hash, snapshot.eventOverflowCount );
+    hash = HashInt( hash, snapshot.scopeMismatchCount );
+    if ( !snapshot.nodes )
+    {
+        return hash;
+    }
+
+    const int nodeCount =
+        std::clamp( snapshot.nodeCount, 0, SkullbonezCore::Rendering::DrawCallTrace::MAX_DRAW_TRACE_NODES );
+    for ( int i = 0; i < nodeCount; ++i )
+    {
+        const SkullbonezCore::Rendering::DrawCallTraceNode& node = snapshot.nodes[i];
+        hash = HashTextValue( hash, node.name );
+        hash = HashTextValue( hash, node.leafName );
+        hash = HashInt( hash, static_cast<int>( node.hash ) );
+        hash = HashInt( hash, node.parentIndex );
+        hash = HashInt( hash, node.depth );
+        hash = HashInt( hash, node.drawCallCount );
+        hash = HashInt( hash, node.vertexCount );
+        hash = HashInt( hash, node.instanceCount );
+    }
+    return hash;
+}
+
+
+uint32_t BuildUIContentSignature( const InGameUIFrameData& data, bool includeDrawCallTrace )
 {
     // Invariant: The content signature is the cache invalidation contract.
     // Include every frame-data value that can change visible UI text, controls,
@@ -186,6 +222,10 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     }
     hash = HashInt( hash, data.drawCallsBeforeUI );
     hash = HashInt( hash, data.UIDrawCalls );
+    if ( includeDrawCallTrace )
+    {
+        hash = HashDrawCallTraceSnapshot( hash, data.drawCallTrace );
+    }
     hash = HashFloat( hash, data.fps );
     hash = HashFloat( hash, data.renderMs, 1000.0f );
     hash = HashFloat( hash, data.physicsMs, 1000.0f );
@@ -390,14 +430,8 @@ void FlushUIDrawList( const UIDrawList& drawList, int screenW, int screenH, floa
     PROFILE_GPU_BEGIN( "Frame/UI/Draw" );
     const UIDrawContext immediateDraw( screenW, screenH );
     drawList.Flush( immediateDraw, offsetX, offsetY );
-    {
-        DRAW_CALL_TRACE_SCOPE( "Widgets" );
-        Text2d::FlushQuads();
-    }
-    {
-        DRAW_CALL_TRACE_SCOPE( "Text" );
-        Text2d::FlushText();
-    }
+    Text2d::FlushQuads();
+    Text2d::FlushText();
     PROFILE_GPU_END( "Frame/UI/Draw" );
 }
 
@@ -582,16 +616,17 @@ void DrawEditorObjectCounter( const UIDrawContext& draw,
 }
 
 
-void EnsureRenderTargetPreviewResources( std::unique_ptr<IShader>& shader, uint32_t& dynamicVB )
+void EnsureRenderTargetPreviewResources( std::unique_ptr<IShader>& shader,
+                                         uint32_t& dynamicVB,
+                                         SkullbonezCore::Assets::AssetSystem& assets,
+                                         SkullbonezCore::Rendering::IRenderResourceFactory& renderResources )
 {
-    if ( !IsGfxReady() )
-    {
-        return;
-    }
-
+    // Lifetime: preview resources belong to the UI overlay but are allocated
+    // from the active backend. The caller supplies the live frame factory so
+    // this helper does not sample the process renderer singleton.
     if ( !shader )
     {
-        shader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.ui_render_target_preview" );
+        shader = assets.CreateShader( renderResources, "shader.ui_render_target_preview" );
         shader->Use();
         shader->SetInt( "uTexture", 0 );
     }
@@ -599,19 +634,23 @@ void EnsureRenderTargetPreviewResources( std::unique_ptr<IShader>& shader, uint3
     if ( dynamicVB == 0 )
     {
         const int attribs[] = { 2, 2 };
-        dynamicVB = Gfx().CreateDynamicVB( attribs, 2, 6 );
+        dynamicVB = renderResources.CreateDynamicVB( attribs, 2, 6 );
     }
 }
 
-void ResetRenderTargetPreviewResources( std::unique_ptr<IShader>& shader, uint32_t& dynamicVB )
+void ResetRenderTargetPreviewResources( std::unique_ptr<IShader>& shader,
+                                        uint32_t& dynamicVB,
+                                        SkullbonezCore::Rendering::IRenderResourceFactory* renderResources )
 {
     shader.reset();
+    // Hazard: shutdown can reach this path after failed backend init. In that
+    // case clear the cached handle without calling into a missing backend.
+    if ( renderResources && dynamicVB != 0 )
+    {
+        renderResources->DestroyDynamicVB( dynamicVB );
+    }
     if ( dynamicVB != 0 )
     {
-        if ( IsGfxReady() )
-        {
-            Gfx().DestroyDynamicVB( dynamicVB );
-        }
         dynamicVB = 0;
     }
 }
@@ -621,14 +660,17 @@ void DrawRenderTargetPreviewTexture( std::unique_ptr<IShader>& shader,
                                      const UIDrawContext& draw,
                                      const UIRenderTargetPreviewResource& resource,
                                      const UIRect& bounds,
-                                     const UIRect& clipBounds )
+                                     const UIRect& clipBounds,
+                                     SkullbonezCore::Assets::AssetSystem& assets,
+                                     SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                     SkullbonezCore::Rendering::IRenderResourceFactory& renderResources )
 {
-    if ( !resource.available || resource.textureHandle == 0 || bounds.w <= 1.0f || bounds.h <= 1.0f || !IsGfxReady() )
+    if ( !resource.available || resource.textureHandle == 0 || bounds.w <= 1.0f || bounds.h <= 1.0f )
     {
         return;
     }
 
-    EnsureRenderTargetPreviewResources( shader, dynamicVB );
+    EnsureRenderTargetPreviewResources( shader, dynamicVB, assets, renderResources );
     if ( !shader || dynamicVB == 0 )
     {
         return;
@@ -654,31 +696,28 @@ void DrawRenderTargetPreviewTexture( std::unique_ptr<IShader>& shader,
     };
 
     const Matrix4 proj = Matrix4::Ortho( -draw.HalfW(), draw.HalfW(), -draw.HalfH(), draw.HalfH(), -1.0f, 1.0f );
-    const bool depthTestWasEnabled = Gfx().IsDepthTestEnabled();
-    const bool depthWriteWasEnabled = Gfx().IsDepthWriteEnabled();
-    const bool blendWasEnabled = Gfx().IsBlendEnabled();
+    const bool depthTestWasEnabled = renderCommands.IsDepthTestEnabled();
+    const bool depthWriteWasEnabled = renderCommands.IsDepthWriteEnabled();
+    const bool blendWasEnabled = renderCommands.IsBlendEnabled();
     BlendFactor blendSrc = BlendFactor::One;
     BlendFactor blendDst = BlendFactor::Zero;
-    Gfx().GetBlendFunc( blendSrc, blendDst );
+    renderCommands.GetBlendFunc( blendSrc, blendDst );
 
     const int mode = resource.depth ? 2 : ( resource.hdr ? 1 : 0 );
-    Gfx().SetDepthTest( false );
-    Gfx().SetDepthWrite( false );
-    Gfx().SetBlend( false );
+    renderCommands.SetDepthTest( false );
+    renderCommands.SetDepthWrite( false );
+    renderCommands.SetBlend( false );
     shader->Use();
     shader->SetMat4( "uProjection", proj );
     shader->SetInt( "uTexture", 0 );
     shader->SetVec4( "uPreviewParams", static_cast<float>( mode ), 1.0f, 2.2f, 0.0f );
-    Gfx().BindTexture( resource.textureHandle, 0 );
-    {
-        DRAW_CALL_TRACE_SCOPE( "RenderTargetPreview" );
-        Gfx().UploadAndDrawDynamicVB( dynamicVB, verts, 6 );
-    }
-    Gfx().BindTexture( 0, 0 );
-    Gfx().SetDepthWrite( depthWriteWasEnabled );
-    Gfx().SetDepthTest( depthTestWasEnabled );
-    Gfx().SetBlendFunc( blendSrc, blendDst );
-    Gfx().SetBlend( blendWasEnabled );
+    renderCommands.BindTexture( resource.textureHandle, 0 );
+    renderCommands.UploadAndDrawDynamicVB( dynamicVB, verts, 6 );
+    renderCommands.BindTexture( 0, 0 );
+    renderCommands.SetDepthWrite( depthWriteWasEnabled );
+    renderCommands.SetDepthTest( depthTestWasEnabled );
+    renderCommands.SetBlendFunc( blendSrc, blendDst );
+    renderCommands.SetBlend( blendWasEnabled );
 }
 
 int WaterReflectionModeFromData( const InGameUIFrameData& data )
@@ -1145,11 +1184,58 @@ void InGameUI::SetMaximized( bool maximized, int screenW, int screenH, double no
 }
 
 
-void InGameUI::ResetResources()
+void InGameUI::ResetResources( SkullbonezCore::Rendering::IRenderResourceFactory* renderResources )
 {
     m_backdropBlur.ResetResources();
-    ResetRenderTargetPreviewResources( m_renderTargetPreviewShader, m_renderTargetPreviewVB );
+    ResetRenderTargetPreviewResources( m_renderTargetPreviewShader, m_renderTargetPreviewVB, renderResources );
     m_cache.Reset();
+}
+
+
+void InGameUI::StoreDrawCallTraceSnapshot( const SkullbonezCore::Rendering::DrawCallTraceSnapshot& snapshot )
+{
+    // Lifetime: DrawCallTraceSnapshot nodes borrow backend-owned name buffers.
+    // The UI keeps an owned bounded copy so layout and input can inspect the
+    // previous frame after the render pass that produced the snapshot returns.
+    m_lastDrawCallTrace = {};
+    m_lastDrawCallTrace.nodeOverflowCount = snapshot.nodeOverflowCount;
+    m_lastDrawCallTrace.eventCount = snapshot.eventCount;
+    m_lastDrawCallTrace.eventOverflowCount = snapshot.eventOverflowCount;
+    m_lastDrawCallTrace.scopeMismatchCount = snapshot.scopeMismatchCount;
+
+    if ( !snapshot.nodes || snapshot.nodeCount <= 0 )
+    {
+        return;
+    }
+
+    const int nodeCount =
+        std::clamp( snapshot.nodeCount, 0, SkullbonezCore::Rendering::DrawCallTrace::MAX_DRAW_TRACE_NODES );
+    for ( int i = 0; i < nodeCount; ++i )
+    {
+        const SkullbonezCore::Rendering::DrawCallTraceNode& source = snapshot.nodes[i];
+        SkullbonezCore::Rendering::DrawCallTraceNode& target = m_lastDrawTraceNodes[i];
+        target = source;
+
+        const char* sourceName = source.name ? source.name : "";
+        snprintf( m_lastDrawTraceNames[i], sizeof( m_lastDrawTraceNames[i] ), "%s", sourceName );
+        target.name = m_lastDrawTraceNames[i][0] != '\0' ? m_lastDrawTraceNames[i] : nullptr;
+        target.leafName = target.name;
+        if ( source.name && source.leafName && target.name )
+        {
+            const char* leafInName = std::strstr( source.name, source.leafName );
+            if ( leafInName )
+            {
+                target.leafName = target.name + ( leafInName - source.name );
+            }
+        }
+        else if ( !source.leafName )
+        {
+            target.leafName = nullptr;
+        }
+    }
+
+    m_lastDrawCallTrace.nodes = m_lastDrawTraceNodes;
+    m_lastDrawCallTrace.nodeCount = nodeCount;
 }
 
 
@@ -1301,7 +1387,7 @@ int InGameUI::ContentHeight() const
     case InGameUITab::Keys:
         return ControlsTab::ContentHeight();
     case InGameUITab::Profiler:
-        return ProfilerTab::ContentHeight( m_profilerTab );
+        return ProfilerTab::ContentHeight( m_profilerTab, m_lastProfiler, m_lastDrawCallTrace );
     case InGameUITab::Editor:
         return EditorTab::ContentHeight();
     case InGameUITab::Physics:
@@ -1362,7 +1448,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
     {
         return result;
     }
-    ProfilerTab::ApplyDefaultExpansion( m_profilerTab );
+    ProfilerTab::ApplyDefaultExpansion( m_profilerTab, m_lastProfiler, m_lastDrawCallTrace );
 
     m_mouseX = input.mouseX;
     m_mouseY = input.mouseY;
@@ -1904,7 +1990,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                   m_mouseX,
                                                   m_mouseY,
                                                   m_lastWorkerThreadCount,
-                                                  m_lastMaxWorkerThreadCount ) )
+                                                  m_lastMaxWorkerThreadCount,
+                                                  m_lastProfiler,
+                                                  m_lastDrawCallTrace ) )
             {
                 InputControl::BeginMouseCapture( hwnd );
                 m_scrollbarVisibleUntil = now + 1.2;
@@ -2302,16 +2390,19 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
 }
 
 
-void InGameUI::Draw( const InGameUIFrameData& data )
+void InGameUI::Draw( const InGameUIFrameData& data,
+                     SkullbonezCore::Assets::AssetSystem& assets,
+                     SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                     SkullbonezCore::Rendering::IRenderResourceFactory& renderResources )
 {
     if ( !m_window.isVisible )
     {
         return;
     }
-    DRAW_CALL_TRACE_SCOPE( "Frame/UI/Draw" );
-
     const int screenW = (std::max)( 1, data.screenW );
     const int screenH = (std::max)( 1, data.screenH );
+    StoreDrawCallTraceSnapshot( data.drawCallTrace );
+    m_lastProfiler = data.profiler;
     m_lastScreenW = screenW;
     m_lastScreenH = screenH;
     m_lastModelCapacity = std::clamp( data.modelCapacity, 1, MAX_GAME_MODELS );
@@ -2445,8 +2536,8 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         titleMaxW = titleStatX - ( x + 20.0f ) - 10.0f;
     }
     Chrome::FitTitleText( titleText, sizeof( titleText ), 15.5f, (std::max)( 40.0f, titleMaxW ) );
-    ProfilerTab::ApplyDefaultExpansion( m_profilerTab );
-    ProfilerTab::ApplyExpandAll( m_profilerTab );
+    ProfilerTab::ApplyDefaultExpansion( m_profilerTab, data.profiler, data.drawCallTrace );
+    ProfilerTab::ApplyExpandAll( m_profilerTab, data.profiler, data.drawCallTrace );
 
     UICacheFrameKey cacheKey;
     cacheKey.screenW = screenW;
@@ -2455,7 +2546,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     cacheKey.activeTab = static_cast<int>( m_activeTab );
     cacheKey.scrollY = m_scrollY;
     cacheKey.blurEnabled = m_blurPreviewEnabled;
-    cacheKey.contentSignature = BuildUIContentSignature( data );
+    cacheKey.contentSignature = BuildUIContentSignature( data, m_activeTab == InGameUITab::Profiler );
     cacheKey.styleSignature = HashBool( HashBool( 2166136261u, m_blurPreviewEnabled ), m_hitboxOverlayEnabled );
     cacheKey.interactionSignature = BuildUIInteractionSignature( m_mouseX,
                                                                  m_mouseY,
@@ -2725,7 +2816,10 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                                             draw,
                                             *selected,
                                             previewImage,
-                                            previewClip );
+                                            previewClip,
+                                            assets,
+                                            renderCommands,
+                                            renderResources );
         }
         else if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_PREVIEW_Y + 116.0f, 18.0f ) )
         {

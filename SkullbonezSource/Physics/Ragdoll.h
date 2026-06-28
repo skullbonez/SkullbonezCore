@@ -46,6 +46,11 @@ namespace GameObjects
 class GameModelCollection;
 }
 
+namespace Basics
+{
+class EngineConfig;
+}
+
 namespace Physics
 {
 class PhysicsEngine;
@@ -96,6 +101,7 @@ class Ragdoll
     static void AddSimpleHumanoid( GameObjects::GameModelCollection& collection,
                                    PhysicsEngine& physics,
                                    Environment::WorldEnvironment& worldEnvironment,
+                                   const Basics::EngineConfig& config,
                                    Geometry::Terrain* terrain,
                                    const RagdollBuildOptions& options );
     static void SolvePointJoints( PhysicsModelAccess& modelAccess,

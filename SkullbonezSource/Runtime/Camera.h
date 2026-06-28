@@ -10,6 +10,8 @@ Mental model:
   clamp or repair the pose before render code reads it.
 
 Glossary:
+  EngineConfig: Live process settings borrowed from Run; camera code reads
+    movement limits from it but never owns it.
   XZ bounds: Horizontal world-space rectangle that prevents camera movement
     outside the playable terrain.
   View vector: Stored look target for the camera; older camera code keeps it as
@@ -57,6 +59,7 @@ class Camera
     Math::Vector::Vector3 m_view;                  // World-space look target paired with m_position.
     Math::Vector::Vector3 m_upVector;              // Camera up basis used for pitch caps and view matrices.
     Math::Vector::Vector3 m_movementBuffer;        // Candidate translation staged until XZ bounds accept it.
+    const SkullbonezCore::Basics::EngineConfig* m_config; // Borrowed live config bound by CameraCollection before use.
     float m_viewMagnitude;                         // Eye-to-view distance preserved by locked and bounded movement.
     bool m_isFinishedTranslationRecursed;          // Guard for the single repair pass inside FinishTranslation.
     bool m_doCalculateViewMagnitude;               // Next translation refreshes m_viewMagnitude before preserving it.
@@ -67,6 +70,8 @@ class Camera
 
     Camera();
     ~Camera() = default;
+    void BindConfig( const SkullbonezCore::Basics::EngineConfig& config );
+    const SkullbonezCore::Basics::EngineConfig& Config() const;
     void PrepareTranslation();                     // Starts a bounded translation and captures state needed by FinishTranslation.
     void FinishTranslation();                      // Commits or clamps the staged translation while preserving view distance.
     void ApplyMovementBuffer();                    // Commits m_movementBuffer after bounds and locked-mode rules are enforced.

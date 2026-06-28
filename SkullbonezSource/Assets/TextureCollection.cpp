@@ -4,25 +4,32 @@ Purpose:
   Loads texture files and hands renderer-neutral texture ids to draw code.
 
 Mental model:
-  Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  Texture loading is resource-phase work: callers pass a render resource
+  factory to upload/delete backend textures. Draw-time code may only ask for an
+  already-resident handle or bind it through a command context.
 
 Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Legacy hash: Stable integer id used by old draw code to refer to a texture.
+  Render resource factory: Borrowed renderer capability used to create and
+  delete backend texture objects.
+  Command context: Borrowed frame capability used to bind a resident texture
+  handle to a shader slot.
+  Backend handle: Opaque integer token owned by the active renderer backend.
 
 Invariants:
   - Texture slots are fixed-size legacy storage keyed by legacy hash.
   - backendHandle values belong to the active renderer and must be deleted or
     rebuilt when the backend is destroyed or reset.
+  - SelectTexture() and GetTextureHandle() are draw-time lookups; they must not
+    upload textures or reacquire renderer services.
 
 Related:
   - SkullbonezSource/Assets/TextureCollection.h
   - Agentic/Reference/comment-style-guide.md
 */
 #include "TextureCollection.h"
-#include "../Rendering/IRenderBackend.h"
+#include "../Rendering/IRenderCommandContext.h"
+#include "../Rendering/IRenderResourceFactory.h"
 #include "stb_image.h"
 
 #include <memory>
@@ -32,21 +39,6 @@ Related:
 
 using namespace SkullbonezCore::Textures;
 using namespace SkullbonezCore::Rendering;
-
-
-TextureCollection* TextureCollection::Instance()
-{
-    static TextureCollection instance;
-    return &instance;
-}
-
-
-void TextureCollection::Destroy()
-{
-    TextureCollection* textures = Instance();
-    textures->DeleteAllTextures();
-    textures->m_assets = nullptr;
-}
 
 
 int TextureCollection::FindIndex( uint32_t hash ) const
@@ -96,30 +88,30 @@ int TextureCollection::FindFreeSlot() const
 }
 
 
-void TextureCollection::ReleaseTexture( GpuTextureRecord& texture )
+void TextureCollection::ReleaseTexture( IRenderResourceFactory* renderResources, GpuTextureRecord& texture )
 {
     // Lifetime: the collection stores renderer-neutral ids, but the backend
     // owns the actual GPU texture object behind each handle.
-    if ( texture.backendHandle )
+    if ( texture.backendHandle && renderResources )
     {
-        Gfx().DeleteTexture( texture.backendHandle );
+        renderResources->DeleteTexture( texture.backendHandle );
     }
     texture = {};
 }
 
 
-void TextureCollection::DeleteAllTextures()
+void TextureCollection::DeleteAllTextures( IRenderResourceFactory* renderResources )
 {
     for ( GpuTextureRecord& texture : m_textures )
     {
-        ReleaseTexture( texture );
+        ReleaseTexture( renderResources, texture );
     }
 }
 
 
-void TextureCollection::DeleteTexture( uint32_t hash )
+void TextureCollection::DeleteTexture( IRenderResourceFactory* renderResources, uint32_t hash )
 {
-    ReleaseTexture( m_textures[FindIndex( hash )] );
+    ReleaseTexture( renderResources, m_textures[FindIndex( hash )] );
 }
 
 
@@ -137,16 +129,14 @@ int TextureCollection::NumFreeTextureSpaces() const
 }
 
 
-void TextureCollection::SelectTexture( uint32_t hash )
+void TextureCollection::SelectTexture( IRenderCommandContext& renderCommands, uint32_t hash ) const
 {
-    EnsureTexture( hash );
-    Gfx().BindTexture( m_textures[FindIndex( hash )].backendHandle, 0 );
+    renderCommands.BindTexture( m_textures[FindIndex( hash )].backendHandle, 0 );
 }
 
 
-uint32_t TextureCollection::GetTextureHandle( uint32_t hash )
+uint32_t TextureCollection::GetTextureHandle( uint32_t hash ) const
 {
-    EnsureTexture( hash );
     return m_textures[FindIndex( hash )].backendHandle;
 }
 
@@ -163,7 +153,7 @@ bool TextureCollection::HasTexture( uint32_t hash ) const
 }
 
 
-void TextureCollection::EnsureTexture( uint32_t hash )
+void TextureCollection::EnsureTexture( IRenderResourceFactory& renderResources, uint32_t hash )
 {
     if ( HasTexture( hash ) )
     {
@@ -175,7 +165,7 @@ void TextureCollection::EnsureTexture( uint32_t hash )
         const Assets::TextureSourceAsset* source = m_assets->FindTextureSourceAssetByLegacyHash( hash );
         if ( source )
         {
-            CreateTextureFromSourceAsset( *source );
+            CreateTextureFromSourceAsset( renderResources, *source );
             return;
         }
     }
@@ -188,7 +178,8 @@ void TextureCollection::EnsureTexture( uint32_t hash )
 }
 
 
-void TextureCollection::LoadJpegTextureIntoSlot( int slot,
+void TextureCollection::LoadJpegTextureIntoSlot( IRenderResourceFactory& renderResources,
+                                                 int slot,
                                                  const char* fileName,
                                                  uint32_t hash,
                                                  Assets::AssetId sourceId,
@@ -223,7 +214,7 @@ void TextureCollection::LoadJpegTextureIntoSlot( int slot,
     }
 
     const uint32_t backendHandle =
-        Gfx().CreateTexture2D( data.get(), width, height, requestedChannels, generateMips, linearFilter );
+        renderResources.CreateTexture2D( data.get(), width, height, requestedChannels, generateMips, linearFilter );
     if ( backendHandle == 0 )
     {
         throw std::runtime_error(
@@ -240,7 +231,8 @@ void TextureCollection::LoadJpegTextureIntoSlot( int slot,
 }
 
 
-void TextureCollection::CreateTextureFromSourceAsset( const Assets::TextureSourceAsset& source )
+void TextureCollection::CreateTextureFromSourceAsset( IRenderResourceFactory& renderResources,
+                                                      const Assets::TextureSourceAsset& source )
 {
     if ( source.legacyHash == 0 )
     {
@@ -250,10 +242,11 @@ void TextureCollection::CreateTextureFromSourceAsset( const Assets::TextureSourc
     const int existingIndex = FindIndexNoThrow( source.legacyHash );
     if ( existingIndex >= 0 )
     {
-        ReleaseTexture( m_textures[existingIndex] );
+        ReleaseTexture( &renderResources, m_textures[existingIndex] );
     }
 
-    LoadJpegTextureIntoSlot( FindFreeSlot(),
+    LoadJpegTextureIntoSlot( renderResources,
+                             FindFreeSlot(),
                              source.resolvedPath.c_str(),
                              source.legacyHash,
                              source.id,
@@ -263,7 +256,7 @@ void TextureCollection::CreateTextureFromSourceAsset( const Assets::TextureSourc
 }
 
 
-void TextureCollection::CreateJpegTexture( const char* cFileName, uint32_t hash )
+void TextureCollection::CreateJpegTexture( IRenderResourceFactory& renderResources, const char* cFileName, uint32_t hash )
 {
     if ( hash == 0 )
     {
@@ -274,33 +267,33 @@ void TextureCollection::CreateJpegTexture( const char* cFileName, uint32_t hash 
         m_assets ? m_assets->FindTextureSourceAssetByLegacyHash( hash ) : nullptr;
     if ( source )
     {
-        CreateTextureFromSourceAsset( *source );
+        CreateTextureFromSourceAsset( renderResources, *source );
         return;
     }
 
     const int existingIndex = FindIndexNoThrow( hash );
     if ( existingIndex >= 0 )
     {
-        ReleaseTexture( m_textures[existingIndex] );
+        ReleaseTexture( &renderResources, m_textures[existingIndex] );
     }
 
-    LoadJpegTextureIntoSlot( FindFreeSlot(), cFileName, hash, 0, true, true, 3 );
+    LoadJpegTextureIntoSlot( renderResources, FindFreeSlot(), cFileName, hash, 0, true, true, 3 );
 }
 
 
-void TextureCollection::EnsureJpegTexture( const char* cFileName, uint32_t hash )
+void TextureCollection::EnsureJpegTexture( IRenderResourceFactory& renderResources, const char* cFileName, uint32_t hash )
 {
     if ( HasTexture( hash ) )
     {
         return;
     }
-    CreateJpegTexture( cFileName, hash );
+    CreateJpegTexture( renderResources, cFileName, hash );
 }
 
 
-void TextureCollection::RebuildTexturesFromSourceAssets()
+void TextureCollection::RebuildTexturesFromSourceAssets( IRenderResourceFactory& renderResources )
 {
-    DeleteAllTextures();
+    DeleteAllTextures( &renderResources );
     if ( !m_assets )
     {
         return;
@@ -310,7 +303,7 @@ void TextureCollection::RebuildTexturesFromSourceAssets()
     {
         if ( source.legacyHash != 0 )
         {
-            CreateTextureFromSourceAsset( source );
+            CreateTextureFromSourceAsset( renderResources, source );
         }
     }
 }

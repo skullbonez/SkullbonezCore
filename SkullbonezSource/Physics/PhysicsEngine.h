@@ -31,13 +31,27 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Basics
+{
+class EngineConfig;
+}
+namespace Threading
+{
+class WorkerPool;
+}
+namespace Rendering
+{
+class IRenderCommandContext;
+}
 
 namespace Physics
 {
 class PhysicsEngine
 {
   public:
-    PhysicsEngine() = default;
+    PhysicsEngine();
+    explicit PhysicsEngine( const Basics::EngineConfig& config );
+    PhysicsEngine( const Basics::EngineConfig& config, Threading::WorkerPool& workerPool );
 
     void Clear();
     void RefreshStores( PhysicsModelAccess& modelAccess );
@@ -67,7 +81,10 @@ class PhysicsEngine
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
+    // Debug visualization bridge. Runtime render passes own the command context;
+    // PhysicsEngine only forwards it for tornado vector line submission.
+    void RenderTornadoFieldVectors( Rendering::IRenderCommandContext& renderCommands,
+                                    const Math::Transformation::Matrix4& viewProj );
     void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
     PhysicsWorld::DiagnosticsView GetDiagnosticsView() const;

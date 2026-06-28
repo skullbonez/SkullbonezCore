@@ -9,14 +9,19 @@ Mental model:
   when that state changes.
 
 Glossary:
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+  AssetId: Stable AssetSystem-owned identity for authored source records.
+  Source record: Data-only registration that says where a texture, shader,
+    scene, terrain, or asset library can be loaded from.
+  Render resource factory: Borrowed renderer capability used by shader callers
+    to create backend-owned shader objects after AssetSystem resolves the source.
 
 Invariants:
   - AssetId values are AssetSystem-owned identities and must not be invented by
     callers.
   - Shader and texture source records describe load intent; backend GPU resource
     lifetime is owned by renderer-facing systems.
+  - Shader creation must receive a caller-owned render resource factory; this
+    file resolves names but does not sample the process renderer.
 
 Related:
   - SkullbonezSource/Assets/AssetSystem.cpp
@@ -36,6 +41,7 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
+class IRenderResourceFactory;
 class IShader;
 }
 
@@ -155,7 +161,8 @@ class AssetSystem
                                                         ShaderProgramContract contract = {} );
     const ShaderSourceAsset* FindShaderSourceAsset( const char* logicalNameOrBaseName ) const;
     const std::vector<ShaderSourceAsset>& GetShaderSourceAssets() const;
-    std::unique_ptr<Rendering::IShader> CreateShader( const char* logicalNameOrBaseName ) const;
+    std::unique_ptr<Rendering::IShader> CreateShader( Rendering::IRenderResourceFactory& renderResources,
+                                                      const char* logicalNameOrBaseName ) const;
 
     const AssetLibrarySourceAsset& RegisterAssetLibrarySourceAsset( const char* logicalName, const char* relativePath );
     const AssetLibrarySourceAsset* FindAssetLibrarySourceAsset( const char* logicalName ) const;
@@ -178,10 +185,5 @@ class AssetSystem
     uint32_t m_nextGeneration = 1;
 };
 
-// Transitional bridge for legacy singleton-style render helpers. The run loop
-// owns the real AssetSystem, while helpers still own their GPU shader handles.
-void BindActiveAssetSystem( AssetSystem* assets );
-AssetSystem* ActiveAssetSystem();
-std::unique_ptr<Rendering::IShader> CreateShaderFromActiveAssets( const char* logicalNameOrBaseName );
 } // namespace Assets
 } // namespace SkullbonezCore

@@ -43,7 +43,7 @@ class DiagnosticsController
     void ConfigurePerfLogFlush( bool enabled, int interval );
     void OpenScenePerfLog( const char* path, int pass );
     bool PerfTestActive() const;
-    void TickPerfLog( const RuntimePerfTickContext& context );
+    void TickPerfLog( const RuntimePerfTickContext& context, Profiler& profiler );
 
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState& PhysicsDiagnostics();

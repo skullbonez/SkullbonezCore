@@ -91,6 +91,7 @@ RigidBody::RigidBody()
     m_coefficientRestitution = 0.9f;
     m_mass = 1.0f;
     m_volume = 1.0f;
+    m_velocityLimit = DEFAULT_VELOCITY_LIMIT;
     m_isForceApplied = false;
     m_position = Vector::ZERO_VECTOR;
     m_linearVelocity = Vector::ZERO_VECTOR;
@@ -217,10 +218,10 @@ void RigidBody::ThrottleAngularVelocity()
 {
     float magSq = m_angularVelocity.x * m_angularVelocity.x + m_angularVelocity.y * m_angularVelocity.y +
                   m_angularVelocity.z * m_angularVelocity.z;
-    float limitSq = Cfg().velocityLimit * Cfg().velocityLimit;
+    float limitSq = m_velocityLimit * m_velocityLimit;
     if ( magSq > limitSq )
     {
-        float scale = Cfg().velocityLimit / sqrtf( magSq );
+        float scale = m_velocityLimit / sqrtf( magSq );
         m_angularVelocity.x *= scale;
         m_angularVelocity.y *= scale;
         m_angularVelocity.z *= scale;
@@ -452,6 +453,14 @@ void RigidBody::SetPosition( const Vector3& vPosition )
 void RigidBody::SetCoefficientRestitution( float fCoefficientRestitution )
 {
     m_coefficientRestitution = fCoefficientRestitution;
+}
+
+
+void RigidBody::SetVelocityLimit( float velocityLimit )
+{
+    // Invariant: the config parser clamps velocity_limit to a non-negative
+    // range; keep the same rule for direct test/API construction paths.
+    m_velocityLimit = (std::max)( 0.0f, velocityLimit );
 }
 
 

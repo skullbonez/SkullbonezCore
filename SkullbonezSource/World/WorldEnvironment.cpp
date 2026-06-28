@@ -9,6 +9,10 @@ Mental model:
   reading anchors.
 
 Glossary:
+  Asset system: Runtime-owned registry borrowed by water render passes to
+  resolve calm and ocean shader source.
+  Render resource factory: Borrowed renderer capability used to create water
+  meshes and shaders for the active backend.
   Buoyancy: Upward force from displaced water, applied through the center of
   buoyancy instead of the model origin.
   Center of buoyancy: World-space average location of displaced water. Its
@@ -32,7 +36,8 @@ Related:
 */
 #include "WorldEnvironment.h"
 #include "../Assets/AssetSystem.h"
-#include "../Rendering/IRenderBackend.h"
+#include "../Rendering/IRenderCommandContext.h"
+#include "../Rendering/IRenderResourceFactory.h"
 #include <vector>
 
 
@@ -41,6 +46,7 @@ using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
+namespace Basics = SkullbonezCore::Basics;
 
 namespace
 {
@@ -87,14 +93,26 @@ float ClampAngularDragTorqueAxis( float torque, float angularVelocity, float ine
 
 
 WorldEnvironment::WorldEnvironment()
-    : m_fluidSurfaceHeight( 0.0f ), m_fluidDensity( 0.0f ), m_gasDensity( 0.0f ), m_gravity( 0.0f )
+    : m_fluidSurfaceHeight( 0.0f ), m_fluidDensity( 0.0f ), m_gasDensity( 0.0f ), m_gravity( 0.0f ),
+      m_config( nullptr )
+{
+}
+
+
+WorldEnvironment::WorldEnvironment( const Basics::EngineConfig& config,
+                                    float fFluidSurfaceHeight,
+                                    float fFluidDensity,
+                                    float fGasDensity,
+                                    float fGravity )
+    : m_fluidSurfaceHeight( fFluidSurfaceHeight ), m_fluidDensity( fFluidDensity ), m_gasDensity( fGasDensity ),
+      m_gravity( fGravity ), m_config( &config )
 {
 }
 
 
 WorldEnvironment::WorldEnvironment( float fFluidSurfaceHeight, float fFluidDensity, float fGasDensity, float fGravity )
     : m_fluidSurfaceHeight( fFluidSurfaceHeight ), m_fluidDensity( fFluidDensity ), m_gasDensity( fGasDensity ),
-      m_gravity( fGravity )
+      m_gravity( fGravity ), m_config( nullptr )
 {
 }
 
@@ -117,14 +135,15 @@ WaterStyleParams
 WorldEnvironment::BuildCalmWaterStyle( bool cinematic,
                                        const SkullbonezCore::Basics::CinematicRenderConfig& cinematicStyle ) const
 {
+    const Basics::EngineConfig& config = Config();
     WaterStyleParams style;
     style.cinematic = cinematic;
     style.sunR = cinematicStyle.sunColorR;
     style.sunG = cinematicStyle.sunColorG;
     style.sunB = cinematicStyle.sunColorB;
     style.mode = cinematic ? WaterModeFromConfigValue( cinematicStyle.waterMode ) : WaterMode::Ocean;
-    style.waveHeight = Cfg().oceanWaveHeight;
-    style.perturbStrength = Cfg().oceanPerturbStrength;
+    style.waveHeight = config.oceanWaveHeight;
+    style.perturbStrength = config.oceanPerturbStrength;
     style.basinCenterX = cinematicStyle.basinCenterX;
     style.basinCenterZ = cinematicStyle.basinCenterZ;
     style.basinRadiusX = cinematicStyle.basinRadiusX;
@@ -142,7 +161,7 @@ WorldEnvironment::BuildCalmWaterStyle( bool cinematic,
     }
     else
     {
-        const SkullbonezCore::Basics::OrdinaryRenderConfig& ordinary = Cfg().ordinaryRender;
+        const SkullbonezCore::Basics::OrdinaryRenderConfig& ordinary = config.ordinaryRender;
         style.tintR = ordinary.waterTintR;
         style.tintG = ordinary.waterTintG;
         style.tintB = ordinary.waterTintB;
@@ -162,14 +181,15 @@ WaterStyleParams
 WorldEnvironment::BuildOceanWaterStyle( bool cinematic,
                                         const SkullbonezCore::Basics::CinematicRenderConfig& cinematicStyle ) const
 {
+    const Basics::EngineConfig& config = Config();
     WaterStyleParams style;
     style.cinematic = cinematic;
     style.sunR = cinematicStyle.sunColorR;
     style.sunG = cinematicStyle.sunColorG;
     style.sunB = cinematicStyle.sunColorB;
     style.mode = cinematic ? WaterModeFromConfigValue( cinematicStyle.waterMode ) : WaterMode::Ocean;
-    style.waveHeight = Cfg().oceanWaveHeight;
-    style.perturbStrength = Cfg().oceanPerturbStrength;
+    style.waveHeight = config.oceanWaveHeight;
+    style.perturbStrength = config.oceanPerturbStrength;
 
     if ( cinematic )
     {
@@ -182,7 +202,7 @@ WorldEnvironment::BuildOceanWaterStyle( bool cinematic,
     }
     else
     {
-        const SkullbonezCore::Basics::OrdinaryRenderConfig& ordinary = Cfg().ordinaryRender;
+        const SkullbonezCore::Basics::OrdinaryRenderConfig& ordinary = config.ordinaryRender;
         style.tintR = ordinary.waterTintR;
         style.tintG = ordinary.waterTintG;
         style.tintB = ordinary.waterTintB;
@@ -236,7 +256,18 @@ void WorldEnvironment::BindOceanWaterStyle( Rendering::IShader& shader,
 }
 
 
-void WorldEnvironment::RenderFluid( const Matrix4& view,
+void WorldEnvironment::EnsureRenderResources( const SkullbonezCore::Assets::AssetSystem& assets,
+                                              SkullbonezCore::Rendering::IRenderResourceFactory& renderResources )
+{
+    if ( !m_calmMesh || !m_oceanMesh || !m_calmShader || !m_oceanShader )
+    {
+        BuildFluidMesh( assets, renderResources );
+    }
+}
+
+
+void WorldEnvironment::RenderFluid( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                    const Matrix4& view,
                                     const Matrix4& proj,
                                     const Vector3& cameraWorld,
                                     const WaterReflectionInput& reflection,
@@ -245,19 +276,19 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
                                     bool cinematic,
                                     const SkullbonezCore::Basics::CinematicRenderConfig* cinematicConfig )
 {
-    if ( !m_calmMesh )
+    if ( !m_calmMesh || !m_oceanMesh || !m_calmShader || !m_oceanShader )
     {
-        BuildFluidMesh();
+        return;
     }
     const SkullbonezCore::Basics::CinematicRenderConfig& cinematicStyle =
-        cinematicConfig ? *cinematicConfig : Cfg().cinematicRender;
+        cinematicConfig ? *cinematicConfig : Config().cinematicRender;
     const WaterMode waterMode = cinematic ? WaterModeFromConfigValue( cinematicStyle.waterMode ) : WaterMode::Ocean;
     if ( cinematic && waterMode == WaterMode::Off )
     {
         return;
     }
 
-    Gfx().BindTexture( reflection.textureHandle, 1 );
+    renderCommands.BindTexture( reflection.textureHandle, 1 );
 
     const WaterStyleParams calmStyle = BuildCalmWaterStyle( cinematic, cinematicStyle );
     const WaterStyleParams oceanStyle = BuildOceanWaterStyle( cinematic, cinematicStyle );
@@ -288,9 +319,11 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
 }
 
 
-void WorldEnvironment::BuildFluidMesh()
+void WorldEnvironment::BuildFluidMesh( const SkullbonezCore::Assets::AssetSystem& assets,
+                                       SkullbonezCore::Rendering::IRenderResourceFactory& renderResources )
 {
-    float f = Cfg().frustumFar;
+    const Basics::EngineConfig& config = Config();
+    float f = config.frustumFar;
 
     const int N = 64;
     const float step = 2.0f * f / static_cast<float>( N );
@@ -386,42 +419,44 @@ void WorldEnvironment::BuildFluidMesh()
     int calmCount = static_cast<int>( calmVerts.size() ) / 3;
     int oceanCount = static_cast<int>( oceanVerts.size() ) / 3;
 
-    m_calmMesh = Gfx().CreateMesh( calmVerts.data(), calmCount, false, false );
-    m_oceanMesh = Gfx().CreateMesh( oceanVerts.data(), oceanCount, false, false );
+    m_calmMesh = renderResources.CreateMesh( calmVerts.data(), calmCount, false, false );
+    m_oceanMesh = renderResources.CreateMesh( oceanVerts.data(), oceanCount, false, false );
 
-    m_calmShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.water_calm" );
+    // Lifetime: the world owns water shader handles, while source lookup comes
+    // from the Run-owned asset registry borrowed by the active water pass.
+    m_calmShader = assets.CreateShader( renderResources, "shader.water_calm" );
     m_calmShader->Use();
     m_calmShader->SetMat4( "uModel", Matrix4() );
     m_calmShader->SetVec4( "uColorTint", 0.05f, 0.15f, 0.42f, 0.65f );
     m_calmShader->SetFloat( "uReflectionStrength", 0.35f );
-    m_calmShader->SetFloat( "uWaterFresnelF0", Cfg().ordinaryRender.waterFresnelF0 );
+    m_calmShader->SetFloat( "uWaterFresnelF0", config.ordinaryRender.waterFresnelF0 );
     m_calmShader->SetVec3( "uCameraWorld", 0.0f, 0.0f, 0.0f );
     m_calmShader->SetInt( "uReflectionTex", 1 );
     m_calmShader->SetFloat( "uCinematicMode", 0.0f );
     m_calmShader->SetInt( "uWaterMode", WaterModeUniformValue( WaterMode::Ocean ) );
     m_calmShader->SetVec3( "uSunColor",
-                           Cfg().cinematicRender.sunColorR,
-                           Cfg().cinematicRender.sunColorG,
-                           Cfg().cinematicRender.sunColorB );
+                           config.cinematicRender.sunColorR,
+                           config.cinematicRender.sunColorG,
+                           config.cinematicRender.sunColorB );
     m_calmShader->SetFloat( "uSunGlintStrength", 0.0f );
     m_calmShader->SetVec4( "uBasinMask", 620.0f, 615.0f, 205.0f, 145.0f );
     m_calmShader->SetFloat( "uBasinMaskFeather", 1.0f );
 
-    m_oceanShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.water_ocean" );
+    m_oceanShader = assets.CreateShader( renderResources, "shader.water_ocean" );
     m_oceanShader->Use();
     m_oceanShader->SetMat4( "uModel", Matrix4() );
     m_oceanShader->SetVec4( "uColorTint", 0.02f, 0.10f, 0.35f, 0.72f );
-    m_oceanShader->SetFloat( "uWaveHeight", Cfg().oceanWaveHeight );
-    m_oceanShader->SetFloat( "uPerturbStrength", Cfg().oceanPerturbStrength );
+    m_oceanShader->SetFloat( "uWaveHeight", config.oceanWaveHeight );
+    m_oceanShader->SetFloat( "uPerturbStrength", config.oceanPerturbStrength );
     m_oceanShader->SetFloat( "uReflectionStrength", 0.25f );
-    m_oceanShader->SetFloat( "uWaterFresnelF0", Cfg().ordinaryRender.waterFresnelF0 );
+    m_oceanShader->SetFloat( "uWaterFresnelF0", config.ordinaryRender.waterFresnelF0 );
     m_oceanShader->SetVec3( "uCameraWorld", 0.0f, 0.0f, 0.0f );
     m_oceanShader->SetInt( "uReflectionTex", 1 );
     m_oceanShader->SetFloat( "uCinematicMode", 0.0f );
     m_oceanShader->SetVec3( "uSunColor",
-                            Cfg().cinematicRender.sunColorR,
-                            Cfg().cinematicRender.sunColorG,
-                            Cfg().cinematicRender.sunColorB );
+                            config.cinematicRender.sunColorR,
+                            config.cinematicRender.sunColorG,
+                            config.cinematicRender.sunColorB );
     m_oceanShader->SetFloat( "uSunGlintStrength", 0.0f );
 }
 
@@ -432,7 +467,6 @@ void WorldEnvironment::ResetRenderResources()
     m_calmShader.reset();
     m_oceanMesh.reset();
     m_oceanShader.reset();
-    BuildFluidMesh();
 }
 
 
@@ -472,6 +506,16 @@ void WorldEnvironment::SetFluidDensity( float density )
 }
 
 
+const Basics::EngineConfig& WorldEnvironment::Config() const
+{
+    if ( !m_config )
+    {
+        throw std::runtime_error( "WorldEnvironment config binding missing.  (WorldEnvironment::Config)" );
+    }
+    return *m_config;
+}
+
+
 // Forces are scaled by changeInTime before being set on the rigid body,
 // converting force in newtons to impulse in newton-seconds. The semi-implicit
 // Euler integrator then adds that impulse directly to velocity.
@@ -492,6 +536,7 @@ void WorldEnvironment::SetFluidDensity( float density )
 // shapes so water slows spin without gluing bodies in place.
 void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
 {
+    const float fluidAngularDragMultiplier = Config().fluidAngularDragMultiplier;
     // Accumulators stay local until the end of the pass so gravity, buoyancy,
     // damping, and drag combine into one deterministic impulse.
     Vector3 m_worldForce = Math::Vector::ZERO_VECTOR;
@@ -567,7 +612,7 @@ void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
         if ( target.IsSphere() )
         {
             const Vector3 sphereAngularVel = target.GetAngularVelocity();
-            const float sphereSpinDampingRate = waterCoupling * Cfg().fluidAngularDragMultiplier * 0.35f;
+            const float sphereSpinDampingRate = waterCoupling * fluidAngularDragMultiplier * 0.35f;
             if ( sphereSpinDampingRate > TOLERANCE && !sphereAngularVel.IsCloseToZero() )
             {
                 const Vector3& inertia = target.GetRotationalInertia();
@@ -604,7 +649,7 @@ void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
     {
         float radius = target.GetBoundingRadius();
         float avgDensity = ( m_gasDensity * ( 1.0f - submergedVolumePercent ) ) +
-                           ( m_fluidDensity * submergedVolumePercent * Cfg().fluidAngularDragMultiplier );
+                           ( m_fluidDensity * submergedVolumePercent * fluidAngularDragMultiplier );
         float angularDragCoeff = m_dragCoefficient * avgDensity * radius * radius * radius;
         Vector3 angularDragTorque = angularVel * ( -angularDragCoeff );
 

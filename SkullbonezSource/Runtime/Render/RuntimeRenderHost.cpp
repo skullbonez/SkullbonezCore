@@ -10,6 +10,10 @@ Mental model:
 Glossary:
   Render host: Borrowed service view used by render passes while Run remains
   the broader composition root.
+  Command context: Borrowed frame capability passed through host helpers when
+  a pass needs to bind a texture handle.
+  Resource factory: Borrowed backend lifetime capability forwarded only while
+  replay ghost helpers may lazily create shared primitive resources.
   Pass: Ordered unit of frame rendering owned by RuntimeRenderer.
   Replay ghost: Transparent predicted-body draw used to preview replay future
   path samples.
@@ -40,7 +44,6 @@ Related:
 #include "../Window.h"
 
 #include <cstddef>
-#include <stdexcept>
 #include <variant>
 #include <vector>
 
@@ -57,7 +60,7 @@ bool RuntimeRenderHost::IsCinematicRenderingEnabled() const
                                                           m_config,
                                                           m_launchOptions,
                                                           m_debug,
-                                                          IsGfxReady() );
+                                                          m_systems.renderBackend != nullptr );
 }
 
 bool RuntimeRenderHost::IsLauncherCameraMode() const
@@ -67,23 +70,12 @@ bool RuntimeRenderHost::IsLauncherCameraMode() const
 
 uint32_t RuntimeRenderHost::TextureHandle( uint32_t textureHash ) const
 {
-    // Hazard: render passes ask for texture handles before drawing, but tools
-    // and headless validations can temporarily run without a texture collection.
-    // Fail loudly instead of returning a sentinel that would mask a bad binding.
-    if ( !m_systems.textures )
-    {
-        throw std::runtime_error( "Texture collection is not initialised." );
-    }
-    return m_systems.textures->GetTextureHandle( textureHash );
+    return m_systems.textures.GetTextureHandle( textureHash );
 }
 
-void RuntimeRenderHost::SelectRenderTexture( uint32_t textureHash ) const
+void RuntimeRenderHost::SelectRenderTexture( Rendering::IRenderCommandContext& renderCommands, uint32_t textureHash ) const
 {
-    if ( !m_systems.textures )
-    {
-        throw std::runtime_error( "Texture collection is not initialised." );
-    }
-    m_systems.textures->SelectTexture( textureHash );
+    m_systems.textures.SelectTexture( renderCommands, textureHash );
 }
 
 int RuntimeRenderHost::WindowScreenWidth() const
@@ -154,10 +146,14 @@ void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& 
         return;
     }
 
-    SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
-    RenderHelper::DrawBoxBatchBegin( frame.baseView,
+    SelectRenderTexture( *frame.renderCommands, TEXTURE_BOUNDING_SPHERE );
+    RenderHelper::DrawBoxBatchBegin( *frame.renderCommands,
+                                     *frame.renderResources,
+                                     m_systems.assets,
+                                     frame.baseView,
                                      frame.projection,
                                      frame.lightPosition,
+                                     m_config.ordinaryRender,
                                      true,
                                      cinematic,
                                      shadow,
@@ -186,5 +182,5 @@ void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& 
         RenderHelper::DrawBoxBatchModel( modelMatrix, material );
     }
 
-    RenderHelper::DrawBoxBatchEnd();
+    RenderHelper::DrawBoxBatchEnd( *frame.renderCommands );
 }

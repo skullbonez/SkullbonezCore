@@ -39,8 +39,13 @@ namespace PlatformProfiler
 {
 namespace
 {
+// Lifetime: platform profiler toggles are process diagnostic state. They are
+// changed by runtime startup/UI settings and sampled by profiling scopes; no
+// frame system owns or destroys them.
 std::atomic<bool> g_enabled{ false };
 std::atomic<bool> g_detailedRangesEnabled{ false };
+// Invariant: PIX CPU ranges are nested per thread, so worker scopes must track
+// their own depth instead of sharing one process counter.
 thread_local int g_cpuDepth = 0;
 
 enum class MarkerDomain

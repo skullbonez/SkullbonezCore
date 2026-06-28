@@ -81,15 +81,19 @@ class BoundingSphere
   private:
     Vector::Vector3 m_position;                 // Local-space collision offset from owning body origin, in meters.
     float m_radius;                             // Collision radius in meters; also the conservative broadphase radius.
+    float m_dragCoefficient;                    // Shape policy captured at construction so physics paths do not sample globals.
 
     float CollisionDetect( const BoundingSphere& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay )
         const;                                  // Swept sphere-sphere helper; returns earliest quadratic root or NO_COLLISION.
 
   public:
+    static constexpr float DEFAULT_DRAG_COEFFICIENT = 0.4f; // Smooth-sphere fallback for standalone/test shapes.
     BoundingSphere();                           // Creates an empty sphere at the local origin for staged shape setup.
     BoundingSphere(
         float fRadius,
-        const Vector::Vector3& vPosition );     // fRadius is meters; vPosition is the owning body's local-space offset.
+        const Vector::Vector3& vPosition,
+        float dragCoefficient =
+            DEFAULT_DRAG_COEFFICIENT );         // fRadius is meters; vPosition is the owning body's local-space offset.
     Transformation::Matrix4 GetModelMatrix( const Vector::Vector3& worldPos, const Transformation::Matrix4& rotation )
         const;                                  // T(worldPos) * R * T(localOffset) * S(radius) — used for visual sphere mesh
     float GetVolume() const;                    // V = (4/3) * π * r³

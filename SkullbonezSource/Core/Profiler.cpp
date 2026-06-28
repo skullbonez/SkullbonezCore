@@ -9,6 +9,8 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Render diagnostics: Narrow renderer capability used for platform GPU markers
+    and backend timestamp queries without depending on the full renderer facade.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -17,6 +19,8 @@ Invariants:
     merged timings would corrupt diagnostics.
   - Begin/end nesting must balance before frame end for both CPU and GPU marker
     rings.
+  - The renderer diagnostics borrow is optional and cleared during backend
+    teardown, so GPU timings must no-op cleanly when it is null.
 
 Related:
   - SkullbonezSource/Core/Profiler.h
@@ -24,7 +28,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Profiler.h"
-#include "../Rendering/IRenderBackend.h"
+#include "../Rendering/IRenderDiagnostics.h"
 #include "WorkerPool.h"
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
@@ -83,7 +87,7 @@ Profiler& Profiler::Instance()
 Profiler::Profiler()
     : m_markerCount( 0 ), m_workerCoreSampleCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_frameStartTicks( 0 ),
       m_lastAvgTicks( 0 ), m_inFrame( false ), m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ),
-      m_nextColorIndex( 0 )
+      m_nextColorIndex( 0 ), m_renderDiagnostics( nullptr )
 {
     LARGE_INTEGER f;
     if ( QueryPerformanceFrequency( &f ) )
@@ -102,6 +106,12 @@ Profiler::Profiler()
     std::memset( m_platformProfilerCpuOpen, 0, sizeof( m_platformProfilerCpuOpen ) );
     std::memset( m_platformProfilerGpuRecordOpen, 0, sizeof( m_platformProfilerGpuRecordOpen ) );
     std::memset( m_platformProfilerGpuEventOpen, 0, sizeof( m_platformProfilerGpuEventOpen ) );
+}
+
+
+void Profiler::BindRenderDiagnostics( SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics )
+{
+    m_renderDiagnostics = renderDiagnostics;
 }
 
 
@@ -439,9 +449,10 @@ void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
             hash );
         m_platformProfilerGpuRecordOpen[stackSlot] = true;
     }
-    if ( PlatformProfiler::IsEnabled() && IsGfxReady() )
+    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = m_renderDiagnostics;
+    if ( PlatformProfiler::IsEnabled() && renderDiagnostics )
     {
-        Gfx().PlatformProfilerGpuBegin( fullPath, hash );
+        renderDiagnostics->PlatformProfilerGpuBegin( fullPath, hash );
         m_platformProfilerGpuEventOpen[stackSlot] = true;
     }
     BeginGpuTimerInternal( fullPath, hash );
@@ -463,9 +474,10 @@ void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
         m_platformProfilerGpuRecordOpen[stackSlot] = false;
     }
     EndGpuTimerInternal( fullPath, hash );
-    if ( platformGpuOpen && IsGfxReady() )
+    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = m_renderDiagnostics;
+    if ( platformGpuOpen && renderDiagnostics )
     {
-        Gfx().PlatformProfilerGpuEnd();
+        renderDiagnostics->PlatformProfilerGpuEnd();
     }
     if ( platformRecordOpen )
     {
@@ -477,13 +489,14 @@ void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
 
 void Profiler::BeginGpuTimerInternal( const char* fullPath, uint32_t hash )
 {
-    if ( IsGfxReady() && Gfx().GetCapabilities().supportsGpuTimers )
+    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = m_renderDiagnostics;
+    if ( renderDiagnostics && renderDiagnostics->GetCapabilities().supportsGpuTimers )
     {
         int idx = FindOrRegister( fullPath, hash );
         Marker& m = m_markers[idx];
         m.hasGpu = true;
         m.gpuWrittenThisFrame = true;
-        Gfx().GpuTimerBegin( idx );
+        renderDiagnostics->GpuTimerBegin( idx );
         return;
     }
 }
@@ -491,13 +504,14 @@ void Profiler::BeginGpuTimerInternal( const char* fullPath, uint32_t hash )
 
 void Profiler::EndGpuTimerInternal( const char* fullPath, uint32_t hash )
 {
-    if ( IsGfxReady() && Gfx().GetCapabilities().supportsGpuTimers )
+    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = m_renderDiagnostics;
+    if ( renderDiagnostics && renderDiagnostics->GetCapabilities().supportsGpuTimers )
     {
         int idx = FindOrRegister( fullPath, hash );
         Marker& m = m_markers[idx];
         if ( m.gpuWrittenThisFrame )
         {
-            Gfx().GpuTimerEnd( idx );
+            renderDiagnostics->GpuTimerEnd( idx );
         }
         return;
     }
@@ -506,7 +520,8 @@ void Profiler::EndGpuTimerInternal( const char* fullPath, uint32_t hash )
 
 void Profiler::ReadPendingGpuResults()
 {
-    if ( IsGfxReady() && Gfx().GetCapabilities().supportsGpuTimers )
+    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = m_renderDiagnostics;
+    if ( renderDiagnostics && renderDiagnostics->GetCapabilities().supportsGpuTimers )
     {
         for ( int i = 0; i < m_markerCount; ++i )
         {
@@ -516,7 +531,7 @@ void Profiler::ReadPendingGpuResults()
                 continue;
             }
             float ms = 0.0f;
-            if ( Gfx().GpuTimerRead( i, ms ) )
+            if ( renderDiagnostics->GpuTimerRead( i, ms ) )
             {
                 m.gpuLastFrameMs = ms;
                 m.gpuRingMs[m.gpuRingHead] = ms;
@@ -569,9 +584,10 @@ void Profiler::InvalidateGpuQueries()
     // +1 because FrameBegin decrements before the frame runs
     m_warmupFrames = WARMUP_FRAMES + 1;
 
-    if ( IsGfxReady() )
+    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = m_renderDiagnostics;
+    if ( renderDiagnostics )
     {
-        Gfx().GpuTimerInvalidate();
+        renderDiagnostics->GpuTimerInvalidate();
     }
 }
 
@@ -587,7 +603,7 @@ void Profiler::FrameBegin()
     if ( m_resetPending )
     {
         // Wipe GPU query state on all current markers, then clear the registry.
-        // InvalidateGpuQueries also calls Gfx().GpuTimerInvalidate() and resets warmup.
+        // InvalidateGpuQueries also invalidates backend GPU timers and resets warmup.
         InvalidateGpuQueries();
         m_markerCount = 0;
         m_lastAvgTicks = 0;

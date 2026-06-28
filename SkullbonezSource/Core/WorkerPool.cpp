@@ -40,6 +40,9 @@ namespace Threading
 {
 namespace
 {
+// Lifetime: worker loops set these for their own thread while running queued
+// jobs. The main thread reads worker identity through accessors and never owns
+// the thread-local storage.
 thread_local bool g_isWorkerThread = false;
 thread_local int g_workerThreadIndex = -1;
 
@@ -104,6 +107,8 @@ WorkerPool::~WorkerPool()
 
 WorkerPool& WorkerPool::Instance()
 {
+    // Lifetime: Init resolves the desired thread count and starts/shuts down
+    // this process worker pool; runtime systems should use borrowed references.
     static WorkerPool s_pool;
     return s_pool;
 }

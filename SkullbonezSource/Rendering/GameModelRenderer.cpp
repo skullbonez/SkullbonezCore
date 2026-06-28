@@ -8,6 +8,10 @@ Mental model:
   calls, shader bindings, and validation artifacts.
 
 Glossary:
+  Asset system: Runtime-owned registry borrowed so render helpers can resolve
+  shader source without active-global lookup.
+  Command/resource facets: Borrowed renderer capabilities forwarded to
+  RenderHelper so model draws never reacquire the process-global backend.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -16,7 +20,9 @@ Invariants:
   - GameModelRenderer consumes collection render streams; GameModelCollection
     remains the owner of model order and lifetime.
   - Shadow caster preparation may run worker-side, but draw submission remains
-    on the render thread through RenderHelper/Gfx().
+    on the render thread through borrowed RenderHelper render contexts.
+  - Renderer capability references are call-scoped; cached helper handles remain
+    opaque backend ids and are reset by backend lifecycle code.
 
 Related:
   - SkullbonezSource/Rendering/GameModelRenderer.h
@@ -89,10 +95,16 @@ RenderMaterial MaterialWithFixedContactHighlight( const GameModel& model, bool b
 } // namespace
 
 
-void GameModelRenderer::RenderModels( GameModelCollection& collection,
+void GameModelRenderer::RenderModels( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                      SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
+                                      SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics,
+                                      const SkullbonezCore::Assets::AssetSystem& assets,
+                                      GameModelCollection& collection,
                                       const Matrix4& view,
                                       const Matrix4& proj,
                                       const float lightPos[4],
+                                      const RuntimeRenderFlags& runtimeRender,
+                                      const OrdinaryRenderConfig& ordinaryRender,
                                       const CinematicRenderConfig* cinematic,
                                       const ShadowFrameData* shadow,
                                       float materialAlpha,
@@ -109,7 +121,7 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
     const GameModelRenderStream renderStream = collection.GetRenderStream();
     const int modelCount = renderStream.count;
     const float clampedMaterialAlpha = std::clamp( materialAlpha, 0.0f, 1.0f );
-    const bool alphaBlendedPass = Cfg().runtimeRender.renderCollisionVolumes || clampedMaterialAlpha < 1.0f;
+    const bool alphaBlendedPass = runtimeRender.renderCollisionVolumes || clampedMaterialAlpha < 1.0f;
     const auto shouldDrawModel = [&]( int index ) -> bool
     {
         if ( !modelMask )
@@ -125,10 +137,14 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
     };
 
     {
-        DRAW_CALL_TRACE_SCOPE( "Spheres" );
-        RenderHelper::DrawSphereBatchBegin( view,
+        DRAW_CALL_TRACE_SCOPE( &renderDiagnostics, "Spheres" );
+        RenderHelper::DrawSphereBatchBegin( renderCommands,
+                                            renderResources,
+                                            assets,
+                                            view,
                                             proj,
                                             lightPos,
+                                            ordinaryRender,
                                             alphaBlendedPass,
                                             cinematic,
                                             shadow,
@@ -147,7 +163,7 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
                 RenderHelper::DrawSphereBatchModel( renderStream.modelMatrices[x], material );
             }
         }
-        RenderHelper::DrawSphereBatchEnd();
+        RenderHelper::DrawSphereBatchEnd( renderCommands );
     }
 
     bool hasPineVisualModels = false;
@@ -185,34 +201,42 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
     };
 
     {
-        DRAW_CALL_TRACE_SCOPE( "Boxes" );
-        RenderHelper::DrawBoxBatchBegin( view,
+        DRAW_CALL_TRACE_SCOPE( &renderDiagnostics, "Boxes" );
+        RenderHelper::DrawBoxBatchBegin( renderCommands,
+                                         renderResources,
+                                         assets,
+                                         view,
                                          proj,
                                          lightPos,
+                                         ordinaryRender,
                                          alphaBlendedPass,
                                          cinematic,
                                          shadow,
                                          clampedMaterialAlpha );
         appendBoxLikeModels( false );
-        RenderHelper::DrawBoxBatchEnd();
+        RenderHelper::DrawBoxBatchEnd( renderCommands );
     }
 
     if ( hasPineVisualModels )
     {
-        DRAW_CALL_TRACE_SCOPE( "Pines" );
-        RenderHelper::DrawPineBatchBegin( view,
+        DRAW_CALL_TRACE_SCOPE( &renderDiagnostics, "Pines" );
+        RenderHelper::DrawPineBatchBegin( renderCommands,
+                                          renderResources,
+                                          assets,
+                                          view,
                                           proj,
                                           lightPos,
+                                          ordinaryRender,
                                           alphaBlendedPass,
                                           cinematic,
                                           shadow,
                                           clampedMaterialAlpha );
         appendBoxLikeModels( true );
-        RenderHelper::DrawPineBatchEnd();
+        RenderHelper::DrawPineBatchEnd( renderCommands );
     }
 
     {
-        DRAW_CALL_TRACE_SCOPE( "ConvexHulls" );
+        DRAW_CALL_TRACE_SCOPE( &renderDiagnostics, "ConvexHulls" );
         for ( int x = 0; x < modelCount; ++x )
         {
             if ( !shouldDrawModel( x ) )
@@ -235,12 +259,16 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
             const RenderMaterial material = renderStream.isFixed[x]
                                                 ? MaterialWithFixedContactHighlight( models[x], false )
                                                 : models[x].GetRenderMaterial();
-            RenderHelper::DrawConvexHullModel( *hull,
+            RenderHelper::DrawConvexHullModel( renderCommands,
+                                               renderResources,
+                                               assets,
+                                               *hull,
                                                bodyModel,
                                                material,
                                                view,
                                                proj,
                                                lightPos,
+                                               ordinaryRender,
                                                alphaBlendedPass,
                                                cinematic,
                                                shadow,
@@ -250,7 +278,10 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
 }
 
 
-void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collection, ShadowCasterBatches& outBatches )
+void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collection,
+                                                  ShadowCasterBatches& outBatches,
+                                                  bool shadowParallelPrep,
+                                                  SkullbonezCore::Threading::WorkerPool& workerPool )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches" );
 
@@ -296,12 +327,12 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
         }
     };
 
-    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && Cfg().shadowParallelPrep &&
+    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && shadowParallelPrep &&
          modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/OrderedWorkerCollect" );
         std::vector<ShadowCasterBatches> chunkOutputs;
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelCollectOrdered<ShadowCasterBatches>(
+        workerPool.ParallelCollectOrdered<ShadowCasterBatches>(
             0,
             modelCount,
             chunkOutputs,
@@ -325,7 +356,11 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
 }
 
 
-void GameModelRenderer::SubmitShadowCasterBatches( const ShadowCasterBatches& batches,
+void GameModelRenderer::SubmitShadowCasterBatches( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                                   SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
+                                                   SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics,
+                                                   const SkullbonezCore::Assets::AssetSystem& assets,
+                                                   const ShadowCasterBatches& batches,
                                                    const Matrix4& view,
                                                    const Matrix4& proj,
                                                    const CinematicRenderConfig* cinematic )
@@ -337,54 +372,60 @@ void GameModelRenderer::SubmitShadowCasterBatches( const ShadowCasterBatches& ba
 
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Spheres" );
-        DRAW_CALL_TRACE_SCOPE( "Spheres" );
+        DRAW_CALL_TRACE_SCOPE( &renderDiagnostics, "Spheres" );
 
-        RenderHelper::DrawShadowDepthSphereBatchBegin( view, proj, cinematic );
+        RenderHelper::DrawShadowDepthSphereBatchBegin( renderCommands, renderResources, assets, view, proj, cinematic );
         for ( const Matrix4& model : batches.spheres )
         {
             RenderHelper::DrawShadowDepthSphereBatchModel( model );
         }
-        RenderHelper::DrawShadowDepthSphereBatchEnd();
+        RenderHelper::DrawShadowDepthSphereBatchEnd( renderCommands );
     }
 
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Boxes" );
-        DRAW_CALL_TRACE_SCOPE( "Boxes" );
+        DRAW_CALL_TRACE_SCOPE( &renderDiagnostics, "Boxes" );
 
-        RenderHelper::DrawShadowDepthBoxBatchBegin( view, proj );
+        RenderHelper::DrawShadowDepthBoxBatchBegin( renderCommands, renderResources, assets, view, proj );
         for ( const Matrix4& model : batches.boxes )
         {
             RenderHelper::DrawShadowDepthBoxBatchModel( model );
         }
-        RenderHelper::DrawShadowDepthBoxBatchEnd();
+        RenderHelper::DrawShadowDepthBoxBatchEnd( renderCommands );
     }
 
     if ( !batches.pines.empty() )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Pines" );
-        DRAW_CALL_TRACE_SCOPE( "Pines" );
+        DRAW_CALL_TRACE_SCOPE( &renderDiagnostics, "Pines" );
 
-        RenderHelper::DrawShadowDepthPineBatchBegin( view, proj );
+        RenderHelper::DrawShadowDepthPineBatchBegin( renderCommands, renderResources, assets, view, proj );
         for ( const Matrix4& model : batches.pines )
         {
             RenderHelper::DrawShadowDepthPineBatchModel( model );
         }
-        RenderHelper::DrawShadowDepthPineBatchEnd();
+        RenderHelper::DrawShadowDepthPineBatchEnd( renderCommands );
     }
 }
 
 
-void GameModelRenderer::RenderShadowCasters( GameModelCollection& collection,
+void GameModelRenderer::RenderShadowCasters( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                             SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
+                                             SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics,
+                                             const SkullbonezCore::Assets::AssetSystem& assets,
+                                             GameModelCollection& collection,
                                              const Matrix4& view,
                                              const Matrix4& proj,
+                                             bool shadowParallelPrep,
+                                             SkullbonezCore::Threading::WorkerPool& workerPool,
                                              const CinematicRenderConfig* cinematic )
 {
     ShadowCasterBatches batches;
-    BuildShadowCasterBatches( collection, batches );
-    SubmitShadowCasterBatches( batches, view, proj, cinematic );
+    BuildShadowCasterBatches( collection, batches, shadowParallelPrep, workerPool );
+    SubmitShadowCasterBatches( renderCommands, renderResources, renderDiagnostics, assets, batches, view, proj, cinematic );
 
     const std::vector<GameModel>& models = collection.Models();
-    DRAW_CALL_TRACE_SCOPE( "ConvexHulls" );
+    DRAW_CALL_TRACE_SCOPE( &renderDiagnostics, "ConvexHulls" );
     for ( const GameModel& model : models )
     {
         if ( !model.IsConvexHull() )
@@ -400,7 +441,7 @@ void GameModelRenderer::RenderShadowCasters( GameModelCollection& collection,
 
         const Matrix4 bodyModel =
             Matrix4::Translate( model.GetPosition() ) * Matrix4::FromQuaternion( model.GetOrientation() );
-        RenderHelper::DrawShadowDepthConvexHullModel( *hull, bodyModel, view, proj );
+        RenderHelper::DrawShadowDepthConvexHullModel( renderCommands, renderResources, assets, *hull, bodyModel, view, proj );
     }
 }
 
@@ -408,6 +449,8 @@ void GameModelRenderer::RenderShadowCasters( GameModelCollection& collection,
 bool GameModelRenderer::GetObjectShadowBounds( GameModelCollection& collection,
                                                const Vector3& focus,
                                                float maxDistance,
+                                               bool shadowParallelPrep,
+                                               SkullbonezCore::Threading::WorkerPool& workerPool,
                                                Vector3& outCenter,
                                                float& outRadius,
                                                float& outHeightRange )
@@ -475,12 +518,12 @@ bool GameModelRenderer::GetObjectShadowBounds( GameModelCollection& collection,
     };
 
     BoundsAccumulator bounds;
-    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && Cfg().shadowParallelPrep &&
+    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && shadowParallelPrep &&
          modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/OrderedWorkerCollect" );
         std::vector<BoundsAccumulator> chunkOutputs;
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelCollectOrdered<BoundsAccumulator>(
+        workerPool.ParallelCollectOrdered<BoundsAccumulator>(
             0,
             modelCount,
             chunkOutputs,

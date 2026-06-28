@@ -14,6 +14,8 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Command context: Borrowed render-frame interface used only by debug vector
+    drawing; force sampling remains renderer-independent.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -35,6 +37,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Rendering
+{
+class IRenderCommandContext;
+}
 namespace Physics
 {
 struct TornadoFieldConfig
@@ -98,7 +104,9 @@ class TornadoField
     static Math::Vector::Vector3 SampleAccelerationForConfig( const TornadoFieldConfig& config,
                                                               const Math::Vector::Vector3& position );
     Math::Vector::Vector3 SampleAcceleration( const Math::Vector::Vector3& position ) const;
-    void RenderVectors( const Math::Transformation::Matrix4& viewProj );
+    // Debug visualization only; physics force sampling does not require a renderer.
+    void RenderVectors( Rendering::IRenderCommandContext& renderCommands,
+                        const Math::Transformation::Matrix4& viewProj );
     std::size_t DynamicMemoryBytes() const;
 
   private:
@@ -127,7 +135,9 @@ class TornadoSystem
         return m_activeVortices;
     }
     Math::Vector::Vector3 SampleAcceleration( const Math::Vector::Vector3& position ) const;
-    void RenderVectors( const Math::Transformation::Matrix4& viewProj );
+    // Debug visualization only; active vortices borrow render commands for line submission.
+    void RenderVectors( Rendering::IRenderCommandContext& renderCommands,
+                        const Math::Transformation::Matrix4& viewProj );
     std::size_t DynamicMemoryBytes() const;
 
     static void BuildActiveVortices( const TornadoSystemConfig& config,

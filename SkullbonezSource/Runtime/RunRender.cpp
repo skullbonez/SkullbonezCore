@@ -18,6 +18,8 @@ Glossary:
   HDR (High Dynamic Range): Floating-point scene color that preserves bright
   lighting until the tonemap pass resolves it to display color.
   FBO (Framebuffer Object): Engine-neutral off-screen render target wrapper.
+  Render resource factory: Borrowed renderer capability used during pass/resource
+  rebuild phases to create or delete backend-owned resources.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
   mesh or procedural object owned by the DX12 backend.
   TLAS (Top-Level Acceleration Structure): Raytracing scene-instance table built
@@ -123,6 +125,7 @@ struct DebugOverlayGraphCallbackData
 {
     DebugOverlayPass* debugOverlayPass = nullptr;
     const RenderFrameContext* frame = nullptr;
+    const RenderResourceContext* resources = nullptr;
 };
 
 struct SceneTargetGraphCallbackData
@@ -141,6 +144,9 @@ struct SkyboxGraphCallbackData
 struct UiTextGraphCallbackData
 {
     UiTextPass* uiTextPass = nullptr;
+    SkullbonezCore::Assets::AssetSystem* assets = nullptr;
+    SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = nullptr;
+    SkullbonezCore::Rendering::IRenderResourceFactory* renderResources = nullptr;
     SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
     SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = nullptr;
     double secondsPerFrame = 0.0;
@@ -249,11 +255,11 @@ void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGr
                                        void* userData )
 {
     auto* data = static_cast<DebugOverlayGraphCallbackData*>( userData );
-    if ( !data || !data->debugOverlayPass || !data->frame )
+    if ( !data || !data->debugOverlayPass || !data->frame || !data->resources )
     {
         throw std::runtime_error( "DebugOverlayPass graph callback missing execution data" );
     }
-    data->debugOverlayPass->Render( { *data->frame } );
+    data->debugOverlayPass->Render( { *data->frame, *data->resources } );
 }
 
 void ExecuteReplayGhostGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
@@ -291,11 +297,17 @@ void ExecuteSkyboxGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
 {
     auto* data = static_cast<UiTextGraphCallbackData*>( userData );
-    if ( !data || !data->uiTextPass || !data->renderDiagnostics )
+    if ( !data || !data->uiTextPass || !data->assets || !data->renderCommands || !data->renderResources ||
+         !data->renderDiagnostics )
     {
         throw std::runtime_error( "UiTextPass graph callback missing execution data" );
     }
-    data->uiTextPass->Render( { *data->renderDiagnostics, data->renderRayTracing, data->secondsPerFrame } );
+    data->uiTextPass->Render( { *data->assets,
+                                *data->renderCommands,
+                                *data->renderResources,
+                                *data->renderDiagnostics,
+                                data->renderRayTracing,
+                                data->secondsPerFrame } );
 }
 
 void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
@@ -329,14 +341,14 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                               SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing,
                                               bool renderReady )
 {
-    return RuntimeRenderInputs{ RuntimeRenderServices{ *systems.textures,
+    return RuntimeRenderInputs{ RuntimeRenderServices{ systems.textures,
                                                        models,
                                                        world,
                                                        systems.terrain.get(),
                                                        *systems.cameras,
                                                        *systems.window,
                                                        ui,
-                                                       systems.skyBox,
+                                                       systems.skyBox.get(),
                                                        renderCommands,
                                                        renderResources,
                                                        renderDiagnostics,
@@ -804,7 +816,9 @@ bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph( const RenderFrameCo
 }
 
 
-bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget )
+bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame,
+                                                             const RenderResourceContext& resources,
+                                                             bool useCinematicTarget )
 {
     Rendering::RenderGraph graph;
     const Rendering::RenderGraphResourceHandle colorTarget =
@@ -823,6 +837,7 @@ bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameCo
     DebugOverlayGraphCallbackData callbackData;
     callbackData.debugOverlayPass = &m_debugOverlayPass;
     callbackData.frame = &frame;
+    callbackData.resources = &resources;
     graph.SetPassCallback( debugPass,
                            ExecuteDebugOverlayGraphCallback,
                            &callbackData,
@@ -913,7 +928,10 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
 }
 
 
-bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
+bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Assets::AssetSystem& assets,
+                                                       Rendering::IRenderCommandContext& renderCommands,
+                                                       Rendering::IRenderResourceFactory& renderResources,
+                                                       Rendering::IRenderDiagnostics& renderDiagnostics,
                                                        Rendering::IRenderRayTracing* renderRayTracing,
                                                        double secondsPerFrame )
 {
@@ -928,6 +946,9 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
 
     UiTextGraphCallbackData callbackData;
     callbackData.uiTextPass = &m_uiTextPass;
+    callbackData.assets = &assets;
+    callbackData.renderCommands = &renderCommands;
+    callbackData.renderResources = &renderResources;
     callbackData.renderDiagnostics = &renderDiagnostics;
     callbackData.renderRayTracing = renderRayTracing;
     callbackData.secondsPerFrame = secondsPerFrame;
@@ -954,6 +975,7 @@ RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRender
     frame.cinematic = cinematicRender ? &renderConfig : nullptr;
     frame.scene = &services.models;
     frame.renderCommands = &services.renderCommands;
+    frame.renderResources = &services.renderResources;
     frame.renderDiagnostics = &services.renderDiagnostics;
     frame.renderRayTracing = services.renderRayTracing;
     frame.windowWidth = (std::max)( 1, m_host.WindowScreenWidth() );
@@ -1035,7 +1057,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     m_uiTextRayTracing = services.renderRayTracing;
     const bool cinematicRender = host.IsCinematicRenderingEnabled();
     const CinematicRenderConfig& renderConfig = host.ActiveCinematicConfig();
-    const OrdinaryRenderConfig& ordinaryRender = Cfg().ordinaryRender;
+    const OrdinaryRenderConfig& ordinaryRender = host.m_config.ordinaryRender;
     CinematicRenderConfig ordinaryShadowConfig = renderConfig;
     ordinaryShadowConfig.shadowsEnabled = ordinaryRender.shadowsEnabled;
     ordinaryShadowConfig.shadowTerrainCasts = ordinaryRender.shadowTerrainCasts;
@@ -1122,7 +1144,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Skybox" );
         {
-            DRAW_CALL_TRACE_SCOPE( "Frame/Render/Skybox" );
+            DRAW_CALL_TRACE_SCOPE( frame.renderDiagnostics, "Frame/Render/Skybox" );
             skyboxCallbackOwned = ExecuteSkyboxThroughRenderGraph( frame );
         }
         PROFILE_GPU_END( "Frame/Render/Skybox" );
@@ -1219,7 +1241,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     const bool replayGhostCallbackOwned =
         ExecuteReplayGhostsThroughRenderGraph( frame, useCinematicTarget, activeCinematic, objectShadowFrame );
 
-    const bool debugOverlayCallbackOwned = ExecuteDebugOverlayThroughRenderGraph( frame, useCinematicTarget );
+    const bool debugOverlayCallbackOwned = ExecuteDebugOverlayThroughRenderGraph( frame, resourceContext, useCinematicTarget );
 
     bool volumetricReady = false;
     bool volumetricCallbackOwned = false;
@@ -1277,14 +1299,14 @@ void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::IRenderResourceFa
     m_reflectionPass.ReleaseGpuResources();
     m_skyPass.ReleaseGpuResources();
     m_fullscreenQuadPass.ReleaseGpuResources( renderResources );
-    m_uiTextPass.ReleaseGpuResources();
+    m_uiTextPass.ReleaseGpuResources( renderResources );
     m_uiTextRayTracing = nullptr;
 }
 
 
-void RuntimeRenderer::EnsureUiTextResources()
+void RuntimeRenderer::EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources )
 {
-    m_uiTextPass.EnsureGpuResources();
+    m_uiTextPass.EnsureGpuResources( renderResources );
 }
 
 
@@ -1300,9 +1322,14 @@ void RuntimeRenderer::SetUiTextRayTracingCapability( Rendering::IRenderRayTracin
 }
 
 
-void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics, double dSecondsPerFrame )
+void RuntimeRenderer::RenderUiText( Assets::AssetSystem& assets,
+                                    Rendering::IRenderCommandContext& renderCommands,
+                                    Rendering::IRenderResourceFactory& renderResources,
+                                    Rendering::IRenderDiagnostics& renderDiagnostics,
+                                    double dSecondsPerFrame )
 {
-    (void)ExecuteUiTextThroughRenderGraph( renderDiagnostics, m_uiTextRayTracing, dSecondsPerFrame );
+    (void)ExecuteUiTextThroughRenderGraph(
+        assets, renderCommands, renderResources, renderDiagnostics, m_uiTextRayTracing, dSecondsPerFrame );
 }
 
 
@@ -1373,7 +1400,8 @@ void Run::Render()
 
     applyReplayRenderStateForFrame();
 
-    const bool renderReady = IsGfxReady();
+    IRenderBackend* renderBackendPtr = m_systems.renderBackend;
+    const bool renderReady = renderBackendPtr != nullptr;
     if ( !renderReady )
     {
         restoreReplayRenderStateForFrame();
@@ -1381,17 +1409,16 @@ void Run::Render()
     }
 
     // Invariant: render inputs only borrow command capabilities after the
-    // process-bound backend is ready. The captured flag records that guard for
+    // startup-bound backend is ready. The captured flag records that guard for
     // frame decisions without making the command context nullable.
-    IRenderBackend& renderBackend = Gfx();
+    IRenderBackend& renderBackend = *renderBackendPtr;
     SkullbonezCore::Rendering::IRenderCommandContext& renderCommands =
         static_cast<SkullbonezCore::Rendering::IRenderCommandContext&>( renderBackend );
     SkullbonezCore::Rendering::IRenderResourceFactory& renderResources =
         static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( renderBackend );
     SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics =
         static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( renderBackend );
-    SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing =
-        IsGfxRayTracingReady() ? &GfxRayTracing() : nullptr;
+    SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = m_systems.renderRayTracing;
     m_renderer.SetUiTextRayTracingCapability( renderRayTracing );
     m_renderer.RenderFrame( BuildRuntimeRenderInputs( m_systems,
                                                       m_cGameModelCollection,
@@ -1406,7 +1433,7 @@ void Run::Render()
 }
 
 
-void Run::RebuildRegisteredRenderResources()
+void Run::RebuildRegisteredRenderResources( Rendering::IRenderResourceFactory& renderResources )
 {
     enum class RebuildStep
     {
@@ -1433,14 +1460,14 @@ void Run::RebuildRegisteredRenderResources()
         switch ( phase.step )
         {
         case RebuildStep::ResetHelperCache:
-            RenderHelper::ResetRenderResources();
+            RenderHelper::ResetRenderResources( &renderResources );
             break;
         case RebuildStep::RegisterBuiltInSources:
-            RegisterBuiltInAssets();
+            RegisterBuiltInAssets( m_config );
             break;
         case RebuildStep::RebuildTextures:
             // Recreate backend texture handles from stable source asset records.
-            m_systems.textures->RebuildTexturesFromSourceAssets();
+            m_systems.textures.RebuildTexturesFromSourceAssets( renderResources );
             break;
         }
     }
@@ -1546,7 +1573,7 @@ void Run::RelativeUpdateCamera( uint32_t hash )
         Vector3 translatedCameraPosition = m_systems.cameras->GetCameraTranslation( hash );
         float minY =
             m_systems.terrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) +
-            Cfg().minCameraHeight;
-        m_systems.cameras->RelativeUpdate( hash, minY, Cfg().maxCameraHeight );
+            m_config.minCameraHeight;
+        m_systems.cameras->RelativeUpdate( hash, minY, m_config.maxCameraHeight );
     }
 }

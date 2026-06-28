@@ -143,7 +143,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         const Vector3 center( terrainPoint.x,
                               terrainPoint.y + radius + EDITOR_PLACEMENT_SURFACE_EPSILON,
                               terrainPoint.z );
-        GameModel model( &context.world, center, inertia, mass );
+        GameModel model( &context.world, context.config, center, inertia, mass );
         model.SetTerrain( context.terrain );
         model.SetCoefficientRestitution( restitution );
         model.AddBoundingSphere( radius );
@@ -168,7 +168,11 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         {
             return;
         }
-        GameModel model( &context.world, center, CalculateBoxInertiaForHalfExtents( halfExtents, mass ), mass );
+        GameModel model( &context.world,
+                         context.config,
+                         center,
+                         CalculateBoxInertiaForHalfExtents( halfExtents, mass ),
+                         mass );
         model.SetTerrain( context.terrain );
         model.SetCoefficientRestitution( 0.25f );
         model.AddBoundingBox( halfExtents );
@@ -205,7 +209,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             hullRotation *
                 Vector3( 0.0f, HullAuthoredBottomOffset( scaledHull ) + EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f );
         const Vector3 center = authoredOrigin + hullRotation * scaledHull.GetAuthoredCenterOfMass();
-        GameModel model( &context.world, center, scaledHull.ComputeBoxApproxInertia( mass ), mass );
+        GameModel model( &context.world, context.config, center, scaledHull.ComputeBoxApproxInertia( mass ), mass );
         model.SetTerrain( context.terrain );
         model.SetCoefficientRestitution( 0.25f );
         model.AddConvexHull( scaledHull );
@@ -258,7 +262,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                 placementRotation * ( localOffset + Vector3( 0.0f, EDITOR_PLACEMENT_SURFACE_EPSILON, 0.0f ) );
             const Vector3 center = authoredOrigin + placementRotation * hull.GetAuthoredCenterOfMass();
             const float mass = hull.GetDefaultMass();
-            GameModel model( &context.world, center, hull.ComputeBoxApproxInertia( mass ), mass );
+            GameModel model( &context.world, context.config, center, hull.ComputeBoxApproxInertia( mass ), mass );
             model.SetTerrain( context.terrain );
             model.SetCoefficientRestitution( part.restitution );
             model.AddConvexHull( hull );
@@ -282,7 +286,11 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             const Vector3 halfExtents( part.halfX, part.halfY, part.halfZ );
             const float mass = CalculateBoxMass( halfExtents );
             const Vector3 center = base + placementRotation * Vector3( part.offsetX, part.offsetY, part.offsetZ );
-            GameModel model( &context.world, center, CalculateBoxInertiaForHalfExtents( halfExtents, mass ), mass );
+            GameModel model( &context.world,
+                             context.config,
+                             center,
+                             CalculateBoxInertiaForHalfExtents( halfExtents, mass ),
+                             mass );
             model.SetTerrain( context.terrain );
             model.SetCoefficientRestitution( part.restitution );
             model.AddBoundingBox( halfExtents );
@@ -325,7 +333,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                 const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
                 const Vector3 authoredOrigin = base + placementRotation * offset;
                 const Vector3 center = authoredOrigin + partRotation * hull.GetAuthoredCenterOfMass();
-                GameModel model( &context.world, center, hull.ComputeBoxApproxInertia( mass ), mass );
+                GameModel model( &context.world, context.config, center, hull.ComputeBoxApproxInertia( mass ), mass );
                 model.SetTerrain( context.terrain );
                 model.SetCoefficientRestitution( restitution );
                 model.SetContactReleaseOnImpact(
@@ -378,6 +386,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         Ragdoll::AddSimpleHumanoid( context.models,
                                     context.models.GetPhysicsEngine(),
                                     context.world,
+                                    context.config,
                                     context.terrain,
                                     options );
     };

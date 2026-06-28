@@ -38,12 +38,13 @@ using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Geometry;
 
 
-BoundingSphere::BoundingSphere() : m_radius( 0.0f )
+BoundingSphere::BoundingSphere() : m_radius( 0.0f ), m_dragCoefficient( DEFAULT_DRAG_COEFFICIENT )
 {
 }
 
 
-BoundingSphere::BoundingSphere( float fRadius, const Vector3& vPosition ) : m_position( vPosition ), m_radius( fRadius )
+BoundingSphere::BoundingSphere( float fRadius, const Vector3& vPosition, float dragCoefficient )
+    : m_position( vPosition ), m_radius( fRadius ), m_dragCoefficient( dragCoefficient )
 {
 }
 
@@ -244,7 +245,7 @@ float BoundingSphere::GetSubmergedVolumePercent( float m_fluidSurfaceHeight ) co
 
 float BoundingSphere::GetDragCoefficient() const
 {
-    return Cfg().sphereDragCoeff;
+    return m_dragCoefficient;
 }
 
 

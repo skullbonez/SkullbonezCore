@@ -192,15 +192,16 @@ Vector3 CinematicSkySunDirection( const CinematicRenderConfig& cinematic )
     return direction;
 }
 
-void ApplyWorkerThreadCountOverride( int requestedWorkerThreads )
+void ApplyWorkerThreadCountOverride( EngineConfig& config,
+                                     SkullbonezCore::Threading::WorkerPool& workerPool,
+                                     int requestedWorkerThreads )
 {
     const int clampedWorkerThreads =
         requestedWorkerThreads < 0
             ? -1
             : std::clamp( requestedWorkerThreads, 0, SkullbonezCore::Threading::WorkerPool::MaxThreadCount() );
-    SkullbonezCore::Threading::WorkerPool& workerPool = SkullbonezCore::Threading::WorkerPool::Instance();
     const int resolvedWorkerThreads = SkullbonezCore::Threading::WorkerPool::ResolveThreadCount( clampedWorkerThreads );
-    Cfg().workerThreads = clampedWorkerThreads;
+    config.workerThreads = clampedWorkerThreads;
     if ( workerPool.GetThreadCount() != resolvedWorkerThreads )
     {
         workerPool.Initialise( clampedWorkerThreads );

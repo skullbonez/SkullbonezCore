@@ -242,6 +242,12 @@ class EngineConfig
 {
   public:
     static EngineConfig& Instance();
+    // Default value object for explicit tests and standalone helpers that need
+    // config-shaped policy without borrowing the process singleton.
+    static EngineConfig Defaults()
+    {
+        return EngineConfig();
+    }
     void Load( const char* path );
     void Dump( FILE* out ) const;
 

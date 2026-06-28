@@ -16,6 +16,8 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Command context: Borrowed render-frame interface used only to submit the
+    debug line stream after physics diagnostics have been collected.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -35,6 +37,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Rendering
+{
+class IRenderCommandContext;
+}
 namespace Geometry
 {
 class Terrain;
@@ -171,7 +177,10 @@ class PhysicsDebugVisualizer
     void SetContactLingerSeconds( float seconds );
     void SetPipelineStageCursor( int cursor );
     void Update( float dt, GameObjects::GameModelCollection& models );
-    void Render( GameObjects::GameModelCollection& models,
+    // Render-time only: consumes cached diagnostics and submits lines through
+    // the caller's frame command context without touching physics state.
+    void Render( Rendering::IRenderCommandContext& renderCommands,
+                 GameObjects::GameModelCollection& models,
                  const Math::Transformation::Matrix4& viewProj,
                  Geometry::Terrain* terrain = nullptr );
 };

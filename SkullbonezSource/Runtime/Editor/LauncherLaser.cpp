@@ -14,10 +14,14 @@ Glossary:
   Ribbon: Thin quad strip used to render one laser streak.
   Afterimage: Fading visual trail that remains briefly after the shot.
   Shader handle: Runtime id that resolves to a renderer-owned shader resource.
+  Render resource factory: Borrowed renderer capability used to create the laser
+  shader and dynamic vertex buffer for the active backend.
 
 Invariants:
   - Laser shots are visual feedback only; physics impulses happen elsewhere.
   - Expired shots must stop drawing without changing launcher hit history.
+  - Laser GPU resources are backend-specific and must be released before backend
+    teardown or reset.
 
 Related:
   - SkullbonezSource/Runtime/Editor/LauncherLaser.h
@@ -26,7 +30,8 @@ Related:
 #include "LauncherLaser.h"
 
 #include "../../Assets/AssetSystem.h"
-#include "../../Rendering/IRenderBackend.h"
+#include "../../Rendering/IRenderCommandContext.h"
+#include "../../Rendering/IRenderResourceFactory.h"
 #include "../../Rendering/IShader.h"
 
 #include <algorithm>
@@ -70,11 +75,14 @@ LauncherLaser::~LauncherLaser()
     ResetResources();
 }
 
-void LauncherLaser::ResetResources()
+void LauncherLaser::ResetResources( Rendering::IRenderResourceFactory* renderResources )
 {
-    if ( IsGfxReady() && m_dynamicVB != 0 )
+    // Lifetime: explicit Run teardown passes the live factory so backend handles
+    // are destroyed before device release. The destructor may run after backend
+    // teardown, so a null factory only clears CPU-owned state.
+    if ( renderResources && m_dynamicVB != 0 )
     {
-        Gfx().DestroyDynamicVB( m_dynamicVB );
+        renderResources->DestroyDynamicVB( m_dynamicVB );
     }
 
     m_dynamicVB = 0;
@@ -87,22 +95,19 @@ void LauncherLaser::Clear()
     m_nextShot = 0;
 }
 
-void LauncherLaser::EnsureResources()
+void LauncherLaser::EnsureResources( const Assets::AssetSystem& assets, Rendering::IRenderResourceFactory& renderResources )
 {
-    if ( !IsGfxReady() )
-    {
-        return;
-    }
-
     if ( !m_shader )
     {
-        m_shader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.launcher_laser" );
+        // Lifetime: the laser owns the shader object, but source lookup comes
+        // from the Run-owned asset registry borrowed for this render pass.
+        m_shader = assets.CreateShader( renderResources, "shader.launcher_laser" );
     }
 
     if ( m_dynamicVB == 0 )
     {
         const int attribs[] = { 3, 4 };
-        m_dynamicVB = Gfx().CreateDynamicVB( attribs, 2, MAX_VERTICES );
+        m_dynamicVB = renderResources.CreateDynamicVB( attribs, 2, MAX_VERTICES );
     }
 }
 
@@ -357,12 +362,13 @@ void LauncherLaser::EmitShot( const Shot& shot )
     }
 }
 
-void LauncherLaser::Render( const Matrix4& viewProjection, const Vector3& cameraEye, const Vector3& cameraUp )
+void LauncherLaser::Render( const Assets::AssetSystem& assets,
+                             Rendering::IRenderCommandContext& renderCommands,
+                             Rendering::IRenderResourceFactory& renderResources,
+                             const Matrix4& viewProjection,
+                             const Vector3& cameraEye,
+                             const Vector3& cameraUp )
 {
-    if ( !IsGfxReady() )
-    {
-        return;
-    }
     static_cast<void>( cameraEye );
     static_cast<void>( cameraUp );
 
@@ -376,33 +382,33 @@ void LauncherLaser::Render( const Matrix4& viewProjection, const Vector3& camera
         return;
     }
 
-    EnsureResources();
+    EnsureResources( assets, renderResources );
     if ( !m_shader || m_dynamicVB == 0 )
     {
         return;
     }
 
-    const bool depthWasEnabled = Gfx().IsDepthTestEnabled();
-    const bool depthWriteWasEnabled = Gfx().IsDepthWriteEnabled();
-    const bool blendWasEnabled = Gfx().IsBlendEnabled();
-    const bool cullWasEnabled = Gfx().IsCullFaceEnabled();
+    const bool depthWasEnabled = renderCommands.IsDepthTestEnabled();
+    const bool depthWriteWasEnabled = renderCommands.IsDepthWriteEnabled();
+    const bool blendWasEnabled = renderCommands.IsBlendEnabled();
+    const bool cullWasEnabled = renderCommands.IsCullFaceEnabled();
     BlendFactor blendSrc = BlendFactor::One;
     BlendFactor blendDst = BlendFactor::Zero;
-    Gfx().GetBlendFunc( blendSrc, blendDst );
+    renderCommands.GetBlendFunc( blendSrc, blendDst );
 
-    Gfx().SetDepthTest( false );
-    Gfx().SetDepthWrite( false );
-    Gfx().SetBlend( true );
-    Gfx().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::One );
-    Gfx().SetCullFace( false );
+    renderCommands.SetDepthTest( false );
+    renderCommands.SetDepthWrite( false );
+    renderCommands.SetBlend( true );
+    renderCommands.SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::One );
+    renderCommands.SetCullFace( false );
 
     m_shader->Use();
     m_shader->SetMat4( "uViewProj", viewProjection );
-    Gfx().UploadAndDrawDynamicVB( m_dynamicVB, m_vertices.data(), static_cast<int>( m_vertices.size() / 7 ) );
+    renderCommands.UploadAndDrawDynamicVB( m_dynamicVB, m_vertices.data(), static_cast<int>( m_vertices.size() / 7 ) );
 
-    Gfx().SetCullFace( cullWasEnabled );
-    Gfx().SetBlendFunc( blendSrc, blendDst );
-    Gfx().SetBlend( blendWasEnabled );
-    Gfx().SetDepthWrite( depthWriteWasEnabled );
-    Gfx().SetDepthTest( depthWasEnabled );
+    renderCommands.SetCullFace( cullWasEnabled );
+    renderCommands.SetBlendFunc( blendSrc, blendDst );
+    renderCommands.SetBlend( blendWasEnabled );
+    renderCommands.SetDepthWrite( depthWriteWasEnabled );
+    renderCommands.SetDepthTest( depthWasEnabled );
 }

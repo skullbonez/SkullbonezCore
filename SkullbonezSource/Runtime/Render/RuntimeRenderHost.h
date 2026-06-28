@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   Render host: Borrowed service view used by render passes while Run remains
     the broader composition root.
+  Command context: Borrowed frame capability passed through host helpers when
+    a pass needs to bind a texture handle.
   Binding: Pointer set that connects host methods to current runtime owners.
   Callback: Transitional function pointer used for behavior still implemented
     on Run.
@@ -67,6 +69,15 @@ namespace UI
 {
 class InGameUI;
 }
+namespace Rendering
+{
+class IRenderCommandContext;
+class IRenderResourceFactory;
+}
+namespace Threading
+{
+class WorkerPool;
+}
 namespace Basics
 {
 class LauncherLaser;
@@ -102,6 +113,7 @@ struct ReplayOverlayRenderContext;
 struct RenderRuntimeView
 {
     RunSubsystemState* systems = nullptr;
+    Threading::WorkerPool* workerPool = nullptr;
     const RunLaunchOptions* launchOptions = nullptr;
     RunRuntimeSettings* runtimeSettings = nullptr;
 };
@@ -160,7 +172,11 @@ struct RuntimeRenderHostBindings
 struct RuntimeRenderHostCallbacks
 {
     using LogLifecycleStepFn = void ( * )( void* user, const char* phase, const char* step );
+    // Lifetime: render contexts are borrowed for the current overlay pass only.
+    // Callback implementations must not retain them beyond the call.
     using RenderEditorOverlayFn = void ( * )( void* user,
+                                              Rendering::IRenderCommandContext& renderCommands,
+                                              Rendering::IRenderResourceFactory& renderResources,
                                               const Math::Transformation::Matrix4& viewProjection,
                                               const Math::Vector::Vector3& cameraEye,
                                               const Math::Vector::Vector3& cameraUp );
@@ -180,8 +196,9 @@ class RuntimeRenderHost
 {
   public:
     RuntimeRenderHost( RuntimeRenderHostBindings bindings, RuntimeRenderHostCallbacks callbacks, EngineConfig& config )
-        : m_systems( *bindings.runtime.systems ), m_config( config ), m_debug( *bindings.diagnostics.debug ),
-          m_timers( *bindings.diagnostics.timers ), m_launchOptions( *bindings.runtime.launchOptions ),
+        : m_systems( *bindings.runtime.systems ), m_config( config ), m_workerPool( *bindings.runtime.workerPool ),
+          m_debug( *bindings.diagnostics.debug ), m_timers( *bindings.diagnostics.timers ),
+          m_launchOptions( *bindings.runtime.launchOptions ),
           m_runtimeSettings( *bindings.runtime.runtimeSettings ),
           m_cGameModelCollection( *bindings.world.gameModelCollection ),
           m_cWorldEnvironment( *bindings.world.worldEnvironment ),
@@ -206,7 +223,7 @@ class RuntimeRenderHost
 
     uint32_t TextureHandle( uint32_t textureHash ) const;
 
-    void SelectRenderTexture( uint32_t textureHash ) const;
+    void SelectRenderTexture( Rendering::IRenderCommandContext& renderCommands, uint32_t textureHash ) const;
 
     int WindowScreenWidth() const;
 
@@ -232,11 +249,13 @@ class RuntimeRenderHost
         return m_replayRuntime.CurrentPredictionScrubFrame();
     }
 
-    void RenderEditorOverlay( const Math::Transformation::Matrix4& viewProjection,
+    void RenderEditorOverlay( Rendering::IRenderCommandContext& renderCommands,
+                              Rendering::IRenderResourceFactory& renderResources,
+                              const Math::Transformation::Matrix4& viewProjection,
                               const Math::Vector::Vector3& cameraEye,
                               const Math::Vector::Vector3& cameraUp ) const
     {
-        m_callbacks.renderEditorOverlay( m_callbacks.user, viewProjection, cameraEye, cameraUp );
+        m_callbacks.renderEditorOverlay( m_callbacks.user, renderCommands, renderResources, viewProjection, cameraEye, cameraUp );
     }
 
     void RefreshRuntimeViewModel() const
@@ -317,6 +336,7 @@ class RuntimeRenderHost
 
     RunSubsystemState& m_systems;
     EngineConfig& m_config; // Borrowed live config owned by the process config singleton.
+    Threading::WorkerPool& m_workerPool; // Borrowed process worker service for diagnostics/render pass controls.
     RunDebugState& m_debug;
     RunTimerState& m_timers;
     const RunLaunchOptions& m_launchOptions;

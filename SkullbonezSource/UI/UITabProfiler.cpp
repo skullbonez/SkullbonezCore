@@ -24,7 +24,6 @@ Related:
 #include "UITabProfiler.h"
 
 #include "../Core/Common.h"
-#include "../Rendering/IRenderBackend.h"
 #include "../Core/Profiler.h"
 #include "UI.h"
 #include "UIDraw.h"
@@ -152,15 +151,6 @@ void ToggleDrawNode( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
     }
 }
 
-SkullbonezCore::Rendering::DrawCallTraceSnapshot GetDrawTraceSnapshot()
-{
-    if ( !SkullbonezCore::Rendering::IsGfxReady() )
-    {
-        return SkullbonezCore::Rendering::DrawCallTraceSnapshot();
-    }
-    return SkullbonezCore::Rendering::Gfx().GetFrameDrawCallTrace();
-}
-
 bool DrawNodeHasVisibleChildren( const SkullbonezCore::Rendering::DrawCallTraceSnapshot& snapshot, int nodeIndex )
 {
     for ( int i = 0; i < snapshot.nodeCount; ++i )
@@ -238,9 +228,11 @@ int BuildVisibleDrawRows( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabSt
     return (std::min)( rowCount, maxRows );
 }
 
-int BuildVisibleRows( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, int* rows, int maxRows )
+int BuildVisibleRows( const Profiler& profiler,
+                      const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
+                      int* rows,
+                      int maxRows )
 {
-    const SkullbonezCore::Basics::Profiler& profiler = SkullbonezCore::Basics::Profiler::Instance();
     const int markerCount = (std::min)( profiler.MarkerCount(), SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
     int childIndices[SkullbonezCore::UI::ProfilerTab::MAX_MARKERS][SkullbonezCore::UI::ProfilerTab::MAX_MARKERS] = {};
     int childCounts[SkullbonezCore::UI::ProfilerTab::MAX_MARKERS] = {};
@@ -291,12 +283,12 @@ int BuildVisibleRows( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
     return (std::min)( rowCount, maxRows );
 }
 
-void BuildTimelineSegments( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
+void BuildTimelineSegments( const Profiler& profiler,
+                            const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
                             const int* rows,
                             int rowCount,
                             SkullbonezCore::UI::ProfilerTab::TimelineSegment* segments )
 {
-    const SkullbonezCore::Basics::Profiler& profiler = SkullbonezCore::Basics::Profiler::Instance();
     const int markerCount = (std::min)( profiler.MarkerCount(), SkullbonezCore::UI::ProfilerTab::MAX_MARKERS );
     int rowForMarker[SkullbonezCore::UI::ProfilerTab::MAX_MARKERS] = {};
     int childIndices[SkullbonezCore::UI::ProfilerTab::MAX_MARKERS][SkullbonezCore::UI::ProfilerTab::MAX_MARKERS] = {};
@@ -392,10 +384,6 @@ void SetExpandAll( UIProfilerTabState& state, bool expandAll )
     state.drawExpandedHashCount = 0;
     state.defaultExpansionApplied = false;
     state.drawDefaultExpansionApplied = false;
-    if ( expandAll )
-    {
-        ApplyExpandAll( state );
-    }
 }
 
 
@@ -423,24 +411,25 @@ void ResetPreviewState( UIProfilerTabState& state )
 }
 
 
-void ApplyDefaultExpansion( UIProfilerTabState& state )
+void ApplyDefaultExpansion( UIProfilerTabState& state,
+                            const Profiler* profiler,
+                            const Rendering::DrawCallTraceSnapshot& drawTrace )
 {
     if ( state.defaultExpansionApplied && state.drawDefaultExpansionApplied )
     {
         return;
     }
 
-    if ( !state.defaultExpansionApplied )
+    if ( profiler && !state.defaultExpansionApplied )
     {
-        const Profiler& profiler = Profiler::Instance();
         static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
         static constexpr uint32_t kUIHash = ::HashStr( "Frame/UI" );
         static constexpr uint32_t kPhysicsHash = ::HashStr( "Frame/Physics" );
-        for ( int i = 0; i < profiler.MarkerCount(); ++i )
+        for ( int i = 0; i < profiler->MarkerCount(); ++i )
         {
-            const Profiler::Marker& marker = profiler.GetMarker( i );
+            const Profiler::Marker& marker = profiler->GetMarker( i );
             if ( ( marker.hash == kFrameHash || marker.hash == kUIHash || marker.hash == kPhysicsHash ) &&
-                 ProfilerMarkerHasChildren( profiler, i ) && !IsMarkerExpanded( state, marker.hash ) &&
+                 ProfilerMarkerHasChildren( *profiler, i ) && !IsMarkerExpanded( state, marker.hash ) &&
                  state.expandedHashCount < MAX_MARKERS )
             {
                 state.expandedHashes[state.expandedHashCount++] = marker.hash;
@@ -451,19 +440,18 @@ void ApplyDefaultExpansion( UIProfilerTabState& state )
 
     if ( !state.drawDefaultExpansionApplied )
     {
-        const auto snapshot = GetDrawTraceSnapshot();
-        if ( snapshot.nodeCount > 0 )
+        if ( drawTrace.nodeCount > 0 )
         {
             static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
             static constexpr uint32_t kRenderHash = ::HashStr( "Frame/Render" );
             static constexpr uint32_t kShadowsHash = ::HashStr( "Frame/Shadows" );
             static constexpr uint32_t kUIHash = ::HashStr( "Frame/UI" );
-            for ( int i = 0; i < snapshot.nodeCount && state.drawExpandedHashCount < MAX_MARKERS; ++i )
+            for ( int i = 0; i < drawTrace.nodeCount && state.drawExpandedHashCount < MAX_MARKERS; ++i )
             {
-                const SkullbonezCore::Rendering::DrawCallTraceNode& node = snapshot.nodes[i];
+                const SkullbonezCore::Rendering::DrawCallTraceNode& node = drawTrace.nodes[i];
                 if ( ( node.hash == kFrameHash || node.hash == kRenderHash || node.hash == kShadowsHash ||
                        node.hash == kUIHash ) &&
-                     DrawNodeHasVisibleChildren( snapshot, i ) && !IsDrawNodeExpanded( state, node.hash ) )
+                     DrawNodeHasVisibleChildren( drawTrace, i ) && !IsDrawNodeExpanded( state, node.hash ) )
                 {
                     state.drawExpandedHashes[state.drawExpandedHashCount++] = node.hash;
                 }
@@ -474,29 +462,32 @@ void ApplyDefaultExpansion( UIProfilerTabState& state )
 }
 
 
-void ApplyExpandAll( UIProfilerTabState& state )
+void ApplyExpandAll( UIProfilerTabState& state,
+                     const Profiler* profiler,
+                     const Rendering::DrawCallTraceSnapshot& drawTrace )
 {
     if ( !state.expandAllMarkers )
     {
         return;
     }
 
-    const Profiler& profiler = Profiler::Instance();
-    for ( int i = 0; i < profiler.MarkerCount(); ++i )
+    if ( profiler )
     {
-        const Profiler::Marker& marker = profiler.GetMarker( i );
-        if ( ProfilerMarkerHasChildren( profiler, i ) && !IsMarkerExpanded( state, marker.hash ) &&
-             state.expandedHashCount < MAX_MARKERS )
+        for ( int i = 0; i < profiler->MarkerCount(); ++i )
         {
-            state.expandedHashes[state.expandedHashCount++] = marker.hash;
+            const Profiler::Marker& marker = profiler->GetMarker( i );
+            if ( ProfilerMarkerHasChildren( *profiler, i ) && !IsMarkerExpanded( state, marker.hash ) &&
+                 state.expandedHashCount < MAX_MARKERS )
+            {
+                state.expandedHashes[state.expandedHashCount++] = marker.hash;
+            }
         }
     }
 
-    const auto snapshot = GetDrawTraceSnapshot();
-    for ( int i = 0; i < snapshot.nodeCount; ++i )
+    for ( int i = 0; i < drawTrace.nodeCount; ++i )
     {
-        const SkullbonezCore::Rendering::DrawCallTraceNode& node = snapshot.nodes[i];
-        if ( node.drawCallCount > 0 && DrawNodeHasVisibleChildren( snapshot, i ) &&
+        const SkullbonezCore::Rendering::DrawCallTraceNode& node = drawTrace.nodes[i];
+        if ( node.drawCallCount > 0 && DrawNodeHasVisibleChildren( drawTrace, i ) &&
              !IsDrawNodeExpanded( state, node.hash ) && state.drawExpandedHashCount < MAX_MARKERS )
         {
             state.drawExpandedHashes[state.drawExpandedHashCount++] = node.hash;
@@ -505,13 +496,14 @@ void ApplyExpandAll( UIProfilerTabState& state )
 }
 
 
-int ContentHeight( const UIProfilerTabState& state )
+int ContentHeight( const UIProfilerTabState& state,
+                   const Profiler* profiler,
+                   const Rendering::DrawCallTraceSnapshot& drawTrace )
 {
     int visibleRows[MAX_MARKERS] = {};
-    const int visibleMarkerCount = BuildVisibleRows( state, visibleRows, MAX_MARKERS );
-    const auto snapshot = GetDrawTraceSnapshot();
+    const int visibleMarkerCount = profiler ? BuildVisibleRows( *profiler, state, visibleRows, MAX_MARKERS ) : 0;
     int visibleDrawRows[MAX_MARKERS] = {};
-    const int visibleDrawRowCount = BuildVisibleDrawRows( state, snapshot, visibleDrawRows, MAX_MARKERS );
+    const int visibleDrawRowCount = BuildVisibleDrawRows( state, drawTrace, visibleDrawRows, MAX_MARKERS );
     const int drawSectionHeight =
         visibleDrawRowCount > 0 ? 50 + static_cast<int>( PROFILER_CORE_CHART_H ) + visibleDrawRowCount * 26 : 0;
     return static_cast<int>( PROFILER_TABLE_OFFSET_H ) + 54 + visibleMarkerCount * 30 + drawSectionHeight;
@@ -528,7 +520,9 @@ bool HandleContentClick( UIProfilerTabState& state,
                          int mouseX,
                          int mouseY,
                          int currentWorkerThreads,
-                         int maxWorkerThreads )
+                         int maxWorkerThreads,
+                         const Profiler* profiler,
+                         const Rendering::DrawCallTraceSnapshot& drawTrace )
 {
     // Concept: The profiler tab owns UI expansion and slider preview state, but
     // worker-thread changes are returned as commands for runtime code to apply.
@@ -568,15 +562,14 @@ bool HandleContentClick( UIProfilerTabState& state,
         return false;
     }
 
-    const Profiler& profiler = Profiler::Instance();
     int visibleRows[MAX_MARKERS] = {};
-    const int visibleRowCount = BuildVisibleRows( state, visibleRows, MAX_MARKERS );
+    const int visibleRowCount = profiler ? BuildVisibleRows( *profiler, state, visibleRows, MAX_MARKERS ) : 0;
     const int targetRow = ( localY - headerH ) / rowH;
-    if ( targetRow >= 0 && targetRow < visibleRowCount )
+    if ( profiler && targetRow >= 0 && targetRow < visibleRowCount )
     {
         const int markerIndex = visibleRows[targetRow];
-        const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
-        if ( !ProfilerMarkerHasChildren( profiler, markerIndex ) )
+        const Profiler::Marker& marker = profiler->GetMarker( markerIndex );
+        if ( !ProfilerMarkerHasChildren( *profiler, markerIndex ) )
         {
             return false;
         }
@@ -605,21 +598,20 @@ bool HandleContentClick( UIProfilerTabState& state,
         return false;
     }
     const int drawTargetRow = ( drawLocalY - drawHeaderH - coreChartH ) / drawRowH;
-    const auto snapshot = GetDrawTraceSnapshot();
     int visibleDrawRows[MAX_MARKERS] = {};
-    const int visibleDrawRowCount = BuildVisibleDrawRows( state, snapshot, visibleDrawRows, MAX_MARKERS );
+    const int visibleDrawRowCount = BuildVisibleDrawRows( state, drawTrace, visibleDrawRows, MAX_MARKERS );
     if ( drawTargetRow < 0 || drawTargetRow >= visibleDrawRowCount )
     {
         return false;
     }
 
     const int nodeIndex = visibleDrawRows[drawTargetRow];
-    if ( !DrawNodeHasVisibleChildren( snapshot, nodeIndex ) )
+    if ( !DrawNodeHasVisibleChildren( drawTrace, nodeIndex ) )
     {
         return false;
     }
 
-    const SkullbonezCore::Rendering::DrawCallTraceNode& node = snapshot.nodes[nodeIndex];
+    const SkullbonezCore::Rendering::DrawCallTraceNode& node = drawTrace.nodes[nodeIndex];
     const float plusX = static_cast<float>( contentX + 18 + node.depth * 18 );
     const float plusY = static_cast<float>( contentY ) + PROFILER_TABLE_OFFSET_H +
                         static_cast<float>( drawHeaderTop + drawHeaderH + coreChartH + drawTargetRow * drawRowH ) -
@@ -999,7 +991,7 @@ void Draw( UIProfilerTabState& state,
            int activeSlider )
 {
     char buf[128];
-    const Profiler& profiler = Profiler::Instance();
+    const Profiler* profiler = data.profiler;
     const int workerMax = (std::max)( 1, data.maxWorkerThreadCount );
     const int rawWorkerCount = ( activeSlider == SLIDER_WORKER_THREADS && state.previewWorkerThreads >= 0 )
                                    ? state.previewWorkerThreads
@@ -1043,13 +1035,16 @@ void Draw( UIProfilerTabState& state,
     const float barW = (std::max)( 95.0f, tableW * 0.20f );
     static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
     float timelineBudgetMs = PROFILER_UI_TIMELINE_BUDGET_MS;
-    for ( int i = 0; i < profiler.MarkerCount(); ++i )
+    if ( profiler )
     {
-        const Profiler::Marker& marker = profiler.GetMarker( i );
-        if ( marker.hash == kFrameHash )
+        for ( int i = 0; i < profiler->MarkerCount(); ++i )
         {
-            timelineBudgetMs = (std::max)( PROFILER_UI_TIMELINE_BUDGET_MS, ProfilerMarkerDisplayCpuMs( marker ) );
-            break;
+            const Profiler::Marker& marker = profiler->GetMarker( i );
+            if ( marker.hash == kFrameHash )
+            {
+                timelineBudgetMs = (std::max)( PROFILER_UI_TIMELINE_BUDGET_MS, ProfilerMarkerDisplayCpuMs( marker ) );
+                break;
+            }
         }
     }
 
@@ -1072,9 +1067,12 @@ void Draw( UIProfilerTabState& state,
                state.timelineEnabled ? "Frame" : "16.67 ms" );
 
     int visibleRows[MAX_MARKERS] = {};
-    const int visibleRowCount = BuildVisibleRows( state, visibleRows, MAX_MARKERS );
+    const int visibleRowCount = profiler ? BuildVisibleRows( *profiler, state, visibleRows, MAX_MARKERS ) : 0;
     TimelineSegment timelineSegments[MAX_MARKERS] = {};
-    BuildTimelineSegments( state, visibleRows, visibleRowCount, timelineSegments );
+    if ( profiler )
+    {
+        BuildTimelineSegments( *profiler, state, visibleRows, visibleRowCount, timelineSegments );
+    }
 
     auto profilerRow = [&]( int rowIndex,
                             const Profiler::Marker& marker,
@@ -1153,8 +1151,8 @@ void Draw( UIProfilerTabState& state,
     for ( int visibleRow = 0; visibleRow < visibleRowCount; ++visibleRow )
     {
         const int markerIndex = visibleRows[visibleRow];
-        const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
-        const bool hasChildren = ProfilerMarkerHasChildren( profiler, markerIndex );
+        const Profiler::Marker& marker = profiler->GetMarker( markerIndex );
+        const bool hasChildren = ProfilerMarkerHasChildren( *profiler, markerIndex );
         profilerRow( visibleRow,
                      marker,
                      timelineSegments[visibleRow],
@@ -1162,7 +1160,7 @@ void Draw( UIProfilerTabState& state,
                      IsMarkerExpanded( state, marker.hash ) );
     }
 
-    const auto drawSnapshot = GetDrawTraceSnapshot();
+    const SkullbonezCore::Rendering::DrawCallTraceSnapshot& drawSnapshot = data.drawCallTrace;
     int visibleDrawRows[MAX_MARKERS] = {};
     const int visibleDrawRowCount = BuildVisibleDrawRows( state, drawSnapshot, visibleDrawRows, MAX_MARKERS );
     const float drawHeaderH = 32.0f;

@@ -9,8 +9,12 @@ Mental model:
   when that state changes.
 
 Glossary:
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+  Logical asset name: Stable runtime key such as `shader.text` or
+    `assetlib.castle_wall` used by scenes and render helpers.
+  Source record: Data-only registration that resolves a logical asset to a
+    data-root-relative path or shader base name.
+  Render resource factory: Borrowed renderer capability used by shader callers
+    to create backend-owned shader objects after this file resolves the source.
 
 Invariants:
   - Logical asset names are stable scene/runtime contracts; re-registering an
@@ -18,6 +22,8 @@ Invariants:
     identity.
   - Resolved paths are derived from the data root at registration time so
     callers do not mix relative and absolute asset lookup rules.
+  - AssetSystem resolves shader source names only; shader GPU lifetime belongs
+    to the caller and its active render resource factory.
 
 Related:
   - SkullbonezSource/Assets/AssetSystem.h
@@ -25,7 +31,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "AssetSystem.h"
-#include "../Rendering/IRenderBackend.h"
+#include "../Rendering/IRenderResourceFactory.h"
 
 #include <cstring>
 #include <stdexcept>
@@ -37,8 +43,6 @@ namespace Assets
 {
 namespace
 {
-AssetSystem* g_activeAssetSystem = nullptr;
-
 const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
 {
     struct BuiltInShaderName
@@ -340,7 +344,8 @@ const std::vector<ShaderSourceAsset>& AssetSystem::GetShaderSourceAssets() const
     return m_shaderAssets;
 }
 
-std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logicalNameOrBaseName ) const
+std::unique_ptr<Rendering::IShader>
+AssetSystem::CreateShader( Rendering::IRenderResourceFactory& renderResources, const char* logicalNameOrBaseName ) const
 {
     if ( !logicalNameOrBaseName || logicalNameOrBaseName[0] == '\0' )
     {
@@ -349,8 +354,8 @@ std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logic
 
     const ShaderSourceAsset* shader = FindShaderSourceAsset( logicalNameOrBaseName );
     const char* fallbackBaseName = BuiltInShaderBaseNameForLogicalName( logicalNameOrBaseName );
-    return Rendering::Gfx().CreateShader( shader ? shader->baseName.c_str()
-                                                 : ( fallbackBaseName ? fallbackBaseName : logicalNameOrBaseName ) );
+    return renderResources.CreateShader( shader ? shader->baseName.c_str()
+                                                : ( fallbackBaseName ? fallbackBaseName : logicalNameOrBaseName ) );
 }
 
 const AssetLibrarySourceAsset& AssetSystem::RegisterAssetLibrarySourceAsset( const char* logicalName,
@@ -448,24 +453,5 @@ size_t AssetSystem::GetAssetLibrarySourceAssetCount() const
     return m_assetLibraryAssets.size();
 }
 
-void BindActiveAssetSystem( AssetSystem* assets )
-{
-    g_activeAssetSystem = assets;
-}
-
-AssetSystem* ActiveAssetSystem()
-{
-    return g_activeAssetSystem;
-}
-
-std::unique_ptr<Rendering::IShader> CreateShaderFromActiveAssets( const char* logicalNameOrBaseName )
-{
-    if ( g_activeAssetSystem )
-    {
-        return g_activeAssetSystem->CreateShader( logicalNameOrBaseName );
-    }
-    const char* fallbackBaseName = BuiltInShaderBaseNameForLogicalName( logicalNameOrBaseName );
-    return Rendering::Gfx().CreateShader( fallbackBaseName ? fallbackBaseName : logicalNameOrBaseName );
-}
 } // namespace Assets
 } // namespace SkullbonezCore

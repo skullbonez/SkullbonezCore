@@ -26,7 +26,7 @@ Related:
 */
 #include "TornadoField.h"
 #include "../Core/Common.h"
-#include "../Rendering/IRenderBackend.h"
+#include "../Rendering/IRenderCommandContext.h"
 #include "../Core/Profiler.h"
 #include <algorithm>
 #include <cmath>
@@ -36,7 +36,7 @@ using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
-using SkullbonezCore::Rendering::Gfx;
+using SkullbonezCore::Rendering::IRenderCommandContext;
 namespace Vector = SkullbonezCore::Math::Vector;
 
 
@@ -309,7 +309,7 @@ Vector3 TornadoSystem::SampleAcceleration( const Vector3& position ) const
 }
 
 
-void TornadoSystem::RenderVectors( const Matrix4& viewProj )
+void TornadoSystem::RenderVectors( IRenderCommandContext& renderCommands, const Matrix4& viewProj )
 {
     for ( const TornadoActiveVortex& vortex : m_activeVortices )
     {
@@ -318,14 +318,14 @@ void TornadoSystem::RenderVectors( const Matrix4& viewProj )
             continue;
         }
         m_debugField.SetConfig( vortex.field );
-        m_debugField.RenderVectors( viewProj );
+        m_debugField.RenderVectors( renderCommands, viewProj );
     }
 }
 
 
-void TornadoField::RenderVectors( const Matrix4& viewProj )
+void TornadoField::RenderVectors( IRenderCommandContext& renderCommands, const Matrix4& viewProj )
 {
-    if ( !m_config.visualizeVelocityField || !Gfx().GetCapabilities().supportsDebugLines )
+    if ( !m_config.visualizeVelocityField )
     {
         return;
     }
@@ -408,6 +408,6 @@ void TornadoField::RenderVectors( const Matrix4& viewProj )
     if ( !m_lineData.empty() )
     {
         const int vertCount = static_cast<int>( m_lineData.size() / 6 );
-        Gfx().DrawLinesColored( m_lineData.data(), vertCount, viewProj.Data() );
+        renderCommands.DrawLinesColored( m_lineData.data(), vertCount, viewProj.Data() );
     }
 }

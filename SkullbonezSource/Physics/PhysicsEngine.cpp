@@ -24,12 +24,27 @@ Related:
 */
 #include "PhysicsEngine.h"
 
+using SkullbonezCore::Basics::EngineConfig;
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsModelAccess;
+using SkullbonezCore::Threading::WorkerPool;
+
+
+PhysicsEngine::PhysicsEngine() = default;
+
+
+PhysicsEngine::PhysicsEngine( const EngineConfig& config ) : m_scene( config )
+{
+}
+
+
+PhysicsEngine::PhysicsEngine( const EngineConfig& config, WorkerPool& workerPool ) : m_scene( config, workerPool )
+{
+}
 
 
 void PhysicsEngine::Clear()
@@ -170,9 +185,10 @@ float PhysicsEngine::GetTornadoSystemElapsedSeconds() const
 }
 
 
-void PhysicsEngine::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj )
+void PhysicsEngine::RenderTornadoFieldVectors( Rendering::IRenderCommandContext& renderCommands,
+                                               const Math::Transformation::Matrix4& viewProj )
 {
-    m_scene.RenderTornadoFieldVectors( viewProj );
+    m_scene.RenderTornadoFieldVectors( renderCommands, viewProj );
 }
 
 

@@ -9,6 +9,10 @@ Mental model:
   HUD overlays, and the in-game UI draw payload.
 
 Glossary:
+  Asset system: Runtime-owned registry borrowed when the text pass creates font
+  and HUD shaders.
+  Text render context: Scoped command/resource borrow opened for the legacy
+  static Text2d API while this pass renders HUD/UI overlays.
   HUD (Heads-Up Display): Lightweight text diagnostics drawn over the scene.
   Text-only mode: Validation mode that skips world rendering and renders glyphs
   on a solid background to isolate text output.
@@ -19,6 +23,8 @@ Invariants:
     before backend teardown.
   - Render flushes Text2d before returning, so callers do not inherit queued UI
     glyphs into later frame work.
+  - Text2d's scoped render context must outlive every HUD, UI, profiler, and
+    replay overlay draw helper invoked by this pass.
 
 Related:
   - SkullbonezSource/Runtime/RunInternal.h
@@ -31,15 +37,19 @@ Related:
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Basics::RunInternal;
 
-void UiTextPass::EnsureGpuResources()
+void UiTextPass::EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources )
 {
-    Text2d::BuildFont( "Verdana" );
+    Text2d::BuildFont( m_host.m_systems.assets,
+                       renderResources,
+                       "Verdana",
+                       m_host.m_config.window.screenX,
+                       m_host.m_config.window.screenY );
 }
 
 
-void UiTextPass::ReleaseGpuResources()
+void UiTextPass::ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources )
 {
-    Text2d::DeleteFont();
+    Text2d::DeleteFont( renderResources );
 }
 
 
@@ -54,6 +64,7 @@ bool UiTextPass::ShouldRender() const
 
 void UiTextPass::Render( const UiTextPassInputs& inputs )
 {
+    Text2d::ScopedRenderContext textRenderContext( inputs.renderCommands, inputs.renderResources );
     const int uiPassDrawCallStart = inputs.renderDiagnostics.GetFrameDrawCallCount();
 
     // Invariant: rolling diagnostics update before any overlay early return so
@@ -111,7 +122,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         Text2d::Render2dTextColor( -0.46f, -0.38f, 0.015f, 0.60f, 0.60f, 0.60f, "renderer: %s", rendererName );
 
         {
-            DRAW_CALL_TRACE_SCOPE( "TextOnly" );
+            DRAW_CALL_TRACE_SCOPE( &inputs.renderDiagnostics, "TextOnly" );
             Text2d::FlushText();
         }
         return;
@@ -249,6 +260,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.selectedSceneOption = m_host.CurrentSceneBrowserIndex();
         UIData.selectedCineModeSceneOption = m_host.m_sceneBrowser.selectedCineModeSceneIndex;
         UIData.UIDrawCalls = m_host.m_timers.lastUIDrawCalls;
+        UIData.drawCallTrace = inputs.renderDiagnostics.GetFrameDrawCallTrace();
+        UIData.profiler = &m_host.m_diagnosticsRuntime.RuntimeProfiler();
         UIData.fps =
             m_host.m_timers.rollingFpsTime > 0.0f
                 ? m_host.m_timers.rollingFpsTime
@@ -262,8 +275,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.cpuFrameMs = m_host.m_timers.cpuFrameWorkMs;
         UIData.gpuFrameMs = m_host.m_timers.gpuFrameWorkMs;
         UIData.modelCount = view.modelCount;
-        UIData.modelCapacity = ActiveGameModelCapacity();
-        UIData.workerThreadCount = SkullbonezCore::Threading::WorkerPool::Instance().GetThreadCount();
+        UIData.modelCapacity = ActiveGameModelCapacity( m_host.m_config );
+        UIData.workerThreadCount = m_host.m_workerPool.GetThreadCount();
         UIData.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
         UIData.currentFrame = view.frame;
         UIData.targetFrameCount = view.targetFrameCount;
@@ -348,7 +361,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.canSaveSceneDefaults = view.sceneMode && m_host.m_sceneController.HasCurrentEntry() &&
                                       !m_host.m_sceneController.CurrentPath()->empty();
         UIData.cinematicRendering = m_host.IsCinematicRenderingEnabled();
-        UIData.ordinaryRender = Cfg().ordinaryRender;
+        UIData.ordinaryRender = m_host.m_config.ordinaryRender;
         UIData.cinematic = m_host.ActiveCinematicConfig();
         {
             auto addPreview = [&]( const char* label,
@@ -444,15 +457,15 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         PROFILE_BEGIN( "Frame/UI/PreFlushText" );
         {
-            DRAW_CALL_TRACE_SCOPE( "PreFlushText" );
+            DRAW_CALL_TRACE_SCOPE( &inputs.renderDiagnostics, "PreFlushText" );
             Text2d::FlushText();
         }
         PROFILE_END( "Frame/UI/PreFlushText" );
         UIData.drawCallsBeforeUI = uiPassDrawCallStart;
-        m_host.m_UI.Draw( UIData );
+        m_host.m_UI.Draw( UIData, inputs.assets, inputs.renderCommands, inputs.renderResources );
         PROFILE_BEGIN( "Frame/UI/PostFlushText" );
         {
-            DRAW_CALL_TRACE_SCOPE( "Frame/UI/PostFlushText" );
+            DRAW_CALL_TRACE_SCOPE( &inputs.renderDiagnostics, "Frame/UI/PostFlushText" );
             Text2d::FlushText();
         }
         PROFILE_END( "Frame/UI/PostFlushText" );
@@ -465,7 +478,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     {
         m_host.RenderReplayScrubberOverlay();
         {
-            DRAW_CALL_TRACE_SCOPE( "HUD" );
+            DRAW_CALL_TRACE_SCOPE( &inputs.renderDiagnostics, "HUD" );
             Text2d::FlushText();
         }
         return;
@@ -511,7 +524,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                                    sceneEnergyForDisplay );
         m_host.RenderReplayScrubberOverlay();
         {
-            DRAW_CALL_TRACE_SCOPE( "SceneStats" );
+            DRAW_CALL_TRACE_SCOPE( &inputs.renderDiagnostics, "SceneStats" );
             Text2d::FlushText();
         }
         return;
@@ -529,10 +542,10 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panX = -( hw - mX ) + mX * 0.5f;   // slight left margin
         const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
         const bool absolute = ( m_host.m_debug.overlayMode == OverlayMode::BarsAbsolute );
-        Profiler::Instance().RenderBarOverlay( panX, panY, panW, panH, absolute );
+        m_host.m_diagnosticsRuntime.RuntimeProfiler().RenderBarOverlay( panX, panY, panW, panH, absolute );
         m_host.RenderReplayScrubberOverlay();
         {
-            DRAW_CALL_TRACE_SCOPE( "ProfilerBars" );
+            DRAW_CALL_TRACE_SCOPE( &inputs.renderDiagnostics, "ProfilerBars" );
             Text2d::FlushText();
         }
         return;
@@ -622,7 +635,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         m_host.RenderReplayScrubberOverlay();
         {
-            DRAW_CALL_TRACE_SCOPE( "Keys" );
+            DRAW_CALL_TRACE_SCOPE( &inputs.renderDiagnostics, "Keys" );
             Text2d::FlushText();
         }
         return;
@@ -637,17 +650,17 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float lineH = 0.018f;
         const float profFSz = 0.012f;
         const float padY = lineH * 1.2f;
-        Profiler::Instance().RenderOverlay( -( hw - mX ),
-                                            -( hh - mY ) - padY,
-                                            lineH,
-                                            profFSz,
-                                            m_host.m_timers.rollingFpsTime );
+        m_host.m_diagnosticsRuntime.RuntimeProfiler().RenderOverlay( -( hw - mX ),
+                                                                     -( hh - mY ) - padY,
+                                                                     lineH,
+                                                                     profFSz,
+                                                                     m_host.m_timers.rollingFpsTime );
     }
 #endif
 
     m_host.RenderReplayScrubberOverlay();
     {
-        DRAW_CALL_TRACE_SCOPE( "ProfilerOverlay" );
+        DRAW_CALL_TRACE_SCOPE( &inputs.renderDiagnostics, "ProfilerOverlay" );
         Text2d::FlushText();
     }
 }

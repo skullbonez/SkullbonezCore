@@ -10,7 +10,9 @@ Mental model:
 Glossary:
   CLI (Command-Line Interface): Flags passed to SKULLBONEZ_CORE.exe at launch.
   CSV (Comma-Separated Values): Text table format used for perf and physics
-  regression output.
+    regression output.
+  Profiler borrow: Diagnostics-owned sampler passed in by the caller so this
+    formatter does not reacquire the profiler singleton.
   NDJSON (Newline-Delimited JSON): One JSON object per line, used by SkullScope
   traces so tools can stream bounded queries.
   SkullScope: Queryable physics diagnostics trace workflow used instead of
@@ -18,7 +20,9 @@ Glossary:
 
 Invariants:
   - Diagnostic artifacts are side-channel output; enabling them must not change
-  physics state except for explicitly forced fixed-step diagnostics.
+    physics state except for explicitly forced fixed-step diagnostics.
+  - Perf CSV formatting may read profiler timings, but the caller supplies the
+    profiler borrow.
 
 Related:
   - SkullbonezSource/Runtime/RuntimeDiagnostics.cpp
@@ -46,6 +50,7 @@ struct ReplayBodyPresentationSample;
 struct ReplayPresentationSample;
 struct ReplaySolverFrameSample;
 struct RunSceneState;
+class Profiler;
 
 struct RunPerfLogState
 {
@@ -93,7 +98,7 @@ class RuntimeDiagnostics
     static void ConfigurePerfLogFlush( RunPerfLogState& perfLog, bool enabled, int interval );
     static void OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass );
     static bool PerfTestActive( const RunPerfLogState& perfLog );
-    static void TickPerfLog( RunPerfLogState& perfLog, const RuntimePerfTickContext& context );
+    static void TickPerfLog( RunPerfLogState& perfLog, const RuntimePerfTickContext& context, Profiler& profiler );
 
 #ifdef _DEBUG
     static void SetPhysicsRegressionLogOverride( RunPerfLogState& perfLog, const char* path );

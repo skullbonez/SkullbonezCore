@@ -9,6 +9,8 @@ Mental model:
   reading anchors.
 
 Glossary:
+  Asset system: Runtime-owned registry borrowed by water render passes to
+  resolve calm and ocean shader source.
   DXR (DirectX Raytracing): DX12 raytracing path that can provide water
   reflection textures.
   GPU (Graphics Processing Unit): Hardware device that owns renderer resources
@@ -48,10 +50,20 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+} // namespace Assets
+
 namespace GameObjects
 {
 class GameModel;
 } // namespace GameObjects
+namespace Rendering
+{
+class IRenderCommandContext;
+class IRenderResourceFactory;
+} // namespace Rendering
 
 namespace Environment
 {
@@ -124,6 +136,11 @@ class WorldEnvironment
 
   public:
     WorldEnvironment();                                                   // Initializes default gravity/fluid values from config-era constants.
+    WorldEnvironment( const Basics::EngineConfig& config,
+                      float fFluidSurfaceHeight,
+                      float fFluidDensity,
+                      float fGasDensity,
+                      float fGravity );                                   // Runtime world bound to live config for water style and drag policy.
     WorldEnvironment( float fFluidSurfaceHeight,
                       float fFluidDensity,
                       float fGasDensity,
@@ -136,7 +153,10 @@ class WorldEnvironment
                            float xMax,
                            float zMin,
                            float zMax );                                  // Must be called before first render; drives calm/ocean mesh split
-    void RenderFluid( const Math::Transformation::Matrix4& view,
+    void EnsureRenderResources( const Assets::AssetSystem& assets,
+                                Rendering::IRenderResourceFactory& renderResources ); // Lazily builds water meshes/shaders.
+    void RenderFluid( Rendering::IRenderCommandContext& renderCommands,
+                      const Math::Transformation::Matrix4& view,
                       const Math::Transformation::Matrix4& proj,
                       const Math::Vector::Vector3& cameraWorld,
                       const WaterReflectionInput& reflection,
@@ -160,6 +180,7 @@ class WorldEnvironment
     float m_fluidDensity;                                                 // Density of the fluid medium (kg/m³).  Water ≈ 1000, heavy oil ≈ 850
     float m_gasDensity;                                                   // Density of the gas medium above the surface (kg/m³).  Air ≈ 1.225
     float m_gravity;                                                      // Gravitational acceleration (m/s², stored NEGATIVE for downward, e.g. -9.81)
+    const Basics::EngineConfig* m_config;                                  // Borrowed live config for water style and fluid drag tuning.
     float m_terrainXMin = 0.0f;                                           // terrain footprint — calm mesh bounds
     float m_terrainXMax = 0.0f;
     float m_terrainZMin = 0.0f;
@@ -169,7 +190,9 @@ class WorldEnvironment
     std::unique_ptr<Rendering::IMesh> m_oceanMesh;                        // Outer water: waves + perturbation
     std::unique_ptr<Rendering::IShader> m_oceanShader;
 
-    void BuildFluidMesh();                                                // Builds calm and ocean meshes from current terrain bounds.
+    void BuildFluidMesh( const Assets::AssetSystem& assets,
+                         Rendering::IRenderResourceFactory& renderResources ); // Builds calm and ocean meshes from current terrain bounds.
+    const Basics::EngineConfig& Config() const;                            // Runtime config bound by Run/scene world construction.
     WaterStyleParams BuildCalmWaterStyle( bool cinematic, const Basics::CinematicRenderConfig& cinematicConfig ) const;
     WaterStyleParams BuildOceanWaterStyle( bool cinematic, const Basics::CinematicRenderConfig& cinematicConfig ) const;
     void BindCommonWaterStyle( Rendering::IShader& shader,

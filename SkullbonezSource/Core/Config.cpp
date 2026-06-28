@@ -524,6 +524,9 @@ const ConfigSetting* FindConfigSetting( const char* name )
 /* ---------------------------------------------------------------------------------*/
 EngineConfig& EngineConfig::Instance()
 {
+    // Lifetime: Init owns loading/mutating process config, then passes borrowed
+    // references into runtime systems. The singleton remains only as the process
+    // configuration owner and bootstrap compatibility surface.
     static EngineConfig s_instance;
     return s_instance;
 }

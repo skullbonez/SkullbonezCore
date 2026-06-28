@@ -14,6 +14,8 @@ Glossary:
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
   CLI (Command-Line Interface): Text arguments or scripts used to launch
   validation and tooling paths.
+  Render resource factory: Borrowed renderer capability used during startup,
+  rebuild, and teardown to create or delete backend-owned resources.
 
 Invariants:
   - Run is the composition root for process-lifetime runtime systems.
@@ -73,6 +75,15 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Threading
+{
+class WorkerPool;
+}
+namespace Rendering
+{
+class IRenderResourceFactory;
+}
+
 namespace Basics
 {
 struct RuntimeInteractionCommand;
@@ -95,6 +106,8 @@ class Run
     SceneRuntimeCoordinator m_sceneCoordinator;                            // Produces scene load/reset/advance control intents.
     RunInputLatchState m_inputLatches;                                     // Cross-frame key/mouse latches that are not semantic input state.
     RunLaunchOptions m_launchOptions;                                      // CLI/startup policy reapplied across scene loads.
+    EngineConfig& m_config;                                                // Borrowed live process config owned by EngineConfig singleton.
+    Threading::WorkerPool& m_workerPool;                                   // Borrowed process worker service initialised by Init.
     CinematicRenderConfig m_defaultCinematicRender;                        // engine.cfg cinematic baseline restored by the Demo Scene cine mode
     RunStartupState m_startup;                                             // engine.cfg startup capacity/thread defaults restored by demo resets.
 
@@ -249,7 +262,8 @@ class Run
     bool RequiredSceneContactsComplete() const;                            // True when there are no gates or all gates have been touched
     bool RequiredSceneBroadphaseXCellsComplete()
         const;                                                             // True when there are no gates or all X-cell ranges have been activated
-    void RegisterBuiltInAssets();                                          // Seeds source asset records before renderer-owned resources are rebuilt.
+    void RegisterBuiltInAssets(
+        const EngineConfig& config );                                      // Seeds source asset records from the supplied config before GPU rebuilds.
     std::string ResolveSourceAssetPath( Assets::AssetKind kind,
                                         const char* logicalName,
                                         const std::string& relativePath ); // Resolves DATA_ROOT path while preserving
@@ -258,7 +272,7 @@ class Run
     RuntimeRenderHostCallbacks BuildRuntimeRenderHostCallbacks();
     void ReleaseBackendOwnedRenderResources(
         const char* phaseName );                                           // Ordered GPU-resource release hook while the backend is alive.
-    void RebuildRegisteredRenderResources();                               // Recreates renderer resources from source asset records
+    void RebuildRegisteredRenderResources( Rendering::IRenderResourceFactory& renderResources ); // Recreates renderer resources from source asset records
     void LogRenderResourceLifecycleStep( const char* phase, const char* step )
         const;                                                             // Debug event log record for a named resource-lifetime phase.
     void SetViewingOrientation();                                          // Camera-view setup for the current frame.
@@ -316,11 +330,11 @@ class Run
 
     // --- Per-frame tick helpers (called from Execute()) ---
     void TickPhysics( double dt );                                         // Physics dispatch: fixed-step and variable-step accumulator
-    bool TickScreenshots();                                                // Screenshot triggers; returns true when frame should restart (continue)
+    bool TickScreenshots( const char* rendererName );                      // Screenshot triggers; returns true when frame should restart (continue)
     void TickLiveStyleControl();                                           // Poll live.style.json/capture.txt and apply look changes without scene reload
     void TickLiveStyleControlCapture();
-    void TickAutoCycle();                                                  // Auto-cycle ball capture; posts WM_QUIT when all balls captured
-    bool TickSceneAdvance();                                               // Frame count, exit/hold on completion, restarts; returns true to continue
+    void TickAutoCycle( const char* rendererName );                        // Auto-cycle ball capture; posts WM_QUIT when all balls captured
+    bool TickSceneAdvance( const char* rendererName );                     // Frame count, exit/hold on completion, restarts; returns true to continue
     void UpdateWaterHeightControls( float dt );                            // Slide water surface up/down while held
     bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection )
         const;                                                             // Mouse position projected into a world-space ray.
@@ -335,8 +349,8 @@ class Run
         const RuntimeMouseEdges& mouseEdges,
         bool suppressWorldActionThisFrame );                               // Handles manipulator left-click pickup and target updates.
 #ifdef _DEBUG
-    void LogSceneFinished( const char* reason );
-    void BeginPhysicsDiagnosticsRun( const char* scenePath );
+    void LogSceneFinished( const char* reason, const char* rendererName );
+    void BeginPhysicsDiagnosticsRun( const char* scenePath, const char* rendererName );
     void TickReplayScrubProbe();
     void TickReplayRestoreProbe();
     void TickReplaySaveProbe();
@@ -344,7 +358,13 @@ class Run
 #endif
 
   public:
-    Run( std::vector<std::string> sceneQueue );                            // sceneQueue empty string selects generated demo mode.
+    // Lifetime: Init creates the native Window and loads the process config; Run
+    // borrows both for the scoped runtime lifetime so normal paths do not
+    // reacquire Window::Instance() or the global config accessor.
+    Run( std::vector<std::string> sceneQueue,
+         Window& window,
+         EngineConfig& config,
+         Threading::WorkerPool& workerPool );                              // sceneQueue empty string selects generated demo mode.
     ~Run();
     void Initialise();                                                     // Initialises shared resources and loads first scene
     void RunSceneLoadOnly( const char* snapshotOutPath = nullptr );        // Scene-load smoke path; skips the frame loop.

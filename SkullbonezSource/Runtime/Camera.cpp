@@ -35,9 +35,25 @@ using namespace SkullbonezCore::Geometry;
 
 Camera::Camera()
     : m_position( 0.0f, 0.0f, 0.0f ), m_view( 0.0f, 0.0f, -1.0f ), m_upVector( 0.0f, 1.0f, 0.0f ),
-      m_movementBuffer( 0.0f, 0.0f, 0.0f ), m_viewMagnitude( 1.0f ), m_isFinishedTranslationRecursed( false ),
+      m_movementBuffer( 0.0f, 0.0f, 0.0f ), m_config( nullptr ), m_viewMagnitude( 1.0f ), m_isFinishedTranslationRecursed( false ),
       m_doCalculateViewMagnitude( false ), m_doPreserveViewMagnitude( false ), m_isLockedMode( false )
 {
+}
+
+
+void Camera::BindConfig( const SkullbonezCore::Basics::EngineConfig& config )
+{
+    m_config = &config;
+}
+
+
+const SkullbonezCore::Basics::EngineConfig& Camera::Config() const
+{
+    if ( !m_config )
+    {
+        throw std::runtime_error( "Camera config binding missing.  (Camera::Config)" );
+    }
+    return *m_config;
 }
 
 
@@ -88,7 +104,7 @@ void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity )
             // in locked mode we only want to be able to translate the camera
             // within a certain m_distance to the view point, so here we test to
             // ensure this rule is not violated
-            if ( Vector::Distance( m_position, m_view ) < Cfg().minViewMag )
+            if ( Vector::Distance( m_position, m_view ) < Config().minViewMag )
             {
                 return;
             }
@@ -128,7 +144,7 @@ void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity )
             // in locked mode we only want to be able to translate the camera
             // within a certain m_distance from the view point, so here we test to
             // ensure this rule is not violated
-            if ( Vector::Distance( m_position, m_view ) > Cfg().maxViewMag )
+            if ( Vector::Distance( m_position, m_view ) > Config().maxViewMag )
             {
                 return;
             }
@@ -241,30 +257,32 @@ void Camera::FinishTranslation()
     bool isOnBoundZ = false;
 
     // reposition X on a bound violation
-    if ( m_position.x < m_boundary.m_xMin + Cfg().minCameraHeight )
+    const SkullbonezCore::Basics::EngineConfig& config = Config();
+
+    if ( m_position.x < m_boundary.m_xMin + config.minCameraHeight )
     {
-        m_position.x = m_boundary.m_xMin + Cfg().minCameraHeight;
+        m_position.x = m_boundary.m_xMin + config.minCameraHeight;
     }
-    else if ( m_position.x > m_boundary.m_xMax - Cfg().minCameraHeight )
+    else if ( m_position.x > m_boundary.m_xMax - config.minCameraHeight )
     {
-        m_position.x = m_boundary.m_xMax - Cfg().minCameraHeight;
+        m_position.x = m_boundary.m_xMax - config.minCameraHeight;
     }
 
-    isOnBoundX = ( ( m_position.x == m_boundary.m_xMin + Cfg().minCameraHeight ) ||
-                   ( m_position.x == m_boundary.m_xMax - Cfg().minCameraHeight ) );
+    isOnBoundX = ( ( m_position.x == m_boundary.m_xMin + config.minCameraHeight ) ||
+                   ( m_position.x == m_boundary.m_xMax - config.minCameraHeight ) );
 
     // reposition Z on a bound violation
-    if ( m_position.z < m_boundary.m_zMin + Cfg().minCameraHeight )
+    if ( m_position.z < m_boundary.m_zMin + config.minCameraHeight )
     {
-        m_position.z = m_boundary.m_zMin + Cfg().minCameraHeight;
+        m_position.z = m_boundary.m_zMin + config.minCameraHeight;
     }
-    else if ( m_position.z > m_boundary.m_zMax - Cfg().minCameraHeight )
+    else if ( m_position.z > m_boundary.m_zMax - config.minCameraHeight )
     {
-        m_position.z = m_boundary.m_zMax - Cfg().minCameraHeight;
+        m_position.z = m_boundary.m_zMax - config.minCameraHeight;
     }
 
-    isOnBoundZ = ( ( m_position.z == m_boundary.m_zMin + Cfg().minCameraHeight ) ||
-                   ( m_position.z == m_boundary.m_zMax - Cfg().minCameraHeight ) );
+    isOnBoundZ = ( ( m_position.z == m_boundary.m_zMin + config.minCameraHeight ) ||
+                   ( m_position.z == m_boundary.m_zMax - config.minCameraHeight ) );
 
     // if we have recursed once already
     if ( m_isFinishedTranslationRecursed )
@@ -326,10 +344,11 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ 
             if ( !isOnBoundX && !isOnBoundZ )
             {
                 // determine component distances from m_boundaries
-                float dxMin = positionStore.x - m_boundary.m_xMin + Cfg().minCameraHeight;
-                float dxMax = m_boundary.m_xMax - Cfg().minCameraHeight - positionStore.x;
-                float dzMin = positionStore.z - m_boundary.m_zMin + Cfg().minCameraHeight;
-                float dzMax = m_boundary.m_zMax - Cfg().minCameraHeight - positionStore.z;
+                const SkullbonezCore::Basics::EngineConfig& config = Config();
+                float dxMin = positionStore.x - m_boundary.m_xMin + config.minCameraHeight;
+                float dxMax = m_boundary.m_xMax - config.minCameraHeight - positionStore.x;
+                float dzMin = positionStore.z - m_boundary.m_zMin + config.minCameraHeight;
+                float dzMax = m_boundary.m_zMax - config.minCameraHeight - positionStore.z;
 
                 // determine closest boundary per component
                 float dx = ( dxMin < dxMax ) ? dxMin : dxMax;
@@ -426,17 +445,18 @@ float Camera::UpVectorViewVectorRotationCap( float requestRadians )
     float currentDownAngle = acosf( vNegatedView * -m_upVector );
 
     // pre-detect up-vector view-vector collision, return a capped rotation angle
-    if ( currentUpAngle - requestRadians < Cfg().cameraCollisionThreshold )
+    const SkullbonezCore::Basics::EngineConfig& config = Config();
+    if ( currentUpAngle - requestRadians < config.cameraCollisionThreshold )
     {
-        return currentUpAngle - Cfg().cameraCollisionThreshold;
+        return currentUpAngle - config.cameraCollisionThreshold;
     }
 
     // pre-detect down-vector view-vector collision, return a capped rotation angle
     // NOTE:  request radians will be negative, and if required should be returned
     // as a negative value
-    if ( currentDownAngle + requestRadians < Cfg().cameraCollisionThreshold )
+    if ( currentDownAngle + requestRadians < config.cameraCollisionThreshold )
     {
-        return -( currentDownAngle - Cfg().cameraCollisionThreshold );
+        return -( currentDownAngle - config.cameraCollisionThreshold );
     }
 
     // no collisions have been detected, return the requested rotation amount

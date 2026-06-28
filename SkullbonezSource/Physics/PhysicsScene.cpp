@@ -29,6 +29,7 @@ Related:
 #include <cstddef>
 
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
+using SkullbonezCore::Basics::EngineConfig;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
@@ -37,6 +38,20 @@ using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Physics::PhysicsScene;
+using SkullbonezCore::Threading::WorkerPool;
+
+
+PhysicsScene::PhysicsScene() = default;
+
+
+PhysicsScene::PhysicsScene( const EngineConfig& config ) : m_world( config )
+{
+}
+
+
+PhysicsScene::PhysicsScene( const EngineConfig& config, WorkerPool& workerPool ) : m_world( config, workerPool )
+{
+}
 
 
 void PhysicsScene::Clear()
@@ -273,9 +288,10 @@ float PhysicsScene::GetTornadoSystemElapsedSeconds() const
 }
 
 
-void PhysicsScene::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj )
+void PhysicsScene::RenderTornadoFieldVectors( Rendering::IRenderCommandContext& renderCommands,
+                                              const Math::Transformation::Matrix4& viewProj )
 {
-    m_world.RenderTornadoFieldVectors( viewProj );
+    m_world.RenderTornadoFieldVectors( renderCommands, viewProj );
 }
 
 

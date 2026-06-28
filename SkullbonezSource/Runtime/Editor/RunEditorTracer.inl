@@ -558,13 +558,15 @@ void RunEditorTracer::AddReplayVelocityGizmo( const GameModel& model,
 }
 
 
-void RunEditorTracer::Render( const Matrix4& viewProjection )
+void RunEditorTracer::Render( Rendering::IRenderCommandContext& renderCommands, const Matrix4& viewProjection )
 {
-    if ( m_lineData.empty() || !IsGfxReady() )
+    if ( m_lineData.empty() )
     {
         return;
     }
+    // Lifetime: renderCommands is borrowed from the current debug-overlay pass;
+    // the tracer submits transient lines immediately and never stores it.
     // Invariant: m_lineData stores colored vertices as xyz/rgb floats; every
     // pair of vertices is one line segment consumed by DrawLinesColored.
-    Gfx().DrawLinesColored( m_lineData.data(), static_cast<int>( m_lineData.size() / 6 ), viewProjection.Data() );
+    renderCommands.DrawLinesColored( m_lineData.data(), static_cast<int>( m_lineData.size() / 6 ), viewProjection.Data() );
 }

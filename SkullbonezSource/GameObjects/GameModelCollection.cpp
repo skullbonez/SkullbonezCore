@@ -9,6 +9,10 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Asset system: Runtime-owned registry borrowed by debug render paths that need
+  shader source lookup without reacquiring the active-asset bridge.
+  Render facets: Per-frame command context plus backend resource factory passed
+  through this facade to renderer helpers; the collection does not own them.
   SoA (Structure of Arrays): Data layout that stores each field in a separate
   contiguous array for cache-friendly iteration.
   Validation gate: Repository script that proves a class of changes before
@@ -19,6 +23,8 @@ Invariants:
     batches, replay ids, and scene snapshots.
   - Any mutation that changes model state visible to hot streams must invalidate
     or refresh the SoA cache before clients read it.
+  - Render facet references are forwarding-only and must not be cached by the
+    collection or model storage.
 
 Related:
   - SkullbonezSource/GameObjects/GameModelCollection.h
@@ -48,6 +54,7 @@ using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Rendering::ShadowFrameData;
+using SkullbonezCore::Threading::WorkerPool;
 
 namespace
 {
@@ -177,13 +184,35 @@ GameModelCollection::GameModelCollection()
     // render batches, debug overlays, and scene snapshots all index into this
     // vector, so preserving deterministic order matters even when the work is
     // delegated to renderer/physics helper classes.
-    m_gameModels.reserve( ActiveGameModelCapacity() );
+    m_gameModels.reserve( m_modelCapacity );
+}
+
+
+GameModelCollection::GameModelCollection( const EngineConfig& config )
+    : m_physicsEngine( config ), m_modelCapacity( ActiveGameModelCapacity( config ) )
+{
+    // The collection is the stable owner of model order. Physics arrays,
+    // render batches, debug overlays, and scene snapshots all index into this
+    // vector, so preserving deterministic order matters even when the work is
+    // delegated to renderer/physics helper classes.
+    m_gameModels.reserve( m_modelCapacity );
+}
+
+
+GameModelCollection::GameModelCollection( const EngineConfig& config, WorkerPool& workerPool )
+    : m_physicsEngine( config, workerPool ), m_modelCapacity( ActiveGameModelCapacity( config ) )
+{
+    // The collection is the stable owner of model order. Physics arrays,
+    // render batches, debug overlays, and scene snapshots all index into this
+    // vector, so preserving deterministic order matters even when the work is
+    // delegated to renderer/physics helper classes.
+    m_gameModels.reserve( m_modelCapacity );
 }
 
 
 void GameModelCollection::AddGameModel( GameModel gameModel )
 {
-    const int activeCapacity = ActiveGameModelCapacity();
+    const int activeCapacity = m_modelCapacity;
     assert( static_cast<int>( m_gameModels.size() ) < activeCapacity && "Exceeded active game model capacity" );
     if ( static_cast<int>( m_gameModels.size() ) >= activeCapacity )
     {
@@ -257,19 +286,31 @@ int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxMo
 }
 
 
-void GameModelCollection::RenderModels( const Matrix4& view,
+void GameModelCollection::RenderModels( Rendering::IRenderCommandContext& renderCommands,
+                                        Rendering::IRenderResourceFactory& renderResources,
+                                        Rendering::IRenderDiagnostics& renderDiagnostics,
+                                        const Assets::AssetSystem& assets,
+                                        const Matrix4& view,
                                         const Matrix4& proj,
                                         const float lightPos[4],
+                                        const RuntimeRenderFlags& runtimeRender,
+                                        const OrdinaryRenderConfig& ordinaryRender,
                                         const CinematicRenderConfig* cinematic,
                                         const ShadowFrameData* shadow,
                                         float materialAlpha,
                                         const std::vector<uint8_t>* modelMask,
                                         bool drawMaskedModels )
 {
-    GameModelRenderer::RenderModels( *this,
+    GameModelRenderer::RenderModels( renderCommands,
+                                     renderResources,
+                                     renderDiagnostics,
+                                     assets,
+                                     *this,
                                      view,
                                      proj,
                                      lightPos,
+                                     runtimeRender,
+                                     ordinaryRender,
                                      cinematic,
                                      shadow,
                                      materialAlpha,
@@ -278,56 +319,83 @@ void GameModelCollection::RenderModels( const Matrix4& view,
 }
 
 
-void GameModelCollection::BuildShadowCasterBatches( Rendering::ShadowCasterBatches& outBatches )
+void GameModelCollection::BuildShadowCasterBatches( Rendering::ShadowCasterBatches& outBatches,
+                                                    bool shadowParallelPrep,
+                                                    Threading::WorkerPool& workerPool )
 {
-    GameModelRenderer::BuildShadowCasterBatches( *this, outBatches );
+    GameModelRenderer::BuildShadowCasterBatches( *this, outBatches, shadowParallelPrep, workerPool );
 }
 
 
-void GameModelCollection::RenderShadowCasterBatches( const Rendering::ShadowCasterBatches& batches,
+void GameModelCollection::RenderShadowCasterBatches( Rendering::IRenderCommandContext& renderCommands,
+                                                     Rendering::IRenderResourceFactory& renderResources,
+                                                     Rendering::IRenderDiagnostics& renderDiagnostics,
+                                                     const Assets::AssetSystem& assets,
+                                                     const Rendering::ShadowCasterBatches& batches,
                                                      const Matrix4& view,
                                                      const Matrix4& proj,
                                                      const CinematicRenderConfig* cinematic )
 {
-    GameModelRenderer::SubmitShadowCasterBatches( batches, view, proj, cinematic );
+    GameModelRenderer::SubmitShadowCasterBatches(
+        renderCommands, renderResources, renderDiagnostics, assets, batches, view, proj, cinematic );
 }
 
 
-void GameModelCollection::RenderShadowCasters( const Matrix4& view,
+void GameModelCollection::RenderShadowCasters( Rendering::IRenderCommandContext& renderCommands,
+                                               Rendering::IRenderResourceFactory& renderResources,
+                                               Rendering::IRenderDiagnostics& renderDiagnostics,
+                                               const Assets::AssetSystem& assets,
+                                               const Matrix4& view,
                                                const Matrix4& proj,
+                                               bool shadowParallelPrep,
+                                               Threading::WorkerPool& workerPool,
                                                const CinematicRenderConfig* cinematic )
 {
-    GameModelRenderer::RenderShadowCasters( *this, view, proj, cinematic );
+    GameModelRenderer::RenderShadowCasters( renderCommands,
+                                            renderResources,
+                                            renderDiagnostics,
+                                            assets,
+                                            *this,
+                                            view,
+                                            proj,
+                                            shadowParallelPrep,
+                                            workerPool,
+                                            cinematic );
 }
 
 
-void GameModelCollection::RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
+void GameModelCollection::RenderCollisionStateSolids( Rendering::IRenderCommandContext& renderCommands,
+                                                      Physics::CollisionVisualizer& visualizer,
                                                       const Matrix4& view,
                                                       const Matrix4& proj,
                                                       const float lightPos[4],
                                                       float alphaOverride )
 {
     visualizer.SetAlphaOverride( alphaOverride );
-    visualizer.Render( *this, view, proj, lightPos );
+    visualizer.Render( renderCommands, *this, view, proj, lightPos );
     visualizer.SetAlphaOverride( -1.0f );
 }
 
 
-void GameModelCollection::RenderPhysicsDebug( Physics::PhysicsDebugVisualizer& visualizer,
+void GameModelCollection::RenderPhysicsDebug( Rendering::IRenderCommandContext& renderCommands,
+                                              Physics::PhysicsDebugVisualizer& visualizer,
                                               const Matrix4& viewProjection,
                                               Geometry::Terrain* terrain )
 {
-    visualizer.Render( *this, viewProjection, terrain );
+    visualizer.Render( renderCommands, *this, viewProjection, terrain );
 }
 
 
 bool GameModelCollection::GetObjectShadowBounds( const Vector3& focus,
                                                  float maxDistance,
+                                                 bool shadowParallelPrep,
+                                                 Threading::WorkerPool& workerPool,
                                                  Vector3& outCenter,
                                                  float& outRadius,
                                                  float& outHeightRange )
 {
-    return GameModelRenderer::GetObjectShadowBounds( *this, focus, maxDistance, outCenter, outRadius, outHeightRange );
+    return GameModelRenderer::GetObjectShadowBounds(
+        *this, focus, maxDistance, shadowParallelPrep, workerPool, outCenter, outRadius, outHeightRange );
 }
 
 
@@ -729,9 +797,10 @@ void GameModelCollection::SetTornadoSystemConfig( const Physics::TornadoSystemCo
 }
 
 
-void GameModelCollection::RenderTornadoFieldVectors( const Matrix4& viewProj )
+void GameModelCollection::RenderTornadoFieldVectors( Rendering::IRenderCommandContext& renderCommands,
+                                                     const Matrix4& viewProj )
 {
-    m_physicsEngine.RenderTornadoFieldVectors( viewProj );
+    m_physicsEngine.RenderTornadoFieldVectors( renderCommands, viewProj );
 }
 
 

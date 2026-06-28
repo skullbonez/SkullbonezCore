@@ -48,6 +48,19 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Basics
+{
+class EngineConfig;
+}
+namespace Threading
+{
+class WorkerPool;
+}
+namespace Rendering
+{
+class IRenderCommandContext;
+}
+
 namespace GameObjects
 {
 struct GameModelBodyStream;
@@ -60,9 +73,45 @@ struct PhysicsBodyRecord;
 struct PersistentContactSolverContext;
 struct SleepSupportPropagationContext;
 
+struct PhysicsRuntimeConfig
+{
+    // PhysicsWorld and PersistentContactSolver need a narrow construction-time
+    // view of engine.cfg. Keeping this as a value preserves standalone defaults
+    // without requiring tests to bootstrap EngineConfig::Instance().
+    bool physicsParallel = true;
+    bool physicsParallelApplyForces = true;
+    bool physicsParallelTornadoField = false;
+    bool physicsParallelNarrowphase = false;
+    bool physicsParallelTerrainDetect = true;
+    bool physicsParallelIntegrate = true;
+    float gravity = -30.0f;
+    float frictionCoeff = 0.1f;
+    float objectFrictionCoeff = 0.1f;
+    float contactRestitutionThreshold = 2.0f;
+    float contactEpsilon = 0.05f;
+    float broadphaseCell = 24.0f;
+    float persistentContactSlop = 0.005f;
+    float persistentContactBaumgarteBeta = 0.2f;
+    float persistentContactPositionCorrectionPercent = 0.35f;
+    int persistentContactSolverIterations = 12;
+    float terrainContactSlop = 0.005f;
+    float terrainContactBaumgarteBeta = 0.3f;
+    float terrainMaxBaumgarteBias = 2.0f;
+    float physicsSleepLinearSpeed = 0.5f;
+    float physicsSleepAngularSpeed = 0.3f;
+    int physicsSleepFrames = 30;
+
+    static PhysicsRuntimeConfig FromEngineConfig( const Basics::EngineConfig& config );
+};
+
 class PhysicsWorld
 {
   private:
+    PhysicsRuntimeConfig m_config;                               // Snapshot of deterministic physics tuning seeded at construction.
+    Threading::WorkerPool*
+        m_workerPool = nullptr;                                  // Borrowed runtime worker service; null keeps standalone worlds serial.
+    const PhysicsRuntimeConfig& Config() const;                  // Runtime/test config view used by the fixed-step physics path.
+
     // Broadphase output for the current fixed tick.
     //
     // SpatialGrid bins objects into cells, m_candidatePairs stores object pairs
@@ -325,6 +374,8 @@ class PhysicsWorld
 
   public:
     PhysicsWorld();
+    explicit PhysicsWorld( const Basics::EngineConfig& config );
+    PhysicsWorld( const Basics::EngineConfig& config, Threading::WorkerPool& workerPool );
 
     void Clear();
     void RunPhysics( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, float fChangeInTime );
@@ -341,7 +392,10 @@ class PhysicsWorld
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
+    // Debug-only line submission; deterministic force sampling and physics
+    // stepping do not depend on renderer lifetime.
+    void RenderTornadoFieldVectors( Rendering::IRenderCommandContext& renderCommands,
+                                    const Math::Transformation::Matrix4& viewProj );
     void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
     DiagnosticsView GetDiagnosticsView() const;
@@ -396,6 +450,7 @@ struct PersistentContactSolverContext
     std::vector<uint8_t>& sleepSupportedThisFrame;
     std::vector<PhysicsBodyRecord>& bodyRecords;
     PhysicsBodyStore& bodyStore;
+    const PhysicsRuntimeConfig& config;
     PhysicsWorld& world;
 
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record ) const;

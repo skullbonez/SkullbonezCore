@@ -4,17 +4,24 @@ Purpose:
   Builds and renders the skybox or sky backdrop for scene rendering.
 
 Mental model:
-  Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  The runtime owns one skybox object and injects the texture registry, asset
+  registry, config, and render resource factory it should use. SkyBox owns the
+  backend-facing face meshes and shader, but not the process-wide services.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
+  Command context: Borrowed frame capability used here to bind sky-face textures
+  without reacquiring the renderer singleton.
+  Render resource factory: Borrowed renderer capability used to build face
+  meshes and upload sky textures.
 
 Invariants:
   - SkyBox owns renderer-facing face meshes and shader resources for the active
     backend, but it borrows the texture registry.
+  - Mesh and shader rebuilds require an explicit render resource factory; this
+    file should not reacquire the global renderer service.
   - Face order and texture hashes must stay paired so cube sides do not swap
     during renderer rebuilds.
 
@@ -24,7 +31,7 @@ Related:
 */
 #include "SkyBox.h"
 #include "../Assets/AssetSystem.h"
-#include "../Rendering/IRenderBackend.h"
+#include "../Rendering/IRenderResourceFactory.h"
 #include <vector>
 
 
@@ -34,7 +41,16 @@ using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Textures;
 
 
-SkyBox::SkyBox( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin, int m_zMax )
+SkyBox::SkyBox( SkullbonezCore::Textures::TextureCollection& textures,
+                SkullbonezCore::Assets::AssetSystem& assets,
+                const SkullbonezCore::Basics::EngineConfig& config,
+                int m_xMin,
+                int m_xMax,
+                int yMin,
+                int yMax,
+                int m_zMin,
+                int m_zMax )
+    : m_textures( textures ), m_assets( assets ), m_config( config )
 {
     m_boundaries.m_xMin = m_xMin;
     m_boundaries.m_xMax = m_xMax;
@@ -42,27 +58,36 @@ SkyBox::SkyBox( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin, int m_zM
     m_boundaries.yMax = yMax;
     m_boundaries.m_zMin = m_zMin;
     m_boundaries.m_zMax = m_zMax;
-    m_textures = 0;
 }
 
 
-void SkyBox::LoadTextures()
+void SkyBox::LoadTextures( Rendering::IRenderResourceFactory& renderResources )
 {
-    m_textures = TextureCollection::Instance();
-    const SkullbonezCore::Basics::EngineConfig& cfg = Cfg();
-    m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyLeft ).c_str(), TEXTURE_SKY_LEFT );
-    m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyRight ).c_str(), TEXTURE_SKY_RIGHT );
-    m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyFront ).c_str(), TEXTURE_SKY_FRONT );
-    m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyBack ).c_str(), TEXTURE_SKY_BACK );
-    m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyUp ).c_str(), TEXTURE_SKY_UP );
-    m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyDown ).c_str(), TEXTURE_SKY_DOWN );
+    m_textures.EnsureJpegTexture( renderResources,
+                                  ( std::string( DATA_ROOT ) + m_config.skyLeft ).c_str(),
+                                  TEXTURE_SKY_LEFT );
+    m_textures.EnsureJpegTexture( renderResources,
+                                  ( std::string( DATA_ROOT ) + m_config.skyRight ).c_str(),
+                                  TEXTURE_SKY_RIGHT );
+    m_textures.EnsureJpegTexture( renderResources,
+                                  ( std::string( DATA_ROOT ) + m_config.skyFront ).c_str(),
+                                  TEXTURE_SKY_FRONT );
+    m_textures.EnsureJpegTexture( renderResources,
+                                  ( std::string( DATA_ROOT ) + m_config.skyBack ).c_str(),
+                                  TEXTURE_SKY_BACK );
+    m_textures.EnsureJpegTexture( renderResources,
+                                  ( std::string( DATA_ROOT ) + m_config.skyUp ).c_str(),
+                                  TEXTURE_SKY_UP );
+    m_textures.EnsureJpegTexture( renderResources,
+                                  ( std::string( DATA_ROOT ) + m_config.skyDown ).c_str(),
+                                  TEXTURE_SKY_DOWN );
 }
 
 
-void SkyBox::BuildMeshes()
+void SkyBox::BuildMeshes( Rendering::IRenderResourceFactory& renderResources )
 {
     // Shorthand for boundary values with overflow
-    const int overflow = Cfg().skyboxOverflow;
+    const int overflow = m_config.skyboxOverflow;
     float xn = static_cast<float>( m_boundaries.m_xMin - overflow );
     float xp = static_cast<float>( m_boundaries.m_xMax + overflow );
     float yn = static_cast<float>( m_boundaries.yMin - overflow );
@@ -121,54 +146,35 @@ void SkyBox::BuildMeshes()
 
     for ( int i = 0; i < 6; ++i )
     {
-        m_faceMeshes[i] = Gfx().CreateMesh( faceData[i], 6, false, true );
+        m_faceMeshes[i] = renderResources.CreateMesh( faceData[i], 6, false, true );
     }
 
-    m_shader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.unlit_textured" );
+    m_shader = m_assets.CreateShader( renderResources, "shader.unlit_textured" );
     m_shader->Use();
     m_shader->SetMat4( "uModel", Matrix4() );
     m_shader->SetVec4( "uColorTint", 1.0f, 1.0f, 1.0f, 1.0f );
 }
 
 
-SkyBox* SkyBox::Instance( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin, int m_zMax )
-{
-    if ( !SkyBox::pInstance )
-    {
-        static SkyBox instance( m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax );
-        SkyBox::pInstance = &instance;
-    }
-    return SkyBox::pInstance;
-}
-
-
-void SkyBox::Destroy()
-{
-    if ( SkyBox::pInstance )
-    {
-        for ( int i = 0; i < 6; ++i )
-        {
-            SkyBox::pInstance->m_faceMeshes[i].reset();
-        }
-        SkyBox::pInstance->m_shader.reset();
-        SkyBox::pInstance = nullptr;
-    }
-}
-
-
-void SkyBox::ResetRenderResources()
+void SkyBox::ReleaseRenderResources()
 {
     for ( int i = 0; i < 6; ++i )
     {
         m_faceMeshes[i].reset();
     }
     m_shader.reset();
-    LoadTextures();
-    BuildMeshes();
 }
 
 
-void SkyBox::Render( const Matrix4& view, const Matrix4& proj )
+void SkyBox::ResetRenderResources( Rendering::IRenderResourceFactory& renderResources )
+{
+    ReleaseRenderResources();
+    LoadTextures( renderResources );
+    BuildMeshes( renderResources );
+}
+
+
+void SkyBox::Render( Rendering::IRenderCommandContext& renderCommands, const Matrix4& view, const Matrix4& proj )
 {
     m_shader->Use();
     m_shader->SetMat4( "uView", view );
@@ -176,7 +182,7 @@ void SkyBox::Render( const Matrix4& view, const Matrix4& proj )
 
     for ( int i = 0; i < 6; ++i )
     {
-        m_textures->SelectTexture( m_faceTextures[i] );
+        m_textures.SelectTexture( renderCommands, m_faceTextures[i] );
         m_faceMeshes[i]->Draw();
     }
 }

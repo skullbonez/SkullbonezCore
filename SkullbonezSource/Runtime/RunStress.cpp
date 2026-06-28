@@ -74,6 +74,9 @@ void Run::RunUIStressActions()
     const double UINow = m_timers.simulationTimer.GetTotalTime();
     const int screenW = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.x ) );
     const int screenH = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.y ) );
+    // Lifetime: stress actions borrow the renderer only for this deterministic
+    // UI churn turn; headless stress bookkeeping can leave it null.
+    IRenderBackend* stressRenderBackend = m_systems.renderBackend;
 
     m_UI.SetVisible( true, UINow );
     m_UI.SetMinimized( false, UINow );
@@ -83,21 +86,21 @@ void Run::RunUIStressActions()
     // This gate is a UI control-state crash sweep. Runtime rebuilds and world
     // debug toggles belong to render/physics validation, so they stay frozen here.
     const bool allowRuntimeChurn = false;
-    const auto makeSceneGeneratedControlContext = [this]() -> SceneRuntimeGeneratedControlContext
+    const auto makeSceneGeneratedControlContext = [this, stressRenderBackend]() -> SceneRuntimeGeneratedControlContext
     {
         return SceneRuntimeGeneratedControlContext{ SceneState(),
                                                     m_sceneController.UIOverrides(),
                                                     m_camera,
                                                     m_sceneController,
-                                                    Cfg(),
+                                                    m_config,
                                                     m_cWorldEnvironment,
                                                     m_systems.terrain.get(),
                                                     m_cGameModelCollection,
                                                     m_simulation,
                                                     m_runtimeTools,
-                                                    IsGfxReady() ? &Gfx() : nullptr,
+                                                    stressRenderBackend,
                                                     m_launchOptions.generatedObjectTypeOverride,
-                                                    ActiveGameModelCapacity() };
+                                                    m_startup.gameModelCapacity };
     };
     const auto executeSceneGeneratedControlAction = [this]( const SceneRuntimeGeneratedControlAction& action )
     {
@@ -163,7 +166,10 @@ void Run::RunUIStressActions()
             break;
         case 8:
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
-            Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+            if ( stressRenderBackend )
+            {
+                stressRenderBackend->SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+            }
             break;
         case 9:
             if ( allowRuntimeChurn )

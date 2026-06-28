@@ -243,8 +243,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool loadedPresentation = m_replayRuntime.HasLoadedPresentation();
     const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
     const bool solverReplayAvailable = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
-    const int screenW = RuntimeWindowScreenWidth( m_systems, Cfg() );
-    const int screenH = RuntimeWindowScreenHeight( m_systems, Cfg() );
+    const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
+    const int screenH = RuntimeWindowScreenHeight( m_systems, m_config );
     if ( !scrubberAllowed || ( !loadedPresentation && !solverReplayAvailable ) || screenW <= 0 || screenH <= 0 )
     {
         CancelReplayToolDragState();

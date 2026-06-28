@@ -15,6 +15,8 @@ Glossary:
   wall-clock marker spans.
   GPU timestamp: Backend query pair that measures elapsed GPU execution without
   blocking the CPU until the readback is ready.
+  Render diagnostics: Borrowed renderer facet used only for GPU marker and
+  timer calls; it does not own the render backend.
   Ring buffer: Fixed-size rolling sample window used for p50/p99 statistics.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
@@ -24,6 +26,8 @@ Invariants:
     marker hashes and begin/end pairs.
   - Marker arrays are fixed-capacity runtime storage, so adding broad marker
     families must account for MAX_MARKERS and MAX_DEPTH.
+  - The render diagnostics borrow is nullable and must be cleared before
+    backend teardown.
 
 Related:
   - SkullbonezSource/Core/Profiler.cpp
@@ -43,6 +47,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Rendering
+{
+class IRenderDiagnostics;
+}
+
 namespace Basics
 {
 /* -- Profiler
@@ -154,6 +163,11 @@ class Profiler
     };
 
     static Profiler& Instance();
+
+    // Lifetime: borrowed diagnostics facet from the active renderer. Bind during
+    // Run startup, clear before backend teardown, and leave null for headless or
+    // failed-backend sessions.
+    void BindRenderDiagnostics( Rendering::IRenderDiagnostics* renderDiagnostics );
 
     void Begin( const char* fullPath, uint32_t hash );
     void End( const char* fullPath, uint32_t hash );
@@ -267,6 +281,7 @@ class Profiler
     int m_warmupFrames;                          // frames remaining in warmup window; ring-buffer stats not recorded when > 0
     bool m_resetPending;                         // set by ScheduleReset(); applied at the next FrameBegin()
     int m_nextColorIndex;                        // round-robin colour assignment for leaf markers
+    Rendering::IRenderDiagnostics* m_renderDiagnostics; // Borrowed renderer diagnostics facet for GPU timers/markers.
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     mutable std::mutex m_workerSampleMutex;
 #endif

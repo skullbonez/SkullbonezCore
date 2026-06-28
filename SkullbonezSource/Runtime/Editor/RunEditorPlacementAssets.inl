@@ -336,6 +336,9 @@ Quaternion EditorBuildingPartOrientation( const Quaternion& placementOrientation
 
 int EditorBuildingPartCount( int objectType, const SkullbonezCore::Assets::AssetSystem& assets )
 {
+    // Concept: a building asset is either one authored convex hull or an
+    // ordered compound recipe. Placement capacity checks use this count before
+    // commit mutates the model collection.
     const Json* asset = CachedEditorBuildingAsset( objectType, assets );
     if ( !asset )
     {
@@ -387,6 +390,8 @@ bool ForEachEditorBuildingPart( int objectType, const SkullbonezCore::Assets::As
 
 const ConvexHullShape* CachedEditorBuildingHull( const std::string& hullPath )
 {
+    // Lifetime: authored building hulls are immutable after bake, so one
+    // process-local cache can serve preview bounds and placement collision.
     static std::vector<std::pair<std::string, ConvexHullShape>> hulls;
     for ( const auto& entry : hulls )
     {
@@ -1489,6 +1494,8 @@ constexpr EditorHouseDefinition EDITOR_BRICK_HOUSE_SLEEP = { "brick_house",
 
 const EditorTreeDefinition* EditorTreeDefinitionForType( int objectType )
 {
+    // Concept: editor object ids are UI commands, not recipe pointers. This
+    // resolver is the stable bridge from UI selection to authored tree recipes.
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     switch ( type )
     {
@@ -1549,6 +1556,9 @@ bool EditorObjectAlignsToTerrainNormal( int objectType, bool autoTerrainAlign )
 
 Quaternion EditorOrientationFromTerrainNormal( int objectType, Vector3 terrainNormal, bool autoTerrainAlign )
 {
+    // Why: slope alignment is a placement-time visual/physics contract. We
+    // rotate local up onto the terrain normal, then let yaw apply around world Y
+    // so authored variants keep predictable heading controls.
     if ( !EditorObjectAlignsToTerrainNormal( objectType, autoTerrainAlign ) )
     {
         return IDENTITY_QUATERNION;
@@ -1599,6 +1609,9 @@ Quaternion EditorPlacementOrientation( int objectType, Vector3 terrainNormal, bo
 
 const ConvexHullShape* CachedEditorHullForAsset( EditorHullAsset asset )
 {
+    // Lifetime: hull assets are loaded lazily and retained for the process
+    // because editor preview, bounds, and commit paths all need identical baked
+    // geometry for a given asset token.
     const char* path = EditorHullAssetPath( asset );
     if ( !path )
     {
@@ -1886,6 +1899,9 @@ bool TryEditorRootMaterial( EditorHullAsset asset, SkullbonezCore::Rendering::Re
 
 bool TryBuildScaledEditorHullForType( int objectType, const Vector3& placementScale, ConvexHullShape& outHull )
 {
+    // Invariant: scaling starts from the cached baked hull each time. Mutating
+    // the cached hull would leak one placement's scale into every later preview
+    // and committed collision body.
     const int type = std::clamp( objectType, 0, SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const ConvexHullShape* baseHull = CachedEditorHullForType( type );
     if ( !baseHull )

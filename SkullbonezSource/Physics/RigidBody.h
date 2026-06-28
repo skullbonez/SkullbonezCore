@@ -64,6 +64,7 @@ class RigidBody
     float m_coefficientRestitution;                   // Bounce response; solver reads it during contact setup.
     float m_frictionCoefficient;                      // Tangential contact resistance shared by terrain/object contacts.
     float m_volume;                                   // Units: m^3.
+    float m_velocityLimit;                            // Angular velocity clamp in radians/s, seeded from scene config.
 
     Math::Vector::Vector3 m_position;                 // Units: world point.
     Math::Vector::Vector3 m_linearVelocity;           // Units: m/s.
@@ -97,6 +98,7 @@ class RigidBody
     Math::Vector::Vector3 GetRollVelocity();
 
   public:
+    static constexpr float DEFAULT_VELOCITY_LIMIT = 5.0f; // Standalone fallback matching engine.cfg default.
     RigidBody();
     ~RigidBody();
     void ApplyForces();                               // Integrates accumulated world forces and one-shot impulses for one physics tick.
@@ -106,6 +108,7 @@ class RigidBody
     const Math::Orientation::Quaternion& GetOrientation() const;
     void SetMass( float fMass );
     void SetFrictionCoefficient( float fFriction );
+    void SetVelocityLimit( float velocityLimit );      // Binds the spin clamp without sampling process-global config.
     void SetVolume( float fVolume );
     void SetCoefficientRestitution( float fCoefficientRestitution );
     void SetPosition( const Math::Vector::Vector3& vPosition );

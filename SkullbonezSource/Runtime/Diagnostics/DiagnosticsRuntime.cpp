@@ -31,6 +31,7 @@ Related:
 
 #include "../Replay/ReplayRuntime.h"
 #include "../Scene/SceneRuntime.h"
+#include "../../Core/Profiler.h"
 #include "../../Scene/TestScene.h"
 #include "../../GameObjects/GameModelCollection.h"
 
@@ -118,6 +119,23 @@ const RunPerfLogState& DiagnosticsRuntime::PerfLog() const
 }
 
 
+Profiler& DiagnosticsRuntime::RuntimeProfiler()
+{
+    // Lifetime: DiagnosticsRuntime is the runtime-facing borrow owner for the
+    // process profiler. UI/perf logging receive this reference instead of
+    // calling Profiler::Instance() directly.
+    return Profiler::Instance();
+}
+
+
+const Profiler& DiagnosticsRuntime::RuntimeProfiler() const
+{
+    // Lifetime: const diagnostics reads share the same process profiler borrow;
+    // the profiler storage itself remains owned by Core.
+    return Profiler::Instance();
+}
+
+
 void DiagnosticsRuntime::ClosePerfLog()
 {
     m_diagnostics.ClosePerfLog();
@@ -194,7 +212,7 @@ bool DiagnosticsRuntime::PerfTestActive() const
 
 void DiagnosticsRuntime::TickPerfLog( const RuntimePerfTickContext& context )
 {
-    m_diagnostics.TickPerfLog( context );
+    m_diagnostics.TickPerfLog( context, RuntimeProfiler() );
 }
 
 const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,

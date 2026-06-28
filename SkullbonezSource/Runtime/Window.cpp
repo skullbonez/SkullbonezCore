@@ -12,6 +12,8 @@ Glossary:
   HWND (Window Handle): Win32 identifier for the native application window.
   HDC (Handle to Device Context): Win32 drawing context associated with the
   window.
+  Resize backend: Borrowed renderer pointer used only while the backend is live
+  so WM_SIZE can resize swap-chain resources without sampling the global facade.
   WndProc: Win32 callback used by the OS to deliver window, focus, cursor, and
   input messages.
   Callback bridge: Input's bound HWND gate that keeps late or foreign window
@@ -20,6 +22,10 @@ Glossary:
 Invariants:
   - Window dimensions are client-area dimensions and drive both renderer resize
     and the perspective/text projections.
+  - Resize callbacks must no-op until Init binds the renderer and after cleanup
+    clears that borrow.
+  - The live process config is borrowed before CreateWindow so WndProc-triggered
+    resize handling can rebuild projections without the global config accessor.
   - The singleton pointer is a legacy access shim around static storage; native
     HWND/HDC lifetime still follows CreateAppWindow and OS messages.
 
@@ -50,6 +56,18 @@ Window::Window()
 
 Window::~Window()
 {
+}
+
+
+const EngineConfig& Window::Config() const
+{
+    // Hazard: WndProc can request a resize projection while the OS is still
+    // inside CreateWindow. Bind the config before creating the HWND.
+    if ( !m_config )
+    {
+        throw std::runtime_error( "Window config binding missing.  (Window::Config)" );
+    }
+    return *m_config;
 }
 
 
@@ -84,20 +102,25 @@ void Window::SetWindowDimensions( const RECT dimensions )
 }
 
 
+void Window::BindResizeBackend( IRenderBackend* backend )
+{
+    m_resizeBackend = backend;
+}
+
+
 void Window::HandleScreenResize()
 {
-    Window* cWindow = Window::Instance();
-    int w = cWindow->m_sWindowDimensions.x;
-    int h = cWindow->m_sWindowDimensions.y;
+    int w = m_sWindowDimensions.x;
+    int h = m_sWindowDimensions.y;
 
     // Hazard: minimized windows report zero client area; resizing the backend
     // to zero dimensions would invalidate swap-chain and projection state.
-    if ( w <= 0 || h <= 0 || !IsGfxReady() )
+    if ( w <= 0 || h <= 0 || !m_resizeBackend )
     {
         return;
     }
 
-    Gfx().Resize( w, h );
+    m_resizeBackend->Resize( w, h );
 
     // Recompute the 2D text ortho projection to match the new aspect ratio.
     // Without this, text stretches when the window is resized or maximized.
@@ -106,8 +129,9 @@ void Window::HandleScreenResize()
     // DX12 clip-space depth is [0,1], so the perspective matrix must use the
     // matching projection convention after every resize.
     float aspect = static_cast<float>( w ) / static_cast<float>( h );
-    cWindow->projectionMatrix =
-        Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f, aspect, Cfg().frustumNear, Cfg().frustumFar );
+    const EngineConfig& config = Config();
+    projectionMatrix =
+        Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f, aspect, config.frustumNear, config.frustumFar );
 }
 
 
@@ -237,11 +261,15 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 }
 
 
-void Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
+void Window::CreateAppWindow( HINSTANCE hInstance, const EngineConfig& config )
 {
     HWND hWnd = nullptr;       // Handle to our window
     WNDCLASS wndclass = { 0 }; // Window class struct
     DWORD dwStyle = 0;         // Window style
+
+    // Lifetime: Init owns the live EngineConfig singleton for the process; the
+    // window only borrows it so OS callbacks use the same startup settings.
+    m_config = &config;
 
     wndclass.style = CS_HREDRAW | CS_VREDRAW;          // Vert and Horiz redraw
     wndclass.lpfnWndProc = WndProc;                    // Assign callback function
@@ -253,14 +281,14 @@ void Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
 
     RegisterClass( &wndclass ); // Register class with OS
 
-    m_fIsFullScreenMode = isFullScreenMode;
+    m_fIsFullScreenMode = config.window.fullscreen;
 
     if ( m_fIsFullScreenMode )
     {
         dwStyle = WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
 
         // Changes to full screen mode
-        ChangeToFullScreen( Cfg().window.screenX, Cfg().window.screenY );
+        ChangeToFullScreen( config.window.screenX, config.window.screenY );
 
         Input::SetSystemCursorVisible( false );
     }
@@ -271,8 +299,8 @@ void Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
 
     int windowX = 0;
     int windowY = 0;
-    const int windowW = Cfg().window.screenX;
-    const int windowH = Cfg().window.screenY;
+    const int windowW = config.window.screenX;
+    const int windowH = config.window.screenY;
     if ( !m_fIsFullScreenMode )
     {
         // Default the window to the bottom-left of the usable desktop work area.
