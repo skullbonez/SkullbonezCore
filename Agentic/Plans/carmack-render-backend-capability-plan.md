@@ -30,6 +30,29 @@ storage changes, also run `tools\validate_perf.bat`.
   (`TestOutput\validation\dx12_renderer\20260628T085736Z\manifest.json`), the
   standalone physics smoke, and byte-exact `physics_regression_solver.csv`.
   Log: `TestOutput\validation\agent_logs\ui_text_capability_validate_full.log`.
+- [x] 2026-06-28: Added a runtime-boundary guardrail that rejects
+  `IRenderBackend` includes or aggregate-backend references from runtime render
+  pass files (`RunPasses.cpp`, `RunUiTextPass.cpp`,
+  `RuntimeRenderPasses.h`, and `RuntimeRenderInputs.h`). Synthetic tests cover
+  allowed narrow capability use and rejected wide-backend pass code, and
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.76s
+  (`TestOutput\validation\agent_logs\render_backend_capability_runtime_boundaries.log`).
+  Evidence review confirmed runtime pass files use `RenderFrameContext` /
+  `RenderResourceContext`, GPU timer/platform profiler calls are limited to
+  profiler code and backend implementations, and the DX12 debug-layer,
+  InfoQueue, and DRED setup remains in DX12-owned code. The capture/readback
+  checklist remains open because `UIBackdropBlur` still uses `GfxCapture()` for
+  a live UI blur source.
+- [x] 2026-06-28: Removed the ordinary UI backdrop blur's CPU backbuffer
+  readback path. `UIBackdropBlur` now emits a translucent `UIDrawContext`
+  backdrop panel instead of calling `GfxCapture()`, creating a texture, or
+  owning dynamic vertex buffers. Capture/readback capability is therefore back
+  to screenshot/capture-controller paths plus backend implementation code, while
+  the UI keeps a non-readback visual separation layer. Comment-style audit:
+  inspected `UIBackdropBlur.cpp`, `UIBackdropBlur.h`, and
+  `tools\check_runtime_boundaries.py`; the updated comments name the invariant
+  that UI backdrop drawing must not pull renderer capture/readback or resource
+  factory capabilities into the layout path.
 - [x] 2026-06-28: Added an explicit file-classification fence for direct
   renderer globals in `tools\check_runtime_boundaries.py`. `Gfx()` and
   `GfxRayTracing()` now require both the existing per-file count allowance and
@@ -599,7 +622,7 @@ Current direct `Gfx()` cluster map from the inventory search:
 
 ### Call-Site Migration
 
-- [ ] Route runtime render passes through `RuntimeRenderHost` capability groups rather than direct wide-backend access.
+- [x] Route runtime render passes through `RuntimeRenderHost` capability groups rather than direct wide-backend access.
 - [x] Route runtime render-pass texture-slot hygiene helpers through
   `RenderFrameContext`'s borrowed `IRenderCommandContext` and lower the
   `RunPasses.cpp` direct `Gfx()` allowlist from 98 to 96.
@@ -644,27 +667,29 @@ Current direct `Gfx()` cluster map from the inventory search:
 - [x] Route UI text renderer diagnostics and DXR preview sampling through
   `UiTextPassInputs`, remove `RunUiTextPass.cpp` direct `Gfx()` /
   `GfxRayTracing()` access, and lower the matching guardrail allowlists.
-- [ ] Pass capture/readback capability only to screenshot and validation paths.
-- [ ] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
-- [ ] Pass GPU profiler capability only to profiler marker code.
-- [ ] Pass resource factory capability only during resource creation/rebuild phases.
-- [ ] Keep command submission and draw state capability out of scene parsing, physics, asset registration, and diagnostics formatting.
-- [ ] Remove direct wide-backend includes from call sites after migration.
+- [x] Pass capture/readback capability only to screenshot and validation paths.
+- [x] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
+- [x] Pass GPU profiler capability only to profiler marker code.
+- [x] Pass resource factory capability only during resource creation/rebuild phases.
+- [x] Keep command submission and draw state capability out of scene parsing, physics, asset registration, and diagnostics formatting.
+- [x] Remove direct wide-backend includes from call sites after migration.
 
 ### DX12 Adapter Shape
 
 - [x] Have `RenderBackendDX12` implement the narrow capability interfaces through the temporary `IRenderBackend` aggregate; direct base-list or adapter migration is still pending.
-- [ ] Keep adapter methods thin enough that DX12 state ownership remains in the backend implementation.
-- [ ] Do not introduce new per-frame heap allocation through adapters.
-- [ ] Preserve backend-owned resource release order during shutdown, resize, and rebuild.
-- [ ] Keep InfoQueue validation and DRED/debug-layer setup inside DX12-owned code.
+- [x] Keep adapter methods thin enough that DX12 state ownership remains in the backend implementation.
+- [x] Do not introduce new per-frame heap allocation through adapters.
+- [x] Preserve backend-owned resource release order during shutdown, resize, and rebuild.
+- [x] Keep InfoQueue validation and DRED/debug-layer setup inside DX12-owned code.
 
 ### Compatibility Facade Retirement
 
 - [x] Leave `IRenderBackend` forwarding or aggregating capabilities only while callers migrate.
 - [x] Add a plan-local table of remaining `IRenderBackend` methods after each slice.
-- [ ] Delete facade methods when no direct caller needs them.
-- [ ] Update `RenderCapabilities` if capability discovery moves to narrower services.
+- [x] Delete facade methods when no direct caller needs them.
+- [x] Update `RenderCapabilities` if capability discovery moves to narrower services.
+  - 2026-06-28 no structural update required: capability discovery remains on
+    the narrower `IRenderDiagnostics` interface.
 - [x] Remove stale comments that imply GL/DX11 parity or multi-backend runtime selection.
   2026-06-28 active-source review:
   `rg "\bDX11\b|OpenGL|GL/DX11|renderer parity|multi-backend|backend selection|runtime renderer" SkullbonezSource -g "*.h" -g "*.cpp" -g "*.inl"`
@@ -697,7 +722,7 @@ Remaining `IRenderBackend` surface after the 2026-06-28 capability-interface sli
 
 ## Validation Checklist
 
-- [ ] For plan-only edits: no validation required.
+- [x] For plan-only edits: no validation required.
   - [x] 2026-06-28 stale-comment source review was plan-only; no repository
     validation required.
 - [x] For capability header or DX12 backend changes: run `tools\validate_dx12_renderer.bat`.
@@ -716,7 +741,7 @@ Remaining `IRenderBackend` surface after the 2026-06-28 capability-interface sli
 
 ## Definition Of Done
 
-- [ ] Ordinary runtime render pass code no longer depends on the full `IRenderBackend`.
+- [x] Ordinary runtime render pass code no longer depends on the full `IRenderBackend`.
 - [x] `IRenderBackend.h` is reduced to a temporary facade or deleted.
-- [ ] Guardrails prevent re-widening the backend contract.
+- [x] Guardrails prevent re-widening the backend contract.
 - [x] DX12 renderer validation passes with zero InfoQueue errors and matching screenshots.

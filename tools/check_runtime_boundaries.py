@@ -76,6 +76,12 @@ RUN_PASSES_SOURCE = Path("SkullbonezSource/Runtime/RunPasses.cpp")
 RUN_UI_TEXT_PASS_SOURCE = Path("SkullbonezSource/Runtime/RunUiTextPass.cpp")
 RUN_SCENE_SOURCE = Path("SkullbonezSource/Runtime/Scene/RunScene.cpp")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
+RUNTIME_RENDER_PASS_CAPABILITY_SOURCES = (
+    RUN_PASSES_SOURCE,
+    RUN_UI_TEXT_PASS_SOURCE,
+    Path("SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h"),
+    Path("SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h"),
+)
 FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
@@ -111,6 +117,9 @@ IRENDER_BACKEND_DIRECT_METHOD_PATTERN = re.compile(
     r"(?:[A-Za-z_:][A-Za-z0-9_:<>,]*[\s*&]+)+"
     r"([A-Za-z_]\w*)\s*\([^;{}]*\)\s*(?:const\s*)?(?:override\s*)?(?:=\s*(?:0|default))?\s*;",
     re.S,
+)
+RUNTIME_RENDER_PASS_WIDE_BACKEND_PATTERN = re.compile(
+    r"\bIRenderBackend\b|#\s*include\s+[<\"][^>\"]*IRenderBackend\.h[>\"]"
 )
 GRAPH_OWNED_RENDER_PASS_DIRECT_CALL_PATTERN = re.compile(
     r"\bm_(?:(?:skyPass|tornadoVisualPass|debugOverlayPass|volumetricPass|tonemapPass|uiTextPass)\s*\.\s*Render|"
@@ -1871,6 +1880,30 @@ def check_irender_backend_aggregate_contract(repo: Path) -> list[BoundaryError]:
     return check_irender_backend_aggregate_contract_text(path, path.read_text(encoding="utf-8"))
 
 
+def check_runtime_render_pass_wide_backend_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in RUNTIME_RENDER_PASS_WIDE_BACKEND_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "runtime render pass wide backend access is blocked",
+                "Pass IRenderCommandContext, IRenderResourceFactory, IRenderDiagnostics, or IRenderRayTracing instead of IRenderBackend.",
+            )
+        )
+    return errors
+
+
+def check_runtime_render_pass_wide_backend_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in RUNTIME_RENDER_PASS_CAPABILITY_SOURCES:
+        source_path = repo / path
+        if source_path.exists():
+            errors.extend(check_runtime_render_pass_wide_backend_guardrails_text(path, source_path.read_text(encoding="utf-8")))
+    return errors
+
+
 def check_graph_owned_render_pass_scheduling_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments(text)
     errors: list[BoundaryError] = []
@@ -3506,6 +3539,37 @@ def run_self_tests() -> list[str]:
         )
     ):
         failures.append("IRenderBackend direct method synthetic surface was not rejected")
+
+    allowed_runtime_pass_narrow_capabilities = """
+    #include "../Rendering/IRenderCommandContext.h"
+    #include "../Rendering/IRenderResourceFactory.h"
+    void Draw( Rendering::IRenderCommandContext& commands, Rendering::IRenderResourceFactory& resources )
+    {
+        commands.Clear( true, true );
+        resources.CreateDynamicVB( attribs, 2, 6 );
+    }
+    """
+    if check_runtime_render_pass_wide_backend_guardrails_text(
+        Path("synthetic/RunPasses.cpp"),
+        allowed_runtime_pass_narrow_capabilities,
+    ):
+        failures.append("allowed runtime render pass narrow capability synthetic surface failed")
+
+    old_runtime_pass_wide_backend_include = """
+    #include "../Rendering/IRenderBackend.h"
+    void Draw( IRenderBackend& backend )
+    {
+        backend.Clear( true, true );
+    }
+    """
+    if not any(
+        error.message == "runtime render pass wide backend access is blocked"
+        for error in check_runtime_render_pass_wide_backend_guardrails_text(
+            Path("synthetic/RunPasses.cpp"),
+            old_runtime_pass_wide_backend_include,
+        )
+    ):
+        failures.append("runtime render pass wide backend include synthetic surface was not rejected")
 
     allowed_graph_owned_pass_scheduling = """
     void RuntimeRenderer::RenderFrame()
@@ -6152,6 +6216,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_direct_gfx_raytracing_guardrails(repo))
     errors.extend(check_irender_backend_raytracing_declarations(repo))
     errors.extend(check_irender_backend_aggregate_contract(repo))
+    errors.extend(check_runtime_render_pass_wide_backend_guardrails(repo))
     errors.extend(check_graph_owned_render_pass_scheduling(repo))
     errors.extend(check_graph_owned_render_pass_manual_barriers(repo))
     errors.extend(check_render_graph_unknown_access(repo))

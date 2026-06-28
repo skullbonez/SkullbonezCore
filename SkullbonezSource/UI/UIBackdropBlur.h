@@ -1,21 +1,22 @@
 /*
 File: SkullbonezSource/UI/UIBackdropBlur.h
 Purpose:
-  Implements UI BackdropBlur widgets, layout, drawing, or UI state for the in-engine controls.
+  Draws the optional non-readback backdrop panel behind the in-engine controls.
 
 Mental model:
-  The UI is immediate-mode-style: each frame reads engine state, computes hit
-  boxes, emits draw commands, and returns requests for the run loop to apply.
+  The backdrop is ordinary UI geometry. It never captures the back buffer; the
+  capture/readback renderer capability belongs to screenshot and validation
+  paths, not per-frame UI decoration.
 
 Glossary:
   Draw command: Lightweight record describing a UI shape or text batch to
   render later in the frame.
-  Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
+  Backdrop: Translucent panel drawn before chrome to separate controls from
+  the world view.
 
 Invariants:
-  - Draw geometry and hit testing must be derived from the same layout
-  constants.
+  - Backdrop drawing must stay on UIDrawContext so it cannot pull renderer
+    capture/readback or resource-factory capabilities into the UI layout path.
 
 Related:
   - SkullbonezSource/UI/UIBackdropBlur.cpp
@@ -24,10 +25,7 @@ Related:
 #pragma once
 
 #include "UIDraw.h"
-#include "../Rendering/IShader.h"
 #include <cstdint>
-#include <memory>
-#include <vector>
 
 namespace SkullbonezCore
 {
@@ -62,16 +60,6 @@ class UIBackdropBlur
     UIBackdropBlurInvalidationReason LastInvalidationReason() const;
 
   private:
-    void EnsureDrawResources();
-    void RefreshSourceTexture( const UIRect& bounds, int screenW, int screenH );
-
-    std::unique_ptr<Rendering::IShader> m_shader;
-    uint32_t m_dynamicVB = 0;
-    uint32_t m_texture = 0;
-    std::vector<uint8_t> m_sourcePixels;
-
-    int m_textureW = 0;
-    int m_textureH = 0;
     int m_lastScreenW = 0;
     int m_lastScreenH = 0;
     int m_lastX = -1;
