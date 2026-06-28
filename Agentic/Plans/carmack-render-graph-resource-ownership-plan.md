@@ -10,6 +10,25 @@ requires `tools\validate_perf.bat`.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Added the runtime-facing manual-barrier guardrail for
+  graph-owned pass families. `tools\check_runtime_boundaries.py` now scans
+  `RunRender.cpp`, `RunPasses.cpp`, and `RunUiTextPass.cpp` for DX12-style
+  manual barrier calls (`ResourceBarrier`, `D3D12_RESOURCE_BARRIER`) and
+  backend transition helper calls (`ExecuteGraphTransition`,
+  `ExecuteGraphUavBarrier`). Synthetic tests prove graph resource declarations
+  and comment/string mentions are allowed while direct barriers and backend
+  transition helpers are rejected. This protects migrated runtime pass code
+  from sidestepping graph declarations; backend-local BLAS/TLAS/upload/DXR
+  barriers remain explicit open debt under Barrier Ownership. Comment-style
+  audit: inspected `tools\check_runtime_boundaries.py`; the learning header now
+  names scheduling and manual-barrier regression as graph-ownership guardrails.
+  Rubber-duck review found one blocking scope gap (`RunUiTextPass.cpp`) and two
+  non-blocking synthetic-test gaps; all were fixed before commit.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors
+  (`TestOutput\validation\agent_logs\render_graph_manual_barrier_guardrail_runtime_boundaries_after_review.log`);
+  `tools\validate_fast.bat` passed
+  (`TestOutput\validation\agent_logs\render_graph_manual_barrier_guardrail_validate_fast_after_review.log`).
 - [x] 2026-06-28: Moved `CinematicSceneBegin` / `SceneTargetPass::Begin` into
   render graph callback ownership with declared `CinematicSceneColor` and
   `CinematicSceneDepth` writes, a dry-run before live callback execution,
@@ -261,7 +280,7 @@ Latest validation evidence available before the next pass-family migration:
 
 - [x] Extend `tools\check_runtime_boundaries.py` to reject direct scheduling of
   passes that have migrated to graph callback ownership.
-- [ ] Add guardrails for new manual barriers in migrated pass families.
+- [x] Add guardrails for new manual barriers in migrated pass families.
 - [x] Add guardrails for new `Unknown` access in migrated resources unless
   explicitly allowlisted.
 - [x] Add synthetic checker tests for migrated pass scheduling and manual-barrier

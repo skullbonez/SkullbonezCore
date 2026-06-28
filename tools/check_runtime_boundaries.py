@@ -6,17 +6,18 @@
 #   extracted subsystem ownership, and prevent new physics dependencies on the
 #   legacy GameModelCollection world container, new game-object types on public
 #   physics facades, or raytracing calls on the wide render backend facade. It
-#   also blocks direct scheduling regressions for passes that already moved to
-#   render graph callback ownership, and new normal-path global service access
-#   while explicit service contexts are built.
+#   also blocks direct scheduling or manual-barrier regressions for passes that
+#   already moved to render graph callback ownership, and new normal-path global
+#   service access while explicit service contexts are built.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
 #   helper back to Run. Physics data ownership is similarly easy to regress by
 #   threading GameModelCollection into one more API. Render ownership can regress
-#   when DXR reflection calls creep back onto Gfx(), or when a graph-owned pass
-#   is called directly from the runtime frame loop again. This check is
-#   intentionally small: it watches the boundaries named by the active
+#   when DXR reflection calls creep back onto Gfx(), when a graph-owned pass is
+#   called directly from the runtime frame loop again, or when migrated runtime
+#   pass code starts issuing DX12 barriers outside graph declarations. This
+#   check is intentionally small: it watches the boundaries named by the active
 #   architecture plans.
 #
 # Glossary:
@@ -35,7 +36,8 @@
 #     raytracing calls go through IRenderRayTracing/GfxRayTracing instead of the
 #     wide IRenderBackend/Gfx facade.
 #   - Graph-owned render passes stay scheduled through render graph callback
-#     helpers after migration.
+#     helpers after migration, and runtime pass code must not issue DX12
+#     ResourceBarrier calls or backend transition helpers directly.
 #   - Unknown render graph resource states remain explicitly counted handoffs
 #     until the graph owns concrete initial access for migrated resources.
 #   - Existing global service calls are counted debt; adding new ones requires
@@ -67,6 +69,8 @@ IRENDER_BACKEND_HEADER = Path("SkullbonezSource/Rendering/IRenderBackend.h")
 RUN_RENDER_SOURCE = Path("SkullbonezSource/Runtime/RunRender.cpp")
 RENDER_PIPELINE_SOURCE = Path("SkullbonezSource/Rendering/RenderPipeline.cpp")
 RUN_INPUT_SOURCE = Path("SkullbonezSource/Runtime/RunInput.cpp")
+RUN_PASSES_SOURCE = Path("SkullbonezSource/Runtime/RunPasses.cpp")
+RUN_UI_TEXT_PASS_SOURCE = Path("SkullbonezSource/Runtime/RunUiTextPass.cpp")
 RUN_SCENE_SOURCE = Path("SkullbonezSource/Runtime/Scene/RunScene.cpp")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
 FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
@@ -108,6 +112,14 @@ IRENDER_BACKEND_DIRECT_METHOD_PATTERN = re.compile(
 GRAPH_OWNED_RENDER_PASS_DIRECT_CALL_PATTERN = re.compile(
     r"\bm_(?:(?:tornadoVisualPass|debugOverlayPass|volumetricPass|tonemapPass|uiTextPass)\s*\.\s*Render|"
     r"sceneTargetPass\s*\.\s*Begin)\s*\("
+)
+GRAPH_OWNED_RENDER_PASS_MANUAL_BARRIER_PATTERN = re.compile(
+    r"\b(?:ResourceBarrier\s*\(|D3D12_RESOURCE_BARRIER\b|ExecuteGraph(?:Transition|UavBarrier)\s*\()"
+)
+GRAPH_OWNED_RENDER_PASS_MANUAL_BARRIER_SOURCES = (
+    RUN_RENDER_SOURCE,
+    RUN_PASSES_SOURCE,
+    RUN_UI_TEXT_PASS_SOURCE,
 )
 RENDER_GRAPH_ADD_EXTERNAL_RESOURCE_CALL_PATTERN = re.compile(r"\bAddExternalResource\s*\(")
 RENDER_GRAPH_UNKNOWN_ACCESS_VALUE_PATTERN = re.compile(
@@ -1846,6 +1858,29 @@ def check_graph_owned_render_pass_scheduling(repo: Path) -> list[BoundaryError]:
     return check_graph_owned_render_pass_scheduling_text(path, path.read_text(encoding="utf-8"))
 
 
+def check_graph_owned_render_pass_manual_barriers_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in GRAPH_OWNED_RENDER_PASS_MANUAL_BARRIER_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "graph-owned render pass manual barriers are blocked",
+                "Declare pass resource access through RenderGraph; runtime pass code must not issue DX12 barriers or backend transition helpers directly.",
+            )
+        )
+    return errors
+
+
+def check_graph_owned_render_pass_manual_barriers(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in GRAPH_OWNED_RENDER_PASS_MANUAL_BARRIER_SOURCES:
+        path = repo / relative_path
+        errors.extend(check_graph_owned_render_pass_manual_barriers_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
 def find_matching_close_paren(text: str, open_paren_offset: int) -> int:
     depth = 0
     quote: str | None = None
@@ -3464,6 +3499,88 @@ def run_self_tests() -> list[str]:
         )
     ):
         failures.append("direct graph-owned pass scheduling synthetic surface was not rejected")
+
+    allowed_graph_owned_pass_graph_access = """
+    void RuntimeRenderer::RenderFrame()
+    {
+        graph.AddExternalResource( "SwapchainBackbuffer", Rendering::RenderGraphResourceAccess::RenderTarget );
+        graph.AddPass( "UiTextPass", Rendering::RenderGraphQueueType::Graphics );
+    }
+    """
+    if check_graph_owned_render_pass_manual_barriers_text(
+        Path("synthetic/RunRender.cpp"),
+        allowed_graph_owned_pass_graph_access,
+    ):
+        failures.append("allowed graph-owned pass graph-access synthetic surface failed")
+
+    old_manual_graph_owned_pass_barrier = """
+    void RuntimeRenderer::RenderFrame()
+    {
+        D3D12_RESOURCE_BARRIER barrier = {};
+        commandList->ResourceBarrier( 1, &barrier );
+    }
+    """
+    if not any(
+        error.message == "graph-owned render pass manual barriers are blocked"
+        for error in check_graph_owned_render_pass_manual_barriers_text(
+            Path("synthetic/RunRender.cpp"),
+            old_manual_graph_owned_pass_barrier,
+        )
+    ):
+        failures.append("manual graph-owned pass barrier synthetic surface was not rejected")
+
+    old_resource_barrier_call_only = "void Render() { commandList->ResourceBarrier( 1, &barrier ); }"
+    if not any(
+        error.message == "graph-owned render pass manual barriers are blocked"
+        for error in check_graph_owned_render_pass_manual_barriers_text(
+            Path("synthetic/RunRender.cpp"),
+            old_resource_barrier_call_only,
+        )
+    ):
+        failures.append("ResourceBarrier-only synthetic surface was not rejected")
+
+    commented_manual_barrier = """
+    void RuntimeRenderer::RenderFrame()
+    {
+        // commandList->ResourceBarrier( 1, &barrier );
+        const char* label = "D3D12_RESOURCE_BARRIER and ExecuteGraphTransition are documentation text";
+    }
+    """
+    if check_graph_owned_render_pass_manual_barriers_text(
+        Path("synthetic/RunRender.cpp"),
+        commented_manual_barrier,
+    ):
+        failures.append("comment/string manual barrier synthetic surface was falsely rejected")
+
+    old_graph_transition_helper_in_runtime_pass = """
+    void SceneTargetPass::Begin()
+    {
+        backend.ExecuteGraphTransition( "SceneTarget", resource, before, after );
+    }
+    """
+    if not any(
+        error.message == "graph-owned render pass manual barriers are blocked"
+        for error in check_graph_owned_render_pass_manual_barriers_text(
+            Path("synthetic/RunPasses.cpp"),
+            old_graph_transition_helper_in_runtime_pass,
+        )
+    ):
+        failures.append("runtime pass backend transition helper synthetic surface was not rejected")
+
+    old_graph_uav_helper_in_ui_text_pass = """
+    void UiTextPass::Render()
+    {
+        backend.ExecuteGraphUavBarrier( "UiTextWriteOrder", "SwapchainBackbuffer", resource );
+    }
+    """
+    if not any(
+        error.message == "graph-owned render pass manual barriers are blocked"
+        for error in check_graph_owned_render_pass_manual_barriers_text(
+            Path("synthetic/RunUiTextPass.cpp"),
+            old_graph_uav_helper_in_ui_text_pass,
+        )
+    ):
+        failures.append("UiTextPass graph UAV helper synthetic surface was not rejected")
 
     allowed_unknown_graph_access_path = Path("SkullbonezSource/Runtime/RunRender.cpp")
     allowed_unknown_graph_access = """
@@ -5963,6 +6080,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_irender_backend_raytracing_declarations(repo))
     errors.extend(check_irender_backend_aggregate_contract(repo))
     errors.extend(check_graph_owned_render_pass_scheduling(repo))
+    errors.extend(check_graph_owned_render_pass_manual_barriers(repo))
     errors.extend(check_render_graph_unknown_access(repo))
     errors.extend(check_global_service_access_guardrails(repo))
     return errors
