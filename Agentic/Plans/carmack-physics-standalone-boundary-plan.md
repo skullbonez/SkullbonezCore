@@ -10,6 +10,34 @@ when SkullScope baselines or broad physics diagnostics change.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Added standalone conservative query methods to the public
+  physics API beachhead. `PhysicsStandaloneWorld::RayCast` now scans live
+  collider bounding spheres in deterministic collider-slot order and returns
+  `PhysicsBodyHandle`, `PhysicsColliderHandle`, scene object id, distance,
+  point, and normal without exposing model indices. `QueryBroadphaseCells`
+  returns deterministic body-handle candidates for bodies or colliders whose
+  conservative spheres overlap an AABB. Conservative envelopes now include
+  local shape-offset length, rotate collider offsets through body orientation,
+  and clamp caller-provided collider broadphase radii upward when descriptors
+  understate the safe radius. The standalone smoke now proves an oriented,
+  local-offset collider with an intentionally undersized supplied broadphase
+  radius is visible through both query paths; the hash records query hit/count,
+  while lifecycle checks verify exact handles, point, normal, and scene id.
+  Rubber-duck review initially found blocking false-negative risks in offset
+  geometry and undersized cached radii; both were fixed before commit.
+  Comment-style audit: inspected
+  `PhysicsApi.h` and `PhysicsApi.cpp`; the new glossary/API comments name the
+  conservative broadphase semantics, deterministic ordering, scratch-view
+  lifetime, and future shape-specific replacement point. Final validation:
+  `tools\validate_fast.bat` passed with formatting clean, project filters
+  `0 errors`, runtime boundaries `0 errors`, and Profile/Debug builds at
+  `0 Warning(s)`/`0 Error(s)`
+  (`TestOutput\validation\agent_logs\physics_standalone_queries_validate_fast_final.log`);
+  `tools\validate_physics.bat` passed with standalone smoke
+  `lifecycle_checks=pass hash=0xF32B90EB03C9D5F0`, byte-exact
+  `physics_regression_solver.csv`, and Profile/Debug builds at
+  `0 Warning(s)`/`0 Error(s)`
+  (`TestOutput\validation\agent_logs\physics_standalone_queries_validate_physics_final.log`).
 - [x] 2026-06-28: Extended the standalone public physics API slice with
   collider handles and immutable collider views. `PhysicsStandaloneWorld` now
   supports collider create, masked update, destroy, single-collider query, and
@@ -173,6 +201,8 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
   collection views to the public physics API beachhead.
 - [x] Add standalone point-joint create, update, delete, query, and immutable
   collection views keyed by `PhysicsConstraintHandle`.
+- [x] Add standalone conservative ray-cast and broadphase AABB query methods
+  that return physics handles instead of model indices.
 - [ ] Add or expose a `PhysicsWorldHandle` or equivalent owner token if multiple isolated worlds are needed.
 - [ ] Keep command targets as `PhysicsBodyHandle`, `PhysicsColliderHandle`, and `PhysicsConstraintHandle`; do not add model-index fields to new API structs.
 - [ ] Add immutable body, collider, contact, island, and diagnostic view structs that do not expose solver-private vectors.
@@ -233,6 +263,12 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
     stales the connected constraint.
   - [x] Final smoke evidence:
     `lifecycle_checks=pass hash=0xE3F090306CC1FE70`.
+- [x] Extend standalone smoke evidence to cover conservative ray-cast and
+  broadphase AABB query results against the final live body/collider.
+  - [x] 2026-06-28 query slice also covers an oriented body, a local-offset
+    collider shape, and an intentionally too-small supplied collider
+    broadphase radius, proving the conservative query envelope is clamped and
+    rotated rather than trusting caller-provided radius data.
 - [ ] Add a runtime integration sample proving scene objects still mirror physics body state after a step.
 - [ ] Add focused replay restore evidence if handles replace model indices in replay state.
 - [ ] If SkullScope output changes, update the query baseline only from final Debug artifacts and report query-size accounting.
@@ -241,6 +277,17 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 
 - [ ] For plan-only edits: no validation required.
 - [x] For physics step, store, collision, solver, sleep, or rigid-body changes: run `tools\validate_physics.bat`.
+  - [x] 2026-06-28 query slice validation:
+    `TestOutput\validation\agent_logs\physics_standalone_queries_validate_fast_final.log`
+    reported source formatting clean, project filters `0 errors`, runtime
+    boundaries `0 errors`, Profile/Debug builds `0 Warning(s)` and
+    `0 Error(s)`, and `VALIDATE_FAST: ALL PASSED`.
+  - [x] 2026-06-28 query slice validation:
+    `TestOutput\validation\agent_logs\physics_standalone_queries_validate_physics_final.log`
+    reported standalone smoke `lifecycle_checks=pass
+    hash=0xF32B90EB03C9D5F0`, `physics_regression_solver.csv (20001 lines,
+    byte-exact match)`, Profile/Debug builds `0 Warning(s)` and `0 Error(s)`,
+    and `VALIDATE_PHYSICS: ALL PASSED`.
   - [x] 2026-06-28 point-joint slice validation:
     `TestOutput\validation\agent_logs\physics_standalone_point_joint_validate_fast_final.log`
     reported source formatting clean, project filters `0 errors`, runtime
@@ -263,11 +310,21 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 - [ ] Ask the reviewer to verify that deterministic ordering is explicit and validation-visible.
 - [ ] Ask the reviewer to inspect handle lifetime, stale-handle behavior, and body deletion.
 - [ ] Record blocking and non-blocking findings in a report or this plan.
+  - [x] 2026-06-28 query slice rubber-duck review by Chandrasekhar initially
+    found blocking false-negative risks for local-offset/oriented colliders and
+    undersized cached broadphase radii. The slice now rotates local offsets,
+    clamps conservative radii, and smoke-tests an oriented local-offset collider
+    with an intentionally too-small supplied radius. Follow-up review found no
+    remaining blockers. Non-blocking notes: the candidate envelope is safely
+    more conservative than a tight shape query, and detailed oriented-offset
+    proof lives in lifecycle checks/source while the validation log prints only
+    `lifecycle_checks=pass hash=0xF32B90EB03C9D5F0`.
   - [x] 2026-06-28 point-joint slice rubber-duck review by Feynman found no
     blockers. Non-blocking findings were resolved before commit: same-body
     point joints are rejected, endpoint-update smoke coverage was added, and
     validation evidence/hash was recorded here.
 - [ ] Resolve blocking review findings before committing PR-bound code.
+  - [x] No blocking query slice findings remained before commit.
   - [x] No blocking point-joint slice findings remained before commit.
 
 ## Definition Of Done

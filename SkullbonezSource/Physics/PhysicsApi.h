@@ -11,10 +11,14 @@ Mental model:
 
 Glossary:
   Body: Simulated object state such as pose, velocity, mass, and sleep flag.
+  Broadphase query: Cheap spatial query that returns candidate bodies, not exact
+    narrowphase contacts.
   Collider: Shape and material-adjacent collision metadata paired with a body.
   Constraint: Solver relationship between bodies; the standalone API currently
     stores point joints as constraint-handle records.
   Facade: Narrow public boundary that hides solver implementation containers.
+  Ray cast: Query that shoots a line segment through physics space and returns
+    the closest candidate hit.
   Standalone world: Public physics owner that can step without runtime or
     game-object storage.
   View: Immutable span-like snapshot exposed to callers without ownership.
@@ -356,7 +360,9 @@ struct PhysicsStandaloneSmokeResult
     uint32_t bodyCount = 0;
     uint32_t colliderCount = 0;
     uint32_t pointJointCount = 0;
+    uint32_t broadphaseQueryCount = 0;
     uint32_t stepCount = 0;
+    bool rayCastHit = false;
     Math::Vector::Vector3 finalPosition = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 finalLinearVelocity = Math::Vector::ZERO_VECTOR;
     uint64_t deterministicHash = 0;
@@ -405,6 +411,16 @@ class PhysicsStandaloneWorld
 
     // Advances awake dynamic bodies by one deterministic semi-implicit Euler step.
     bool Step( const PhysicsStepDesc& desc );
+
+    // Conservatively ray-casts live collider bounding spheres in deterministic
+    // collider slot order and returns the closest hit.
+    PhysicsRayCastHit RayCast( const PhysicsRayCastDesc& desc ) const;
+
+    // Conservatively returns live bodies whose body or collider bounding sphere
+    // overlaps the query AABB, in deterministic body slot order. The view
+    // points at internal scratch storage and is valid until the next
+    // QueryBroadphaseCells() call or non-const world mutation.
+    PhysicsBroadphaseQueryResultView QueryBroadphaseCells( const PhysicsBroadphaseCellQueryDesc& desc ) const;
 
     // Returns a live body view, or null for stale/dead handles. The pointer is
     // owned by this world and is invalidated by later mutation.
@@ -460,6 +476,8 @@ class PhysicsStandaloneWorld
     std::vector<uint32_t> m_freeConstraintIndices;                                   // Reusable tombstoned constraint slots.
     mutable std::vector<PhysicsPointJointView>
         m_pointJointViewScratch;                                                     // Filtered alive-point-joint view returned by PointJoints().
+    mutable std::vector<PhysicsBodyHandle>
+        m_broadphaseQueryScratch;                                                    // Filtered body handles returned by broadphase queries.
     uint32_t m_nextInitialGeneration = PHYSICS_STANDALONE_HANDLE_INITIAL_GENERATION; // Generation base after Clear().
 };
 

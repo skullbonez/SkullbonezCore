@@ -17,6 +17,9 @@ Glossary:
     after deletion and reuse.
   Point joint: Constraint record that keeps two local body anchors associated
     without exposing legacy model indices.
+  Ray cast: Query that reports the closest collider candidate along a directed
+    segment.
+  Broadphase query: Cheap AABB query that returns candidate bodies in slot order.
   Determinism: Same fixed-step inputs produce the same final state and hash.
 
 Invariants:
@@ -31,11 +34,17 @@ Related:
 */
 #include "PhysicsApi.h"
 
+#include <cmath>
 #include <cstring>
+#include <limits>
 #include <variant>
 
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
+using SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius;
+using SkullbonezCore::Math::CollisionDetection::GetShapePosition;
+using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Math::Vector::VectorMag;
 using SkullbonezCore::Physics::PHYSICS_COMPATIBILITY_HANDLE_GENERATION;
 using SkullbonezCore::Physics::PHYSICS_STANDALONE_HANDLE_INITIAL_GENERATION;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
@@ -43,6 +52,7 @@ using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyUpdateDesc;
 using SkullbonezCore::Physics::PhysicsBodyView;
+using SkullbonezCore::Physics::PhysicsBroadphaseCellQueryDesc;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsColliderUpdateDesc;
@@ -51,6 +61,8 @@ using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsPointJointCreateDesc;
 using SkullbonezCore::Physics::PhysicsPointJointUpdateDesc;
 using SkullbonezCore::Physics::PhysicsPointJointView;
+using SkullbonezCore::Physics::PhysicsRayCastDesc;
+using SkullbonezCore::Physics::PhysicsRayCastHit;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Physics::PhysicsStandaloneSmokeResult;
 using SkullbonezCore::Physics::PhysicsStandaloneWorld;
@@ -103,7 +115,9 @@ uint64_t HashSmokeResult( const PhysicsStandaloneSmokeResult& result )
     hash = HashU32( hash, result.bodyCount );
     hash = HashU32( hash, result.colliderCount );
     hash = HashU32( hash, result.pointJointCount );
+    hash = HashU32( hash, result.broadphaseQueryCount );
     hash = HashU32( hash, result.stepCount );
+    hash = HashU32( hash, result.rayCastHit ? 1u : 0u );
     hash = HashVector( hash, result.finalPosition );
     return HashVector( hash, result.finalLinearVelocity );
 }
@@ -118,6 +132,82 @@ Vector3 InvertNonZeroComponents( const Vector3& value )
 float ComputeInverseMass( PhysicsBodyMotionKind motionKind, float mass )
 {
     return motionKind == PhysicsBodyMotionKind::Fixed || mass <= 0.0f ? 0.0f : 1.0f / mass;
+}
+
+bool BodyPassesQueryFilters( const PhysicsBodyView& body, bool includeFixedBodies, bool includeSleepingBodies )
+{
+    if ( !includeFixedBodies && body.motionKind == PhysicsBodyMotionKind::Fixed )
+    {
+        return false;
+    }
+    return includeSleepingBodies || !body.sleeping;
+}
+
+float ConservativeShapeRadius( const SkullbonezCore::Math::CollisionDetection::CollisionShape& shape )
+{
+    // Invariant: a broadphase sphere centered on the body origin must include
+    // local shape offset. Otherwise offset colliders can be missed before
+    // narrowphase ever sees them.
+    return GetShapeBoundingRadius( shape ) + VectorMag( GetShapePosition( shape ) );
+}
+
+float ConservativeBroadphaseRadius( float requestedRadius,
+                                    const SkullbonezCore::Math::CollisionDetection::CollisionShape& shape )
+{
+    const float minimumRadius = ConservativeShapeRadius( shape );
+    return requestedRadius > minimumRadius ? requestedRadius : minimumRadius;
+}
+
+float EffectiveColliderRadius( const PhysicsColliderView& collider )
+{
+    return ConservativeBroadphaseRadius( collider.boundingRadius, collider.shape );
+}
+
+Vector3 ColliderWorldCenter( const PhysicsBodyView& body, const PhysicsColliderView& collider )
+{
+    // Why: local collider offsets live in body space. Rotate them through the
+    // body orientation before doing any world-space query math so conservative
+    // candidates match the narrowphase coordinate convention.
+    auto orientation = body.orientation;
+    const RotationMatrix rotation = orientation.GetOrientationMatrix();
+    return body.position + rotation * GetShapePosition( collider.shape );
+}
+
+bool IntersectRaySphere( const Vector3& rayOrigin,
+                         const Vector3& rayDirection,
+                         const Vector3& center,
+                         float radius,
+                         float& outDistance )
+{
+    const Vector3 m = rayOrigin - center;
+    const float b = m * rayDirection;
+    const float c = ( m * m ) - radius * radius;
+    if ( c > 0.0f && b > 0.0f )
+    {
+        return false;
+    }
+
+    const float discriminant = b * b - c;
+    if ( discriminant < 0.0f )
+    {
+        return false;
+    }
+
+    outDistance = -b - sqrtf( discriminant );
+    if ( outDistance < 0.0f )
+    {
+        outDistance = 0.0f;
+    }
+    return true;
+}
+
+bool SphereOverlapsAabb( const Vector3& center, float radius, const Vector3& min, const Vector3& max )
+{
+    const float closestX = center.x < min.x ? min.x : ( center.x > max.x ? max.x : center.x );
+    const float closestY = center.y < min.y ? min.y : ( center.y > max.y ? max.y : center.y );
+    const float closestZ = center.z < min.z ? min.z : ( center.z > max.z ? max.z : center.z );
+    const Vector3 closest( closestX, closestY, closestZ );
+    return SkullbonezCore::Math::Vector::DistanceSquared( center, closest ) <= radius * radius;
 }
 
 uint32_t NextStandaloneInitialGeneration( uint32_t current )
@@ -152,6 +242,7 @@ void PhysicsStandaloneWorld::Clear()
     m_constraintAlive.clear();
     m_freeConstraintIndices.clear();
     m_pointJointViewScratch.clear();
+    m_broadphaseQueryScratch.clear();
     m_nextInitialGeneration = NextStandaloneInitialGeneration( m_nextInitialGeneration );
 }
 
@@ -301,7 +392,9 @@ bool PhysicsStandaloneWorld::UpdateCollider( const PhysicsColliderUpdateDesc& de
     }
 
     PhysicsColliderView& collider = m_colliders[desc.collider.index];
-    if ( desc.updateMask & PHYSICS_COLLIDER_UPDATE_SHAPE )
+    const bool updatesShape = ( desc.updateMask & PHYSICS_COLLIDER_UPDATE_SHAPE ) != 0;
+    const bool updatesBroadphase = ( desc.updateMask & PHYSICS_COLLIDER_UPDATE_BROADPHASE ) != 0;
+    if ( updatesShape )
     {
         collider.shape = desc.shape;
     }
@@ -310,11 +403,15 @@ bool PhysicsStandaloneWorld::UpdateCollider( const PhysicsColliderUpdateDesc& de
         collider.restitution = desc.restitution;
         collider.friction = desc.friction;
     }
-    if ( desc.updateMask & PHYSICS_COLLIDER_UPDATE_BROADPHASE )
+    if ( updatesBroadphase )
     {
         collider.boundingRadius = desc.boundingRadius;
         collider.projectedSurfaceArea = desc.projectedSurfaceArea;
         collider.dragCoefficient = desc.dragCoefficient;
+    }
+    if ( updatesShape || updatesBroadphase )
+    {
+        collider.boundingRadius = ConservativeBroadphaseRadius( collider.boundingRadius, collider.shape );
     }
     return true;
 }
@@ -446,6 +543,105 @@ bool PhysicsStandaloneWorld::Step( const PhysicsStepDesc& desc )
 }
 
 
+PhysicsRayCastHit PhysicsStandaloneWorld::RayCast( const PhysicsRayCastDesc& desc ) const
+{
+    PhysicsRayCastHit closestHit;
+    if ( desc.maxDistance < 0.0f )
+    {
+        return closestHit;
+    }
+
+    const float directionLength = VectorMag( desc.direction );
+    if ( directionLength == 0.0f )
+    {
+        return closestHit;
+    }
+    const Vector3 direction = desc.direction / directionLength;
+    float closestDistance = ( std::numeric_limits<float>::max )();
+
+    // Concept: standalone ray casts use the same conservative broadphase
+    // envelope as runtime tool rays. Exact shape-specific picks can replace
+    // this later without changing the public handle-based query contract.
+    for ( std::size_t i = 0; i < m_colliders.size(); ++i )
+    {
+        if ( !m_colliderAlive[i] )
+        {
+            continue;
+        }
+
+        const PhysicsColliderView& collider = m_colliders[i];
+        const PhysicsBodyView* body = Body( collider.body );
+        if ( !body || !BodyPassesQueryFilters( *body, desc.includeFixedBodies, desc.includeSleepingBodies ) )
+        {
+            continue;
+        }
+
+        float distance = 0.0f;
+        const float radius = EffectiveColliderRadius( collider );
+        const Vector3 center = ColliderWorldCenter( *body, collider );
+        if ( !IntersectRaySphere( desc.origin, direction, center, radius, distance ) || distance > desc.maxDistance ||
+             distance >= closestDistance )
+        {
+            continue;
+        }
+
+        closestDistance = distance;
+        closestHit.body = body->body;
+        closestHit.collider = collider.collider;
+        closestHit.sceneObjectId = collider.sceneObjectId.IsValid() ? collider.sceneObjectId : body->sceneObjectId;
+        closestHit.distance = distance;
+        closestHit.point = desc.origin + direction * distance;
+        closestHit.normal = closestHit.point - center;
+        const float normalLength = VectorMag( closestHit.normal );
+        closestHit.normal = normalLength > 0.0f ? closestHit.normal / normalLength : -direction;
+        closestHit.hit = true;
+    }
+
+    return closestHit;
+}
+
+
+SkullbonezCore::Physics::PhysicsBroadphaseQueryResultView
+PhysicsStandaloneWorld::QueryBroadphaseCells( const PhysicsBroadphaseCellQueryDesc& desc ) const
+{
+    m_broadphaseQueryScratch.clear();
+
+    for ( std::size_t bodyIndex = 0; bodyIndex < m_bodies.size(); ++bodyIndex )
+    {
+        if ( !m_alive[bodyIndex] ||
+             !BodyPassesQueryFilters( m_bodies[bodyIndex], desc.includeFixedBodies, desc.includeSleepingBodies ) )
+        {
+            continue;
+        }
+
+        const PhysicsBodyView& body = m_bodies[bodyIndex];
+        bool overlaps =
+            body.boundingRadius > 0.0f && SphereOverlapsAabb( body.position, body.boundingRadius, desc.min, desc.max );
+        for ( std::size_t colliderIndex = 0; !overlaps && colliderIndex < m_colliders.size(); ++colliderIndex )
+        {
+            const PhysicsColliderView& collider = m_colliders[colliderIndex];
+            if ( m_colliderAlive[colliderIndex] && collider.body == body.body )
+            {
+                overlaps = SphereOverlapsAabb( ColliderWorldCenter( body, collider ),
+                                               EffectiveColliderRadius( collider ),
+                                               desc.min,
+                                               desc.max );
+            }
+        }
+
+        if ( overlaps )
+        {
+            m_broadphaseQueryScratch.push_back( body.body );
+        }
+    }
+
+    SkullbonezCore::Physics::PhysicsBroadphaseQueryResultView view;
+    view.bodies = m_broadphaseQueryScratch.empty() ? nullptr : m_broadphaseQueryScratch.data();
+    view.bodyCount = static_cast<uint32_t>( m_broadphaseQueryScratch.size() );
+    return view;
+}
+
+
 const PhysicsBodyView* PhysicsStandaloneWorld::Body( PhysicsBodyHandle body ) const
 {
     return IsAlive( body ) ? &m_bodies[body.index] : nullptr;
@@ -554,6 +750,7 @@ PhysicsBodyView PhysicsStandaloneWorld::MakeBodyView( const PhysicsBodyCreateDes
     view.inverseRotationalInertia = InvertNonZeroComponents( desc.rotationalInertia );
     view.mass = desc.mass;
     view.inverseMass = ComputeInverseMass( desc.motionKind, desc.mass );
+    view.boundingRadius = ConservativeShapeRadius( desc.shape );
     view.motionKind = desc.motionKind;
     view.sleeping = desc.startsAsleep;
     return view;
@@ -571,7 +768,7 @@ PhysicsColliderView PhysicsStandaloneWorld::MakeColliderView( const PhysicsColli
     view.sceneObjectId =
         desc.sceneObjectId.IsValid() ? desc.sceneObjectId : ( body ? body->sceneObjectId : PhysicsSceneObjectId{} );
     view.shape = desc.shape;
-    view.boundingRadius = desc.boundingRadius;
+    view.boundingRadius = ConservativeBroadphaseRadius( desc.boundingRadius, desc.shape );
     view.restitution = desc.restitution;
     view.friction = desc.friction;
     view.projectedSurfaceArea = desc.projectedSurfaceArea;
@@ -643,6 +840,7 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     bodyDesc.linearVelocity = Vector3( 2.0f, 4.0f, 0.0f );
     bodyDesc.mass = 2.0f;
     bodyDesc.motionKind = PhysicsBodyMotionKind::Dynamic;
+    bodyDesc.orientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), _HALF_PI );
 
     const PhysicsBodyHandle body = world.CreateBody( bodyDesc );
 
@@ -682,12 +880,16 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     colliderDesc.dragCoefficient = 0.4f;
     const PhysicsColliderHandle collider = world.CreateCollider( colliderDesc );
 
+    const Vector3 localColliderOffset( 0.0f, 1.0f, 0.0f );
+    constexpr float COLLIDER_SPHERE_RADIUS = 2.0f;
+    constexpr float CONSERVATIVE_COLLIDER_RADIUS = 3.0f;
+
     PhysicsColliderUpdateDesc colliderUpdate;
     colliderUpdate.collider = collider;
     colliderUpdate.updateMask =
         PHYSICS_COLLIDER_UPDATE_SHAPE | PHYSICS_COLLIDER_UPDATE_RESPONSE | PHYSICS_COLLIDER_UPDATE_BROADPHASE;
-    colliderUpdate.shape = BoundingSphere( 2.0f, Vector3( 0.0f, 1.0f, 0.0f ) );
-    colliderUpdate.boundingRadius = 2.5f;
+    colliderUpdate.shape = BoundingSphere( COLLIDER_SPHERE_RADIUS, localColliderOffset );
+    colliderUpdate.boundingRadius = 0.5f;
     colliderUpdate.restitution = 0.25f;
     colliderUpdate.friction = 0.35f;
     colliderUpdate.projectedSurfaceArea = 4.0f;
@@ -699,11 +901,11 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     const bool colliderUpdateConsistent =
         updatedColliderView && updatedColliderView->body == body &&
         updatedColliderView->sceneObjectId == PhysicsSceneObjectId{ 17u } && updatedColliderSphere &&
-        updatedColliderSphere->GetRadius() == 2.0f &&
-        updatedColliderSphere->GetPosition() == Vector3( 0.0f, 1.0f, 0.0f ) &&
-        updatedColliderView->boundingRadius == 2.5f && updatedColliderView->restitution == 0.25f &&
-        updatedColliderView->friction == 0.35f && updatedColliderView->projectedSurfaceArea == 4.0f &&
-        updatedColliderView->dragCoefficient == 0.55f;
+        updatedColliderSphere->GetRadius() == COLLIDER_SPHERE_RADIUS &&
+        updatedColliderSphere->GetPosition() == localColliderOffset &&
+        updatedColliderView->boundingRadius == CONSERVATIVE_COLLIDER_RADIUS &&
+        updatedColliderView->restitution == 0.25f && updatedColliderView->friction == 0.35f &&
+        updatedColliderView->projectedSurfaceArea == 4.0f && updatedColliderView->dragCoefficient == 0.55f;
 
     PhysicsColliderCreateDesc directDestroyColliderDesc;
     directDestroyColliderDesc.body = transientBody;
@@ -834,14 +1036,6 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     result.colliderCount = world.Colliders().colliderCount;
     result.pointJointCount = world.PointJoints().pointJointCount;
     result.stepCount = STEP_COUNT;
-    result.lifecycleChecksPassed =
-        invalidBodyColliderRejected && invalidPointJointRejected && selfPointJointRejected && updatedCollider &&
-        colliderUpdateConsistent && destroyedDirectCollider && staleDirectColliderRejected && updatedPointJoint &&
-        pointJointUpdateConsistent && invalidEndpointUpdateRejected && pointJointEndpointUpdateConsistent &&
-        destroyedDirectConstraint && staleDirectConstraintRejected && updatedTransient && fixedMassConsistent &&
-        destroyedTransient && staleHandleRejected && childColliderStaleAfterBodyDestroy &&
-        movedConstraintSurvivedOldEndpointDestroy && destroyedEndpoint && connectedConstraintStaleAfterBodyDestroy &&
-        staleEndpointHandleRejected && staleBodyColliderCreationRejected && staleBodyPointJointCreationRejected;
 
     const PhysicsBodyView* finalBody = world.Body( body );
     if ( finalBody )
@@ -850,10 +1044,54 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         result.finalLinearVelocity = finalBody->linearVelocity;
     }
 
+    Vector3 expectedColliderCenter = Vector3( 0.0f, 0.0f, 0.0f );
+    if ( finalBody )
+    {
+        auto expectedOrientation = finalBody->orientation;
+        const RotationMatrix expectedRotation = expectedOrientation.GetOrientationMatrix();
+        expectedColliderCenter = finalBody->position + expectedRotation * localColliderOffset;
+    }
+
+    PhysicsRayCastDesc rayCastDesc;
+    rayCastDesc.origin = expectedColliderCenter - Vector3( 0.0f, 0.0f, CONSERVATIVE_COLLIDER_RADIUS + 2.0f );
+    rayCastDesc.direction = Vector3( 0.0f, 0.0f, 1.0f );
+    rayCastDesc.maxDistance = 20.0f;
+    rayCastDesc.includeFixedBodies = false;
+    rayCastDesc.includeSleepingBodies = false;
+    const PhysicsRayCastHit rayHit = world.RayCast( rayCastDesc );
+    const bool rayCastConsistent =
+        finalBody && rayHit.hit && rayHit.body == body && rayHit.collider == collider &&
+        rayHit.sceneObjectId == PhysicsSceneObjectId{ 17u } && rayHit.distance == 2.0f &&
+        rayHit.point == expectedColliderCenter - Vector3( 0.0f, 0.0f, CONSERVATIVE_COLLIDER_RADIUS ) &&
+        rayHit.normal == Vector3( 0.0f, 0.0f, -1.0f );
+
+    PhysicsBroadphaseCellQueryDesc broadphaseDesc;
+    const Vector3 broadphaseHalfExtents( 0.25f, 0.25f, 0.25f );
+    broadphaseDesc.min = expectedColliderCenter - broadphaseHalfExtents;
+    broadphaseDesc.max = expectedColliderCenter + broadphaseHalfExtents;
+    broadphaseDesc.includeFixedBodies = false;
+    broadphaseDesc.includeSleepingBodies = false;
+    const SkullbonezCore::Physics::PhysicsBroadphaseQueryResultView broadphaseView =
+        world.QueryBroadphaseCells( broadphaseDesc );
+    const bool broadphaseQueryConsistent =
+        broadphaseView.bodyCount == 1u && broadphaseView.bodies && broadphaseView.bodies[0] == body;
+
+    result.broadphaseQueryCount = broadphaseView.bodyCount;
+    result.rayCastHit = rayHit.hit;
+    result.lifecycleChecksPassed =
+        invalidBodyColliderRejected && invalidPointJointRejected && selfPointJointRejected && updatedCollider &&
+        colliderUpdateConsistent && destroyedDirectCollider && staleDirectColliderRejected && updatedPointJoint &&
+        pointJointUpdateConsistent && invalidEndpointUpdateRejected && pointJointEndpointUpdateConsistent &&
+        destroyedDirectConstraint && staleDirectConstraintRejected && updatedTransient && fixedMassConsistent &&
+        destroyedTransient && staleHandleRejected && childColliderStaleAfterBodyDestroy &&
+        movedConstraintSurvivedOldEndpointDestroy && destroyedEndpoint && connectedConstraintStaleAfterBodyDestroy &&
+        staleEndpointHandleRejected && staleBodyColliderCreationRejected && staleBodyPointJointCreationRejected &&
+        rayCastConsistent && broadphaseQueryConsistent;
+
     result.deterministicHash = HashSmokeResult( result );
     result.passed = stepped && result.lifecycleChecksPassed && finalBody && result.bodyCount == 1u &&
-                    result.colliderCount == 1u && result.pointJointCount == 0u &&
-                    result.finalPosition == Vector3( 3.0f, 9.0f, -2.0f ) &&
+                    result.colliderCount == 1u && result.pointJointCount == 0u && result.broadphaseQueryCount == 1u &&
+                    result.rayCastHit && result.finalPosition == Vector3( 3.0f, 9.0f, -2.0f ) &&
                     result.finalLinearVelocity == Vector3( 2.0f, -4.0f, 0.0f );
     return result;
 }
