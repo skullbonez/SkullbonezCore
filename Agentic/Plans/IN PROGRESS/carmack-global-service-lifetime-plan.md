@@ -10,6 +10,28 @@ require `tools\validate_full.bat`.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Grouped repeated runtime config reads through existing
+  borrowed or local `EngineConfig` references. `SkyPass::Render()` now uses the
+  render host's borrowed config for cube-map sky height/scale; replay-generated
+  scene rebuilds and camera update tuning in `RunFrame.cpp` sample config once
+  per local scope; replay-control automation samples config once for screen-size
+  fallbacks. The boundary ratchet lowered `RunPasses.cpp` `Cfg()` debt from 6
+  to 4, `RunFrame.cpp` from 7 to 4, and `RunInteractionAutomation.cpp` from 2
+  to 1, lowering total counted `Cfg()` debt from 236 to 230. Comment audit
+  inspected `RunPasses.cpp`, `RunFrame.cpp`, `RunInteractionAutomation.cpp`,
+  and `tools/check_runtime_boundaries.py`; existing learning headers and local
+  behavior comments still match the touched code. Rubber-duck review
+  intentionally deferred until this plan is complete. Evidence:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors
+  (`TestOutput\validation\agent_logs\config_read_grouping_runtime_boundaries.log`),
+  `tools\validate_format.bat` passed
+  (`TestOutput\validation\agent_logs\config_read_grouping_validate_format.log`),
+  `tools\validate_fast.bat` passed in 97.63s
+  (`TestOutput\validation\agent_logs\config_read_grouping_validate_fast.log`),
+  `tools\validate_full.bat` passed in 30.77s with 0 DX12 validation errors,
+  matching screenshots, and byte-exact `physics_regression_solver.csv`
+  (`TestOutput\validation\agent_logs\config_read_grouping_validate_full.log`),
+  and `git diff --check` passed.
 - [x] 2026-06-28: Routed `RuntimeRenderHost` helper config reads through a
   borrowed live `EngineConfig` reference supplied by `Run` construction instead
   of calling `Cfg()` inside render-host methods. `ActiveCinematicConfig()`,
@@ -562,7 +584,7 @@ string literals.
 
 | Pattern | Current count |
 |---------|---------------|
-| `Cfg()` | 236 |
+| `Cfg()` | 230 |
 | `Gfx()` | 190 |
 | `GfxRayTracing()` | 4 |
 | `ActiveAssetSystem()` | 2 |
@@ -623,11 +645,11 @@ why that current debt exists and which migration bucket should own it.
 | `SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.inl` | `Cfg()=2` | normal runtime path | Replay scrubber tuning still reads global config. |
 | `SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl` | `Cfg()=2` | normal runtime path | Replay velocity-edit tuning still reads global config. |
 | `SkullbonezSource/Runtime/Run.cpp` | `CameraCollection::Instance()=1`, `Cfg()=9`, `Gfx()=8`, `Profiler::Instance()=1`, `SkyBox::Instance()=1`, `TextureCollection::Instance()=1`, `Window::Instance()=1` | normal runtime path | Composition-root compatibility; migrate to bound services before normal paths call globals directly. |
-| `SkullbonezSource/Runtime/RunFrame.cpp` | `Cfg()=7`, `Gfx()=1`, `Profiler::Instance()=3` | normal runtime path | Frame loop now samples the renderer once per frame turn before borrowing narrow lifecycle and diagnostics facets; config and profiler globals remain. |
+| `SkullbonezSource/Runtime/RunFrame.cpp` | `Cfg()=4`, `Gfx()=1`, `Profiler::Instance()=3` | normal runtime path | Frame loop now samples the renderer once per frame turn before borrowing narrow lifecycle and diagnostics facets; config and profiler globals remain. |
 | `SkullbonezSource/Runtime/RunInput.cpp` | `Cfg()=22`, `Gfx()=4` | normal runtime path | Input/tool routing still reads config and renderer state globally. |
-| `SkullbonezSource/Runtime/RunInteractionAutomation.cpp` | `Cfg()=2` | test/tool | Interaction automation tuning still reads global config. |
+| `SkullbonezSource/Runtime/RunInteractionAutomation.cpp` | `Cfg()=1` | test/tool | Interaction automation tuning still reads global config. |
 | `SkullbonezSource/Runtime/RunLiveStyle.cpp` | `Cfg()=1` | normal runtime path | Live style path still reads config globally. |
-| `SkullbonezSource/Runtime/RunPasses.cpp` | `Cfg()=6` | render pass | Pass code still reads global config after renderer access migration. |
+| `SkullbonezSource/Runtime/RunPasses.cpp` | `Cfg()=4` | render pass | Pass code still reads global config after renderer access migration. |
 | `SkullbonezSource/Runtime/RunRender.cpp` | `Cfg()=3`, `Gfx()=1`, `GfxRayTracing()=1` | render pass | Render composition root still samples renderer services before passing borrowed capabilities. |
 | `SkullbonezSource/Runtime/RunStress.cpp` | `Cfg()=1`, `Gfx()=2` | test/tool | Stress harness still reads config/renderer globally. |
 | `SkullbonezSource/Runtime/RunUiTextPass.cpp` | `Cfg()=1`, `Profiler::Instance()=2`, `WorkerPool::Instance()=1` | render pass | UI text pass still mixes profiler, worker, and config globals; renderer and DXR capability access now come from caller-supplied inputs. |
@@ -802,6 +824,9 @@ bridges tiny, named, and fenced.
   - [x] 2026-06-28 `RuntimeRenderHost` now borrows the live `EngineConfig`
     from `Run` construction instead of reading `Cfg()` inside render-host
     helper methods.
+  - [x] 2026-06-28 repeated config reads in sky rendering, replay-generated
+    scene rebuilds, camera update tuning, and replay-control automation are now
+    grouped through existing borrowed or local config references.
 
 ### OS Callback Bridges
 

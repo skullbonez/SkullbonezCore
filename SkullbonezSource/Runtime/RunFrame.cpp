@@ -1728,11 +1728,12 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         m_sceneController.UIOverrides().solverBoxCountOverride =
             uiSolverCounts || exactSolverCounts ? event.value2 : -1;
 
+        const EngineConfig& config = Cfg();
         if ( exactSolverCounts || uiSolverCounts )
         {
             SceneGeneratedSetup::SetUpSolverObjects(
                 BuildSceneGeneratedModelContext( SceneState(),
-                                                 Cfg(),
+                                                 config,
                                                  m_cWorldEnvironment,
                                                  m_systems.terrain.get(),
                                                  m_cGameModelCollection,
@@ -1745,7 +1746,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         {
             SceneGeneratedSetup::SetUpGameModels(
                 BuildSceneGeneratedModelContext( SceneState(),
-                                                 Cfg(),
+                                                 config,
                                                  m_cWorldEnvironment,
                                                  m_systems.terrain.get(),
                                                  m_cGameModelCollection,
@@ -2578,7 +2579,8 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     // frame time. Mouse look consumes a per-frame cursor delta, so using live dt
     // would make sensitivity vary with FPS; the fixed reference preserves the
     // existing 60 Hz tuning while making the result frame-rate independent.
-    MoveCamera( cameraDt * Cfg().keySpeed, CAMERA_MOUSE_REFERENCE_DT * Cfg().mouseSensitivity );
+    const EngineConfig& config = Cfg();
+    MoveCamera( cameraDt * config.keySpeed, CAMERA_MOUSE_REFERENCE_DT * config.mouseSensitivity );
     TickAttachedCamera();
 
     UpdateWaterHeightControls( simulationDt );
@@ -2586,7 +2588,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     // Tween speed is also presentation-time behavior. The selected destination
     // camera can still track moving scene objects, but the interpolation rate
     // itself should be stable in real seconds instead of following time_scale.
-    m_systems.cameras->SetTweenSpeed( Cfg().cameraTweenRate * cameraDt );
+    m_systems.cameras->SetTweenSpeed( config.cameraTweenRate * cameraDt );
 }
 
 

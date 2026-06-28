@@ -894,8 +894,9 @@ void SkyPass::Render( const RenderFrameContext& frame, const Math::Transformatio
 
     // The cube-map sky follows camera X/Z so the box feels infinitely far away,
     // while its Y stays authored by config to preserve the long-standing horizon.
-    Matrix4 skyView = view * Matrix4::Translate( frame.eye.x, Cfg().skyboxRenderHeight, frame.eye.z ) *
-                      Matrix4::Scale( Cfg().skyboxScale );
+    const EngineConfig& config = m_host.m_config;
+    Matrix4 skyView = view * Matrix4::Translate( frame.eye.x, config.skyboxRenderHeight, frame.eye.z ) *
+                      Matrix4::Scale( config.skyboxScale );
     // Pass contract: cube-map skybox faces sample only slot 0. Slots owned by
     // water, post, or shadows must not leak into these six mesh draws.
     ClearRenderTextureSlotsExcept( RenderCommands( frame ), RENDER_TEXTURE_SLOT_0 );
