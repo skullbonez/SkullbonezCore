@@ -26,7 +26,7 @@ validation.
 | `validate_physics.bat` | Standalone physics API smoke plus core physics, collision, solver, and rigid body baseline | 2 exe launches |
 | `validate_physics_deep.bat` | Opt-in bullet sweep, shooting, known-issue, and SkullScope physics baselines | ~45s+ |
 | `validate_physics_query.bat` | SkullScope query-output baseline check | ~depends |
-| `validate_perf.bat` | DX12 performance-sensitive, hot-path changes | ~1 min |
+| `validate_perf.bat` | Hard gate for DX12, physics, and hot-path perf budgets/regressions | ~1 min |
 | `validate_full.bat` | Default broad PR gate: DX12 renderer plus core physics | 2 exe launches |
 | `watch_ui_stress.bat` | Repeated UI stress watcher, finite by default | ~depends |
 | `watch_demo_stress.bat` | Repeated generated demo stress watcher, finite by default | ~depends |
@@ -74,6 +74,7 @@ tools\validate_select.bat build-profile
 | `watch_ui_stress.bat [--test ui\|demo] [--iterations N] [--sleep N] [--forever]` | Repeated stress watcher; defaults to a finite 25-lap UI-only run and requires `--forever` for an intentional soak |
 | `watch_demo_stress.bat [--iterations N] [--sleep N] [--forever]` | Convenience wrapper for repeated generated demo interaction stress |
 | `capture_ui_screenshot.bat [dx12] [output.png] [max_width]` | Capture the profiler UI scene and export a phone-friendly PNG |
+| `check_perf_budgets.py --artifact <perf.json>` | Fail when critical frame, physics, or render markers exceed absolute millisecond budgets |
 | `export_screenshot_png.py <input.bmp> <output.png>` | Convert an engine BMP capture to an optimized PNG |
 | `validate_physics_query.bat` | Generate one varied physics diagnostic trace and compare SkullScope query output to `TestOutput/baselines/physics_query_varied.json` |
 | `find_clang_format.bat` | Locate clang-format, called by format scripts |
@@ -88,6 +89,10 @@ tools\validate_select.bat build-profile
 | `check_physics_regression.py` | Byte-exact core physics CSV diff, with `--deep` for the broader CSV set |
 | `update_baselines.bat` | Copy current Profile visual/perf artifacts into `TestOutput\baselines`; do not use for physics CSV or SkullScope baselines |
 | `archive_validation_artifacts.bat` | Archive current Profile artifacts under `TestOutput\NNN_<commit>` |
+
+`validate_perf.bat` is a hard gate: baseline regressions and
+`check_perf_budgets.py` absolute-budget failures return nonzero. Do not treat
+perf output as a warning-only review note unless the script itself exits 0.
 
 ## Physics Baselines
 

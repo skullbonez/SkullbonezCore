@@ -27,7 +27,7 @@ REM ===============================================================
 REM  validate_perf.bat - Performance regression detection.
 REM  Use for: optimization work, hot-path changes, allocation changes.
 REM  Runtime: about 1 minute.
-REM  Exit 0 = build+run succeeded; perf regressions are shown for review.
+REM  Exit 0 = build+run succeeded and perf budgets/comparisons passed.
 REM ===============================================================
 
 set "REPO=%~dp0.."
@@ -107,21 +107,40 @@ for %%r in (dx12 physics_bench) do (
     )
 )
 
-set "REGRESSION_WARNINGS=0"
+set "PERF_FAILURES=0"
 for %%r in (dx12 physics_bench) do (
+    echo.
+    echo Checking %%r absolute performance budgets...
+    "%PYTHON_EXE%" "%REPO%\tools\check_perf_budgets.py" --artifact "%REPO%\Profile\%%r_perf.json"
+    if errorlevel 1 (
+        echo FAIL: %%r absolute performance budget exceeded.
+        set "PERF_FAILURES=1"
+    )
+
     if exist "%REPO%\TestOutput\baselines\%%r_perf.json" (
         echo.
         echo %%r performance comparison vs baseline:
         "%PYTHON_EXE%" "%REPO%\Agentic\Skills\skore-render-test\perf_compare.py" --current "%REPO%\Profile\%%r_perf.json" --previous "%REPO%\TestOutput\baselines\%%r_perf.json"
         if errorlevel 1 (
             echo.
-            echo WARNING: %%r performance regression detected. Review output above.
-            REM Perf regressions need human judgment, so the script still exits 0.
-            set "REGRESSION_WARNINGS=1"
+            echo FAIL: %%r performance regression detected. Review output above.
+            set "PERF_FAILURES=1"
         )
     ) else (
         echo No baseline found at TestOutput\baselines\%%r_perf.json - skipping %%r comparison.
+        echo Absolute performance budgets still apply for %%r.
     )
+)
+
+if "%PERF_FAILURES%"=="1" (
+    echo.
+    echo ========================================
+    echo   VALIDATE_PERF: FAILED
+    echo ========================================
+    echo   Performance regressions are commit blockers.
+    echo   Update baselines only when the slower numbers are intentional and reviewed.
+    popd
+    exit /b 7
 )
 
 call "%~dp0validate_ready_builds.bat"
@@ -134,9 +153,5 @@ echo.
 echo ========================================
 echo   VALIDATE_PERF: COMPLETE
 echo ========================================
-if "%REGRESSION_WARNINGS%"=="1" (
-    echo   Review performance warnings above.
-    echo ========================================
-)
 popd
 exit /b 0
