@@ -18,6 +18,8 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Fluid congestion: Low-energy submerged sphere cluster where solving every
+    object/object pair is less important than keeping the frame responsive.
   Point joint: Constraint that keeps two local anchor points close together
     without yet modelling a full hinge, cone, or motor.
   Sleep island: Connected body group that may deactivate only as a unit.
@@ -75,6 +77,13 @@ constexpr bool PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED = true;
 constexpr float PHYSICS_FAST_SWEEP_MAX_RADIUS = 1.0f;
 constexpr float PHYSICS_FAST_SWEEP_MIN_DISTANCE = 1.0f;
 constexpr float PHYSICS_FAST_SWEEP_PAIR_SLOP = 1.0f;
+constexpr int PHYSICS_FLUID_CONGESTION_MIN_TOTAL_PAIRS = 128;
+constexpr int PHYSICS_FLUID_CONGESTION_MIN_CELL_PAIRS = 64;
+constexpr int PHYSICS_FLUID_CONGESTION_MIN_KEEP_PAIRS = 96;
+constexpr float PHYSICS_FLUID_CONGESTION_KEEP_SQRT_SCALE = 16.0f;
+constexpr float PHYSICS_FLUID_CONGESTION_MIN_SUBMERGED_PERCENT = 0.50f;
+constexpr float PHYSICS_FLUID_CONGESTION_MAX_BODY_SPEED = 3.0f;
+constexpr float PHYSICS_FLUID_CONGESTION_MAX_RELATIVE_SPEED = 1.50f;
 constexpr float POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE = 0.15f;
 constexpr float POINT_JOINT_SLEEP_SLACK_TOLERANCE_SCALE = 0.75f;
 constexpr float POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE = 6.0f;
@@ -106,6 +115,197 @@ Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
     }
 
     return value * ( maxMagnitude / sqrtf( magSq ) );
+}
+
+
+int ApplyFluidCongestionNarrowphaseEscapeHatch( std::vector<std::pair<int, int>>& candidatePairs,
+                                                PhysicsModelMutableRange models,
+                                                const GameModelBodyStream& bodyStream,
+                                                const std::vector<PhysicsBodyRecord>& bodyRecords,
+                                                const std::vector<uint8_t>& sleepState,
+                                                float cellSize,
+                                                uint32_t& phase )
+{
+    PROFILE_SCOPED( "Frame/Physics/Broadphase/FluidCongestionPrune" );
+    if ( static_cast<int>( candidatePairs.size() ) < PHYSICS_FLUID_CONGESTION_MIN_TOTAL_PAIRS ||
+         bodyStream.count <= 0 || models.Count() != bodyStream.count ||
+         static_cast<int>( bodyRecords.size() ) < bodyStream.count || cellSize <= TOLERANCE )
+    {
+        return 0;
+    }
+
+    struct CongestedCell
+    {
+        int64_t key = 0;
+        int pairCount = 0;
+        int keepBudget = 0;
+    };
+
+    const float maxBodySpeedSq = PHYSICS_FLUID_CONGESTION_MAX_BODY_SPEED * PHYSICS_FLUID_CONGESTION_MAX_BODY_SPEED;
+    const float maxRelativeSpeedSq =
+        PHYSICS_FLUID_CONGESTION_MAX_RELATIVE_SPEED * PHYSICS_FLUID_CONGESTION_MAX_RELATIVE_SPEED;
+
+    auto bodyCanEnterFluidCongestion = [&]( int index ) -> bool
+    {
+        if ( index < 0 || index >= bodyStream.count || bodyStream.isFixed[index] ||
+             index >= static_cast<int>( sleepState.size() ) || sleepState[index] != 0 )
+        {
+            return false;
+        }
+
+        const PhysicsBodyRecord& body = bodyRecords[static_cast<size_t>( index )];
+        return models[static_cast<size_t>( index )].IsSphere() &&
+               Vector::VectorMagSquared( body.linearVelocity ) <= maxBodySpeedSq &&
+               models[static_cast<size_t>( index )].GetSubmergedVolumePercent() >=
+                   PHYSICS_FLUID_CONGESTION_MIN_SUBMERGED_PERCENT;
+    };
+
+    int eligibleBodyCount = 0;
+    for ( int bodyIndex = 0; bodyIndex < bodyStream.count; ++bodyIndex )
+    {
+        eligibleBodyCount += bodyCanEnterFluidCongestion( bodyIndex ) ? 1 : 0;
+    }
+    if ( eligibleBodyCount * ( eligibleBodyCount - 1 ) / 2 < PHYSICS_FLUID_CONGESTION_MIN_CELL_PAIRS )
+    {
+        return 0;
+    }
+
+    std::vector<uint8_t> bodyEligible( static_cast<size_t>( bodyStream.count ), 0 );
+    for ( int bodyIndex = 0; bodyIndex < bodyStream.count; ++bodyIndex )
+    {
+        bodyEligible[static_cast<size_t>( bodyIndex )] = bodyCanEnterFluidCongestion( bodyIndex ) ? 1 : 0;
+    }
+
+    const float invCellSize = 1.0f / cellSize;
+    std::vector<int> pairCellIndex( candidatePairs.size(), -1 );
+    std::vector<CongestedCell> cells;
+    cells.reserve( candidatePairs.size() / 8 + 1 );
+
+    auto isFluidCongestionBody = [&]( int index ) -> bool
+    {
+        return index >= 0 && index < bodyStream.count && bodyEligible[static_cast<size_t>( index )] != 0;
+    };
+
+    auto pairCellKey = [&]( int a, int b ) -> int64_t
+    {
+        const Vector3 midpoint =
+            ( bodyRecords[static_cast<size_t>( a )].position + bodyRecords[static_cast<size_t>( b )].position ) * 0.5f;
+        const int64_t cx = static_cast<int64_t>( floorf( midpoint.x * invCellSize ) );
+        const int64_t cy = static_cast<int64_t>( floorf( midpoint.y * invCellSize ) );
+        const int64_t cz = static_cast<int64_t>( floorf( midpoint.z * invCellSize ) );
+        return ( int64_t( cx ) * 73856093 ) ^ ( int64_t( cy ) * 19349663 ) ^ ( int64_t( cz ) * 83492791 );
+    };
+
+    auto cellIndexForKey = [&]( int64_t key ) -> int
+    {
+        for ( int cellIndex = 0; cellIndex < static_cast<int>( cells.size() ); ++cellIndex )
+        {
+            if ( cells[static_cast<size_t>( cellIndex )].key == key )
+            {
+                return cellIndex;
+            }
+        }
+
+        cells.push_back( CongestedCell{ key, 0, 0 } );
+        return static_cast<int>( cells.size() ) - 1;
+    };
+
+    for ( size_t pairIndex = 0; pairIndex < candidatePairs.size(); ++pairIndex )
+    {
+        const int a = candidatePairs[pairIndex].first;
+        const int b = candidatePairs[pairIndex].second;
+        if ( !isFluidCongestionBody( a ) || !isFluidCongestionBody( b ) )
+        {
+            continue;
+        }
+
+        const Vector3 relativeVelocity =
+            bodyRecords[static_cast<size_t>( a )].linearVelocity - bodyRecords[static_cast<size_t>( b )].linearVelocity;
+        if ( Vector::VectorMagSquared( relativeVelocity ) > maxRelativeSpeedSq )
+        {
+            continue;
+        }
+
+        const int cellIndex = cellIndexForKey( pairCellKey( a, b ) );
+        pairCellIndex[pairIndex] = cellIndex;
+        ++cells[static_cast<size_t>( cellIndex )].pairCount;
+    }
+
+    bool hasCongestedCell = false;
+    for ( CongestedCell& cell : cells )
+    {
+        if ( cell.pairCount < PHYSICS_FLUID_CONGESTION_MIN_CELL_PAIRS )
+        {
+            cell.keepBudget = cell.pairCount;
+            continue;
+        }
+
+        // Concept: this is a deterministic quality valve, not a time-based
+        // branch. A dense water ball island is allowed to solve a bounded,
+        // rotating subset of low-energy object pairs, trading tiny local
+        // overlap for frame time while high-energy and dry contacts stay exact.
+        const int sqrtBudget =
+            static_cast<int>( ceilf( sqrtf( static_cast<float>( cell.pairCount ) ) *
+                                    PHYSICS_FLUID_CONGESTION_KEEP_SQRT_SCALE ) );
+        cell.keepBudget = (std::min)( cell.pairCount,
+                                      (std::max)( PHYSICS_FLUID_CONGESTION_MIN_KEEP_PAIRS, sqrtBudget ) );
+        hasCongestedCell = hasCongestedCell || cell.keepBudget < cell.pairCount;
+    }
+
+    if ( !hasCongestedCell )
+    {
+        return 0;
+    }
+
+    auto hashPairForPhase = []( int a, int b, uint32_t phaseValue ) -> uint32_t
+    {
+        uint32_t value = static_cast<uint32_t>( a ) * 73856093u ^ static_cast<uint32_t>( b ) * 19349663u ^
+                         phaseValue * 83492791u;
+        value ^= value >> 16;
+        value *= 0x7feb352du;
+        value ^= value >> 15;
+        value *= 0x846ca68bu;
+        value ^= value >> 16;
+        return value;
+    };
+
+    size_t writeIndex = 0;
+    int removedPairs = 0;
+    for ( size_t readIndex = 0; readIndex < candidatePairs.size(); ++readIndex )
+    {
+        const int cellIndex = pairCellIndex[readIndex];
+        bool removePair = false;
+        if ( cellIndex >= 0 )
+        {
+            const CongestedCell& cell = cells[static_cast<size_t>( cellIndex )];
+            if ( cell.keepBudget < cell.pairCount )
+            {
+                const std::pair<int, int>& pair = candidatePairs[readIndex];
+                const uint32_t slot = hashPairForPhase( pair.first, pair.second, phase ) %
+                                      static_cast<uint32_t>( cell.pairCount );
+                removePair = slot >= static_cast<uint32_t>( cell.keepBudget );
+            }
+        }
+
+        if ( removePair )
+        {
+            ++removedPairs;
+            continue;
+        }
+
+        if ( writeIndex != readIndex )
+        {
+            candidatePairs[writeIndex] = candidatePairs[readIndex];
+        }
+        ++writeIndex;
+    }
+
+    candidatePairs.resize( writeIndex );
+    if ( removedPairs > 0 )
+    {
+        ++phase;
+    }
+    return removedPairs;
 }
 } // namespace
 
@@ -160,6 +360,7 @@ void PhysicsWorld::Clear()
     m_sleepState.clear();
     m_sleepCounter.clear();
     m_underwaterSleepLocked.clear();
+    m_fluidCongestionPhase = 0;
     m_tornadoCaptureSeconds.clear();
     m_tornadoEjectCooldownSeconds.clear();
     m_tornadoSystem.SetConfig( TornadoSystemConfig() );
@@ -204,9 +405,10 @@ void PhysicsWorld::Clear()
 void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const
 {
     outSnapshot = ReplaySolverWorldSnapshot();
-    outSnapshot.version = 2;
+    outSnapshot.version = 3;
     outSnapshot.modelCount = modelCount;
     outSnapshot.nextSleepIslandVisualId = m_nextSleepIslandVisualId;
+    outSnapshot.fluidCongestionPhase = m_fluidCongestionPhase;
     outSnapshot.sleepEnabled = m_sleepEnabled;
     outSnapshot.collisionVisualFrameActive = m_collisionVisualFrameActive;
     outSnapshot.tornadoConfig = m_tornadoField.GetConfig();
@@ -295,11 +497,12 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
 
 bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot& snapshot, int modelCount )
 {
-    if ( snapshot.version < 1 || snapshot.version > 2 || snapshot.modelCount != modelCount )
+    if ( snapshot.version < 1 || snapshot.version > 3 || snapshot.modelCount != modelCount )
     {
         return false;
     }
 
+    m_fluidCongestionPhase = snapshot.version >= 3 ? snapshot.fluidCongestionPhase : 0;
     m_timeRemaining = snapshot.timeRemaining;
     m_sleepSupportedThisFrame = snapshot.sleepSupportedThisFrame;
     m_sleepInhibitedThisFrame = snapshot.sleepInhibitedThisFrame;
@@ -1829,6 +2032,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
                                               { return IsPointJointPair( pair.first, pair.second ); } ),
                               candidatePairs.end() );
     }
+
+    ApplyFluidCongestionNarrowphaseEscapeHatch( candidatePairs,
+                                                m_gameModels,
+                                                bodyStream,
+                                                bodyRecords,
+                                                m_sleepState,
+                                                m_spatialGrid.GetCellSize(),
+                                                m_fluidCongestionPhase );
 
     {
         PROFILE_SCOPED( "Frame/Physics/Broadphase/RecordCandidates" );

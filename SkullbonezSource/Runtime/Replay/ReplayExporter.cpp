@@ -205,6 +205,7 @@ Json SolverWorldSnapshotSummaryJson( const ReplaySolverWorldSnapshot& snapshot )
     Json result;
     result["version"] = snapshot.version;
     result["modelCount"] = snapshot.modelCount;
+    result["fluidCongestionPhase"] = snapshot.fluidCongestionPhase;
     result["sleepEnabled"] = snapshot.sleepEnabled;
     result["sleepingBodyCount"] = static_cast<int>( std::count_if( snapshot.sleepState.begin(),
                                                                    snapshot.sleepState.end(),

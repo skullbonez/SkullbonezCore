@@ -13,6 +13,8 @@ Glossary:
   Contact cache: Persistent contact rows and accumulated impulses reused by the
     solver for stability.
   Sleep state: Per-body flag that lets stable bodies skip simulation until woken.
+  Fluid congestion phase: Deterministic rotation counter for budgeted water
+    cluster pair pruning.
   Tornado field: Runtime force field whose state affects future physics ticks.
 
 Invariants:
@@ -96,9 +98,10 @@ struct ReplaySolverWorldSnapshot
     // Snapshot payload for hidden physics state. Body poses live in
     // ReplaySolverBodySample; this struct stores the caches that make the next
     // fixed physics step match after restore.
-    uint32_t version = 2;
+    uint32_t version = 3;
     int modelCount = 0;
     int nextSleepIslandVisualId = 1;
+    uint32_t fluidCongestionPhase = 0;
     bool sleepEnabled = true;
     bool collisionVisualFrameActive = false;
     Physics::TornadoFieldConfig tornadoConfig;

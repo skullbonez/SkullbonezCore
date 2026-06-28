@@ -16,6 +16,8 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Fluid congestion: Low-energy submerged sphere cluster where narrowphase may
+    trade exact pair coverage for deterministic bounded work.
   Point joint: Constraint that keeps two local anchor points close together
     without yet modelling a full hinge, cone, or motor.
   Sleep island: Connected body group that may deactivate only as a unit.
@@ -87,6 +89,8 @@ class PhysicsWorld
     std::vector<uint8_t> m_sleepState;
     std::vector<uint8_t> m_sleepCounter;
     std::vector<uint8_t> m_underwaterSleepLocked;
+    // Rotates deterministic water-cluster pair pruning across fixed steps.
+    uint32_t m_fluidCongestionPhase = 0;
     std::vector<float> m_tornadoCaptureSeconds;
     std::vector<float> m_tornadoEjectCooldownSeconds;
 

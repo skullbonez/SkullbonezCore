@@ -92,12 +92,30 @@ if errorlevel 1 (
     exit /b 6
 )
 
+echo.
+echo Running water_congestion physics perf test...
+del /q "%REPO%\Profile\water_congestion_physics_perf_log.csv" 2>nul
+"%REPO%\Profile\SKULLBONEZ_CORE.exe" --vsync off --fixed-step --scene SkullbonezData/scenes/physics_water_congestion_perf.scene.json
+if errorlevel 1 (
+    echo FAIL: physics_water_congestion_perf scene crashed for water_congestion.
+    exit /b 6
+)
+if not exist "%REPO%\Profile\water_congestion_physics_perf_log.csv" (
+    echo FAIL: water_congestion_physics_perf_log.csv not produced for water_congestion.
+    exit /b 6
+)
+move /Y "%REPO%\Profile\water_congestion_physics_perf_log.csv" "%REPO%\Profile\water_congestion_perf_log.csv" >nul
+if errorlevel 1 (
+    echo FAIL: Could not store water_congestion perf log.
+    exit /b 6
+)
+
 echo [4/4] Analyzing and comparing performance...
 set "SKORE_REPO=%REPO%"
 set "PYTHONUTF8=1"
 set "PYTHONIOENCODING=utf-8"
 
-for %%r in (dx12 physics_bench) do (
+for %%r in (dx12 physics_bench water_congestion) do (
     echo.
     echo Analyzing %%r performance...
     "%PYTHON_EXE%" "%REPO%\Agentic\Skills\skore-render-test\analyze_perf.py" --renderer %%r --csv "%REPO%\Profile\%%r_perf_log.csv" --out-dir "%REPO%\Profile"
@@ -108,7 +126,7 @@ for %%r in (dx12 physics_bench) do (
 )
 
 set "PERF_FAILURES=0"
-for %%r in (dx12 physics_bench) do (
+for %%r in (dx12 physics_bench water_congestion) do (
     echo.
     echo Checking %%r absolute performance budgets...
     "%PYTHON_EXE%" "%REPO%\tools\check_perf_budgets.py" --artifact "%REPO%\Profile\%%r_perf.json"

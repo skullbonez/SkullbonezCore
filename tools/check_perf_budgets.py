@@ -68,6 +68,23 @@ BUDGETS_BY_RENDERER: dict[str, tuple[Budget, ...]] = {
         Budget("Frame/Render", "avg", 1.0, "Physics bench render overhead should remain incidental."),
         Budget("Frame/Render", "p99", 2.0, "Physics bench render spikes above two milliseconds need review."),
     ),
+    "water_congestion": (
+        Budget("Frame/Physics", "avg", 1.25, "Packed submerged balls should stay inside the old tiny-frame envelope."),
+        Budget("Frame/Physics", "p99", 2.0, "Water congestion must not grow into a visible hitch."),
+        Budget("Frame/Physics", "max", 2.0, "Water congestion should not produce multi-ms solver stalls."),
+        Budget("Frame/Physics/Step", "avg", 1.25, "A congested-water fixed step should stay near sub-ms on average."),
+        Budget("Frame/Physics/Step", "p99", 2.0, "A congested-water fixed step must not consume a 60 Hz frame slice."),
+        Budget("Frame/Physics/Step", "max", 2.0, "A congested-water fixed step must stay inside the tiny-frame envelope."),
+        Budget("Frame/Physics/Narrowphase", "avg", 0.9, "The packed-water guard exists to cap narrowphase churn."),
+        Budget("Frame/Physics/Narrowphase", "p99", 1.5, "Narrowphase should not spike back into frame-scale work."),
+        Budget("Frame/Physics/Narrowphase", "max", 1.5, "The packed-water regression was a narrowphase explosion."),
+        Budget(
+            "Frame/Physics/Broadphase/FluidCongestionPrune",
+            "max",
+            0.75,
+            "The deterministic escape hatch must remain cheaper than the narrowphase work it avoids.",
+        ),
+    ),
 }
 
 

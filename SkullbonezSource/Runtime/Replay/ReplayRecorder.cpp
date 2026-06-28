@@ -536,6 +536,10 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const ReplaySolverWorldSnapshot
     hash = HashUint32( hash, snapshot.version );
     hash = HashInt( hash, snapshot.modelCount );
     hash = HashInt( hash, snapshot.nextSleepIslandVisualId );
+    if ( snapshot.version >= 3 )
+    {
+        hash = HashUint32( hash, snapshot.fluidCongestionPhase );
+    }
     hash = HashBool( hash, snapshot.sleepEnabled );
     hash = HashBool( hash, snapshot.collisionVisualFrameActive );
     hash = HashTornadoConfig( hash, snapshot.tornadoConfig );

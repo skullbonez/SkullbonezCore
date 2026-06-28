@@ -528,6 +528,10 @@ void AppendSolverSnapshot( std::vector<uint8_t>& out, const ReplaySolverWorldSna
     AppendPod( out, snapshot.version );
     AppendPod( out, static_cast<int32_t>( snapshot.modelCount ) );
     AppendPod( out, static_cast<int32_t>( snapshot.nextSleepIslandVisualId ) );
+    if ( snapshot.version >= 3 )
+    {
+        AppendPod( out, snapshot.fluidCongestionPhase );
+    }
     AppendPod( out, sleepEnabled );
     AppendPod( out, collisionVisualFrameActive );
     AppendBytes( out, reserved, sizeof( reserved ) );
@@ -1444,13 +1448,20 @@ bool ReadSolverSnapshot( ByteCursor& cursor, ReplaySolverWorldSnapshot& outSnaps
     uint8_t sleepEnabled = 0;
     uint8_t collisionVisualFrameActive = 0;
     if ( !ReadPod( cursor, outSnapshot.version ) || !ReadPod( cursor, modelCount ) ||
-         !ReadPod( cursor, nextSleepIslandVisualId ) || !ReadPod( cursor, sleepEnabled ) ||
-         !ReadPod( cursor, collisionVisualFrameActive ) || !SkipBytes( cursor, 2 ) ||
-         !ReadTornadoConfig( cursor, outSnapshot.tornadoConfig ) )
+         !ReadPod( cursor, nextSleepIslandVisualId ) )
     {
         return false;
     }
-    if ( outSnapshot.version < 1 || outSnapshot.version > 2 )
+    if ( outSnapshot.version < 1 || outSnapshot.version > 3 )
+    {
+        return false;
+    }
+    if ( outSnapshot.version >= 3 && !ReadPod( cursor, outSnapshot.fluidCongestionPhase ) )
+    {
+        return false;
+    }
+    if ( !ReadPod( cursor, sleepEnabled ) || !ReadPod( cursor, collisionVisualFrameActive ) ||
+         !SkipBytes( cursor, 2 ) || !ReadTornadoConfig( cursor, outSnapshot.tornadoConfig ) )
     {
         return false;
     }
