@@ -234,9 +234,27 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 - [x] Add standalone wake, seed-asleep, and sleep-enable commands that target
   physics handles instead of model indices.
 - [ ] Add or expose a `PhysicsWorldHandle` or equivalent owner token if multiple isolated worlds are needed.
-- [ ] Keep command targets as `PhysicsBodyHandle`, `PhysicsColliderHandle`, and `PhysicsConstraintHandle`; do not add model-index fields to new API structs.
+- [x] Keep command targets as `PhysicsBodyHandle`, `PhysicsColliderHandle`,
+  and `PhysicsConstraintHandle`; do not add model-index fields to new API
+  structs.
+  - [x] 2026-06-28 deterministic-order documentation slice confirmed
+    `PhysicsApi.h` command/update descriptors target physics handles, not
+    model indices; `PhysicsSceneObjectId` remains descriptive identity
+    metadata, not a storage offset.
 - [ ] Add immutable body, collider, contact, island, and diagnostic view structs that do not expose solver-private vectors.
-- [ ] Document deterministic ordering rules for body creation, deletion, queries, and replay hash output.
+- [x] Document deterministic ordering rules for body creation, deletion,
+  queries, and replay hash output.
+  - [x] 2026-06-28 `PhysicsApi.h` now names deterministic order in the public
+    glossary and invariants: standalone views and broadphase candidates iterate
+    slot order, deletion tombstones slots and advances generations, reuse is
+    deterministic through the tombstone free list, ray-cast equal-distance
+    candidates keep the earlier collider slot, smoke hashes derive from stable
+    handle/slot assignment, and standalone body ordering is the public ordering
+    for future replay snapshots plus count/query smoke evidence.
+  - [x] Rubber-duck review by Sartre found the ordering claims matched
+    implementation, but blocked commit on comment-style acronyms. `PhysicsApi.h`
+    now defines `AABB` and `STL` in the glossary; no behavior validation is
+    required for this comment-only slice.
 
 ### Step Boundary
 

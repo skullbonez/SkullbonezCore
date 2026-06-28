@@ -12,17 +12,23 @@ Mental model:
 Glossary:
   Activation command: Handle-based request to wake a body, seed it asleep, or
     toggle the standalone world's sleep gate.
+  AABB (Axis-Aligned Bounding Box): Query box aligned to world X/Y/Z axes.
   Body: Simulated object state such as pose, velocity, mass, and sleep flag.
   Broadphase query: Cheap spatial query that returns candidate bodies, not exact
     narrowphase contacts.
   Collider: Shape and material-adjacent collision metadata paired with a body.
   Constraint: Solver relationship between bodies; the standalone API currently
     stores point joints as constraint-handle records.
+  Deterministic order: Public collection views and broadphase candidates
+    iterate stable slot order; smoke hashes derive from stable handle/slot
+    assignment so replay/debug evidence does not depend on allocator addresses
+    or STL traversal accidents.
   Facade: Narrow public boundary that hides solver implementation containers.
   Ray cast: Query that shoots a line segment through physics space and returns
     the closest candidate hit.
   Sleep: Optional optimization that skips integration for quiet dynamic bodies
     while the world sleep gate is enabled.
+  STL (Standard Template Library): C++ library containers and algorithms.
   Wake: Clearing a body's sleep flag so later steps can integrate it.
   Standalone world: Public physics owner that can step without runtime or
     game-object storage.
@@ -30,8 +36,13 @@ Glossary:
 
 Invariants:
   - Public API structs do not include or require GameModelCollection.
+  - Command and update descriptors target physics handles, not model indices;
+    scene object ids are descriptive identity metadata, not storage offsets.
   - Descriptors describe intent; later facade code owns allocation order and
     deterministic solver mutation.
+  - Standalone collection and query results are deterministic slot-order views;
+    deletion tombstones slots and generation counters make stale handles fail
+    before a reused slot can be mistaken for the old body/collider/constraint.
   - Views are immutable spans over API records, not mutable storage leaks.
 
 Related:
@@ -382,7 +393,8 @@ class PhysicsStandaloneWorld
     void Clear();
 
     // Creates one body from descriptor data without consulting GameModel or scene
-    // storage. Creation order is the deterministic body order.
+    // storage. Creation reuses the last tombstoned slot, or appends a new slot,
+    // so body views and smoke/replay evidence have stable slot identities.
     PhysicsBodyHandle CreateBody( const PhysicsBodyCreateDesc& desc );
 
     // Applies masked public fields to a live body. Stale handles fail without
@@ -394,7 +406,8 @@ class PhysicsStandaloneWorld
     bool DestroyBody( PhysicsBodyHandle body );
 
     // Creates a collider for a live body. Invalid or stale body handles return
-    // an invalid collider handle without mutating storage.
+    // an invalid collider handle without mutating storage; valid creation uses
+    // deterministic collider slot order for later query and view output.
     PhysicsColliderHandle CreateCollider( const PhysicsColliderCreateDesc& desc );
 
     // Applies masked public fields to a live collider. Stale handles fail
@@ -405,7 +418,8 @@ class PhysicsStandaloneWorld
     bool DestroyCollider( PhysicsColliderHandle collider );
 
     // Creates a point joint between two live bodies. Invalid or stale body
-    // handles return an invalid constraint handle without mutating storage.
+    // handles return an invalid constraint handle without mutating storage;
+    // valid creation uses deterministic constraint slot order.
     PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
 
     // Applies masked public fields to a live point joint. Stale handles fail
@@ -429,7 +443,8 @@ class PhysicsStandaloneWorld
     bool SleepEnabled() const;
 
     // Conservatively ray-casts live collider bounding spheres in deterministic
-    // collider slot order and returns the closest hit.
+    // collider slot order and returns the closest hit. Equal-distance candidates
+    // keep the earlier collider slot, making replay/debug selection stable.
     PhysicsRayCastHit RayCast( const PhysicsRayCastDesc& desc ) const;
 
     // Conservatively returns live bodies whose body or collider bounding sphere
@@ -442,9 +457,10 @@ class PhysicsStandaloneWorld
     // owned by this world and is invalidated by later mutation.
     const PhysicsBodyView* Body( PhysicsBodyHandle body ) const;
 
-    // Returns alive bodies in deterministic slot order. The view points at
-    // internal scratch storage and is valid until the next Bodies() call or
-    // non-const world mutation.
+    // Returns alive bodies in deterministic slot order. This is the public body
+    // ordering for future replay snapshots and count/query smoke evidence.
+    // The view points at internal scratch storage and is valid until the next
+    // Bodies() call or non-const world mutation.
     PhysicsBodyCollectionView Bodies() const;
 
     // Returns a live collider view, or null for stale/dead handles. The pointer
