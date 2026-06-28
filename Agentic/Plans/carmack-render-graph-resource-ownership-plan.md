@@ -47,6 +47,32 @@ requires `tools\validate_perf.bat`.
   Rubber-duck review: Poincare found no blockers, flagged the scene-depth
   initial-state assumption as non-blocking, and confirmed the `Unknown`
   handoff fix resolved that concern.
+- [x] 2026-06-28: Added a counted runtime-boundary guardrail for render graph
+  `AddExternalResource(..., RenderGraphResourceAccess::Unknown)` use in
+  `RunRender.cpp` and `RenderPipeline.cpp`. The only allowed Unknown access is
+  the current `CinematicSceneDepth` DX12 framebuffer handoff in each file, and
+  new migrated resources with Unknown initial access now fail
+  `tools\check_runtime_boundaries.py` unless they get an explicit plan-owned
+  allowlist entry. Synthetic checker tests cover the allowed existing handoff,
+  a rejected new two-argument Unknown graph resource, a rejected three-argument
+  Unknown graph resource with a native pointer, and a rejected comma-bearing
+  dynamic-name Unknown graph resource. Comment-style audit:
+  inspected `tools\check_runtime_boundaries.py`; the learning header and the
+  new allowlist comment document the guardrail invariant and the temporary FBO
+  ownership reason.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 5.29s
+  (`TestOutput\validation\agent_logs\render_graph_unknown_access_guardrail_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 17.95s
+  (`TestOutput\validation\agent_logs\render_graph_unknown_access_guardrail_validate_fast.log`).
+  Rubber-duck review: Singer found a blocking false negative in the first regex
+  version for valid three-argument `AddExternalResource(..., Unknown, nativePtr)`
+  calls and comma-bearing dynamic resource-name expressions. The checker now
+  uses a balanced argument splitter for `AddExternalResource`, includes those
+  synthetic rejection cases, and validation was rerun after the fix. Singer
+  rechecked the final parser and found no remaining blockers; residual risk is
+  limited to the checker being source-scanner based rather than a full C++
+  parser.
 
 ## Problem Statement
 
@@ -154,7 +180,7 @@ while keeping DX12-specific emission inside the backend executor.
 - [x] Extend `tools\check_runtime_boundaries.py` to reject direct scheduling of
   passes that have migrated to graph callback ownership.
 - [ ] Add guardrails for new manual barriers in migrated pass families.
-- [ ] Add guardrails for new `Unknown` access in migrated resources unless
+- [x] Add guardrails for new `Unknown` access in migrated resources unless
   explicitly allowlisted.
 - [x] Add synthetic checker tests for migrated pass scheduling and manual-barrier
   rejection.

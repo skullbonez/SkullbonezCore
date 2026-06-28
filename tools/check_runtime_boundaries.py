@@ -36,6 +36,8 @@
 #     wide IRenderBackend/Gfx facade.
 #   - Graph-owned render passes stay scheduled through render graph callback
 #     helpers after migration.
+#   - Unknown render graph resource states remain explicitly counted handoffs
+#     until the graph owns concrete initial access for migrated resources.
 #   - Existing global service calls are counted debt; adding new ones requires
 #     migrating the caller or lowering another allowlist entry first.
 #
@@ -63,6 +65,7 @@ RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
 IRENDER_BACKEND_HEADER = Path("SkullbonezSource/Rendering/IRenderBackend.h")
 RUN_RENDER_SOURCE = Path("SkullbonezSource/Runtime/RunRender.cpp")
+RENDER_PIPELINE_SOURCE = Path("SkullbonezSource/Rendering/RenderPipeline.cpp")
 RUN_INPUT_SOURCE = Path("SkullbonezSource/Runtime/RunInput.cpp")
 RUN_SCENE_SOURCE = Path("SkullbonezSource/Runtime/Scene/RunScene.cpp")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
@@ -105,6 +108,22 @@ IRENDER_BACKEND_DIRECT_METHOD_PATTERN = re.compile(
 GRAPH_OWNED_RENDER_PASS_DIRECT_CALL_PATTERN = re.compile(
     r"\bm_(?:(?:tornadoVisualPass|debugOverlayPass|volumetricPass|tonemapPass|uiTextPass)\s*\.\s*Render|"
     r"sceneTargetPass\s*\.\s*Begin)\s*\("
+)
+RENDER_GRAPH_ADD_EXTERNAL_RESOURCE_CALL_PATTERN = re.compile(r"\bAddExternalResource\s*\(")
+RENDER_GRAPH_UNKNOWN_ACCESS_VALUE_PATTERN = re.compile(
+    r"\b(?:(?:[A-Za-z_]\w*)::)*RenderGraphResourceAccess::Unknown\b"
+)
+RENDER_GRAPH_UNKNOWN_ACCESS_SOURCES = (
+    RUN_RENDER_SOURCE,
+    RENDER_PIPELINE_SOURCE,
+)
+RENDER_GRAPH_UNKNOWN_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
+    {
+        # Handoff: CinematicSceneDepth still starts in a DX12 framebuffer-owned
+        # state until graph transient/import ownership replaces this legacy edge.
+        ( RUN_RENDER_SOURCE, "CinematicSceneDepth" ): 1,
+        ( RENDER_PIPELINE_SOURCE, "CinematicSceneDepth" ): 1,
+    }
 )
 GLOBAL_SERVICE_ACCESS_PATTERNS: tuple[tuple[str, re.Pattern[str], str, str], ...] = (
     (
@@ -1828,6 +1847,123 @@ def check_graph_owned_render_pass_scheduling(repo: Path) -> list[BoundaryError]:
     return check_graph_owned_render_pass_scheduling_text(path, path.read_text(encoding="utf-8"))
 
 
+def find_matching_close_paren(text: str, open_paren_offset: int) -> int:
+    depth = 0
+    quote: str | None = None
+    escaped = False
+    for offset in range(open_paren_offset, len(text)):
+        char = text[offset]
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            continue
+        if char in ('"', "'"):
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return offset
+    return len(text)
+
+
+def split_top_level_arguments(argument_text: str) -> list[str]:
+    arguments: list[str] = []
+    start = 0
+    paren_depth = 0
+    bracket_depth = 0
+    brace_depth = 0
+    quote: str | None = None
+    escaped = False
+    for offset, char in enumerate(argument_text):
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            continue
+        if char in ('"', "'"):
+            quote = char
+        elif char == "(":
+            paren_depth += 1
+        elif char == ")":
+            paren_depth = max(0, paren_depth - 1)
+        elif char == "[":
+            bracket_depth += 1
+        elif char == "]":
+            bracket_depth = max(0, bracket_depth - 1)
+        elif char == "{":
+            brace_depth += 1
+        elif char == "}":
+            brace_depth = max(0, brace_depth - 1)
+        elif char == "," and paren_depth == 0 and bracket_depth == 0 and brace_depth == 0:
+            arguments.append(argument_text[start:offset].strip())
+            start = offset + 1
+    tail = argument_text[start:].strip()
+    if tail:
+        arguments.append(tail)
+    return arguments
+
+
+def check_render_graph_unknown_access_text(
+    path: Path,
+    text: str,
+    relative_path: Path | None = None,
+    allowlist: Counter[tuple[Path, str]] | None = None,
+) -> list[BoundaryError]:
+    key_path = relative_path or path
+    allowed = RENDER_GRAPH_UNKNOWN_ACCESS_ALLOWLIST if allowlist is None else allowlist
+    stripped = strip_cpp_comments(text)
+    seen: Counter[tuple[Path, str]] = Counter()
+    errors: list[BoundaryError] = []
+
+    for match in RENDER_GRAPH_ADD_EXTERNAL_RESOURCE_CALL_PATTERN.finditer(stripped):
+        open_paren_offset = stripped.find("(", match.start(), match.end())
+        close_paren_offset = find_matching_close_paren(stripped, open_paren_offset)
+        arguments = split_top_level_arguments(stripped[open_paren_offset + 1 : close_paren_offset])
+        if len(arguments) < 2 or not RENDER_GRAPH_UNKNOWN_ACCESS_VALUE_PATTERN.search(arguments[1]):
+            continue
+        resource_expr = arguments[0].strip()
+        resource_name = (
+            resource_expr[1:-1]
+            if resource_expr.startswith('"') and resource_expr.endswith('"')
+            else "<dynamic-resource-name>"
+        )
+        key = ( key_path, resource_name )
+        seen[key] += 1
+        if seen[key] > allowed[key]:
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "render graph Unknown resource access is count-guarded",
+                    "Give migrated graph resources a concrete access state, or add an explicit handoff allowlist entry with the owning plan.",
+                )
+            )
+    return errors
+
+
+def check_render_graph_unknown_access(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in RENDER_GRAPH_UNKNOWN_ACCESS_SOURCES:
+        path = repo / relative_path
+        errors.extend(
+            check_render_graph_unknown_access_text(
+                path,
+                path.read_text(encoding="utf-8"),
+                relative_path=relative_path,
+            )
+        )
+    return errors
+
+
 def check_global_service_access_guardrails_text(
     path: Path,
     text: str,
@@ -3329,6 +3465,73 @@ def run_self_tests() -> list[str]:
         )
     ):
         failures.append("direct graph-owned pass scheduling synthetic surface was not rejected")
+
+    allowed_unknown_graph_access_path = Path("SkullbonezSource/Runtime/RunRender.cpp")
+    allowed_unknown_graph_access = """
+    void BuildMigratedGraph()
+    {
+        graph.AddExternalResource( "CinematicSceneDepth", Rendering::RenderGraphResourceAccess::Unknown );
+    }
+    """
+    synthetic_unknown_access_allowlist: Counter[tuple[Path, str]] = Counter(
+        { ( allowed_unknown_graph_access_path, "CinematicSceneDepth" ): 1 }
+    )
+    if check_render_graph_unknown_access_text(
+        allowed_unknown_graph_access_path,
+        allowed_unknown_graph_access,
+        allowlist=synthetic_unknown_access_allowlist,
+    ):
+        failures.append("count-allowed render graph Unknown access synthetic surface was rejected")
+
+    new_unknown_graph_access = """
+    void BuildMigratedGraph()
+    {
+        graph.AddExternalResource( "NewSceneDepth", Rendering::RenderGraphResourceAccess::Unknown );
+    }
+    """
+    if not any(
+        error.message == "render graph Unknown resource access is count-guarded"
+        for error in check_render_graph_unknown_access_text(
+            Path("synthetic/RunRender.cpp"),
+            new_unknown_graph_access,
+        )
+    ):
+        failures.append("new render graph Unknown access synthetic surface was not rejected")
+
+    new_unknown_graph_access_with_native = """
+    void BuildMigratedGraph()
+    {
+        graph.AddExternalResource(
+            "NewSceneDepth",
+            Rendering::RenderGraphResourceAccess::Unknown,
+            nativeDepth );
+    }
+    """
+    if not any(
+        error.message == "render graph Unknown resource access is count-guarded"
+        for error in check_render_graph_unknown_access_text(
+            Path("synthetic/RunRender.cpp"),
+            new_unknown_graph_access_with_native,
+        )
+    ):
+        failures.append("three-argument render graph Unknown access synthetic surface was not rejected")
+
+    dynamic_unknown_graph_access = """
+    void BuildMigratedGraph()
+    {
+        graph.AddExternalResource(
+            MakeResourceName( sceneName, passName ),
+            SkullbonezCore::Rendering::RenderGraphResourceAccess::Unknown );
+    }
+    """
+    if not any(
+        error.message == "render graph Unknown resource access is count-guarded"
+        for error in check_render_graph_unknown_access_text(
+            Path("synthetic/RunRender.cpp"),
+            dynamic_unknown_graph_access,
+        )
+    ):
+        failures.append("dynamic-name render graph Unknown access synthetic surface was not rejected")
 
     allowed_global_service_path = Path("SkullbonezSource/Runtime/Run.cpp")
     allowed_global_service_access = "void BootstrapRenderer() { Gfx().Present(); }"
@@ -5761,6 +5964,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_irender_backend_raytracing_declarations(repo))
     errors.extend(check_irender_backend_aggregate_contract(repo))
     errors.extend(check_graph_owned_render_pass_scheduling(repo))
+    errors.extend(check_render_graph_unknown_access(repo))
     errors.extend(check_global_service_access_guardrails(repo))
     return errors
 
