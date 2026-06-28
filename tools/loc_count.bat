@@ -60,22 +60,22 @@ $repo = (Resolve-Path -LiteralPath $env:REPO).Path
 $trackedFiles = & git -C $repo ls-files
 
 $categories = @(
-    [pscustomobject]@{ Name = 'Engine .cpp';       CodeLoc = $true;  Match = { param($p) $p.StartsWith('SkullbonezSource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.cpp', [System.StringComparison]::OrdinalIgnoreCase) } },
-    [pscustomobject]@{ Name = 'Engine .h';         CodeLoc = $true;  Match = { param($p) $p.StartsWith('SkullbonezSource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.h', [System.StringComparison]::OrdinalIgnoreCase) } },
-    [pscustomobject]@{ Name = 'Engine .inl';       CodeLoc = $true;  Match = { param($p) $p.StartsWith('SkullbonezSource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.inl', [System.StringComparison]::OrdinalIgnoreCase) } },
-    [pscustomobject]@{ Name = 'Shaders .hlsl';     CodeLoc = $true;  Match = { param($p) $p.EndsWith('.hlsl', [System.StringComparison]::OrdinalIgnoreCase) } },
-    [pscustomobject]@{ Name = 'Scenes';            CodeLoc = $false; Match = { param($p) $p.EndsWith('.scene.json', [System.StringComparison]::OrdinalIgnoreCase) } },
-    [pscustomobject]@{ Name = 'Scene suites';      CodeLoc = $false; Match = { param($p) $p.EndsWith('.suite.json', [System.StringComparison]::OrdinalIgnoreCase) } },
-    [pscustomobject]@{ Name = 'Asset recipes';     CodeLoc = $false; Match = { param($p) $p.EndsWith('.assets.json', [System.StringComparison]::OrdinalIgnoreCase) } },
-    [pscustomobject]@{ Name = 'Hull assets';       CodeLoc = $false; Match = { param($p) $p.EndsWith('.hull', [System.StringComparison]::OrdinalIgnoreCase) } },
-    [pscustomobject]@{ Name = 'Agent tests .cpp';  CodeLoc = $true;  Match = { param($p) $p.StartsWith('Agentic/Tests/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.cpp', [System.StringComparison]::OrdinalIgnoreCase) } },
-    [pscustomobject]@{ Name = 'Third-party .cpp';  CodeLoc = $true;  Match = { param($p) $p.StartsWith('ThirdPtySource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.cpp', [System.StringComparison]::OrdinalIgnoreCase) } },
-    [pscustomobject]@{ Name = 'Third-party .h';    CodeLoc = $true;  Match = { param($p) $p.StartsWith('ThirdPtySource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.h', [System.StringComparison]::OrdinalIgnoreCase) } },
-    [pscustomobject]@{ Name = 'Third-party .hpp';  CodeLoc = $true;  Match = { param($p) $p.StartsWith('ThirdPtySource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.hpp', [System.StringComparison]::OrdinalIgnoreCase) } },
-    [pscustomobject]@{ Name = 'Python .py';        CodeLoc = $false; Match = { param($p) $p.EndsWith('.py', [System.StringComparison]::OrdinalIgnoreCase) } },
-    [pscustomobject]@{ Name = 'Batch .bat';        CodeLoc = $false; Match = { param($p) $p.EndsWith('.bat', [System.StringComparison]::OrdinalIgnoreCase) } },
-    [pscustomobject]@{ Name = 'PowerShell .ps1';   CodeLoc = $false; Match = { param($p) $p.EndsWith('.ps1', [System.StringComparison]::OrdinalIgnoreCase) } },
-    [pscustomobject]@{ Name = 'Markdown .md';      CodeLoc = $false; Match = { param($p) $p.EndsWith('.md', [System.StringComparison]::OrdinalIgnoreCase) } }
+    [pscustomobject]@{ Section = 'Engine';      Name = 'Engine .cpp';       CodeLoc = $true;  Match = { param($p) $p.StartsWith('SkullbonezSource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.cpp', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Section = 'Engine';      Name = 'Engine .h';         CodeLoc = $true;  Match = { param($p) $p.StartsWith('SkullbonezSource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.h', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Section = 'Engine';      Name = 'Engine .inl';       CodeLoc = $true;  Match = { param($p) $p.StartsWith('SkullbonezSource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.inl', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Section = 'Engine';      Name = 'Shaders .hlsl';     CodeLoc = $true;  Match = { param($p) $p.EndsWith('.hlsl', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Section = 'Assets';      Name = 'Scenes';            CodeLoc = $false; Match = { param($p) $p.EndsWith('.scene.json', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Section = 'Assets';      Name = 'Scene suites';      CodeLoc = $false; Match = { param($p) $p.EndsWith('.suite.json', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Section = 'Assets';      Name = 'Asset recipes';     CodeLoc = $false; Match = { param($p) $p.EndsWith('.assets.json', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Section = 'Assets';      Name = 'Hull assets';       CodeLoc = $false; Match = { param($p) $p.EndsWith('.hull', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Section = 'Tools';       Name = 'Agent tests .cpp';  CodeLoc = $true;  Match = { param($p) $p.StartsWith('Agentic/Tests/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.cpp', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Section = 'Third-party'; Name = 'Third-party .cpp';  CodeLoc = $true;  Match = { param($p) $p.StartsWith('ThirdPtySource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.cpp', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Section = 'Third-party'; Name = 'Third-party .h';    CodeLoc = $true;  Match = { param($p) $p.StartsWith('ThirdPtySource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.h', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Section = 'Third-party'; Name = 'Third-party .hpp';  CodeLoc = $true;  Match = { param($p) $p.StartsWith('ThirdPtySource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.hpp', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Section = 'Tools';       Name = 'Python .py';        CodeLoc = $false; Match = { param($p) $p.EndsWith('.py', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Section = 'Tools';       Name = 'Batch .bat';        CodeLoc = $false; Match = { param($p) $p.EndsWith('.bat', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Section = 'Tools';       Name = 'PowerShell .ps1';   CodeLoc = $false; Match = { param($p) $p.EndsWith('.ps1', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Section = 'Docs';        Name = 'Markdown .md';      CodeLoc = $false; Match = { param($p) $p.EndsWith('.md', [System.StringComparison]::OrdinalIgnoreCase) } }
 )
 
 function Count-PhysicalLines {
@@ -193,6 +193,7 @@ $rows = foreach ($category in $categories) {
     }
 
     [pscustomobject]@{
+        Section = $category.Section
         Category = $category.Name
         Files = $files.Count
         Physical = $physicalLines
@@ -206,11 +207,31 @@ $totalCodeLoc = ($rows | Where-Object { $null -ne $_.CodeLoc } | Measure-Object 
 
 Write-Host ''
 Write-Host 'Tracked File Summary'
-"{0,-18} {1,8} {2,12} {3,12}" -f 'Category', 'Files', 'Physical', 'Code LOC'
-"{0,-18} {1,8} {2,12} {3,12}" -f '--------', '-----', '--------', '--------'
-foreach ($row in $rows) {
-    $locText = if ($null -ne $row.CodeLoc) { $row.CodeLoc.ToString('N0') } else { '-' }
-    "{0,-18} {1,8:N0} {2,12:N0} {3,12}" -f $row.Category, $row.Files, $row.Physical, $locText
+$sectionOrder = @('Engine', 'Assets', 'Third-party', 'Tools', 'Docs')
+
+foreach ($section in $sectionOrder) {
+    $sectionRows = @($rows | Where-Object { $_.Section -eq $section })
+    if ($sectionRows.Count -eq 0) {
+        continue
+    }
+
+    $sectionFiles = ($sectionRows | Measure-Object Files -Sum).Sum
+    $sectionPhysical = ($sectionRows | Measure-Object Physical -Sum).Sum
+    $sectionCodeLoc = ($sectionRows | Where-Object { $null -ne $_.CodeLoc } | Measure-Object CodeLoc -Sum).Sum
+    $sectionLocText = if ($null -ne $sectionCodeLoc -and $sectionCodeLoc -gt 0) { $sectionCodeLoc.ToString('N0') } else { '-' }
+
+    Write-Host ''
+    Write-Host $section
+    "{0,-18} {1,8} {2,12} {3,12}" -f 'Category', 'Files', 'Physical', 'Code LOC'
+    "{0,-18} {1,8} {2,12} {3,12}" -f '--------', '-----', '--------', '--------'
+    foreach ($row in $sectionRows) {
+        $locText = if ($null -ne $row.CodeLoc) { $row.CodeLoc.ToString('N0') } else { '-' }
+        "{0,-18} {1,8:N0} {2,12:N0} {3,12}" -f $row.Category, $row.Files, $row.Physical, $locText
+    }
+    "{0,-18} {1,8} {2,12} {3,12}" -f '--------', '-----', '--------', '--------'
+    "{0,-18} {1,8:N0} {2,12:N0} {3,12}" -f 'SUBTOTAL', $sectionFiles, $sectionPhysical, $sectionLocText
 }
+
+Write-Host ''
 "{0,-18} {1,8} {2,12} {3,12}" -f '--------', '-----', '--------', '--------'
 "{0,-18} {1,8:N0} {2,12:N0} {3,12:N0}" -f 'TOTAL', $totalFiles, $totalPhysical, $totalCodeLoc
