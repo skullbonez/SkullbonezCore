@@ -659,7 +659,7 @@ bridges tiny, named, and fenced.
 - `Agentic/Plans/global-service-context-plan.md` is the active umbrella plan for
   removing normal-path global service access. Use this Carmack plan as the
   final acceptance checklist for the encapsulation bar.
-- `Agentic/Plans/carmack-render-backend-capability-plan.md` owns renderer
+- `Agentic/Plans/IN PROGRESS/carmack-render-backend-capability-plan.md` owns renderer
   capability access and `Gfx()` migration in renderer-facing code. This plan
   owns the broader service-lifetime and callback-bridge rules.
 - `Agentic/Plans/runtime-static-allocation-policy-plan.md` owns dynamic

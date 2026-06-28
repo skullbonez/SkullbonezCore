@@ -358,6 +358,75 @@ void TestRenderGraphRejectsBadHandles()
     EXPECT_THROWS( graph.AddWrite( pass + 100u, texture, RenderGraphResourceAccess::RenderTarget ) );
 }
 
+RenderGraphTransientResourceDesc MakeTransientColorDesc( uint32_t width = 128u, uint32_t height = 64u )
+{
+    RenderGraphTransientResourceDesc desc;
+    desc.kind = RenderGraphResourceKind::Texture2D;
+    desc.format = RenderGraphResourceFormat::RGBA16F;
+    desc.width = width;
+    desc.height = height;
+    desc.mipLevels = 1u;
+    desc.descriptors.renderTarget = true;
+    desc.descriptors.shaderResource = true;
+    return desc;
+}
+
+void TestRenderGraphPlansTransientResourceLifetime()
+{
+    RenderGraph graph;
+    const RenderGraphResourceHandle color =
+        graph.AddTransientResource( "HalfResLight", MakeTransientColorDesc(), RenderGraphResourceAccess::Unknown );
+
+    const uint32_t produce = graph.AddPass( "ProduceLight" );
+    graph.AddWrite( produce, color, RenderGraphResourceAccess::RenderTarget );
+
+    const uint32_t consume = graph.AddPass( "ConsumeLight" );
+    graph.AddRead( consume, color, RenderGraphResourceAccess::PixelShaderResource );
+
+    const RenderGraphCompileResult compiled = graph.Compile();
+    EXPECT_EQ( compiled.transientAllocations.size(), static_cast<size_t>( 1 ) );
+    EXPECT_EQ( compiled.transientAllocations[0].firstPass, produce );
+    EXPECT_EQ( compiled.transientAllocations[0].lastPass, consume );
+    EXPECT_EQ( compiled.transientAllocations[0].descriptorCount, 2u );
+    EXPECT_TRUE( compiled.transientAllocations[0].releasedAtFrameEnd );
+    EXPECT_EQ( compiled.transientDiagnostics.allocationCount, static_cast<size_t>( 1 ) );
+    EXPECT_EQ( compiled.transientDiagnostics.releaseCount, static_cast<size_t>( 1 ) );
+    EXPECT_EQ( compiled.transientDiagnostics.highWaterResources, static_cast<size_t>( 1 ) );
+    EXPECT_EQ( compiled.transientDiagnostics.highWaterDescriptors, static_cast<size_t>( 2 ) );
+}
+
+void TestRenderGraphReusesCompatibleNonOverlappingTransientResources()
+{
+    RenderGraph graph;
+    const RenderGraphTransientResourceDesc desc = MakeTransientColorDesc();
+    const RenderGraphResourceHandle first =
+        graph.AddTransientResource( "FirstTransient", desc, RenderGraphResourceAccess::Unknown );
+    const RenderGraphResourceHandle second =
+        graph.AddTransientResource( "SecondTransient", desc, RenderGraphResourceAccess::Unknown );
+
+    const uint32_t firstProduce = graph.AddPass( "FirstProduce" );
+    graph.AddWrite( firstProduce, first, RenderGraphResourceAccess::RenderTarget );
+    const uint32_t firstConsume = graph.AddPass( "FirstConsume" );
+    graph.AddRead( firstConsume, first, RenderGraphResourceAccess::PixelShaderResource );
+    const uint32_t secondProduce = graph.AddPass( "SecondProduce" );
+    graph.AddWrite( secondProduce, second, RenderGraphResourceAccess::RenderTarget );
+
+    const RenderGraphCompileResult compiled = graph.Compile();
+    EXPECT_EQ( compiled.transientAllocations.size(), static_cast<size_t>( 2 ) );
+    EXPECT_EQ( compiled.transientAllocations[0].poolSlot, compiled.transientAllocations[1].poolSlot );
+    EXPECT_TRUE( compiled.transientAllocations[1].reused );
+    EXPECT_EQ( compiled.transientDiagnostics.reuseCount, static_cast<size_t>( 1 ) );
+    EXPECT_EQ( compiled.transientDiagnostics.highWaterResources, static_cast<size_t>( 1 ) );
+}
+
+void TestRenderGraphRejectsUnusedTransientResource()
+{
+    RenderGraph graph;
+    graph.AddTransientResource( "Unused", MakeTransientColorDesc(), RenderGraphResourceAccess::Unknown );
+
+    EXPECT_THROWS( graph.Compile() );
+}
+
 void TestRenderGraphExecutesCallbacksInPassOrder()
 {
     RenderGraph graph;
@@ -583,6 +652,10 @@ const TestCase kTests[] = {
       TestRenderGraphRejectsMixedSpecificThenAllSubresourceTransition },
     { "Render graph rejects Unknown pass access", TestRenderGraphRejectsUnknownPassAccess },
     { "Render graph rejects bad handles", TestRenderGraphRejectsBadHandles },
+    { "Render graph plans transient resource lifetime", TestRenderGraphPlansTransientResourceLifetime },
+    { "Render graph reuses compatible non-overlapping transient resources",
+      TestRenderGraphReusesCompatibleNonOverlappingTransientResources },
+    { "Render graph rejects unused transient resource", TestRenderGraphRejectsUnusedTransientResource },
     { "Render graph executes callbacks in pass order", TestRenderGraphExecutesCallbacksInPassOrder },
     { "Render graph dry-run validates callbacks without executing",
       TestRenderGraphDryRunValidatesCallbacksWithoutExecuting },

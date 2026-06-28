@@ -553,10 +553,10 @@ compatibility facade while call sites migrate.
 - `Agentic/Plans/render-graph-irender-interface-plan.md` is the active renderer
   umbrella plan. Use this Carmack plan as the capability-interface acceptance
   checklist for the backend split portion of that work.
-- `Agentic/Plans/carmack-render-graph-resource-ownership-plan.md` covers graph
+- `Agentic/Plans/IN PROGRESS/carmack-render-graph-resource-ownership-plan.md` covers graph
   execution and transient resource lifetime. If one implementation slice touches
   both plans, use the union of their validation and review checklists.
-- `Agentic/Plans/carmack-global-service-lifetime-plan.md` owns the broader
+- `Agentic/Plans/IN PROGRESS/carmack-global-service-lifetime-plan.md` owns the broader
   process-global cleanup. This plan owns render capability access, including
   shrinking direct `Gfx()` use in renderer-facing paths.
 

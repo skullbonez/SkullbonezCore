@@ -13,8 +13,8 @@ Glossary:
   Back buffer: Swap-chain image that will be presented to the window.
 
 Invariants:
-  - The graph records pass/resource intent, diagnostics, and optional callback
-    execution; it still does not own GPU resource allocation.
+  - The graph records pass/resource intent, transient lifetime diagnostics, and
+    optional callback execution; backend code owns API object creation.
   - Pass resource accesses must name concrete states so DX12 barrier diagnostics
     can reason about transitions.
 
@@ -24,6 +24,7 @@ Related:
 */
 #include "RenderGraph.h"
 
+#include <algorithm>
 #include <sstream>
 #include <stdexcept>
 
@@ -108,9 +109,91 @@ const char* ToString( RenderGraphResourceAccess access )
 }
 
 
+const char* ToString( RenderGraphResourceKind kind )
+{
+    switch ( kind )
+    {
+    case RenderGraphResourceKind::Texture2D:
+        return "Texture2D";
+    case RenderGraphResourceKind::Buffer:
+        return "Buffer";
+    default:
+        return "Unknown";
+    }
+}
+
+
+const char* ToString( RenderGraphResourceFormat format )
+{
+    switch ( format )
+    {
+    case RenderGraphResourceFormat::Unknown:
+        return "Unknown";
+    case RenderGraphResourceFormat::RGBA8:
+        return "RGBA8";
+    case RenderGraphResourceFormat::RGBA16F:
+        return "RGBA16F";
+    case RenderGraphResourceFormat::Depth24Stencil8:
+        return "Depth24Stencil8";
+    default:
+        return "Unknown";
+    }
+}
+
+
 const char* RenderGraphSubresourceToString( uint32_t subresource )
 {
     return subresource == RENDER_GRAPH_ALL_SUBRESOURCES ? "all" : nullptr;
+}
+
+
+uint32_t CountDescriptorNeeds( const RenderGraphDescriptorNeeds& descriptors )
+{
+    return ( descriptors.renderTarget ? 1u : 0u ) + ( descriptors.depthStencil ? 1u : 0u ) +
+           ( descriptors.shaderResource ? 1u : 0u ) + ( descriptors.unorderedAccess ? 1u : 0u );
+}
+
+
+bool DescriptorNeedsEqual( const RenderGraphDescriptorNeeds& lhs, const RenderGraphDescriptorNeeds& rhs )
+{
+    return lhs.renderTarget == rhs.renderTarget && lhs.depthStencil == rhs.depthStencil &&
+           lhs.shaderResource == rhs.shaderResource && lhs.unorderedAccess == rhs.unorderedAccess;
+}
+
+
+bool TransientResourceDescCompatible( const RenderGraphTransientResourceDesc& lhs,
+                                      const RenderGraphTransientResourceDesc& rhs )
+{
+    return lhs.kind == rhs.kind && lhs.format == rhs.format && lhs.width == rhs.width && lhs.height == rhs.height &&
+           lhs.mipLevels == rhs.mipLevels && DescriptorNeedsEqual( lhs.descriptors, rhs.descriptors );
+}
+
+
+void AppendDescriptorNeeds( std::ostringstream& out, const RenderGraphDescriptorNeeds& descriptors )
+{
+    bool wroteAny = false;
+    const auto append = [&]( bool enabled, const char* name )
+    {
+        if ( !enabled )
+        {
+            return;
+        }
+        if ( wroteAny )
+        {
+            out << "|";
+        }
+        out << name;
+        wroteAny = true;
+    };
+
+    append( descriptors.renderTarget, "RTV" );
+    append( descriptors.depthStencil, "DSV" );
+    append( descriptors.shaderResource, "SRV" );
+    append( descriptors.unorderedAccess, "UAV" );
+    if ( !wroteAny )
+    {
+        out << "None";
+    }
 }
 
 
@@ -140,6 +223,33 @@ RenderGraphResourceHandle RenderGraph::AddExternalResource( const char* name,
     desc.external = true;
     desc.initialAccess = initialAccess;
     desc.nativeResource = nativeResource;
+
+    RenderGraphResourceHandle handle;
+    handle.index = static_cast<uint32_t>( m_resources.size() );
+    m_resources.push_back( desc );
+    return handle;
+}
+
+
+RenderGraphResourceHandle RenderGraph::AddTransientResource( const char* name,
+                                                             const RenderGraphTransientResourceDesc& transient,
+                                                             RenderGraphResourceAccess initialAccess )
+{
+    if ( transient.width == 0 || transient.height == 0 || transient.mipLevels == 0 )
+    {
+        throw std::runtime_error( "RenderGraph transient resource dimensions must be non-zero" );
+    }
+    if ( CountDescriptorNeeds( transient.descriptors ) == 0 )
+    {
+        throw std::runtime_error( "RenderGraph transient resource requires at least one descriptor need" );
+    }
+
+    RenderGraphResourceDesc desc;
+    desc.name = ( name && name[0] != '\0' ) ? name : "UnnamedTransientResource";
+    desc.external = false;
+    desc.initialAccess = initialAccess;
+    desc.nativeResource = nullptr;
+    desc.transient = transient;
 
     RenderGraphResourceHandle handle;
     handle.index = static_cast<uint32_t>( m_resources.size() );
@@ -234,6 +344,14 @@ std::string RenderGraph::DumpText() const
         const RenderGraphResourceDesc& resource = m_resources[i];
         out << "  [" << i << "] " << resource.name << " external=" << ( resource.external ? "true" : "false" )
             << " initial=" << ToString( resource.initialAccess ) << " native=" << resource.nativeResource << "\n";
+        if ( !resource.external )
+        {
+            out << "      transient kind=" << ToString( resource.transient.kind )
+                << " format=" << ToString( resource.transient.format ) << " size=" << resource.transient.width << "x"
+                << resource.transient.height << " mips=" << resource.transient.mipLevels << " descriptors=";
+            AppendDescriptorNeeds( out, resource.transient.descriptors );
+            out << "\n";
+        }
     }
 
     out << "Passes:\n";
@@ -296,6 +414,20 @@ std::string RenderGraph::DumpText() const
         }
         out << "\n";
     }
+    out << "TransientAllocations:\n";
+    for ( const RenderGraphTransientAllocationDesc& allocation : compiled.transientAllocations )
+    {
+        const RenderGraphResourceDesc& resource = CheckedResource( allocation.resource );
+        out << "  resource=" << resource.name << " slot=" << allocation.poolSlot
+            << " first_pass=" << allocation.firstPass << " last_pass=" << allocation.lastPass
+            << " descriptors=" << allocation.descriptorCount << " reused=" << ( allocation.reused ? "true" : "false" )
+            << " released_at_frame_end=" << ( allocation.releasedAtFrameEnd ? "true" : "false" ) << "\n";
+    }
+    out << "TransientDiagnostics allocation_count=" << compiled.transientDiagnostics.allocationCount
+        << " reuse_count=" << compiled.transientDiagnostics.reuseCount
+        << " release_count=" << compiled.transientDiagnostics.releaseCount
+        << " high_water_resources=" << compiled.transientDiagnostics.highWaterResources
+        << " high_water_descriptors=" << compiled.transientDiagnostics.highWaterDescriptors << "\n";
     return out.str();
 }
 
@@ -304,7 +436,7 @@ RenderGraphCompileResult RenderGraph::Compile() const
 {
     // This is the first deliberately simple graph compiler.
     //
-    // It does not execute callbacks. It does not allocate transient textures.
+    // It does not execute callbacks. It does not create backend API textures.
     // It does not optimize away barriers or reason about async queues yet.
     //
     // What it does:
@@ -315,12 +447,21 @@ RenderGraphCompileResult RenderGraph::Compile() const
     // 4. Whenever the desired access differs from the tracked current access,
     //    emit a transition record before that pass.
     // 5. Remember the new access as the resource's current state.
+    // 6. Plan graph-owned transient lifetime, aliasing, and descriptor high
+    //    water diagnostics from the first/last use of each resource.
     //
     // That mirrors the core DX12 barrier problem in API-neutral terms. The DX12
-    // backend translates these records into barrier candidates, while production
-    // live transitions use the same graph access vocabulary through the
-    // graph-owned helper path.
+    // backend translates these records into barrier candidates and can create
+    // graph-owned API resources from the transient allocation plan when a
+    // production pass stops importing its target.
     RenderGraphCompileResult result;
+    result.resourceLifetimes.resize( m_resources.size() );
+    for ( size_t resourceIndex = 0; resourceIndex < m_resources.size(); ++resourceIndex )
+    {
+        RenderGraphResourceLifetimeDesc& lifetime = result.resourceLifetimes[resourceIndex];
+        lifetime.resource.index = static_cast<uint32_t>( resourceIndex );
+    }
+
     std::vector<RenderGraphResourceAccess> allSubresourceAccess;
     allSubresourceAccess.reserve( m_resources.size() );
     for ( const RenderGraphResourceDesc& resource : m_resources )
@@ -381,6 +522,14 @@ RenderGraphCompileResult RenderGraph::Compile() const
             CheckedConcreteAccess( use.access );
             CheckedResource( use.resource );
             const uint32_t resourceIndex = use.resource.index;
+            RenderGraphResourceLifetimeDesc& lifetime = result.resourceLifetimes[resourceIndex];
+            if ( !lifetime.used )
+            {
+                lifetime.firstPass = static_cast<uint32_t>( passIndex );
+                lifetime.used = true;
+            }
+            lifetime.lastPass = static_cast<uint32_t>( passIndex );
+
             RenderGraphResourceAccess& allAccess = allSubresourceAccess[resourceIndex];
             std::vector<SubresourceAccessState>& specificAccess = subresourceAccess[resourceIndex];
 
@@ -442,6 +591,95 @@ RenderGraphCompileResult RenderGraph::Compile() const
         {
             recordUse( write );
         }
+    }
+
+    struct TransientPoolSlot
+    {
+        RenderGraphTransientResourceDesc desc;
+        uint32_t lastPass = 0;
+        bool occupied = false;
+    };
+
+    std::vector<TransientPoolSlot> poolSlots;
+    for ( size_t resourceIndex = 0; resourceIndex < m_resources.size(); ++resourceIndex )
+    {
+        const RenderGraphResourceDesc& resource = m_resources[resourceIndex];
+        if ( resource.external )
+        {
+            continue;
+        }
+
+        const RenderGraphResourceLifetimeDesc& lifetime = result.resourceLifetimes[resourceIndex];
+        if ( !lifetime.used )
+        {
+            throw std::runtime_error( "RenderGraph transient resource must be read or written by at least one pass" );
+        }
+
+        uint32_t poolSlot = static_cast<uint32_t>( poolSlots.size() );
+        bool reused = false;
+        for ( size_t candidateIndex = 0; candidateIndex < poolSlots.size(); ++candidateIndex )
+        {
+            TransientPoolSlot& candidate = poolSlots[candidateIndex];
+            if ( candidate.occupied && candidate.lastPass < lifetime.firstPass &&
+                 TransientResourceDescCompatible( candidate.desc, resource.transient ) )
+            {
+                poolSlot = static_cast<uint32_t>( candidateIndex );
+                reused = true;
+                break;
+            }
+        }
+
+        if ( reused )
+        {
+            TransientPoolSlot& slot = poolSlots[poolSlot];
+            slot.lastPass = lifetime.lastPass;
+        }
+        else
+        {
+            TransientPoolSlot slot;
+            slot.desc = resource.transient;
+            slot.lastPass = lifetime.lastPass;
+            slot.occupied = true;
+            poolSlots.push_back( slot );
+        }
+
+        RenderGraphTransientAllocationDesc allocation;
+        allocation.resource.index = static_cast<uint32_t>( resourceIndex );
+        allocation.poolSlot = poolSlot;
+        allocation.firstPass = lifetime.firstPass;
+        allocation.lastPass = lifetime.lastPass;
+        allocation.descriptorCount = CountDescriptorNeeds( resource.transient.descriptors );
+        allocation.reused = reused;
+        allocation.releasedAtFrameEnd = true;
+        result.transientAllocations.push_back( allocation );
+    }
+
+    result.transientDiagnostics.allocationCount = result.transientAllocations.size();
+    result.transientDiagnostics.releaseCount = result.transientAllocations.size();
+    for ( const RenderGraphTransientAllocationDesc& allocation : result.transientAllocations )
+    {
+        if ( allocation.reused )
+        {
+            ++result.transientDiagnostics.reuseCount;
+        }
+    }
+
+    for ( size_t passIndex = 0; passIndex < m_passes.size(); ++passIndex )
+    {
+        size_t liveResources = 0;
+        size_t liveDescriptors = 0;
+        for ( const RenderGraphTransientAllocationDesc& allocation : result.transientAllocations )
+        {
+            if ( allocation.firstPass <= passIndex && passIndex <= allocation.lastPass )
+            {
+                ++liveResources;
+                liveDescriptors += allocation.descriptorCount;
+            }
+        }
+        result.transientDiagnostics.highWaterResources =
+            (std::max)( result.transientDiagnostics.highWaterResources, liveResources );
+        result.transientDiagnostics.highWaterDescriptors =
+            (std::max)( result.transientDiagnostics.highWaterDescriptors, liveDescriptors );
     }
 
     return result;

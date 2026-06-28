@@ -122,8 +122,9 @@ RUNTIME_RENDER_PASS_WIDE_BACKEND_PATTERN = re.compile(
     r"\bIRenderBackend\b|#\s*include\s+[<\"][^>\"]*IRenderBackend\.h[>\"]"
 )
 GRAPH_OWNED_RENDER_PASS_DIRECT_CALL_PATTERN = re.compile(
-    r"\bm_(?:(?:skyPass|tornadoVisualPass|debugOverlayPass|volumetricPass|tonemapPass|uiTextPass)\s*\.\s*Render|"
-    r"sceneTargetPass\s*\.\s*Begin)\s*\("
+    r"\bm_(?:(?:shadowPass|skyPass|reflectionPass|objectPass|terrainPass|waterPass|tornadoVisualPass|"
+    r"debugOverlayPass|volumetricPass|tonemapPass|uiTextPass)\s*\.\s*Render|sceneTargetPass\s*\.\s*Begin)\s*\("
+    r"|\bhost\s*\.\s*RenderReplayPredictionGhosts\s*\("
 )
 GRAPH_OWNED_RENDER_PASS_MANUAL_BARRIER_PATTERN = re.compile(
     r"\b(?:ResourceBarrier\s*\(|D3D12_RESOURCE_BARRIER\b|ExecuteGraph(?:Transition|UavBarrier)\s*\()"
@@ -3574,9 +3575,15 @@ def run_self_tests() -> list[str]:
     allowed_graph_owned_pass_scheduling = """
     void RuntimeRenderer::RenderFrame()
     {
+        ExecuteShadowThroughRenderGraph( frame, activeShadowConfig );
         ExecuteSceneTargetBeginThroughRenderGraph( frame );
         ExecuteSkyboxThroughRenderGraph( frame );
+        ExecuteReflectionThroughRenderGraph( frame, activeCinematic, objectShadowFrame );
+        ExecuteObjectThroughRenderGraph( frame, ObjectPassMode::Opaque, useCinematicTarget );
+        ExecuteTerrainThroughRenderGraph( frame, useCinematicTarget );
+        ExecuteWaterThroughRenderGraph( frame, reflection, useCinematicTarget );
         ExecuteTornadoVisualThroughRenderGraph( frame, useCinematicTarget );
+        ExecuteReplayGhostsThroughRenderGraph( frame, useCinematicTarget );
         ExecuteDebugOverlayThroughRenderGraph( frame, useCinematicTarget );
         ExecuteCinematicPostThroughRenderGraph( frame );
         ExecuteUiTextThroughRenderGraph( secondsPerFrame );
@@ -3591,9 +3598,15 @@ def run_self_tests() -> list[str]:
     old_direct_graph_owned_pass_scheduling = """
     void RuntimeRenderer::RenderFrame()
     {
+        m_shadowPass.Render( frame );
         m_sceneTargetPass.Begin( frame, m_skyPass );
         m_skyPass.Render( frame, frame.baseView, SkyPassMode::CubemapOnly );
+        m_reflectionPass.Render( frame, m_skyPass );
+        m_objectPass.Render( frame );
+        m_terrainPass.Render( frame );
+        m_waterPass.Render( frame );
         m_tornadoVisualPass.Render( frame );
+        host.RenderReplayPredictionGhosts( frame, activeCinematic, objectShadowFrame );
         m_debugOverlayPass.Render( frame );
         m_volumetricPass.Render( frame );
         m_tonemapPass.Render( frame, false, true );

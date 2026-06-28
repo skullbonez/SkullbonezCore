@@ -25,7 +25,7 @@ Validation for this plan edit: Documentation-only. No repository validation requ
   vector slot. This is a bridge, not final authority: replay, editor, and
   runtime callers still need durable handle storage in later slices. Validation
   evidence is recorded in
-  `Agentic/Plans/carmack-physics-standalone-boundary-plan.md`.
+  `Agentic/Plans/IN PROGRESS/carmack-physics-standalone-boundary-plan.md`.
 
 ## Goal
 

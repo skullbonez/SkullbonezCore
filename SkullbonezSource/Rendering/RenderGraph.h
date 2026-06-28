@@ -20,6 +20,9 @@ Invariants:
     handles.
   - External resources are borrowed backend-owned resources; the graph records
     usage intent without taking lifetime ownership.
+  - Transient resources are graph-owned declarations. The graph compiler plans
+    aliasing and descriptor lifetime; a backend executor is the only layer that
+    may turn that plan into API objects.
 
 Related:
   - SkullbonezSource/Rendering/RenderGraph.cpp
@@ -65,12 +68,13 @@ inline constexpr uint32_t RENDER_GRAPH_ALL_SUBRESOURCES = 0xFFFFFFFFu;
     it reads and writes, and a future compiler can derive the needed barriers.
 
     This class is intentionally small. It can execute callback-owned pass
-    bodies, but it still does not allocate transient textures. It gives the
+    bodies and plan graph-owned transient resource lifetimes. It gives the
     engine a concrete place to name:
 
     - render resources,
     - render passes,
     - whether each pass reads or writes a resource,
+    - which transient resources may alias in one frame,
     - what DX12-style access the pass expects,
     - whether a reviewed pass body is called by the graph.
 
@@ -179,6 +183,43 @@ enum class RenderGraphResourceAccess
     Present
 };
 
+enum class RenderGraphResourceKind
+{
+    Texture2D,
+    Buffer
+};
+
+enum class RenderGraphResourceFormat
+{
+    Unknown,
+    RGBA8,
+    RGBA16F,
+    Depth24Stencil8
+};
+
+// Descriptor ownership is graph vocabulary, not a DX12 descriptor handle. It
+// names what view rows a graph-created resource needs so descriptor lifetime can
+// follow the resource instead of the material/object binding tables.
+struct RenderGraphDescriptorNeeds
+{
+    bool renderTarget = false;
+    bool depthStencil = false;
+    bool shaderResource = false;
+    bool unorderedAccess = false;
+};
+
+// API-neutral description of a graph-owned transient resource. Width/height are
+// concrete because aliasing is only safe when descriptor shape is compatible.
+struct RenderGraphTransientResourceDesc
+{
+    RenderGraphResourceKind kind = RenderGraphResourceKind::Texture2D;
+    RenderGraphResourceFormat format = RenderGraphResourceFormat::Unknown;
+    uint32_t width = 1;
+    uint32_t height = 1;
+    uint32_t mipLevels = 1;
+    RenderGraphDescriptorNeeds descriptors;
+};
+
 // Small typed handle for graph resources.
 //
 // A handle is an index into the graph's resource table. It is deliberately not a
@@ -220,6 +261,7 @@ struct RenderGraphResourceDesc
     bool external = true;
     RenderGraphResourceAccess initialAccess = RenderGraphResourceAccess::Unknown;
     const void* nativeResource = nullptr;
+    RenderGraphTransientResourceDesc transient;
 };
 
 // A single declared use of a resource by one pass. For example: "WaterPass reads
@@ -276,6 +318,34 @@ struct RenderGraphTransitionDesc
     uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES;
 };
 
+struct RenderGraphResourceLifetimeDesc
+{
+    RenderGraphResourceHandle resource;
+    uint32_t firstPass = 0;
+    uint32_t lastPass = 0;
+    bool used = false;
+};
+
+struct RenderGraphTransientAllocationDesc
+{
+    RenderGraphResourceHandle resource;
+    uint32_t poolSlot = 0;
+    uint32_t firstPass = 0;
+    uint32_t lastPass = 0;
+    uint32_t descriptorCount = 0;
+    bool reused = false;
+    bool releasedAtFrameEnd = false;
+};
+
+struct RenderGraphTransientAllocationDiagnostics
+{
+    size_t allocationCount = 0;
+    size_t reuseCount = 0;
+    size_t releaseCount = 0;
+    size_t highWaterResources = 0;
+    size_t highWaterDescriptors = 0;
+};
+
 // Result of the first simple graph compile step.
 //
 // This is intentionally only a transition list for now. The DX12 graph executor
@@ -286,6 +356,9 @@ struct RenderGraphTransitionDesc
 struct RenderGraphCompileResult
 {
     std::vector<RenderGraphTransitionDesc> transitions;
+    std::vector<RenderGraphResourceLifetimeDesc> resourceLifetimes;
+    std::vector<RenderGraphTransientAllocationDesc> transientAllocations;
+    RenderGraphTransientAllocationDiagnostics transientDiagnostics;
 };
 
 // Result of callback validation/execution. The graph still compiles barriers
@@ -307,6 +380,10 @@ class RenderGraph
     RenderGraphResourceHandle AddExternalResource( const char* name,
                                                    RenderGraphResourceAccess initialAccess,
                                                    const void* nativeResource = nullptr );
+    RenderGraphResourceHandle
+    AddTransientResource( const char* name,
+                          const RenderGraphTransientResourceDesc& desc,
+                          RenderGraphResourceAccess initialAccess = RenderGraphResourceAccess::Unknown );
     uint32_t AddPass( const char* name,
                       RenderGraphQueueType queue = RenderGraphQueueType::Graphics,
                       RenderGraphBarrierPolicy barrierPolicy = RenderGraphBarrierPolicy::DiagnosticOnly );
@@ -352,6 +429,8 @@ const char* ToString( RenderGraphQueueType queue );
 const char* ToString( RenderGraphBarrierPolicy policy );
 const char* ToString( RenderGraphPassExecutionOwner owner );
 const char* ToString( RenderGraphResourceAccess access );
+const char* ToString( RenderGraphResourceKind kind );
+const char* ToString( RenderGraphResourceFormat format );
 
 } // namespace Rendering
 } // namespace SkullbonezCore

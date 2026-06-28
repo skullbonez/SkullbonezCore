@@ -33,6 +33,8 @@ Related:
 #include "RuntimeRenderInputs.h"
 #include "RuntimeRenderPasses.h"
 
+#include <vector>
+
 namespace SkullbonezCore
 {
 namespace Basics
@@ -63,15 +65,61 @@ class RuntimeRenderer
         bool rendered = false;                // Pass body produced visible output.
         bool callbackOwned = false;           // Pass scheduling ran through RenderGraph callback execution.
     };
+    struct ShadowGraphResult
+    {
+        ShadowPassOutput output;              // Shadow maps produced by the callback-owned shadow pass.
+        bool callbackOwned = false;           // Shadow pass scheduling ran through RenderGraph callback execution.
+    };
+    struct ReflectionGraphResult
+    {
+        ReflectionPassOutput output;          // Reflection texture produced by the callback-owned reflection pass.
+        bool callbackOwned = false;           // Reflection pass scheduling ran through RenderGraph callback execution.
+    };
 
     RenderFrameContext BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
                                                 bool cinematicRender,
                                                 const CinematicRenderConfig& renderConfig ) const;
     RenderResourceContext BuildRenderResourceContext( const RuntimeRenderInputs& renderInputs,
                                                       bool cinematicRender ) const;
+    ShadowGraphResult ExecuteShadowThroughRenderGraph( const RenderFrameContext& frame,
+                                                       const CinematicRenderConfig* activeShadowConfig );
     bool ExecuteSkyboxThroughRenderGraph( const RenderFrameContext& frame );
+    ReflectionGraphResult ExecuteReflectionThroughRenderGraph( const RenderFrameContext& frame,
+                                                               const CinematicRenderConfig* activeCinematic,
+                                                               const Rendering::ShadowFrameData* objectShadow,
+                                                               bool collisionStateColorsVisible,
+                                                               bool debugTransparentBodyPass,
+                                                               float collisionVisualizerAlphaOverride,
+                                                               float bodyAlpha );
     bool ExecuteSceneTargetBeginThroughRenderGraph( const RenderFrameContext& frame );
+    bool ExecuteObjectThroughRenderGraph( const RenderFrameContext& frame,
+                                          ObjectPassMode mode,
+                                          bool useCinematicTarget,
+                                          const CinematicRenderConfig* activeCinematic,
+                                          const Rendering::ShadowFrameData* objectShadow,
+                                          bool collisionStateColorsVisible,
+                                          float collisionVisualizerAlphaOverride,
+                                          float bodyAlpha,
+                                          const std::vector<uint8_t>* replayFocusModelMask,
+                                          bool drawMaskedModels );
+    bool ExecuteTerrainThroughRenderGraph( const RenderFrameContext& frame,
+                                           bool useCinematicTarget,
+                                           const CinematicRenderConfig* activeCinematic,
+                                           const Rendering::ShadowFrameData* terrainShadow );
+    bool ExecuteWaterThroughRenderGraph( const RenderFrameContext& frame,
+                                         const ReflectionPassOutput& reflection,
+                                         bool useCinematicTarget,
+                                         const CinematicRenderConfig* activeCinematic,
+                                         bool waterHidden,
+                                         bool flatWater,
+                                         bool noReflection,
+                                         bool freezeTime,
+                                         float frozenTime );
     GraphPassResult ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget );
+    bool ExecuteReplayGhostsThroughRenderGraph( const RenderFrameContext& frame,
+                                                bool useCinematicTarget,
+                                                const CinematicRenderConfig* activeCinematic,
+                                                const Rendering::ShadowFrameData* objectShadow );
     bool ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget );
     CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const RenderFrameContext& frame );
     bool ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,

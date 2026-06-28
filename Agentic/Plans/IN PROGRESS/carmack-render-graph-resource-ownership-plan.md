@@ -125,6 +125,55 @@ requires `tools\validate_perf.bat`.
   scheduling/declaration bridge today, but transient allocation, descriptor
   lifetime, and most world pass execution remain explicit unfinished work.
 
+## Current Handoff Slice
+
+- [x] 2026-06-28: Implemented and committed the current render graph ownership
+  slice far enough to unblock the branch build and preserve a clean handoff.
+  `RenderGraph` now has API-neutral transient resource descriptors, descriptor
+  needs, first/last-pass lifetime records, compatible non-overlap alias planning,
+  frame-end release records, and allocation/reuse/high-water diagnostics.
+  `Dx12ArchUnitTests` has CPU-only coverage for transient lifetime planning,
+  compatible transient reuse, descriptor counts, and unused transient rejection.
+  `RuntimeRenderer` now schedules `ShadowPass`, `ReflectionPass`,
+  opaque/transparent/focus-fade `ObjectPass`, `TerrainPass`, `WaterPass`, replay
+  prediction ghosts, and the already-migrated post/UI/debug passes through graph
+  callbacks. `RenderSceneSnapshot` and `RenderPipeline` expose callback-owned
+  status for those pass families, and `tools\check_runtime_boundaries.py` blocks
+  direct scheduling calls from returning.
+  Build break fixed before commit: the new `RunRender.cpp` callback data structs
+  now fully qualify `SkullbonezCore::Rendering::ShadowFrameData`, which restores
+  well-formed aggregate initialization for reflection, object, terrain, and
+  replay-ghost pass inputs.
+  Validation run before the explicit "no more validation" stop:
+  `git diff --check` passed; `python tools\check_runtime_boundaries.py` passed
+  with 0 errors in 5.11s
+  (`TestOutput\validation\agent_logs\render_graph_completion_runtime_boundaries_final.log`);
+  `tools\validate_format.bat` passed in 7.37s
+  (`TestOutput\validation\agent_logs\render_graph_completion_validate_format_final.log`);
+  `tools\validate_build.bat Profile` first reproduced the build break in
+  164.47s, then passed after the namespace fix in 5.71s with 0 warnings and 0
+  errors
+  (`TestOutput\validation\agent_logs\render_graph_completion_validate_build_profile_final2.log`);
+  `tools\validate_fast.bat` passed in 73.44s
+  (`TestOutput\validation\agent_logs\render_graph_completion_validate_fast_final.log`);
+  `tools\validate_dx12_renderer.bat` passed in 18.34s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\render_graph_completion_validate_dx12_renderer_final.log`,
+  manifest `TestOutput\validation\dx12_renderer\20260628T102812Z\manifest.json`);
+  `tools\validate_perf.bat` completed in 23.52s with exit code 0, but its log
+  warns that DX12 perf comparison was skipped for machine mismatch and that the
+  unrelated `physics_bench` comparison showed regressions
+  (`TestOutput\validation\agent_logs\render_graph_completion_validate_perf_final.log`).
+  `tools\validate_full.bat` was started before the stop; its build and DX12
+  phases passed, then physics validation failed because
+  `physics_regression_solver.csv` produced 373701 rows versus the 20001-row
+  baseline
+  (`TestOutput\validation\agent_logs\render_graph_completion_validate_full_final.log`).
+  No further validation was run after the user said "no more validation".
+  Remaining plan work after this commit: backend-created transient DX12
+  resources/descriptors, live graph-emitted barriers/UAV ordering, and a clean
+  broad physics/full gate remain open.
+
 ## Problem Statement
 
 The Carmack-test verdict credited DX12 validation and render-graph progress but
@@ -153,7 +202,7 @@ while keeping DX12-specific emission inside the backend executor.
 - `Agentic/Plans/render-graph-irender-interface-plan.md` is the active renderer
   umbrella plan. Use this Carmack plan as the graph-resource-ownership
   acceptance checklist for that work.
-- `Agentic/Plans/carmack-render-backend-capability-plan.md` covers
+- `Agentic/Plans/IN PROGRESS/carmack-render-backend-capability-plan.md` covers
   capability-interface narrowing. This plan covers production pass execution,
   transient resource lifetime, descriptor lifetime, and barrier ownership.
 - `Agentic/Plans/runtime-static-allocation-policy-plan.md` owns the allocation
@@ -182,16 +231,16 @@ Production pass ownership in `RuntimeRenderer`:
 | Pass or phase | Production execution owner | Current graph role |
 |---------------|---------------------------|--------------------|
 | Backbuffer clear | Manual in `RuntimeRenderer::RenderFrame()` | Diagnostic-only in executed-frame dump. |
-| `ShadowPass` terrain/object maps | Manual pass body | Diagnostic-only `ShadowMapPass` in executed-frame dump. |
+| `ShadowPass` terrain/object maps | Callback-owned in current slice; Profile, fast, and DX12 validated | Live `ShadowMapPass` callback wrapper declares terrain/object shadow-map writes. |
 | `SkyPass` cubemap/cinematic sky | Ordinary cubemap sky is callback-owned; cinematic begin calls sky through callback-owned scene target | Live `SkyboxPass` callback for ordinary backbuffer write; cinematic begin callback handoff. |
-| `ReflectionPass` raster or DXR | Manual pass body | Diagnostic-only `RasterReflectionPass` or `DxrReflectionPass`. |
+| `ReflectionPass` raster or DXR | Callback-owned in current slice; Profile, fast, and DX12 validated | Live callback wrapper declares raster color/depth or DXR reflection writes plus object-shadow reads. |
 | `SceneTargetPass::Begin` | Callback-owned when cinematic target is live | Live `CinematicSceneBegin` graph callback with color/depth writes. |
-| `ObjectPass` opaque | Manual pass body | Diagnostic-only `ObjectOpaquePass`. |
-| `TerrainPass` | Manual pass body | Diagnostic-only `TerrainPass`. |
-| `WaterPass` | Manual pass body | Diagnostic-only `WaterPass`. |
+| `ObjectPass` opaque | Callback-owned in current slice; Profile, fast, and DX12 validated | Live callback wrapper declares frame color/depth writes and object-shadow reads. |
+| `TerrainPass` | Callback-owned in current slice; Profile, fast, and DX12 validated | Live callback wrapper declares frame color/depth writes and terrain-shadow reads. |
+| `WaterPass` | Callback-owned in current slice; Profile, fast, and DX12 validated | Live callback wrapper declares reflection reads and frame color/depth writes. |
 | `TornadoVisualPass` | Callback-owned | Live graph callback with color/depth writes. |
-| `ObjectPass` transparent/focus fade | Manual pass body | Diagnostic-only `ObjectTransparentPass`. |
-| Replay prediction ghosts | Manual host helper | Not yet represented as a separate graph pass. |
+| `ObjectPass` transparent/focus fade | Callback-owned in current slice; Profile, fast, and DX12 validated | Live callback wrapper declares frame color/depth writes and object-shadow reads. |
+| Replay prediction ghosts | Callback-owned in current slice; Profile, fast, and DX12 validated | New `ReplayPredictionGhostPass` callback wrapper declares frame color/depth writes and optional object-shadow reads. |
 | `DebugOverlayPass` | Callback-owned | Live graph callback with color/depth writes. |
 | `VolumetricPass` | Callback-owned when cinematic volumetric is enabled and ready | Live `VolumetricLightPass` callback with scene color/depth reads and volumetric write. |
 | `TonemapPass` | Callback-owned when cinematic target is live | Live `ToneMapPass` callback with scene/volumetric reads and backbuffer write. |
@@ -256,7 +305,10 @@ Latest validation evidence available before the next pass-family migration:
 - [x] Record callback-owned status in frame graph diagnostics.
 - [x] Move ordinary `SkyboxPass` scheduling under a graph callback with a
   declared `SwapchainBackbuffer` write and `skybox_callback_owned` diagnostics.
-- [ ] Repeat pass migration in small slices until every production pass is graph-owned.
+- [x] Repeat pass migration in small slices until every production render pass
+  body is graph callback-owned. Current slice moved the remaining world pass
+  bodies and replay ghosts behind graph callbacks. Present/backbuffer lifecycle,
+  backend-created resources, and backend-local barriers remain tracked below.
 
 ### Resource Declaration
 
@@ -269,14 +321,21 @@ Latest validation evidence available before the next pass-family migration:
 
 ### Transient Resource Lifetime
 
-- [ ] Add transient resource descriptors for graph-owned render targets.
+- [x] Add transient resource descriptors for graph-owned render targets.
+  Implemented in `RenderGraphTransientResourceDesc`; direct unit execution is
+  still deferred, but Profile/fast/DX12 builds compile the added coverage.
 - [ ] Add a graph allocator or backend executor path that creates transient DX12
   resources from descriptors.
-- [ ] Reuse transient resources only when lifetimes do not overlap and descriptor
+- [x] Reuse transient resources only when lifetimes do not overlap and descriptor
   compatibility is proven.
+  Implemented in `RenderGraph::Compile()` through compatible non-overlap alias
+  planning and allocation diagnostics.
 - [ ] Release transient resources through graph/backend lifetime policy, not pass
   destructors scattered across runtime code.
-- [ ] Record resource allocation, reuse, high-water, and release diagnostics.
+  In-flight graph release diagnostics exist; backend-owned pass destructors still
+  own existing imported FBOs.
+- [x] Record resource allocation, reuse, high-water, and release diagnostics.
+  Implemented in `RenderGraphTransientAllocationDiagnostics`.
 - [ ] Ensure transient allocation does not introduce steady-frame heap growth.
 
 ### Barrier Ownership
@@ -315,8 +374,13 @@ Latest validation evidence available before the next pass-family migration:
 - [ ] For plan-only edits: no validation required.
 - [x] After each pass migration: run `tools\validate_dx12_renderer.bat`.
 - [x] For barrier or resource lifetime changes: run `tools\validate_dx12_renderer.bat` and verify `dx12_validation.txt` is zero-error.
-- [ ] For transient allocation or descriptor storage changes: run `tools\validate_perf.bat`.
-- [x] For broad runtime render host changes: run `tools\validate_full.bat`.
+- [x] For transient allocation or descriptor storage changes: run `tools\validate_perf.bat`.
+  Current slice completed with exit code 0, but the log includes machine-mismatch
+  and unrelated `physics_bench` regression warnings.
+- [ ] For broad runtime render host changes: run `tools\validate_full.bat`.
+  Current slice attempted this before the stop. Build and DX12 phases passed,
+  then physics validation failed on `physics_regression_solver.csv` row count;
+  no more validation was run after the user requested it.
 - [x] Save manifest paths and screenshot diff artifacts in the handoff.
 
 ## Independent Review Checklist
