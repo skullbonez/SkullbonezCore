@@ -43,6 +43,8 @@ namespace SkullbonezCore
 namespace Rendering
 {
 class IRenderCommandContext;
+class IRenderDiagnostics;
+class IRenderResourceFactory;
 } // namespace Rendering
 
 namespace Basics
@@ -103,6 +105,15 @@ struct RenderFrameContext
     // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
     // must not store it beyond the current RenderFrame call.
     Rendering::IRenderCommandContext* renderCommands = nullptr;
+    // Lifetime: borrowed from RuntimeRenderInputs for lazy resource
+    // create/rebuild work. It is separate from renderCommands so draw code does
+    // not need the backend's resource factory surface.
+    Rendering::IRenderResourceFactory* renderResources = nullptr;
+    // Lifetime: borrowed from RuntimeRenderInputs for capability checks and
+    // tracing decisions in this frame only.
+    Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
+    int windowWidth = 1;                    // Active render-target width sampled from the runtime window service.
+    int windowHeight = 1;                   // Active render-target height sampled from the runtime window service.
 };
 
 struct ObjectPassInputs
@@ -233,7 +244,7 @@ class FullscreenQuadPass
     }
 
     void EnsureGpuResources( const RenderFrameContext& frame );
-    void ReleaseGpuResources();
+    void ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources );
     uint32_t QuadVB() const;
 
   private:

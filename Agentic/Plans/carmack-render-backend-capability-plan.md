@@ -342,6 +342,41 @@ storage changes, also run `tools\validate_perf.bat`.
   allowlist mismatch: actual total `Gfx()` count 208, allowlist total 208, and
   `RunPasses.cpp` actual/allowlist 13/13. Non-blocking note: the `Gfx()`
   guardrail remains count-based rather than semantic per-call tracking.
+- [x] 2026-06-28: Routed remaining `RunPasses.cpp` framebuffer creation,
+  fullscreen dynamic vertex-buffer creation/destruction, render-target size
+  queries, and reflection capability queries through borrowed render services
+  instead of direct `Gfx()` access. `RuntimeRenderInputs` now carries
+  `IRenderResourceFactory` and `IRenderDiagnostics`; `RenderFrameContext`
+  carries diagnostics and sampled window dimensions; pass resource release
+  receives a nullable resource factory so failed backend init still resets
+  CPU-side handles without calling `Gfx()`. This removes the final thirteen
+  `RunPasses.cpp` direct `Gfx()` calls and lowers the global counted `Gfx()`
+  allowlist from 208 to 196. `GfxRayTracing()` remains a narrow DXR capability
+  accessor, and stricter phase-only resource-factory plumbing remains open.
+  Comment-style audit: inspected `RuntimeRenderInputs.h`,
+  `RuntimeRenderPasses.h`, `RuntimeRenderer.h`, `Run.cpp`, `RunPasses.cpp`,
+  `RunRender.cpp`, and `tools\check_runtime_boundaries.py`; all touched
+  source-bearing files keep learning headers, and the new/changed comments name
+  borrowed service lifetime, shutdown hazards, and frame-only diagnostics
+  contracts.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.87s
+  (`TestOutput\validation\agent_logs\render_resource_services_runtime_boundaries_rerun.log`);
+  `tools\validate_fast.bat` passed in 104.57s
+  (`TestOutput\validation\agent_logs\render_resource_services_validate_fast_final.log`);
+  `tools\validate_dx12_renderer.bat` passed in 17.71s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\render_resource_services_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.13s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\render_resource_services_validate_full.log`).
+  Rubber-duck review: an in-session rubber-duck pass found one blocking teardown
+  hazard where `ReleaseBackendOwnedRenderResources()` could call `Gfx()`
+  unconditionally after failed backend init; the release path now takes a
+  nullable resource factory and resets CPU-side handles even when no backend is
+  live. Residual non-blocking notes: resource-factory access is still carried by
+  the frame context rather than a dedicated create/rebuild context, and the
+  `Gfx()` guardrail remains count-based.
 
 ## Problem Statement
 
@@ -431,6 +466,11 @@ compatibility facade while call sites migrate.
 - [x] Route planar reflection viewport/clear/clip-plane state through
   `RenderFrameContext`'s borrowed `IRenderCommandContext` and lower the
   `RunPasses.cpp` direct `Gfx()` allowlist from 18 to 13.
+- [x] Route `RunPasses.cpp` framebuffer creation, fullscreen dynamic
+  vertex-buffer lifetime, render-target size queries, and reflection
+  capability queries through borrowed `IRenderResourceFactory`,
+  `IRenderDiagnostics`, and sampled window dimensions; remove the
+  `RunPasses.cpp` direct `Gfx()` allowlist by lowering it from 13 to 0.
 - [ ] Pass capture/readback capability only to screenshot and validation paths.
 - [ ] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
 - [ ] Pass GPU profiler capability only to profiler marker code.

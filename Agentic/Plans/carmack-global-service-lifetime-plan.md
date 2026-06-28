@@ -306,6 +306,38 @@ require `tools\validate_full.bat`.
   allowlist mismatch: actual total `Gfx()` count 208, allowlist total 208, and
   `RunPasses.cpp` actual/allowlist 13/13. Non-blocking note: the `Gfx()`
   guardrail remains count-based rather than semantic per-call tracking.
+- [x] 2026-06-28: Routed the remaining `RunPasses.cpp` direct `Gfx()` access
+  through borrowed render services: framebuffer and fullscreen dynamic
+  vertex-buffer lifetime now use `IRenderResourceFactory`, reflection capability
+  checks use `IRenderDiagnostics`, and render-target sizes come from sampled
+  runtime window dimensions. The teardown path passes a nullable resource
+  factory from the composition root so resource handles reset safely even after
+  failed backend initialization. This lowers `RunPasses.cpp` direct `Gfx()` debt
+  from 13 to 0 and the plan's total counted `Gfx()` surface from 208 to 196.
+  `GfxRayTracing()` remains open as a separate narrow DXR capability accessor.
+  Comment-style audit: inspected `RuntimeRenderInputs.h`,
+  `RuntimeRenderPasses.h`, `RuntimeRenderer.h`, `Run.cpp`, `RunPasses.cpp`,
+  `RunRender.cpp`, and `tools\check_runtime_boundaries.py`; all touched
+  source-bearing files keep learning headers, and new comments document borrowed
+  service lifetime, frame-only diagnostics, and shutdown-without-backend
+  behavior.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.87s
+  (`TestOutput\validation\agent_logs\render_resource_services_runtime_boundaries_rerun.log`);
+  `tools\validate_fast.bat` passed in 104.57s
+  (`TestOutput\validation\agent_logs\render_resource_services_validate_fast_final.log`);
+  `tools\validate_dx12_renderer.bat` passed in 17.71s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\render_resource_services_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.13s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\render_resource_services_validate_full.log`).
+  Rubber-duck review: an in-session rubber-duck pass found one blocking teardown
+  hazard where backend resource release could have called `Gfx()` when no
+  backend was live; the nullable factory handoff fixed it before validation.
+  Residual non-blocking notes: the guardrail is still a counted ratchet rather
+  than a semantic bootstrap/normal-path classifier, and broader service
+  classification remains open.
 
 ## Current Counted Global-Service Surface
 
@@ -316,7 +348,7 @@ string literals.
 | Pattern | Current count |
 |---------|---------------|
 | `Cfg()` | 239 |
-| `Gfx()` | 208 |
+| `Gfx()` | 196 |
 | `GfxRayTracing()` | 5 |
 | `ActiveAssetSystem()` | 4 |
 | `CreateShaderFromActiveAssets()` | 16 |
@@ -422,6 +454,9 @@ bridges tiny, named, and fenced.
 - [x] Route planar reflection viewport/clear/clip-plane state through
   `RenderFrameContext`'s borrowed command context instead of direct `Gfx()`
   calls.
+- [x] Route `RunPasses.cpp` framebuffer creation, fullscreen dynamic
+  vertex-buffer lifetime, render-target size queries, and reflection capability
+  queries through borrowed render services instead of direct `Gfx()` calls.
 - [ ] Route shader and texture creation through an asset/render context passed
   from runtime-owned services.
 - [ ] Replace `ActiveAssetSystem()` in scene parsing and editor tools with an

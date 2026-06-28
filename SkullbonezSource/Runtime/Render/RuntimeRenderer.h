@@ -44,7 +44,7 @@ class RuntimeRenderer
                                bool cinematicRender,
                                const CinematicRenderConfig& renderConfig );
     void RenderFrame( const RuntimeRenderInputs& renderInputs );
-    void ReleaseBackendOwnedResources();
+    void ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources );
 
     void EnsureUiTextResources();
     bool ShouldRenderUiText() const;

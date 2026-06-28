@@ -315,8 +315,18 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
             m_UI.ResetResources();
             break;
         case BackendResourceStep::RenderPassResources:
-            m_renderer.ReleaseBackendOwnedResources();
+        {
+            // Lifetime: shutdown can run after a failed backend init. Pass
+            // resources still need their CPU-side handles reset, but dynamic
+            // buffer destruction can only call into a live backend.
+            SkullbonezCore::Rendering::IRenderResourceFactory* renderResources = nullptr;
+            if ( IsGfxReady() )
+            {
+                renderResources = &static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( Gfx() );
+            }
+            m_renderer.ReleaseBackendOwnedResources( renderResources );
             break;
+        }
         case BackendResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
             Profiler::Instance().InvalidateGpuQueries();

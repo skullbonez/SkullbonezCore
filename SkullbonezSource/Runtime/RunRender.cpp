@@ -156,6 +156,8 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                               SkullbonezCore::Environment::WorldEnvironment& world,
                                               SkullbonezCore::UI::InGameUI& ui,
                                               SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                              SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
+                                              SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics,
                                               bool renderReady )
 {
     return RuntimeRenderInputs{ RuntimeRenderServices{ *systems.textures,
@@ -167,6 +169,8 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                                        ui,
                                                        systems.skyBox,
                                                        renderCommands,
+                                                       renderResources,
+                                                       renderDiagnostics,
                                                        renderReady } };
 }
 } // namespace
@@ -397,6 +401,10 @@ RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRender
     frame.cinematic = cinematicRender ? &renderConfig : nullptr;
     frame.scene = &services.models;
     frame.renderCommands = &services.renderCommands;
+    frame.renderResources = &services.renderResources;
+    frame.renderDiagnostics = &services.renderDiagnostics;
+    frame.windowWidth = (std::max)( 1, m_host.WindowScreenWidth() );
+    frame.windowHeight = (std::max)( 1, m_host.WindowScreenHeight() );
 
     // Ordinary and cinematic rendering both use a directional sun (w = 0).
     // Keeping one sun-vector contract makes direct BRDF lighting and shadow-map
@@ -667,7 +675,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 }
 
 
-void RuntimeRenderer::ReleaseBackendOwnedResources()
+void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources )
 {
     // Lifetime: release pass-owned GPU resources while the renderer backend is
     // still alive. The order keeps consumers ahead of their producers, so cached
@@ -679,7 +687,7 @@ void RuntimeRenderer::ReleaseBackendOwnedResources()
     m_shadowPass.ReleaseGpuResources();
     m_reflectionPass.ReleaseGpuResources();
     m_skyPass.ReleaseGpuResources();
-    m_fullscreenQuadPass.ReleaseGpuResources();
+    m_fullscreenQuadPass.ReleaseGpuResources( renderResources );
     m_uiTextPass.ReleaseGpuResources();
 }
 
@@ -780,11 +788,17 @@ void Run::Render()
     IRenderBackend& renderBackend = Gfx();
     SkullbonezCore::Rendering::IRenderCommandContext& renderCommands =
         static_cast<SkullbonezCore::Rendering::IRenderCommandContext&>( renderBackend );
+    SkullbonezCore::Rendering::IRenderResourceFactory& renderResources =
+        static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( renderBackend );
+    SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics =
+        static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( renderBackend );
     m_renderer.RenderFrame( BuildRuntimeRenderInputs( m_systems,
                                                       m_cGameModelCollection,
                                                       m_cWorldEnvironment,
                                                       m_UI,
                                                       renderCommands,
+                                                      renderResources,
+                                                      renderDiagnostics,
                                                       renderReady ) );
     restoreReplayRenderStateForFrame();
 }

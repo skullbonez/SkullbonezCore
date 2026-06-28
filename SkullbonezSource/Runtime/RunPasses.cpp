@@ -42,6 +42,8 @@ Related:
 #include "RunInternal.h"
 #include "RuntimeTuning.h"
 #include "../Core/PlatformProfiler.h"
+#include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/IRenderResourceFactory.h"
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -99,6 +101,18 @@ SkullbonezCore::Rendering::IRenderCommandContext& RenderCommands( const RenderFr
 {
     assert( frame.renderCommands && "RenderFrameContext requires a render command context" );
     return *frame.renderCommands;
+}
+
+SkullbonezCore::Rendering::IRenderResourceFactory& RenderResources( const RenderFrameContext& frame )
+{
+    assert( frame.renderResources && "RenderFrameContext requires a render resource factory" );
+    return *frame.renderResources;
+}
+
+SkullbonezCore::Rendering::IRenderDiagnostics& RenderDiagnostics( const RenderFrameContext& frame )
+{
+    assert( frame.renderDiagnostics && "RenderFrameContext requires a render diagnostics context" );
+    return *frame.renderDiagnostics;
 }
 
 float Clamp01( float value )
@@ -338,17 +352,17 @@ void FullscreenQuadPass::EnsureGpuResources( const RenderFrameContext& frame )
         // Full-screen shaders draw one rectangle; each vertex stores screen xy
         // plus uv, and every pass gives that same geometry its own shader meaning.
         const int attribs[] = { 2, 2 };
-        fullscreen.quadVB = Gfx().CreateDynamicVB( attribs, 2, 6 );
+        fullscreen.quadVB = RenderResources( frame ).CreateDynamicVB( attribs, 2, 6 );
     }
 }
 
 
-void FullscreenQuadPass::ReleaseGpuResources()
+void FullscreenQuadPass::ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources )
 {
     FullscreenPassResources& fullscreen = m_host.m_systems.renderPasses.fullscreen;
-    if ( IsGfxReady() && fullscreen.quadVB != 0 )
+    if ( renderResources && fullscreen.quadVB != 0 )
     {
-        Gfx().DestroyDynamicVB( fullscreen.quadVB );
+        renderResources->DestroyDynamicVB( fullscreen.quadVB );
     }
     fullscreen.quadVB = 0;
 }
@@ -390,8 +404,8 @@ void SceneTargetPass::EnsureGpuResources( const RenderFrameContext& frame )
         return;
     }
 
-    const int w = (std::max)( 1, Gfx().GetWidth() );
-    const int h = (std::max)( 1, Gfx().GetHeight() );
+    const int w = frame.windowWidth;
+    const int h = frame.windowHeight;
     CinematicScenePassResources& scene = m_host.m_systems.renderPasses.cinematicScene;
     const bool needsSceneTarget =
         !scene.hdrTarget || scene.hdrTarget->GetWidth() != w || scene.hdrTarget->GetHeight() != h ||
@@ -405,7 +419,10 @@ void SceneTargetPass::EnsureGpuResources( const RenderFrameContext& frame )
             scene.hdrTarget->ResetResources();
         }
         scene.hdrTarget.reset();
-        scene.hdrTarget = Gfx().CreateFramebuffer( w, h, SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F );
+        scene.hdrTarget =
+            RenderResources( frame ).CreateFramebuffer( w,
+                                                        h,
+                                                        SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F );
     }
 }
 
@@ -427,7 +444,7 @@ bool SceneTargetPass::IsReady() const
 }
 
 
-void ReflectionPass::EnsureGpuResources( const RenderFrameContext& /*frame*/ )
+void ReflectionPass::EnsureGpuResources( const RenderFrameContext& frame )
 {
     if ( !IsGfxReady() )
     {
@@ -438,8 +455,8 @@ void ReflectionPass::EnsureGpuResources( const RenderFrameContext& /*frame*/ )
     // Why: the reflection texture is intentionally supersampled relative to the
     // window. Water can then sample it at grazing angles without making the
     // mirrored scene look blocky.
-    const int fboW = (std::max)( 1, Gfx().GetWidth() * 2 );
-    const int fboH = (std::max)( 1, Gfx().GetHeight() * 2 );
+    const int fboW = frame.windowWidth * 2;
+    const int fboH = frame.windowHeight * 2;
     const bool needsReflectionTarget =
         !reflection.target || reflection.target->GetWidth() != fboW || reflection.target->GetHeight() != fboH ||
         reflection.target->GetColorFormat() != SkullbonezCore::Rendering::FramebufferColorFormat::RGBA8;
@@ -452,7 +469,7 @@ void ReflectionPass::EnsureGpuResources( const RenderFrameContext& /*frame*/ )
             reflection.target->ResetResources();
         }
         reflection.target.reset();
-        reflection.target = Gfx().CreateFramebuffer( fboW, fboH );
+        reflection.target = RenderResources( frame ).CreateFramebuffer( fboW, fboH );
     }
 }
 
@@ -471,7 +488,7 @@ void ReflectionPass::ReleaseGpuResources()
 }
 
 
-void ShadowPass::EnsureGpuResources( const RenderFrameContext& /*frame*/, const CinematicRenderConfig& cinematic )
+void ShadowPass::EnsureGpuResources( const RenderFrameContext& frame, const CinematicRenderConfig& cinematic )
 {
     if ( !cinematic.shadowsEnabled || !IsGfxReady() )
     {
@@ -492,7 +509,7 @@ void ShadowPass::EnsureGpuResources( const RenderFrameContext& /*frame*/, const 
         if ( needsTarget )
         {
             target.reset();
-            target = Gfx().CreateFramebuffer( mapSize, mapSize );
+            target = RenderResources( frame ).CreateFramebuffer( mapSize, mapSize );
         }
     };
     ShadowPassResources& shadows = m_host.m_systems.renderPasses.shadows;
@@ -924,7 +941,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
     // texture directly. Both feed the same water shader later.
     PROFILE_GPU_BEGIN( "Frame/Render/Reflection" );
     DRAW_CALL_TRACE_SCOPE( "Frame/Render/Reflection" );
-    const auto renderCapabilities = Gfx().GetCapabilities();
+    const auto renderCapabilities = RenderDiagnostics( inputs.frame ).GetCapabilities();
     const bool useDxrReflection = renderCapabilities.supportsDxrReflection && IsGfxRayTracingReady() &&
                                   m_host.m_debug.isWaterRTReflect && !m_host.m_debug.isWaterNoReflect &&
                                   !inputs.collisionStateColorsVisible && !inputs.transparentBodyPass;
@@ -1699,8 +1716,8 @@ void VolumetricPass::EnsureGpuResources( const RenderFrameContext& frame )
         return;
     }
 
-    const int w = (std::max)( 1, Gfx().GetWidth() );
-    const int h = (std::max)( 1, Gfx().GetHeight() );
+    const int w = frame.windowWidth;
+    const int h = frame.windowHeight;
     const int volW = (std::max)( 1, w / 2 );
     const int volH = (std::max)( 1, h / 2 );
     VolumetricLightPassResources& volumetric = m_host.m_systems.renderPasses.volumetricLight;
@@ -1717,7 +1734,9 @@ void VolumetricPass::EnsureGpuResources( const RenderFrameContext& frame )
         }
         volumetric.target.reset();
         volumetric.target =
-            Gfx().CreateFramebuffer( volW, volH, SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F );
+            RenderResources( frame ).CreateFramebuffer( volW,
+                                                        volH,
+                                                        SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F );
     }
     if ( !volumetric.shader )
     {
