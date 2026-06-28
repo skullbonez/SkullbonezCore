@@ -408,6 +408,7 @@ void Ragdoll::AddPreviewLines( std::vector<float>& lineData,
 void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
                                  PhysicsEngine& physics,
                                  WorldEnvironment& worldEnvironment,
+                                 const Basics::EngineConfig& config,
                                  SkullbonezCore::Geometry::Terrain* terrain,
                                  const RagdollBuildOptions& options )
 {
@@ -425,6 +426,7 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
         const Vector3 halfExtents = ScaleVector( parts[i].halfExtents, scale );
         const float mass = CalculateBoxMass( halfExtents );
         GameModel model( &worldEnvironment,
+                         config,
                          base + rotation * ScaleVector( parts[i].localCenter, scale ),
                          CalculateBoxInertiaForHalfExtents( halfExtents, mass ),
                          mass );

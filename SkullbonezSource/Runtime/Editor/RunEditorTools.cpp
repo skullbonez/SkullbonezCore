@@ -40,6 +40,7 @@ Related:
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
+#include "../../Rendering/IRenderCommandContext.h"
 #include "../../Core/WorkerPool.h"
 #include "../../UI/UIInput.h"
 #include "../../UI/UILayout.h"
@@ -977,10 +978,11 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 EditorObjectPlacementContext placementContext{ m_runtimeTools.Editor(),
                                                                m_cGameModelCollection,
                                                                SceneState(),
+                                                               m_config,
                                                                m_cWorldEnvironment,
                                                                m_systems.terrain.get(),
                                                                m_systems.assets,
-                                                               ActiveGameModelCapacity() };
+                                                               m_startup.gameModelCapacity };
                 EditorObjectPlacementRequest placementRequest{ m_runtimeTools.Editor().objectType,
                                                                m_runtimeTools.Editor().placeStaticObject,
                                                                m_runtimeTools.Editor().placementTerrainPoint };

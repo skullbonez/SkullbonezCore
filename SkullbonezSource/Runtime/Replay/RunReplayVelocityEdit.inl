@@ -245,8 +245,8 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
     m_replayRuntime.VelocityEdit().leftWasDown = leftDown;
 
     if ( !m_replayRuntime.VelocityEdit().enabled || m_runtimeTools.Editor().editorModeEnabled ||
-         !SceneState().isScenePhysics || RuntimeWindowScreenWidth( m_systems, Cfg() ) <= 0 ||
-         RuntimeWindowScreenHeight( m_systems, Cfg() ) <= 0 )
+         !SceneState().isScenePhysics || RuntimeWindowScreenWidth( m_systems, m_config ) <= 0 ||
+         RuntimeWindowScreenHeight( m_systems, m_config ) <= 0 )
     {
         m_replayRuntime.VelocityEdit().hotLinearAxis = -1;
         m_replayRuntime.VelocityEdit().hotAngularAxis = -1;

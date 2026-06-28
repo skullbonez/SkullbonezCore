@@ -9,8 +9,14 @@ Mental model:
   when that state changes.
 
 Glossary:
+  DX12 (DirectX 12): Explicit renderer backend where command lists and GPU
+    resources need ordered lifetime management.
   FBO (Framebuffer Object): Engine shorthand for an off-screen render target
-  exposed through the renderer abstraction.
+    exposed through the renderer abstraction.
+  GPU (Graphics Processing Unit): Device that can still execute queued render
+    commands after CPU code has advanced to teardown.
+  Render resource factory: Borrowed renderer capability used during startup,
+    rebuild, and teardown to create or delete backend-owned resources.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -74,6 +80,7 @@ RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
 {
     RuntimeRenderHostBindings bindings;
     bindings.runtime.systems = &m_systems;
+    bindings.runtime.workerPool = &m_workerPool;
     bindings.runtime.launchOptions = &m_launchOptions;
     bindings.runtime.runtimeSettings = &m_runtimeSettings;
     bindings.world.gameModelCollection = &m_cGameModelCollection;
@@ -103,6 +110,8 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
     callbacks.logRenderResourceLifecycleStep = []( void* user, const char* phase, const char* step )
     { static_cast<Run*>( user )->LogRenderResourceLifecycleStep( phase, step ); };
     callbacks.renderEditorOverlay = []( void* user,
+                                        Rendering::IRenderCommandContext& renderCommands,
+                                        Rendering::IRenderResourceFactory& renderResources,
                                         const Math::Transformation::Matrix4& viewProjection,
                                         const Math::Vector::Vector3& cameraEye,
                                         const Math::Vector::Vector3& cameraUp )
@@ -135,8 +144,9 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
         run->RenderReplayPathVisualizer( tracer );
         run->RenderReplayCauseFocusOverlay( tracer );
         run->RenderReplayVelocityEditOverlay( tracer );
-        tracer.Render( viewProjection );
-        run->m_runtimeTools.Laser().Render( viewProjection, cameraEye, cameraUp );
+        tracer.Render( renderCommands, viewProjection );
+        run->m_runtimeTools.Laser().Render(
+            run->m_systems.assets, renderCommands, renderResources, viewProjection, cameraEye, cameraUp );
     };
     callbacks.refreshRuntimeViewModel = []( void* user ) { static_cast<Run*>( user )->RefreshRuntimeViewModel(); };
     callbacks.cameraModeEnabledMask = []( void* user ) -> uint32_t
@@ -147,19 +157,27 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
 }
 
 
-Run::Run( std::vector<std::string> sceneQueue )
+Run::Run( std::vector<std::string> sceneQueue, Window& window, EngineConfig& config, Threading::WorkerPool& workerPool )
     : m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
-      m_renderHost( BuildRuntimeRenderHostBindings(), BuildRuntimeRenderHostCallbacks(), Cfg() ),
+      m_config( config ), m_workerPool( workerPool ), m_cGameModelCollection( config, workerPool ),
+      m_renderHost( BuildRuntimeRenderHostBindings(), BuildRuntimeRenderHostCallbacks(), m_config ),
       m_renderer( m_renderHost )
 {
+    // Lifetime: Init owns native window creation; Run stores only the borrowed
+    // process-window service used by runtime/editor/render paths.
+    m_systems.window = &window;
+    // Lifetime: Run owns the camera collection storage; camera slots borrow the
+    // same live config as the rest of the runtime instead of sampling the global accessor.
+    m_systems.cameraCollection.BindConfig( m_config );
     BindEngineContext();
     RefreshRuntimeViewModel();
     RefreshSceneBrowserList( m_sceneController.Browser() );
-    m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
-    m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
-    m_defaultCinematicRender = Cfg().cinematicRender;
-    m_startup.gameModelCapacity = ActiveGameModelCapacity();
-    m_startup.workerThreads = Cfg().workerThreads;
+    const EngineConfig& startupConfig = m_config;
+    m_runtimeSettings.isVsyncEnabled = startupConfig.runtimeRender.vsyncEnabled;
+    m_runtimeSettings.isPipelineSyncEnabled = startupConfig.runtimeRender.forcePipelineSync;
+    m_defaultCinematicRender = startupConfig.cinematicRender;
+    m_startup.gameModelCapacity = std::clamp( startupConfig.gameModelCapacity, 1, MAX_GAME_MODELS );
+    m_startup.workerThreads = startupConfig.workerThreads;
 }
 
 
@@ -242,9 +260,10 @@ Run::~Run()
     // Hazard: backend resources can still be referenced by queued GPU work.
     // Flush before releasing the runtime's owning pointers so teardown cannot
     // free memory while the device is still reading it.
-    if ( IsGfxReady() )
+    IRenderBackend* shutdownRenderBackend = m_systems.renderBackend;
+    if ( shutdownRenderBackend )
     {
-        Gfx().FlushGPU();
+        shutdownRenderBackend->FlushGPU();
     }
 
     // Lifetime: clean up backend-owned render resources while the current
@@ -253,8 +272,12 @@ Run::~Run()
     // list open. Flush immediately after that step so later releases cannot hit
     // "ID3D12Resource deleted before command list close" validation errors.
     ReleaseBackendOwnedRenderResources( "shutdown_release" );
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    m_diagnosticsRuntime.RuntimeProfiler().BindRenderDiagnostics( nullptr );
+#endif
+    m_systems.renderRayTracing = nullptr;
+    m_systems.renderBackend = nullptr;
 
-    SkullbonezCore::Assets::BindActiveAssetSystem( nullptr );
 }
 
 
@@ -292,8 +315,17 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
         { "profiler_queries", BackendResourceStep::ProfilerQueries, false },
         { "texture_collection", BackendResourceStep::TextureCollection, false },
         { "camera_collection", BackendResourceStep::CameraCollection, false },
-        { "skybox_singleton", BackendResourceStep::SkyBox, false },
+        { "skybox_resources", BackendResourceStep::SkyBox, false },
         { "launcher_laser", BackendResourceStep::LauncherLaser, false },
+    };
+
+    IRenderBackend* releaseRenderBackend = m_systems.renderBackend;
+    const auto borrowRenderResourceFactory =
+        [releaseRenderBackend]() -> SkullbonezCore::Rendering::IRenderResourceFactory*
+    {
+        return releaseRenderBackend
+                   ? &static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( *releaseRenderBackend )
+                   : nullptr;
     };
 
     for ( const BackendResourcePhase& phase : releaseSteps )
@@ -305,70 +337,68 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
             m_cWorldEnvironment.ResetRenderResources();
             break;
         case BackendResourceStep::HelperResources:
-            RenderHelper::ResetRenderResources();
+            RenderHelper::ResetRenderResources( borrowRenderResourceFactory() );
             break;
         case BackendResourceStep::GameModelResources:
             m_cGameModelCollection.ResetRenderResources();
             break;
         case BackendResourceStep::CollisionVisualizer:
-            m_collisionVisualizer.ResetResources();
+            m_collisionVisualizer.ResetResources( borrowRenderResourceFactory() );
             break;
         case BackendResourceStep::UIResources:
-            m_UI.ResetResources();
+        {
+            // Lifetime: UI preview buffers are backend-owned. Clear CPU-side UI
+            // state even after failed backend init, but destroy the dynamic VB
+            // only when the renderer factory is still live.
+            m_UI.ResetResources( borrowRenderResourceFactory() );
             break;
+        }
         case BackendResourceStep::RenderPassResources:
         {
             // Lifetime: shutdown can run after a failed backend init. Pass
             // resources still need their CPU-side handles reset, but dynamic
             // buffer destruction can only call into a live backend.
-            SkullbonezCore::Rendering::IRenderResourceFactory* renderResources = nullptr;
-            if ( IsGfxReady() )
-            {
-                renderResources = &static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( Gfx() );
-            }
-            m_renderer.ReleaseBackendOwnedResources( renderResources );
+            m_renderer.ReleaseBackendOwnedResources( borrowRenderResourceFactory() );
             break;
         }
         case BackendResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-            Profiler::Instance().InvalidateGpuQueries();
+            m_diagnosticsRuntime.RuntimeProfiler().InvalidateGpuQueries();
 #endif
             break;
         case BackendResourceStep::TextureCollection:
-            if ( m_systems.textures )
-            {
-                m_systems.textures->Destroy();
-            }
+            m_systems.textures.DeleteAllTextures( borrowRenderResourceFactory() );
+            m_systems.textures.BindAssetSystem( nullptr );
             break;
         case BackendResourceStep::CameraCollection:
             if ( m_systems.cameras )
             {
-                m_systems.cameras->Destroy();
+                m_systems.cameras->Reset();
+                m_systems.cameras = nullptr;
             }
             break;
         case BackendResourceStep::SkyBox:
             if ( m_systems.skyBox )
             {
-                m_systems.skyBox->Destroy();
+                m_systems.skyBox->ReleaseRenderResources();
             }
             break;
         case BackendResourceStep::LauncherLaser:
-            m_runtimeTools.Laser().ResetResources();
+            m_runtimeTools.Laser().ResetResources( borrowRenderResourceFactory() );
             break;
         }
 
-        if ( phase.flushAfter && IsGfxReady() )
+        if ( phase.flushAfter && releaseRenderBackend )
         {
             LogRenderResourceLifecycleStep( phaseName, "flush_after_world_environment" );
-            Gfx().FlushGPU();
+            releaseRenderBackend->FlushGPU();
         }
     }
 }
 
 
-void Run::RegisterBuiltInAssets()
+void Run::RegisterBuiltInAssets( const EngineConfig& cfg )
 {
-    const EngineConfig& cfg = Cfg();
     m_systems.assets
         .RegisterTextureSourceAsset( "texture.terrain", cfg.terrainTexture.c_str(), TEXTURE_GROUND, true, true, 3 );
     m_systems.assets.RegisterTextureSourceAsset( "texture.sphere",
@@ -500,23 +530,20 @@ std::string Run::ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind kind,
 
 void Run::DumpTextureAssets( FILE* out ) const
 {
-    if ( m_systems.textures )
-    {
-        m_systems.textures->DumpTextureAssets( out );
-    }
+    m_systems.textures.DumpTextureAssets( out );
 }
 
 
 void Run::LogRenderResourceLifecycleStep( const char* phase, const char* step ) const
 {
-    const bool gfxReady = IsGfxReady();
-    const int backendWidth = gfxReady ? Gfx().GetWidth() : 0;
-    const int backendHeight = gfxReady ? Gfx().GetHeight() : 0;
+    IRenderBackend* lifecycleRenderBackend = m_systems.renderBackend;
+    const int backendWidth = lifecycleRenderBackend ? lifecycleRenderBackend->GetWidth() : 0;
+    const int backendHeight = lifecycleRenderBackend ? lifecycleRenderBackend->GetHeight() : 0;
     Log().WriteEventf( "render_resource_lifecycle phase=%s step=%s gfx_ready=%d backend_width=%d backend_height=%d "
                        "scene_index=%d load=%d",
                        phase ? phase : "unknown",
                        step ? step : "unknown",
-                       gfxReady ? 1 : 0,
+                       lifecycleRenderBackend ? 1 : 0,
                        backendWidth,
                        backendHeight,
                        SceneState().currentSceneIndex,
@@ -816,7 +843,7 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
         HashReplayInt( hash, SceneState().solverBallCount );
         HashReplayInt( hash, SceneState().solverBoxCount );
         HashReplayInt( hash, static_cast<int32_t>( SceneState().rngSeed ) );
-        HashReplayInt( hash, static_cast<int32_t>( ActiveGameModelCapacity() ) );
+        HashReplayInt( hash, static_cast<int32_t>( m_startup.gameModelCapacity ) );
         HashReplayInt( hash, static_cast<int32_t>( m_launchOptions.generatedObjectTypeOverride ) );
 
         m_replayRuntime.RecordEvent( ReplayEventKind::GeneratedSceneConfig,
@@ -1179,42 +1206,60 @@ void Run::SetPhysicsDiagnosticsPath( const char* path, bool fixedStepForcedByDia
 
 void Run::Initialise()
 {
-    m_systems.window = Window::Instance();
+    if ( !m_systems.window )
+    {
+        throw std::runtime_error( "Run window binding missing before Initialise" );
+    }
 
-    const char* rendererName = Gfx().GetRendererName();
+    // Lifetime: sample the process renderer once during startup wiring, then
+    // pass narrow facets into owned systems that need backend resources.
+    SkullbonezCore::Rendering::IRenderBackend& initRenderBackend = Gfx();
+    m_systems.renderBackend = &initRenderBackend;
+    m_systems.renderRayTracing = IsGfxRayTracingReady() ? &GfxRayTracing() : nullptr;
+    auto& initRenderResources =
+        static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( initRenderBackend );
+    auto& initRenderDiagnostics = static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( initRenderBackend );
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    m_diagnosticsRuntime.RuntimeProfiler().BindRenderDiagnostics( &initRenderDiagnostics );
+#endif
+    const char* rendererName = initRenderBackend.GetRendererName();
+    const EngineConfig& initConfig = m_config;
     char titleText[256];
     sprintf_s( titleText, "%s [%s] -- LOADING!!!", TITLE_TEXT, rendererName );
     m_systems.window->SetTitleText( titleText );
 
-    m_systems.textures = TextureCollection::Instance();
-    m_systems.textures->BindAssetSystem( &m_systems.assets );
-    SkullbonezCore::Assets::BindActiveAssetSystem( &m_systems.assets );
-    RegisterBuiltInAssets();
+    m_systems.textures.BindAssetSystem( &m_systems.assets );
+    RegisterBuiltInAssets( initConfig );
 
     // Build renderer-owned resources from source asset records.
-    RebuildRegisteredRenderResources();
+    RebuildRegisteredRenderResources( initRenderResources );
 
     const std::string terrainRawPath =
-        ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", Cfg().terrainRaw );
-    m_systems.terrain = std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15 );
+        ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", initConfig.terrainRaw );
+    m_systems.terrain = std::make_unique<Terrain>( initConfig, terrainRawPath.c_str(), 256, 8, 15 );
     m_systems.isFlatSlopeTerrain = false;
 
-    // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)
-    m_systems.skyBox = SkyBox::Instance( -250, 300, -300, 300, -250, 300 );
-    m_systems.skyBox->ResetRenderResources();
+    // Lifetime: Run owns the skybox shell; it borrows texture/assets services
+    // plus the startup config and rebuilds resources only while the renderer
+    // factory is live.
+    m_systems.skyBox =
+        std::make_unique<SkyBox>( m_systems.textures, m_systems.assets, initConfig, -250, 300, -300, 300, -250, 300 );
+    m_systems.skyBox->ResetRenderResources( initRenderResources );
 
     {
-        const EngineConfig& cfg = Cfg();
-        m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
+        m_cWorldEnvironment = WorldEnvironment(
+            initConfig, initConfig.fluidHeight, initConfig.fluidDensity, initConfig.gasDensity, initConfig.gravity );
         XZBounds tb = m_systems.terrain->GetXZBounds();
         m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
     }
 
     // Init font (HDC, font)
-    m_renderer.EnsureUiTextResources();
+    m_renderer.EnsureUiTextResources( initRenderResources );
 
-    // Init cameras singleton (shared across scenes, Reset() between loads)
-    m_systems.cameras = CameraCollection::Instance();
+    // Lifetime: cameras are Run-owned; split scene/input/render files keep a
+    // borrowed pointer until their APIs can accept explicit references.
+    m_systems.cameras = &m_systems.cameraCollection;
+    m_systems.cameras->Reset();
 
     LoadScene( 0 );
 }
@@ -1272,7 +1317,7 @@ void Run::RunSceneLoadOnly( const char* snapshotOutPath )
 
 
 #ifdef _DEBUG
-void Run::LogSceneFinished( const char* reason )
+void Run::LogSceneFinished( const char* reason, const char* rendererName )
 {
     const char* scenePath = "generated";
     const std::string* currentScenePath = m_sceneController.CurrentPath();
@@ -1283,18 +1328,18 @@ void Run::LogSceneFinished( const char* reason )
 
     m_diagnosticsRuntime.LogSceneFinished( SceneState(),
                                            scenePath,
-                                           IsGfxReady() ? Gfx().GetRendererName() : "unknown",
+                                           rendererName,
                                            reason );
 }
 
 
-void Run::BeginPhysicsDiagnosticsRun( const char* scenePath )
+void Run::BeginPhysicsDiagnosticsRun( const char* scenePath, const char* rendererName )
 {
     m_diagnosticsRuntime.BeginPhysicsDiagnosticsRun( m_cGameModelCollection,
                                                      SceneState(),
-                                                     Cfg(),
+                                                     m_config,
                                                      scenePath,
-                                                     IsGfxReady() ? Gfx().GetRendererName() : "unknown" );
+                                                     rendererName );
 }
 
 

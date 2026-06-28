@@ -1,7 +1,7 @@
 # Carmack Render Backend Capability Plan
 
 Date: 2026-06-28
-Status: In progress
+Status: Done
 Impact area: DX12 renderer, render interfaces, runtime render host, tools, tests
 Validation note: plan-only edits require no validation. PR-bound renderer
 interface or DX12 backend changes require `tools\validate_dx12_renderer.bat`.
@@ -63,6 +63,15 @@ answer.
   `tools\check_runtime_boundaries.py`; the updated comments name the invariant
   that UI backdrop drawing must not pull renderer capture/readback or resource
   factory capabilities into the layout path.
+- [x] 2026-06-28: Fixed stale backend-capability guardrail evidence after
+  rubber-duck review. `UIBackdropBlur.cpp` no longer has a live renderer-global
+  call, so its `Gfx()` and shader-factory count allowances were removed from
+  `tools\check_runtime_boundaries.py`. The final inventory now also records that
+  `RunUiTextPass.cpp` consumes borrowed UI/DXR inputs instead of calling
+  `Gfx()` / `GfxRayTracing()` directly, while `RunScene.cpp` remains explicit
+  residual scene/global-service debt owned by the global-service plan. Evidence:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors; log:
+  `TestOutput\validation\agent_logs\backend_and_skybox_guardrail_runtime_boundaries.log`.
 - [x] 2026-06-28: Added an explicit file-classification fence for direct
   renderer globals in `tools\check_runtime_boundaries.py`. `Gfx()` and
   `GfxRayTracing()` now require both the existing per-file count allowance and
@@ -593,7 +602,7 @@ Global compatibility accessors still declared near the facade:
 | `IsGfxReady()` | Lifecycle readiness | Used by bootstrap, frame, window, and compatibility cleanup code before borrowing capabilities. |
 | `SetGfxBackend()` | Bootstrap lifecycle | Takes ownership of the process renderer. |
 | `DestroyGfxBackend()` | Shutdown lifecycle | Clears raytracing alias and releases backend ownership. |
-| `GfxRayTracing()` | DXR compatibility service locator | Separate from `IRenderBackend`; remaining callers are `RunRender.cpp`, `RunUiTextPass.cpp`, and `RunScene.cpp`. |
+| `GfxRayTracing()` | DXR compatibility service locator | Separate from `IRenderBackend`; remaining runtime callers are `RunRender.cpp` and `RunScene.cpp`. |
 | `IsGfxRayTracingReady()` | DXR readiness | Guards optional raytracing setup, preview, and dispatch. |
 | `SetGfxRayTracingBackend()` | Bootstrap DXR alias | Stores a borrowed alias to the active backend's raytracing facet. |
 
@@ -615,10 +624,10 @@ Current direct `Gfx()` cluster map from the inventory search:
 | Bootstrap/shutdown/device lifecycle | `Runtime/Init.cpp`, `Runtime/Window.cpp`, `Runtime/RunFrame.cpp`, `Runtime/RunScene.cpp`, `Runtime/RunStress.cpp`, `Runtime/RunInput.cpp` | `IRenderDeviceLifecycle` plus readiness checks. |
 | Runtime composition and teardown | `Runtime/Run.cpp`, `Runtime/RunRender.cpp` | Borrowed lifecycle/resource/diagnostics contexts from the composition root. |
 | Shared render helper resources and draws | `Rendering/Helper.cpp`, `Rendering/Shadow.h`, `Rendering/Text.cpp` | Split resource factory from command context; keep static helper caches behind explicit renderer services. |
-| UI and backdrop previews | `UI/UI.cpp`, `UI/UIBackdropBlur.cpp`, `UI/UITabProfiler.cpp`, `Runtime/RunUiTextPass.cpp` | UI resource, command, diagnostics, and optional DXR preview context. |
+| UI rendering and diagnostics | `UI/UI.cpp`, `UI/UITabProfiler.cpp` | UI resource, command, and diagnostics contexts. `UIBackdropBlur.cpp` now emits ordinary UI geometry without renderer globals, and `Runtime/RunUiTextPass.cpp` receives borrowed UI/DXR inputs. |
 | Editor/debug overlays | `Runtime/Editor/LauncherLaser.cpp`, `Runtime/Editor/RunEditorTracer.inl`, `Physics/Debug/*`, `Physics/TornadoField.cpp` | Debug line/transient geometry command context plus resource factory where buffers are created. |
-| World/asset renderer resources | `World/Terrain.cpp`, `World/SkyBox.cpp`, `World/WorldEnvironment.cpp`, `Assets/AssetSystem.cpp`, `Assets/TextureCollection.cpp` | Asset/render resource context during load and rebuild. |
-| DXR setup and preview | `Runtime/Scene/RunScene.cpp`, `Runtime/RunUiTextPass.cpp`, `Runtime/RunRender.cpp` | Separate `IRenderRayTracing` context; `RunRender.cpp` is currently the clean composition example. |
+| World/asset renderer resources | `World/Terrain.cpp`, `World/WorldEnvironment.cpp`, `Assets/AssetSystem.cpp`, `Assets/TextureCollection.cpp` | Asset/render resource context during load and rebuild. `World/SkyBox.cpp` now borrows texture, asset, and resource-factory services explicitly. |
+| DXR setup and preview | `Runtime/Scene/RunScene.cpp`, `Runtime/RunRender.cpp` | Separate `IRenderRayTracing` context; `RunRender.cpp` is currently the clean composition example, while scene setup remains global-service debt. |
 
 ### Capability Interfaces
 
@@ -754,6 +763,27 @@ Remaining `IRenderBackend` surface after the 2026-06-28 capability-interface sli
 - [x] Ask the reviewer to check DX12 resource lifetime and shutdown/resize behavior.
 - [x] Record review findings in a report or this plan.
 - [x] Resolve blocking review findings before committing PR-bound code.
+
+Reviewer notes, 2026-06-28:
+
+- Meitner blocked archival because the checker still allowed
+  `UIBackdropBlur.cpp` to grow up to 14 real `Gfx()` calls after that file had
+  been reduced to a comment-only mention, and because the final inventory still
+  listed `RunUiTextPass.cpp` as a direct `GfxRayTracing()` caller. The follow-up
+  removed the stale UI backdrop allowlist/classification entries, corrected the
+  inventory, and reran `python tools\check_runtime_boundaries.py` with 0 errors
+  (`TestOutput\validation\agent_logs\backend_and_skybox_guardrail_runtime_boundaries.log`).
+- Meitner also noted `RunScene.cpp` still has real renderer-global access. That
+  is accepted as residual scene/global-service debt for
+  `carmack-global-service-lifetime-plan.md`, not as ordinary runtime render-pass
+  dependency on the full backend.
+- Follow-up completion rubber-duck, 2026-06-28: in-session review checked the
+  zero-open checklist state, the CodeGraph-backed source surface for the narrow
+  render facets, and `python tools\check_runtime_boundaries.py` returning
+  0 errors. No blocking issue was found for this plan staying in `Done`.
+  Residual risks remain intentionally owned by other plans: `RunScene.cpp`
+  renderer-global access belongs to global-service debt, and the temporary
+  `IRenderBackend` aggregate remains compatibility surface with guardrails.
 
 ## Definition Of Done
 

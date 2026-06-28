@@ -9,6 +9,8 @@ Mental model:
   when that state changes.
 
 Glossary:
+  GPU (Graphics Processing Unit): Device that executes queued render commands
+    after the CPU records and submits them.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -29,6 +31,8 @@ Related:
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeStyle.h"
+#include "../Rendering/IRenderCommandContext.h"
+#include "../Rendering/IRenderResourceFactory.h"
 
 #include <cmath>
 #include <cstdint>
@@ -348,14 +352,26 @@ void Run::Execute()
             m_timers.frameTimer.StartTimer();
             PROFILE_FRAME_BEGIN();
             m_timers.workTimer.StartTimer();
-            // Lifetime: borrow the active renderer once for this frame turn.
+            // Lifetime: borrow the startup-bound renderer once for this frame
+            // turn. A missing borrow is still a startup/lifetime bug, matching
+            // the old renderer-facade precondition.
             // Narrow facets keep reset, GPU-drain, UI accounting, and present
             // from each resampling the process-global renderer service.
-            IRenderBackend& frameRenderBackend = Gfx();
+            IRenderBackend* frameRenderBackendPtr = m_systems.renderBackend;
+            if ( !frameRenderBackendPtr )
+            {
+                throw std::runtime_error( "Run frame renderer missing after Initialise" );
+            }
+            IRenderBackend& frameRenderBackend = *frameRenderBackendPtr;
+            SkullbonezCore::Rendering::IRenderCommandContext& frameRenderCommands =
+                static_cast<SkullbonezCore::Rendering::IRenderCommandContext&>( frameRenderBackend );
+            SkullbonezCore::Rendering::IRenderResourceFactory& frameRenderResources =
+                static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( frameRenderBackend );
             SkullbonezCore::Rendering::IRenderDiagnostics& frameRenderDiagnostics =
                 static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( frameRenderBackend );
             SkullbonezCore::Rendering::IRenderDeviceLifecycle& renderLifecycle =
                 static_cast<SkullbonezCore::Rendering::IRenderDeviceLifecycle&>( frameRenderBackend );
+            const char* frameRendererName = frameRenderBackend.GetRendererName();
             frameRenderDiagnostics.ResetFrameDrawCalls();
 
             PROFILE_BEGIN( "Frame/Input" );
@@ -417,7 +433,7 @@ void Run::Execute()
 
             PROFILE_BEGIN( "Frame/Render" );
             {
-                DRAW_CALL_TRACE_SCOPE( "Frame/Render" );
+                DRAW_CALL_TRACE_SCOPE( &frameRenderDiagnostics, "Frame/Render" );
                 Render();
             }
             PROFILE_END( "Frame/Render" );
@@ -427,8 +443,9 @@ void Run::Execute()
                 const int uiDrawCallStart = frameRenderDiagnostics.GetFrameDrawCallCount();
                 PROFILE_BEGIN( "Frame/UI" );
                 {
-                    DRAW_CALL_TRACE_SCOPE( "Frame/UI" );
-                    m_renderer.RenderUiText( frameRenderDiagnostics, secondsPerFrame );
+                    DRAW_CALL_TRACE_SCOPE( &frameRenderDiagnostics, "Frame/UI" );
+                    m_renderer.RenderUiText(
+                        m_systems.assets, frameRenderCommands, frameRenderResources, frameRenderDiagnostics, secondsPerFrame );
                 }
                 PROFILE_END( "Frame/UI" );
                 const int uiDrawCallEnd = frameRenderDiagnostics.GetFrameDrawCallCount();
@@ -447,13 +464,13 @@ void Run::Execute()
             TickInteractionAutomationAfterRender();
             PROFILE_END( "Frame/PostDraw/InteractionAutomation" );
 
-            if ( TickScreenshots() )
+            if ( TickScreenshots( frameRendererName ) )
             {
                 continue;
             }
 
             PROFILE_BEGIN( "Frame/PostDraw/AutoCycle" );
-            TickAutoCycle();
+            TickAutoCycle( frameRendererName );
             PROFILE_END( "Frame/PostDraw/AutoCycle" );
 
             m_timers.workTimer.StopTimer();
@@ -470,10 +487,11 @@ void Run::Execute()
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
             {
                 using SkullbonezCore::Basics::Profiler;
+                const Profiler& runtimeProfiler = m_diagnosticsRuntime.RuntimeProfiler();
                 static constexpr uint32_t kPhysicsHash = ::HashStr( "Frame/Physics" );
                 static constexpr uint32_t kRenderHash = ::HashStr( "Frame/Render" );
-                m_timers.physicsTime = Profiler::Instance().LastFrameMsByHash( kPhysicsHash ) * 0.001f;
-                m_timers.renderTime = Profiler::Instance().LastFrameMsByHash( kRenderHash ) * 0.001f;
+                m_timers.physicsTime = runtimeProfiler.LastFrameMsByHash( kPhysicsHash ) * 0.001f;
+                m_timers.renderTime = runtimeProfiler.LastFrameMsByHash( kRenderHash ) * 0.001f;
                 static constexpr uint32_t kRenderGpuHashes[] = {
                     ::HashStr( "Frame/Shadows/ShadowMap" ),
                     ::HashStr( "Frame/Render/Skybox" ),
@@ -492,7 +510,7 @@ void Run::Execute()
                 float gpuMs = 0.0f;
                 for ( uint32_t h : kRenderGpuHashes )
                 {
-                    gpuMs += Profiler::Instance().LastGpuFrameMsByHash( h );
+                    gpuMs += runtimeProfiler.LastGpuFrameMsByHash( h );
                 }
                 m_timers.gpuFrameWorkMs = gpuMs;
             }
@@ -503,7 +521,7 @@ void Run::Execute()
                                                                       m_timers.physicsTime,
                                                                       m_timers.renderTime } );
 
-            if ( TickSceneAdvance() )
+            if ( TickSceneAdvance( frameRendererName ) )
             {
                 continue;
             }
@@ -830,10 +848,11 @@ void Run::TickReplaySaveProbe()
         EditorObjectPlacementContext placementContext{ m_runtimeTools.Editor(),
                                                        m_cGameModelCollection,
                                                        SceneState(),
+                                                       m_config,
                                                        m_cWorldEnvironment,
                                                        m_systems.terrain.get(),
                                                        m_systems.assets,
-                                                       ActiveGameModelCapacity() };
+                                                       m_startup.gameModelCapacity };
         EditorObjectPlacementRequest placementRequest{ UI::EditorTab::OBJECT_BOX, true, Vector3( 18.0f, 0.0f, 18.0f ) };
         EditorObjectPlacementResult placementResult;
         if ( CanPlaceEditorObjectAtTerrainPoint( placementContext, placementRequest ) )
@@ -894,8 +913,9 @@ void Run::TickReplaySaveProbe()
                 m_cGameModelCollection.GetModelCount() );
             if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
                                                  m_cWorldEnvironment,
+                                                 m_config,
                                                  m_systems.terrain.get(),
-                                                 ActiveGameModelCapacity(),
+                                                 m_startup.gameModelCapacity,
                                                  rayOrigin,
                                                  rayDirection,
                                                  cameraUp ) )
@@ -1374,8 +1394,9 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value2 );
             if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
                                                  m_cWorldEnvironment,
+                                                 m_config,
                                                  m_systems.terrain.get(),
-                                                 ActiveGameModelCapacity(),
+                                                 m_startup.gameModelCapacity,
                                                  rayOrigin,
                                                  rayDirection,
                                                  cameraUp ) )
@@ -1426,10 +1447,11 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             EditorObjectPlacementContext placementContext{ m_runtimeTools.Editor(),
                                                            m_cGameModelCollection,
                                                            SceneState(),
+                                                           m_config,
                                                            m_cWorldEnvironment,
                                                            m_systems.terrain.get(),
                                                            m_systems.assets,
-                                                           ActiveGameModelCapacity() };
+                                                           m_startup.gameModelCapacity };
             EditorObjectPlacementRequest placementRequest{ event.value0,
                                                            ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
                                                            terrainPoint };
@@ -1708,7 +1730,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                     "generated solver counts do not match model count" );
             return false;
         }
-        if ( event.value0 > ActiveGameModelCapacity() )
+        if ( event.value0 > m_startup.gameModelCapacity )
         {
             WriteReplayProbeReason( rebuildReason,
                                     rebuildReasonSize,
@@ -1728,7 +1750,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         m_sceneController.UIOverrides().solverBoxCountOverride =
             uiSolverCounts || exactSolverCounts ? event.value2 : -1;
 
-        const EngineConfig& config = Cfg();
+        const EngineConfig& config = m_config;
         if ( exactSolverCounts || uiSolverCounts )
         {
             SceneGeneratedSetup::SetUpSolverObjects(
@@ -2230,8 +2252,9 @@ void Run::HoldCompletedInteractiveScene()
 }
 
 
-bool Run::TickScreenshots()
+bool Run::TickScreenshots( const char* rendererName )
 {
+    (void)rendererName;
     PROFILE_BEGIN( "Frame/PostDraw/Screenshots" );
 
     auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
@@ -2261,7 +2284,7 @@ bool Run::TickScreenshots()
                                           m_sceneController.Browser(),
                                           m_cGameModelCollection,
                                           m_systems.assets,
-                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                           m_defaultCinematicRender },
                 action.index );
         case SceneRuntimeControlActionType::None:
@@ -2304,11 +2327,11 @@ bool Run::TickScreenshots()
 #ifdef _DEBUG
     if ( result.completion == RuntimeCaptureCompletion::ScreenshotAndExit )
     {
-        LogSceneFinished( "screenshot_and_exit" );
+        LogSceneFinished( "screenshot_and_exit", rendererName );
     }
     else if ( result.completion == RuntimeCaptureCompletion::Screenshot )
     {
-        LogSceneFinished( "screenshot" );
+        LogSceneFinished( "screenshot", rendererName );
     }
 #endif
 
@@ -2336,8 +2359,9 @@ bool Run::TickScreenshots()
 }
 
 
-void Run::TickAutoCycle()
+void Run::TickAutoCycle( const char* rendererName )
 {
+    (void)rendererName;
     struct ScreenshotSink final : RuntimeCaptureSink
     {
         explicit ScreenshotSink( Run& owner ) : run( owner )
@@ -2369,7 +2393,7 @@ void Run::TickAutoCycle()
     }
 
 #ifdef _DEBUG
-    LogSceneFinished( "auto_cycle" );
+    LogSceneFinished( "auto_cycle", rendererName );
 #endif
 
     if ( result.automation == RuntimeCaptureAutomation::Quit )
@@ -2383,8 +2407,9 @@ void Run::TickAutoCycle()
 }
 
 
-bool Run::TickSceneAdvance()
+bool Run::TickSceneAdvance( const char* rendererName )
 {
+    (void)rendererName;
     auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
     {
         if ( action.enterInteractiveSceneRun )
@@ -2412,7 +2437,7 @@ bool Run::TickSceneAdvance()
                                           m_sceneController.Browser(),
                                           m_cGameModelCollection,
                                           m_systems.assets,
-                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                           m_defaultCinematicRender },
                 action.index );
         case SceneRuntimeControlActionType::None:
@@ -2432,7 +2457,7 @@ bool Run::TickSceneAdvance()
     if ( hasRequiredSceneGate && requiredSceneComplete && !SceneState().isTestComplete )
     {
 #ifdef _DEBUG
-        LogSceneFinished( "required_scene_gates" );
+        LogSceneFinished( "required_scene_gates", rendererName );
 #endif
         if ( SceneState().isExitOnComplete && CanSceneAutomationQuit() )
         {
@@ -2465,7 +2490,8 @@ bool Run::TickSceneAdvance()
             if ( !SceneState().isTestComplete &&
                  ( frameCountCompletesScene || SceneState().currentFrame == SceneState().targetFrameCount ) )
             {
-                LogSceneFinished( frameCountCompletesScene ? "frame_count" : "required_scene_gates_missing" );
+                LogSceneFinished( frameCountCompletesScene ? "frame_count" : "required_scene_gates_missing",
+                                  rendererName );
                 if ( !frameCountCompletesScene )
                 {
                     for ( const RunRequiredContactState& contact : m_requiredSceneContacts )
@@ -2544,7 +2570,7 @@ bool Run::TickSceneAdvance()
          m_timers.simulationTimer.GetTimeSinceLastStart() > PERF_TEST_PASS_SECONDS )
     {
 #ifdef _DEBUG
-        LogSceneFinished( "perf_duration" );
+        LogSceneFinished( "perf_duration", rendererName );
 #endif
         if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
                                                                           sPerfPass,
@@ -2579,7 +2605,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     // frame time. Mouse look consumes a per-frame cursor delta, so using live dt
     // would make sensitivity vary with FPS; the fixed reference preserves the
     // existing 60 Hz tuning while making the result frame-rate independent.
-    const EngineConfig& config = Cfg();
+    const EngineConfig& config = m_config;
     MoveCamera( cameraDt * config.keySpeed, CAMERA_MOUSE_REFERENCE_DT * config.mouseSensitivity );
     TickAttachedCamera( cameraDt );
 

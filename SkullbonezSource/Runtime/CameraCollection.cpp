@@ -40,6 +40,7 @@ CameraCollection::CameraCollection()
     m_isTweening = 0;
     m_tweenProgress = 0;
     m_tweenSpeed = 0;
+    m_config = nullptr;
     m_terrain = 0;
 
     for ( int count = 0; count < TOTAL_CAMERA_COUNT; ++count )
@@ -52,24 +53,28 @@ CameraCollection::CameraCollection()
 }
 
 
-CameraCollection* CameraCollection::Instance()
+void CameraCollection::BindConfig( const SkullbonezCore::Basics::EngineConfig& config )
 {
-    if ( !CameraCollection::pInstance )
+    m_config = &config;
+    for ( int count = 0; count < TOTAL_CAMERA_COUNT; ++count )
     {
-        static CameraCollection instance;
-        CameraCollection::pInstance = &instance;
+        m_cameraArray[count].BindConfig( config );
     }
-    return CameraCollection::pInstance;
+    m_primaryStore.BindConfig( config );
+    m_tweenPath.BindConfig( config );
+    m_tweenCamera.BindConfig( config );
+    m_tweenStart.BindConfig( config );
+    m_renderCamera.BindConfig( config );
 }
 
 
-void CameraCollection::Destroy()
+const SkullbonezCore::Basics::EngineConfig& CameraCollection::Config() const
 {
-    if ( CameraCollection::pInstance )
+    if ( !m_config )
     {
-        *CameraCollection::pInstance = CameraCollection();
-        CameraCollection::pInstance = nullptr;
+        throw std::runtime_error( "CameraCollection config binding missing.  (CameraCollection::Config)" );
     }
+    return *m_config;
 }
 
 
@@ -399,7 +404,7 @@ void CameraCollection::SetCamera()
 
             if ( m_tweenCamera.m_position.y < terrainHeight )
             {
-                m_tweenCamera.m_position.y = terrainHeight + Cfg().minCameraHeight;
+                m_tweenCamera.m_position.y = terrainHeight + Config().minCameraHeight;
             }
         }
         else

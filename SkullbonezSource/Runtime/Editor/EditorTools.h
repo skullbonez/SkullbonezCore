@@ -57,6 +57,7 @@ class Terrain;
 }
 namespace Basics
 {
+class EngineConfig;
 class RuntimeInteractionController;
 class RuntimeCommandQueue;
 class RuntimeInputContext;
@@ -94,6 +95,7 @@ struct EditorObjectPlacementContext
     RunEditorPlacementState& editor;
     GameObjects::GameModelCollection& models;
     RunSceneState& scene;
+    const EngineConfig& config;
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain;
     const Assets::AssetSystem& assets;

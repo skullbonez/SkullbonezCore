@@ -241,7 +241,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
         Quaternion qCopy = model.GetOrientation();
         RotationMatrix orientMat = qCopy.GetOrientationMatrix();
         const BoxTerrainVertexSupportProbe supportProbe =
-            ProbeBoxTerrainVertices( box, pos, orientMat, *context.terrain, Cfg().contactEpsilon, false );
+            ProbeBoxTerrainVertices( box, pos, orientMat, *context.terrain, context.config.contactEpsilon, false );
 
         if ( supportProbe.hasTerrainGaps )
         {
@@ -311,8 +311,8 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     fprintf( f, "world_gravity,%.6f\n", context.world.GetGravity() );
     fprintf( f, "world_fluid_height,%.6f\n", context.world.GetFluidSurfaceHeight() );
     fprintf( f, "world_fluid_density,%.6f\n", context.world.GetFluidDensity() );
-    fprintf( f, "cfg_friction_coeff,%.6f\n", Cfg().frictionCoeff );
-    fprintf( f, "cfg_contact_epsilon,%.6f\n", Cfg().contactEpsilon );
+    fprintf( f, "cfg_friction_coeff,%.6f\n", context.config.frictionCoeff );
+    fprintf( f, "cfg_contact_epsilon,%.6f\n", context.config.contactEpsilon );
     fprintf( f, "camera_eye,%.6f,%.6f,%.6f\n", camPos.x, camPos.y, camPos.z );
     fprintf( f, "camera_view,%.6f,%.6f,%.6f\n", camView.x, camView.y, camView.z );
     fprintf( f, "camera_up,%.6f,%.6f,%.6f\n", camUp.x, camUp.y, camUp.z );

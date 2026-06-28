@@ -720,7 +720,7 @@ void Run::TickInteractionAutomationBeforeInput()
         case RunInteractionAutomationActionType::ClickReplayControl:
             if ( strcmp( action.text, "predict" ) == 0 )
             {
-                const EngineConfig& config = Cfg();
+                const EngineConfig& config = m_config;
                 const int screenW = RuntimeWindowScreenWidth( m_systems, config );
                 const int screenH = RuntimeWindowScreenHeight( m_systems, config );
                 const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();

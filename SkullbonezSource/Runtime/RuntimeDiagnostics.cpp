@@ -323,7 +323,9 @@ bool RuntimeDiagnostics::PerfTestActive( const RunPerfLogState& perfLog )
 }
 
 
-void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, const RuntimePerfTickContext& context )
+void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog,
+                                      const RuntimePerfTickContext& context,
+                                      Profiler& profiler )
 {
     if ( !perfLog.isPerfTest || !perfLog.perfLogFile )
     {
@@ -333,11 +335,12 @@ void RuntimeDiagnostics::TickPerfLog( RunPerfLogState& perfLog, const RuntimePer
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     if ( !perfLog.perfHeaderWritten )
     {
-        Profiler::Instance().WritePerfCSVHeader( perfLog.perfLogFile );
+        profiler.WritePerfCSVHeader( perfLog.perfLogFile );
         perfLog.perfHeaderWritten = true;
     }
-    Profiler::Instance().WritePerfCSVRow( perfLog.perfLogFile, context.pass, context.frame );
+    profiler.WritePerfCSVRow( perfLog.perfLogFile, context.pass, context.frame );
 #else
+    (void)profiler;
     fprintf( perfLog.perfLogFile,
              "%d,%d,%.4f,%.4f\n",
              context.pass,

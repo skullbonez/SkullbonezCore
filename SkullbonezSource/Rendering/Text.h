@@ -8,6 +8,8 @@ Mental model:
   calls, shader bindings, and validation artifacts.
 
 Glossary:
+  Asset system: Runtime-owned registry borrowed during font setup to resolve
+  text and HUD quad shaders.
   SDF (Signed Distance Field): Texture representation used for crisp scalable
   text rendering.
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
@@ -17,6 +19,8 @@ Glossary:
   FOV (Field of View): Camera/projection angle that defines legacy text space.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
+  Command/resource facets: Borrowed renderer capabilities supplied by the UI
+  text pass for the duration of HUD drawing and font resource setup.
   Back buffer: Swap-chain image that will be presented to the window.
 
 Invariants:
@@ -24,6 +28,8 @@ Invariants:
     DeleteFont must run before backend teardown.
   - Render2dText/BatchQuad enqueue CPU-side vertices, and FlushText/FlushQuads
     are the draw boundaries for those queues.
+  - Draw calls require a live ScopedRenderContext; Text2d may cache opaque
+    handles, but not renderer ownership.
 
 Related:
   - SkullbonezSource/Rendering/Text.cpp
@@ -38,6 +44,16 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+} // namespace Assets
+namespace Rendering
+{
+class IRenderCommandContext;
+class IRenderResourceFactory;
+} // namespace Rendering
+
 namespace Text
 {
 /* -- Text 2d
@@ -53,6 +69,23 @@ class Text2d
 {
 
   public:
+    // Lifetime: binds the per-pass render facets for legacy static Text2d draw
+    // helpers. It restores the previous binding on destruction so nested UI
+    // helpers cannot leak a frame context beyond the active text pass.
+    class ScopedRenderContext
+    {
+      public:
+        ScopedRenderContext( Rendering::IRenderCommandContext& renderCommands,
+                             Rendering::IRenderResourceFactory& renderResources );
+        ~ScopedRenderContext();
+        ScopedRenderContext( const ScopedRenderContext& ) = delete;
+        ScopedRenderContext& operator=( const ScopedRenderContext& ) = delete;
+
+      private:
+        Rendering::IRenderCommandContext* m_previousCommands = nullptr;
+        Rendering::IRenderResourceFactory* m_previousResources = nullptr;
+    };
+
     inline static uint32_t fontTexture = 0;
     inline static uint32_t dynamicVB = 0;                                // solid-quad VB: [x,y,u,v] — used by Render2dQuad (immediate, one draw per call)
     inline static uint32_t textBatchVB = 0;                              // batch text VB: [x,y,u,v,r,g,b] — flushed once per frame
@@ -109,10 +142,14 @@ class Text2d
                                float b,
                                float a );                                // Queues a colored triangle in the shared HUD batch.
     static void FlushQuads();                                            // Uploads queued quads/triangles once for the frame.
-    static void BuildFont( const char* cFontName );                      // Loads or generates SDF atlas resources for the active backend.
+    static void BuildFont( const Assets::AssetSystem& assets,
+                           Rendering::IRenderResourceFactory& renderResources,
+                           const char* cFontName,
+                           int initialScreenW,
+                           int initialScreenH );                         // Loads or generates SDF atlas resources for the active backend.
     static bool GenerateSdfAtlasToFile( const char* cFontName,
                                         const char* cOutPath );          // Offline SDF atlas writer used by --gen-atlas tooling.
-    static void DeleteFont();                                            // Releases GPU font resources before backend teardown.
+    static void DeleteFont( Rendering::IRenderResourceFactory* renderResources = nullptr ); // Releases GPU font resources before backend teardown.
     static void RebuildProjection( int w, int h );                       // Recomputes ortho projection after a window resize
     static float HalfW()
     {

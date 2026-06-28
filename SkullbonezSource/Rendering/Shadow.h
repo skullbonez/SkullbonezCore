@@ -8,9 +8,10 @@ Mental model:
   calls, shader bindings, and validation artifacts.
 
 Glossary:
+  Command context: Borrowed frame capability used to bind or clear the shadow
+  map texture slot without reacquiring the global renderer.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
-  Back buffer: Swap-chain image that will be presented to the window.
 
 Invariants:
   - ShadowFrameData is frame-local render input; it does not own the depth
@@ -23,7 +24,8 @@ Related:
 */
 #pragma once
 
-#include "IRenderBackend.h"
+#include "IRenderCommandContext.h"
+#include "IShader.h"
 #include "../Maths/Matrix4.h"
 #include "../Maths/Vector3.h"
 #include <algorithm>
@@ -38,7 +40,7 @@ inline constexpr int SHADOW_TEXTURE_SLOT = 3;
 struct ShadowCasterBatches
 {
     // CPU-built caster streams. Worker jobs may fill these matrices, but only
-    // the main thread may submit them through RenderHelper/Gfx().
+    // the main thread may submit them through render command helpers.
     std::vector<Math::Transformation::Matrix4> spheres;
     std::vector<Math::Transformation::Matrix4> boxes;
     std::vector<Math::Transformation::Matrix4> pines;
@@ -93,7 +95,11 @@ struct ShadowFrameData
 };
 
 inline void
-ApplyShadowReceiverUniforms( IShader& shader, const ShadowFrameData* shadow, bool receive, bool objectReceiver = false )
+ApplyShadowReceiverUniforms( IRenderCommandContext& renderCommands,
+                             IShader& shader,
+                             const ShadowFrameData* shadow,
+                             bool receive,
+                             bool objectReceiver = false )
 {
     // Receivers call this unconditionally, even when shadows are disabled. That
     // keeps all lit shaders using the same uniform layout and avoids stale GPU
@@ -124,14 +130,14 @@ ApplyShadowReceiverUniforms( IShader& shader, const ShadowFrameData* shadow, boo
     shader.SetInt( "uShadowMap", SHADOW_TEXTURE_SLOT );
     if ( enabled )
     {
-        Gfx().BindTexture( shadow->depthTextureHandle, SHADOW_TEXTURE_SLOT );
+        renderCommands.BindTexture( shadow->depthTextureHandle, SHADOW_TEXTURE_SLOT );
     }
     else
     {
         // Pass contract: disabled receivers must not inherit an old shadow map
         // binding. The shader would skip sampling, but clearing the slot keeps
         // descriptor lifetime visible to the backend.
-        Gfx().BindTexture( 0, SHADOW_TEXTURE_SLOT );
+        renderCommands.BindTexture( 0, SHADOW_TEXTURE_SLOT );
     }
 }
 } // namespace Rendering

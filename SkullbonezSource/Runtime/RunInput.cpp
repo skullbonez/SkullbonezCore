@@ -519,8 +519,9 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
                 m_cGameModelCollection.GetModelCount() );
             if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
                                                  m_cWorldEnvironment,
+                                                 m_config,
                                                  m_systems.terrain.get(),
-                                                 ActiveGameModelCapacity(),
+                                                 m_startup.gameModelCapacity,
                                                  rayOrigin,
                                                  rayDirection,
                                                  cameraUp ) )
@@ -1514,10 +1515,10 @@ void Run::TickAttachedCamera( float cameraDt )
     {
         m_attachedCamera.orbitYawRadians =
             WrapAttachedCameraOrbitYaw( m_attachedCamera.orbitYawRadians +
-                                        m_camera.input.xMove * CAMERA_MOUSE_REFERENCE_DT * Cfg().mouseSensitivity );
+                                        m_camera.input.xMove * CAMERA_MOUSE_REFERENCE_DT * m_config.mouseSensitivity );
         m_attachedCamera.orbitPitchRadians =
             ClampAttachedCameraOrbitPitch( m_attachedCamera.orbitPitchRadians +
-                                           m_camera.input.yMove * CAMERA_MOUSE_REFERENCE_DT * Cfg().mouseSensitivity );
+                                           m_camera.input.yMove * CAMERA_MOUSE_REFERENCE_DT * m_config.mouseSensitivity );
     }
 
     m_attachedCamera.orbitDistance = ClampAttachedCameraOrbitDistance( target, m_attachedCamera.orbitDistance );
@@ -1866,6 +1867,7 @@ void Run::TakeInput()
 
     ApplyCursorOwnership();
 
+    SkullbonezCore::Rendering::IRenderBackend* inputRenderBackend = m_systems.renderBackend;
     const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
     InputController::BeginFrame(
         m_runtimeInput,
@@ -2024,12 +2026,14 @@ void Run::TakeInput()
                                                                  m_systems.cameras,
                                                                  m_systems.terrain.get(),
                                                                  m_cWorldEnvironment,
+                                                                 m_config,
                                                                  SceneState(),
                                                                  m_sceneController.CurrentPath(),
                                                                  m_launchOptions,
                                                                  m_runtimeSettings,
                                                                  m_debug,
-                                                                 IsGfxReady() ? Gfx().GetRendererName() : "DirectX 12",
+                                                                 inputRenderBackend ? inputRenderBackend->GetRendererName()
+                                                                                    : "DirectX 12",
                                                                  simulationSeconds } );
                 const char* snapshotMessage = "Failed to write repro snapshot";
                 if ( snapshotStatus == LauncherReproSnapshotStatus::Wrote )
@@ -2128,7 +2132,7 @@ void Run::TakeInput()
             {
                 if ( !m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
                 {
-                    if ( Gfx().GetCapabilities().supportsDxrReflection )
+                    if ( inputRenderBackend && inputRenderBackend->GetCapabilities().supportsDxrReflection )
                     {
                         m_debug.isWaterRTReflect = true;
                     }
@@ -2321,7 +2325,7 @@ void Run::TakeInput()
                                               m_sceneController.Browser(),
                                               m_cGameModelCollection,
                                               m_systems.assets,
-                                              RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                              RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                               m_defaultCinematicRender },
                     action.index );
             case SceneRuntimeControlActionType::None:
@@ -2458,7 +2462,10 @@ void Run::TakeInput()
         if ( uiCommands.renderer.toggleVsync )
         {
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
-            Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+            if ( inputRenderBackend )
+            {
+                inputRenderBackend->SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+            }
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleVsync, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.run.requestedCameraMode >= 0 &&
@@ -2705,23 +2712,24 @@ void Run::TakeInput()
         }
         if ( uiCommands.sceneOptions.toggleShadows )
         {
-            if ( RuntimeCinematicRenderingEnabled( SceneState(), Cfg(), m_launchOptions, m_debug, IsGfxReady() ) )
+            if ( RuntimeCinematicRenderingEnabled(
+                     SceneState(), m_config, m_launchOptions, m_debug, m_systems.renderBackend != nullptr ) )
             {
-                const bool shadowsActive = RuntimeActiveCinematicConfig( SceneState(), Cfg() ).shadowsEnabled;
+                const bool shadowsActive = RuntimeActiveCinematicConfig( SceneState(), m_config ).shadowsEnabled;
                 m_launchOptions.hasCinematicShadowsOverride = false;
-                SetCinematicShadowsEnabledFromUI( RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                SetCinematicShadowsEnabledFromUI( RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                                   SceneState(),
                                                   !shadowsActive );
             }
             else
             {
-                Cfg().ordinaryRender.shadowsEnabled = !Cfg().ordinaryRender.shadowsEnabled;
+                m_config.ordinaryRender.shadowsEnabled = !m_config.ordinaryRender.shadowsEnabled;
             }
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleShadows, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.renderTuning.toggleShadows )
         {
-            Cfg().ordinaryRender.shadowsEnabled = !Cfg().ordinaryRender.shadowsEnabled;
+            m_config.ordinaryRender.shadowsEnabled = !m_config.ordinaryRender.shadowsEnabled;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleRenderShadows, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.renderTuning.saveDefaults )
@@ -2731,7 +2739,7 @@ void Run::TakeInput()
         }
         if ( uiCommands.renderTuning.requestedParam != UIRenderParam::None )
         {
-            ApplyOrdinaryRenderUIParam( Cfg().ordinaryRender,
+            ApplyOrdinaryRenderUIParam( m_config.ordinaryRender,
                                         uiCommands.renderTuning.requestedParam,
                                         uiCommands.renderTuning.requestedValue );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyRenderTuning, RuntimeInputActionSource::UI );
@@ -2811,21 +2819,21 @@ void Run::TakeInput()
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetLauncherProjectileSpeed,
                                                RuntimeInputActionSource::UI );
         }
-        const auto makeSceneGeneratedControlContext = [this]() -> SceneRuntimeGeneratedControlContext
+        const auto makeSceneGeneratedControlContext = [this, inputRenderBackend]() -> SceneRuntimeGeneratedControlContext
         {
             return SceneRuntimeGeneratedControlContext{ SceneState(),
                                                         m_sceneController.UIOverrides(),
                                                         m_camera,
                                                         m_sceneController,
-                                                        Cfg(),
+                                                        m_config,
                                                         m_cWorldEnvironment,
                                                         m_systems.terrain.get(),
                                                         m_cGameModelCollection,
                                                         m_simulation,
                                                         m_runtimeTools,
-                                                        IsGfxReady() ? &Gfx() : nullptr,
+                                                        inputRenderBackend,
                                                         m_launchOptions.generatedObjectTypeOverride,
-                                                        ActiveGameModelCapacity() };
+                                                        m_startup.gameModelCapacity };
         };
         const auto executeSceneGeneratedControlAction = [this]( const SceneRuntimeGeneratedControlAction& action )
         {
@@ -2847,12 +2855,12 @@ void Run::TakeInput()
         }
         if ( uiCommands.profiler.requestedWorkerThreads >= -1 )
         {
-            ApplyWorkerThreadCountOverride( uiCommands.profiler.requestedWorkerThreads );
+            ApplyWorkerThreadCountOverride( m_config, m_workerPool, uiCommands.profiler.requestedWorkerThreads );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetWorkerThreads, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.run.requestedSolverBallCount >= 0 )
         {
-            const int modelCapacity = ActiveGameModelCapacity();
+            const int modelCapacity = m_startup.gameModelCapacity;
             const int boxes = m_sceneController.UIOverrides().solverBoxCountOverride >= 0
                                   ? m_sceneController.UIOverrides().solverBoxCountOverride
                                   : SceneState().solverBoxCount;
@@ -2864,7 +2872,7 @@ void Run::TakeInput()
         }
         if ( uiCommands.run.requestedSolverBoxCount >= 0 )
         {
-            const int modelCapacity = ActiveGameModelCapacity();
+            const int modelCapacity = m_startup.gameModelCapacity;
             const int balls = m_sceneController.UIOverrides().solverBallCountOverride >= 0
                                   ? m_sceneController.UIOverrides().solverBallCountOverride
                                   : SceneState().solverBallCount;
@@ -2897,7 +2905,7 @@ void Run::TakeInput()
         {
             // Master Cine switch. Clearing m_launchOptions.hasCinematicRenderingOverride lets
             // the runtime toggle become the new source of truth after launch.
-            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), Cfg() );
+            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
             const bool currentlyEnabled =
                 m_launchOptions.hasCinematicRenderingOverride ? m_launchOptions.cinematicRendering : cinematic.enabled;
             cinematic.enabled = !currentlyEnabled;
@@ -2926,14 +2934,14 @@ void Run::TakeInput()
                                           m_sceneController.Browser(),
                                           m_cGameModelCollection,
                                           m_systems.assets,
-                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                           m_defaultCinematicRender },
                 uiCommands.cinematic.requestedModeSceneIndex );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SelectCinematicScene, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.cinematic.requestedFeature != UICinematicFeature::None )
         {
-            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), Cfg() );
+            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
             if ( uiCommands.cinematic.requestedFeature == UICinematicFeature::Shadows )
             {
                 m_launchOptions.hasCinematicShadowsOverride = false;
@@ -2944,7 +2952,7 @@ void Run::TakeInput()
         }
         if ( uiCommands.cinematic.requestedParam != UICinematicParam::None )
         {
-            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), Cfg() );
+            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
             ApplyCinematicUIParam( cinematic,
                                    SceneState(),
                                    uiCommands.cinematic.requestedParam,
@@ -3153,7 +3161,7 @@ bool Run::DrainRuntimeCommands()
                                           m_sceneController.Browser(),
                                           m_cGameModelCollection,
                                           m_systems.assets,
-                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                           m_defaultCinematicRender },
                 action.index );
         case SceneRuntimeControlActionType::None:
@@ -3197,10 +3205,10 @@ bool Run::DrainRuntimeCommands()
             SaveCurrentSceneDefaults();
             break;
         case RuntimeCommandType::SaveRenderDefaults:
-            SaveRenderDefaults( Cfg().ordinaryRender );
+            SaveRenderDefaults( m_config.ordinaryRender );
             break;
         case RuntimeCommandType::SaveSkyDefaults:
-            SaveSkyDefaults( RuntimeActiveCinematicConfig( SceneState(), Cfg() ) );
+            SaveSkyDefaults( RuntimeActiveCinematicConfig( SceneState(), m_config ) );
             break;
         case RuntimeCommandType::AdvanceScene:
             if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
@@ -3286,14 +3294,14 @@ void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
         Vector3 translatedCameraPosition = m_systems.cameras->GetCameraTranslation();
         float minY =
             m_systems.terrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) +
-            Cfg().minCameraHeight;
+            m_config.minCameraHeight;
         if ( minY > translatedCameraPosition.y )
         {
             m_systems.cameras->AmmendPrimaryY( minY );
         }
-        else if ( translatedCameraPosition.y > Cfg().maxCameraHeight )
+        else if ( translatedCameraPosition.y > m_config.maxCameraHeight )
         {
-            m_systems.cameras->AmmendPrimaryY( Cfg().maxCameraHeight );
+            m_systems.cameras->AmmendPrimaryY( m_config.maxCameraHeight );
         }
     }
 }

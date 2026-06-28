@@ -9,8 +9,16 @@ Mental model:
   the runtime model container.
 
 Glossary:
+  Asset system: Runtime-owned registry borrowed by render scene helpers that
+  lazily create shaders.
   Scene view: Renderer-facing adapter for model draws, shadow casters, DXR
   transforms, and debug-scene drawing.
+  Command context: Borrowed per-frame render interface for state changes and
+    immediate debug draw submission.
+  Resource factory: Borrowed backend lifetime interface for helper-owned
+    primitive caches that are still lazily created by model draw setup.
+  Render diagnostics: Per-frame tracing/capability surface used by scene draws
+    without reacquiring the process-global backend.
   DXR (DirectX Raytracing): DX12 raytracing path used for water reflections.
 
 Invariants:
@@ -18,6 +26,9 @@ Invariants:
     renderer/debug draw calls.
   - The interface stays in engine terms; it exposes no D3D12 objects or backend
     state.
+  - Resource-factory and diagnostic borrows must remain tied to the same
+    frame/backend as the command context because helper caches and trace scopes
+    store backend-owned handles/state.
 
 Related:
   - SkullbonezSource/GameObjects/GameModelCollection.h
@@ -34,9 +45,16 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+} // namespace Assets
+
 namespace Basics
 {
 struct CinematicRenderConfig;
+struct OrdinaryRenderConfig;
+struct RuntimeRenderFlags;
 }
 
 namespace Geometry
@@ -49,9 +67,16 @@ namespace Physics
 class CollisionVisualizer;
 class PhysicsDebugVisualizer;
 } // namespace Physics
+namespace Threading
+{
+class WorkerPool;
+}
 
 namespace Rendering
 {
+class IRenderCommandContext;
+class IRenderDiagnostics;
+class IRenderResourceFactory;
 
 class IRenderSceneView
 {
@@ -61,9 +86,15 @@ class IRenderSceneView
     virtual int GetRenderModelCount() const = 0;
     virtual int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount ) = 0;
 
-    virtual void RenderModels( const Math::Transformation::Matrix4& view,
+    virtual void RenderModels( IRenderCommandContext& renderCommands,
+                               IRenderResourceFactory& renderResources,
+                               IRenderDiagnostics& renderDiagnostics,
+                               const Assets::AssetSystem& assets,
+                               const Math::Transformation::Matrix4& view,
                                const Math::Transformation::Matrix4& proj,
                                const float lightPos[4],
+                               const Basics::RuntimeRenderFlags& runtimeRender,
+                               const Basics::OrdinaryRenderConfig& ordinaryRender,
                                const Basics::CinematicRenderConfig* cinematic = nullptr,
                                const ShadowFrameData* shadow = nullptr,
                                float materialAlpha = 1.0f,
@@ -71,26 +102,43 @@ class IRenderSceneView
                                bool drawMaskedModels = true ) = 0;
     virtual bool GetObjectShadowBounds( const Math::Vector::Vector3& focus,
                                         float maxDistance,
+                                        bool shadowParallelPrep,
+                                        Threading::WorkerPool& workerPool,
                                         Math::Vector::Vector3& outCenter,
                                         float& outRadius,
                                         float& outHeightRange ) = 0;
-    virtual void BuildShadowCasterBatches( ShadowCasterBatches& outBatches ) = 0;
-    virtual void RenderShadowCasterBatches( const ShadowCasterBatches& batches,
+    virtual void BuildShadowCasterBatches( ShadowCasterBatches& outBatches,
+                                           bool shadowParallelPrep,
+                                           Threading::WorkerPool& workerPool ) = 0;
+    virtual void RenderShadowCasterBatches( IRenderCommandContext& renderCommands,
+                                            IRenderResourceFactory& renderResources,
+                                            IRenderDiagnostics& renderDiagnostics,
+                                            const Assets::AssetSystem& assets,
+                                            const ShadowCasterBatches& batches,
                                             const Math::Transformation::Matrix4& view,
                                             const Math::Transformation::Matrix4& proj,
                                             const Basics::CinematicRenderConfig* cinematic = nullptr ) = 0;
-    virtual void RenderShadowCasters( const Math::Transformation::Matrix4& view,
+    virtual void RenderShadowCasters( IRenderCommandContext& renderCommands,
+                                      IRenderResourceFactory& renderResources,
+                                      IRenderDiagnostics& renderDiagnostics,
+                                      const Assets::AssetSystem& assets,
+                                      const Math::Transformation::Matrix4& view,
                                       const Math::Transformation::Matrix4& proj,
+                                      bool shadowParallelPrep,
+                                      Threading::WorkerPool& workerPool,
                                       const Basics::CinematicRenderConfig* cinematic = nullptr ) = 0;
-    virtual void RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
+    virtual void RenderCollisionStateSolids( IRenderCommandContext& renderCommands,
+                                             Physics::CollisionVisualizer& visualizer,
                                              const Math::Transformation::Matrix4& view,
                                              const Math::Transformation::Matrix4& proj,
                                              const float lightPos[4],
                                              float alphaOverride ) = 0;
-    virtual void RenderPhysicsDebug( Physics::PhysicsDebugVisualizer& visualizer,
+    virtual void RenderPhysicsDebug( IRenderCommandContext& renderCommands,
+                                     Physics::PhysicsDebugVisualizer& visualizer,
                                      const Math::Transformation::Matrix4& viewProjection,
                                      Geometry::Terrain* terrain ) = 0;
-    virtual void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj ) = 0;
+    virtual void RenderTornadoFieldVectors( IRenderCommandContext& renderCommands,
+                                            const Math::Transformation::Matrix4& viewProj ) = 0;
 };
 
 } // namespace Rendering

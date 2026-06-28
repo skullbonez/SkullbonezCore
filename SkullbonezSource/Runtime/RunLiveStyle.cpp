@@ -263,7 +263,7 @@ void Run::TickLiveStyleControl()
                                                            m_sceneController.Browser(),
                                                            m_cGameModelCollection,
                                                            m_systems.assets,
-                                                           RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                                           RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                                            m_defaultCinematicRender },
                                  styleScene );
             ++m_liveStyle.styleApplyCount;

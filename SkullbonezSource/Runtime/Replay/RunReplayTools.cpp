@@ -338,6 +338,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
     // time so profiler nesting cannot hide extra replay work outside the cap.
     const auto visualizerStart = std::chrono::steady_clock::now();
     RenderReplayPredictionVisualizer( m_replayRuntime,
+                                      m_workerPool,
                                       m_cGameModelCollection,
                                       SceneState().isScenePhysics,
                                       m_timers.simulationTimer.GetTimeSinceLastStart(),

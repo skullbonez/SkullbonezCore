@@ -52,6 +52,7 @@ class Terrain;
 }
 namespace Basics
 {
+class EngineConfig;
 class TestScene;
 struct RunSceneState;
 
@@ -87,6 +88,7 @@ struct SceneAuthoredCameraContext
 struct SceneAuthoredModelContext
 {
     RunSceneState& sceneState;
+    const EngineConfig& config;
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain;
     GameObjects::GameModelCollection& models;

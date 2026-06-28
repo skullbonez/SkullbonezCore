@@ -104,6 +104,8 @@ class LockOrderValidatorState
 
 LockOrderValidatorState& State()
 {
+    // Lifetime: debug lock metadata is process diagnostic state. It outlives
+    // individual locks so cycle reports can describe order edges seen earlier.
     static LockOrderValidatorState s_state;
     return s_state;
 }
@@ -111,6 +113,8 @@ LockOrderValidatorState& State()
 
 LockOrderValidator& LockOrderValidator::Instance()
 {
+    // Lifetime: CheckedMutex calls this owner from debug instrumentation paths;
+    // normal runtime code should not treat it as a service locator.
     static LockOrderValidator s_validator;
     return s_validator;
 }

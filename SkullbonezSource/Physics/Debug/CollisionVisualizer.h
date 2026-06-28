@@ -9,6 +9,12 @@ Mental model:
   reading anchors.
 
 Glossary:
+  Asset system: Runtime-owned registry borrowed to resolve the debug shader
+  source while the visualizer owns the backend shader handle.
+  Command context: Borrowed render-frame interface used for draw state, dynamic
+    uploads, and instanced draw submission.
+  Render resource factory: Borrowed setup/teardown interface used to create and
+    destroy backend mesh and dynamic-vertex-buffer handles.
   Broadphase: Cheap collision pass that finds object pairs worth testing more
   precisely.
   Narrowphase: Precise collision pass that computes contact points, normals,
@@ -38,6 +44,17 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+} // namespace Assets
+
+namespace Rendering
+{
+class IRenderCommandContext;
+class IRenderResourceFactory;
+} // namespace Rendering
+
 namespace GameObjects
 {
 class GameModel;
@@ -97,14 +114,17 @@ class CollisionVisualizer
     std::vector<float> m_sphereInstanceData;   // CPU staging buffer for sphere instance matrices and colors.
     std::vector<float> m_boxInstanceData;      // CPU staging buffer for box instance matrices and colors.
 
-    void BuildSphereMesh();
-    void BuildBoxMesh();
-    void EnsureResources();
+    void BuildSphereMesh( Rendering::IRenderResourceFactory& renderResources );
+    void BuildBoxMesh( Rendering::IRenderResourceFactory& renderResources );
     void AppendInstance( std::vector<float>& out, const Math::Transformation::Matrix4& model, const Color& color );
     Color ComputeModelColor( int modelIndex, GameObjects::GameModelCollection& models ) const;
     void BuildSleepGroupSizes( GameObjects::GameModelCollection& models );
-    void DrawInstances( uint32_t mesh, int vertexCount, const std::vector<float>& instanceData );
-    void DrawHullInstance( const Math::CollisionDetection::ConvexHullShape& hull,
+    void DrawInstances( Rendering::IRenderCommandContext& renderCommands,
+                        uint32_t mesh,
+                        int vertexCount,
+                        const std::vector<float>& instanceData );
+    void DrawHullInstance( Rendering::IRenderCommandContext& renderCommands,
+                           const Math::CollisionDetection::ConvexHullShape& hull,
                            const Math::Transformation::Matrix4& model,
                            const Color& color );
 
@@ -126,9 +146,11 @@ class CollisionVisualizer
     }
     void SetClipPlane( float x, float y, float z, float w );
     void SetAlphaOverride( float alpha );
-    void ResetResources();
+    void ResetResources( Rendering::IRenderResourceFactory* renderResources = nullptr );
+    void EnsureResources( const Assets::AssetSystem& assets, Rendering::IRenderResourceFactory& renderResources );
     void Update( float dt, GameObjects::GameModelCollection& models );
-    void Render( GameObjects::GameModelCollection& models,
+    void Render( Rendering::IRenderCommandContext& renderCommands,
+                 GameObjects::GameModelCollection& models,
                  const Math::Transformation::Matrix4& view,
                  const Math::Transformation::Matrix4& proj,
                  const float lightPos[4] );

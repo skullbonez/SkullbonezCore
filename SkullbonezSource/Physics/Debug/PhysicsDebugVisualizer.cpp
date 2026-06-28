@@ -32,7 +32,7 @@ Related:
 #include "../CollisionShape.h"
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
-#include "../../Rendering/IRenderBackend.h"
+#include "../../Rendering/IRenderCommandContext.h"
 #include "../../Maths/Quaternion.h"
 #include "../../World/Terrain.h"
 
@@ -579,9 +579,12 @@ void PhysicsDebugVisualizer::Update( float dt, GameModelCollection& models )
     }
 }
 
-void PhysicsDebugVisualizer::Render( GameModelCollection& models, const Matrix4& viewProj, Geometry::Terrain* terrain )
+void PhysicsDebugVisualizer::Render( IRenderCommandContext& renderCommands,
+                                     GameModelCollection& models,
+                                     const Matrix4& viewProj,
+                                     Geometry::Terrain* terrain )
 {
-    if ( m_flags == PHYSICS_DEBUG_NONE || models.GetModelCount() <= 0 || !Gfx().GetCapabilities().supportsDebugLines )
+    if ( m_flags == PHYSICS_DEBUG_NONE || models.GetModelCount() <= 0 )
     {
         return;
     }
@@ -614,6 +617,6 @@ void PhysicsDebugVisualizer::Render( GameModelCollection& models, const Matrix4&
 
     if ( !m_lineData.empty() )
     {
-        Gfx().DrawLinesColored( m_lineData.data(), static_cast<int>( m_lineData.size() / 6 ), viewProj.Data() );
+        renderCommands.DrawLinesColored( m_lineData.data(), static_cast<int>( m_lineData.size() / 6 ), viewProj.Data() );
     }
 }

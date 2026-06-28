@@ -150,7 +150,7 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
             float m3 = mass / 3.0f;
             Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
 
-            GameObjects::GameModel gameModel( &context.world, Vector3( posX, posY, posZ ), inertia, mass );
+            GameObjects::GameModel gameModel( &context.world, context.config, Vector3( posX, posY, posZ ), inertia, mass );
             gameModel.SetCoefficientRestitution( restitution );
             gameModel.SetTerrain( context.terrain );
             gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
@@ -166,6 +166,7 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
                 ( 1.0f + static_cast<float>( NextSceneRand( context.scene.rngState ) % cfg.ballRadiusRange ) ) * 0.5f;
 
             GameObjects::GameModel gameModel( &context.world,
+                                              context.config,
                                               Vector3( posX, posY, posZ ),
                                               Vector3( moment, moment, moment ),
                                               mass );
@@ -231,6 +232,7 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
         GameObjects::GameModel gameModel( &context.world,
+                                          context.config,
                                           Vector3( posX, posY, posZ ),
                                           Vector3( moment, moment, moment ),
                                           mass );
@@ -270,7 +272,7 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         float m3 = mass / 3.0f;
         Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
 
-        GameObjects::GameModel gameModel( &context.world, Vector3( posX, posY, posZ ), inertia, mass );
+        GameObjects::GameModel gameModel( &context.world, context.config, Vector3( posX, posY, posZ ), inertia, mass );
         gameModel.SetCoefficientRestitution( restitution );
         gameModel.SetTerrain( context.terrain );
         gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );

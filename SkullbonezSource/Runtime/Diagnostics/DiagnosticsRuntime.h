@@ -11,11 +11,15 @@ Mental model:
 Glossary:
   Capture controller: Screenshot trigger and automation state.
   Diagnostics controller: Perf CSV and queryable physics diagnostic state.
+  Runtime profiler: Borrowed diagnostics sampler used for frame timing overlays,
+    perf CSV rows, and render-diagnostics binding.
   Artifact path: Validation-facing output path that must stay stable.
 
 Invariants:
   - Artifact formatting stays in RuntimeDiagnostics and CaptureSystem.
   - Existing output paths and command-line behavior must not drift here.
+  - Profiler borrows are forwarding-only; DiagnosticsRuntime does not own the
+    profiler lifetime.
 
 Related:
   - SkullbonezSource/Runtime/CaptureController.h
@@ -32,6 +36,7 @@ namespace Basics
 {
 class ReplayRuntime;
 class TestScene;
+class Profiler;
 
 class DiagnosticsRuntime
 {
@@ -44,6 +49,8 @@ class DiagnosticsRuntime
 
     RunPerfLogState& PerfLog();
     const RunPerfLogState& PerfLog() const;
+    Profiler& RuntimeProfiler();
+    const Profiler& RuntimeProfiler() const;
 
     void ClosePerfLog();
     void ClosePerfLogWithMemoryCheckpoint( int pass, const char* checkpoint );

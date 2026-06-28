@@ -42,7 +42,7 @@ Related:
 
 
 #include "BroadphaseVisualizer.h"
-#include "../../Rendering/IRenderBackend.h"
+#include "../../Rendering/IRenderCommandContext.h"
 
 #include <algorithm>
 #include <cstring>
@@ -358,9 +358,9 @@ void BroadphaseVisualizer::Update( float dt,
 }
 
 
-void BroadphaseVisualizer::Render( const Matrix4& viewProj )
+void BroadphaseVisualizer::Render( IRenderCommandContext& renderCommands, const Matrix4& viewProj )
 {
-    if ( !m_enabled || m_cellCount == 0 || !Gfx().GetCapabilities().supportsDebugLines )
+    if ( !m_enabled || m_cellCount == 0 )
     {
         return;
     }
@@ -381,5 +381,5 @@ void BroadphaseVisualizer::Render( const Matrix4& viewProj )
     }
 
     int vertCount = static_cast<int>( m_lineData.size() / 6 );
-    Gfx().DrawLinesColored( m_lineData.data(), vertCount, viewProj.Data() );
+    renderCommands.DrawLinesColored( m_lineData.data(), vertCount, viewProj.Data() );
 }

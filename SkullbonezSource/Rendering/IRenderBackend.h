@@ -86,26 +86,27 @@ void DestroyGfxBackend();
 class DrawCallTraceScope
 {
   public:
-    DrawCallTraceScope( const char* fullPathOrLeaf, uint32_t hash ) : m_hash( hash ), m_active( IsGfxReady() )
+    DrawCallTraceScope( IRenderDiagnostics* renderDiagnostics, const char* fullPathOrLeaf, uint32_t hash )
+        : m_renderDiagnostics( renderDiagnostics ), m_hash( hash )
     {
-        if ( m_active )
+        if ( m_renderDiagnostics )
         {
-            Gfx().PushDrawCallTraceScope( fullPathOrLeaf, hash );
+            m_renderDiagnostics->PushDrawCallTraceScope( fullPathOrLeaf, hash );
         }
     }
     ~DrawCallTraceScope()
     {
-        if ( m_active )
+        if ( m_renderDiagnostics )
         {
-            Gfx().PopDrawCallTraceScope( m_hash );
+            m_renderDiagnostics->PopDrawCallTraceScope( m_hash );
         }
     }
     DrawCallTraceScope( const DrawCallTraceScope& ) = delete;
     DrawCallTraceScope& operator=( const DrawCallTraceScope& ) = delete;
 
   private:
+    IRenderDiagnostics* m_renderDiagnostics = nullptr;
     uint32_t m_hash = 0;
-    bool m_active = false;
 };
 
 
@@ -114,8 +115,9 @@ class DrawCallTraceScope
 
 #define DRAW_CALL_TRACE_PASTE_INNER( a, b ) a##b
 #define DRAW_CALL_TRACE_PASTE( a, b ) DRAW_CALL_TRACE_PASTE_INNER( a, b )
-#define DRAW_CALL_TRACE_SCOPE( name )                                                                                  \
+#define DRAW_CALL_TRACE_SCOPE( renderDiagnostics, name )                                                               \
     constexpr uint32_t DRAW_CALL_TRACE_PASTE( _drawTraceHash_, __LINE__ ) = ::HashStr( name );                         \
     ::SkullbonezCore::Rendering::DrawCallTraceScope DRAW_CALL_TRACE_PASTE( _drawTraceScope_, __LINE__ )(               \
+        renderDiagnostics,                                                                                             \
         name,                                                                                                          \
         DRAW_CALL_TRACE_PASTE( _drawTraceHash_, __LINE__ ) )

@@ -14,6 +14,8 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Heat: Per-cell collision count used only to darken the debug color.
+  Command context: Borrowed render-frame interface used only to submit the
+    generated line list; the visualizer does not own renderer lifetime.
 
 Invariants:
   - Visualizer state is explanatory overlay state and never participates in
@@ -36,6 +38,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Rendering
+{
+class IRenderCommandContext;
+}
 namespace Physics
 {
 /* -- Broadphase Visualizer
@@ -130,8 +136,8 @@ class BroadphaseVisualizer
                  const int64_t* collisionKeys,
                  int collisionKeyCount );
 
-    // Generates line vertex data and calls Gfx().DrawLinesColored().
-    void Render( const Math::Transformation::Matrix4& viewProj );
+    // Generates line vertex data and submits it through the borrowed frame command context.
+    void Render( Rendering::IRenderCommandContext& renderCommands, const Math::Transformation::Matrix4& viewProj );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

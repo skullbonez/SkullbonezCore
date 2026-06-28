@@ -9,6 +9,10 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Asset system: Runtime-owned registry borrowed by debug render paths that need
+  shader source lookup without reacquiring the active-asset bridge.
+  Render facets: Per-frame command/resource/diagnostic capabilities passed
+  through this facade to renderer helpers; the collection does not own them.
   SoA (Structure of Arrays): Cache layout that stores each field in its own
   contiguous array for faster iteration.
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
@@ -21,6 +25,8 @@ Invariants:
     that order rather than replacing it.
   - Replay body ids are assigned monotonically per collection so diagnostics can
     identify bodies across frames.
+  - Render facet references are forwarding-only and must not be cached by the
+    collection or model storage.
 
 Related:
   - SkullbonezSource/GameObjects/GameModelCollection.cpp
@@ -43,9 +49,21 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+} // namespace Assets
+
 namespace Basics
 {
+struct OrdinaryRenderConfig;
+struct RuntimeRenderFlags;
 struct MainMemoryGameObjectStats;
+class EngineConfig;
+}
+namespace Threading
+{
+class WorkerPool;
 }
 
 namespace Environment
@@ -77,6 +95,7 @@ class GameModelCollection : public Rendering::IRenderSceneView, public Physics::
     std::vector<GameModel> m_gameModels;
     GameModelSoACache m_soaCache;
     Physics::PhysicsEngine m_physicsEngine;
+    int m_modelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
     uint32_t m_nextReplayBodyId = 1;
 
     void InvalidateSoA();
@@ -84,6 +103,8 @@ class GameModelCollection : public Rendering::IRenderSceneView, public Physics::
 
   public:
     GameModelCollection();
+    explicit GameModelCollection( const Basics::EngineConfig& config );
+    GameModelCollection( const Basics::EngineConfig& config, Threading::WorkerPool& workerPool );
     ~GameModelCollection() = default;
 
     void AddGameModel( GameModel gameModel );
@@ -91,25 +112,45 @@ class GameModelCollection : public Rendering::IRenderSceneView, public Physics::
     void RunPhysics( float fChangeInTime );
     int GetRenderModelCount() const override;
     int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount ) override;
-    void RenderModels( const Math::Transformation::Matrix4& view,
+    void RenderModels( Rendering::IRenderCommandContext& renderCommands,
+                       Rendering::IRenderResourceFactory& renderResources,
+                       Rendering::IRenderDiagnostics& renderDiagnostics,
+                       const Assets::AssetSystem& assets,
+                       const Math::Transformation::Matrix4& view,
                        const Math::Transformation::Matrix4& proj,
                        const float lightPos[4],
+                       const Basics::RuntimeRenderFlags& runtimeRender,
+                       const Basics::OrdinaryRenderConfig& ordinaryRender,
                        const Basics::CinematicRenderConfig* cinematic = nullptr,
                        const Rendering::ShadowFrameData* shadow = nullptr,
                        float materialAlpha = 1.0f,
                        const std::vector<uint8_t>* modelMask = nullptr,
                        bool drawMaskedModels = true ) override;
-    void BuildShadowCasterBatches( Rendering::ShadowCasterBatches& outBatches ) override;
-    void RenderShadowCasterBatches( const Rendering::ShadowCasterBatches& batches,
+    void BuildShadowCasterBatches( Rendering::ShadowCasterBatches& outBatches,
+                                   bool shadowParallelPrep,
+                                   Threading::WorkerPool& workerPool ) override;
+    void RenderShadowCasterBatches( Rendering::IRenderCommandContext& renderCommands,
+                                    Rendering::IRenderResourceFactory& renderResources,
+                                    Rendering::IRenderDiagnostics& renderDiagnostics,
+                                    const Assets::AssetSystem& assets,
+                                    const Rendering::ShadowCasterBatches& batches,
                                     const Math::Transformation::Matrix4& view,
                                     const Math::Transformation::Matrix4& proj,
                                     const Basics::CinematicRenderConfig* cinematic = nullptr ) override;
-    void RenderShadowCasters( const Math::Transformation::Matrix4& view,
+    void RenderShadowCasters( Rendering::IRenderCommandContext& renderCommands,
+                              Rendering::IRenderResourceFactory& renderResources,
+                              Rendering::IRenderDiagnostics& renderDiagnostics,
+                              const Assets::AssetSystem& assets,
+                              const Math::Transformation::Matrix4& view,
                               const Math::Transformation::Matrix4& proj,
+                              bool shadowParallelPrep,
+                              Threading::WorkerPool& workerPool,
                               const Basics::CinematicRenderConfig* cinematic = nullptr ) override;
     void PrepareRenderStreams();
     bool GetObjectShadowBounds( const Math::Vector::Vector3& focus,
                                 float maxDistance,
+                                bool shadowParallelPrep,
+                                Threading::WorkerPool& workerPool,
                                 Math::Vector::Vector3& outCenter,
                                 float& outRadius,
                                 float& outHeightRange ) override;
@@ -187,15 +228,18 @@ class GameModelCollection : public Rendering::IRenderSceneView, public Physics::
     {
         return m_physicsEngine.GetTornadoSystemElapsedSeconds();
     }
-    void RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
+    void RenderCollisionStateSolids( Rendering::IRenderCommandContext& renderCommands,
+                                     Physics::CollisionVisualizer& visualizer,
                                      const Math::Transformation::Matrix4& view,
                                      const Math::Transformation::Matrix4& proj,
                                      const float lightPos[4],
                                      float alphaOverride ) override;
-    void RenderPhysicsDebug( Physics::PhysicsDebugVisualizer& visualizer,
+    void RenderPhysicsDebug( Rendering::IRenderCommandContext& renderCommands,
+                             Physics::PhysicsDebugVisualizer& visualizer,
                              const Math::Transformation::Matrix4& viewProjection,
                              Geometry::Terrain* terrain ) override;
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj ) override;
+    void RenderTornadoFieldVectors( Rendering::IRenderCommandContext& renderCommands,
+                                    const Math::Transformation::Matrix4& viewProj ) override;
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const
     {

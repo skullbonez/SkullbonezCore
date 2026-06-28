@@ -35,12 +35,27 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Basics
+{
+class EngineConfig;
+}
+namespace Threading
+{
+class WorkerPool;
+}
+namespace Rendering
+{
+class IRenderCommandContext;
+}
+
 namespace Physics
 {
 class PhysicsScene
 {
   public:
-    PhysicsScene() = default;
+    PhysicsScene();
+    explicit PhysicsScene( const Basics::EngineConfig& config );
+    PhysicsScene( const Basics::EngineConfig& config, Threading::WorkerPool& workerPool );
 
     void Clear();
     void RefreshStores( PhysicsModelAccess& modelAccess );
@@ -70,7 +85,10 @@ class PhysicsScene
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
+    // Debug visualization bridge. The scene forwards the borrowed frame command
+    // context to PhysicsWorld without storing render state.
+    void RenderTornadoFieldVectors( Rendering::IRenderCommandContext& renderCommands,
+                                    const Math::Transformation::Matrix4& viewProj );
     void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
     PhysicsWorld::DiagnosticsView GetDiagnosticsView() const;

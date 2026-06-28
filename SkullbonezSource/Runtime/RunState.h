@@ -14,11 +14,14 @@ Glossary:
   implementation files are being decomposed.
   Runtime setting: Live toggle or tuning value applied while a scene is running.
   Borrowed subsystem pointer: Non-owning pointer to state owned elsewhere in
-  the Run composition root.
+    the Run composition root.
+  Renderer borrow: Nullable alias into the process-owned renderer backend.
 
 Invariants:
   - Owning state should use value members or smart pointers; raw pointers here
     are borrowed subsystem links and must be validated before use.
+  - Renderer borrows never own backend lifetime and must be cleared before
+    backend teardown.
   - Settings that affect deterministic physics must be synchronized through the
     explicit helpers instead of being read independently by multiple owners.
 
@@ -30,11 +33,13 @@ Related:
 #pragma once
 
 #include "../Assets/AssetSystem.h"
+#include "../Assets/TextureCollection.h"
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Core/Timer.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
 #include "../Physics/TornadoField.h"
+#include "CameraCollection.h"
 #include "Input.h"
 #include "Render/RuntimeRenderResources.h"
 #include "RuntimeCameraMode.h"
@@ -46,10 +51,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Environment
-{
-class CameraCollection;
-}
 namespace Geometry
 {
 class SkyBox;
@@ -58,6 +59,11 @@ class Terrain;
 namespace Textures
 {
 class TextureCollection;
+}
+namespace Rendering
+{
+class IRenderBackend;
+class IRenderRayTracing;
 }
 
 namespace Basics
@@ -120,10 +126,18 @@ struct RunSubsystemState
     // shader contracts.
     RunRenderPassResources renderPasses;
 
-    Environment::CameraCollection* cameras = nullptr;
-    Textures::TextureCollection* textures = nullptr;
+    Environment::CameraCollection cameraCollection;
+    Environment::CameraCollection* cameras = &cameraCollection; // Compatibility borrow while split runtime files migrate to references.
+    Textures::TextureCollection textures;
     Window* window = nullptr;
-    Geometry::SkyBox* skyBox = nullptr;
+    // Lifetime: borrowed alias into the process renderer. Run::Initialise()
+    // binds it after backend creation, and Run shutdown clears it before the
+    // backend owner is destroyed.
+    Rendering::IRenderBackend* renderBackend = nullptr;
+    // Lifetime: optional DXR capability borrowed from the active backend.
+    // Null means this renderer did not publish raytracing support for this run.
+    Rendering::IRenderRayTracing* renderRayTracing = nullptr;
+    std::unique_ptr<Geometry::SkyBox> skyBox; // Runtime-owned shell; releases backend meshes/shader before teardown.
 };
 
 struct RunCameraState

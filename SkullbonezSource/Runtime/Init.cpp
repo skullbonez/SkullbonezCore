@@ -711,6 +711,13 @@ struct CliValueDirective
     bool ( *apply )( const char* value, ParsedArgs& args );
 };
 
+struct ConfigCliValueDirective
+{
+    const char* name;
+    const char* alias;
+    bool ( *apply )( const char* value, ParsedArgs& args, EngineConfig& config );
+};
+
 struct PhysicsDebugComponentDirective
 {
     const char* dashedName;
@@ -752,6 +759,16 @@ const char* FindValueDirective( const CommandLineView& commandLine, const CliVal
     return FindOptionValue( commandLine, directive.alias );
 }
 
+const char* FindValueDirective( const CommandLineView& commandLine, const ConfigCliValueDirective& directive )
+{
+    const char* value = FindOptionValue( commandLine, directive.name );
+    if ( value || !directive.alias )
+    {
+        return value;
+    }
+    return FindOptionValue( commandLine, directive.alias );
+}
+
 template <size_t N>
 bool ApplyCliValueDirectives( const CommandLineView& commandLine,
                               ParsedArgs& out,
@@ -761,6 +778,23 @@ bool ApplyCliValueDirectives( const CommandLineView& commandLine,
     {
         const char* value = FindValueDirective( commandLine, directive );
         if ( value && !directive.apply( value, out ) )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+template <size_t N>
+bool ApplyConfigCliValueDirectives( const CommandLineView& commandLine,
+                                    ParsedArgs& out,
+                                    EngineConfig& config,
+                                    const ConfigCliValueDirective ( &directives )[N] )
+{
+    for ( const ConfigCliValueDirective& directive : directives )
+    {
+        const char* value = FindValueDirective( commandLine, directive );
+        if ( value && !directive.apply( value, out, config ) )
         {
             return false;
         }
@@ -1347,8 +1381,8 @@ bool ParseRendererArg( const CommandLineView& commandLine )
     return FailCommandLineParse( "--renderer expects dx12. GL and DX11 are retired runtime choices." );
 }
 
-// --vsync on|off patches the already-loaded Cfg() singleton.
-bool ApplyVsyncOverride( const CommandLineView& commandLine )
+// --vsync on|off patches the already-loaded process config.
+bool ApplyVsyncOverride( const CommandLineView& commandLine, EngineConfig& config )
 {
     const char* vsyncArg = FindOptionValue( commandLine, "--vsync" );
     if ( !vsyncArg )
@@ -1362,7 +1396,7 @@ bool ApplyVsyncOverride( const CommandLineView& commandLine )
         return FailCommandLineParse( "--vsync expects on|off." );
     }
 
-    Cfg().runtimeRender.vsyncEnabled = enabled;
+    config.runtimeRender.vsyncEnabled = enabled;
     fprintf( stdout, "[vsync] %s via command line.\n", enabled ? "Enabled" : "Disabled" );
     return true;
 }
@@ -1383,7 +1417,7 @@ bool ApplyCinematicShadowsOverride( const char* value, ParsedArgs& args )
 }
 
 
-bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
+bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out, EngineConfig& config )
 {
     static const CliValueDirective kValues[] = {
         { "--switch-interval",
@@ -1452,81 +1486,6 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
         { "--shadows", "--shadow-maps", ApplyCinematicShadowsOverride },
         { "--cinematic-shadows", "--cinematic_shadows", ApplyCinematicShadowsOverride },
-        { "--workers",
-          "--worker-threads",
-          []( const char* value, ParsedArgs& args ) -> bool
-          {
-              static_cast<void>( args );
-              int workerThreads = 0;
-              const int maxWorkerThreads = WorkerPool::MaxThreadCount();
-              if ( !ParseIntToken( value, workerThreads ) || workerThreads < -1 || workerThreads > maxWorkerThreads )
-              {
-                  char message[128] = {};
-                  snprintf( message, sizeof( message ), "--workers expects -1, 0, or 1..%d.", maxWorkerThreads );
-                  return FailCommandLineParse( message );
-              }
-              Cfg().workerThreads = workerThreads;
-              fprintf( stdout,
-                       "[workers] Override: %d (resolved %d, max %d)\n",
-                       Cfg().workerThreads,
-                       WorkerPool::ResolveThreadCount( Cfg().workerThreads ),
-                       maxWorkerThreads );
-              return true;
-          } },
-        { "--model-capacity",
-          nullptr,
-          []( const char* value, ParsedArgs& args ) -> bool
-          {
-              static_cast<void>( args );
-              int capacity = 0;
-              if ( !ParseIntToken( value, capacity ) || capacity < 1 || capacity > MAX_GAME_MODELS )
-              {
-                  return FailCommandLineParse( "--model-capacity expects 1..%d.", MAX_GAME_MODELS );
-              }
-              Cfg().gameModelCapacity = capacity;
-              fprintf( stdout,
-                       "[models] Active model capacity: %d (compiled max %d)\n",
-                       ActiveGameModelCapacity(),
-                       MAX_GAME_MODELS );
-              return true;
-          } },
-        { "--physics-parallel",
-          "--parallel-physics",
-          []( const char* value, ParsedArgs& args ) -> bool
-          {
-              static_cast<void>( args );
-              bool enabled = false;
-              if ( !ParseOptionalOnOffValue( value, enabled ) )
-              {
-                  return FailCommandLineParse( "--physics-parallel expects optional on|off." );
-              }
-              Cfg().physicsParallel = enabled;
-              Cfg().physicsParallelApplyForces = enabled;
-              Cfg().physicsParallelTornadoField = enabled;
-              Cfg().physicsParallelNarrowphase = enabled;
-              Cfg().physicsParallelTerrainDetect = enabled;
-              Cfg().physicsParallelIntegrate = enabled;
-              fprintf( stdout,
-                       "[workers] Physics parallel jobs %s via command line.\n",
-                       enabled ? "enabled" : "disabled" );
-              return true;
-          } },
-        { "--shadow-parallel-prep",
-          "--parallel-shadow-prep",
-          []( const char* value, ParsedArgs& args ) -> bool
-          {
-              static_cast<void>( args );
-              bool enabled = false;
-              if ( !ParseOptionalOnOffValue( value, enabled ) )
-              {
-                  return FailCommandLineParse( "--shadow-parallel-prep expects optional on|off." );
-              }
-              Cfg().shadowParallelPrep = enabled;
-              fprintf( stdout,
-                       "[workers] Shadow parallel prep %s via command line.\n",
-                       enabled ? "enabled" : "disabled" );
-              return true;
-          } },
         { "--interactive",
           "--hold",
           []( const char* value, ParsedArgs& args ) -> bool
@@ -1546,7 +1505,90 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
     };
 
-    return ApplyCliValueDirectives( commandLine, out, kValues );
+    if ( !ApplyCliValueDirectives( commandLine, out, kValues ) )
+    {
+        return false;
+    }
+
+    static const ConfigCliValueDirective kConfigValues[] = {
+        { "--workers",
+          "--worker-threads",
+          []( const char* value, ParsedArgs& args, EngineConfig& cfg ) -> bool
+          {
+              static_cast<void>( args );
+              int workerThreads = 0;
+              const int maxWorkerThreads = WorkerPool::MaxThreadCount();
+              if ( !ParseIntToken( value, workerThreads ) || workerThreads < -1 || workerThreads > maxWorkerThreads )
+              {
+                  char message[128] = {};
+                  snprintf( message, sizeof( message ), "--workers expects -1, 0, or 1..%d.", maxWorkerThreads );
+                  return FailCommandLineParse( message );
+              }
+              cfg.workerThreads = workerThreads;
+              fprintf( stdout,
+                       "[workers] Override: %d (resolved %d, max %d)\n",
+                       cfg.workerThreads,
+                       WorkerPool::ResolveThreadCount( cfg.workerThreads ),
+                       maxWorkerThreads );
+              return true;
+          } },
+        { "--model-capacity",
+          nullptr,
+          []( const char* value, ParsedArgs& args, EngineConfig& cfg ) -> bool
+          {
+              static_cast<void>( args );
+              int capacity = 0;
+              if ( !ParseIntToken( value, capacity ) || capacity < 1 || capacity > MAX_GAME_MODELS )
+              {
+                  return FailCommandLineParse( "--model-capacity expects 1..%d.", MAX_GAME_MODELS );
+              }
+              cfg.gameModelCapacity = capacity;
+              fprintf( stdout,
+                       "[models] Active model capacity: %d (compiled max %d)\n",
+                       std::clamp( cfg.gameModelCapacity, 1, MAX_GAME_MODELS ),
+                       MAX_GAME_MODELS );
+              return true;
+          } },
+        { "--physics-parallel",
+          "--parallel-physics",
+          []( const char* value, ParsedArgs& args, EngineConfig& cfg ) -> bool
+          {
+              static_cast<void>( args );
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--physics-parallel expects optional on|off." );
+              }
+              cfg.physicsParallel = enabled;
+              cfg.physicsParallelApplyForces = enabled;
+              cfg.physicsParallelTornadoField = enabled;
+              cfg.physicsParallelNarrowphase = enabled;
+              cfg.physicsParallelTerrainDetect = enabled;
+              cfg.physicsParallelIntegrate = enabled;
+              fprintf( stdout,
+                       "[workers] Physics parallel jobs %s via command line.\n",
+                       enabled ? "enabled" : "disabled" );
+              return true;
+          } },
+        { "--shadow-parallel-prep",
+          "--parallel-shadow-prep",
+          []( const char* value, ParsedArgs& args, EngineConfig& cfg ) -> bool
+          {
+              static_cast<void>( args );
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--shadow-parallel-prep expects optional on|off." );
+              }
+              cfg.shadowParallelPrep = enabled;
+              fprintf( stdout,
+                       "[workers] Shadow parallel prep %s via command line.\n",
+                       enabled ? "enabled" : "disabled" );
+              return true;
+          } },
+    };
+
+    return ApplyConfigCliValueDirectives( commandLine, out, config, kConfigValues );
 }
 
 
@@ -2225,7 +2267,7 @@ bool ParsePhysicsDiagnosticsPath( const CommandLineView& commandLine, char ( &ou
 #endif
 
 // ParsedArgs owns all command-line option state after this pass.
-// Also loads engine.cfg and applies any overrides to the global Cfg() singleton.
+// Also loads engine.cfg and applies any overrides to the process config.
 // False means startup should abort, such as --physics-regression-log in Release.
 bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
 {
@@ -2238,8 +2280,9 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
         return false;
     }
 
-    Cfg().Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
-    if ( !ApplyVsyncOverride( commandLine ) )
+    EngineConfig& config = EngineConfig::Instance();
+    config.Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
+    if ( !ApplyVsyncOverride( commandLine, config ) )
     {
         return false;
     }
@@ -2305,7 +2348,7 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
     out.physicsDiagnosticsRequested = out.physicsDiagnosticsPath[0] != '\0';
 #endif
 
-    if ( !ApplyStartupCliValueDirectives( commandLine, out ) )
+    if ( !ApplyStartupCliValueDirectives( commandLine, out, config ) )
     {
         return false;
     }
@@ -2404,7 +2447,7 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
 
     if ( out.dumpConfig )
     {
-        Cfg().Dump( stdout );
+        config.Dump( stdout );
     }
 
     PlatformProfiler::SetEnabled( out.platformProfilerMarkers );
@@ -2434,6 +2477,7 @@ void InitRenderBackend( Window* window )
     backend->Init( window->m_sWindow, window->m_sDevice, window->m_sWindowDimensions.x, window->m_sWindowDimensions.y );
     SetGfxBackend( std::move( backend ) );
     SetGfxRayTracingBackend( rayTracingBackend );
+    window->BindResizeBackend( rayTracingBackend );
 }
 
 // ---------------------------------------------------------------------------
@@ -2442,10 +2486,10 @@ void InitRenderBackend( Window* window )
 // before the DX12 backend and the Win32 window are torn down.
 // ---------------------------------------------------------------------------
 
-int RunApp( Window* window, ParsedArgs& args )
+int RunApp( Window* window, ParsedArgs& args, EngineConfig& config, WorkerPool& workerPool )
 {
     {
-        std::unique_ptr<Run> cRun = std::make_unique<Run>( std::move( args.sceneList ) );
+        std::unique_ptr<Run> cRun = std::make_unique<Run>( std::move( args.sceneList ), *window, config, workerPool );
         if ( args.timeScaleOverride > 0.0f )
         {
             cRun->SetTimeScaleOverride( args.timeScaleOverride );
@@ -2667,6 +2711,7 @@ void CleanupWindow( Window* window, HINSTANCE hInstance )
         Input::UnbindCallbackBridge( window->m_sWindow );
     }
 
+    window->BindResizeBackend( nullptr );
     DestroyGfxBackend();
 
     if ( window->m_sDevice )
@@ -2745,25 +2790,28 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return 1;
     }
 
-    WorkerPool::Instance().Initialise( Cfg().workerThreads );
+    EngineConfig& config = EngineConfig::Instance();
+
+    WorkerPool& workerPool = WorkerPool::Instance();
+    workerPool.Initialise( config.workerThreads );
     if ( args.workerSelfTest )
     {
         const bool workersOk = RunWorkerSystemSelfTest( stdout );
-        WorkerPool::Instance().Shutdown();
+        workerPool.Shutdown();
         CoUninitialize();
         return workersOk ? 0 : 1;
     }
 
     Window* window = Window::Instance();
-    window->CreateAppWindow( hInstance, Cfg().window.fullscreen );
+    window->CreateAppWindow( hInstance, config );
     window->m_sDevice = GetDC( window->m_sWindow );
 
     InitRenderBackend( window );
     window->HandleScreenResize();
 
-    const int runExitCode = RunApp( window, args );
+    const int runExitCode = RunApp( window, args, config, workerPool );
 
-    WorkerPool::Instance().Shutdown();
+    workerPool.Shutdown();
     CleanupWindow( window, hInstance );
 
     CoUninitialize();

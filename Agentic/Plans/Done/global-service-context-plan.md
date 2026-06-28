@@ -1,7 +1,7 @@
 # Global Service Context Plan
 
 Date: 2026-06-25
-Status: Draft follow-up plan; Phase 0 inventory complete
+Status: Superseded roadmap; not authoritative for implementation
 Impact area: engine context, renderer services, assets, textures, window/input, config, diagnostics
 Validation for this document-only change: none required
 
@@ -254,6 +254,14 @@ Validation:
 
 ## Handoff Notes
 
+- 2026-06-28 supersession audit: this broad service-context roadmap is now
+  superseded by `carmack-global-service-lifetime-plan.md`, which owns the
+  active explicit-context/global-service cleanup and still has open checklist
+  items. Source review still shows normal-path global service access remains,
+  so this document must not be cited as completion evidence.
+- Rubber-duck verdict: no blocking issue found for moving this document to
+  `Done` as a superseded roadmap, with active implementation authority left in
+  the Carmack global-service plan.
 Implement this through the repo-local orchestrator skill. Start with new-code
 guardrails and renderer context movement; the value comes from preventing new
 global use while old compatibility paths shrink.

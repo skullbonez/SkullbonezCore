@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   Asset system: Runtime-owned registry borrowed by editor ghost tracing when a
     placeable recipe comes from an asset library.
+  EngineConfig: Live process settings borrowed from Run by launcher repro
+    snapshots so debug output records the same physics constants the frame used.
   Tool state: Runtime-owned launcher, mouse-pickup, editor, and overlay-trace
     data that persists between frames.
   Replay visual sample: Compact snapshot of tool visuals restored while replay
@@ -64,6 +66,11 @@ namespace SkullbonezCore::Geometry
 class Terrain;
 }
 
+namespace SkullbonezCore::Rendering
+{
+class IRenderCommandContext;
+}
+
 namespace SkullbonezCore::Environment
 {
 class CameraCollection;
@@ -114,6 +121,7 @@ struct LauncherReproSnapshotContext
     Environment::CameraCollection* cameras;
     Geometry::Terrain* terrain;
     Environment::WorldEnvironment& world;
+    const Basics::EngineConfig& config;
     const RunSceneState& sceneState;
     const std::string* currentScenePath;
     const RunLaunchOptions& launchOptions;
@@ -255,7 +263,8 @@ class RunEditorTracer
                                  int hotAngularAxis,
                                  int activeAxis,
                                  bool activeAngular );
-    void Render( const Math::Transformation::Matrix4& viewProjection );
+    void Render( Rendering::IRenderCommandContext& renderCommands,
+                 const Math::Transformation::Matrix4& viewProjection );
 };
 
 class RuntimeTools
@@ -290,6 +299,7 @@ class RuntimeTools
                                     Math::Vector::Vector3& outCameraUp ) const;
     bool FireLauncherRay( GameObjects::GameModelCollection& collection,
                           Environment::WorldEnvironment& world,
+                          const EngineConfig& config,
                           Geometry::Terrain* terrain,
                           int activeModelCapacity,
                           const Math::Vector::Vector3& rayOrigin,
@@ -302,6 +312,7 @@ class RuntimeTools
                             const Math::Vector::Vector3& cameraUp );
     bool FireLauncherProjectile( GameObjects::GameModelCollection& collection,
                                  Environment::WorldEnvironment& world,
+                                 const EngineConfig& config,
                                  Geometry::Terrain* terrain,
                                  int activeModelCapacity,
                                  const Math::Vector::Vector3& rayOrigin,

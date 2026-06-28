@@ -9,6 +9,11 @@ Mental model:
   reading anchors.
 
 Glossary:
+  Asset system: Runtime-owned registry borrowed by terrain render passes to
+  resolve terrain and shadow shader source.
+  Render resource factory: Borrowed renderer capability that creates backend
+  mesh and shader objects without terrain reacquiring the global renderer
+  service.
   DXR (DirectX Raytracing): DirectX 12 feature used for hardware ray traversal and
   reflection dispatch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
@@ -51,6 +56,15 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+} // namespace Assets
+namespace Rendering
+{
+class IRenderResourceFactory;
+} // namespace Rendering
+
 namespace Geometry
 {
 /* -- Terrain
@@ -71,27 +85,44 @@ class Terrain
   public:
     static constexpr float FLAT_SLOPE_EXTENT = 1000.0f;         // XZ extent of the analytic flat slope play area
 
+    Terrain( const Basics::EngineConfig& config,
+             const char* sFileName,
+             int iMapSize,
+             int iStepSize,
+             int iTextureWrap );                                // Runtime RAW terrain bound to live config for scale and render style.
     Terrain( const char* sFileName,
              int iMapSize,
              int iStepSize,
              int iTextureWrap );                                // RAW heightmap path plus authoring dimensions; step size feeds both pixels and
                                  // physics posts.
+    Terrain( const Basics::EngineConfig& config,
+             float slopeBaseY,
+             float slopeX,
+             float slopeZ );                                    // Runtime flat analytic slope bound to live config.
     Terrain( float slopeBaseY,
              float slopeX,
              float slopeZ );                                    // Flat analytic slope constructor: y = slopeBaseY + slopeX*x + slopeZ*z
     ~Terrain();
 
-    void Render( const Math::Transformation::Matrix4& view,
+    void Render( Rendering::IRenderCommandContext& renderCommands,
+                 const Assets::AssetSystem& assets,
+                 Rendering::IRenderResourceFactory& renderResources,
+                 const Math::Transformation::Matrix4& view,
                  const Math::Transformation::Matrix4& projection,
                  const float* lightPosition,
                  const Basics::CinematicRenderConfig* cinematic = nullptr,
                  const Rendering::ShadowFrameData* shadow =
                      nullptr );                                 // Terrain color pass with optional cinematic and shadow inputs.
-    void RenderShadowDepth( const Math::Transformation::Matrix4& lightView,
+    void RenderShadowDepth( const Assets::AssetSystem& assets,
+                            Rendering::IRenderResourceFactory& renderResources,
+                            const Math::Transformation::Matrix4& lightView,
                             const Math::Transformation::Matrix4& lightProjection,
                             const Basics::CinematicRenderConfig* cinematic =
                                 nullptr );                      // Depth-only terrain caster pass for directional shadows.
-    void ResetRenderResources();                                // Rebuild backend-specific mesh/shader resources after a device reset or resize
+    void EnsureRenderResources(
+        const Assets::AssetSystem& assets,
+        Rendering::IRenderResourceFactory& renderResources );    // Builds backend terrain resources through explicit render services.
+    void ResetRenderResources();                                // Drops backend-specific mesh/shader resources after a device reset or resize
     // Borrowed mesh pointer for DXR BLAS construction; Terrain retains ownership.
     Rendering::IMesh* GetMesh() const
     {
@@ -148,6 +179,9 @@ class Terrain
     std::vector<TerrainPost> m_postData;                        // Physics-authoritative coarse terrain posts
     std::vector<BYTE> m_terrainData;                            // Raw m_height map byte data retained for render mesh rebuilds
     std::vector<CachedQuadData> m_cachedCollisionData;
+    Basics::EngineConfig m_defaultConfig =
+        Basics::EngineConfig::Defaults();                         // Defaults for explicit test terrains constructed outside Run.
+    const Basics::EngineConfig* m_config;                         // Borrowed runtime config for scale, fluid floor, and render style.
     int m_mapSize;                                              // Size of map (pixels length)
     int m_stepSize;                                             // Steps size between posts
     int m_renderStepSize;                                       // Render-only raw-pixel step size; physics keeps m_stepSize
@@ -167,7 +201,18 @@ class Terrain
     Math::Vector::Vector3 m_flatSlopeNormal;
 
     void LoadTerrainData( const char* sFileName );              // RAW byte load retained for render mesh rebuilds.
-    void InitialiseTerrainShader();                             // Lit terrain shader setup for the active backend.
+    const Basics::EngineConfig& Config() const;                  // Returns live runtime config or the default fallback for explicit tests.
+    void InitialiseRawTerrain( const Basics::EngineConfig& config,
+                               const char* sFileName,
+                               int iMapSize,
+                               int iStepSize,
+                               int iTextureWrap );              // Shared setup for config-bound and default RAW terrain.
+    void InitialiseFlatSlope( const Basics::EngineConfig& config,
+                              float slopeBaseY,
+                              float slopeX,
+                              float slopeZ );                   // Shared setup for config-bound and default analytic terrain.
+    void InitialiseTerrainShader( const Assets::AssetSystem& assets,
+                                  Rendering::IRenderResourceFactory& renderResources ); // Lit terrain shader setup for the active backend.
     void ConfigureRenderStepSize();                             // Chooses a safe render-only terrain step size
     void BuildTerrain();                                        // Physics-authoritative terrain posts are rebuilt from raw height data.
     void BuildCollisionCache();                                 // Precomputes per-quad triangle planes + normals for physics queries
@@ -189,8 +234,8 @@ class Terrain
     TerrainPost BuildRenderPost( float rawX, float rawZ ) const;
     void TranslatePostings();                                   // Centers authored posts into world space.
     void GenerateNormals();                                     // Post normals are shared by lighting and terrain contacts.
-    void BuildMesh();                                           // Render-only height samples keep mesh density independent of physics posts.
-    void BuildFlatSlopeMesh();                                  // Analytic flat slope scenes bypass RAW height data but still need vertex storage.
+    void BuildMesh( Rendering::IRenderResourceFactory& renderResources ); // Render-only height samples keep mesh density independent of physics posts.
+    void BuildFlatSlopeMesh( Rendering::IRenderResourceFactory& renderResources ); // Analytic flat slope scenes bypass RAW height data but still need vertex storage.
     int GetPixelHeightAt( int xCoord, int yCoord );             // RAW pixel height before terrain post translation.
 };
 } // namespace Geometry

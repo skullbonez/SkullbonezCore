@@ -1,4 +1,6 @@
-"""Align trailing inline comments in C++ headers.
+"""File: tools/align_header_inline_comments.py
+Purpose:
+  Align trailing inline comments in C++ headers.
 
 Mental model:
   This is a header-only post-pass for clang-format. Public header declarations

@@ -20,6 +20,8 @@ Glossary:
 Invariants:
   - m_worldEnvironment and m_terrain are borrowed scene pointers; GameModel must
     not own or destroy them.
+  - m_config is borrowed from the runtime config active when the model is
+    constructed; per-body physics thresholds must stay tied to that scene setup.
   - m_boundingVolume is authoritative collision geometry; cached radius, area,
     volume, and inertia values are derived data.
 
@@ -129,6 +131,7 @@ class GameModel
     BallPhysicsCache m_ballPhysics;                                         // Immutable scalar cache read by broadphase, buoyancy, and drag loops.
     Physics::RigidBody m_physicsInfo;                                       // Integrator state: position, velocity, orientation, forces, and impulses.
     Environment::WorldEnvironment* m_worldEnvironment;                      // Borrowed world force/fluid settings; owning scene keeps it alive.
+    const Basics::EngineConfig* m_config;                                   // Borrowed live config that seeded this model's physics policy.
     Geometry::Terrain* m_terrain;                                           // Borrowed terrain used for height samples and terrain contacts.
     // Temporary terrain-hit mailbox. CollisionDetectTerrain writes where and
     // when a terrain hit happened; BuildTerrainContactManifold reads it and
@@ -154,7 +157,9 @@ class GameModel
     char m_name[64];                                                        // Optional name for logging (empty = unnamed)
 
     void BuildSpherePhysicsCache(
-        float radius );                                                     // Hot-path cache built from authoring radius before broadphase and drag sampling.
+        float radius,
+        float dragCoefficient );                                            // Hot-path cache built from authoring radius before broadphase and drag sampling.
+    const Basics::EngineConfig& Config() const;                             // Physics policy constants borrowed at construction.
     const Math::CollisionDetection::BoundingSphere&
     GetBoundingSphere() const;                                              // Precondition: m_boundingVolume currently holds BoundingSphere.
     Math::CollisionDetection::BoundingSphere&
@@ -208,6 +213,7 @@ class GameModel
     };
 
     GameModel( Environment::WorldEnvironment* pWorldEnv,
+               const Basics::EngineConfig& config,
                const Math::Vector::Vector3& vPosition,
                const Math::Vector::Vector3& vRotationalInertia,
                float fMass );                                               // Scene construction path; world pointer is borrowed.

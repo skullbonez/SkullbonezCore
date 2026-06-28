@@ -366,6 +366,7 @@ bool RuntimeTools::TryBuildLauncherCameraRay( Environment::CameraCollection* cam
 
 bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection,
                                     Environment::WorldEnvironment& world,
+                                    const EngineConfig& config,
                                     Geometry::Terrain* terrain,
                                     int activeModelCapacity,
                                     const Math::Vector::Vector3& rayOrigin,
@@ -376,6 +377,7 @@ bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection
     {
         return FireLauncherProjectile( collection,
                                        world,
+                                       config,
                                        terrain,
                                        activeModelCapacity,
                                        rayOrigin,
@@ -445,6 +447,7 @@ void RuntimeTools::FireLauncherLaser( GameObjects::GameModelCollection& collecti
 
 bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& collection,
                                            Environment::WorldEnvironment& world,
+                                           const EngineConfig& config,
                                            Geometry::Terrain* terrain,
                                            int activeModelCapacity,
                                            const Math::Vector::Vector3& rayOrigin,
@@ -494,6 +497,7 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
 
     const float moment = 0.4f * LAUNCHER_PROJECTILE_MASS * LAUNCHER_PROJECTILE_RADIUS * LAUNCHER_PROJECTILE_RADIUS;
     GameObjects::GameModel projectile( &world,
+                                       config,
                                        spawn,
                                        Math::Vector::Vector3( moment, moment, moment ),
                                        LAUNCHER_PROJECTILE_MASS );

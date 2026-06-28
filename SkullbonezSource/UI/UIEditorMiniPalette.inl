@@ -583,6 +583,9 @@ bool EditorMiniTreeVisualForType( int objectType,
                                   bool& outSlope,
                                   bool& outShedding )
 {
+    // Concept: many editor placement ids share one tiny glyph family. This
+    // maps command ids into a compact visual taxonomy so selection, flyouts,
+    // and silhouettes stay in sync.
     outSlope = false;
     outShedding = false;
     if ( EditorMiniTreeTypeForType( objectType, outTreeType, outPlacement ) )
@@ -622,6 +625,8 @@ void DrawEditorMiniRootSilhouette( const UIDrawContext& draw,
                                    const Style::UIColor& color,
                                    float alpha )
 {
+    // Why: the mini palette avoids texture/icon assets. Primitive silhouettes
+    // keep the minimized editor usable even before asset previews are loaded.
     const float cx = bounds.x + bounds.w * 0.5f;
     const float cy = bounds.y + bounds.h * 0.52f;
     const float r = (std::min)( bounds.w, bounds.h ) * ( largeRoot ? 0.36f : 0.31f );
@@ -1101,6 +1106,9 @@ void DrawEditorMiniIcon( const UIDrawContext& draw,
                          const Style::UIColor& color,
                          float alpha )
 {
+    // Concept: object icons are symbolic, not thumbnails. They must be cheap to
+    // draw every frame and stable enough that hit feedback cannot depend on
+    // renderer-owned meshes or textures.
     const float cx = bounds.x + bounds.w * 0.5f;
     const float cy = bounds.y + bounds.h * 0.5f;
     const float r = (std::min)( bounds.w, bounds.h ) * 0.31f;

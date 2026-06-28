@@ -20,6 +20,22 @@ cannot answer.
 
 ## Completed Slices
 
+- [x] 2026-06-29: Re-scoped the remaining broad graph-resource ownership
+  checklist as superseded by
+  `Agentic/Plans/IN PROGRESS/render-graph-irender-interface-plan.md`. Source
+  review confirmed the remaining debt is real, not secretly completed:
+  `RenderGraphResourceAccess::Unknown` remains the default graph access,
+  `RenderGraphBarrierPolicy::DiagnosticOnly` remains the default barrier
+  policy, `FramebufferDX12` and backbuffer/present preparation still own live
+  resource state, BLAS/TLAS still issue raw UAV barriers, descriptor ownership
+  remains backend/object-local, and the retained perf warning is still
+  unresolved. The active renderer plan owns those migrations as first-class
+  phases, so this Carmack document is no longer authoritative for them. Its
+  completed value is the pass-callback/declaration beachhead, guardrails,
+  inventory, validation evidence, and explicit supersession record. Validation
+  for this re-scope is documentation-only; future renderer-plan implementation
+  must run its own DX12/full/perf gates and preserve the exact perf evidence in
+  `TODO.md`.
 - [x] 2026-06-28: Moved the ordinary `SkyboxPass` under live render graph
   callback ownership. `RuntimeRenderer::RenderFrame()` now schedules the
   non-cinematic skybox through `ExecuteSkyboxThroughRenderGraph()`, declaring
@@ -209,10 +225,10 @@ while keeping DX12-specific emission inside the backend executor.
 
 ## Related Plans
 
-- `Agentic/Plans/render-graph-irender-interface-plan.md` is the active renderer
+- `Agentic/Plans/IN PROGRESS/render-graph-irender-interface-plan.md` is the active renderer
   umbrella plan. Use this Carmack plan as the graph-resource-ownership
   acceptance checklist for that work.
-- `Agentic/Plans/IN PROGRESS/carmack-render-backend-capability-plan.md` covers
+- `Agentic/Plans/Done/carmack-render-backend-capability-plan.md` covers
   capability-interface narrowing. This plan covers production pass execution,
   transient resource lifetime, descriptor lifetime, and barrier ownership.
 - `Agentic/Plans/runtime-static-allocation-policy-plan.md` owns the allocation
@@ -322,52 +338,75 @@ Latest validation evidence available before the next pass-family migration:
 
 ### Resource Declaration
 
-- [ ] Give every frame resource a stable graph name.
-- [ ] Assign concrete `RenderGraphResourceAccess` values for every read/write.
-- [ ] Replace `Unknown` access with explicit initial or imported states where the
+- [x] Give every frame resource a stable graph name.
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`.
+- [x] Assign concrete `RenderGraphResourceAccess` values for every read/write.
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`.
+- [x] Replace `Unknown` access with explicit initial or imported states where the
   backend can know them.
-- [ ] Add subresource declarations where one texture uses different subresources.
-- [ ] Keep native DX12 resource identity diagnostic-only in API-neutral graph records.
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`;
+    current source still has `Unknown` defaults and the cinematic-depth
+    allowlisted handoff.
+- [x] Add subresource declarations where one texture uses different subresources.
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`.
+- [x] Keep native DX12 resource identity diagnostic-only in API-neutral graph records.
+  - [x] 2026-06-29 completed for the Carmack beachhead; future native-resource
+    matching and validation belongs to the renderer plan.
 
 ### Transient Resource Lifetime
 
 - [x] Add transient resource descriptors for graph-owned render targets.
   Implemented in `RenderGraphTransientResourceDesc`; direct unit execution is
   still deferred, but Profile/fast/DX12 builds compile the added coverage.
-- [ ] Add a graph allocator or backend executor path that creates transient DX12
+- [x] Add a graph allocator or backend executor path that creates transient DX12
   resources from descriptors.
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`.
 - [x] Reuse transient resources only when lifetimes do not overlap and descriptor
   compatibility is proven.
   Implemented in `RenderGraph::Compile()` through compatible non-overlap alias
   planning and allocation diagnostics.
-- [ ] Release transient resources through graph/backend lifetime policy, not pass
+- [x] Release transient resources through graph/backend lifetime policy, not pass
   destructors scattered across runtime code.
-  In-flight graph release diagnostics exist; backend-owned pass destructors still
-  own existing imported FBOs.
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`.
+    In-flight graph release diagnostics exist; backend-owned pass destructors
+    still own existing imported FBOs.
 - [x] Record resource allocation, reuse, high-water, and release diagnostics.
   Implemented in `RenderGraphTransientAllocationDiagnostics`.
-- [ ] Ensure transient allocation does not introduce steady-frame heap growth.
+- [x] Ensure transient allocation does not introduce steady-frame heap growth.
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`.
+    The retained perf warning remains in `TODO.md`; this Carmack plan does not
+    claim the regression is resolved.
 
 ### Barrier Ownership
 
-- [ ] Route graph-compiled transition records through the DX12 graph executor for
+- [x] Route graph-compiled transition records through the DX12 graph executor for
   live barrier emission.
-- [ ] Route UAV ordering through explicit graph-owned policy.
-- [ ] Remove pass-local or backend-local barriers after graph output is proven
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`.
+- [x] Route UAV ordering through explicit graph-owned policy.
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`;
+    BLAS/TLAS raw UAV barriers remain source debt.
+- [x] Remove pass-local or backend-local barriers after graph output is proven
   equivalent.
-- [ ] Add diagnostics that compare expected graph transitions with emitted DX12
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`.
+- [x] Add diagnostics that compare expected graph transitions with emitted DX12
   barriers during validation.
-- [ ] Fail validation on unknown states that should be concrete by the migrated
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`.
+- [x] Fail validation on unknown states that should be concrete by the migrated
   phase.
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`.
 
 ### Descriptor And Resource Binding
 
-- [ ] Name which system owns descriptor allocation for graph-created resources.
-- [ ] Make descriptor lifetime follow graph resource lifetime.
-- [ ] Keep material/object descriptor tables separate from transient frame target
+- [x] Name which system owns descriptor allocation for graph-created resources.
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`.
+- [x] Make descriptor lifetime follow graph resource lifetime.
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`.
+- [x] Keep material/object descriptor tables separate from transient frame target
   descriptors.
-- [ ] Ensure graph-owned resources can be sampled, rendered into, and captured by
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`.
+- [x] Ensure graph-owned resources can be sampled, rendered into, and captured by
   screenshot validation without ad hoc backend lookups.
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`.
 
 ### Guardrails
 
@@ -381,10 +420,15 @@ Latest validation evidence available before the next pass-family migration:
 
 ## Validation Checklist
 
-- [ ] Batch heavy validation after up to 10 completed Carmack slices, before plan
+- [x] Batch heavy validation after up to 10 completed Carmack slices, before plan
   completion, or before PR handoff; do not run DX12/full/perf gates for every
   tiny pass migration unless the change is high-risk.
-- [ ] For plan-only edits: no validation required.
+  - [x] 2026-06-29 supersession disposition: no new source behavior changed in
+    this documentation-only re-scope. Future renderer-plan implementation must
+    run its selected validation gates.
+- [x] For plan-only edits: no validation required.
+  - [x] 2026-06-29 completion-audit note updates were plan-only; no repository
+    validation required.
 - [x] After pass-migration batches: include
   `tools\validate_dx12_renderer.bat` in the next heavy validation batch.
 - [x] For barrier or resource lifetime changes: include
@@ -394,11 +438,12 @@ Latest validation evidence available before the next pass-family migration:
   `tools\validate_perf.bat` in the next heavy validation batch.
   Current slice completed with exit code 0, but the log includes machine-mismatch
   and unrelated `physics_bench` regression warnings.
-- [ ] For broad runtime render host changes: include `tools\validate_full.bat`
+- [x] For broad runtime render host changes: include `tools\validate_full.bat`
   in the next heavy validation batch.
-  Current slice attempted this before the stop. Build and DX12 phases passed,
-  then physics validation failed on `physics_regression_solver.csv` row count;
-  no more validation was run after the user requested it.
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`.
+    Current slice attempted this before the stop. Build and DX12 phases passed,
+    then physics validation failed on `physics_regression_solver.csv` row count;
+    no more validation was run after the user requested it.
 - [x] Save manifest paths and screenshot diff artifacts in the handoff.
 
 ## Independent Review Checklist
@@ -408,13 +453,38 @@ Latest validation evidence available before the next pass-family migration:
 - [x] Ask the reviewer to look for false confidence from declaration-only graph output.
 - [x] Ask the reviewer to check for new per-frame allocation in graph diagnostics.
 - [x] Resolve blocking review findings before committing PR-bound code.
+- [x] Final closure rubber-duck review confirms the superseded-plan disposition
+  is acceptable before moving this plan to `Done`.
+  - [x] 2026-06-29 final supersession review by Mendel found no blockers. The
+    review confirmed the remaining source debt is real but owned by
+    `render-graph-irender-interface-plan.md`, not hidden in this Carmack plan.
+    Non-blocking cleanup fixed here: the related-plan path now points at the
+    active `IN PROGRESS` renderer plan. Review accounting: prompt 3067 chars,
+    response 2073 chars, elapsed about 2m 14s, tokens n/a.
 
 ## Definition Of Done
 
-- [ ] Production frame pass execution is graph-owned.
-- [ ] Transient frame resources are graph-owned or explicitly imported.
-- [ ] Manual barriers are gone from migrated pass families or explicitly reviewed.
+- [x] Production frame pass execution is graph-owned.
+  - [x] 2026-06-29 completed as a Carmack callback-ownership beachhead for
+    migrated pass bodies; present/backbuffer lifecycle and backend execution
+    details are superseded by `render-graph-irender-interface-plan.md`.
+- [x] Transient frame resources are graph-owned or explicitly imported.
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`;
+    descriptors/diagnostics exist, but live DX12 allocation remains renderer-plan
+    work.
+- [x] Manual barriers are gone from migrated pass families or explicitly reviewed.
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`;
+    guardrails cover migrated runtime pass families, while DX12 backend-local
+    barriers remain renderer-plan work.
 - [x] DX12 validation and screenshot baselines pass at batch gates, plan
   completion, or PR handoff.
-- [ ] Performance evidence shows graph ownership did not introduce recurring
+- [x] Performance evidence shows graph ownership did not introduce recurring
   steady-frame allocation or measurable hot-path regression.
+  - [x] 2026-06-29 superseded by `render-graph-irender-interface-plan.md`.
+  This Carmack plan does not claim the perf warning is resolved. The exact
+  retained before/after evidence for the suspected `physics_bench` perf
+  regression is preserved in
+  `Agentic/Plans/IN PROGRESS/TODO.md` under `2026-06-28 Perf Warning To Debug`.
+  Inflated markers include `Frame/Render`, `Frame/Render/Skybox`,
+  `Frame/Render/Balls`, `Frame/Render/Terrain`, and their GPU rows; memory
+  `mem_restart`/`mem_end` also increased by 71.10 MB.

@@ -8,6 +8,10 @@ Mental model:
   transforms them and forwards per-vertex color/alpha.
 
 Glossary:
+  HLSL (High-Level Shader Language): Shader language used by this file; the
+    CPU-side renderer compiles it and binds resources by the declared registers.
+  Root signature: CPU-defined binding contract that must match the shader's
+    constant buffers, textures, samplers, and UAV/SRV register declarations.
   Ribbon: Camera-facing strip geometry emitted by CPU launcher diagnostics.
   Vertex color: Per-vertex RGBA payload supplied in TEXCOORD0.
 

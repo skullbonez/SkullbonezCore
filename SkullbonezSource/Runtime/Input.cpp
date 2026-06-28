@@ -29,7 +29,6 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Input.h"
-#include "Window.h"
 
 #include <cassert>
 
@@ -132,13 +131,14 @@ long RawAbsoluteToPixels( long value, int extent )
 
 bool Input::IsAppFocused()
 {
-    Window* window = Window::Instance();
-    if ( !window || !window->m_sWindow )
+    // Invariant: static input helpers are only valid after CreateAppWindow()
+    // binds the HWND that WndProc and frame polling share.
+    if ( !s_callbackBridgeWindow )
     {
         return false;
     }
 
-    return GetForegroundWindow() == window->m_sWindow;
+    return GetForegroundWindow() == s_callbackBridgeWindow;
 }
 
 
@@ -350,8 +350,11 @@ POINT Input::GetClientMouseCoordinates()
     }
 
     POINT mousePos = GetMouseCoordinates();
-    Window* m_cWindow = Window::Instance();
-    if ( !ScreenToClient( m_cWindow->m_sWindow, &mousePos ) )
+    if ( !s_callbackBridgeWindow )
+    {
+        throw std::runtime_error( "Input callback bridge is not bound (Input::GetClientMouseCoordinates)." );
+    }
+    if ( !ScreenToClient( s_callbackBridgeWindow, &mousePos ) )
     {
         throw std::runtime_error( "Converting mouse coordinates failed (Input::GetClientMouseCoordinates)." );
     }
@@ -450,9 +453,13 @@ void Input::CentreMouseCoordinates()
         return;
     }
 
-    Window* m_cWindow = Window::Instance();
-    POINT clientCenter = { m_cWindow->m_sWindowDimensions.x >> 1, m_cWindow->m_sWindowDimensions.y >> 1 };
-    if ( !ClientToScreen( m_cWindow->m_sWindow, &clientCenter ) )
+    RECT clientRect = {};
+    if ( !GetClientRect( s_callbackBridgeWindow, &clientRect ) )
+    {
+        throw std::runtime_error( "Reading client bounds failed (Input::CentreMouseCoordinates)." );
+    }
+    POINT clientCenter = { ( clientRect.right - clientRect.left ) >> 1, ( clientRect.bottom - clientRect.top ) >> 1 };
+    if ( !ClientToScreen( s_callbackBridgeWindow, &clientCenter ) )
     {
         throw std::runtime_error( "Converting mouse center failed (Input::CentreMouseCoordinates)." );
     }

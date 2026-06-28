@@ -261,6 +261,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         const SceneBall& ball = scene.GetBall( i );
 
         GameModel gameModel( &context.world,
+                             context.config,
                              Vector3( ball.posX, ball.posY, ball.posZ ),
                              Vector3( ball.moment, ball.moment, ball.moment ),
                              ball.m_mass );
@@ -297,6 +298,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         const SceneBallState& bs = scene.GetBallState( i );
 
         GameModel gameModel( &context.world,
+                             context.config,
                              Vector3( bs.posX, bs.posY, bs.posZ ),
                              Vector3( bs.inertiaX, bs.inertiaY, bs.inertiaZ ),
                              bs.mass );
@@ -331,7 +333,11 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         float m3 = box.mass / 3.0f;
         Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
 
-        GameModel gameModel( &context.world, Vector3( box.posX, box.posY, box.posZ ), inertia, box.mass );
+        GameModel gameModel( &context.world,
+                             context.config,
+                             Vector3( box.posX, box.posY, box.posZ ),
+                             inertia,
+                             box.mass );
 
         gameModel.SetCoefficientRestitution( box.restitution );
         gameModel.SetTerrain( context.terrain );
@@ -359,6 +365,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         const SceneBoxState& box = scene.GetBoxState( i );
 
         GameModel gameModel( &context.world,
+                             context.config,
                              Vector3( box.posX, box.posY, box.posZ ),
                              Vector3( box.inertiaX, box.inertiaY, box.inertiaZ ),
                              box.mass );
@@ -388,7 +395,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         const Vector3 inertia = hull.ComputeBoxApproxInertia( hullScene.mass );
         const Vector3 authoredPosition( hullScene.posX, hullScene.posY, hullScene.posZ );
 
-        GameModel gameModel( &context.world, authoredPosition, inertia, hullScene.mass );
+        GameModel gameModel( &context.world, context.config, authoredPosition, inertia, hullScene.mass );
 
         gameModel.SetCoefficientRestitution( hullScene.restitution );
         gameModel.SetTerrain( context.terrain );
@@ -434,6 +441,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         const ConvexHullShape hull = ConvexHullShape::LoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ) );
 
         GameModel gameModel( &context.world,
+                             context.config,
                              Vector3( hullScene.posX, hullScene.posY, hullScene.posZ ),
                              Vector3( hullScene.inertiaX, hullScene.inertiaY, hullScene.inertiaZ ),
                              hullScene.mass );
@@ -471,7 +479,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
             options.orientation =
                 MakeSceneEulerQuaternion( ragdollScene.eulerX, ragdollScene.eulerY, ragdollScene.eulerZ );
         }
-        Ragdoll::AddSimpleHumanoid( context.models, context.physics, context.world, context.terrain, options );
+        Ragdoll::AddSimpleHumanoid( context.models, context.physics, context.world, context.config, context.terrain, options );
     }
 
     const std::vector<GameModel>& models = context.models.Models();

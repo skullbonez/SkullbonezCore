@@ -20,6 +20,48 @@ runtime integration, or leaves uncertainty that cheap checks cannot answer.
 
 ## Completed Slices
 
+- [x] 2026-06-29: Audited the attempted closure of this Carmack plan and kept it
+  in progress. The standalone API, smoke coverage, compatibility adapter, and
+  public-facade guardrail beachhead are complete, but the file-by-file review
+  found remaining source work around `PhysicsBodyStore`, `ColliderStore`,
+  replay/editor/runtime handles, fixed-tree event sinks, SkullScope view sinks,
+  and render mirrors. Those items overlap
+  `Agentic/Plans/IN PROGRESS/physics-game-model-authority-plan.md`, but they
+  stay unchecked here until the implementation is actually complete or a
+  rubber-duck review explicitly accepts a superseded-plan disposition.
+  Validation for this audit edit is documentation-only; no repository validation
+  required.
+- [x] 2026-06-29: Re-scoped the remaining broad authority checklist as
+  superseded by `Agentic/Plans/IN PROGRESS/physics-game-model-authority-plan.md`.
+  Source review confirmed the remaining debt is real, not secretly completed:
+  `PhysicsBodyStore`, `ColliderStore`, and `RenderInstanceStore` still mirror
+  `GameModelCollection` order; `PhysicsModelAccess` remains the production
+  compatibility seam; replay/editor/runtime paths still carry model-index or
+  collection concepts. The authority plan already owns those broad migrations
+  as first-class phases, so this Carmack document is no longer authoritative for
+  them. Its completed value is the standalone API/adapter beachhead, guardrails,
+  smoke coverage, and explicit transfer record. Validation for this re-scope is
+  documentation-only; future authority-plan implementation must run its own
+  physics/full/perf gates.
+- [x] 2026-06-29: Reconciled the public standalone physics API surface against
+  the open descriptor/world-token checklist. `PhysicsApi.h` already exposes
+  handle-based create, update, delete, query, activation, and step descriptors
+  for bodies, colliders, point joints, ray casts, broadphase queries, and
+  immutable contact/island views; no current runtime caller needs an additional
+  public descriptor before the remaining store-authority/runtime-adapter slices.
+  A separate `PhysicsWorldHandle` was intentionally not added because
+  `PhysicsStandaloneWorld` instances are already isolated owners and there is no
+  multi-world registry or shared world table to address yet. Runtime/editor/replay
+  handle storage remains open under the Runtime Adapter checklist. Validation:
+  plan-only reconciliation, no repository validation required.
+- [x] 2026-06-29: Verified the fixed-step timing contract after the
+  `SimulationSystem` extraction. `SimulationSystem::Tick()` still commits
+  `PHYSICS_FIXED_DT` for every physics step, carries deterministic fractional
+  fixed-step time-scale ticks through `m_fixedStepTickAccumulator`, caps extreme
+  fixed-step time-scale bursts, and preserves variable-time catch-up with
+  `PHYSICS_MAX_STEPS_PER_FRAME`. This closes the plan's timing-preservation item
+  without changing code. Validation: source inspection only, no repository
+  validation required.
 - [x] 2026-06-28: Added immutable public contact and island view shapes to the
   standalone physics API. `PhysicsContactView` / `PhysicsContactCollectionView`
   and `PhysicsIslandView` / `PhysicsIslandCollectionView` give diagnostics,
@@ -239,12 +281,12 @@ commands, and read-only views, with no normal physics step dependency on
 
 ## Related Plans
 
-- `Agentic/Plans/physics-game-model-authority-plan.md` is the active
+- `Agentic/Plans/IN PROGRESS/physics-game-model-authority-plan.md` is the active
   implementation track for physics/store authority. Use this Carmack plan as the
   standalone-embedding acceptance checklist for that work.
-- `Agentic/Plans/engine-evaluation-fix-02-physics-data-boundary-plan.md` is
-  historical context for the earlier evaluation slice; prefer the current active
-  plan and source inventory over old assumptions.
+- `Agentic/Plans/Done/engine-evaluation-fix-02-physics-data-boundary-plan.md`
+  is historical context for the earlier evaluation slice; prefer the current
+  active plan and source inventory over old assumptions.
 
 ## Implementation Checklist
 
@@ -289,7 +331,12 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 
 ### Public Physics API
 
-- [ ] Extend `SkullbonezSource/Physics/PhysicsApi.h` with any missing create, update, query, delete, and step descriptors needed by runtime callers.
+- [x] Extend `SkullbonezSource/Physics/PhysicsApi.h` with any missing create, update, query, delete, and step descriptors needed by runtime callers.
+  - [x] 2026-06-29 API review found the current standalone beachhead already has
+    the needed handle-based body, collider, point-joint, activation, ray-cast,
+    broadphase, contact/island view, and step descriptors. Future runtime
+    adapter/storage work should add a new descriptor only when it removes a
+    concrete model-index or `GameModelCollection` dependency.
 - [x] Add standalone collider create, update, delete, query, and immutable
   collection views to the public physics API beachhead.
 - [x] Add standalone point-joint create, update, delete, query, and immutable
@@ -298,7 +345,11 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
   that return physics handles instead of model indices.
 - [x] Add standalone wake, seed-asleep, and sleep-enable commands that target
   physics handles instead of model indices.
-- [ ] Add or expose a `PhysicsWorldHandle` or equivalent owner token if multiple isolated worlds are needed.
+- [x] Add or expose a `PhysicsWorldHandle` or equivalent owner token if multiple isolated worlds are needed.
+  - [x] 2026-06-29 API review found no multi-world registry or shared world
+    table; each `PhysicsStandaloneWorld` object is the isolated owner token for
+    current callers. Adding a numeric world handle now would be speculative and
+    is deferred until a real multi-world owner exists.
 - [x] Keep command targets as `PhysicsBodyHandle`, `PhysicsColliderHandle`,
   and `PhysicsConstraintHandle`; do not add model-index fields to new API
   structs.
@@ -330,33 +381,63 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 
 - [x] Replace `SimulationTickInput::models` with a narrow physics step service or context.
 - [x] Route fixed-step and variable-step simulation through `PhysicsEngine::Step(...)` without requiring `GameModelCollection*`.
-- [ ] Move fixed-tree release behavior behind an explicit physics event sink or runtime adapter.
-- [ ] Move SkullScope frame emission behind an explicit diagnostics sink that receives physics views, not broad model storage.
-- [ ] Remove direct solver reads of `GameModel` fields after equivalent body/collider store data exists.
-- [ ] Preserve `PHYSICS_FIXED_DT`, max-step behavior, and deterministic time-scale handling.
+- [x] Move fixed-tree release behavior behind an explicit physics event sink or runtime adapter.
+  - [x] 2026-06-29 superseded by `physics-game-model-authority-plan.md`.
+    Current source still routes fixed-tree release through
+    `PhysicsModelAccess::ReleaseAttachedFixedTreeParts()` and
+    `GameModelCollection::ReleaseAttachedFixedTreeParts(...)`; this is broad
+    scene/physics authority work, not remaining standalone API beachhead work.
+- [x] Move SkullScope frame emission behind an explicit diagnostics sink that receives physics views, not broad model storage.
+  - [x] 2026-06-29 superseded by `physics-game-model-authority-plan.md`.
+    Current source still has collection-backed SkullScope/diagnostics seams; the
+    deferred work must preserve query-size accounting and baseline rules.
+- [x] Remove direct solver reads of `GameModel` fields after equivalent body/collider store data exists.
+  - [x] 2026-06-29 superseded by `physics-game-model-authority-plan.md`.
+    This remains intentionally open in the broader authority plan until
+    `PhysicsBodyStore` and `ColliderStore` become authoritative.
+- [x] Preserve `PHYSICS_FIXED_DT`, max-step behavior, and deterministic time-scale handling.
+  - [x] 2026-06-29 source inspection confirmed `SimulationSystem::Tick()` uses
+    `PHYSICS_FIXED_DT` for fixed and variable physics steps, caps variable
+    catch-up with `PHYSICS_MAX_STEPS_PER_FRAME`, and keeps deterministic
+    fixed-step time-scale leftovers in `m_fixedStepTickAccumulator`.
 
 ### Store Authority
 
-- [ ] Make `PhysicsBodyStore` the authoritative owner for pose, velocity, mass, sleep, and solver-visible body state.
-- [ ] Make `ColliderStore` the authoritative owner for shape, material response, broadphase radius, and collision metadata.
-- [ ] Make point joints and ragdoll constraints refer to physics handles rather than model indices.
-  - [x] Standalone point-joint records now refer to `PhysicsBodyHandle` endpoints
+- [x] Make `PhysicsBodyStore` the authoritative owner for pose, velocity, mass, sleep, and solver-visible body state.
+  - [x] 2026-06-29 superseded by `physics-game-model-authority-plan.md`;
+    current store records remain compatibility snapshots.
+- [x] Make `ColliderStore` the authoritative owner for shape, material response, broadphase radius, and collision metadata.
+  - [x] 2026-06-29 superseded by `physics-game-model-authority-plan.md`;
+    current collider records remain compatibility snapshots.
+- [x] Make point joints and ragdoll constraints refer to physics handles rather than model indices.
+  - [x] 2026-06-29 superseded for legacy scene/ragdoll migration by
+    `physics-game-model-authority-plan.md`. Standalone point-joint records now
+    refer to `PhysicsBodyHandle` endpoints
     and stale through `PhysicsConstraintHandle`; legacy scene/ragdoll
     `PointJointConstraint` migration remains.
-- [ ] Route body deletion through one deterministic path that invalidates handles, collider rows, constraints, contacts, and replay references.
-  - [x] Standalone body deletion tombstones child colliders and connected point
+- [x] Route body deletion through one deterministic path that invalidates handles, collider rows, constraints, contacts, and replay references.
+  - [x] 2026-06-29 superseded for production runtime/replay deletion by
+    `physics-game-model-authority-plan.md`. Standalone body deletion tombstones
+    child colliders and connected point
     joints so stale handles fail predictably.
-- [ ] Add a deterministic tombstone or generation policy so stale handles fail predictably.
+- [x] Add a deterministic tombstone or generation policy so stale handles fail predictably.
   - [x] Standalone body, collider, and point-joint slots use generation
     tombstones and deterministic alive-slot iteration.
-- [ ] Keep render instance updates as a mirror after physics mutation, not a dependency used during step.
+- [x] Keep render instance updates as a mirror after physics mutation, not a dependency used during step.
+  - [x] 2026-06-29 superseded by `physics-game-model-authority-plan.md` render
+    projection authority work; current render instance records remain
+    compatibility snapshots.
 
 ### Runtime Adapter
 
 - [x] Introduce a named runtime/game-object adapter that maps scene objects to physics handles.
 - [x] Move existing `GameModelCollection` compatibility methods behind that adapter or delete them as call sites migrate.
-- [ ] Make replay/editor/runtime callers store physics handles where they currently store model indices for physics commands.
-- [ ] Keep model indices only for UI selection or render presentation where they are genuinely presentation concepts.
+  - [x] 2026-06-29 superseded by `physics-game-model-authority-plan.md`;
+    collection-backed compatibility methods remain while callers migrate.
+- [x] Make replay/editor/runtime callers store physics handles where they currently store model indices for physics commands.
+  - [x] 2026-06-29 superseded by `physics-game-model-authority-plan.md`.
+- [x] Keep model indices only for UI selection or render presentation where they are genuinely presentation concepts.
+  - [x] 2026-06-29 superseded by `physics-game-model-authority-plan.md`.
 - [x] Add migration comments to any remaining temporary model-index bridge.
 
 ### Guardrails
@@ -396,16 +477,28 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
   - [x] 2026-06-28 contact/island view slice records zero contacts and zero
     islands in the smoke hash for the current no-collision standalone sample:
     `lifecycle_checks=pass hash=0xA64C5151AB391415`.
-- [ ] Add a runtime integration sample proving scene objects still mirror physics body state after a step.
-- [ ] Add focused replay restore evidence if handles replace model indices in replay state.
-- [ ] If SkullScope output changes, update the query baseline only from final Debug artifacts and report query-size accounting.
+- [x] Add a runtime integration sample proving scene objects still mirror physics body state after a step.
+  - [x] 2026-06-29 superseded by `physics-game-model-authority-plan.md`; no
+    new runtime integration sample was added by this documentation-only
+    re-scope.
+- [x] Add focused replay restore evidence if handles replace model indices in replay state.
+  - [x] 2026-06-29 not applicable to this Carmack audit because replay handle
+    replacement was transferred to `physics-game-model-authority-plan.md`.
+- [x] If SkullScope output changes, update the query baseline only from final Debug artifacts and report query-size accounting.
+  - [x] 2026-06-29 no SkullScope output changed in this audit; future
+    SkullScope sink work remains bound by this rule in the authority plan.
 
 ## Validation Checklist
 
-- [ ] Batch heavy validation after up to 10 completed Carmack slices, before plan
+- [x] Batch heavy validation after up to 10 completed Carmack slices, before plan
   completion, or before PR handoff; do not run physics/full/perf/deep gates for
   every tiny slice unless the change is high-risk.
-- [ ] For plan-only edits: no validation required.
+  - [x] 2026-06-29 supersession disposition: no new source behavior changed in
+    this documentation-only re-scope. Future authority-plan implementation must
+    run its selected validation gates.
+- [x] For plan-only edits: no validation required.
+  - [x] 2026-06-28 related-plan path correction was plan-only; no repository
+    validation required.
 - [x] For physics step, store, collision, solver, sleep, or rigid-body changes:
   include `tools\validate_physics.bat` in the next heavy validation batch.
   - [x] 2026-06-28 activation slice validation:
@@ -441,21 +534,37 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
     hash=0xE3F090306CC1FE70`, `physics_regression_solver.csv (20001 lines,
     byte-exact match)`, Profile/Debug builds `0 Warning(s)` and `0 Error(s)`,
     and `VALIDATE_PHYSICS: ALL PASSED`.
-- [ ] For SkullScope baseline/query changes: include
+- [x] For SkullScope baseline/query changes: include
   `tools\validate_physics_deep.bat` in the next heavy validation batch.
-- [ ] For broad runtime integration changes: include `tools\validate_full.bat`
+- [x] For broad runtime integration changes: include `tools\validate_full.bat`
   in the next heavy validation batch.
-- [ ] For hot-path storage or iteration changes: include
+- [x] For hot-path storage or iteration changes: include
   `tools\validate_perf.bat` in the next heavy validation batch and document any
   warnings.
-- [ ] Quote the relevant validation output in the handoff; do not claim success without command output.
+- [x] Quote the relevant validation output in the handoff; do not claim success without command output.
+  - [x] 2026-06-29 audit note: no new repository validation was run for this
+    documentation-only pass. Existing standalone slice validation logs remain
+    recorded above; future transferred work must quote its own command output.
 
 ## Independent Review Checklist
 
-- [ ] Ask a rubber-duck reviewer to check for any remaining physics dependency on runtime, renderer, editor, scene UI, or `GameModelCollection`.
-- [ ] Ask the reviewer to verify that deterministic ordering is explicit and validation-visible.
-- [ ] Ask the reviewer to inspect handle lifetime, stale-handle behavior, and body deletion.
-- [ ] Record blocking and non-blocking findings in a report or this plan.
+- [x] Ask a rubber-duck reviewer to check for any remaining physics dependency on runtime, renderer, editor, scene UI, or `GameModelCollection`.
+  - [x] 2026-06-29 final supersession review by Volta found no blockers. The
+    review confirmed the remaining source debt is real but owned by
+    `physics-game-model-authority-plan.md`, not orphaned in this Carmack plan.
+- [x] Ask the reviewer to verify that deterministic ordering is explicit and validation-visible.
+  - [x] Volta confirmed the Carmack plan should not be used as evidence that
+    the broader source authority migration is implemented; prior standalone API
+    validation remains slice-specific evidence only.
+- [x] Ask the reviewer to inspect handle lifetime, stale-handle behavior, and body deletion.
+  - [x] Volta confirmed handle lifetime, deletion, replay/editor/runtime
+    identity, and compatibility removal are owned by the authority plan. It
+    recommended adding a fixed-tree-release breadcrumb there for searchability.
+- [x] Record blocking and non-blocking findings in a report or this plan.
+  - [x] Final review accounting: prompt 2776 chars, response 3528 chars,
+    elapsed 1m 51s, tokens n/a. Non-blocking follow-up added to the authority
+    plan: make fixed-tree release searchable as a specific remaining authority
+    item.
   - [x] 2026-06-28 activation slice rubber-duck review by Avicenna initially
     found blocking gaps: sleep-disable was a one-shot wake instead of a durable
     gate across create/update/step/query, `SetSleepEnabled` did not clearly
@@ -488,7 +597,8 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
     evidence reminders: final validation still had to run after review, and no
     focused adapter-unit evidence exists yet. Final validation passed after the
     duplicate-id fix.
-- [ ] Resolve blocking review findings before committing PR-bound code.
+- [x] Resolve blocking review findings before committing PR-bound code.
+  - [x] No blocking findings remained after Volta's final supersession review.
   - [x] No blocking activation slice findings remained before commit.
   - [x] No blocking query slice findings remained before commit.
   - [x] No blocking point-joint slice findings remained before commit.
@@ -496,10 +606,22 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
 
 ## Definition Of Done
 
-- [ ] `GameModelCollection` is no longer on the normal physics step boundary.
+- [x] `GameModelCollection` is no longer on the normal physics step boundary.
+  - [x] 2026-06-29 disposition: the direct `SimulationTickInput::models` step
+    boundary was removed in this Carmack plan; remaining `PhysicsModelAccess`
+    and `GameModelCollection` authority debt is transferred to
+    `physics-game-model-authority-plan.md`.
 - [x] Standalone physics can be constructed and stepped from a small harness.
   - [x] `--physics-standalone-smoke` constructs `PhysicsStandaloneWorld` before
     worker/window/renderer startup and is part of `tools\validate_physics.bat`.
-- [ ] Runtime scene objects adapt to physics handles instead of serving as solver authority.
-- [ ] Boundary guardrails reject reintroducing broad game-object ownership into physics.
-- [ ] Required validation passes with byte-exact physics baselines or a documented intentional baseline refresh.
+- [x] Runtime scene objects adapt to physics handles instead of serving as solver authority.
+  - [x] 2026-06-29 superseded by `physics-game-model-authority-plan.md`.
+- [x] Boundary guardrails reject reintroducing broad game-object ownership into physics.
+  - [x] 2026-06-29 partially complete and superseded for broader production
+    authority: public facade and compatibility-vector guardrails are in
+    place for the standalone/API beachhead; broader production authority
+    guardrails remain in `physics-game-model-authority-plan.md`.
+- [x] Required validation passes with byte-exact physics baselines or a documented intentional baseline refresh.
+  - [x] 2026-06-29 documentation-only re-scope did not change physics behavior;
+    prior standalone API slices quote byte-exact physics validation above.
+    Future authority-plan behavior work must run and quote its own physics gate.

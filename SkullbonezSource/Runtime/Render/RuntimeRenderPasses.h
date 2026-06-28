@@ -44,6 +44,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
+
 namespace Rendering
 {
 class IRenderCommandContext;
@@ -110,6 +115,11 @@ struct RenderFrameContext
     // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
     // must not store it beyond the current RenderFrame call.
     Rendering::IRenderCommandContext* renderCommands = nullptr;
+    // Lifetime: borrowed from the same backend as renderCommands. Legacy helper
+    // caches still lazily create primitive resources during object draw setup,
+    // so model pass adapters must forward this factory until those caches move
+    // fully into resource phases.
+    Rendering::IRenderResourceFactory* renderResources = nullptr;
     // Lifetime: borrowed from RuntimeRenderInputs for capability checks and
     // tracing decisions in this frame only.
     Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
@@ -202,6 +212,9 @@ struct UiTextPassInputs
 {
     // UI/text can run even when text-only mode skips RuntimeRenderer::RenderFrame(),
     // so it borrows only the narrow render facets sampled by overlays.
+    Assets::AssetSystem& assets;
+    Rendering::IRenderCommandContext& renderCommands;
+    Rendering::IRenderResourceFactory& renderResources;
     Rendering::IRenderDiagnostics& renderDiagnostics;
     Rendering::IRenderRayTracing* renderRayTracing;
     double secondsPerFrame = 0.0;
@@ -232,9 +245,10 @@ struct TornadoVisualPassInputs
 struct DebugOverlayPassInputs
 {
     // Debug overlays draw after production geometry and use the final world
-    // view-projection. They do not participate in material or pass-resource
-    // ownership.
+    // view-projection. They may create/debug-draw transient overlay resources
+    // through the same frame-scoped render contexts as production passes.
     const RenderFrameContext& frame;
+    const RenderResourceContext& resources;
 };
 
 struct ShadowPassInputs
@@ -352,6 +366,8 @@ class ShadowPass
                           const Rendering::ShadowFrameData& shadowFrame,
                           const CinematicRenderConfig& cinematic,
                           Rendering::IRenderCommandContext& renderCommands,
+                          Rendering::IRenderResourceFactory& renderResources,
+                          Rendering::IRenderDiagnostics& renderDiagnostics,
                           bool renderTerrain,
                           bool renderObjects,
                           Rendering::IRenderSceneView& scene,
@@ -559,8 +575,8 @@ class UiTextPass
     {
     }
 
-    void EnsureGpuResources();
-    void ReleaseGpuResources();
+    void EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources );
+    void ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources );
     bool ShouldRender() const;
     void Render( const UiTextPassInputs& inputs );
 

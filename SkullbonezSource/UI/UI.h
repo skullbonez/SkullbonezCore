@@ -10,12 +10,16 @@ Mental model:
 Glossary:
   Draw command: Lightweight record describing a UI shape or text batch to
   render later in the frame.
+  Profiler view: Borrowed diagnostics pointer used by the profiler tab for CPU
+    marker rows; draw-call trace data remains copied into UI-owned cache.
   Hit box: Screen-space rectangle used to decide whether mouse input targets a
   widget.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
-  constants.
+    constants.
+  - Frame-data pointers are borrowed for the current draw/input handoff and must
+    not be owned or destroyed by UI state.
 
 Related:
   - SkullbonezSource/UI/UI.cpp
@@ -26,6 +30,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Core/MainMemoryStats.h"
+#include "../Rendering/DrawCallTrace.h"
 #include "../Rendering/IShader.h"
 #include "UIButton.h"
 #include "UICheckBox.h"
@@ -50,6 +55,22 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
+
+namespace Basics
+{
+class Profiler;
+}
+
+namespace Rendering
+{
+class IRenderCommandContext;
+class IRenderResourceFactory;
+}
+
 namespace UI
 {
 
@@ -96,6 +117,8 @@ struct InGameUIFrameData
     int selectedCineModeSceneOption = -1;
     int drawCallsBeforeUI = 0;
     int UIDrawCalls = 0;
+    Rendering::DrawCallTraceSnapshot drawCallTrace; // Borrowed for this draw; InGameUI copies nodes before caching.
+    const Basics::Profiler* profiler = nullptr;     // Borrowed diagnostics view for profiler-tab marker rows.
     float fps = 0.0f;
     float renderMs = 0.0f;
     float physicsMs = 0.0f;
@@ -203,7 +226,7 @@ class InGameUI
     void SetScrollY( float scrollY );
     void SetMouseOverride( bool enabled, int x = 0, int y = 0 );
     void CancelInputCapture();
-    void ResetResources();
+    void ResetResources( Rendering::IRenderResourceFactory* renderResources = nullptr );
 
     InGameUIInputResult UpdateInput( HWND hwnd,
                                      int screenW,
@@ -219,7 +242,10 @@ class InGameUI
                                      const char* const* sceneOptions = nullptr,
                                      int sceneOptionCount = 0,
                                      int selectedSceneOption = -1 );
-    void Draw( const InGameUIFrameData& data );
+    void Draw( const InGameUIFrameData& data,
+               Assets::AssetSystem& assets,
+               Rendering::IRenderCommandContext& renderCommands,
+               Rendering::IRenderResourceFactory& renderResources );
 
   private:
     // Persistent widget state.  Scene loads may apply SceneUIOptions, but normal
@@ -263,6 +289,11 @@ class InGameUI
     int m_lastMaxWorkerThreadCount = 1;
     int m_lastRenderTargetPreviewCount = 0;
     uint32_t m_lastRenderTargetDisabledMask = 0;
+    Rendering::DrawCallTraceSnapshot m_lastDrawCallTrace;
+    const Basics::Profiler* m_lastProfiler = nullptr;
+    Rendering::DrawCallTraceNode m_lastDrawTraceNodes[Rendering::DrawCallTrace::MAX_DRAW_TRACE_NODES] = {};
+    char m_lastDrawTraceNames[Rendering::DrawCallTrace::MAX_DRAW_TRACE_NODES]
+                             [Rendering::DrawCallTrace::MAX_DRAW_TRACE_NAME_CHARS] = {};
     int m_selectedRenderTargetPreview = 0;
     bool m_hasMouseOverride = false;
     int m_mouseOverrideX = 0;
@@ -288,6 +319,7 @@ class InGameUI
     double m_editorMiniPalettePressStart = 0.0;
 
     int ContentHeight() const;
+    void StoreDrawCallTraceSnapshot( const Rendering::DrawCallTraceSnapshot& snapshot );
     void DrawHitboxOverlay( const UIDrawContext& draw,
                             const InGameUIFrameData& data,
                             const UIRect& windowBounds,

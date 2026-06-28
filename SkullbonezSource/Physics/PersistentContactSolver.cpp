@@ -86,6 +86,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
     auto& m_terrainRestApplied = context.terrainRestApplied;
     auto& m_sleepSupportedThisFrame = context.sleepSupportedThisFrame;
     auto& m_bodyRecords = context.bodyRecords;
+    const PhysicsRuntimeConfig& config = context.config;
     auto RecordPhysicsPipelineStage = [&]( const PhysicsPipelineRecord& record )
     { context.RecordPhysicsPipelineStage( record ); };
     auto MarkCollisionVisualContact = [&]( int index ) { context.MarkCollisionVisualContact( index ); };
@@ -136,7 +137,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
     //   do not jitter while chasing floating-point dust.
     // Small allowed overlap. Without this tolerance, floating-point noise makes
     // the solver chase microscopic errors and resting bodies visibly tremble.
-    const float contactSlop = (std::max)( 0.0f, Cfg().persistentContactSlop );
+    const float contactSlop = (std::max)( 0.0f, config.persistentContactSlop );
 
     // CATTO REF:
     //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
@@ -145,7 +146,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
     // Baumgarte bias is a gentle "please separate" velocity for bodies that are
     // already interpenetrating. It removes overlap over several ticks instead of
     // teleporting everything apart in one harsh correction.
-    const float baumgarteBeta = (std::max)( 0.0f, Cfg().persistentContactBaumgarteBeta );
+    const float baumgarteBeta = (std::max)( 0.0f, config.persistentContactBaumgarteBeta );
 
     // ENGINE-SPECIFIC:
     //   Catto uses the bias term for penetration correction. This partial
@@ -154,8 +155,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
     // A final direct positional correction catches the remaining overlap after the
     // velocity solve. The percent is deliberately partial so stacks do not pop.
     const float positionCorrectionPercent =
-        (std::max)( 0.0f, (std::min)( Cfg().persistentContactPositionCorrectionPercent, 1.0f ) );
-    const float maxBaumgarteBias = (std::max)( 0.0f, Cfg().terrainMaxBaumgarteBias );
+        (std::max)( 0.0f, (std::min)( config.persistentContactPositionCorrectionPercent, 1.0f ) );
+    const float maxBaumgarteBias = (std::max)( 0.0f, config.terrainMaxBaumgarteBias );
 
     // CATTO REF:
     //   Catto 2005, PDF p. 15, Section 7, and PDF pp. 16-17, Section 7.2,
@@ -164,9 +165,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
     // Projected Gauss-Seidel works by revisiting every contact repeatedly. Each
     // visit improves the answer a little; twelve passes is a compromise between
     // stack stability and keeping the physics hot path affordable.
-    const int solverIterations = (std::max)( 1, Cfg().persistentContactSolverIterations );
+    const int solverIterations = (std::max)( 1, config.persistentContactSolverIterations );
     const float invDt = ( dt > TOLERANCE ) ? ( 1.0f / dt ) : 120.0f;
-    const float objectFrictionCoeff = Cfg().objectFrictionCoeff;
+    const float objectFrictionCoeff = config.objectFrictionCoeff;
 
     // CATTO REF:
     //   Catto 2005, PDF pp. 18-19, Section 8.1/8.2 and Algorithm 5 store lambda
@@ -429,8 +430,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             return;
         }
 
-        const float sleepLinear = (std::max)( 0.0f, Cfg().physicsSleepLinearSpeed );
-        const float sleepAngular = (std::max)( 0.0f, Cfg().physicsSleepAngularSpeed );
+        const float sleepLinear = (std::max)( 0.0f, config.physicsSleepLinearSpeed );
+        const float sleepAngular = (std::max)( 0.0f, config.physicsSleepAngularSpeed );
         const float speedSq = body.linearVelocity * body.linearVelocity;
         const float omegaSq = body.angularVelocity * body.angularVelocity;
         if ( speedSq > sleepLinear * sleepLinear || omegaSq > sleepAngular * sleepAngular )
@@ -449,7 +450,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
         }
 
         const float loadFloor =
-            (std::max)( 1.0e-4f, m_gameModels[supportedIndex].GetMass() * fabsf( Cfg().gravity ) * dt * 0.01f );
+            (std::max)( 1.0e-4f, m_gameModels[supportedIndex].GetMass() * fabsf( config.gravity ) * dt * 0.01f );
         if ( c.accN < loadFloor )
         {
             return;
@@ -516,7 +517,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             Vector3 centerDelta = m_bodyRecords[static_cast<size_t>( bIndex )].position -
                                   m_bodyRecords[static_cast<size_t>( aIndex )].position;
             float contactDistance =
-                conservativeContactRadius( a ) + conservativeContactRadius( b ) + Cfg().contactEpsilon;
+                conservativeContactRadius( a ) + conservativeContactRadius( b ) + config.contactEpsilon;
             if ( Vector::VectorMagSquared( centerDelta ) > contactDistance * contactDistance )
             {
                 continue;
@@ -529,7 +530,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             bool manifoldBuilt = false;
             {
                 PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ExactObjectManifold" );
-                manifoldBuilt = BuildObjectContactManifold( a, b, aIndex, bIndex, Cfg().contactEpsilon, manifold );
+                manifoldBuilt = BuildObjectContactManifold( a, b, aIndex, bIndex, config.contactEpsilon, manifold );
             }
             if ( manifoldBuilt )
             {
@@ -646,7 +647,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             // and cannot become a hidden sleep anchor.
             const float supportSeedScale =
                 manifold.supportsRestingPolicy ? 1.0f : ( manifold.inhibitsSleep ? 0.35f : 0.0f );
-            const float warmStartTotal = m_gameModels[manifold.bodyA].GetMass() * fabsf( Cfg().gravity ) *
+            const float warmStartTotal = m_gameModels[manifold.bodyA].GetMass() * fabsf( config.gravity ) *
                                          fabsf( manifold.normal.y ) * dt * supportSeedScale;
             const float warmStartPerContact = warmStartTotal / static_cast<float>( manifold.pointCount );
 
@@ -779,21 +780,21 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             c.bias = 0.0f;
             if ( c.isTerrain )
             {
-                const float terrainSlop = (std::max)( 0.0f, Cfg().terrainContactSlop );
+                const float terrainSlop = (std::max)( 0.0f, config.terrainContactSlop );
                 if ( !c.supportsRestingPolicy && c.penetration <= terrainSlop &&
-                     vn > -Cfg().contactRestitutionThreshold )
+                     vn > -config.contactRestitutionThreshold )
                 {
                     c.normalMass = 0.0f;
                     c.tangentMass1 = 0.0f;
                     c.tangentMass2 = 0.0f;
                 }
-                else if ( fabsf( vn ) < Cfg().contactRestitutionThreshold )
+                else if ( fabsf( vn ) < config.contactRestitutionThreshold )
                 {
                     float penetrationError = c.penetration - terrainSlop;
                     if ( penetrationError > 0.0f )
                     {
-                        const float terrainBeta = (std::max)( 0.0f, Cfg().terrainContactBaumgarteBeta );
-                        const float maxTerrainBias = (std::max)( 0.0f, Cfg().terrainMaxBaumgarteBias );
+                        const float terrainBeta = (std::max)( 0.0f, config.terrainContactBaumgarteBeta );
+                        const float maxTerrainBias = (std::max)( 0.0f, config.terrainMaxBaumgarteBias );
                         c.bias = terrainBeta * penetrationError * invDt;
                         if ( c.bias > maxTerrainBias )
                         {
@@ -801,19 +802,19 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                         }
                     }
                 }
-                else if ( vn < -Cfg().contactRestitutionThreshold )
+                else if ( vn < -config.contactRestitutionThreshold )
                 {
                     const uint8_t pointCount = c.manifoldPointCount > 0 ? c.manifoldPointCount : 1;
                     c.bias = ( -a.GetCoefficientRestitution() * vn ) / static_cast<float>( pointCount );
                 }
             }
-            else if ( vn < -Cfg().contactRestitutionThreshold )
+            else if ( vn < -config.contactRestitutionThreshold )
             {
                 GameModel& b = m_gameModels[c.bodyB];
                 float restitution = sqrtf( a.GetCoefficientRestitution() * b.GetCoefficientRestitution() );
                 c.bias = -restitution * vn;
             }
-            else if ( vn >= -Cfg().contactRestitutionThreshold )
+            else if ( vn >= -config.contactRestitutionThreshold )
             {
                 float penetrationError = c.penetration - contactSlop;
                 if ( penetrationError > 0.0f )
@@ -844,9 +845,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             //   solved normal force while keeping static friction usable in games.
             c.frictionLimit =
                 c.isTerrain
-                    ? ( c.allowsTangentFriction ? Cfg().frictionCoeff * c.terrainWarmStart : 0.0f )
+                    ? ( c.allowsTangentFriction ? config.frictionCoeff * c.terrainWarmStart : 0.0f )
                     : ( c.normalCoupledFriction ? 0.0f
-                                                : objectFrictionCoeff * contactMass * fabsf( Cfg().gravity ) * dt );
+                                                : objectFrictionCoeff * contactMass * fabsf( config.gravity ) * dt );
 
             // CATTO REF:
             //   Catto 2005, PDF pp. 18-19, Section 8.1 and Algorithm 5. Reason:
@@ -873,7 +874,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                     !c.allowsTangentFriction
                         ? 0.0f
                         : ( c.isTerrain
-                                ? Cfg().frictionCoeff *
+                                ? config.frictionCoeff *
                                       ( ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart )
                                 : ( c.normalCoupledFriction ? objectFrictionCoeff * c.accN : c.frictionLimit ) );
                 Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, cachedFrictionLimit );
@@ -982,7 +983,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                     !c.allowsTangentFriction
                         ? 0.0f
                         : ( c.isTerrain
-                                ? Cfg().frictionCoeff *
+                                ? config.frictionCoeff *
                                       ( ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart )
                                 : ( c.normalCoupledFriction ? objectFrictionCoeff * c.accN : c.frictionLimit ) );
                 Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, frictionLimit );
@@ -1049,7 +1050,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             m_terrainRestApplied[bodyIndex] = 1;
             GameModel& model = m_gameModels[bodyIndex];
             SolverBodyState& body = m_solverBodies[bodyIndex];
-            float normalForce = model.GetMass() * fabsf( Cfg().gravity ) * fabsf( manifold.normal.y );
+            float normalForce = model.GetMass() * fabsf( config.gravity ) * fabsf( manifold.normal.y );
             float omegaMagSq = body.angularVelocity * body.angularVelocity;
             if ( omegaMagSq > TOLERANCE * TOLERANCE )
             {
@@ -1178,7 +1179,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/PositionCorrection" );
         for ( const PersistentContact& c : m_persistentContacts )
         {
-            const float rowContactSlop = c.isTerrain ? (std::max)( 0.0f, Cfg().terrainContactSlop ) : contactSlop;
+            const float rowContactSlop = c.isTerrain ? (std::max)( 0.0f, config.terrainContactSlop ) : contactSlop;
             if ( c.penetration <= rowContactSlop )
             {
                 continue;

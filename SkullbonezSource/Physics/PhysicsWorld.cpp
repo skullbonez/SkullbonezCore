@@ -48,12 +48,14 @@ Related:
 
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Physics;
+using SkullbonezCore::Basics::EngineConfig;
 using SkullbonezCore::Basics::ReplaySolverContactCacheSample;
 using SkullbonezCore::Basics::ReplaySolverPersistentContactSample;
 using SkullbonezCore::Basics::ReplaySolverStatsSample;
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
+using SkullbonezCore::Threading::WorkerPool;
 namespace Math = SkullbonezCore::Math;
 namespace Physics = SkullbonezCore::Physics;
 namespace Vector = SkullbonezCore::Math::Vector;
@@ -110,7 +112,36 @@ Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
 } // namespace
 
 
-PhysicsWorld::PhysicsWorld() : m_spatialGrid( Cfg().broadphaseCell )
+PhysicsRuntimeConfig PhysicsRuntimeConfig::FromEngineConfig( const EngineConfig& config )
+{
+    PhysicsRuntimeConfig physicsConfig;
+    physicsConfig.physicsParallel = config.physicsParallel;
+    physicsConfig.physicsParallelApplyForces = config.physicsParallelApplyForces;
+    physicsConfig.physicsParallelTornadoField = config.physicsParallelTornadoField;
+    physicsConfig.physicsParallelNarrowphase = config.physicsParallelNarrowphase;
+    physicsConfig.physicsParallelTerrainDetect = config.physicsParallelTerrainDetect;
+    physicsConfig.physicsParallelIntegrate = config.physicsParallelIntegrate;
+    physicsConfig.gravity = config.gravity;
+    physicsConfig.frictionCoeff = config.frictionCoeff;
+    physicsConfig.objectFrictionCoeff = config.objectFrictionCoeff;
+    physicsConfig.contactRestitutionThreshold = config.contactRestitutionThreshold;
+    physicsConfig.contactEpsilon = config.contactEpsilon;
+    physicsConfig.broadphaseCell = config.broadphaseCell;
+    physicsConfig.persistentContactSlop = config.persistentContactSlop;
+    physicsConfig.persistentContactBaumgarteBeta = config.persistentContactBaumgarteBeta;
+    physicsConfig.persistentContactPositionCorrectionPercent = config.persistentContactPositionCorrectionPercent;
+    physicsConfig.persistentContactSolverIterations = config.persistentContactSolverIterations;
+    physicsConfig.terrainContactSlop = config.terrainContactSlop;
+    physicsConfig.terrainContactBaumgarteBeta = config.terrainContactBaumgarteBeta;
+    physicsConfig.terrainMaxBaumgarteBias = config.terrainMaxBaumgarteBias;
+    physicsConfig.physicsSleepLinearSpeed = config.physicsSleepLinearSpeed;
+    physicsConfig.physicsSleepAngularSpeed = config.physicsSleepAngularSpeed;
+    physicsConfig.physicsSleepFrames = config.physicsSleepFrames;
+    return physicsConfig;
+}
+
+
+PhysicsWorld::PhysicsWorld() : m_config(), m_workerPool( nullptr ), m_spatialGrid( m_config.broadphaseCell )
 {
     m_timeRemaining.reserve( MAX_GAME_MODELS );
     m_sleepSupportedThisFrame.reserve( MAX_GAME_MODELS );
@@ -148,6 +179,61 @@ PhysicsWorld::PhysicsWorld() : m_spatialGrid( Cfg().broadphaseCell )
     m_objectNarrowphaseRank.reserve( MAX_GAME_MODELS );
     m_objectNarrowphaseRootToIsland.reserve( MAX_GAME_MODELS );
     m_pointJointConstraints.reserve( MAX_GAME_MODELS );
+}
+
+
+PhysicsWorld::PhysicsWorld( const EngineConfig& config )
+    : m_config( PhysicsRuntimeConfig::FromEngineConfig( config ) ), m_workerPool( nullptr ),
+      m_spatialGrid( m_config.broadphaseCell )
+{
+    m_timeRemaining.reserve( MAX_GAME_MODELS );
+    m_sleepSupportedThisFrame.reserve( MAX_GAME_MODELS );
+    m_sleepInhibitedThisFrame.reserve( MAX_GAME_MODELS );
+    m_underwaterSleepLocked.reserve( MAX_GAME_MODELS );
+    m_tornadoCaptureSeconds.reserve( MAX_GAME_MODELS );
+    m_tornadoEjectCooldownSeconds.reserve( MAX_GAME_MODELS );
+    m_collisionVisualContacts.reserve( MAX_GAME_MODELS );
+    m_sleepIslandVisualId.reserve( MAX_GAME_MODELS );
+    m_sleepIslandAssignedVisualId.reserve( MAX_GAME_MODELS );
+    m_sleepSupportEdges.reserve( MAX_GAME_MODELS * 4 );
+    m_sleepIslandParent.reserve( MAX_GAME_MODELS );
+    m_sleepIslandRank.reserve( MAX_GAME_MODELS );
+    m_sleepIslandHasAwake.reserve( MAX_GAME_MODELS );
+    m_sleepIslandHasSupportAnchor.reserve( MAX_GAME_MODELS );
+    m_sleepIslandEligible.reserve( MAX_GAME_MODELS );
+    m_sleepIslandCanSleep.reserve( MAX_GAME_MODELS );
+    m_sleepPointJointBody.reserve( MAX_GAME_MODELS );
+    m_sleepIslandHasPointJoint.reserve( MAX_GAME_MODELS );
+    m_sleepIslandPointJointsRelaxed.reserve( MAX_GAME_MODELS );
+    m_sleepVisualIslandIds.reserve( MAX_GAME_MODELS );
+    m_sleepVisualIslandBodies.reserve( MAX_GAME_MODELS );
+    m_persistentContacts.reserve( MAX_GAME_MODELS * 4 );
+    m_persistentContactCache.reserve( MAX_GAME_MODELS * 4 );
+    m_persistentContactCounts.reserve( MAX_GAME_MODELS );
+    m_persistentRestingContactCounts.reserve( MAX_GAME_MODELS );
+    m_solverBodies.reserve( MAX_GAME_MODELS );
+    m_physicsDebugContacts.reserve( MAX_GAME_MODELS * 4 );
+    m_physicsPipelineTrace.reserve( MAX_PIPELINE_TRACE_RECORDS );
+    m_terrainContactManifolds.reserve( MAX_GAME_MODELS );
+    m_terrainDetectionCandidates.reserve( MAX_GAME_MODELS );
+    m_objectNarrowphaseEvents.reserve( MAX_GAME_MODELS * 4 );
+    m_objectNarrowphaseIslands.reserve( MAX_GAME_MODELS );
+    m_objectNarrowphaseParent.reserve( MAX_GAME_MODELS );
+    m_objectNarrowphaseRank.reserve( MAX_GAME_MODELS );
+    m_objectNarrowphaseRootToIsland.reserve( MAX_GAME_MODELS );
+    m_pointJointConstraints.reserve( MAX_GAME_MODELS );
+}
+
+
+PhysicsWorld::PhysicsWorld( const EngineConfig& config, WorkerPool& workerPool ) : PhysicsWorld( config )
+{
+    m_workerPool = &workerPool;
+}
+
+
+const PhysicsRuntimeConfig& PhysicsWorld::Config() const
+{
+    return m_config;
 }
 
 
@@ -555,6 +641,7 @@ PersistentContactSolverContext PhysicsWorld::CreatePersistentContactSolverContex
                                            m_sleepSupportedThisFrame,
                                            bodyStore.MutableRecords(),
                                            bodyStore,
+                                           Config(),
                                            *this };
 }
 
@@ -762,6 +849,7 @@ void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, int index )
 
 void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, int index )
 {
+    const PhysicsRuntimeConfig& config = Config();
     if ( !m_sleepEnabled )
     {
         return;
@@ -796,7 +884,7 @@ void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, int index )
 
     modelAccess.InvalidatePhysicsStreams();
     m_sleepState[index] = 1;
-    m_sleepCounter[index] = static_cast<uint8_t>( (std::min)( Cfg().physicsSleepFrames, 255 ) );
+    m_sleepCounter[index] = static_cast<uint8_t>( (std::min)( config.physicsSleepFrames, 255 ) );
     m_underwaterSleepLocked[index] = 0;
     if ( index < static_cast<int>( m_sleepIslandVisualId.size() ) )
     {
@@ -827,6 +915,7 @@ void PhysicsWorld::SetPhysicsSleepEnabled( bool enabled )
 
 void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, float dt )
 {
+    const PhysicsRuntimeConfig& engineConfig = Config();
     const TornadoFieldConfig& config = m_tornadoField.GetConfig();
     const float step = (std::max)( 0.0f, dt );
     const bool useSystem = m_tornadoSystem.IsEnabled();
@@ -1005,14 +1094,14 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess, PhysicsBo
         bodyStore.WriteBackToModelAt( m_gameModels, i );
     };
 
-    if ( Cfg().physicsParallel && Cfg().physicsParallelTornadoField )
+    if ( engineConfig.physicsParallel && engineConfig.physicsParallelTornadoField && m_workerPool )
     {
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,
-                                                                       modelCount,
-                                                                       applyTornadoAt,
-                                                                       PHYSICS_PARALLEL_MIN_BODIES,
-                                                                       "Frame/Physics/TornadoField/WorkerBodies",
-                                                                       PHYSICS_TORNADO_WORKER_HASH );
+        m_workerPool->ParallelFor( 0,
+                                   modelCount,
+                                   applyTornadoAt,
+                                   PHYSICS_PARALLEL_MIN_BODIES,
+                                   "Frame/Physics/TornadoField/WorkerBodies",
+                                   PHYSICS_TORNADO_WORKER_HASH );
     }
     else
     {
@@ -1064,14 +1153,15 @@ float PhysicsWorld::GetTornadoSystemElapsedSeconds() const
 }
 
 
-void PhysicsWorld::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj )
+void PhysicsWorld::RenderTornadoFieldVectors( Rendering::IRenderCommandContext& renderCommands,
+                                              const Math::Transformation::Matrix4& viewProj )
 {
     if ( m_tornadoSystem.IsEnabled() )
     {
-        m_tornadoSystem.RenderVectors( viewProj );
+        m_tornadoSystem.RenderVectors( renderCommands, viewProj );
         return;
     }
-    m_tornadoField.RenderVectors( viewProj );
+    m_tornadoField.RenderVectors( renderCommands, viewProj );
 }
 
 
@@ -1627,6 +1717,7 @@ void PhysicsWorld::WakePointJointConnectedBodies( PhysicsModelAccess& modelAcces
 
 void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, float dt )
 {
+    const PhysicsRuntimeConfig& config = Config();
     auto m_gameModels = modelAccess.Models();
     const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
     const int modelCount = bodyStream.count;
@@ -1642,11 +1733,12 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
     // The counter storage is still uint8_t, so physics_sleep_frames is clamped
     // to 1..255 here. Widening that storage is a separate data-layout change and
     // should be measured before doing it in a hot per-body array.
-    const float sleepLinear = (std::max)( 0.0f, Cfg().physicsSleepLinearSpeed );
-    const float sleepAngular = (std::max)( 0.0f, Cfg().physicsSleepAngularSpeed );
+    const float sleepLinear = (std::max)( 0.0f, config.physicsSleepLinearSpeed );
+    const float sleepAngular = (std::max)( 0.0f, config.physicsSleepAngularSpeed );
     const float SLEEP_LINEAR_SQ = sleepLinear * sleepLinear;
     const float SLEEP_ANGULAR_SQ = sleepAngular * sleepAngular;
-    const uint8_t SLEEP_FRAMES = static_cast<uint8_t>( (std::max)( 1, (std::min)( Cfg().physicsSleepFrames, 255 ) ) );
+    const uint8_t SLEEP_FRAMES =
+        static_cast<uint8_t>( (std::max)( 1, (std::min)( config.physicsSleepFrames, 255 ) ) );
 
     EnsureUnderwaterSleepLockBuffer( modelCount );
     for ( int x = 0; x < modelCount; ++x )
@@ -1674,14 +1766,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
         bodyStore.ApplyCompatibilityForces( m_gameModels, x, dt );
     };
 
-    if ( Cfg().physicsParallel && Cfg().physicsParallelApplyForces )
+    if ( config.physicsParallel && config.physicsParallelApplyForces && m_workerPool )
     {
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,
-                                                                       modelCount,
-                                                                       applyForcesAt,
-                                                                       PHYSICS_PARALLEL_MIN_BODIES,
-                                                                       "Frame/Physics/ApplyForces/WorkerBodies",
-                                                                       PHYSICS_APPLY_FORCES_WORKER_HASH );
+        m_workerPool->ParallelFor( 0,
+                                   modelCount,
+                                   applyForcesAt,
+                                   PHYSICS_PARALLEL_MIN_BODIES,
+                                   "Frame/Physics/ApplyForces/WorkerBodies",
+                                   PHYSICS_APPLY_FORCES_WORKER_HASH );
     }
     else
     {
@@ -1776,7 +1868,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
         t = (std::max)( 0.0f, (std::min)( 1.0f, t ) );
         const Vector3 closestRelative = relativeStart + relativeDisplacement * t;
         const float expandedRadius = bodyStream.boundingRadii[movingIndex] + bodyStream.boundingRadii[targetIndex] +
-                                     Cfg().contactEpsilon + PHYSICS_FAST_SWEEP_PAIR_SLOP;
+                                     config.contactEpsilon + PHYSICS_FAST_SWEEP_PAIR_SLOP;
         return Vector::VectorMagSquared( closestRelative ) <= expandedRadius * expandedRadius;
     };
 
@@ -1938,7 +2030,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
                                            m_gameModels[sleepingIndex],
                                            awakeIndex,
                                            sleepingIndex,
-                                           Cfg().contactEpsilon,
+                                           config.contactEpsilon,
                                            manifold );
     };
 
@@ -1960,7 +2052,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
 
         ObjectContactManifold manifold;
         const bool hit =
-            BuildObjectContactManifold( m_gameModels[a], m_gameModels[b], a, b, Cfg().contactEpsilon, manifold );
+            BuildObjectContactManifold( m_gameModels[a], m_gameModels[b], a, b, config.contactEpsilon, manifold );
 
         bodyRecords[static_cast<size_t>( a )].position = startA;
         bodyRecords[static_cast<size_t>( b )].position = startB;
@@ -2398,10 +2490,10 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
     m_objectNarrowphaseIslands.clear();
     bool ranParallelNarrowphase = false;
     const bool mayBenefitFromIslandDispatch =
-        PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED && Cfg().physicsParallel && Cfg().physicsParallelNarrowphase &&
+        PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED && config.physicsParallel && config.physicsParallelNarrowphase &&
         candidatePairCount >= PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS &&
         candidatePairCount <= modelCount * PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY &&
-        SkullbonezCore::Threading::WorkerPool::Instance().GetThreadCount() > 0;
+        m_workerPool != nullptr && m_workerPool->GetThreadCount() > 0;
     if ( mayBenefitFromIslandDispatch )
     {
         buildObjectNarrowphaseIslands();
@@ -2415,13 +2507,12 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
             m_objectNarrowphaseEvents.assign( candidatePairs.size(), ObjectNarrowphaseEvent() );
             {
                 PROFILE_SCOPED( "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
-                SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor(
-                    0,
-                    islandCount,
-                    processObjectNarrowphaseIsland,
-                    PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS,
-                    "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands",
-                    PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH );
+                m_workerPool->ParallelFor( 0,
+                                           islandCount,
+                                           processObjectNarrowphaseIsland,
+                                           PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS,
+                                           "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands",
+                                           PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH );
             }
             {
                 PROFILE_SCOPED( "Frame/Physics/Narrowphase/CommitEvents" );
@@ -2515,14 +2606,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
     };
 
     m_terrainDetectionCandidates.assign( static_cast<size_t>( modelCount ), TerrainDetectionCandidate() );
-    if ( Cfg().physicsParallel && Cfg().physicsParallelTerrainDetect )
+    if ( config.physicsParallel && config.physicsParallelTerrainDetect && m_workerPool )
     {
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,
-                                                                       modelCount,
-                                                                       detectTerrainAt,
-                                                                       PHYSICS_PARALLEL_MIN_BODIES,
-                                                                       "Frame/Physics/Terrain/Detect/WorkerBodies",
-                                                                       PHYSICS_TERRAIN_DETECT_WORKER_HASH );
+        m_workerPool->ParallelFor( 0,
+                                   modelCount,
+                                   detectTerrainAt,
+                                   PHYSICS_PARALLEL_MIN_BODIES,
+                                   "Frame/Physics/Terrain/Detect/WorkerBodies",
+                                   PHYSICS_TERRAIN_DETECT_WORKER_HASH );
     }
     else
     {
@@ -2571,14 +2662,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
         }
     };
 
-    if ( Cfg().physicsParallel && Cfg().physicsParallelIntegrate )
+    if ( config.physicsParallel && config.physicsParallelIntegrate && m_workerPool )
     {
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,
-                                                                       modelCount,
-                                                                       integrateRemainingAt,
-                                                                       PHYSICS_PARALLEL_MIN_BODIES,
-                                                                       "Frame/Physics/Integrate/WorkerBodies",
-                                                                       PHYSICS_INTEGRATE_WORKER_HASH );
+        m_workerPool->ParallelFor( 0,
+                                   modelCount,
+                                   integrateRemainingAt,
+                                   PHYSICS_PARALLEL_MIN_BODIES,
+                                   "Frame/Physics/Integrate/WorkerBodies",
+                                   PHYSICS_INTEGRATE_WORKER_HASH );
     }
     else
     {
