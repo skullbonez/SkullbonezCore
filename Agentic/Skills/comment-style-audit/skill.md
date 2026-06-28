@@ -12,7 +12,7 @@ against `Agentic/Reference/comment-style-guide.md`.
 
 Keep the code printable and learnable. A reader should be able to open a file
 and understand its purpose, local vocabulary, invariants, and risky concepts
-without already being a rendering or physics specialist.
+without already knowing this engine's rendering or physics architecture.
 
 ## Scope
 
@@ -45,7 +45,7 @@ only after it has been inspected against this skill and the guide.
    - `Glossary`
    - `Invariants` where behavior, lifetime, determinism, or GPU state matters
    - `Related` links where another file or reference doc helps
-5. Replace acronym-only comments with concept comments.
+5. Replace non-assumed acronym-only comments with concept comments.
 6. Replace restatement comments with `Why:`, `Invariant:`, `Lifetime:`, or
    `Hazard:` comments.
 7. Keep comments close to the concept they explain.
@@ -60,7 +60,10 @@ only after it has been inspected against this skill and the guide.
 
 ## Checklist
 
-- No unexplained local acronyms in comments.
+- No unexplained local, ambiguous, or behavior-sensitive acronyms in comments.
+- Never add glossary entries that merely define assumed baseline technology
+  names such as HLSL, DirectX, Direct3D, DX12/D3D12, DXR, C++, CPU, GPU,
+  shader, texture, compiler, or linker.
 - Rendering files explain RTV, DSV, SRV, UAV, PSO, root signatures, resource
   states, barriers, DRED, PIX, BLAS, TLAS, or SBT when those terms appear.
 - Physics files explain broadphase, narrowphase, manifolds, contact rows, warm

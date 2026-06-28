@@ -2,7 +2,8 @@
 
 This codebase should teach while it runs. A reader should be able to open a
 source file, learn the local vocabulary, understand why the code exists, and
-follow the risky parts without already being a rendering or physics specialist.
+follow the risky parts without already knowing this engine's rendering or
+physics architecture.
 
 The goal is not more comments everywhere. The goal is consistent comments that
 explain concepts, ownership, units, lifetimes, and hazards.
@@ -81,7 +82,7 @@ Header fields:
 | `File` | Yes | Filename only, or path if the basename is ambiguous. |
 | `Purpose` | Yes | One to three lines saying what this file owns. |
 | `Mental model` | Yes for non-trivial files | Plain-English model of how to think about the file. |
-| `Glossary` | Yes | Terms used in this file that a non-specialist may not know. |
+| `Glossary` | Yes | Local or behavior-sensitive terms used in this file. Do not define assumed baseline technology names. |
 | `Invariants` | When relevant | Ordering, lifetime, threading, units, determinism, API contracts. |
 | `Related` | When useful | Nearby files, reference docs, papers, tools, or validation scripts. |
 
@@ -91,10 +92,17 @@ most local terms and link to a reference document.
 
 ## Glossary Rules
 
-No unexplained acronym should appear in a comment.
+No unexplained local or behavior-sensitive acronym should appear in a comment.
 
-When an acronym or domain term appears in a file, define it in the file glossary
-and expand it on first local use if the nearby code is dense.
+Never add glossary entries that merely define assumed baseline technology names.
+HLSL, DirectX, Direct3D, DX12/D3D12, DXR, C++, CPU, GPU, shader, texture,
+compiler, and linker are assumed knowledge for this repository. Use those terms
+naturally unless the comment is explaining a Skullbonez-specific contract,
+non-obvious API rule, invariant, lifetime, or hazard.
+
+When a local, ambiguous, or behavior-sensitive acronym or domain term appears in
+a file, define it in the file glossary and expand it on first local use if the
+nearby code is dense.
 
 Use this entry shape:
 
@@ -156,7 +164,8 @@ idea before the details.
 
 Use a `Concept:` block for:
 
-- DX12, DXR, shader, and GPU synchronization concepts.
+- Specific DX12/DXR binding, resource-lifetime, shader, and GPU synchronization
+  concepts that affect this engine's behavior.
 - Physics solver stages, contact rows, warm starting, sleep, and determinism.
 - Scene parsing rules that are not obvious from the syntax.
 - Any place where a bug fix depends on a mental model.
@@ -263,10 +272,13 @@ comment shorter:
 
 ## Rendering Comment Expectations
 
-Rendering code has the highest acronym burden. Any file that uses DX12, DXR,
-or shader binding terms should explain them locally.
+Rendering code has the highest acronym burden, but do not spend glossary space
+defining broad API or language names such as HLSL, DirectX, Direct3D, DX12/D3D12,
+or DXR. Files should explain local contracts and specific rendering concepts
+only when those concepts affect behavior, ownership, validation, or maintenance.
 
-Common render terms to define when used:
+Common render terms that may deserve local definition when the file depends on
+their exact meaning:
 
 | Term | First-reader explanation |
 |------|--------------------------|
@@ -364,8 +376,10 @@ Avoid stale historical comments unless the history explains a current rule.
 When editing a file, check:
 
 - Does the file have a learning header?
-- Does the glossary define local acronyms and domain terms?
-- Does the first dense use of an acronym expand or point to the glossary?
+- Does the glossary define local, ambiguous, or behavior-sensitive terms while
+  skipping assumed baseline technology names?
+- Does the first dense use of a non-assumed acronym expand or point to the
+  glossary?
 - Are comments explaining concepts, reasons, invariants, lifetimes, hazards, or units?
 - Did any code change make an existing comment stale?
 - Are public methods documented from the caller's point of view?
