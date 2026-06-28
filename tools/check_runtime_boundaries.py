@@ -6,7 +6,8 @@
 #   extracted subsystem ownership, and prevent new physics dependencies on the
 #   legacy GameModelCollection world container or raytracing calls on the wide
 #   render backend facade. It also blocks direct scheduling regressions for
-#   passes that already moved to render graph callback ownership.
+#   passes that already moved to render graph callback ownership, and new
+#   normal-path global service access while explicit service contexts are built.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -31,6 +32,8 @@
 #     wide IRenderBackend/Gfx facade.
 #   - Graph-owned render passes stay scheduled through render graph callback
 #     helpers after migration.
+#   - Existing global service calls are counted debt; adding new ones requires
+#     migrating the caller or lowering another allowlist entry first.
 #
 # Related:
 #   - Agentic/Plans/runtime-run-decomposition-plan.md
@@ -81,6 +84,85 @@ GRAPH_OWNED_RENDER_PASS_DIRECT_CALL_PATTERN = re.compile(
     r"\bm_(?:(?:tornadoVisualPass|debugOverlayPass|volumetricPass|tonemapPass|uiTextPass)\s*\.\s*Render|"
     r"sceneTargetPass\s*\.\s*Begin)\s*\("
 )
+GLOBAL_SERVICE_ACCESS_PATTERNS: tuple[tuple[str, re.Pattern[str], str, str], ...] = (
+    (
+        "Cfg()",
+        re.compile(r"\bCfg\s*\(\s*\)"),
+        "global config access is count-guarded",
+        "Pass a config snapshot or explicit config reference instead of adding another Cfg() call.",
+    ),
+    (
+        "Gfx()",
+        re.compile(r"\bGfx\s*\(\s*\)"),
+        "global renderer service access is count-guarded",
+        "Pass an explicit renderer/render context for new code instead of adding another Gfx() call.",
+    ),
+    (
+        "GfxRayTracing()",
+        re.compile(r"\bGfxRayTracing\s*\(\s*\)"),
+        "global raytracing service access is count-guarded",
+        "Borrow IRenderRayTracing through an explicit render context before adding another global DXR access.",
+    ),
+    (
+        "ActiveAssetSystem()",
+        re.compile(r"\bActiveAssetSystem\s*\("),
+        "global asset-system access is count-guarded",
+        "Pass an explicit AssetSystem/asset context instead of adding another active-asset bridge call.",
+    ),
+    (
+        "CreateShaderFromActiveAssets()",
+        re.compile(r"\bCreateShaderFromActiveAssets\s*\("),
+        "global shader factory access is count-guarded",
+        "Create shaders through an explicit asset/render context instead of the active-asset bridge.",
+    ),
+    (
+        "TextureCollection::Instance()",
+        re.compile(r"\bTextureCollection\s*::\s*Instance\s*\("),
+        "global texture collection access is count-guarded",
+        "Borrow the runtime-owned texture service instead of adding another TextureCollection singleton call.",
+    ),
+    (
+        "CameraCollection::Instance()",
+        re.compile(r"\bCameraCollection\s*::\s*Instance\s*\("),
+        "global camera collection access is count-guarded",
+        "Borrow the scene/world camera service instead of adding another CameraCollection singleton call.",
+    ),
+    (
+        "Window::Instance()",
+        re.compile(r"\bWindow\s*::\s*Instance\s*\("),
+        "global window service access is count-guarded",
+        "Use a bound window service or the callback bridge instead of adding another Window singleton call.",
+    ),
+    (
+        "SkyBox::Instance()",
+        re.compile(r"\bSkyBox\s*::\s*Instance\s*\("),
+        "global skybox access is count-guarded",
+        "Keep skybox lifetime world-owned instead of adding another SkyBox singleton call.",
+    ),
+    (
+        "WorkerPool::Instance()",
+        re.compile(r"\bWorkerPool\s*::\s*Instance\s*\("),
+        "global worker pool access is count-guarded",
+        "Borrow worker services from runtime context before adding another WorkerPool singleton call.",
+    ),
+    (
+        "Profiler::Instance()",
+        re.compile(r"\bProfiler\s*::\s*Instance\s*\("),
+        "global profiler access is count-guarded",
+        "Route diagnostics/profiling through an explicit diagnostics context before adding another profiler singleton call.",
+    ),
+)
+GENERIC_INSTANCE_ACCESS_PATTERN = re.compile(r"\b(?P<class_name>[A-Za-z_]\w*)\s*::\s*Instance\s*\(")
+NAMED_GLOBAL_SERVICE_INSTANCE_CLASSES = {
+    "TextureCollection",
+    "CameraCollection",
+    "Window",
+    "SkyBox",
+    "WorkerPool",
+    "Profiler",
+}
+PROCESS_GLOBAL_POINTER_PATTERN = re.compile(r"\bpInstance\b")
+MUTABLE_PROCESS_GLOBAL_PATTERN = re.compile(r"\bg_[A-Za-z_]\w*\b")
 MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 129
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
@@ -254,6 +336,142 @@ PHYSICS_MODELS_COMPAT_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             "std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();",
         ),
     )
+)
+
+# Counted allowlist for the current global-service compatibility surface. This
+# is not approval for more singleton use; it is a ratchet. New Gfx(),
+# ActiveAssetSystem(), shader-factory, and service Instance() calls must either
+# migrate to explicit context wiring or deliberately lower another entry.
+GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
+    {
+        ( Path(path), label ): count
+        for path, label, count in (
+            ( "SkullbonezSource/Assets/AssetSystem.cpp", "ActiveAssetSystem()", 1 ),
+            ( "SkullbonezSource/Assets/AssetSystem.cpp", "CreateShaderFromActiveAssets()", 1 ),
+            ( "SkullbonezSource/Assets/AssetSystem.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/Assets/AssetSystem.cpp", "g_*", 5 ),
+            ( "SkullbonezSource/Assets/AssetSystem.h", "ActiveAssetSystem()", 1 ),
+            ( "SkullbonezSource/Assets/AssetSystem.h", "CreateShaderFromActiveAssets()", 1 ),
+            ( "SkullbonezSource/Assets/TextureCollection.cpp", "Gfx()", 3 ),
+            ( "SkullbonezSource/Assets/TextureCollection.cpp", "TextureCollection::Instance()", 1 ),
+            ( "SkullbonezSource/Core/Common.h", "Cfg()", 2 ),
+            ( "SkullbonezSource/Core/Common.h", "EngineConfig::Instance()", 1 ),
+            ( "SkullbonezSource/Core/Config.cpp", "EngineConfig::Instance()", 1 ),
+            ( "SkullbonezSource/Core/LockOrderValidator.cpp", "LockOrderValidator::Instance()", 5 ),
+            ( "SkullbonezSource/Core/LockOrderValidator.cpp", "g_*", 12 ),
+            ( "SkullbonezSource/Core/PlatformProfiler.cpp", "g_*", 12 ),
+            ( "SkullbonezSource/Core/Profiler.cpp", "Gfx()", 9 ),
+            ( "SkullbonezSource/Core/Profiler.cpp", "Profiler::Instance()", 2 ),
+            ( "SkullbonezSource/Core/Profiler.h", "Profiler::Instance()", 11 ),
+            ( "SkullbonezSource/Core/WorkerPool.cpp", "WorkerPool::Instance()", 2 ),
+            ( "SkullbonezSource/Core/WorkerPool.cpp", "g_*", 8 ),
+            ( "SkullbonezSource/GameObjects/GameModel.cpp", "Cfg()", 10 ),
+            ( "SkullbonezSource/Physics/BoundingSphere.cpp", "Cfg()", 1 ),
+            ( "SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "CreateShaderFromActiveAssets()", 1 ),
+            ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "Gfx()", 14 ),
+            ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/Physics/PersistentContactSolver.cpp", "Cfg()", 26 ),
+            ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "Cfg()", 18 ),
+            ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "WorkerPool::Instance()", 6 ),
+            ( "SkullbonezSource/Physics/RigidBody.cpp", "Cfg()", 3 ),
+            ( "SkullbonezSource/Physics/TornadoField.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/Rendering/GameModelRenderer.cpp", "Cfg()", 3 ),
+            ( "SkullbonezSource/Rendering/GameModelRenderer.cpp", "WorkerPool::Instance()", 2 ),
+            ( "SkullbonezSource/Rendering/Helper.cpp", "Cfg()", 2 ),
+            ( "SkullbonezSource/Rendering/Helper.cpp", "Gfx()", 34 ),
+            ( "SkullbonezSource/Rendering/Helper.cpp", "CreateShaderFromActiveAssets()", 2 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "GfxRayTracing()", 1 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.h", "Gfx()", 3 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.h", "GfxRayTracing()", 1 ),
+            ( "SkullbonezSource/Rendering/Shadow.h", "Gfx()", 2 ),
+            ( "SkullbonezSource/Rendering/Text.cpp", "Cfg()", 2 ),
+            ( "SkullbonezSource/Rendering/Text.cpp", "Gfx()", 33 ),
+            ( "SkullbonezSource/Rendering/Text.cpp", "CreateShaderFromActiveAssets()", 3 ),
+            ( "SkullbonezSource/Runtime/Camera.cpp", "Cfg()", 22 ),
+            ( "SkullbonezSource/Runtime/CameraCollection.cpp", "CameraCollection::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/CameraCollection.cpp", "Cfg()", 1 ),
+            ( "SkullbonezSource/Runtime/CameraCollection.cpp", "pInstance", 6 ),
+            ( "SkullbonezSource/Runtime/CameraCollection.h", "pInstance", 1 ),
+            ( "SkullbonezSource/Runtime/Editor/LauncherLaser.cpp", "CreateShaderFromActiveAssets()", 1 ),
+            ( "SkullbonezSource/Runtime/Editor/LauncherLaser.cpp", "Gfx()", 18 ),
+            ( "SkullbonezSource/Runtime/Editor/LauncherTools.cpp", "Cfg()", 3 ),
+            ( "SkullbonezSource/Runtime/Editor/RunEditorPlacementAssets.inl", "ActiveAssetSystem()", 1 ),
+            ( "SkullbonezSource/Runtime/Editor/RunEditorTracer.inl", "Gfx()", 1 ),
+            ( "SkullbonezSource/Runtime/Init.cpp", "Cfg()", 16 ),
+            ( "SkullbonezSource/Runtime/Init.cpp", "Window::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Init.cpp", "WorkerPool::Instance()", 3 ),
+            ( "SkullbonezSource/Runtime/Init.cpp", "g_*", 6 ),
+            ( "SkullbonezSource/Runtime/Input.cpp", "Window::Instance()", 3 ),
+            ( "SkullbonezSource/Runtime/Input.cpp", "g_*", 43 ),
+            ( "SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp", "Cfg()", 4 ),
+            ( "SkullbonezSource/Runtime/Replay/RunReplayCauseTreeTools.inl", "Cfg()", 2 ),
+            ( "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl", "WorkerPool::Instance()", 2 ),
+            ( "SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.inl", "Cfg()", 2 ),
+            ( "SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl", "Cfg()", 2 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "CameraCollection::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "Cfg()", 8 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "Gfx()", 7 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "Profiler::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "SkyBox::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "TextureCollection::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "Window::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/RunFrame.cpp", "Cfg()", 7 ),
+            ( "SkullbonezSource/Runtime/RunFrame.cpp", "Gfx()", 5 ),
+            ( "SkullbonezSource/Runtime/RunFrame.cpp", "Profiler::Instance()", 3 ),
+            ( "SkullbonezSource/Runtime/RunInput.cpp", "Cfg()", 22 ),
+            ( "SkullbonezSource/Runtime/RunInput.cpp", "Gfx()", 4 ),
+            ( "SkullbonezSource/Runtime/RunInteractionAutomation.cpp", "Cfg()", 2 ),
+            ( "SkullbonezSource/Runtime/RunLiveStyle.cpp", "Cfg()", 1 ),
+            ( "SkullbonezSource/Runtime/RunPasses.cpp", "Cfg()", 6 ),
+            ( "SkullbonezSource/Runtime/RunPasses.cpp", "Gfx()", 98 ),
+            ( "SkullbonezSource/Runtime/RunPasses.cpp", "GfxRayTracing()", 1 ),
+            ( "SkullbonezSource/Runtime/RunRender.cpp", "Cfg()", 3 ),
+            ( "SkullbonezSource/Runtime/RunRender.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/Runtime/RunStress.cpp", "Cfg()", 1 ),
+            ( "SkullbonezSource/Runtime/RunStress.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/Runtime/RunUiTextPass.cpp", "Cfg()", 1 ),
+            ( "SkullbonezSource/Runtime/RunUiTextPass.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/Runtime/RunUiTextPass.cpp", "Profiler::Instance()", 2 ),
+            ( "SkullbonezSource/Runtime/RunUiTextPass.cpp", "WorkerPool::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/RunUiTextPass.cpp", "GfxRayTracing()", 1 ),
+            ( "SkullbonezSource/Runtime/RuntimeDiagnostics.cpp", "Profiler::Instance()", 2 ),
+            ( "SkullbonezSource/Runtime/RuntimeTuning.cpp", "Cfg()", 1 ),
+            ( "SkullbonezSource/Runtime/RuntimeTuning.cpp", "WorkerPool::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "Cfg()", 18 ),
+            ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "Gfx()", 9 ),
+            ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "GfxRayTracing()", 1 ),
+            ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "WorkerPool::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp", "CameraCollection::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp", "CameraCollection::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Window.cpp", "Cfg()", 6 ),
+            ( "SkullbonezSource/Runtime/Window.cpp", "Gfx()", 1 ),
+            ( "SkullbonezSource/Runtime/Window.cpp", "Window::Instance()", 3 ),
+            ( "SkullbonezSource/Runtime/Window.cpp", "pInstance", 4 ),
+            ( "SkullbonezSource/Runtime/Window.h", "pInstance", 1 ),
+            ( "SkullbonezSource/Scene/TestSceneParser.cpp", "ActiveAssetSystem()", 1 ),
+            ( "SkullbonezSource/UI/UI.cpp", "CreateShaderFromActiveAssets()", 1 ),
+            ( "SkullbonezSource/UI/UI.cpp", "Gfx()", 16 ),
+            ( "SkullbonezSource/UI/UIBackdropBlur.cpp", "CreateShaderFromActiveAssets()", 1 ),
+            ( "SkullbonezSource/UI/UIBackdropBlur.cpp", "Gfx()", 14 ),
+            ( "SkullbonezSource/UI/UITabProfiler.cpp", "Gfx()", 1 ),
+            ( "SkullbonezSource/UI/UITabProfiler.cpp", "Profiler::Instance()", 6 ),
+            ( "SkullbonezSource/World/SkyBox.cpp", "Cfg()", 2 ),
+            ( "SkullbonezSource/World/SkyBox.cpp", "CreateShaderFromActiveAssets()", 1 ),
+            ( "SkullbonezSource/World/SkyBox.cpp", "Gfx()", 1 ),
+            ( "SkullbonezSource/World/SkyBox.cpp", "SkyBox::Instance()", 1 ),
+            ( "SkullbonezSource/World/SkyBox.cpp", "TextureCollection::Instance()", 1 ),
+            ( "SkullbonezSource/World/SkyBox.cpp", "pInstance", 7 ),
+            ( "SkullbonezSource/World/SkyBox.h", "pInstance", 1 ),
+            ( "SkullbonezSource/World/Terrain.cpp", "Cfg()", 22 ),
+            ( "SkullbonezSource/World/Terrain.cpp", "CreateShaderFromActiveAssets()", 2 ),
+            ( "SkullbonezSource/World/Terrain.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/World/WorldEnvironment.cpp", "Cfg()", 20 ),
+            ( "SkullbonezSource/World/WorldEnvironment.cpp", "CreateShaderFromActiveAssets()", 2 ),
+            ( "SkullbonezSource/World/WorldEnvironment.cpp", "Gfx()", 3 ),
+        )
+    }
 )
 
 RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
@@ -1130,6 +1348,15 @@ def strip_cpp_comments(text: str) -> str:
     return re.sub(r"//.*", "", text)
 
 
+def strip_cpp_comments_and_string_literals(text: str) -> str:
+    stripped = strip_cpp_comments(text)
+
+    def blank_literal(match: re.Match[str]) -> str:
+        return re.sub(r"[^\n]", " ", match.group(0))
+
+    return re.sub(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'', blank_literal, stripped, flags=re.S)
+
+
 def line_for_offset(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
@@ -1503,6 +1730,80 @@ def check_graph_owned_render_pass_scheduling_text(path: Path, text: str) -> list
 def check_graph_owned_render_pass_scheduling(repo: Path) -> list[BoundaryError]:
     path = repo / RUN_RENDER_SOURCE
     return check_graph_owned_render_pass_scheduling_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_global_service_access_guardrails_text(
+    path: Path,
+    text: str,
+    relative_path: Path | None = None,
+    allowlist: Counter[tuple[Path, str]] | None = None,
+) -> list[BoundaryError]:
+    key_path = relative_path or path
+    allowed = GLOBAL_SERVICE_ACCESS_ALLOWLIST if allowlist is None else allowlist
+    stripped = strip_cpp_comments_and_string_literals(text)
+    matches: list[tuple[int, str, str, str]] = []
+    seen: Counter[tuple[Path, str]] = Counter()
+    errors: list[BoundaryError] = []
+
+    for label, pattern, message, detail in GLOBAL_SERVICE_ACCESS_PATTERNS:
+        for match in pattern.finditer(stripped):
+            matches.append(( match.start(), label, message, detail ))
+
+    for match in GENERIC_INSTANCE_ACCESS_PATTERN.finditer(stripped):
+        class_name = match.group("class_name")
+        if class_name in NAMED_GLOBAL_SERVICE_INSTANCE_CLASSES:
+            continue
+        matches.append(
+            (
+                match.start(),
+                f"{class_name}::Instance()",
+                "generic singleton access is count-guarded",
+                "Class::Instance() access must be classified as bootstrap/bridge debt or replaced by an explicit service context.",
+            )
+        )
+
+    for match in PROCESS_GLOBAL_POINTER_PATTERN.finditer(stripped):
+        matches.append(
+            (
+                match.start(),
+                "pInstance",
+                "process singleton pointer access is count-guarded",
+                "Do not add pInstance singleton storage without explicit lifecycle/bridge classification.",
+            )
+        )
+
+    for match in MUTABLE_PROCESS_GLOBAL_PATTERN.finditer(stripped):
+        matches.append(
+            (
+                match.start(),
+                "g_*",
+                "mutable process global access is count-guarded",
+                "Do not add mutable g_ process globals outside a named callback bridge or bootstrap compatibility path.",
+            )
+        )
+
+    for offset, label, message, detail in sorted(matches):
+        key = ( key_path, label )
+        seen[key] += 1
+        if seen[key] > allowed.get(key, 0):
+            errors.append(BoundaryError(path, line_for_offset(stripped, offset), message, detail))
+
+    return errors
+
+
+def check_global_service_access_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
+        if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+            continue
+        errors.extend(
+            check_global_service_access_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+                path.relative_to(repo),
+            )
+        )
+    return errors
 
 
 def render_host_member_declarations(body: str) -> list[tuple[str, int]]:
@@ -2880,6 +3181,102 @@ def run_self_tests() -> list[str]:
         )
     ):
         failures.append("direct graph-owned pass scheduling synthetic surface was not rejected")
+
+    allowed_global_service_path = Path("SkullbonezSource/Runtime/Run.cpp")
+    allowed_global_service_access = "void BootstrapRenderer() { Gfx().Present(); }"
+    synthetic_global_service_allowlist: Counter[tuple[Path, str]] = Counter(
+        { ( allowed_global_service_path, "Gfx()" ): 1 }
+    )
+    if check_global_service_access_guardrails_text(
+        allowed_global_service_path,
+        allowed_global_service_access,
+        allowlist=synthetic_global_service_allowlist,
+    ):
+        failures.append("count-allowed global service synthetic surface was rejected")
+
+    grown_global_service_access = """
+    void BootstrapRenderer() { Gfx().Present(); }
+    void NewRenderHelper() { Gfx().Clear( true, true ); }
+    """
+    if not any(
+        error.message == "global renderer service access is count-guarded"
+        for error in check_global_service_access_guardrails_text(
+            allowed_global_service_path,
+            grown_global_service_access,
+            allowlist=synthetic_global_service_allowlist,
+        )
+    ):
+        failures.append("grown global renderer service synthetic surface was not rejected")
+
+    new_window_singleton_access = "void DeepInputPath() { Window::Instance()->ShowCursor( true ); }"
+    if not any(
+        error.message == "global window service access is count-guarded"
+        for error in check_global_service_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/InputNew.cpp"),
+            new_window_singleton_access,
+            relative_path=Path("SkullbonezSource/Runtime/InputNew.cpp"),
+        )
+    ):
+        failures.append("new window singleton synthetic surface was not rejected")
+
+    new_cfg_access = "void DeepConfigPath() { int threads = Cfg().workerThreads; }"
+    if not any(
+        error.message == "global config access is count-guarded"
+        for error in check_global_service_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/NewConfigPath.cpp"),
+            new_cfg_access,
+            relative_path=Path("SkullbonezSource/Runtime/NewConfigPath.cpp"),
+        )
+    ):
+        failures.append("new Cfg synthetic surface was not rejected")
+
+    new_generic_instance_access = "void DeepConfigPath() { EngineConfig::Instance().workerThreads = 0; }"
+    if not any(
+        error.message == "generic singleton access is count-guarded"
+        for error in check_global_service_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/NewConfigPath.cpp"),
+            new_generic_instance_access,
+            relative_path=Path("SkullbonezSource/Runtime/NewConfigPath.cpp"),
+        )
+    ):
+        failures.append("new generic Instance synthetic surface was not rejected")
+
+    new_process_singleton_pointer = "class Service { static Service* pInstance; };"
+    if not any(
+        error.message == "process singleton pointer access is count-guarded"
+        for error in check_global_service_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/NewService.h"),
+            new_process_singleton_pointer,
+            relative_path=Path("SkullbonezSource/Runtime/NewService.h"),
+        )
+    ):
+        failures.append("new pInstance synthetic surface was not rejected")
+
+    new_mutable_process_global = "int g_newInputBridge = 0;"
+    if not any(
+        error.message == "mutable process global access is count-guarded"
+        for error in check_global_service_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/NewInputBridge.cpp"),
+            new_mutable_process_global,
+            relative_path=Path("SkullbonezSource/Runtime/NewInputBridge.cpp"),
+        )
+    ):
+        failures.append("new g_ global synthetic surface was not rejected")
+
+    diagnostic_text_only_global = r'''
+    void LogMigrationHint()
+    {
+        printf( "Do not add Gfx(), Cfg(), Window::Instance(), pInstance, or g_newService here." );
+        // Gfx().Clear( true, true );
+        /* Cfg().workerThreads = 0; */
+    }
+    '''
+    if check_global_service_access_guardrails_text(
+        Path("SkullbonezSource/Runtime/DiagnosticStrings.cpp"),
+        diagnostic_text_only_global,
+        relative_path=Path("SkullbonezSource/Runtime/DiagnosticStrings.cpp"),
+    ):
+        failures.append("diagnostic string/comment global service synthetic surface was rejected")
 
     grown_run_header = allowed_run_header.replace("void Render();", "void Render();\n        void NewHelper();")
     if not any(
@@ -5112,6 +5509,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_direct_gfx_raytracing_guardrails(repo))
     errors.extend(check_irender_backend_raytracing_declarations(repo))
     errors.extend(check_graph_owned_render_pass_scheduling(repo))
+    errors.extend(check_global_service_access_guardrails(repo))
     return errors
 
 

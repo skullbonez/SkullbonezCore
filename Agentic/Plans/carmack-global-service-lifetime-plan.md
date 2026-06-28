@@ -1,12 +1,56 @@
 # Carmack Global Service Lifetime Plan
 
 Date: 2026-06-28
-Status: Draft
+Status: In progress
 Impact area: runtime ownership, rendering, assets, input/window, scene system,
 tooling, tests
 Validation note: plan-only edits require no validation. PR-bound implementation
 should choose the narrowest gate from `AGENTS.md`; broad lifetime changes usually
 require `tools\validate_full.bat`.
+
+## Completed Slices
+
+- [x] 2026-06-28: Added a counted global-service access ratchet to
+  `tools\check_runtime_boundaries.py`. The guardrail ignores comments and string
+  literals, preserves the current compatibility surface as counted debt, and
+  fails on new or grown calls to `Cfg()`, `Gfx()`, `GfxRayTracing()`,
+  `ActiveAssetSystem()`, `CreateShaderFromActiveAssets()`, named service
+  singletons, generic non-named `Class::Instance()` access, `pInstance`
+  singleton storage, and mutable `g_*` process globals. This is a new-code
+  ratchet only; per-site bootstrap/shutdown/OS-bridge classification and source
+  migration remain open. Validation: `python tools\check_runtime_boundaries.py`
+  passed in 4.81s
+  (`TestOutput\validation\agent_logs\global_service_guardrail_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 18.01s
+  (`TestOutput\validation\agent_logs\global_service_guardrail_validate_fast.log`).
+  Comment-style audit: inspected the touched tool script
+  `tools\check_runtime_boundaries.py` against
+  `Agentic\Reference\comment-style-guide.md`; the learning header remains
+  present, and the new ratchet/allowlist comments state the invariant and
+  limits of the guardrail.
+
+## Current Counted Global-Service Surface
+
+This snapshot is the guardrail allowlist as of 2026-06-28. Counts are taken from
+source-bearing files under `SkullbonezSource/` after stripping comments and
+string literals.
+
+| Pattern | Current count |
+|---------|---------------|
+| `Cfg()` | 239 |
+| `Gfx()` | 294 |
+| `GfxRayTracing()` | 5 |
+| `ActiveAssetSystem()` | 4 |
+| `CreateShaderFromActiveAssets()` | 16 |
+| `TextureCollection::Instance()` | 3 |
+| `CameraCollection::Instance()` | 4 |
+| `Window::Instance()` | 8 |
+| `SkyBox::Instance()` | 2 |
+| `WorkerPool::Instance()` | 18 |
+| `Profiler::Instance()` | 27 |
+| Generic non-named `Class::Instance()` | 7 |
+| `pInstance` | 20 |
+| Mutable `g_*` process global | 86 |
 
 ## Problem Statement
 
@@ -46,11 +90,11 @@ bridges tiny, named, and fenced.
 
 ### Inventory
 
-- [ ] Run `rg "Gfx\\(|GfxRayTracing\\(|Cfg\\(|ActiveAssetSystem\\(|CreateShaderFromActiveAssets\\(|::Instance\\(|pInstance|g_[A-Za-z_]" SkullbonezSource`.
+- [x] Run `rg "Gfx\\(|GfxRayTracing\\(|Cfg\\(|ActiveAssetSystem\\(|CreateShaderFromActiveAssets\\(|::Instance\\(|pInstance|g_[A-Za-z_]" SkullbonezSource`.
 - [ ] Classify each hit as `bootstrap`, `shutdown`, `OS callback bridge`,
   `normal runtime path`, `render pass`, `asset lookup`, `diagnostics`, or
   `test/tool`.
-- [ ] Record the current allowlist in this plan before changing source.
+- [x] Record the current allowlist in this plan before changing source.
 - [ ] Identify service lifetime owners already available in `Run`,
   `EngineContext`, `RuntimeRenderHost`, `RuntimeTools`, `DiagnosticsRuntime`, and
   `SceneController`.
@@ -112,12 +156,15 @@ bridges tiny, named, and fenced.
 
 ### Guardrails
 
-- [ ] Extend `tools\check_runtime_boundaries.py` to block new normal-path
+- [x] Extend `tools\check_runtime_boundaries.py` to block new normal-path
   `Gfx()`, `ActiveAssetSystem()`, `CreateShaderFromActiveAssets()`, and
   singleton `Instance()` calls outside allowlisted bootstrap/bridge files.
-- [ ] Add counted allowlists for remaining globals and lower them after each
+  2026-06-28 note: implemented as a counted new-code ratchet for current source
+  files; the stricter bootstrap/bridge classification is still open under
+  Inventory.
+- [x] Add counted allowlists for remaining globals and lower them after each
   migration slice.
-- [ ] Add synthetic checker tests that reject a new normal-path global service
+- [x] Add synthetic checker tests that reject a new normal-path global service
   access.
 - [ ] Add a review checklist entry asking whether a new dependency should be a
   borrowed context instead of a global.
@@ -131,17 +178,35 @@ bridges tiny, named, and fenced.
   behavior changes: run `tools\validate_full.bat`.
 - [ ] For input/window changes: run `tools\validate_full.bat`; add focused
   launch/click validation if interaction behavior changes.
-- [ ] Quote validation output and log paths in the handoff.
+- [x] For guardrail-tooling changes: run `python tools\check_runtime_boundaries.py`
+  and `tools\validate_fast.bat`.
+- [x] Quote validation output and log paths in the handoff.
 
 ## Independent Review Checklist
 
-- [ ] Ask a rubber-duck reviewer to distinguish legitimate callback bridges from
+- [x] Ask a rubber-duck reviewer to distinguish legitimate callback bridges from
   avoidable service locators.
-- [ ] Ask the reviewer to inspect startup/shutdown lifetime order and borrowed
+- [x] Ask the reviewer to inspect startup/shutdown lifetime order and borrowed
   pointer safety.
-- [ ] Ask the reviewer to search for new normal-path global access.
-- [ ] Record review findings in a report or this plan.
-- [ ] Resolve blocking findings before committing PR-bound code.
+- [x] Ask the reviewer to search for new normal-path global access.
+- [x] Record review findings in a report or this plan.
+- [x] Resolve blocking findings before committing PR-bound code.
+
+Reviewer notes, 2026-06-28:
+
+- Ampere blocked the first guardrail draft because it only watched named
+  renderer/asset/window singleton access and missed plan-named `Cfg()`, generic
+  `::Instance()`, `pInstance`, and `g_*` process globals.
+- Ampere also flagged that file-level counts are a ratchet, not a substitute
+  for classifying every remaining call as bootstrap, shutdown, OS callback
+  bridge, or normal runtime debt.
+- The guardrail was expanded to cover the missing patterns and string/comment
+  false positives were removed. The broader per-site classification remains
+  intentionally unchecked.
+- Ampere re-checked the expanded guardrail and found no remaining blockers
+  before commit. Residual non-blocking note: the `g_*` pattern counts references
+  as well as declarations, which is conservative but acceptable for this
+  new-code ratchet.
 
 ## Definition Of Done
 
