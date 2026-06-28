@@ -122,6 +122,8 @@ uint64_t HashSmokeResult( const PhysicsStandaloneSmokeResult& result )
     hash = HashU32( hash, result.bodyCount );
     hash = HashU32( hash, result.colliderCount );
     hash = HashU32( hash, result.pointJointCount );
+    hash = HashU32( hash, result.contactCount );
+    hash = HashU32( hash, result.islandCount );
     hash = HashU32( hash, result.broadphaseQueryCount );
     hash = HashU32( hash, result.stepCount );
     hash = HashU32( hash, result.activationCommandsPassed ? 1u : 0u );
@@ -788,6 +790,25 @@ SkullbonezCore::Physics::PhysicsPointJointCollectionView PhysicsStandaloneWorld:
 }
 
 
+SkullbonezCore::Physics::PhysicsContactCollectionView PhysicsStandaloneWorld::Contacts() const
+{
+    // Concept: standalone collision generation has not migrated behind
+    // PhysicsStandaloneWorld yet. Returning an empty immutable view gives
+    // diagnostics/replay callers the public shape without exposing legacy
+    // solver containers or GameModelCollection state.
+    return SkullbonezCore::Physics::PhysicsContactCollectionView{};
+}
+
+
+SkullbonezCore::Physics::PhysicsIslandCollectionView PhysicsStandaloneWorld::Islands() const
+{
+    // Concept: sleep island authority still lives in the legacy step path. The
+    // standalone API publishes a stable empty view now so future store-owned
+    // islands can fill it without changing callers again.
+    return SkullbonezCore::Physics::PhysicsIslandCollectionView{};
+}
+
+
 bool PhysicsStandaloneWorld::IsAlive( PhysicsBodyHandle body ) const
 {
     return body.IsValid() && body.index < m_bodies.size() && m_alive[body.index] != 0 &&
@@ -1207,6 +1228,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     result.bodyCount = world.Bodies().bodyCount;
     result.colliderCount = world.Colliders().colliderCount;
     result.pointJointCount = world.PointJoints().pointJointCount;
+    result.contactCount = world.Contacts().contactCount;
+    result.islandCount = world.Islands().islandCount;
     result.stepCount = STEP_COUNT;
     result.activationCommandsPassed = activationCommandsConsistent;
 
@@ -1263,9 +1286,9 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
 
     result.deterministicHash = HashSmokeResult( result );
     result.passed = stepped && result.lifecycleChecksPassed && finalBody && result.bodyCount == 1u &&
-                    result.colliderCount == 1u && result.pointJointCount == 0u && result.broadphaseQueryCount == 1u &&
-                    result.activationCommandsPassed && result.rayCastHit &&
-                    result.finalPosition == Vector3( 3.0f, 9.0f, -2.0f ) &&
+                    result.colliderCount == 1u && result.pointJointCount == 0u && result.contactCount == 0u &&
+                    result.islandCount == 0u && result.broadphaseQueryCount == 1u && result.activationCommandsPassed &&
+                    result.rayCastHit && result.finalPosition == Vector3( 3.0f, 9.0f, -2.0f ) &&
                     result.finalLinearVelocity == Vector3( 2.0f, -4.0f, 0.0f );
     return result;
 }

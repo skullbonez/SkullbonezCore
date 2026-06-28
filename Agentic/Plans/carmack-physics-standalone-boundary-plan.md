@@ -10,6 +10,27 @@ when SkullScope baselines or broad physics diagnostics change.
 
 ## Completed Slices
 
+- [x] 2026-06-28: Added immutable public contact and island view shapes to the
+  standalone physics API. `PhysicsContactView` / `PhysicsContactCollectionView`
+  and `PhysicsIslandView` / `PhysicsIslandCollectionView` give diagnostics,
+  replay, and future solver-store migration a handle-based public contract
+  without exposing solver-private manifolds, sleep-island containers, or
+  `GameModelCollection`. `PhysicsStandaloneWorld::Contacts()` and `Islands()`
+  currently return stable empty views because the standalone narrowphase/island
+  solver has not migrated yet; the standalone smoke now records `contactCount`
+  and `islandCount` in the deterministic hash and requires both to be zero for
+  the current no-collision sample.
+  Comment-style audit: inspected `PhysicsApi.h` and `PhysicsApi.cpp`; the
+  header glossary now names contact/island view vocabulary, public accessors
+  document deterministic empty-view lifetime, and implementation comments name
+  the no-legacy-container invariant.
+  Validation:
+  `cmd /c tools\validate_physics.bat` passed from
+  `TestOutput\validation\agent_logs\physics_standalone_contact_island_views_validate_physics.log`;
+  standalone smoke reported `lifecycle_checks=pass
+  hash=0xA64C5151AB391415`, Debug/Profile builds were ready at 0 warnings and
+  0 errors, and `physics_regression_solver.csv` matched the committed baseline
+  byte-exactly.
 - [x] 2026-06-28: Added `GameModelCollectionPhysicsAdapter` as the named
   runtime/game-object compatibility bridge for physics commands. The adapter
   maps legacy model indices and `PhysicsSceneObjectId` values to
@@ -275,7 +296,12 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
     `PhysicsApi.h` command/update descriptors target physics handles, not
     model indices; `PhysicsSceneObjectId` remains descriptive identity
     metadata, not a storage offset.
-- [ ] Add immutable body, collider, contact, island, and diagnostic view structs that do not expose solver-private vectors.
+- [x] Add immutable body, collider, contact, island, and diagnostic view structs that do not expose solver-private vectors.
+  - [x] 2026-06-28 contact/island view slice added public
+    `PhysicsContactView`, `PhysicsContactCollectionView`, `PhysicsIslandView`,
+    and `PhysicsIslandCollectionView`; standalone accessors return stable empty
+    views until narrowphase contacts and sleep islands move behind store-owned
+    physics data.
 - [x] Document deterministic ordering rules for body creation, deletion,
   queries, and replay hash output.
   - [x] 2026-06-28 `PhysicsApi.h` now names deterministic order in the public
@@ -355,6 +381,11 @@ simulation stepping. The completed 2026-06-28 SimulationSystem slice removed
   sleep-disable, sleep-enable, fixed-body rejection, invalid-command rejection,
   durable sleep-disabled create/update/step/query behavior, and stale
   activation command rejection.
+- [x] Extend standalone smoke evidence to cover immutable contact and island
+  view counts.
+  - [x] 2026-06-28 contact/island view slice records zero contacts and zero
+    islands in the smoke hash for the current no-collision standalone sample:
+    `lifecycle_checks=pass hash=0xA64C5151AB391415`.
 - [ ] Add a runtime integration sample proving scene objects still mirror physics body state after a step.
 - [ ] Add focused replay restore evidence if handles replace model indices in replay state.
 - [ ] If SkullScope output changes, update the query baseline only from final Debug artifacts and report query-size accounting.

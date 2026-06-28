@@ -17,6 +17,8 @@ Glossary:
   Broadphase query: Cheap spatial query that returns candidate bodies, not exact
     narrowphase contacts.
   Collider: Shape and material-adjacent collision metadata paired with a body.
+  Contact: Immutable collision-pair view exposed for diagnostics/replay without
+    solver-private manifold storage.
   Constraint: Solver relationship between bodies; the standalone API currently
     stores point joints as constraint-handle records.
   Deterministic order: Public collection views and broadphase candidates
@@ -24,6 +26,7 @@ Glossary:
     assignment so replay/debug evidence does not depend on allocator addresses
     or STL traversal accidents.
   Facade: Narrow public boundary that hides solver implementation containers.
+  Island: Immutable solver-group summary for sleep/support diagnostics.
   Ray cast: Query that shoots a line segment through physics space and returns
     the closest candidate hit.
   Sleep: Optional optimization that skips integration for quiet dynamic bodies
@@ -324,6 +327,39 @@ struct PhysicsPointJointCollectionView
     uint32_t pointJointCount = 0;
 };
 
+struct PhysicsContactView
+{
+    PhysicsBodyHandle bodyA;
+    PhysicsBodyHandle bodyB;
+    PhysicsColliderHandle colliderA;
+    PhysicsColliderHandle colliderB;
+    Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 normal = Math::Vector::ZERO_VECTOR;
+    float penetrationDepth = 0.0f;
+    float normalImpulse = 0.0f;
+    bool touching = false;
+};
+
+struct PhysicsContactCollectionView
+{
+    const PhysicsContactView* contacts = nullptr;
+    uint32_t contactCount = 0;
+};
+
+struct PhysicsIslandView
+{
+    uint32_t islandId = 0;
+    uint32_t bodyCount = 0;
+    bool sleeping = false;
+    bool supported = false;
+};
+
+struct PhysicsIslandCollectionView
+{
+    const PhysicsIslandView* islands = nullptr;
+    uint32_t islandCount = 0;
+};
+
 struct PhysicsRenderInstanceView
 {
     PhysicsBodyHandle body;
@@ -376,6 +412,8 @@ struct PhysicsStandaloneSmokeResult
     uint32_t bodyCount = 0;
     uint32_t colliderCount = 0;
     uint32_t pointJointCount = 0;
+    uint32_t contactCount = 0;
+    uint32_t islandCount = 0;
     uint32_t broadphaseQueryCount = 0;
     uint32_t stepCount = 0;
     bool activationCommandsPassed = false;
@@ -480,6 +518,16 @@ class PhysicsStandaloneWorld
     // internal scratch storage and is valid until the next PointJoints() call or
     // non-const world mutation.
     PhysicsPointJointCollectionView PointJoints() const;
+
+    // Returns immutable contact diagnostics in deterministic solver/contact
+    // order. The standalone world has no narrowphase solver yet, so this is an
+    // empty stable view rather than a GameModelCollection-backed leak.
+    PhysicsContactCollectionView Contacts() const;
+
+    // Returns immutable sleep/support island summaries in deterministic island
+    // order. The standalone world has no island solver yet, so this is an empty
+    // stable view until store-owned islands migrate behind the public API.
+    PhysicsIslandCollectionView Islands() const;
 
   private:
     bool IsAlive( PhysicsBodyHandle body ) const;
