@@ -1,0 +1,4 @@
+interface:
+  display_name: "Weekend Warrior"
+  short_description: "Carmack gaps to reviewed commits"
+  default_prompt: "Use $weekend-warrior to run the Carmack test, generate plans for gaps, implement each plan with rubber-duck review, and commit on a dated weekend-warrior branch."
