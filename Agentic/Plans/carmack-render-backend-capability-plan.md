@@ -211,6 +211,32 @@ storage changes, also run `tools\validate_perf.bat`.
   fixing depth-write/cull restore debt, the viewport restore relies on window
   and backend dimensions staying in lockstep, and the DX12 validation suite is
   broad renderer coverage rather than a shadow-scene-specific visual proof.
+- [x] 2026-06-28: Migrated `VolumetricPass::Render()` viewport and
+  depth/blend state save, mutation, restore, and final viewport restore from
+  direct `Gfx()` calls to the borrowed `IRenderCommandContext` already carried
+  by `RenderFrameContext`. This removes twelve more `RunPasses.cpp` `Gfx()`
+  calls and lowers the file allowlist from 44 to 32; the fullscreen quad
+  helper, resource creation, reflection, tonemap, and DXR paths remain open.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; both touched source-bearing files retain
+  learning headers, and this slice preserves the existing screen-space pass
+  state restore contract instead of folding behavior cleanup into the migration.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.89s
+  (`TestOutput\validation\agent_logs\volumetric_command_state_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.71s
+  (`TestOutput\validation\agent_logs\volumetric_command_state_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 18.08s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\volumetric_command_state_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.87s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\volumetric_command_state_validate_full.log`).
+  Rubber-duck review: Meitner found no blockers. Non-blocking notes: this slice
+  intentionally preserves legacy depth-write restore semantics, the viewport
+  restore relies on window and backend dimensions staying in lockstep, and the
+  DX12 validation suite is broad renderer coverage rather than
+  volumetric-scene-specific visual proof.
 
 ## Problem Statement
 
@@ -285,6 +311,9 @@ compatibility facade while call sites migrate.
 - [x] Route shadow-map viewport/clear/depth/blend/cull/polygon-offset state
   through the existing `IRenderCommandContext` argument and lower the
   `RunPasses.cpp` direct `Gfx()` allowlist from 60 to 44.
+- [x] Route volumetric pass viewport/depth/blend state through
+  `RenderFrameContext`'s borrowed `IRenderCommandContext` and lower the
+  `RunPasses.cpp` direct `Gfx()` allowlist from 44 to 32.
 - [ ] Pass capture/readback capability only to screenshot and validation paths.
 - [ ] Pass dynamic geometry capability only to UI text, debug overlays, and transient draw helpers.
 - [ ] Pass GPU profiler capability only to profiler marker code.

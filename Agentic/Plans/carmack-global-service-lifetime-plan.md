@@ -178,6 +178,32 @@ require `tools\validate_full.bat`.
   fixing depth-write/cull restore debt, the viewport restore relies on window
   and backend dimensions staying in lockstep, and the DX12 validation suite is
   broad renderer coverage rather than a shadow-scene-specific visual proof.
+- [x] 2026-06-28: Routed `VolumetricPass::Render()` viewport and depth/blend
+  state through `RenderFrameContext`'s borrowed `IRenderCommandContext` instead
+  of direct `Gfx()` calls. This lowers `RunPasses.cpp` direct `Gfx()` debt from
+  44 to 32 and the plan's total counted `Gfx()` surface from 239 to 227. The
+  broad render-pass/global-service migration remains open for the fullscreen
+  quad helper, resource creation, reflection, tonemap, and DXR paths.
+  Comment-style audit: inspected `RunPasses.cpp` and
+  `tools\check_runtime_boundaries.py`; the change uses the existing borrowed
+  command context and preserves the current screen-space state restore
+  contract.
+  Validation:
+  `python tools\check_runtime_boundaries.py` passed with 0 errors in 4.89s
+  (`TestOutput\validation\agent_logs\volumetric_command_state_runtime_boundaries.log`);
+  `tools\validate_fast.bat` passed in 24.71s
+  (`TestOutput\validation\agent_logs\volumetric_command_state_validate_fast.log`);
+  `tools\validate_dx12_renderer.bat` passed in 18.08s with 0 DX12 validation
+  errors and matching screenshots
+  (`TestOutput\validation\agent_logs\volumetric_command_state_validate_dx12_renderer.log`);
+  `tools\validate_full.bat` passed in 28.87s, including DX12 and byte-exact
+  physics baseline validation
+  (`TestOutput\validation\agent_logs\volumetric_command_state_validate_full.log`).
+  Rubber-duck review: Meitner found no blockers. Non-blocking notes: this slice
+  intentionally preserves legacy depth-write restore semantics, the viewport
+  restore relies on window and backend dimensions staying in lockstep, and the
+  DX12 validation suite is broad renderer coverage rather than
+  volumetric-scene-specific visual proof.
 
 ## Current Counted Global-Service Surface
 
@@ -188,7 +214,7 @@ string literals.
 | Pattern | Current count |
 |---------|---------------|
 | `Cfg()` | 239 |
-| `Gfx()` | 239 |
+| `Gfx()` | 227 |
 | `GfxRayTracing()` | 5 |
 | `ActiveAssetSystem()` | 4 |
 | `CreateShaderFromActiveAssets()` | 16 |
@@ -281,6 +307,9 @@ bridges tiny, named, and fenced.
   `Gfx()` calls.
 - [x] Route shadow-map viewport/clear/depth/blend/cull/polygon-offset state
   through its existing command context argument instead of direct `Gfx()` calls.
+- [x] Route volumetric pass viewport/depth/blend state through
+  `RenderFrameContext`'s borrowed command context instead of direct `Gfx()`
+  calls.
 - [ ] Route shader and texture creation through an asset/render context passed
   from runtime-owned services.
 - [ ] Replace `ActiveAssetSystem()` in scene parsing and editor tools with an

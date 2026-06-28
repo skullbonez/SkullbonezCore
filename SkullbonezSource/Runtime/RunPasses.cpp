@@ -1769,15 +1769,16 @@ bool VolumetricPass::Render( const RenderFrameContext& frame )
     // texture, so read and write targets must be different resources.
     scene.hdrTarget->Unbind();
     volumetric.target->Bind();
-    Gfx().SetViewport( 0, 0, volumetric.target->GetWidth(), volumetric.target->GetHeight() );
+    Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
+    renderCommands.SetViewport( 0, 0, volumetric.target->GetWidth(), volumetric.target->GetHeight() );
 
     // This is another screen-space effect, so depth testing and blending are
     // disabled while the full-screen quad is generated.
-    const bool depthWasEnabled = Gfx().IsDepthTestEnabled();
-    const bool blendWasEnabled = Gfx().IsBlendEnabled();
-    Gfx().SetDepthTest( false );
-    Gfx().SetDepthWrite( false );
-    Gfx().SetBlend( false );
+    const bool depthWasEnabled = renderCommands.IsDepthTestEnabled();
+    const bool blendWasEnabled = renderCommands.IsBlendEnabled();
+    renderCommands.SetDepthTest( false );
+    renderCommands.SetDepthWrite( false );
+    renderCommands.SetBlend( false );
 
     {
         if ( detailMarkers )
@@ -1790,7 +1791,7 @@ bool VolumetricPass::Render( const RenderFrameContext& frame )
         // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
         // depth. The shader uses depth to tell sky pixels from solid geometry so
         // rays pass through sky and fade when they cross hills/balls.
-        BindRenderTextureSlots( RenderCommands( frame ),
+        BindRenderTextureSlots( renderCommands,
                                 scene.hdrTarget->GetColorTextureHandle(),
                                 scene.hdrTarget->GetDepthTextureHandle(),
                                 0,
@@ -1802,11 +1803,11 @@ bool VolumetricPass::Render( const RenderFrameContext& frame )
         }
     }
 
-    Gfx().SetDepthTest( depthWasEnabled );
-    Gfx().SetDepthWrite( depthWasEnabled );
-    Gfx().SetBlend( blendWasEnabled );
+    renderCommands.SetDepthTest( depthWasEnabled );
+    renderCommands.SetDepthWrite( depthWasEnabled );
+    renderCommands.SetBlend( blendWasEnabled );
     volumetric.target->Unbind();
-    Gfx().SetViewport( 0, 0, Gfx().GetWidth(), Gfx().GetHeight() );
+    renderCommands.SetViewport( 0, 0, m_host.WindowScreenWidth(), m_host.WindowScreenHeight() );
     if ( detailMarkers )
     {
         PROFILE_GPU_END( "Frame/Render/VolumetricLight" );
