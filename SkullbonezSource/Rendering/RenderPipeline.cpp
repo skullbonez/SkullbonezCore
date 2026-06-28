@@ -44,7 +44,26 @@ bool IsSameSnapshot( const RenderSceneSnapshot& lhs, const RenderSceneSnapshot& 
            lhs.reflectionUsedDxr == rhs.reflectionUsedDxr && lhs.objectOpaquePass == rhs.objectOpaquePass &&
            lhs.objectTransparentPass == rhs.objectTransparentPass &&
            lhs.terrainPassRendered == rhs.terrainPassRendered && lhs.waterPassRendered == rhs.waterPassRendered &&
-           lhs.waterSamplesReflection == rhs.waterSamplesReflection && lhs.volumetricReady == rhs.volumetricReady;
+           lhs.waterSamplesReflection == rhs.waterSamplesReflection &&
+           lhs.shadowCallbackOwned == rhs.shadowCallbackOwned && lhs.skyboxCallbackOwned == rhs.skyboxCallbackOwned &&
+           lhs.reflectionCallbackOwned == rhs.reflectionCallbackOwned &&
+           lhs.sceneTargetCallbackOwned == rhs.sceneTargetCallbackOwned &&
+           lhs.objectOpaqueCallbackOwned == rhs.objectOpaqueCallbackOwned &&
+           lhs.objectTransparentCallbackOwned == rhs.objectTransparentCallbackOwned &&
+           lhs.terrainCallbackOwned == rhs.terrainCallbackOwned && lhs.waterCallbackOwned == rhs.waterCallbackOwned &&
+           lhs.tornadoVisualCallbackOwned == rhs.tornadoVisualCallbackOwned &&
+           lhs.replayGhostCallbackOwned == rhs.replayGhostCallbackOwned &&
+           lhs.debugOverlayCallbackOwned == rhs.debugOverlayCallbackOwned &&
+           lhs.volumetricCallbackOwned == rhs.volumetricCallbackOwned && lhs.volumetricReady == rhs.volumetricReady &&
+           lhs.tonemapCallbackOwned == rhs.tonemapCallbackOwned;
+}
+
+
+void DiagnosticCallbackMarker( const RenderGraphPassContext& /*context*/, void* /*userData*/ )
+{
+    // Diagnostics build a fresh graph from the immutable frame snapshot after
+    // rendering. The no-op callback records ownership in the dump without
+    // reaching back into live runtime pass state.
 }
 
 
@@ -99,7 +118,10 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
     if ( snapshot.useCinematicTarget )
     {
         sceneColor = graph.AddExternalResource( "CinematicSceneColor", RenderGraphResourceAccess::PixelShaderResource );
-        sceneDepth = graph.AddExternalResource( "CinematicSceneDepth", RenderGraphResourceAccess::PixelShaderResource );
+        // Handoff: the DX12 framebuffer tracks the exact scene-depth state
+        // across first frame, resize, and post-chain reads. The diagnostic graph
+        // records the concrete pass writes/reads without inventing that source state.
+        sceneDepth = graph.AddExternalResource( "CinematicSceneDepth", RenderGraphResourceAccess::Unknown );
         if ( snapshot.volumetricReady )
         {
             volumetricLight =
@@ -147,18 +169,30 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
         {
             graph.AddWrite( shadowPass, objectShadow, RenderGraphResourceAccess::DepthWrite );
         }
+        if ( snapshot.shadowCallbackOwned )
+        {
+            graph.SetPassCallback( shadowPass, DiagnosticCallbackMarker, nullptr, true, "Frame/Shadows/ShadowMap" );
+        }
     }
 
     if ( !snapshot.cinematicRender )
     {
         const uint32_t skyPass = graph.AddPass( "SkyboxPass" );
         graph.AddWrite( skyPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+        if ( snapshot.skyboxCallbackOwned )
+        {
+            graph.SetPassCallback( skyPass, DiagnosticCallbackMarker, nullptr, true, "Frame/Render/Skybox" );
+        }
     }
 
     if ( snapshot.reflectionUsedDxr )
     {
         const uint32_t dxrPass = graph.AddPass( "DxrReflectionPass", RenderGraphQueueType::Compute );
         graph.AddWrite( dxrPass, dxrReflection, RenderGraphResourceAccess::UnorderedAccess );
+        if ( snapshot.reflectionCallbackOwned )
+        {
+            graph.SetPassCallback( dxrPass, DiagnosticCallbackMarker, nullptr, true, "Frame/Render/Reflection/DXR" );
+        }
     }
     else
     {
@@ -169,6 +203,14 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
         }
         graph.AddWrite( reflectionPass, rasterReflectionColor, RenderGraphResourceAccess::RenderTarget );
         graph.AddWrite( reflectionPass, rasterReflectionDepth, RenderGraphResourceAccess::DepthWrite );
+        if ( snapshot.reflectionCallbackOwned )
+        {
+            graph.SetPassCallback( reflectionPass,
+                                   DiagnosticCallbackMarker,
+                                   nullptr,
+                                   true,
+                                   "Frame/Render/Reflection/Raster" );
+        }
     }
 
     if ( snapshot.useCinematicTarget )
@@ -176,6 +218,14 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
         const uint32_t sceneBegin = graph.AddPass( "CinematicSceneBegin" );
         graph.AddWrite( sceneBegin, sceneColor, RenderGraphResourceAccess::RenderTarget );
         graph.AddWrite( sceneBegin, sceneDepth, RenderGraphResourceAccess::DepthWrite );
+        if ( snapshot.sceneTargetCallbackOwned )
+        {
+            graph.SetPassCallback( sceneBegin,
+                                   DiagnosticCallbackMarker,
+                                   nullptr,
+                                   true,
+                                   "Frame/Render/CinematicSceneBegin" );
+        }
     }
 
     if ( snapshot.objectOpaquePass )
@@ -186,6 +236,10 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
             graph.AddRead( objectPass, objectShadow, RenderGraphResourceAccess::PixelShaderResource );
         }
         addTargetWrite( objectPass );
+        if ( snapshot.objectOpaqueCallbackOwned )
+        {
+            graph.SetPassCallback( objectPass, DiagnosticCallbackMarker, nullptr, true, "Frame/Render/Objects/Opaque" );
+        }
     }
 
     if ( snapshot.terrainPassRendered )
@@ -196,6 +250,10 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
             graph.AddRead( terrainPass, terrainShadow, RenderGraphResourceAccess::PixelShaderResource );
         }
         addTargetWrite( terrainPass );
+        if ( snapshot.terrainCallbackOwned )
+        {
+            graph.SetPassCallback( terrainPass, DiagnosticCallbackMarker, nullptr, true, "Frame/Render/Terrain" );
+        }
     }
 
     if ( snapshot.waterPassRendered )
@@ -209,12 +267,20 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
         }
         addShadowReads( waterPass );
         addTargetWrite( waterPass );
+        if ( snapshot.waterCallbackOwned )
+        {
+            graph.SetPassCallback( waterPass, DiagnosticCallbackMarker, nullptr, true, "Frame/Render/Water" );
+        }
     }
 
-    if ( snapshot.tornadoVisualRendered )
+    if ( snapshot.tornadoVisualRendered || snapshot.tornadoVisualCallbackOwned )
     {
         const uint32_t tornadoPass = graph.AddPass( "TornadoVisualPass" );
         addTargetWrite( tornadoPass );
+        if ( snapshot.tornadoVisualCallbackOwned )
+        {
+            graph.SetPassCallback( tornadoPass, DiagnosticCallbackMarker, nullptr, true, "Frame/Render/TornadoVisual" );
+        }
     }
 
     if ( snapshot.objectTransparentPass )
@@ -225,10 +291,37 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
             graph.AddRead( objectPass, objectShadow, RenderGraphResourceAccess::PixelShaderResource );
         }
         addTargetWrite( objectPass );
+        if ( snapshot.objectTransparentCallbackOwned )
+        {
+            graph.SetPassCallback( objectPass,
+                                   DiagnosticCallbackMarker,
+                                   nullptr,
+                                   true,
+                                   "Frame/Render/Objects/Transparent" );
+        }
+    }
+
+    if ( snapshot.replayGhostCallbackOwned )
+    {
+        const uint32_t replayPass = graph.AddPass( "ReplayPredictionGhostPass" );
+        if ( snapshot.objectShadowValid )
+        {
+            graph.AddRead( replayPass, objectShadow, RenderGraphResourceAccess::PixelShaderResource );
+        }
+        addTargetWrite( replayPass );
+        graph.SetPassCallback( replayPass,
+                               DiagnosticCallbackMarker,
+                               nullptr,
+                               true,
+                               "Frame/Render/ReplayPredictionGhosts" );
     }
 
     const uint32_t debugPass = graph.AddPass( "DebugOverlayPass" );
     addTargetWrite( debugPass );
+    if ( snapshot.debugOverlayCallbackOwned )
+    {
+        graph.SetPassCallback( debugPass, DiagnosticCallbackMarker, nullptr, true, "Frame/Render/DebugOverlay" );
+    }
 
     if ( snapshot.useCinematicTarget && snapshot.volumetricReady )
     {
@@ -236,6 +329,14 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
         graph.AddRead( volumetricPass, sceneColor, RenderGraphResourceAccess::PixelShaderResource );
         graph.AddRead( volumetricPass, sceneDepth, RenderGraphResourceAccess::PixelShaderResource );
         graph.AddWrite( volumetricPass, volumetricLight, RenderGraphResourceAccess::RenderTarget );
+        if ( snapshot.volumetricCallbackOwned )
+        {
+            graph.SetPassCallback( volumetricPass,
+                                   DiagnosticCallbackMarker,
+                                   nullptr,
+                                   true,
+                                   "Frame/Render/VolumetricLight" );
+        }
     }
 
     if ( snapshot.useCinematicTarget )
@@ -248,6 +349,10 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
             graph.AddRead( tonemapPass, volumetricLight, RenderGraphResourceAccess::PixelShaderResource );
         }
         graph.AddWrite( tonemapPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+        if ( snapshot.tonemapCallbackOwned )
+        {
+            graph.SetPassCallback( tonemapPass, DiagnosticCallbackMarker, nullptr, true, "Frame/Render/Tonemap" );
+        }
     }
 
     const uint32_t presentPass = graph.AddPass( "Present" );
@@ -265,7 +370,21 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
     out << "terrain_pass_rendered=" << ( snapshot.terrainPassRendered ? "true" : "false" ) << "\n";
     out << "water_pass_rendered=" << ( snapshot.waterPassRendered ? "true" : "false" ) << "\n";
     out << "water_samples_reflection=" << ( snapshot.waterSamplesReflection ? "true" : "false" ) << "\n";
-    out << "volumetric_ready=" << ( snapshot.volumetricReady ? "true" : "false" ) << "\n\n";
+    out << "shadow_callback_owned=" << ( snapshot.shadowCallbackOwned ? "true" : "false" ) << "\n";
+    out << "scene_target_callback_owned=" << ( snapshot.sceneTargetCallbackOwned ? "true" : "false" ) << "\n";
+    out << "skybox_callback_owned=" << ( snapshot.skyboxCallbackOwned ? "true" : "false" ) << "\n";
+    out << "reflection_callback_owned=" << ( snapshot.reflectionCallbackOwned ? "true" : "false" ) << "\n";
+    out << "object_opaque_callback_owned=" << ( snapshot.objectOpaqueCallbackOwned ? "true" : "false" ) << "\n";
+    out << "object_transparent_callback_owned=" << ( snapshot.objectTransparentCallbackOwned ? "true" : "false" )
+        << "\n";
+    out << "terrain_callback_owned=" << ( snapshot.terrainCallbackOwned ? "true" : "false" ) << "\n";
+    out << "water_callback_owned=" << ( snapshot.waterCallbackOwned ? "true" : "false" ) << "\n";
+    out << "tornado_visual_callback_owned=" << ( snapshot.tornadoVisualCallbackOwned ? "true" : "false" ) << "\n";
+    out << "replay_ghost_callback_owned=" << ( snapshot.replayGhostCallbackOwned ? "true" : "false" ) << "\n";
+    out << "debug_overlay_callback_owned=" << ( snapshot.debugOverlayCallbackOwned ? "true" : "false" ) << "\n";
+    out << "volumetric_callback_owned=" << ( snapshot.volumetricCallbackOwned ? "true" : "false" ) << "\n";
+    out << "volumetric_ready=" << ( snapshot.volumetricReady ? "true" : "false" ) << "\n";
+    out << "tonemap_callback_owned=" << ( snapshot.tonemapCallbackOwned ? "true" : "false" ) << "\n\n";
     out << graph.DumpText();
     return out.str();
 }

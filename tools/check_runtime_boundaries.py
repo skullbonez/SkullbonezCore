@@ -4,13 +4,23 @@
 # Purpose:
 #   Check that Run.h stays a runtime composition root instead of regrowing
 #   extracted subsystem ownership, and prevent new physics dependencies on the
-#   legacy GameModelCollection world container.
+#   legacy GameModelCollection world container, new game-object types on public
+#   physics facades, or raytracing calls on the wide render backend facade. It
+#   also blocks direct scheduling or manual-barrier regressions for passes that
+#   already moved to render graph callback ownership, and new normal-path global
+#   service access while explicit service contexts are built. Renderer globals
+#   have an extra file-classification fence so count allowances do not silently
+#   approve a new compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
 #   helper back to Run. Physics data ownership is similarly easy to regress by
-#   threading GameModelCollection into one more API. This check is intentionally
-#   small: it watches the boundaries named by the active architecture plans.
+#   threading GameModelCollection into one more API. Render ownership can regress
+#   when DXR reflection calls creep back onto Gfx(), when a graph-owned pass is
+#   called directly from the runtime frame loop again, or when migrated runtime
+#   pass code starts issuing DX12 barriers outside graph declarations. This
+#   check is intentionally small: it watches the boundaries named by the active
+#   architecture plans.
 #
 # Glossary:
 #   Composition root: Top-level owner that wires subsystems together.
@@ -22,6 +32,19 @@
 #   - Subsystems may borrow explicit service/context structs, but not store Run.
 #   - Physics may only keep the current GameModelCollection compatibility
 #     surface while stores and handles become authoritative.
+#   - Public physics facades expose handles, descriptors, views, or the named
+#     PhysicsModelAccess bridge instead of game-object storage types.
+#   - IRenderBackend stays a temporary aggregate of named render capabilities;
+#     raytracing calls go through IRenderRayTracing/GfxRayTracing instead of the
+#     wide IRenderBackend/Gfx facade.
+#   - Graph-owned render passes stay scheduled through render graph callback
+#     helpers after migration, and runtime pass code must not issue DX12
+#     ResourceBarrier calls or backend transition helpers directly.
+#   - Unknown render graph resource states remain explicitly counted handoffs
+#     until the graph owns concrete initial access for migrated resources.
+#   - Existing global service calls are counted debt; adding new ones requires
+#     migrating the caller or lowering another allowlist entry first. Direct
+#     renderer service calls also need an approved debt-location classification.
 #
 # Related:
 #   - Agentic/Plans/runtime-run-decomposition-plan.md
@@ -45,13 +68,201 @@ RUN_HEADER = Path("SkullbonezSource/Runtime/Run.h")
 RUN_INTERNAL_HEADER = Path("SkullbonezSource/Runtime/RunInternal.h")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
+IRENDER_BACKEND_HEADER = Path("SkullbonezSource/Rendering/IRenderBackend.h")
+RUN_RENDER_SOURCE = Path("SkullbonezSource/Runtime/RunRender.cpp")
+RENDER_PIPELINE_SOURCE = Path("SkullbonezSource/Rendering/RenderPipeline.cpp")
 RUN_INPUT_SOURCE = Path("SkullbonezSource/Runtime/RunInput.cpp")
+RUN_PASSES_SOURCE = Path("SkullbonezSource/Runtime/RunPasses.cpp")
+RUN_UI_TEXT_PASS_SOURCE = Path("SkullbonezSource/Runtime/RunUiTextPass.cpp")
 RUN_SCENE_SOURCE = Path("SkullbonezSource/Runtime/Scene/RunScene.cpp")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
+RUNTIME_RENDER_PASS_CAPABILITY_SOURCES = (
+    RUN_PASSES_SOURCE,
+    RUN_UI_TEXT_PASS_SOURCE,
+    Path("SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h"),
+    Path("SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h"),
+)
 FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
 GAME_MODEL_COLLECTION_PATTERN = re.compile(r"\bGameModelCollection\b")
+PHYSICS_DELETED_MODEL_VIEW_PATTERN = re.compile(r"\b(?:MakePhysicsModelView|PhysicsModelView)\b")
+PHYSICS_MODELS_ACCESS_PATTERN = re.compile(r"\bPhysicsModels\s*\(")
+PHYSICS_MODELS_COMPAT_ACCESS_PATTERN = re.compile(
+    r"\b(?:MutablePhysicsModelsForCompatibility|PhysicsModelsForCompatibility)\s*\("
+)
+PUBLIC_PHYSICS_FACADE_HEADERS = (
+    Path("SkullbonezSource/Physics/PhysicsApi.h"),
+    Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+)
+# Invariant: PhysicsApi/PhysicsEngine are the front door for new physics callers.
+# Keep them on handles, descriptors, immutable views, or the deliberately named
+# PhysicsModelAccess compatibility bridge until the old collection path is gone.
+PUBLIC_PHYSICS_FACADE_GAME_OBJECT_PATTERN = re.compile(
+    r"\b(?:GameObjects\s*::\s*)?(?:GameModelCollection|GameModel)\b|"
+    r"\bstd\s*::\s*vector\s*<\s*(?:GameObjects\s*::\s*)?GameModel\b"
+)
+DIRECT_GFX_RAYTRACING_PATTERN = re.compile(
+    r"\bGfx\s*\(\s*\)\s*\.\s*(?:InitDXR|DispatchReflectionRays|BuildTLAS|GetReflectionUAVTexture|"
+    r"ShutdownDXR|GetInstancedMeshStaticVBVA|GetInstancedMeshStaticStride)\s*\("
+)
+IRENDER_BACKEND_RAYTRACING_DECLARATION_PATTERN = re.compile(
+    r"\b(?:virtual\s+)?(?:void|uint32_t|uint64_t|int)\s+"
+    r"(?:InitDXR|DispatchReflectionRays|BuildTLAS|GetReflectionUAVTexture|ShutdownDXR|"
+    r"GetInstancedMeshStaticVBVA|GetInstancedMeshStaticStride)\s*\("
+)
+IRENDER_BACKEND_CLASS_PATTERN = re.compile(r"\bclass\s+IRenderBackend\b[^{]*\{", re.S)
+IRENDER_BACKEND_DIRECT_METHOD_PATTERN = re.compile(
+    r"(?:^|[;\n])\s*(?:virtual\s+)?"
+    r"(?:[A-Za-z_:][A-Za-z0-9_:<>,]*[\s*&]+)+"
+    r"([A-Za-z_]\w*)\s*\([^;{}]*\)\s*(?:const\s*)?(?:override\s*)?(?:=\s*(?:0|default))?\s*;",
+    re.S,
+)
+RUNTIME_RENDER_PASS_WIDE_BACKEND_PATTERN = re.compile(
+    r"\bIRenderBackend\b|#\s*include\s+[<\"][^>\"]*IRenderBackend\.h[>\"]"
+)
+GRAPH_OWNED_RENDER_PASS_DIRECT_CALL_PATTERN = re.compile(
+    r"\bm_(?:(?:shadowPass|skyPass|reflectionPass|objectPass|terrainPass|waterPass|tornadoVisualPass|"
+    r"debugOverlayPass|volumetricPass|tonemapPass|uiTextPass)\s*\.\s*Render|sceneTargetPass\s*\.\s*Begin)\s*\("
+    r"|\bhost\s*\.\s*RenderReplayPredictionGhosts\s*\("
+)
+GRAPH_OWNED_RENDER_PASS_MANUAL_BARRIER_PATTERN = re.compile(
+    r"\b(?:ResourceBarrier\s*\(|D3D12_RESOURCE_BARRIER\b|ExecuteGraph(?:Transition|UavBarrier)\s*\()"
+)
+GRAPH_OWNED_RENDER_PASS_MANUAL_BARRIER_SOURCES = (
+    RUN_RENDER_SOURCE,
+    RUN_PASSES_SOURCE,
+    RUN_UI_TEXT_PASS_SOURCE,
+)
+RENDER_GRAPH_ADD_EXTERNAL_RESOURCE_CALL_PATTERN = re.compile(r"\bAddExternalResource\s*\(")
+RENDER_GRAPH_UNKNOWN_ACCESS_VALUE_PATTERN = re.compile(
+    r"\b(?:(?:[A-Za-z_]\w*)::)*RenderGraphResourceAccess::Unknown\b"
+)
+RENDER_GRAPH_UNKNOWN_ACCESS_SOURCES = (
+    RUN_RENDER_SOURCE,
+    RENDER_PIPELINE_SOURCE,
+)
+RENDER_GRAPH_UNKNOWN_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
+    {
+        # Handoff: CinematicSceneDepth still starts in a DX12 framebuffer-owned
+        # state until graph transient/import ownership replaces this legacy edge.
+        ( RUN_RENDER_SOURCE, "CinematicSceneDepth" ): 1,
+        ( RENDER_PIPELINE_SOURCE, "CinematicSceneDepth" ): 1,
+    }
+)
+GLOBAL_SERVICE_ACCESS_PATTERNS: tuple[tuple[str, re.Pattern[str], str, str], ...] = (
+    (
+        "Cfg()",
+        re.compile(r"\bCfg\s*\(\s*\)"),
+        "global config access is count-guarded",
+        "Pass a config snapshot or explicit config reference instead of adding another Cfg() call.",
+    ),
+    (
+        "Gfx()",
+        re.compile(r"\bGfx\s*\(\s*\)"),
+        "global renderer service access is count-guarded",
+        "Pass an explicit renderer/render context for new code instead of adding another Gfx() call.",
+    ),
+    (
+        "GfxRayTracing()",
+        re.compile(r"\bGfxRayTracing\s*\(\s*\)"),
+        "global raytracing service access is count-guarded",
+        "Borrow IRenderRayTracing through an explicit render context before adding another global DXR access.",
+    ),
+    (
+        "ActiveAssetSystem()",
+        re.compile(r"\bActiveAssetSystem\s*\("),
+        "global asset-system access is count-guarded",
+        "Pass an explicit AssetSystem/asset context instead of adding another active-asset bridge call.",
+    ),
+    (
+        "CreateShaderFromActiveAssets()",
+        re.compile(r"\bCreateShaderFromActiveAssets\s*\("),
+        "global shader factory access is count-guarded",
+        "Create shaders through an explicit asset/render context instead of the active-asset bridge.",
+    ),
+    (
+        "TextureCollection::Instance()",
+        re.compile(r"\bTextureCollection\s*::\s*Instance\s*\("),
+        "global texture collection access is count-guarded",
+        "Borrow the runtime-owned texture service instead of adding another TextureCollection singleton call.",
+    ),
+    (
+        "CameraCollection::Instance()",
+        re.compile(r"\bCameraCollection\s*::\s*Instance\s*\("),
+        "global camera collection access is count-guarded",
+        "Borrow the scene/world camera service instead of adding another CameraCollection singleton call.",
+    ),
+    (
+        "Window::Instance()",
+        re.compile(r"\bWindow\s*::\s*Instance\s*\("),
+        "global window service access is count-guarded",
+        "Use a bound window service or the callback bridge instead of adding another Window singleton call.",
+    ),
+    (
+        "SkyBox::Instance()",
+        re.compile(r"\bSkyBox\s*::\s*Instance\s*\("),
+        "global skybox access is count-guarded",
+        "Keep skybox lifetime world-owned instead of adding another SkyBox singleton call.",
+    ),
+    (
+        "WorkerPool::Instance()",
+        re.compile(r"\bWorkerPool\s*::\s*Instance\s*\("),
+        "global worker pool access is count-guarded",
+        "Borrow worker services from runtime context before adding another WorkerPool singleton call.",
+    ),
+    (
+        "Profiler::Instance()",
+        re.compile(r"\bProfiler\s*::\s*Instance\s*\("),
+        "global profiler access is count-guarded",
+        "Route diagnostics/profiling through an explicit diagnostics context before adding another profiler singleton call.",
+    ),
+)
+GLOBAL_RENDERER_SERVICE_LABELS = { "Gfx()", "GfxRayTracing()" }
+# Location classifications are a second fence over the counted Gfx() ratchet:
+# they make each remaining direct renderer-service file an explicitly reviewed
+# compatibility location instead of letting a raw count entry approve a new file.
+GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS: dict[Path, str] = {
+    Path("SkullbonezSource/Assets/AssetSystem.cpp"): "asset shader factory compatibility",
+    Path("SkullbonezSource/Assets/TextureCollection.cpp"): "asset texture backend compatibility",
+    Path("SkullbonezSource/Core/Profiler.cpp"): "diagnostics/profiler bridge",
+    Path("SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp"): "physics debug visualizer compatibility",
+    Path("SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp"): "physics debug visualizer compatibility",
+    Path("SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp"): "physics debug visualizer compatibility",
+    Path("SkullbonezSource/Physics/TornadoField.cpp"): "physics debug rendering compatibility",
+    Path("SkullbonezSource/Rendering/Helper.cpp"): "render helper compatibility",
+    Path("SkullbonezSource/Rendering/IRenderBackend.cpp"): "backend accessor definition",
+    Path("SkullbonezSource/Rendering/IRenderBackend.h"): "backend accessor declaration and tracing RAII",
+    Path("SkullbonezSource/Rendering/Shadow.h"): "shadow texture binding compatibility",
+    Path("SkullbonezSource/Rendering/Text.cpp"): "text renderer compatibility",
+    Path("SkullbonezSource/Runtime/Editor/LauncherLaser.cpp"): "editor transient geometry compatibility",
+    Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.inl"): "editor debug tracing compatibility",
+    Path("SkullbonezSource/Runtime/Run.cpp"): "runtime composition root",
+    Path("SkullbonezSource/Runtime/RunFrame.cpp"): "runtime frame lifecycle",
+    Path("SkullbonezSource/Runtime/RunInput.cpp"): "runtime input/settings bridge",
+    Path("SkullbonezSource/Runtime/RunRender.cpp"): "runtime render service composition",
+    Path("SkullbonezSource/Runtime/RunStress.cpp"): "runtime stress harness bridge",
+    Path("SkullbonezSource/Runtime/RunUiTextPass.cpp"): "UI text pass compatibility",
+    Path("SkullbonezSource/Runtime/Scene/RunScene.cpp"): "scene/runtime render setup compatibility",
+    Path("SkullbonezSource/Runtime/Window.cpp"): "window resize bridge",
+    Path("SkullbonezSource/UI/UI.cpp"): "UI render compatibility",
+    Path("SkullbonezSource/UI/UIBackdropBlur.cpp"): "UI backdrop render compatibility",
+    Path("SkullbonezSource/UI/UITabProfiler.cpp"): "UI diagnostics compatibility",
+    Path("SkullbonezSource/World/SkyBox.cpp"): "world skybox resource compatibility",
+    Path("SkullbonezSource/World/Terrain.cpp"): "world terrain resource compatibility",
+    Path("SkullbonezSource/World/WorldEnvironment.cpp"): "world environment render compatibility",
+}
+GENERIC_INSTANCE_ACCESS_PATTERN = re.compile(r"\b(?P<class_name>[A-Za-z_]\w*)\s*::\s*Instance\s*\(")
+NAMED_GLOBAL_SERVICE_INSTANCE_CLASSES = {
+    "TextureCollection",
+    "CameraCollection",
+    "Window",
+    "SkyBox",
+    "WorkerPool",
+    "Profiler",
+}
+PROCESS_GLOBAL_POINTER_PATTERN = re.compile(r"\bpInstance\b")
+MUTABLE_PROCESS_GLOBAL_PATTERN = re.compile(r"\bg_[A-Za-z_]\w*\b")
 MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 129
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
@@ -68,6 +279,8 @@ def normalize_boundary_line(line: str) -> str:
 PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     ( Path(path), normalize_boundary_line(line) )
     for path, line in (
+        # Legacy debug visualizers still inspect GameModelCollection state while
+        # body/collider/render/entity stores become authoritative.
         ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", '#include "../../GameObjects/GameModelCollection.h"' ),
         ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "void CollisionVisualizer::Update( float dt, GameModelCollection& models )" ),
         ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "void CollisionVisualizer::BuildSleepGroupSizes( GameModelCollection& models )" ),
@@ -123,168 +336,237 @@ PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
         ),
         ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void Update( float dt, GameObjects::GameModelCollection& models );" ),
         ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void Render( GameObjects::GameModelCollection& models," ),
-        ( "SkullbonezSource/Physics/PersistentContactSolver.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
-        ( "SkullbonezSource/Physics/PersistentContactSolver.cpp", "GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PersistentContactSolver.h", "class GameModelCollection;" ),
-        (
-            "SkullbonezSource/Physics/PersistentContactSolver.h",
-            "void Solve( PersistentContactSolverContext& context, GameObjects::GameModelCollection& collection, float dt );",
-        ),
-        ( "SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
-        (
-            "SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp",
-            "void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, GameModelCollection& collection )",
-        ),
-        ( "SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp", "void PhysicsDiagnosticsSink::EmitFrame( GameModelCollection& collection, float dt )" ),
-        ( "SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp", "void PhysicsDiagnosticsSink::EmitCollisionTime( GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsDiagnosticsSink.h", "class GameModelCollection;" ),
-        (
-            "SkullbonezSource/Physics/PhysicsDiagnosticsSink.h",
-            "void EmitRegressionLog( PhysicsWorld& world, GameObjects::GameModelCollection& collection );",
-        ),
-        ( "SkullbonezSource/Physics/PhysicsDiagnosticsSink.h", "void EmitFrame( GameObjects::GameModelCollection& collection, float dt );" ),
-        ( "SkullbonezSource/Physics/PhysicsDiagnosticsSink.h", "void EmitCollisionTime( GameObjects::GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "using SkullbonezCore::GameObjects::GameModelCollection;" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::RefreshStores( GameModelCollection& collection )" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::RefreshPhysicsStores( GameModelCollection& collection )" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::RefreshBodyStore( GameModelCollection& collection )" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::RefreshColliderStore( GameModelCollection& collection )" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::RefreshRenderStore( GameModelCollection& collection )" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::Step( GameModelCollection& collection, float deltaSeconds )" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::WakeBody( GameModelCollection& collection, int bodyIndex )" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::SeedBodyAsleep( GameModelCollection& collection, int bodyIndex )" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::ApplyBodyImpulse( GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.cpp", "void PhysicsEngine::SetPendingBodyImpulse( GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.h", "class GameModelCollection;" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void RefreshStores( GameObjects::GameModelCollection& collection );" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void RefreshPhysicsStores( GameObjects::GameModelCollection& collection );" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void RefreshBodyStore( GameObjects::GameModelCollection& collection );" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void RefreshColliderStore( GameObjects::GameModelCollection& collection );" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void RefreshRenderStore( GameObjects::GameModelCollection& collection );" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void Step( GameObjects::GameModelCollection& collection, float deltaSeconds );" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void WakeBody( GameObjects::GameModelCollection& collection, int bodyIndex );" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void SeedBodyAsleep( GameObjects::GameModelCollection& collection, int bodyIndex );" ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void ApplyBodyImpulse( GameObjects::GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsEngine.h", "void SetPendingBodyImpulse( GameObjects::GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsScene.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
-        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "using SkullbonezCore::GameObjects::GameModelCollection;" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::RefreshStores( GameModelCollection& collection )" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::RefreshPhysicsStores( GameModelCollection& collection )" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::RefreshBodyStore( GameModelCollection& collection )" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::RefreshColliderStore( GameModelCollection& collection )" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::RefreshRenderStore( GameModelCollection& collection )" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::RunPhysics( GameModelCollection& collection, float fChangeInTime )" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::WakeModel( GameModelCollection& collection, int index )" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::SeedModelAsleep( GameModelCollection& collection, int index )" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::ApplyBodyImpulse( GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsScene.cpp", "void PhysicsScene::SetPendingBodyImpulse( GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsScene.h", "class GameModelCollection;" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.h", "void RefreshStores( GameObjects::GameModelCollection& collection );" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.h", "void RefreshPhysicsStores( GameObjects::GameModelCollection& collection );" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.h", "void RefreshBodyStore( GameObjects::GameModelCollection& collection );" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.h", "void RefreshColliderStore( GameObjects::GameModelCollection& collection );" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.h", "void RefreshRenderStore( GameObjects::GameModelCollection& collection );" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.h", "void RunPhysics( GameObjects::GameModelCollection& collection, float fChangeInTime );" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.h", "void WakeModel( GameObjects::GameModelCollection& collection, int index );" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.h", "void SeedModelAsleep( GameObjects::GameModelCollection& collection, int index );" ),
-        ( "SkullbonezSource/Physics/PhysicsScene.h", "void ApplyBodyImpulse( GameObjects::GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsScene.h", "void SetPendingBodyImpulse( GameObjects::GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "bool PhysicsWorld::IsFullySubmergedBall( GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::LockUnderwaterSleeperIfReady( GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "bool PhysicsWorld::IsUnderwaterSleepLocked( GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::MarkFixedContact( GameModelCollection& collection, int index )" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PersistentContactSolverContext::MarkFixedContact( GameModelCollection& collection, int index ) const" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PersistentContactSolverContext::WakeModel( GameModelCollection& collection, int index ) const" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::RunPhysics( GameModelCollection& collection, PhysicsBodyStore& bodyStore, float fChangeInTime )" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::WakeModel( GameModelCollection& collection, int index )" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::SeedModelAsleep( GameModelCollection& collection, int index )" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::ApplyTornadoField( GameModelCollection& collection, PhysicsBodyStore& bodyStore, float dt )" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::EmitPhysicsDiagnosticsFrame( GameModelCollection& collection, float dt )" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::EmitPhysicsCollisionTime( GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::PropagateSleepSupport( GameModelCollection& collection )" ),
-        (
-            "SkullbonezSource/Physics/PhysicsWorld.cpp",
-            "bool PhysicsWorld::WakeDynamicBodyState( GameModelCollection& collection,",
-        ),
-        (
-            "SkullbonezSource/Physics/PhysicsWorld.cpp",
-            "void PhysicsWorld::WakeSleepVisualIsland( GameModelCollection& collection,",
-        ),
-        (
-            "SkullbonezSource/Physics/PhysicsWorld.cpp",
-            "void PhysicsWorld::WakePointJointIsland( GameModelCollection& collection,",
-        ),
-        (
-            "SkullbonezSource/Physics/PhysicsWorld.cpp",
-            "void PhysicsWorld::WakeRestingContactIsland( GameModelCollection& collection,",
-        ),
-        (
-            "SkullbonezSource/Physics/PhysicsWorld.cpp",
-            "void PhysicsWorld::WakePointJointConnectedBodies( GameModelCollection& collection,",
-        ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "void PhysicsWorld::RunSolverPhysics( GameModelCollection& collection, PhysicsBodyStore& bodyStore, float dt )" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "class GameModelCollection;" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void RunSolverPhysics( GameObjects::GameModelCollection& collection, PhysicsBodyStore& bodyStore, float dt );" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void SolvePersistentObjectContacts( GameObjects::GameModelCollection& collection, float dt );" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void EmitPhysicsDiagnosticsFrame( GameObjects::GameModelCollection& collection, float dt );" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void EmitPhysicsCollisionTime( GameObjects::GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "bool IsFullySubmergedBall( GameObjects::GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void LockUnderwaterSleeperIfReady( GameObjects::GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "bool IsUnderwaterSleepLocked( GameObjects::GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void MarkFixedContact( GameObjects::GameModelCollection& collection, int index );" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void ApplyTornadoField( GameObjects::GameModelCollection& collection, PhysicsBodyStore& bodyStore, float dt );" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void PropagateSleepSupport( GameObjects::GameModelCollection& collection );" ),
-        (
-            "SkullbonezSource/Physics/PhysicsWorld.h",
-            "bool WakeDynamicBodyState( GameObjects::GameModelCollection& collection,",
-        ),
-        (
-            "SkullbonezSource/Physics/PhysicsWorld.h",
-            "void WakeSleepVisualIsland( GameObjects::GameModelCollection& collection,",
-        ),
-        (
-            "SkullbonezSource/Physics/PhysicsWorld.h",
-            "void WakePointJointIsland( GameObjects::GameModelCollection& collection,",
-        ),
-        (
-            "SkullbonezSource/Physics/PhysicsWorld.h",
-            "void WakeRestingContactIsland( GameObjects::GameModelCollection& collection,",
-        ),
-        (
-            "SkullbonezSource/Physics/PhysicsWorld.h",
-            "void WakePointJointConnectedBodies( GameObjects::GameModelCollection& collection,",
-        ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void RunPhysics( GameObjects::GameModelCollection& collection, PhysicsBodyStore& bodyStore, float fChangeInTime );" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void WakeModel( GameObjects::GameModelCollection& collection, int index );" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void SeedModelAsleep( GameObjects::GameModelCollection& collection, int index );" ),
-        (
-            "SkullbonezSource/Physics/PhysicsWorld.h",
-            "void MarkSolverFixedContact( GameObjects::GameModelCollection& collection, int index )",
-        ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void MarkFixedContact( GameObjects::GameModelCollection& collection, int index ) const;" ),
-        ( "SkullbonezSource/Physics/PhysicsWorld.h", "void WakeModel( GameObjects::GameModelCollection& collection, int index ) const;" ),
+        # Creation still lives on the legacy scene/model facade; the solver
+        # path uses PhysicsModelAccess and handles after creation.
         ( "SkullbonezSource/Physics/Ragdoll.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
         ( "SkullbonezSource/Physics/Ragdoll.cpp", "void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/Ragdoll.cpp", "void Ragdoll::SolvePointJoints( GameModelCollection& collection," ),
         ( "SkullbonezSource/Physics/Ragdoll.h", "class GameModelCollection;" ),
         ( "SkullbonezSource/Physics/Ragdoll.h", "static void AddSimpleHumanoid( GameObjects::GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/Ragdoll.h", "static void SolvePointJoints( GameObjects::GameModelCollection& collection," ),
-        ( "SkullbonezSource/Physics/SimulationSystem.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
-        ( "SkullbonezSource/Physics/SimulationSystem.h", "class GameModelCollection;" ),
-        ( "SkullbonezSource/Physics/SimulationSystem.h", "GameObjects::GameModelCollection* models = nullptr;" ),
-        ( "SkullbonezSource/Physics/SleepIslandSystem.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
+    )
+)
+
+# The old neutral PhysicsModels() name is fully blocked. Remaining vector
+# borrowers must use the explicit *ForCompatibility() accessors until stable
+# body/entity handles replace them.
+PHYSICS_MODELS_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter()
+
+# Counted allowlist: named compatibility accessors are temporary debt. Keep the
+# current borrowers explicit and fail any new call site until stable body/entity
+# handles replace this seam.
+PHYSICS_MODELS_COMPAT_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
+    ( Path(path), normalize_boundary_line(line) )
+    for path, line in (
         (
-            "SkullbonezSource/Physics/SleepIslandSystem.cpp",
-            "void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& context, GameModelCollection& collection )",
+            "SkullbonezSource/GameObjects/GameModelCollection.h",
+            "std::vector<GameModel>& MutablePhysicsModelsForCompatibility();",
         ),
-        ( "SkullbonezSource/Physics/SleepIslandSystem.h", "class GameModelCollection;" ),
         (
-            "SkullbonezSource/Physics/SleepIslandSystem.h",
-            "void PropagateSupport( SleepSupportPropagationContext& context, GameObjects::GameModelCollection& collection );",
+            "SkullbonezSource/GameObjects/GameModelCollection.h",
+            "const std::vector<GameModel>& PhysicsModelsForCompatibility() const;",
+        ),
+        (
+            "SkullbonezSource/GameObjects/GameModelCollection.cpp",
+            "std::vector<GameModel>& GameModelCollection::MutablePhysicsModelsForCompatibility()",
+        ),
+        (
+            "SkullbonezSource/GameObjects/GameModelCollection.cpp",
+            "const std::vector<GameModel>& GameModelCollection::PhysicsModelsForCompatibility() const",
+        ),
+        (
+            "SkullbonezSource/Runtime/Run.cpp",
+            "std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.MutablePhysicsModelsForCompatibility();",
+        ),
+        ( "SkullbonezSource/Runtime/RunFrame.cpp", "m_cGameModelCollection.MutablePhysicsModelsForCompatibility();" ),
+        ( "SkullbonezSource/Runtime/RunFrame.cpp", "m_cGameModelCollection.MutablePhysicsModelsForCompatibility();" ),
+        ( "SkullbonezSource/Runtime/RunFrame.cpp", "m_cGameModelCollection.MutablePhysicsModelsForCompatibility();" ),
+        (
+            "SkullbonezSource/Runtime/RunFrame.cpp",
+            "const std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModelsForCompatibility();",
+        ),
+        (
+            "SkullbonezSource/Runtime/RunFrame.cpp",
+            "const std::vector<GameModel>& restoredModels = m_cGameModelCollection.PhysicsModelsForCompatibility();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl",
+            "std::vector<GameModel>& models = m_cGameModelCollection.MutablePhysicsModelsForCompatibility();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl",
+            "std::vector<GameModel>& models = m_cGameModelCollection.MutablePhysicsModelsForCompatibility();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
+            "std::vector<GameObjects::GameModel>& models = collection.MutablePhysicsModelsForCompatibility();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
+            "std::vector<GameObjects::GameModel>& models = collection.MutablePhysicsModelsForCompatibility();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
+            "std::vector<GameObjects::GameModel>& models = collection.MutablePhysicsModelsForCompatibility();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
+            "std::vector<GameObjects::GameModel>& models = collection.MutablePhysicsModelsForCompatibility();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+            "std::vector<GameModel>& physicsModels = models.MutablePhysicsModelsForCompatibility();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
+            "std::vector<GameModel>& physicsModels = models.MutablePhysicsModelsForCompatibility();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
+            "std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
+            "std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
+            "std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();",
+        ),
+        (
+            "SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl",
+            "std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();",
         ),
     )
+)
+
+# Counted allowlist for the current global-service compatibility surface. This
+# is not approval for more singleton use; it is a ratchet. New Gfx(),
+# ActiveAssetSystem(), shader-factory, and service Instance() calls must either
+# migrate to explicit context wiring or deliberately lower another entry.
+GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
+    {
+        ( Path(path), label ): count
+        for path, label, count in (
+            ( "SkullbonezSource/Assets/AssetSystem.cpp", "ActiveAssetSystem()", 1 ),
+            ( "SkullbonezSource/Assets/AssetSystem.cpp", "CreateShaderFromActiveAssets()", 1 ),
+            ( "SkullbonezSource/Assets/AssetSystem.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/Assets/AssetSystem.cpp", "g_*", 5 ),
+            ( "SkullbonezSource/Assets/AssetSystem.h", "ActiveAssetSystem()", 1 ),
+            ( "SkullbonezSource/Assets/AssetSystem.h", "CreateShaderFromActiveAssets()", 1 ),
+            ( "SkullbonezSource/Assets/TextureCollection.cpp", "Gfx()", 3 ),
+            ( "SkullbonezSource/Assets/TextureCollection.cpp", "TextureCollection::Instance()", 1 ),
+            ( "SkullbonezSource/Core/Common.h", "Cfg()", 2 ),
+            ( "SkullbonezSource/Core/Common.h", "EngineConfig::Instance()", 1 ),
+            ( "SkullbonezSource/Core/Config.cpp", "EngineConfig::Instance()", 1 ),
+            ( "SkullbonezSource/Core/LockOrderValidator.cpp", "LockOrderValidator::Instance()", 5 ),
+            ( "SkullbonezSource/Core/LockOrderValidator.cpp", "g_*", 12 ),
+            ( "SkullbonezSource/Core/PlatformProfiler.cpp", "g_*", 12 ),
+            ( "SkullbonezSource/Core/Profiler.cpp", "Gfx()", 9 ),
+            ( "SkullbonezSource/Core/Profiler.cpp", "Profiler::Instance()", 2 ),
+            ( "SkullbonezSource/Core/Profiler.h", "Profiler::Instance()", 11 ),
+            ( "SkullbonezSource/Core/WorkerPool.cpp", "WorkerPool::Instance()", 2 ),
+            ( "SkullbonezSource/Core/WorkerPool.cpp", "g_*", 8 ),
+            ( "SkullbonezSource/GameObjects/GameModel.cpp", "Cfg()", 10 ),
+            ( "SkullbonezSource/Physics/BoundingSphere.cpp", "Cfg()", 1 ),
+            ( "SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "CreateShaderFromActiveAssets()", 1 ),
+            ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "Gfx()", 14 ),
+            ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/Physics/PersistentContactSolver.cpp", "Cfg()", 26 ),
+            ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "Cfg()", 18 ),
+            ( "SkullbonezSource/Physics/PhysicsWorld.cpp", "WorkerPool::Instance()", 6 ),
+            ( "SkullbonezSource/Physics/RigidBody.cpp", "Cfg()", 3 ),
+            ( "SkullbonezSource/Physics/TornadoField.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/Rendering/GameModelRenderer.cpp", "Cfg()", 3 ),
+            ( "SkullbonezSource/Rendering/GameModelRenderer.cpp", "WorkerPool::Instance()", 2 ),
+            ( "SkullbonezSource/Rendering/Helper.cpp", "Cfg()", 2 ),
+            ( "SkullbonezSource/Rendering/Helper.cpp", "Gfx()", 34 ),
+            ( "SkullbonezSource/Rendering/Helper.cpp", "CreateShaderFromActiveAssets()", 2 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "GfxRayTracing()", 1 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.h", "Gfx()", 3 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.h", "GfxRayTracing()", 1 ),
+            ( "SkullbonezSource/Rendering/Shadow.h", "Gfx()", 2 ),
+            ( "SkullbonezSource/Rendering/Text.cpp", "Cfg()", 2 ),
+            ( "SkullbonezSource/Rendering/Text.cpp", "Gfx()", 33 ),
+            ( "SkullbonezSource/Rendering/Text.cpp", "CreateShaderFromActiveAssets()", 3 ),
+            ( "SkullbonezSource/Runtime/Camera.cpp", "Cfg()", 22 ),
+            ( "SkullbonezSource/Runtime/CameraCollection.cpp", "CameraCollection::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/CameraCollection.cpp", "Cfg()", 1 ),
+            ( "SkullbonezSource/Runtime/CameraCollection.cpp", "pInstance", 6 ),
+            ( "SkullbonezSource/Runtime/CameraCollection.h", "pInstance", 1 ),
+            ( "SkullbonezSource/Runtime/Editor/LauncherLaser.cpp", "CreateShaderFromActiveAssets()", 1 ),
+            ( "SkullbonezSource/Runtime/Editor/LauncherLaser.cpp", "Gfx()", 18 ),
+            ( "SkullbonezSource/Runtime/Editor/LauncherTools.cpp", "Cfg()", 3 ),
+            ( "SkullbonezSource/Runtime/Editor/RunEditorTracer.inl", "Gfx()", 1 ),
+            ( "SkullbonezSource/Runtime/Init.cpp", "Cfg()", 16 ),
+            ( "SkullbonezSource/Runtime/Init.cpp", "Window::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Init.cpp", "WorkerPool::Instance()", 3 ),
+            ( "SkullbonezSource/Runtime/Init.cpp", "g_*", 6 ),
+            ( "SkullbonezSource/Runtime/Input.cpp", "Window::Instance()", 3 ),
+            ( "SkullbonezSource/Runtime/Input.cpp", "g_*", 43 ),
+            ( "SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp", "Cfg()", 4 ),
+            ( "SkullbonezSource/Runtime/Replay/RunReplayCauseTreeTools.inl", "Cfg()", 2 ),
+            ( "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl", "WorkerPool::Instance()", 2 ),
+            ( "SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.inl", "Cfg()", 2 ),
+            ( "SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl", "Cfg()", 2 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "CameraCollection::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "Cfg()", 8 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "Gfx()", 8 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "Profiler::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "SkyBox::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "TextureCollection::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "Window::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/RunFrame.cpp", "Cfg()", 7 ),
+            ( "SkullbonezSource/Runtime/RunFrame.cpp", "Gfx()", 1 ),
+            ( "SkullbonezSource/Runtime/RunFrame.cpp", "Profiler::Instance()", 3 ),
+            ( "SkullbonezSource/Runtime/RunInput.cpp", "Cfg()", 22 ),
+            ( "SkullbonezSource/Runtime/RunInput.cpp", "Gfx()", 4 ),
+            ( "SkullbonezSource/Runtime/RunInteractionAutomation.cpp", "Cfg()", 2 ),
+            ( "SkullbonezSource/Runtime/RunLiveStyle.cpp", "Cfg()", 1 ),
+            ( "SkullbonezSource/Runtime/RunPasses.cpp", "Cfg()", 6 ),
+            ( "SkullbonezSource/Runtime/RunRender.cpp", "Cfg()", 3 ),
+            ( "SkullbonezSource/Runtime/RunRender.cpp", "Gfx()", 1 ),
+            ( "SkullbonezSource/Runtime/RunRender.cpp", "GfxRayTracing()", 1 ),
+            ( "SkullbonezSource/Runtime/RunStress.cpp", "Cfg()", 1 ),
+            ( "SkullbonezSource/Runtime/RunStress.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/Runtime/RunUiTextPass.cpp", "Cfg()", 1 ),
+            ( "SkullbonezSource/Runtime/RunUiTextPass.cpp", "Profiler::Instance()", 2 ),
+            ( "SkullbonezSource/Runtime/RunUiTextPass.cpp", "WorkerPool::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/RuntimeDiagnostics.cpp", "Profiler::Instance()", 2 ),
+            ( "SkullbonezSource/Runtime/RuntimeTuning.cpp", "Cfg()", 1 ),
+            ( "SkullbonezSource/Runtime/RuntimeTuning.cpp", "WorkerPool::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "Cfg()", 18 ),
+            ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "Gfx()", 9 ),
+            ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "GfxRayTracing()", 1 ),
+            ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "WorkerPool::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp", "CameraCollection::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp", "CameraCollection::Instance()", 1 ),
+            ( "SkullbonezSource/Runtime/Window.cpp", "Cfg()", 6 ),
+            ( "SkullbonezSource/Runtime/Window.cpp", "Gfx()", 1 ),
+            ( "SkullbonezSource/Runtime/Window.cpp", "Window::Instance()", 3 ),
+            ( "SkullbonezSource/Runtime/Window.cpp", "pInstance", 4 ),
+            ( "SkullbonezSource/Runtime/Window.h", "pInstance", 1 ),
+            ( "SkullbonezSource/UI/UI.cpp", "CreateShaderFromActiveAssets()", 1 ),
+            ( "SkullbonezSource/UI/UI.cpp", "Gfx()", 16 ),
+            ( "SkullbonezSource/UI/UIBackdropBlur.cpp", "CreateShaderFromActiveAssets()", 1 ),
+            ( "SkullbonezSource/UI/UIBackdropBlur.cpp", "Gfx()", 14 ),
+            ( "SkullbonezSource/UI/UITabProfiler.cpp", "Gfx()", 1 ),
+            ( "SkullbonezSource/UI/UITabProfiler.cpp", "Profiler::Instance()", 6 ),
+            ( "SkullbonezSource/World/SkyBox.cpp", "Cfg()", 2 ),
+            ( "SkullbonezSource/World/SkyBox.cpp", "CreateShaderFromActiveAssets()", 1 ),
+            ( "SkullbonezSource/World/SkyBox.cpp", "Gfx()", 1 ),
+            ( "SkullbonezSource/World/SkyBox.cpp", "SkyBox::Instance()", 1 ),
+            ( "SkullbonezSource/World/SkyBox.cpp", "TextureCollection::Instance()", 1 ),
+            ( "SkullbonezSource/World/SkyBox.cpp", "pInstance", 7 ),
+            ( "SkullbonezSource/World/SkyBox.h", "pInstance", 1 ),
+            ( "SkullbonezSource/World/Terrain.cpp", "Cfg()", 22 ),
+            ( "SkullbonezSource/World/Terrain.cpp", "CreateShaderFromActiveAssets()", 2 ),
+            ( "SkullbonezSource/World/Terrain.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/World/WorldEnvironment.cpp", "Cfg()", 20 ),
+            ( "SkullbonezSource/World/WorldEnvironment.cpp", "CreateShaderFromActiveAssets()", 2 ),
+            ( "SkullbonezSource/World/WorldEnvironment.cpp", "Gfx()", 3 ),
+        )
+    }
 )
 
 RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
@@ -293,6 +575,11 @@ RUN_HEADER_RULES: tuple[tuple[str, str, str], ...] = (
         r"\b(?:class|struct)\s+(?:FullscreenQuadPass|SkyPass|SceneTargetPass|ShadowPass|ReflectionPass|ObjectPass|"
         r"TerrainPass|WaterPass|TornadoVisualPass|DebugOverlayPass|VolumetricPass|TonemapPass|UiTextPass)\b",
         "Put render pass types in Runtime/Render/RuntimeRenderPasses.h.",
+    ),
+    (
+        "DXR reflection state must stay out of Run.h",
+        r"\b(?:m_dxrReflectionTransforms|dxrReflectionTransforms|DxrReflection|InitDXR|DispatchReflectionRays|BuildTLAS)\b",
+        "RuntimeRenderHost or a renderer-owned DXR capability owns reflection scratch state and backend calls.",
     ),
     (
         "replay recorder fields must stay out of Run.h",
@@ -1068,65 +1355,71 @@ ALLOWED_WORLD_OWNER_WRITE_FUNCTIONS = {
 }
 
 ALLOWED_RENDER_HOST_BINDINGS = {
-    "systems",
-    "debug",
-    "timers",
-    "runtimeSettings",
-    "gameModelCollection",
-    "worldEnvironment",
-    "collisionVisualizer",
-    "broadphaseVisualizer",
-    "physicsDebugVisualizer",
-    "dxrReflectionTransforms",
-    "rayCastTest",
-    "editor",
-    "mousePickup",
-    "replayRuntime",
-    "launcherLaser",
+    "runtime",
+    "world",
+    "scene",
+    "replayOverlay",
+    "toolOverlay",
     "ui",
-    "runtimeInput",
-    "camera",
-    "runtimeViewModel",
-    "sceneController",
-    "sceneBrowser",
+    "diagnostics",
+}
+
+# Concept: RuntimeRenderHost views are narrow borrowed seams, not escape hatches.
+# Each view gets its own field allowlist so broad state cannot hide under a
+# legitimate top-level binding root.
+ALLOWED_RENDER_HOST_VIEW_FIELDS = {
+    "RenderRuntimeView": {
+        "systems",
+        "launchOptions",
+        "runtimeSettings",
+    },
+    "RenderWorldView": {
+        "gameModelCollection",
+        "worldEnvironment",
+        "collisionVisualizer",
+        "broadphaseVisualizer",
+        "physicsDebugVisualizer",
+    },
+    "RenderSceneView": {
+        "sceneController",
+        "sceneBrowser",
+    },
+    "RenderReplayOverlayView": {
+        "replayRuntime",
+    },
+    "RenderToolOverlayView": {
+        "tools",
+    },
+    "RenderUiView": {
+        "ui",
+        "runtimeInput",
+        "camera",
+        "runtimeViewModel",
+    },
+    "RenderDiagnosticsView": {
+        "diagnosticsRuntime",
+        "debug",
+        "timers",
+    },
 }
 
 ALLOWED_RENDER_HOST_CALLBACK_TYPEDEFS = {
-    "ActiveCinematicConfigFn",
-    "BoolFn",
-    "TextureHandleFn",
-    "SelectRenderTextureFn",
-    "IntFn",
     "LogLifecycleStepFn",
     "RenderEditorOverlayFn",
     "VoidFn",
-    "SceneStateFn",
     "CameraModeEnabledMaskFn",
     "CameraModeLabelFn",
-    "MainMemoryStatsFn",
 }
 
-ALLOWED_MUTABLE_RENDER_HOST_CALLBACK_TYPEDEFS = {
-    "ActiveCinematicConfigFn",
-}
+ALLOWED_MUTABLE_RENDER_HOST_CALLBACK_TYPEDEFS = set()
 
 ALLOWED_RENDER_HOST_CALLBACK_FIELDS = {
     "user",
-    "activeCinematicConfig",
-    "isCinematicRenderingEnabled",
-    "isLauncherCameraMode",
-    "textureHandle",
-    "selectRenderTexture",
-    "windowScreenWidth",
-    "windowScreenHeight",
     "logRenderResourceLifecycleStep",
     "renderEditorOverlay",
     "refreshRuntimeViewModel",
-    "sceneState",
-    "currentSceneBrowserIndex",
     "cameraModeEnabledMask",
     "cameraModeLabel",
-    "refreshMainMemoryStats",
 }
 
 
@@ -1150,6 +1443,15 @@ def strip_cpp_comments(text: str) -> str:
     return re.sub(r"//.*", "", text)
 
 
+def strip_cpp_comments_and_string_literals(text: str) -> str:
+    stripped = strip_cpp_comments(text)
+
+    def blank_literal(match: re.Match[str]) -> str:
+        return re.sub(r"[^\n]", " ", match.group(0))
+
+    return re.sub(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'', blank_literal, stripped, flags=re.S)
+
+
 def line_for_offset(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
@@ -1163,6 +1465,17 @@ def extract_struct_body(stripped: str, struct_name: str) -> tuple[int, str] | No
         return None
     close_brace_offset = find_matching_close_brace(stripped, open_brace_offset)
     return open_brace_offset + 1, stripped[open_brace_offset + 1 : close_brace_offset]
+
+
+def extract_class_body(stripped: str, class_name: str) -> tuple[int, int, int, str] | None:
+    match = re.search(rf"\bclass\s+{re.escape(class_name)}\b[^\{{]*\{{", stripped, flags=re.S)
+    if not match:
+        return None
+    open_brace_offset = stripped.find("{", match.start(), match.end())
+    if open_brace_offset < 0:
+        return None
+    close_brace_offset = find_matching_close_brace(stripped, open_brace_offset)
+    return match.start(), open_brace_offset + 1, close_brace_offset, stripped[open_brace_offset + 1 : close_brace_offset]
 
 
 def line_for_struct_offset(stripped: str, body_start_offset: int, local_offset: int) -> int:
@@ -1342,6 +1655,500 @@ def check_physics_game_model_collection_guardrails(repo: Path) -> list[BoundaryE
     return errors
 
 
+def check_public_physics_facade_game_object_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PUBLIC_PHYSICS_FACADE_GAME_OBJECT_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "public physics facade game-object dependency is blocked",
+                "Keep PhysicsApi/PhysicsEngine signatures on handles, descriptors, views, or PhysicsModelAccess compatibility only.",
+            )
+        )
+    return errors
+
+
+def check_public_physics_facade_game_object_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in PUBLIC_PHYSICS_FACADE_HEADERS:
+        path = repo / relative_path
+        errors.extend(check_public_physics_facade_game_object_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_deleted_physics_model_view_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_DELETED_MODEL_VIEW_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "deleted PhysicsModelView boundary is blocked",
+                "Use PhysicsModelAccess plus stores/handles instead of recreating MakePhysicsModelView or PhysicsModelView.",
+            )
+        )
+    return errors
+
+
+def check_deleted_physics_model_view_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for root in (repo / PHYSICS_ROOT, repo / Path("SkullbonezSource/GameObjects")):
+        for path in sorted(root.rglob("*")):
+            if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+                continue
+            errors.extend(check_deleted_physics_model_view_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_physics_models_access_guardrails_text(
+    path: Path,
+    text: str,
+    relative_path: Path | None = None,
+    allowlist: Counter[tuple[Path, str]] | None = None,
+) -> list[BoundaryError]:
+    key_path = relative_path or path
+    allowed = PHYSICS_MODELS_ACCESS_ALLOWLIST if allowlist is None else allowlist
+    stripped = strip_cpp_comments(text)
+    seen: Counter[tuple[Path, str]] = Counter()
+    errors: list[BoundaryError] = []
+
+    for line_no, line in enumerate(stripped.splitlines(), start=1):
+        if not PHYSICS_MODELS_ACCESS_PATTERN.search(line):
+            continue
+
+        normalized = normalize_boundary_line(line)
+        key = ( key_path, normalized )
+        seen[key] += 1
+        if seen[key] > allowed.get(key, 0):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_no,
+                    "direct PhysicsModels() compatibility access is blocked",
+                    "Use PhysicsModelAccess, stores, stable handles, or a named compatibility adapter instead.",
+                )
+            )
+
+    return errors
+
+
+def check_physics_models_access_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
+        if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+            continue
+        errors.extend(
+            check_physics_models_access_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+                path.relative_to(repo),
+            )
+        )
+    return errors
+
+
+def check_named_physics_models_compat_access_guardrails_text(
+    path: Path,
+    text: str,
+    relative_path: Path | None = None,
+    allowlist: Counter[tuple[Path, str]] | None = None,
+) -> list[BoundaryError]:
+    key_path = relative_path or path
+    allowed = PHYSICS_MODELS_COMPAT_ACCESS_ALLOWLIST if allowlist is None else allowlist
+    stripped = strip_cpp_comments(text)
+    seen: Counter[tuple[Path, str]] = Counter()
+    errors: list[BoundaryError] = []
+
+    for line_no, line in enumerate(stripped.splitlines(), start=1):
+        if not PHYSICS_MODELS_COMPAT_ACCESS_PATTERN.search(line):
+            continue
+
+        normalized = normalize_boundary_line(line)
+        key = ( key_path, normalized )
+        seen[key] += 1
+        if seen[key] > allowed.get(key, 0):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_no,
+                    "named physics model vector compatibility access is count-guarded",
+                    "Move the caller to PhysicsModelAccess, stores, or stable handles before adding another vector borrower.",
+                )
+            )
+
+    return errors
+
+
+def check_named_physics_models_compat_access_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
+        if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+            continue
+        errors.extend(
+            check_named_physics_models_compat_access_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+                path.relative_to(repo),
+            )
+        )
+    return errors
+
+
+def check_direct_gfx_raytracing_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    errors: list[BoundaryError] = []
+    for match in DIRECT_GFX_RAYTRACING_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "direct Gfx() raytracing calls are blocked",
+                "Use GfxRayTracing()/IRenderRayTracing so DXR reflection does not live on the wide IRenderBackend facade.",
+            )
+        )
+    return errors
+
+
+def check_direct_gfx_raytracing_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
+        if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+            continue
+        errors.extend(check_direct_gfx_raytracing_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_irender_backend_raytracing_declarations_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    errors: list[BoundaryError] = []
+    for match in IRENDER_BACKEND_RAYTRACING_DECLARATION_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "raytracing declarations are blocked on IRenderBackend",
+                "Put raytracing methods on IRenderRayTracing so the wide backend facade does not regrow DXR reflection ownership.",
+            )
+        )
+    return errors
+
+
+def check_irender_backend_raytracing_declarations(repo: Path) -> list[BoundaryError]:
+    path = repo / IRENDER_BACKEND_HEADER
+    return check_irender_backend_raytracing_declarations_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_irender_backend_aggregate_contract_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    class_body = extract_class_body(stripped, "IRenderBackend")
+    if class_body is None:
+        return []
+
+    class_start, body_start, _body_end, body = class_body
+    class_header = stripped[class_start:body_start]
+    errors: list[BoundaryError] = []
+
+    if re.search(r"\bIRenderRayTracing\b", class_header):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, class_start),
+                "IRenderBackend must not inherit raytracing",
+                "Keep DXR on IRenderRayTracing/GfxRayTracing so the aggregate facade does not expose raytracing commands.",
+            )
+        )
+
+    for match in IRENDER_BACKEND_DIRECT_METHOD_PATTERN.finditer(body):
+        method_name = match.group(1)
+        if method_name == "IRenderBackend":
+            continue
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, body_start + match.start(1)),
+                "IRenderBackend direct methods are blocked",
+                "Put new render behavior on a named capability interface instead of regrowing the temporary aggregate facade.",
+            )
+        )
+    return errors
+
+
+def check_irender_backend_aggregate_contract(repo: Path) -> list[BoundaryError]:
+    path = repo / IRENDER_BACKEND_HEADER
+    return check_irender_backend_aggregate_contract_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_runtime_render_pass_wide_backend_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in RUNTIME_RENDER_PASS_WIDE_BACKEND_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "runtime render pass wide backend access is blocked",
+                "Pass IRenderCommandContext, IRenderResourceFactory, IRenderDiagnostics, or IRenderRayTracing instead of IRenderBackend.",
+            )
+        )
+    return errors
+
+
+def check_runtime_render_pass_wide_backend_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in RUNTIME_RENDER_PASS_CAPABILITY_SOURCES:
+        source_path = repo / path
+        if source_path.exists():
+            errors.extend(check_runtime_render_pass_wide_backend_guardrails_text(path, source_path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_graph_owned_render_pass_scheduling_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    errors: list[BoundaryError] = []
+    for match in GRAPH_OWNED_RENDER_PASS_DIRECT_CALL_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "graph-owned render pass direct scheduling is blocked",
+                "Use the RuntimeRenderer render graph helper so migrated pass callbacks keep resource declarations and dry-run checks.",
+            )
+        )
+    return errors
+
+
+def check_graph_owned_render_pass_scheduling(repo: Path) -> list[BoundaryError]:
+    path = repo / RUN_RENDER_SOURCE
+    return check_graph_owned_render_pass_scheduling_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_graph_owned_render_pass_manual_barriers_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in GRAPH_OWNED_RENDER_PASS_MANUAL_BARRIER_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "graph-owned render pass manual barriers are blocked",
+                "Declare pass resource access through RenderGraph; runtime pass code must not issue DX12 barriers or backend transition helpers directly.",
+            )
+        )
+    return errors
+
+
+def check_graph_owned_render_pass_manual_barriers(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in GRAPH_OWNED_RENDER_PASS_MANUAL_BARRIER_SOURCES:
+        path = repo / relative_path
+        errors.extend(check_graph_owned_render_pass_manual_barriers_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def find_matching_close_paren(text: str, open_paren_offset: int) -> int:
+    depth = 0
+    quote: str | None = None
+    escaped = False
+    for offset in range(open_paren_offset, len(text)):
+        char = text[offset]
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            continue
+        if char in ('"', "'"):
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return offset
+    return len(text)
+
+
+def split_top_level_arguments(argument_text: str) -> list[str]:
+    arguments: list[str] = []
+    start = 0
+    paren_depth = 0
+    bracket_depth = 0
+    brace_depth = 0
+    quote: str | None = None
+    escaped = False
+    for offset, char in enumerate(argument_text):
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            continue
+        if char in ('"', "'"):
+            quote = char
+        elif char == "(":
+            paren_depth += 1
+        elif char == ")":
+            paren_depth = max(0, paren_depth - 1)
+        elif char == "[":
+            bracket_depth += 1
+        elif char == "]":
+            bracket_depth = max(0, bracket_depth - 1)
+        elif char == "{":
+            brace_depth += 1
+        elif char == "}":
+            brace_depth = max(0, brace_depth - 1)
+        elif char == "," and paren_depth == 0 and bracket_depth == 0 and brace_depth == 0:
+            arguments.append(argument_text[start:offset].strip())
+            start = offset + 1
+    tail = argument_text[start:].strip()
+    if tail:
+        arguments.append(tail)
+    return arguments
+
+
+def check_render_graph_unknown_access_text(
+    path: Path,
+    text: str,
+    relative_path: Path | None = None,
+    allowlist: Counter[tuple[Path, str]] | None = None,
+) -> list[BoundaryError]:
+    key_path = relative_path or path
+    allowed = RENDER_GRAPH_UNKNOWN_ACCESS_ALLOWLIST if allowlist is None else allowlist
+    stripped = strip_cpp_comments(text)
+    seen: Counter[tuple[Path, str]] = Counter()
+    errors: list[BoundaryError] = []
+
+    for match in RENDER_GRAPH_ADD_EXTERNAL_RESOURCE_CALL_PATTERN.finditer(stripped):
+        open_paren_offset = stripped.find("(", match.start(), match.end())
+        close_paren_offset = find_matching_close_paren(stripped, open_paren_offset)
+        arguments = split_top_level_arguments(stripped[open_paren_offset + 1 : close_paren_offset])
+        if len(arguments) < 2 or not RENDER_GRAPH_UNKNOWN_ACCESS_VALUE_PATTERN.search(arguments[1]):
+            continue
+        resource_expr = arguments[0].strip()
+        resource_name = (
+            resource_expr[1:-1]
+            if resource_expr.startswith('"') and resource_expr.endswith('"')
+            else "<dynamic-resource-name>"
+        )
+        key = ( key_path, resource_name )
+        seen[key] += 1
+        if seen[key] > allowed[key]:
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "render graph Unknown resource access is count-guarded",
+                    "Give migrated graph resources a concrete access state, or add an explicit handoff allowlist entry with the owning plan.",
+                )
+            )
+    return errors
+
+
+def check_render_graph_unknown_access(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in RENDER_GRAPH_UNKNOWN_ACCESS_SOURCES:
+        path = repo / relative_path
+        errors.extend(
+            check_render_graph_unknown_access_text(
+                path,
+                path.read_text(encoding="utf-8"),
+                relative_path=relative_path,
+            )
+        )
+    return errors
+
+
+def check_global_service_access_guardrails_text(
+    path: Path,
+    text: str,
+    relative_path: Path | None = None,
+    allowlist: Counter[tuple[Path, str]] | None = None,
+) -> list[BoundaryError]:
+    key_path = relative_path or path
+    allowed = GLOBAL_SERVICE_ACCESS_ALLOWLIST if allowlist is None else allowlist
+    stripped = strip_cpp_comments_and_string_literals(text)
+    matches: list[tuple[int, str, str, str]] = []
+    seen: Counter[tuple[Path, str]] = Counter()
+    errors: list[BoundaryError] = []
+
+    for label, pattern, message, detail in GLOBAL_SERVICE_ACCESS_PATTERNS:
+        for match in pattern.finditer(stripped):
+            matches.append(( match.start(), label, message, detail ))
+
+    for match in GENERIC_INSTANCE_ACCESS_PATTERN.finditer(stripped):
+        class_name = match.group("class_name")
+        if class_name in NAMED_GLOBAL_SERVICE_INSTANCE_CLASSES:
+            continue
+        matches.append(
+            (
+                match.start(),
+                f"{class_name}::Instance()",
+                "generic singleton access is count-guarded",
+                "Class::Instance() access must be classified as bootstrap/bridge debt or replaced by an explicit service context.",
+            )
+        )
+
+    for match in PROCESS_GLOBAL_POINTER_PATTERN.finditer(stripped):
+        matches.append(
+            (
+                match.start(),
+                "pInstance",
+                "process singleton pointer access is count-guarded",
+                "Do not add pInstance singleton storage without explicit lifecycle/bridge classification.",
+            )
+        )
+
+    for match in MUTABLE_PROCESS_GLOBAL_PATTERN.finditer(stripped):
+        matches.append(
+            (
+                match.start(),
+                "g_*",
+                "mutable process global access is count-guarded",
+                "Do not add mutable g_ process globals outside a named callback bridge or bootstrap compatibility path.",
+            )
+        )
+
+    for offset, label, message, detail in sorted(matches):
+        key = ( key_path, label )
+        seen[key] += 1
+        if label in GLOBAL_RENDERER_SERVICE_LABELS and key_path not in GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS:
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, offset),
+                    "global renderer service access is outside approved compatibility files",
+                    "Borrow a renderer capability/context, or first classify this file as explicit renderer-service debt in the Carmack global/backend plans.",
+                )
+            )
+            continue
+        if seen[key] > allowed.get(key, 0):
+            errors.append(BoundaryError(path, line_for_offset(stripped, offset), message, detail))
+
+    return errors
+
+
+def check_global_service_access_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
+        if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+            continue
+        errors.extend(
+            check_global_service_access_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+                path.relative_to(repo),
+            )
+        )
+    return errors
+
+
 def render_host_member_declarations(body: str) -> list[tuple[str, int]]:
     declarations: list[tuple[str, int]] = []
     pattern = re.compile(
@@ -1377,6 +2184,23 @@ def check_runtime_render_host_guardrails_text(path: Path, text: str) -> list[Bou
     stripped = strip_cpp_comments(text)
     errors: list[BoundaryError] = []
 
+    for view_name, allowed_fields in ALLOWED_RENDER_HOST_VIEW_FIELDS.items():
+        view = extract_struct_body(stripped, view_name)
+        if view is None:
+            continue
+
+        body_start, body = view
+        for field_name, local_offset in render_host_member_declarations(body):
+            if field_name not in allowed_fields:
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_struct_offset(stripped, body_start, local_offset),
+                        f"new {view_name} fields are blocked",
+                        "Plan engine-evaluation-fix-01-runtime-ownership-plan.md: add render host dependencies through an owner-specific API and update the view allowlist deliberately.",
+                    )
+                )
+
     bindings = extract_struct_body(stripped, "RuntimeRenderHostBindings")
     if bindings is not None:
         body_start, body = bindings
@@ -1387,7 +2211,7 @@ def check_runtime_render_host_guardrails_text(path: Path, text: str) -> list[Bou
                         path,
                         line_for_struct_offset(stripped, body_start, local_offset),
                         "new RuntimeRenderHostBindings fields are blocked",
-                        "Split render-facing state into a narrow view instead of growing RuntimeRenderHost.",
+                        "Plan engine-evaluation-fix-01-runtime-ownership-plan.md: split render-facing state into a narrow view instead of growing RuntimeRenderHost.",
                     )
                 )
 
@@ -1401,7 +2225,7 @@ def check_runtime_render_host_guardrails_text(path: Path, text: str) -> list[Bou
                         path,
                         line_for_struct_offset(stripped, body_start, local_offset),
                         "new RuntimeRenderHostCallbacks typedefs are blocked",
-                        "Move the callback behind a subsystem-owned service before wiring render host access.",
+                        "Plan engine-evaluation-fix-01-runtime-ownership-plan.md: move the callback behind a subsystem-owned service before wiring render host access.",
                     )
                 )
             if (
@@ -1423,7 +2247,7 @@ def check_runtime_render_host_guardrails_text(path: Path, text: str) -> list[Bou
                         path,
                         line_for_struct_offset(stripped, body_start, local_offset),
                         "new RuntimeRenderHostCallbacks fields are blocked",
-                        "Narrow the render service surface instead of adding another Run callback.",
+                        "Plan engine-evaluation-fix-01-runtime-ownership-plan.md: narrow the render service surface instead of adding another Run callback.",
                     )
                 )
 
@@ -2549,18 +3373,61 @@ def run_self_tests() -> list[str]:
     )
 
     allowed_host = """
-    struct RuntimeRenderHostBindings
+    struct RenderRuntimeView
     {
         RunSubsystemState* systems = nullptr;
+        const RunLaunchOptions* launchOptions = nullptr;
+        RunRuntimeSettings* runtimeSettings = nullptr;
+    };
+    struct RenderWorldView
+    {
+        GameModelCollection* gameModelCollection = nullptr;
+        WorldEnvironment* worldEnvironment = nullptr;
+        CollisionVisualizer* collisionVisualizer = nullptr;
+        BroadphaseVisualizer* broadphaseVisualizer = nullptr;
+        PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;
+    };
+    struct RenderSceneView
+    {
+        SceneController* sceneController = nullptr;
+        RunSceneBrowserState* sceneBrowser = nullptr;
+    };
+    struct RenderReplayOverlayView
+    {
+        ReplayRuntime* replayRuntime = nullptr;
+    };
+    struct RenderToolOverlayView
+    {
+        RuntimeTools* tools = nullptr;
+    };
+    struct RenderUiView
+    {
+        InGameUI* ui = nullptr;
+        RuntimeInputContext* runtimeInput = nullptr;
+        RunCameraState* camera = nullptr;
+        RuntimeViewModel* runtimeViewModel = nullptr;
+    };
+    struct RenderDiagnosticsView
+    {
+        DiagnosticsRuntime* diagnosticsRuntime = nullptr;
         RunDebugState* debug = nullptr;
+        RunTimerState* timers = nullptr;
+    };
+    struct RuntimeRenderHostBindings
+    {
+        RenderRuntimeView runtime;
+        RenderWorldView world;
+        RenderSceneView scene;
+        RenderReplayOverlayView replayOverlay;
+        RenderToolOverlayView toolOverlay;
+        RenderUiView ui;
+        RenderDiagnosticsView diagnostics;
     };
     struct RuntimeRenderHostCallbacks
     {
-        using ActiveCinematicConfigFn = CinematicRenderConfig& (*)( void* user );
-        using BoolFn = bool ( * )( void* user );
+        using VoidFn = void ( * )( void* user );
         void* user = nullptr;
-        ActiveCinematicConfigFn activeCinematicConfig = nullptr;
-        BoolFn isLauncherCameraMode = nullptr;
+        VoidFn refreshRuntimeViewModel = nullptr;
     };
     """
     if check_runtime_render_host_guardrails_text(synthetic_path, allowed_host):
@@ -2577,6 +3444,456 @@ def run_self_tests() -> list[str]:
     """
     if check_run_private_method_count_text(Path("synthetic/Run.h"), allowed_run_header, max_allowed=1):
         failures.append("allowed Run.h private method count synthetic surface failed")
+
+    old_run_dxr_reflection_state = allowed_run_header.replace(
+        "void Render();",
+        "void Render();\n        std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms = {};",
+    )
+    if not any(
+        error.message == "DXR reflection state must stay out of Run.h"
+        for error in check_text_rules(Path("synthetic/Run.h"), old_run_dxr_reflection_state, RUN_HEADER_RULES)
+    ):
+        failures.append("old Run.h DXR reflection state synthetic surface was not rejected")
+
+    allowed_raytracing_accessor = "void Render() { GfxRayTracing().BuildTLAS( matrices, count, 0, 0 ); }"
+    if check_direct_gfx_raytracing_guardrails_text(
+        Path("synthetic/RunPasses.cpp"),
+        allowed_raytracing_accessor,
+    ):
+        failures.append("allowed GfxRayTracing synthetic call was rejected")
+
+    old_direct_gfx_raytracing_call = "void Render() { Gfx().BuildTLAS( matrices, count, 0, 0 ); }"
+    if not any(
+        error.message == "direct Gfx() raytracing calls are blocked"
+        for error in check_direct_gfx_raytracing_guardrails_text(
+            Path("synthetic/RunPasses.cpp"),
+            old_direct_gfx_raytracing_call,
+        )
+    ):
+        failures.append("direct Gfx raytracing synthetic call was not rejected")
+
+    old_irender_backend_raytracing_surface = """
+    class IRenderBackend
+    {
+      public:
+        virtual void InitDXR( uint64_t terrainVBVA, int terrainVertCount, int terrainStride ) = 0;
+        virtual uint32_t GetReflectionUAVTexture() const = 0;
+    };
+    """
+    if not any(
+        error.message == "raytracing declarations are blocked on IRenderBackend"
+        for error in check_irender_backend_raytracing_declarations_text(
+            Path("synthetic/IRenderBackend.h"),
+            old_irender_backend_raytracing_surface,
+        )
+    ):
+        failures.append("IRenderBackend raytracing declaration synthetic surface was not rejected")
+
+    allowed_irender_backend_aggregate = """
+    class IRenderBackend : public IRenderDeviceLifecycle,
+                           public IRenderResourceFactory,
+                           public IRenderCommandContext,
+                           public IRenderDiagnostics,
+                           public IRenderCaptureBackend
+    {
+      public:
+        ~IRenderBackend() override = default;
+    };
+    """
+    if check_irender_backend_aggregate_contract_text(
+        Path("synthetic/IRenderBackend.h"),
+        allowed_irender_backend_aggregate,
+    ):
+        failures.append("allowed IRenderBackend aggregate synthetic surface failed")
+
+    old_irender_backend_raytracing_inheritance = """
+    class IRenderBackend : public IRenderDeviceLifecycle,
+                           public IRenderRayTracing
+    {
+      public:
+        ~IRenderBackend() override = default;
+    };
+    """
+    if not any(
+        error.message == "IRenderBackend must not inherit raytracing"
+        for error in check_irender_backend_aggregate_contract_text(
+            Path("synthetic/IRenderBackend.h"),
+            old_irender_backend_raytracing_inheritance,
+        )
+    ):
+        failures.append("IRenderBackend raytracing inheritance synthetic surface was not rejected")
+
+    old_irender_backend_direct_method = """
+    class IRenderBackend : public IRenderDeviceLifecycle
+    {
+      public:
+        ~IRenderBackend() override = default;
+        virtual void Clear( bool color, bool depth ) = 0;
+        RenderCapabilities GetCapabilities() const;
+    };
+    """
+    if not any(
+        error.message == "IRenderBackend direct methods are blocked"
+        for error in check_irender_backend_aggregate_contract_text(
+            Path("synthetic/IRenderBackend.h"),
+            old_irender_backend_direct_method,
+        )
+    ):
+        failures.append("IRenderBackend direct method synthetic surface was not rejected")
+
+    allowed_runtime_pass_narrow_capabilities = """
+    #include "../Rendering/IRenderCommandContext.h"
+    #include "../Rendering/IRenderResourceFactory.h"
+    void Draw( Rendering::IRenderCommandContext& commands, Rendering::IRenderResourceFactory& resources )
+    {
+        commands.Clear( true, true );
+        resources.CreateDynamicVB( attribs, 2, 6 );
+    }
+    """
+    if check_runtime_render_pass_wide_backend_guardrails_text(
+        Path("synthetic/RunPasses.cpp"),
+        allowed_runtime_pass_narrow_capabilities,
+    ):
+        failures.append("allowed runtime render pass narrow capability synthetic surface failed")
+
+    old_runtime_pass_wide_backend_include = """
+    #include "../Rendering/IRenderBackend.h"
+    void Draw( IRenderBackend& backend )
+    {
+        backend.Clear( true, true );
+    }
+    """
+    if not any(
+        error.message == "runtime render pass wide backend access is blocked"
+        for error in check_runtime_render_pass_wide_backend_guardrails_text(
+            Path("synthetic/RunPasses.cpp"),
+            old_runtime_pass_wide_backend_include,
+        )
+    ):
+        failures.append("runtime render pass wide backend include synthetic surface was not rejected")
+
+    allowed_graph_owned_pass_scheduling = """
+    void RuntimeRenderer::RenderFrame()
+    {
+        ExecuteShadowThroughRenderGraph( frame, activeShadowConfig );
+        ExecuteSceneTargetBeginThroughRenderGraph( frame );
+        ExecuteSkyboxThroughRenderGraph( frame );
+        ExecuteReflectionThroughRenderGraph( frame, activeCinematic, objectShadowFrame );
+        ExecuteObjectThroughRenderGraph( frame, ObjectPassMode::Opaque, useCinematicTarget );
+        ExecuteTerrainThroughRenderGraph( frame, useCinematicTarget );
+        ExecuteWaterThroughRenderGraph( frame, reflection, useCinematicTarget );
+        ExecuteTornadoVisualThroughRenderGraph( frame, useCinematicTarget );
+        ExecuteReplayGhostsThroughRenderGraph( frame, useCinematicTarget );
+        ExecuteDebugOverlayThroughRenderGraph( frame, useCinematicTarget );
+        ExecuteCinematicPostThroughRenderGraph( frame );
+        ExecuteUiTextThroughRenderGraph( secondsPerFrame );
+    }
+    """
+    if check_graph_owned_render_pass_scheduling_text(
+        Path("synthetic/RunRender.cpp"),
+        allowed_graph_owned_pass_scheduling,
+    ):
+        failures.append("allowed graph-owned pass helper scheduling synthetic surface failed")
+
+    old_direct_graph_owned_pass_scheduling = """
+    void RuntimeRenderer::RenderFrame()
+    {
+        m_shadowPass.Render( frame );
+        m_sceneTargetPass.Begin( frame, m_skyPass );
+        m_skyPass.Render( frame, frame.baseView, SkyPassMode::CubemapOnly );
+        m_reflectionPass.Render( frame, m_skyPass );
+        m_objectPass.Render( frame );
+        m_terrainPass.Render( frame );
+        m_waterPass.Render( frame );
+        m_tornadoVisualPass.Render( frame );
+        host.RenderReplayPredictionGhosts( frame, activeCinematic, objectShadowFrame );
+        m_debugOverlayPass.Render( frame );
+        m_volumetricPass.Render( frame );
+        m_tonemapPass.Render( frame, false, true );
+        m_uiTextPass.Render( secondsPerFrame );
+    }
+    """
+    if not any(
+        error.message == "graph-owned render pass direct scheduling is blocked"
+        for error in check_graph_owned_render_pass_scheduling_text(
+            Path("synthetic/RunRender.cpp"),
+            old_direct_graph_owned_pass_scheduling,
+        )
+    ):
+        failures.append("direct graph-owned pass scheduling synthetic surface was not rejected")
+
+    allowed_graph_owned_pass_graph_access = """
+    void RuntimeRenderer::RenderFrame()
+    {
+        graph.AddExternalResource( "SwapchainBackbuffer", Rendering::RenderGraphResourceAccess::RenderTarget );
+        graph.AddPass( "UiTextPass", Rendering::RenderGraphQueueType::Graphics );
+    }
+    """
+    if check_graph_owned_render_pass_manual_barriers_text(
+        Path("synthetic/RunRender.cpp"),
+        allowed_graph_owned_pass_graph_access,
+    ):
+        failures.append("allowed graph-owned pass graph-access synthetic surface failed")
+
+    old_manual_graph_owned_pass_barrier = """
+    void RuntimeRenderer::RenderFrame()
+    {
+        D3D12_RESOURCE_BARRIER barrier = {};
+        commandList->ResourceBarrier( 1, &barrier );
+    }
+    """
+    if not any(
+        error.message == "graph-owned render pass manual barriers are blocked"
+        for error in check_graph_owned_render_pass_manual_barriers_text(
+            Path("synthetic/RunRender.cpp"),
+            old_manual_graph_owned_pass_barrier,
+        )
+    ):
+        failures.append("manual graph-owned pass barrier synthetic surface was not rejected")
+
+    old_resource_barrier_call_only = "void Render() { commandList->ResourceBarrier( 1, &barrier ); }"
+    if not any(
+        error.message == "graph-owned render pass manual barriers are blocked"
+        for error in check_graph_owned_render_pass_manual_barriers_text(
+            Path("synthetic/RunRender.cpp"),
+            old_resource_barrier_call_only,
+        )
+    ):
+        failures.append("ResourceBarrier-only synthetic surface was not rejected")
+
+    commented_manual_barrier = """
+    void RuntimeRenderer::RenderFrame()
+    {
+        // commandList->ResourceBarrier( 1, &barrier );
+        const char* label = "D3D12_RESOURCE_BARRIER and ExecuteGraphTransition are documentation text";
+    }
+    """
+    if check_graph_owned_render_pass_manual_barriers_text(
+        Path("synthetic/RunRender.cpp"),
+        commented_manual_barrier,
+    ):
+        failures.append("comment/string manual barrier synthetic surface was falsely rejected")
+
+    old_graph_transition_helper_in_runtime_pass = """
+    void SceneTargetPass::Begin()
+    {
+        backend.ExecuteGraphTransition( "SceneTarget", resource, before, after );
+    }
+    """
+    if not any(
+        error.message == "graph-owned render pass manual barriers are blocked"
+        for error in check_graph_owned_render_pass_manual_barriers_text(
+            Path("synthetic/RunPasses.cpp"),
+            old_graph_transition_helper_in_runtime_pass,
+        )
+    ):
+        failures.append("runtime pass backend transition helper synthetic surface was not rejected")
+
+    old_graph_uav_helper_in_ui_text_pass = """
+    void UiTextPass::Render()
+    {
+        backend.ExecuteGraphUavBarrier( "UiTextWriteOrder", "SwapchainBackbuffer", resource );
+    }
+    """
+    if not any(
+        error.message == "graph-owned render pass manual barriers are blocked"
+        for error in check_graph_owned_render_pass_manual_barriers_text(
+            Path("synthetic/RunUiTextPass.cpp"),
+            old_graph_uav_helper_in_ui_text_pass,
+        )
+    ):
+        failures.append("UiTextPass graph UAV helper synthetic surface was not rejected")
+
+    allowed_unknown_graph_access_path = Path("SkullbonezSource/Runtime/RunRender.cpp")
+    allowed_unknown_graph_access = """
+    void BuildMigratedGraph()
+    {
+        graph.AddExternalResource( "CinematicSceneDepth", Rendering::RenderGraphResourceAccess::Unknown );
+    }
+    """
+    synthetic_unknown_access_allowlist: Counter[tuple[Path, str]] = Counter(
+        { ( allowed_unknown_graph_access_path, "CinematicSceneDepth" ): 1 }
+    )
+    if check_render_graph_unknown_access_text(
+        allowed_unknown_graph_access_path,
+        allowed_unknown_graph_access,
+        allowlist=synthetic_unknown_access_allowlist,
+    ):
+        failures.append("count-allowed render graph Unknown access synthetic surface was rejected")
+
+    new_unknown_graph_access = """
+    void BuildMigratedGraph()
+    {
+        graph.AddExternalResource( "NewSceneDepth", Rendering::RenderGraphResourceAccess::Unknown );
+    }
+    """
+    if not any(
+        error.message == "render graph Unknown resource access is count-guarded"
+        for error in check_render_graph_unknown_access_text(
+            Path("synthetic/RunRender.cpp"),
+            new_unknown_graph_access,
+        )
+    ):
+        failures.append("new render graph Unknown access synthetic surface was not rejected")
+
+    new_unknown_graph_access_with_native = """
+    void BuildMigratedGraph()
+    {
+        graph.AddExternalResource(
+            "NewSceneDepth",
+            Rendering::RenderGraphResourceAccess::Unknown,
+            nativeDepth );
+    }
+    """
+    if not any(
+        error.message == "render graph Unknown resource access is count-guarded"
+        for error in check_render_graph_unknown_access_text(
+            Path("synthetic/RunRender.cpp"),
+            new_unknown_graph_access_with_native,
+        )
+    ):
+        failures.append("three-argument render graph Unknown access synthetic surface was not rejected")
+
+    dynamic_unknown_graph_access = """
+    void BuildMigratedGraph()
+    {
+        graph.AddExternalResource(
+            MakeResourceName( sceneName, passName ),
+            SkullbonezCore::Rendering::RenderGraphResourceAccess::Unknown );
+    }
+    """
+    if not any(
+        error.message == "render graph Unknown resource access is count-guarded"
+        for error in check_render_graph_unknown_access_text(
+            Path("synthetic/RunRender.cpp"),
+            dynamic_unknown_graph_access,
+        )
+    ):
+        failures.append("dynamic-name render graph Unknown access synthetic surface was not rejected")
+
+    allowed_global_service_path = Path("SkullbonezSource/Runtime/Run.cpp")
+    allowed_global_service_access = "void BootstrapRenderer() { Gfx().Present(); }"
+    synthetic_global_service_allowlist: Counter[tuple[Path, str]] = Counter(
+        { ( allowed_global_service_path, "Gfx()" ): 1 }
+    )
+    if check_global_service_access_guardrails_text(
+        allowed_global_service_path,
+        allowed_global_service_access,
+        allowlist=synthetic_global_service_allowlist,
+    ):
+        failures.append("count-allowed global service synthetic surface was rejected")
+
+    unclassified_global_renderer_path = Path("SkullbonezSource/Runtime/NewRenderPath.cpp")
+    synthetic_unclassified_renderer_allowlist: Counter[tuple[Path, str]] = Counter(
+        { ( unclassified_global_renderer_path, "Gfx()" ): 1 }
+    )
+    if not any(
+        error.message == "global renderer service access is outside approved compatibility files"
+        for error in check_global_service_access_guardrails_text(
+            unclassified_global_renderer_path,
+            "void NewRenderPath() { Gfx().Present(); }",
+            allowlist=synthetic_unclassified_renderer_allowlist,
+        )
+    ):
+        failures.append("unclassified count-allowed Gfx synthetic surface was not rejected")
+
+    unclassified_global_dxr_path = Path("SkullbonezSource/Runtime/NewDxrPath.cpp")
+    synthetic_unclassified_dxr_allowlist: Counter[tuple[Path, str]] = Counter(
+        { ( unclassified_global_dxr_path, "GfxRayTracing()" ): 1 }
+    )
+    if not any(
+        error.message == "global renderer service access is outside approved compatibility files"
+        for error in check_global_service_access_guardrails_text(
+            unclassified_global_dxr_path,
+            "void NewDxrPath() { GfxRayTracing().GetReflectionUAVTexture(); }",
+            allowlist=synthetic_unclassified_dxr_allowlist,
+        )
+    ):
+        failures.append("unclassified count-allowed GfxRayTracing synthetic surface was not rejected")
+
+    grown_global_service_access = """
+    void BootstrapRenderer() { Gfx().Present(); }
+    void NewRenderHelper() { Gfx().Clear( true, true ); }
+    """
+    if not any(
+        error.message == "global renderer service access is count-guarded"
+        for error in check_global_service_access_guardrails_text(
+            allowed_global_service_path,
+            grown_global_service_access,
+            allowlist=synthetic_global_service_allowlist,
+        )
+    ):
+        failures.append("grown global renderer service synthetic surface was not rejected")
+
+    new_window_singleton_access = "void DeepInputPath() { Window::Instance()->ShowCursor( true ); }"
+    if not any(
+        error.message == "global window service access is count-guarded"
+        for error in check_global_service_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/InputNew.cpp"),
+            new_window_singleton_access,
+            relative_path=Path("SkullbonezSource/Runtime/InputNew.cpp"),
+        )
+    ):
+        failures.append("new window singleton synthetic surface was not rejected")
+
+    new_cfg_access = "void DeepConfigPath() { int threads = Cfg().workerThreads; }"
+    if not any(
+        error.message == "global config access is count-guarded"
+        for error in check_global_service_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/NewConfigPath.cpp"),
+            new_cfg_access,
+            relative_path=Path("SkullbonezSource/Runtime/NewConfigPath.cpp"),
+        )
+    ):
+        failures.append("new Cfg synthetic surface was not rejected")
+
+    new_generic_instance_access = "void DeepConfigPath() { EngineConfig::Instance().workerThreads = 0; }"
+    if not any(
+        error.message == "generic singleton access is count-guarded"
+        for error in check_global_service_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/NewConfigPath.cpp"),
+            new_generic_instance_access,
+            relative_path=Path("SkullbonezSource/Runtime/NewConfigPath.cpp"),
+        )
+    ):
+        failures.append("new generic Instance synthetic surface was not rejected")
+
+    new_process_singleton_pointer = "class Service { static Service* pInstance; };"
+    if not any(
+        error.message == "process singleton pointer access is count-guarded"
+        for error in check_global_service_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/NewService.h"),
+            new_process_singleton_pointer,
+            relative_path=Path("SkullbonezSource/Runtime/NewService.h"),
+        )
+    ):
+        failures.append("new pInstance synthetic surface was not rejected")
+
+    new_mutable_process_global = "int g_newInputBridge = 0;"
+    if not any(
+        error.message == "mutable process global access is count-guarded"
+        for error in check_global_service_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/NewInputBridge.cpp"),
+            new_mutable_process_global,
+            relative_path=Path("SkullbonezSource/Runtime/NewInputBridge.cpp"),
+        )
+    ):
+        failures.append("new g_ global synthetic surface was not rejected")
+
+    diagnostic_text_only_global = r'''
+    void LogMigrationHint()
+    {
+        printf( "Do not add Gfx(), Cfg(), Window::Instance(), pInstance, or g_newService here." );
+        // Gfx().Clear( true, true );
+        /* Cfg().workerThreads = 0; */
+    }
+    '''
+    if check_global_service_access_guardrails_text(
+        Path("SkullbonezSource/Runtime/DiagnosticStrings.cpp"),
+        diagnostic_text_only_global,
+        relative_path=Path("SkullbonezSource/Runtime/DiagnosticStrings.cpp"),
+    ):
+        failures.append("diagnostic string/comment global service synthetic surface was rejected")
 
     grown_run_header = allowed_run_header.replace("void Render();", "void Render();\n        void NewHelper();")
     if not any(
@@ -3533,8 +4850,8 @@ def run_self_tests() -> list[str]:
         failures.append("RunInternal cinematic override helper synthetic surface was not rejected")
 
     new_binding = allowed_host.replace(
-        "RunDebugState* debug = nullptr;",
-        "RunDebugState* debug = nullptr;\n        RunSceneState* newSceneState = nullptr;",
+        "RenderDiagnosticsView diagnostics;",
+        "RenderDiagnosticsView diagnostics;\n        RunSceneState* newSceneState = nullptr;",
     )
     if not any(
         error.message == "new RuntimeRenderHostBindings fields are blocked"
@@ -3543,8 +4860,8 @@ def run_self_tests() -> list[str]:
         failures.append("new RuntimeRenderHostBindings synthetic field was not rejected")
 
     bare_new_binding = allowed_host.replace(
-        "RunDebugState* debug = nullptr;",
-        "RunDebugState* debug = nullptr;\n        RunSceneState* bareSceneState;",
+        "RenderDiagnosticsView diagnostics;",
+        "RenderDiagnosticsView diagnostics;\n        RunSceneState* bareSceneState;",
     )
     if not any(
         error.message == "new RuntimeRenderHostBindings fields are blocked"
@@ -3553,8 +4870,8 @@ def run_self_tests() -> list[str]:
         failures.append("bare RuntimeRenderHostBindings synthetic field was not rejected")
 
     old_replay_binding = allowed_host.replace(
-        "RunDebugState* debug = nullptr;",
-        "RunDebugState* debug = nullptr;\n        RunReplayScrubberState* replayScrubber = nullptr;",
+        "RenderDiagnosticsView diagnostics;",
+        "RenderDiagnosticsView diagnostics;\n        RunReplayScrubberState* replayScrubber = nullptr;",
     )
     if not any(
         error.message == "new RuntimeRenderHostBindings fields are blocked"
@@ -3562,9 +4879,50 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old RuntimeRenderHost replay binding synthetic field was not rejected")
 
+    old_dxr_world_binding = allowed_host.replace(
+        "PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;",
+        "PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;\n"
+        "        std::array<float, MAX_GAME_MODELS * 16>* dxrReflectionTransforms = nullptr;",
+    )
+    if not any(
+        error.message == "new RenderWorldView fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_dxr_world_binding)
+    ):
+        failures.append("old RuntimeRenderHost DXR reflection binding synthetic field was not rejected")
+
+    nested_world_binding = allowed_host.replace(
+        "PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;",
+        "PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;\n        RunMousePickupState* mousePickup = nullptr;",
+    )
+    if not any(
+        error.message == "new RenderWorldView fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, nested_world_binding)
+    ):
+        failures.append("new RenderWorldView synthetic field was not rejected")
+
+    nested_replay_binding = allowed_host.replace(
+        "ReplayRuntime* replayRuntime = nullptr;",
+        "ReplayRuntime* replayRuntime = nullptr;\n        RunReplayScrubberState* scrubber = nullptr;",
+    )
+    if not any(
+        error.message == "new RenderReplayOverlayView fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, nested_replay_binding)
+    ):
+        failures.append("new RenderReplayOverlayView synthetic field was not rejected")
+
+    nested_diagnostics_binding = allowed_host.replace(
+        "RunTimerState* timers = nullptr;",
+        "RunTimerState* timers = nullptr;\n        RunPerfLogState* perfLog = nullptr;",
+    )
+    if not any(
+        error.message == "new RenderDiagnosticsView fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, nested_diagnostics_binding)
+    ):
+        failures.append("new RenderDiagnosticsView synthetic field was not rejected")
+
     new_callback = allowed_host.replace(
-        "BoolFn isLauncherCameraMode = nullptr;",
-        "BoolFn isLauncherCameraMode = nullptr;\n        BoolFn newRenderCallback = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;\n        VoidFn newRenderCallback = nullptr;",
     )
     if not any(
         error.message == "new RuntimeRenderHostCallbacks fields are blocked"
@@ -3572,9 +4930,29 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("new RuntimeRenderHostCallbacks synthetic field was not rejected")
 
+    old_main_memory_callback_typedef = allowed_host.replace(
+        "using VoidFn = void ( * )( void* user );",
+        "using VoidFn = void ( * )( void* user );\n        using MainMemoryStatsFn = MainMemoryStats ( * )( void* user, double nowSeconds );",
+    )
+    if not any(
+        error.message == "new RuntimeRenderHostCallbacks typedefs are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_main_memory_callback_typedef)
+    ):
+        failures.append("old RuntimeRenderHost main-memory callback typedef was not rejected")
+
+    old_main_memory_callback_field = allowed_host.replace(
+        "VoidFn refreshRuntimeViewModel = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;\n        MainMemoryStatsFn refreshMainMemoryStats = nullptr;",
+    )
+    if not any(
+        error.message == "new RuntimeRenderHostCallbacks fields are blocked"
+        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_main_memory_callback_field)
+    ):
+        failures.append("old RuntimeRenderHost main-memory callback field was not rejected")
+
     old_scrubber_callback_field = allowed_host.replace(
-        "BoolFn isLauncherCameraMode = nullptr;",
-        "BoolFn isLauncherCameraMode = nullptr;\n        BoolFn shouldRenderReplayScrubber = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;\n        VoidFn shouldRenderReplayScrubber = nullptr;",
     )
     if not any(
         error.message == "new RuntimeRenderHostCallbacks fields are blocked"
@@ -3583,8 +4961,8 @@ def run_self_tests() -> list[str]:
         failures.append("old RuntimeRenderHost scrubber callback field was not rejected")
 
     old_replay_scrubber_overlay_callback_field = allowed_host.replace(
-        "BoolFn isLauncherCameraMode = nullptr;",
-        "BoolFn isLauncherCameraMode = nullptr;\n        VoidFn renderReplayScrubberOverlay = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;\n        VoidFn renderReplayScrubberOverlay = nullptr;",
     )
     if not any(
         error.message == "new RuntimeRenderHostCallbacks fields are blocked"
@@ -3596,8 +4974,8 @@ def run_self_tests() -> list[str]:
         failures.append("old RuntimeRenderHost replay scrubber overlay callback field was not rejected")
 
     old_prediction_ghost_callback_field = allowed_host.replace(
-        "BoolFn isLauncherCameraMode = nullptr;",
-        "BoolFn isLauncherCameraMode = nullptr;\n        VoidFn renderReplayPredictionGhosts = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;",
+        "VoidFn refreshRuntimeViewModel = nullptr;\n        VoidFn renderReplayPredictionGhosts = nullptr;",
     )
     if not any(
         error.message == "new RuntimeRenderHostCallbacks fields are blocked"
@@ -3606,8 +4984,8 @@ def run_self_tests() -> list[str]:
         failures.append("old RuntimeRenderHost replay prediction ghost callback field was not rejected")
 
     mutable_callback = allowed_host.replace(
-        "using BoolFn = bool ( * )( void* user );",
-        "using BoolFn = bool ( * )( void* user );\n        using MutableSceneFn = RunSceneState& (*)( void* user );",
+        "using VoidFn = void ( * )( void* user );",
+        "using VoidFn = void ( * )( void* user );\n        using MutableSceneFn = RunSceneState& (*)( void* user );",
     )
     mutable_errors = check_runtime_render_host_guardrails_text(synthetic_path, mutable_callback)
     if not any(error.message == "new RuntimeRenderHostCallbacks typedefs are blocked" for error in mutable_errors):
@@ -3616,8 +4994,8 @@ def run_self_tests() -> list[str]:
         failures.append("mutable RuntimeRenderHostCallbacks synthetic return was not rejected")
 
     mutable_pointer_callback = allowed_host.replace(
-        "using BoolFn = bool ( * )( void* user );",
-        "using BoolFn = bool ( * )( void* user );\n        using MutableScenePtrFn = RunSceneState* (*)( void* user );",
+        "using VoidFn = void ( * )( void* user );",
+        "using VoidFn = void ( * )( void* user );\n        using MutableScenePtrFn = RunSceneState* (*)( void* user );",
     )
     pointer_errors = check_runtime_render_host_guardrails_text(synthetic_path, mutable_pointer_callback)
     if not any(error.message == "new RuntimeRenderHostCallbacks typedefs are blocked" for error in pointer_errors):
@@ -3626,8 +5004,8 @@ def run_self_tests() -> list[str]:
         failures.append("mutable pointer RuntimeRenderHostCallbacks synthetic return was not rejected")
 
     old_replay_callback = allowed_host.replace(
-        "using BoolFn = bool ( * )( void* user );",
-        "using BoolFn = bool ( * )( void* user );\n        using ReplayPresentationSampleFn = const ReplayPresentationSample* (*)( void* user );",
+        "using VoidFn = void ( * )( void* user );",
+        "using VoidFn = void ( * )( void* user );\n        using ReplayPresentationSampleFn = const ReplayPresentationSample* (*)( void* user );",
     )
     if not any(
         error.message == "new RuntimeRenderHostCallbacks typedefs are blocked"
@@ -3636,8 +5014,8 @@ def run_self_tests() -> list[str]:
         failures.append("old RuntimeRenderHost replay callback typedef was not rejected")
 
     old_prediction_ghost_callback_typedef = allowed_host.replace(
-        "using BoolFn = bool ( * )( void* user );",
-        "using BoolFn = bool ( * )( void* user );\n"
+        "using VoidFn = void ( * )( void* user );",
+        "using VoidFn = void ( * )( void* user );\n"
         "        using ReplayPredictionGhostsFn = void ( * )( void* user, const RenderFrameContext& frame );",
     )
     if not any(
@@ -4446,6 +5824,252 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("duplicate physics GameModelCollection synthetic dependency was not rejected")
 
+    old_physics_engine_step = "void Step( GameObjects::GameModelCollection& collection, float deltaSeconds );"
+    if not any(
+        error.message == "new physics GameModelCollection dependencies are blocked"
+        for error in check_physics_game_model_collection_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+            old_physics_engine_step,
+            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+            synthetic_physics_allowlist,
+        )
+    ):
+        failures.append("old PhysicsEngine collection step synthetic surface was not rejected")
+
+    old_physics_world_step = (
+        "void RunPhysics( GameObjects::GameModelCollection& collection, "
+        "PhysicsBodyStore& bodyStore, float fChangeInTime );"
+    )
+    if not any(
+        error.message == "new physics GameModelCollection dependencies are blocked"
+        for error in check_physics_game_model_collection_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.h"),
+            old_physics_world_step,
+            Path("SkullbonezSource/Physics/PhysicsWorld.h"),
+            synthetic_physics_allowlist,
+        )
+    ):
+        failures.append("old PhysicsWorld collection step synthetic surface was not rejected")
+
+    allowed_public_physics_facade = """
+    struct PhysicsBodyCreateDesc;
+    struct PhysicsBodyCollectionView;
+    class PhysicsEngine
+    {
+      public:
+        PhysicsBodyHandle CreateBody( const PhysicsBodyCreateDesc& desc );
+        PhysicsBodyCollectionView Bodies() const;
+        void Step( PhysicsModelAccess& modelAccess, float deltaSeconds );
+    };
+    """
+    if check_public_physics_facade_game_object_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+        allowed_public_physics_facade,
+    ):
+        failures.append("allowed public physics facade synthetic surface was rejected")
+
+    old_public_physics_collection_api = """
+    class PhysicsEngine
+    {
+      public:
+        void Step( GameObjects::GameModelCollection& collection, float deltaSeconds );
+    };
+    """
+    if not any(
+        error.message == "public physics facade game-object dependency is blocked"
+        for error in check_public_physics_facade_game_object_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+            old_public_physics_collection_api,
+        )
+    ):
+        failures.append("public physics GameModelCollection facade synthetic surface was not rejected")
+
+    old_public_physics_collection_pointer_api = """
+    class PhysicsEngine
+    {
+      public:
+        void AttachWorld( GameModelCollection* collection );
+    };
+    """
+    if not any(
+        error.message == "public physics facade game-object dependency is blocked"
+        for error in check_public_physics_facade_game_object_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+            old_public_physics_collection_pointer_api,
+        )
+    ):
+        failures.append("public physics GameModelCollection pointer synthetic surface was not rejected")
+
+    old_public_physics_model_ref_api = """
+    namespace GameObjects
+    {
+        class GameModel;
+    }
+    class PhysicsEngine
+    {
+      public:
+        void RefreshBody( GameObjects::GameModel& model );
+    };
+    """
+    if not any(
+        error.message == "public physics facade game-object dependency is blocked"
+        for error in check_public_physics_facade_game_object_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+            old_public_physics_model_ref_api,
+        )
+    ):
+        failures.append("public physics raw GameModel reference synthetic surface was not rejected")
+
+    old_public_physics_vector_api = """
+    class PhysicsEngine
+    {
+      public:
+        void RefreshBodies( std::vector<GameObjects::GameModel>& models );
+    };
+    """
+    if not any(
+        error.message == "public physics facade game-object dependency is blocked"
+        for error in check_public_physics_facade_game_object_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+            old_public_physics_vector_api,
+        )
+    ):
+        failures.append("public physics raw GameModel vector synthetic surface was not rejected")
+
+    public_facade_comment_only_text = """
+    // GameModelCollection and std::vector<GameModel>& are migration notes only.
+    /*
+       A PhysicsEngine facade must not accept GameModel here.
+    */
+    class PhysicsEngine
+    {
+      public:
+        PhysicsBodyCollectionView Bodies() const;
+    };
+    """
+    if check_public_physics_facade_game_object_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+        public_facade_comment_only_text,
+    ):
+        failures.append("public physics facade comment-only synthetic surface was rejected")
+
+    deleted_model_view_text = """
+    void GameModelCollection::MakePhysicsModelView();
+    class PhysicsModelView;
+    """
+    if not any(
+        error.message == "deleted PhysicsModelView boundary is blocked"
+        for error in check_deleted_physics_model_view_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsScene.h"),
+            deleted_model_view_text,
+        )
+    ):
+        failures.append("deleted PhysicsModelView synthetic surface was not rejected")
+
+    compatibility_physics_models_text = (
+        "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = "
+        "m_cGameModelCollection.MutablePhysicsModelsForCompatibility();"
+    )
+    empty_physics_models_allowlist: Counter[tuple[Path, str]] = Counter()
+    if check_physics_models_access_guardrails_text(
+        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+        compatibility_physics_models_text,
+        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+        empty_physics_models_allowlist,
+    ):
+        failures.append("named PhysicsModels compatibility adapter was rejected")
+
+    commented_physics_models_text = """
+    // m_cGameModelCollection.PhysicsModels() is mentioned in a migration note only.
+    /*
+       collection.PhysicsModels() appears in block comments too.
+    */
+    void UseStoresInstead();
+    """
+    if check_physics_models_access_guardrails_text(
+        Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
+        commented_physics_models_text,
+        Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
+        empty_physics_models_allowlist,
+    ):
+        failures.append("comment-only PhysicsModels synthetic text was rejected")
+
+    duplicate_physics_models_access = "auto& models = collection.PhysicsModels();\n" * 2
+    if not any(
+        error.message == "direct PhysicsModels() compatibility access is blocked"
+        for error in check_physics_models_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
+            duplicate_physics_models_access,
+            Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
+            empty_physics_models_allowlist,
+        )
+    ):
+        failures.append("duplicate PhysicsModels synthetic access was not rejected")
+
+    new_physics_models_access = "auto& models = collection.PhysicsModels();"
+    if not any(
+        error.message == "direct PhysicsModels() compatibility access is blocked"
+        for error in check_physics_models_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
+            new_physics_models_access,
+            Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
+            empty_physics_models_allowlist,
+        )
+    ):
+        failures.append("new PhysicsModels synthetic access was not rejected")
+
+    allowed_named_physics_models_path = Path("SkullbonezSource/Runtime/RunFrame.cpp")
+    allowed_named_physics_models_line = "m_cGameModelCollection.MutablePhysicsModelsForCompatibility();"
+    synthetic_named_physics_models_allowlist = Counter(
+        { ( allowed_named_physics_models_path, normalize_boundary_line( allowed_named_physics_models_line ) ): 1 }
+    )
+    if check_named_physics_models_compat_access_guardrails_text(
+        allowed_named_physics_models_path,
+        allowed_named_physics_models_line,
+        allowed_named_physics_models_path,
+        synthetic_named_physics_models_allowlist,
+    ):
+        failures.append("allowed named PhysicsModels compatibility access failed")
+
+    commented_named_physics_models_text = """
+    // m_cGameModelCollection.MutablePhysicsModelsForCompatibility() is mentioned in a note only.
+    /*
+       collection.PhysicsModelsForCompatibility() appears in block comments too.
+    */
+    void UseStoresInstead();
+    """
+    if check_named_physics_models_compat_access_guardrails_text(
+        Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
+        commented_named_physics_models_text,
+        Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
+        synthetic_named_physics_models_allowlist,
+    ):
+        failures.append("comment-only named PhysicsModels synthetic text was rejected")
+
+    duplicate_named_physics_models_access = allowed_named_physics_models_line + "\n" + allowed_named_physics_models_line
+    if not any(
+        error.message == "named physics model vector compatibility access is count-guarded"
+        for error in check_named_physics_models_compat_access_guardrails_text(
+            allowed_named_physics_models_path,
+            duplicate_named_physics_models_access,
+            allowed_named_physics_models_path,
+            synthetic_named_physics_models_allowlist,
+        )
+    ):
+        failures.append("duplicate named PhysicsModels synthetic access was not rejected")
+
+    new_named_physics_models_access = "auto& models = collection.MutablePhysicsModelsForCompatibility();"
+    if not any(
+        error.message == "named physics model vector compatibility access is count-guarded"
+        for error in check_named_physics_models_compat_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
+            new_named_physics_models_access,
+            Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
+            synthetic_named_physics_models_allowlist,
+        )
+    ):
+        failures.append("new named PhysicsModels synthetic access was not rejected")
+
     return failures
 
 
@@ -4598,6 +6222,18 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_ui_text_pass_replay_overlay_guardrails(repo))
     errors.extend(check_interaction_guardrails(repo))
     errors.extend(check_physics_game_model_collection_guardrails(repo))
+    errors.extend(check_public_physics_facade_game_object_guardrails(repo))
+    errors.extend(check_deleted_physics_model_view_guardrails(repo))
+    errors.extend(check_physics_models_access_guardrails(repo))
+    errors.extend(check_named_physics_models_compat_access_guardrails(repo))
+    errors.extend(check_direct_gfx_raytracing_guardrails(repo))
+    errors.extend(check_irender_backend_raytracing_declarations(repo))
+    errors.extend(check_irender_backend_aggregate_contract(repo))
+    errors.extend(check_runtime_render_pass_wide_backend_guardrails(repo))
+    errors.extend(check_graph_owned_render_pass_scheduling(repo))
+    errors.extend(check_graph_owned_render_pass_manual_barriers(repo))
+    errors.extend(check_render_graph_unknown_access(repo))
+    errors.extend(check_global_service_access_guardrails(repo))
     return errors
 
 

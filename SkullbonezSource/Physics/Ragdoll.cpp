@@ -30,6 +30,7 @@ Related:
 #include "PhysicsBodyStore.h"
 #include "PhysicsEngine.h"
 #include "PhysicsMass.h"
+#include "PhysicsModelAccess.h"
 
 #include <algorithm>
 #include <cmath>
@@ -297,7 +298,7 @@ bool IsBodySleeping( int bodyIndex, const std::vector<uint8_t>& sleepState )
 }
 
 
-bool ApplyNeckSwingLimits( std::vector<GameModel>& models,
+bool ApplyNeckSwingLimits( PhysicsModelMutableRange models,
                            PhysicsBodyStore& bodyStore,
                            const std::vector<PointJointConstraint>& constraints,
                            const std::vector<uint8_t>& sleepState )
@@ -462,12 +463,12 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
     {
         for ( int i = 0; i < PART_COUNT; ++i )
         {
-            physics.SeedBodyAsleep( collection, firstBody + i );
+            collection.SeedModelAsleep( firstBody + i );
         }
     }
 }
 
-void Ragdoll::SolvePointJoints( GameModelCollection& collection,
+void Ragdoll::SolvePointJoints( PhysicsModelAccess& modelAccess,
                                 PhysicsBodyStore& bodyStore,
                                 const std::vector<PointJointConstraint>& constraints,
                                 const std::vector<uint8_t>& sleepState,
@@ -478,7 +479,7 @@ void Ragdoll::SolvePointJoints( GameModelCollection& collection,
         return;
     }
 
-    std::vector<GameModel>& models = collection.PhysicsModels();
+    auto models = modelAccess.Models();
     std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
     const int modelCount = static_cast<int>( models.size() );
     const float invDt = 1.0f / dt;
@@ -580,5 +581,5 @@ void Ragdoll::SolvePointJoints( GameModelCollection& collection,
 
     ApplyNeckSwingLimits( models, bodyStore, constraints, sleepState );
     bodyStore.WriteBackToModels( models );
-    collection.InvalidatePhysicsStreams();
+    modelAccess.InvalidatePhysicsStreams();
 }

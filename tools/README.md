@@ -23,7 +23,7 @@ validation.
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep | ~10s |
 | `validate_demo_stress.bat` | Generated demo scene plus UI interaction crash sweep | ~depends |
-| `validate_physics.bat` | Core physics, collision, solver, and rigid body baseline | 1 exe launch |
+| `validate_physics.bat` | Standalone physics API smoke plus core physics, collision, solver, and rigid body baseline | 2 exe launches |
 | `validate_physics_deep.bat` | Opt-in bullet sweep, shooting, known-issue, and SkullScope physics baselines | ~45s+ |
 | `validate_physics_query.bat` | SkullScope query-output baseline check | ~depends |
 | `validate_perf.bat` | DX12 performance-sensitive, hot-path changes | ~1 min |
@@ -69,7 +69,7 @@ tools\validate_select.bat build-profile
 | `validate_demo_stress.bat` | Generated demo scene crash sweep that keeps physics/rendering active while changing UI settings |
 | `validate_dx12_renderer.bat` | Build or reuse Profile, run only DX12 render-test scenes, check InfoQueue, and compare screenshots against DX12 baselines |
 | `validate_deep.bat` | Opt-in broad validation pipeline for expensive sweeps |
-| `validate_physics.bat` | Build or reuse Debug, run one core physics scene, and compare `physics_regression_solver.csv` |
+| `validate_physics.bat` | Build or reuse Debug, run the standalone physics API smoke, run one core physics scene, and compare `physics_regression_solver.csv` |
 | `validate_physics_deep.bat` | Run the old broad physics sweep, known-issue checks, shooting reaction check, and SkullScope query baseline |
 | `watch_ui_stress.bat [--test ui\|demo] [--iterations N] [--sleep N] [--forever]` | Repeated stress watcher; defaults to a finite 25-lap UI-only run and requires `--forever` for an intentional soak |
 | `watch_demo_stress.bat [--iterations N] [--sleep N] [--forever]` | Convenience wrapper for repeated generated demo interaction stress |

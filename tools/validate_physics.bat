@@ -11,12 +11,16 @@
 @rem Glossary:
 @rem   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
 @rem   output and local queries.
+@rem   Standalone smoke: Small executable path that proves the public physics API
+@rem   can be constructed and stepped without runtime/window/renderer setup.
 @rem   Validation gate: Repository script that proves a class of changes before
 @rem   commit or PR.
 @rem
 @rem Invariants:
 @rem   - Tool output should be bounded and readable because agents and humans use
 @rem   it for decisions.
+@rem   - The standalone smoke must run before the scene regression so API
+@rem   isolation failures are visible apart from scene loading or rendering.
 @rem
 @rem Related:
 @rem   - AGENTS.md
@@ -28,7 +32,7 @@ setlocal enabledelayedexpansion
 REM ===============================================================
 REM  validate_physics.bat - Core physics determinism regression test.
 REM  Use for: normal physics, collision, solver, rigid body changes.
-REM  Runtime: one Debug executable launch plus baseline comparison.
+REM  Runtime: standalone smoke, one Debug scene launch, and baseline comparison.
 REM ===============================================================
 
 set "REPO=%~dp0.."
@@ -41,7 +45,7 @@ echo   VALIDATE_PHYSICS - Determinism Check
 echo ========================================
 echo.
 
-echo [1/4] Ensuring Debug x64 build...
+echo [1/5] Ensuring Debug x64 build...
 if /I "%SKULLBONEZ_ASSUME_DEBUG_BUILT%"=="1" (
     echo PASS: Reusing prebuilt Debug x64.
 ) else (
@@ -49,7 +53,14 @@ if /I "%SKULLBONEZ_ASSUME_DEBUG_BUILT%"=="1" (
     if errorlevel 1 exit /b 1
 )
 
-echo [2/4] Running core physics regression scene...
+echo [2/5] Running standalone physics API smoke...
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --physics-standalone-smoke
+if errorlevel 1 (
+    echo FAIL: standalone physics smoke failed.
+    exit /b 2
+)
+
+echo [3/5] Running core physics regression scene...
 del /q "%REPO%\Debug\physics_regression_*.csv" 2>nul
 
 echo   Running physics_regression_solver...
@@ -59,7 +70,7 @@ if errorlevel 1 (
     exit /b 2
 )
 
-echo [3/4] Comparing output against baselines...
+echo [4/5] Comparing output against baselines...
 set "SKORE_REPO=%REPO%"
 "%PYTHON_EXE%" "%~dp0check_physics_regression.py"
 if errorlevel 1 (
@@ -69,7 +80,7 @@ if errorlevel 1 (
     exit /b 2
 )
 
-echo [4/4] Leaving Profile and Debug builds ready...
+echo [5/5] Leaving Profile and Debug builds ready...
 call "%~dp0validate_ready_builds.bat"
 if errorlevel 1 (
     popd

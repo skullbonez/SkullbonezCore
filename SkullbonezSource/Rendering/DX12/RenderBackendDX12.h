@@ -196,7 +196,7 @@ struct LiveUavBarrierRecordDX12
 // resource states, fences, upload memory, and compiled pipeline state. This
 // class is the bridge between the simple engine contract and that explicit DX12
 // machinery.
-class RenderBackendDX12 : public IRenderBackend
+class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
 {
 
   private:
@@ -513,6 +513,10 @@ class RenderBackendDX12 : public IRenderBackend
     void DeleteTexture( uint32_t handle ) override;
 
     std::vector<uint8_t> CaptureBackbuffer( int& outWidth, int& outHeight ) override;
+    bool SupportsBackbufferCapture() const override
+    {
+        return true;
+    }
 
     int GetWidth() const override;
     int GetHeight() const override;
@@ -529,6 +533,7 @@ class RenderBackendDX12 : public IRenderBackend
     RenderCapabilities GetCapabilities() const override
     {
         RenderCapabilities capabilities;
+        capabilities.supportsBackbufferCapture = SupportsBackbufferCapture();
         capabilities.supportsGpuTimers = m_gpuTimers.queryHeap != nullptr;
         capabilities.supportsDxrReflection = m_dxrSupported;
         capabilities.supportsDebugLines = true;

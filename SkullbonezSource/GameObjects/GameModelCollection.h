@@ -36,6 +36,7 @@ Related:
 #include "GameModelStreams.h"
 #include "../Maths/Matrix4.h"
 #include "../Physics/PhysicsEngine.h"
+#include "../Physics/PhysicsModelAccess.h"
 #include "../Rendering/RenderSceneView.h"
 #include "../Rendering/Shadow.h"
 #include "../Maths/Vector3.h"
@@ -55,6 +56,7 @@ class WorldEnvironment;
 namespace GameObjects
 {
 class GameModelRenderer;
+class GameModelCollectionPhysicsAdapter;
 
 /* -- Game Model Collection
 --------------------------------------------------------------------------------------------------------------------------------------
@@ -65,8 +67,12 @@ class GameModelRenderer;
     dedicated collaborators, while older runtime tools still use model-indexed
     accessors until their APIs are moved.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class GameModelCollection : public Rendering::IRenderSceneView
+class GameModelCollection : public Rendering::IRenderSceneView, public Physics::PhysicsModelAccess
 {
+    // Why: the adapter is the named compatibility bridge while old
+    // model-indexed callers migrate to durable physics handles.
+    friend class GameModelCollectionPhysicsAdapter;
+
   private:
     std::vector<GameModel> m_gameModels;
     GameModelSoACache m_soaCache;
@@ -74,6 +80,7 @@ class GameModelCollection : public Rendering::IRenderSceneView
     uint32_t m_nextReplayBodyId = 1;
 
     void InvalidateSoA();
+    Physics::PhysicsBodyHandle BodyHandleForModelIndex( int index ) const;
 
   public:
     GameModelCollection();
@@ -124,10 +131,15 @@ class GameModelCollection : public Rendering::IRenderSceneView
                             float flatSlopeZ = 0.0f );
     Math::Vector::Vector3 GetModelPosition( int index );
     int GetModelCount() const;
+    int ModelCount() const override;
+    GameModel* MutableModelData() override;
+    const GameModel* ModelData() const override;
     const std::vector<GameModel>& Models() const;
     Basics::MainMemoryGameObjectStats CollectMemoryStats() const;
-    std::vector<GameModel>& PhysicsModels();
-    const std::vector<GameModel>& PhysicsModels() const;
+    // Compatibility: legacy replay/editor paths still borrow the model vector
+    // while body, collider, and render stores become authoritative.
+    std::vector<GameModel>& MutablePhysicsModelsForCompatibility();
+    const std::vector<GameModel>& PhysicsModelsForCompatibility() const;
     bool TrimModelsForReplayRestore( int modelCount );
     void CaptureReplaySolverWorldSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot ) const;
     bool RestoreReplaySolverWorldSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot );
@@ -140,14 +152,22 @@ class GameModelCollection : public Rendering::IRenderSceneView
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();
     GameModel& GetModelAtIndex( int index );
     double GetSceneKineticEnergy();
-    void InvalidatePhysicsStreams();
-    void ReleaseAttachedFixedTreeParts(
-        int sourceIndex,
-        const Math::Vector::Vector3& seedLinearVelocity,
-        const Math::Vector::Vector3& seedAngularVelocity ); // Wakes/releases same-tree parts at or above a break point.
+    GameModelBodyStream GetPhysicsBodyStream() override;
+    void InvalidatePhysicsStreams() override;
+    void ReleaseAttachedFixedTreeParts( int sourceIndex,
+                                        const Math::Vector::Vector3& seedLinearVelocity,
+                                        const Math::Vector::Vector3& seedAngularVelocity )
+        override; // Wakes/releases same-tree parts at or above a break point.
+    void EmitSkullScopeFrame( SkullScope& scope, float dt ) override;
 
     void WakeModel( int index );
     void SeedModelAsleep( int index );
+    void ApplyBodyImpulse( int index,
+                           const Math::Vector::Vector3& impulse,
+                           const Math::Vector::Vector3& localApplicationPoint );
+    void SetPendingBodyImpulse( int index,
+                                const Math::Vector::Vector3& impulse,
+                                const Math::Vector::Vector3& localApplicationPoint );
     void SetPhysicsSleepEnabled( bool enabled );
     void ClearPointJointConstraints();
     void AddPointJointConstraint( const Physics::PointJointConstraint& constraint );

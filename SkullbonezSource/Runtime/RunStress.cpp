@@ -86,7 +86,7 @@ void Run::RunUIStressActions()
     const auto makeSceneGeneratedControlContext = [this]() -> SceneRuntimeGeneratedControlContext
     {
         return SceneRuntimeGeneratedControlContext{ SceneState(),
-                                                    m_sceneUIOverrides,
+                                                    m_sceneController.UIOverrides(),
                                                     m_camera,
                                                     m_sceneController,
                                                     Cfg(),
@@ -246,8 +246,10 @@ void Run::RunUIStressActions()
             const float timeScale = NextUIStressFloat( stress, 0.10f, 4.00f );
             if ( allowRuntimeChurn )
             {
-                m_sceneUIOverrides.timeScaleOverride = timeScale;
-                SceneState().timeScale = m_sceneUIOverrides.timeScaleOverride;
+                // Concept: Scene-tab churn goes through the scene controller so
+                // reset preservation and generated-scene rebuilds see one owner.
+                m_sceneController.UIOverrides().timeScaleOverride = timeScale;
+                SceneState().timeScale = m_sceneController.UIOverrides().timeScaleOverride;
                 m_simulation.Reset();
             }
             break;

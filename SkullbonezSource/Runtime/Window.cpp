@@ -4,13 +4,18 @@ Purpose:
   Creates and owns the Win32 window and message pump integration.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  CreateAppWindow establishes the native HWND, arms the input callback bridge,
+  and then lets WndProc feed resize, focus, cursor, and raw mouse messages back
+  into runtime-owned systems.
 
 Glossary:
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+  HWND (Window Handle): Win32 identifier for the native application window.
+  HDC (Handle to Device Context): Win32 drawing context associated with the
+  window.
+  WndProc: Win32 callback used by the OS to deliver window, focus, cursor, and
+  input messages.
+  Callback bridge: Input's bound HWND gate that keeps late or foreign window
+  callbacks from mutating frame input queues.
 
 Invariants:
   - Window dimensions are client-area dimensions and drive both renderer resize
@@ -165,12 +170,12 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
         case WM_MOUSEWHEEL:
             if ( GetForegroundWindow() == hWnd )
             {
-                Input::AccumulateMouseWheelDelta( GET_WHEEL_DELTA_WPARAM( wParam ) );
+                Input::AccumulateMouseWheelDelta( hWnd, GET_WHEEL_DELTA_WPARAM( wParam ) );
             }
             break;
 
         case WM_INPUT:
-            Input::AccumulateRawMouseDelta( reinterpret_cast<HRAWINPUT>( lParam ) );
+            Input::AccumulateRawMouseDelta( hWnd, reinterpret_cast<HRAWINPUT>( lParam ) );
             break;
 
         case WM_SYSKEYDOWN:
@@ -297,13 +302,15 @@ void Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
     {
         throw std::runtime_error( "Window creation failed" ); // Throw exception on failure
     }
+    m_sWindow = hWnd;
+    // Lifetime: bind callback-fed input queues as soon as the HWND exists so
+    // later window messages cannot enqueue input against an unknown window.
+    Input::BindCallbackBridge( hWnd );
     ShowWindow( hWnd, SW_SHOWNORMAL ); // Show window
     UpdateWindow( hWnd );
     SetFocus( hWnd );
     Input::SetSystemCursorVisible( false );
     (void)Input::RegisterRawMouseInput( hWnd );
-
-    m_sWindow = hWnd;
 }
 
 

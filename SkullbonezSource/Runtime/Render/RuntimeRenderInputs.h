@@ -13,6 +13,8 @@ Glossary:
   Render inputs: One-frame wrapper around the current render services.
   Borrowed pointer: Nullable dependency that remains owned by Run or a scene
   subsystem.
+  DXR (DirectX Raytracing): Optional render capability used for hardware ray
+  traversal when the active backend publishes it.
 
 Invariants:
   - RuntimeRenderInputs is rebuilt for the current render call and is not
@@ -52,6 +54,14 @@ class SkyBox;
 class Terrain;
 } // namespace Geometry
 
+namespace Rendering
+{
+class IRenderCommandContext;
+class IRenderDiagnostics;
+class IRenderRayTracing;
+class IRenderResourceFactory;
+} // namespace Rendering
+
 namespace UI
 {
 class InGameUI;
@@ -71,6 +81,21 @@ struct RuntimeRenderServices
     Window& window;
     UI::InGameUI& ui;
     Geometry::SkyBox* skyBox;
+    // Lifetime: this command facet is borrowed from the process-bound backend
+    // for exactly this render call; pass code must not store it.
+    Rendering::IRenderCommandContext& renderCommands;
+    // Lifetime: this factory facet is valid only while the current backend is
+    // alive. RuntimeRenderer narrows it into RenderResourceContext for
+    // create/rebuild phases; draw code should use renderCommands instead.
+    Rendering::IRenderResourceFactory& renderResources;
+    // Lifetime: this diagnostics facet is sampled for frame-time feature
+    // decisions and draw tracing; passes must not cache capability flags across
+    // backend teardown.
+    Rendering::IRenderDiagnostics& renderDiagnostics;
+    // Optional DXR facet. Null means the active backend did not publish the
+    // raytracing capability, even if ordinary raster rendering is ready.
+    Rendering::IRenderRayTracing* renderRayTracing = nullptr;
+    bool renderReady = false;
 };
 
 struct RuntimeRenderInputs

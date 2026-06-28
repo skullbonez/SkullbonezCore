@@ -27,7 +27,9 @@ Related:
 */
 #include "GameModelCollection.h"
 
+#include "GameModelCollectionPhysicsAdapter.h"
 #include "../Core/MainMemoryStats.h"
+#include "../Core/SkullScope.h"
 #include "../Physics/Debug/CollisionVisualizer.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
 #include "../Rendering/GameModelRenderer.h"
@@ -164,6 +166,8 @@ void AssignRuntimeCollectionFromConstructionName( GameModel& gameModel,
 
     gameModel.SetRuntimeCollection( GameModelCollectionKind::ReleasableTree, rootModelIndex, partIndex );
 }
+
+
 } // namespace
 
 
@@ -215,6 +219,12 @@ void GameModelCollection::InvalidateSoA()
     // body/render state, so mark the cache dirty and let the next hot-path user
     // rebuild it from the authoritative vector.
     m_soaCache.Invalidate();
+}
+
+
+SkullbonezCore::Physics::PhysicsBodyHandle GameModelCollection::BodyHandleForModelIndex( int index ) const
+{
+    return Physics::MakeCompatibilityPhysicsBodyHandle( static_cast<uint32_t>( index ) );
 }
 
 
@@ -380,6 +390,24 @@ int GameModelCollection::GetModelCount() const
 }
 
 
+int GameModelCollection::ModelCount() const
+{
+    return GetModelCount();
+}
+
+
+GameModel* GameModelCollection::MutableModelData()
+{
+    return m_gameModels.data();
+}
+
+
+const GameModel* GameModelCollection::ModelData() const
+{
+    return m_gameModels.data();
+}
+
+
 const std::vector<GameModel>& GameModelCollection::Models() const
 {
     return m_gameModels;
@@ -411,13 +439,13 @@ MainMemoryGameObjectStats GameModelCollection::CollectMemoryStats() const
 }
 
 
-std::vector<GameModel>& GameModelCollection::PhysicsModels()
+std::vector<GameModel>& GameModelCollection::MutablePhysicsModelsForCompatibility()
 {
     return m_gameModels;
 }
 
 
-const std::vector<GameModel>& GameModelCollection::PhysicsModels() const
+const std::vector<GameModel>& GameModelCollection::PhysicsModelsForCompatibility() const
 {
     return m_gameModels;
 }
@@ -466,6 +494,12 @@ bool GameModelCollection::RestoreReplaySolverWorldSnapshot( const ReplaySolverWo
 GameModelBodyStream GameModelCollection::GetBodyStream()
 {
     return GameModelStreamProvider::GetBodyStream( m_soaCache, m_gameModels );
+}
+
+
+GameModelBodyStream GameModelCollection::GetPhysicsBodyStream()
+{
+    return GetBodyStream();
 }
 
 
@@ -554,6 +588,17 @@ void GameModelCollection::InvalidatePhysicsStreams()
 }
 
 
+void GameModelCollection::EmitSkullScopeFrame( SkullbonezCore::GameObjects::SkullScope& scope, float dt )
+{
+#ifdef _DEBUG
+    scope.EmitFrame( *this, dt );
+#else
+    (void)scope;
+    (void)dt;
+#endif
+}
+
+
 void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
                                                          const Vector3& seedLinearVelocity,
                                                          const Vector3& seedAngularVelocity )
@@ -614,13 +659,31 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 
 void GameModelCollection::WakeModel( int index )
 {
-    m_physicsEngine.WakeBody( *this, index );
+    // Why: these legacy entry points still speak model indices, but physics
+    // commands should cross the boundary as validated body handles.
+    GameModelCollectionPhysicsAdapter( *this ).WakeBodyForModelIndex( index );
 }
 
 
 void GameModelCollection::SeedModelAsleep( int index )
 {
-    m_physicsEngine.SeedBodyAsleep( *this, index );
+    GameModelCollectionPhysicsAdapter( *this ).SeedBodyAsleepForModelIndex( index );
+}
+
+
+void GameModelCollection::ApplyBodyImpulse( int index, const Vector3& impulse, const Vector3& localApplicationPoint )
+{
+    GameModelCollectionPhysicsAdapter( *this ).ApplyBodyImpulseForModelIndex( index, impulse, localApplicationPoint );
+}
+
+
+void GameModelCollection::SetPendingBodyImpulse( int index,
+                                                 const Vector3& impulse,
+                                                 const Vector3& localApplicationPoint )
+{
+    GameModelCollectionPhysicsAdapter( *this ).SetPendingBodyImpulseForModelIndex( index,
+                                                                                   impulse,
+                                                                                   localApplicationPoint );
 }
 
 

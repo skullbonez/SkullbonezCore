@@ -1,24 +1,32 @@
 @rem
 @rem File: tools/loc_count.bat
 @rem Purpose:
-@rem   Documents and runs the loc_count.bat developer/validation helper script.
+@rem   Reports source logical lines of code, then summarizes tracked file counts
+@rem   and physical line counts by common SkullbonezCore file category.
 @rem
 @rem Mental model:
-@rem   Tools are command-line guardrails around builds, validation, screenshots,
-@rem   diagnostics, and artifact handling. They make the safe path repeatable and
-@rem   keep output bounded for humans and agents.
+@rem   The Python helper owns the existing logical LOC report for first-party C++
+@rem   source. The footer uses git-tracked files so generated, ignored, and build
+@rem   output directories do not inflate the file inventory.
 @rem
 @rem Glossary:
-@rem   Validation gate: Repository script that proves a class of changes before
-@rem   commit or PR.
+@rem   LOC (Lines Of Code): Logical non-comment, non-blank source lines reported
+@rem   by Agentic/Skills/loc_count.py.
+@rem   Physical line: Every newline-delimited line in a tracked text file.
+@rem   Code LOC: Footer-only logical LOC for files that use C/C++-style comments.
 @rem
 @rem Invariants:
 @rem   - Tool output should be bounded and readable because agents and humans use
 @rem   it for decisions.
+@rem   - The summary counts tracked files only; untracked scratch files are not
+@rem   part of the repository inventory.
+@rem   - Physical line counts are repository inventory numbers; Code LOC is only
+@rem   shown for C/C++/HLSL-style files.
 @rem
 @rem Related:
 @rem   - AGENTS.md
 @rem   - Agentic/Reference/comment-style-guide.md
+@rem   - Agentic/Skills/loc_count.py
 @rem
 @rem
 @echo off
@@ -33,4 +41,176 @@ call "%~dp0find_python.bat"
 if errorlevel 1 exit /b %errorlevel%
 
 "%PYTHON_EXE%" "%REPO%\Agentic\Skills\loc_count.py"
+if errorlevel 1 exit /b %errorlevel%
+
+call "%~dp0find_git.bat"
+if errorlevel 1 (
+    echo.
+    echo WARNING: Git was not found, so the tracked file summary was skipped.
+    exit /b 0
+)
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$bat = Get-Content -Raw -LiteralPath '%~f0'; $ps = $bat -replace '(?s)^.*?# FILE SUMMARY POWERSHELL\r?\n', ''; Invoke-Expression $ps"
 exit /b %errorlevel%
+
+# FILE SUMMARY POWERSHELL
+$ErrorActionPreference = 'Stop'
+
+$repo = (Resolve-Path -LiteralPath $env:REPO).Path
+$trackedFiles = & git -C $repo ls-files
+
+$categories = @(
+    [pscustomobject]@{ Name = 'Engine .cpp';       CodeLoc = $true;  Match = { param($p) $p.StartsWith('SkullbonezSource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.cpp', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Name = 'Engine .h';         CodeLoc = $true;  Match = { param($p) $p.StartsWith('SkullbonezSource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.h', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Name = 'Engine .inl';       CodeLoc = $true;  Match = { param($p) $p.StartsWith('SkullbonezSource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.inl', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Name = 'Shaders .hlsl';     CodeLoc = $true;  Match = { param($p) $p.EndsWith('.hlsl', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Name = 'Scenes';            CodeLoc = $false; Match = { param($p) $p.EndsWith('.scene.json', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Name = 'Scene suites';      CodeLoc = $false; Match = { param($p) $p.EndsWith('.suite.json', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Name = 'Asset recipes';     CodeLoc = $false; Match = { param($p) $p.EndsWith('.assets.json', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Name = 'Hull assets';       CodeLoc = $false; Match = { param($p) $p.EndsWith('.hull', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Name = 'Agent tests .cpp';  CodeLoc = $true;  Match = { param($p) $p.StartsWith('Agentic/Tests/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.cpp', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Name = 'Third-party .cpp';  CodeLoc = $true;  Match = { param($p) $p.StartsWith('ThirdPtySource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.cpp', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Name = 'Third-party .h';    CodeLoc = $true;  Match = { param($p) $p.StartsWith('ThirdPtySource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.h', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Name = 'Third-party .hpp';  CodeLoc = $true;  Match = { param($p) $p.StartsWith('ThirdPtySource/', [System.StringComparison]::OrdinalIgnoreCase) -and $p.EndsWith('.hpp', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Name = 'Python .py';        CodeLoc = $false; Match = { param($p) $p.EndsWith('.py', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Name = 'Batch .bat';        CodeLoc = $false; Match = { param($p) $p.EndsWith('.bat', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Name = 'PowerShell .ps1';   CodeLoc = $false; Match = { param($p) $p.EndsWith('.ps1', [System.StringComparison]::OrdinalIgnoreCase) } },
+    [pscustomobject]@{ Name = 'Markdown .md';      CodeLoc = $false; Match = { param($p) $p.EndsWith('.md', [System.StringComparison]::OrdinalIgnoreCase) } }
+)
+
+function Count-PhysicalLines {
+    param([string]$Path)
+
+    try {
+        $stream = [System.IO.File]::Open(
+            $Path,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::ReadWrite)
+        $reader = [System.IO.StreamReader]::new($stream, $true)
+        $count = 0
+        while ($null -ne $reader.ReadLine()) {
+            ++$count
+        }
+        return $count
+    } finally {
+        if ($null -ne $reader) {
+            $reader.Dispose()
+        } elseif ($null -ne $stream) {
+            $stream.Dispose()
+        }
+    }
+}
+
+function Count-CodeLoc {
+    param([string]$Path)
+
+    $stream = $null
+    $reader = $null
+    $loc = 0
+    $inBlock = $false
+
+    try {
+        $stream = [System.IO.File]::Open(
+            $Path,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::ReadWrite)
+        $reader = [System.IO.StreamReader]::new($stream, $true)
+
+        while ($null -ne ($raw = $reader.ReadLine())) {
+            $line = $raw.Trim()
+
+            if (-not $line) {
+                continue
+            }
+
+            if ($inBlock) {
+                $closeIndex = $line.IndexOf('*/', [System.StringComparison]::Ordinal)
+                if ($closeIndex -ge 0) {
+                    $inBlock = $false
+                    $remainder = $line.Substring($closeIndex + 2).Trim()
+                    if ($remainder -and -not $remainder.StartsWith('//', [System.StringComparison]::Ordinal)) {
+                        ++$loc
+                    }
+                }
+                continue
+            }
+
+            $openIndex = $line.IndexOf('/*', [System.StringComparison]::Ordinal)
+            if ($openIndex -ge 0) {
+                $before = $line.Substring(0, $openIndex).Trim()
+                $afterOpen = $line.Substring($openIndex + 2)
+                $closeIndex = $afterOpen.IndexOf('*/', [System.StringComparison]::Ordinal)
+                if ($closeIndex -ge 0) {
+                    $outer = ($before + ' ' + $afterOpen.Substring($closeIndex + 2)).Trim()
+                    if ($outer -and -not $outer.StartsWith('//', [System.StringComparison]::Ordinal)) {
+                        ++$loc
+                    }
+                } else {
+                    $inBlock = $true
+                    if ($before -and -not $before.StartsWith('//', [System.StringComparison]::Ordinal)) {
+                        ++$loc
+                    }
+                }
+                continue
+            }
+
+            if ($line.StartsWith('//', [System.StringComparison]::Ordinal)) {
+                continue
+            }
+
+            ++$loc
+        }
+    } finally {
+        if ($null -ne $reader) {
+            $reader.Dispose()
+        } elseif ($null -ne $stream) {
+            $stream.Dispose()
+        }
+    }
+
+    return $loc
+}
+
+$rows = foreach ($category in $categories) {
+    $files = @($trackedFiles | Where-Object { & $category.Match $_ })
+    if ($files.Count -eq 0) {
+        continue
+    }
+
+    $physicalLines = 0
+    $codeLoc = 0
+
+    foreach ($relativePath in $files) {
+        $fullPath = Join-Path $repo $relativePath
+        if (Test-Path -LiteralPath $fullPath) {
+            $physicalLines += Count-PhysicalLines -Path $fullPath
+            if ($category.CodeLoc) {
+                $codeLoc += Count-CodeLoc -Path $fullPath
+            }
+        }
+    }
+
+    [pscustomobject]@{
+        Category = $category.Name
+        Files = $files.Count
+        Physical = $physicalLines
+        CodeLoc = if ($category.CodeLoc) { $codeLoc } else { $null }
+    }
+}
+
+$totalFiles = ($rows | Measure-Object Files -Sum).Sum
+$totalPhysical = ($rows | Measure-Object Physical -Sum).Sum
+$totalCodeLoc = ($rows | Where-Object { $null -ne $_.CodeLoc } | Measure-Object CodeLoc -Sum).Sum
+
+Write-Host ''
+Write-Host 'Tracked File Summary'
+"{0,-18} {1,8} {2,12} {3,12}" -f 'Category', 'Files', 'Physical', 'Code LOC'
+"{0,-18} {1,8} {2,12} {3,12}" -f '--------', '-----', '--------', '--------'
+foreach ($row in $rows) {
+    $locText = if ($null -ne $row.CodeLoc) { $row.CodeLoc.ToString('N0') } else { '-' }
+    "{0,-18} {1,8:N0} {2,12:N0} {3,12}" -f $row.Category, $row.Files, $row.Physical, $locText
+}
+"{0,-18} {1,8} {2,12} {3,12}" -f '--------', '-----', '--------', '--------'
+"{0,-18} {1,8:N0} {2,12:N0} {3,12:N0}" -f 'TOTAL', $totalFiles, $totalPhysical, $totalCodeLoc

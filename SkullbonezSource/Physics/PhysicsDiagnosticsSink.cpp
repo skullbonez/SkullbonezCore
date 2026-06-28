@@ -26,7 +26,7 @@ Related:
 */
 #include "PhysicsDiagnosticsSink.h"
 
-#include "../GameObjects/GameModelCollection.h"
+#include "PhysicsModelAccess.h"
 #include "PhysicsWorld.h"
 
 #include <cmath>
@@ -65,9 +65,9 @@ void PhysicsDiagnosticsSink::SetPhysicsDiagnosticsRunId( const char* runId )
 }
 
 
-void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, GameModelCollection& collection )
+void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess )
 {
-    const std::vector<GameModel>& m_gameModels = collection.Models();
+    auto m_gameModels = modelAccess.Models();
     const PhysicsWorld::DiagnosticsView diagnosticsView = world.GetDiagnosticsView();
     const auto& m_sleepSupportedThisFrame = diagnosticsView.sleepSupportedThisFrame;
     const auto& m_sleepState = diagnosticsView.sleepState;
@@ -139,14 +139,14 @@ void PhysicsDiagnosticsSink::IncrementCollisionTimeFrameIfEnabled()
 }
 
 
-void PhysicsDiagnosticsSink::EmitFrame( GameModelCollection& collection, float dt )
+void PhysicsDiagnosticsSink::EmitFrame( PhysicsModelAccess& modelAccess, float dt )
 {
-    m_skullScope.EmitFrame( collection, dt );
+    modelAccess.EmitSkullScopeFrame( m_skullScope, dt );
 }
 #endif
 
 
-void PhysicsDiagnosticsSink::EmitCollisionTime( GameModelCollection& collection,
+void PhysicsDiagnosticsSink::EmitCollisionTime( PhysicsModelAccess& modelAccess,
                                                 const char* type,
                                                 int bodyA,
                                                 int bodyB,
@@ -154,7 +154,7 @@ void PhysicsDiagnosticsSink::EmitCollisionTime( GameModelCollection& collection,
                                                 float availableTime )
 {
 #ifdef _DEBUG
-    const std::vector<GameModel>& m_gameModels = collection.Models();
+    auto m_gameModels = modelAccess.Models();
     if ( m_physicsCollisionTimeLogPath[0] == '\0' )
     {
         return;
@@ -180,7 +180,7 @@ void PhysicsDiagnosticsSink::EmitCollisionTime( GameModelCollection& collection,
                   collisionTime,
                   availableTime );
 #else
-    (void)collection;
+    (void)modelAccess;
     (void)type;
     (void)bodyA;
     (void)bodyB;

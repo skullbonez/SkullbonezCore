@@ -27,6 +27,7 @@ Related:
 #pragma once
 
 #include "SceneRuntime.h"
+#include "../RunState.h"
 
 #include <string>
 #include <vector>
@@ -43,6 +44,12 @@ class SceneController
 
     RunSceneState& State();
     const RunSceneState& State() const;
+    // Concept: Browser and UI override state are scene-owned policy inputs; Run
+    // borrows them through this controller instead of storing parallel fields.
+    RunSceneBrowserState& Browser();
+    const RunSceneBrowserState& Browser() const;
+    RunSceneUIOverrideState& UIOverrides();
+    const RunSceneUIOverrideState& UIOverrides() const;
 
     bool HasEntry( int index ) const;
     bool HasCurrentEntry() const;
@@ -54,6 +61,8 @@ class SceneController
     const std::vector<std::string>& Queue() const;
 
     void BeginLoad( int index );
+    void RecordLifecycleEvent( SceneRuntimeLifecycleEvent event );
+    SceneRuntimeLifecycleEvent LastLifecycleEvent() const;
     void MarkManualReset();
     int FindNormalizedPath( const std::string& normalizedPath ) const;
     int FindGeneratedDemo() const;
@@ -65,7 +74,9 @@ class SceneController
     const SceneRuntime& Runtime() const;
 
   private:
-    SceneRuntime m_runtime; // Scene queue and active scene-run state
+    SceneRuntime m_runtime;                // Scene queue and active scene-run state
+    RunSceneBrowserState m_browser;        // Discovered scene paths and live cine/concept selection.
+    RunSceneUIOverrideState m_uiOverrides; // Live Scene-tab overrides preserved across reset when requested.
 };
 } // namespace Basics
 } // namespace SkullbonezCore

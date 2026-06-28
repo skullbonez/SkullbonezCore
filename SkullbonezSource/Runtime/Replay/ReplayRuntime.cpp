@@ -721,6 +721,26 @@ bool ReplayRuntime::SetLiveAdvanceHeld( bool held )
     return true;
 }
 
+bool ReplayRuntime::LiveAdvanceHeld() const
+{
+    return m_scrubber.liveAdvanceHeld;
+}
+
+bool ReplayRuntime::HasPathVisualizerTarget() const
+{
+    return m_pathVisualizer.hasTarget;
+}
+
+bool ReplayRuntime::HasCameraFocus() const
+{
+    return m_camera.focusKind != RunReplayCameraFocusKind::None;
+}
+
+bool ReplayRuntime::VelocityEditActive() const
+{
+    return m_velocityEdit.enabled;
+}
+
 float ReplayRuntime::SolverPresentTrackPosition() const
 {
     return ReplayRuntimeScrubberPresentTrackPosition( m_solver.GetStats(), m_prediction );
@@ -947,7 +967,7 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
 bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
                                                       const ReplayPresentationSample& sample )
 {
-    std::vector<GameObjects::GameModel>& models = collection.PhysicsModels();
+    std::vector<GameObjects::GameModel>& models = collection.MutablePhysicsModelsForCompatibility();
     m_renderPoseBackups.clear();
     m_renderPoseBackups.reserve( models.size() );
     std::vector<uint8_t> bodyMatched( models.size(), 0 );
@@ -1010,7 +1030,7 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
 bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection& collection,
                                                 const ReplaySolverFrameSample& sample )
 {
-    std::vector<GameObjects::GameModel>& models = collection.PhysicsModels();
+    std::vector<GameObjects::GameModel>& models = collection.MutablePhysicsModelsForCompatibility();
     m_renderPoseBackups.clear();
     m_renderPoseBackups.reserve( models.size() );
     std::vector<uint8_t> bodyMatched( models.size(), 0 );
@@ -1070,7 +1090,7 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
 bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollection& collection,
                                                    const RunReplayPredictionFrame& frame )
 {
-    std::vector<GameObjects::GameModel>& models = collection.PhysicsModels();
+    std::vector<GameObjects::GameModel>& models = collection.MutablePhysicsModelsForCompatibility();
     m_renderPoseBackups.clear();
     m_renderPoseBackups.reserve( models.size() );
     std::vector<uint8_t> bodyMatched( models.size(), 0 );
@@ -1131,7 +1151,7 @@ void ReplayRuntime::RestoreRenderPose( GameObjects::GameModelCollection& collect
         return;
     }
 
-    std::vector<GameObjects::GameModel>& models = collection.PhysicsModels();
+    std::vector<GameObjects::GameModel>& models = collection.MutablePhysicsModelsForCompatibility();
     for ( const RenderPoseBackup& backup : m_renderPoseBackups )
     {
         if ( backup.modelIndex < 0 || backup.modelIndex >= static_cast<int>( models.size() ) )

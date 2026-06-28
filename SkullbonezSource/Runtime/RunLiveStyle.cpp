@@ -257,11 +257,12 @@ void Run::TickLiveStyleControl()
         m_liveStyle.styleStamp = styleStamp;
         try
         {
-            const TestScene styleScene = TestScene::LoadStyleFromFile( m_liveStyle.stylePath );
+            const TestScene styleScene = TestScene::LoadStyleFromFile( m_liveStyle.stylePath, m_systems.assets );
             ApplyLiveStyleScene( SceneRuntimeStyleContext{ m_launchOptions,
                                                            SceneState(),
-                                                           m_sceneBrowser,
+                                                           m_sceneController.Browser(),
                                                            m_cGameModelCollection,
+                                                           m_systems.assets,
                                                            RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                                            m_defaultCinematicRender },
                                  styleScene );

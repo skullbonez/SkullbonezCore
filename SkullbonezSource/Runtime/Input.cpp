@@ -4,17 +4,22 @@ Purpose:
   Collects keyboard and mouse state for the run loop and UI.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Win32 callbacks enqueue mouse-only edge data into process-local
+  accumulators. The run loop and UI sample those queues once per frame and
+  reset them while building camera/UI input state. Cursor policy and scripted
+  automation overrides share this file, but they are not callback queues.
 
 Glossary:
-  Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+  Win32: Windows desktop API used for the app window, messages, and cursor
+  state.
+  WndProc: Win32 window callback that receives mouse wheel and raw mouse
+  packets before the frame loop polls input.
+  Accumulator: Small process-local queue that stores callback data until the
+  frame loop consumes it.
 
 Invariants:
-  - Process-local Win32 input accumulators are drained into InputState at frame
-    boundaries; stale mouse deltas must not leak across focus/UI transitions.
+  - Process-local Win32 input accumulators are drained into frame and UI
+    snapshots; stale mouse deltas must not leak across focus/UI transitions.
   - ShowCursor is normalized through helper loops because Win32 exposes a
     reference counter, not a simple visible/hidden boolean.
 
@@ -26,24 +31,48 @@ Related:
 #include "Input.h"
 #include "Window.h"
 
+#include <cassert>
 
 using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Basics;
 
 namespace
 {
-// Lifetime: Win32 callbacks and frame polling share these process-local
-// accumulators. The run loop owns when values are sampled and reset.
+// Lifetime: Win32 calls WndProc without a Run instance, so callback-fed mouse
+// queues stay process-local behind Input's static API. Keep new callback
+// accumulator state behind the bound HWND so late or foreign callbacks cannot
+// mutate stale frame input.
+HWND s_callbackBridgeWindow = nullptr;
+// WndProc WM_MOUSEWHEEL writes; UIInput::CaptureSnapshot() consumes once per
+// frame through InGameUI::UpdateInput() from RunInput.cpp. Focus-loss cleanup
+// also drains it through InputController::ResetUnfocusedInput().
 int g_mouseWheelDelta = 0;
+// Cursor policy latch, not a callback accumulator. RunInput and window/focus
+// paths write the requested native cursor state; WndProc focus/cursor messages
+// reapply that state when Windows asks.
 bool g_systemCursorVisibleRequested = false;
+// WndProc WM_INPUT writes these raw movement deltas; camera mouse-look sampling
+// drains them through ConsumeRawMouseDelta(). RegisterRawMouseInput(),
+// InputController::ResetMouseLook(), InputController::ResetUnfocusedInput(),
+// focus loss, and camera/mode transitions reset them through
+// ResetMouseLookDeltas().
 long g_rawMouseDeltaX = 0;
 long g_rawMouseDeltaY = 0;
 bool g_rawMouseHasAbsolutePosition = false;
 long g_rawMouseLastAbsoluteX = 0;
 long g_rawMouseLastAbsoluteY = 0;
+// Scripted input override, not a callback accumulator. RunInteractionAutomation
+// writes it through SetAutomationState()/ClearAutomationState(); mouse polling
+// reads it before touching Win32 so deterministic UI/click validation can avoid
+// the physical cursor.
 Input::AutomationState g_automationState;
 
 constexpr int RAW_MOUSE_ABSOLUTE_RANGE = 65535;
+
+bool IsCallbackBridgeBoundForWindow( HWND window )
+{
+    return window && s_callbackBridgeWindow == window;
+}
 
 void EnsureShowCursorVisible()
 {
@@ -173,6 +202,12 @@ bool Input::IsKeyToggled( int virtualKey )
 
 bool Input::RegisterRawMouseInput( HWND window )
 {
+    assert( IsCallbackBridgeBoundForWindow( window ) &&
+            "Raw mouse input must register through the bound callback bridge HWND" );
+    if ( !IsCallbackBridgeBoundForWindow( window ) )
+    {
+        return false;
+    }
     if ( !window )
     {
         return false;
@@ -194,9 +229,39 @@ bool Input::RegisterRawMouseInput( HWND window )
 }
 
 
-void Input::AccumulateRawMouseDelta( HRAWINPUT rawInput )
+void Input::BindCallbackBridge( HWND window )
 {
-    if ( !rawInput || !IsAppFocused() )
+    assert( window && "Input callback bridge requires a live HWND" );
+    assert( !s_callbackBridgeWindow && "Input callback bridge is already bound" );
+    if ( !window )
+    {
+        return;
+    }
+
+    s_callbackBridgeWindow = window;
+    (void)ConsumeMouseWheelDelta();
+    ResetMouseLookDeltas();
+}
+
+
+void Input::UnbindCallbackBridge( HWND window )
+{
+    assert( s_callbackBridgeWindow && "Input callback bridge must be bound before unbind" );
+    assert( s_callbackBridgeWindow == window && "Input callback bridge unbound with a different HWND" );
+    if ( s_callbackBridgeWindow != window )
+    {
+        return;
+    }
+
+    s_callbackBridgeWindow = nullptr;
+    (void)ConsumeMouseWheelDelta();
+    ResetMouseLookDeltas();
+}
+
+
+void Input::AccumulateRawMouseDelta( HWND window, HRAWINPUT rawInput )
+{
+    if ( !IsCallbackBridgeBoundForWindow( window ) || !rawInput || !IsAppFocused() )
     {
         return;
     }
@@ -367,9 +432,9 @@ int Input::ConsumeMouseWheelDelta()
 }
 
 
-void Input::AccumulateMouseWheelDelta( int delta )
+void Input::AccumulateMouseWheelDelta( HWND window, int delta )
 {
-    if ( !IsAppFocused() )
+    if ( !IsCallbackBridgeBoundForWindow( window ) || !IsAppFocused() )
     {
         return;
     }

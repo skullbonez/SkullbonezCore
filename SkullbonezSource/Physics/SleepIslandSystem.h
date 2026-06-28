@@ -28,19 +28,15 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
-{
-class GameModelCollection;
-}
-
 namespace Physics
 {
+class PhysicsModelAccess;
 struct SleepSupportPropagationContext;
 
 class SleepIslandSystem
 {
   public:
-    void PropagateSupport( SleepSupportPropagationContext& context, GameObjects::GameModelCollection& collection );
+    void PropagateSupport( SleepSupportPropagationContext& context, PhysicsModelAccess& modelAccess );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

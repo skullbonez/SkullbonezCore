@@ -4,8 +4,8 @@ Purpose:
   Owns deterministic physics-scene state and store snapshots.
 
 Mental model:
-  PhysicsScene is the boundary between the compatibility GameModelCollection
-  facade and the authoritative physics/render stores. PhysicsBodyStore owns the
+  PhysicsScene is the boundary between the compatibility model view and the
+  authoritative physics/render stores. PhysicsBodyStore owns the
   mutable body state passed through PhysicsWorld, while GameModel remains the
   compatibility shape/presentation surface until later runtime migrations.
 
@@ -29,16 +29,12 @@ Related:
 
 #include "ColliderStore.h"
 #include "PhysicsBodyStore.h"
+#include "PhysicsModelAccess.h"
 #include "PhysicsWorld.h"
 #include "../Rendering/RenderInstanceStore.h"
 
 namespace SkullbonezCore
 {
-namespace GameObjects
-{
-class GameModelCollection;
-} // namespace GameObjects
-
 namespace Physics
 {
 class PhysicsScene
@@ -47,21 +43,21 @@ class PhysicsScene
     PhysicsScene() = default;
 
     void Clear();
-    void RefreshStores( GameObjects::GameModelCollection& collection );
-    void RefreshPhysicsStores( GameObjects::GameModelCollection& collection );
-    void RefreshBodyStore( GameObjects::GameModelCollection& collection );
+    void RefreshStores( PhysicsModelAccess& modelAccess );
+    void RefreshPhysicsStores( PhysicsModelAccess& modelAccess );
+    void RefreshBodyStore( PhysicsModelAccess& modelAccess );
     void ClearPendingBodyImpulses();
-    void RefreshColliderStore( GameObjects::GameModelCollection& collection );
-    void RefreshRenderStore( GameObjects::GameModelCollection& collection );
-    void RunPhysics( GameObjects::GameModelCollection& collection, float fChangeInTime );
-    void WakeModel( GameObjects::GameModelCollection& collection, int index );
-    void SeedModelAsleep( GameObjects::GameModelCollection& collection, int index );
-    void ApplyBodyImpulse( GameObjects::GameModelCollection& collection,
-                           int bodyIndex,
+    void RefreshColliderStore( PhysicsModelAccess& modelAccess );
+    void RefreshRenderStore( PhysicsModelAccess& modelAccess );
+    void RunPhysics( PhysicsModelAccess& modelAccess, float fChangeInTime );
+    void WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
+    void SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
+    void ApplyBodyImpulse( PhysicsModelAccess& modelAccess,
+                           PhysicsBodyHandle body,
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
-    void SetPendingBodyImpulse( GameObjects::GameModelCollection& collection,
-                                int bodyIndex,
+    void SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
+                                PhysicsBodyHandle body,
                                 const Math::Vector::Vector3& impulse,
                                 const Math::Vector::Vector3& localApplicationPoint );
     void SetPhysicsSleepEnabled( bool enabled );

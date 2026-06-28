@@ -348,7 +348,15 @@ void Run::Execute()
             m_timers.frameTimer.StartTimer();
             PROFILE_FRAME_BEGIN();
             m_timers.workTimer.StartTimer();
-            Gfx().ResetFrameDrawCalls();
+            // Lifetime: borrow the active renderer once for this frame turn.
+            // Narrow facets keep reset, GPU-drain, UI accounting, and present
+            // from each resampling the process-global renderer service.
+            IRenderBackend& frameRenderBackend = Gfx();
+            SkullbonezCore::Rendering::IRenderDiagnostics& frameRenderDiagnostics =
+                static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( frameRenderBackend );
+            SkullbonezCore::Rendering::IRenderDeviceLifecycle& renderLifecycle =
+                static_cast<SkullbonezCore::Rendering::IRenderDeviceLifecycle&>( frameRenderBackend );
+            frameRenderDiagnostics.ResetFrameDrawCalls();
 
             PROFILE_BEGIN( "Frame/Input" );
             TickInteractionAutomationBeforeInput();
@@ -403,7 +411,7 @@ void Run::Execute()
             if ( m_runtimeSettings.isPipelineSyncEnabled )
             {
                 PROFILE_BEGIN( "Frame/PipelineSync" );
-                Gfx().Finish();
+                renderLifecycle.Finish();
                 PROFILE_END( "Frame/PipelineSync" );
             }
 
@@ -416,14 +424,14 @@ void Run::Execute()
 
             if ( m_renderer.ShouldRenderUiText() )
             {
-                const int uiDrawCallStart = Gfx().GetFrameDrawCallCount();
+                const int uiDrawCallStart = frameRenderDiagnostics.GetFrameDrawCallCount();
                 PROFILE_BEGIN( "Frame/UI" );
                 {
                     DRAW_CALL_TRACE_SCOPE( "Frame/UI" );
-                    m_renderer.RenderUiText( secondsPerFrame );
+                    m_renderer.RenderUiText( frameRenderDiagnostics, secondsPerFrame );
                 }
                 PROFILE_END( "Frame/UI" );
-                const int uiDrawCallEnd = Gfx().GetFrameDrawCallCount();
+                const int uiDrawCallEnd = frameRenderDiagnostics.GetFrameDrawCallCount();
                 m_timers.lastUIDrawCalls = (std::max)( 0, uiDrawCallEnd - uiDrawCallStart );
             }
             else
@@ -453,7 +461,7 @@ void Run::Execute()
                 static_cast<float>( std::clamp( m_timers.workTimer.GetElapsedTime(), 0.0, 0.25 ) * 1000.0 );
 
             PROFILE_BEGIN( "Frame/VsyncWait" );
-            Gfx().Present();
+            renderLifecycle.Present();
             PROFILE_END( "Frame/VsyncWait" );
 
             m_timers.frameTimer.StopTimer();
@@ -536,19 +544,19 @@ void Run::TickPhysics( double secondsPerFrame )
                                       physicsCapture,
                                       SceneState().timeScale } );
     const bool manipulatorPhysics = policy.manipulatorActive;
-    const SimulationTickResult tick = m_simulation.Tick(
-        SimulationTickInput{ secondsPerFrame,
-                             policy.physicsTimeScale,
-                             SceneState().isSceneMode,
-                             SceneState().isScenePhysics,
-                             SceneState().isFixedStep,
-                             policy.physicsAdvance,
-                             stepRequested,
-                             &m_cGameModelCollection,
-                             manipulatorPhysics ? &Run::ApplyMousePickupPhysicsStepThunk : nullptr,
-                             this,
-                             ( manipulatorPhysics || replayCapture ) ? &Run::AfterPhysicsStepThunk : nullptr,
-                             this } );
+    const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{
+        secondsPerFrame,
+        policy.physicsTimeScale,
+        SceneState().isSceneMode,
+        SceneState().isScenePhysics,
+        SceneState().isFixedStep,
+        policy.physicsAdvance,
+        stepRequested,
+        SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(), &m_cGameModelCollection },
+        manipulatorPhysics ? &Run::ApplyMousePickupPhysicsStepThunk : nullptr,
+        this,
+        ( manipulatorPhysics || replayCapture ) ? &Run::AfterPhysicsStepThunk : nullptr,
+        this } );
     m_runtimeTools.TickRayCastTestLines( static_cast<float>( secondsPerFrame ) );
     m_runtimeTools.Laser().Update( static_cast<float>( secondsPerFrame ) );
     if ( tick.shouldUpdateLogic )
@@ -672,7 +680,8 @@ void Run::TickReplayScrubProbe()
         throw std::runtime_error( "replay scrub probe did not find a moved body in the selected replay window" );
     }
 
-    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = m_cGameModelCollection.PhysicsModels();
+    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels =
+        m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
     if ( liveBody->modelIndex < 0 || liveBody->modelIndex >= static_cast<int>( physicsModels.size() ) )
     {
         throw std::runtime_error( "replay scrub probe selected an invalid live model index" );
@@ -823,6 +832,7 @@ void Run::TickReplaySaveProbe()
                                                        SceneState(),
                                                        m_cWorldEnvironment,
                                                        m_systems.terrain.get(),
+                                                       m_systems.assets,
                                                        ActiveGameModelCapacity() };
         EditorObjectPlacementRequest placementRequest{ UI::EditorTab::OBJECT_BOX, true, Vector3( 18.0f, 0.0f, 18.0f ) };
         EditorObjectPlacementResult placementResult;
@@ -967,7 +977,8 @@ void Run::TickReplaySaveProbe()
         throw std::runtime_error( "replay save probe did not find a moved body in the loaded v2 artifact" );
     }
 
-    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = m_cGameModelCollection.PhysicsModels();
+    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels =
+        m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
     if ( liveBody->modelIndex < 0 || liveBody->modelIndex >= static_cast<int>( physicsModels.size() ) )
     {
         throw std::runtime_error( "replay save probe loaded an invalid live model index" );
@@ -1101,7 +1112,8 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
         throw std::runtime_error( "replay load probe did not find a moved body in the loaded v2 artifact" );
     }
 
-    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = m_cGameModelCollection.PhysicsModels();
+    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels =
+        m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
     if ( selectedBody->modelIndex < 0 || selectedBody->modelIndex >= static_cast<int>( physicsModels.size() ) )
     {
         throw std::runtime_error( "replay load probe loaded an invalid model index" );
@@ -1416,6 +1428,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                                            SceneState(),
                                                            m_cWorldEnvironment,
                                                            m_systems.terrain.get(),
+                                                           m_systems.assets,
                                                            ActiveGameModelCapacity() };
             EditorObjectPlacementRequest placementRequest{ event.value0,
                                                            ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
@@ -1508,7 +1521,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             if ( !model.IsFixed() )
             {
-                m_cGameModelCollection.GetPhysicsEngine().WakeBody( m_cGameModelCollection, event.value0 );
+                m_cGameModelCollection.WakeModel( event.value0 );
             }
             m_cGameModelCollection.InvalidatePhysicsStreams();
             WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied editor transform" );
@@ -1626,7 +1639,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 
     auto checkpointTopologyMatchesLive = [&]() -> bool
     {
-        const std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModels();
+        const std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModelsForCompatibility();
         if ( checkpoint->bodies.size() > models.size() )
         {
             return false;
@@ -1709,9 +1722,11 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         SceneState().rngSeed = static_cast<unsigned int>( event.value3 );
         SceneState().rngState = static_cast<unsigned int>( event.value3 );
         m_launchOptions.generatedObjectTypeOverride = static_cast<GeneratedObjectTypeOverride>( overrideBits );
-        m_sceneUIOverrides.modelCountOverride = uiModelCount ? event.value0 : -1;
-        m_sceneUIOverrides.solverBallCountOverride = uiSolverCounts || exactSolverCounts ? event.value1 : -1;
-        m_sceneUIOverrides.solverBoxCountOverride = uiSolverCounts || exactSolverCounts ? event.value2 : -1;
+        m_sceneController.UIOverrides().modelCountOverride = uiModelCount ? event.value0 : -1;
+        m_sceneController.UIOverrides().solverBallCountOverride =
+            uiSolverCounts || exactSolverCounts ? event.value1 : -1;
+        m_sceneController.UIOverrides().solverBoxCountOverride =
+            uiSolverCounts || exactSolverCounts ? event.value2 : -1;
 
         if ( exactSolverCounts || uiSolverCounts )
         {
@@ -1863,7 +1878,8 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             SceneState().currentFrame = currentSceneFrame;
             m_cGameModelCollection.BeginCollisionVisualFrame();
 
-            m_cGameModelCollection.GetPhysicsEngine().Step( m_cGameModelCollection, PHYSICS_FIXED_DT );
+            SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(), &m_cGameModelCollection }.Run(
+                PHYSICS_FIXED_DT );
             currentFrame = nextFrame;
 
             const ReplayV2SolverHashSample* expectedHash = FindReplaySolverHashForFrame( hashes, currentFrame );
@@ -1892,7 +1908,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 char message[1024] = {};
                 const ReplayPresentationSample* expectedPresentation =
                     FindReplayPresentationForFrame( presentationSamples, currentFrame );
-                const std::vector<GameModel>& restoredModels = m_cGameModelCollection.PhysicsModels();
+                const std::vector<GameModel>& restoredModels = m_cGameModelCollection.PhysicsModelsForCompatibility();
                 if ( expectedPresentation && !expectedPresentation->bodies.empty() && !restoredModels.empty() )
                 {
                     const ReplayBodyPresentationSample& expectedBody = expectedPresentation->bodies[0];
@@ -2241,8 +2257,9 @@ bool Run::TickScreenshots()
             return ApplyCinematicModeFromBrowserIndex(
                 SceneRuntimeStyleContext{ m_launchOptions,
                                           SceneState(),
-                                          m_sceneBrowser,
+                                          m_sceneController.Browser(),
                                           m_cGameModelCollection,
+                                          m_systems.assets,
                                           RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                           m_defaultCinematicRender },
                 action.index );
@@ -2391,8 +2408,9 @@ bool Run::TickSceneAdvance()
             return ApplyCinematicModeFromBrowserIndex(
                 SceneRuntimeStyleContext{ m_launchOptions,
                                           SceneState(),
-                                          m_sceneBrowser,
+                                          m_sceneController.Browser(),
                                           m_cGameModelCollection,
+                                          m_systems.assets,
                                           RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
                                           m_defaultCinematicRender },
                 action.index );

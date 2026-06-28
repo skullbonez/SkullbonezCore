@@ -10,15 +10,42 @@ Mental model:
   solver-private containers.
 
 Glossary:
+  Activation command: Handle-based request to wake a body, seed it asleep, or
+    toggle the standalone world's sleep gate.
+  AABB (Axis-Aligned Bounding Box): Query box aligned to world X/Y/Z axes.
   Body: Simulated object state such as pose, velocity, mass, and sleep flag.
+  Broadphase query: Cheap spatial query that returns candidate bodies, not exact
+    narrowphase contacts.
   Collider: Shape and material-adjacent collision metadata paired with a body.
+  Contact: Immutable collision-pair view exposed for diagnostics/replay without
+    solver-private manifold storage.
+  Constraint: Solver relationship between bodies; the standalone API currently
+    stores point joints as constraint-handle records.
+  Deterministic order: Public collection views and broadphase candidates
+    iterate stable slot order; smoke hashes derive from stable handle/slot
+    assignment so replay/debug evidence does not depend on allocator addresses
+    or STL traversal accidents.
   Facade: Narrow public boundary that hides solver implementation containers.
+  Island: Immutable solver-group summary for sleep/support diagnostics.
+  Ray cast: Query that shoots a line segment through physics space and returns
+    the closest candidate hit.
+  Sleep: Optional optimization that skips integration for quiet dynamic bodies
+    while the world sleep gate is enabled.
+  STL (Standard Template Library): C++ library containers and algorithms.
+  Wake: Clearing a body's sleep flag so later steps can integrate it.
+  Standalone world: Public physics owner that can step without runtime or
+    game-object storage.
   View: Immutable span-like snapshot exposed to callers without ownership.
 
 Invariants:
   - Public API structs do not include or require GameModelCollection.
+  - Command and update descriptors target physics handles, not model indices;
+    scene object ids are descriptive identity metadata, not storage offsets.
   - Descriptors describe intent; later facade code owns allocation order and
     deterministic solver mutation.
+  - Standalone collection and query results are deterministic slot-order views;
+    deletion tombstones slots and generation counters make stale handles fail
+    before a reused slot can be mistaken for the old body/collider/constraint.
   - Views are immutable spans over API records, not mutable storage leaks.
 
 Related:
@@ -29,6 +56,7 @@ Related:
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include "CollisionShape.h"
 #include "PhysicsHandles.h"
@@ -186,17 +214,19 @@ struct PhysicsPointJointUpdateDesc
 
 struct PhysicsStepDesc
 {
-    float deltaSeconds = 0.0f;
-    uint64_t frameIndex = 0;
-    bool fixedStep = true;
-    bool scenePhysicsEnabled = true;
+    float deltaSeconds = 0.0f;                                                       // Seconds to integrate; negative values are invalid.
+    uint64_t frameIndex = 0;                                                         // Deterministic caller frame id for traceable samples.
+    bool fixedStep = true;                                                           // True when deltaSeconds comes from a fixed tick schedule.
+    // m/s^2-style acceleration applied to awake dynamic bodies.
+    Math::Vector::Vector3 worldLinearAcceleration = Math::Vector::ZERO_VECTOR;
+    bool scenePhysicsEnabled = true;                                                 // False means the step is a no-op, not an error.
 };
 
 struct PhysicsActivationCommand
 {
-    PhysicsActivationCommandKind kind = PhysicsActivationCommandKind::WakeBody;
-    PhysicsBodyHandle body;
-    bool enabled = true;
+    PhysicsActivationCommandKind kind = PhysicsActivationCommandKind::WakeBody;      // Operation selector.
+    PhysicsBodyHandle body;                                                          // Target for body commands; ignored by SetSleepEnabled.
+    bool enabled = true;                                                             // Desired sleep-gate value for SetSleepEnabled.
 };
 
 struct PhysicsRayCastDesc
@@ -258,6 +288,78 @@ struct PhysicsBodyCollectionView
     uint32_t bodyCount = 0;
 };
 
+struct PhysicsColliderView
+{
+    PhysicsColliderHandle collider;
+    PhysicsBodyHandle body;
+    PhysicsSceneObjectId sceneObjectId;
+    Math::CollisionDetection::CollisionShape shape;
+    float boundingRadius = 0.0f;
+    float restitution = 0.0f;
+    float friction = 0.0f;
+    float projectedSurfaceArea = 0.0f;
+    float dragCoefficient = 0.0f;
+};
+
+struct PhysicsColliderCollectionView
+{
+    const PhysicsColliderView* colliders = nullptr;
+    uint32_t colliderCount = 0;
+};
+
+struct PhysicsPointJointView
+{
+    PhysicsConstraintHandle constraint;
+    PhysicsBodyHandle bodyA;
+    PhysicsBodyHandle bodyB;
+    Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;
+    float slack = 0.25f;
+    float stiffness = 0.22f;
+    float damping = 0.35f;
+    uint32_t groupId = 0;
+    uint8_t flags = 0;
+};
+
+struct PhysicsPointJointCollectionView
+{
+    const PhysicsPointJointView* pointJoints = nullptr;
+    uint32_t pointJointCount = 0;
+};
+
+struct PhysicsContactView
+{
+    PhysicsBodyHandle bodyA;
+    PhysicsBodyHandle bodyB;
+    PhysicsColliderHandle colliderA;
+    PhysicsColliderHandle colliderB;
+    Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 normal = Math::Vector::ZERO_VECTOR;
+    float penetrationDepth = 0.0f;
+    float normalImpulse = 0.0f;
+    bool touching = false;
+};
+
+struct PhysicsContactCollectionView
+{
+    const PhysicsContactView* contacts = nullptr;
+    uint32_t contactCount = 0;
+};
+
+struct PhysicsIslandView
+{
+    uint32_t islandId = 0;
+    uint32_t bodyCount = 0;
+    bool sleeping = false;
+    bool supported = false;
+};
+
+struct PhysicsIslandCollectionView
+{
+    const PhysicsIslandView* islands = nullptr;
+    uint32_t islandCount = 0;
+};
+
 struct PhysicsRenderInstanceView
 {
     PhysicsBodyHandle body;
@@ -299,5 +401,167 @@ struct PhysicsReplaySolverSnapshotView
     const Basics::ReplaySolverWorldSnapshot* snapshot = nullptr;
     uint32_t modelCount = 0;
 };
+
+struct PhysicsStandaloneSmokeResult
+{
+    bool passed = false;
+    bool lifecycleChecksPassed = false;
+    PhysicsBodyHandle body;
+    PhysicsColliderHandle collider;
+    PhysicsConstraintHandle constraint;
+    uint32_t bodyCount = 0;
+    uint32_t colliderCount = 0;
+    uint32_t pointJointCount = 0;
+    uint32_t contactCount = 0;
+    uint32_t islandCount = 0;
+    uint32_t broadphaseQueryCount = 0;
+    uint32_t stepCount = 0;
+    bool activationCommandsPassed = false;
+    bool rayCastHit = false;
+    Math::Vector::Vector3 finalPosition = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 finalLinearVelocity = Math::Vector::ZERO_VECTOR;
+    uint64_t deterministicHash = 0;
+};
+
+class PhysicsStandaloneWorld
+{
+  public:
+    // Clears all bodies and advances the initial generation for future slots.
+    // Existing handles become invalid even when the same slot index is reused.
+    void Clear();
+
+    // Creates one body from descriptor data without consulting GameModel or scene
+    // storage. Creation reuses the last tombstoned slot, or appends a new slot,
+    // so body views and smoke/replay evidence have stable slot identities.
+    PhysicsBodyHandle CreateBody( const PhysicsBodyCreateDesc& desc );
+
+    // Applies masked public fields to a live body. Stale handles fail without
+    // mutating any other slot.
+    bool UpdateBody( const PhysicsBodyUpdateDesc& desc );
+
+    // Tombstones a live body and its colliders, then advances generations so
+    // stale handles fail.
+    bool DestroyBody( PhysicsBodyHandle body );
+
+    // Creates a collider for a live body. Invalid or stale body handles return
+    // an invalid collider handle without mutating storage; valid creation uses
+    // deterministic collider slot order for later query and view output.
+    PhysicsColliderHandle CreateCollider( const PhysicsColliderCreateDesc& desc );
+
+    // Applies masked public fields to a live collider. Stale handles fail
+    // without mutating any other slot.
+    bool UpdateCollider( const PhysicsColliderUpdateDesc& desc );
+
+    // Tombstones a live collider and advances its generation so stale handles fail.
+    bool DestroyCollider( PhysicsColliderHandle collider );
+
+    // Creates a point joint between two live bodies. Invalid or stale body
+    // handles return an invalid constraint handle without mutating storage;
+    // valid creation uses deterministic constraint slot order.
+    PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
+
+    // Applies masked public fields to a live point joint. Stale handles fail
+    // without mutating any other slot.
+    bool UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc );
+
+    // Tombstones a live constraint and advances its generation so stale handles fail.
+    bool DestroyConstraint( PhysicsConstraintHandle constraint );
+
+    // Advances awake dynamic bodies by one deterministic semi-implicit Euler step.
+    bool Step( const PhysicsStepDesc& desc );
+
+    // Applies a handle-based wake/sleep command without model-index lookup.
+    // Fixed, stale, or invalid body targets fail for body commands without
+    // mutating storage. SetSleepEnabled ignores the body field and uses enabled.
+    bool ApplyActivationCommand( const PhysicsActivationCommand& command );
+
+    // Returns the standalone world's sleep gate. Disabling sleep wakes all
+    // bodies and makes create/update/query/step paths treat body sleep flags as
+    // inactive until the gate is re-enabled.
+    bool SleepEnabled() const;
+
+    // Conservatively ray-casts live collider bounding spheres in deterministic
+    // collider slot order and returns the closest hit. Equal-distance candidates
+    // keep the earlier collider slot, making replay/debug selection stable.
+    PhysicsRayCastHit RayCast( const PhysicsRayCastDesc& desc ) const;
+
+    // Conservatively returns live bodies whose body or collider bounding sphere
+    // overlaps the query AABB, in deterministic body slot order. The view
+    // points at internal scratch storage and is valid until the next
+    // QueryBroadphaseCells() call or non-const world mutation.
+    PhysicsBroadphaseQueryResultView QueryBroadphaseCells( const PhysicsBroadphaseCellQueryDesc& desc ) const;
+
+    // Returns a live body view, or null for stale/dead handles. The pointer is
+    // owned by this world and is invalidated by later mutation.
+    const PhysicsBodyView* Body( PhysicsBodyHandle body ) const;
+
+    // Returns alive bodies in deterministic slot order. This is the public body
+    // ordering for future replay snapshots and count/query smoke evidence.
+    // The view points at internal scratch storage and is valid until the next
+    // Bodies() call or non-const world mutation.
+    PhysicsBodyCollectionView Bodies() const;
+
+    // Returns a live collider view, or null for stale/dead handles. The pointer
+    // is owned by this world and is invalidated by later mutation.
+    const PhysicsColliderView* Collider( PhysicsColliderHandle collider ) const;
+
+    // Returns alive colliders in deterministic slot order. The view points at
+    // internal scratch storage and is valid until the next Colliders() call or
+    // non-const world mutation.
+    PhysicsColliderCollectionView Colliders() const;
+
+    // Returns a live point-joint view, or null for stale/dead handles. The
+    // pointer is owned by this world and is invalidated by later mutation.
+    const PhysicsPointJointView* PointJoint( PhysicsConstraintHandle constraint ) const;
+
+    // Returns alive point joints in deterministic slot order. The view points at
+    // internal scratch storage and is valid until the next PointJoints() call or
+    // non-const world mutation.
+    PhysicsPointJointCollectionView PointJoints() const;
+
+    // Returns immutable contact diagnostics in deterministic solver/contact
+    // order. The standalone world has no narrowphase solver yet, so this is an
+    // empty stable view rather than a GameModelCollection-backed leak.
+    PhysicsContactCollectionView Contacts() const;
+
+    // Returns immutable sleep/support island summaries in deterministic island
+    // order. The standalone world has no island solver yet, so this is an empty
+    // stable view until store-owned islands migrate behind the public API.
+    PhysicsIslandCollectionView Islands() const;
+
+  private:
+    bool IsAlive( PhysicsBodyHandle body ) const;
+    bool IsAlive( PhysicsColliderHandle collider ) const;
+    bool IsAlive( PhysicsConstraintHandle constraint ) const;
+    PhysicsBodyView MakeBodyView( const PhysicsBodyCreateDesc& desc, PhysicsBodyHandle body ) const;
+    PhysicsColliderView MakeColliderView( const PhysicsColliderCreateDesc& desc, PhysicsColliderHandle collider ) const;
+    PhysicsPointJointView MakePointJointView( const PhysicsPointJointCreateDesc& desc,
+                                              PhysicsConstraintHandle constraint ) const;
+    void TombstoneColliderSlot( uint32_t index );
+    void TombstoneConstraintSlot( uint32_t index );
+
+    std::vector<PhysicsBodyView> m_bodies;                                           // Slot-indexed body records; tombstoned slots may be reused.
+    std::vector<uint32_t> m_generations;                                             // Per-slot stale-handle counter.
+    std::vector<uint8_t> m_alive;                                                    // 0/1 slot liveness for compact deterministic scans.
+    std::vector<uint32_t> m_freeIndices;                                             // Reusable tombstoned slots; pop_back gives deterministic reuse order.
+    mutable std::vector<PhysicsBodyView> m_bodyViewScratch;                          // Filtered alive-body view returned by Bodies().
+    std::vector<PhysicsColliderView> m_colliders;                                    // Slot-indexed collider records paired with body handles.
+    std::vector<uint32_t> m_colliderGenerations;                                     // Per-collider stale-handle counter.
+    std::vector<uint8_t> m_colliderAlive;                                            // 0/1 collider liveness for compact deterministic scans.
+    std::vector<uint32_t> m_freeColliderIndices;                                     // Reusable tombstoned collider slots.
+    mutable std::vector<PhysicsColliderView> m_colliderViewScratch;                  // Filtered alive-collider view returned by Colliders().
+    std::vector<PhysicsPointJointView> m_pointJoints;                                // Slot-indexed public constraint records.
+    std::vector<uint32_t> m_constraintGenerations;                                   // Per-constraint stale-handle counter.
+    std::vector<uint8_t> m_constraintAlive;                                          // 0/1 constraint liveness for deterministic scans.
+    std::vector<uint32_t> m_freeConstraintIndices;                                   // Reusable tombstoned constraint slots.
+    mutable std::vector<PhysicsPointJointView>
+        m_pointJointViewScratch;                                                     // Filtered alive-point-joint view returned by PointJoints().
+    mutable std::vector<PhysicsBodyHandle>
+        m_broadphaseQueryScratch;                                                    // Filtered body handles returned by broadphase queries.
+    uint32_t m_nextInitialGeneration = PHYSICS_STANDALONE_HANDLE_INITIAL_GENERATION; // Generation base after Clear().
+    bool m_sleepEnabled = true;                                                      // Standalone sleep gate controlled by activation commands.
+};
+
+PhysicsStandaloneSmokeResult RunPhysicsStandaloneSmoke();
 } // namespace Physics
 } // namespace SkullbonezCore

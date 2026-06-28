@@ -32,13 +32,9 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
-{
-class GameModelCollection;
-}
-
 namespace Physics
 {
+class PhysicsModelAccess;
 class PhysicsWorld;
 
 class PhysicsDiagnosticsSink
@@ -49,11 +45,11 @@ class PhysicsDiagnosticsSink
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
     void SetPhysicsDiagnosticsRunId( const char* runId );
-    void EmitRegressionLog( PhysicsWorld& world, GameObjects::GameModelCollection& collection );
+    void EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess );
     void IncrementCollisionTimeFrameIfEnabled();
-    void EmitFrame( GameObjects::GameModelCollection& collection, float dt );
+    void EmitFrame( PhysicsModelAccess& modelAccess, float dt );
 #endif
-    void EmitCollisionTime( GameObjects::GameModelCollection& collection,
+    void EmitCollisionTime( PhysicsModelAccess& modelAccess,
                             const char* type,
                             int bodyA,
                             int bodyB,

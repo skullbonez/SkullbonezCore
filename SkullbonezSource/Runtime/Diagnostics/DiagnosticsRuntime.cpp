@@ -31,6 +31,7 @@ Related:
 
 #include "../Replay/ReplayRuntime.h"
 #include "../Scene/SceneRuntime.h"
+#include "../../Scene/TestScene.h"
 #include "../../GameObjects/GameModelCollection.h"
 
 #include <algorithm>
@@ -150,6 +151,38 @@ void DiagnosticsRuntime::ConfigurePerfLogFlush( bool enabled, int interval )
 void DiagnosticsRuntime::OpenScenePerfLog( const char* path, int pass )
 {
     m_diagnostics.OpenScenePerfLog( path, pass );
+}
+
+
+void DiagnosticsRuntime::ApplySceneAutomationOptions( const TestScene& scene,
+                                                      bool suppressAutomationExit,
+                                                      int perfPass )
+{
+    // Concept: Scene-authored screenshot and perf-log directives are
+    // diagnostics automation. Keep the artifact state with DiagnosticsRuntime
+    // while scene loading decides when to call it.
+    RunScreenshotState& screenshot = m_capture.Screenshot();
+    screenshot.screenshotFrame = scene.GetScreenshotFrame();
+    screenshot.screenshotMs = scene.GetScreenshotMs();
+    screenshot.isScreenshotAndExit = suppressAutomationExit ? false : scene.IsScreenshotAndExit();
+
+    if ( scene.GetScreenshotPath()[0] != '\0' )
+    {
+        strcpy_s( screenshot.screenshotPath, sizeof( screenshot.screenshotPath ), scene.GetScreenshotPath() );
+    }
+
+    screenshot.screenshotInterval = scene.GetScreenshotInterval();
+    if ( scene.GetScreenshotDir()[0] != '\0' )
+    {
+        strcpy_s( screenshot.screenshotDir, sizeof( screenshot.screenshotDir ), scene.GetScreenshotDir() );
+        CreateDirectoryA( screenshot.screenshotDir, nullptr );
+    }
+
+    const char* perfPath = scene.GetPerfLogPath();
+    if ( perfPath[0] != '\0' )
+    {
+        OpenScenePerfLog( perfPath, perfPass );
+    }
 }
 
 

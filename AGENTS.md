@@ -25,6 +25,28 @@ If this is a fresh machine or a required tool lookup fails, read
 `FIRST_TIME_SETUP.md`. Load deeper skills, plans, audits, reports, or reference
 files only when the current task calls for them.
 
+Optional CodeGraph support may be present for local code-intelligence lookups.
+Do not require CodeGraph for startup, validation, or ordinary work. If it is
+missing or stale, continue with the normal `rg`/targeted-read workflow.
+
+When CodeGraph is installed and `.codegraph/` exists, use it as a first-pass
+map before opening large source files:
+
+1. Run `codegraph status .` to check whether the local index is current.
+2. If CodeGraph MCP tools are available in the current Codex session, prefer
+   them over shelling out. Use `codegraph_explore`/`codegraph_node` style tools
+   for focused symbol, file, caller/callee, and impact lookups.
+3. If MCP tools are unavailable, use the CLI: `codegraph query <name-or-topic>`
+   or `codegraph explore "<area>"` to find likely symbols and files.
+4. Use `codegraph node <symbol-or-path>` for focused source context.
+5. Use `codegraph callers <symbol>`, `codegraph callees <symbol>`, or
+   `codegraph impact <symbol>` before refactors, API changes, or bug fixes.
+6. Confirm important findings against the actual files before editing; the
+   graph is an index, not a substitute for source review.
+
+Refresh an existing local index with `codegraph sync .` after large source
+changes, or `codegraph index .` if the graph appears inconsistent.
+
 ---
 
 ## Plan Implementation Mode

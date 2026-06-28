@@ -46,6 +46,32 @@ const RunSceneState& SceneController::State() const
 }
 
 
+RunSceneBrowserState& SceneController::Browser()
+{
+    // Invariant: Scene browser arrays live for the whole run so UI/render host
+    // name-pointer views remain stable until the next explicit browser refresh.
+    return m_browser;
+}
+
+
+const RunSceneBrowserState& SceneController::Browser() const
+{
+    return m_browser;
+}
+
+
+RunSceneUIOverrideState& SceneController::UIOverrides()
+{
+    return m_uiOverrides;
+}
+
+
+const RunSceneUIOverrideState& SceneController::UIOverrides() const
+{
+    return m_uiOverrides;
+}
+
+
 bool SceneController::HasEntry( int index ) const
 {
     return m_runtime.HasEntry( index );
@@ -97,6 +123,18 @@ const std::vector<std::string>& SceneController::Queue() const
 void SceneController::BeginLoad( int index )
 {
     m_runtime.BeginLoad( index );
+}
+
+
+void SceneController::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event )
+{
+    m_runtime.RecordLifecycleEvent( event );
+}
+
+
+SceneRuntimeLifecycleEvent SceneController::LastLifecycleEvent() const
+{
+    return m_runtime.LastLifecycleEvent();
 }
 
 

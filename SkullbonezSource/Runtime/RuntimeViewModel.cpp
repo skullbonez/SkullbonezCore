@@ -14,7 +14,8 @@ Glossary:
 
 Invariants:
   - Building the view model must not mutate subsystems.
-  - Missing or unbound context returns a default snapshot.
+  - Debug builds assert before an unbound context can hide missing runtime
+    service bindings; release builds still return a default snapshot.
 
 Related:
   - SkullbonezSource/Runtime/RuntimeViewModel.h
@@ -27,6 +28,8 @@ Related:
 #include "Scene/SceneController.h"
 #include "../GameObjects/GameModelCollection.h"
 
+#include <cassert>
+
 namespace SkullbonezCore
 {
 namespace Basics
@@ -34,6 +37,7 @@ namespace Basics
 RuntimeViewModel RuntimeViewModelBuilder::Build( const EngineContext& context )
 {
     RuntimeViewModel view;
+    assert( context.IsBound() && "RuntimeViewModelBuilder requires a bound EngineContext" );
     if ( !context.IsBound() )
     {
         return view;

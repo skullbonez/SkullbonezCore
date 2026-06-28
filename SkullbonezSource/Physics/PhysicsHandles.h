@@ -33,6 +33,8 @@ namespace Physics
 {
 inline constexpr uint32_t INVALID_PHYSICS_HANDLE_INDEX = 0xffffffffu;
 inline constexpr uint32_t PHYSICS_COMPATIBILITY_HANDLE_GENERATION = 1u;
+// Standalone handles use a different generation range than model compatibility slots.
+inline constexpr uint32_t PHYSICS_STANDALONE_HANDLE_INITIAL_GENERATION = 2u;
 
 struct PhysicsBodyHandle
 {

@@ -20,6 +20,9 @@ Invariants:
     handles.
   - External resources are borrowed backend-owned resources; the graph records
     usage intent without taking lifetime ownership.
+  - Transient resources are graph-owned declarations. The graph compiler plans
+    aliasing and descriptor lifetime; a backend executor is the only layer that
+    may turn that plan into API objects.
 
 Related:
   - SkullbonezSource/Rendering/RenderGraph.cpp
@@ -28,6 +31,7 @@ Related:
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -63,17 +67,21 @@ inline constexpr uint32_t RENDER_GRAPH_ALL_SUBRESOURCES = 0xFFFFFFFFu;
     is fragile. The render graph changes the contract: every pass declares what
     it reads and writes, and a future compiler can derive the needed barriers.
 
-    This first class is intentionally small. It does not yet record GPU commands
-    or allocate transient textures. It gives the engine a concrete place to name:
+    This class is intentionally small. It can execute callback-owned pass
+    bodies and plan graph-owned transient resource lifetimes. It gives the
+    engine a concrete place to name:
 
     - render resources,
     - render passes,
     - whether each pass reads or writes a resource,
-    - what DX12-style access the pass expects.
+    - which transient resources may alias in one frame,
+    - what DX12-style access the pass expects,
+    - whether a reviewed pass body is called by the graph.
 
     The current renderer keeps pass bodies in the existing runtime order while
     DX12 transition and UAV barriers route through graph-owned helper APIs.
-    Future slices can move command callbacks into the same pass/resource model.
+    Selected pass bodies can now move into the same pass/resource callback
+    model without changing the lower-level DX12 transition executor.
 ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 // A queue is a lane of GPU work.
@@ -102,14 +110,49 @@ enum class RenderGraphQueueType
 
 // Barrier policy names whether a pass is plain diagnostics or a reviewed
 // handoff marker. Live transition emission now goes through the DX12 graph
-// executor helpers, while this pass list still serves as the high-level frame
-// intent dump until command callbacks move into the graph.
+// executor helpers. Callback execution ownership is tracked separately because
+// a pass can have reviewed barrier declarations before its body is graph-owned.
 enum class RenderGraphBarrierPolicy
 {
     DiagnosticOnly,  // The graph documents intent; hand-written backend barriers still own execution.
     HandoffValidated // The pass/resource declaration is reviewed as a migration handoff marker, not executed by the
                      // graph.
 };
+
+// Execution ownership names whether a pass is only declared for diagnostics or
+// whether the graph owns calling its command-recording body. Callback-owned
+// passes still use the same read/write declarations as barrier-only passes.
+enum class RenderGraphPassExecutionOwner
+{
+    DeclarationOnly,
+    Callback
+};
+
+// Callback execution can run as a dry validation pass or as the live command
+// callback path. DryRun is deliberately side-effect free and exists so
+// architecture tests can validate callback ordering and declaration coverage.
+enum class RenderGraphCallbackExecutionMode
+{
+    DryRun,
+    Execute
+};
+
+class RenderGraph;
+struct RenderGraphPassDesc;
+
+// Context passed to a callback-owned pass. It exposes graph vocabulary and the
+// current pass description, not broad runtime state. Runtime-specific state must
+// be held by the pass object that the callback invokes.
+struct RenderGraphPassContext
+{
+    const RenderGraph* graph = nullptr;
+    const RenderGraphPassDesc* pass = nullptr;
+    uint32_t passIndex = 0;
+    const char* debugLabel = nullptr;
+    bool dryRun = false;
+};
+
+using RenderGraphPassCallback = void ( * )( const RenderGraphPassContext& context, void* userData );
 
 // Resource access is the plain-English form of a future DX12 resource state.
 //
@@ -138,6 +181,43 @@ enum class RenderGraphResourceAccess
     CopyDest,
     VertexAndNonPixelShaderResource,
     Present
+};
+
+enum class RenderGraphResourceKind
+{
+    Texture2D,
+    Buffer
+};
+
+enum class RenderGraphResourceFormat
+{
+    Unknown,
+    RGBA8,
+    RGBA16F,
+    Depth24Stencil8
+};
+
+// Descriptor ownership is graph vocabulary, not a DX12 descriptor handle. It
+// names what view rows a graph-created resource needs so descriptor lifetime can
+// follow the resource instead of the material/object binding tables.
+struct RenderGraphDescriptorNeeds
+{
+    bool renderTarget = false;
+    bool depthStencil = false;
+    bool shaderResource = false;
+    bool unorderedAccess = false;
+};
+
+// API-neutral description of a graph-owned transient resource. Width/height are
+// concrete because aliasing is only safe when descriptor shape is compatible.
+struct RenderGraphTransientResourceDesc
+{
+    RenderGraphResourceKind kind = RenderGraphResourceKind::Texture2D;
+    RenderGraphResourceFormat format = RenderGraphResourceFormat::Unknown;
+    uint32_t width = 1;
+    uint32_t height = 1;
+    uint32_t mipLevels = 1;
+    RenderGraphDescriptorNeeds descriptors;
 };
 
 // Small typed handle for graph resources.
@@ -181,6 +261,7 @@ struct RenderGraphResourceDesc
     bool external = true;
     RenderGraphResourceAccess initialAccess = RenderGraphResourceAccess::Unknown;
     const void* nativeResource = nullptr;
+    RenderGraphTransientResourceDesc transient;
 };
 
 // A single declared use of a resource by one pass. For example: "WaterPass reads
@@ -201,14 +282,19 @@ struct RenderGraphResourceUse
 // - Which resources does it read?
 // - Which resources does it write?
 //
-// It does not yet store a callback. That is deliberate: barrier execution can be
-// centralized before draw code moves. Command recording can come later once
-// current pass boundaries and graph-owned barrier diagnostics are stable.
+// Callback fields are optional. Declaration-only passes still serve diagnostics
+// and barrier compilation; callback-owned passes use the same read/write records
+// before the graph invokes their command-recording body.
 struct RenderGraphPassDesc
 {
     std::string name;
+    std::string debugLabel;
     RenderGraphQueueType queue = RenderGraphQueueType::Graphics;
     RenderGraphBarrierPolicy barrierPolicy = RenderGraphBarrierPolicy::DiagnosticOnly;
+    RenderGraphPassExecutionOwner executionOwner = RenderGraphPassExecutionOwner::DeclarationOnly;
+    RenderGraphPassCallback callback = nullptr;
+    void* callbackUserData = nullptr;
+    bool callbackEnabled = true;
     std::vector<RenderGraphResourceUse> reads;
     std::vector<RenderGraphResourceUse> writes;
 };
@@ -232,6 +318,34 @@ struct RenderGraphTransitionDesc
     uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES;
 };
 
+struct RenderGraphResourceLifetimeDesc
+{
+    RenderGraphResourceHandle resource;
+    uint32_t firstPass = 0;
+    uint32_t lastPass = 0;
+    bool used = false;
+};
+
+struct RenderGraphTransientAllocationDesc
+{
+    RenderGraphResourceHandle resource;
+    uint32_t poolSlot = 0;
+    uint32_t firstPass = 0;
+    uint32_t lastPass = 0;
+    uint32_t descriptorCount = 0;
+    bool reused = false;
+    bool releasedAtFrameEnd = false;
+};
+
+struct RenderGraphTransientAllocationDiagnostics
+{
+    size_t allocationCount = 0;
+    size_t reuseCount = 0;
+    size_t releaseCount = 0;
+    size_t highWaterResources = 0;
+    size_t highWaterDescriptors = 0;
+};
+
 // Result of the first simple graph compile step.
 //
 // This is intentionally only a transition list for now. The DX12 graph executor
@@ -242,6 +356,20 @@ struct RenderGraphTransitionDesc
 struct RenderGraphCompileResult
 {
     std::vector<RenderGraphTransitionDesc> transitions;
+    std::vector<RenderGraphResourceLifetimeDesc> resourceLifetimes;
+    std::vector<RenderGraphTransientAllocationDesc> transientAllocations;
+    RenderGraphTransientAllocationDiagnostics transientDiagnostics;
+};
+
+// Result of callback validation/execution. The graph still compiles barriers
+// separately; these counts only describe command callback ownership.
+struct RenderGraphCallbackExecutionResult
+{
+    size_t declarationOnlyPassCount = 0;
+    size_t callbackPassCount = 0;
+    size_t dryRunValidatedPassCount = 0;
+    size_t executedPassCount = 0;
+    size_t disabledCallbackPassCount = 0;
 };
 
 class RenderGraph
@@ -252,6 +380,10 @@ class RenderGraph
     RenderGraphResourceHandle AddExternalResource( const char* name,
                                                    RenderGraphResourceAccess initialAccess,
                                                    const void* nativeResource = nullptr );
+    RenderGraphResourceHandle
+    AddTransientResource( const char* name,
+                          const RenderGraphTransientResourceDesc& desc,
+                          RenderGraphResourceAccess initialAccess = RenderGraphResourceAccess::Unknown );
     uint32_t AddPass( const char* name,
                       RenderGraphQueueType queue = RenderGraphQueueType::Graphics,
                       RenderGraphBarrierPolicy barrierPolicy = RenderGraphBarrierPolicy::DiagnosticOnly );
@@ -264,6 +396,11 @@ class RenderGraph
                    RenderGraphResourceHandle resource,
                    RenderGraphResourceAccess access,
                    uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES );
+    void SetPassCallback( uint32_t passIndex,
+                          RenderGraphPassCallback callback,
+                          void* userData = nullptr,
+                          bool enabled = true,
+                          const char* debugLabel = nullptr );
 
     const std::vector<RenderGraphResourceDesc>& Resources() const
     {
@@ -277,6 +414,7 @@ class RenderGraph
 
     std::string DumpText() const;
     RenderGraphCompileResult Compile() const;
+    RenderGraphCallbackExecutionResult ExecuteCallbacks( RenderGraphCallbackExecutionMode mode ) const;
 
   private:
     const RenderGraphResourceDesc& CheckedResource( RenderGraphResourceHandle handle ) const;
@@ -289,7 +427,10 @@ class RenderGraph
 
 const char* ToString( RenderGraphQueueType queue );
 const char* ToString( RenderGraphBarrierPolicy policy );
+const char* ToString( RenderGraphPassExecutionOwner owner );
 const char* ToString( RenderGraphResourceAccess access );
+const char* ToString( RenderGraphResourceKind kind );
+const char* ToString( RenderGraphResourceFormat format );
 
 } // namespace Rendering
 } // namespace SkullbonezCore

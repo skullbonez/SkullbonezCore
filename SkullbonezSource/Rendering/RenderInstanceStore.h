@@ -40,6 +40,11 @@ namespace GameObjects
 class GameModel;
 }
 
+namespace Physics
+{
+class PhysicsModelAccess;
+}
+
 namespace Rendering
 {
 inline constexpr uint32_t INVALID_RENDER_INSTANCE_HANDLE_INDEX = 0xffffffffu;
@@ -92,6 +97,7 @@ class RenderInstanceStore
 
     void Clear();
     void Refresh( std::vector<GameObjects::GameModel>& models );
+    void Refresh( Physics::PhysicsModelAccess& modelAccess );
 
     const RenderInstanceRecord* Data() const;
     int Count() const;

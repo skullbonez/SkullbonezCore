@@ -28,6 +28,116 @@ their emergency growth. Replay is not exempt from this rule: replay should have
 enough working memory for expected capture, prediction, restore, and scrub
 work, and any occasional bump must flow through the same reserve allocator.
 
+## Carmack-Test Option 3 Checklist
+
+This checklist turns the Carmack-test performance finding into markable work.
+The problem statement is: performance cannot score above a conservative systems
+bar until steady gameplay and replay allocation behavior are measured, enforced,
+and reviewable.
+
+This section extends the existing dynamic memory allocation plan rather than
+creating a separate option 3 plan. Treat the sections below as the implementation
+source of truth, and use this checklist as the Carmack-test acceptance overlay.
+
+### Evidence Baseline
+
+- [x] Capture current `tools\validate_perf.bat` output and record whether it is
+  clean, warning-bearing, or machine-label-limited.
+- [x] Record current `dx12_perf.json` and `physics_bench_perf.json` baseline
+  metadata, including machine label and commit.
+- [x] Inventory all allocation-capable runtime paths listed in
+  `Current Findings To Address`.
+- [x] Add a small table mapping each runtime owner to its expected allocation
+  phase: startup, scene load, backend init, steady gameplay, replay, capture, or
+  shutdown.
+- [x] Identify at least one representative non-replay gameplay launch and one
+  replay-enabled launch for allocation guard proof.
+
+### Implementation Details
+
+- [ ] Implement phase-aware allocation tracking with fixed, non-allocating
+  tracker storage and a reentrancy guard.
+- [ ] Add runtime phase transitions for startup, scene load/reset,
+  backend/resource init, steady gameplay, replay, screenshot/capture, and
+  shutdown.
+- [ ] Implement `RuntimeReserveAllocator` owner registration with owner name,
+  phase, capacity source, hard cap, emergency bump cap, and diagnostic counters.
+- [ ] Convert runtime growable owners to fixed storage, preallocated storage, or
+  registered reserve bumps.
+- [ ] Add policy comments beside every runtime growable storage owner.
+- [ ] Make ordinary steady gameplay fail on nonzero unregistered allocations.
+- [ ] Make replay scenarios fail on unregistered replay allocations while still
+  allowing registered replay-phase reserve bumps within cap.
+- [ ] Print owner-level allocation summaries with allocation count, bytes,
+  high-water, emergency bump count, frame, and phase.
+- [ ] Ensure the allocation tracker itself cannot allocate while reporting.
+
+### Guardrails And Validation Integration
+
+- [ ] Add a static checker for banned runtime dynamic allocation patterns.
+- [ ] Add an allowlist format that requires owner, phase, reason, cap, and
+  removal or wrapper plan.
+- [ ] Add the allocation guard launch to the appropriate validation script after
+  the first implementation slice lands.
+- [ ] Make `tools\validate_perf.bat` output distinguish clean perf evidence from
+  warning-bearing evidence that still exits 0.
+- [ ] Add synthetic checker tests for rejected direct allocation, allowed
+  startup allocation, and allowed registered reserve bumps.
+
+### Independent Review And Handoff
+
+- [ ] Ask a rubber-duck reviewer to inspect whether the guard can falsely pass
+  when allocations happen in steady gameplay.
+- [ ] Ask the reviewer to inspect recursion, thread-local tracking, WorkerPool
+  dispatch, replay phases, screenshot/capture opt-outs, and DX12 telemetry.
+- [ ] Record any accepted perf warnings with marker-level evidence, not just
+  script exit code.
+- [ ] Quote allocation guard output in the handoff.
+- [ ] Do not mark the Carmack-test performance issue resolved until the guard
+  and static checker are both active in validation.
+
+### 2026-06-28 Evidence Baseline
+
+`tools\validate_perf.bat` was captured at commit `cadf6366` in the local,
+ignored log
+`TestOutput\validation\agent_logs\allocation_policy_validate_perf_baseline.log`.
+The durable evidence is copied here because that log is not a tracked artifact.
+The command exited 0 and ended with `VALIDATE_PERF: COMPLETE`, but this is
+warning-bearing evidence, not a clean performance proof:
+
+- Profile and Debug builds both reported `0 Warning(s)` and `0 Error(s)`.
+- DX12 comparison was machine-label-limited: the committed baseline is from
+  `AMD Ryzen Threadripper 3970X 32-Core Processor` on Windows `10.0.22631`,
+  while the current run is `AMD64 Family 23 Model 49 Stepping 0,
+  AuthenticAMD` on Windows `10.0.26200`, so the script skipped the regression
+  check.
+- `physics_bench` ran on the same machine label as its committed baseline, but
+  reported `PERF REGRESSION - 9 failure(s) [PHYSICS_BENCH]`: `Frame.avg`
+  `+50.7%`, `Frame.p50` `+63.9%`, `Frame/Render.avg` `+366.9%`,
+  `Frame/Render.p50` `+385.9%`, `Frame/VsyncWait.avg` `+138.3%`,
+  `Frame/VsyncWait.p50` `+92.7%`, `mem_start` `+11.80 MB`, `mem_restart`
+  `+71.88 MB`, and `mem_end` `+71.88 MB`.
+
+| Artifact | Commit | Machine label | Frames | Frame avg/p50/p99/p99.9 ms | Memory start/restart/end MB |
+|----------|--------|---------------|--------|-----------------------------|-----------------------------|
+| `TestOutput\baselines\dx12_perf.json` | `fba8600` | `AMD Ryzen Threadripper 3970X 32-Core Processor`, Windows `10.0.22631` | 1970 | 0.8482 / 0.7320 / 3.3043 / 4.0644 | 84.42 / 141.54 / 141.54 |
+| `Profile\dx12_perf.json` | `cadf6366` | `AMD64 Family 23 Model 49 Stepping 0, AuthenticAMD`, Windows `10.0.26200` | 1970 | 1.9456 / 1.8742 / 2.6548 / 3.2046 | 83.95 / 151.99 / 151.99 |
+| `TestOutput\baselines\physics_bench_perf.json` | `14795e0` | `AMD64 Family 23 Model 49 Stepping 0, AuthenticAMD`, Windows `10.0.26200` | 2370 | 0.4050 / 0.3509 / 1.1667 / 2.3573 | 72.20 / 78.07 / 78.07 |
+| `Profile\physics_bench_perf.json` | `cadf6366` | `AMD64 Family 23 Model 49 Stepping 0, AuthenticAMD`, Windows `10.0.26200` | 2370 | 0.6103 / 0.5750 / 1.0637 / 1.9022 | 84.00 / 149.95 / 149.95 |
+
+Representative allocation-guard launch candidates:
+
+| Role | Launch target | Why this target |
+|------|---------------|-----------------|
+| Non-replay gameplay/perf stress | `Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\perf_1000.scene.json --frames 600 --fixed-step --vsync off` | Fixed-step, vsync-off scene with 1000 solver balls and an existing perf log path; future allocation-guard work should add the guard flag once implemented. |
+| Replay-enabled interaction/prediction | Existing launch from `tools\validate_interaction_clicks.bat`: `Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\replay_prediction_click.json --interaction-report TestOutput\interaction\replay_prediction_click_report.json --frames 150 --replay on --replay-seconds 2 --fixed-step --vsync off` | Scene/suite automation leaves replay off unless the command line opts in; this target explicitly enables replay and drives the replay prediction interaction path. |
+
+Rubber-duck review: Herschel initially found one blocking issue: the proof
+target claimed a replay-enabled scene while naming a scene without replay
+command-line opt-in. This plan now names replay-enabled launches instead of
+bare scenes, points to the existing interaction replay command, and calls out
+that the perf log is local/ignored. Follow-up review found no blockers.
+
 ## Definitions
 
 | Term | Meaning |
@@ -56,6 +166,20 @@ The recent audit found allocation-capable runtime paths:
 | Runtime command queue | `std::deque<RuntimeCommand>` and `std::string` can allocate for UI/input commands. |
 | Tornado visual/debug | Visual vortex and vertex vectors mostly reuse capacity, but need explicit warmup and overflow comments. |
 | Replay working sets | Replay capture, prediction, scrub, restore, and artifact load/save should have prediction/model-count reserves, with any occasional bump routed through `RuntimeReserveAllocator`. |
+
+### Runtime Owner Phase Map
+
+| Runtime owner | Expected allocation phase | Steady/replay policy |
+|---------------|---------------------------|----------------------|
+| Worker pool task storage | Startup for worker thread/task infrastructure; scene load or warmup for fixed task buffers if capacity depends on scene size. | `ParallelFor` must not allocate chunks, closures, shared task state, or queue nodes during steady gameplay. |
+| Physics candidate/contact/island scratch | Scene load/reset after active body, collider, and terrain capacity are known. | Collision, solver, sleep, and island storage must reuse preallocated capacity or request a bounded registered bump; replay follows the same rule with replay-sized reserves. |
+| DX12 barrier/live-object telemetry | Backend init or explicit diagnostics startup. | Frame/present telemetry must append into fixed storage or a registered telemetry reserve; formatting/reporting is diagnostics, not steady gameplay. |
+| Render graph diagnostics | Backend/resource init for graph shape; explicit diagnostics/capture phase for dumps. | Dry-run dumps, strings, and ostreams stay out of steady gameplay unless the allocation guard labels the frame as diagnostics/capture. |
+| Shadow caster batches | Scene load/render warmup from active render-instance capacity. | Shadow prep reuses persistent batch storage; overflow must be bounded and reported by owner. |
+| UI and screenshot/readback buffers | Startup/scene load for UI caches; capture phase for screenshot and readback CPU buffers. | Ordinary UI frame work should reuse caches; screenshot/readback allocation is allowed only under an explicit capture phase. |
+| Runtime command queue | Startup as a fixed ring or preallocated queue sized from expected command pressure. | Input/UI commands may enqueue during steady gameplay without heap growth; string payloads need fixed storage or registered reserve bumps. |
+| Tornado visual/debug storage | Scene load or runtime warmup when tornado/debug features are enabled. | Visual/debug vectors must reuse capacity during steady gameplay; optional debug growth needs a documented diagnostics/capture phase or registered owner. |
+| Replay working sets | Replay phase setup from model count, prediction horizon, scrub window, and artifact metadata. | Replay capture, restore, prediction, path/cause rows, and artifact load/save can grow only through replay-phase registered reserves within cap. |
 
 ## Allocation Policy
 

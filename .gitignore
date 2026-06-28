@@ -38,6 +38,9 @@ Profile/
 # VS file content index
 *.vsidx
 
+# Optional local code-intelligence indexes
+.codegraph/
+
 # VS launch args (personal tool preference)
 *.args.json
 

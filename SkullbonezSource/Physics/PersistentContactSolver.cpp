@@ -36,7 +36,7 @@ Related:
 
 #include "../Core/Config.h"
 #include "ContactSolverCommon.h"
-#include "../GameObjects/GameModelCollection.h"
+#include "PhysicsModelAccess.h"
 #include "ObjectContactManifold.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsWorld.h"
@@ -63,14 +63,14 @@ constexpr int TERRAIN_BODY_INDEX = -1;
 } // namespace
 
 void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
-                                     GameModelCollection& collection,
+                                     PhysicsModelAccess& modelAccess,
                                      float dt )
 {
     using PersistentContact = PhysicsWorld::PersistentContact;
     using PersistentContactSolverStats = PhysicsWorld::PersistentContactSolverStats;
 
-    auto& m_gameModels = collection.PhysicsModels();
-    const GameModelBodyStream bodyStream = collection.GetBodyStream();
+    auto m_gameModels = modelAccess.Models();
+    const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
     const uint8_t* m_soaIsFixed = bodyStream.isFixed;
     auto& m_candidatePairs = context.candidatePairs;
     auto& m_sleepState = context.sleepState;
@@ -89,7 +89,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
     auto RecordPhysicsPipelineStage = [&]( const PhysicsPipelineRecord& record )
     { context.RecordPhysicsPipelineStage( record ); };
     auto MarkCollisionVisualContact = [&]( int index ) { context.MarkCollisionVisualContact( index ); };
-    auto MarkFixedContact = [&]( int index ) { context.MarkFixedContact( collection, index ); };
+    auto MarkFixedContact = [&]( int index ) { context.MarkFixedContact( modelAccess, index ); };
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts" );
 
     // Concept: persistent contact rows solve the quiet resting case.
@@ -1336,8 +1336,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                 releaseDir * releaseSpeed + tangentVelocity;
             m_bodyRecords[static_cast<size_t>( fixedIndex )].angularVelocity = angularVelocity;
             context.bodyStore.WriteBackToModelAt( m_gameModels, fixedIndex );
-            context.WakeModel( collection, fixedIndex );
-            collection.ReleaseAttachedFixedTreeParts(
+            context.WakeModel( modelAccess, fixedIndex );
+            modelAccess.ReleaseAttachedFixedTreeParts(
                 fixedIndex,
                 m_bodyRecords[static_cast<size_t>( fixedIndex )].linearVelocity,
                 m_bodyRecords[static_cast<size_t>( fixedIndex )].angularVelocity );

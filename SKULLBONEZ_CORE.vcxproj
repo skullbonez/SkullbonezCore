@@ -155,10 +155,12 @@
     <ClCompile Include="SkullbonezSource\Core\AmortizedTask.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModel.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelCollection.cpp" />
+    <ClCompile Include="SkullbonezSource\GameObjects\GameModelCollectionPhysicsAdapter.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\GameModelRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelStreams.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelSoACache.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsApi.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsEngine.cpp" />
@@ -177,6 +179,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeLoad.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeReset.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeStyle.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeUiOptions.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\SleepIslandSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\SimulationController.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp" />
@@ -305,6 +308,12 @@
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorHullAssets.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorPlacementAssets.inl" />
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorGizmoTools.inl" />
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorObjectPlacement.inl" />
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorOverlayTools.inl" />
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\RunEditorTracer.inl" />
+    <ClInclude Include="SkullbonezSource\Runtime\Editor\RunMousePickupTools.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\LauncherLaser.h" />
     <ClInclude Include="SkullbonezSource\Core\AmortizedTask.h" />
     <ClInclude Include="SkullbonezSource\Physics\CollisionShape.h" />
@@ -315,6 +324,7 @@
     <ClInclude Include="SkullbonezSource\Core\Fence.h" />
     <ClInclude Include="SkullbonezSource\GameObjects\GameModel.h" />
     <ClInclude Include="SkullbonezSource\GameObjects\GameModelCollection.h" />
+    <ClInclude Include="SkullbonezSource\GameObjects\GameModelCollectionPhysicsAdapter.h" />
     <ClInclude Include="SkullbonezSource\Rendering\GameModelRenderer.h" />
     <ClInclude Include="SkullbonezSource\GameObjects\GameModelStreams.h" />
     <ClInclude Include="SkullbonezSource\GameObjects\GameModelSoACache.h" />
@@ -325,6 +335,7 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsModelAccess.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorld.h" />
     <ClInclude Include="SkullbonezSource\Physics\Ragdoll.h" />
@@ -352,6 +363,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\RunState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeCameraMode.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeCommandQueue.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionCommands.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeTuning.h" />
@@ -374,6 +386,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeLoad.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeReset.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeStyle.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeUiOptions.h" />
     <ClInclude Include="SkullbonezSource\Runtime\SimulationController.h" />
     <ClInclude Include="SkullbonezSource\Physics\SimulationSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayExporter.h" />
@@ -383,6 +396,13 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplaySolverSnapshot.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayPredictionHelpers.inl" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayPredictionVisualizer.inl" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayCauseTreeTools.inl" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayImportExport.inl" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayQueryTools.inl" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayScrubberTools.inl" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\RunReplayVelocityEdit.inl" />
     <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFileWriter.h" />
     <ClInclude Include="SkullbonezSource\World\SkyBox.h" />
@@ -398,6 +418,7 @@
     <ClInclude Include="SkullbonezSource\Core\WorkerPool.h" />
     <ClInclude Include="SkullbonezSource\World\WorldEnvironment.h" />
     <ClInclude Include="SkullbonezSource\UI\UI.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIEditorMiniPalette.inl" />
     <ClInclude Include="SkullbonezSource\UI\UIBackdropBlur.h" />
     <ClInclude Include="SkullbonezSource\UI\UIButton.h" />
     <ClInclude Include="SkullbonezSource\UI\UICheckBox.h" />
@@ -432,6 +453,12 @@
     <ClInclude Include="SkullbonezSource\Rendering\IMesh.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IFramebuffer.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderBackend.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\IRenderCaptureBackend.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\IRenderCommandContext.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\IRenderDeviceLifecycle.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\IRenderDiagnostics.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\IRenderRayTracing.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\IRenderResourceFactory.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceStore.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderGraph.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderPipeline.h" />

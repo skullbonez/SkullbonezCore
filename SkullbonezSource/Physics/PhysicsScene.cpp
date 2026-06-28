@@ -6,7 +6,7 @@ Purpose:
 Mental model:
   PhysicsWorld still owns the solver. PhysicsScene is the coordination boundary
   that refreshes body, collider, and render snapshots around that solver without
-  changing the live GameModelCollection order.
+  changing the live model order.
 
 Glossary:
   Solver: Physics step that integrates motion and applies collision/contact
@@ -16,7 +16,7 @@ Glossary:
   Determinism: Same inputs produce byte-exact validation artifacts.
 
 Invariants:
-  - Store refresh order must preserve GameModelCollection physics model order.
+  - Store refresh order must preserve compatibility model-view order.
   - RunPhysics delegates to PhysicsWorld without changing floating-point order.
 
 Related:
@@ -28,16 +28,14 @@ Related:
 #include <cassert>
 #include <cstddef>
 
-#include "../GameObjects/GameModelCollection.h"
-
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
-using SkullbonezCore::GameObjects::GameModelCollection;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
+using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Physics::PhysicsScene;
 
 
@@ -50,27 +48,26 @@ void PhysicsScene::Clear()
 }
 
 
-void PhysicsScene::RefreshStores( GameModelCollection& collection )
+void PhysicsScene::RefreshStores( PhysicsModelAccess& modelAccess )
 {
-    RefreshPhysicsStores( collection );
-    RefreshRenderStore( collection );
+    RefreshPhysicsStores( modelAccess );
+    RefreshRenderStore( modelAccess );
 }
 
 
-void PhysicsScene::RefreshPhysicsStores( GameModelCollection& collection )
+void PhysicsScene::RefreshPhysicsStores( PhysicsModelAccess& modelAccess )
 {
-    RefreshBodyStore( collection );
-    RefreshColliderStore( collection );
+    RefreshBodyStore( modelAccess );
+    RefreshColliderStore( modelAccess );
 #ifdef _DEBUG
-    ValidatePhysicsStoreMappings( static_cast<int>( collection.PhysicsModels().size() ) );
+    ValidatePhysicsStoreMappings( modelAccess.ModelCount() );
 #endif
 }
 
 
-void PhysicsScene::RefreshBodyStore( GameModelCollection& collection )
+void PhysicsScene::RefreshBodyStore( PhysicsModelAccess& modelAccess )
 {
-    std::vector<SkullbonezCore::GameObjects::GameModel>& models = collection.PhysicsModels();
-    m_bodyStore.LoadFromModels( models, m_world.GetSleepStates() );
+    m_bodyStore.LoadFromModelAccess( modelAccess, m_world.GetSleepStates() );
 }
 
 
@@ -80,19 +77,17 @@ void PhysicsScene::ClearPendingBodyImpulses()
 }
 
 
-void PhysicsScene::RefreshColliderStore( GameModelCollection& collection )
+void PhysicsScene::RefreshColliderStore( PhysicsModelAccess& modelAccess )
 {
-    std::vector<SkullbonezCore::GameObjects::GameModel>& models = collection.PhysicsModels();
-    m_colliderStore.Refresh( models );
+    m_colliderStore.Refresh( modelAccess );
 }
 
 
-void PhysicsScene::RefreshRenderStore( GameModelCollection& collection )
+void PhysicsScene::RefreshRenderStore( PhysicsModelAccess& modelAccess )
 {
-    std::vector<SkullbonezCore::GameObjects::GameModel>& models = collection.PhysicsModels();
-    m_renderInstanceStore.Refresh( models );
+    m_renderInstanceStore.Refresh( modelAccess );
 #ifdef _DEBUG
-    ValidateRenderStoreMappings( static_cast<int>( models.size() ) );
+    ValidateRenderStoreMappings( modelAccess.ModelCount() );
 #endif
 }
 
@@ -149,56 +144,70 @@ void PhysicsScene::ValidateRenderStoreMappings( int modelCount ) const
 #endif
 
 
-void PhysicsScene::RunPhysics( GameModelCollection& collection, float fChangeInTime )
+void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess, float fChangeInTime )
 {
-    std::vector<SkullbonezCore::GameObjects::GameModel>& models = collection.PhysicsModels();
-    m_bodyStore.LoadFromModels( models, m_world.GetSleepStates() );
-    m_world.RunPhysics( collection, m_bodyStore, fChangeInTime );
+    m_bodyStore.LoadFromModelAccess( modelAccess, m_world.GetSleepStates() );
+    m_world.RunPhysics( modelAccess, m_bodyStore, fChangeInTime );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    m_bodyStore.WriteBackToModels( models );
+    m_bodyStore.WriteBackToModelAccess( modelAccess );
 }
 
 
-void PhysicsScene::WakeModel( GameModelCollection& collection, int index )
+void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
 {
-    RefreshBodyStore( collection );
+    RefreshBodyStore( modelAccess );
+    const int index = m_bodyStore.ModelIndexForHandle( body );
+    if ( index < 0 )
+    {
+        return;
+    }
     m_bodyStore.WakeBody( index );
-    m_world.WakeModel( collection, index );
+    m_world.WakeModel( modelAccess, index );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    m_bodyStore.WriteBackToModelAt( collection.PhysicsModels(), index );
+    m_bodyStore.WriteBackToModelAccessAt( modelAccess, index );
 }
 
 
-void PhysicsScene::SeedModelAsleep( GameModelCollection& collection, int index )
+void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
 {
-    RefreshBodyStore( collection );
+    RefreshBodyStore( modelAccess );
+    const int index = m_bodyStore.ModelIndexForHandle( body );
+    if ( index < 0 )
+    {
+        return;
+    }
     m_bodyStore.SeedBodyAsleep( index );
-    m_world.SeedModelAsleep( collection, index );
+    m_world.SeedModelAsleep( modelAccess, index );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    m_bodyStore.WriteBackToModelAt( collection.PhysicsModels(), index );
+    m_bodyStore.WriteBackToModelAccessAt( modelAccess, index );
 }
 
 
-void PhysicsScene::ApplyBodyImpulse( GameModelCollection& collection,
-                                     int bodyIndex,
+void PhysicsScene::ApplyBodyImpulse( PhysicsModelAccess& modelAccess,
+                                     PhysicsBodyHandle body,
                                      const Math::Vector::Vector3& impulse,
                                      const Math::Vector::Vector3& localApplicationPoint )
 {
-    SetPendingBodyImpulse( collection, bodyIndex, impulse, localApplicationPoint );
-    WakeModel( collection, bodyIndex );
+    SetPendingBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
+    WakeBody( modelAccess, body );
 }
 
 
-void PhysicsScene::SetPendingBodyImpulse( GameModelCollection& collection,
-                                          int bodyIndex,
+void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
+                                          PhysicsBodyHandle body,
                                           const Math::Vector::Vector3& impulse,
                                           const Math::Vector::Vector3& localApplicationPoint )
 {
-    RefreshBodyStore( collection );
+    RefreshBodyStore( modelAccess );
+    const int bodyIndex = m_bodyStore.ModelIndexForHandle( body );
+    if ( bodyIndex < 0 )
+    {
+        return;
+    }
     if ( m_bodyStore.SetPendingBodyImpulse( bodyIndex, impulse, localApplicationPoint ) )
     {
-        m_bodyStore.WriteBackToModelAt( collection.PhysicsModels(), bodyIndex );
-        collection.InvalidatePhysicsStreams();
+        m_bodyStore.WriteBackToModelAccessAt( modelAccess, bodyIndex );
+        modelAccess.InvalidatePhysicsStreams();
     }
 }
 

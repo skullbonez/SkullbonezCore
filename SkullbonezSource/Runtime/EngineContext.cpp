@@ -15,12 +15,15 @@ Glossary:
 Invariants:
   - EngineContext must not take ownership of bound systems.
   - IsBound() is conservative so incomplete bindings fail closed.
+  - Debug builds assert if callers bind or dereference a partial context.
 
 Related:
   - SkullbonezSource/Runtime/EngineContext.h
   - SkullbonezSource/Runtime/Run.h
 */
 #include "EngineContext.h"
+
+#include <cassert>
 
 namespace SkullbonezCore
 {
@@ -29,6 +32,7 @@ namespace Basics
 void EngineContext::Bind( const EngineContextBindings& bindings )
 {
     m_bindings = bindings;
+    assert( IsBound() && "EngineContext requires every borrowed runtime binding" );
 }
 
 
@@ -42,12 +46,18 @@ bool EngineContext::IsBound() const
 
 const EngineContextBindings& EngineContext::Bindings() const
 {
+    // Invariant: callers that dereference the context require the full
+    // Run-owned system graph, not a partially populated service locator.
+    assert( IsBound() && "EngineContext bindings accessed before full Bind()" );
     return m_bindings;
 }
 
 
 EngineContextBindings& EngineContext::Bindings()
 {
+    // Invariant: mutation is reserved for narrow extraction seams that still
+    // require the complete bound runtime graph.
+    assert( IsBound() && "EngineContext bindings accessed before full Bind()" );
     return m_bindings;
 }
 } // namespace Basics
