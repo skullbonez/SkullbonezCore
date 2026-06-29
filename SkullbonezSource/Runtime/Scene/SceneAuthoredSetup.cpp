@@ -143,9 +143,18 @@ bool IsSimpleRagdollNeckJointName( const char* bodyA, const char* bodyB )
            torsoPrefixLength == headPrefixLength && strncmp( bodyA, bodyB, torsoPrefixLength ) == 0;
 }
 
+bool IsBroadMaterialTarget( const char* target )
+{
+    return strcmp( target, "all" ) == 0 || strcmp( target, "balls" ) == 0 || strcmp( target, "boxes" ) == 0 ||
+           strcmp( target, "hulls" ) == 0 || strcmp( target, "convex_hulls" ) == 0;
+}
+
 bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const GameModel& model )
 {
-    if ( IsSimpleRagdollPartName( model.GetName() ) )
+    // Invariant: broad scene style targets must not recolor generated ragdoll
+    // body parts, but a named prefix/exact target may opt one authored ragdoll
+    // into a scene-local presentation material.
+    if ( IsSimpleRagdollPartName( model.GetName() ) && IsBroadMaterialTarget( material.target ) )
     {
         return false;
     }
@@ -167,7 +176,8 @@ bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, co
     }
     if ( strncmp( material.target, "prefix:", 7 ) == 0 )
     {
-        return strncmp( model.GetName(), material.target + 7, strlen( material.target + 7 ) ) == 0;
+        const char* prefix = material.target + 7;
+        return prefix[0] != '\0' && strncmp( model.GetName(), prefix, strlen( prefix ) ) == 0;
     }
     return strcmp( material.target, model.GetName() ) == 0;
 }
