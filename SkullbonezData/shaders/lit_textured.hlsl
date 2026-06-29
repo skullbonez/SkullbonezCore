@@ -419,7 +419,9 @@ float4 main_ps(VS_OUT input) : SV_TARGET
             // clipping, and depth stay unchanged; only the sampled grass albedo
             // is replaced by an authored color.
             float hemiT = saturate(terrainN.y * 0.5f + 0.5f);
-            float shadowWash = lerp(1.0f - uShadowParams.x * 0.38f, 1.0f, shadowFactor);
+            // Why: clean showcase floors use high-key solid colors, so their
+            // contact shadows need a stronger wash than textured terrain.
+            float shadowWash = lerp(1.0f - uShadowParams.x * 0.92f, 1.0f, shadowFactor);
             float3 ambient = earthBase * (0.58f + hemiT * 0.16f);
             float3 directSun = earthBase * uLightDiffuse.rgb * (terrainDiff * 0.22f) * shadowFactor;
             float3 rimLight = uLightDiffuse.rgb * (rim * 0.018f + grazing * 0.010f) * shadowFactor;
