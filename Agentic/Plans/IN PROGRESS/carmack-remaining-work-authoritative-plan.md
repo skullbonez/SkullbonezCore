@@ -109,20 +109,29 @@ Known useful evidence to preserve:
 - [ ] Audit the regenerated classification and identify any remaining
   unauthorized normal runtime path, render pass, asset lookup, or diagnostics
   global access.
-  Evidence:
+  Partial evidence: Phase 2 service-singleton slice regenerated
+  `Agentic/Reports/2026-06-29/carmack-phase-2-global-service-lifetime/global-service-hit-classification-after-service-singletons.csv`
+  and summary. Counts moved from 593 total hits to 579: `normal runtime path`
+  223 -> 216 and `render pass` 163 -> 156.
 - [ ] Route remaining unauthorized render-pass backend access through explicit
   render contexts or capability interfaces.
   Evidence:
 - [ ] Route remaining unauthorized asset, texture, camera, window, skybox,
   worker, config, profiler, or graphics-service access through borrowed
   runtime-owned services or explicit context parameters.
-  Evidence:
+  Partial evidence: removed unused `CameraCollection::Instance()` /
+  `CameraCollection::Destroy()` and `SkyBox::Instance()` / `SkyBox::Destroy()`
+  singleton surfaces plus their `pInstance` storage. Run already value-owns the
+  camera collection and skybox through `RunSubsystemState`.
 - [ ] Keep service contexts borrowed and lifetime-annotated. Do not introduce a
   new global service locator under a friendlier name.
   Evidence:
 - [ ] Ratchet `tools/check_runtime_boundaries.py` allowlists or guardrails so
   removed normal-path global access cannot silently return.
-  Evidence:
+  Partial evidence: lowered the camera and skybox singleton/pInstance
+  `GLOBAL_SERVICE_ACCESS_ALLOWLIST` entries; runtime-boundary check
+  `TestOutput/validation/agent_logs/carmack_phase2_service_singletons_runtime_boundaries.log`
+  passed with 0 errors.
 
 ## Phase 3 - Physics Standalone Boundary
 

@@ -131,28 +131,6 @@ void SkyBox::BuildMeshes()
 }
 
 
-SkyBox* SkyBox::Instance( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin, int m_zMax )
-{
-    if ( !SkyBox::pInstance )
-    {
-        static SkyBox instance( m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax );
-        SkyBox::pInstance = &instance;
-    }
-    return SkyBox::pInstance;
-}
-
-
-void SkyBox::Destroy()
-{
-    SkyBox* skyBox = SkyBox::pInstance;
-    if ( skyBox )
-    {
-        skyBox->ReleaseRenderResources();
-        SkyBox::pInstance = nullptr;
-    }
-}
-
-
 void SkyBox::BindTextures( TextureCollection& textures )
 {
     // Lifetime: Run owns the texture collection; skybox only borrows it between

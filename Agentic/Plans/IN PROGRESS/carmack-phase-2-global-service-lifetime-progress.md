@@ -4,29 +4,74 @@ Source plan: `Agentic/Plans/IN PROGRESS/carmack-remaining-work-authoritative-pla
 
 Assigned phase: `Phase 2 - Global Service Lifetime`
 
-Current status: progress scaffold created only. No source, tool, validation, or
-authoritative-plan files have been changed. Phase 2 should not start source
-edits until Phase 0 regenerates the global-service classification from the final
-current source tree.
+Current status: service-singleton cleanup slice in progress. This is not full
+Phase 2 closure; broad render/config/worker/diagnostics rows remain.
 
-Current provisional input: `Agentic/Reports/2026-06-29/carmack-handoff/global-service-hit-classification-summary.md`
-reports 611 classified hits. Treat this as handoff context, not final evidence,
-because the authoritative plan requires regeneration before closure.
+Phase 0 input:
+`Agentic/Reports/2026-06-29/carmack-handoff/global-service-hit-classification-summary.md`
+reports 593 classified hits: `normal runtime path` 223, `render pass` 163,
+`asset lookup` 12, and `diagnostics` 79.
+
+Current after-slice evidence:
+`Agentic/Reports/2026-06-29/carmack-phase-2-global-service-lifetime/global-service-hit-classification-after-service-singletons-summary.md`
+reports 579 classified hits: `normal runtime path` 216, `render pass` 156,
+`asset lookup` 12, and `diagnostics` 79.
+
+Completed slice:
+
+- Removed unused `CameraCollection::Instance()`, `CameraCollection::Destroy()`,
+  and `CameraCollection::pInstance` from
+  `SkullbonezSource/Runtime/CameraCollection.cpp` and
+  `SkullbonezSource/Runtime/CameraCollection.h`.
+- Removed unused `SkyBox::Instance()`, `SkyBox::Destroy()`, and
+  `SkyBox::pInstance` from `SkullbonezSource/World/SkyBox.cpp` and
+  `SkullbonezSource/World/SkyBox.h`.
+- Lowered matching `GLOBAL_SERVICE_ACCESS_ALLOWLIST` rows in
+  `tools/check_runtime_boundaries.py`.
+- Boundary check:
+  `TestOutput/validation/agent_logs/carmack_phase2_service_singletons_runtime_boundaries.log`
+  reports 0 errors and `PHASE2_SERVICE_SINGLETONS_BOUNDARY_EXIT=0`.
+- Comment-style audit scope:
+  `SkullbonezSource/Runtime/CameraCollection.cpp`,
+  `SkullbonezSource/Runtime/CameraCollection.h`,
+  `SkullbonezSource/World/SkyBox.cpp`,
+  `SkullbonezSource/World/SkyBox.h`, and
+  `tools/check_runtime_boundaries.py`; 5 checked, 0 deferred.
+- Initial validation:
+  `TestOutput/validation/agent_logs/carmack_phase2_service_singletons_validate_fast.log`
+  reports `VALIDATE_FAST: ALL PASSED`,
+  `PHASE2_SERVICE_SINGLETONS_VALIDATE_FAST_EXIT=0`, and
+  `PHASE2_SERVICE_SINGLETONS_VALIDATE_FAST_ELAPSED=129.78s`. Because the slice
+  touches `Runtime/*`, the final commit gate is `tools\validate_full.bat`.
+- Commit-gate validation:
+  `TestOutput/validation/agent_logs/carmack_phase2_service_singletons_validate_full.log`
+  reports `VALIDATE_FULL: DEFAULT GATE PASSED`,
+  `PHASE2_SERVICE_SINGLETONS_VALIDATE_FULL_EXIT=0`, and
+  `PHASE2_SERVICE_SINGLETONS_VALIDATE_FULL_ELAPSED=139.58s`.
 
 ## Checklist
 
 ### Classification And Scope
 
-- [ ] Regenerate `Agentic/Reports/<date>/carmack-phase-2-global-service-lifetime/global-service-hit-classification.csv`
+- [x] Regenerate `Agentic/Reports/<date>/carmack-phase-2-global-service-lifetime/global-service-hit-classification.csv`
   from the final current source tree using the same matching logic as
   `tools/check_runtime_boundaries.py`.
-- [ ] Regenerate `Agentic/Reports/<date>/carmack-phase-2-global-service-lifetime/global-service-hit-classification-summary.md`
+  Evidence: `Agentic/Reports/2026-06-29/carmack-phase-2-global-service-lifetime/global-service-hit-classification-after-service-singletons.csv`.
+- [x] Regenerate `Agentic/Reports/<date>/carmack-phase-2-global-service-lifetime/global-service-hit-classification-summary.md`
   from that CSV and record the exact generation command in this file.
-- [ ] Record the Phase 2 starting totals for `normal runtime path`,
+  Evidence: `Agentic/Reports/2026-06-29/carmack-phase-2-global-service-lifetime/global-service-hit-classification-after-service-singletons-summary.md`.
+  Command: inline PowerShell here-string piped to `python -`; the script imports
+  `tools/check_runtime_boundaries.py`, scans `SkullbonezSource/**/*.{cpp,h,hpp,inl}`
+  with `GLOBAL_SERVICE_ACCESS_PATTERNS`,
+  `GENERIC_INSTANCE_ACCESS_PATTERN`, `PROCESS_GLOBAL_POINTER_PATTERN`, and
+  `MUTABLE_PROCESS_GLOBAL_PATTERN`, then classifies by `(file,label)` from the
+  Phase 0 CSV.
+- [x] Record the Phase 2 starting totals for `normal runtime path`,
   `render pass`, `asset lookup`, and `diagnostics` from the regenerated summary.
-  The 2026-06-29 provisional summary shows:
-  `normal runtime path`: 271 hits, `render pass`: 166 hits,
-  `asset lookup`: 17 hits, `diagnostics`: 92 hits.
+  Phase 0 totals: `normal runtime path` 223, `render pass` 163,
+  `asset lookup` 12, `diagnostics` 79. After the service-singleton slice:
+  `normal runtime path` 216, `render pass` 156, `asset lookup` 12,
+  `diagnostics` 79.
 - [ ] Audit every regenerated `normal runtime path`, `render pass`,
   `asset lookup`, and `diagnostics` row and record one decision per row:
   `remove now`, `borrow context now`, `authorized bootstrap/shutdown/callback`,
@@ -93,6 +138,10 @@ because the authoritative plan requires regeneration before closure.
   `SkullbonezSource/World/SkyBox.cpp` and
   `SkullbonezSource/World/SkyBox.h`; keep skybox owned by runtime/world state
   rather than `pInstance`.
+  Slice evidence: removed unused `SkyBox::Instance()`, `SkyBox::Destroy()`, and
+  `pInstance`; Run already value-owns skybox through
+  `RunSubsystemState::skyBoxOwner`. Remaining `SkyBox.cpp` render/config rows
+  are deferred to the world render-resource context work.
 - [ ] Audit `SkullbonezSource/Runtime/Window.cpp` for callback/window bridge
   rows. Keep only OS callback bridge or bootstrap access; route normal resize
   behavior through a bound window/render service.
@@ -136,9 +185,11 @@ because the authoritative plan requires regeneration before closure.
 
 ### Guardrails And Records
 
-- [ ] Lower affected entries in
+- [x] Lower affected entries in
   `tools/check_runtime_boundaries.py` `GLOBAL_SERVICE_ACCESS_ALLOWLIST` after
   each removal.
+  Evidence: removed the camera and skybox singleton/pInstance allowances from
+  `tools/check_runtime_boundaries.py`; boundary checker reports 0 errors.
 - [ ] Remove or narrow entries in
   `tools/check_runtime_boundaries.py`
   `GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS` when a file no longer owns a
@@ -146,8 +197,12 @@ because the authoritative plan requires regeneration before closure.
 - [ ] Add or update synthetic self-tests in `tools/check_runtime_boundaries.py`
   for any new rejected pattern, especially renamed renderer, asset, worker, or
   diagnostics service access.
-- [ ] Run `python tools\check_runtime_boundaries.py` after guardrail edits and
+- [x] Run `python tools\check_runtime_boundaries.py` after guardrail edits and
   record the log path.
+  Evidence:
+  `TestOutput\validation\agent_logs\carmack_phase2_service_singletons_runtime_boundaries.log`;
+  JSON:
+  `TestOutput\validation\runtime_boundaries\carmack_phase2_service_singletons_runtime_boundaries.json`.
 - [ ] Record before/after CSV and summary paths in this file, then copy final
   closure evidence back to the authoritative plan only when the phase is
   genuinely complete and the worker is allowed to update it.
@@ -202,14 +257,25 @@ tools\validate_runtime_boundaries.bat
 
 ## Evidence To Collect
 
-- Regenerated classification CSV path and summary path.
+- Regenerated classification CSV path and summary path:
+  `Agentic\Reports\2026-06-29\carmack-phase-2-global-service-lifetime\global-service-hit-classification-after-service-singletons.csv`
+  and
+  `Agentic\Reports\2026-06-29\carmack-phase-2-global-service-lifetime\global-service-hit-classification-after-service-singletons-summary.md`.
 - A per-row or per-file decision table for all remaining `normal runtime path`,
   `render pass`, `asset lookup`, and `diagnostics` rows.
 - Before/after `GLOBAL_SERVICE_ACCESS_ALLOWLIST` counts from
   `tools/check_runtime_boundaries.py`.
 - `python tools\check_runtime_boundaries.py` output and log path after any
   guardrail update.
-- Comment-style audit result for every touched source-bearing file.
+- Comment-style audit result for every touched source-bearing file: checked
+  `CameraCollection.cpp`, `CameraCollection.h`, `SkyBox.cpp`, `SkyBox.h`, and
+  `tools/check_runtime_boundaries.py`; 5 checked, 0 deferred.
+- Phase 2 rubber-duck review:
+  Phase2-duck-01 (`019f13c0-0a1f-7242-8239-62156b06c9a6`) initially blocked
+  commit on the stricter `Runtime/*` validation requirement and a stale
+  singleton comment on `CameraCollection::Reset()`. Follow-up fixed the comment,
+  reran the focused audit, reran runtime-boundary logging with the explicit exit
+  marker, and ran `tools\validate_full.bat`.
 - Validation logs selected by touched area: `tools\validate_dx12_renderer.bat`
   for renderer/render-context changes, `tools\validate_physics.bat` for physics
   config or worker changes, `tools\validate_perf.bat` for hot-path worker or
@@ -218,10 +284,14 @@ tools\validate_runtime_boundaries.bat
 
 ## Validation Note
 
-This progress file is documentation-only, so no repository validation script is
-required for creating it. Future source or tool changes must follow the
-validation map in `AGENTS.md`; do not claim validation success without command
-output and log paths.
+This service-singleton source/tool slice touches `Runtime/*`, so the commit gate
+is `tools\validate_full.bat`. Evidence:
+`TestOutput\validation\agent_logs\carmack_phase2_service_singletons_validate_full.log`
+reports `VALIDATE_FULL: DEFAULT GATE PASSED` and exit 0. A preliminary
+`tools\validate_fast.bat` pass is in
+`TestOutput\validation\agent_logs\carmack_phase2_service_singletons_validate_fast.log`.
+The changed boundary checker was also run directly in
+`TestOutput\validation\agent_logs\carmack_phase2_service_singletons_runtime_boundaries.log`.
 
 ## Open Risks And Questions
 

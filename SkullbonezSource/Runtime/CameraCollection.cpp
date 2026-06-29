@@ -52,29 +52,6 @@ CameraCollection::CameraCollection()
 }
 
 
-CameraCollection* CameraCollection::Instance()
-{
-    if ( !CameraCollection::pInstance )
-    {
-        static CameraCollection instance;
-        CameraCollection::pInstance = &instance;
-    }
-    return CameraCollection::pInstance;
-}
-
-
-void CameraCollection::Destroy()
-{
-    CameraCollection* cameras = CameraCollection::pInstance;
-    if ( cameras )
-    {
-        cameras->Reset();
-        cameras->m_terrain = nullptr;
-        CameraCollection::pInstance = nullptr;
-    }
-}
-
-
 void CameraCollection::Reset()
 {
     m_arrayPosition = 0;
