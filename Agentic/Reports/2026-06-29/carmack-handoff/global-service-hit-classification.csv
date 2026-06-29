@@ -1,19 +1,16 @@
 file,line,label,classification,source
-SkullbonezSource/Assets/AssetSystem.cpp,40,g_*,asset lookup,AssetSystem* g_activeAssetSystem = nullptr;
-SkullbonezSource/Assets/AssetSystem.cpp,352,Gfx(),asset lookup,return Rendering::Gfx().CreateShader( shader ? shader->baseName.c_str()
-SkullbonezSource/Assets/AssetSystem.cpp,453,g_*,asset lookup,g_activeAssetSystem = assets;
-SkullbonezSource/Assets/AssetSystem.cpp,456,ActiveAssetSystem(),asset lookup,AssetSystem* ActiveAssetSystem()
-SkullbonezSource/Assets/AssetSystem.cpp,458,g_*,asset lookup,return g_activeAssetSystem;
-SkullbonezSource/Assets/AssetSystem.cpp,461,CreateShaderFromActiveAssets(),asset lookup,std::unique_ptr<Rendering::IShader> CreateShaderFromActiveAssets( const char* logicalNameOrBaseName )
-SkullbonezSource/Assets/AssetSystem.cpp,463,g_*,asset lookup,if ( g_activeAssetSystem )
-SkullbonezSource/Assets/AssetSystem.cpp,465,g_*,asset lookup,return g_activeAssetSystem->CreateShader( logicalNameOrBaseName );
-SkullbonezSource/Assets/AssetSystem.cpp,468,Gfx(),asset lookup,return Rendering::Gfx().CreateShader( fallbackBaseName ? fallbackBaseName : logicalNameOrBaseName );
-SkullbonezSource/Assets/AssetSystem.h,184,ActiveAssetSystem(),asset lookup,AssetSystem* ActiveAssetSystem();
-SkullbonezSource/Assets/AssetSystem.h,185,CreateShaderFromActiveAssets(),asset lookup,std::unique_ptr<Rendering::IShader> CreateShaderFromActiveAssets( const char* logicalNameOrBaseName );
-SkullbonezSource/Assets/TextureCollection.cpp,37,TextureCollection::Instance(),asset lookup,TextureCollection* TextureCollection::Instance()
-SkullbonezSource/Assets/TextureCollection.cpp,105,Gfx(),asset lookup,Gfx().DeleteTexture( texture.backendHandle );
-SkullbonezSource/Assets/TextureCollection.cpp,143,Gfx(),asset lookup,"Gfx().BindTexture( m_textures[FindIndex( hash )].backendHandle, 0 );"
-SkullbonezSource/Assets/TextureCollection.cpp,226,Gfx(),asset lookup,"Gfx().CreateTexture2D( data.get(), width, height, requestedChannels, generateMips, linearFilter );"
+SkullbonezSource/Assets/AssetSystem.cpp,41,g_*,asset lookup,AssetSystem* g_activeAssetSystem = nullptr;
+SkullbonezSource/Assets/AssetSystem.cpp,361,Gfx(),asset lookup,"return CreateShader( Rendering::Gfx(), logicalNameOrBaseName );"
+SkullbonezSource/Assets/AssetSystem.cpp,461,g_*,asset lookup,g_activeAssetSystem = assets;
+SkullbonezSource/Assets/AssetSystem.cpp,464,ActiveAssetSystem(),asset lookup,AssetSystem* ActiveAssetSystem()
+SkullbonezSource/Assets/AssetSystem.cpp,466,g_*,asset lookup,return g_activeAssetSystem;
+SkullbonezSource/Assets/AssetSystem.cpp,469,CreateShaderFromActiveAssets(),asset lookup,std::unique_ptr<Rendering::IShader> CreateShaderFromActiveAssets( const char* logicalNameOrBaseName )
+SkullbonezSource/Assets/AssetSystem.cpp,471,g_*,asset lookup,if ( g_activeAssetSystem )
+SkullbonezSource/Assets/AssetSystem.cpp,473,g_*,asset lookup,return g_activeAssetSystem->CreateShader( logicalNameOrBaseName );
+SkullbonezSource/Assets/AssetSystem.cpp,476,Gfx(),asset lookup,return Rendering::Gfx().CreateShader( fallbackBaseName ? fallbackBaseName : logicalNameOrBaseName );
+SkullbonezSource/Assets/AssetSystem.h,197,ActiveAssetSystem(),asset lookup,AssetSystem* ActiveAssetSystem();
+SkullbonezSource/Assets/AssetSystem.h,198,CreateShaderFromActiveAssets(),asset lookup,std::unique_ptr<Rendering::IShader> CreateShaderFromActiveAssets( const char* logicalNameOrBaseName );
+SkullbonezSource/Assets/TextureCollection.cpp,38,TextureCollection::Instance(),asset lookup,TextureCollection* TextureCollection::Instance()
 SkullbonezSource/Core/Common.h,111,Cfg(),bootstrap,inline SkullbonezCore::Basics::EngineConfig& Cfg()
 SkullbonezSource/Core/Common.h,113,EngineConfig::Instance(),bootstrap,return SkullbonezCore::Basics::EngineConfig::Instance();
 SkullbonezSource/Core/Common.h,118,Cfg(),bootstrap,"return std::clamp( Cfg().gameModelCapacity, 1, MAX_GAME_MODELS );"
@@ -109,66 +106,66 @@ SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp,534,Gfx(),diagnostics,Gfx
 SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp,536,Gfx(),diagnostics,Gfx().SetBlend( false );
 SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp,584,Gfx(),diagnostics,if ( m_flags == PHYSICS_DEBUG_NONE || models.GetModelCount() <= 0 || !Gfx().GetCapabilities().supportsDebugLines )
 SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp,617,Gfx(),diagnostics,"Gfx().DrawLinesColored( m_lineData.data(), static_cast<int>( m_lineData.size() / 6 ), viewProj.Data() );"
-SkullbonezSource/Physics/PersistentContactSolver.cpp,139,Cfg(),normal runtime path,"const float contactSlop = (std::max)( 0.0f, Cfg().persistentContactSlop );"
-SkullbonezSource/Physics/PersistentContactSolver.cpp,148,Cfg(),normal runtime path,"const float baumgarteBeta = (std::max)( 0.0f, Cfg().persistentContactBaumgarteBeta );"
-SkullbonezSource/Physics/PersistentContactSolver.cpp,157,Cfg(),normal runtime path,"(std::max)( 0.0f, (std::min)( Cfg().persistentContactPositionCorrectionPercent, 1.0f ) );"
-SkullbonezSource/Physics/PersistentContactSolver.cpp,158,Cfg(),normal runtime path,"const float maxBaumgarteBias = (std::max)( 0.0f, Cfg().terrainMaxBaumgarteBias );"
-SkullbonezSource/Physics/PersistentContactSolver.cpp,167,Cfg(),normal runtime path,"const int solverIterations = (std::max)( 1, Cfg().persistentContactSolverIterations );"
-SkullbonezSource/Physics/PersistentContactSolver.cpp,169,Cfg(),normal runtime path,const float objectFrictionCoeff = Cfg().objectFrictionCoeff;
-SkullbonezSource/Physics/PersistentContactSolver.cpp,432,Cfg(),normal runtime path,"const float sleepLinear = (std::max)( 0.0f, Cfg().physicsSleepLinearSpeed );"
-SkullbonezSource/Physics/PersistentContactSolver.cpp,433,Cfg(),normal runtime path,"const float sleepAngular = (std::max)( 0.0f, Cfg().physicsSleepAngularSpeed );"
-SkullbonezSource/Physics/PersistentContactSolver.cpp,452,Cfg(),normal runtime path,"(std::max)( 1.0e-4f, m_gameModels[supportedIndex].GetMass() * fabsf( Cfg().gravity ) * dt * 0.01f );"
-SkullbonezSource/Physics/PersistentContactSolver.cpp,519,Cfg(),normal runtime path,conservativeContactRadius( a ) + conservativeContactRadius( b ) + Cfg().contactEpsilon;
-SkullbonezSource/Physics/PersistentContactSolver.cpp,532,Cfg(),normal runtime path,"manifoldBuilt = BuildObjectContactManifold( a, b, aIndex, bIndex, Cfg().contactEpsilon, manifold );"
-SkullbonezSource/Physics/PersistentContactSolver.cpp,649,Cfg(),normal runtime path,const float warmStartTotal = m_gameModels[manifold.bodyA].GetMass() * fabsf( Cfg().gravity ) *
-SkullbonezSource/Physics/PersistentContactSolver.cpp,782,Cfg(),normal runtime path,"const float terrainSlop = (std::max)( 0.0f, Cfg().terrainContactSlop );"
-SkullbonezSource/Physics/PersistentContactSolver.cpp,784,Cfg(),normal runtime path,vn > -Cfg().contactRestitutionThreshold )
-SkullbonezSource/Physics/PersistentContactSolver.cpp,790,Cfg(),normal runtime path,else if ( fabsf( vn ) < Cfg().contactRestitutionThreshold )
-SkullbonezSource/Physics/PersistentContactSolver.cpp,795,Cfg(),normal runtime path,"const float terrainBeta = (std::max)( 0.0f, Cfg().terrainContactBaumgarteBeta );"
-SkullbonezSource/Physics/PersistentContactSolver.cpp,796,Cfg(),normal runtime path,"const float maxTerrainBias = (std::max)( 0.0f, Cfg().terrainMaxBaumgarteBias );"
-SkullbonezSource/Physics/PersistentContactSolver.cpp,804,Cfg(),normal runtime path,else if ( vn < -Cfg().contactRestitutionThreshold )
-SkullbonezSource/Physics/PersistentContactSolver.cpp,810,Cfg(),normal runtime path,else if ( vn < -Cfg().contactRestitutionThreshold )
-SkullbonezSource/Physics/PersistentContactSolver.cpp,816,Cfg(),normal runtime path,else if ( vn >= -Cfg().contactRestitutionThreshold )
-SkullbonezSource/Physics/PersistentContactSolver.cpp,847,Cfg(),normal runtime path,? ( c.allowsTangentFriction ? Cfg().frictionCoeff * c.terrainWarmStart : 0.0f )
-SkullbonezSource/Physics/PersistentContactSolver.cpp,849,Cfg(),normal runtime path,: objectFrictionCoeff * contactMass * fabsf( Cfg().gravity ) * dt );
-SkullbonezSource/Physics/PersistentContactSolver.cpp,876,Cfg(),normal runtime path,? Cfg().frictionCoeff *
-SkullbonezSource/Physics/PersistentContactSolver.cpp,985,Cfg(),normal runtime path,? Cfg().frictionCoeff *
-SkullbonezSource/Physics/PersistentContactSolver.cpp,1052,Cfg(),normal runtime path,float normalForce = model.GetMass() * fabsf( Cfg().gravity ) * fabsf( manifold.normal.y );
-SkullbonezSource/Physics/PersistentContactSolver.cpp,1181,Cfg(),normal runtime path,"const float rowContactSlop = c.isTerrain ? (std::max)( 0.0f, Cfg().terrainContactSlop ) : contactSlop;"
-SkullbonezSource/Physics/PhysicsWorld.cpp,113,Cfg(),normal runtime path,PhysicsWorld::PhysicsWorld() : m_spatialGrid( Cfg().broadphaseCell )
-SkullbonezSource/Physics/PhysicsWorld.cpp,799,Cfg(),normal runtime path,"m_sleepCounter[index] = static_cast<uint8_t>( (std::min)( Cfg().physicsSleepFrames, 255 ) );"
-SkullbonezSource/Physics/PhysicsWorld.cpp,1008,Cfg(),normal runtime path,if ( Cfg().physicsParallel && Cfg().physicsParallelTornadoField )
-SkullbonezSource/Physics/PhysicsWorld.cpp,1008,Cfg(),normal runtime path,if ( Cfg().physicsParallel && Cfg().physicsParallelTornadoField )
-SkullbonezSource/Physics/PhysicsWorld.cpp,1010,WorkerPool::Instance(),normal runtime path,"SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,"
-SkullbonezSource/Physics/PhysicsWorld.cpp,1645,Cfg(),normal runtime path,"const float sleepLinear = (std::max)( 0.0f, Cfg().physicsSleepLinearSpeed );"
-SkullbonezSource/Physics/PhysicsWorld.cpp,1646,Cfg(),normal runtime path,"const float sleepAngular = (std::max)( 0.0f, Cfg().physicsSleepAngularSpeed );"
-SkullbonezSource/Physics/PhysicsWorld.cpp,1649,Cfg(),normal runtime path,"const uint8_t SLEEP_FRAMES = static_cast<uint8_t>( (std::max)( 1, (std::min)( Cfg().physicsSleepFrames, 255 ) ) );"
-SkullbonezSource/Physics/PhysicsWorld.cpp,1677,Cfg(),normal runtime path,if ( Cfg().physicsParallel && Cfg().physicsParallelApplyForces )
-SkullbonezSource/Physics/PhysicsWorld.cpp,1677,Cfg(),normal runtime path,if ( Cfg().physicsParallel && Cfg().physicsParallelApplyForces )
-SkullbonezSource/Physics/PhysicsWorld.cpp,1679,WorkerPool::Instance(),normal runtime path,"SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,"
-SkullbonezSource/Physics/PhysicsWorld.cpp,1779,Cfg(),normal runtime path,Cfg().contactEpsilon + PHYSICS_FAST_SWEEP_PAIR_SLOP;
-SkullbonezSource/Physics/PhysicsWorld.cpp,1941,Cfg(),normal runtime path,"Cfg().contactEpsilon,"
-SkullbonezSource/Physics/PhysicsWorld.cpp,1963,Cfg(),normal runtime path,"BuildObjectContactManifold( m_gameModels[a], m_gameModels[b], a, b, Cfg().contactEpsilon, manifold );"
-SkullbonezSource/Physics/PhysicsWorld.cpp,2401,Cfg(),normal runtime path,PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED && Cfg().physicsParallel && Cfg().physicsParallelNarrowphase &&
-SkullbonezSource/Physics/PhysicsWorld.cpp,2401,Cfg(),normal runtime path,PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED && Cfg().physicsParallel && Cfg().physicsParallelNarrowphase &&
-SkullbonezSource/Physics/PhysicsWorld.cpp,2404,WorkerPool::Instance(),normal runtime path,SkullbonezCore::Threading::WorkerPool::Instance().GetThreadCount() > 0;
-SkullbonezSource/Physics/PhysicsWorld.cpp,2418,WorkerPool::Instance(),normal runtime path,SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor(
-SkullbonezSource/Physics/PhysicsWorld.cpp,2518,Cfg(),normal runtime path,if ( Cfg().physicsParallel && Cfg().physicsParallelTerrainDetect )
-SkullbonezSource/Physics/PhysicsWorld.cpp,2518,Cfg(),normal runtime path,if ( Cfg().physicsParallel && Cfg().physicsParallelTerrainDetect )
-SkullbonezSource/Physics/PhysicsWorld.cpp,2520,WorkerPool::Instance(),normal runtime path,"SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,"
-SkullbonezSource/Physics/PhysicsWorld.cpp,2574,Cfg(),normal runtime path,if ( Cfg().physicsParallel && Cfg().physicsParallelIntegrate )
-SkullbonezSource/Physics/PhysicsWorld.cpp,2574,Cfg(),normal runtime path,if ( Cfg().physicsParallel && Cfg().physicsParallelIntegrate )
-SkullbonezSource/Physics/PhysicsWorld.cpp,2576,WorkerPool::Instance(),normal runtime path,"SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,"
+SkullbonezSource/Physics/PersistentContactSolver.cpp,141,Cfg(),normal runtime path,"const float contactSlop = (std::max)( 0.0f, Cfg().persistentContactSlop );"
+SkullbonezSource/Physics/PersistentContactSolver.cpp,150,Cfg(),normal runtime path,"const float baumgarteBeta = (std::max)( 0.0f, Cfg().persistentContactBaumgarteBeta );"
+SkullbonezSource/Physics/PersistentContactSolver.cpp,159,Cfg(),normal runtime path,"(std::max)( 0.0f, (std::min)( Cfg().persistentContactPositionCorrectionPercent, 1.0f ) );"
+SkullbonezSource/Physics/PersistentContactSolver.cpp,160,Cfg(),normal runtime path,"const float maxBaumgarteBias = (std::max)( 0.0f, Cfg().terrainMaxBaumgarteBias );"
+SkullbonezSource/Physics/PersistentContactSolver.cpp,169,Cfg(),normal runtime path,"const int solverIterations = (std::max)( 1, Cfg().persistentContactSolverIterations );"
+SkullbonezSource/Physics/PersistentContactSolver.cpp,171,Cfg(),normal runtime path,const float objectFrictionCoeff = Cfg().objectFrictionCoeff;
+SkullbonezSource/Physics/PersistentContactSolver.cpp,434,Cfg(),normal runtime path,"const float sleepLinear = (std::max)( 0.0f, Cfg().physicsSleepLinearSpeed );"
+SkullbonezSource/Physics/PersistentContactSolver.cpp,435,Cfg(),normal runtime path,"const float sleepAngular = (std::max)( 0.0f, Cfg().physicsSleepAngularSpeed );"
+SkullbonezSource/Physics/PersistentContactSolver.cpp,455,Cfg(),normal runtime path,fabsf( Cfg().gravity ) * dt * 0.01f );
+SkullbonezSource/Physics/PersistentContactSolver.cpp,524,Cfg(),normal runtime path,conservativeContactRadius( colliderA ) + conservativeContactRadius( colliderB ) + Cfg().contactEpsilon;
+SkullbonezSource/Physics/PersistentContactSolver.cpp,543,Cfg(),normal runtime path,"Cfg().contactEpsilon,"
+SkullbonezSource/Physics/PersistentContactSolver.cpp,662,Cfg(),normal runtime path,fabsf( Cfg().gravity ) * fabsf( manifold.normal.y ) * dt * supportSeedScale;
+SkullbonezSource/Physics/PersistentContactSolver.cpp,793,Cfg(),normal runtime path,"const float terrainSlop = (std::max)( 0.0f, Cfg().terrainContactSlop );"
+SkullbonezSource/Physics/PersistentContactSolver.cpp,795,Cfg(),normal runtime path,vn > -Cfg().contactRestitutionThreshold )
+SkullbonezSource/Physics/PersistentContactSolver.cpp,801,Cfg(),normal runtime path,else if ( fabsf( vn ) < Cfg().contactRestitutionThreshold )
+SkullbonezSource/Physics/PersistentContactSolver.cpp,806,Cfg(),normal runtime path,"const float terrainBeta = (std::max)( 0.0f, Cfg().terrainContactBaumgarteBeta );"
+SkullbonezSource/Physics/PersistentContactSolver.cpp,807,Cfg(),normal runtime path,"const float maxTerrainBias = (std::max)( 0.0f, Cfg().terrainMaxBaumgarteBias );"
+SkullbonezSource/Physics/PersistentContactSolver.cpp,815,Cfg(),normal runtime path,else if ( vn < -Cfg().contactRestitutionThreshold )
+SkullbonezSource/Physics/PersistentContactSolver.cpp,822,Cfg(),normal runtime path,else if ( vn < -Cfg().contactRestitutionThreshold )
+SkullbonezSource/Physics/PersistentContactSolver.cpp,829,Cfg(),normal runtime path,else if ( vn >= -Cfg().contactRestitutionThreshold )
+SkullbonezSource/Physics/PersistentContactSolver.cpp,859,Cfg(),normal runtime path,? ( c.allowsTangentFriction ? Cfg().frictionCoeff * c.terrainWarmStart : 0.0f )
+SkullbonezSource/Physics/PersistentContactSolver.cpp,861,Cfg(),normal runtime path,: objectFrictionCoeff * contactMass * fabsf( Cfg().gravity ) * dt );
+SkullbonezSource/Physics/PersistentContactSolver.cpp,888,Cfg(),normal runtime path,? Cfg().frictionCoeff *
+SkullbonezSource/Physics/PersistentContactSolver.cpp,997,Cfg(),normal runtime path,? Cfg().frictionCoeff *
+SkullbonezSource/Physics/PersistentContactSolver.cpp,1064,Cfg(),normal runtime path,float normalForce = record.mass * fabsf( Cfg().gravity ) * fabsf( manifold.normal.y );
+SkullbonezSource/Physics/PersistentContactSolver.cpp,1193,Cfg(),normal runtime path,"const float rowContactSlop = c.isTerrain ? (std::max)( 0.0f, Cfg().terrainContactSlop ) : contactSlop;"
+SkullbonezSource/Physics/PhysicsWorld.cpp,117,Cfg(),normal runtime path,PhysicsWorld::PhysicsWorld() : m_spatialGrid( Cfg().broadphaseCell )
+SkullbonezSource/Physics/PhysicsWorld.cpp,800,Cfg(),normal runtime path,"m_sleepCounter[index] = static_cast<uint8_t>( (std::min)( Cfg().physicsSleepFrames, 255 ) );"
+SkullbonezSource/Physics/PhysicsWorld.cpp,1007,Cfg(),normal runtime path,if ( Cfg().physicsParallel && Cfg().physicsParallelTornadoField )
+SkullbonezSource/Physics/PhysicsWorld.cpp,1007,Cfg(),normal runtime path,if ( Cfg().physicsParallel && Cfg().physicsParallelTornadoField )
+SkullbonezSource/Physics/PhysicsWorld.cpp,1009,WorkerPool::Instance(),normal runtime path,"SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,"
+SkullbonezSource/Physics/PhysicsWorld.cpp,1651,Cfg(),normal runtime path,"const float sleepLinear = (std::max)( 0.0f, Cfg().physicsSleepLinearSpeed );"
+SkullbonezSource/Physics/PhysicsWorld.cpp,1652,Cfg(),normal runtime path,"const float sleepAngular = (std::max)( 0.0f, Cfg().physicsSleepAngularSpeed );"
+SkullbonezSource/Physics/PhysicsWorld.cpp,1655,Cfg(),normal runtime path,"const uint8_t SLEEP_FRAMES = static_cast<uint8_t>( (std::max)( 1, (std::min)( Cfg().physicsSleepFrames, 255 ) ) );"
+SkullbonezSource/Physics/PhysicsWorld.cpp,1683,Cfg(),normal runtime path,if ( Cfg().physicsParallel && Cfg().physicsParallelApplyForces )
+SkullbonezSource/Physics/PhysicsWorld.cpp,1683,Cfg(),normal runtime path,if ( Cfg().physicsParallel && Cfg().physicsParallelApplyForces )
+SkullbonezSource/Physics/PhysicsWorld.cpp,1685,WorkerPool::Instance(),normal runtime path,"SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,"
+SkullbonezSource/Physics/PhysicsWorld.cpp,1785,Cfg(),normal runtime path,Cfg().contactEpsilon + PHYSICS_FAST_SWEEP_PAIR_SLOP;
+SkullbonezSource/Physics/PhysicsWorld.cpp,1947,Cfg(),normal runtime path,"Cfg().contactEpsilon,"
+SkullbonezSource/Physics/PhysicsWorld.cpp,1969,Cfg(),normal runtime path,"BuildObjectContactManifold( m_gameModels[a], m_gameModels[b], a, b, Cfg().contactEpsilon, manifold );"
+SkullbonezSource/Physics/PhysicsWorld.cpp,2407,Cfg(),normal runtime path,PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED && Cfg().physicsParallel && Cfg().physicsParallelNarrowphase &&
+SkullbonezSource/Physics/PhysicsWorld.cpp,2407,Cfg(),normal runtime path,PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED && Cfg().physicsParallel && Cfg().physicsParallelNarrowphase &&
+SkullbonezSource/Physics/PhysicsWorld.cpp,2410,WorkerPool::Instance(),normal runtime path,SkullbonezCore::Threading::WorkerPool::Instance().GetThreadCount() > 0;
+SkullbonezSource/Physics/PhysicsWorld.cpp,2424,WorkerPool::Instance(),normal runtime path,SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor(
+SkullbonezSource/Physics/PhysicsWorld.cpp,2524,Cfg(),normal runtime path,if ( Cfg().physicsParallel && Cfg().physicsParallelTerrainDetect )
+SkullbonezSource/Physics/PhysicsWorld.cpp,2524,Cfg(),normal runtime path,if ( Cfg().physicsParallel && Cfg().physicsParallelTerrainDetect )
+SkullbonezSource/Physics/PhysicsWorld.cpp,2526,WorkerPool::Instance(),normal runtime path,"SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,"
+SkullbonezSource/Physics/PhysicsWorld.cpp,2580,Cfg(),normal runtime path,if ( Cfg().physicsParallel && Cfg().physicsParallelIntegrate )
+SkullbonezSource/Physics/PhysicsWorld.cpp,2580,Cfg(),normal runtime path,if ( Cfg().physicsParallel && Cfg().physicsParallelIntegrate )
+SkullbonezSource/Physics/PhysicsWorld.cpp,2582,WorkerPool::Instance(),normal runtime path,"SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,"
 SkullbonezSource/Physics/RigidBody.cpp,220,Cfg(),normal runtime path,float limitSq = Cfg().velocityLimit * Cfg().velocityLimit;
 SkullbonezSource/Physics/RigidBody.cpp,220,Cfg(),normal runtime path,float limitSq = Cfg().velocityLimit * Cfg().velocityLimit;
 SkullbonezSource/Physics/RigidBody.cpp,223,Cfg(),normal runtime path,float scale = Cfg().velocityLimit / sqrtf( magSq );
 SkullbonezSource/Physics/TornadoField.cpp,328,Gfx(),test/tool,if ( !m_config.visualizeVelocityField || !Gfx().GetCapabilities().supportsDebugLines )
 SkullbonezSource/Physics/TornadoField.cpp,411,Gfx(),test/tool,"Gfx().DrawLinesColored( m_lineData.data(), vertCount, viewProj.Data() );"
-SkullbonezSource/Rendering/GameModelRenderer.cpp,112,Cfg(),render pass,const bool alphaBlendedPass = Cfg().runtimeRender.renderCollisionVolumes || clampedMaterialAlpha < 1.0f;
-SkullbonezSource/Rendering/GameModelRenderer.cpp,299,Cfg(),render pass,if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && Cfg().shadowParallelPrep &&
-SkullbonezSource/Rendering/GameModelRenderer.cpp,304,WorkerPool::Instance(),render pass,SkullbonezCore::Threading::WorkerPool::Instance().ParallelCollectOrdered<ShadowCasterBatches>(
-SkullbonezSource/Rendering/GameModelRenderer.cpp,478,Cfg(),render pass,if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && Cfg().shadowParallelPrep &&
-SkullbonezSource/Rendering/GameModelRenderer.cpp,483,WorkerPool::Instance(),render pass,SkullbonezCore::Threading::WorkerPool::Instance().ParallelCollectOrdered<BoundsAccumulator>(
+SkullbonezSource/Rendering/GameModelRenderer.cpp,114,Cfg(),render pass,const bool alphaBlendedPass = Cfg().runtimeRender.renderCollisionVolumes || clampedMaterialAlpha < 1.0f;
+SkullbonezSource/Rendering/GameModelRenderer.cpp,309,Cfg(),render pass,if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && Cfg().shadowParallelPrep &&
+SkullbonezSource/Rendering/GameModelRenderer.cpp,314,WorkerPool::Instance(),render pass,SkullbonezCore::Threading::WorkerPool::Instance().ParallelCollectOrdered<ShadowCasterBatches>(
+SkullbonezSource/Rendering/GameModelRenderer.cpp,485,Cfg(),render pass,if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && Cfg().shadowParallelPrep &&
+SkullbonezSource/Rendering/GameModelRenderer.cpp,490,WorkerPool::Instance(),render pass,SkullbonezCore::Threading::WorkerPool::Instance().ParallelCollectOrdered<BoundsAccumulator>(
 SkullbonezSource/Rendering/Helper.cpp,126,Gfx(),render pass,Gfx().SetBlend( true );
 SkullbonezSource/Rendering/Helper.cpp,127,Gfx(),render pass,"Gfx().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );"
 SkullbonezSource/Rendering/Helper.cpp,128,Gfx(),render pass,Gfx().SetDepthWrite( false );
@@ -214,8 +211,8 @@ SkullbonezSource/Rendering/IRenderBackend.h,78,Gfx(),render pass,IRenderBackend&
 SkullbonezSource/Rendering/IRenderBackend.h,79,GfxRayTracing(),render pass,IRenderRayTracing& GfxRayTracing();
 SkullbonezSource/Rendering/IRenderBackend.h,93,Gfx(),render pass,"Gfx().PushDrawCallTraceScope( fullPathOrLeaf, hash );"
 SkullbonezSource/Rendering/IRenderBackend.h,100,Gfx(),render pass,Gfx().PopDrawCallTraceScope( m_hash );
-SkullbonezSource/Rendering/Shadow.h,127,Gfx(),render pass,"Gfx().BindTexture( shadow->depthTextureHandle, SHADOW_TEXTURE_SLOT );"
-SkullbonezSource/Rendering/Shadow.h,134,Gfx(),render pass,"Gfx().BindTexture( 0, SHADOW_TEXTURE_SLOT );"
+SkullbonezSource/Rendering/Shadow.h,140,Gfx(),render pass,"Gfx().BindTexture( shadow->depthTextureHandle, SHADOW_TEXTURE_SLOT );"
+SkullbonezSource/Rendering/Shadow.h,147,Gfx(),render pass,"Gfx().BindTexture( 0, SHADOW_TEXTURE_SLOT );"
 SkullbonezSource/Rendering/Text.cpp,248,Gfx(),render pass,"Text2d::fontTexture = Gfx().CreateTexture2D( pixels.get(), FONT_ATLAS_W, FONT_ATLAS_H, 1, false, true );"
 SkullbonezSource/Rendering/Text.cpp,519,Gfx(),render pass,"Text2d::textBatchVB = Gfx().CreateDynamicVB( batchAttribs, 3, TEXT_BATCH_MAX_CHARS * TEXT_BATCH_VERTS_PER_CHAR );"
 SkullbonezSource/Rendering/Text.cpp,523,Gfx(),render pass,"Text2d::dynamicVB = Gfx().CreateDynamicVB( quadAttribs, 2, 6 );"
@@ -280,11 +277,10 @@ SkullbonezSource/Runtime/CameraCollection.cpp,55,CameraCollection::Instance(),no
 SkullbonezSource/Runtime/CameraCollection.cpp,57,pInstance,normal runtime path,if ( !CameraCollection::pInstance )
 SkullbonezSource/Runtime/CameraCollection.cpp,60,pInstance,normal runtime path,CameraCollection::pInstance = &instance;
 SkullbonezSource/Runtime/CameraCollection.cpp,62,pInstance,normal runtime path,return CameraCollection::pInstance;
-SkullbonezSource/Runtime/CameraCollection.cpp,68,pInstance,normal runtime path,if ( CameraCollection::pInstance )
-SkullbonezSource/Runtime/CameraCollection.cpp,70,pInstance,normal runtime path,*CameraCollection::pInstance = CameraCollection();
-SkullbonezSource/Runtime/CameraCollection.cpp,71,pInstance,normal runtime path,CameraCollection::pInstance = nullptr;
-SkullbonezSource/Runtime/CameraCollection.cpp,402,Cfg(),normal runtime path,m_tweenCamera.m_position.y = terrainHeight + Cfg().minCameraHeight;
-SkullbonezSource/Runtime/CameraCollection.h,53,pInstance,normal runtime path,inline static CameraCollection* pInstance = nullptr;
+SkullbonezSource/Runtime/CameraCollection.cpp,68,pInstance,normal runtime path,CameraCollection* cameras = CameraCollection::pInstance;
+SkullbonezSource/Runtime/CameraCollection.cpp,73,pInstance,normal runtime path,CameraCollection::pInstance = nullptr;
+SkullbonezSource/Runtime/CameraCollection.cpp,404,Cfg(),normal runtime path,m_tweenCamera.m_position.y = terrainHeight + Cfg().minCameraHeight;
+SkullbonezSource/Runtime/CameraCollection.h,55,pInstance,normal runtime path,inline static CameraCollection* pInstance = nullptr;
 SkullbonezSource/Runtime/Editor/LauncherLaser.cpp,77,Gfx(),test/tool,Gfx().DestroyDynamicVB( m_dynamicVB );
 SkullbonezSource/Runtime/Editor/LauncherLaser.cpp,99,CreateShaderFromActiveAssets(),test/tool,"m_shader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( ""shader.launcher_laser"" );"
 SkullbonezSource/Runtime/Editor/LauncherLaser.cpp,105,Gfx(),test/tool,"m_dynamicVB = Gfx().CreateDynamicVB( attribs, 2, MAX_VERTICES );"
@@ -308,78 +304,75 @@ SkullbonezSource/Runtime/Editor/LauncherTools.cpp,244,Cfg(),test/tool,"ProbeBoxT
 SkullbonezSource/Runtime/Editor/LauncherTools.cpp,314,Cfg(),test/tool,"fprintf( f, ""cfg_friction_coeff,%.6f\n"", Cfg().frictionCoeff );"
 SkullbonezSource/Runtime/Editor/LauncherTools.cpp,315,Cfg(),test/tool,"fprintf( f, ""cfg_contact_epsilon,%.6f\n"", Cfg().contactEpsilon );"
 SkullbonezSource/Runtime/Editor/RunEditorTracer.inl,569,Gfx(),test/tool,"Gfx().DrawLinesColored( m_lineData.data(), static_cast<int>( m_lineData.size() / 6 ), viewProjection.Data() );"
-SkullbonezSource/Runtime/Init.cpp,82,g_*,bootstrap,char g_commandLineError[512] = {};
-SkullbonezSource/Runtime/Init.cpp,253,g_*,bootstrap,"vsprintf_s( g_commandLineError, sizeof( g_commandLineError ), fmt, args );"
-SkullbonezSource/Runtime/Init.cpp,253,g_*,bootstrap,"vsprintf_s( g_commandLineError, sizeof( g_commandLineError ), fmt, args );"
-SkullbonezSource/Runtime/Init.cpp,256,g_*,bootstrap,"fprintf( stderr, ""ERROR: %s\n"", g_commandLineError );"
-SkullbonezSource/Runtime/Init.cpp,262,g_*,bootstrap,"return g_commandLineError[0] != '\0' ? g_commandLineError : ""Command line parsing failed."";"
-SkullbonezSource/Runtime/Init.cpp,262,g_*,bootstrap,"return g_commandLineError[0] != '\0' ? g_commandLineError : ""Command line parsing failed."";"
-SkullbonezSource/Runtime/Init.cpp,1365,Cfg(),bootstrap,Cfg().runtimeRender.vsyncEnabled = enabled;
-SkullbonezSource/Runtime/Init.cpp,1468,Cfg(),bootstrap,Cfg().workerThreads = workerThreads;
-SkullbonezSource/Runtime/Init.cpp,1471,Cfg(),bootstrap,"Cfg().workerThreads,"
-SkullbonezSource/Runtime/Init.cpp,1472,Cfg(),bootstrap,"WorkerPool::ResolveThreadCount( Cfg().workerThreads ),"
-SkullbonezSource/Runtime/Init.cpp,1486,Cfg(),bootstrap,Cfg().gameModelCapacity = capacity;
-SkullbonezSource/Runtime/Init.cpp,1503,Cfg(),bootstrap,Cfg().physicsParallel = enabled;
-SkullbonezSource/Runtime/Init.cpp,1504,Cfg(),bootstrap,Cfg().physicsParallelApplyForces = enabled;
-SkullbonezSource/Runtime/Init.cpp,1505,Cfg(),bootstrap,Cfg().physicsParallelTornadoField = enabled;
-SkullbonezSource/Runtime/Init.cpp,1506,Cfg(),bootstrap,Cfg().physicsParallelNarrowphase = enabled;
-SkullbonezSource/Runtime/Init.cpp,1507,Cfg(),bootstrap,Cfg().physicsParallelTerrainDetect = enabled;
-SkullbonezSource/Runtime/Init.cpp,1508,Cfg(),bootstrap,Cfg().physicsParallelIntegrate = enabled;
-SkullbonezSource/Runtime/Init.cpp,1524,Cfg(),bootstrap,Cfg().shadowParallelPrep = enabled;
-SkullbonezSource/Runtime/Init.cpp,2241,Cfg(),bootstrap,"Cfg().Load( ( std::string( DATA_ROOT ) + ""engine.cfg"" ).c_str() );"
-SkullbonezSource/Runtime/Init.cpp,2407,Cfg(),bootstrap,Cfg().Dump( stdout );
-SkullbonezSource/Runtime/Init.cpp,2748,WorkerPool::Instance(),bootstrap,WorkerPool::Instance().Initialise( Cfg().workerThreads );
-SkullbonezSource/Runtime/Init.cpp,2748,Cfg(),bootstrap,WorkerPool::Instance().Initialise( Cfg().workerThreads );
-SkullbonezSource/Runtime/Init.cpp,2752,WorkerPool::Instance(),bootstrap,WorkerPool::Instance().Shutdown();
-SkullbonezSource/Runtime/Init.cpp,2757,Window::Instance(),bootstrap,Window* window = Window::Instance();
-SkullbonezSource/Runtime/Init.cpp,2758,Cfg(),bootstrap,"window->CreateAppWindow( hInstance, Cfg().window.fullscreen );"
-SkullbonezSource/Runtime/Init.cpp,2766,WorkerPool::Instance(),bootstrap,WorkerPool::Instance().Shutdown();
-SkullbonezSource/Runtime/Input.cpp,49,g_*,OS callback bridge,int g_mouseWheelDelta = 0;
-SkullbonezSource/Runtime/Input.cpp,53,g_*,OS callback bridge,bool g_systemCursorVisibleRequested = false;
-SkullbonezSource/Runtime/Input.cpp,59,g_*,OS callback bridge,long g_rawMouseDeltaX = 0;
-SkullbonezSource/Runtime/Input.cpp,60,g_*,OS callback bridge,long g_rawMouseDeltaY = 0;
-SkullbonezSource/Runtime/Input.cpp,61,g_*,OS callback bridge,bool g_rawMouseHasAbsolutePosition = false;
-SkullbonezSource/Runtime/Input.cpp,62,g_*,OS callback bridge,long g_rawMouseLastAbsoluteX = 0;
-SkullbonezSource/Runtime/Input.cpp,63,g_*,OS callback bridge,long g_rawMouseLastAbsoluteY = 0;
-SkullbonezSource/Runtime/Input.cpp,68,g_*,OS callback bridge,Input::AutomationState g_automationState;
-SkullbonezSource/Runtime/Input.cpp,135,Window::Instance(),OS callback bridge,Window* window = Window::Instance();
-SkullbonezSource/Runtime/Input.cpp,147,g_*,OS callback bridge,g_systemCursorVisibleRequested = visible;
-SkullbonezSource/Runtime/Input.cpp,163,g_*,OS callback bridge,return g_systemCursorVisibleRequested;
-SkullbonezSource/Runtime/Input.cpp,287,g_*,OS callback bridge,if ( g_rawMouseHasAbsolutePosition )
-SkullbonezSource/Runtime/Input.cpp,289,g_*,OS callback bridge,g_rawMouseDeltaX += currentX - g_rawMouseLastAbsoluteX;
-SkullbonezSource/Runtime/Input.cpp,289,g_*,OS callback bridge,g_rawMouseDeltaX += currentX - g_rawMouseLastAbsoluteX;
-SkullbonezSource/Runtime/Input.cpp,290,g_*,OS callback bridge,g_rawMouseDeltaY += currentY - g_rawMouseLastAbsoluteY;
-SkullbonezSource/Runtime/Input.cpp,290,g_*,OS callback bridge,g_rawMouseDeltaY += currentY - g_rawMouseLastAbsoluteY;
-SkullbonezSource/Runtime/Input.cpp,292,g_*,OS callback bridge,g_rawMouseLastAbsoluteX = currentX;
-SkullbonezSource/Runtime/Input.cpp,293,g_*,OS callback bridge,g_rawMouseLastAbsoluteY = currentY;
-SkullbonezSource/Runtime/Input.cpp,294,g_*,OS callback bridge,g_rawMouseHasAbsolutePosition = true;
-SkullbonezSource/Runtime/Input.cpp,298,g_*,OS callback bridge,g_rawMouseDeltaX += mouse.lLastX;
-SkullbonezSource/Runtime/Input.cpp,299,g_*,OS callback bridge,g_rawMouseDeltaY += mouse.lLastY;
-SkullbonezSource/Runtime/Input.cpp,300,g_*,OS callback bridge,g_rawMouseHasAbsolutePosition = false;
-SkullbonezSource/Runtime/Input.cpp,315,g_*,OS callback bridge,xMove = g_rawMouseDeltaX;
-SkullbonezSource/Runtime/Input.cpp,316,g_*,OS callback bridge,yMove = g_rawMouseDeltaY;
-SkullbonezSource/Runtime/Input.cpp,317,g_*,OS callback bridge,g_rawMouseDeltaX = 0;
-SkullbonezSource/Runtime/Input.cpp,318,g_*,OS callback bridge,g_rawMouseDeltaY = 0;
-SkullbonezSource/Runtime/Input.cpp,325,g_*,OS callback bridge,g_rawMouseDeltaX = 0;
-SkullbonezSource/Runtime/Input.cpp,326,g_*,OS callback bridge,g_rawMouseDeltaY = 0;
-SkullbonezSource/Runtime/Input.cpp,327,g_*,OS callback bridge,g_rawMouseHasAbsolutePosition = false;
-SkullbonezSource/Runtime/Input.cpp,328,g_*,OS callback bridge,g_rawMouseLastAbsoluteX = 0;
-SkullbonezSource/Runtime/Input.cpp,329,g_*,OS callback bridge,g_rawMouseLastAbsoluteY = 0;
-SkullbonezSource/Runtime/Input.cpp,347,g_*,OS callback bridge,if ( g_automationState.enabled && g_automationState.hasMouseClientPosition )
-SkullbonezSource/Runtime/Input.cpp,347,g_*,OS callback bridge,if ( g_automationState.enabled && g_automationState.hasMouseClientPosition )
-SkullbonezSource/Runtime/Input.cpp,349,g_*,OS callback bridge,return g_automationState.mouseClientPosition;
-SkullbonezSource/Runtime/Input.cpp,353,Window::Instance(),OS callback bridge,Window* m_cWindow = Window::Instance();
-SkullbonezSource/Runtime/Input.cpp,380,g_*,OS callback bridge,if ( g_automationState.enabled )
-SkullbonezSource/Runtime/Input.cpp,382,g_*,OS callback bridge,return g_automationState.leftMouseDown;
-SkullbonezSource/Runtime/Input.cpp,396,g_*,OS callback bridge,if ( g_automationState.enabled )
-SkullbonezSource/Runtime/Input.cpp,398,g_*,OS callback bridge,return g_automationState.rightMouseDown;
-SkullbonezSource/Runtime/Input.cpp,425,g_*,OS callback bridge,g_mouseWheelDelta = 0;
-SkullbonezSource/Runtime/Input.cpp,429,g_*,OS callback bridge,const int delta = g_mouseWheelDelta;
-SkullbonezSource/Runtime/Input.cpp,430,g_*,OS callback bridge,g_mouseWheelDelta = 0;
-SkullbonezSource/Runtime/Input.cpp,442,g_*,OS callback bridge,g_mouseWheelDelta += delta;
-SkullbonezSource/Runtime/Input.cpp,453,Window::Instance(),OS callback bridge,Window* m_cWindow = Window::Instance();
-SkullbonezSource/Runtime/Input.cpp,469,g_*,OS callback bridge,g_automationState = state;
-SkullbonezSource/Runtime/Input.cpp,475,g_*,OS callback bridge,g_automationState = AutomationState{};
+SkullbonezSource/Runtime/Init.cpp,89,g_*,bootstrap,char g_commandLineError[512] = {};
+SkullbonezSource/Runtime/Init.cpp,260,g_*,bootstrap,"vsprintf_s( g_commandLineError, sizeof( g_commandLineError ), fmt, args );"
+SkullbonezSource/Runtime/Init.cpp,260,g_*,bootstrap,"vsprintf_s( g_commandLineError, sizeof( g_commandLineError ), fmt, args );"
+SkullbonezSource/Runtime/Init.cpp,263,g_*,bootstrap,"fprintf( stderr, ""ERROR: %s\n"", g_commandLineError );"
+SkullbonezSource/Runtime/Init.cpp,269,g_*,bootstrap,"return g_commandLineError[0] != '\0' ? g_commandLineError : ""Command line parsing failed."";"
+SkullbonezSource/Runtime/Init.cpp,269,g_*,bootstrap,"return g_commandLineError[0] != '\0' ? g_commandLineError : ""Command line parsing failed."";"
+SkullbonezSource/Runtime/Init.cpp,1505,Cfg(),bootstrap,Cfg().runtimeRender.vsyncEnabled = enabled;
+SkullbonezSource/Runtime/Init.cpp,1608,Cfg(),bootstrap,Cfg().workerThreads = workerThreads;
+SkullbonezSource/Runtime/Init.cpp,1611,Cfg(),bootstrap,"Cfg().workerThreads,"
+SkullbonezSource/Runtime/Init.cpp,1612,Cfg(),bootstrap,"WorkerPool::ResolveThreadCount( Cfg().workerThreads ),"
+SkullbonezSource/Runtime/Init.cpp,1626,Cfg(),bootstrap,Cfg().gameModelCapacity = capacity;
+SkullbonezSource/Runtime/Init.cpp,1643,Cfg(),bootstrap,Cfg().physicsParallel = enabled;
+SkullbonezSource/Runtime/Init.cpp,1644,Cfg(),bootstrap,Cfg().physicsParallelApplyForces = enabled;
+SkullbonezSource/Runtime/Init.cpp,1645,Cfg(),bootstrap,Cfg().physicsParallelTornadoField = enabled;
+SkullbonezSource/Runtime/Init.cpp,1646,Cfg(),bootstrap,Cfg().physicsParallelNarrowphase = enabled;
+SkullbonezSource/Runtime/Init.cpp,1647,Cfg(),bootstrap,Cfg().physicsParallelTerrainDetect = enabled;
+SkullbonezSource/Runtime/Init.cpp,1648,Cfg(),bootstrap,Cfg().physicsParallelIntegrate = enabled;
+SkullbonezSource/Runtime/Init.cpp,1664,Cfg(),bootstrap,Cfg().shadowParallelPrep = enabled;
+SkullbonezSource/Runtime/Init.cpp,2381,Cfg(),bootstrap,"Cfg().Load( ( std::string( DATA_ROOT ) + ""engine.cfg"" ).c_str() );"
+SkullbonezSource/Runtime/Init.cpp,2547,Cfg(),bootstrap,Cfg().Dump( stdout );
+SkullbonezSource/Runtime/Init.cpp,2889,WorkerPool::Instance(),bootstrap,WorkerPool::Instance().Initialise( Cfg().workerThreads );
+SkullbonezSource/Runtime/Init.cpp,2889,Cfg(),bootstrap,WorkerPool::Instance().Initialise( Cfg().workerThreads );
+SkullbonezSource/Runtime/Init.cpp,2893,WorkerPool::Instance(),bootstrap,WorkerPool::Instance().Shutdown();
+SkullbonezSource/Runtime/Init.cpp,2898,Window::Instance(),bootstrap,Window* window = Window::Instance();
+SkullbonezSource/Runtime/Init.cpp,2899,Cfg(),bootstrap,"window->CreateAppWindow( hInstance, Cfg().window.fullscreen );"
+SkullbonezSource/Runtime/Init.cpp,2907,WorkerPool::Instance(),bootstrap,WorkerPool::Instance().Shutdown();
+SkullbonezSource/Runtime/Input.cpp,53,g_*,OS callback bridge,int g_mouseWheelDelta = 0;
+SkullbonezSource/Runtime/Input.cpp,57,g_*,OS callback bridge,bool g_systemCursorVisibleRequested = false;
+SkullbonezSource/Runtime/Input.cpp,63,g_*,OS callback bridge,long g_rawMouseDeltaX = 0;
+SkullbonezSource/Runtime/Input.cpp,64,g_*,OS callback bridge,long g_rawMouseDeltaY = 0;
+SkullbonezSource/Runtime/Input.cpp,65,g_*,OS callback bridge,bool g_rawMouseHasAbsolutePosition = false;
+SkullbonezSource/Runtime/Input.cpp,66,g_*,OS callback bridge,long g_rawMouseLastAbsoluteX = 0;
+SkullbonezSource/Runtime/Input.cpp,67,g_*,OS callback bridge,long g_rawMouseLastAbsoluteY = 0;
+SkullbonezSource/Runtime/Input.cpp,72,g_*,OS callback bridge,Input::AutomationState g_automationState;
+SkullbonezSource/Runtime/Input.cpp,174,g_*,OS callback bridge,g_systemCursorVisibleRequested = visible;
+SkullbonezSource/Runtime/Input.cpp,190,g_*,OS callback bridge,return g_systemCursorVisibleRequested;
+SkullbonezSource/Runtime/Input.cpp,326,g_*,OS callback bridge,if ( g_rawMouseHasAbsolutePosition )
+SkullbonezSource/Runtime/Input.cpp,328,g_*,OS callback bridge,g_rawMouseDeltaX += currentX - g_rawMouseLastAbsoluteX;
+SkullbonezSource/Runtime/Input.cpp,328,g_*,OS callback bridge,g_rawMouseDeltaX += currentX - g_rawMouseLastAbsoluteX;
+SkullbonezSource/Runtime/Input.cpp,329,g_*,OS callback bridge,g_rawMouseDeltaY += currentY - g_rawMouseLastAbsoluteY;
+SkullbonezSource/Runtime/Input.cpp,329,g_*,OS callback bridge,g_rawMouseDeltaY += currentY - g_rawMouseLastAbsoluteY;
+SkullbonezSource/Runtime/Input.cpp,331,g_*,OS callback bridge,g_rawMouseLastAbsoluteX = currentX;
+SkullbonezSource/Runtime/Input.cpp,332,g_*,OS callback bridge,g_rawMouseLastAbsoluteY = currentY;
+SkullbonezSource/Runtime/Input.cpp,333,g_*,OS callback bridge,g_rawMouseHasAbsolutePosition = true;
+SkullbonezSource/Runtime/Input.cpp,337,g_*,OS callback bridge,g_rawMouseDeltaX += mouse.lLastX;
+SkullbonezSource/Runtime/Input.cpp,338,g_*,OS callback bridge,g_rawMouseDeltaY += mouse.lLastY;
+SkullbonezSource/Runtime/Input.cpp,339,g_*,OS callback bridge,g_rawMouseHasAbsolutePosition = false;
+SkullbonezSource/Runtime/Input.cpp,354,g_*,OS callback bridge,xMove = g_rawMouseDeltaX;
+SkullbonezSource/Runtime/Input.cpp,355,g_*,OS callback bridge,yMove = g_rawMouseDeltaY;
+SkullbonezSource/Runtime/Input.cpp,356,g_*,OS callback bridge,g_rawMouseDeltaX = 0;
+SkullbonezSource/Runtime/Input.cpp,357,g_*,OS callback bridge,g_rawMouseDeltaY = 0;
+SkullbonezSource/Runtime/Input.cpp,364,g_*,OS callback bridge,g_rawMouseDeltaX = 0;
+SkullbonezSource/Runtime/Input.cpp,365,g_*,OS callback bridge,g_rawMouseDeltaY = 0;
+SkullbonezSource/Runtime/Input.cpp,366,g_*,OS callback bridge,g_rawMouseHasAbsolutePosition = false;
+SkullbonezSource/Runtime/Input.cpp,367,g_*,OS callback bridge,g_rawMouseLastAbsoluteX = 0;
+SkullbonezSource/Runtime/Input.cpp,368,g_*,OS callback bridge,g_rawMouseLastAbsoluteY = 0;
+SkullbonezSource/Runtime/Input.cpp,386,g_*,OS callback bridge,if ( g_automationState.enabled && g_automationState.hasMouseClientPosition )
+SkullbonezSource/Runtime/Input.cpp,386,g_*,OS callback bridge,if ( g_automationState.enabled && g_automationState.hasMouseClientPosition )
+SkullbonezSource/Runtime/Input.cpp,388,g_*,OS callback bridge,return g_automationState.mouseClientPosition;
+SkullbonezSource/Runtime/Input.cpp,424,g_*,OS callback bridge,if ( g_automationState.enabled )
+SkullbonezSource/Runtime/Input.cpp,426,g_*,OS callback bridge,return g_automationState.leftMouseDown;
+SkullbonezSource/Runtime/Input.cpp,440,g_*,OS callback bridge,if ( g_automationState.enabled )
+SkullbonezSource/Runtime/Input.cpp,442,g_*,OS callback bridge,return g_automationState.rightMouseDown;
+SkullbonezSource/Runtime/Input.cpp,469,g_*,OS callback bridge,g_mouseWheelDelta = 0;
+SkullbonezSource/Runtime/Input.cpp,473,g_*,OS callback bridge,const int delta = g_mouseWheelDelta;
+SkullbonezSource/Runtime/Input.cpp,474,g_*,OS callback bridge,g_mouseWheelDelta = 0;
+SkullbonezSource/Runtime/Input.cpp,486,g_*,OS callback bridge,g_mouseWheelDelta += delta;
+SkullbonezSource/Runtime/Input.cpp,518,g_*,OS callback bridge,g_automationState = state;
+SkullbonezSource/Runtime/Input.cpp,524,g_*,OS callback bridge,g_automationState = AutomationState{};
 SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp,51,Cfg(),render pass,"return RunInternal::RuntimeActiveCinematicConfig( m_sceneController.State(), Cfg() );"
 SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp,57,Cfg(),render pass,"Cfg(),"
 SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp,91,Cfg(),render pass,"return RunInternal::RuntimeWindowScreenWidth( m_systems, Cfg() );"
@@ -392,27 +385,23 @@ SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.inl,246,Cfg(),normal runt
 SkullbonezSource/Runtime/Replay/RunReplayScrubberTools.inl,247,Cfg(),normal runtime path,"const int screenH = RuntimeWindowScreenHeight( m_systems, Cfg() );"
 SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl,248,Cfg(),normal runtime path,"!SceneState().isScenePhysics || RuntimeWindowScreenWidth( m_systems, Cfg() ) <= 0 ||"
 SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl,249,Cfg(),normal runtime path,"RuntimeWindowScreenHeight( m_systems, Cfg() ) <= 0 )"
-SkullbonezSource/Runtime/Run.cpp,157,Cfg(),normal runtime path,m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
-SkullbonezSource/Runtime/Run.cpp,158,Cfg(),normal runtime path,m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
-SkullbonezSource/Runtime/Run.cpp,159,Cfg(),normal runtime path,m_defaultCinematicRender = Cfg().cinematicRender;
-SkullbonezSource/Runtime/Run.cpp,161,Cfg(),normal runtime path,m_startup.workerThreads = Cfg().workerThreads;
-SkullbonezSource/Runtime/Run.cpp,246,Gfx(),normal runtime path,Gfx().FlushGPU();
-SkullbonezSource/Runtime/Run.cpp,326,Gfx(),normal runtime path,renderResources = &static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( Gfx() );
-SkullbonezSource/Runtime/Run.cpp,333,Profiler::Instance(),normal runtime path,Profiler::Instance().InvalidateGpuQueries();
-SkullbonezSource/Runtime/Run.cpp,362,Gfx(),normal runtime path,Gfx().FlushGPU();
-SkullbonezSource/Runtime/Run.cpp,370,Cfg(),normal runtime path,const EngineConfig& cfg = Cfg();
-SkullbonezSource/Runtime/Run.cpp,512,Gfx(),normal runtime path,const int backendWidth = gfxReady ? Gfx().GetWidth() : 0;
-SkullbonezSource/Runtime/Run.cpp,513,Gfx(),normal runtime path,const int backendHeight = gfxReady ? Gfx().GetHeight() : 0;
-SkullbonezSource/Runtime/Run.cpp,1181,Window::Instance(),normal runtime path,m_systems.window = Window::Instance();
-SkullbonezSource/Runtime/Run.cpp,1183,Gfx(),normal runtime path,const char* rendererName = Gfx().GetRendererName();
-SkullbonezSource/Runtime/Run.cpp,1188,TextureCollection::Instance(),normal runtime path,m_systems.textures = TextureCollection::Instance();
-SkullbonezSource/Runtime/Run.cpp,1197,Cfg(),normal runtime path,"ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, ""terrain.raw"", Cfg().terrainRaw );"
-SkullbonezSource/Runtime/Run.cpp,1202,SkyBox::Instance(),normal runtime path,"m_systems.skyBox = SkyBox::Instance( -250, 300, -300, 300, -250, 300 );"
-SkullbonezSource/Runtime/Run.cpp,1206,Cfg(),normal runtime path,const EngineConfig& cfg = Cfg();
-SkullbonezSource/Runtime/Run.cpp,1216,CameraCollection::Instance(),normal runtime path,m_systems.cameras = CameraCollection::Instance();
-SkullbonezSource/Runtime/Run.cpp,1285,Gfx(),normal runtime path,"IsGfxReady() ? Gfx().GetRendererName() : ""unknown"","
-SkullbonezSource/Runtime/Run.cpp,1294,Cfg(),normal runtime path,"Cfg(),"
-SkullbonezSource/Runtime/Run.cpp,1296,Gfx(),normal runtime path,"IsGfxReady() ? Gfx().GetRendererName() : ""unknown"" );"
+SkullbonezSource/Runtime/Run.cpp,158,Cfg(),normal runtime path,m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
+SkullbonezSource/Runtime/Run.cpp,159,Cfg(),normal runtime path,m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
+SkullbonezSource/Runtime/Run.cpp,160,Cfg(),normal runtime path,m_defaultCinematicRender = Cfg().cinematicRender;
+SkullbonezSource/Runtime/Run.cpp,162,Cfg(),normal runtime path,m_startup.workerThreads = Cfg().workerThreads;
+SkullbonezSource/Runtime/Run.cpp,247,Gfx(),normal runtime path,Gfx().FlushGPU();
+SkullbonezSource/Runtime/Run.cpp,327,Gfx(),normal runtime path,renderResources = &static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( Gfx() );
+SkullbonezSource/Runtime/Run.cpp,334,Profiler::Instance(),normal runtime path,Profiler::Instance().InvalidateGpuQueries();
+SkullbonezSource/Runtime/Run.cpp,368,Gfx(),normal runtime path,Gfx().FlushGPU();
+SkullbonezSource/Runtime/Run.cpp,376,Cfg(),normal runtime path,const EngineConfig& cfg = Cfg();
+SkullbonezSource/Runtime/Run.cpp,518,Gfx(),normal runtime path,const int backendWidth = gfxReady ? Gfx().GetWidth() : 0;
+SkullbonezSource/Runtime/Run.cpp,519,Gfx(),normal runtime path,const int backendHeight = gfxReady ? Gfx().GetHeight() : 0;
+SkullbonezSource/Runtime/Run.cpp,1189,Gfx(),normal runtime path,IRenderBackend& renderBackend = Gfx();
+SkullbonezSource/Runtime/Run.cpp,1208,Cfg(),normal runtime path,"ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, ""terrain.raw"", Cfg().terrainRaw );"
+SkullbonezSource/Runtime/Run.cpp,1219,Cfg(),normal runtime path,const EngineConfig& cfg = Cfg();
+SkullbonezSource/Runtime/Run.cpp,1298,Gfx(),normal runtime path,"IsGfxReady() ? Gfx().GetRendererName() : ""unknown"","
+SkullbonezSource/Runtime/Run.cpp,1307,Cfg(),normal runtime path,"Cfg(),"
+SkullbonezSource/Runtime/Run.cpp,1309,Gfx(),normal runtime path,"IsGfxReady() ? Gfx().GetRendererName() : ""unknown"" );"
 SkullbonezSource/Runtime/RunFrame.cpp,354,Gfx(),normal runtime path,IRenderBackend& frameRenderBackend = Gfx();
 SkullbonezSource/Runtime/RunFrame.cpp,475,Profiler::Instance(),normal runtime path,m_timers.physicsTime = Profiler::Instance().LastFrameMsByHash( kPhysicsHash ) * 0.001f;
 SkullbonezSource/Runtime/RunFrame.cpp,476,Profiler::Instance(),normal runtime path,m_timers.renderTime = Profiler::Instance().LastFrameMsByHash( kRenderHash ) * 0.001f;
@@ -459,11 +448,11 @@ SkullbonezSource/Runtime/RunPasses.cpp,308,Cfg(),render pass,"shader.SetVec4( ""
 SkullbonezSource/Runtime/RunPasses.cpp,308,Cfg(),render pass,"shader.SetVec4( ""uDepthParams"", Cfg().frustumNear, Cfg().frustumFar, 0.0f, 0.0f );"
 SkullbonezSource/Runtime/RunPasses.cpp,897,Cfg(),render pass,"Matrix4 skyView = view * Matrix4::Translate( frame.eye.x, Cfg().skyboxRenderHeight, frame.eye.z ) *"
 SkullbonezSource/Runtime/RunPasses.cpp,898,Cfg(),render pass,Matrix4::Scale( Cfg().skyboxScale );
-SkullbonezSource/Runtime/RunRender.cpp,1038,Cfg(),render pass,const OrdinaryRenderConfig& ordinaryRender = Cfg().ordinaryRender;
-SkullbonezSource/Runtime/RunRender.cpp,1386,Gfx(),render pass,IRenderBackend& renderBackend = Gfx();
-SkullbonezSource/Runtime/RunRender.cpp,1394,GfxRayTracing(),render pass,IsGfxRayTracingReady() ? &GfxRayTracing() : nullptr;
-SkullbonezSource/Runtime/RunRender.cpp,1549,Cfg(),render pass,Cfg().minCameraHeight;
-SkullbonezSource/Runtime/RunRender.cpp,1550,Cfg(),render pass,"m_systems.cameras->RelativeUpdate( hash, minY, Cfg().maxCameraHeight );"
+SkullbonezSource/Runtime/RunRender.cpp,1040,Cfg(),render pass,const OrdinaryRenderConfig& ordinaryRender = Cfg().ordinaryRender;
+SkullbonezSource/Runtime/RunRender.cpp,1388,Gfx(),render pass,IRenderBackend& renderBackend = Gfx();
+SkullbonezSource/Runtime/RunRender.cpp,1396,GfxRayTracing(),render pass,IsGfxRayTracingReady() ? &GfxRayTracing() : nullptr;
+SkullbonezSource/Runtime/RunRender.cpp,1551,Cfg(),render pass,Cfg().minCameraHeight;
+SkullbonezSource/Runtime/RunRender.cpp,1552,Cfg(),render pass,"m_systems.cameras->RelativeUpdate( hash, minY, Cfg().maxCameraHeight );"
 SkullbonezSource/Runtime/RunStress.cpp,92,Cfg(),test/tool,"Cfg(),"
 SkullbonezSource/Runtime/RunStress.cpp,98,Gfx(),test/tool,"IsGfxReady() ? &Gfx() : nullptr,"
 SkullbonezSource/Runtime/RunStress.cpp,166,Gfx(),test/tool,Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
@@ -504,22 +493,18 @@ SkullbonezSource/Runtime/Scene/RunScene.cpp,1041,Gfx(),normal runtime path,"IsGf
 SkullbonezSource/Runtime/Scene/RunScene.cpp,1055,Gfx(),normal runtime path,Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
 SkullbonezSource/Runtime/Scene/RunScene.cpp,1067,Gfx(),normal runtime path,const auto renderCapabilities = Gfx().GetCapabilities();
 SkullbonezSource/Runtime/Scene/RunScene.cpp,1075,GfxRayTracing(),normal runtime path,auto& rayTracing = GfxRayTracing();
-SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp,215,CameraCollection::Instance(),normal runtime path,context.cameras = Environment::CameraCollection::Instance();
-SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp,62,CameraCollection::Instance(),normal runtime path,context.cameras = Environment::CameraCollection::Instance();
 SkullbonezSource/Runtime/Window.cpp,56,Window::Instance(),OS callback bridge,Window* Window::Instance()
 SkullbonezSource/Runtime/Window.cpp,58,pInstance,OS callback bridge,if ( !Window::pInstance )
 SkullbonezSource/Runtime/Window.cpp,61,pInstance,OS callback bridge,Window::pInstance = &instance;
 SkullbonezSource/Runtime/Window.cpp,63,pInstance,OS callback bridge,return Window::pInstance;
 SkullbonezSource/Runtime/Window.cpp,69,pInstance,OS callback bridge,Window::pInstance = nullptr;
-SkullbonezSource/Runtime/Window.cpp,89,Window::Instance(),OS callback bridge,Window* cWindow = Window::Instance();
-SkullbonezSource/Runtime/Window.cpp,100,Gfx(),OS callback bridge,"Gfx().Resize( w, h );"
-SkullbonezSource/Runtime/Window.cpp,110,Cfg(),OS callback bridge,"Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f, aspect, Cfg().frustumNear, Cfg().frustumFar );"
-SkullbonezSource/Runtime/Window.cpp,110,Cfg(),OS callback bridge,"Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f, aspect, Cfg().frustumNear, Cfg().frustumFar );"
-SkullbonezSource/Runtime/Window.cpp,145,Window::Instance(),OS callback bridge,Window* m_cWindow = Window::Instance();
-SkullbonezSource/Runtime/Window.cpp,263,Cfg(),OS callback bridge,"ChangeToFullScreen( Cfg().window.screenX, Cfg().window.screenY );"
-SkullbonezSource/Runtime/Window.cpp,263,Cfg(),OS callback bridge,"ChangeToFullScreen( Cfg().window.screenX, Cfg().window.screenY );"
-SkullbonezSource/Runtime/Window.cpp,274,Cfg(),OS callback bridge,const int windowW = Cfg().window.screenX;
-SkullbonezSource/Runtime/Window.cpp,275,Cfg(),OS callback bridge,const int windowH = Cfg().window.screenY;
+SkullbonezSource/Runtime/Window.cpp,99,Gfx(),OS callback bridge,"Gfx().Resize( w, h );"
+SkullbonezSource/Runtime/Window.cpp,109,Cfg(),OS callback bridge,"Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f, aspect, Cfg().frustumNear, Cfg().frustumFar );"
+SkullbonezSource/Runtime/Window.cpp,109,Cfg(),OS callback bridge,"Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f, aspect, Cfg().frustumNear, Cfg().frustumFar );"
+SkullbonezSource/Runtime/Window.cpp,277,Cfg(),OS callback bridge,"ChangeToFullScreen( Cfg().window.screenX, Cfg().window.screenY );"
+SkullbonezSource/Runtime/Window.cpp,277,Cfg(),OS callback bridge,"ChangeToFullScreen( Cfg().window.screenX, Cfg().window.screenY );"
+SkullbonezSource/Runtime/Window.cpp,288,Cfg(),OS callback bridge,const int windowW = Cfg().window.screenX;
+SkullbonezSource/Runtime/Window.cpp,289,Cfg(),OS callback bridge,const int windowH = Cfg().window.screenY;
 SkullbonezSource/Runtime/Window.h,47,pInstance,OS callback bridge,inline static Window* pInstance = nullptr;
 SkullbonezSource/UI/UI.cpp,594,CreateShaderFromActiveAssets(),render pass,"shader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( ""shader.ui_render_target_preview"" );"
 SkullbonezSource/UI/UI.cpp,602,Gfx(),render pass,"dynamicVB = Gfx().CreateDynamicVB( attribs, 2, 6 );"
@@ -545,7 +530,6 @@ SkullbonezSource/UI/UITabProfiler.cpp,435,Profiler::Instance(),diagnostics,const
 SkullbonezSource/UI/UITabProfiler.cpp,484,Profiler::Instance(),diagnostics,const Profiler& profiler = Profiler::Instance();
 SkullbonezSource/UI/UITabProfiler.cpp,571,Profiler::Instance(),diagnostics,const Profiler& profiler = Profiler::Instance();
 SkullbonezSource/UI/UITabProfiler.cpp,1002,Profiler::Instance(),diagnostics,const Profiler& profiler = Profiler::Instance();
-SkullbonezSource/World/SkyBox.cpp,51,TextureCollection::Instance(),render pass,m_textures = TextureCollection::Instance();
 SkullbonezSource/World/SkyBox.cpp,52,Cfg(),render pass,const SkullbonezCore::Basics::EngineConfig& cfg = Cfg();
 SkullbonezSource/World/SkyBox.cpp,65,Cfg(),render pass,const int overflow = Cfg().skyboxOverflow;
 SkullbonezSource/World/SkyBox.cpp,124,Gfx(),render pass,"m_faceMeshes[i] = Gfx().CreateMesh( faceData[i], 6, false, true );"
@@ -554,11 +538,9 @@ SkullbonezSource/World/SkyBox.cpp,134,SkyBox::Instance(),render pass,"SkyBox* Sk
 SkullbonezSource/World/SkyBox.cpp,136,pInstance,render pass,if ( !SkyBox::pInstance )
 SkullbonezSource/World/SkyBox.cpp,139,pInstance,render pass,SkyBox::pInstance = &instance;
 SkullbonezSource/World/SkyBox.cpp,141,pInstance,render pass,return SkyBox::pInstance;
-SkullbonezSource/World/SkyBox.cpp,147,pInstance,render pass,if ( SkyBox::pInstance )
-SkullbonezSource/World/SkyBox.cpp,151,pInstance,render pass,SkyBox::pInstance->m_faceMeshes[i].reset();
-SkullbonezSource/World/SkyBox.cpp,153,pInstance,render pass,SkyBox::pInstance->m_shader.reset();
-SkullbonezSource/World/SkyBox.cpp,154,pInstance,render pass,SkyBox::pInstance = nullptr;
-SkullbonezSource/World/SkyBox.h,52,pInstance,render pass,inline static SkyBox* pInstance = nullptr;
+SkullbonezSource/World/SkyBox.cpp,147,pInstance,render pass,SkyBox* skyBox = SkyBox::pInstance;
+SkullbonezSource/World/SkyBox.cpp,151,pInstance,render pass,SkyBox::pInstance = nullptr;
+SkullbonezSource/World/SkyBox.h,54,pInstance,render pass,inline static SkyBox* pInstance = nullptr;
 SkullbonezSource/World/Terrain.cpp,133,CreateShaderFromActiveAssets(),render pass,"m_terrainShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( ""shader.lit_textured"" );"
 SkullbonezSource/World/Terrain.cpp,135,Cfg(),render pass,const auto& ordinary = Cfg().ordinaryRender;
 SkullbonezSource/World/Terrain.cpp,183,Cfg(),render pass,int requestedStep = Cfg().terrainRenderStepSize;

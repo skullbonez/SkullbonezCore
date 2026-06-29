@@ -46,21 +46,32 @@ Known useful evidence to preserve:
 
 ## Phase 0 - Evidence Reconciliation
 
-- [ ] Regenerate the global-service classification CSV and summary from the
+- [x] Regenerate the global-service classification CSV and summary from the
   final current source tree so they no longer report stale hits such as old
   `TextureCollection.cpp` direct `Gfx()` access.
-  Evidence:
-- [ ] Record which remaining global-service hits are allowed bootstrap,
+  Evidence: regenerated `Agentic/Reports/2026-06-29/carmack-handoff/global-service-hit-classification.csv`
+  and `Agentic/Reports/2026-06-29/carmack-handoff/global-service-hit-classification-summary.md`
+  from current `tools/check_runtime_boundaries.py` matching logic; stale
+  `SkullbonezSource/Assets/TextureCollection.cpp` `Gfx()` rows are gone.
+- [x] Record which remaining global-service hits are allowed bootstrap,
   shutdown, OS callback bridge, diagnostics, or test/tool access, and which are
   still normal-path debt.
-  Evidence:
-- [ ] Treat the old Carmack source plans and the old open-todos handoff as
+  Evidence: regenerated summary records 593 total hits: bootstrap 30,
+  OS callback bridge 56, diagnostics 79, test/tool 30, normal runtime path 223,
+  render pass 163, and asset lookup 12. `shutdown` has no separate rows in the
+  regenerated classification.
+- [x] Treat the old Carmack source plans and the old open-todos handoff as
   archived history. Do not chase their unchecked boxes unless this file points
   back to a specific item.
-  Evidence:
-- [ ] Add final evidence paths to this file as work completes so the next agent
+  Evidence: this authoritative plan remains the active queue; archived Carmack
+  plans under `Agentic/Plans/Done/` were used only for classification wording.
+- [x] Add final evidence paths to this file as work completes so the next agent
   can trust this file without reopening every historical plan.
-  Evidence:
+  Evidence: generation/runtime-boundary log
+  `TestOutput/validation/agent_logs/carmack_phase0_global_service_reconcile.log`;
+  runtime-boundary JSON
+  `TestOutput/validation/runtime_boundaries/carmack_phase0_runtime_boundaries.json`
+  reported 0 errors.
 
 ## Phase 1 - Perf Gate Closure
 

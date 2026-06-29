@@ -4,22 +4,22 @@ Source plan: `Agentic/Plans/IN PROGRESS/carmack-remaining-work-authoritative-pla
 
 ## Current Status
 
-- Status: Not started; this file makes Phase 0 actionable without changing the authoritative plan.
+- Status: Complete for Phase 0 evidence reconciliation.
 - Scope: Phase 0 only, evidence reconciliation for the remaining Carmack work.
 - Impact area: documentation and evidence reports. No source, tool, scene, shader, or baseline edits are part of this progress file.
-- Startup notes: `codegraph status .` reported the index is up to date. `git status --short --branch` showed a pre-existing user-owned edit in `SkullbonezData/scenes/aaa_ragdoll_clean_sky.scene.json`; do not touch it.
-- Current stale-evidence clue: `Agentic/Reports/2026-06-29/carmack-handoff/global-service-hit-classification.csv` still lists direct `Gfx()` hits in `SkullbonezSource/Assets/TextureCollection.cpp`, but current source routes texture backend calls through `m_renderResources` and `m_renderCommands`.
+- Startup notes: `codegraph status .` reported the index is up to date. `git status --short --branch` was clean at Phase 0 implementation start on `nightrunner-29th-june`.
+- Reconciliation result: `Agentic/Reports/2026-06-29/carmack-handoff/global-service-hit-classification.csv` now reports zero direct `Gfx()` hits in `SkullbonezSource/Assets/TextureCollection.cpp`; current source routes texture backend calls through `m_renderResources` and `m_renderCommands`.
 
 ## Checklist
 
-- [ ] Regenerate `Agentic/Reports/2026-06-29/carmack-handoff/global-service-hit-classification.csv` from the current `SkullbonezSource/` tree using the matching logic in `tools/check_runtime_boundaries.py`.
-- [ ] Remove stale `SkullbonezSource/Assets/TextureCollection.cpp` `Gfx()` rows from the regenerated CSV if the current source still has no direct `Gfx()` calls there.
-- [ ] Change the `SkullbonezSource/Assets/TextureCollection.cpp` classification row from `Gfx()=3, TextureCollection::Instance()=1` to the current actual labels/counts in the regenerated evidence.
-- [ ] Regenerate `Agentic/Reports/2026-06-29/carmack-handoff/global-service-hit-classification-summary.md` from the regenerated CSV, including totals by classification and label.
-- [ ] Record which remaining hits are allowed `bootstrap`, `shutdown`, `OS callback bridge`, `diagnostics`, or `test/tool` access, and which remain `normal runtime path`, `render pass`, or `asset lookup` debt.
-- [ ] Record the generation command and output path in `TestOutput/validation/agent_logs/carmack_phase0_global_service_reconcile.log` or an equivalent Phase 0 evidence log.
-- [ ] Record the final CSV and summary paths beside the Phase 0 evidence slots in `Agentic/Plans/IN PROGRESS/carmack-remaining-work-authoritative-plan.md` after the evidence files are regenerated.
-- [ ] Leave the archived Carmack plans under `Agentic/Plans/Done/` unchanged; use them only to resolve classification wording drift.
+- [x] Regenerate `Agentic/Reports/2026-06-29/carmack-handoff/global-service-hit-classification.csv` from the current `SkullbonezSource/` tree using the matching logic in `tools/check_runtime_boundaries.py`.
+- [x] Remove stale `SkullbonezSource/Assets/TextureCollection.cpp` `Gfx()` rows from the regenerated CSV if the current source still has no direct `Gfx()` calls there.
+- [x] Change the `SkullbonezSource/Assets/TextureCollection.cpp` classification row from `Gfx()=3, TextureCollection::Instance()=1` to the current actual labels/counts in the regenerated evidence.
+- [x] Regenerate `Agentic/Reports/2026-06-29/carmack-handoff/global-service-hit-classification-summary.md` from the regenerated CSV, including totals by classification and label.
+- [x] Record which remaining hits are allowed `bootstrap`, `OS callback bridge`, `diagnostics`, or `test/tool` access, and which remain `normal runtime path`, `render pass`, or `asset lookup` debt.
+- [x] Record the generation command and output path in `TestOutput/validation/agent_logs/carmack_phase0_global_service_reconcile.log` or an equivalent Phase 0 evidence log.
+- [x] Record the final CSV and summary paths beside the Phase 0 evidence slots in `Agentic/Plans/IN PROGRESS/carmack-remaining-work-authoritative-plan.md` after the evidence files are regenerated.
+- [x] Leave the archived Carmack plans under `Agentic/Plans/Done/` unchanged; use them only to resolve classification wording drift.
 
 ## Likely Files And Tools To Inspect
 
@@ -44,13 +44,13 @@ Source plan: `Agentic/Plans/IN PROGRESS/carmack-remaining-work-authoritative-pla
 
 ## Evidence To Collect
 
-- Regenerated CSV path and timestamp.
-- Regenerated summary path and timestamp.
-- Generation command or script path.
-- Count comparison against the stale summary, including total classified hits and bucket totals.
-- Explicit note that `TextureCollection.cpp` direct `Gfx()` evidence was removed or, if still present, the exact current lines that justify keeping it.
-- Final list of remaining `normal runtime path`, `render pass`, and `asset lookup` debt groups.
-- Optional runtime-boundary JSON path proving the guardrail still passes while the evidence is regenerated.
+- Regenerated CSV: `Agentic/Reports/2026-06-29/carmack-handoff/global-service-hit-classification.csv`.
+- Regenerated summary: `Agentic/Reports/2026-06-29/carmack-handoff/global-service-hit-classification-summary.md`.
+- Generation/evidence log: `TestOutput/validation/agent_logs/carmack_phase0_global_service_reconcile.log`.
+- Runtime-boundary JSON: `TestOutput/validation/runtime_boundaries/carmack_phase0_runtime_boundaries.json`.
+- Count comparison: stale total 611 hits; regenerated total 593 hits.
+- Bucket totals: `OS callback bridge` 56, `asset lookup` 12, `bootstrap` 30, `diagnostics` 79, `normal runtime path` 223, `render pass` 163, `test/tool` 30.
+- `SkullbonezSource/Assets/TextureCollection.cpp` direct `Gfx()` evidence was removed; regenerated evidence has one remaining `TextureCollection::Instance()` hit.
 
 ## Validation Note
 
@@ -58,8 +58,7 @@ This progress file is documentation-only; no repository validation script is req
 
 ## Open Risks And Questions
 
-- There may be no checked-in command that emits the current CSV/summary; the prior evidence may have come from a one-off script.
-- The current CSV and summary appear stale against at least `TextureCollection.cpp`; do not trust counts until regenerated from the current source.
-- The authoritative plan asks for evidence paths inside itself, but this progress-file task is not allowed to edit that plan.
-- Decide whether `shutdown` should be a separate bucket if the regenerated evidence has no existing shutdown classification rows.
+- There is still no checked-in command that emits the CSV/summary; Phase 0 used an inline Python script and recorded the exact method in `TestOutput/validation/agent_logs/carmack_phase0_global_service_reconcile.log`.
+- The regenerated CSV/summary should now be treated as the Phase 2 starting point until source changes make it stale again.
+- `shutdown` has no separate rows in the regenerated classification; future migration work can add that bucket only if new evidence needs it.
 - Confirm whether `g_*` hits are service-locator debt, callback accumulators, diagnostics counters, or benign local naming before assigning migration buckets.
