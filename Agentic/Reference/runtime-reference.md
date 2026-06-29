@@ -55,7 +55,8 @@ This file holds details that are useful during debugging or manual testing but t
 | `--physics-debug-contact-linger` | seconds | Keep contact manifold visuals visible after contact rows disappear, `0.0` to `5.0`. |
 | `--physics-regression-log` | path | Write the byte-exact physics regression CSV in Debug builds. |
 | `--physics-collision-time-log` | path | Write a Debug-only swept collision event CSV with collision times for focused regression scenes. |
-| `--physics-diag` | path | Write queryable physics diagnostics NDJSON in Debug builds. Forces fixed-step playback and can be queried with `tools\physics_query.bat`. Alias: `--physics-diagnostics`. |
+| `--physics-diag` | path | Write queryable physics diagnostics NDJSON in Debug builds. Forces fixed-step playback by default and can be queried with `tools\physics_query.bat`. Alias: `--physics-diagnostics`. |
+| `--physics-diag-variable-step` | flag | Debug-only repro mode for SkullScope traces. Use with `--physics-diag` to preserve scene or real-time variable-step playback instead of forcing fixed-step. Alias: `--physics-diagnostics-variable-step`. |
 | `--gen-atlas` | optional path | Generate the SDF font atlas and exit before GPU init. |
 
 Physics debug command-line arguments also accept underscore spellings matching scene directives, for example `--physics_debug all` and `--physics_debug_contact_linger 0.75`.

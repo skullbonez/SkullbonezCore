@@ -33,7 +33,7 @@ Target command:
 Debug\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\at_rest.scene.json --physics-diag Debug\at_rest.physicsdiag.ndjson
 ```
 
-`--physics-diag` automatically forces deterministic fixed-step playback. The runtime should print a message when it does that.
+`--physics-diag` automatically forces deterministic fixed-step playback. The runtime should print a message when it does that. For live repros that only fail on the variable-step path, add `--physics-diag-variable-step` so SkullScope records the scene or real-time step mode unchanged.
 
 The deterministic CSV logger remains separate:
 

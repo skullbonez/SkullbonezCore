@@ -598,10 +598,26 @@ void PhysicsWorld::RunPhysics( GameModelCollection& collection, float fChangeInT
         m_gameModels[i].TickFixedContactHighlight( fChangeInTime );
     }
 
-    if ( static_cast<int>( m_sleepState.size() ) != modelCount )
+    if ( static_cast<int>( m_sleepState.size() ) < modelCount )
     {
-        m_sleepState.assign( modelCount, 0 );
-        m_sleepCounter.assign( modelCount, 0 );
+        // Why: scene loading can seed sleepers before later objects, such as
+        // ragdoll parts, are appended. Growing the buffers must preserve those
+        // authored sleepers and initialize only the new bodies awake.
+        m_sleepState.resize( static_cast<size_t>( modelCount ), 0 );
+        m_sleepCounter.resize( static_cast<size_t>( modelCount ), 0 );
+    }
+    else if ( static_cast<int>( m_sleepState.size() ) > modelCount )
+    {
+        m_sleepState.resize( static_cast<size_t>( modelCount ) );
+        m_sleepCounter.resize( static_cast<size_t>( modelCount ) );
+    }
+    if ( static_cast<int>( m_sleepIslandVisualId.size() ) < modelCount )
+    {
+        m_sleepIslandVisualId.resize( static_cast<size_t>( modelCount ), 0 );
+    }
+    else if ( static_cast<int>( m_sleepIslandVisualId.size() ) > modelCount )
+    {
+        m_sleepIslandVisualId.resize( static_cast<size_t>( modelCount ) );
     }
     EnsureUnderwaterSleepLockBuffer( modelCount );
     if ( !m_sleepEnabled )

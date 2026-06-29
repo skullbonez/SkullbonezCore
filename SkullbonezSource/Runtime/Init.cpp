@@ -15,6 +15,8 @@ Glossary:
   and platform APIs through reference-counted objects.
   SDF (Signed Distance Field): Texture representation used for crisp scalable
   text rendering.
+  SkullScope: Queryable physics diagnostics trace used to inspect runtime body
+    state without loading raw NDJSON into the agent context.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -629,6 +631,7 @@ struct ParsedArgs
     char physicsDiagnosticsPath[256] = {};
 #endif
     bool physicsDiagnosticsRequested = false;
+    bool physicsDiagnosticsVariableStep = false;
     bool fixedStepForcedByPhysicsDiagnostics = false;
     bool dumpConfig = false;
     bool dumpAssets = false;
@@ -810,6 +813,10 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
               args.suppressExitDialog = true;
           },
           "[workers] Self-test requested." },
+        { "--physics-diag-variable-step",
+          "--physics-diagnostics-variable-step",
+          []( ParsedArgs& args ) { args.physicsDiagnosticsVariableStep = true; },
+          "[physics-diag] Variable-step repro mode requested." },
     };
 
     for ( const CliFlagDirective& flag : kFlags )
@@ -2246,9 +2253,21 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
     free( envPixValue );
 
 #ifdef _DEBUG
+    if ( out.physicsDiagnosticsVariableStep && !out.physicsDiagnosticsRequested )
+    {
+        return FailCommandLineParse( "--physics-diag-variable-step requires --physics-diag." );
+    }
     if ( out.physicsDiagnosticsRequested )
     {
-        if ( !out.fixedStep )
+        if ( out.physicsDiagnosticsVariableStep )
+        {
+            // Why: Some bugs only reproduce through the live variable-step path.
+            // Keep the default deterministic mode for validation, but let
+            // SkullScope record the exact repro when explicitly requested.
+            fprintf( stdout,
+                     "[physics-diag] Enabled: preserving scene/real-time step for variable-step repro trace.\n" );
+        }
+        else if ( !out.fixedStep )
         {
             out.fixedStep = true;
             out.fixedStepForcedByPhysicsDiagnostics = true;
