@@ -8,8 +8,6 @@ Mental model:
   placement, gizmos, and line visualization.
 
 Glossary:
-  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
   Gizmo: World-space editor axes or rotation rings used to transform selected
     models.
   Placement preflight: Capacity and asset-availability check shared by the
@@ -271,6 +269,7 @@ constexpr EditorBuildingDefinition EDITOR_BUILDING_ASSETS[] = {
     { SkullbonezCore::UI::EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP, "building.cute_house_high", "chh" },
     { SkullbonezCore::UI::EditorTab::OBJECT_TRIPLE_DECKER_SLEEP, "building.triple_decker_low", "tdl" },
     { SkullbonezCore::UI::EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP, "building.triple_decker_high", "tdh" },
+    { SkullbonezCore::UI::EditorTab::OBJECT_BRICK_WALL_200_SLEEP, "building.brick_wall_200", "bw200" },
 };
 
 
@@ -1518,6 +1517,7 @@ bool TryComputeEditorObjectCenter( int objectType,
     case UI::EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP:
     case UI::EditorTab::OBJECT_TRIPLE_DECKER_SLEEP:
     case UI::EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP:
+    case UI::EditorTab::OBJECT_BRICK_WALL_200_SLEEP:
     {
         Vector3 minV;
         Vector3 maxV;

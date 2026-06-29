@@ -300,6 +300,13 @@ float3 TerrainModeColor(int mode, float3 texColor, float3 N, float3 worldPos)
     {
         base = lerp(uTerrainTint.rgb, float3(0.90f, 0.92f, 0.84f), 0.35f + max(N.y, 0.0f) * 0.25f);
     }
+    else if (mode == 15)
+    {
+        // Why: presentation scenes need a clean studio floor where terrain is
+        // still real terrain for physics, but the shader ignores the grass
+        // albedo and treats terrainTint as the authored solid material color.
+        return max(uTerrainTint.rgb, float3(0.001f, 0.001f, 0.001f));
+    }
     float authoredGrid = GridLine(worldPos.xz, max(uTerrainGrid.x, 8.0f)) * max(uTerrainGrid.y, 0.0f);
     base += uTerrainAccent.rgb * authoredGrid;
     return base;
@@ -405,6 +412,18 @@ float4 main_ps(VS_OUT input) : SV_TARGET
             float rimShade = exp(-pow((d - 1.03f) * 3.2f, 2.0f)) * relief;
             earthBase = lerp(earthBase, earthBase * float3(0.62f, 0.47f, 0.34f), bowlShade * 0.55f);
             earthBase += float3(0.20f, 0.09f, 0.02f) * rimShade * 0.10f;
+        }
+        if (terrainMode == 15)
+        {
+            // Solid terrain uses the normal terrain pass so shadow receivers,
+            // clipping, and depth stay unchanged; only the sampled grass albedo
+            // is replaced by an authored color.
+            float hemiT = saturate(terrainN.y * 0.5f + 0.5f);
+            float shadowWash = lerp(1.0f - uShadowParams.x * 0.38f, 1.0f, shadowFactor);
+            float3 ambient = earthBase * (0.58f + hemiT * 0.16f);
+            float3 directSun = earthBase * uLightDiffuse.rgb * (terrainDiff * 0.22f) * shadowFactor;
+            float3 rimLight = uLightDiffuse.rgb * (rim * 0.018f + grazing * 0.010f) * shadowFactor;
+            return float4((ambient + directSun) * shadowWash + rimLight, 1.0f);
         }
         if (terrainMode == 7)
         {

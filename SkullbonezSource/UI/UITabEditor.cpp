@@ -78,6 +78,7 @@ const char* const kEditorObjectOptions[] = {
     "Cute house high",
     "Triple decker low",
     "Triple decker high",
+    "Brick wall 200",
 };
 // Invariant: This label table is the UI-facing form of the editor object enum.
 // Runtime placement uses the integer id, so table order is part of the contract.

@@ -458,6 +458,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
     case UI::EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP:
     case UI::EditorTab::OBJECT_TRIPLE_DECKER_SLEEP:
     case UI::EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP:
+    case UI::EditorTab::OBJECT_BRICK_WALL_200_SLEEP:
         if ( building )
         {
             addBuilding( *building );
