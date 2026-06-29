@@ -13,12 +13,18 @@ Glossary:
   validation and tooling paths.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
+  Scene material target: objectMaterial selector such as all, boxes, an exact
+    model name, or prefix:<name> that applies authored render material data.
+  Simple ragdoll part: Generated box body whose name is the ragdoll prefix plus
+    a humanoid part suffix, such as torso or lower_arm_l.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
   surface.
+  - Broad material targets must not erase generated ragdoll palettes, while
+    exact and prefix material targets remain valid authoring contracts.
 
 Related:
   - Agentic/Reference/runtime-reference.md
@@ -152,28 +158,27 @@ bool IsSimpleRagdollNeckJointName( const char* bodyA, const char* bodyB )
 
 bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const GameModel& model )
 {
-    if ( IsSimpleRagdollPartName( model.GetName() ) )
-    {
-        return false;
-    }
+    const bool isSimpleRagdollPart = IsSimpleRagdollPartName( model.GetName() );
     if ( strcmp( material.target, "all" ) == 0 )
     {
-        return true;
+        return !isSimpleRagdollPart;
     }
     if ( strcmp( material.target, "balls" ) == 0 )
     {
-        return model.IsSphere();
+        return !isSimpleRagdollPart && model.IsSphere();
     }
     if ( strcmp( material.target, "boxes" ) == 0 )
     {
-        return model.IsBox();
+        return !isSimpleRagdollPart && model.IsBox();
     }
     if ( strcmp( material.target, "hulls" ) == 0 || strcmp( material.target, "convex_hulls" ) == 0 )
     {
-        return model.IsConvexHull();
+        return !isSimpleRagdollPart && model.IsConvexHull();
     }
     if ( strncmp( material.target, "prefix:", 7 ) == 0 )
     {
+        // Broad groups avoid repainting authored ragdoll palettes, but explicit
+        // exact/prefix targets are the scene-file contract for styling parts.
         return strncmp( model.GetName(), material.target + 7, strlen( material.target + 7 ) ) == 0;
     }
     return strcmp( material.target, model.GetName() ) == 0;
