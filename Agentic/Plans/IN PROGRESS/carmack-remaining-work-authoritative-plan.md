@@ -135,25 +135,43 @@ Known useful evidence to preserve:
 
 ## Phase 3 - Physics Standalone Boundary
 
-- [ ] Decide and document the final standalone boundary contract: either make
+- [x] Decide and document the final standalone boundary contract: either make
   `PhysicsBodyStore`/`PhysicsScene` the step authority, or explicitly narrow
   the accepted compatibility bridge through `PhysicsModelAccess`.
-  Evidence:
-- [ ] If strict standalone authority is still required, stop loading from and
+  Evidence: Phase 3 selected the accepted `PhysicsModelAccess` compatibility
+  bridge for this slice. `SkullbonezSource/Physics/PhysicsScene.cpp` now
+  documents `PhysicsScene::RunPhysics()` as the named load-solve-writeback sync
+  bridge rather than hidden standalone ownership.
+- [x] If strict standalone authority is still required, stop loading from and
   writing back to model-backed `PhysicsModelAccess` every step; keep model sync
   at explicit boundary points.
-  Evidence:
-- [ ] If the compatibility bridge is accepted, document the invariant clearly
+  Evidence: Not applicable after selecting the compatibility-bridge contract;
+  strict store-owned stepping remains a future dedicated migration because it
+  would touch solver, sleep, joints, diagnostics, replay, editor, and render
+  mirrors.
+- [x] If the compatibility bridge is accepted, document the invariant clearly
   and adjust guardrails/tests so future work cannot mistake it for full
   standalone ownership.
-  Evidence:
-- [ ] Add or extend smoke coverage for standalone physics API lifecycle,
+  Evidence: `SkullbonezSource/Physics/PhysicsScene.cpp` adds the bridge
+  invariant. Existing runtime-boundary validation still passes with 0 errors in
+  `TestOutput/validation/agent_logs/carmack_phase3_validate_full.log`; no
+  guardrail file changed in this slice.
+- [x] Add or extend smoke coverage for standalone physics API lifecycle,
   runtime handle mirrors, store handles, render mirrors, and joint handles.
-  Evidence:
-- [ ] Add a sharper invariant or test for collider-store freshness when
+  Evidence: `SkullbonezSource/Runtime/Init.cpp` extends
+  `RunPhysicsRuntimeHandleSmokeSample()` and `--physics-standalone-smoke`
+  reports `store_handles=pass`, `render_mirror=pass`, `joint_handles=pass`,
+  and `collider_refresh=pass` in
+  `TestOutput/validation/agent_logs/carmack_phase3_validate_physics.log`.
+- [x] Add a sharper invariant or test for collider-store freshness when
   same-count authoring/edit paths change shape, restitution, material, or other
   collider-affecting data.
-  Evidence:
+  Evidence: the runtime mirror smoke mutates model 0 from sphere to box after
+  the first `GetColliderStore()` call, then verifies refreshed shape,
+  restitution, bounding radius, surface area, drag/material data, stable handles,
+  stable body reference, and unchanged collider count. Final gates:
+  `tools\validate_physics.bat` passed in 24.17s and `tools\validate_full.bat`
+  passed in 29.34s.
 
 ## Phase 4 - Render Backend Capability
 

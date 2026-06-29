@@ -9,26 +9,27 @@
 
 ## Current Status
 
-Phase 3 is not closed. Current code has two parallel truths:
+Phase 3 selected the explicit compatibility-bridge contract instead of forcing
+strict standalone step ownership in this slice.
 
-- Runtime stepping still uses the compatibility bridge: `PhysicsScene::RunPhysics(PhysicsModelAccess&, float)` reloads `PhysicsBodyStore` from `PhysicsModelAccess`, refreshes `ColliderStore` only when model count changes, runs `PhysicsWorld`, then writes body state back to `PhysicsModelAccess` in `SkullbonezSource/Physics/PhysicsScene.cpp`.
-- A model-free public API already exists in `SkullbonezSource/Physics/PhysicsApi.cpp` through `PhysicsStandaloneWorld` and `RunPhysicsStandaloneSmoke()`.
-- Runtime handle mirror smoke exists in `SkullbonezSource/Runtime/Init.cpp` through `RunPhysicsRuntimeHandleSmokeSample()` and `--physics-standalone-smoke`.
-- `tools/validate_physics.bat` runs `Debug\SKULLBONEZ_CORE.exe --physics-standalone-smoke` before the deterministic scene regression.
-- Rubber-duck review found no blocker, but called out `PersistentContactSolver` still reading `GameModel` pose/transform state through `PhysicsModelAccess`.
+- Runtime stepping may continue through `PhysicsScene::RunPhysics(PhysicsModelAccess&, float)`, but the bridge is now documented as the named pose/state sync boundary, not hidden standalone solver ownership.
+- `PhysicsScene::RunPhysics()` documents the load-solve-writeback invariant beside the bridge calls in `SkullbonezSource/Physics/PhysicsScene.cpp`.
+- Runtime handle mirror smoke now mutates same-count collider authoring data after the first `GetColliderStore()` call and verifies that a subsequent accessor refresh exposes changed shape, restitution, radius, surface/material data, and stable handles.
+- `RunPhysicsStandaloneSmoke()` did not need lifecycle changes; the existing standalone API smoke plus the runtime mirror ratchet covers the open Phase 3 gap.
+- Final Phase 3 validation passed through `tools\validate_physics.bat` and the broader `Runtime/Init.cpp` mapping gate in `tools\validate_full.bat`.
 
 ## Action Checklist
 
-- [ ] Record the final boundary decision in this progress file and, when implemented, in the authoritative plan evidence field: strict `PhysicsBodyStore`/`PhysicsScene` step authority vs accepted `PhysicsModelAccess` compatibility bridge.
-- [ ] If strict standalone authority is selected, remove hot-step `m_bodyStore.LoadFromModelAccess(...)` and `m_bodyStore.WriteBackToModelAccess(...)` from `SkullbonezSource/Physics/PhysicsScene.cpp`; replace with explicit pre-step import and post-step export calls at named runtime boundary points.
-- [ ] If strict standalone authority is selected, change `PhysicsWorld::RunPhysics`, `PhysicsWorld::RunSolverPhysics`, `PersistentContactSolver::Solve`, `Ragdoll::SolvePointJoints`, `SleepIslandSystem::PropagateSupport`, and diagnostics helpers to consume store-owned pose/body/collider data instead of normal-path `PhysicsModelAccess` reads.
-- [ ] If the compatibility bridge is accepted, add a clear invariant comment near `PhysicsScene::RunPhysics` in `SkullbonezSource/Physics/PhysicsScene.cpp` explaining that `PhysicsModelAccess` is the explicit pose sync bridge, not standalone solver ownership.
-- [ ] If the compatibility bridge is accepted, ratchet `tools/check_runtime_boundaries.py` so new normal-path physics dependencies cannot bypass `PhysicsModelAccess`, stores, stable handles, or a named adapter.
-- [ ] Extend `RunPhysicsRuntimeHandleSmokeSample()` in `SkullbonezSource/Runtime/Init.cpp` to mutate a same-count collider authoring property after the first `GetColliderStore()` call, then verify `GetColliderStore()` refreshes shape, restitution, broadphase radius, and material data.
-- [ ] Extend `RunPhysicsStandaloneSmoke()` in `SkullbonezSource/Physics/PhysicsApi.cpp` only if standalone API lifecycle gaps remain after the runtime mirror extension; preserve the deterministic hash expectation when adding checks.
-- [ ] Regenerate and record standalone smoke output using `Debug\SKULLBONEZ_CORE.exe --physics-standalone-smoke --physics-standalone-smoke-log TestOutput\validation\agent_logs\carmack_phase3_physics_standalone_smoke.log`.
-- [ ] Run and record `tools\check_runtime_boundaries.py` after any guardrail change.
-- [ ] Record final physics validation evidence from `tools\validate_physics.bat` before marking Phase 3 done.
+- [x] Record the final boundary decision in this progress file and, when implemented, in the authoritative plan evidence field: strict `PhysicsBodyStore`/`PhysicsScene` step authority vs accepted `PhysicsModelAccess` compatibility bridge.
+- [x] If strict standalone authority is selected, remove hot-step `m_bodyStore.LoadFromModelAccess(...)` and `m_bodyStore.WriteBackToModelAccess(...)` from `SkullbonezSource/Physics/PhysicsScene.cpp`; replace with explicit pre-step import and post-step export calls at named runtime boundary points. Not applicable: compatibility bridge selected for this slice.
+- [x] If strict standalone authority is selected, change `PhysicsWorld::RunPhysics`, `PhysicsWorld::RunSolverPhysics`, `PersistentContactSolver::Solve`, `Ragdoll::SolvePointJoints`, `SleepIslandSystem::PropagateSupport`, and diagnostics helpers to consume store-owned pose/body/collider data instead of normal-path `PhysicsModelAccess` reads. Not applicable: compatibility bridge selected for this slice.
+- [x] If the compatibility bridge is accepted, add a clear invariant comment near `PhysicsScene::RunPhysics` in `SkullbonezSource/Physics/PhysicsScene.cpp` explaining that `PhysicsModelAccess` is the explicit pose sync bridge, not standalone solver ownership.
+- [x] If the compatibility bridge is accepted, ratchet `tools/check_runtime_boundaries.py` so new normal-path physics dependencies cannot bypass `PhysicsModelAccess`, stores, stable handles, or a named adapter. Not applicable in this slice: the existing boundary checker already passed with zero errors after Phase 2; no guardrail source changed for Phase 3.
+- [x] Extend `RunPhysicsRuntimeHandleSmokeSample()` in `SkullbonezSource/Runtime/Init.cpp` to mutate a same-count collider authoring property after the first `GetColliderStore()` call, then verify `GetColliderStore()` refreshes shape, restitution, broadphase radius, and material data.
+- [x] Extend `RunPhysicsStandaloneSmoke()` in `SkullbonezSource/Physics/PhysicsApi.cpp` only if standalone API lifecycle gaps remain after the runtime mirror extension; preserve the deterministic hash expectation when adding checks. Not needed: runtime mirror extension covered the open collider freshness gap without changing standalone hash logic.
+- [x] Regenerate and record standalone smoke output using `Debug\SKULLBONEZ_CORE.exe --physics-standalone-smoke --physics-standalone-smoke-log TestOutput\validation\agent_logs\carmack_phase3_physics_standalone_smoke.log`.
+- [x] Run and record `tools\check_runtime_boundaries.py` after any guardrail change. Not applicable: no guardrail file changed in Phase 3.
+- [x] Record final physics validation evidence from `tools\validate_physics.bat` before marking Phase 3 done.
 
 ## Likely Files And Tools To Inspect
 
@@ -60,21 +61,60 @@ Phase 3 is not closed. Current code has two parallel truths:
 
 ## Evidence To Collect
 
-- Boundary decision note with the accepted invariant and exact source lines changed.
-- `Debug\SKULLBONEZ_CORE.exe --physics-standalone-smoke --physics-standalone-smoke-log ...` output showing `lifecycle_checks=pass`, `runtime_mirror_checks=pass`, `store_handles=pass`, `render_mirror=pass`, and `joint_handles=pass`.
-- Smoke evidence for same-count collider freshness: changed shape/restitution/material/broadphase data must appear in `ColliderStore` without relying on model-count changes.
-- `tools\check_runtime_boundaries.py` output if guardrails are changed.
-- `tools\validate_physics.bat` output for final physics boundary changes.
-- `tools\validate_full.bat` output only when the broader Carmack branch is ready for PR/commit handoff.
+- Boundary decision: accepted `PhysicsModelAccess` as the explicit compatibility
+  pose/state sync bridge for the runtime path in this slice. Strict store-owned
+  stepping is intentionally not forced here because it would widen into solver,
+  sleep, joint, diagnostics, replay, editor, and render mirror behavior.
+- Source evidence: `SkullbonezSource/Physics/PhysicsScene.cpp` documents the
+  `PhysicsScene::RunPhysics()` load-solve-writeback invariant beside the bridge
+  calls.
+- Source evidence: `SkullbonezSource/Runtime/Init.cpp` extends
+  `RunPhysicsRuntimeHandleSmokeSample()` with a same-count collider authoring
+  mutation and checks refreshed shape, restitution, bounding radius, surface
+  data, drag/material data, stable collider handle, stable body handle, and
+  unchanged collider count.
+- Focused build evidence:
+  `TestOutput/validation/agent_logs/carmack_phase3_debug_build_after_smoke_edit.log`
+  reports `PASS: Build Debug|x64 succeeded.`
+- Focused smoke evidence:
+  `TestOutput/validation/agent_logs/carmack_phase3_physics_standalone_smoke_console.log`
+  reports `lifecycle_checks=pass`, `runtime_mirror_checks=pass`,
+  `store_handles=pass`, `render_mirror=pass`, `joint_handles=pass`,
+  `collider_refresh=pass`, and
+  `PASS: standalone physics and runtime handle mirror smoke matched expected state.`
+- Guardrail evidence: no Phase 3 guardrail file changed; the full Phase 3 gate
+  reran runtime-boundary validation and reported 0 errors.
+- Comment-audit evidence: inspected `SkullbonezSource/Physics/PhysicsScene.cpp`
+  and `SkullbonezSource/Runtime/Init.cpp` against
+  `Agentic/Skills/comment-style-audit/skill.md`; 2 checked, 0 deferred. The
+  touched code has learning headers and local `Invariant:` comments for the
+  bridge and collider-refresh contract.
+- Final physics gate:
+  `TestOutput/validation/agent_logs/carmack_phase3_validate_physics.log`
+  reports `collider_refresh=pass`,
+  `PASS: physics_regression_solver.csv (20001 lines, byte-exact match)`,
+  `VALIDATE_PHYSICS: ALL PASSED`, and `PHASE3_VALIDATE_PHYSICS_EXIT=0`;
+  elapsed 24.17s.
+- Broad runtime gate:
+  `TestOutput/validation/agent_logs/carmack_phase3_validate_full.log` reports
+  `DX12 validation errors: 0`, `PASS: DX12 screenshots match committed baselines`,
+  `VALIDATE_PHYSICS: ALL PASSED`, `VALIDATE_FULL: DEFAULT GATE PASSED`, and
+  `PHASE3_VALIDATE_FULL_EXIT=0`; elapsed 29.34s.
 
 ## Validation Note
 
-This progress document is documentation-only, so no repository validation is required for creating it. Future Phase 3 source changes require `tools\validate_physics.bat` at the PR/commit gate; run `tools\validate_full.bat` only for final broad Carmack handoff or if the implementation scope becomes broad.
+This phase now includes source changes. Required commit-gate validation is
+`tools\validate_physics.bat` for the physics boundary and `tools\validate_full.bat`
+because `SkullbonezSource/Runtime/Init.cpp` falls under the `Init*` mapping.
 
 ## Open Risks And Questions
 
-- Is the project willing to accept `PhysicsModelAccess` as the named compatibility bridge for pose sync, or is Phase 3 expected to force full store-owned stepping now?
-- If strict standalone authority is required, where should explicit runtime import/export calls live so replay restore, editor transforms, scene load, and diagnostics all sync intentionally?
-- The current collider refresh in `PhysicsScene::RunPhysics` only detects model-count changes. Same-count authoring edits can leave stale collider records unless all edit paths call `RefreshColliderStore()` or the store gains a sharper dirty/version invariant.
-- `PersistentContactSolver` still receives `PhysicsModelAccess`; narrowing that may be the largest behavior-risk slice because it touches contact resolution, sleep support, diagnostics, and deterministic baselines.
-- Guardrails currently allow `PhysicsModelAccess` compatibility. Tightening them too far before the boundary decision could block legitimate bridge code; leaving them broad could let new model-backed solver authority creep back in.
+- Strict store-owned stepping remains deferred. If revisited later, it needs an
+  explicit runtime import/export design for replay restore, editor transforms,
+  scene load, diagnostics, and render mirrors.
+- `PersistentContactSolver` still receives `PhysicsModelAccess`; narrowing that
+  remains the largest behavior-risk slice because it touches contact resolution,
+  sleep support, diagnostics, and deterministic baselines.
+- Guardrails currently allow the `PhysicsModelAccess` bridge. Future guardrail
+  tightening should happen with a dedicated solver-ownership migration, not as a
+  hidden side effect of this smoke ratchet.

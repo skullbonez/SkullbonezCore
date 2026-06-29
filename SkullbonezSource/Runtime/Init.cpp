@@ -574,6 +574,7 @@ struct PhysicsRuntimeHandleSmokeResult
     bool handlesMatchStores = false;
     bool renderMirrorMatches = false;
     bool jointUsesHandles = false;
+    bool colliderRefreshMatches = false;
     int bodyCount = 0;
     int colliderCount = 0;
     int renderInstanceCount = 0;
@@ -622,6 +623,27 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const ColliderStore& colliderStore = collection->GetColliderStore();
     const RenderInstanceStore& renderStore = collection->GetRenderInstanceStore();
     const std::vector<PointJointConstraint>& pointJoints = collection->GetPointJointConstraints();
+    const size_t initialColliderCount = colliderStore.Count();
+    const ColliderRecord initialCollider = colliderStore.Records()[0];
+
+    SkullbonezCore::GameObjects::GameModel& editedModel = collection->GetModelAtIndex( 0 );
+    editedModel.AddBoundingBox( SkullbonezCore::Math::Vector::Vector3( 0.25f, 1.25f, 0.5f ) );
+    editedModel.SetCoefficientRestitution( 0.42f );
+    const ColliderStore& refreshedColliderStore = collection->GetColliderStore();
+    const ColliderRecord& refreshedCollider = refreshedColliderStore.Records()[0];
+    const float expectedBoxRadius = sqrtf( 0.25f * 0.25f + 1.25f * 1.25f + 0.5f * 0.5f );
+    // Invariant: same-count authoring edits must be visible through the explicit
+    // collider-store refresh boundary. The physics hot step only auto-refreshes
+    // topology changes, so tools and scene edits need this accessor to be fresh.
+    const bool colliderRefreshMatches =
+        initialCollider.shapeKind == ColliderShapeKind::Sphere &&
+        refreshedCollider.shapeKind == ColliderShapeKind::Box &&
+        fabsf( refreshedCollider.boundingRadius - expectedBoxRadius ) < 0.0001f &&
+        fabsf( refreshedCollider.restitution - 0.42f ) < 0.0001f &&
+        fabsf( refreshedCollider.projectedSurfaceArea - initialCollider.projectedSurfaceArea ) > 0.0001f &&
+        fabsf( refreshedCollider.dragCoefficient - initialCollider.dragCoefficient ) > 0.0001f &&
+        refreshedCollider.handle == initialCollider.handle && refreshedCollider.body == initialCollider.body &&
+        refreshedColliderStore.Count() == initialColliderCount;
 
     const PhysicsBodyRecord* bodyARecord = bodyStore.RecordForModelIndex( 0 );
     const PhysicsBodyRecord* bodyBRecord = bodyStore.RecordForModelIndex( 1 );
@@ -642,12 +664,13 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     result.handlesMatchStores = handlesMatchStores;
     result.renderMirrorMatches = renderMirrorMatches;
     result.jointUsesHandles = jointUsesHandles;
+    result.colliderRefreshMatches = colliderRefreshMatches;
     result.bodyCount = bodyStore.Count();
     result.colliderCount = colliderStore.Count();
     result.renderInstanceCount = renderStore.Count();
     result.pointJointCount = pointJoints.size();
     result.bodyA = bodyA;
-    result.passed = handlesMatchStores && renderMirrorMatches && jointUsesHandles;
+    result.passed = handlesMatchStores && renderMirrorMatches && jointUsesHandles && colliderRefreshMatches;
     return result;
 }
 
@@ -695,7 +718,7 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
                  static_cast<unsigned long long>( result.deterministicHash ) );
         fprintf( stream,
                  "[physics-runtime-handle-smoke] bodies=%d colliders=%d render_instances=%d point_joints=%zu "
-                 "handle_a=(%u,%u) store_handles=%s render_mirror=%s joint_handles=%s\n",
+                 "handle_a=(%u,%u) store_handles=%s render_mirror=%s joint_handles=%s collider_refresh=%s\n",
                  runtimeMirror.bodyCount,
                  runtimeMirror.colliderCount,
                  runtimeMirror.renderInstanceCount,
@@ -704,7 +727,8 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
                  runtimeMirror.bodyA.generation,
                  runtimeMirror.handlesMatchStores ? "pass" : "fail",
                  runtimeMirror.renderMirrorMatches ? "pass" : "fail",
-                 runtimeMirror.jointUsesHandles ? "pass" : "fail" );
+                 runtimeMirror.jointUsesHandles ? "pass" : "fail",
+                 runtimeMirror.colliderRefreshMatches ? "pass" : "fail" );
         if ( !runtimeMirror.errorMessage.empty() )
         {
             fprintf( stream, "[physics-runtime-handle-smoke] error=\"%s\"\n", runtimeMirror.errorMessage.c_str() );
