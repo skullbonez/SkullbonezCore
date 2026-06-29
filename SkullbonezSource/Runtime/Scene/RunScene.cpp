@@ -255,7 +255,7 @@ const char* WaterReflectionJsonValue( bool noReflect, bool rtReflect )
     return rtReflect ? "dxr" : "fbo";
 }
 
-SceneAuthoredCameraContext BuildSceneAuthoredCameraContext( SkullbonezCore::Environment::CameraCollection*& cameras,
+SceneAuthoredCameraContext BuildSceneAuthoredCameraContext( SkullbonezCore::Environment::CameraCollection& cameras,
                                                             SkullbonezCore::Geometry::Terrain& terrain )
 {
     return SceneAuthoredCameraContext{ cameras, terrain };
@@ -279,7 +279,7 @@ BuildSceneAuthoredModelContext( RunSceneState& sceneState,
                                       requiredBroadphaseXCells };
 }
 
-SceneGeneratedCameraContext BuildSceneGeneratedCameraContext( SkullbonezCore::Environment::CameraCollection*& cameras,
+SceneGeneratedCameraContext BuildSceneGeneratedCameraContext( SkullbonezCore::Environment::CameraCollection& cameras,
                                                               SkullbonezCore::Geometry::Terrain& terrain )
 {
     return SceneGeneratedCameraContext{ cameras, terrain };
@@ -687,7 +687,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
         }
 
         SceneState().isSceneMode = false;
-        SceneGeneratedSetup::SetUpCameras( BuildSceneGeneratedCameraContext( m_systems.cameras, *m_systems.terrain ) );
+        SceneGeneratedSetup::SetUpCameras( BuildSceneGeneratedCameraContext( *m_systems.cameras, *m_systems.terrain ) );
         SceneGeneratedSetup::TrySetUpRequestedModels(
             BuildSceneGeneratedModelContext( SceneState(),
                                              Cfg(),
@@ -854,7 +854,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
                                   resetSnapshot.worldFluidDensity );
         }
 
-        SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext( m_systems.cameras, *m_systems.terrain ),
+        SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext( *m_systems.cameras, *m_systems.terrain ),
                                           scene );
 
         const bool generatedModelsApplied = SceneGeneratedSetup::TrySetUpRequestedModels(

@@ -328,14 +328,16 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
         scene["ragdollJoints"] = Json::array();
         for ( const SkullbonezCore::Physics::PointJointConstraint& joint : pointJoints )
         {
-            if ( joint.bodyA < 0 || joint.bodyB < 0 || joint.bodyA >= static_cast<int>( m_gameModels.size() ) ||
-                 joint.bodyB >= static_cast<int>( m_gameModels.size() ) )
+            const int bodyAIndex = joint.BodyAIndex();
+            const int bodyBIndex = joint.BodyBIndex();
+            if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= static_cast<int>( m_gameModels.size() ) ||
+                 bodyBIndex >= static_cast<int>( m_gameModels.size() ) )
             {
                 continue;
             }
             Json jointJson = {
-                { "bodyA", m_gameModels[static_cast<size_t>( joint.bodyA )].GetName() },
-                { "bodyB", m_gameModels[static_cast<size_t>( joint.bodyB )].GetName() },
+                { "bodyA", m_gameModels[static_cast<size_t>( bodyAIndex )].GetName() },
+                { "bodyB", m_gameModels[static_cast<size_t>( bodyBIndex )].GetName() },
                 { "localAnchorA", Vec3Json( joint.localAnchorA ) },
                 { "localAnchorB", Vec3Json( joint.localAnchorB ) },
                 { "slack", joint.slack },

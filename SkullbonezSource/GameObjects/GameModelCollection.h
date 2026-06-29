@@ -67,7 +67,9 @@ class GameModelCollectionPhysicsAdapter;
     dedicated collaborators, while older runtime tools still use model-indexed
     accessors until their APIs are moved.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class GameModelCollection : public Rendering::IRenderSceneView, public Physics::PhysicsModelAccess
+class GameModelCollection : public Rendering::IRenderSceneView,
+                            public Physics::PhysicsModelAccess,
+                            public Physics::PhysicsBodyEventSink
 {
     // Why: the adapter is the named compatibility bridge while old
     // model-indexed callers migrate to durable physics handles.
@@ -154,11 +156,13 @@ class GameModelCollection : public Rendering::IRenderSceneView, public Physics::
     double GetSceneKineticEnergy();
     GameModelBodyStream GetPhysicsBodyStream() override;
     void InvalidatePhysicsStreams() override;
+    Physics::PhysicsBodyEventSink& BodyEvents() override;
+    Physics::PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const override;
+    void NotifyFixedContact( int modelIndex, float highlightSeconds ) override;
+    void ReleaseAttachedFixedTreeParts( const Physics::PhysicsFixedTreeReleaseEvent& event ) override;
     void ReleaseAttachedFixedTreeParts( int sourceIndex,
                                         const Math::Vector::Vector3& seedLinearVelocity,
-                                        const Math::Vector::Vector3& seedAngularVelocity )
-        override; // Wakes/releases same-tree parts at or above a break point.
-    void EmitSkullScopeFrame( SkullScope& scope, float dt ) override;
+                                        const Math::Vector::Vector3& seedAngularVelocity );
 
     void WakeModel( int index );
     void SeedModelAsleep( int index );

@@ -617,7 +617,7 @@ class TestSceneParser
 {
   private:
     TestScene m_scene;
-    const Assets::AssetSystem* m_assets = nullptr;
+    Assets::AssetContext m_assets;
     std::vector<Json> m_assetDefinitions;
 
     std::string ResolveStylePath( const std::string& token ) const
@@ -638,17 +638,17 @@ class TestSceneParser
             return token;
         }
 
-        if ( m_assets )
+        if ( m_assets.assets )
         {
             if ( const Assets::AssetLibrarySourceAsset* library =
-                     m_assets->FindAssetLibrarySourceAsset( token.c_str() ) )
+                     m_assets.assets->FindAssetLibrarySourceAsset( token.c_str() ) )
             {
                 return library->resolvedPath;
             }
 
             const std::string prefixedToken = std::string( "assetlib." ) + token;
             if ( const Assets::AssetLibrarySourceAsset* library =
-                     m_assets->FindAssetLibrarySourceAsset( prefixedToken.c_str() ) )
+                     m_assets.assets->FindAssetLibrarySourceAsset( prefixedToken.c_str() ) )
             {
                 return library->resolvedPath;
             }
@@ -2701,7 +2701,7 @@ class TestSceneParser
   public:
     // Lifetime: the parser only borrows the asset registry during this parse.
     // A null registry keeps standalone tools on the historical path fallback.
-    explicit TestSceneParser( const Assets::AssetSystem* assets ) : m_assets( assets )
+    explicit TestSceneParser( Assets::AssetContext assets ) : m_assets( assets )
     {
     }
 
@@ -2722,12 +2722,12 @@ class TestSceneParser
     }
 };
 
-TestScene LoadTestSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets )
+TestScene LoadTestSceneFromFileImpl( const char* path, Assets::AssetContext assets )
 {
     return TestSceneParser( assets ).LoadScene( path );
 }
 
-TestScene LoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets )
+TestScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets )
 {
     return TestSceneParser( assets ).LoadStyle( path );
 }

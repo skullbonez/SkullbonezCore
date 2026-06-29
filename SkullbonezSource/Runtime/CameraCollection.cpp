@@ -65,9 +65,11 @@ CameraCollection* CameraCollection::Instance()
 
 void CameraCollection::Destroy()
 {
-    if ( CameraCollection::pInstance )
+    CameraCollection* cameras = CameraCollection::pInstance;
+    if ( cameras )
     {
-        *CameraCollection::pInstance = CameraCollection();
+        cameras->Reset();
+        cameras->m_terrain = nullptr;
         CameraCollection::pInstance = nullptr;
     }
 }

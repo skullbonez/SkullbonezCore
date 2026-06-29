@@ -147,7 +147,14 @@ void PhysicsScene::ValidateRenderStoreMappings( int modelCount ) const
 void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess, float fChangeInTime )
 {
     m_bodyStore.LoadFromModelAccess( modelAccess, m_world.GetSleepStates() );
-    m_world.RunPhysics( modelAccess, m_bodyStore, fChangeInTime );
+    // Why: collider metadata is construction/authoring state, not per-tick
+    // solver state. Scene setup and explicit refresh calls rebuild the snapshot;
+    // the hot step only needs to catch topology changes.
+    if ( m_colliderStore.Count() != modelAccess.ModelCount() )
+    {
+        m_colliderStore.Refresh( modelAccess );
+    }
+    m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
     m_bodyStore.WriteBackToModelAccess( modelAccess );
 }
@@ -296,7 +303,7 @@ bool PhysicsScene::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
 }
 
 
-SkullbonezCore::Physics::PhysicsWorld::DiagnosticsView PhysicsScene::GetDiagnosticsView() const
+SkullbonezCore::Physics::PhysicsDiagnosticsView PhysicsScene::GetDiagnosticsView() const
 {
     return m_world.GetDiagnosticsView();
 }

@@ -6,7 +6,8 @@ Purpose:
 Mental model:
   This is deliberately a small bridge toward a future generic constraint system.
   Ragdoll owns prefab construction, while PointJointConstraint is generic solver
-  data that can later move under a broader constraint module.
+  data that already names bodies with physics handles while the current solver
+  converts compatibility handles back to scene-order indices.
 
 Glossary:
   Point joint: Constraint that keeps two local anchors near each other.
@@ -15,7 +16,8 @@ Glossary:
 
 Invariants:
   - Constraint order is deterministic and scene-authored.
-  - Constraint bodies refer to GameModelCollection indices for the active scene.
+  - Constraint bodies refer to PhysicsBodyHandle values; compatibility index
+    helpers are temporary solver glue.
 
 Related:
   - SkullbonezSource/Physics/Ragdoll.cpp
@@ -26,6 +28,7 @@ Related:
 #include <cstdint>
 #include <vector>
 
+#include "PhysicsHandles.h"
 #include "../Maths/Quaternion.h"
 #include "../Maths/Vector3.h"
 
@@ -56,8 +59,8 @@ struct PointJointConstraint
 {
     static constexpr uint8_t FLAG_LIMIT_NECK_SWING = 1u << 0;
 
-    int bodyA = -1;
-    int bodyB = -1;
+    PhysicsBodyHandle bodyA;
+    PhysicsBodyHandle bodyB;
     Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;
     float slack = 0.25f;
@@ -65,6 +68,39 @@ struct PointJointConstraint
     float damping = 0.35f;
     uint32_t groupId = 0;
     uint8_t flags = 0;
+
+    void SetCompatibilityBodies( int modelIndexA, int modelIndexB )
+    {
+        bodyA = modelIndexA >= 0 ? MakeCompatibilityPhysicsBodyHandle( static_cast<uint32_t>( modelIndexA ) )
+                                 : PhysicsBodyHandle{};
+        bodyB = modelIndexB >= 0 ? MakeCompatibilityPhysicsBodyHandle( static_cast<uint32_t>( modelIndexB ) )
+                                 : PhysicsBodyHandle{};
+    }
+
+    int BodyAIndex() const
+    {
+        return CompatibilityBodyIndex( bodyA );
+    }
+
+    int BodyBIndex() const
+    {
+        return CompatibilityBodyIndex( bodyB );
+    }
+
+    bool HasValidBodies() const
+    {
+        return bodyA.IsValid() && bodyB.IsValid() && bodyA != bodyB;
+    }
+
+  private:
+    static int CompatibilityBodyIndex( PhysicsBodyHandle body )
+    {
+        if ( !body.IsValid() || body.generation != PHYSICS_COMPATIBILITY_HANDLE_GENERATION || body.index > 0x7fffffffu )
+        {
+            return -1;
+        }
+        return static_cast<int>( body.index );
+    }
 };
 
 struct RagdollBuildOptions

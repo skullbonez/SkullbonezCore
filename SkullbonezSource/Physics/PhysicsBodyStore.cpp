@@ -52,11 +52,16 @@ void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record )
     record.invRotationalInertia = model.GetInvertedRotationalInertia();
     record.mass = model.GetMass();
     record.invMass = model.GetInvertedMass();
+    record.boundingRadius = model.GetBoundingRadius();
+    record.contactReleaseImpulseThreshold = model.GetContactReleaseImpulseThreshold();
     record.isFixed = model.IsFixed();
+    record.usesWorldInertia = model.UsesWorldInertia();
+    record.releasesFromFixedOnContact = model.ReleasesFromFixedOnContact();
 }
 
 void WriteRecordToCompatibilityModel( const PhysicsBodyRecord& record, GameModel& model )
 {
+    model.SetFixed( record.isFixed );
     model.SetPosition( record.position );
     model.SetOrientation( record.orientation );
     model.SetLinearVelocity( record.linearVelocity );
@@ -70,6 +75,7 @@ void WriteRecordToCompatibilityModel( const PhysicsBodyRecord& record, GameModel
         model.ClearImpulseForce();
     }
 }
+
 } // namespace
 
 
@@ -510,8 +516,10 @@ bool PhysicsBodyStore::ApplyCompatibilityForces( std::vector<GameModel>& models,
         return false;
     }
 
-    WriteBackToModelAt( models, modelIndex );
     GameModel& model = models[static_cast<std::size_t>( modelIndex )];
+    // Why: command entry points and the frame-start store load have already
+    // synchronized pending impulses into GameModel. Rewriting the same state for
+    // every body here turns the force pass into unnecessary setter churn.
     model.ApplyForces( deltaSeconds );
     CaptureMutableBodyState( model, *record );
     record->pendingImpulse = ZERO_VECTOR;
@@ -529,8 +537,10 @@ bool PhysicsBodyStore::ApplyCompatibilityForces( PhysicsModelMutableRange models
         return false;
     }
 
-    WriteBackToModelAt( models, modelIndex );
     GameModel& model = models[static_cast<std::size_t>( modelIndex )];
+    // Why: command entry points and the frame-start store load have already
+    // synchronized pending impulses into GameModel. Rewriting the same state for
+    // every body here turns the force pass into unnecessary setter churn.
     model.ApplyForces( deltaSeconds );
     CaptureMutableBodyState( model, *record );
     record->pendingImpulse = ZERO_VECTOR;

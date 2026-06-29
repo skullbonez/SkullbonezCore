@@ -147,10 +147,11 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
 }
 
 
-Run::Run( std::vector<std::string> sceneQueue )
+Run::Run( Window& window, std::vector<std::string> sceneQueue )
     : m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
       m_renderHost( BuildRuntimeRenderHostBindings(), BuildRuntimeRenderHostCallbacks() ), m_renderer( m_renderHost )
 {
+    m_systems.window = &window;
     BindEngineContext();
     RefreshRuntimeViewModel();
     RefreshSceneBrowserList( m_sceneController.Browser() );
@@ -291,7 +292,7 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
         { "profiler_queries", BackendResourceStep::ProfilerQueries, false },
         { "texture_collection", BackendResourceStep::TextureCollection, false },
         { "camera_collection", BackendResourceStep::CameraCollection, false },
-        { "skybox_singleton", BackendResourceStep::SkyBox, false },
+        { "skybox", BackendResourceStep::SkyBox, false },
         { "launcher_laser", BackendResourceStep::LauncherLaser, false },
     };
 
@@ -336,19 +337,24 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
         case BackendResourceStep::TextureCollection:
             if ( m_systems.textures )
             {
-                m_systems.textures->Destroy();
+                m_systems.textures->DeleteAllTextures();
+                m_systems.textures->BindAssetSystem( nullptr );
+                m_systems.textures->BindRenderContexts( nullptr, nullptr );
             }
             break;
         case BackendResourceStep::CameraCollection:
             if ( m_systems.cameras )
             {
-                m_systems.cameras->Destroy();
+                m_systems.cameras->Reset();
+                m_systems.cameras->SetTerrain( nullptr );
             }
             break;
         case BackendResourceStep::SkyBox:
             if ( m_systems.skyBox )
             {
-                m_systems.skyBox->Destroy();
+                m_systems.skyBox->ReleaseRenderResources();
+                m_systems.skyBoxOwner.reset();
+                m_systems.skyBox = nullptr;
             }
             break;
         case BackendResourceStep::LauncherLaser:
@@ -1178,15 +1184,20 @@ void Run::SetPhysicsDiagnosticsPath( const char* path, bool fixedStepForcedByDia
 
 void Run::Initialise()
 {
-    m_systems.window = Window::Instance();
+    assert( m_systems.window );
 
-    const char* rendererName = Gfx().GetRendererName();
+    IRenderBackend& renderBackend = Gfx();
+    auto& renderResources = static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( renderBackend );
+    auto& renderCommands = static_cast<SkullbonezCore::Rendering::IRenderCommandContext&>( renderBackend );
+
+    const char* rendererName = renderBackend.GetRendererName();
     char titleText[256];
     sprintf_s( titleText, "%s [%s] -- LOADING!!!", TITLE_TEXT, rendererName );
     m_systems.window->SetTitleText( titleText );
 
-    m_systems.textures = TextureCollection::Instance();
+    m_systems.textures = &m_systems.textureCollection;
     m_systems.textures->BindAssetSystem( &m_systems.assets );
+    m_systems.textures->BindRenderContexts( &renderResources, &renderCommands );
     SkullbonezCore::Assets::BindActiveAssetSystem( &m_systems.assets );
     RegisterBuiltInAssets();
 
@@ -1199,7 +1210,9 @@ void Run::Initialise()
     m_systems.isFlatSlopeTerrain = false;
 
     // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)
-    m_systems.skyBox = SkyBox::Instance( -250, 300, -300, 300, -250, 300 );
+    m_systems.skyBoxOwner = std::make_unique<SkyBox>( -250, 300, -300, 300, -250, 300 );
+    m_systems.skyBox = m_systems.skyBoxOwner.get();
+    m_systems.skyBox->BindTextures( *m_systems.textures );
     m_systems.skyBox->ResetRenderResources();
 
     {
@@ -1212,8 +1225,8 @@ void Run::Initialise()
     // Init font (HDC, font)
     m_renderer.EnsureUiTextResources();
 
-    // Init cameras singleton (shared across scenes, Reset() between loads)
-    m_systems.cameras = CameraCollection::Instance();
+    // Init cameras (shared across scenes, Reset() between loads)
+    m_systems.cameras = &m_systems.cameraCollection;
 
     LoadScene( 0 );
 }

@@ -27,18 +27,20 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Physics
+{
+class PhysicsModelAccess;
+} // namespace Physics
+
 namespace GameObjects
 {
-class GameModelCollection;
-
-
 class SkullScope final
 {
   public:
 #ifdef _DEBUG
     void SetPath( const char* path );
     void SetRunId( const char* runId );
-    void EmitFrame( GameModelCollection& collection, float dt );
+    void EmitFrame( Physics::PhysicsModelAccess& modelAccess, float dt );
 #endif
 
   private:

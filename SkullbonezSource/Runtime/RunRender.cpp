@@ -329,7 +329,8 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                               SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing,
                                               bool renderReady )
 {
-    return RuntimeRenderInputs{ RuntimeRenderServices{ *systems.textures,
+    return RuntimeRenderInputs{ RuntimeRenderServices{ systems.assets,
+                                                       *systems.textures,
                                                        models,
                                                        world,
                                                        systems.terrain.get(),
@@ -997,6 +998,7 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( const Runtime
 {
     const RuntimeRenderServices& services = renderInputs.services;
     return RenderResourceContext{ cinematicRender,
+                                  services.assets,
                                   services.renderResources,
                                   (std::max)( 1, m_host.WindowScreenWidth() ),
                                   (std::max)( 1, m_host.WindowScreenHeight() ) };

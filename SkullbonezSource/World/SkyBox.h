@@ -14,9 +14,11 @@ Glossary:
   Face mesh: One quad for a side of the cube; each face binds a different sky
   texture hash.
 
-Invariants:
-  - SkyBox is a legacy singleton; Destroy clears global access before scene or
-  backend teardown paths rebuild resources.
+  Invariants:
+  - SkyBox is runtime-owned by Run in normal paths; the legacy singleton entry
+    point remains only as a compatibility shell.
+  - The texture registry is borrowed from Run and must be rebound before any
+    render-resource rebuild.
 
 Related:
   - SkullbonezSource/World/SkyBox.cpp
@@ -56,12 +58,15 @@ class SkyBox
     std::array<std::unique_ptr<Rendering::IMesh>, 6> m_faceMeshes; // One renderer-owned quad mesh per cube face.
     std::array<uint32_t, 6> m_faceTextures;                        // Texture hash selected for each cube face.
 
-    SkyBox( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax );
-    ~SkyBox() = default;
     void LoadTextures();
     void BuildMeshes();
 
   public:
+    SkyBox( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax );
+    ~SkyBox() = default;
+    SkyBox( const SkyBox& ) = delete;
+    SkyBox& operator=( const SkyBox& ) = delete;
+
     static SkyBox* Instance( int xMin,
                              int xMax,
                              int yMin,
@@ -69,6 +74,8 @@ class SkyBox
                              int zMin,
                              int zMax );                           // Lazy singleton access for scene-owned sky bounds.
     static void Destroy();
+    void BindTextures( Textures::TextureCollection& textures );    // Borrow Run-owned texture registry for sky faces.
+    void ReleaseRenderResources();                                 // Releases backend-owned sky meshes/shader and clears service borrows.
     void Render( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj );
     void ResetRenderResources();                                   // Rebuild meshes/shader after renderer reset/switch
 };

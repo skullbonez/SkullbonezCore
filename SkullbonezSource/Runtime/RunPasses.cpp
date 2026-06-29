@@ -386,7 +386,7 @@ void SkyPass::EnsureGpuResources( const RenderResourceContext& resources )
     {
         // Procedural sky shader: draws generated sunset/cloud color when the
         // cinematic config opts out of the authored cube-map skybox.
-        sky.atmosphereShader = m_host.m_systems.assets.CreateShader( "shader.sky_atmosphere" );
+        sky.atmosphereShader = resources.assets.CreateShader( RenderResources( resources ), "shader.sky_atmosphere" );
     }
 }
 
@@ -1733,7 +1733,8 @@ void VolumetricPass::EnsureGpuResources( const RenderResourceContext& resources 
     {
         // Half-resolution pass: creates warm light shafts that tonemap can add
         // without making every world shader understand volumetric lighting.
-        volumetric.shader = m_host.m_systems.assets.CreateShader( "shader.post_volumetric_light" );
+        volumetric.shader =
+            resources.assets.CreateShader( RenderResources( resources ), "shader.post_volumetric_light" );
     }
 }
 
@@ -1843,7 +1844,7 @@ void TonemapPass::EnsureGpuResources( const RenderResourceContext& resources )
     {
         // Final full-screen shader: combines HDR scene color, depth fog, bloom,
         // grade, vignette, and optional volumetric light into the backbuffer.
-        tonemap.shader = m_host.m_systems.assets.CreateShader( "shader.post_tonemap" );
+        tonemap.shader = resources.assets.CreateShader( RenderResources( resources ), "shader.post_tonemap" );
     }
 }
 

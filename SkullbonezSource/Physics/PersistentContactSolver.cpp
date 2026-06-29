@@ -36,6 +36,7 @@ Related:
 
 #include "../Core/Config.h"
 #include "ContactSolverCommon.h"
+#include "ColliderStore.h"
 #include "PhysicsModelAccess.h"
 #include "ObjectContactManifold.h"
 #include "PhysicsBodyStore.h"
@@ -86,6 +87,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
     auto& m_terrainRestApplied = context.terrainRestApplied;
     auto& m_sleepSupportedThisFrame = context.sleepSupportedThisFrame;
     auto& m_bodyRecords = context.bodyRecords;
+    const auto& m_colliderRecords = context.colliderRecords;
     auto RecordPhysicsPipelineStage = [&]( const PhysicsPipelineRecord& record )
     { context.RecordPhysicsPipelineStage( record ); };
     auto MarkCollisionVisualContact = [&]( int index ) { context.MarkCollisionVisualContact( index ); };
@@ -212,7 +214,6 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
         //   getter/setter churn inside the row loop.
         for ( int i = 0; i < modelCount; ++i )
         {
-            GameModel& model = m_gameModels[i];
             const PhysicsBodyRecord& record = m_bodyRecords[static_cast<size_t>( i )];
             SolverBodyState& body = m_solverBodies[i];
             if ( m_sleepState[i] || m_soaIsFixed[i] )
@@ -231,7 +232,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                 body.angularVelocity = record.angularVelocity;
                 body.invMass = record.invMass;
                 body.invInertia = record.invRotationalInertia;
-                body.useWorldInertia = model.UsesWorldInertia();
+                body.useWorldInertia = record.usesWorldInertia;
             }
             if ( body.useWorldInertia )
             {
@@ -303,12 +304,12 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
         }
     };
 
-    auto conservativeContactRadius = []( const GameModel& model ) -> float
+    auto conservativeContactRadius = []( const ColliderRecord& collider ) -> float
     {
         // Broadphase radii must include any local shape offset. If a shape is
         // not centered on the body origin, the "safe maybe touching" sphere has
         // to reach from the origin all the way to the farthest shifted point.
-        const CollisionShape& shape = model.GetCollisionShape();
+        const CollisionShape& shape = collider.shape;
         float radius = GetShapeBoundingRadius( shape );
         const Vector3& offset = GetShapePosition( shape );
         float offsetSq = Vector::VectorMagSquared( offset );
@@ -408,7 +409,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
         {
             return;
         }
-        if ( !std::get_if<ConvexHullShape>( &m_gameModels[supportedIndex].GetCollisionShape() ) )
+        if ( supportedIndex >= static_cast<int>( m_colliderRecords.size() ) ||
+             !std::get_if<ConvexHullShape>( &m_colliderRecords[static_cast<size_t>( supportedIndex )].shape ) )
         {
             return;
         }
@@ -441,15 +443,16 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
         const Vector3 supportNormal = ( c.normal.y > 0.0f ) ? c.normal : -c.normal;
         const Vector3 supportArm = ( c.normal.y > 0.0f ) ? c.rB : c.rA;
         const Vector3 lever = supportArm - supportNormal * ( supportArm * supportNormal );
-        const float radius = conservativeContactRadius( m_gameModels[supportedIndex] );
+        const float radius = conservativeContactRadius( m_colliderRecords[static_cast<size_t>( supportedIndex )] );
         const float leverTolerance = (std::max)( 0.001f, radius * 0.0002f );
         if ( Vector::VectorMagSquared( lever ) > leverTolerance * leverTolerance )
         {
             return;
         }
 
-        const float loadFloor =
-            (std::max)( 1.0e-4f, m_gameModels[supportedIndex].GetMass() * fabsf( Cfg().gravity ) * dt * 0.01f );
+        const float loadFloor = (std::max)( 1.0e-4f,
+                                            m_bodyRecords[static_cast<size_t>( supportedIndex )].mass *
+                                                fabsf( Cfg().gravity ) * dt * 0.01f );
         if ( c.accN < loadFloor )
         {
             return;
@@ -512,11 +515,13 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
 
             GameModel& a = m_gameModels[aIndex];
             GameModel& b = m_gameModels[bIndex];
+            const ColliderRecord& colliderA = m_colliderRecords[static_cast<size_t>( aIndex )];
+            const ColliderRecord& colliderB = m_colliderRecords[static_cast<size_t>( bIndex )];
 
             Vector3 centerDelta = m_bodyRecords[static_cast<size_t>( bIndex )].position -
                                   m_bodyRecords[static_cast<size_t>( aIndex )].position;
             float contactDistance =
-                conservativeContactRadius( a ) + conservativeContactRadius( b ) + Cfg().contactEpsilon;
+                conservativeContactRadius( colliderA ) + conservativeContactRadius( colliderB ) + Cfg().contactEpsilon;
             if ( Vector::VectorMagSquared( centerDelta ) > contactDistance * contactDistance )
             {
                 continue;
@@ -529,14 +534,21 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             bool manifoldBuilt = false;
             {
                 PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ExactObjectManifold" );
-                manifoldBuilt = BuildObjectContactManifold( a, b, aIndex, bIndex, Cfg().contactEpsilon, manifold );
+                manifoldBuilt = BuildObjectContactManifold( a,
+                                                            colliderA.shape,
+                                                            b,
+                                                            colliderB.shape,
+                                                            aIndex,
+                                                            bIndex,
+                                                            Cfg().contactEpsilon,
+                                                            manifold );
             }
             if ( manifoldBuilt )
             {
                 PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/AddRows" );
                 contactNormal = manifold.normal;
-                const CollisionShape& shapeA = a.GetCollisionShape();
-                const CollisionShape& shapeB = b.GetCollisionShape();
+                const CollisionShape& shapeA = colliderA.shape;
+                const CollisionShape& shapeB = colliderB.shape;
                 const bool hasConvexHull =
                     std::get_if<ConvexHullShape>( &shapeA ) || std::get_if<ConvexHullShape>( &shapeB );
                 const bool hasSphere = std::get_if<BoundingSphere>( &shapeA ) || std::get_if<BoundingSphere>( &shapeB );
@@ -646,8 +658,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             // and cannot become a hidden sleep anchor.
             const float supportSeedScale =
                 manifold.supportsRestingPolicy ? 1.0f : ( manifold.inhibitsSleep ? 0.35f : 0.0f );
-            const float warmStartTotal = m_gameModels[manifold.bodyA].GetMass() * fabsf( Cfg().gravity ) *
-                                         fabsf( manifold.normal.y ) * dt * supportSeedScale;
+            const float warmStartTotal = m_bodyRecords[static_cast<size_t>( manifold.bodyA )].mass *
+                                         fabsf( Cfg().gravity ) * fabsf( manifold.normal.y ) * dt * supportSeedScale;
             const float warmStartPerContact = warmStartTotal / static_cast<float>( manifold.pointCount );
 
             for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
@@ -713,7 +725,6 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/Precompute" );
         for ( PersistentContact& c : m_persistentContacts )
         {
-            GameModel& a = m_gameModels[c.bodyA];
             const SolverBodyState& bodyA = m_solverBodies[c.bodyA];
             const SolverBodyState& bodyB = c.isTerrain ? staticTerrainBody : m_solverBodies[c.bodyB];
 
@@ -804,13 +815,15 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                 else if ( vn < -Cfg().contactRestitutionThreshold )
                 {
                     const uint8_t pointCount = c.manifoldPointCount > 0 ? c.manifoldPointCount : 1;
-                    c.bias = ( -a.GetCoefficientRestitution() * vn ) / static_cast<float>( pointCount );
+                    const float restitution = m_colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
+                    c.bias = ( -restitution * vn ) / static_cast<float>( pointCount );
                 }
             }
             else if ( vn < -Cfg().contactRestitutionThreshold )
             {
-                GameModel& b = m_gameModels[c.bodyB];
-                float restitution = sqrtf( a.GetCoefficientRestitution() * b.GetCoefficientRestitution() );
+                const float restitutionA = m_colliderRecords[static_cast<size_t>( c.bodyA )].restitution;
+                const float restitutionB = m_colliderRecords[static_cast<size_t>( c.bodyB )].restitution;
+                float restitution = sqrtf( restitutionA * restitutionB );
                 c.bias = -restitution * vn;
             }
             else if ( vn >= -Cfg().contactRestitutionThreshold )
@@ -827,12 +840,11 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             }
 
             uint16_t countA = ( m_persistentContactCounts[c.bodyA] > 0 ) ? m_persistentContactCounts[c.bodyA] : 1;
-            float contactMass = a.GetMass() / static_cast<float>( countA );
+            float contactMass = m_bodyRecords[static_cast<size_t>( c.bodyA )].mass / static_cast<float>( countA );
             if ( !c.isTerrain )
             {
-                GameModel& b = m_gameModels[c.bodyB];
                 uint16_t countB = ( m_persistentContactCounts[c.bodyB] > 0 ) ? m_persistentContactCounts[c.bodyB] : 1;
-                float contactMassB = b.GetMass() / static_cast<float>( countB );
+                float contactMassB = m_bodyRecords[static_cast<size_t>( c.bodyB )].mass / static_cast<float>( countB );
                 if ( contactMassB < contactMass )
                 {
                     contactMass = contactMassB;
@@ -1047,9 +1059,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             }
 
             m_terrainRestApplied[bodyIndex] = 1;
-            GameModel& model = m_gameModels[bodyIndex];
+            const PhysicsBodyRecord& record = m_bodyRecords[static_cast<size_t>( bodyIndex )];
             SolverBodyState& body = m_solverBodies[bodyIndex];
-            float normalForce = model.GetMass() * fabsf( Cfg().gravity ) * fabsf( manifold.normal.y );
+            float normalForce = record.mass * fabsf( Cfg().gravity ) * fabsf( manifold.normal.y );
             float omegaMagSq = body.angularVelocity * body.angularVelocity;
             if ( omegaMagSq > TOLERANCE * TOLERANCE )
             {
@@ -1076,11 +1088,11 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                             return shape.GetBoundingRadius() * 0.5f;
                         }
                     },
-                    model.GetCollisionShape() );
+                    m_colliderRecords[static_cast<size_t>( bodyIndex )].shape );
 
                 constexpr float muRolling = 0.02f;
                 float rollingTorqueMag = muRolling * normalForce * rEff;
-                const Vector3& inertia = model.GetRotationalInertia();
+                const Vector3& inertia = record.rotationalInertia;
                 float avgInertia = ( inertia.x + inertia.y + inertia.z ) / 3.0f;
                 if ( avgInertia < TOLERANCE )
                 {
@@ -1143,11 +1155,11 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
         {
             if ( c.accN > 0.0f )
             {
-                if ( m_gameModels[c.bodyA].IsFixed() )
+                if ( m_bodyRecords[static_cast<size_t>( c.bodyA )].isFixed )
                 {
                     MarkFixedContact( c.bodyA );
                 }
-                if ( c.bodyB != TERRAIN_BODY_INDEX && m_gameModels[c.bodyB].IsFixed() )
+                if ( c.bodyB != TERRAIN_BODY_INDEX && m_bodyRecords[static_cast<size_t>( c.bodyB )].isFixed )
                 {
                     MarkFixedContact( c.bodyB );
                 }
@@ -1184,14 +1196,15 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                 continue;
             }
 
-            GameModel& a = m_gameModels[c.bodyA];
-            float invMassA = ( m_sleepState[c.bodyA] || a.IsFixed() ) ? 0.0f : a.GetInvertedMass();
+            const PhysicsBodyRecord& bodyA = m_bodyRecords[static_cast<size_t>( c.bodyA )];
+            float invMassA = ( m_sleepState[c.bodyA] || bodyA.isFixed ) ? 0.0f : bodyA.invMass;
             float invMassB = 0.0f;
-            GameModel* b = nullptr;
+            bool hasBodyB = false;
             if ( c.bodyB != TERRAIN_BODY_INDEX )
             {
-                b = &m_gameModels[c.bodyB];
-                invMassB = ( m_sleepState[c.bodyB] || b->IsFixed() ) ? 0.0f : b->GetInvertedMass();
+                const PhysicsBodyRecord& bodyB = m_bodyRecords[static_cast<size_t>( c.bodyB )];
+                hasBodyB = true;
+                invMassB = ( m_sleepState[c.bodyB] || bodyB.isFixed ) ? 0.0f : bodyB.invMass;
             }
             float totalInvMass = invMassA + invMassB;
             if ( totalInvMass <= TOLERANCE )
@@ -1222,7 +1235,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             RecordPhysicsPipelineStage( record );
             m_bodyRecords[static_cast<size_t>( c.bodyA )].position -= correction * invMassA;
             context.bodyStore.WriteBackToModelAt( m_gameModels, c.bodyA );
-            if ( b )
+            if ( hasBodyB )
             {
                 m_bodyRecords[static_cast<size_t>( c.bodyB )].position += correction * invMassB;
                 context.bodyStore.WriteBackToModelAt( m_gameModels, c.bodyB );
@@ -1291,10 +1304,10 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                 return;
             }
 
-            GameModel& fixedModel = m_gameModels[fixedIndex];
-            GameModel& otherModel = m_gameModels[otherIndex];
-            if ( !fixedModel.IsFixed() || !fixedModel.ReleasesFromFixedOnContact() || otherModel.IsFixed() ||
-                 otherModel.ReleasesFromFixedOnContact() || c.accN < fixedModel.GetContactReleaseImpulseThreshold() )
+            PhysicsBodyRecord& fixedRecord = m_bodyRecords[static_cast<size_t>( fixedIndex )];
+            const PhysicsBodyRecord& otherRecord = m_bodyRecords[static_cast<size_t>( otherIndex )];
+            if ( !fixedRecord.isFixed || !fixedRecord.releasesFromFixedOnContact || otherRecord.isFixed ||
+                 otherRecord.releasesFromFixedOnContact || c.accN < fixedRecord.contactReleaseImpulseThreshold )
             {
                 return;
             }
@@ -1307,7 +1320,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             }
             releaseDir /= dirMag;
 
-            const float mass = (std::max)( 0.001f, fixedModel.GetMass() );
+            const float mass = (std::max)( 0.001f, fixedRecord.mass );
             const float impulseSpeed = c.accN / mass;
             const Vector3 otherVelocity = m_bodyRecords[static_cast<size_t>( otherIndex )].linearVelocity;
             const float carriedSpeed = (std::max)( 0.0f, otherVelocity * releaseDir );
@@ -1326,21 +1339,19 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             Vector3 angularVelocity = ZERO_VECTOR;
             if ( spinAxisMag > TOLERANCE )
             {
-                const float radius = (std::max)( 0.25f, fixedModel.GetBoundingRadius() );
+                const float radius = (std::max)( 0.25f, fixedRecord.boundingRadius );
                 angularVelocity = spinAxis * ( std::clamp( releaseSpeed / radius, 0.0f, 8.0f ) / spinAxisMag );
             }
 
-            fixedModel.SetFixed( false );
-            context.bodyStore.CaptureMutableStateFromModelAt( m_gameModels, fixedIndex );
-            m_bodyRecords[static_cast<size_t>( fixedIndex )].linearVelocity =
-                releaseDir * releaseSpeed + tangentVelocity;
-            m_bodyRecords[static_cast<size_t>( fixedIndex )].angularVelocity = angularVelocity;
+            fixedRecord.isFixed = false;
+            fixedRecord.linearVelocity = releaseDir * releaseSpeed + tangentVelocity;
+            fixedRecord.angularVelocity = angularVelocity;
             context.bodyStore.WriteBackToModelAt( m_gameModels, fixedIndex );
             context.WakeModel( modelAccess, fixedIndex );
-            modelAccess.ReleaseAttachedFixedTreeParts(
-                fixedIndex,
-                m_bodyRecords[static_cast<size_t>( fixedIndex )].linearVelocity,
-                m_bodyRecords[static_cast<size_t>( fixedIndex )].angularVelocity );
+            modelAccess.BodyEvents().ReleaseAttachedFixedTreeParts(
+                PhysicsFixedTreeReleaseEvent{ fixedIndex,
+                                              m_bodyRecords[static_cast<size_t>( fixedIndex )].linearVelocity,
+                                              m_bodyRecords[static_cast<size_t>( fixedIndex )].angularVelocity } );
         };
 
         for ( const PersistentContact& c : m_persistentContacts )

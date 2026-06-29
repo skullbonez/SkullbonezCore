@@ -52,6 +52,11 @@ class IRenderRayTracing;
 class IRenderResourceFactory;
 } // namespace Rendering
 
+namespace Assets
+{
+class AssetSystem;
+} // namespace Assets
+
 namespace Basics
 {
 class RuntimeRenderHost;
@@ -127,6 +132,7 @@ struct RenderResourceContext
     // RuntimeRenderer::EnsureFrameResources() or explicit ensure calls, while
     // draw methods keep using RenderFrameContext.
     bool cinematicEnabled = false;
+    Assets::AssetSystem& assets;
     Rendering::IRenderResourceFactory& renderResources;
     int windowWidth = 1;                    // Active render-target width used for resize-sensitive GPU objects.
     int windowHeight = 1;                   // Active render-target height used for resize-sensitive GPU objects.

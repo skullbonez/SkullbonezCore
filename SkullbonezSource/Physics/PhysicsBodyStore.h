@@ -65,8 +65,12 @@ struct PhysicsBodyRecord
     Math::Vector::Vector3 pendingImpulseApplicationPoint = Math::Vector::ZERO_VECTOR;
     float mass = 0.0f;                                 // Authoring mass; fixed bodies still report mass.
     float invMass = 0.0f;                              // Solver inverse mass; fixed bodies use zero.
+    float boundingRadius = 0.0f;                       // Conservative radius for body-level release/spin policy.
+    float contactReleaseImpulseThreshold = 1.0f;       // Minimum contact impulse before authored fixed props release.
     bool isFixed = false;                              // True for immovable collision bodies.
     bool isSleeping = false;                           // Physics-owned sleep flag mirrored to diagnostics by model index.
+    bool usesWorldInertia = false;                     // Non-sphere bodies rotate inertia through orientation.
+    bool releasesFromFixedOnContact = false;           // Authored fixed prop can become dynamic after strong contact.
     bool hasPendingImpulse = false;                    // One-shot impulse waiting for the next force integration pass.
 };
 

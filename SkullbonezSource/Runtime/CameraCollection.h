@@ -16,11 +16,13 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
-Invariants:
+  Invariants:
   - Camera slots are fixed-size and keyed by m_cameraHashes; scene code must
     register a camera before selecting it by hash.
   - m_terrain is borrowed scene state and must not be freed by the camera
     collection.
+  - Runtime-owned camera collections are value-owned by Run; the legacy
+    singleton entry point remains only as a compatibility shell.
 
 Related:
   - SkullbonezSource/Runtime/CameraCollection.cpp
@@ -66,8 +68,6 @@ class CameraCollection
     Geometry::Terrain* m_terrain;                                  // Borrowed scene terrain used to keep tweened cameras collision-aware.
     Math::Transformation::Matrix4 m_currentViewMatrix;             // Render-facing view matrix refreshed once per frame.
 
-    CameraCollection();
-    ~CameraCollection() = default;
     void SetViewMatrix( const Camera& cCameraData );               // Frame view matrix comes from the pose selected for rendering.
     int FindIndex( uint32_t hash );                                // Throws when the scene asks for an unregistered camera hash.
     Camera GetCameraDelta();                                       // Primary movement delta used to update relative cameras.
@@ -75,6 +75,11 @@ class CameraCollection
     void SetTweenPath( int fromIndex, int toIndex );               // fromIndex=-1 starts from the current tween pose.
 
   public:
+    CameraCollection();
+    ~CameraCollection() = default;
+    CameraCollection( const CameraCollection& ) = delete;
+    CameraCollection& operator=( const CameraCollection& ) = delete;
+
     static CameraCollection* Instance();
     static void Destroy();
     const Math::Vector::Vector3& GetCameraView();

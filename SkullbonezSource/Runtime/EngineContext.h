@@ -10,6 +10,10 @@ Mental model:
 
 Glossary:
   EngineContext: Bound view over runtime-owned systems.
+  EngineServices: Borrowed view over shared process services such as assets,
+    textures, cameras, and the native window.
+  WindowService: Borrowed view of the native window service exposed to runtime
+    slices that need dimensions, title, or resize behavior.
   Binding: Non-owning pointer to a subsystem owned by Run.
   Runtime boundary: Named subsystem edge used by extraction slices.
   Facade: Small public surface that hides broader runtime ownership.
@@ -28,13 +32,30 @@ namespace SkullbonezCore
 {
 namespace Environment
 {
+class CameraCollection;
 class WorldEnvironment;
-}
+} // namespace Environment
 
 namespace GameObjects
 {
 class GameModelCollection;
 }
+
+namespace Assets
+{
+class AssetSystem;
+}
+
+namespace Textures
+{
+class TextureCollection;
+}
+
+namespace Geometry
+{
+class SkyBox;
+class Terrain;
+} // namespace Geometry
 
 namespace Basics
 {
@@ -44,6 +65,7 @@ class RuntimeCommandQueue;
 class SceneController;
 class SimulationController;
 class RuntimeInputContext;
+class Window;
 struct RunCameraState;
 struct RunDebugState;
 struct RunRuntimeSettings;
@@ -65,6 +87,21 @@ struct EngineContextBindings
     GameObjects::GameModelCollection* models = nullptr; // Runtime model and solver-visible state
 };
 
+struct EngineServices
+{
+    // Lifetime: these pointers borrow Run-owned services after Run::Initialise
+    // wires legacy singleton-backed resources into the composition root.
+    Assets::AssetSystem* assets = nullptr;
+    Textures::TextureCollection* textures = nullptr;
+    Environment::CameraCollection* cameras = nullptr;
+    struct WindowService
+    {
+        Window* window = nullptr;                       // Native window owner borrowed from RunSubsystemState.
+    } window;
+    Geometry::Terrain* terrain = nullptr;
+    Geometry::SkyBox* skyBox = nullptr;
+};
+
 class EngineContext
 {
   public:
@@ -73,6 +110,7 @@ class EngineContext
 
     const EngineContextBindings& Bindings() const;
     EngineContextBindings& Bindings();
+    EngineServices Services();
 
   private:
     EngineContextBindings m_bindings;

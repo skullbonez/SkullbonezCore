@@ -588,14 +588,37 @@ void GameModelCollection::InvalidatePhysicsStreams()
 }
 
 
-void GameModelCollection::EmitSkullScopeFrame( SkullbonezCore::GameObjects::SkullScope& scope, float dt )
+SkullbonezCore::Physics::PhysicsBodyEventSink& GameModelCollection::BodyEvents()
 {
-#ifdef _DEBUG
-    scope.EmitFrame( *this, dt );
-#else
-    (void)scope;
-    (void)dt;
-#endif
+    return *this;
+}
+
+
+SkullbonezCore::Physics::PhysicsDiagnosticsView GameModelCollection::GetPhysicsDiagnosticsView() const
+{
+    return m_physicsEngine.GetDiagnosticsView();
+}
+
+
+void GameModelCollection::NotifyFixedContact( int modelIndex, float highlightSeconds )
+{
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_gameModels.size() ) )
+    {
+        return;
+    }
+
+    GameModel& model = m_gameModels[static_cast<size_t>( modelIndex )];
+    if ( model.IsFixed() )
+    {
+        model.NotifyFixedContact( highlightSeconds );
+    }
+}
+
+
+void GameModelCollection::ReleaseAttachedFixedTreeParts(
+    const SkullbonezCore::Physics::PhysicsFixedTreeReleaseEvent& event )
+{
+    ReleaseAttachedFixedTreeParts( event.sourceIndex, event.seedLinearVelocity, event.seedAngularVelocity );
 }
 
 

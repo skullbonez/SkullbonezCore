@@ -343,7 +343,7 @@ class Run
 #endif
 
   public:
-    Run( std::vector<std::string> sceneQueue );                            // sceneQueue empty string selects generated demo mode.
+    Run( Window& window, std::vector<std::string> sceneQueue );            // sceneQueue empty string selects generated demo mode.
     ~Run();
     void Initialise();                                                     // Initialises shared resources and loads first scene
     void RunSceneLoadOnly( const char* snapshotOutPath = nullptr );        // Scene-load smoke path; skips the frame loop.

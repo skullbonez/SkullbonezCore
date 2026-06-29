@@ -22,7 +22,8 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "TextureCollection.h"
-#include "../Rendering/IRenderBackend.h"
+#include "../Rendering/IRenderCommandContext.h"
+#include "../Rendering/IRenderResourceFactory.h"
 #include "stb_image.h"
 
 #include <memory>
@@ -102,7 +103,11 @@ void TextureCollection::ReleaseTexture( GpuTextureRecord& texture )
     // owns the actual GPU texture object behind each handle.
     if ( texture.backendHandle )
     {
-        Gfx().DeleteTexture( texture.backendHandle );
+        if ( !m_renderResources )
+        {
+            throw std::runtime_error( "TextureCollection::ReleaseTexture requires a bound render resource context." );
+        }
+        m_renderResources->DeleteTexture( texture.backendHandle );
     }
     texture = {};
 }
@@ -140,7 +145,11 @@ int TextureCollection::NumFreeTextureSpaces() const
 void TextureCollection::SelectTexture( uint32_t hash )
 {
     EnsureTexture( hash );
-    Gfx().BindTexture( m_textures[FindIndex( hash )].backendHandle, 0 );
+    if ( !m_renderCommands )
+    {
+        throw std::runtime_error( "TextureCollection::SelectTexture requires a bound render command context." );
+    }
+    m_renderCommands->BindTexture( m_textures[FindIndex( hash )].backendHandle, 0 );
 }
 
 
@@ -154,6 +163,17 @@ uint32_t TextureCollection::GetTextureHandle( uint32_t hash )
 void TextureCollection::BindAssetSystem( Assets::AssetSystem* assets )
 {
     m_assets = assets;
+}
+
+
+void TextureCollection::BindRenderContexts( IRenderResourceFactory* renderResources,
+                                            IRenderCommandContext* renderCommands )
+{
+    // Lifetime: Run owns these backend facets and clears them before backend
+    // teardown. TextureCollection keeps only opaque handles created by the same
+    // resource factory.
+    m_renderResources = renderResources;
+    m_renderCommands = renderCommands;
 }
 
 
@@ -206,6 +226,11 @@ void TextureCollection::LoadJpegTextureIntoSlot( int slot,
     }
 
     const int requestedChannels = channelsHint > 0 ? channelsHint : 3;
+    if ( !m_renderResources )
+    {
+        throw std::runtime_error(
+            "TextureCollection::LoadJpegTextureIntoSlot requires a bound render resource context." );
+    }
 
     int width = 0;
     int height = 0;
@@ -223,7 +248,7 @@ void TextureCollection::LoadJpegTextureIntoSlot( int slot,
     }
 
     const uint32_t backendHandle =
-        Gfx().CreateTexture2D( data.get(), width, height, requestedChannels, generateMips, linearFilter );
+        m_renderResources->CreateTexture2D( data.get(), width, height, requestedChannels, generateMips, linearFilter );
     if ( backendHandle == 0 )
     {
         throw std::runtime_error(

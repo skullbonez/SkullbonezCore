@@ -187,6 +187,33 @@ struct LiveUavBarrierRecordDX12
     char source[64] = {};
 };
 
+// Lifetime: graph transient slots own their DX12 resource until the backend
+// releases the graph pool. Descriptor rows come from the backend descriptor
+// allocators and are reused with the slot; they must not be mixed into
+// material/object texture ownership.
+struct GraphTransientResourceDX12
+{
+    ID3D12Resource* resource = nullptr;
+    RenderGraphTransientResourceDesc desc;
+    D3D12_CPU_DESCRIPTOR_HANDLE rtv = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE dsv = {};
+    UINT srvIndex = UINT_MAX;
+    UINT uavIndex = UINT_MAX;
+    uint32_t poolSlot = 0;
+    uint32_t firstPass = 0;
+    uint32_t lastPass = 0;
+    bool usedThisCompile = false;
+};
+
+struct GraphTransientMaterializationStatsDX12
+{
+    size_t poolSize = 0;
+    size_t createdThisCompile = 0;
+    size_t reusedThisCompile = 0;
+    size_t releasedAtFrameEnd = 0;
+    size_t descriptorRowsOwned = 0;
+};
+
 
 // Concept: RenderBackendDX12 is the engine-facing facade over explicit DX12 state.
 //
@@ -371,6 +398,13 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     bool m_psoDirty = true;
     std::vector<LiveBarrierRecordDX12> m_liveBarrierRecords;
     std::vector<LiveUavBarrierRecordDX12> m_liveUavBarrierRecords;
+    // Graph-created transient targets use the backend descriptor allocators, but
+    // they are tracked in their own pool so material/object texture tables do
+    // not become the owner of frame-target lifetime. A pool slot may be reused
+    // only when the graph compiler has already proven descriptor and lifetime
+    // compatibility for that slot.
+    std::vector<GraphTransientResourceDX12> m_graphTransientResources;
+    GraphTransientMaterializationStatsDX12 m_graphTransientStats;
 
     ShaderDX12* m_activeShader = nullptr;
     // Currently bound persistent SRV descriptor indices for shader texture
@@ -446,7 +480,10 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     void FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );
     D3D12_GPU_VIRTUAL_ADDRESS SubAllocateUpload( UINT64 size, UINT64 alignment );
     void ReportArchitectureStats( const char* reason ) const;
-    void DumpFrameGraphSkeleton() const;
+    void DumpFrameGraphSkeleton();
+    const GraphTransientMaterializationStatsDX12&
+    MaterializeGraphTransientResources( const RenderGraph& graph, const RenderGraphCompileResult& compiled );
+    void ReleaseGraphTransientResources( const char* reason );
     void ReportDeviceLost( const char* context, HRESULT result ) const;
     size_t HashPSOKey( const PSOKey12& key );
     ID3D12PipelineState*
