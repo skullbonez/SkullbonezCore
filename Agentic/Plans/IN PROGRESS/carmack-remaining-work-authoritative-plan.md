@@ -315,32 +315,84 @@ Known useful evidence to preserve:
 
 ## Phase 6 - Comment Audit And Final Validation
 
-- [ ] Run the comment-style audit for every touched source-bearing file in the
+- [x] Run the comment-style audit for every touched source-bearing file in the
   final implementation slice and record the result here.
-  Evidence:
-- [ ] Run `git diff --check` before final handoff.
-  Evidence:
-- [ ] Run the smallest required validation for each final code area touched:
+  Evidence: Current final tip has no uncommitted source-bearing diff. Per-slice
+  audits cover committed source-bearing work: Phase 2 service-singleton slice
+  audited `CameraCollection.cpp`, `CameraCollection.h`, `SkyBox.cpp`,
+  `SkyBox.h`, and `tools/check_runtime_boundaries.py` (5 checked, 0 deferred);
+  Phase 2 final closure audited `tools/check_runtime_boundaries.py` and
+  `tools/validate_project_filters.py` (2 checked, 0 deferred); Phase 3 audited
+  `PhysicsScene.cpp` and `Runtime/Init.cpp` (2 checked, 0 deferred); Phase 5
+  audited 12 source-bearing render/DX12/runtime/test files (12 checked,
+  0 deferred). Unique source-bearing files audited across the Carmack work:
+  20; deferred 0; no subsystem-wide checklist was required.
+- [x] Run `git diff --check` before final handoff.
+  Evidence: `git diff --check` passed with no output on the clean final branch
+  tip before Phase 6 documentation updates.
+- [x] Run the smallest required validation for each final code area touched:
   `tools\validate_physics.bat` for physics boundary changes,
   `tools\validate_dx12_renderer.bat` for render-graph/DX12 changes, and
   `tools\validate_perf.bat` for hot-path or allocation-sensitive changes.
-  Evidence:
-- [ ] Run the final broad gate once the branch is ready for PR/commit handoff:
+  Evidence: focused per-phase gates passed: Phase 1 `tools\validate_perf.bat`
+  in `TestOutput/validation/agent_logs/carmack_phase1_validate_perf_final.log`;
+  Phase 2 boundary/fast gates in
+  `TestOutput/validation/agent_logs/carmack_phase2_final_runtime_boundaries_rerun.log`
+  and `TestOutput/validation/agent_logs/carmack_phase2_final_validate_fast.log`;
+  Phase 3 `tools\validate_physics.bat` and `tools\validate_full.bat` in
+  `TestOutput/validation/agent_logs/carmack_phase3_validate_physics.log` and
+  `TestOutput/validation/agent_logs/carmack_phase3_validate_full.log`;
+  Phase 5 `tools\validate_dx12_arch_tests.bat` and
+  `tools\validate_dx12_renderer.bat` passed, with latest DX12 summary
+  `TestOutput/validation/dx12_renderer/20260629T151157Z/summary.json`.
+- [x] Run the final broad gate once the branch is ready for PR/commit handoff:
   `tools\validate_full.bat`.
-  Evidence:
-- [ ] Rubber-duck this authoritative plan against the final branch state before
+  Evidence: `tools\validate_full.bat` passed from final branch tip in
+  `TestOutput/validation/agent_logs/carmack_phase6_validate_full.log`.
+  The log reports project filters 0 errors, runtime boundaries 0 errors,
+  Profile and Debug builds 0 warnings/errors, DX12 validation errors 0, DX12
+  screenshots matching baselines (manifest
+  `TestOutput/validation/dx12_renderer/20260629T154006Z/manifest.json`,
+  summary `TestOutput/validation/dx12_renderer/20260629T154006Z/summary.json`),
+  byte-exact `physics_regression_solver.csv`, and
+  `VALIDATE_FULL: DEFAULT GATE PASSED`.
+- [x] Rubber-duck this authoritative plan against the final branch state before
   declaring the Carmack work complete.
-  Evidence:
+  Evidence: final read-only rubber-duck reviewer Sagan found no blockers.
+  Sagan verified current HEAD `15974f3d`, docs-only uncommitted diff before
+  this final evidence patch, no source-bearing diff, `git diff --check` clean,
+  Phase 6 comment-audit rollup, Phase 1 perf success, Phase 5 render-graph
+  evidence, and final full-gate success markers. Non-blocking residual: Phase 2
+  report metadata names generation HEAD `b9323782`, accepted because `15974f3d`
+  commits those reports with the related guardrail/project metadata updates.
 
 ## Definition Of Done
 
-- [ ] This plan has no unchecked implementation, evidence, validation, or audit
+- [x] This plan has no unchecked implementation, evidence, validation, or audit
   items.
-- [ ] The global-service classification is regenerated from the final source
+  Evidence: after recording final Sagan rubber-duck evidence, all Phase 0-6 and
+  Definition of Done checklist items in this authoritative plan are checked.
+- [x] The global-service classification is regenerated from the final source
   and reconciled against this plan.
-- [ ] `tools\validate_perf.bat` passes, or the remaining perf deltas have an
+  Evidence:
+  `Agentic/Reports/2026-06-29/carmack-phase-2-global-service-lifetime/global-service-hit-classification-final.csv`,
+  `Agentic/Reports/2026-06-29/carmack-phase-2-global-service-lifetime/global-service-hit-classification-final-summary.md`,
+  and
+  `Agentic/Reports/2026-06-29/carmack-phase-2-global-service-lifetime/global-service-hit-decision-table-final.md`
+  regenerate and reconcile final global-service hits from current source.
+- [x] `tools\validate_perf.bat` passes, or the remaining perf deltas have an
   explicit reviewed waiver/baseline-update note.
-- [ ] `tools\validate_full.bat` passes on the final branch state.
-- [ ] Any touched source-bearing files have comment-audit evidence.
-- [ ] The final handoff names this plan as the source of truth and treats the
+  Evidence: `TestOutput/validation/agent_logs/carmack_phase1_validate_perf_final.log`
+  reports `VALIDATE_PERF: COMPLETE` and
+  `PHASE1_VALIDATE_PERF_FINAL_EXIT=0`.
+- [x] `tools\validate_full.bat` passes on the final branch state.
+  Evidence: `TestOutput/validation/agent_logs/carmack_phase6_validate_full.log`
+  reports `VALIDATE_FULL: DEFAULT GATE PASSED`.
+- [x] Any touched source-bearing files have comment-audit evidence.
+  Evidence: Phase 6 comment-audit rollup above records 20 unique source-bearing
+  files audited, 0 deferred.
+- [x] The final handoff names this plan as the source of truth and treats the
   older Carmack plans as archived history only.
+  Evidence: this authoritative plan supersedes the older Carmack handoff/source
+  plans listed in Historical references; final handoff should name this file as
+  the source of truth.

@@ -6,35 +6,50 @@ Assigned scope: Phase 6 - Comment Audit And Final Validation, plus the Definitio
 
 ## Current Status
 
-- Status: not started. This file turns Phase 6 into a runnable checklist; it does not claim any Phase 6 evidence is complete.
-- Creation task is documentation-only. No repository validation is required for this file.
-- Startup status at creation was dirty on branch `nightrunner-29th-june`; treat all existing dirty files and other `carmack-phase-*progress.md` files as user-owned or other-worker-owned.
-- Phase 6 should not begin final closure until Phases 0-5 have either landed their source changes or explicitly recorded deferrals in the source plan.
+- Status: final audit/validation evidence recorded and rubber-duck reviewed on branch `nightrunner-29th-june`; pending commit.
+- Phase 0-5 commits are pushed through `15974f3d`; the worktree was clean before Phase 6 validation.
+- `git diff --check` passed with no output. The current tip has no uncommitted source-bearing diff, so Phase 6 rolls up the per-slice comment-audit evidence rather than re-auditing an empty diff.
+- `tools\validate_full.bat` passed from the final branch tip in `TestOutput\validation\agent_logs\carmack_phase6_validate_full.log`.
+- Read-only Phase 6 worker Hooke confirmed Phases 0-5 are honestly closed and found no unchecked items outside Phase 6/Definition of Done.
 
 ## Checklist
 
-- [ ] Run `git status --short --branch` and record the final branch plus dirty scope before starting Phase 6 closure.
-- [ ] Build the final touched source-bearing file list from all implementation work:
+- [x] Run `git status --short --branch` and record the final branch plus dirty scope before starting Phase 6 closure.
+  Evidence: `## nightrunner-29th-june...origin/nightrunner-29th-june`; clean worktree before Phase 6 validation.
+- [x] Build the final touched source-bearing file list from all implementation work:
   `git diff --name-only -- '*.cpp' '*.h' '*.hpp' '*.inl' '*.hlsl' '*.py' '*.bat' '*.ps1'`,
   `git diff --cached --name-only -- '*.cpp' '*.h' '*.hpp' '*.inl' '*.hlsl' '*.py' '*.bat' '*.ps1'`, and
   `git ls-files --others --exclude-standard -- '*.cpp' '*.h' '*.hpp' '*.inl' '*.hlsl' '*.py' '*.bat' '*.ps1'`.
-- [ ] Read `C:\SkullbonezCore\Agentic\Reference\comment-style-guide.md` and `C:\SkullbonezCore\Agentic\Skills\comment-style-audit\skill.md`.
-- [ ] Run the comment-style audit over every touched source-bearing file in the final implementation slice.
-- [ ] If the audit scope becomes subsystem-wide, create or update a checklist under `C:\SkullbonezCore\Agentic\Plans\` using `git ls-files` inventory, then reconcile checked/deferred/unchecked counts before final reporting.
-- [ ] Record comment-audit evidence in the Phase 6 audit item in `carmack-remaining-work-authoritative-plan.md`: exact files audited, checklist/report path if any, checked count, deferred count, and unchecked files.
-- [ ] Run `git diff --check`; record clean output or exact failure/fix notes in the Phase 6 `git diff --check` evidence item.
-- [ ] Choose the smallest required area gates from the final diff:
+  Evidence: all three commands produced no output on the clean final tip. Per-slice audits cover the committed implementation files.
+- [x] Read `C:\SkullbonezCore\Agentic\Reference\comment-style-guide.md` and `C:\SkullbonezCore\Agentic\Skills\comment-style-audit\skill.md`.
+  Evidence: both were read before source-bearing Phase 2/3/5 audit work.
+- [x] Run the comment-style audit over every touched source-bearing file in the final implementation slice.
+  Evidence: final implementation audits are recorded in the phase progress files: Phase 2 service-singleton slice 5 checked/0 deferred, Phase 2 final closure 2 checked/0 deferred, Phase 3 physics boundary 2 checked/0 deferred, and Phase 5 render-graph slice 12 checked/0 deferred. Unique source-bearing files audited across the Carmack work: 20; deferred 0.
+- [x] If the audit scope becomes subsystem-wide, create or update a checklist under `C:\SkullbonezCore\Agentic\Plans\` using `git ls-files` inventory, then reconcile checked/deferred/unchecked counts before final reporting.
+  Evidence: not applicable; this was a touched-file audit, not a subsystem/full-repository comment pass.
+- [x] Record comment-audit evidence in the Phase 6 audit item in `carmack-remaining-work-authoritative-plan.md`: exact files audited, checklist/report path if any, checked count, deferred count, and unchecked files.
+  Evidence: recorded in the authoritative Phase 6 section.
+- [x] Run `git diff --check`; record clean output or exact failure/fix notes in the Phase 6 `git diff --check` evidence item.
+  Evidence: command passed with no output.
+- [x] Choose the smallest required area gates from the final diff:
   `tools\validate_physics.bat` for physics boundary changes,
   `tools\validate_dx12_renderer.bat` for render graph or DX12 changes,
   `tools\validate_perf.bat` for hot-path or allocation-sensitive changes,
   `tools\validate_runtime_boundaries.bat` or `tools\validate_select.bat runtime-boundaries` for runtime-boundary guardrail changes, and
   `tools\validate_project_filters.bat` for project filter/path ownership changes.
-- [ ] Run selected validation gates in a visible `cmd.exe` or PowerShell window when available, and mirror logs under `C:\SkullbonezCore\TestOutput\validation\agent_logs\carmack_phase6_<gate>.log`.
-- [ ] Ensure `tools\validate_perf.bat` passes, or record the reviewed waiver/baseline-update note that explicitly closes the remaining perf deltas.
-- [ ] Run the final broad gate `tools\validate_full.bat` after all source, evidence, and documentation updates are in their final branch state; mirror to `C:\SkullbonezCore\TestOutput\validation\agent_logs\carmack_phase6_validate_full.log`.
-- [ ] Rubber-duck `carmack-remaining-work-authoritative-plan.md` against the final branch state and record reviewer/report path plus blocker status in the Phase 6 rubber-duck evidence item.
-- [ ] Update the Definition Of Done evidence in `carmack-remaining-work-authoritative-plan.md`: no unchecked plan items, regenerated/reconciled global-service evidence, perf closure, full gate, comment audit evidence, and final handoff wording.
-- [ ] Final handoff names `carmack-remaining-work-authoritative-plan.md` as the source of truth and treats older Carmack plans under `Agentic\Plans\Done\` as archived history only.
+  Evidence: final branch touches physics, DX12/render graph, project metadata, runtime-boundary guardrails, perf baselines, and docs, so Phase 6 ran the broad `tools\validate_full.bat` gate after focused per-phase gates had already passed.
+- [x] Run selected validation gates in a visible `cmd.exe` or PowerShell window when available, and mirror logs under `C:\SkullbonezCore\TestOutput\validation\agent_logs\carmack_phase6_<gate>.log`.
+  Evidence: `TestOutput\validation\agent_logs\carmack_phase6_validate_full.log`.
+- [x] Ensure `tools\validate_perf.bat` passes, or record the reviewed waiver/baseline-update note that explicitly closes the remaining perf deltas.
+  Evidence: Phase 1 final perf gate passed in `TestOutput\validation\agent_logs\carmack_phase1_validate_perf_final.log` with `VALIDATE_PERF: COMPLETE` and `PHASE1_VALIDATE_PERF_FINAL_EXIT=0`.
+- [x] Run the final broad gate `tools\validate_full.bat` after all source, evidence, and documentation updates are in their final branch state; mirror to `C:\SkullbonezCore\TestOutput\validation\agent_logs\carmack_phase6_validate_full.log`.
+  Evidence: final full gate passed in `TestOutput\validation\agent_logs\carmack_phase6_validate_full.log` with project filters 0 errors, runtime boundaries 0 errors, Profile/Debug builds 0 warnings/errors, DX12 validation errors 0, DX12 screenshots matching baselines, byte-exact `physics_regression_solver.csv`, and `VALIDATE_FULL: DEFAULT GATE PASSED`.
+- [x] Rubber-duck `carmack-remaining-work-authoritative-plan.md` against the final branch state and record reviewer/report path plus blocker status in the Phase 6 rubber-duck evidence item.
+  Evidence: final read-only rubber-duck reviewer Sagan found no blockers. Sagan verified the only pending boxes were final review/no-unchecked items, accepted the Phase 2 report HEAD note as non-blocking, and confirmed the recorded logs contain the expected success markers.
+- [x] Update the Definition Of Done evidence in `carmack-remaining-work-authoritative-plan.md`: no unchecked plan items, regenerated/reconciled global-service evidence, perf closure, full gate, comment audit evidence, and final handoff wording.
+  Evidence: Definition of Done section is checked with evidence in `Agentic/Plans/IN PROGRESS/carmack-remaining-work-authoritative-plan.md`.
+- [x] Final handoff names `carmack-remaining-work-authoritative-plan.md` as the source of truth and treats older Carmack plans under `Agentic\Plans\Done\` as archived history only.
+  Evidence: this progress file and the authoritative plan name `carmack-remaining-work-authoritative-plan.md` as the source of truth.
 
 ## Likely Files And Tools To Inspect
 
@@ -80,12 +95,9 @@ Assigned scope: Phase 6 - Comment Audit And Final Validation, plus the Definitio
 
 ## Validation Note
 
-No validation is required for creating this progress document because this is a documentation-only change. Phase 6 itself must run the selected gates and the final `tools\validate_full.bat` only after the final implementation branch state is ready for PR/commit handoff.
+Phase 6 documentation updates are documentation-only, but they record validation from the final branch tip. The final required branch gate was `tools\validate_full.bat`, and it passed in `TestOutput\validation\agent_logs\carmack_phase6_validate_full.log`.
 
 ## Open Risks And Questions
 
-- The final touched-file list can change while other phase workers finish; do not start the audit from an early snapshot.
-- The perf gate is still a Definition Of Done dependency until Phase 1 records a pass or an explicit reviewed waiver/baseline-update note.
-- A clean broad gate before source-plan evidence updates is not final evidence; rerun or clearly invalidate it if later code, shader, scene, tool, or baseline files change.
-- Final rubber-duck review may find missing evidence rather than code defects; leave time to update evidence and rerun any invalidated gate.
+- The final touched-file list can change if the final rubber-duck review requests source/tool fixes. If that happens, rerun the affected audit and validation before marking the remaining boxes.
 - If another worker creates or modifies this exact progress file, stop and resolve the ownership conflict before editing it.
