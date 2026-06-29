@@ -9,13 +9,21 @@ Mental model:
   the declarations in this file.
 
 Glossary:
+  HLSL (High-Level Shader Language): DirectX shader language compiled for the
+    GPU stages that transform vertices and shade pixels.
   Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
+    resource.
   Back buffer: Swap-chain image that will be presented to the window.
+  Cbuffer (Constant Buffer): Per-draw or per-frame uniform block uploaded by
+    the CPU and read by shader code.
+  Terrain mode: Numeric scene/style selector that chooses a terrain color model
+    without changing the CPU collision terrain.
 
 Invariants:
   - CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+    match this shader exactly.
+  - Terrain modes are scene-file compatibility surface; new modes must leave
+    existing numeric modes visually stable.
 
 Related:
   - Agentic/Reference/comment-style-guide.md
@@ -300,6 +308,13 @@ float3 TerrainModeColor(int mode, float3 texColor, float3 N, float3 worldPos)
     {
         base = lerp(uTerrainTint.rgb, float3(0.90f, 0.92f, 0.84f), 0.35f + max(N.y, 0.0f) * 0.25f);
     }
+    else if (mode == 15)
+    {
+        // Concept: presentation floors need a neutral studio surface. This mode
+        // deliberately ignores the terrain texture and uses scene-authored tint
+        // so clean white terrain stays white while still receiving shadows.
+        base = uTerrainTint.rgb;
+    }
     float authoredGrid = GridLine(worldPos.xz, max(uTerrainGrid.x, 8.0f)) * max(uTerrainGrid.y, 0.0f);
     base += uTerrainAccent.rgb * authoredGrid;
     return base;
@@ -405,6 +420,15 @@ float4 main_ps(VS_OUT input) : SV_TARGET
             float rimShade = exp(-pow((d - 1.03f) * 3.2f, 2.0f)) * relief;
             earthBase = lerp(earthBase, earthBase * float3(0.62f, 0.47f, 0.34f), bowlShade * 0.55f);
             earthBase += float3(0.20f, 0.09f, 0.02f) * rimShade * 0.10f;
+        }
+        if (terrainMode == 15)
+        {
+            float hemiT = saturate(terrainN.y * 0.5f + 0.5f);
+            float3 neutralAmbient = lerp(float3(0.72f, 0.72f, 0.70f), float3(1.0f, 1.0f, 0.98f), hemiT);
+            float3 ambientLight = earthBase * neutralAmbient * 0.58f;
+            float3 directLight = earthBase * uLightDiffuse.rgb * (terrainDiff * 0.24f + warmWrap * 0.08f) * shadowFactor;
+            float3 rimLight = uLightDiffuse.rgb * (rim * 0.018f + spec * 0.018f) * shadowFactor;
+            return float4(ambientLight + directLight + rimLight, 1.0f);
         }
         if (terrainMode == 7)
         {

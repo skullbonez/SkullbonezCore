@@ -198,9 +198,8 @@ struct ScreenSunPosition
 };
 
 
-ScreenSunPosition ProjectCinematicSunToScreen( const Vector3& eye,
-                                               const Matrix4& viewProjection,
-                                               const CinematicRenderConfig& cinematic )
+ScreenSunPosition
+ProjectCinematicSunToScreen( const Vector3& eye, const Matrix4& viewProjection, const CinematicRenderConfig& cinematic )
 {
     const Vector3 sunPoint = eye + CinematicSkySunDirection( cinematic ) * 1000.0f;
     const Matrix4& vp = viewProjection;

@@ -306,7 +306,11 @@ bool CommitActiveSlider( UISkyTabState& state, int activeSlider, int mouseX, InG
     return UpdateActiveSlider( state, activeSlider, mouseX, result );
 }
 
-void DrawHitboxes( const UISkyTabState& state, const UIDrawContext& draw, float contentR, float contentG, float contentB )
+void DrawHitboxes( const UISkyTabState& state,
+                   const UIDrawContext& draw,
+                   float contentR,
+                   float contentG,
+                   float contentB )
 {
     for ( int i = 0; i < UI_SKY_FEATURE_COUNT; ++i )
     {

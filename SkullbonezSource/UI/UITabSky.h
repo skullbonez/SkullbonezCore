@@ -52,7 +52,11 @@ bool HandleContentClick( UISkyTabState& state,
 bool UpdateActiveSlider( UISkyTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 bool CommitActiveSlider( UISkyTabState& state, int activeSlider, int mouseX, InGameUIInputResult& result );
 
-void DrawHitboxes( const UISkyTabState& state, const UIDrawContext& draw, float contentR, float contentG, float contentB );
+void DrawHitboxes( const UISkyTabState& state,
+                   const UIDrawContext& draw,
+                   float contentR,
+                   float contentG,
+                   float contentB );
 void Draw( UISkyTabState& state,
            const UIDrawContext& draw,
            const InGameUIFrameData& data,
