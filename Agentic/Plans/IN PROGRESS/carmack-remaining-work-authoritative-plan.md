@@ -175,20 +175,39 @@ Known useful evidence to preserve:
 
 ## Phase 4 - Render Backend Capability
 
-- [ ] Reconfirm `IRenderBackend` remains a methodless temporary facade and does
+- [x] Reconfirm `IRenderBackend` remains a methodless temporary facade and does
   not regain direct render operations.
-  Evidence:
-- [ ] Reconfirm runtime render pass bodies stay on narrow contexts and do not
+  Evidence: `SkullbonezSource/Rendering/IRenderBackend.h` owns only
+  `~IRenderBackend()` and inherits `IRenderDeviceLifecycle`,
+  `IRenderResourceFactory`, `IRenderCommandContext`, `IRenderDiagnostics`, and
+  `IRenderCaptureBackend`. It does not inherit `IRenderRayTracing`; DXR methods
+  remain in `SkullbonezSource/Rendering/IRenderRayTracing.h`.
+- [x] Reconfirm runtime render pass bodies stay on narrow contexts and do not
   regain direct `Gfx()` or `GfxRayTracing()` access.
   Evidence:
-- [ ] Reconfirm the runtime-boundary checker blocks raytracing inheritance,
+  `TestOutput/validation/agent_logs/carmack_phase4_pass_boundary_scan.log`
+  reports no matches for `Gfx()`, `GfxRayTracing()`, or `IRenderBackend` in
+  `RunPasses.cpp`, `RuntimeRenderPasses.h`, `RuntimeRenderInputs.h`, and
+  `RunUiTextPass.cpp`. `Run::Render()` remains the accepted composition-root
+  borrow path and passes `IRenderRayTracing*` through render services.
+- [x] Reconfirm the runtime-boundary checker blocks raytracing inheritance,
   direct facade methods, and pass-body global backend access.
   Evidence:
-- [ ] Resolve any render-backend issues found by the regenerated
+  `TestOutput/validation/agent_logs/carmack_phase4_runtime_boundaries.log`
+  reports runtime-boundary validation passed with 0 errors and wrote
+  `TestOutput/validation/runtime_boundaries/carmack_phase4_runtime_boundaries.json`;
+  elapsed 4.9s.
+- [x] Resolve any render-backend issues found by the regenerated
   global-service classification. The rubber-duck review found the mechanics
   mostly satisfied, so this phase should remain narrow unless new evidence says
   otherwise.
   Evidence:
+  `TestOutput/validation/agent_logs/carmack_phase4_renderer_classification_summary.log`
+  found 191 renderer-related classification rows, but no runtime pass-body
+  backend hits. The two `RunRender.cpp` hits are accepted composition-root
+  borrows. Remaining normal-runtime renderer globals are transferred to Phase 2
+  service-lifetime and Phase 5 render-ownership work rather than Phase 4
+  capability leakage.
 
 ## Phase 5 - Render Graph Resource Ownership
 
