@@ -52,14 +52,14 @@
     "skyZenithG": 0.97,
     "skyZenithB": 0.978,
     "terrainTint": [
-      0.86,
-      0.86,
-      0.85
+      0.985,
+      0.985,
+      0.975
     ],
     "terrainAccent": [
-      0.98,
-      0.98,
-      0.98
+      1.0,
+      1.0,
+      0.99
     ],
     "shadowStrength": 0.7,
     "shadowSoftness": 0.95
@@ -93,14 +93,14 @@
   },
   "terrain": {
     "flatSlope": {
-      "baseY": -500.0,
+      "baseY": 0.0,
       "slopeX": 0.0,
       "slopeZ": 0.0
     }
   },
   "debug": {
     "waterHidden": true,
-    "terrainHidden": true,
+    "terrainHidden": false,
     "collisionVisualizer": false,
     "physics": {
       "contacts": false,
@@ -130,80 +130,6 @@
     }
   ],
   "objects": [
-    {
-      "type": "convexHullState",
-      "name": "studio_floor_soft_shadow_lab",
-      "hull": "SkullbonezData/hulls/studio_floor_large.hull",
-      "position": [
-        535.0,
-        -0.38,
-        500.0
-      ],
-      "velocity": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "angularVelocity": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "orientation": [
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "mass": 1000000.0,
-      "restitution": 0.02,
-      "inertia": [
-        5208381466.7,
-        17241666700.0,
-        12033381466.7
-      ],
-      "fixed": true,
-      "sleeping": false
-    },
-    {
-      "type": "boxState",
-      "name": "studio_back_wall_shadow_lab",
-      "position": [
-        682.0,
-        54.0,
-        500.0
-      ],
-      "halfExtents": [
-        2.0,
-        54.0,
-        144.0
-      ],
-      "mass": 5000.0,
-      "restitution": 0.02,
-      "fixed": true,
-      "velocity": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "angularVelocity": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "orientation": [
-        0.0,
-        0.0,
-        0.0,
-        1.0
-      ],
-      "sleeping": true,
-      "inertia": [
-        39420000.0,
-        34566666.667,
-        4866666.667
-      ]
-    },
     {
       "type": "ballState",
       "name": "prediction_striker_ball",
@@ -8063,51 +7989,6 @@
     }
   },
   "objectMaterials": [
-    {
-      "target": "prefix:studio_floor_",
-      "mode": "matte",
-      "tint": [
-        0.915,
-        0.915,
-        0.9
-      ],
-      "roughness": 0.98,
-      "specular": 0.12
-    },
-    {
-      "target": "prefix:studio_back_wall_",
-      "mode": "matte",
-      "tint": [
-        0.78,
-        0.785,
-        0.775
-      ],
-      "roughness": 0.96,
-      "specular": 0.12,
-      "emissive": [
-        0.36,
-        0.36,
-        0.34
-      ],
-      "strength": 0.05
-    },
-    {
-      "target": "prefix:studio_left_return_",
-      "mode": "matte",
-      "tint": [
-        0.78,
-        0.785,
-        0.775
-      ],
-      "roughness": 0.96,
-      "specular": 0.12,
-      "emissive": [
-        0.36,
-        0.36,
-        0.34
-      ],
-      "strength": 0.05
-    },
     {
       "target": "prediction_striker_ball",
       "mode": "matte",
