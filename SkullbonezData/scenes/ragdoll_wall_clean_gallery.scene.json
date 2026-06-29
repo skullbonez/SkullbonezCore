@@ -29,14 +29,14 @@
                                          1.02
                                      ],
                       "terrainTint":  [
-                                          0.998,
-                                          0.998,
-                                          0.992
+                                          0.94,
+                                          0.94,
+                                          0.93
                                       ],
                       "terrainAccent":  [
-                                            0.0,
-                                            0.0,
-                                            0.0
+                                            0.98,
+                                            0.98,
+                                            0.98
                                         ],
                       "terrainGrid":  [
                                           42.0,
@@ -47,22 +47,22 @@
                                            0.0,
                                            0.0
                                        ],
-                      "exposure":  1.08,
-                      "gamma":  2.05,
-                      "sunScreenX":  0.36,
-                      "sunScreenY":  0.78,
-                      "sunIntensity":  12.8,
+                      "exposure":  1.02,
+                      "gamma":  2.08,
+                      "sunScreenX":  0.32,
+                      "sunScreenY":  0.82,
+                      "sunIntensity":  13.6,
                       "sunColorR":  1,
                       "sunColorG":  0.985,
                       "sunColorB":  0.955,
-                      "skyHorizonR":  0.998,
-                      "skyHorizonG":  0.998,
-                      "skyHorizonB":  0.996,
-                      "skyZenithR":  0.982,
-                      "skyZenithG":  0.986,
-                      "skyZenithB":  0.992,
-                      "shadowStrength":  0.58,
-                      "shadowSoftness":  1.45
+                      "skyHorizonR":  0.64,
+                      "skyHorizonG":  0.8,
+                      "skyHorizonB":  0.96,
+                      "skyZenithR":  0.32,
+                      "skyZenithG":  0.54,
+                      "skyZenithB":  0.86,
+                      "shadowStrength":  0.7,
+                      "shadowSoftness":  1.18
                   },
     "simulation":  {
                        "seed":  62929,
@@ -108,13 +108,13 @@
                     {
                         "name":  "main",
                         "position":  [
-                                         445,
-                                         54,
-                                         628
+                                         430,
+                                         62,
+                                         642
                                      ],
                         "view":  [
-                                     555,
-                                     16,
+                                     560,
+                                     18,
                                      502
                                  ],
                         "up":  [
@@ -122,7 +122,7 @@
                                    1.0,
                                    0.0
                                ],
-                        "fovDegrees":  48
+                        "fovDegrees":  45
                     }
                 ],
     "objects":  [
