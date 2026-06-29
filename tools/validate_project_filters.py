@@ -119,6 +119,7 @@ DX12_RENDERING_PREFIXES = (
     "FramebufferDX12",
     "MeshDX12",
     "RenderBackendDX12",
+    "RenderGraphTransientDX12",
     "RenderDeviceDX12",
     "SBTDX12",
     "ShaderDX12",
