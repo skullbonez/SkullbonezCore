@@ -641,7 +641,7 @@ Run::ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
     Vector3 focus;
     float shadowRadius = 0.0f;
     float heightRange = 0.0f;
-    const float objectSearchDistance = std::clamp( cinematic.shadowMaxDistance * 0.15f, 180.0f, 320.0f );
+    const float objectSearchDistance = std::clamp( cinematic.shadowMaxDistance * 0.18f, 240.0f, 420.0f );
     if ( !scene.GetObjectShadowBounds( focusHint, objectSearchDistance, focus, shadowRadius, heightRange ) )
     {
         return shadowFrame;
@@ -810,8 +810,11 @@ Run::ShadowPassOutput Run::ShadowPass::Render( const ShadowPassInputs& inputs )
                                  *inputs.frame.scene,
                                  &objectCasters );
             }
+            // Focus object shadows on what the camera is looking at, not where
+            // the eye happens to be. This keeps object receivers in the visible
+            // neighborhood from crossing the tight map edge during small moves.
             shadows.objectFrame =
-                BuildObjectFrameData( *inputs.cinematic, lightDirection, inputs.frame.eye, *inputs.frame.scene );
+                BuildObjectFrameData( *inputs.cinematic, lightDirection, inputs.frame.viewCenter, *inputs.frame.scene );
             if ( shadows.objectTarget )
             {
                 RenderShadowMap( *shadows.objectTarget,
