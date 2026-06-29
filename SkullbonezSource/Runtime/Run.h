@@ -410,6 +410,20 @@ struct RunReplayPathTarget
     ReplayBodyId id;
     int modelIndex = -1;
     char name[64] = {};
+    // Invariant: the retained future tree is keyed only by replay/target/model
+    // state. Camera movement redraws these nodes but must not rebuild them.
+    std::vector<RunReplayPathTraceNode> cachedFutureNodes;
+    bool hasCachedFutureTree = false;
+    ReplayFrameIndex cachedPresentFrame = 0;
+    ReplayFrameIndex cachedFirstFrame = 0;
+    ReplayFrameIndex cachedLastFrame = 0;
+    ReplayFrameIndex cachedNextFrameIndex = 0;
+    std::size_t cachedSampleCount = 0;
+    uint64_t cachedLatestStateHash = 0;
+    uint64_t cachedTotalFramesCaptured = 0;
+    uint64_t cachedTotalFramesEvicted = 0;
+    int cachedModelCount = 0;
+    bool cachedRagdollVisualsEnabled = false;
 };
 
 enum class RunReplayCameraFocusKind

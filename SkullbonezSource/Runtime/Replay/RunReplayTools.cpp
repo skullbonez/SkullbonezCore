@@ -13,6 +13,11 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Retained replay path target trees depend on replay/target/model state, not
+    view state. Camera motion must redraw cached nodes without rescanning the
+    replay samples.
+
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -612,6 +617,47 @@ RunReplayPathTarget* FindReplayPathTarget( RunReplayPathVisualizerState& visuali
         }
     }
     return nullptr;
+}
+
+bool ReplayPathTargetFutureTreeCacheMatches( const RunReplayPathTarget& target,
+                                             const ReplayPathBoundsContext& bounds,
+                                             const ReplayRecorderStats& stats,
+                                             ReplayFrameIndex presentFrame,
+                                             int modelCount,
+                                             bool ragdollVisualsEnabled )
+{
+    // Why: drawing the paths is camera-dependent, but discovering future
+    // contact nodes is not. Keep camera state out of this key so orbiting the
+    // scene cannot re-enter the expensive chronological replay scan.
+    return target.hasCachedFutureTree && target.cachedPresentFrame == presentFrame &&
+           target.cachedFirstFrame == bounds.firstFrame && target.cachedLastFrame == bounds.lastFrame &&
+           target.cachedNextFrameIndex == stats.nextFrameIndex && target.cachedSampleCount == stats.sampleCount &&
+           target.cachedLatestStateHash == stats.latestStateHash &&
+           target.cachedTotalFramesCaptured == stats.totalFramesCaptured &&
+           target.cachedTotalFramesEvicted == stats.totalFramesEvicted && target.cachedModelCount == modelCount &&
+           target.cachedRagdollVisualsEnabled == ragdollVisualsEnabled;
+}
+
+void StoreReplayPathTargetFutureTreeCache( RunReplayPathTarget& target,
+                                           const RunReplayPathVisualizerState& visualizer,
+                                           const ReplayPathBoundsContext& bounds,
+                                           const ReplayRecorderStats& stats,
+                                           ReplayFrameIndex presentFrame,
+                                           int modelCount,
+                                           bool ragdollVisualsEnabled )
+{
+    target.cachedFutureNodes = visualizer.futureNodes;
+    target.hasCachedFutureTree = true;
+    target.cachedPresentFrame = presentFrame;
+    target.cachedFirstFrame = bounds.firstFrame;
+    target.cachedLastFrame = bounds.lastFrame;
+    target.cachedNextFrameIndex = stats.nextFrameIndex;
+    target.cachedSampleCount = stats.sampleCount;
+    target.cachedLatestStateHash = stats.latestStateHash;
+    target.cachedTotalFramesCaptured = stats.totalFramesCaptured;
+    target.cachedTotalFramesEvicted = stats.totalFramesEvicted;
+    target.cachedModelCount = modelCount;
+    target.cachedRagdollVisualsEnabled = ragdollVisualsEnabled;
 }
 
 void ApplyPrimaryReplayPathTarget( RunReplayPathVisualizerState& visualizer,
@@ -3564,6 +3610,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
 
     m_replayPathVisualizer.futureNodes.clear();
     const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    const int modelCount = static_cast<int>( models.size() );
     for ( RunReplayPathTarget& target : m_replayPathVisualizer.targets )
     {
         if ( target.id.value == 0 )
@@ -3574,7 +3621,17 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
         PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget" );
         RunReplayPathVisualizerState targetVisualizer;
         ApplyPrimaryReplayPathTarget( targetVisualizer, target.id, target.modelIndex, target.name );
-
+        const bool ragdollVisualsEnabled = m_replayPrediction.ragdollVisualsEnabled;
+        if ( ReplayPathTargetFutureTreeCacheMatches( target,
+                                                     bounds,
+                                                     stats,
+                                                     presentFrame,
+                                                     modelCount,
+                                                     ragdollVisualsEnabled ) )
+        {
+            targetVisualizer.futureNodes = target.cachedFutureNodes;
+        }
+        else
         {
             PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/BuildTree" );
             ReplayPathFutureContext futureContext;
@@ -3582,8 +3639,15 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
             futureContext.models = &models;
             futureContext.rootId = target.id;
             futureContext.presentFrame = presentFrame;
-            futureContext.includeRagdollVisuals = m_replayPrediction.ragdollVisualsEnabled;
+            futureContext.includeRagdollVisuals = ragdollVisualsEnabled;
             m_solverReplay.ForEachSampleChronological( BuildReplayFutureNodes, &futureContext );
+            StoreReplayPathTargetFutureTreeCache( target,
+                                                  targetVisualizer,
+                                                  bounds,
+                                                  stats,
+                                                  presentFrame,
+                                                  modelCount,
+                                                  ragdollVisualsEnabled );
         }
 
         {
