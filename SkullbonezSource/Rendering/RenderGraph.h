@@ -244,6 +244,24 @@ struct RenderGraphResourceHandle
     }
 };
 
+// Engine-level view of a backend materialized graph texture. Runtime passes can
+// bind the texture through ordinary renderer handles and dimensions without
+// learning native descriptor or resource ownership.
+struct RenderGraphTextureBinding
+{
+    RenderGraphResourceHandle resource;
+    uint32_t textureHandle = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    bool renderTarget = false;
+    bool shaderResource = false;
+
+    bool IsValid() const
+    {
+        return resource.IsValid() && textureHandle != 0;
+    }
+};
+
 // A named resource in the graph.
 //
 // For this first slice, resources are just names and "external" markers.
@@ -344,6 +362,15 @@ struct RenderGraphTransientAllocationDiagnostics
     size_t releaseCount = 0;
     size_t highWaterResources = 0;
     size_t highWaterDescriptors = 0;
+};
+
+struct RenderGraphTransientMaterializationStats
+{
+    size_t poolSize = 0;
+    size_t createdThisCompile = 0;
+    size_t reusedThisCompile = 0;
+    size_t releasedAtFrameEnd = 0;
+    size_t descriptorRowsOwned = 0;
 };
 
 // Result of the first simple graph compile step.

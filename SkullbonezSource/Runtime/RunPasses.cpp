@@ -45,6 +45,7 @@ Related:
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderRayTracing.h"
 #include "../Rendering/IRenderResourceFactory.h"
+#include "../Rendering/RenderGraph.h"
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -1762,7 +1763,7 @@ bool VolumetricPass::CanRender( const RenderFrameContext& frame ) const
 }
 
 
-bool VolumetricPass::Render( const RenderFrameContext& frame )
+bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::RenderGraphTextureBinding* graphOutput )
 {
     if ( !CanRender( frame ) )
     {
@@ -1784,9 +1785,20 @@ bool VolumetricPass::Render( const RenderFrameContext& frame )
     // volumetric pass reads scene color/depth and writes a separate soft light
     // texture, so read and write targets must be different resources.
     scene.hdrTarget->Unbind();
-    volumetric.target->Bind();
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
-    renderCommands.SetViewport( 0, 0, volumetric.target->GetWidth(), volumetric.target->GetHeight() );
+    const bool useGraphOutput = graphOutput && graphOutput->IsValid() && graphOutput->renderTarget;
+    // Why: Phase 5 moves the live volumetric output into the render graph, but
+    // the framebuffer path stays as a fallback until every post target migrates.
+    if ( useGraphOutput )
+    {
+        renderCommands.BeginGraphTextureRenderTarget( *graphOutput, "VolumetricLightPass" );
+        renderCommands.SetViewport( 0, 0, graphOutput->width, graphOutput->height );
+    }
+    else
+    {
+        volumetric.target->Bind();
+        renderCommands.SetViewport( 0, 0, volumetric.target->GetWidth(), volumetric.target->GetHeight() );
+    }
 
     // This is another screen-space effect, so depth testing and blending are
     // disabled while the full-screen quad is generated.
@@ -1822,7 +1834,14 @@ bool VolumetricPass::Render( const RenderFrameContext& frame )
     renderCommands.SetDepthTest( depthWasEnabled );
     renderCommands.SetDepthWrite( depthWasEnabled );
     renderCommands.SetBlend( blendWasEnabled );
-    volumetric.target->Unbind();
+    if ( useGraphOutput )
+    {
+        renderCommands.EndGraphTextureRenderTarget( *graphOutput, "VolumetricLightPass" );
+    }
+    else
+    {
+        volumetric.target->Unbind();
+    }
     renderCommands.SetViewport( 0, 0, m_host.WindowScreenWidth(), m_host.WindowScreenHeight() );
     if ( detailMarkers )
     {
@@ -1855,7 +1874,10 @@ void TonemapPass::ReleaseGpuResources()
 }
 
 
-void TonemapPass::Render( const RenderFrameContext& frame, bool sceneAlreadyUnbound, bool volumetricReady )
+void TonemapPass::Render( const RenderFrameContext& frame,
+                          bool sceneAlreadyUnbound,
+                          bool volumetricReady,
+                          const Rendering::RenderGraphTextureBinding* graphVolumetric )
 {
     CinematicScenePassResources& scene = m_host.m_systems.renderPasses.cinematicScene;
     VolumetricLightPassResources& volumetric = m_host.m_systems.renderPasses.volumetricLight;
@@ -1897,14 +1919,19 @@ void TonemapPass::Render( const RenderFrameContext& frame, bool sceneAlreadyUnbo
         tonemap.shader->Use();
         const CinematicRenderConfig& cinematic = m_host.ActiveCinematicConfig();
         BindTonemapPassParams( *tonemap.shader, frame.eye, frame.viewProjection, cinematic, volumetricReady );
+        const bool useGraphVolumetric =
+            volumetricReady && graphVolumetric && graphVolumetric->IsValid() && graphVolumetric->shaderResource;
+        const uint32_t volumetricTexture =
+            useGraphVolumetric ? graphVolumetric->textureHandle
+                               : ( volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle()
+                                                                        : scene.hdrTarget->GetColorTextureHandle() );
         // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth buffer,
         // and slot 2 is either the volumetric-light texture or a harmless fallback
         // when that pass is disabled.
         BindRenderTextureSlots( renderCommands,
                                 scene.hdrTarget->GetColorTextureHandle(),
                                 scene.hdrTarget->GetDepthTextureHandle(),
-                                volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle()
-                                                                     : scene.hdrTarget->GetColorTextureHandle(),
+                                volumetricTexture,
                                 0 );
         DrawFullscreenQuad( renderCommands, fullscreen.quadVB );
         if ( detailMarkers )

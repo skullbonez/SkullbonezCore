@@ -55,7 +55,9 @@ bool IsSameSnapshot( const RenderSceneSnapshot& lhs, const RenderSceneSnapshot& 
            lhs.replayGhostCallbackOwned == rhs.replayGhostCallbackOwned &&
            lhs.debugOverlayCallbackOwned == rhs.debugOverlayCallbackOwned &&
            lhs.volumetricCallbackOwned == rhs.volumetricCallbackOwned && lhs.volumetricReady == rhs.volumetricReady &&
-           lhs.tonemapCallbackOwned == rhs.tonemapCallbackOwned;
+           lhs.tonemapCallbackOwned == rhs.tonemapCallbackOwned &&
+           lhs.volumetricTextureHandle == rhs.volumetricTextureHandle && lhs.volumetricWidth == rhs.volumetricWidth &&
+           lhs.volumetricHeight == rhs.volumetricHeight;
 }
 
 
@@ -124,8 +126,19 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
         sceneDepth = graph.AddExternalResource( "CinematicSceneDepth", RenderGraphResourceAccess::Unknown );
         if ( snapshot.volumetricReady )
         {
-            volumetricLight =
-                graph.AddExternalResource( "VolumetricLight", RenderGraphResourceAccess::PixelShaderResource );
+            // Diagnostic mirror: the live post graph owns this texture now, so
+            // the aggregate frame graph records it as a transient too.
+            RenderGraphTransientResourceDesc volumetricDesc;
+            volumetricDesc.kind = RenderGraphResourceKind::Texture2D;
+            volumetricDesc.format = RenderGraphResourceFormat::RGBA16F;
+            volumetricDesc.width = snapshot.volumetricWidth != 0 ? snapshot.volumetricWidth : 1u;
+            volumetricDesc.height = snapshot.volumetricHeight != 0 ? snapshot.volumetricHeight : 1u;
+            volumetricDesc.mipLevels = 1;
+            volumetricDesc.descriptors.renderTarget = true;
+            volumetricDesc.descriptors.shaderResource = true;
+            volumetricLight = graph.AddTransientResource( "VolumetricLight",
+                                                          volumetricDesc,
+                                                          RenderGraphResourceAccess::PixelShaderResource );
         }
     }
 
@@ -385,6 +398,8 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderSceneSnapsh
     out << "volumetric_callback_owned=" << ( snapshot.volumetricCallbackOwned ? "true" : "false" ) << "\n";
     out << "volumetric_ready=" << ( snapshot.volumetricReady ? "true" : "false" ) << "\n";
     out << "tonemap_callback_owned=" << ( snapshot.tonemapCallbackOwned ? "true" : "false" ) << "\n\n";
+    out << "volumetric_texture_handle=" << snapshot.volumetricTextureHandle << "\n";
+    out << "volumetric_size=" << snapshot.volumetricWidth << "x" << snapshot.volumetricHeight << "\n\n";
     out << graph.DumpText();
     return out.str();
 }

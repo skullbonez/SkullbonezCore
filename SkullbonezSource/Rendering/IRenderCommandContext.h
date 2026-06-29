@@ -32,6 +32,8 @@ Related:
 */
 #pragma once
 
+#include "RenderGraph.h"
+
 #include <cstdint>
 
 namespace SkullbonezCore
@@ -67,6 +69,31 @@ class IRenderCommandContext
     virtual void SetClipPlane( int index, bool enable ) = 0;
 
     virtual void BindTexture( uint32_t handle, int slot ) = 0;
+    // Concept: graph-owned textures resolve through the command context so
+    // runtime passes can bind ordinary engine texture handles without learning
+    // native DX12 descriptor or resource ownership.
+    virtual RenderGraphTransientMaterializationStats
+    MaterializeGraphTransientResources( const RenderGraph& graph, const RenderGraphCompileResult& compiled )
+    {
+        (void)graph;
+        (void)compiled;
+        return {};
+    }
+    virtual RenderGraphTextureBinding ResolveGraphTextureBinding( RenderGraphResourceHandle resource ) const
+    {
+        (void)resource;
+        return {};
+    }
+    virtual void BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName )
+    {
+        (void)binding;
+        (void)passName;
+    }
+    virtual void EndGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName )
+    {
+        (void)binding;
+        (void)passName;
+    }
 
     virtual bool IsDepthTestEnabled() const = 0;
     virtual bool IsDepthWriteEnabled() const = 0;

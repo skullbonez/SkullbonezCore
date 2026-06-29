@@ -22,6 +22,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Rendering/DX12/Dx12RenderGraphExecutor.h"
+#include "Rendering/DX12/RenderGraphTransientDX12.h"
 #include "Rendering/DX12/RenderDeviceDX12.h"
 #include "Rendering/RenderGraph.h"
 
@@ -637,6 +638,34 @@ void TestDx12UavBarrierRequiresCommandListForEmit()
     EXPECT_TRUE( !result.emitted );
 }
 
+void TestDx12GraphTransientPoolSlotReuseAllowsSameCompileAlias()
+{
+    RenderGraphTransientResourceDesc desc;
+    desc.kind = RenderGraphResourceKind::Texture2D;
+    desc.format = RenderGraphResourceFormat::RGBA16F;
+    desc.width = 64;
+    desc.height = 32;
+    desc.mipLevels = 1;
+    desc.descriptors.renderTarget = true;
+    desc.descriptors.shaderResource = true;
+
+    GraphTransientResourceDX12 candidate;
+    candidate.resource = reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x7000u ) );
+    candidate.desc = desc;
+    candidate.poolSlot = 3;
+    candidate.usedThisCompile = true;
+
+    // Hazard: the graph compiler may assign two non-overlapping resources to
+    // one pool slot in the same compile. Backend reuse must follow poolSlot
+    // compatibility, not the temporary "used this compile" bookkeeping bit.
+    EXPECT_TRUE( GraphTransientPoolSlotCanSatisfyDX12( candidate, 3, desc ) );
+    EXPECT_TRUE( !GraphTransientPoolSlotCanSatisfyDX12( candidate, 4, desc ) );
+
+    RenderGraphTransientResourceDesc incompatibleDesc = desc;
+    incompatibleDesc.height = 64;
+    EXPECT_TRUE( !GraphTransientPoolSlotCanSatisfyDX12( candidate, 3, incompatibleDesc ) );
+}
+
 const TestCase kTests[] = {
     { "Descriptor transient ranges are contiguous", TestDescriptorTransientRangeIsContiguous },
     { "Descriptor transient range failures are atomic", TestDescriptorTransientRangeFailureIsAtomic },
@@ -669,6 +698,8 @@ const TestCase kTests[] = {
     { "DX12 render graph executor identifies UAV access", TestDx12RenderGraphExecutorIdentifiesUavAccess },
     { "DX12 single transition requires command list for emit", TestDx12SingleTransitionRequiresCommandListForEmit },
     { "DX12 UAV barrier requires command list for emit", TestDx12UavBarrierRequiresCommandListForEmit },
+    { "DX12 graph transient pool-slot reuse allows same-compile alias",
+      TestDx12GraphTransientPoolSlotReuseAllowsSameCompileAlias },
 };
 
 } // namespace

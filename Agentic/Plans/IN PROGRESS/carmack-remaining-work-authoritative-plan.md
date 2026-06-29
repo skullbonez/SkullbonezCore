@@ -211,30 +211,68 @@ Known useful evidence to preserve:
 
 ## Phase 5 - Render Graph Resource Ownership
 
-- [ ] Promote graph-created transient resources from diagnostic skeleton output
+- [x] Promote graph-created transient resources from diagnostic skeleton output
   into at least one live production frame path that writes to and/or samples a
   graph-owned transient during rendering.
-  Evidence:
-- [ ] Ensure the production graph-owned transient is exercised by DX12
+  Evidence: `RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph` now
+  declares cinematic `VolumetricLight` with `RenderGraph::AddTransientResource`,
+  materializes it through `IRenderCommandContext::MaterializeGraphTransientResources`,
+  passes the resolved `RenderGraphTextureBinding` into `VolumetricPass::Render`,
+  and passes the same graph-owned texture handle into `TonemapPass::Render`.
+  Fresh focused-launch evidence in `Debug/dx12_cinematic_post_graph.txt` and
+  `Debug/dx12_frame_graph_actual.txt` shows `VolumetricLight external=false`.
+- [x] Ensure the production graph-owned transient is exercised by DX12
   screenshot validation and does not appear only as `DeclarationOnly` skeleton
   metadata.
-  Evidence:
-- [ ] Fix or prove backend transient pool reuse for compatible non-overlapping
+  Evidence: `tools\validate_dx12_renderer.bat` passed on the final Phase 5
+  source state. Latest artifacts:
+  `TestOutput\validation\dx12_renderer\20260629T151157Z\manifest.json`,
+  `TestOutput\validation\dx12_renderer\20260629T151157Z\summary.json`, and
+  `TestOutput\validation\dx12_renderer\20260629T151157Z\dx12_validation.txt`.
+  Summary status is `pass`; InfoQueue errors are 0; `water_ball_test` and
+  `solver_smoke` screenshots match committed DX12 baselines. A focused
+  cinematic launch of
+  `Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --scene SkullbonezData/scenes/water_ball_test.scene.json --cinematic on --frames 2`
+  refreshed `Debug\dx12_frame_graph_actual.txt` with `cinematic_render=true`,
+  `volumetric_callback_owned=true`, `volumetric_ready=true`, and
+  `tonemap_callback_owned=true`.
+- [x] Fix or prove backend transient pool reuse for compatible non-overlapping
   transient resources allocated in the same compile. The reviewed risk is that
   `usedThisCompile` prevents legitimate same-compile aliasing.
-  Evidence:
-- [ ] Add focused materializer/compiler coverage or diagnostic evidence proving
+  Evidence: `RenderBackendDX12::MaterializeGraphTransientResources` now keys
+  backend reuse through the compiler `poolSlot` and descriptor compatibility
+  instead of rejecting any candidate marked `usedThisCompile`. Initial resource
+  state is reset only on the first use of a physical slot in a compile, so
+  same-compile aliases preserve the previous alias' planned final state.
+- [x] Add focused materializer/compiler coverage or diagnostic evidence proving
   compatible non-overlapping graph transients share a pool slot without
   unbounded growth.
-  Evidence:
-- [ ] Move the relevant resource-state/barrier ownership for graph-owned
+  Evidence: `Agentic\Tests\Dx12ArchUnitTests\Dx12ArchUnitTests.cpp` adds
+  `DX12 graph transient pool-slot reuse allows same-compile alias`, and
+  `tools\validate_dx12_arch_tests.bat` passed with that test included.
+- [x] Move the relevant resource-state/barrier ownership for graph-owned
   resources into the graph planner/backend materializer path, with descriptor
   lifetime and shutdown accounting visible in diagnostics.
-  Evidence:
-- [ ] Keep backend-owned legacy resources working while the graph-owned path is
+  Evidence: `Debug\dx12_cinematic_post_graph.txt` records
+  `VolumetricLight PixelShaderResource -> RenderTarget -> PixelShaderResource`,
+  `TransientAllocations: resource=VolumetricLight slot=0 first_pass=0 last_pass=1 descriptors=2 reused=false released_at_frame_end=true`,
+  and materialization stats including `volumetric_binding_valid=true`,
+  `volumetric_texture_handle=22`, `pool_size=2`, `created_this_compile=1`,
+  `descriptor_rows_owned=4`, and `released_at_frame_end=1`. The actual
+  executed frame graph records the same production transient at passes 9-10.
+  Note: `released_at_frame_end` is the graph planner's logical lifetime marker;
+  the DX12 physical transient pool remains retained for reuse until backend
+  shutdown/release.
+- [x] Keep backend-owned legacy resources working while the graph-owned path is
   introduced; do not remove legacy lifetime hooks until validation proves the
   replacement path.
-  Evidence:
+  Evidence: `VolumetricPass::Render` and `TonemapPass::Render` retain legacy
+  target/scene-color fallbacks when no valid graph binding is provided.
+  `tools\validate_dx12_renderer.bat` passed without visual baseline changes.
+  The Phase 5 progress file
+  `Agentic/Plans/IN PROGRESS/carmack-phase-5-render-graph-resource-ownership-progress.md`
+  records the full checklist, touched-file comment audit, and read-only
+  rubber-duck review. Phase 5 reviewer Linnaeus reported no blocking issues.
 
 ## Phase 6 - Comment Audit And Final Validation
 

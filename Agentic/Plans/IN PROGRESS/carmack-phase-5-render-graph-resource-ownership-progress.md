@@ -6,25 +6,25 @@ Assigned phase: Phase 5 - Render Graph Resource Ownership
 
 ## Current Status
 
-- Status: Not implemented in this progress file; this document makes the Phase 5 work actionable.
+- Status: Implemented, validated, and rubber-duck reviewed on `nightrunner-29th-june`; pending commit.
 - Current source lookup found graph compiler support for transient lifetimes and compiler-side alias diagnostics in `SkullbonezSource/Rendering/RenderGraph.cpp`.
-- Current source lookup found DX12 backend materialization scaffolding in `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp`, including `MaterializeGraphTransientResources`, `ReleaseGraphTransientResources`, `GraphTransientResourceDX12`, and `GraphTransientMaterializationStatsDX12`.
-- Current source lookup found the only obvious graph transient production-like resource is still diagnostic skeleton output: `GraphTransientProbeColor` in `RenderBackendDX12::DumpFrameGraphSkeleton`.
-- Current live runtime graph paths in `SkullbonezSource/Runtime/RunRender.cpp` still import production resources with `AddExternalResource`; `VolumetricLight` in `RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph` is a likely first live transient candidate because `VolumetricLightPass` writes it and `ToneMapPass` samples it in the same graph.
+- DX12 backend graph transient records now live in `SkullbonezSource/Rendering/DX12/RenderGraphTransientDX12.h`, with backend materialization and release implemented in `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp`.
+- `RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph` now declares `VolumetricLight` as a graph transient when the volumetric pass is active, materializes it through the render command context, and passes the graph-owned binding to `VolumetricPass` and `TonemapPass`.
+- The old `GraphTransientProbeColor` skeleton diagnostic remains as a cheap backend smoke probe, but it is no longer the Phase 5 proof. The production evidence is `Debug/dx12_cinematic_post_graph.txt` and `Debug/dx12_frame_graph_actual.txt`.
 
 ## Action Checklist
 
-- [ ] Change `RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph` in `SkullbonezSource/Runtime/RunRender.cpp` so `VolumetricLight` is declared with `RenderGraph::AddTransientResource` instead of `RenderGraph::AddExternalResource` when `m_volumetricPass.CanRender(frame)` is true.
-- [ ] Change or extend the pass callback data in `SkullbonezSource/Runtime/RunRender.cpp` so `ExecuteVolumetricGraphCallback` and `ExecuteTonemapGraphCallback` can bind and sample the graph-owned `VolumetricLight` target, not only `m_systems.renderPasses.volumetricLight.target`.
-- [ ] Change `VolumetricPass::Render` in `SkullbonezSource/Runtime/RunPasses.cpp` to write the graph-owned transient when provided, while preserving the legacy `VolumetricLightPassResources::target` path as fallback.
-- [ ] Change `TonemapPass::Render` in `SkullbonezSource/Runtime/RunPasses.cpp` to sample the graph-owned volumetric transient SRV when `volumetricReady` is true, while preserving the current legacy fallback to `scene.hdrTarget->GetColorTextureHandle()`.
-- [ ] Change the render graph/backend binding surface in `SkullbonezSource/Rendering/RenderGraph.h`, `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h`, and `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp` so a callback-owned pass can resolve a graph transient allocation to the needed RTV/SRV/DSV/UAV handles without exposing broad DX12 ownership to runtime pass code.
-- [ ] Fix backend same-compile transient aliasing in `RenderBackendDX12::MaterializeGraphTransientResources` in `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp`; specifically prove or replace the `!candidate.usedThisCompile` reuse gate so compatible non-overlapping allocations with the same compiler `poolSlot` reuse one backend resource in the same compile.
-- [ ] Add or extend architecture-unit coverage in `Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.cpp` for backend/materializer pool-slot reuse, not just compiler-side `RenderGraph::Compile()` reuse.
-- [ ] Record runtime evidence from `Debug/dx12_frame_graph_skeleton.txt` and DX12 diagnostics showing a production frame path writes and/or samples a graph-owned transient that is not only `DeclarationOnly` skeleton metadata.
-- [ ] Regenerate any intended visual baselines only if the live graph-owned transient changes pixels; otherwise record unchanged DX12 screenshot validation evidence.
-- [ ] Remove or clearly downgrade the diagnostic-only `GraphTransientProbeColor` proof in `RenderBackendDX12::DumpFrameGraphSkeleton` only after the production transient path and evidence are in place.
-- [ ] Record all final evidence paths back in `Agentic/Plans/IN PROGRESS/carmack-remaining-work-authoritative-plan.md` during the implementation handoff, not in this progress file alone.
+- [x] Change `RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph` in `SkullbonezSource/Runtime/RunRender.cpp` so `VolumetricLight` is declared with `RenderGraph::AddTransientResource` instead of `RenderGraph::AddExternalResource` when `m_volumetricPass.CanRender(frame)` is true.
+- [x] Change or extend the pass callback data in `SkullbonezSource/Runtime/RunRender.cpp` so `ExecuteVolumetricGraphCallback` and `ExecuteTonemapGraphCallback` can bind and sample the graph-owned `VolumetricLight` target, not only `m_systems.renderPasses.volumetricLight.target`.
+- [x] Change `VolumetricPass::Render` in `SkullbonezSource/Runtime/RunPasses.cpp` to write the graph-owned transient when provided, while preserving the legacy `VolumetricLightPassResources::target` path as fallback.
+- [x] Change `TonemapPass::Render` in `SkullbonezSource/Runtime/RunPasses.cpp` to sample the graph-owned volumetric transient SRV when `volumetricReady` is true, while preserving the current legacy fallback to `scene.hdrTarget->GetColorTextureHandle()`.
+- [x] Change the render graph/backend binding surface in `SkullbonezSource/Rendering/RenderGraph.h`, `SkullbonezSource/Rendering/DX12/RenderBackendDX12.h`, and `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp` so a callback-owned pass can resolve a graph transient allocation to the needed RTV/SRV/DSV/UAV handles without exposing broad DX12 ownership to runtime pass code.
+- [x] Fix backend same-compile transient aliasing in `RenderBackendDX12::MaterializeGraphTransientResources` in `SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp`; specifically prove or replace the `!candidate.usedThisCompile` reuse gate so compatible non-overlapping allocations with the same compiler `poolSlot` reuse one backend resource in the same compile.
+- [x] Add or extend architecture-unit coverage in `Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.cpp` for backend/materializer pool-slot reuse, not just compiler-side `RenderGraph::Compile()` reuse.
+- [x] Record runtime evidence from `Debug/dx12_frame_graph_actual.txt` and `Debug/dx12_cinematic_post_graph.txt` showing a production frame path writes and samples a graph-owned transient that is not only `DeclarationOnly` skeleton metadata.
+- [x] Regenerate any intended visual baselines only if the live graph-owned transient changes pixels; otherwise record unchanged DX12 screenshot validation evidence.
+- [x] Remove or clearly downgrade the diagnostic-only `GraphTransientProbeColor` proof in `RenderBackendDX12::DumpFrameGraphSkeleton` only after the production transient path and evidence are in place.
+- [x] Record all final evidence paths back in `Agentic/Plans/IN PROGRESS/carmack-remaining-work-authoritative-plan.md` during the implementation handoff, not in this progress file alone.
 
 ## Likely Files And Tools To Inspect
 
@@ -52,21 +52,31 @@ Assigned phase: Phase 5 - Render Graph Resource Ownership
 
 ## Evidence To Collect
 
-- `tools\validate_dx12_arch_tests.bat` output proving transient compiler/materializer alias coverage.
-- `tools\validate_dx12_renderer.bat` output proving DX12 validation errors 0 and screenshots matching or intentionally updated baselines.
-- `Debug/dx12_frame_graph_skeleton.txt` or a newer graph dump showing the production transient name, writes, reads, pool slot, descriptor count, and reuse status.
-- DX12 log events for graph transient creation/reuse/release, including `dx12_graph_transient_release`.
-- `git diff --check` output before final handoff.
-- Comment-style audit output for every touched `.cpp`, `.h`, `.hpp`, `.inl`, or `.hlsl` file.
+- `git diff --check`: passed.
+- `tools\validate_format.bat`: passed, all source files correctly formatted.
+- `tools\validate_dx12_arch_tests.bat`: passed, including `DX12 graph transient pool-slot reuse allows same-compile alias`.
+- `tools\validate_dx12_renderer.bat`: passed. Latest manifest:
+  `TestOutput\validation\dx12_renderer\20260629T151157Z\manifest.json`; summary:
+  `TestOutput\validation\dx12_renderer\20260629T151157Z\summary.json`; InfoQueue:
+  `TestOutput\validation\dx12_renderer\20260629T151157Z\dx12_validation.txt` reports 0.
+- Focused launch:
+  `Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --scene SkullbonezData/scenes/water_ball_test.scene.json --cinematic on --frames 2`.
+  Fresh graph dumps were written at 2026-06-30 01:14 local time:
+  `Debug\dx12_cinematic_post_graph.txt` and `Debug\dx12_frame_graph_actual.txt`.
+- `Debug\dx12_cinematic_post_graph.txt` shows `VolumetricLight external=false`, `transient kind=Texture2D format=RGBA16F size=892x480 descriptors=RTV|SRV`, a VolumetricLightPass write, a ToneMapPass read, and transitions `PixelShaderResource -> RenderTarget -> PixelShaderResource`.
+- `Debug\dx12_frame_graph_actual.txt` shows `cinematic_render=true`, `volumetric_callback_owned=true`, `volumetric_ready=true`, `tonemap_callback_owned=true`, `volumetric_texture_handle=22`, and `TransientAllocations: resource=VolumetricLight slot=0 first_pass=9 last_pass=10 descriptors=2 reused=false released_at_frame_end=true`.
+- Root `dx12_validation.txt` after the focused launch reports 0.
+- Touched-file comment audit: 12 source-bearing files inspected against `Agentic/Reference/comment-style-guide.md`; 0 deferred.
+- Rubber-duck review: Linnaeus reported no blocking resource-state, lifetime, fallback, aliasing, comment-standard, or validation issues. Residual note accepted: `released_at_frame_end` is a graph-lifetime diagnostic, while the DX12 physical transient pool is retained and released through `RenderBackendDX12::ReleaseGraphTransientResources`.
 
 ## Validation Note
 
-This progress-file creation is documentation-only; no repository validation scripts are required now. The implementation slice for Phase 5 will be DX12/render-graph work and should run `tools\validate_dx12_arch_tests.bat` for focused graph coverage and `tools\validate_dx12_renderer.bat` for the required DX12 screenshot/InfoQueue gate before PR-bound handoff. Run `tools\validate_full.bat` only at the final Carmack branch handoff gate.
+This implementation slice touched DX12/render-graph code, so the focused graph coverage and DX12 renderer gate were required and passed. The final Phase 6 Carmack handoff still owns the broad `tools\validate_full.bat` gate.
 
-## Open Risks And Questions
+## Residual Risks And Notes
 
-- Is `VolumetricLight` the right first production transient, or should the first slice target a smaller target such as a non-cinematic post resource with lower screenshot churn?
-- Should graph transient lookup be exposed through `RenderGraphPassContext`, a narrow render-resource interface, or a DX12-only callback helper?
-- Does the backend materializer need to key reuse strictly by compiler `poolSlot` instead of descriptor equality plus `usedThisCompile`?
-- How should descriptor lifetime diagnostics distinguish static graph-owned SRV/UAV rows from existing content SRVs in `ReportArchitectureStats`?
-- What runtime evidence should replace the current diagnostic `GraphTransientProbeColor` skeleton proof once a production transient exists?
+- `VolumetricLight` was a good first production transient because one graph pass writes it and the next graph pass samples it inside the cinematic post graph.
+- The runtime sees only `RenderGraphTextureBinding` through `IRenderCommandContext`; DX12 pool records stay backend-owned.
+- `GraphTransientProbeColor` is intentionally retained as a cheap skeleton/materializer smoke probe. It should not be cited as the production proof for Phase 5.
+- `released_at_frame_end` describes the graph planner's logical lifetime and descriptor accounting for the compiled frame graph. It does not mean the DX12 physical pool destroys and recreates the texture every frame; pooled resources remain available for reuse until backend shutdown/release.
+- The focused launch wrapper returns before the GUI process flushes graph dumps; wait for the generated files before reading them.
