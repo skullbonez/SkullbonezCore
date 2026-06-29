@@ -66,8 +66,9 @@ class SpatialGrid
   private:
     // --- Capacity derivation ---
     // Static objects of radius R in a grid of cell size C span at most
-    // ceil(2R/C + 1) cells per axis. With the default 24-unit cells, normal
-    // scene bodies are expected to use at most 2x2x2 = 8 cells.
+    // ceil(2R/C + 1) cells per axis. PhysicsWorld chooses C from the largest
+    // current broadphase radius, capped by the configured legacy cell size, so
+    // normal scene bodies are expected to use at most 2x2x2 = 8 cells.
     //
     // Fast dynamic bodies can insert their swept AABB for CCD pairing. That is
     // intentionally a limited escape hatch for bullets and other rare high-speed
@@ -124,6 +125,10 @@ class SpatialGrid
 
     SpatialGrid( float fCellSize );
     void Clear();
+    // Sets the cell diameter used by the next broadphase rebuild. Callers must
+    // rebuild the grid after changing it; existing bucket entries keep their
+    // old integer cell coordinates until Clear/Insert repopulates the table.
+    void SetCellSize( float fCellSize );
     void Insert( int index, const Vector::Vector3& position, float radius );
     void InsertSwept( int index, const Vector::Vector3& position, const Vector::Vector3& displacement, float radius );
     void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs );

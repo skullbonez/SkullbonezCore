@@ -26,62 +26,12 @@ Related:
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
 */
-// =============================================================================
-// SPATIAL HASH GRID — Broadphase Collision Detection (SpatialGrid.cpp)
-// =============================================================================
+// Concept: the grid is a cheap maybe-colliding filter, not a collision solver.
 //
-// PURPOSE: Dramatically reduce the number of collision checks needed each frame.
-// Without this, checking N objects against each other requires N×(N-1)/2 tests.
-// With 300 balls, that's 44,850 pair checks per frame — far too many.
-//
-// --- The Problem: O(N²) is Too Slow ---
-//
-//  Naive approach:
-//  For each ball A:
-//    For each ball B (B ≠ A):
-//      Check if A overlaps B  →  N² checks
-//
-//  With spatial hashing:
-//  For each ball: insert into grid cells it overlaps
-//  Only check pairs that share at least one cell  →  Near O(N) in practice
-//
-// --- How Spatial Hashing Works ---
-//
-//  1. Divide the world into a uniform 3D grid of cells (cellSize ≈ diameter of objects)
-//
-//     +---+---+---+---+
-//     |   | ● |   |   |     ● = ball occupies this cell
-//     +---+---+---+---+
-//     |   | ● | ● |   |     Only balls in the SAME cell can possibly collide
-//     +---+---+---+---+
-//     |   |   | ● |   |
-//     +---+---+---+---+
-//
-//  2. For each ball, compute which cells it overlaps (based on position ± radius)
-//  3. Insert the ball's index into each overlapping cell
-//  4. For each cell with 2+ balls, those balls are "candidate pairs" — test them
-//
-// --- Hash Function ---
-//
-//  Instead of a giant 3D array, we use a HASH TABLE.
-//  Cell coordinate (ix, iy, iz) → hash key via:
-//    key = ix×73856093 ⊕ iy×19349663 ⊕ iz×83492791
-//
-//  These large primes create a good distribution with minimal clustering.
-//  The hash maps to a fixed-size bucket array (TABLE_SIZE = power of 2).
-//
-// --- Generation Counter (Lazy Clearing) ---
-//
-//  Instead of zeroing the entire hash table each frame (expensive),
-//  we increment a "generation" counter. Buckets with old generation are
-//  treated as empty — effectively a free O(1) clear operation.
-//
-// --- Pair Deduplication ---
-//
-//  A ball spanning multiple cells will create duplicate pairs. We use a
-//  compact bitset (triangular index) to ensure each pair is reported exactly once.
-//
-// =============================================================================
+// Each occupied cell emits every pair inside the cell, so a cell that is too
+// large turns into a local O(n^2) pair factory. PhysicsWorld sizes the cell from
+// current scene primitives before insertion; this type only owns hashing,
+// storage, and duplicate-pair suppression.
 
 
 #include "SpatialGrid.h"
@@ -99,6 +49,18 @@ SpatialGrid::SpatialGrid( float fCellSize )
       activeBucketCount( 0 )
 {
     memset( buckets, 0, sizeof( buckets ) );
+}
+
+
+void SpatialGrid::SetCellSize( float fCellSize )
+{
+    if ( fCellSize <= TOLERANCE || !std::isfinite( fCellSize ) )
+    {
+        throw std::runtime_error( "SpatialGrid cell size must be finite and positive" );
+    }
+
+    cellSize = fCellSize;
+    inverseCellSize = 1.0f / fCellSize;
 }
 
 

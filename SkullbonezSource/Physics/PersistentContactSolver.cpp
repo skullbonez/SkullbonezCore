@@ -88,8 +88,16 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
     auto& m_sleepSupportedThisFrame = context.sleepSupportedThisFrame;
     auto& m_bodyRecords = context.bodyRecords;
     const auto& m_colliderRecords = context.colliderRecords;
+    // Why: pipeline tracing is capped. Once full, later record calls are no-ops,
+    // so the contact hot path should stop building detailed records that would
+    // be discarded. Simulation state still follows the same deterministic path.
+    bool pipelineTraceCanRecord = context.CanRecordPhysicsPipelineStage();
+    auto CanRecordPhysicsPipelineStage = [&]() { return pipelineTraceCanRecord; };
     auto RecordPhysicsPipelineStage = [&]( const PhysicsPipelineRecord& record )
-    { context.RecordPhysicsPipelineStage( record ); };
+    {
+        context.RecordPhysicsPipelineStage( record );
+        pipelineTraceCanRecord = context.CanRecordPhysicsPipelineStage();
+    };
     auto MarkCollisionVisualContact = [&]( int index ) { context.MarkCollisionVisualContact( index ); };
     auto MarkFixedContact = [&]( int index ) { context.MarkFixedContact( modelAccess, index ); };
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts" );
@@ -335,30 +343,36 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
         if ( normal.y > supportNormalY )
         {
             m_sleepSupportEdges.emplace_back( aIndex, bIndex );
-            Physics::PhysicsPipelineRecord record;
-            record.stage = Physics::PhysicsPipelineStage::SleepSupportEdge;
-            record.bodyA = aIndex;
-            record.bodyB = bIndex;
-            record.normal = normal;
-            record.point = ( m_bodyRecords[static_cast<size_t>( aIndex )].position +
-                             m_bodyRecords[static_cast<size_t>( bIndex )].position ) *
-                           0.5f;
-            record.scalarA = normal.y;
-            RecordPhysicsPipelineStage( record );
+            if ( CanRecordPhysicsPipelineStage() )
+            {
+                Physics::PhysicsPipelineRecord record;
+                record.stage = Physics::PhysicsPipelineStage::SleepSupportEdge;
+                record.bodyA = aIndex;
+                record.bodyB = bIndex;
+                record.normal = normal;
+                record.point = ( m_bodyRecords[static_cast<size_t>( aIndex )].position +
+                                 m_bodyRecords[static_cast<size_t>( bIndex )].position ) *
+                               0.5f;
+                record.scalarA = normal.y;
+                RecordPhysicsPipelineStage( record );
+            }
         }
         else if ( normal.y < -supportNormalY )
         {
             m_sleepSupportEdges.emplace_back( bIndex, aIndex );
-            Physics::PhysicsPipelineRecord record;
-            record.stage = Physics::PhysicsPipelineStage::SleepSupportEdge;
-            record.bodyA = bIndex;
-            record.bodyB = aIndex;
-            record.normal = -normal;
-            record.point = ( m_bodyRecords[static_cast<size_t>( aIndex )].position +
-                             m_bodyRecords[static_cast<size_t>( bIndex )].position ) *
-                           0.5f;
-            record.scalarA = -normal.y;
-            RecordPhysicsPipelineStage( record );
+            if ( CanRecordPhysicsPipelineStage() )
+            {
+                Physics::PhysicsPipelineRecord record;
+                record.stage = Physics::PhysicsPipelineStage::SleepSupportEdge;
+                record.bodyA = bIndex;
+                record.bodyB = aIndex;
+                record.normal = -normal;
+                record.point = ( m_bodyRecords[static_cast<size_t>( aIndex )].position +
+                                 m_bodyRecords[static_cast<size_t>( bIndex )].position ) *
+                               0.5f;
+                record.scalarA = -normal.y;
+                RecordPhysicsPipelineStage( record );
+            }
         }
     };
 
@@ -581,17 +595,20 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                         ++m_persistentRestingContactCounts[bIndex];
                     }
 
-                    Physics::PhysicsPipelineRecord record;
-                    record.stage = Physics::PhysicsPipelineStage::ManifoldRow;
-                    record.bodyA = aIndex;
-                    record.bodyB = bIndex;
-                    record.featureId = point.featureId;
-                    record.point = point.point;
-                    record.normal = manifold.normal;
-                    record.scalarA = point.penetration;
-                    record.scalarB = static_cast<float>( pointIndex );
-                    record.scalarC = static_cast<float>( manifold.pointCount );
-                    RecordPhysicsPipelineStage( record );
+                    if ( CanRecordPhysicsPipelineStage() )
+                    {
+                        Physics::PhysicsPipelineRecord record;
+                        record.stage = Physics::PhysicsPipelineStage::ManifoldRow;
+                        record.bodyA = aIndex;
+                        record.bodyB = bIndex;
+                        record.featureId = point.featureId;
+                        record.point = point.point;
+                        record.normal = manifold.normal;
+                        record.scalarA = point.penetration;
+                        record.scalarB = static_cast<float>( pointIndex );
+                        record.scalarC = static_cast<float>( manifold.pointCount );
+                        RecordPhysicsPipelineStage( record );
+                    }
                 }
                 hasContact = manifold.pointCount > 0;
             }
@@ -635,16 +652,19 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                 continue;
             }
 
-            Physics::PhysicsPipelineRecord manifoldRecord;
-            manifoldRecord.stage = Physics::PhysicsPipelineStage::TerrainManifold;
-            manifoldRecord.bodyA = manifold.bodyA;
-            manifoldRecord.bodyB = TERRAIN_BODY_INDEX;
-            manifoldRecord.point = manifold.points[0].point;
-            manifoldRecord.normal = manifold.normal;
-            manifoldRecord.scalarA = static_cast<float>( manifold.pointCount );
-            manifoldRecord.scalarB = manifold.supportsRestingPolicy ? 1.0f : 0.0f;
-            manifoldRecord.scalarC = manifold.timeOfImpact;
-            RecordPhysicsPipelineStage( manifoldRecord );
+            if ( CanRecordPhysicsPipelineStage() )
+            {
+                Physics::PhysicsPipelineRecord manifoldRecord;
+                manifoldRecord.stage = Physics::PhysicsPipelineStage::TerrainManifold;
+                manifoldRecord.bodyA = manifold.bodyA;
+                manifoldRecord.bodyB = TERRAIN_BODY_INDEX;
+                manifoldRecord.point = manifold.points[0].point;
+                manifoldRecord.normal = manifold.normal;
+                manifoldRecord.scalarA = static_cast<float>( manifold.pointCount );
+                manifoldRecord.scalarB = manifold.supportsRestingPolicy ? 1.0f : 0.0f;
+                manifoldRecord.scalarC = manifold.timeOfImpact;
+                RecordPhysicsPipelineStage( manifoldRecord );
+            }
 
             // Why: terrain support needs two strengths of warm starting.
             //
@@ -690,17 +710,20 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                 c.terrainWarmStart = warmStartPerContact;
                 m_persistentContacts.push_back( c );
 
-                Physics::PhysicsPipelineRecord rowRecord;
-                rowRecord.stage = Physics::PhysicsPipelineStage::TerrainRow;
-                rowRecord.bodyA = c.bodyA;
-                rowRecord.bodyB = TERRAIN_BODY_INDEX;
-                rowRecord.featureId = c.featureId;
-                rowRecord.point = point.point;
-                rowRecord.normal = manifold.normal;
-                rowRecord.scalarA = point.penetration;
-                rowRecord.scalarB = warmStartPerContact;
-                rowRecord.scalarC = static_cast<float>( pointIndex );
-                RecordPhysicsPipelineStage( rowRecord );
+                if ( CanRecordPhysicsPipelineStage() )
+                {
+                    Physics::PhysicsPipelineRecord rowRecord;
+                    rowRecord.stage = Physics::PhysicsPipelineStage::TerrainRow;
+                    rowRecord.bodyA = c.bodyA;
+                    rowRecord.bodyB = TERRAIN_BODY_INDEX;
+                    rowRecord.featureId = c.featureId;
+                    rowRecord.point = point.point;
+                    rowRecord.normal = manifold.normal;
+                    rowRecord.scalarA = point.penetration;
+                    rowRecord.scalarB = warmStartPerContact;
+                    rowRecord.scalarC = static_cast<float>( pointIndex );
+                    RecordPhysicsPipelineStage( rowRecord );
+                }
             }
         }
     }
@@ -907,6 +930,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                 ++m_persistentContactSolverStats.warmStartedRows;
             }
 
+            if ( CanRecordPhysicsPipelineStage() )
             {
                 Physics::PhysicsPipelineRecord record;
                 record.stage = Physics::PhysicsPipelineStage::WarmStart;
@@ -1004,18 +1028,21 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
 
                 iterImpulseSq += deltaN * deltaN + deltaT1 * deltaT1 + deltaT2 * deltaT2;
 
-                Physics::PhysicsPipelineRecord record;
-                record.stage = Physics::PhysicsPipelineStage::SolverIteration;
-                record.bodyA = c.bodyA;
-                record.bodyB = c.bodyB;
-                record.iteration = iter;
-                record.featureId = c.featureId;
-                record.point = m_bodyRecords[static_cast<size_t>( c.bodyA )].position + c.rA;
-                record.normal = c.normal;
-                record.scalarA = deltaN;
-                record.scalarB = c.accN;
-                record.scalarC = sqrtf( c.accT1 * c.accT1 + c.accT2 * c.accT2 );
-                RecordPhysicsPipelineStage( record );
+                if ( CanRecordPhysicsPipelineStage() )
+                {
+                    Physics::PhysicsPipelineRecord record;
+                    record.stage = Physics::PhysicsPipelineStage::SolverIteration;
+                    record.bodyA = c.bodyA;
+                    record.bodyB = c.bodyB;
+                    record.iteration = iter;
+                    record.featureId = c.featureId;
+                    record.point = m_bodyRecords[static_cast<size_t>( c.bodyA )].position + c.rA;
+                    record.normal = c.normal;
+                    record.scalarA = deltaN;
+                    record.scalarB = c.accN;
+                    record.scalarC = sqrtf( c.accT1 * c.accT1 + c.accT2 * c.accT2 );
+                    RecordPhysicsPipelineStage( record );
+                }
             }
 
             // ENGINE-SPECIFIC:
@@ -1133,13 +1160,16 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                 continue;
             }
 
-            Physics::PhysicsPipelineRecord record;
-            record.stage = Physics::PhysicsPipelineStage::VelocityWriteback;
-            record.bodyA = i;
-            record.point = m_bodyRecords[static_cast<size_t>( i )].position;
-            record.scalarA = Vector::VectorMag( m_solverBodies[i].linearVelocity );
-            record.scalarB = Vector::VectorMag( m_solverBodies[i].angularVelocity );
-            RecordPhysicsPipelineStage( record );
+            if ( CanRecordPhysicsPipelineStage() )
+            {
+                Physics::PhysicsPipelineRecord record;
+                record.stage = Physics::PhysicsPipelineStage::VelocityWriteback;
+                record.bodyA = i;
+                record.point = m_bodyRecords[static_cast<size_t>( i )].position;
+                record.scalarA = Vector::VectorMag( m_solverBodies[i].linearVelocity );
+                record.scalarB = Vector::VectorMag( m_solverBodies[i].angularVelocity );
+                RecordPhysicsPipelineStage( record );
+            }
 
             m_bodyRecords[static_cast<size_t>( i )].linearVelocity = m_solverBodies[i].linearVelocity;
             m_bodyRecords[static_cast<size_t>( i )].angularVelocity = m_solverBodies[i].angularVelocity;
@@ -1222,17 +1252,20 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             {
                 m_persistentContactSolverStats.positionCorrectionMax = correctionMagnitude;
             }
-            Physics::PhysicsPipelineRecord record;
-            record.stage = Physics::PhysicsPipelineStage::PositionCorrection;
-            record.bodyA = c.bodyA;
-            record.bodyB = c.bodyB;
-            record.featureId = c.featureId;
-            record.point = m_bodyRecords[static_cast<size_t>( c.bodyA )].position + c.rA;
-            record.normal = c.normal;
-            record.scalarA = correctionMagnitude;
-            record.scalarB = c.penetration;
-            record.scalarC = rowContactSlop;
-            RecordPhysicsPipelineStage( record );
+            if ( CanRecordPhysicsPipelineStage() )
+            {
+                Physics::PhysicsPipelineRecord record;
+                record.stage = Physics::PhysicsPipelineStage::PositionCorrection;
+                record.bodyA = c.bodyA;
+                record.bodyB = c.bodyB;
+                record.featureId = c.featureId;
+                record.point = m_bodyRecords[static_cast<size_t>( c.bodyA )].position + c.rA;
+                record.normal = c.normal;
+                record.scalarA = correctionMagnitude;
+                record.scalarB = c.penetration;
+                record.scalarC = rowContactSlop;
+                RecordPhysicsPipelineStage( record );
+            }
             m_bodyRecords[static_cast<size_t>( c.bodyA )].position -= correction * invMassA;
             context.bodyStore.WriteBackToModelAt( m_gameModels, c.bodyA );
             if ( hasBodyB )
@@ -1272,17 +1305,20 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             cached.accT2 = c.accT2;
             m_persistentContactCache.push_back( cached );
 
-            Physics::PhysicsPipelineRecord record;
-            record.stage = Physics::PhysicsPipelineStage::CacheStore;
-            record.bodyA = c.bodyA;
-            record.bodyB = c.bodyB;
-            record.featureId = c.featureId;
-            record.point = m_bodyRecords[static_cast<size_t>( c.bodyA )].position + c.rA;
-            record.normal = c.normal;
-            record.scalarA = c.accN;
-            record.scalarB = c.accT1;
-            record.scalarC = c.accT2;
-            RecordPhysicsPipelineStage( record );
+            if ( CanRecordPhysicsPipelineStage() )
+            {
+                Physics::PhysicsPipelineRecord record;
+                record.stage = Physics::PhysicsPipelineStage::CacheStore;
+                record.bodyA = c.bodyA;
+                record.bodyB = c.bodyB;
+                record.featureId = c.featureId;
+                record.point = m_bodyRecords[static_cast<size_t>( c.bodyA )].position + c.rA;
+                record.normal = c.normal;
+                record.scalarA = c.accN;
+                record.scalarB = c.accT1;
+                record.scalarC = c.accT2;
+                RecordPhysicsPipelineStage( record );
+            }
         }
 
         if ( m_persistentContactCache.size() > 1 )

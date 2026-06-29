@@ -267,6 +267,7 @@ class PhysicsWorld
     PersistentContactSolverContext CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
                                                                          const ColliderStore& colliderStore );
     SleepSupportPropagationContext CreateSleepSupportPropagationContext();
+    bool CanRecordPhysicsPipelineStage() const;
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record );
     void EnsureCollisionVisualBuffers( int modelCount );
     void EnsureTornadoStateBuffers( int modelCount );
@@ -341,6 +342,10 @@ class PhysicsWorld
     {
         RecordPhysicsPipelineStage( record );
     }
+    bool CanRecordSolverPhysicsPipelineStage() const
+    {
+        return CanRecordPhysicsPipelineStage();
+    }
     void MarkSolverCollisionVisualContact( int index )
     {
         MarkCollisionVisualContact( index );
@@ -410,6 +415,7 @@ struct PersistentContactSolverContext
     PhysicsWorld& world;
 
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record ) const;
+    bool CanRecordPhysicsPipelineStage() const;
     void MarkCollisionVisualContact( int index ) const;
     void MarkFixedContact( PhysicsModelAccess& modelAccess, int index ) const;
     void WakeModel( PhysicsModelAccess& modelAccess, int index ) const;

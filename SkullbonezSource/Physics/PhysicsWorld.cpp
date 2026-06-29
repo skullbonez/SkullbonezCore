@@ -83,6 +83,7 @@ constexpr float POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE = 0.15f;
 constexpr float POINT_JOINT_SLEEP_SLACK_TOLERANCE_SCALE = 0.75f;
 constexpr float POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE = 6.0f;
 constexpr float POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE = 6.0f;
+constexpr float BROADPHASE_MIN_CELL_SIZE = 0.5f;
 constexpr uint32_t PHYSICS_TORNADO_WORKER_HASH = HashStr( "Frame/Physics/TornadoField/WorkerBodies" );
 constexpr uint32_t PHYSICS_APPLY_FORCES_WORKER_HASH = HashStr( "Frame/Physics/ApplyForces/WorkerBodies" );
 constexpr uint32_t PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH =
@@ -534,6 +535,12 @@ void PhysicsWorld::RecordPhysicsPipelineStage( const PhysicsPipelineRecord& reco
 }
 
 
+bool PhysicsWorld::CanRecordPhysicsPipelineStage() const
+{
+    return m_physicsPipelineTrace.size() < MAX_PIPELINE_TRACE_RECORDS;
+}
+
+
 PersistentContactSolverContext PhysicsWorld::CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
                                                                                    const ColliderStore& colliderStore )
 {
@@ -566,6 +573,12 @@ SleepSupportPropagationContext PhysicsWorld::CreateSleepSupportPropagationContex
 void PersistentContactSolverContext::RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record ) const
 {
     world.RecordSolverPhysicsPipelineStage( record );
+}
+
+
+bool PersistentContactSolverContext::CanRecordPhysicsPipelineStage() const
+{
+    return world.CanRecordSolverPhysicsPipelineStage();
 }
 
 
@@ -1705,11 +1718,32 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
     {
         PROFILE_SCOPED( "Frame/Physics/Broadphase/GridBuild" );
+        float largestBroadphaseRadius = 0.0f;
+        const float contactSkin = (std::max)( 0.0f, Cfg().contactEpsilon );
+        for ( int i = 0; i < modelCount; ++i )
+        {
+            const float radius = bodyStream.boundingRadii[i];
+            if ( std::isfinite( radius ) && radius > largestBroadphaseRadius )
+            {
+                largestBroadphaseRadius = radius;
+            }
+        }
+
+        // Why: a fixed 24m cell made the 200-brick wall share huge buckets,
+        // producing thousands of false candidate pairs. Cell size follows the
+        // largest active broadphase primitive so ordinary bodies span only a few
+        // cells while the config value remains an upper bound for legacy scenes.
+        // Invariant: the choice uses only deterministic body-stream/config data,
+        // so byte-exact physics baselines do not depend on allocator or hash state.
+        const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, Cfg().broadphaseCell );
+        const float sceneCell =
+            (std::max)( BROADPHASE_MIN_CELL_SIZE, ( largestBroadphaseRadius + contactSkin ) * 2.0f );
+        m_spatialGrid.SetCellSize( (std::min)( configuredCell, sceneCell ) );
         m_spatialGrid.Clear();
         m_collisionCellKeys.clear();
         for ( int i = 0; i < modelCount; ++i )
         {
-            const float radius = bodyStream.boundingRadii[i];
+            const float radius = bodyStream.boundingRadii[i] + contactSkin;
             const Vector3 displacement = bodyRecords[static_cast<size_t>( i )].linearVelocity * dt;
             const float displacementSq = Vector::VectorMagSquared( displacement );
             if ( !bodyStream.isFixed[i] && displacementSq > radius * radius )
@@ -1840,6 +1874,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         PROFILE_SCOPED( "Frame/Physics/Broadphase/RecordCandidates" );
         for ( const auto& pair : candidatePairs )
         {
+            // Why: this pass only mirrors pairs into the capped diagnostics trace.
+            // Once the trace is full, later iterations cannot affect simulation
+            // state or recorded diagnostics.
+            if ( !CanRecordPhysicsPipelineStage() )
+            {
+                break;
+            }
+
             if ( pair.first < 0 || pair.second < 0 || pair.first >= modelCount || pair.second >= modelCount )
             {
                 continue;
@@ -1883,9 +1925,9 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
                                 const int a = pair.first;
                                 const int b = pair.second;
                                 const bool prune = a >= 0 && b >= 0 && a < static_cast<int>( m_sleepState.size() ) &&
-                                                   b < static_cast<int>( m_sleepState.size() ) &&
-                                                   m_sleepState[a] != 0 && m_sleepState[b] != 0;
-                                if ( prune )
+                                                    b < static_cast<int>( m_sleepState.size() ) &&
+                                                    m_sleepState[a] != 0 && m_sleepState[b] != 0;
+                                if ( prune && CanRecordPhysicsPipelineStage() )
                                 {
                                     Physics::PhysicsPipelineRecord record;
                                     record.stage = Physics::PhysicsPipelineStage::SleepPrunedPair;
