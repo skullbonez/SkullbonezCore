@@ -11,6 +11,8 @@ Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
+  Convex hull: Immutable authored collision geometry that can also provide a
+    precise shadow-caster silhouette.
 
 Invariants:
   - ShadowFrameData is frame-local render input; it does not own the depth
@@ -26,6 +28,7 @@ Related:
 #include "IRenderBackend.h"
 #include "../Maths/Matrix4.h"
 #include "../Maths/Vector3.h"
+#include "../Physics/ConvexHullShape.h"
 #include <algorithm>
 #include <vector>
 
@@ -35,24 +38,34 @@ namespace Rendering
 {
 inline constexpr int SHADOW_TEXTURE_SLOT = 3;
 
+struct ShadowConvexHullCaster
+{
+    const Math::CollisionDetection::ConvexHullShape* hull = nullptr;
+    Math::Transformation::Matrix4 model;
+};
+
 struct ShadowCasterBatches
 {
-    // CPU-built caster streams. Worker jobs may fill these matrices, but only
-    // the main thread may submit them through RenderHelper/Gfx().
+    // CPU-built caster streams. Worker jobs may fill these payloads, but only
+    // the main thread may submit them through RenderHelper/Gfx(). Convex hull
+    // payloads borrow immutable hull geometry owned by the live model collection
+    // for this frame.
     std::vector<Math::Transformation::Matrix4> spheres;
     std::vector<Math::Transformation::Matrix4> boxes;
     std::vector<Math::Transformation::Matrix4> pines;
+    std::vector<ShadowConvexHullCaster> convexHulls;
 
     void Clear()
     {
         spheres.clear();
         boxes.clear();
         pines.clear();
+        convexHulls.clear();
     }
 
     bool Empty() const
     {
-        return spheres.empty() && boxes.empty() && pines.empty();
+        return spheres.empty() && boxes.empty() && pines.empty() && convexHulls.empty();
     }
 };
 
