@@ -1820,6 +1820,38 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         return Vector::VectorMagSquared( closestRelative ) <= expandedRadius * expandedRadius;
     };
 
+    auto sweptBroadphasePairCanTouch = [&]( int a, int b ) -> bool
+    {
+        if ( a < 0 || b < 0 || a >= modelCount || b >= modelCount )
+        {
+            return false;
+        }
+
+        const float radiusA = bodyStream.boundingRadii[a];
+        const float radiusB = bodyStream.boundingRadii[b];
+        if ( !std::isfinite( radiusA ) || !std::isfinite( radiusB ) || radiusA < 0.0f || radiusB < 0.0f )
+        {
+            return true;
+        }
+
+        const Vector3 relativeStart = bodyStream.positions[a] - bodyStream.positions[b];
+        const Vector3 relativeDisplacement = ( bodyRecords[static_cast<size_t>( a )].linearVelocity -
+                                               bodyRecords[static_cast<size_t>( b )].linearVelocity ) *
+                                             dt;
+        const float contactRadius = radiusA + radiusB + (std::max)( 0.0f, Cfg().contactEpsilon );
+        const float contactRadiusSq = contactRadius * contactRadius;
+        const float relativeLengthSq = Vector::VectorMagSquared( relativeDisplacement );
+        if ( relativeLengthSq <= TOLERANCE * TOLERANCE )
+        {
+            return Vector::VectorMagSquared( relativeStart ) <= contactRadiusSq;
+        }
+
+        float t = -( relativeStart * relativeDisplacement ) / relativeLengthSq;
+        t = (std::max)( 0.0f, (std::min)( 1.0f, t ) );
+        const Vector3 closestRelative = relativeStart + relativeDisplacement * t;
+        return Vector::VectorMagSquared( closestRelative ) <= contactRadiusSq;
+    };
+
     // Tiny high-speed projectiles should not depend solely on cell overlap.
     // If the hash grid samples or capacity ever miss their path, this conservative
     // segment test still feeds the exact pair to narrowphase CCD.
@@ -1868,6 +1900,24 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
                                               [&]( const std::pair<int, int>& pair )
                                               { return IsPointJointPair( pair.first, pair.second ); } ),
                               candidatePairs.end() );
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/PruneSeparatedPairs" );
+        // Why: sharing one spatial-grid cell is only a locality hint. Dense wall
+        // scenes can put dozens of small boxes in one cell, and emitting every
+        // pair there makes the rest of the frame pay for pairs whose conservative
+        // swept bounding spheres never approach each other.
+        //
+        // Invariant: this is still a broadphase test. It may keep false positives,
+        // but it must not reject a pair whose exact shapes could touch during the
+        // fixed tick; the relative-motion segment covers CCD and wakeup cases.
+        candidatePairs.erase(
+            std::remove_if( candidatePairs.begin(),
+                            candidatePairs.end(),
+                            [&]( const std::pair<int, int>& pair )
+                            { return !sweptBroadphasePairCanTouch( pair.first, pair.second ); } ),
+            candidatePairs.end() );
     }
 
     {
