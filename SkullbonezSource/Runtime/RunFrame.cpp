@@ -335,6 +335,14 @@ void Run::Execute()
         {
             if ( msg.message == WM_QUIT )
             {
+                if ( m_graphicsStress.enabled )
+                {
+                    printf( "[graphics-stress] WM_QUIT received at frame=%d scene_frame=%d scene_loads=%d\n",
+                            m_graphicsStress.framesRun,
+                            SceneState().currentFrame,
+                            m_graphicsStress.sceneLoadsRequested );
+                    fflush( stdout );
+                }
                 break;
             }
             TranslateMessage( &msg );

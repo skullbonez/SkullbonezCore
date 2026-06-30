@@ -520,6 +520,10 @@ void TestDx12RenderGraphAccessMapsToDx12States()
     EXPECT_TRUE( TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::PixelShaderResource, state ) );
     EXPECT_TRUE( state == D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
 
+    EXPECT_TRUE( TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::ShaderResource, state ) );
+    EXPECT_TRUE( state ==
+                 ( D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE ) );
+
     EXPECT_TRUE(
         TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::VertexAndNonPixelShaderResource, state ) );
     EXPECT_TRUE( state ==

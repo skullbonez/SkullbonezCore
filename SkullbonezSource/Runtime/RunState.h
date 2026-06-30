@@ -262,6 +262,10 @@ struct RunLaunchOptions
     bool uiStress = false;                                     // CLI --ui-stress enables generated/demo stress without a scene file
     unsigned int uiStressSeed = 0;                             // CLI --ui-stress-seed
     int uiStressActions = 5;                                   // CLI --ui-stress-actions
+    bool graphicsStress = false;                               // CLI --graphics-stress enables render-setting and scene-load churn
+    unsigned int graphicsStressSeed = 0;                       // CLI --graphics-stress-seed
+    int graphicsStressActions = 12;                            // CLI --graphics-stress-actions
+    int graphicsStressSceneIntervalFrames = 45;                // CLI --graphics-stress-scene-interval
     GeneratedObjectTypeOverride generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     bool hasPhysicsDebugFlagsOverride = false;
     uint32_t physicsDebugFlagsOverride = Physics::PHYSICS_DEBUG_NONE;
@@ -271,6 +275,20 @@ struct RunLaunchOptions
     float physicsDebugAlphaOverride = 0.28f;
     bool hasPhysicsDebugContactLingerOverride = false;
     float physicsDebugContactLingerOverride = 0.45f;
+};
+
+struct RunGraphicsStressState
+{
+    // Concept: Graphics stress is a deterministic runtime fuzzer. It mutates
+    // live render settings and scene-load state from one seed so DX12 crashes
+    // can be replayed without depending on human UI timing.
+    bool enabled = false;                                      // Active after --graphics-stress is applied
+    unsigned int randomState = 0;                              // LCG state; 0 means uninitialized
+    int actionsPerFrame = 12;                                  // Render/state mutations per rendered frame
+    int sceneIntervalFrames = 45;                              // Minimum frames between forced scene reloads
+    int framesRun = 0;                                         // Persistent across scene reloads
+    int sceneLoadsRequested = 0;                               // Count of stress-driven LoadScene calls
+    int lastSceneLoadFrame = -1000000;                         // Frame index of the last stress scene load
 };
 
 struct RunSceneBrowserState

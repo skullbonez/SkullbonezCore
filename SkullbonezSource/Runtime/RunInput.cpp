@@ -2980,6 +2980,7 @@ void Run::TakeInput()
         }
 
         RunUIStressActions();
+        RunGraphicsStressActions();
 
         TickAttachedCameraOrbitInput( editorUnhandledWheelDelta );
         TickEditorViewportAndPlacementScaleInput( editorUnhandledWheelDelta );

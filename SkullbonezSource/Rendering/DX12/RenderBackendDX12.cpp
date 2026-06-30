@@ -2115,6 +2115,14 @@ bool RenderBackendDX12::IsVsyncEnabled() const
 
 void RenderBackendDX12::Finish()
 {
+    if ( !m_commandList || !m_commandQueue || !m_renderDevice.FrameFence().IsReady() ||
+         !m_commandAllocators[m_allocatorIndex] )
+    {
+        WaitForGpu();
+        TryConsumeGpuTimerReadback( true );
+        return;
+    }
+
     if ( m_commandListOpen )
     {
         AssertPlatformProfilerGpuStackClosed( "Finish" );
@@ -2125,11 +2133,23 @@ void RenderBackendDX12::Finish()
     }
     WaitForGpu();
     TryConsumeGpuTimerReadback( true );
+
+    // Hazard: runtime pipeline-sync calls Finish() between physics and render.
+    // That wait is allowed to drain submitted GPU work, but the next render pass
+    // still expects a recording command list for graph-owned barriers and draws.
+    EnsureCommandListOpen();
 }
 
 
 void RenderBackendDX12::FlushGPU()
 {
+    if ( !m_commandList || !m_commandQueue || !m_renderDevice.FrameFence().IsReady() ||
+         !m_commandAllocators[m_allocatorIndex] )
+    {
+        WaitForGpu();
+        return;
+    }
+
     if ( m_commandListOpen )
     {
         AssertPlatformProfilerGpuStackClosed( "FlushGPU" );
@@ -2139,6 +2159,12 @@ void RenderBackendDX12::FlushGPU()
         m_commandQueue->ExecuteCommandLists( 1, ppCLs );
     }
     WaitForGpu();
+
+    // Hazard: scene swaps and graphics stress use FlushGPU() in the middle of
+    // the runtime loop before the next render graph records transitions. A full
+    // drain makes resource destruction safe, but leaving the command list closed
+    // makes the next graph barrier trip the DX12 debug layer.
+    EnsureCommandListOpen();
 }
 
 

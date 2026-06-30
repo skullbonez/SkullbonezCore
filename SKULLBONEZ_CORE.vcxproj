@@ -509,6 +509,7 @@
     <None Include="SkullbonezData\scenes\cinematic_shadow_map.scene.json" />
     <None Include="SkullbonezData\scenes\cinematic_volumetric.scene.json" />
     <None Include="SkullbonezData\scenes\concepts.suite.json" />
+    <None Include="SkullbonezData\scenes\graphics_stress.suite.json" />
     <None Include="SkullbonezData\scenes\concept_01_golden_hour_realism.scene.json" />
     <None Include="SkullbonezData\scenes\concept_02_brutal_industrial.scene.json" />
     <None Include="SkullbonezData\scenes\concept_03_studio_lighting_showcase.scene.json" />

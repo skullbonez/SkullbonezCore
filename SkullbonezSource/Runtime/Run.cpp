@@ -622,6 +622,22 @@ void Run::SetUIStressOverride( unsigned int seed, int actionsPerFrame )
 }
 
 
+void Run::SetGraphicsStressOverride( unsigned int seed, int actionsPerFrame, int sceneIntervalFrames )
+{
+    const unsigned int resolvedSeed = seed > 0 ? seed : 0xC11E2026u;
+    m_launchOptions.graphicsStress = true;
+    m_launchOptions.graphicsStressSeed = resolvedSeed;
+    m_launchOptions.graphicsStressActions = std::clamp( actionsPerFrame, 1, 64 );
+    m_launchOptions.graphicsStressSceneIntervalFrames = std::clamp( sceneIntervalFrames, 1, 600 );
+    m_launchOptions.interactiveSceneRun = true;
+
+    m_graphicsStress.enabled = true;
+    m_graphicsStress.randomState = resolvedSeed;
+    m_graphicsStress.actionsPerFrame = m_launchOptions.graphicsStressActions;
+    m_graphicsStress.sceneIntervalFrames = m_launchOptions.graphicsStressSceneIntervalFrames;
+}
+
+
 void Run::SetReplayRecording( bool enabled, int retentionSeconds, const char* hashLogPath )
 {
     const ReplayRuntime::RecordingConfigResult replayConfig =
