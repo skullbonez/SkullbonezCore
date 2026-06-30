@@ -51,6 +51,7 @@ constexpr float PROFILER_WORKER_TOGGLE_Y = 12.0f;
 constexpr float PROFILER_WORKER_SLIDER_Y = 52.0f;
 constexpr float PROFILER_CORE_CHART_H = 142.0f;
 constexpr float PROFILER_CORE_CHART_AXIS_MIN_MS = 0.50f;
+constexpr float HISTOGRAM_AXIS_LABEL_GUTTER = 54.0f;
 
 bool IsProfilerRowVisible( float contentY, float contentH, float rowY, float rowH )
 {
@@ -527,7 +528,10 @@ SkullbonezCore::UI::UIRect HistogramPlotBounds( const SkullbonezCore::UI::Profil
     const SkullbonezCore::UI::UIRect panel = HistogramPanelBounds( state );
     const float plotY = panel.y + 66.0f;
     const float plotH = (std::max)( 34.0f, panel.h - 96.0f );
-    return { panel.x + 10.0f, plotY, (std::max)( 32.0f, panel.w - 20.0f ), plotH };
+    return { panel.x + 10.0f + HISTOGRAM_AXIS_LABEL_GUTTER,
+             plotY,
+             (std::max)( 32.0f, panel.w - 20.0f - HISTOGRAM_AXIS_LABEL_GUTTER ),
+             plotH };
 }
 
 SkullbonezCore::UI::UIRect HistogramDropdownBounds( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
@@ -633,6 +637,58 @@ float NiceHistogramAxis( float rawMs )
         }
     }
     return HISTOGRAM_SAMPLE_CLAMP_MS;
+}
+
+void FormatHistogramMsLabel( char* out, std::size_t outSize, float ms )
+{
+    if ( !out || outSize == 0 )
+    {
+        return;
+    }
+
+    const float rounded = std::round( ms );
+    if ( std::fabs( ms - rounded ) < 0.005f )
+    {
+        snprintf( out, outSize, "%.0f ms", rounded );
+        return;
+    }
+
+    const float tenth = std::round( ms * 10.0f ) / 10.0f;
+    if ( std::fabs( ms - tenth ) < 0.005f )
+    {
+        snprintf( out, outSize, "%.1f ms", tenth );
+        return;
+    }
+
+    snprintf( out, outSize, "%.2f ms", ms );
+}
+
+void DrawHistogramLineSegment( const SkullbonezCore::UI::UIDrawContext& draw,
+                               float x0,
+                               float y0,
+                               float x1,
+                               float y1,
+                               float thickness,
+                               float r,
+                               float g,
+                               float b,
+                               float a )
+{
+    const float dx = x1 - x0;
+    const float dy = y1 - y0;
+    const float len = std::sqrt( dx * dx + dy * dy );
+    if ( len <= 0.001f )
+    {
+        const float half = thickness * 0.5f;
+        draw.Rect( x0 - half, y0 - half, thickness, thickness, r, g, b, a );
+        return;
+    }
+
+    const float half = thickness * 0.5f;
+    const float nx = -dy / len * half;
+    const float ny = dx / len * half;
+    draw.Triangle( x0 + nx, y0 + ny, x1 + nx, y1 + ny, x1 - nx, y1 - ny, r, g, b, a );
+    draw.Triangle( x0 + nx, y0 + ny, x1 - nx, y1 - ny, x0 - nx, y0 - ny, r, g, b, a );
 }
 
 void FitHistogramText( char* text, std::size_t textSize, float pxSize, float maxWidth )
@@ -1220,9 +1276,10 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                palette.textPrimary.r,
                palette.textPrimary.g,
                palette.textPrimary.b,
-               "Marker Histogram" );
-    snprintf( text, sizeof( text ), "Scale %.2f ms", axisMs );
-    draw.Text( panel.x + panel.w - 92.0f,
+               "Marker History" );
+    const bool selectedHasSecondary = option && ( option->hasGpu || option->isFrameTotal );
+    snprintf( text, sizeof( text ), "%s", selectedHasSecondary ? "CPU / GPU" : "CPU" );
+    draw.Text( panel.x + panel.w - 10.0f - SkullbonezCore::Text::Text2d::MeasureText( 9.6f, text ),
                panel.y + 8.0f,
                9.6f,
                palette.textSecondary.r,
@@ -1280,7 +1337,23 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                palette.lineSoft.b,
                0.14f );
     draw.Rect( plot.x, plot.y, plot.w, 1.0f, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.18f );
+    draw.Rect( plot.x, plot.y, 1.0f, plot.h, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.28f );
     draw.Rect( plot.x, baseY, plot.w, 1.0f, palette.accent.r, palette.accent.g, palette.accent.b, 0.34f );
+
+    auto drawAxisLabel = [&]( float y, float ms )
+    {
+        FormatHistogramMsLabel( text, sizeof( text ), ms );
+        const float textW = SkullbonezCore::Text::Text2d::MeasureText( 8.8f, text );
+        draw.Text( plot.x - 6.0f - textW,
+                   y,
+                   8.8f,
+                   palette.textSecondary.r,
+                   palette.textSecondary.g,
+                   palette.textSecondary.b,
+                   text );
+    };
+    drawAxisLabel( plot.y + 2.0f, axisMs );
+    drawAxisLabel( plot.y + plot.h * 0.50f - 5.0f, axisMs * 0.50f );
 
     if ( state.histogramCount <= 0 )
     {
@@ -1294,46 +1367,81 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
     }
 
     const float step = plot.w / static_cast<float>( HISTOGRAM_SAMPLE_COUNT );
-    const float barW = (std::max)( 1.0f, step * 0.42f );
     float spikeX = -1.0f;
     float spikeY = plot.y;
     float spikeMs = 0.0f;
+    float previousCpuX = 0.0f;
+    float previousCpuY = 0.0f;
+    float previousGpuX = 0.0f;
+    float previousGpuY = 0.0f;
+    bool previousCpuValid = false;
+    bool previousGpuValid = false;
 
+    // Concept: this is a history line chart. CPU and GPU stay as separate
+    // traces, so a flat GPU total reads as a stable line instead of an
+    // every-other-sample bar.
     for ( int i = 0; i < state.histogramCount; ++i )
     {
         const int sampleIndex =
             ( state.histogramHead - state.histogramCount + i + HISTOGRAM_SAMPLE_COUNT ) % HISTOGRAM_SAMPLE_COUNT;
         const PerformanceHistogramSample& sample = state.histogramSamples[sampleIndex];
-        const float x = plot.x + static_cast<float>( HISTOGRAM_SAMPLE_COUNT - state.histogramCount + i ) * step;
-        const float primaryH = std::clamp( sample.primaryMs / axisMs, 0.0f, 1.0f ) * plot.h;
-        const float secondaryH = std::clamp( sample.secondaryMs / axisMs, 0.0f, 1.0f ) * plot.h;
-
-        if ( primaryH > 0.5f )
+        const float x =
+            plot.x + ( static_cast<float>( HISTOGRAM_SAMPLE_COUNT - state.histogramCount + i ) + 0.5f ) * step;
+        const float cpuY = baseY - std::clamp( sample.primaryMs / axisMs, 0.0f, 1.0f ) * plot.h;
+        if ( previousCpuValid )
         {
-            draw.Rect( x,
-                       baseY - primaryH,
-                       barW,
-                       primaryH,
-                       palette.accent.r,
-                       palette.accent.g,
-                       palette.accent.b,
-                       0.66f );
+            DrawHistogramLineSegment( draw,
+                                      previousCpuX,
+                                      previousCpuY,
+                                      x,
+                                      cpuY,
+                                      2.0f,
+                                      palette.accent.r,
+                                      palette.accent.g,
+                                      palette.accent.b,
+                                      0.86f );
         }
-        if ( sample.hasSecondary && secondaryH > 0.5f )
+        draw.Rect( x - 1.0f, cpuY - 1.0f, 2.0f, 2.0f, palette.accent.r, palette.accent.g, palette.accent.b, 0.82f );
+        previousCpuX = x;
+        previousCpuY = cpuY;
+        previousCpuValid = true;
+
+        if ( sample.hasSecondary )
         {
-            draw.Rect( x + barW + 0.5f,
-                       baseY - secondaryH,
-                       barW,
-                       secondaryH,
+            const float gpuY = baseY - std::clamp( sample.secondaryMs / axisMs, 0.0f, 1.0f ) * plot.h;
+            if ( previousGpuValid )
+            {
+                DrawHistogramLineSegment( draw,
+                                          previousGpuX,
+                                          previousGpuY,
+                                          x,
+                                          gpuY,
+                                          2.0f,
+                                          palette.accentStrong.r,
+                                          palette.accentStrong.g,
+                                          palette.accentStrong.b,
+                                          0.92f );
+            }
+            draw.Rect( x - 1.0f,
+                       gpuY - 1.0f,
+                       2.0f,
+                       2.0f,
                        palette.accentStrong.r,
                        palette.accentStrong.g,
                        palette.accentStrong.b,
-                       0.78f );
+                       0.88f );
+            previousGpuX = x;
+            previousGpuY = gpuY;
+            previousGpuValid = true;
+        }
+        else
+        {
+            previousGpuValid = false;
         }
         if ( sample.spikeMs > spikeMs )
         {
             spikeMs = sample.spikeMs;
-            spikeX = x + barW;
+            spikeX = x;
             spikeY = baseY - std::clamp( sample.spikeMs / axisMs, 0.0f, 1.0f ) * plot.h;
         }
     }
@@ -1364,19 +1472,31 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
     {
         const int newestIndex = ( state.histogramHead - 1 + HISTOGRAM_SAMPLE_COUNT ) % HISTOGRAM_SAMPLE_COUNT;
         const PerformanceHistogramSample& newest = state.histogramSamples[newestIndex];
-        snprintf( text, sizeof( text ), "CPU %.3f", newest.primaryMs );
-        draw.Text( panel.x + 10.0f,
-                   panel.y + panel.h - 20.0f,
-                   10.0f,
+        const float footerY = panel.y + panel.h - 20.0f;
+        snprintf( text, sizeof( text ), "CPU %.3f ms", newest.primaryMs );
+        draw.Rect( panel.x + 10.0f,
+                   footerY + 7.0f,
+                   9.0f,
+                   2.0f,
                    palette.accent.r,
                    palette.accent.g,
                    palette.accent.b,
-                   text );
+                   0.86f );
+        draw.Text( panel.x + 22.0f, footerY, 10.0f, palette.accent.r, palette.accent.g, palette.accent.b, text );
         if ( newest.hasSecondary )
         {
-            snprintf( text, sizeof( text ), "GPU %.3f", newest.secondaryMs );
-            draw.Text( panel.x + 104.0f,
-                       panel.y + panel.h - 20.0f,
+            const float gpuX = panel.x + 34.0f + SkullbonezCore::Text::Text2d::MeasureText( 10.0f, text );
+            snprintf( text, sizeof( text ), "GPU %.3f ms", newest.secondaryMs );
+            draw.Rect( gpuX,
+                       footerY + 7.0f,
+                       9.0f,
+                       2.0f,
+                       palette.accentStrong.r,
+                       palette.accentStrong.g,
+                       palette.accentStrong.b,
+                       0.92f );
+            draw.Text( gpuX + 12.0f,
+                       footerY,
                        10.0f,
                        palette.accentStrong.r,
                        palette.accentStrong.g,
