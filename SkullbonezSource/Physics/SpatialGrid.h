@@ -115,6 +115,8 @@ class SpatialGrid
     void InsertBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds );
 
   public:
+    using CandidatePairFilter = bool ( * )( const void* userData, int a, int b );
+
     static constexpr int MAX_BUCKETS = TABLE_SIZE;
 
     struct ActiveCell
@@ -131,7 +133,11 @@ class SpatialGrid
     void SetCellSize( float fCellSize );
     void Insert( int index, const Vector::Vector3& position, float radius );
     void InsertSwept( int index, const Vector::Vector3& position, const Vector::Vector3& displacement, float radius );
-    void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs );
+    // Emits deduplicated cell-sharing pairs. A filter can reject a known-safe
+    // false positive before it is appended, but narrowphase still owns contacts.
+    void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
+                            CandidatePairFilter filter = nullptr,
+                            const void* filterUserData = nullptr );
     float GetCellSize() const
     {
         return cellSize;

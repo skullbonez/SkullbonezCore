@@ -330,7 +330,10 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
 //
 // Output: vector of (indexA, indexB) pairs where A < B.
 // These pairs still need NARROW-PHASE testing (actual sphere overlap check).
-void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs )
+// The optional filter is only a deterministic broadphase reject before vector append.
+void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
+                                     CandidatePairFilter filter,
+                                     const void* filterUserData )
 {
     outPairs.clear();
 
@@ -430,6 +433,10 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
                 if ( !( pairSeen[word] & bit ) )
                 {
                     pairSeen[word] |= bit;
+                    if ( filter && !filter( filterUserData, a, bIdx ) )
+                    {
+                        continue;
+                    }
                     outPairs.emplace_back( a, bIdx );
                 }
             }
