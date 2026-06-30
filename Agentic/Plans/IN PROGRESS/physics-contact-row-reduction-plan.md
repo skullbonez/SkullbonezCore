@@ -4,8 +4,8 @@ Source request: reduce solver work for dense walls of boxes by inspecting whethe
 
 ## Current Status
 
-- Status: Not started.
-- Scope: object/object contact row reduction for dense box scenes, especially the 200-body wall benchmark on `codex/physics-wall-cpu-profile-200-bodies`.
+- Status: First implementation slice measured and validated on `nightrunner-30th-june`.
+- Scope: object/object contact row reduction for dense box scenes. The requested sunset ragdoll wall scene uses baked `convex_hull` brick assets plus box ragdoll parts, so the first measured slice covers same-shape box/box and hull/hull face footprints rather than mixed hull/box contacts.
 - Impact area: physics narrowphase, box/box manifold generation, persistent contact cache, contact solver row loop, sleep support policy, diagnostics, config, and performance validation.
 - Primary target: reduce stable resting box/box contact rows without losing impact response, stack stability, warm-start determinism, or byte-exact repeatability for accepted baselines.
 - Non-goals: do not replace the Catto-style PGS solver wholesale, do not rewrite broadphase again, do not change terrain contacts in the first pass, and do not reduce rows for high-impact or newly colliding pairs until measured.
@@ -17,19 +17,20 @@ Source request: reduce solver work for dense walls of boxes by inspecting whethe
 - Each row solves normal plus two tangent directions on every PGS iteration.
 - Feature IDs and `m_persistentContactCache` already exist, so row reduction can prefer cached/stable contacts instead of picking arbitrary clipped vertices.
 - `supportsRestingPolicy`, `normalCoupledFriction`, `manifoldPointCount`, `persistentContactCounts`, and `persistentRestingContactCounts` already provide useful policy hooks.
+- `aaa_ragdoll_sunset_showcase.scene.json` instantiates a 200-brick wall through registered asset data; SkullScope reports the wall bricks as convex hulls, not plain `BoundingBox` shapes.
 
 ## The Six Steps
 
-### Step 1 - Cached Two-Point Cap For Resting Box/Box Face Manifolds
+### Step 1 - Cached Two-Point Cap For Resting Box/Box And Hull/Hull Face Manifolds
 
 Goal: cap stable low-impact box/box face manifolds to two rows while preserving a useful support footprint.
 
 Implementation shape:
-- Detect box/box face manifolds with `pointCount > 2`.
+- Detect same-shape box/box or hull/hull face manifolds with `pointCount > 2`.
 - Require low relative speed and non-impact behavior before reducing.
-- Prefer points whose feature IDs hit the previous persistent-contact cache.
-- If cache evidence is insufficient, keep the deepest point plus the farthest point in the contact patch.
-- Keep full four-point manifolds for fresh impacts, high angular speed, high relative speed, and ambiguous support.
+- Require at least two feature IDs to hit the previous persistent-contact cache.
+- Keep the deepest point plus the farthest cached/spread point in the contact patch.
+- Keep full four-point manifolds for fresh impacts, high angular speed, high relative speed, mixed hull/box contacts, sphere contacts, terrain contacts, and ambiguous support.
 
 Validation focus:
 - Row count reduction in the wall benchmark.
