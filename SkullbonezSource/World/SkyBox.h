@@ -15,8 +15,10 @@ Glossary:
   texture hash.
 
 Invariants:
-  - SkyBox is a legacy singleton; Destroy clears global access before scene or
-  backend teardown paths rebuild resources.
+  - SkyBox is runtime-owned by Run in normal paths and borrowed by render
+    services for the active frame.
+  - The texture registry is borrowed from Run and must be rebound before any
+    render-resource rebuild.
 
 Related:
   - SkullbonezSource/World/SkyBox.cpp
@@ -43,32 +45,30 @@ namespace Geometry
 /* -- Sky Box
 ----------------------------------------------------------------------------------------------------------------------------------------------------
 
-    A singleton class to represent a skybox.  Textures must be square and contain 3 pixels of padding around the edges.
+    Runtime-owned skybox representation. Textures must be square and contain 3
+    pixels of padding around the edges.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class SkyBox
 {
 
   private:
-    inline static SkyBox* pInstance = nullptr;
     Box m_boundaries;                                              // World-space cube bounds around the scene camera.
     Textures::TextureCollection* m_textures;                       // Borrowed texture registry; scene/runtime owns it.
     std::unique_ptr<Rendering::IShader> m_shader;                  // Unlit textured shader rebuilt on backend reset.
     std::array<std::unique_ptr<Rendering::IMesh>, 6> m_faceMeshes; // One renderer-owned quad mesh per cube face.
     std::array<uint32_t, 6> m_faceTextures;                        // Texture hash selected for each cube face.
 
-    SkyBox( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax );
-    ~SkyBox() = default;
     void LoadTextures();
     void BuildMeshes();
 
   public:
-    static SkyBox* Instance( int xMin,
-                             int xMax,
-                             int yMin,
-                             int yMax,
-                             int zMin,
-                             int zMax );                           // Lazy singleton access for scene-owned sky bounds.
-    static void Destroy();
+    SkyBox( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax );
+    ~SkyBox() = default;
+    SkyBox( const SkyBox& ) = delete;
+    SkyBox& operator=( const SkyBox& ) = delete;
+
+    void BindTextures( Textures::TextureCollection& textures );    // Borrow Run-owned texture registry for sky faces.
+    void ReleaseRenderResources();                                 // Releases backend-owned sky meshes/shader and clears service borrows.
     void Render( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj );
     void ResetRenderResources();                                   // Rebuild meshes/shader after renderer reset/switch
 };

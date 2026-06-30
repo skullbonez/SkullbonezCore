@@ -28,7 +28,9 @@ Related:
 
 #ifdef _DEBUG
 
-#include "../GameObjects/GameModelCollection.h"
+#include "../GameObjects/GameModel.h"
+#include "../Physics/PhysicsModelAccess.h"
+#include "../Physics/PhysicsWorld.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -126,15 +128,15 @@ void SkullScope::ResetPenetrationState()
 }
 
 
-void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
+void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess, float dt )
 {
     if ( m_physicsDiagnosticsPath[0] == '\0' || m_physicsDiagnosticsRunId[0] == '\0' )
     {
         return;
     }
 
-    const std::vector<GameModel>& m_gameModels = collection.Models();
-    const auto physicsDiagnostics = collection.GetPhysicsEngine().GetDiagnosticsView();
+    const auto m_gameModels = modelAccess.Models();
+    const auto physicsDiagnostics = modelAccess.GetPhysicsDiagnosticsView();
     const auto& m_persistentContacts = physicsDiagnostics.persistentContacts;
     const auto& m_persistentContactSolverStats = physicsDiagnostics.persistentContactSolverStats;
     const auto& m_sleepIslandParent = physicsDiagnostics.sleepIslandParent;

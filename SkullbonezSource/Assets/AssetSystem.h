@@ -9,6 +9,8 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Asset context: Borrowed view that lets parsing or tool code resolve asset
+    records without using the active process-global bridge.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -37,7 +39,8 @@ namespace SkullbonezCore
 namespace Rendering
 {
 class IShader;
-}
+class IRenderResourceFactory;
+} // namespace Rendering
 
 namespace Assets
 {
@@ -155,6 +158,8 @@ class AssetSystem
                                                         ShaderProgramContract contract = {} );
     const ShaderSourceAsset* FindShaderSourceAsset( const char* logicalNameOrBaseName ) const;
     const std::vector<ShaderSourceAsset>& GetShaderSourceAssets() const;
+    std::unique_ptr<Rendering::IShader> CreateShader( Rendering::IRenderResourceFactory& renderResources,
+                                                      const char* logicalNameOrBaseName ) const;
     std::unique_ptr<Rendering::IShader> CreateShader( const char* logicalNameOrBaseName ) const;
 
     const AssetLibrarySourceAsset& RegisterAssetLibrarySourceAsset( const char* logicalName, const char* relativePath );
@@ -176,6 +181,14 @@ class AssetSystem
     std::vector<AssetLibrarySourceAsset> m_assetLibraryAssets;
     AssetId m_nextAssetId = 1;
     uint32_t m_nextGeneration = 1;
+};
+
+struct AssetContext
+{
+    // Lifetime: callers borrow the registry for one parse, setup, or tool
+    // operation. Null keeps standalone utilities on their historical path
+    // fallback without making ActiveAssetSystem() part of normal parsing.
+    const AssetSystem* assets = nullptr;
 };
 
 // Transitional bridge for legacy singleton-style render helpers. The run loop

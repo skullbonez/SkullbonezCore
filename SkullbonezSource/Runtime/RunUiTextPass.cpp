@@ -10,8 +10,10 @@ Mental model:
 
 Glossary:
   HUD (Heads-Up Display): Lightweight text diagnostics drawn over the scene.
+  Runtime mode badge: Small top-left label that names the current camera/input
+    workspace, such as Inspect or Manipulator.
   Text-only mode: Validation mode that skips world rendering and renders glyphs
-  on a solid background to isolate text output.
+    on a solid background to isolate text output.
   UI frame data: Borrowed per-frame snapshot passed to the immediate-mode UI.
 
 Invariants:
@@ -124,6 +126,12 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
     const auto renderRuntimeModeBadge = [&]()
     {
+        // Why: clean validation/look-dev captures use --hide-top-text to remove
+        // top-left chrome without changing scene simulation or camera state.
+        if ( m_host.m_debug.isTopTextHidden )
+        {
+            return;
+        }
         if ( m_host.m_camera.mode == RunCameraMode::Demo || m_host.m_camera.mode == RunCameraMode::Scene )
         {
             return;

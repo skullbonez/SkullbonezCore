@@ -5,11 +5,14 @@ Purpose:
 
 Mental model:
   The visualizer advances a prediction job in small slices, restores live physics state after
-  each mutation window, and emits only bounded overlay traces for the current frame.
+  each mutation window, and emits only bounded overlay traces for the current frame. During
+  active builds it draws the already-built overlay before spending more prediction-step budget.
 
 Glossary:
   Mutation window: Period where live physics stores temporarily contain prediction state.
-  Visualizer budget: Millisecond cap shared by prediction stepping and overlay drawing.
+  Stable overlay pass: Short pre-step draw that keeps current world-space lines visible while
+    heavy prediction jobs continue building fresher samples.
+  Visualizer budget: Millisecond cap for prediction stepping and ordinary overlay drawing.
 
 Invariants:
   - Every successful prediction-state swap must restore live body and solver snapshots.
@@ -258,82 +261,19 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 }
 
 
-void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
-                                       SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
-                                       bool scenePhysics,
-                                       double fallbackSourceSimulationSeconds,
-                                       double simulationTotalSeconds,
-                                       RunEditorTracer& tracer,
-                                       const std::chrono::steady_clock::time_point& budgetStart,
-                                       double budgetMilliseconds )
+bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
+                                  const std::vector<GameModel>& models,
+                                  RunEditorTracer& tracer,
+                                  const std::chrono::steady_clock::time_point& budgetStart,
+                                  double budgetMilliseconds )
 {
-    PROFILE_SCOPED( "Frame/Replay/PathVisualizer/Prediction" );
-    if ( !replayRuntime.Prediction().enabled )
-    {
-        if ( replayRuntime.Prediction().building )
-        {
-            replayRuntime.CancelPredictionJob( true );
-        }
-        return;
-    }
-
-    const ReplaySolverFrameSample* latest = replayRuntime.Solver().LatestSample();
-    const ReplayFrameIndex latestFrame = latest ? latest->frameIndex : 0;
-    const uint64_t latestHash = latest ? latest->solverHash : 0;
-    const double now = simulationTotalSeconds;
-    const bool sourceChanged =
-        replayRuntime.Prediction().targetId.value != replayRuntime.PathVisualizer().targetId.value ||
-        replayRuntime.Prediction().sourceFrameIndex != latestFrame ||
-        replayRuntime.Prediction().sourceSolverHash != latestHash;
-    const bool refreshDue = ( now - replayRuntime.Prediction().lastBuildTime ) >= REPLAY_PREDICTION_REFRESH_SECONDS;
-    const bool allowAutomaticRefresh = !replayRuntime.Scrubber().liveAdvanceHeld;
-    if ( replayRuntime.Prediction().dirty ||
-         ( allowAutomaticRefresh && !replayRuntime.Prediction().building && sourceChanged && refreshDue ) )
-    {
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-        {
-            return;
-        }
-        BeginReplayPredictionJob( replayRuntime,
-                                  modelCollection,
-                                  scenePhysics,
-                                  fallbackSourceSimulationSeconds,
-                                  simulationTotalSeconds,
-                                  latestFrame,
-                                  latestHash,
-                                  budgetStart,
-                                  budgetMilliseconds );
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-        {
-            return;
-        }
-    }
-    if ( replayRuntime.Prediction().building )
-    {
-        const double remainingMilliseconds = ReplayPredictionRemainingMilliseconds( budgetStart, budgetMilliseconds );
-        if ( remainingMilliseconds <= 0.0 )
-        {
-            return;
-        }
-        StepReplayPredictionJob( replayRuntime,
-                                 modelCollection,
-                                 simulationTotalSeconds,
-                                 budgetStart,
-                                 budgetMilliseconds );
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-        {
-            return;
-        }
-    }
-
     const std::vector<RunReplayPredictionFrame>& activePredictionFrames = replayRuntime.ActivePredictionFrames();
     const bool usingBuildFrames = &activePredictionFrames == &replayRuntime.Prediction().buildFrames;
     if ( activePredictionFrames.size() < 2 )
     {
-        return;
+        return false;
     }
 
-    const std::vector<GameModel>& models = modelCollection.Models();
     if ( !replayRuntime.PathVisualizer().hasTarget || replayRuntime.PathVisualizer().targetId.value == 0 )
     {
         replayRuntime.ClearPredictionFutureNodeCache();
@@ -345,7 +285,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
                                                     budgetStart,
                                                     budgetMilliseconds );
         }
-        return;
+        return true;
     }
 
     const ReplayFrameIndex lastFrame = activePredictionFrames.back().frameIndex;
@@ -359,7 +299,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         {
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
-                return;
+                return true;
             }
 
             const std::size_t currentOrdinal = ordinal++;
@@ -387,7 +327,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
     }
     if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
     {
-        return;
+        return true;
     }
 
     {
@@ -402,7 +342,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
     }
     if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
     {
-        return;
+        return true;
     }
 
     {
@@ -424,7 +364,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         {
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
-                return;
+                return true;
             }
 
             const std::size_t currentOrdinal = ordinal++;
@@ -446,7 +386,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
             {
                 if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
                 {
-                    return;
+                    return true;
                 }
 
                 ReplayPathChildDrawState& drawState = childDraw.nodes[i];
@@ -503,7 +443,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         {
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
-                return;
+                return true;
             }
 
             float r = 0.58f;
@@ -527,5 +467,108 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
                                                 tracer,
                                                 budgetStart,
                                                 budgetMilliseconds );
+    }
+    return true;
+}
+
+
+void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
+                                       SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                       bool scenePhysics,
+                                       double fallbackSourceSimulationSeconds,
+                                       double simulationTotalSeconds,
+                                       RunEditorTracer& tracer,
+                                       const std::chrono::steady_clock::time_point& budgetStart,
+                                       double budgetMilliseconds )
+{
+    PROFILE_SCOPED( "Frame/Replay/PathVisualizer/Prediction" );
+    if ( !replayRuntime.Prediction().enabled )
+    {
+        if ( replayRuntime.Prediction().building )
+        {
+            replayRuntime.CancelPredictionJob( true );
+        }
+        return;
+    }
+
+    const ReplaySolverFrameSample* latest = replayRuntime.Solver().LatestSample();
+    const ReplayFrameIndex latestFrame = latest ? latest->frameIndex : 0;
+    const uint64_t latestHash = latest ? latest->solverHash : 0;
+    const double now = simulationTotalSeconds;
+    const bool sourceChanged =
+        replayRuntime.Prediction().targetId.value != replayRuntime.PathVisualizer().targetId.value ||
+        replayRuntime.Prediction().sourceFrameIndex != latestFrame ||
+        replayRuntime.Prediction().sourceSolverHash != latestHash;
+    const bool refreshDue = ( now - replayRuntime.Prediction().lastBuildTime ) >= REPLAY_PREDICTION_REFRESH_SECONDS;
+    const bool allowAutomaticRefresh = !replayRuntime.Scrubber().liveAdvanceHeld;
+    if ( replayRuntime.Prediction().dirty ||
+         ( allowAutomaticRefresh && !replayRuntime.Prediction().building && sourceChanged && refreshDue ) )
+    {
+        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+        {
+            return;
+        }
+        BeginReplayPredictionJob( replayRuntime,
+                                  modelCollection,
+                                  scenePhysics,
+                                  fallbackSourceSimulationSeconds,
+                                  simulationTotalSeconds,
+                                  latestFrame,
+                                  latestHash,
+                                  budgetStart,
+                                  budgetMilliseconds );
+        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+        {
+            return;
+        }
+    }
+    const std::vector<GameModel>& models = modelCollection.Models();
+    bool drewPredictionOverlayBeforeStep = false;
+    if ( replayRuntime.Prediction().building )
+    {
+        const std::vector<RunReplayPredictionFrame>& activePredictionFrames = replayRuntime.ActivePredictionFrames();
+        if ( activePredictionFrames.size() >= 2 )
+        {
+            PROFILE_SCOPED( "Frame/Replay/Prediction/StableOverlay" );
+            // Why: heavy prediction jobs can spend the shared slice before the
+            // renderer emits any line primitives. Draw the already-built overlay
+            // first so budget pressure degrades freshness instead of flashing
+            // every world-space path off for one render frame.
+            const auto overlayBudgetStart = std::chrono::steady_clock::now();
+            const double stableOverlayBudgetMilliseconds =
+                (std::min)( 1.5, (std::max)( 0.0, budgetMilliseconds ) );
+            drewPredictionOverlayBeforeStep = DrawReplayPredictionOverlay( replayRuntime,
+                                                                           models,
+                                                                           tracer,
+                                                                           overlayBudgetStart,
+                                                                           stableOverlayBudgetMilliseconds );
+            if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+            {
+                return;
+            }
+        }
+    }
+
+    if ( replayRuntime.Prediction().building )
+    {
+        const double remainingMilliseconds = ReplayPredictionRemainingMilliseconds( budgetStart, budgetMilliseconds );
+        if ( remainingMilliseconds <= 0.0 )
+        {
+            return;
+        }
+        StepReplayPredictionJob( replayRuntime,
+                                 modelCollection,
+                                 simulationTotalSeconds,
+                                 budgetStart,
+                                 budgetMilliseconds );
+        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+        {
+            return;
+        }
+    }
+
+    if ( !drewPredictionOverlayBeforeStep )
+    {
+        DrawReplayPredictionOverlay( replayRuntime, models, tracer, budgetStart, budgetMilliseconds );
     }
 }

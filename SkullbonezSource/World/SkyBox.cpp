@@ -48,7 +48,7 @@ SkyBox::SkyBox( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin, int m_zM
 
 void SkyBox::LoadTextures()
 {
-    m_textures = TextureCollection::Instance();
+    assert( m_textures );
     const SkullbonezCore::Basics::EngineConfig& cfg = Cfg();
     m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyLeft ).c_str(), TEXTURE_SKY_LEFT );
     m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyRight ).c_str(), TEXTURE_SKY_RIGHT );
@@ -131,28 +131,11 @@ void SkyBox::BuildMeshes()
 }
 
 
-SkyBox* SkyBox::Instance( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin, int m_zMax )
+void SkyBox::BindTextures( TextureCollection& textures )
 {
-    if ( !SkyBox::pInstance )
-    {
-        static SkyBox instance( m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax );
-        SkyBox::pInstance = &instance;
-    }
-    return SkyBox::pInstance;
-}
-
-
-void SkyBox::Destroy()
-{
-    if ( SkyBox::pInstance )
-    {
-        for ( int i = 0; i < 6; ++i )
-        {
-            SkyBox::pInstance->m_faceMeshes[i].reset();
-        }
-        SkyBox::pInstance->m_shader.reset();
-        SkyBox::pInstance = nullptr;
-    }
+    // Lifetime: Run owns the texture collection; skybox only borrows it between
+    // Initialise and backend teardown/rebuild.
+    m_textures = &textures;
 }
 
 
@@ -163,8 +146,20 @@ void SkyBox::ResetRenderResources()
         m_faceMeshes[i].reset();
     }
     m_shader.reset();
+    assert( m_textures );
     LoadTextures();
     BuildMeshes();
+}
+
+
+void SkyBox::ReleaseRenderResources()
+{
+    for ( int i = 0; i < 6; ++i )
+    {
+        m_faceMeshes[i].reset();
+    }
+    m_shader.reset();
+    m_textures = nullptr;
 }
 
 

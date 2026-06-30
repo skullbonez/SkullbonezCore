@@ -36,6 +36,7 @@ Related:
 #include "../Core/Config.h"
 #include "PhysicsModelAccess.h"
 #include "PhysicsBodyStore.h"
+#include "ColliderStore.h"
 #include "ObjectContactManifold.h"
 #include "../Core/Profiler.h"
 #include "../Core/WorkerPool.h"
@@ -66,7 +67,10 @@ constexpr float TORNADO_EJECTION_PHASE_HZ = 10.0f;
 constexpr float UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT = 0.999f;
 constexpr float EXPLICIT_WAKE_NEIGHBOR_SLOP = 0.50f;
 constexpr float EXPLICIT_WAKE_VERTICAL_SLOP = 0.25f;
-constexpr int PHYSICS_PARALLEL_MIN_BODIES = 256;
+// Why: worker fan-out is more expensive than the work for the validation-sized
+// 300-body scenes. Keep all-body jobs inline until there is enough work per
+// chunk for the persistent worker pool to pay for itself.
+constexpr int PHYSICS_PARALLEL_MIN_BODIES = 512;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS = 256;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS = 16;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND = 4;
@@ -79,6 +83,7 @@ constexpr float POINT_JOINT_SLEEP_MIN_ERROR_TOLERANCE = 0.15f;
 constexpr float POINT_JOINT_SLEEP_SLACK_TOLERANCE_SCALE = 0.75f;
 constexpr float POINT_JOINT_SLEEP_LINEAR_SPEED_SCALE = 6.0f;
 constexpr float POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE = 6.0f;
+constexpr float BROADPHASE_MIN_CELL_SIZE = 0.5f;
 constexpr uint32_t PHYSICS_TORNADO_WORKER_HASH = HashStr( "Frame/Physics/TornadoField/WorkerBodies" );
 constexpr uint32_t PHYSICS_APPLY_FORCES_WORKER_HASH = HashStr( "Frame/Physics/ApplyForces/WorkerBodies" );
 constexpr uint32_t PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH =
@@ -517,15 +522,7 @@ void PhysicsWorld::MarkCollisionVisualContact( int index )
 
 void PhysicsWorld::MarkFixedContact( PhysicsModelAccess& modelAccess, int index )
 {
-    auto m_gameModels = modelAccess.Models();
-    if ( index < 0 || index >= static_cast<int>( m_gameModels.size() ) )
-    {
-        return;
-    }
-    if ( m_gameModels[index].IsFixed() )
-    {
-        m_gameModels[index].NotifyFixedContact( 0.5f );
-    }
+    modelAccess.BodyEvents().NotifyFixedContact( index, 0.5f );
 }
 
 
@@ -538,7 +535,14 @@ void PhysicsWorld::RecordPhysicsPipelineStage( const PhysicsPipelineRecord& reco
 }
 
 
-PersistentContactSolverContext PhysicsWorld::CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore )
+bool PhysicsWorld::CanRecordPhysicsPipelineStage() const
+{
+    return m_physicsPipelineTrace.size() < MAX_PIPELINE_TRACE_RECORDS;
+}
+
+
+PersistentContactSolverContext PhysicsWorld::CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
+                                                                                   const ColliderStore& colliderStore )
 {
     return PersistentContactSolverContext{ m_candidatePairs,
                                            m_sleepState,
@@ -554,6 +558,7 @@ PersistentContactSolverContext PhysicsWorld::CreatePersistentContactSolverContex
                                            m_terrainRestApplied,
                                            m_sleepSupportedThisFrame,
                                            bodyStore.MutableRecords(),
+                                           colliderStore.Records(),
                                            bodyStore,
                                            *this };
 }
@@ -568,6 +573,12 @@ SleepSupportPropagationContext PhysicsWorld::CreateSleepSupportPropagationContex
 void PersistentContactSolverContext::RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record ) const
 {
     world.RecordSolverPhysicsPipelineStage( record );
+}
+
+
+bool PersistentContactSolverContext::CanRecordPhysicsPipelineStage() const
+{
+    return world.CanRecordSolverPhysicsPipelineStage();
 }
 
 
@@ -614,7 +625,7 @@ void PhysicsWorld::ClearPointJointConstraints()
 
 void PhysicsWorld::AddPointJointConstraint( const PointJointConstraint& constraint )
 {
-    if ( constraint.bodyA < 0 || constraint.bodyB < 0 || constraint.bodyA == constraint.bodyB )
+    if ( !constraint.HasValidBodies() )
     {
         return;
     }
@@ -628,7 +639,10 @@ const std::vector<PointJointConstraint>& PhysicsWorld::GetPointJointConstraints(
 }
 
 
-void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, float fChangeInTime )
+void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
+                               PhysicsBodyStore& bodyStore,
+                               const ColliderStore& colliderStore,
+                               float fChangeInTime )
 {
     // Concept: one fixed physics tick has a predictable data flow.
     //
@@ -644,7 +658,7 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess, PhysicsBodyStore
     // baselines even when the final scene "looks" similar.
     auto m_gameModels = modelAccess.Models();
     const int modelCount = static_cast<int>( m_gameModels.size() );
-    bodyStore.WriteBackToModels( m_gameModels );
+    const std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.Records();
     EnsureCollisionVisualBuffers( modelCount );
     if ( !m_collisionVisualFrameActive )
     {
@@ -679,7 +693,7 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess, PhysicsBodyStore
     }
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( m_gameModels[i].IsFixed() )
+        if ( i < static_cast<int>( bodyRecords.size() ) && bodyRecords[static_cast<size_t>( i )].isFixed )
         {
             m_sleepState[i] = 0;
             m_sleepCounter[i] = 0;
@@ -696,7 +710,7 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess, PhysicsBodyStore
     }
 
     (void)modelAccess.GetBodyStream();
-    RunSolverPhysics( modelAccess, bodyStore, fChangeInTime );
+    RunSolverPhysics( modelAccess, bodyStore, colliderStore, fChangeInTime );
     bodyStore.CopySleepStatesFrom( m_sleepState );
 
 #ifdef _DEBUG
@@ -876,8 +890,8 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess, PhysicsBo
     {
         for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
         {
-            GameModel& model = m_gameModels[static_cast<size_t>( i )];
-            if ( !model.IsFixed() || !model.ReleasesFromFixedOnContact() )
+            PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( i )];
+            if ( !record.isFixed || !record.releasesFromFixedOnContact )
             {
                 continue;
             }
@@ -886,7 +900,7 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess, PhysicsBo
             float bestAccelerationSq = 0.0f;
             const Vector3 acceleration =
                 sampleAcceleration( bodyRecords[static_cast<size_t>( i )].position, bestConfig, bestAccelerationSq );
-            const float releaseAcceleration = (std::max)( 16.0f, model.GetContactReleaseImpulseThreshold() * 32.0f );
+            const float releaseAcceleration = (std::max)( 16.0f, record.contactReleaseImpulseThreshold * 32.0f );
             if ( bestAccelerationSq < releaseAcceleration * releaseAcceleration )
             {
                 continue;
@@ -894,17 +908,15 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess, PhysicsBo
 
             const Vector3 seedLinearVelocity =
                 ClampVectorMagnitude( acceleration * 0.08f, (std::max)( 10.0f, bestConfig.maxDeltaVelocity * 1.5f ) );
-            model.SetFixed( false );
-            bodyStore.CaptureMutableStateFromModelAt( m_gameModels, i );
-            PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( i )];
+            record.isFixed = false;
             record.linearVelocity = seedLinearVelocity;
             record.angularVelocity = Vector3( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f );
             bodyStore.WriteBackToModelAt( m_gameModels, i );
             WakeModel( modelAccess, i );
-            modelAccess.ReleaseAttachedFixedTreeParts(
+            modelAccess.BodyEvents().ReleaseAttachedFixedTreeParts( PhysicsFixedTreeReleaseEvent{
                 i,
                 seedLinearVelocity,
-                Vector3( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f ) );
+                Vector3( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f ) } );
             releasedFixedParts = true;
         }
     }
@@ -1156,8 +1168,8 @@ void PhysicsWorld::AppendPointJointSupportEdges( int modelCount )
 
     for ( const PointJointConstraint& constraint : m_pointJointConstraints )
     {
-        const int a = constraint.bodyA;
-        const int b = constraint.bodyB;
+        const int a = constraint.BodyAIndex();
+        const int b = constraint.BodyBIndex();
         if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
         {
             continue;
@@ -1362,8 +1374,8 @@ void PhysicsWorld::WakePointJointIsland( PhysicsModelAccess& modelAccess,
         // Point-joint constraints are sleep-island edges. This keeps the current
         // ragdoll behavior aligned with the future generic constraint system:
         // constraints decide connectivity, contacts decide physical impulses.
-        const int a = constraint.bodyA;
-        const int b = constraint.bodyB;
+        const int a = constraint.BodyAIndex();
+        const int b = constraint.BodyBIndex();
         if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
         {
             continue;
@@ -1493,8 +1505,12 @@ bool PhysicsWorld::IsPointJointPair( int bodyA, int bodyB ) const
     }
     for ( const PointJointConstraint& constraint : m_pointJointConstraints )
     {
-        int jointA = constraint.bodyA;
-        int jointB = constraint.bodyB;
+        int jointA = constraint.BodyAIndex();
+        int jointB = constraint.BodyBIndex();
+        if ( jointA < 0 || jointB < 0 )
+        {
+            continue;
+        }
         if ( jointA > jointB )
         {
             std::swap( jointA, jointB );
@@ -1571,8 +1587,8 @@ void PhysicsWorld::WakePointJointConnectedBodies( PhysicsModelAccess& modelAcces
         // Concept: point-joint edges define the constrained component. If one
         // piece is awake, any sleeping neighbors must wake before the solver
         // applies joint impulses against them as static anchors.
-        const int a = constraint.bodyA;
-        const int b = constraint.bodyB;
+        const int a = constraint.BodyAIndex();
+        const int b = constraint.BodyBIndex();
         if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount ||
              a >= static_cast<int>( m_sleepState.size() ) || b >= static_cast<int>( m_sleepState.size() ) )
         {
@@ -1625,7 +1641,10 @@ void PhysicsWorld::WakePointJointConnectedBodies( PhysicsModelAccess& modelAcces
 }
 
 
-void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, float dt )
+void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
+                                     PhysicsBodyStore& bodyStore,
+                                     const ColliderStore& colliderStore,
+                                     float dt )
 {
     auto m_gameModels = modelAccess.Models();
     const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
@@ -1697,13 +1716,95 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
     // Broadphase: build spatial grid from all object positions (include sleeping for wake detection)
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
     std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
+    const float contactSkin = (std::max)( 0.0f, Cfg().contactEpsilon );
+    // Why: sharing one spatial-grid cell is only a locality hint. Dense wall
+    // scenes can put many small boxes in one cell, so reject pairs whose swept
+    // bounding spheres never approach before appending them to the hot vector.
+    //
+    // Invariant: this is still a broadphase test. It may keep false positives,
+    // but it must not reject a pair whose exact shapes could touch during this
+    // fixed tick; the relative-motion segment covers CCD and wakeup cases.
+    struct BroadphaseCandidateFilterContext
+    {
+        const GameModelBodyStream& bodyStream;
+        const std::vector<PhysicsBodyRecord>& bodyRecords;
+        int modelCount;
+        float dt;
+        float contactSkin;
+    };
+    BroadphaseCandidateFilterContext broadphaseCandidateFilterContext{
+        bodyStream,
+        bodyRecords,
+        modelCount,
+        dt,
+        contactSkin,
+    };
+    const auto broadphaseCandidateCanTouch = []( const void* userData, int a, int b ) -> bool
+    {
+        if ( userData == nullptr )
+        {
+            return true;
+        }
+
+        const BroadphaseCandidateFilterContext& context =
+            *static_cast<const BroadphaseCandidateFilterContext*>( userData );
+        if ( a < 0 || b < 0 || a >= context.modelCount || b >= context.modelCount )
+        {
+            return false;
+        }
+
+        const float radiusA = context.bodyStream.boundingRadii[a];
+        const float radiusB = context.bodyStream.boundingRadii[b];
+        if ( !std::isfinite( radiusA ) || !std::isfinite( radiusB ) || radiusA < 0.0f || radiusB < 0.0f )
+        {
+            return true;
+        }
+
+        const Vector3 relativeStart = context.bodyStream.positions[a] - context.bodyStream.positions[b];
+        const Vector3 relativeDisplacement =
+            ( context.bodyRecords[static_cast<size_t>( a )].linearVelocity -
+              context.bodyRecords[static_cast<size_t>( b )].linearVelocity ) *
+            context.dt;
+        const float contactRadius = radiusA + radiusB + context.contactSkin;
+        const float contactRadiusSq = contactRadius * contactRadius;
+        const float relativeLengthSq = Vector::VectorMagSquared( relativeDisplacement );
+        if ( relativeLengthSq <= TOLERANCE * TOLERANCE )
+        {
+            return Vector::VectorMagSquared( relativeStart ) <= contactRadiusSq;
+        }
+
+        float t = -( relativeStart * relativeDisplacement ) / relativeLengthSq;
+        t = (std::max)( 0.0f, (std::min)( 1.0f, t ) );
+        const Vector3 closestRelative = relativeStart + relativeDisplacement * t;
+        return Vector::VectorMagSquared( closestRelative ) <= contactRadiusSq;
+    };
     {
         PROFILE_SCOPED( "Frame/Physics/Broadphase/GridBuild" );
+        float largestBroadphaseRadius = 0.0f;
+        for ( int i = 0; i < modelCount; ++i )
+        {
+            const float radius = bodyStream.boundingRadii[i];
+            if ( std::isfinite( radius ) && radius > largestBroadphaseRadius )
+            {
+                largestBroadphaseRadius = radius;
+            }
+        }
+
+        // Why: a fixed 24m cell made the 200-brick wall share huge buckets,
+        // producing thousands of false candidate pairs. Cell size follows the
+        // largest active broadphase primitive so ordinary bodies span only a few
+        // cells while the config value remains an upper bound for legacy scenes.
+        // Invariant: the choice uses only deterministic body-stream/config data,
+        // so byte-exact physics baselines do not depend on allocator or hash state.
+        const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, Cfg().broadphaseCell );
+        const float sceneCell =
+            (std::max)( BROADPHASE_MIN_CELL_SIZE, ( largestBroadphaseRadius + contactSkin ) * 2.0f );
+        m_spatialGrid.SetCellSize( (std::min)( configuredCell, sceneCell ) );
         m_spatialGrid.Clear();
         m_collisionCellKeys.clear();
         for ( int i = 0; i < modelCount; ++i )
         {
-            const float radius = bodyStream.boundingRadii[i];
+            const float radius = bodyStream.boundingRadii[i] + contactSkin;
             const Vector3 displacement = bodyRecords[static_cast<size_t>( i )].linearVelocity * dt;
             const float displacementSq = Vector::VectorMagSquared( displacement );
             if ( !bodyStream.isFixed[i] && displacementSq > radius * radius )
@@ -1715,7 +1816,9 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
                 m_spatialGrid.Insert( i, bodyStream.positions[i], radius );
             }
         }
-        m_spatialGrid.GetCandidatePairs( candidatePairs );
+        m_spatialGrid.GetCandidatePairs( candidatePairs,
+                                         broadphaseCandidateCanTouch,
+                                         &broadphaseCandidateFilterContext );
     }
 
     auto appendCandidatePairIfMissing = [&]( int a, int b )
@@ -1728,6 +1831,11 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
         if ( a > b )
         {
             std::swap( a, b );
+        }
+
+        if ( !broadphaseCandidateCanTouch( &broadphaseCandidateFilterContext, a, b ) )
+        {
+            return;
         }
 
         for ( const std::pair<int, int>& pair : candidatePairs )
@@ -1834,6 +1942,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
         PROFILE_SCOPED( "Frame/Physics/Broadphase/RecordCandidates" );
         for ( const auto& pair : candidatePairs )
         {
+            // Why: this pass only mirrors pairs into the capped diagnostics trace.
+            // Once the trace is full, later iterations cannot affect simulation
+            // state or recorded diagnostics.
+            if ( !CanRecordPhysicsPipelineStage() )
+            {
+                break;
+            }
+
             if ( pair.first < 0 || pair.second < 0 || pair.first >= modelCount || pair.second >= modelCount )
             {
                 continue;
@@ -1877,9 +1993,9 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
                                 const int a = pair.first;
                                 const int b = pair.second;
                                 const bool prune = a >= 0 && b >= 0 && a < static_cast<int>( m_sleepState.size() ) &&
-                                                   b < static_cast<int>( m_sleepState.size() ) &&
-                                                   m_sleepState[a] != 0 && m_sleepState[b] != 0;
-                                if ( prune )
+                                                    b < static_cast<int>( m_sleepState.size() ) &&
+                                                    m_sleepState[a] != 0 && m_sleepState[b] != 0;
+                                if ( prune && CanRecordPhysicsPipelineStage() )
                                 {
                                     Physics::PhysicsPipelineRecord record;
                                     record.stage = Physics::PhysicsPipelineStage::SleepPrunedPair;
@@ -2543,7 +2659,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
     PROFILE_END( "Frame/Physics/Terrain/Detect" );
     PROFILE_END( "Frame/Physics/Terrain" );
 
-    PersistentContactSolverContext solverContext = CreatePersistentContactSolverContext( bodyStore );
+    PersistentContactSolverContext solverContext = CreatePersistentContactSolverContext( bodyStore, colliderStore );
     m_contactSolver.Solve( solverContext, modelAccess, dt );
     WakePointJointConnectedBodies( modelAccess, bodyStore, dt );
     Ragdoll::SolvePointJoints( modelAccess, bodyStore, m_pointJointConstraints, m_sleepState, dt );
@@ -2675,8 +2791,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
         // Hazard: low velocity is not enough to prove a constrained component is
         // ready to sleep. A stretched joint can be numerically quiet for a frame,
         // so block sleep until point anchors are back within a small tolerance.
-        const int a = constraint.bodyA;
-        const int b = constraint.bodyB;
+        const int a = constraint.BodyAIndex();
+        const int b = constraint.BodyBIndex();
         if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
         {
             continue;
@@ -2741,8 +2857,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
 
     for ( const PointJointConstraint& constraint : m_pointJointConstraints )
     {
-        const int a = constraint.bodyA;
-        const int b = constraint.bodyB;
+        const int a = constraint.BodyAIndex();
+        const int b = constraint.BodyBIndex();
         if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
         {
             continue;
@@ -2975,24 +3091,24 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBod
 }
 
 
-PhysicsWorld::DiagnosticsView PhysicsWorld::GetDiagnosticsView() const
+PhysicsDiagnosticsView PhysicsWorld::GetDiagnosticsView() const
 {
-    return DiagnosticsView{ m_persistentContacts,
-                            m_persistentContactSolverStats,
-                            m_sleepIslandParent,
-                            m_sleepSupportedThisFrame,
-                            m_sleepInhibitedThisFrame,
-                            m_sleepState,
-                            m_sleepCounter,
-                            m_sleepIslandEligible,
-                            m_sleepIslandCanSleep,
-                            m_spatialGrid,
-                            m_candidatePairs,
-                            m_collisionCellKeys,
-                            m_sleepSupportEdges,
-                            m_sleepIslandVisualId,
-                            m_physicsPipelineTrace,
-                            m_terrainContactManifolds };
+    return PhysicsDiagnosticsView{ m_persistentContacts,
+                                   m_persistentContactSolverStats,
+                                   m_sleepIslandParent,
+                                   m_sleepSupportedThisFrame,
+                                   m_sleepInhibitedThisFrame,
+                                   m_sleepState,
+                                   m_sleepCounter,
+                                   m_sleepIslandEligible,
+                                   m_sleepIslandCanSleep,
+                                   m_spatialGrid,
+                                   m_candidatePairs,
+                                   m_collisionCellKeys,
+                                   m_sleepSupportEdges,
+                                   m_sleepIslandVisualId,
+                                   m_physicsPipelineTrace,
+                                   m_terrainContactManifolds };
 }
 
 uint64_t PhysicsWorld::CollectMemoryBytes() const

@@ -43,6 +43,10 @@ namespace
 // accumulator state behind the bound HWND so late or foreign callbacks cannot
 // mutate stale frame input.
 HWND s_callbackBridgeWindow = nullptr;
+// Lifetime: ordinary polling helpers borrow the active runtime window while
+// WinMain owns it. WndProc still passes HWNDs directly to callback-specific
+// APIs, so this pointer is only for normal frame/input paths.
+Window* s_inputWindow = nullptr;
 // WndProc WM_MOUSEWHEEL writes; UIInput::CaptureSnapshot() consumes once per
 // frame through InGameUI::UpdateInput() from RunInput.cpp. Focus-loss cleanup
 // also drains it through InputController::ResetUnfocusedInput().
@@ -72,6 +76,12 @@ constexpr int RAW_MOUSE_ABSOLUTE_RANGE = 65535;
 bool IsCallbackBridgeBoundForWindow( HWND window )
 {
     return window && s_callbackBridgeWindow == window;
+}
+
+
+Window* BoundInputWindow()
+{
+    return s_inputWindow;
 }
 
 void EnsureShowCursorVisible()
@@ -132,13 +142,30 @@ long RawAbsoluteToPixels( long value, int extent )
 
 bool Input::IsAppFocused()
 {
-    Window* window = Window::Instance();
+    Window* window = BoundInputWindow();
     if ( !window || !window->m_sWindow )
     {
         return false;
     }
 
     return GetForegroundWindow() == window->m_sWindow;
+}
+
+
+void Input::BindWindow( Window& window )
+{
+    assert( !s_inputWindow && "Input window bridge is already bound" );
+    s_inputWindow = &window;
+}
+
+
+void Input::UnbindWindow( Window& window )
+{
+    assert( s_inputWindow == &window && "Input window bridge unbound with a different window" );
+    if ( s_inputWindow == &window )
+    {
+        s_inputWindow = nullptr;
+    }
 }
 
 
@@ -239,8 +266,7 @@ void Input::BindCallbackBridge( HWND window )
     }
 
     s_callbackBridgeWindow = window;
-    (void)ConsumeMouseWheelDelta();
-    ResetMouseLookDeltas();
+    ClearCallbackEventBuffer( window );
 }
 
 
@@ -253,7 +279,20 @@ void Input::UnbindCallbackBridge( HWND window )
         return;
     }
 
+    ClearCallbackEventBuffer( window );
     s_callbackBridgeWindow = nullptr;
+}
+
+
+void Input::ClearCallbackEventBuffer( HWND window )
+{
+    assert( IsCallbackBridgeBoundForWindow( window ) &&
+            "Input callback event buffer can only be cleared for the bound HWND" );
+    if ( !IsCallbackBridgeBoundForWindow( window ) )
+    {
+        return;
+    }
+
     (void)ConsumeMouseWheelDelta();
     ResetMouseLookDeltas();
 }
@@ -350,7 +389,12 @@ POINT Input::GetClientMouseCoordinates()
     }
 
     POINT mousePos = GetMouseCoordinates();
-    Window* m_cWindow = Window::Instance();
+    Window* m_cWindow = BoundInputWindow();
+    assert( m_cWindow && "Input client mouse coordinates require a bound window" );
+    if ( !m_cWindow )
+    {
+        throw std::runtime_error( "Input window bridge is not bound (Input::GetClientMouseCoordinates)." );
+    }
     if ( !ScreenToClient( m_cWindow->m_sWindow, &mousePos ) )
     {
         throw std::runtime_error( "Converting mouse coordinates failed (Input::GetClientMouseCoordinates)." );
@@ -450,7 +494,12 @@ void Input::CentreMouseCoordinates()
         return;
     }
 
-    Window* m_cWindow = Window::Instance();
+    Window* m_cWindow = BoundInputWindow();
+    assert( m_cWindow && "Input mouse centering requires a bound window" );
+    if ( !m_cWindow )
+    {
+        throw std::runtime_error( "Input window bridge is not bound (Input::CentreMouseCoordinates)." );
+    }
     POINT clientCenter = { m_cWindow->m_sWindowDimensions.x >> 1, m_cWindow->m_sWindowDimensions.y >> 1 };
     if ( !ClientToScreen( m_cWindow->m_sWindow, &clientCenter ) )
     {

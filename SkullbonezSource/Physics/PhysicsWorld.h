@@ -55,8 +55,11 @@ struct GameModelBodyStream;
 
 namespace Physics
 {
+class ColliderStore;
 class PhysicsBodyStore;
+struct ColliderRecord;
 struct PhysicsBodyRecord;
+struct PhysicsDiagnosticsView;
 struct PersistentContactSolverContext;
 struct SleepSupportPropagationContext;
 
@@ -178,26 +181,6 @@ class PhysicsWorld
         float positionCorrectionMax = 0.0f;
     };
 
-    struct DiagnosticsView
-    {
-        const std::vector<PersistentContact>& persistentContacts;
-        const PersistentContactSolverStats& persistentContactSolverStats;
-        const std::vector<int>& sleepIslandParent;
-        const std::vector<uint8_t>& sleepSupportedThisFrame;
-        const std::vector<uint8_t>& sleepInhibitedThisFrame;
-        const std::vector<uint8_t>& sleepState;
-        const std::vector<uint8_t>& sleepCounter;
-        const std::vector<uint8_t>& sleepIslandEligible;
-        const std::vector<uint8_t>& sleepIslandCanSleep;
-        const Math::CollisionDetection::SpatialGrid& spatialGrid;
-        const std::vector<std::pair<int, int>>& candidatePairs;
-        const std::vector<int64_t>& collisionCellKeys;
-        const std::vector<std::pair<int, int>>& sleepSupportEdges;
-        const std::vector<int>& sleepIslandVisualId;
-        const std::vector<PhysicsPipelineRecord>& physicsPipelineTrace;
-        const std::vector<TerrainContactManifold>& terrainContactManifolds;
-    };
-
   private:
     struct TerrainDetectionCandidate
     {
@@ -267,7 +250,10 @@ class PhysicsWorld
     bool m_diagnosticsSuppressed = false;
 #endif
 
-    void RunSolverPhysics( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, float dt );
+    void RunSolverPhysics( PhysicsModelAccess& modelAccess,
+                           PhysicsBodyStore& bodyStore,
+                           const ColliderStore& colliderStore,
+                           float dt );
     void SolvePersistentObjectContacts( PhysicsModelAccess& modelAccess, float dt );
 #ifdef _DEBUG
     void EmitPhysicsDiagnosticsFrame( PhysicsModelAccess& modelAccess, float dt );
@@ -278,8 +264,10 @@ class PhysicsWorld
                                    int bodyB,
                                    float collisionTime,
                                    float availableTime );
-    PersistentContactSolverContext CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore );
+    PersistentContactSolverContext CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
+                                                                         const ColliderStore& colliderStore );
     SleepSupportPropagationContext CreateSleepSupportPropagationContext();
+    bool CanRecordPhysicsPipelineStage() const;
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record );
     void EnsureCollisionVisualBuffers( int modelCount );
     void EnsureTornadoStateBuffers( int modelCount );
@@ -327,7 +315,10 @@ class PhysicsWorld
     PhysicsWorld();
 
     void Clear();
-    void RunPhysics( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, float fChangeInTime );
+    void RunPhysics( PhysicsModelAccess& modelAccess,
+                     PhysicsBodyStore& bodyStore,
+                     const ColliderStore& colliderStore,
+                     float fChangeInTime );
     void WakeModel( PhysicsModelAccess& modelAccess, int index );
     void SeedModelAsleep( PhysicsModelAccess& modelAccess, int index );
     void SetPhysicsSleepEnabled( bool enabled );
@@ -344,12 +335,16 @@ class PhysicsWorld
     void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
     void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
-    DiagnosticsView GetDiagnosticsView() const;
+    PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
     void RecordSolverPhysicsPipelineStage( const PhysicsPipelineRecord& record )
     {
         RecordPhysicsPipelineStage( record );
+    }
+    bool CanRecordSolverPhysicsPipelineStage() const
+    {
+        return CanRecordPhysicsPipelineStage();
     }
     void MarkSolverCollisionVisualContact( int index )
     {
@@ -379,6 +374,26 @@ class PhysicsWorld
 #endif
 };
 
+struct PhysicsDiagnosticsView
+{
+    const std::vector<PhysicsWorld::PersistentContact>& persistentContacts;
+    const PhysicsWorld::PersistentContactSolverStats& persistentContactSolverStats;
+    const std::vector<int>& sleepIslandParent;
+    const std::vector<uint8_t>& sleepSupportedThisFrame;
+    const std::vector<uint8_t>& sleepInhibitedThisFrame;
+    const std::vector<uint8_t>& sleepState;
+    const std::vector<uint8_t>& sleepCounter;
+    const std::vector<uint8_t>& sleepIslandEligible;
+    const std::vector<uint8_t>& sleepIslandCanSleep;
+    const Math::CollisionDetection::SpatialGrid& spatialGrid;
+    const std::vector<std::pair<int, int>>& candidatePairs;
+    const std::vector<int64_t>& collisionCellKeys;
+    const std::vector<std::pair<int, int>>& sleepSupportEdges;
+    const std::vector<int>& sleepIslandVisualId;
+    const std::vector<PhysicsPipelineRecord>& physicsPipelineTrace;
+    const std::vector<TerrainContactManifold>& terrainContactManifolds;
+};
+
 struct PersistentContactSolverContext
 {
     std::vector<std::pair<int, int>>& candidatePairs;
@@ -395,10 +410,12 @@ struct PersistentContactSolverContext
     std::array<uint8_t, MAX_GAME_MODELS>& terrainRestApplied;
     std::vector<uint8_t>& sleepSupportedThisFrame;
     std::vector<PhysicsBodyRecord>& bodyRecords;
+    const std::vector<ColliderRecord>& colliderRecords;
     PhysicsBodyStore& bodyStore;
     PhysicsWorld& world;
 
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record ) const;
+    bool CanRecordPhysicsPipelineStage() const;
     void MarkCollisionVisualContact( int index ) const;
     void MarkFixedContact( PhysicsModelAccess& modelAccess, int index ) const;
     void WakeModel( PhysicsModelAccess& modelAccess, int index ) const;

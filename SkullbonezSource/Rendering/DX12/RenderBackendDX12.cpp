@@ -487,7 +487,372 @@ void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
 }
 
 
-void RenderBackendDX12::DumpFrameGraphSkeleton() const
+static DXGI_FORMAT ToDx12GraphColorFormat( RenderGraphResourceFormat format )
+{
+    switch ( format )
+    {
+    case RenderGraphResourceFormat::RGBA8:
+        return DXGI_FORMAT_R8G8B8A8_UNORM;
+    case RenderGraphResourceFormat::RGBA16F:
+        return DXGI_FORMAT_R16G16B16A16_FLOAT;
+    default:
+        throw std::runtime_error( "Unsupported render graph color transient format" );
+    }
+}
+
+
+static DXGI_FORMAT ToDx12GraphSrvFormat( RenderGraphResourceFormat format )
+{
+    if ( format == RenderGraphResourceFormat::Depth24Stencil8 )
+    {
+        return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+    }
+    return ToDx12GraphColorFormat( format );
+}
+
+
+static size_t CountGraphDescriptorRows( const RenderGraphDescriptorNeeds& descriptors )
+{
+    return ( descriptors.renderTarget ? 1u : 0u ) + ( descriptors.depthStencil ? 1u : 0u ) +
+           ( descriptors.shaderResource ? 1u : 0u ) + ( descriptors.unorderedAccess ? 1u : 0u );
+}
+
+
+RenderGraphTransientMaterializationStats
+RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
+                                                       const RenderGraphCompileResult& compiled )
+{
+    // Concept: graph transients are frame-target pool slots, not scene assets.
+    //
+    // The render graph compiler decides which transient declarations may share
+    // one slot. The DX12 backend materializes that slot as a texture plus view
+    // descriptors, then keeps the slot reusable until backend shutdown. Existing
+    // material/object SRV tables remain separate because those descriptors are
+    // long-lived content bindings, not frame-target lifetime records.
+    m_graphTransientStats = {};
+    m_graphTransientBindings.clear();
+    for ( GraphTransientResourceDX12& slot : m_graphTransientResources )
+    {
+        slot.usedThisCompile = false;
+    }
+
+    if ( !m_device )
+    {
+        throw std::runtime_error( "DX12 graph transient materialization requires an initialized device" );
+    }
+
+    for ( const RenderGraphTransientAllocationDesc& allocation : compiled.transientAllocations )
+    {
+        if ( allocation.resource.index >= graph.Resources().size() )
+        {
+            throw std::runtime_error( "DX12 graph transient allocation references an invalid resource" );
+        }
+
+        const RenderGraphResourceDesc& resource = graph.Resources()[allocation.resource.index];
+        const RenderGraphTransientResourceDesc& desc = resource.transient;
+        if ( desc.kind != RenderGraphResourceKind::Texture2D )
+        {
+            throw std::runtime_error( "DX12 graph transient materializer currently supports Texture2D resources only" );
+        }
+        if ( desc.format == RenderGraphResourceFormat::Unknown )
+        {
+            throw std::runtime_error( "DX12 graph transient materializer requires a concrete resource format" );
+        }
+        if ( desc.descriptors.depthStencil && desc.descriptors.unorderedAccess )
+        {
+            throw std::runtime_error( "DX12 graph transient depth resources cannot request UAV descriptors" );
+        }
+
+        GraphTransientResourceDX12* slot = nullptr;
+        for ( GraphTransientResourceDX12& candidate : m_graphTransientResources )
+        {
+            if ( GraphTransientPoolSlotCanSatisfyDX12( candidate, allocation.poolSlot, desc ) )
+            {
+                slot = &candidate;
+                ++m_graphTransientStats.reusedThisCompile;
+                break;
+            }
+        }
+
+        if ( !slot )
+        {
+            m_graphTransientResources.push_back( GraphTransientResourceDX12() );
+            slot = &m_graphTransientResources.back();
+            slot->desc = desc;
+            slot->poolSlot = allocation.poolSlot;
+
+            D3D12_RESOURCE_DESC textureDesc = {};
+            textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+            textureDesc.Width = desc.width;
+            textureDesc.Height = desc.height;
+            textureDesc.DepthOrArraySize = 1;
+            textureDesc.MipLevels = static_cast<UINT16>( desc.mipLevels );
+            textureDesc.SampleDesc.Count = 1;
+            textureDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+            textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+            D3D12_CLEAR_VALUE clearValue = {};
+            D3D12_CLEAR_VALUE* clearValuePtr = nullptr;
+            if ( desc.descriptors.depthStencil )
+            {
+                textureDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
+                textureDesc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+                clearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+                clearValue.DepthStencil.Depth = 1.0f;
+                clearValuePtr = &clearValue;
+            }
+            else
+            {
+                textureDesc.Format = ToDx12GraphColorFormat( desc.format );
+                if ( desc.descriptors.renderTarget )
+                {
+                    textureDesc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+                    clearValue.Format = textureDesc.Format;
+                    clearValue.Color[3] = 1.0f;
+                    clearValuePtr = &clearValue;
+                }
+                if ( desc.descriptors.unorderedAccess )
+                {
+                    textureDesc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+                }
+            }
+
+            D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON;
+            if ( !TryDx12RenderGraphAccessToResourceState( resource.initialAccess, initialState ) )
+            {
+                initialState = D3D12_RESOURCE_STATE_COMMON;
+            }
+
+            D3D12_HEAP_PROPERTIES defaultHeap = {};
+            defaultHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
+            const HRESULT hr = m_device->CreateCommittedResource( &defaultHeap,
+                                                                  D3D12_HEAP_FLAG_NONE,
+                                                                  &textureDesc,
+                                                                  initialState,
+                                                                  clearValuePtr,
+                                                                  IID_PPV_ARGS( &slot->resource ) );
+            if ( FAILED( hr ) )
+            {
+                throw std::runtime_error( "DX12 graph transient materializer failed to create a texture" );
+            }
+            NameDx12Object( slot->resource, L"Skullbonez DX12 RenderGraph Transient Texture" );
+
+            if ( desc.descriptors.renderTarget )
+            {
+                slot->rtv = AllocateRTV();
+                m_device->CreateRenderTargetView( slot->resource, nullptr, slot->rtv );
+            }
+            if ( desc.descriptors.depthStencil )
+            {
+                slot->dsv = AllocateDSV();
+                D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+                dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+                dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+                m_device->CreateDepthStencilView( slot->resource, &dsvDesc, slot->dsv );
+            }
+            if ( desc.descriptors.shaderResource )
+            {
+                slot->srvIndex = AllocateStaticSRV();
+                D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+                srvDesc.Format = ToDx12GraphSrvFormat( desc.format );
+                srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+                srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                srvDesc.Texture2D.MipLevels = desc.mipLevels;
+                m_device->CreateShaderResourceView( slot->resource,
+                                                    &srvDesc,
+                                                    GetSRVStagingCpuHandle( slot->srvIndex ) );
+            }
+            if ( desc.descriptors.unorderedAccess )
+            {
+                slot->uavIndex = AllocateStaticSRV();
+                D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+                uavDesc.Format = ToDx12GraphColorFormat( desc.format );
+                uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+                m_device->CreateUnorderedAccessView( slot->resource,
+                                                     nullptr,
+                                                     &uavDesc,
+                                                     GetSRVStagingCpuHandle( slot->uavIndex ) );
+            }
+            ++m_graphTransientStats.createdThisCompile;
+        }
+
+        std::snprintf( slot->resourceName,
+                       sizeof( slot->resourceName ),
+                       "%s",
+                       resource.name.empty() ? "UnnamedGraphTransient" : resource.name.c_str() );
+        if ( desc.descriptors.shaderResource && slot->textureHandle == 0 && slot->srvIndex != UINT_MAX )
+        {
+            slot->textureHandle = RegisterSRV( slot->srvIndex );
+        }
+        const bool firstUseThisCompile = !slot->usedThisCompile;
+        slot->poolSlot = allocation.poolSlot;
+        slot->firstPass = allocation.firstPass;
+        slot->lastPass = allocation.lastPass;
+        if ( firstUseThisCompile )
+        {
+            slot->currentAccess = resource.initialAccess;
+        }
+        slot->usedThisCompile = true;
+        m_graphTransientBindings.push_back(
+            { allocation.resource, static_cast<size_t>( slot - m_graphTransientResources.data() ) } );
+    }
+
+    m_graphTransientStats.poolSize = m_graphTransientResources.size();
+    m_graphTransientStats.releasedAtFrameEnd = compiled.transientDiagnostics.releaseCount;
+    for ( const GraphTransientResourceDX12& slot : m_graphTransientResources )
+    {
+        if ( slot.resource )
+        {
+            m_graphTransientStats.descriptorRowsOwned += CountGraphDescriptorRows( slot.desc.descriptors );
+        }
+    }
+    Log().WriteEventf( "dx12_graph_transient_materialize allocations=%zu pool_size=%zu created_this_compile=%zu "
+                       "reused_this_compile=%zu descriptor_rows_owned=%zu released_at_frame_end=%zu",
+                       compiled.transientAllocations.size(),
+                       m_graphTransientStats.poolSize,
+                       m_graphTransientStats.createdThisCompile,
+                       m_graphTransientStats.reusedThisCompile,
+                       m_graphTransientStats.descriptorRowsOwned,
+                       m_graphTransientStats.releasedAtFrameEnd );
+    return m_graphTransientStats;
+}
+
+
+GraphTransientResourceDX12* RenderBackendDX12::FindGraphTransientSlot( RenderGraphResourceHandle resource )
+{
+    for ( const GraphTransientBindingDX12& binding : m_graphTransientBindings )
+    {
+        if ( binding.resource.index == resource.index && binding.slotIndex < m_graphTransientResources.size() )
+        {
+            return &m_graphTransientResources[binding.slotIndex];
+        }
+    }
+    return nullptr;
+}
+
+
+const GraphTransientResourceDX12* RenderBackendDX12::FindGraphTransientSlot( RenderGraphResourceHandle resource ) const
+{
+    for ( const GraphTransientBindingDX12& binding : m_graphTransientBindings )
+    {
+        if ( binding.resource.index == resource.index && binding.slotIndex < m_graphTransientResources.size() )
+        {
+            return &m_graphTransientResources[binding.slotIndex];
+        }
+    }
+    return nullptr;
+}
+
+
+RenderGraphTextureBinding RenderBackendDX12::ResolveGraphTextureBinding( RenderGraphResourceHandle resource ) const
+{
+    const GraphTransientResourceDX12* slot = FindGraphTransientSlot( resource );
+    if ( !slot || !slot->resource )
+    {
+        return {};
+    }
+
+    RenderGraphTextureBinding binding;
+    binding.resource = resource;
+    binding.textureHandle = slot->textureHandle;
+    binding.width = slot->desc.width;
+    binding.height = slot->desc.height;
+    binding.renderTarget = slot->desc.descriptors.renderTarget;
+    binding.shaderResource = slot->desc.descriptors.shaderResource;
+    return binding;
+}
+
+
+void RenderBackendDX12::BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName )
+{
+    if ( m_graphRenderTargetActive )
+    {
+        throw std::runtime_error( "DX12 graph transient render target is already active" );
+    }
+    if ( !binding.IsValid() || !binding.renderTarget )
+    {
+        throw std::runtime_error( "DX12 graph transient render target binding is invalid" );
+    }
+    GraphTransientResourceDX12* slot = FindGraphTransientSlot( binding.resource );
+    if ( !slot || !slot->resource || slot->rtv.ptr == 0 )
+    {
+        throw std::runtime_error( "DX12 graph transient render target was not materialized" );
+    }
+
+    // Lifetime: callback-owned graph passes borrow the active backbuffer/depth
+    // target while a transient is bound, then restore it before the next pass.
+    m_savedGraphRTV = m_currentRTV;
+    m_savedGraphDSV = m_currentDSV;
+    m_savedGraphRTVFormat = m_currentRTVFormat;
+    SetRenderingToFBO( true, slot->srvIndex, UINT_MAX, ToDx12GraphColorFormat( slot->desc.format ) );
+    ExecuteGraphTransition( passName,
+                            slot->resourceName,
+                            slot->resource,
+                            slot->currentAccess,
+                            RenderGraphResourceAccess::RenderTarget );
+    slot->currentAccess = RenderGraphResourceAccess::RenderTarget;
+    SetCurrentTargets( slot->rtv, m_savedGraphDSV );
+    m_graphRenderTargetActive = true;
+    m_activeGraphRenderTarget = binding.resource;
+}
+
+
+void RenderBackendDX12::EndGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName )
+{
+    if ( !m_graphRenderTargetActive || m_activeGraphRenderTarget.index != binding.resource.index )
+    {
+        throw std::runtime_error( "DX12 graph transient render target end does not match the active binding" );
+    }
+    GraphTransientResourceDX12* slot = FindGraphTransientSlot( binding.resource );
+    if ( !slot || !slot->resource )
+    {
+        throw std::runtime_error( "DX12 graph transient render target was lost before unbind" );
+    }
+
+    ExecuteGraphTransition( passName,
+                            slot->resourceName,
+                            slot->resource,
+                            slot->currentAccess,
+                            RenderGraphResourceAccess::PixelShaderResource );
+    slot->currentAccess = RenderGraphResourceAccess::PixelShaderResource;
+    SetRenderingToFBO( false );
+    SetCurrentTargets( m_savedGraphRTV, m_savedGraphDSV );
+    m_currentRTVFormat = m_savedGraphRTVFormat;
+    m_psoDirty = true;
+    m_graphRenderTargetActive = false;
+    m_activeGraphRenderTarget = {};
+}
+
+
+void RenderBackendDX12::ReleaseGraphTransientResources( const char* reason )
+{
+    size_t released = 0;
+    for ( GraphTransientResourceDX12& slot : m_graphTransientResources )
+    {
+        if ( slot.textureHandle != 0 )
+        {
+            UnregisterSRV( slot.textureHandle );
+            slot.textureHandle = 0;
+        }
+        if ( slot.resource )
+        {
+            slot.resource->Release();
+            slot.resource = nullptr;
+            ++released;
+        }
+    }
+    m_graphTransientResources.clear();
+    m_graphTransientBindings.clear();
+    m_graphTransientStats = {};
+    m_graphRenderTargetActive = false;
+    m_activeGraphRenderTarget = {};
+    Log().WriteEventf( "dx12_graph_transient_release reason=%s released_resources=%zu",
+                       reason ? reason : "unknown",
+                       released );
+}
+
+
+void RenderBackendDX12::DumpFrameGraphSkeleton()
 {
     // Diagnostic render graph sketch.
     //
@@ -537,6 +902,22 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
         graph.AddExternalResource( "CinematicSceneDepth", RenderGraphResourceAccess::PixelShaderResource );
     const RenderGraphResourceHandle volumetricLight =
         graph.AddExternalResource( "VolumetricLight", RenderGraphResourceAccess::PixelShaderResource );
+    RenderGraphTransientResourceDesc transientProbeDesc;
+    transientProbeDesc.kind = RenderGraphResourceKind::Texture2D;
+    transientProbeDesc.format = RenderGraphResourceFormat::RGBA16F;
+    // Why: this diagnostic resource proves the backend materialization path
+    // without adding a frame-resolution allocation to every validation launch.
+    // The live VolumetricLight migration is evidenced by the cinematic post
+    // graph dump; this tiny probe remains a cheap skeleton smoke test.
+    transientProbeDesc.width = 16;
+    transientProbeDesc.height = 16;
+    transientProbeDesc.mipLevels = 1;
+    transientProbeDesc.descriptors.renderTarget = true;
+    transientProbeDesc.descriptors.shaderResource = true;
+    const RenderGraphResourceHandle graphTransientProbe =
+        graph.AddTransientResource( "GraphTransientProbeColor",
+                                    transientProbeDesc,
+                                    RenderGraphResourceAccess::RenderTarget );
 
     uint32_t pass = graph.AddPass( "ShadowMapPass" );
     graph.AddWrite( pass, shadowDepth, RenderGraphResourceAccess::DepthWrite );
@@ -583,10 +964,18 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
     pass = graph.AddPass( "DebugAndUiPass" );
     graph.AddWrite( pass, backbuffer, RenderGraphResourceAccess::RenderTarget );
 
+    pass = graph.AddPass( "GraphTransientProbeWrite" );
+    graph.AddWrite( pass, graphTransientProbe, RenderGraphResourceAccess::RenderTarget );
+
+    pass = graph.AddPass( "GraphTransientProbeRead" );
+    graph.AddRead( pass, graphTransientProbe, RenderGraphResourceAccess::PixelShaderResource );
+
     pass = graph.AddPass( "Present" );
     graph.AddWrite( pass, backbuffer, RenderGraphResourceAccess::Present );
 
     const RenderGraphCompileResult compiled = graph.Compile();
+    const RenderGraphTransientMaterializationStats transientMaterialization =
+        MaterializeGraphTransientResources( graph, compiled );
     std::vector<bool> liveBarrierMatched( m_liveBarrierRecords.size(), false );
     const auto liveResourceLabel = [&]( const void* resource ) -> const char*
     {
@@ -646,6 +1035,13 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
             << " uav_review=" << ( barrier.requiresUavOrderingReview ? "true" : "false" )
             << " emitted=" << ( barrier.emitted ? "true" : "false" ) << "\n";
     }
+
+    out << "\nGraphTransientMaterialization:\n";
+    out << "  pool_size=" << transientMaterialization.poolSize << "\n";
+    out << "  created_this_compile=" << transientMaterialization.createdThisCompile << "\n";
+    out << "  reused_this_compile=" << transientMaterialization.reusedThisCompile << "\n";
+    out << "  descriptor_rows_owned=" << transientMaterialization.descriptorRowsOwned << "\n";
+    out << "  released_at_frame_end=" << transientMaterialization.releasedAtFrameEnd << "\n";
 
     out << "\nLiveBackendTransitionBarriers:\n";
     if ( m_liveBarrierRecords.empty() )
@@ -1430,6 +1826,7 @@ void RenderBackendDX12::Shutdown()
 
     ReportArchitectureStats( "Shutdown" );
     DumpFrameGraphSkeleton();
+    ReleaseGraphTransientResources( "Shutdown" );
 
     // GPU timer cleanup
     m_gpuTimers.readback.Reset();

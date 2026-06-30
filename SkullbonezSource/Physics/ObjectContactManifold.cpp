@@ -1879,6 +1879,26 @@ bool SkullbonezCore::Physics::BuildObjectContactManifold( const GameModel& a,
                                                           float contactSkin,
                                                           ObjectContactManifold& out )
 {
+    return BuildObjectContactManifold( a,
+                                       a.GetCollisionShape(),
+                                       b,
+                                       b.GetCollisionShape(),
+                                       bodyA,
+                                       bodyB,
+                                       contactSkin,
+                                       out );
+}
+
+
+bool SkullbonezCore::Physics::BuildObjectContactManifold( const GameModel& a,
+                                                          const CollisionShape& shapeA,
+                                                          const GameModel& b,
+                                                          const CollisionShape& shapeB,
+                                                          int bodyA,
+                                                          int bodyB,
+                                                          float contactSkin,
+                                                          ObjectContactManifold& out )
+{
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/ObjectManifold" );
 
     // Shape dispatch is intentionally explicit. The solver wants one uniform
@@ -1888,9 +1908,6 @@ bool SkullbonezCore::Physics::BuildObjectContactManifold( const GameModel& a,
     out = ObjectContactManifold();
     out.bodyA = bodyA;
     out.bodyB = bodyB;
-
-    const CollisionShape& shapeA = a.GetCollisionShape();
-    const CollisionShape& shapeB = b.GetCollisionShape();
 
     if ( const BoundingSphere* sphereA = std::get_if<BoundingSphere>( &shapeA ) )
     {

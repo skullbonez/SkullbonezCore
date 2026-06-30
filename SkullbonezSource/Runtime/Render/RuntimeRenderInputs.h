@@ -37,6 +37,11 @@ namespace Textures
 class TextureCollection;
 }
 
+namespace Assets
+{
+class AssetSystem;
+}
+
 namespace GameObjects
 {
 class GameModelCollection;
@@ -73,6 +78,7 @@ class Window;
 
 struct RuntimeRenderServices
 {
+    Assets::AssetSystem& assets;
     Textures::TextureCollection& textures;
     GameObjects::GameModelCollection& models;
     Environment::WorldEnvironment& world;

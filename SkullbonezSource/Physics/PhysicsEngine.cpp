@@ -188,7 +188,7 @@ bool PhysicsEngine::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot
 }
 
 
-SkullbonezCore::Physics::PhysicsWorld::DiagnosticsView PhysicsEngine::GetDiagnosticsView() const
+SkullbonezCore::Physics::PhysicsDiagnosticsView PhysicsEngine::GetDiagnosticsView() const
 {
     return m_scene.GetDiagnosticsView();
 }

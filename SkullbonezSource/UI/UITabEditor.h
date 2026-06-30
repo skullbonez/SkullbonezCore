@@ -73,7 +73,8 @@ constexpr int OBJECT_CUTE_HOUSE_SLEEP = 32;
 constexpr int OBJECT_CUTE_HOUSE_HIGH_SLEEP = 33;
 constexpr int OBJECT_TRIPLE_DECKER_SLEEP = 34;
 constexpr int OBJECT_TRIPLE_DECKER_HIGH_SLEEP = 35;
-constexpr int OBJECT_TYPE_COUNT = 36;
+constexpr int OBJECT_BRICK_WALL_200_SLEEP = 36;
+constexpr int OBJECT_TYPE_COUNT = 37;
 
 struct UIEditorTabState
 {

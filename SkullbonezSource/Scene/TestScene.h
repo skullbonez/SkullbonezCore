@@ -34,6 +34,7 @@ Related:
 #pragma once
 
 
+#include "../Assets/AssetSystem.h"
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
@@ -44,16 +45,12 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Assets
-{
-class AssetSystem;
-}
 namespace Basics
 {
 class TestScene;
 class TestSceneParser;
-TestScene LoadTestSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
-TestScene LoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
+TestScene LoadTestSceneFromFileImpl( const char* path, Assets::AssetContext assets );
+TestScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets );
 
 struct SceneCamera
 {
@@ -419,8 +416,8 @@ class TestScene
   private:
     // Parser-local construction helpers populate the immutable scene record in
     // one pass; runtime systems use public read-only access below.
-    friend TestScene LoadTestSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
-    friend TestScene LoadStyleSceneFromFileImpl( const char* path, const Assets::AssetSystem* assets );
+    friend TestScene LoadTestSceneFromFileImpl( const char* path, Assets::AssetContext assets );
+    friend TestScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets );
     friend class TestSceneParser;
 
     std::vector<SceneCamera> m_cameras;

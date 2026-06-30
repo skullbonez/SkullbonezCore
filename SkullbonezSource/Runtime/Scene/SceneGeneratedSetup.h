@@ -64,7 +64,7 @@ enum class GeneratedObjectTypeOverride
 
 struct SceneGeneratedCameraContext
 {
-    Environment::CameraCollection*& cameras;
+    Environment::CameraCollection& cameras;
     Geometry::Terrain& terrain;
 };
 

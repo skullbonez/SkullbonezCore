@@ -86,9 +86,8 @@ void Window::SetWindowDimensions( const RECT dimensions )
 
 void Window::HandleScreenResize()
 {
-    Window* cWindow = Window::Instance();
-    int w = cWindow->m_sWindowDimensions.x;
-    int h = cWindow->m_sWindowDimensions.y;
+    int w = m_sWindowDimensions.x;
+    int h = m_sWindowDimensions.y;
 
     // Hazard: minimized windows report zero client area; resizing the backend
     // to zero dimensions would invalidate swap-chain and projection state.
@@ -106,7 +105,7 @@ void Window::HandleScreenResize()
     // DX12 clip-space depth is [0,1], so the perspective matrix must use the
     // matching projection convention after every resize.
     float aspect = static_cast<float>( w ) / static_cast<float>( h );
-    cWindow->projectionMatrix =
+    projectionMatrix =
         Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f, aspect, Cfg().frustumNear, Cfg().frustumFar );
 }
 
@@ -142,8 +141,8 @@ void Window::ChangeToFullScreen( int xResolution, int yResolution )
 // "Windows Procedure" - this function handles messages for our window
 LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 {
-    Window* m_cWindow = Window::Instance();
     PAINTSTRUCT ps = { 0 }; // Assists with repainting the client area
+    Window* m_cWindow = reinterpret_cast<Window*>( GetWindowLongPtr( hWnd, GWLP_USERDATA ) );
 
     try
     {
@@ -152,13 +151,21 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
         {
         // WM_CREATE fired on window creation
         case WM_CREATE:
+        {
+            CREATESTRUCT* create = reinterpret_cast<CREATESTRUCT*>( lParam );
+            m_cWindow = reinterpret_cast<Window*>( create->lpCreateParams );
+            SetWindowLongPtr( hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>( m_cWindow ) );
             break;
+        }
 
         // WM_SIZE fired on a resize
         case WM_SIZE:
             // LoWord = m_width, HiWord = m_height
-            m_cWindow->SetWindowDimensions( LOWORD( lParam ), HIWORD( lParam ) );
-            m_cWindow->HandleScreenResize();
+            if ( m_cWindow )
+            {
+                m_cWindow->SetWindowDimensions( LOWORD( lParam ), HIWORD( lParam ) );
+                m_cWindow->HandleScreenResize();
+            }
             break;
 
         // WM_PAINT fired when client area is invalidated
@@ -228,7 +235,14 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
     }
     catch ( const std::exception& e ) // Catch all exceptions thrown by the Skullbonez Core
     {
-        m_cWindow->MsgBox( e.what(), "FATAL ERROR", MB_OK );
+        if ( m_cWindow )
+        {
+            m_cWindow->MsgBox( e.what(), "FATAL ERROR", MB_OK );
+        }
+        else
+        {
+            MessageBoxA( hWnd, e.what(), "FATAL ERROR", MB_OK );
+        }
     }
 
     // Now we have done whatever we wanted to do, let windows do anything else it
@@ -296,13 +310,14 @@ void Window::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
                          nullptr,   // Parent window handle
                          nullptr,   // Window menu handle
                          hInstance, // Application instance
-                         nullptr ); // Data to pass to WndProc
+                         this );    // Data to pass to WndProc
 
     if ( !hWnd )
     {
         throw std::runtime_error( "Window creation failed" ); // Throw exception on failure
     }
     m_sWindow = hWnd;
+    Input::BindWindow( *this );
     // Lifetime: bind callback-fed input queues as soon as the HWND exists so
     // later window messages cannot enqueue input against an unknown window.
     Input::BindCallbackBridge( hWnd );

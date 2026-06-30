@@ -30,11 +30,14 @@ Related:
 #pragma once
 
 #include "../Assets/AssetSystem.h"
+#include "../Assets/TextureCollection.h"
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Core/Timer.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
 #include "../Physics/TornadoField.h"
+#include "../World/SkyBox.h"
+#include "CameraCollection.h"
 #include "Input.h"
 #include "Render/RuntimeRenderResources.h"
 #include "RuntimeCameraMode.h"
@@ -113,17 +116,20 @@ struct RunTimerState
 struct RunSubsystemState
 {
     Assets::AssetSystem assets;
+    Textures::TextureCollection textureCollection;
+    Environment::CameraCollection cameraCollection;
     std::unique_ptr<Geometry::Terrain> terrain;
+    std::unique_ptr<Geometry::SkyBox> skyBoxOwner;
     bool isFlatSlopeTerrain = false;
     // Lifetime: all pass resources are released before backend teardown/rebuild
     // and lazily recreated by the ensure hooks that own their target size and
     // shader contracts.
     RunRenderPassResources renderPasses;
 
-    Environment::CameraCollection* cameras = nullptr;
-    Textures::TextureCollection* textures = nullptr;
+    Environment::CameraCollection* cameras = nullptr;          // Borrowed alias of cameraCollection after Initialise wires services.
+    Textures::TextureCollection* textures = nullptr;           // Borrowed alias of textureCollection after Initialise wires services.
     Window* window = nullptr;
-    Geometry::SkyBox* skyBox = nullptr;
+    Geometry::SkyBox* skyBox = nullptr;                        // Borrowed alias of skyBoxOwner after Initialise wires services.
 };
 
 struct RunCameraState

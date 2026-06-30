@@ -18,7 +18,10 @@ Glossary:
     contiguous array for faster iteration.
   Model range: Non-owning pointer/count view over the current deterministic
     compatibility model order.
-  SkullScope: Queryable physics diagnostics trace workflow.
+  Physics body event sink: Explicit side-effect boundary for solver-triggered
+    gameplay reactions such as fixed-tree release.
+  Physics diagnostics view: Borrowed read-only retained solver/debug state used
+    by SkullScope without giving diagnostics ownership of scene storage.
 
 Invariants:
   - Implementations own the underlying model storage and SoA cache.
@@ -44,11 +47,28 @@ namespace SkullbonezCore
 namespace GameObjects
 {
 class GameModel;
-class SkullScope;
 } // namespace GameObjects
 
 namespace Physics
 {
+struct PhysicsDiagnosticsView;
+
+struct PhysicsFixedTreeReleaseEvent
+{
+    int sourceIndex = -1;
+    Math::Vector::Vector3 seedLinearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 seedAngularVelocity = Math::Vector::ZERO_VECTOR;
+};
+
+class PhysicsBodyEventSink
+{
+  public:
+    virtual ~PhysicsBodyEventSink() = default;
+
+    virtual void NotifyFixedContact( int modelIndex, float highlightSeconds ) = 0;
+    virtual void ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event ) = 0;
+};
+
 class PhysicsModelMutableRange
 {
   public:
@@ -135,10 +155,8 @@ class PhysicsModelAccess
     virtual const GameObjects::GameModel* ModelData() const = 0;
     virtual GameObjects::GameModelBodyStream GetPhysicsBodyStream() = 0;
     virtual void InvalidatePhysicsStreams() = 0;
-    virtual void ReleaseAttachedFixedTreeParts( int sourceIndex,
-                                                const Math::Vector::Vector3& seedLinearVelocity,
-                                                const Math::Vector::Vector3& seedAngularVelocity ) = 0;
-    virtual void EmitSkullScopeFrame( GameObjects::SkullScope& scope, float dt ) = 0;
+    virtual PhysicsBodyEventSink& BodyEvents() = 0;
+    virtual PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const = 0;
 
     PhysicsModelMutableRange Models()
     {

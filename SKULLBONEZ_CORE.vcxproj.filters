@@ -1019,6 +1019,9 @@
     <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.h">
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderGraphTransientDX12.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderDeviceDX12.h">
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>

@@ -43,6 +43,7 @@ Related:
 #include "../Rendering/RenderGraph.h"
 #include "../Rendering/RenderPipeline.h"
 
+#include <fstream>
 #include <stdexcept>
 
 using namespace SkullbonezCore::Basics;
@@ -59,6 +60,7 @@ struct CinematicPostGraphCallbackData
     VolumetricPass* volumetricPass = nullptr;
     TonemapPass* tonemapPass = nullptr;
     const RenderFrameContext* frame = nullptr;
+    SkullbonezCore::Rendering::RenderGraphTextureBinding volumetricLight;
     bool volumetricRendered = false;
 };
 
@@ -306,7 +308,9 @@ void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGrap
     {
         throw std::runtime_error( "VolumetricLightPass graph callback missing execution data" );
     }
-    data->volumetricRendered = data->volumetricPass->Render( *data->frame );
+    const SkullbonezCore::Rendering::RenderGraphTextureBinding* graphOutput =
+        data->volumetricLight.IsValid() ? &data->volumetricLight : nullptr;
+    data->volumetricRendered = data->volumetricPass->Render( *data->frame, graphOutput );
 }
 
 void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
@@ -316,7 +320,45 @@ void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
     {
         throw std::runtime_error( "ToneMapPass graph callback missing execution data" );
     }
-    data->tonemapPass->Render( *data->frame, data->volumetricRendered, data->volumetricRendered );
+    const SkullbonezCore::Rendering::RenderGraphTextureBinding* graphVolumetric =
+        ( data->volumetricRendered && data->volumetricLight.IsValid() ) ? &data->volumetricLight : nullptr;
+    data->tonemapPass->Render( *data->frame, data->volumetricRendered, data->volumetricRendered, graphVolumetric );
+}
+
+void WriteCinematicPostGraphEvidence(
+    const SkullbonezCore::Rendering::RenderGraph& graph,
+    const SkullbonezCore::Rendering::RenderGraphCompileResult& compiled,
+    const SkullbonezCore::Rendering::RenderGraphTransientMaterializationStats& materialization,
+    const SkullbonezCore::Rendering::RenderGraphTextureBinding& volumetricBinding,
+    bool volumetricDeclared )
+{
+    std::ofstream out( "Debug/dx12_cinematic_post_graph.txt", std::ios::trunc );
+    if ( !out.is_open() )
+    {
+        return;
+    }
+
+    out << graph.DumpText();
+    out << "\nCinematicPostGraphMaterialization:\n";
+    out << "  volumetric_declared=" << ( volumetricDeclared ? "true" : "false" ) << "\n";
+    out << "  volumetric_binding_valid=" << ( volumetricBinding.IsValid() ? "true" : "false" ) << "\n";
+    out << "  volumetric_texture_handle=" << volumetricBinding.textureHandle << "\n";
+    out << "  volumetric_size=" << volumetricBinding.width << "x" << volumetricBinding.height << "\n";
+    out << "  pool_size=" << materialization.poolSize << "\n";
+    out << "  created_this_compile=" << materialization.createdThisCompile << "\n";
+    out << "  reused_this_compile=" << materialization.reusedThisCompile << "\n";
+    out << "  descriptor_rows_owned=" << materialization.descriptorRowsOwned << "\n";
+    out << "  released_at_frame_end=" << materialization.releasedAtFrameEnd << "\n";
+    out << "  transient_allocation_count=" << compiled.transientAllocations.size() << "\n";
+    for ( size_t i = 0; i < compiled.transientAllocations.size(); ++i )
+    {
+        const SkullbonezCore::Rendering::RenderGraphTransientAllocationDesc& allocation =
+            compiled.transientAllocations[i];
+        const SkullbonezCore::Rendering::RenderGraphResourceDesc& resource =
+            graph.Resources()[allocation.resource.index];
+        out << "  [" << i << "] resource=" << resource.name << " pool_slot=" << allocation.poolSlot
+            << " first_pass=" << allocation.firstPass << " last_pass=" << allocation.lastPass << "\n";
+    }
 }
 
 RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
@@ -329,7 +371,8 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                               SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing,
                                               bool renderReady )
 {
-    return RuntimeRenderInputs{ RuntimeRenderServices{ *systems.textures,
+    return RuntimeRenderInputs{ RuntimeRenderServices{ systems.assets,
+                                                       *systems.textures,
                                                        models,
                                                        world,
                                                        systems.terrain.get(),
@@ -855,13 +898,22 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
     uint32_t expectedCallbacks = 1u;
     uint32_t volumetricPass = 0u;
 
-    // Invariant: framebuffer color targets rest in shader-resource state when
-    // they are not actively bound. VolumetricPass::Render transitions the
-    // texture to render-target state through FramebufferDX12::Bind().
     if ( volumetricDeclared )
     {
-        volumetricLight =
-            graph.AddExternalResource( "VolumetricLight", Rendering::RenderGraphResourceAccess::PixelShaderResource );
+        const VolumetricLightPassResources& volumetric = m_host.m_systems.renderPasses.volumetricLight;
+        Rendering::RenderGraphTransientResourceDesc volumetricDesc;
+        volumetricDesc.kind = Rendering::RenderGraphResourceKind::Texture2D;
+        volumetricDesc.format = Rendering::RenderGraphResourceFormat::RGBA16F;
+        volumetricDesc.width =
+            static_cast<uint32_t>( volumetric.target->GetWidth() > 0 ? volumetric.target->GetWidth() : 1 );
+        volumetricDesc.height =
+            static_cast<uint32_t>( volumetric.target->GetHeight() > 0 ? volumetric.target->GetHeight() : 1 );
+        volumetricDesc.mipLevels = 1;
+        volumetricDesc.descriptors.renderTarget = true;
+        volumetricDesc.descriptors.shaderResource = true;
+        volumetricLight = graph.AddTransientResource( "VolumetricLight",
+                                                      volumetricDesc,
+                                                      Rendering::RenderGraphResourceAccess::PixelShaderResource );
 
         volumetricPass = graph.AddPass( "VolumetricLightPass",
                                         Rendering::RenderGraphQueueType::Graphics,
@@ -900,7 +952,25 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
     // Invariant: dry-run executes no draw code. It proves the callback-owned
     // post passes have resource declarations before live callbacks record
     // commands, and the execute path records them in graph order.
-    graph.Compile();
+    const Rendering::RenderGraphCompileResult compiled = graph.Compile();
+    Rendering::RenderGraphTransientMaterializationStats transientMaterialization;
+    if ( frame.renderCommands )
+    {
+        transientMaterialization = frame.renderCommands->MaterializeGraphTransientResources( graph, compiled );
+        if ( volumetricDeclared )
+        {
+            callbackData.volumetricLight = frame.renderCommands->ResolveGraphTextureBinding( volumetricLight );
+            if ( !callbackData.volumetricLight.IsValid() )
+            {
+                throw std::runtime_error( "VolumetricLight graph transient was not materialized" );
+            }
+        }
+    }
+    WriteCinematicPostGraphEvidence( graph,
+                                     compiled,
+                                     transientMaterialization,
+                                     callbackData.volumetricLight,
+                                     volumetricDeclared );
     graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
     const Rendering::RenderGraphCallbackExecutionResult executed =
         graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
@@ -909,6 +979,9 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
     result.volumetricReady = volumetricDeclared && callbackData.volumetricRendered;
     result.volumetricCallbackOwned = result.volumetricReady;
     result.tonemapCallbackOwned = executed.executedPassCount == expectedCallbacks;
+    result.volumetricTextureHandle = callbackData.volumetricLight.textureHandle;
+    result.volumetricWidth = callbackData.volumetricLight.width;
+    result.volumetricHeight = callbackData.volumetricLight.height;
     return result;
 }
 
@@ -997,6 +1070,7 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( const Runtime
 {
     const RuntimeRenderServices& services = renderInputs.services;
     return RenderResourceContext{ cinematicRender,
+                                  services.assets,
                                   services.renderResources,
                                   (std::max)( 1, m_host.WindowScreenWidth() ),
                                   (std::max)( 1, m_host.WindowScreenHeight() ) };
@@ -1224,9 +1298,10 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     bool volumetricReady = false;
     bool volumetricCallbackOwned = false;
     bool tonemapCallbackOwned = false;
+    CinematicPostGraphResult cinematicPostGraph;
     if ( useCinematicTarget )
     {
-        const CinematicPostGraphResult cinematicPostGraph = ExecuteCinematicPostThroughRenderGraph( frame );
+        cinematicPostGraph = ExecuteCinematicPostThroughRenderGraph( frame );
         volumetricReady = cinematicPostGraph.volumetricReady;
         volumetricCallbackOwned = cinematicPostGraph.volumetricCallbackOwned;
         tonemapCallbackOwned = cinematicPostGraph.tonemapCallbackOwned;
@@ -1260,6 +1335,12 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     frameSnapshot.volumetricCallbackOwned = volumetricCallbackOwned;
     frameSnapshot.volumetricReady = volumetricReady;
     frameSnapshot.tonemapCallbackOwned = tonemapCallbackOwned;
+    if ( volumetricReady )
+    {
+        frameSnapshot.volumetricTextureHandle = cinematicPostGraph.volumetricTextureHandle;
+        frameSnapshot.volumetricWidth = cinematicPostGraph.volumetricWidth;
+        frameSnapshot.volumetricHeight = cinematicPostGraph.volumetricHeight;
+    }
     Rendering::RenderPipeline::DumpExecutedFrameGraphIfChanged( frameSnapshot );
 }
 

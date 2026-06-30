@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Runtime/Editor/EditorTools.cpp
 Purpose:
-  Owns editor placement scale math for balls, boxes, hulls, roots, and trees.
+  Owns editor placement scale math for primitive bodies, hulls, trees, and compound assets.
 
 Mental model:
   Placement gestures start as mouse deltas and wheel clicks. This file maps
@@ -12,7 +12,7 @@ Glossary:
     before placement commits.
   Hull scale: Per-axis size multiplier for convex hull editor assets.
   Uniform scale: One shared size value applied to all axes.
-  Scale lock: Tree/root rule that keeps authored part proportions coherent.
+  Scale lock: Placement rule that keeps authored multi-part asset proportions coherent.
 
 Invariants:
   - Object-type classification must stay in sync with UI::EditorTab entries.
@@ -59,7 +59,7 @@ int ClampEditorObjectType( int objectType )
     return std::clamp( objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
 }
 
-static_assert( UI::EditorTab::OBJECT_TYPE_COUNT == 36,
+static_assert( UI::EditorTab::OBJECT_TYPE_COUNT == 37,
                "Update editor placement scale classification when adding editor object types." );
 } // namespace
 
@@ -141,6 +141,7 @@ bool EditorPlacementUsesTreeScaleLock( int objectType )
     case UI::EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP:
     case UI::EditorTab::OBJECT_TRIPLE_DECKER_SLEEP:
     case UI::EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP:
+    case UI::EditorTab::OBJECT_BRICK_WALL_200_SLEEP:
         return true;
     default:
         return false;

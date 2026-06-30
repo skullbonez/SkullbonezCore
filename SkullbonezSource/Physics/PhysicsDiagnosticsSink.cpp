@@ -68,7 +68,7 @@ void PhysicsDiagnosticsSink::SetPhysicsDiagnosticsRunId( const char* runId )
 void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess )
 {
     auto m_gameModels = modelAccess.Models();
-    const PhysicsWorld::DiagnosticsView diagnosticsView = world.GetDiagnosticsView();
+    const PhysicsDiagnosticsView diagnosticsView = world.GetDiagnosticsView();
     const auto& m_sleepSupportedThisFrame = diagnosticsView.sleepSupportedThisFrame;
     const auto& m_sleepState = diagnosticsView.sleepState;
     const auto& m_sleepInhibitedThisFrame = diagnosticsView.sleepInhibitedThisFrame;
@@ -141,7 +141,7 @@ void PhysicsDiagnosticsSink::IncrementCollisionTimeFrameIfEnabled()
 
 void PhysicsDiagnosticsSink::EmitFrame( PhysicsModelAccess& modelAccess, float dt )
 {
-    modelAccess.EmitSkullScopeFrame( m_skullScope, dt );
+    m_skullScope.EmitFrame( modelAccess, dt );
 }
 #endif
 

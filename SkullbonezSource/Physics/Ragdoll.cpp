@@ -312,19 +312,20 @@ bool ApplyNeckSwingLimits( PhysicsModelMutableRange models,
         {
             continue;
         }
-        if ( constraint.bodyA < 0 || constraint.bodyB < 0 || constraint.bodyA >= modelCount ||
-             constraint.bodyB >= modelCount )
+        const int bodyAIndex = constraint.BodyAIndex();
+        const int bodyBIndex = constraint.BodyBIndex();
+        if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= modelCount || bodyBIndex >= modelCount )
         {
             continue;
         }
 
-        PhysicsBodyRecord& headRecord = bodyRecords[static_cast<size_t>( constraint.bodyB )];
-        if ( headRecord.isFixed || IsBodySleeping( constraint.bodyB, sleepState ) )
+        PhysicsBodyRecord& headRecord = bodyRecords[static_cast<size_t>( bodyBIndex )];
+        if ( headRecord.isFixed || IsBodySleeping( bodyBIndex, sleepState ) )
         {
             continue;
         }
 
-        const RotationMatrix torsoRot = BodyRotation( bodyRecords[static_cast<size_t>( constraint.bodyA )] );
+        const RotationMatrix torsoRot = BodyRotation( bodyRecords[static_cast<size_t>( bodyAIndex )] );
         const RotationMatrix headRot = BodyRotation( headRecord );
         Vector3 torsoUp = torsoRot * Vector3( 0.0f, 1.0f, 0.0f );
         Vector3 headUp = headRot * Vector3( 0.0f, 1.0f, 0.0f );
@@ -350,7 +351,7 @@ bool ApplyNeckSwingLimits( PhysicsModelMutableRange models,
         orientation.RotateAboutAxis( correctionAxis, correctionAngle );
         headRecord.orientation = orientation;
         headRecord.angularVelocity = headRecord.angularVelocity * RAGDOLL_NECK_ANGULAR_DAMPING;
-        bodyStore.WriteBackToModelAt( models, constraint.bodyB );
+        bodyStore.WriteBackToModelAt( models, bodyBIndex );
         changed = true;
     }
     return changed;
@@ -447,8 +448,7 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
     for ( int i = 0; i < jointCount; ++i )
     {
         PointJointConstraint constraint;
-        constraint.bodyA = firstBody + joints[i].bodyA;
-        constraint.bodyB = firstBody + joints[i].bodyB;
+        constraint.SetCompatibilityBodies( firstBody + joints[i].bodyA, firstBody + joints[i].bodyB );
         constraint.localAnchorA = ScaleVector( joints[i].localAnchorA, scale );
         constraint.localAnchorB = ScaleVector( joints[i].localAnchorB, scale );
         constraint.slack = joints[i].slack * scale;
@@ -487,20 +487,19 @@ void Ragdoll::SolvePointJoints( PhysicsModelAccess& modelAccess,
     {
         for ( const PointJointConstraint& constraint : constraints )
         {
-            if ( constraint.bodyA < 0 || constraint.bodyB < 0 || constraint.bodyA >= modelCount ||
-                 constraint.bodyB >= modelCount )
+            const int bodyAIndex = constraint.BodyAIndex();
+            const int bodyBIndex = constraint.BodyBIndex();
+            if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= modelCount || bodyBIndex >= modelCount )
             {
                 continue;
             }
 
-            GameModel& a = models[static_cast<size_t>( constraint.bodyA )];
-            GameModel& b = models[static_cast<size_t>( constraint.bodyB )];
-            PhysicsBodyRecord& bodyA = bodyRecords[static_cast<size_t>( constraint.bodyA )];
-            PhysicsBodyRecord& bodyB = bodyRecords[static_cast<size_t>( constraint.bodyB )];
-            const bool aSleeping =
-                constraint.bodyA < static_cast<int>( sleepState.size() ) && sleepState[constraint.bodyA] != 0;
-            const bool bSleeping =
-                constraint.bodyB < static_cast<int>( sleepState.size() ) && sleepState[constraint.bodyB] != 0;
+            GameModel& a = models[static_cast<size_t>( bodyAIndex )];
+            GameModel& b = models[static_cast<size_t>( bodyBIndex )];
+            PhysicsBodyRecord& bodyA = bodyRecords[static_cast<size_t>( bodyAIndex )];
+            PhysicsBodyRecord& bodyB = bodyRecords[static_cast<size_t>( bodyBIndex )];
+            const bool aSleeping = bodyAIndex < static_cast<int>( sleepState.size() ) && sleepState[bodyAIndex] != 0;
+            const bool bSleeping = bodyBIndex < static_cast<int>( sleepState.size() ) && sleepState[bodyBIndex] != 0;
             const float invMassA = ( bodyA.isFixed || aSleeping ) ? 0.0f : bodyA.invMass;
             const float invMassB = ( bodyB.isFixed || bSleeping ) ? 0.0f : bodyB.invMass;
             const float totalInvMass = invMassA + invMassB;
@@ -568,12 +567,12 @@ void Ragdoll::SolvePointJoints( PhysicsModelAccess& modelAccess,
                 if ( invMassA > 0.0f )
                 {
                     bodyA.position += correction * invMassA;
-                    bodyStore.WriteBackToModelAt( models, constraint.bodyA );
+                    bodyStore.WriteBackToModelAt( models, bodyAIndex );
                 }
                 if ( invMassB > 0.0f )
                 {
                     bodyB.position -= correction * invMassB;
-                    bodyStore.WriteBackToModelAt( models, constraint.bodyB );
+                    bodyStore.WriteBackToModelAt( models, bodyBIndex );
                 }
             }
         }

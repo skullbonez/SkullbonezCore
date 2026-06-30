@@ -9,13 +9,18 @@ Mental model:
   the declarations in this file.
 
 Glossary:
-  Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
-  Back buffer: Swap-chain image that will be presented to the window.
+  Cinematic sky: Scene-authored sky pass driven by horizon, zenith, sun, cloud,
+    and style-mode constants rather than by a bitmap skybox.
+  Procedural ridge: Generated low-poly horizon silhouette used by some style
+    modes to suggest distance without an external backdrop asset.
+  Sky mode: Integer style selector supplied by scene data; each mode must keep
+    existing scene defaults stable unless that scene explicitly opts in.
 
 Invariants:
   - CPU-side root signatures, input layouts, and descriptor bindings must
-  match this shader exactly.
+    match this shader exactly.
+  - Style modes are scene-authored compatibility surface; default mode behavior
+    must not drift when adding a special-case showcase mode.
 
 Related:
   - Agentic/Reference/comment-style-guide.md
@@ -28,8 +33,8 @@ Related:
 //
 // The sky is a procedural, world-stable background. Every pixel is converted
 // into a world-space view ray, then shaded from a normalized sun direction,
-// low-poly horizon/zenith palette, procedural clouds, and distant stylized
-// ridges. No external sky textures are required.
+// low-poly horizon/zenith palette, procedural clouds, and optional distant
+// stylized ridges. No external sky textures are required.
 // =============================================================================
 
 cbuffer Uniforms : register(b0)
@@ -205,15 +210,21 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float3 sun = sunColor * (sunDisk * uSunParams.z + innerGlow * uSunParams.w * 0.86f +
                              outerGlow * uSunParams.w * 0.24f + lowHaze * 0.36f);
 
-    float farRidge = RidgeMask(coord, 0.34f, 0.10f, 3.2f, 0.10f);
-    float midRidge = RidgeMask(coord, 0.30f, 0.105f, 4.6f, 0.36f);
-    float nearRidge = RidgeMask(coord, 0.26f, 0.092f, 6.1f, 0.68f);
-    float3 farColor = clamp(lerp(zenith, horizon, 0.36f) * float3(0.42f, 0.55f, 0.68f), 0.0f, 1.8f);
-    float3 midColor = clamp(lerp(zenith, horizon, 0.46f) * float3(0.38f, 0.48f, 0.58f), 0.0f, 1.8f);
-    float3 nearColor = clamp(lerp(zenith, horizon, 0.62f) * float3(0.28f, 0.38f, 0.40f), 0.0f, 1.6f);
-    skyColor = lerp(skyColor, farColor, farRidge * 0.58f);
-    skyColor = lerp(skyColor, midColor, midRidge * 0.68f);
-    skyColor = lerp(skyColor, nearColor, nearRidge * 0.78f);
+    if (styleMode != 20)
+    {
+        // Why: style mode 20 is reserved for open-horizon procedural skies used
+        // by scenes that forbid mountain or ridge silhouettes while keeping the
+        // existing sky shader and all default styles unchanged.
+        float farRidge = RidgeMask(coord, 0.34f, 0.10f, 3.2f, 0.10f);
+        float midRidge = RidgeMask(coord, 0.30f, 0.105f, 4.6f, 0.36f);
+        float nearRidge = RidgeMask(coord, 0.26f, 0.092f, 6.1f, 0.68f);
+        float3 farColor = clamp(lerp(zenith, horizon, 0.36f) * float3(0.42f, 0.55f, 0.68f), 0.0f, 1.8f);
+        float3 midColor = clamp(lerp(zenith, horizon, 0.46f) * float3(0.38f, 0.48f, 0.58f), 0.0f, 1.8f);
+        float3 nearColor = clamp(lerp(zenith, horizon, 0.62f) * float3(0.28f, 0.38f, 0.40f), 0.0f, 1.6f);
+        skyColor = lerp(skyColor, farColor, farRidge * 0.58f);
+        skyColor = lerp(skyColor, midColor, midRidge * 0.68f);
+        skyColor = lerp(skyColor, nearColor, nearRidge * 0.78f);
+    }
 
     float cloudShape = 0.0f;
     float cloudMask = CloudMask(coord, dir, cloudShape) * clamp(uCloudParams.w, 0.0f, 1.5f);

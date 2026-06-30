@@ -59,26 +59,24 @@ int NextSceneRand( unsigned int& state )
 
 void SceneGeneratedSetup::SetUpCameras( SceneGeneratedCameraContext context )
 {
-    context.cameras = Environment::CameraCollection::Instance();
+    context.cameras.AddCamera( Vector3( 321.0f, 110.0f, 557.0f ), // Position
+                               Vector3( 581.0f, 40.0f, 633.0f ),  // View
+                               Vector3( 0.0f, 1.0f, 0.0f ),       // Up
+                               CAMERA_GAME_MODEL_1 );
 
-    context.cameras->AddCamera( Vector3( 321.0f, 110.0f, 557.0f ), // Position
-                                Vector3( 581.0f, 40.0f, 633.0f ),  // View
-                                Vector3( 0.0f, 1.0f, 0.0f ),       // Up
-                                CAMERA_GAME_MODEL_1 );
+    context.cameras.AddCamera( Vector3( 730.0f, 100.0f, 380.0f ), // Position
+                               Vector3( 709.0f, 92.0f, 482.0f ),  // View
+                               Vector3( 0.0f, 1.0f, 0.0f ),       // Up
+                               CAMERA_GAME_MODEL_2 );
 
-    context.cameras->AddCamera( Vector3( 730.0f, 100.0f, 380.0f ), // Position
-                                Vector3( 709.0f, 92.0f, 482.0f ),  // View
-                                Vector3( 0.0f, 1.0f, 0.0f ),       // Up
-                                CAMERA_GAME_MODEL_2 );
+    context.cameras.AddCamera( Vector3( 900.0f, 110.0f, 900.0f ), // Position
+                               Vector3( 313.0f, 31.0f, 282.0f ),  // View
+                               Vector3( 0.0f, 1.0f, 0.0f ),       // Up
+                               CAMERA_FREE );
 
-    context.cameras->AddCamera( Vector3( 900.0f, 110.0f, 900.0f ), // Position
-                                Vector3( 313.0f, 31.0f, 282.0f ),  // View
-                                Vector3( 0.0f, 1.0f, 0.0f ),       // Up
-                                CAMERA_FREE );
-
-    context.cameras->SetCameraXZBounds( context.terrain.GetXZBounds() );
-    context.cameras->SetTerrain( &context.terrain );
-    context.cameras->SetLockedMode( true );
+    context.cameras.SetCameraXZBounds( context.terrain.GetXZBounds() );
+    context.cameras.SetTerrain( &context.terrain );
+    context.cameras.SetLockedMode( true );
 }
 
 

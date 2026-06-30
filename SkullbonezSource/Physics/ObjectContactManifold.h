@@ -78,5 +78,13 @@ bool BuildObjectContactManifold( const GameObjects::GameModel& a,
                                  int bodyB,
                                  float contactSkin,
                                  ObjectContactManifold& out );
+bool BuildObjectContactManifold( const GameObjects::GameModel& a,
+                                 const Math::CollisionDetection::CollisionShape& shapeA,
+                                 const GameObjects::GameModel& b,
+                                 const Math::CollisionDetection::CollisionShape& shapeB,
+                                 int bodyA,
+                                 int bodyB,
+                                 float contactSkin,
+                                 ObjectContactManifold& out );
 } // namespace Physics
 } // namespace SkullbonezCore

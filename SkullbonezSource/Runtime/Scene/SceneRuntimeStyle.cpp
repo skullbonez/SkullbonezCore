@@ -105,11 +105,18 @@ bool IsSimpleRagdollPartName( const char* name )
     return false;
 }
 
+bool IsBroadMaterialTarget( const char* target )
+{
+    return strcmp( target, "all" ) == 0 || strcmp( target, "balls" ) == 0 || strcmp( target, "boxes" ) == 0 ||
+           strcmp( target, "hulls" ) == 0 || strcmp( target, "convex_hulls" ) == 0;
+}
+
 bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const GameModel& model )
 {
     // Invariant: Simple ragdoll parts keep their authored body materials; broad
-    // style targets apply to ordinary scene bodies only.
-    if ( IsSimpleRagdollPartName( model.GetName() ) )
+    // style targets apply to ordinary scene bodies only. Exact and prefix
+    // targets still opt a named ragdoll into scene-local showcase material.
+    if ( IsSimpleRagdollPartName( model.GetName() ) && IsBroadMaterialTarget( material.target ) )
     {
         return false;
     }
@@ -131,7 +138,8 @@ bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, co
     }
     if ( strncmp( material.target, "prefix:", 7 ) == 0 )
     {
-        return strncmp( model.GetName(), material.target + 7, strlen( material.target + 7 ) ) == 0;
+        const char* prefix = material.target + 7;
+        return prefix[0] != '\0' && strncmp( model.GetName(), prefix, strlen( prefix ) ) == 0;
     }
     return strcmp( material.target, model.GetName() ) == 0;
 }

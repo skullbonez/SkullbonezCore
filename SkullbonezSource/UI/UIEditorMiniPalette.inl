@@ -1134,6 +1134,17 @@ void DrawEditorMiniIcon( const UIDrawContext& draw,
         draw.Rect( cx + r * 0.56f, cy - r * 0.38f, r * 0.22f, r * 1.26f, color.r, color.g, color.b, alpha * 0.56f );
         return;
     }
+    if ( type == EditorTab::OBJECT_BRICK_WALL_200_SLEEP )
+    {
+        for ( int row = 0; row < 4; ++row )
+        {
+            const float rowY = cy - r * 0.78f + static_cast<float>( row ) * r * 0.42f;
+            const float offset = ( row & 1 ) ? r * 0.22f : 0.0f;
+            draw.Rect( cx - r * 0.96f + offset, rowY, r * 0.78f, r * 0.28f, color.r, color.g, color.b, alpha );
+            draw.Rect( cx - r * 0.10f + offset, rowY, r * 0.78f, r * 0.28f, color.r, color.g, color.b, alpha * 0.82f );
+        }
+        return;
+    }
     if ( type == EditorTab::OBJECT_BRICK_HOUSE_SLEEP || type == EditorTab::OBJECT_BRICK_HOUSE_HIGH_SLEEP ||
          type == EditorTab::OBJECT_CUTE_HOUSE_SLEEP || type == EditorTab::OBJECT_CUTE_HOUSE_HIGH_SLEEP ||
          type == EditorTab::OBJECT_TRIPLE_DECKER_SLEEP || type == EditorTab::OBJECT_TRIPLE_DECKER_HIGH_SLEEP )

@@ -11,6 +11,8 @@ Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
+  Convex hull: Immutable authored collision geometry rendered through dynamic
+    hull vertices instead of the sphere or box instance streams.
 
 Invariants:
   - GameModelRenderer consumes collection render streams; GameModelCollection
@@ -271,6 +273,7 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
         batches.spheres.reserve( static_cast<size_t>( end - begin ) );
         batches.boxes.reserve( static_cast<size_t>( end - begin ) );
         batches.pines.reserve( static_cast<size_t>( end - begin ) );
+        batches.convexHulls.reserve( static_cast<size_t>( end - begin ) );
         for ( int x = begin; x < end; ++x )
         {
             if ( models[x].IsSphere() )
@@ -281,6 +284,13 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
 
             if ( models[x].IsConvexHull() )
             {
+                const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &models[x].GetCollisionShape() );
+                if ( hull )
+                {
+                    const Matrix4 bodyModel = Matrix4::Translate( models[x].GetPosition() ) *
+                                              Matrix4::FromQuaternion( models[x].GetOrientation() );
+                    batches.convexHulls.push_back( { hull, bodyModel } );
+                }
                 continue;
             }
 
@@ -316,6 +326,9 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
                 outBatches.spheres.insert( outBatches.spheres.end(), local.spheres.begin(), local.spheres.end() );
                 outBatches.boxes.insert( outBatches.boxes.end(), local.boxes.begin(), local.boxes.end() );
                 outBatches.pines.insert( outBatches.pines.end(), local.pines.begin(), local.pines.end() );
+                outBatches.convexHulls.insert( outBatches.convexHulls.end(),
+                                               local.convexHulls.begin(),
+                                               local.convexHulls.end() );
             },
             SHADOW_PARALLEL_PREP_MIN_CASTERS );
         return;
@@ -371,6 +384,20 @@ void GameModelRenderer::SubmitShadowCasterBatches( const ShadowCasterBatches& ba
         }
         RenderHelper::DrawShadowDepthPineBatchEnd();
     }
+
+    if ( !batches.convexHulls.empty() )
+    {
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/ConvexHulls" );
+        DRAW_CALL_TRACE_SCOPE( "ConvexHulls" );
+
+        for ( const auto& caster : batches.convexHulls )
+        {
+            if ( caster.hull )
+            {
+                RenderHelper::DrawShadowDepthConvexHullModel( *caster.hull, caster.model, view, proj );
+            }
+        }
+    }
 }
 
 
@@ -382,26 +409,6 @@ void GameModelRenderer::RenderShadowCasters( GameModelCollection& collection,
     ShadowCasterBatches batches;
     BuildShadowCasterBatches( collection, batches );
     SubmitShadowCasterBatches( batches, view, proj, cinematic );
-
-    const std::vector<GameModel>& models = collection.Models();
-    DRAW_CALL_TRACE_SCOPE( "ConvexHulls" );
-    for ( const GameModel& model : models )
-    {
-        if ( !model.IsConvexHull() )
-        {
-            continue;
-        }
-
-        const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &model.GetCollisionShape() );
-        if ( !hull )
-        {
-            continue;
-        }
-
-        const Matrix4 bodyModel =
-            Matrix4::Translate( model.GetPosition() ) * Matrix4::FromQuaternion( model.GetOrientation() );
-        RenderHelper::DrawShadowDepthConvexHullModel( *hull, bodyModel, view, proj );
-    }
 }
 
 

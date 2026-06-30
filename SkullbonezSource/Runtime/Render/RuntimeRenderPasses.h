@@ -50,7 +50,13 @@ class IRenderCommandContext;
 class IRenderDiagnostics;
 class IRenderRayTracing;
 class IRenderResourceFactory;
+struct RenderGraphTextureBinding;
 } // namespace Rendering
+
+namespace Assets
+{
+class AssetSystem;
+} // namespace Assets
 
 namespace Basics
 {
@@ -127,6 +133,7 @@ struct RenderResourceContext
     // RuntimeRenderer::EnsureFrameResources() or explicit ensure calls, while
     // draw methods keep using RenderFrameContext.
     bool cinematicEnabled = false;
+    Assets::AssetSystem& assets;
     Rendering::IRenderResourceFactory& renderResources;
     int windowWidth = 1;                    // Active render-target width used for resize-sensitive GPU objects.
     int windowHeight = 1;                   // Active render-target height used for resize-sensitive GPU objects.
@@ -517,7 +524,7 @@ class VolumetricPass
     void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
     bool CanRender( const RenderFrameContext& frame ) const;
-    bool Render( const RenderFrameContext& frame );
+    bool Render( const RenderFrameContext& frame, const Rendering::RenderGraphTextureBinding* graphOutput = nullptr );
 
   private:
     RuntimeRenderHost& m_host;
@@ -539,7 +546,10 @@ class TonemapPass
 
     void EnsureGpuResources( const RenderResourceContext& resources );
     void ReleaseGpuResources();
-    void Render( const RenderFrameContext& frame, bool sceneAlreadyUnbound, bool volumetricReady );
+    void Render( const RenderFrameContext& frame,
+                 bool sceneAlreadyUnbound,
+                 bool volumetricReady,
+                 const Rendering::RenderGraphTextureBinding* graphVolumetric = nullptr );
 
   private:
     RuntimeRenderHost& m_host;

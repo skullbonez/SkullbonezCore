@@ -23,6 +23,8 @@ Related:
 */
 #include "EngineContext.h"
 
+#include "RunState.h"
+
 #include <cassert>
 
 namespace SkullbonezCore
@@ -59,6 +61,24 @@ EngineContextBindings& EngineContext::Bindings()
     // require the complete bound runtime graph.
     assert( IsBound() && "EngineContext bindings accessed before full Bind()" );
     return m_bindings;
+}
+
+
+EngineServices EngineContext::Services()
+{
+    RunSubsystemState& systems = *Bindings().systems;
+    EngineServices services{ &systems.assets,
+                             systems.textures,
+                             systems.cameras,
+                             EngineServices::WindowService{ systems.window },
+                             systems.terrain.get(),
+                             systems.skyBox };
+    // Invariant: service borrowers should fail before using half-initialized
+    // process services. Run binds the broad context in its constructor, then
+    // fills these legacy service bridges during Initialise().
+    assert( services.assets && services.textures && services.cameras && services.window.window && services.terrain &&
+            services.skyBox && "EngineServices requested before Run::Initialise completed" );
+    return services;
 }
 } // namespace Basics
 } // namespace SkullbonezCore

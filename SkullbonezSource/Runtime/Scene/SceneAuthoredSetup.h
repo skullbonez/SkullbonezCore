@@ -80,7 +80,7 @@ struct RunRequiredBroadphaseXCellsState
 
 struct SceneAuthoredCameraContext
 {
-    Environment::CameraCollection*& cameras;
+    Environment::CameraCollection& cameras;
     Geometry::Terrain& terrain;
 };
 

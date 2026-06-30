@@ -1,0 +1,63 @@
+# Convex hull asset.
+# source_* directives preserve editable geometry; runtime reads baked directives.
+hull_version 2
+name brick_wall_unit
+source_hash 0x890e5ec5164feb3d
+
+# Editable source geometry.
+source_vertex -1.15 -1.45 -2.45
+source_vertex 1.15 -1.45 -2.45
+source_vertex 1.15 1.45 -2.45
+source_vertex -1.15 1.45 -2.45
+source_vertex -1.15 -1.45 2.45
+source_vertex 1.15 -1.45 2.45
+source_vertex 1.15 1.45 2.45
+source_vertex -1.15 1.45 2.45
+source_face 0 1 2 3
+source_face 4 7 6 5
+source_face 0 4 5 1
+source_face 3 2 6 7
+source_face 0 3 7 4
+source_face 1 5 6 2
+
+# Baked runtime metadata.
+center_of_mass 0 0 0
+volume 32.683
+default_density 0.9
+default_mass 29.4147
+bounding_radius 3.07042342
+inertia_half_extents 1.15 1.45 2.45
+unit_inertia 2.70166667 2.44166667 1.14166667
+projected_surface_area 10.7166667
+
+# Baked centered vertices.
+vertex -1.15 -1.45 -2.45
+vertex 1.15 -1.45 -2.45
+vertex 1.15 1.45 -2.45
+vertex -1.15 1.45 -2.45
+vertex -1.15 -1.45 2.45
+vertex 1.15 -1.45 2.45
+vertex 1.15 1.45 2.45
+vertex -1.15 1.45 2.45
+
+# Baked faces: normal.xyz planeOffset vertexIndices...
+face 0 0 -1 2.45 3 2 1 0
+face 0 0 1 2.45 5 6 7 4
+face 0 -1 0 1.45 1 5 4 0
+face 0 1 0 1.45 7 6 2 3
+face -1 0 0 1.15 4 7 3 0
+face 1 0 0 1.15 2 6 5 1
+
+# Baked edges: vertexA vertexB faceA faceB
+edge 2 3 0 3
+edge 1 2 0 5
+edge 0 1 0 2
+edge 0 3 0 4
+edge 5 6 1 5
+edge 6 7 1 3
+edge 4 7 1 4
+edge 4 5 1 2
+edge 1 5 2 5
+edge 0 4 2 4
+edge 2 6 3 5
+edge 3 7 3 4

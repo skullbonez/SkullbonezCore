@@ -49,6 +49,7 @@ Related:
 
 
 #include "../IRenderBackend.h"
+#include "RenderGraphTransientDX12.h"
 #include "RenderDeviceDX12.h"
 #include "MeshDX12.h"
 #include "BLASDX12.h"
@@ -187,7 +188,10 @@ struct LiveUavBarrierRecordDX12
     char source[64] = {};
 };
 
-
+// Lifetime: graph transient slots own their DX12 resource until the backend
+// releases the graph pool. Descriptor rows come from the backend descriptor
+// allocators and are reused with the slot; they must not be mixed into
+// material/object texture ownership.
 // Concept: RenderBackendDX12 is the engine-facing facade over explicit DX12 state.
 //
 // The public IRenderBackend API uses engine verbs: set a shader, set textures,
@@ -371,6 +375,21 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     bool m_psoDirty = true;
     std::vector<LiveBarrierRecordDX12> m_liveBarrierRecords;
     std::vector<LiveUavBarrierRecordDX12> m_liveUavBarrierRecords;
+    // Graph-created transient targets use the backend descriptor allocators, but
+    // they are tracked in their own pool so material/object texture tables do
+    // not become the owner of frame-target lifetime. A pool slot may be reused
+    // only when the graph compiler has already proven descriptor and lifetime
+    // compatibility for that slot.
+    std::vector<GraphTransientResourceDX12> m_graphTransientResources;
+    // Maps logical graph handles from the latest compile to physical pool slots
+    // so callbacks can resolve the resource named by their pass declaration.
+    std::vector<GraphTransientBindingDX12> m_graphTransientBindings;
+    GraphTransientMaterializationStatsDX12 m_graphTransientStats;
+    bool m_graphRenderTargetActive = false;
+    RenderGraphResourceHandle m_activeGraphRenderTarget;
+    D3D12_CPU_DESCRIPTOR_HANDLE m_savedGraphRTV = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE m_savedGraphDSV = {};
+    DXGI_FORMAT m_savedGraphRTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 
     ShaderDX12* m_activeShader = nullptr;
     // Currently bound persistent SRV descriptor indices for shader texture
@@ -446,7 +465,10 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     void FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );
     D3D12_GPU_VIRTUAL_ADDRESS SubAllocateUpload( UINT64 size, UINT64 alignment );
     void ReportArchitectureStats( const char* reason ) const;
-    void DumpFrameGraphSkeleton() const;
+    void DumpFrameGraphSkeleton();
+    GraphTransientResourceDX12* FindGraphTransientSlot( RenderGraphResourceHandle resource );
+    const GraphTransientResourceDX12* FindGraphTransientSlot( RenderGraphResourceHandle resource ) const;
+    void ReleaseGraphTransientResources( const char* reason );
     void ReportDeviceLost( const char* context, HRESULT result ) const;
     size_t HashPSOKey( const PSOKey12& key );
     ID3D12PipelineState*
@@ -511,6 +533,11 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     CreateTexture2D( const uint8_t* data, int w, int h, int channels, bool generateMips, bool linearFilter ) override;
     void BindTexture( uint32_t handle, int slot ) override;
     void DeleteTexture( uint32_t handle ) override;
+    RenderGraphTransientMaterializationStats
+    MaterializeGraphTransientResources( const RenderGraph& graph, const RenderGraphCompileResult& compiled ) override;
+    RenderGraphTextureBinding ResolveGraphTextureBinding( RenderGraphResourceHandle resource ) const override;
+    void BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
+    void EndGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
 
     std::vector<uint8_t> CaptureBackbuffer( int& outWidth, int& outHeight ) override;
     bool SupportsBackbufferCapture() const override

@@ -21,6 +21,8 @@ Invariants:
     register a camera before selecting it by hash.
   - m_terrain is borrowed scene state and must not be freed by the camera
     collection.
+  - Runtime-owned camera collections are value-owned by Run and borrowed through
+    explicit runtime service pointers.
 
 Related:
   - SkullbonezSource/Runtime/CameraCollection.cpp
@@ -42,15 +44,15 @@ namespace Environment
 /* -- Camera Collection
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-    A singleton class that holds a collection of Camera objects and performs operations on these multiple cameras such
-as tweens, camera changes etc. This class is a friend of the Camera class.  The camera class has no public interface -
-cameras must be used through the CameraCollection class.
+    Runtime-owned collection of Camera objects that performs operations on
+    multiple cameras such as tweens and camera changes. This class is a friend
+    of the Camera class. The camera class has no public interface; cameras must
+    be used through the CameraCollection class.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class CameraCollection
 {
 
   private:
-    inline static CameraCollection* pInstance = nullptr;
     Camera m_cameraArray[TOTAL_CAMERA_COUNT];                      // Fixed camera slots keyed by m_cameraHashes.
     Camera m_primaryStore;                                         // Primary snapshot used to keep relative cameras coherent.
     Camera m_tweenPath;                                            // Source-to-destination pose delta for the active tween.
@@ -66,8 +68,6 @@ class CameraCollection
     Geometry::Terrain* m_terrain;                                  // Borrowed scene terrain used to keep tweened cameras collision-aware.
     Math::Transformation::Matrix4 m_currentViewMatrix;             // Render-facing view matrix refreshed once per frame.
 
-    CameraCollection();
-    ~CameraCollection() = default;
     void SetViewMatrix( const Camera& cCameraData );               // Frame view matrix comes from the pose selected for rendering.
     int FindIndex( uint32_t hash );                                // Throws when the scene asks for an unregistered camera hash.
     Camera GetCameraDelta();                                       // Primary movement delta used to update relative cameras.
@@ -75,8 +75,11 @@ class CameraCollection
     void SetTweenPath( int fromIndex, int toIndex );               // fromIndex=-1 starts from the current tween pose.
 
   public:
-    static CameraCollection* Instance();
-    static void Destroy();
+    CameraCollection();
+    ~CameraCollection() = default;
+    CameraCollection( const CameraCollection& ) = delete;
+    CameraCollection& operator=( const CameraCollection& ) = delete;
+
     const Math::Vector::Vector3& GetCameraView();
     const Math::Vector::Vector3& GetCameraTranslation();
     const Math::Vector::Vector3& GetCameraUp();
@@ -124,7 +127,7 @@ class CameraCollection
                     const Math::Vector::Vector3& vView,
                     const Math::Vector::Vector3& vUp,
                     uint32_t hash );
-    void Reset();                                                  // Scene reload path; retains the singleton allocation.
+    void Reset();                                                  // Scene reload path; preserves Run-owned storage.
 };
 } // namespace Environment
 } // namespace SkullbonezCore

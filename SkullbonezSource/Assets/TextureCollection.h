@@ -16,6 +16,8 @@ Invariants:
   - m_textures is fixed to TOTAL_TEXTURE_COUNT; hash lookup must resolve to one
     resident slot before binding.
   - m_assets is borrowed and may be null for legacy direct texture loads.
+  - Texture creation/deletion uses a borrowed render-resource context; texture
+    selection uses a borrowed command context.
 
 Related:
   - SkullbonezSource/Assets/TextureCollection.cpp
@@ -31,6 +33,12 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Rendering
+{
+class IRenderCommandContext;
+class IRenderResourceFactory;
+} // namespace Rendering
+
 namespace Textures
 {
 class TextureCollection
@@ -52,11 +60,10 @@ class TextureCollection
         }
     };
 
-    TextureCollection() = default;
-    ~TextureCollection() = default;
-
     std::array<GpuTextureRecord, TOTAL_TEXTURE_COUNT> m_textures = {};
     Assets::AssetSystem* m_assets = nullptr;
+    Rendering::IRenderResourceFactory* m_renderResources = nullptr;
+    Rendering::IRenderCommandContext* m_renderCommands = nullptr;
 
     int FindIndex( uint32_t hash ) const;
     int FindIndexNoThrow( uint32_t hash ) const;
@@ -72,9 +79,16 @@ class TextureCollection
     void CreateTextureFromSourceAsset( const Assets::TextureSourceAsset& source );
 
   public:
+    TextureCollection() = default;
+    ~TextureCollection() = default;
+    TextureCollection( const TextureCollection& ) = delete;
+    TextureCollection& operator=( const TextureCollection& ) = delete;
+
     static TextureCollection* Instance();
     static void Destroy();
     void BindAssetSystem( Assets::AssetSystem* assets );
+    void BindRenderContexts( Rendering::IRenderResourceFactory* renderResources,
+                             Rendering::IRenderCommandContext* renderCommands );
     bool HasTexture( uint32_t hash ) const;
     void EnsureTexture( uint32_t hash );
     void SelectTexture( uint32_t hash );

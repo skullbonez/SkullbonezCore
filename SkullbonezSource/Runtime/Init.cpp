@@ -40,7 +40,14 @@ Related:
 #include "../Core/Timer.h"
 #include "../Rendering/IRenderBackend.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
+#include "../GameObjects/GameModel.h"
+#include "../GameObjects/GameModelCollection.h"
+#include "../GameObjects/GameModelCollectionPhysicsAdapter.h"
+#include "../Physics/ColliderStore.h"
+#include "../Physics/PhysicsBodyStore.h"
 #include "../Physics/PhysicsApi.h"
+#include "../Rendering/RenderInstanceStore.h"
+#include "../World/WorldEnvironment.h"
 #include "../Core/PlatformProfiler.h"
 #include "../Core/WorkerPool.h"
 #include <cerrno>
@@ -561,6 +568,113 @@ bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode )
     return true;
 }
 
+struct PhysicsRuntimeHandleSmokeResult
+{
+    bool passed = false;
+    bool handlesMatchStores = false;
+    bool renderMirrorMatches = false;
+    bool jointUsesHandles = false;
+    bool colliderRefreshMatches = false;
+    int bodyCount = 0;
+    int colliderCount = 0;
+    int renderInstanceCount = 0;
+    std::size_t pointJointCount = 0;
+    PhysicsBodyHandle bodyA;
+    std::string errorMessage;
+};
+
+
+PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
+{
+    // Why: this smoke proves the runtime compatibility adapter can turn scene
+    // objects into physics handles and that body/collider/render mirrors stay
+    // aligned without opening the window or renderer. WinMain runs the normal
+    // command-line/config bootstrap before this helper so collection capacity
+    // uses the same config snapshot as a regular runtime launch.
+    auto world = std::make_unique<SkullbonezCore::Environment::WorldEnvironment>();
+    auto collection = std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>();
+
+    for ( int i = 0; i < 2; ++i )
+    {
+        SkullbonezCore::GameObjects::GameModel model(
+            world.get(),
+            SkullbonezCore::Math::Vector::Vector3( static_cast<float>( i ) * 2.0f, 4.0f, 0.0f ),
+            SkullbonezCore::Math::Vector::Vector3( 1.0f, 1.0f, 1.0f ),
+            2.0f + static_cast<float>( i ) );
+        model.AddBoundingSphere( 0.75f );
+        char name[32] = {};
+        sprintf_s( name, sizeof( name ), "runtime_smoke_%d", i );
+        model.SetName( name );
+        collection->AddGameModel( std::move( model ) );
+    }
+
+    SkullbonezCore::GameObjects::GameModelCollectionPhysicsAdapter adapter( *collection );
+    const PhysicsBodyHandle bodyA = adapter.BodyHandleForModelIndex( 0 );
+    const PhysicsBodyHandle bodyB = adapter.BodyHandleForModelIndex( 1 );
+
+    PointJointConstraint joint;
+    joint.bodyA = bodyA;
+    joint.bodyB = bodyB;
+    joint.localAnchorA = SkullbonezCore::Math::Vector::Vector3( 0.25f, 0.0f, 0.0f );
+    joint.localAnchorB = SkullbonezCore::Math::Vector::Vector3( -0.25f, 0.0f, 0.0f );
+    collection->AddPointJointConstraint( joint );
+
+    const PhysicsBodyStore& bodyStore = collection->GetPhysicsBodyStore();
+    const ColliderStore& colliderStore = collection->GetColliderStore();
+    const RenderInstanceStore& renderStore = collection->GetRenderInstanceStore();
+    const std::vector<PointJointConstraint>& pointJoints = collection->GetPointJointConstraints();
+    const size_t initialColliderCount = colliderStore.Count();
+    const ColliderRecord initialCollider = colliderStore.Records()[0];
+
+    SkullbonezCore::GameObjects::GameModel& editedModel = collection->GetModelAtIndex( 0 );
+    editedModel.AddBoundingBox( SkullbonezCore::Math::Vector::Vector3( 0.25f, 1.25f, 0.5f ) );
+    editedModel.SetCoefficientRestitution( 0.42f );
+    const ColliderStore& refreshedColliderStore = collection->GetColliderStore();
+    const ColliderRecord& refreshedCollider = refreshedColliderStore.Records()[0];
+    const float expectedBoxRadius = sqrtf( 0.25f * 0.25f + 1.25f * 1.25f + 0.5f * 0.5f );
+    // Invariant: same-count authoring edits must be visible through the explicit
+    // collider-store refresh boundary. The physics hot step only auto-refreshes
+    // topology changes, so tools and scene edits need this accessor to be fresh.
+    const bool colliderRefreshMatches =
+        initialCollider.shapeKind == ColliderShapeKind::Sphere &&
+        refreshedCollider.shapeKind == ColliderShapeKind::Box &&
+        fabsf( refreshedCollider.boundingRadius - expectedBoxRadius ) < 0.0001f &&
+        fabsf( refreshedCollider.restitution - 0.42f ) < 0.0001f &&
+        fabsf( refreshedCollider.projectedSurfaceArea - initialCollider.projectedSurfaceArea ) > 0.0001f &&
+        fabsf( refreshedCollider.dragCoefficient - initialCollider.dragCoefficient ) > 0.0001f &&
+        refreshedCollider.handle == initialCollider.handle && refreshedCollider.body == initialCollider.body &&
+        refreshedColliderStore.Count() == initialColliderCount;
+
+    const PhysicsBodyRecord* bodyARecord = bodyStore.RecordForModelIndex( 0 );
+    const PhysicsBodyRecord* bodyBRecord = bodyStore.RecordForModelIndex( 1 );
+    const RenderInstanceHandle renderHandleA = renderStore.HandleForModelIndex( 0 );
+    const bool handlesMatchStores = bodyA.IsValid() && bodyB.IsValid() && bodyARecord && bodyBRecord &&
+                                    bodyARecord->handle == bodyA && bodyBRecord->handle == bodyB &&
+                                    colliderStore.HandleForModelIndex( 0 ).IsValid() &&
+                                    colliderStore.HandleForModelIndex( 1 ).IsValid();
+    const bool renderMirrorMatches = bodyARecord && renderStore.Count() == 2 && renderHandleA.IsValid() &&
+                                     renderStore.ModelIndexForHandle( renderHandleA ) == 0 &&
+                                     !renderStore.Records().empty() &&
+                                     renderStore.Records()[0].replayBodyId == bodyARecord->replayBodyId;
+    const bool jointUsesHandles = pointJoints.size() == 1 && pointJoints[0].bodyA == bodyA &&
+                                  pointJoints[0].bodyB == bodyB && pointJoints[0].BodyAIndex() == 0 &&
+                                  pointJoints[0].BodyBIndex() == 1;
+
+    PhysicsRuntimeHandleSmokeResult result;
+    result.handlesMatchStores = handlesMatchStores;
+    result.renderMirrorMatches = renderMirrorMatches;
+    result.jointUsesHandles = jointUsesHandles;
+    result.colliderRefreshMatches = colliderRefreshMatches;
+    result.bodyCount = bodyStore.Count();
+    result.colliderCount = colliderStore.Count();
+    result.renderInstanceCount = renderStore.Count();
+    result.pointJointCount = pointJoints.size();
+    result.bodyA = bodyA;
+    result.passed = handlesMatchStores && renderMirrorMatches && jointUsesHandles && colliderRefreshMatches;
+    return result;
+}
+
+
 bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outExitCode )
 {
     if ( !HasOption( commandLine, "--physics-standalone-smoke" ) &&
@@ -570,32 +684,82 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
     }
 
     // Why: this option runs before WorkerPool, Window, renderer, Run, or scene
-    // setup so it proves the public physics API can be constructed by itself.
+    // setup so it proves the public physics API and runtime handle mirror can be
+    // constructed without renderer/window services.
     const PhysicsStandaloneSmokeResult result = RunPhysicsStandaloneSmoke();
-    fprintf( stdout,
-             "[physics-standalone-smoke] bodies=%u steps=%u final_position=(%.6f,%.6f,%.6f) "
-             "final_velocity=(%.6f,%.6f,%.6f) lifecycle_checks=%s hash=0x%016llX\n",
-             result.bodyCount,
-             result.stepCount,
-             result.finalPosition.x,
-             result.finalPosition.y,
-             result.finalPosition.z,
-             result.finalLinearVelocity.x,
-             result.finalLinearVelocity.y,
-             result.finalLinearVelocity.z,
-             result.lifecycleChecksPassed ? "pass" : "fail",
-             static_cast<unsigned long long>( result.deterministicHash ) );
-
-    if ( !result.passed )
+    PhysicsRuntimeHandleSmokeResult runtimeMirror;
+    try
     {
-        fprintf(
-            stderr,
-            "FAIL: standalone physics smoke final state or lifecycle checks did not match the expected sample.\n" );
+        runtimeMirror = RunPhysicsRuntimeHandleSmokeSample();
+    }
+    catch ( const std::exception& e )
+    {
+        runtimeMirror.errorMessage = e.what();
+    }
+    auto writeReport = [&]( FILE* stream )
+    {
+        if ( !stream )
+        {
+            return;
+        }
+        fprintf( stream,
+                 "[physics-standalone-smoke] bodies=%u steps=%u final_position=(%.6f,%.6f,%.6f) "
+                 "final_velocity=(%.6f,%.6f,%.6f) lifecycle_checks=%s runtime_mirror_checks=%s hash=0x%016llX\n",
+                 result.bodyCount,
+                 result.stepCount,
+                 result.finalPosition.x,
+                 result.finalPosition.y,
+                 result.finalPosition.z,
+                 result.finalLinearVelocity.x,
+                 result.finalLinearVelocity.y,
+                 result.finalLinearVelocity.z,
+                 result.lifecycleChecksPassed ? "pass" : "fail",
+                 runtimeMirror.passed ? "pass" : "fail",
+                 static_cast<unsigned long long>( result.deterministicHash ) );
+        fprintf( stream,
+                 "[physics-runtime-handle-smoke] bodies=%d colliders=%d render_instances=%d point_joints=%zu "
+                 "handle_a=(%u,%u) store_handles=%s render_mirror=%s joint_handles=%s collider_refresh=%s\n",
+                 runtimeMirror.bodyCount,
+                 runtimeMirror.colliderCount,
+                 runtimeMirror.renderInstanceCount,
+                 runtimeMirror.pointJointCount,
+                 runtimeMirror.bodyA.index,
+                 runtimeMirror.bodyA.generation,
+                 runtimeMirror.handlesMatchStores ? "pass" : "fail",
+                 runtimeMirror.renderMirrorMatches ? "pass" : "fail",
+                 runtimeMirror.jointUsesHandles ? "pass" : "fail",
+                 runtimeMirror.colliderRefreshMatches ? "pass" : "fail" );
+        if ( !runtimeMirror.errorMessage.empty() )
+        {
+            fprintf( stream, "[physics-runtime-handle-smoke] error=\"%s\"\n", runtimeMirror.errorMessage.c_str() );
+        }
+        fflush( stream );
+    };
+
+    writeReport( stdout );
+
+    const char* reportPath =
+        FindOptionValue( commandLine, "--physics-standalone-smoke-log", "--physics_standalone_smoke_log" );
+    if ( reportPath && !IsOptionValueMissing( reportPath ) )
+    {
+        FILE* reportFile = nullptr;
+        if ( fopen_s( &reportFile, reportPath, "w" ) == 0 && reportFile )
+        {
+            writeReport( reportFile );
+            fclose( reportFile );
+        }
+    }
+
+    if ( !result.passed || !runtimeMirror.passed )
+    {
+        fprintf( stderr,
+                 "FAIL: physics smoke final state, lifecycle, or runtime mirror checks did not match the expected "
+                 "sample.\n" );
         outExitCode = 1;
         return true;
     }
 
-    fprintf( stdout, "PASS: standalone physics smoke matched expected deterministic final state.\n" );
+    fprintf( stdout, "PASS: standalone physics and runtime handle mirror smoke matched expected state.\n" );
     outExitCode = 0;
     return true;
 }
@@ -2445,7 +2609,7 @@ void InitRenderBackend( Window* window )
 int RunApp( Window* window, ParsedArgs& args )
 {
     {
-        std::unique_ptr<Run> cRun = std::make_unique<Run>( std::move( args.sceneList ) );
+        std::unique_ptr<Run> cRun = std::make_unique<Run>( *window, std::move( args.sceneList ) );
         if ( args.timeScaleOverride > 0.0f )
         {
             cRun->SetTimeScaleOverride( args.timeScaleOverride );
@@ -2666,6 +2830,7 @@ void CleanupWindow( Window* window, HINSTANCE hInstance )
     {
         Input::UnbindCallbackBridge( window->m_sWindow );
     }
+    Input::UnbindWindow( *window );
 
     DestroyGfxBackend();
 
@@ -2728,13 +2893,6 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return atlasExitCode;
     }
 
-    int standalonePhysicsExitCode = 0;
-    if ( HandlePhysicsStandaloneSmoke( commandLine, standalonePhysicsExitCode ) )
-    {
-        CoUninitialize();
-        return standalonePhysicsExitCode;
-    }
-
     ParsedArgs args;
     if ( !ParseCommandLine( commandLine, args ) )
     {
@@ -2743,6 +2901,13 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         MessageBoxA( nullptr, error, "Command line parse failed", MB_OK | MB_ICONERROR );
         CoUninitialize();
         return 1;
+    }
+
+    int standalonePhysicsExitCode = 0;
+    if ( HandlePhysicsStandaloneSmoke( commandLine, standalonePhysicsExitCode ) )
+    {
+        CoUninitialize();
+        return standalonePhysicsExitCode;
     }
 
     WorkerPool::Instance().Initialise( Cfg().workerThreads );

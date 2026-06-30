@@ -143,9 +143,18 @@ bool IsSimpleRagdollNeckJointName( const char* bodyA, const char* bodyB )
            torsoPrefixLength == headPrefixLength && strncmp( bodyA, bodyB, torsoPrefixLength ) == 0;
 }
 
+bool IsBroadMaterialTarget( const char* target )
+{
+    return strcmp( target, "all" ) == 0 || strcmp( target, "balls" ) == 0 || strcmp( target, "boxes" ) == 0 ||
+           strcmp( target, "hulls" ) == 0 || strcmp( target, "convex_hulls" ) == 0;
+}
+
 bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const GameModel& model )
 {
-    if ( IsSimpleRagdollPartName( model.GetName() ) )
+    // Invariant: broad scene style targets must not recolor generated ragdoll
+    // body parts, but a named prefix/exact target may opt one authored ragdoll
+    // into a scene-local presentation material.
+    if ( IsSimpleRagdollPartName( model.GetName() ) && IsBroadMaterialTarget( material.target ) )
     {
         return false;
     }
@@ -167,7 +176,8 @@ bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, co
     }
     if ( strncmp( material.target, "prefix:", 7 ) == 0 )
     {
-        return strncmp( model.GetName(), material.target + 7, strlen( material.target + 7 ) ) == 0;
+        const char* prefix = material.target + 7;
+        return prefix[0] != '\0' && strncmp( model.GetName(), prefix, strlen( prefix ) ) == 0;
     }
     return strcmp( material.target, model.GetName() ) == 0;
 }
@@ -212,8 +222,6 @@ int FindModelByName( const std::vector<GameModel>& models, const char* name )
 
 void SceneAuthoredSetup::SetUpCameras( SceneAuthoredCameraContext context, const TestScene& scene )
 {
-    context.cameras = Environment::CameraCollection::Instance();
-
     bool hasFreeCamera = false;
     Vector3 firstPosition( 900.0f, 110.0f, 900.0f );
     Vector3 firstView( 313.0f, 31.0f, 282.0f );
@@ -229,16 +237,16 @@ void SceneAuthoredSetup::SetUpCameras( SceneAuthoredCameraContext context, const
             firstUp = cam.up;
         }
         hasFreeCamera = hasFreeCamera || hash == CAMERA_FREE;
-        context.cameras->AddCamera( cam.m_position, cam.view, cam.up, hash );
+        context.cameras.AddCamera( cam.m_position, cam.view, cam.up, hash );
     }
     if ( !hasFreeCamera )
     {
-        context.cameras->AddCamera( firstPosition, firstView, firstUp, CAMERA_FREE );
+        context.cameras.AddCamera( firstPosition, firstView, firstUp, CAMERA_FREE );
     }
 
-    context.cameras->SetCameraXZBounds( context.terrain.GetXZBounds() );
-    context.cameras->SetTerrain( &context.terrain );
-    context.cameras->SetLockedMode( false );
+    context.cameras.SetCameraXZBounds( context.terrain.GetXZBounds() );
+    context.cameras.SetTerrain( &context.terrain );
+    context.cameras.SetLockedMode( false );
 }
 
 
@@ -476,9 +484,10 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
     {
         const ScenePointJointConstraint& sceneJoint = scene.GetPointJointConstraint( i );
         PointJointConstraint joint;
-        joint.bodyA = FindModelByName( models, sceneJoint.bodyA );
-        joint.bodyB = FindModelByName( models, sceneJoint.bodyB );
-        if ( joint.bodyA < 0 || joint.bodyB < 0 )
+        const int bodyAIndex = FindModelByName( models, sceneJoint.bodyA );
+        const int bodyBIndex = FindModelByName( models, sceneJoint.bodyB );
+        joint.SetCompatibilityBodies( bodyAIndex, bodyBIndex );
+        if ( bodyAIndex < 0 || bodyBIndex < 0 )
         {
             fprintf( stderr,
                      "[scene] ragdoll_joint could not resolve '%s' <-> '%s'\n",

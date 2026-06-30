@@ -26,6 +26,7 @@ Related:
 */
 #include "AssetSystem.h"
 #include "../Rendering/IRenderBackend.h"
+#include "../Rendering/IRenderResourceFactory.h"
 
 #include <cstring>
 #include <stdexcept>
@@ -340,7 +341,8 @@ const std::vector<ShaderSourceAsset>& AssetSystem::GetShaderSourceAssets() const
     return m_shaderAssets;
 }
 
-std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logicalNameOrBaseName ) const
+std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( Rendering::IRenderResourceFactory& renderResources,
+                                                               const char* logicalNameOrBaseName ) const
 {
     if ( !logicalNameOrBaseName || logicalNameOrBaseName[0] == '\0' )
     {
@@ -349,8 +351,14 @@ std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logic
 
     const ShaderSourceAsset* shader = FindShaderSourceAsset( logicalNameOrBaseName );
     const char* fallbackBaseName = BuiltInShaderBaseNameForLogicalName( logicalNameOrBaseName );
-    return Rendering::Gfx().CreateShader( shader ? shader->baseName.c_str()
-                                                 : ( fallbackBaseName ? fallbackBaseName : logicalNameOrBaseName ) );
+    return renderResources.CreateShader( shader ? shader->baseName.c_str()
+                                                : ( fallbackBaseName ? fallbackBaseName : logicalNameOrBaseName ) );
+}
+
+
+std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logicalNameOrBaseName ) const
+{
+    return CreateShader( Rendering::Gfx(), logicalNameOrBaseName );
 }
 
 const AssetLibrarySourceAsset& AssetSystem::RegisterAssetLibrarySourceAsset( const char* logicalName,
