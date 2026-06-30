@@ -43,7 +43,37 @@ using namespace SkullbonezCore::Math::Transformation;
 using Microsoft::WRL::ComPtr;
 
 
-ShaderDX12::ShaderDX12() : m_cbReflectedSize( 0 ), m_cbSize( 0 ), m_cbDirty( false ), m_contract( nullptr )
+namespace
+{
+size_t HashShaderBytecode( ID3DBlob* blob )
+{
+    // Why: PSO cache keys must survive scene reloads. Shader blobs can be
+    // reallocated at new addresses even when their compiled bytecode is
+    // identical, so pointer identity is too volatile for long stress runs.
+    if ( !blob )
+    {
+        return 0;
+    }
+
+    const auto* bytes = static_cast<const uint8_t*>( blob->GetBufferPointer() );
+    const SIZE_T size = blob->GetBufferSize();
+    size_t hash = sizeof( size_t ) >= 8 ? static_cast<size_t>( 1469598103934665603ull ) : 2166136261u;
+    const size_t prime = sizeof( size_t ) >= 8 ? static_cast<size_t>( 1099511628211ull ) : 16777619u;
+    for ( SIZE_T i = 0; i < size; ++i )
+    {
+        hash ^= static_cast<size_t>( bytes[i] );
+        hash *= prime;
+    }
+    hash ^= static_cast<size_t>( size );
+    hash *= prime;
+    return hash;
+}
+} // namespace
+
+
+ShaderDX12::ShaderDX12()
+    : m_cbReflectedSize( 0 ), m_cbSize( 0 ), m_cbDirty( false ), m_vsBytecodeHash( 0 ), m_psBytecodeHash( 0 ),
+      m_contract( nullptr )
 {
 }
 
@@ -58,6 +88,8 @@ bool ShaderDX12::Compile( const char* hlslPath )
     m_cbReflectedSize = 0;
     m_cbSize = 0;
     m_cbData.clear();
+    m_vsBytecodeHash = 0;
+    m_psBytecodeHash = 0;
 #ifdef _DEBUG
     m_resourceMap.clear();
 #endif
@@ -103,6 +135,7 @@ bool ShaderDX12::Compile( const char* hlslPath )
         throw std::runtime_error( msg );
     }
     errors.Reset();
+    m_vsBytecodeHash = HashShaderBytecode( m_vsBlob.Get() );
 
     // Compile the pixel shader from the same HLSL file. The "ps_5_0" target means Pixel Shader
     // Model 5.0. Both VS and PS live in the same .hlsl file with different entry points.
@@ -128,6 +161,7 @@ bool ShaderDX12::Compile( const char* hlslPath )
         throw std::runtime_error( msg );
     }
     errors.Reset();
+    m_psBytecodeHash = HashShaderBytecode( m_psBlob.Get() );
 
     // Reflect both stages so PS-only post/sky uniforms are visible to SetFloat/SetVec*.
     ReflectCB( m_vsBlob.Get() );
@@ -706,6 +740,12 @@ SIZE_T ShaderDX12::GetVSBytecodeSize() const
 }
 
 
+size_t ShaderDX12::GetVSBytecodeHash() const
+{
+    return m_vsBytecodeHash;
+}
+
+
 const void* ShaderDX12::GetPSBytecode() const
 {
     return m_psBlob ? m_psBlob->GetBufferPointer() : nullptr;
@@ -715,4 +755,10 @@ const void* ShaderDX12::GetPSBytecode() const
 SIZE_T ShaderDX12::GetPSBytecodeSize() const
 {
     return m_psBlob ? m_psBlob->GetBufferSize() : 0;
+}
+
+
+size_t ShaderDX12::GetPSBytecodeHash() const
+{
+    return m_psBytecodeHash;
 }

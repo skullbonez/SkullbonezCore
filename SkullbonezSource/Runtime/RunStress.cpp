@@ -429,7 +429,7 @@ void Run::RunUIStressActions()
 }
 
 
-void Run::RunGraphicsStressActions()
+void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderDiagnostics )
 {
     // Concept: graphics stress is a deterministic fuzzer over scene loading,
     // cinematic controls, render-path toggles, and heavy generated-scene resets.
@@ -740,6 +740,65 @@ void Run::RunGraphicsStressActions()
                 stress.framesRun,
                 stress.sceneLoadsRequested,
                 stress.randomState );
+        fflush( stdout );
+    }
+
+    const int memoryInterval = stress.memoryLogIntervalFrames;
+    if ( memoryInterval > 0 && ( stress.framesRun == 1 || stress.framesRun % memoryInterval == 0 ) )
+    {
+        // Why: long stress runs need memory attribution before shutdown. If the
+        // process is killed after a climb, this stdout line survives with the
+        // same seed/frame/scene-load position as the repro log.
+        const MainMemoryStats& memoryStats =
+            m_diagnosticsRuntime.RefreshMainMemoryStats( m_replayRuntime,
+                                                         m_cGameModelCollection,
+                                                         m_timers.simulationTimer.GetTotalTime(),
+                                                         true );
+        const SkullbonezCore::Rendering::RenderMemoryStats renderStats = renderDiagnostics.GetRenderMemoryStats();
+        printf( "[graphics-stress-memory] frame=%d scene_loads=%d task_manager_bytes=%llu "
+                "working_set_bytes=%llu private_working_set_bytes=%llu private_commit_bytes=%llu pagefile_bytes=%llu "
+                "tracked_engine_bytes=%llu replay_bytes=%llu game_object_bytes=%llu unattributed_process_bytes=%llu "
+                "render_available=%d render_adapter_available=%d dxgi_local_usage_bytes=%llu "
+                "dxgi_nonlocal_usage_bytes=%llu dxgi_local_budget_bytes=%llu dxgi_nonlocal_budget_bytes=%llu "
+                "upload_capacity_bytes=%llu upload_used_bytes=%llu upload_peak_bytes=%llu timer_readback_bytes=%llu "
+                "textures=%zu texture_capacity=%zu psos=%zu graph_transients=%zu graph_transient_capacity=%zu "
+                "rtv_used=%u rtv_capacity=%u dsv_used=%u dsv_capacity=%u srv_static_used=%u srv_static_capacity=%u "
+                "srv_transient_used=%u srv_transient_capacity=%u srv_transient_peak=%u\n",
+                stress.framesRun,
+                stress.sceneLoadsRequested,
+                static_cast<unsigned long long>( memoryStats.process.taskManagerBytes ),
+                static_cast<unsigned long long>( memoryStats.process.workingSetBytes ),
+                static_cast<unsigned long long>( memoryStats.process.privateWorkingSetBytes ),
+                static_cast<unsigned long long>( memoryStats.process.privateCommitBytes ),
+                static_cast<unsigned long long>( memoryStats.process.pagefileUsageBytes ),
+                static_cast<unsigned long long>( memoryStats.trackedEngineBytes ),
+                static_cast<unsigned long long>( memoryStats.replay.totalBytes ),
+                static_cast<unsigned long long>( memoryStats.gameObjects.totalBytes ),
+                static_cast<unsigned long long>( memoryStats.unattributedProcessBytes ),
+                renderStats.available ? 1 : 0,
+                renderStats.adapterMemoryAvailable ? 1 : 0,
+                static_cast<unsigned long long>( renderStats.localCurrentUsageBytes ),
+                static_cast<unsigned long long>( renderStats.nonLocalCurrentUsageBytes ),
+                static_cast<unsigned long long>( renderStats.localBudgetBytes ),
+                static_cast<unsigned long long>( renderStats.nonLocalBudgetBytes ),
+                static_cast<unsigned long long>( renderStats.uploadCapacityBytes ),
+                static_cast<unsigned long long>( renderStats.uploadUsedBytes ),
+                static_cast<unsigned long long>( renderStats.uploadPeakBytes ),
+                static_cast<unsigned long long>( renderStats.timerReadbackBytes ),
+                renderStats.textureRegistryCount,
+                renderStats.textureRegistryCapacity,
+                renderStats.psoCacheCount,
+                renderStats.graphTransientCount,
+                renderStats.graphTransientCapacity,
+                renderStats.rtvDescriptorsUsed,
+                renderStats.rtvDescriptorsCapacity,
+                renderStats.dsvDescriptorsUsed,
+                renderStats.dsvDescriptorsCapacity,
+                renderStats.srvStaticDescriptorsUsed,
+                renderStats.srvStaticDescriptorsCapacity,
+                renderStats.srvTransientDescriptorsUsedThisFrame,
+                renderStats.srvTransientDescriptorsCapacityPerFrame,
+                renderStats.srvTransientDescriptorsPeakThisRun );
         fflush( stdout );
     }
 }

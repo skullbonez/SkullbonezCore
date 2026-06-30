@@ -804,6 +804,7 @@ struct ParsedArgs
     unsigned int graphicsStressSeed = 0xC11E2026u;
     int graphicsStressActions = 12;
     int graphicsStressSceneIntervalFrames = 45;
+    int graphicsStressMemoryIntervalFrames = 1800;
     bool replayRecording = true;
     bool replayExplicit = false;
     int replaySeconds = REPLAY_PAST_BUFFER_SECONDS;
@@ -2173,6 +2174,21 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               args.suppressExitDialog = true;
               return true;
           } },
+        { "--graphics-stress-memory-interval",
+          "--graphics_stress_memory_interval",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int frames = 0;
+              if ( !ParseIntToken( value, frames ) || frames < 0 || frames > 36000 )
+              {
+                  return FailCommandLineParse( "--graphics-stress-memory-interval expects 0..36000 frames." );
+              }
+              args.graphicsStress = true;
+              args.graphicsStressMemoryIntervalFrames = frames;
+              args.interactiveRun = true;
+              args.suppressExitDialog = true;
+              return true;
+          } },
     };
 
     return ApplyCliValueDirectives( commandLine, out, kValues );
@@ -2621,10 +2637,11 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
     if ( out.graphicsStress )
     {
         fprintf( stdout,
-                 "[graphics-stress] Enabled seed=%u actions=%d scene_interval_frames=%d.\n",
+                 "[graphics-stress] Enabled seed=%u actions=%d scene_interval_frames=%d memory_interval_frames=%d.\n",
                  out.graphicsStressSeed,
                  out.graphicsStressActions,
-                 out.graphicsStressSceneIntervalFrames );
+                 out.graphicsStressSceneIntervalFrames,
+                 out.graphicsStressMemoryIntervalFrames );
     }
 
     if ( !ApplyGeneratedObjectOverride( commandLine, out ) )
@@ -2741,7 +2758,8 @@ int RunApp( Window* window, ParsedArgs& args )
         {
             cRun->SetGraphicsStressOverride( args.graphicsStressSeed,
                                              args.graphicsStressActions,
-                                             args.graphicsStressSceneIntervalFrames );
+                                             args.graphicsStressSceneIntervalFrames,
+                                             args.graphicsStressMemoryIntervalFrames );
         }
         if ( args.memoryDumpPath[0] != '\0' )
         {

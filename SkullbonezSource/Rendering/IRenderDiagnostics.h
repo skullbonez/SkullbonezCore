@@ -17,6 +17,10 @@ Glossary:
   Platform profiler marker: Named event emitted for external profiling tools.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
     reflection dispatch.
+  Render memory snapshot: Coarse counters that separate engine renderer caches
+    from platform-reported adapter memory during stress runs.
+  DXGI adapter memory: Windows graphics-kernel budget/usage counters for the
+    adapter that owns the active DX12 device.
 
 Invariants:
   - Diagnostics are optional and must have no-op fallbacks for unsupported
@@ -30,6 +34,7 @@ Related:
 */
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include "DrawCallTrace.h"
@@ -47,6 +52,43 @@ struct RenderCapabilities
     bool supportsDebugLines = false;
 };
 
+struct RenderMemoryStats
+{
+    bool available = false;                       // False when the backend is not initialized enough to answer.
+    char backendName[32] = "unknown";             // Short renderer name for CSV/JSON diagnostics.
+    bool adapterMemoryAvailable = false;          // True when DXGI adapter memory counters were sampled.
+    uint64_t localBudgetBytes = 0;                // Adapter-local budget reported by DXGI.
+    uint64_t localCurrentUsageBytes = 0;          // Adapter-local bytes currently charged to this process.
+    uint64_t localCurrentReservationBytes = 0;    // Adapter-local reservation bytes currently held by this process.
+    uint64_t localAvailableForReservationBytes = 0;
+    uint64_t nonLocalBudgetBytes = 0;             // Shared/system-memory budget reported by DXGI.
+    uint64_t nonLocalCurrentUsageBytes = 0;       // Non-local bytes currently charged to this process.
+    uint64_t nonLocalCurrentReservationBytes = 0; // Non-local reservation bytes currently held by this process.
+    uint64_t nonLocalAvailableForReservationBytes = 0;
+    uint64_t uploadCapacityBytes = 0;             // Sum of persistent per-frame upload-buffer resources.
+    uint64_t uploadUsedBytes = 0;                 // Bytes used in the currently sampled upload arenas.
+    uint64_t uploadPeakBytes = 0;                 // Sum of per-arena high-water marks for this run.
+    uint64_t timerReadbackBytes = 0;              // CPU-readable timer readback resource, when allocated.
+    std::size_t textureRegistryCount = 0;
+    std::size_t textureRegistryCapacity = 0;
+    std::size_t dynamicVertexBufferCount = 0;
+    std::size_t dynamicVertexBufferCapacity = 0;
+    std::size_t instancedMeshCount = 0;
+    std::size_t instancedMeshCapacity = 0;
+    std::size_t psoCacheCount = 0;
+    std::size_t graphTransientCount = 0;
+    std::size_t graphTransientCapacity = 0;
+    uint32_t rtvDescriptorsUsed = 0;
+    uint32_t rtvDescriptorsCapacity = 0;
+    uint32_t dsvDescriptorsUsed = 0;
+    uint32_t dsvDescriptorsCapacity = 0;
+    uint32_t srvStaticDescriptorsUsed = 0;
+    uint32_t srvStaticDescriptorsCapacity = 0;
+    uint32_t srvTransientDescriptorsUsedThisFrame = 0;
+    uint32_t srvTransientDescriptorsCapacityPerFrame = 0;
+    uint32_t srvTransientDescriptorsPeakThisRun = 0;
+};
+
 class IRenderDiagnostics
 {
   public:
@@ -54,6 +96,13 @@ class IRenderDiagnostics
 
     virtual const char* GetRendererName() const = 0;
     virtual RenderCapabilities GetCapabilities() const = 0;
+    // Returns a renderer-owned memory snapshot for diagnostics. Unsupported
+    // backends leave available=false so callers can log one schema across
+    // renderer implementations without inventing backend-specific casts.
+    virtual RenderMemoryStats GetRenderMemoryStats() const
+    {
+        return RenderMemoryStats();
+    }
 
     virtual void ResetFrameDrawCalls()
     {

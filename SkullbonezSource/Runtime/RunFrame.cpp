@@ -416,6 +416,12 @@ void Run::Execute()
 
             PROFILE_END( "Frame/PostPhysics" );
 
+            // Concept: graphics stress is render/runtime churn, not UI command
+            // processing. Tick it once per rendered frame so headless and
+            // overnight launches keep mutating DX12 state even when the UI
+            // command panel is not producing control messages.
+            RunGraphicsStressActions( frameRenderDiagnostics );
+
             if ( m_runtimeSettings.isPipelineSyncEnabled )
             {
                 PROFILE_BEGIN( "Frame/PipelineSync" );

@@ -33,6 +33,7 @@ Related:
 #include <d3d12.h>
 #include <d3dcompiler.h>
 #include <wrl/client.h>
+#include <cstddef>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -74,6 +75,8 @@ class ShaderDX12 : public IShader
     UINT m_cbSize;
     mutable std::vector<uint8_t> m_cbData;
     mutable bool m_cbDirty;
+    size_t m_vsBytecodeHash;
+    size_t m_psBytecodeHash;
     const ShaderProgramDesc* m_contract;
 #ifdef _DEBUG
     struct ResourceInfo
@@ -119,8 +122,10 @@ class ShaderDX12 : public IShader
 
     const void* GetVSBytecode() const;
     SIZE_T GetVSBytecodeSize() const;
+    size_t GetVSBytecodeHash() const;
     const void* GetPSBytecode() const;
     SIZE_T GetPSBytecodeSize() const;
+    size_t GetPSBytecodeHash() const;
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

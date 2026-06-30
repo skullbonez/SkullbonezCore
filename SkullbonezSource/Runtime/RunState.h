@@ -266,6 +266,7 @@ struct RunLaunchOptions
     unsigned int graphicsStressSeed = 0;                       // CLI --graphics-stress-seed
     int graphicsStressActions = 12;                            // CLI --graphics-stress-actions
     int graphicsStressSceneIntervalFrames = 45;                // CLI --graphics-stress-scene-interval
+    int graphicsStressMemoryIntervalFrames = 1800;             // CLI --graphics-stress-memory-interval
     GeneratedObjectTypeOverride generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     bool hasPhysicsDebugFlagsOverride = false;
     uint32_t physicsDebugFlagsOverride = Physics::PHYSICS_DEBUG_NONE;
@@ -286,6 +287,7 @@ struct RunGraphicsStressState
     unsigned int randomState = 0;                              // LCG state; 0 means uninitialized
     int actionsPerFrame = 12;                                  // Render/state mutations per rendered frame
     int sceneIntervalFrames = 45;                              // Minimum frames between forced scene reloads
+    int memoryLogIntervalFrames = 1800;                        // Coarse memory-attribution log cadence (0 disables)
     int framesRun = 0;                                         // Persistent across scene reloads
     int sceneLoadsRequested = 0;                               // Count of stress-driven LoadScene calls
     int lastSceneLoadFrame = -1000000;                         // Frame index of the last stress scene load

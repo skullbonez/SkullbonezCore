@@ -126,11 +126,11 @@ struct InstancedMeshDX12
 struct PSOKey12
 {
     // Borrowed identity only. The root signature owns the shader binding
-    // contract; two PSOs with identical shaders but different root signatures
-    // are not compatible cache entries.
+    // contract; bytecode hashes keep recompiled identical shaders from
+    // exploding the cache during scene reload stress.
     const void* rootSignature;
-    const void* shaderVS;
-    const void* shaderPS;
+    size_t shaderVSHash;
+    size_t shaderPSHash;
     VertexFormat12 format;
     bool isInstanced;
     bool blendEnabled;
@@ -557,6 +557,7 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     {
         return "DirectX 12";
     }
+    RenderMemoryStats GetRenderMemoryStats() const override;
     RenderCapabilities GetCapabilities() const override
     {
         RenderCapabilities capabilities;
