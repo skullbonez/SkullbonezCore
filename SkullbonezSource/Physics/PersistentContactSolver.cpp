@@ -1292,7 +1292,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                     },
                     m_colliderRecords[static_cast<size_t>( bodyIndex )].shape );
 
-                constexpr float muRolling = 0.02f;
+                const float muRolling = (std::max)( 0.0f, config.rollingFrictionCoeff );
                 float rollingTorqueMag = muRolling * normalForce * rEff;
                 const Vector3& inertia = record.rotationalInertia;
                 float avgInertia = ( inertia.x + inertia.y + inertia.z ) / 3.0f;

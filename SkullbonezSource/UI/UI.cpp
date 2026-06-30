@@ -240,6 +240,9 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashFloat( hash, data.tornadoLiftAcceleration, 100.0f );
     hash = HashFloat( hash, data.rayCastImpulseStrength, 100.0f );
     hash = HashFloat( hash, data.launcherProjectileSpeed, 100.0f );
+    hash = HashFloat( hash, data.terrainFrictionCoeff, 1000.0f );
+    hash = HashFloat( hash, data.objectFrictionCoeff, 1000.0f );
+    hash = HashFloat( hash, data.rollingFrictionCoeff, 1000.0f );
     hash = HashBool( hash, data.waterFreezeDebug );
     hash = HashBool( hash, data.waterFlatDebug );
     hash = HashBool( hash, data.terrainHidden );
@@ -1240,7 +1243,7 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
         DrawComboHitboxes( draw, m_editorTab.objectCombo, EditorTab::OBJECT_TYPE_COUNT, contentR, contentG, contentB );
         break;
     case InGameUITab::Physics:
-        for ( int i = 0; i < 12; ++i )
+        for ( int i = 0; i < 13; ++i )
         {
             DrawHitboxRect( draw, m_physicsTab.toggles[i].Bounds(), contentR, contentG, contentB );
         }
@@ -1251,6 +1254,9 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
         DrawHitboxRect( draw, m_physicsTab.rayImpulseSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.launcherProjectileSpeedSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.worldGravitySlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.terrainFrictionSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.objectFrictionSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.rollingFrictionSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.tornadoRadiusSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.tornadoHeightSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.tornadoInwardSlider.Bounds(), contentR, contentG, contentB );

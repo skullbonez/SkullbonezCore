@@ -2773,13 +2773,38 @@ void Run::TakeInput()
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetLauncherProjectileSpeed,
                                                RuntimeInputActionSource::UI );
         }
-        const auto makeSceneGeneratedControlContext = [this]() -> SceneRuntimeGeneratedControlContext
+        EngineConfig& liveConfig = Cfg();
+        if ( uiCommands.physics.requestTerrainFrictionCoeff )
+        {
+            liveConfig.frictionCoeff = std::clamp( uiCommands.physics.requestedTerrainFrictionCoeff,
+                                                   UI_FRICTION_COEFF_MIN,
+                                                   UI_FRICTION_COEFF_MAX );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyPhysicsFrictionSettings,
+                                               RuntimeInputActionSource::UI );
+        }
+        if ( uiCommands.physics.requestObjectFrictionCoeff )
+        {
+            liveConfig.objectFrictionCoeff = std::clamp( uiCommands.physics.requestedObjectFrictionCoeff,
+                                                         UI_FRICTION_COEFF_MIN,
+                                                         UI_FRICTION_COEFF_MAX );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyPhysicsFrictionSettings,
+                                               RuntimeInputActionSource::UI );
+        }
+        if ( uiCommands.physics.requestRollingFrictionCoeff )
+        {
+            liveConfig.rollingFrictionCoeff = std::clamp( uiCommands.physics.requestedRollingFrictionCoeff,
+                                                          UI_ROLLING_FRICTION_COEFF_MIN,
+                                                          UI_ROLLING_FRICTION_COEFF_MAX );
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyPhysicsFrictionSettings,
+                                               RuntimeInputActionSource::UI );
+        }
+        const auto makeSceneGeneratedControlContext = [this, &liveConfig]() -> SceneRuntimeGeneratedControlContext
         {
             return SceneRuntimeGeneratedControlContext{ SceneState(),
                                                         m_sceneController.UIOverrides(),
                                                         m_camera,
                                                         m_sceneController,
-                                                        Cfg(),
+                                                        liveConfig,
                                                         m_cWorldEnvironment,
                                                         m_systems.terrain.get(),
                                                         m_cGameModelCollection,

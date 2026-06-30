@@ -48,12 +48,16 @@ constexpr float PHYSICS_RAY_IMPULSE_SLIDER_Y = 414.0f;
 constexpr float PHYSICS_LAUNCHER_PROJECTILE_SPEED_SLIDER_Y = 454.0f;
 constexpr float PHYSICS_WORLD_SECTION_Y = 500.0f;
 constexpr float PHYSICS_WORLD_GRAVITY_SLIDER_Y = 526.0f;
-constexpr float PHYSICS_TORNADO_SECTION_Y = 586.0f;
-constexpr float PHYSICS_TORNADO_RADIUS_SLIDER_Y = 612.0f;
-constexpr float PHYSICS_TORNADO_HEIGHT_SLIDER_Y = 652.0f;
-constexpr float PHYSICS_TORNADO_INWARD_SLIDER_Y = 692.0f;
-constexpr float PHYSICS_TORNADO_SWIRL_SLIDER_Y = 732.0f;
-constexpr float PHYSICS_TORNADO_LIFT_SLIDER_Y = 772.0f;
+constexpr float PHYSICS_FRICTION_SECTION_Y = 586.0f;
+constexpr float PHYSICS_TERRAIN_FRICTION_SLIDER_Y = 612.0f;
+constexpr float PHYSICS_OBJECT_FRICTION_SLIDER_Y = 652.0f;
+constexpr float PHYSICS_ROLLING_FRICTION_SLIDER_Y = 692.0f;
+constexpr float PHYSICS_TORNADO_SECTION_Y = 752.0f;
+constexpr float PHYSICS_TORNADO_RADIUS_SLIDER_Y = 778.0f;
+constexpr float PHYSICS_TORNADO_HEIGHT_SLIDER_Y = 818.0f;
+constexpr float PHYSICS_TORNADO_INWARD_SLIDER_Y = 858.0f;
+constexpr float PHYSICS_TORNADO_SWIRL_SLIDER_Y = 898.0f;
+constexpr float PHYSICS_TORNADO_LIFT_SLIDER_Y = 938.0f;
 
 void SetToggleBounds( SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
                       int index,
@@ -105,6 +109,15 @@ void SetContentBounds( SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
                                                    contentW,
                                                    34.0f );
     state.worldGravitySlider.SetBounds( contentX, contentBaseY + PHYSICS_WORLD_GRAVITY_SLIDER_Y, contentW, 34.0f );
+    state.terrainFrictionSlider.SetBounds( contentX,
+                                           contentBaseY + PHYSICS_TERRAIN_FRICTION_SLIDER_Y,
+                                           contentW,
+                                           34.0f );
+    state.objectFrictionSlider.SetBounds( contentX, contentBaseY + PHYSICS_OBJECT_FRICTION_SLIDER_Y, contentW, 34.0f );
+    state.rollingFrictionSlider.SetBounds( contentX,
+                                           contentBaseY + PHYSICS_ROLLING_FRICTION_SLIDER_Y,
+                                           contentW,
+                                           34.0f );
     state.tornadoRadiusSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_RADIUS_SLIDER_Y, contentW, 34.0f );
     state.tornadoHeightSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_HEIGHT_SLIDER_Y, contentW, 34.0f );
     state.tornadoInwardSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_INWARD_SLIDER_Y, contentW, 34.0f );
@@ -123,7 +136,7 @@ namespace PhysicsTab
 
 int ContentHeight()
 {
-    return 824;
+    return 990;
 }
 
 
@@ -135,6 +148,9 @@ void ResetPreviewState( UIPhysicsTabState& state )
     state.previewContactLinger = -1.0f;
     state.previewRayImpulse = -1.0f;
     state.previewLauncherProjectileSpeed = -1.0f;
+    state.previewTerrainFriction = -1.0f;
+    state.previewObjectFriction = -1.0f;
+    state.previewRollingFriction = -1.0f;
     state.previewTornadoRadius = -1.0f;
     state.previewTornadoHeight = -1.0f;
     state.previewTornadoInward = -1.0f;
@@ -270,6 +286,39 @@ bool HandleContentClick( UIPhysicsTabState& state,
                                                                                UI_WORLD_GRAVITY_STEP ) );
         return true;
     }
+    else if ( state.terrainFrictionSlider.HitTest( mouseX, mouseY ) )
+    {
+        activeSlider = SLIDER_TERRAIN_FRICTION;
+        state.previewTerrainFriction = state.terrainFrictionSlider.ValueFromMouse( mouseX,
+                                                                                   UI_FRICTION_COEFF_MIN,
+                                                                                   UI_FRICTION_COEFF_MAX,
+                                                                                   UI_FRICTION_COEFF_STEP );
+        result.commands.physics.requestTerrainFrictionCoeff = true;
+        result.commands.physics.requestedTerrainFrictionCoeff = state.previewTerrainFriction;
+        return true;
+    }
+    else if ( state.objectFrictionSlider.HitTest( mouseX, mouseY ) )
+    {
+        activeSlider = SLIDER_OBJECT_FRICTION;
+        state.previewObjectFriction = state.objectFrictionSlider.ValueFromMouse( mouseX,
+                                                                                 UI_FRICTION_COEFF_MIN,
+                                                                                 UI_FRICTION_COEFF_MAX,
+                                                                                 UI_FRICTION_COEFF_STEP );
+        result.commands.physics.requestObjectFrictionCoeff = true;
+        result.commands.physics.requestedObjectFrictionCoeff = state.previewObjectFriction;
+        return true;
+    }
+    else if ( state.rollingFrictionSlider.HitTest( mouseX, mouseY ) )
+    {
+        activeSlider = SLIDER_ROLLING_FRICTION;
+        state.previewRollingFriction = state.rollingFrictionSlider.ValueFromMouse( mouseX,
+                                                                                   UI_ROLLING_FRICTION_COEFF_MIN,
+                                                                                   UI_ROLLING_FRICTION_COEFF_MAX,
+                                                                                   UI_ROLLING_FRICTION_COEFF_STEP );
+        result.commands.physics.requestRollingFrictionCoeff = true;
+        result.commands.physics.requestedRollingFrictionCoeff = state.previewRollingFriction;
+        return true;
+    }
     else if ( state.tornadoRadiusSlider.HitTest( mouseX, mouseY ) )
     {
         activeSlider = SLIDER_TORNADO_RADIUS;
@@ -380,6 +429,36 @@ bool UpdateActiveSlider( UIPhysicsTabState& state, int activeSlider, int mouseX,
                                                                                UI_WORLD_GRAVITY_STEP ) );
         return true;
     }
+    if ( activeSlider == SLIDER_TERRAIN_FRICTION )
+    {
+        state.previewTerrainFriction = state.terrainFrictionSlider.ValueFromMouse( mouseX,
+                                                                                   UI_FRICTION_COEFF_MIN,
+                                                                                   UI_FRICTION_COEFF_MAX,
+                                                                                   UI_FRICTION_COEFF_STEP );
+        result.commands.physics.requestTerrainFrictionCoeff = true;
+        result.commands.physics.requestedTerrainFrictionCoeff = state.previewTerrainFriction;
+        return true;
+    }
+    if ( activeSlider == SLIDER_OBJECT_FRICTION )
+    {
+        state.previewObjectFriction = state.objectFrictionSlider.ValueFromMouse( mouseX,
+                                                                                 UI_FRICTION_COEFF_MIN,
+                                                                                 UI_FRICTION_COEFF_MAX,
+                                                                                 UI_FRICTION_COEFF_STEP );
+        result.commands.physics.requestObjectFrictionCoeff = true;
+        result.commands.physics.requestedObjectFrictionCoeff = state.previewObjectFriction;
+        return true;
+    }
+    if ( activeSlider == SLIDER_ROLLING_FRICTION )
+    {
+        state.previewRollingFriction = state.rollingFrictionSlider.ValueFromMouse( mouseX,
+                                                                                   UI_ROLLING_FRICTION_COEFF_MIN,
+                                                                                   UI_ROLLING_FRICTION_COEFF_MAX,
+                                                                                   UI_ROLLING_FRICTION_COEFF_STEP );
+        result.commands.physics.requestRollingFrictionCoeff = true;
+        result.commands.physics.requestedRollingFrictionCoeff = state.previewRollingFriction;
+        return true;
+    }
     if ( activeSlider == SLIDER_TORNADO_RADIUS )
     {
         state.previewTornadoRadius = state.tornadoRadiusSlider.ValueFromMouse( mouseX,
@@ -458,6 +537,24 @@ bool CommitActiveSlider( UIPhysicsTabState& state, int activeSlider, InGameUIInp
         result.commands.physics.requestedLauncherProjectileSpeed = state.previewLauncherProjectileSpeed;
         return true;
     }
+    if ( activeSlider == SLIDER_TERRAIN_FRICTION && state.previewTerrainFriction >= 0.0f )
+    {
+        result.commands.physics.requestTerrainFrictionCoeff = true;
+        result.commands.physics.requestedTerrainFrictionCoeff = state.previewTerrainFriction;
+        return true;
+    }
+    if ( activeSlider == SLIDER_OBJECT_FRICTION && state.previewObjectFriction >= 0.0f )
+    {
+        result.commands.physics.requestObjectFrictionCoeff = true;
+        result.commands.physics.requestedObjectFrictionCoeff = state.previewObjectFriction;
+        return true;
+    }
+    if ( activeSlider == SLIDER_ROLLING_FRICTION && state.previewRollingFriction >= 0.0f )
+    {
+        result.commands.physics.requestRollingFrictionCoeff = true;
+        result.commands.physics.requestedRollingFrictionCoeff = state.previewRollingFriction;
+        return true;
+    }
     if ( activeSlider == SLIDER_TORNADO_RADIUS && state.previewTornadoRadius >= 0.0f )
     {
         result.commands.physics.requestTornadoRadius = true;
@@ -520,6 +617,17 @@ void Draw( UIPhysicsTabState& state,
         ( activeSlider == SLIDER_LAUNCHER_PROJECTILE_SPEED && state.previewLauncherProjectileSpeed >= 0.0f )
             ? state.previewLauncherProjectileSpeed
             : data.launcherProjectileSpeed;
+    const float displayTerrainFriction =
+        ( activeSlider == SLIDER_TERRAIN_FRICTION && state.previewTerrainFriction >= 0.0f )
+            ? state.previewTerrainFriction
+            : data.terrainFrictionCoeff;
+    const float displayObjectFriction =
+        ( activeSlider == SLIDER_OBJECT_FRICTION && state.previewObjectFriction >= 0.0f ) ? state.previewObjectFriction
+                                                                                          : data.objectFrictionCoeff;
+    const float displayRollingFriction =
+        ( activeSlider == SLIDER_ROLLING_FRICTION && state.previewRollingFriction >= 0.0f )
+            ? state.previewRollingFriction
+            : data.rollingFrictionCoeff;
     const float displayTornadoRadius = ( activeSlider == SLIDER_TORNADO_RADIUS && state.previewTornadoRadius >= 0.0f )
                                            ? state.previewTornadoRadius
                                            : data.tornadoRadius;
@@ -750,6 +858,45 @@ void Draw( UIPhysicsTabState& state,
     {
         state.worldGravitySlider
             .Draw( draw, "Gravity", buf, displayGravityStrength, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
+    }
+    if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_FRICTION_SECTION_Y, 18.0f ) )
+    {
+        DrawSectionTitle( draw,
+                          contentX,
+                          contentY,
+                          contentH,
+                          scrolledY + PHYSICS_FRICTION_SECTION_Y,
+                          12.0f,
+                          "Friction" );
+    }
+    snprintf( buf, sizeof( buf ), "%.2f", displayTerrainFriction );
+    state.terrainFrictionSlider.SetBounds( contentX, scrolledY + PHYSICS_TERRAIN_FRICTION_SLIDER_Y, contentW, 34.0f );
+    if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_TERRAIN_FRICTION_SLIDER_Y, 34.0f ) )
+    {
+        state.terrainFrictionSlider.Draw( draw,
+                                          "Terrain friction",
+                                          buf,
+                                          displayTerrainFriction,
+                                          UI_FRICTION_COEFF_MIN,
+                                          UI_FRICTION_COEFF_MAX );
+    }
+    snprintf( buf, sizeof( buf ), "%.2f", displayObjectFriction );
+    state.objectFrictionSlider.SetBounds( contentX, scrolledY + PHYSICS_OBJECT_FRICTION_SLIDER_Y, contentW, 34.0f );
+    if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_OBJECT_FRICTION_SLIDER_Y, 34.0f ) )
+    {
+        state.objectFrictionSlider
+            .Draw( draw, "Object friction", buf, displayObjectFriction, UI_FRICTION_COEFF_MIN, UI_FRICTION_COEFF_MAX );
+    }
+    snprintf( buf, sizeof( buf ), "%.3f", displayRollingFriction );
+    state.rollingFrictionSlider.SetBounds( contentX, scrolledY + PHYSICS_ROLLING_FRICTION_SLIDER_Y, contentW, 34.0f );
+    if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_ROLLING_FRICTION_SLIDER_Y, 34.0f ) )
+    {
+        state.rollingFrictionSlider.Draw( draw,
+                                          "Rolling friction",
+                                          buf,
+                                          displayRollingFriction,
+                                          UI_ROLLING_FRICTION_COEFF_MIN,
+                                          UI_ROLLING_FRICTION_COEFF_MAX );
     }
     if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_TORNADO_SECTION_Y, 18.0f ) )
     {

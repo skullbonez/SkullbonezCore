@@ -198,6 +198,9 @@ struct UIPhysicsCommands
     bool requestTornadoLift = false;
     bool requestRayCastImpulseStrength = false;
     bool requestLauncherProjectileSpeed = false;
+    bool requestTerrainFrictionCoeff = false;
+    bool requestObjectFrictionCoeff = false;
+    bool requestRollingFrictionCoeff = false;
     float requestedPhysicsDebugAlpha = -1.0f;
     float requestedPhysicsDebugContactLinger = -1.0f;
     float requestedTornadoRadius = 0.0f;
@@ -207,6 +210,9 @@ struct UIPhysicsCommands
     float requestedTornadoLift = 0.0f;
     float requestedRayCastImpulseStrength = 0.0f;
     float requestedLauncherProjectileSpeed = 0.0f;
+    float requestedTerrainFrictionCoeff = 0.0f;
+    float requestedObjectFrictionCoeff = 0.0f;
+    float requestedRollingFrictionCoeff = 0.0f;
     uint32_t togglePhysicsDebugFlags = 0;
     bool stepPhysicsPipelinePrevious = false;
     bool stepPhysicsPipelineNext = false;

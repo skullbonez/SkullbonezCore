@@ -126,6 +126,7 @@ enum class RuntimeInputAction
     SetPhysicsDebugContactLinger,
     SetRayCastImpulseStrength,
     SetLauncherProjectileSpeed,
+    ApplyPhysicsFrictionSettings,
     SetModelCount,
     SetWorkerThreads,
     SetSolverCounts,

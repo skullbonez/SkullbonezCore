@@ -439,6 +439,8 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "SetRayCastImpulseStrength";
     case RuntimeInputAction::SetLauncherProjectileSpeed:
         return "SetLauncherProjectileSpeed";
+    case RuntimeInputAction::ApplyPhysicsFrictionSettings:
+        return "ApplyPhysicsFrictionSettings";
     case RuntimeInputAction::SetModelCount:
         return "SetModelCount";
     case RuntimeInputAction::SetWorkerThreads:

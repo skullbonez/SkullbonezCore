@@ -424,9 +424,13 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.tornadoInwardAcceleration = m_host.m_runtimeSettings.tornadoField.inwardAcceleration;
         UIData.tornadoSwirlAcceleration = m_host.m_runtimeSettings.tornadoField.swirlAcceleration;
         UIData.tornadoLiftAcceleration = m_host.m_runtimeSettings.tornadoField.liftAcceleration;
+        const EngineConfig& liveConfig = Cfg();
         UIData.rayCastVisualization = m_host.m_rayCastTest.visualizeRays;
         UIData.rayCastImpulseStrength = m_host.m_rayCastTest.impulseStrength;
         UIData.launcherProjectileSpeed = m_host.m_rayCastTest.projectileSpeed;
+        UIData.terrainFrictionCoeff = liveConfig.frictionCoeff;
+        UIData.objectFrictionCoeff = liveConfig.objectFrictionCoeff;
+        UIData.rollingFrictionCoeff = liveConfig.rollingFrictionCoeff;
         UIData.waterFreezeDebug = m_host.m_debug.isWaterFreezeDebug;
         UIData.waterFlatDebug = m_host.m_debug.isWaterFlatDebug;
         UIData.terrainHidden = m_host.m_debug.isTerrainHidden;
@@ -451,7 +455,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.canSaveSceneDefaults = view.sceneMode && m_host.m_sceneController.HasCurrentEntry() &&
                                       !m_host.m_sceneController.CurrentPath()->empty();
         UIData.cinematicRendering = m_host.IsCinematicRenderingEnabled();
-        UIData.ordinaryRender = Cfg().ordinaryRender;
+        UIData.ordinaryRender = liveConfig.ordinaryRender;
         UIData.cinematic = m_host.ActiveCinematicConfig();
         {
             auto addPreview = [&]( const char* label,

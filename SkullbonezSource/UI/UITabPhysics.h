@@ -49,6 +49,9 @@ constexpr int SLIDER_TORNADO_SWIRL = SLIDER_PHYSICS_BASE + 6;
 constexpr int SLIDER_TORNADO_LIFT = SLIDER_PHYSICS_BASE + 7;
 constexpr int SLIDER_RAY_IMPULSE = SLIDER_PHYSICS_BASE + 8;
 constexpr int SLIDER_LAUNCHER_PROJECTILE_SPEED = SLIDER_PHYSICS_BASE + 9;
+constexpr int SLIDER_TERRAIN_FRICTION = SLIDER_PHYSICS_BASE + 10;
+constexpr int SLIDER_OBJECT_FRICTION = SLIDER_PHYSICS_BASE + 11;
+constexpr int SLIDER_ROLLING_FRICTION = SLIDER_PHYSICS_BASE + 12;
 
 struct UIPhysicsTabState
 {
@@ -59,6 +62,9 @@ struct UIPhysicsTabState
     UISlider contactLingerSlider;
     UISlider rayImpulseSlider;
     UISlider launcherProjectileSpeedSlider;
+    UISlider terrainFrictionSlider;
+    UISlider objectFrictionSlider;
+    UISlider rollingFrictionSlider;
     UISlider worldGravitySlider;
     UISlider tornadoRadiusSlider;
     UISlider tornadoHeightSlider;
@@ -69,6 +75,9 @@ struct UIPhysicsTabState
     float previewContactLinger = -1.0f;
     float previewRayImpulse = -1.0f;
     float previewLauncherProjectileSpeed = -1.0f;
+    float previewTerrainFriction = -1.0f;
+    float previewObjectFriction = -1.0f;
+    float previewRollingFriction = -1.0f;
     float previewTornadoRadius = -1.0f;
     float previewTornadoHeight = -1.0f;
     float previewTornadoInward = -1.0f;
