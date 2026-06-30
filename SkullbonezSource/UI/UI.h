@@ -36,6 +36,7 @@ Related:
 #include "UIScrollBar.h"
 #include "UISlider.h"
 #include "UIState.h"
+#include "UIDrawList.h"
 #include "UITabBar.h"
 #include "UITabCinematic.h"
 #include "UITabControls.h"
@@ -69,6 +70,8 @@ enum class InGameUITab
 };
 
 constexpr int UI_RENDER_TARGET_PREVIEW_MAX = 12;
+constexpr int UI_PROFILER_MARKER_OPTION_MAX = ProfilerTab::MAX_MARKERS + 1;
+constexpr uint32_t UI_PROFILER_FRAME_TOTAL_HASH = 0u;
 
 struct UIRenderTargetPreviewResource
 {
@@ -79,6 +82,18 @@ struct UIRenderTargetPreviewResource
     bool available = false;
     bool depth = false;
     bool hdr = false;
+};
+
+struct UIProfilerMarkerOption
+{
+    const char* name = "";
+    const char* leafName = "";
+    uint32_t hash = UI_PROFILER_FRAME_TOTAL_HASH;
+    float cpuMs = 0.0f;
+    float gpuMs = 0.0f;
+    bool hasGpu = false;
+    bool sampleValid = false;
+    bool isFrameTotal = false;
 };
 
 // Snapshot of engine state needed to draw the UI for one frame.  The UI reads
@@ -101,6 +116,8 @@ struct InGameUIFrameData
     float physicsMs = 0.0f;
     float cpuFrameMs = 0.0f;
     float gpuFrameMs = 0.0f;
+    UIProfilerMarkerOption profilerMarkerOptions[UI_PROFILER_MARKER_OPTION_MAX];
+    int profilerMarkerOptionCount = 0;
     Basics::MainMemoryStats mainMemory;
     int modelCount = 0;
     int modelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
@@ -199,6 +216,9 @@ class InGameUI
     void SetProfilerExpandAll( bool expandAll );
     void SetProfilerTimelineEnabled( bool enabled );
     void SetPerformanceHistogramEnabled( bool enabled );
+    bool IsPerformanceHistogramEnabled() const;
+    void TogglePerformanceHistogramEnabled();
+    bool NeedsUiTextPass() const;
     void SetHitboxOverlayEnabled( bool enabled );
     void SetScrollY( float scrollY );
     void SetMouseOverride( bool enabled, int x = 0, int y = 0 );
@@ -249,6 +269,7 @@ class InGameUI
     UISlider m_renderSliders[static_cast<int>( UIRenderParam::Count )];
     UIBackdropBlur m_backdropBlur;
     UICacheState m_cache;
+    UIDrawList m_histogramDrawList;
     std::unique_ptr<Rendering::IShader> m_renderTargetPreviewShader;
     uint32_t m_renderTargetPreviewVB = 0;
     UIScrollBar m_scrollBar;

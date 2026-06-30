@@ -379,6 +379,8 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "ToggleBroadphaseOverlay";
     case RuntimeInputAction::ToggleUIVisibility:
         return "ToggleUIVisibility";
+    case RuntimeInputAction::TogglePerformanceHistogram:
+        return "TogglePerformanceHistogram";
     case RuntimeInputAction::NavigateScenePrevious:
         return "NavigateScenePrevious";
     case RuntimeInputAction::NavigateSceneNext:

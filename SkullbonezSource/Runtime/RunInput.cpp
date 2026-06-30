@@ -342,6 +342,7 @@ void AdvanceTakeInputKeyboardActionMemories( RuntimeInputContext& input )
                                                         { RuntimeInputAction::ReportRendererRuntimeRetired, 'Q' },
                                                         { RuntimeInputAction::ToggleBroadphaseOverlay, 'G' },
                                                         { RuntimeInputAction::ToggleUIVisibility, '0' },
+                                                        { RuntimeInputAction::TogglePerformanceHistogram, VK_F5 },
                                                         { RuntimeInputAction::NavigateScenePrevious, VK_LEFT },
                                                         { RuntimeInputAction::NavigateSceneNext, VK_RIGHT },
                                                         { RuntimeInputAction::DismissOrExitUI, VK_ESCAPE },
@@ -2237,6 +2238,20 @@ void Run::TakeInput()
                 ApplyCursorOwnership();
                 ReleaseMouseToUI();
                 UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleUIVisibility,
+                                                   RuntimeInputActionSource::Keyboard );
+            }
+        }
+
+        // F5: toggle the standalone marker histogram without opening the full diagnostics window.
+        {
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                              RuntimeInputAction::TogglePerformanceHistogram,
+                                                              VK_F5 ) )
+            {
+                m_UI.TogglePerformanceHistogramEnabled();
+                ApplyCursorOwnership();
+                ReleaseMouseToUI();
+                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::TogglePerformanceHistogram,
                                                    RuntimeInputActionSource::Keyboard );
             }
         }

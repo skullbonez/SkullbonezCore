@@ -977,6 +977,7 @@ void InGameUI::CancelInputCapture()
     m_renderTargetCombo.Close();
     m_cameraModeCombo.Close();
     CancelEditorMiniPaletteInteraction();
+    ProfilerTab::CancelPerformanceHistogramInteraction( m_profilerTab );
 }
 
 
@@ -996,7 +997,8 @@ bool InGameUI::BlocksKeyboard() const
 
 bool InGameUI::WantsNativeMouseCursor() const
 {
-    return m_window.isVisible && !m_window.isMinimized;
+    return ( m_window.isVisible && !m_window.isMinimized ) || m_interaction.blocksCameraMouse ||
+           ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
 }
 
 
@@ -1102,6 +1104,24 @@ void InGameUI::SetPerformanceHistogramEnabled( bool enabled )
 {
     ProfilerTab::SetPerformanceHistogramEnabled( m_profilerTab, enabled );
     m_cache.Reset();
+}
+
+
+bool InGameUI::IsPerformanceHistogramEnabled() const
+{
+    return ProfilerTab::PerformanceHistogramEnabled( m_profilerTab );
+}
+
+
+void InGameUI::TogglePerformanceHistogramEnabled()
+{
+    SetPerformanceHistogramEnabled( !IsPerformanceHistogramEnabled() );
+}
+
+
+bool InGameUI::NeedsUiTextPass() const
+{
+    return m_window.isVisible || IsPerformanceHistogramEnabled();
 }
 
 
@@ -1359,12 +1379,6 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                                                m_mouseOverrideY );
     const int wheelDelta = input.wheelDelta;
     result.unhandledWheelDelta = wheelDelta;
-    if ( !m_window.isVisible )
-    {
-        return result;
-    }
-    ProfilerTab::ApplyDefaultExpansion( m_profilerTab );
-
     m_mouseX = input.mouseX;
     m_mouseY = input.mouseY;
 
@@ -1372,6 +1386,41 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
     screenH = (std::max)( 1, screenH );
     m_lastScreenW = screenW;
     m_lastScreenH = screenH;
+    const bool leftNow = input.leftDown;
+    // Concept: the standalone histogram remains interactive even when the main
+    // diagnostics window is hidden, so it gets first chance at mouse input.
+    const bool histogramWasInteracting = ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
+    if ( ProfilerTab::HandlePerformanceHistogramInput( m_profilerTab,
+                                                       result,
+                                                       screenW,
+                                                       screenH,
+                                                       m_mouseX,
+                                                       m_mouseY,
+                                                       leftNow,
+                                                       input.leftPressed,
+                                                       input.leftReleased,
+                                                       wheelDelta ) )
+    {
+        const bool histogramIsInteracting = ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
+        if ( input.leftPressed && histogramIsInteracting && !histogramWasInteracting )
+        {
+            InputControl::BeginMouseCapture( hwnd );
+        }
+        if ( input.leftReleased && histogramWasInteracting )
+        {
+            InputControl::EndMouseCapture();
+        }
+        m_interaction.leftWasDown = leftNow;
+        m_interaction.blocksCameraMouse = true;
+        return result;
+    }
+    if ( !m_window.isVisible )
+    {
+        m_interaction.leftWasDown = leftNow;
+        return result;
+    }
+    ProfilerTab::ApplyDefaultExpansion( m_profilerTab );
+
     const int minW = 520;
     const int minH = 250;
     const int margin = 10;
@@ -1388,7 +1437,6 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
     }
     Chrome::ClampWindowToScreen( m_window, screenW, screenH, minW, minH, margin );
 
-    const bool leftNow = input.leftDown;
     if ( m_window.isMinimized )
     {
         const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
@@ -2305,7 +2353,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
 
 void InGameUI::Draw( const InGameUIFrameData& data )
 {
-    if ( !m_window.isVisible )
+    const bool histogramEnabled = ProfilerTab::PerformanceHistogramEnabled( m_profilerTab );
+    if ( !m_window.isVisible && !histogramEnabled )
     {
         return;
     }
@@ -2323,9 +2372,32 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     m_lastRenderTargetPreviewCount = RenderTargetPreviewCount( data );
     m_lastRenderTargetDisabledMask = RenderTargetPreviewDisabledMask( data );
     m_selectedRenderTargetPreview = ResolveRenderTargetPreviewSelection( data, m_selectedRenderTargetPreview );
-    if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
+
+    auto drawHistogramOverlay = [&]()
     {
-        ProfilerTab::PushPerformanceHistogramSample( m_profilerTab, data.cpuFrameMs, data.gpuFrameMs );
+        if ( !histogramEnabled )
+        {
+            return;
+        }
+
+        // Why: the main diagnostics window can replay cached draw commands, but
+        // marker samples, selector state, and drag/resize feedback must rebuild
+        // every frame.
+        m_histogramDrawList.Clear();
+        const UIDrawContext histogramDraw( screenW, screenH, &m_histogramDrawList );
+        ProfilerTab::DrawPerformanceHistogram( m_profilerTab, histogramDraw, data );
+        FlushUIDrawList( m_histogramDrawList, screenW, screenH );
+    };
+
+    if ( histogramEnabled )
+    {
+        ProfilerTab::PushPerformanceHistogramSample( m_profilerTab, data );
+    }
+
+    if ( !m_window.isVisible )
+    {
+        drawHistogramOverlay();
+        return;
     }
 
     if ( m_window.isMinimized )
@@ -2340,11 +2412,8 @@ void InGameUI::Draw( const InGameUIFrameData& data )
             if ( m_window.animationActive )
             {
                 Chrome::DrawWindowAnimationShell( draw, animBounds );
-                if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
-                {
-                    ProfilerTab::DrawPerformanceHistogram( m_profilerTab, draw, data );
-                }
                 FlushUIDrawList( drawList, screenW, screenH );
+                drawHistogramOverlay();
                 return;
             }
         }
@@ -2408,11 +2477,8 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                                     cameraModeDisabledMask );
         }
         DrawEditorObjectCounter( draw, data, screenW, screenH );
-        if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
-        {
-            ProfilerTab::DrawPerformanceHistogram( m_profilerTab, draw, data );
-        }
         FlushUIDrawList( drawList, screenW, screenH );
+        drawHistogramOverlay();
         return;
     }
 
@@ -2481,6 +2547,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         const float replayOffsetX = m_cache.ReplayOffsetX( cacheKey );
         const float replayOffsetY = m_cache.ReplayOffsetY( cacheKey );
         FlushUIDrawList( m_cache.DrawList(), screenW, screenH, replayOffsetX, replayOffsetY );
+        drawHistogramOverlay();
         m_cache.StoreFrame( cacheKey );
         return;
     }
@@ -2953,11 +3020,6 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         }
     }
 
-    if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
-    {
-        ProfilerTab::DrawPerformanceHistogram( m_profilerTab, draw, data );
-    }
-
     draw.Rect( x + w - 24.0f,
                y + h - 9.0f,
                14.0f,
@@ -2991,6 +3053,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
 
     PROFILE_END( "Frame/UI/DrawBuild" );
     FlushUIDrawList( drawList, screenW, screenH );
+    drawHistogramOverlay();
     if ( drawsLiveRenderTargetPreview )
     {
         m_cache.Reset();

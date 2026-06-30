@@ -48,7 +48,7 @@ void UiTextPass::ReleaseGpuResources()
 bool UiTextPass::ShouldRender() const
 {
     return m_host.m_debug.isTextOnly || !m_host.SceneState().isSceneMode || m_host.SceneState().isSceneText ||
-           m_host.m_debug.overlayMode != OverlayMode::None || m_host.m_UI.IsVisible() ||
+           m_host.m_debug.overlayMode != OverlayMode::None || m_host.m_UI.NeedsUiTextPass() ||
            m_host.ShouldRenderReplayScrubber() || m_host.ReplayPathVisualizerHasTarget() ||
            ( m_host.m_camera.mode != RunCameraMode::Demo && m_host.m_camera.mode != RunCameraMode::Scene );
 }
@@ -57,6 +57,9 @@ bool UiTextPass::ShouldRender() const
 void UiTextPass::Render( const UiTextPassInputs& inputs )
 {
     const int uiPassDrawCallStart = inputs.renderDiagnostics.GetFrameDrawCallCount();
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    const Profiler& profiler = Profiler::Instance();
+#endif
 
     // Invariant: rolling diagnostics update before any overlay early return so
     // FPS, physics time, render time, and scene energy age at the same cadence.
@@ -240,7 +243,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         sceneName = FileNameFromPath( m_host.m_sceneController.CurrentPath()->c_str() );
     }
 
-    if ( m_host.m_UI.IsVisible() )
+    if ( m_host.m_UI.NeedsUiTextPass() )
     {
         PROFILE_BEGIN( "Frame/UI/BuildData" );
         InGameUIFrameData UIData;
@@ -269,6 +272,98 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                            1000.0f;
         UIData.cpuFrameMs = m_host.m_timers.cpuFrameWorkMs;
         UIData.gpuFrameMs = m_host.m_timers.gpuFrameWorkMs;
+        {
+            // Concept: marker enumeration stays in the runtime pass that owns
+            // profiler access. The UI receives a bounded frame snapshot so
+            // drawing and hit testing do not reach into profiler globals.
+            auto markerOptionExists = [&]( uint32_t hash, bool isFrameTotal ) -> bool
+            {
+                for ( int i = 0; i < UIData.profilerMarkerOptionCount; ++i )
+                {
+                    const SkullbonezCore::UI::UIProfilerMarkerOption& option = UIData.profilerMarkerOptions[i];
+                    if ( option.isFrameTotal == isFrameTotal && ( isFrameTotal || option.hash == hash ) )
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            auto addMarkerOption = [&]( const char* name,
+                                        const char* leafName,
+                                        uint32_t hash,
+                                        float cpuMs,
+                                        float gpuMs,
+                                        bool hasGpu,
+                                        bool sampleValid,
+                                        bool isFrameTotal )
+            {
+                if ( UIData.profilerMarkerOptionCount >= SkullbonezCore::UI::UI_PROFILER_MARKER_OPTION_MAX ||
+                     markerOptionExists( hash, isFrameTotal ) )
+                {
+                    return;
+                }
+
+                SkullbonezCore::UI::UIProfilerMarkerOption& option =
+                    UIData.profilerMarkerOptions[UIData.profilerMarkerOptionCount++];
+                option.name = name ? name : "";
+                option.leafName = leafName ? leafName : option.name;
+                option.hash = hash;
+                option.cpuMs = (std::max)( 0.0f, cpuMs );
+                option.gpuMs = (std::max)( 0.0f, gpuMs );
+                option.hasGpu = hasGpu;
+                option.sampleValid = sampleValid;
+                option.isFrameTotal = isFrameTotal;
+            };
+
+            addMarkerOption( "Frame Total",
+                             "Frame Total",
+                             SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
+                             UIData.cpuFrameMs,
+                             UIData.gpuFrameMs,
+                             true,
+                             true,
+                             true );
+
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+            auto addProfilerMarker = [&]( const Profiler::Marker& marker )
+            {
+                addMarkerOption( marker.name,
+                                 marker.leafName,
+                                 marker.hash,
+                                 marker.lastFrameMs,
+                                 marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
+                                 marker.hasGpu,
+                                 true,
+                                 false );
+            };
+
+            static constexpr uint32_t kPinnedMarkerHashes[] = {
+                ::HashStr( "Frame/Physics" ),
+                ::HashStr( "Frame/Physics/Step" ),
+                ::HashStr( "Frame/Physics/Narrowphase/PersistentContacts/"
+                           "SolveRows" ),
+                ::HashStr( "Frame/Render" ),
+                ::HashStr( "Frame/UI" ) };
+            for ( uint32_t pinnedHash : kPinnedMarkerHashes )
+            {
+                for ( int markerIndex = 0; markerIndex < profiler.MarkerCount(); ++markerIndex )
+                {
+                    const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
+                    if ( marker.hash == pinnedHash )
+                    {
+                        addProfilerMarker( marker );
+                        break;
+                    }
+                }
+            }
+
+            for ( int markerIndex = 0; markerIndex < profiler.MarkerCount(); ++markerIndex )
+            {
+                addProfilerMarker( profiler.GetMarker( markerIndex ) );
+            }
+#endif
+        }
         UIData.modelCount = view.modelCount;
         UIData.modelCapacity = ActiveGameModelCapacity();
         UIData.workerThreadCount = SkullbonezCore::Threading::WorkerPool::Instance().GetThreadCount();
@@ -464,8 +559,11 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             Text2d::FlushText();
         }
         PROFILE_END( "Frame/UI/PostFlushText" );
-        m_host.RenderReplayScrubberOverlay();
-        return;
+        if ( m_host.m_UI.IsVisible() )
+        {
+            m_host.RenderReplayScrubberOverlay();
+            return;
+        }
     }
 
     // --- Overlay: None ---
@@ -537,7 +635,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panX = -( hw - mX ) + mX * 0.5f;   // slight left margin
         const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
         const bool absolute = ( m_host.m_debug.overlayMode == OverlayMode::BarsAbsolute );
-        Profiler::Instance().RenderBarOverlay( panX, panY, panW, panH, absolute );
+        profiler.RenderBarOverlay( panX, panY, panW, panH, absolute );
         m_host.RenderReplayScrubberOverlay();
         {
             DRAW_CALL_TRACE_SCOPE( "ProfilerBars" );
@@ -645,11 +743,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float lineH = 0.018f;
         const float profFSz = 0.012f;
         const float padY = lineH * 1.2f;
-        Profiler::Instance().RenderOverlay( -( hw - mX ),
-                                            -( hh - mY ) - padY,
-                                            lineH,
-                                            profFSz,
-                                            m_host.m_timers.rollingFpsTime );
+        profiler.RenderOverlay( -( hw - mX ), -( hh - mY ) - padY, lineH, profFSz, m_host.m_timers.rollingFpsTime );
     }
 #endif
 

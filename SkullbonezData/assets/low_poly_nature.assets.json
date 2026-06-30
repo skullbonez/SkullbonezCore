@@ -128,6 +128,7 @@
       "parts": [
         {
           "name": "trunk",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/tree_trunk_small_faceted.hull",
           "offset": [
             0,
@@ -152,6 +153,7 @@
         },
         {
           "name": "low",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/cedar_tier_low.hull",
           "offset": [
             0,
@@ -176,6 +178,7 @@
         },
         {
           "name": "mid",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/cedar_tier_mid.hull",
           "offset": [
             0,
@@ -200,6 +203,7 @@
         },
         {
           "name": "top",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/cedar_tier_top.hull",
           "offset": [
             0,
@@ -230,6 +234,7 @@
       "parts": [
         {
           "name": "trunk",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/tree_trunk_faceted.hull",
           "offset": [
             0,
@@ -254,6 +259,7 @@
         },
         {
           "name": "low",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_tier_large.hull",
           "offset": [
             0,
@@ -278,6 +284,7 @@
         },
         {
           "name": "mid",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_tier_mid.hull",
           "offset": [
             0,
@@ -302,6 +309,7 @@
         },
         {
           "name": "top",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_tier_top.hull",
           "offset": [
             0,
@@ -332,6 +340,7 @@
       "parts": [
         {
           "name": "trunk",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/tree_trunk_faceted.hull",
           "offset": [
             0,
@@ -356,6 +365,7 @@
         },
         {
           "name": "low",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/cedar_tier_tall_low.hull",
           "offset": [
             0,
@@ -380,6 +390,7 @@
         },
         {
           "name": "mid",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/cedar_tier_tall_mid.hull",
           "offset": [
             0,
@@ -404,6 +415,7 @@
         },
         {
           "name": "top",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/cedar_tier_top.hull",
           "offset": [
             0,
@@ -434,6 +446,7 @@
       "parts": [
         {
           "name": "root",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/tree_root_large.hull",
           "offset": [
             0,
@@ -458,6 +471,7 @@
         },
         {
           "name": "trunk",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/tree_trunk_faceted.hull",
           "offset": [
             0,
@@ -482,6 +496,7 @@
         },
         {
           "name": "low",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_tier_large.hull",
           "offset": [
             0,
@@ -506,6 +521,7 @@
         },
         {
           "name": "mid",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_tier_mid.hull",
           "offset": [
             0,
@@ -530,6 +546,7 @@
         },
         {
           "name": "top",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_tier_top.hull",
           "offset": [
             0,
@@ -554,6 +571,7 @@
         },
         {
           "name": "needle_00",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             -12,
@@ -580,6 +598,7 @@
         },
         {
           "name": "needle_01",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             -4,
@@ -606,6 +625,7 @@
         },
         {
           "name": "needle_02",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             6,
@@ -632,6 +652,7 @@
         },
         {
           "name": "needle_03",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             14,
@@ -658,6 +679,7 @@
         },
         {
           "name": "needle_04",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             15,
@@ -684,6 +706,7 @@
         },
         {
           "name": "needle_05",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             8,
@@ -710,6 +733,7 @@
         },
         {
           "name": "needle_06",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             -4,
@@ -736,6 +760,7 @@
         },
         {
           "name": "needle_07",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             -15,
@@ -762,6 +787,7 @@
         },
         {
           "name": "needle_08",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             -9,
@@ -788,6 +814,7 @@
         },
         {
           "name": "needle_09",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             1,
@@ -814,6 +841,7 @@
         },
         {
           "name": "needle_10",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             10,
@@ -840,6 +868,7 @@
         },
         {
           "name": "needle_11",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             11,
@@ -866,6 +895,7 @@
         },
         {
           "name": "needle_12",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             2,
@@ -892,6 +922,7 @@
         },
         {
           "name": "needle_13",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             -10,
@@ -918,6 +949,7 @@
         },
         {
           "name": "needle_14",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             -6,
@@ -944,6 +976,7 @@
         },
         {
           "name": "needle_15",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             4,
@@ -970,6 +1003,7 @@
         },
         {
           "name": "needle_16",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             7,
@@ -996,6 +1030,7 @@
         },
         {
           "name": "needle_17",
+          "type": "convexHull",
           "hull": "SkullbonezData/hulls/pine_needle_cluster.hull",
           "offset": [
             -3,

@@ -1649,6 +1649,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     auto m_gameModels = modelAccess.Models();
     const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
     const int modelCount = bodyStream.count;
+    const auto& config = Cfg();
     std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
 
     // Sleep thresholds are config-backed because they directly trade CPU cost
@@ -1661,11 +1662,11 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     // The counter storage is still uint8_t, so physics_sleep_frames is clamped
     // to 1..255 here. Widening that storage is a separate data-layout change and
     // should be measured before doing it in a hot per-body array.
-    const float sleepLinear = (std::max)( 0.0f, Cfg().physicsSleepLinearSpeed );
-    const float sleepAngular = (std::max)( 0.0f, Cfg().physicsSleepAngularSpeed );
+    const float sleepLinear = (std::max)( 0.0f, config.physicsSleepLinearSpeed );
+    const float sleepAngular = (std::max)( 0.0f, config.physicsSleepAngularSpeed );
     const float SLEEP_LINEAR_SQ = sleepLinear * sleepLinear;
     const float SLEEP_ANGULAR_SQ = sleepAngular * sleepAngular;
-    const uint8_t SLEEP_FRAMES = static_cast<uint8_t>( (std::max)( 1, (std::min)( Cfg().physicsSleepFrames, 255 ) ) );
+    const uint8_t SLEEP_FRAMES = static_cast<uint8_t>( (std::max)( 1, (std::min)( config.physicsSleepFrames, 255 ) ) );
 
     EnsureUnderwaterSleepLockBuffer( modelCount );
     for ( int x = 0; x < modelCount; ++x )
@@ -1693,7 +1694,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         bodyStore.ApplyCompatibilityForces( m_gameModels, x, dt );
     };
 
-    if ( Cfg().physicsParallel && Cfg().physicsParallelApplyForces )
+    if ( config.physicsParallel && config.physicsParallelApplyForces )
     {
         SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,
                                                                        modelCount,
@@ -1716,7 +1717,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     // Broadphase: build spatial grid from all object positions (include sleeping for wake detection)
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
     std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
-    const float contactSkin = (std::max)( 0.0f, Cfg().contactEpsilon );
+    const float contactSkin = (std::max)( 0.0f, config.contactEpsilon );
     // Why: sharing one spatial-grid cell is only a locality hint. Dense wall
     // scenes can put many small boxes in one cell, so reject pairs whose swept
     // bounding spheres never approach before appending them to the hot vector.
@@ -1761,10 +1762,9 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         }
 
         const Vector3 relativeStart = context.bodyStream.positions[a] - context.bodyStream.positions[b];
-        const Vector3 relativeDisplacement =
-            ( context.bodyRecords[static_cast<size_t>( a )].linearVelocity -
-              context.bodyRecords[static_cast<size_t>( b )].linearVelocity ) *
-            context.dt;
+        const Vector3 relativeDisplacement = ( context.bodyRecords[static_cast<size_t>( a )].linearVelocity -
+                                               context.bodyRecords[static_cast<size_t>( b )].linearVelocity ) *
+                                             context.dt;
         const float contactRadius = radiusA + radiusB + context.contactSkin;
         const float contactRadiusSq = contactRadius * contactRadius;
         const float relativeLengthSq = Vector::VectorMagSquared( relativeDisplacement );
@@ -1796,7 +1796,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         // cells while the config value remains an upper bound for legacy scenes.
         // Invariant: the choice uses only deterministic body-stream/config data,
         // so byte-exact physics baselines do not depend on allocator or hash state.
-        const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, Cfg().broadphaseCell );
+        const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, config.broadphaseCell );
         const float sceneCell =
             (std::max)( BROADPHASE_MIN_CELL_SIZE, ( largestBroadphaseRadius + contactSkin ) * 2.0f );
         m_spatialGrid.SetCellSize( (std::min)( configuredCell, sceneCell ) );
@@ -1884,7 +1884,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         t = (std::max)( 0.0f, (std::min)( 1.0f, t ) );
         const Vector3 closestRelative = relativeStart + relativeDisplacement * t;
         const float expandedRadius = bodyStream.boundingRadii[movingIndex] + bodyStream.boundingRadii[targetIndex] +
-                                     Cfg().contactEpsilon + PHYSICS_FAST_SWEEP_PAIR_SLOP;
+                                     config.contactEpsilon + PHYSICS_FAST_SWEEP_PAIR_SLOP;
         return Vector::VectorMagSquared( closestRelative ) <= expandedRadius * expandedRadius;
     };
 
@@ -1993,8 +1993,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
                                 const int a = pair.first;
                                 const int b = pair.second;
                                 const bool prune = a >= 0 && b >= 0 && a < static_cast<int>( m_sleepState.size() ) &&
-                                                    b < static_cast<int>( m_sleepState.size() ) &&
-                                                    m_sleepState[a] != 0 && m_sleepState[b] != 0;
+                                                   b < static_cast<int>( m_sleepState.size() ) &&
+                                                   m_sleepState[a] != 0 && m_sleepState[b] != 0;
                                 if ( prune && CanRecordPhysicsPipelineStage() )
                                 {
                                     Physics::PhysicsPipelineRecord record;
@@ -2054,7 +2054,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
                                            m_gameModels[sleepingIndex],
                                            awakeIndex,
                                            sleepingIndex,
-                                           Cfg().contactEpsilon,
+                                           config.contactEpsilon,
                                            manifold );
     };
 
@@ -2076,7 +2076,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
 
         ObjectContactManifold manifold;
         const bool hit =
-            BuildObjectContactManifold( m_gameModels[a], m_gameModels[b], a, b, Cfg().contactEpsilon, manifold );
+            BuildObjectContactManifold( m_gameModels[a], m_gameModels[b], a, b, config.contactEpsilon, manifold );
 
         bodyRecords[static_cast<size_t>( a )].position = startA;
         bodyRecords[static_cast<size_t>( b )].position = startB;
@@ -2514,7 +2514,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     m_objectNarrowphaseIslands.clear();
     bool ranParallelNarrowphase = false;
     const bool mayBenefitFromIslandDispatch =
-        PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED && Cfg().physicsParallel && Cfg().physicsParallelNarrowphase &&
+        PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED && config.physicsParallel && config.physicsParallelNarrowphase &&
         candidatePairCount >= PHYSICS_NARROWPHASE_PARALLEL_MIN_PAIRS &&
         candidatePairCount <= modelCount * PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY &&
         SkullbonezCore::Threading::WorkerPool::Instance().GetThreadCount() > 0;
@@ -2631,7 +2631,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     };
 
     m_terrainDetectionCandidates.assign( static_cast<size_t>( modelCount ), TerrainDetectionCandidate() );
-    if ( Cfg().physicsParallel && Cfg().physicsParallelTerrainDetect )
+    if ( config.physicsParallel && config.physicsParallelTerrainDetect )
     {
         SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,
                                                                        modelCount,
@@ -2687,7 +2687,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         }
     };
 
-    if ( Cfg().physicsParallel && Cfg().physicsParallelIntegrate )
+    if ( config.physicsParallel && config.physicsParallelIntegrate )
     {
         SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor( 0,
                                                                        modelCount,

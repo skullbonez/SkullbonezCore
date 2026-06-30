@@ -96,6 +96,7 @@ enum class RuntimeInputAction
     ReportRendererRuntimeRetired,
     ToggleBroadphaseOverlay,
     ToggleUIVisibility,
+    TogglePerformanceHistogram,
     NavigateScenePrevious,
     NavigateSceneNext,
     DismissOrExitUI,
