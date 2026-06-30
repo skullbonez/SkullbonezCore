@@ -76,6 +76,8 @@ constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS = 16;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND = 4;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY = 2;
 constexpr bool PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED = true;
+constexpr float PHYSICS_OBJECT_CCD_RADIUS_FRACTION = 0.25f;
+constexpr float PHYSICS_OBJECT_CCD_SKIN_SCALE = 4.0f;
 constexpr float PHYSICS_FAST_SWEEP_MAX_RADIUS = 1.0f;
 constexpr float PHYSICS_FAST_SWEEP_MIN_DISTANCE = 1.0f;
 constexpr float PHYSICS_FAST_SWEEP_PAIR_SLOP = 1.0f;
@@ -2144,6 +2146,63 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         return m_gameModels[a].SweepGameModel( m_gameModels[b], availableTime );
     };
 
+    auto objectPairHasPersistentContactCache = [&]( int a, int b ) -> bool
+    {
+        constexpr uint64_t BODY_MASK = 0x7fffull;
+        const int lo = ( a < b ) ? a : b;
+        const int hi = ( a < b ) ? b : a;
+        // Invariant: this mirrors the object/object prefix of the persistent
+        // solver cache key. Feature ids occupy the low 32 bits, so masking those
+        // away answers whether any cached contact row existed for this pair.
+        const uint64_t pairPrefix = ( ( static_cast<uint64_t>( static_cast<uint32_t>( lo ) ) & BODY_MASK ) << 47 ) |
+                                    ( ( static_cast<uint64_t>( static_cast<uint32_t>( hi ) ) & BODY_MASK ) << 32 );
+        const int64_t firstKey = static_cast<int64_t>( pairPrefix );
+        auto cachedIt = std::lower_bound( m_persistentContactCache.begin(),
+                                          m_persistentContactCache.end(),
+                                          firstKey,
+                                          []( const PersistentContactCacheEntry& entry, int64_t lookupKey )
+                                          { return entry.key < lookupKey; } );
+        return cachedIt != m_persistentContactCache.end() &&
+               ( static_cast<uint64_t>( cachedIt->key ) & 0xffffffff00000000ull ) == pairPrefix;
+    };
+
+    auto objectPairNeedsSweptCcd = [&]( int a, int b, float availableTime ) -> bool
+    {
+        if ( availableTime <= TOLERANCE )
+        {
+            return false;
+        }
+
+        if ( !objectPairHasPersistentContactCache( a, b ) )
+        {
+            return true;
+        }
+
+        const float radiusA = bodyStream.boundingRadii[a];
+        const float radiusB = bodyStream.boundingRadii[b];
+        if ( !std::isfinite( radiusA ) || !std::isfinite( radiusB ) || radiusA <= TOLERANCE || radiusB <= TOLERANCE )
+        {
+            return true;
+        }
+
+        const PhysicsBodyRecord& bodyA = bodyRecords[static_cast<size_t>( a )];
+        const PhysicsBodyRecord& bodyB = bodyRecords[static_cast<size_t>( b )];
+        const Vector3 relativeLinearDisplacement = ( bodyA.linearVelocity - bodyB.linearVelocity ) * availableTime;
+        const float linearTravel = Vector::VectorMag( relativeLinearDisplacement );
+        const float angularTravel = ( Vector::VectorMag( bodyA.angularVelocity ) * radiusA +
+                                      Vector::VectorMag( bodyB.angularVelocity ) * radiusB ) *
+                                    availableTime;
+        const float sweptTravel = linearTravel + angularTravel;
+        const float smallerRadius = (std::min)( radiusA, radiusB );
+        const float ccdThreshold = (std::max)( contactSkin * PHYSICS_OBJECT_CCD_SKIN_SCALE,
+                                               smallerRadius * PHYSICS_OBJECT_CCD_RADIUS_FRACTION );
+
+        // Why: only already-persistent pairs may bypass the swept front-end. New
+        // contacts keep their old time-of-impact path; settled contacts rely on
+        // persistent manifolds unless motion is large enough to tunnel.
+        return sweptTravel > ccdThreshold;
+    };
+
     // Object/object CCD front-end: wake sleepers and advance swept hits to a
     // contact candidate, but leave velocity response to the persistent rows.
     PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
@@ -2237,7 +2296,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
                 // Swept impact wakes immediately when time remains; persistent
                 // overlap wakes too so sleepers cannot stay frozen after a hit.
                 bool wokeBySweptImpact = false;
-                if ( m_timeRemaining[y] > 0.0f )
+                if ( m_timeRemaining[y] > 0.0f && objectPairNeedsSweptCcd( y, x, m_timeRemaining[y] ) )
                 {
                     GameModel::ObjectSweepResult sweep = sweepObjectPair( y, x, m_timeRemaining[y] );
                     if ( sweep.hit )
@@ -2296,7 +2355,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
                     return;
                 }
                 bool wokeBySweptImpact = false;
-                if ( m_timeRemaining[x] > 0.0f )
+                if ( m_timeRemaining[x] > 0.0f && objectPairNeedsSweptCcd( x, y, m_timeRemaining[x] ) )
                 {
                     GameModel::ObjectSweepResult sweep = sweepObjectPair( x, y, m_timeRemaining[x] );
                     if ( sweep.hit )
@@ -2360,6 +2419,20 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         }
 
         float availableTime = (std::min)( m_timeRemaining[x], m_timeRemaining[y] );
+        if ( !objectPairNeedsSweptCcd( x, y, availableTime ) )
+        {
+            Physics::PhysicsPipelineRecord record;
+            record.stage = Physics::PhysicsPipelineStage::SweptObjectMiss;
+            record.bodyA = x;
+            record.bodyB = y;
+            record.point =
+                ( bodyRecords[static_cast<size_t>( x )].position + bodyRecords[static_cast<size_t>( y )].position ) *
+                0.5f;
+            record.scalarA = availableTime;
+            recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectMiss, record );
+            return;
+        }
+
         GameModel::ObjectSweepResult sweep = sweepObjectPair( x, y, availableTime );
 
         if ( sweep.hit )
