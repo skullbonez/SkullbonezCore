@@ -158,10 +158,10 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
         else if ( m_host.SceneState().targetFrameCount > 0 )
         {
-            const int frame =
-                m_host.SceneState().isTestComplete && m_host.SceneState().currentFrame > m_host.SceneState().targetFrameCount
-                    ? m_host.SceneState().targetFrameCount
-                    : m_host.SceneState().currentFrame;
+            const int frame = m_host.SceneState().isTestComplete &&
+                                      m_host.SceneState().currentFrame > m_host.SceneState().targetFrameCount
+                                  ? m_host.SceneState().targetFrameCount
+                                  : m_host.SceneState().currentFrame;
             sprintf_s( sceneLine,
                        sizeof( sceneLine ),
                        "Scene %d/%d  Frame %d/%d",
@@ -180,9 +180,9 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                        m_host.SceneState().currentFrame );
         }
 
-        const char* stateLine =
-            m_host.m_debug.isCrossScenePauseLocked ? "P Pause Lock   Space advances"
-                                                   : ( m_host.SceneState().isTestComplete ? "Scene complete" : "P pause lock" );
+        const char* stateLine = m_host.m_debug.isCrossScenePauseLocked
+                                    ? "P Pause Lock   Space advances"
+                                    : ( m_host.SceneState().isTestComplete ? "Scene complete" : "P pause lock" );
         const float titlePx = 11.5f;
         const float valuePx = 10.0f;
         const float padX = 10.0f;
@@ -383,6 +383,17 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                            1000.0f;
         UIData.cpuFrameMs = m_host.m_timers.cpuFrameWorkMs;
         UIData.gpuFrameMs = m_host.m_timers.gpuFrameWorkMs;
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+        {
+            // Why: worker-core samples are committed at FrameEnd. Reading the
+            // last committed total here keeps the F5 chart a pure UI snapshot
+            // instead of reaching into profiler globals while drawing.
+            for ( int sampleIndex = 0; sampleIndex < profiler.WorkerCoreSampleCount(); ++sampleIndex )
+            {
+                UIData.workerCoreTotalMs += (std::max)( 0.0f, profiler.GetWorkerCoreSample( sampleIndex ).coreMs );
+            }
+        }
+#endif
         {
             // Concept: marker enumeration stays in the runtime pass that owns
             // profiler access. The UI receives a bounded frame snapshot so

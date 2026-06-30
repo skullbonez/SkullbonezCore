@@ -191,6 +191,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashFloat( hash, data.physicsMs, 1000.0f );
     hash = HashFloat( hash, data.cpuFrameMs, 1000.0f );
     hash = HashFloat( hash, data.gpuFrameMs, 1000.0f );
+    hash = HashFloat( hash, data.workerCoreTotalMs, 1000.0f );
     hash = HashInt( hash, data.modelCount );
     hash = HashInt( hash, data.modelCapacity );
     hash = HashInt( hash, data.workerThreadCount );

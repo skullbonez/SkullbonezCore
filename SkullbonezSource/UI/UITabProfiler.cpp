@@ -380,12 +380,29 @@ constexpr float HISTOGRAM_RESIZE_HOTSPOT = 22.0f;
 constexpr float HISTOGRAM_DROPDOWN_ROW_H = 22.0f;
 constexpr int HISTOGRAM_DROPDOWN_VISIBLE_ROWS = 8;
 constexpr float HISTOGRAM_SAMPLE_CLAMP_MS = 250.0f;
+constexpr float HISTOGRAM_FRAME_CPU_BUDGET_MS = 16.7f;
+constexpr float HISTOGRAM_FRAME_CPU_DEFAULT_AXIS_MS = 33.3f;
+constexpr float HISTOGRAM_MARKER_DEFAULT_AXIS_MS = 16.67f;
+constexpr double HISTOGRAM_AVERAGE_TEXT_REFRESH_SECONDS = 0.5;
+
+float HistogramInitialAxisMs( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
+{
+    return state.histogramSelectedFrameTotal ? HISTOGRAM_FRAME_CPU_DEFAULT_AXIS_MS : HISTOGRAM_MARKER_DEFAULT_AXIS_MS;
+}
+
+float HistogramMinimumAxisMs( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
+{
+    return state.histogramSelectedFrameTotal ? HISTOGRAM_FRAME_CPU_DEFAULT_AXIS_MS : 0.25f;
+}
 
 void ClearHistogramSamples( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
 {
     state.histogramHead = 0;
     state.histogramCount = 0;
-    state.histogramAxisMs = 16.67f;
+    state.histogramAxisMs = HistogramInitialAxisMs( state );
+    state.histogramAverageTextLastUpdateSeconds = -1.0;
+    state.histogramAverageCpuMs = 0.0f;
+    state.histogramAverageWorkerMs = 0.0f;
     for ( int i = 0; i < SkullbonezCore::UI::ProfilerTab::HISTOGRAM_SAMPLE_COUNT; ++i )
     {
         state.histogramSamples[i] = {};
@@ -607,7 +624,7 @@ ResolveHistogramOption( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& sta
 
 float HistogramSampleMax( const SkullbonezCore::UI::ProfilerTab::PerformanceHistogramSample& sample )
 {
-    return sample.hasSecondary ? (std::max)( sample.primaryMs, sample.secondaryMs ) : sample.primaryMs;
+    return sample.primaryMs;
 }
 
 float NiceHistogramAxis( float rawMs )
@@ -621,7 +638,7 @@ float NiceHistogramAxis( float rawMs )
                                             12.0f,
                                             16.67f,
                                             24.0f,
-                                            32.0f,
+                                            HISTOGRAM_FRAME_CPU_DEFAULT_AXIS_MS,
                                             48.0f,
                                             64.0f,
                                             96.0f,
@@ -1191,12 +1208,14 @@ void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFr
         return;
     }
 
-    // Invariant: Histogram samples are scoped to the selected marker. The axis
-    // is recomputed from that marker's rolling window so a physics spike remains
-    // visible without flattening unrelated frame-total history.
+    // Invariant: Histogram samples are scoped to the selected marker. The main
+    // axis follows the selected CPU marker only; worker-core totals are an
+    // overlay on Frame Total so parallel work cannot permanently flatten the CPU
+    // frame-budget signal.
     const float primaryMs = std::clamp( option->cpuMs, 0.0f, HISTOGRAM_SAMPLE_CLAMP_MS );
-    const float secondaryMs = std::clamp( option->gpuMs, 0.0f, HISTOGRAM_SAMPLE_CLAMP_MS );
-    const bool hasSecondary = option->hasGpu || option->isFrameTotal;
+    const bool hasWorkerCoreTotal = option->isFrameTotal && data.workerCoreTotalMs > 0.0f;
+    const float workerCoreTotalMs =
+        hasWorkerCoreTotal ? std::clamp( data.workerCoreTotalMs, 0.0f, HISTOGRAM_SAMPLE_CLAMP_MS ) : 0.0f;
 
     float previousMaxMs = 0.0f;
     for ( int i = 0; i < state.histogramCount; ++i )
@@ -1206,11 +1225,11 @@ void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFr
         previousMaxMs = (std::max)( previousMaxMs, HistogramSampleMax( state.histogramSamples[sampleIndex] ) );
     }
 
-    const float sampleMaxMs = hasSecondary ? (std::max)( primaryMs, secondaryMs ) : primaryMs;
+    const float sampleMaxMs = primaryMs;
     PerformanceHistogramSample& writeSample = state.histogramSamples[state.histogramHead];
     writeSample.primaryMs = primaryMs;
-    writeSample.secondaryMs = secondaryMs;
-    writeSample.hasSecondary = hasSecondary;
+    writeSample.secondaryMs = workerCoreTotalMs;
+    writeSample.hasSecondary = hasWorkerCoreTotal;
     writeSample.spikeMs = 0.0f;
     if ( state.histogramCount > 8 && sampleMaxMs > 0.10f &&
          sampleMaxMs > (std::max)( previousMaxMs * 1.20f, state.histogramAxisMs * 0.92f ) )
@@ -1232,7 +1251,12 @@ void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFr
         visibleMaxMs = (std::max)( visibleMaxMs, HistogramSampleMax( state.histogramSamples[sampleIndex] ) );
     }
 
-    const float targetAxisMs = NiceHistogramAxis( (std::max)( 0.25f, visibleMaxMs * 1.18f ) );
+    const float minimumAxisMs = HistogramMinimumAxisMs( state );
+    float targetAxisMs = minimumAxisMs;
+    if ( visibleMaxMs > minimumAxisMs )
+    {
+        targetAxisMs = NiceHistogramAxis( visibleMaxMs * 1.18f );
+    }
     if ( targetAxisMs > state.histogramAxisMs )
     {
         state.histogramAxisMs = targetAxisMs;
@@ -1240,6 +1264,10 @@ void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFr
     else
     {
         state.histogramAxisMs += ( targetAxisMs - state.histogramAxisMs ) * 0.075f;
+        if ( state.histogramAxisMs < minimumAxisMs )
+        {
+            state.histogramAxisMs = minimumAxisMs;
+        }
     }
 }
 
@@ -1256,6 +1284,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
     const UIRect resize = HistogramResizeBounds( state );
     const float baseY = plot.y + plot.h;
     const float axisMs = (std::max)( 0.25f, state.histogramAxisMs );
+    const bool frameTotalSelected = option && option->isFrameTotal;
 
     const Style::UIPalette& palette = Style::Palette();
     draw.RoundedRect( panel.x + 4.0f,
@@ -1277,8 +1306,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                palette.textPrimary.g,
                palette.textPrimary.b,
                "Marker History" );
-    const bool selectedHasSecondary = option && ( option->hasGpu || option->isFrameTotal );
-    snprintf( text, sizeof( text ), "%s", selectedHasSecondary ? "CPU / GPU" : "CPU" );
+    snprintf( text, sizeof( text ), frameTotalSelected ? "CPU + WORK" : "CPU" );
     draw.Text( panel.x + panel.w - 10.0f - SkullbonezCore::Text::Text2d::MeasureText( 9.6f, text ),
                panel.y + 8.0f,
                9.6f,
@@ -1328,14 +1356,17 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                    0.88f );
 
     draw.Rect( plot.x, plot.y, plot.w, plot.h, palette.window.r, palette.window.g, palette.window.b, 0.58f );
+    const float budgetY = frameTotalSelected
+                              ? baseY - std::clamp( HISTOGRAM_FRAME_CPU_BUDGET_MS / axisMs, 0.0f, 1.0f ) * plot.h
+                              : plot.y + plot.h * 0.50f;
     draw.Rect( plot.x,
-               plot.y + plot.h * 0.50f,
+               budgetY,
                plot.w,
                1.0f,
-               palette.lineSoft.r,
-               palette.lineSoft.g,
-               palette.lineSoft.b,
-               0.14f );
+               frameTotalSelected ? palette.warningAccent.r : palette.lineSoft.r,
+               frameTotalSelected ? palette.warningAccent.g : palette.lineSoft.g,
+               frameTotalSelected ? palette.warningAccent.b : palette.lineSoft.b,
+               frameTotalSelected ? 0.58f : 0.14f );
     draw.Rect( plot.x, plot.y, plot.w, 1.0f, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.18f );
     draw.Rect( plot.x, plot.y, 1.0f, plot.h, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.28f );
     draw.Rect( plot.x, baseY, plot.w, 1.0f, palette.accent.r, palette.accent.g, palette.accent.b, 0.34f );
@@ -1353,7 +1384,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                    text );
     };
     drawAxisLabel( plot.y + 2.0f, axisMs );
-    drawAxisLabel( plot.y + plot.h * 0.50f - 5.0f, axisMs * 0.50f );
+    drawAxisLabel( budgetY - 5.0f, frameTotalSelected ? HISTOGRAM_FRAME_CPU_BUDGET_MS : axisMs * 0.50f );
 
     if ( state.histogramCount <= 0 )
     {
@@ -1372,14 +1403,16 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
     float spikeMs = 0.0f;
     float previousCpuX = 0.0f;
     float previousCpuY = 0.0f;
-    float previousGpuX = 0.0f;
-    float previousGpuY = 0.0f;
+    float previousWorkerX = 0.0f;
+    float previousWorkerY = 0.0f;
     bool previousCpuValid = false;
-    bool previousGpuValid = false;
+    bool previousWorkerValid = false;
+    constexpr float workerLineR = 0.42f;
+    constexpr float workerLineG = 0.83f;
+    constexpr float workerLineB = 1.00f;
 
-    // Concept: this is a history line chart. CPU and GPU stay as separate
-    // traces, so a flat GPU total reads as a stable line instead of an
-    // every-other-sample bar.
+    // Concept: this is a CPU history line chart. The optional light-blue line is
+    // worker-core CPU work, not GPU timing, and appears only for Frame Total.
     for ( int i = 0; i < state.histogramCount; ++i )
     {
         const int sampleIndex =
@@ -1406,38 +1439,32 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
         previousCpuY = cpuY;
         previousCpuValid = true;
 
-        if ( sample.hasSecondary )
+        if ( frameTotalSelected && sample.hasSecondary )
         {
-            const float gpuY = baseY - std::clamp( sample.secondaryMs / axisMs, 0.0f, 1.0f ) * plot.h;
-            if ( previousGpuValid )
+            const float workerY = baseY - std::clamp( sample.secondaryMs / axisMs, 0.0f, 1.0f ) * plot.h;
+            if ( previousWorkerValid )
             {
                 DrawHistogramLineSegment( draw,
-                                          previousGpuX,
-                                          previousGpuY,
+                                          previousWorkerX,
+                                          previousWorkerY,
                                           x,
-                                          gpuY,
+                                          workerY,
                                           2.0f,
-                                          palette.accentStrong.r,
-                                          palette.accentStrong.g,
-                                          palette.accentStrong.b,
-                                          0.92f );
+                                          workerLineR,
+                                          workerLineG,
+                                          workerLineB,
+                                          0.88f );
             }
-            draw.Rect( x - 1.0f,
-                       gpuY - 1.0f,
-                       2.0f,
-                       2.0f,
-                       palette.accentStrong.r,
-                       palette.accentStrong.g,
-                       palette.accentStrong.b,
-                       0.88f );
-            previousGpuX = x;
-            previousGpuY = gpuY;
-            previousGpuValid = true;
+            draw.Rect( x - 1.0f, workerY - 1.0f, 2.0f, 2.0f, workerLineR, workerLineG, workerLineB, 0.82f );
+            previousWorkerX = x;
+            previousWorkerY = workerY;
+            previousWorkerValid = true;
         }
         else
         {
-            previousGpuValid = false;
+            previousWorkerValid = false;
         }
+
         if ( sample.spikeMs > spikeMs )
         {
             spikeMs = sample.spikeMs;
@@ -1470,10 +1497,43 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
 
     if ( state.histogramCount > 0 )
     {
-        const int newestIndex = ( state.histogramHead - 1 + HISTOGRAM_SAMPLE_COUNT ) % HISTOGRAM_SAMPLE_COUNT;
-        const PerformanceHistogramSample& newest = state.histogramSamples[newestIndex];
+        float candidateCpuAverageMs = 0.0f;
+        float candidateWorkerAverageMs = 0.0f;
+        {
+            float cpuSum = 0.0f;
+            float workerSum = 0.0f;
+            int workerCount = 0;
+            for ( int i = 0; i < state.histogramCount; ++i )
+            {
+                const int sampleIndex = ( state.histogramHead - state.histogramCount + i + HISTOGRAM_SAMPLE_COUNT ) %
+                                        HISTOGRAM_SAMPLE_COUNT;
+                const PerformanceHistogramSample& sample = state.histogramSamples[sampleIndex];
+                cpuSum += sample.primaryMs;
+                if ( sample.hasSecondary )
+                {
+                    workerSum += sample.secondaryMs;
+                    ++workerCount;
+                }
+            }
+            candidateCpuAverageMs = cpuSum / static_cast<float>( state.histogramCount );
+            candidateWorkerAverageMs = workerCount > 0 ? workerSum / static_cast<float>( workerCount ) : 0.0f;
+        }
+
+        const bool averageBecameMeaningful = state.histogramAverageCpuMs <= 0.005f && candidateCpuAverageMs > 0.005f;
+        const bool refreshAverageText =
+            state.histogramCount >= 8 &&
+            ( state.histogramAverageTextLastUpdateSeconds < 0.0 || averageBecameMeaningful ||
+              data.now < state.histogramAverageTextLastUpdateSeconds ||
+              data.now - state.histogramAverageTextLastUpdateSeconds >= HISTOGRAM_AVERAGE_TEXT_REFRESH_SECONDS );
+        if ( refreshAverageText )
+        {
+            state.histogramAverageCpuMs = candidateCpuAverageMs;
+            state.histogramAverageWorkerMs = candidateWorkerAverageMs;
+            state.histogramAverageTextLastUpdateSeconds = data.now;
+        }
+
         const float footerY = panel.y + panel.h - 20.0f;
-        snprintf( text, sizeof( text ), "CPU %.3f ms", newest.primaryMs );
+        snprintf( text, sizeof( text ), "CPU avg %.2f ms", state.histogramAverageCpuMs );
         draw.Rect( panel.x + 10.0f,
                    footerY + 7.0f,
                    9.0f,
@@ -1483,25 +1543,12 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                    palette.accent.b,
                    0.86f );
         draw.Text( panel.x + 22.0f, footerY, 10.0f, palette.accent.r, palette.accent.g, palette.accent.b, text );
-        if ( newest.hasSecondary )
+        if ( frameTotalSelected && state.histogramAverageWorkerMs > 0.0f )
         {
-            const float gpuX = panel.x + 34.0f + SkullbonezCore::Text::Text2d::MeasureText( 10.0f, text );
-            snprintf( text, sizeof( text ), "GPU %.3f ms", newest.secondaryMs );
-            draw.Rect( gpuX,
-                       footerY + 7.0f,
-                       9.0f,
-                       2.0f,
-                       palette.accentStrong.r,
-                       palette.accentStrong.g,
-                       palette.accentStrong.b,
-                       0.92f );
-            draw.Text( gpuX + 12.0f,
-                       footerY,
-                       10.0f,
-                       palette.accentStrong.r,
-                       palette.accentStrong.g,
-                       palette.accentStrong.b,
-                       text );
+            const float workerX = panel.x + 34.0f + SkullbonezCore::Text::Text2d::MeasureText( 10.0f, text );
+            snprintf( text, sizeof( text ), "Other cores avg %.2f ms", state.histogramAverageWorkerMs );
+            draw.Rect( workerX, footerY + 7.0f, 9.0f, 2.0f, workerLineR, workerLineG, workerLineB, 0.90f );
+            draw.Text( workerX + 12.0f, footerY, 10.0f, workerLineR, workerLineG, workerLineB, text );
         }
     }
 
@@ -1752,12 +1799,11 @@ void Draw( UIProfilerTabState& state,
     const float headerH = 32.0f;
     const float colMarker = tableX + 18.0f;
     const float colCpu = tableX + tableW * 0.32f;
-    const float colSelf = tableX + tableW * 0.41f;
-    const float colGpu = tableX + tableW * 0.50f;
-    const float colP50 = tableX + tableW * 0.58f;
-    const float colP99 = tableX + tableW * 0.66f;
-    const float barX = tableX + tableW * 0.76f;
-    const float barW = (std::max)( 95.0f, tableW * 0.20f );
+    const float colSelf = tableX + tableW * 0.42f;
+    const float colP50 = tableX + tableW * 0.52f;
+    const float colP99 = tableX + tableW * 0.62f;
+    const float barX = tableX + tableW * 0.73f;
+    const float barW = (std::max)( 105.0f, tableW * 0.23f );
     static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
     float timelineBudgetMs = PROFILER_UI_TIMELINE_BUDGET_MS;
     for ( int i = 0; i < profiler.MarkerCount(); ++i )
@@ -1776,7 +1822,6 @@ void Draw( UIProfilerTabState& state,
     draw.Text( colMarker, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Marker" );
     draw.Text( colCpu, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "CPU" );
     draw.Text( colSelf, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Self" );
-    draw.Text( colGpu, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "GPU" );
     draw.Text( colP50, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "P50" );
     draw.Text( colP99, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "P99" );
     draw.Text( barX, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, state.timelineEnabled ? "Span" : "0 ms" );
@@ -1812,8 +1857,6 @@ void Draw( UIProfilerTabState& state,
         const float nameX = colMarker + indent;
         const float cpuMs = ProfilerMarkerDisplayCpuMs( marker );
         const float selfMs = ProfilerMarkerDisplaySelfMs( marker );
-        const float gpuMs =
-            marker.hasGpu ? ( marker.gpuAvgMs > 0.0f ? marker.gpuAvgMs : marker.gpuLastFrameMs ) : -1.0f;
         const float p50Ms = marker.p50Ms > 0.0f ? marker.p50Ms : cpuMs;
         const float p99Ms = marker.p99Ms > 0.0f ? marker.p99Ms : cpuMs;
         draw.Rect( tableX, rowY + rowH - 1.0f, tableW, 1.0f, 0.16f, 0.26f, 0.30f, 0.38f );
@@ -1832,15 +1875,6 @@ void Draw( UIProfilerTabState& state,
         draw.Text( colCpu, rowY + 8.0f, 11.5f, r, g, b, buf );
         snprintf( buf, sizeof( buf ), "%.2f", selfMs );
         draw.Text( colSelf, rowY + 8.0f, 11.5f, r, g, b, buf );
-        if ( gpuMs >= 0.0f )
-        {
-            snprintf( buf, sizeof( buf ), "%.2f", gpuMs );
-        }
-        else
-        {
-            snprintf( buf, sizeof( buf ), "-" );
-        }
-        draw.Text( colGpu, rowY + 8.0f, 11.5f, 0.38f, 0.84f, 1.0f, buf );
         snprintf( buf, sizeof( buf ), "%.2f", p50Ms );
         draw.Text( colP50, rowY + 8.0f, 11.5f, 0.78f, 0.84f, 0.86f, buf );
         snprintf( buf, sizeof( buf ), "%.2f", p99Ms );
@@ -1891,7 +1925,7 @@ void Draw( UIProfilerTabState& state,
                                    : 0.0f;
     const float colScope = colMarker;
     const float colDraws = colCpu;
-    const float colInstances = colGpu;
+    const float colInstances = colSelf;
     const float colVertices = colP50;
 
     if ( visibleDrawRowCount > 0 && drawSectionY + drawSectionH >= tableY && drawSectionY <= tableY + tableH )

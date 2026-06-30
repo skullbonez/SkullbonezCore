@@ -73,7 +73,10 @@ struct UIProfilerTabState
     PerformanceHistogramSample histogramSamples[HISTOGRAM_SAMPLE_COUNT] = {};
     int histogramHead = 0;
     int histogramCount = 0;
-    float histogramAxisMs = 16.67f;
+    float histogramAxisMs = 33.3f;                       // Default F5 frame-total CPU scale: 0..33.3ms.
+    double histogramAverageTextLastUpdateSeconds = -1.0; // Runtime seconds; -1 = footer average not latched yet.
+    float histogramAverageCpuMs = 0.0f;                  // Latched footer value refreshed on a 0.5s cadence.
+    float histogramAverageWorkerMs = 0.0f;               // Latched worker-core footer average for Frame Total.
     uint32_t histogramSelectedMarkerHash = 0u;
     bool histogramSelectedFrameTotal = true;
     char histogramSelectedMarkerName[96] = "Frame Total";

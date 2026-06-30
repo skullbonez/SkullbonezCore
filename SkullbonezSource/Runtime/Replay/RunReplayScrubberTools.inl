@@ -114,28 +114,42 @@ void Run::ExitReplayInspectionCamera()
     if ( m_systems.cameras )
     {
         m_systems.cameras->CancelTween();
-        m_systems.cameras->SelectCamera( m_replayRuntime.Camera().restoreCameraHash, false );
-        if ( m_replayRuntime.Camera().hasRestorePose )
+        // Hazard: scene-load cleanup can run after CameraCollection::Reset()
+        // and before authored/generated cameras are registered. A replay
+        // restore hash from the old scene must not be looked up until a matching
+        // camera exists.
+        uint32_t restoreCameraHash = m_replayRuntime.Camera().restoreCameraHash;
+        bool restoreCameraAvailable = m_systems.cameras->HasCamera( restoreCameraHash );
+        if ( !restoreCameraAvailable && m_systems.cameras->HasCamera( CAMERA_FREE ) )
         {
-            m_systems.cameras->SetPrimaryPosition( m_replayRuntime.Camera().restoreEye );
-            m_systems.cameras->SetViewCoordinates( m_replayRuntime.Camera().restoreView );
-            m_systems.cameras->SetPrimaryUp( m_replayRuntime.Camera().restoreUp );
+            restoreCameraHash = CAMERA_FREE;
+            restoreCameraAvailable = true;
         }
-        if ( m_systems.terrain )
+        if ( restoreCameraAvailable )
         {
-            const uint32_t activeCam = m_systems.cameras->GetSelectedCameraName();
-            if ( IsFlyCameraMode() )
+            m_systems.cameras->SelectCamera( restoreCameraHash, false );
+            if ( m_replayRuntime.Camera().hasRestorePose )
             {
-                XZBounds unbounded;
-                unbounded.m_xMin = -99999.9f;
-                unbounded.m_xMax = 99999.9f;
-                unbounded.m_zMin = -99999.9f;
-                unbounded.m_zMax = 99999.9f;
-                m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
+                m_systems.cameras->SetPrimaryPosition( m_replayRuntime.Camera().restoreEye );
+                m_systems.cameras->SetViewCoordinates( m_replayRuntime.Camera().restoreView );
+                m_systems.cameras->SetPrimaryUp( m_replayRuntime.Camera().restoreUp );
             }
-            else
+            if ( m_systems.terrain )
             {
-                m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
+                const uint32_t activeCam = m_systems.cameras->GetSelectedCameraName();
+                if ( IsFlyCameraMode() )
+                {
+                    XZBounds unbounded;
+                    unbounded.m_xMin = -99999.9f;
+                    unbounded.m_xMax = 99999.9f;
+                    unbounded.m_zMin = -99999.9f;
+                    unbounded.m_zMax = 99999.9f;
+                    m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
+                }
+                else
+                {
+                    m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
+                }
             }
         }
     }
@@ -242,10 +256,12 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool scrubberAllowed = !m_runtimeTools.Editor().editorModeEnabled && m_UI.IsVisible() && m_UI.IsMinimized();
     const bool loadedPresentation = m_replayRuntime.HasLoadedPresentation();
     const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
-    const bool solverReplayAvailable = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
+    const bool solverReplayEnabled = solverReplayStats.enabled;
+    const bool solverReplayAvailable = solverReplayEnabled && solverReplayStats.sampleCount >= 2;
+    const bool replaySurfaceAvailable = loadedPresentation || solverReplayEnabled;
     const int screenW = RuntimeWindowScreenWidth( m_systems, Cfg() );
     const int screenH = RuntimeWindowScreenHeight( m_systems, Cfg() );
-    if ( !scrubberAllowed || ( !loadedPresentation && !solverReplayAvailable ) || screenW <= 0 || screenH <= 0 )
+    if ( !scrubberAllowed || !replaySurfaceAvailable || screenW <= 0 || screenH <= 0 )
     {
         CancelReplayToolDragState();
         if ( !loadedPresentation )
@@ -286,6 +302,9 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const UI::UIRect ragdollVisualToggle = ReplayScrubberRagdollVisualToggleRect( screenW, screenH );
     const RunReplayTrack scrubTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
     const UI::UIRect replayLoadButton = ReplayScrubberLoadButtonRect( screenW, screenH, scrubTrack );
+    // Why: paused scenes may not have accumulated two solver frames yet, but
+    // the user still needs the replay bar as a discoverable control surface.
+    // Scrub/predict tools stay disabled until there is enough retained history.
     const bool solverToolsEnabled = !loadedPresentation && solverReplayAvailable;
     const bool inHotZone = hotZone.Contains( mouse.x, mouse.y );
     const bool overPanel = panel.Contains( mouse.x, mouse.y );
@@ -588,7 +607,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         promptLoadReplayPresentationArtifact();
         consumesMouse = true;
     }
-    else if ( leftPressed && canTakeMouse && !overBranchButton && !overPauseButton && !overPredictUi &&
+    else if ( ( loadedPresentation || solverToolsEnabled ) && leftPressed && canTakeMouse && !overBranchButton &&
+              !overPauseButton && !overPredictUi &&
               !overLoadButton && ( inHotZone || overPanel || m_replayRuntime.Scrubber().historicalSamplePaused ) )
     {
         EnterInteractiveSceneRun();

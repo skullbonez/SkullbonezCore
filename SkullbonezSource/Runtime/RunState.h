@@ -234,8 +234,7 @@ struct RunDebugState
     bool isUITestPattern = false;                              // Bright 2D backdrop behind UI for visual blur tests
     bool isTopTextHidden = false;                              // Hide top-left HUD text while leaving other overlays active
     bool isBroadphaseOverlay = false;                          // Broadphase spatial grid visualizer overlay (toggle with G)
-    bool isCrossScenePauseLocked =
-        false;                                                 // P-key scene-flow lock; Space is the only way to advance while active.
+    bool isCrossScenePauseLocked = false;                      // P-key scene-flow lock; Space is the only way to advance while active.
     float frozenWaterTime = 0.0f;                              // Simulation time captured when freeze was toggled on
 #ifdef _DEBUG
     char reproSnapshotMessage[128] = {};                       // Short HUD confirmation after launcher-mode repro dump

@@ -187,6 +187,20 @@ uint32_t CameraCollection::GetSelectedCameraName()
 }
 
 
+bool CameraCollection::HasCamera( uint32_t hash ) const
+{
+    for ( int count = 0; count < m_arrayPosition; ++count )
+    {
+        if ( m_cameraHashes[count] == hash )
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
 void CameraCollection::RotatePrimary( float xMove, float yMove )
 {
     // make sure a camera exists to update

@@ -116,6 +116,7 @@ struct InGameUIFrameData
     float physicsMs = 0.0f;
     float cpuFrameMs = 0.0f;
     float gpuFrameMs = 0.0f;
+    float workerCoreTotalMs = 0.0f; // Sum of worker-pool CPU chunk time from the last committed frame, in ms.
     UIProfilerMarkerOption profilerMarkerOptions[UI_PROFILER_MARKER_OPTION_MAX];
     int profilerMarkerOptionCount = 0;
     Basics::MainMemoryStats mainMemory;
@@ -301,7 +302,7 @@ class InGameUI
     CinematicTab::UICinematicTabState m_cinematicTab;
     float m_scrollY = 0.0f;
     double m_scrollbarVisibleUntil = 0.0;
-    int m_activeSlider = 0; // 0=none; other values map to Controls/Options sliders in UI.cpp
+    int m_activeSlider = 0;         // 0=none; other values map to Controls/Options sliders in UI.cpp
     bool m_hitboxOverlayEnabled = false;
     bool m_editorMiniPalettePressActive = false;
     bool m_editorMiniPaletteFlyoutOpen = false;

@@ -28,6 +28,18 @@ Related:
 
 namespace SkullbonezCore::Basics::ReplayOverlay
 {
+namespace
+{
+// Why: the top-right scene/camera badges own the first screen rows, so the
+// draggable cause window starts below them instead of covering status text.
+constexpr int REPLAY_CAUSE_WINDOW_SAFE_TOP = 124;
+
+int ReplayCauseWindowMinY( int screenH )
+{
+    return (std::min)( REPLAY_CAUSE_WINDOW_SAFE_TOP, (std::max)( 8, screenH - REPLAY_CAUSE_WINDOW_MIN_H - 8 ) );
+}
+} // namespace
+
 // Concept: replay overlay geometry is the contract between input and drawing.
 //
 // A replay control is only usable if the mouse hit box and drawn pixels agree.
@@ -240,8 +252,9 @@ void ClampReplayCauseWindow( RunReplayCauseTreeState& state, int screenW, int sc
                               (std::min)( state.width, (std::max)( REPLAY_CAUSE_WINDOW_MIN_W, screenW - 16 ) ) );
     state.height = (std::max)( REPLAY_CAUSE_WINDOW_MIN_H,
                                (std::min)( state.height, (std::max)( REPLAY_CAUSE_WINDOW_MIN_H, screenH - 16 ) ) );
+    const int minY = ReplayCauseWindowMinY( screenH );
     state.x = std::clamp( state.x, 8, (std::max)( 8, screenW - state.width - 8 ) );
-    state.y = std::clamp( state.y, 8, (std::max)( 8, screenH - state.height - 8 ) );
+    state.y = std::clamp( state.y, minY, (std::max)( minY, screenH - state.height - 8 ) );
     state.scrollY = std::clamp( state.scrollY, 0.0f, ReplayCauseWindowMaxScroll( state ) );
 }
 
@@ -249,10 +262,11 @@ void EnsureReplayCauseWindowPlacement( RunReplayCauseTreeState& state, int scree
 {
     if ( !state.hasWindowPlacement )
     {
+        const int minY = ReplayCauseWindowMinY( screenH );
         state.width = (std::min)( 380, (std::max)( REPLAY_CAUSE_WINDOW_MIN_W, screenW - 48 ) );
-        state.height = (std::min)( 520, (std::max)( REPLAY_CAUSE_WINDOW_MIN_H, screenH - 160 ) );
+        state.height = (std::min)( 520, (std::max)( REPLAY_CAUSE_WINDOW_MIN_H, screenH - minY - 120 ) );
         state.x = (std::max)( 12, screenW - state.width - 24 );
-        state.y = 72;
+        state.y = minY;
         state.hasWindowPlacement = true;
     }
     ClampReplayCauseWindow( state, screenW, screenH );
