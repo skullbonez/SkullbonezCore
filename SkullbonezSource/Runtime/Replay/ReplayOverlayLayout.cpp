@@ -148,9 +148,13 @@ float ReplayPredictionHorizonFromMouse( int mouseX, const UI::UIRect& horizon )
 
 UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH )
 {
-    return { 0.0f,
+    // Why: the bottom-left minimized/options UI is also a click target. Only
+    // the centered two-thirds of the bottom edge should summon replay controls.
+    const float width = static_cast<float>( screenW ) * ( 2.0f / 3.0f );
+    const float x = ( static_cast<float>( screenW ) - width ) * 0.5f;
+    return { x,
              (std::max)( 0.0f, static_cast<float>( screenH ) - REPLAY_SCRUBBER_HOT_ZONE_HEIGHT ),
-             static_cast<float>( screenW ),
+             width,
              REPLAY_SCRUBBER_HOT_ZONE_HEIGHT };
 }
 

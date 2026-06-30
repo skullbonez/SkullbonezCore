@@ -265,6 +265,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         m_replayRuntime.Scrubber().branchHovered = false;
         m_replayRuntime.Scrubber().loadHovered = false;
         m_replayRuntime.Scrubber().leftWasDown = leftDown;
+        m_replayRuntime.Scrubber().fadeUpdatedAt = 0.0;
+        m_replayRuntime.Scrubber().visibleAlpha = 0.0f;
         return false;
     }
 
@@ -309,6 +311,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const RunReplayTrack hoveredTrack = scrubTrack;
     const bool canTakeMouse =
         !uiBlocksMouse || m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().horizonDragging;
+    const bool hotZoneCanReveal = inHotZone && !uiBlocksMouse;
     const double now = m_timers.simulationTimer.GetTotalTime();
     auto promptLoadReplayPresentationArtifact = [&]() -> bool
     {
@@ -373,7 +376,11 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         return loaded;
     };
 
-    if ( inHotZone || overPanel || overSaveButton || overLoadButton || overBranchButton || overPauseButton ||
+    // Why: the replay reveal zone is mode-agnostic. Passive Scene/Demo cameras
+    // do not own mouse tools, but moving to the bottom edge should still expose
+    // retained replay controls. UI-owned mouse areas, such as the minimized
+    // options window, should not wake the replay bar.
+    if ( hotZoneCanReveal || overPanel || overSaveButton || overLoadButton || overBranchButton || overPauseButton ||
          overVelocityEditToggle || overPredictUi || m_replayRuntime.Scrubber().dragging ||
          m_replayRuntime.Prediction().horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
          m_replayRuntime.Scrubber().liveAdvanceHeld )
@@ -409,7 +416,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     bool consumesMouse =
         canTakeMouse && ( m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().horizonDragging ||
                           ( m_replayRuntime.Scrubber().visibleUntil >= now &&
-                            ( inHotZone || overPanel || overSaveButton || overBranchButton || overLoadButton ||
+                            ( hotZoneCanReveal || overPanel || overSaveButton || overBranchButton || overLoadButton ||
                               overPauseButton || overVelocityEditToggle || overPredictUi ) ) );
 
     if ( branchTargetAvailable &&
@@ -653,10 +660,29 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         m_replayRuntime.SetAllTrackPositions( m_replayRuntime.SolverPresentTrackPosition() );
     }
 
-    m_replayRuntime.Scrubber().visible =
+    const bool scrubberTargetVisible =
         m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().horizonDragging ||
         m_replayRuntime.Scrubber().historicalSamplePaused || m_replayRuntime.Scrubber().liveAdvanceHeld ||
         m_replayRuntime.Scrubber().visibleUntil >= now;
+    {
+        // Concept: visibility is a stateful opacity, not a boolean draw cut.
+        // This lets the bottom bar ease in from hover while staying interactive
+        // for the whole fade-out tail.
+        double& fadeUpdatedAt = m_replayRuntime.Scrubber().fadeUpdatedAt;
+        float& visibleAlpha = m_replayRuntime.Scrubber().visibleAlpha;
+        if ( fadeUpdatedAt <= 0.0 || now < fadeUpdatedAt )
+        {
+            fadeUpdatedAt = now;
+        }
+        const double deltaSeconds = std::clamp( now - fadeUpdatedAt, 0.0, 0.25 );
+        fadeUpdatedAt = now;
+        const double fadeSeconds =
+            scrubberTargetVisible ? REPLAY_SCRUBBER_FADE_IN_SECONDS : REPLAY_SCRUBBER_FADE_OUT_SECONDS;
+        const float alphaStep =
+            fadeSeconds > 0.0 ? static_cast<float>( deltaSeconds / fadeSeconds ) : 1.0f;
+        visibleAlpha = std::clamp( visibleAlpha + ( scrubberTargetVisible ? alphaStep : -alphaStep ), 0.0f, 1.0f );
+        m_replayRuntime.Scrubber().visible = scrubberTargetVisible || visibleAlpha > REPLAY_SCRUBBER_FADE_EPSILON;
+    }
     if ( m_replayRuntime.ShouldUseInspectionCamera() )
     {
         EnterReplayInspectionCamera();

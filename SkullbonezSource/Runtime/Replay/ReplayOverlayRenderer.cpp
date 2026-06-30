@@ -33,6 +33,7 @@ Related:
 #include "../../Core/Profiler.h"
 #include "../../Rendering/Text.h"
 #include "../../UI/UIDraw.h"
+#include "../../UI/UIStyle.h"
 
 #include <algorithm>
 #include <cmath>
@@ -127,6 +128,19 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
 
     const UI::UIDrawContext draw( screenW, screenH );
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
+    const UI::Style::UIPalette& palette = UI::Style::Palette();
+    const UI::Style::UIRadii& radii = UI::Style::Radii();
+    const float fade = std::clamp( replayRuntime.Scrubber().visibleAlpha, 0.0f, 1.0f );
+    if ( fade <= REPLAY_SCRUBBER_FADE_EPSILON )
+    {
+        return;
+    }
+    auto fadeA = [fade]( float alpha ) -> float
+    { return alpha * fade; };
+    auto fadeC = [fade]( float channel ) -> float
+    { return channel * fade; };
+    auto drawText = [&]( float x, float y, float pxSize, float r, float g, float b, const char* value )
+    { draw.Text( x, y, pxSize, fadeC( r ), fadeC( g ), fadeC( b ), value ); };
     const bool live = !loadedPresentation && ReplayRuntime::AtPresentTrackPosition( t, solverPresentT ) &&
                       !replayRuntime.Scrubber().historicalSamplePaused;
     const double now = context.nowSeconds;
@@ -135,16 +149,26 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                                ( ( loadedPresentation && replayRuntime.CurrentScrubSample() != nullptr ) ||
                                  ( !loadedPresentation && replayRuntime.CurrentSolverScrubSample() != nullptr ) );
 
-    draw.RoundedRect( panel.x, panel.y, panel.w, panel.h, 8.0f, 0.015f, 0.018f, 0.024f, 0.74f );
-    draw.Text( panel.x + 16.0f, panel.y + 19.0f, 10.5f, 0.54f, 0.98f, 0.80f, sourceLabel );
+    UI::Style::UIColor panelFill = palette.windowSubtle;
+    panelFill.a = fadeA( 0.92f );
+    UI::Style::UIColor panelBorder = palette.innerBorder;
+    panelBorder.a = fadeA( 0.42f );
+    draw.RoundedPanel( panel, radii.control, panelFill, panelBorder );
+    drawText( panel.x + 16.0f,
+              panel.y + 19.0f,
+              10.5f,
+              palette.textSecondary.r,
+              palette.textSecondary.g,
+              palette.textSecondary.b,
+              sourceLabel );
     const float labelW = Text2d::MeasureText( 11.0f, timeLabel );
-    draw.Text( panel.x + panel.w - labelW - 16.0f,
-               panel.y + 18.0f,
-               11.0f,
-               live ? 0.58f : 1.0f,
-               live ? 0.96f : 0.86f,
-               live ? 0.70f : 0.36f,
-               timeLabel );
+    drawText( panel.x + panel.w - labelW - 16.0f,
+              panel.y + 18.0f,
+              11.0f,
+              live ? palette.accent.r : palette.warningAccent.r,
+              live ? palette.accent.g : palette.warningAccent.g,
+              live ? palette.accent.b : palette.warningAccent.b,
+              timeLabel );
 
     {
         const UI::UIRect branchButton = ReplayScrubberBranchButtonRect( screenW, screenH );
@@ -153,26 +177,26 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                           branchButton.y,
                           branchButton.w,
                           branchButton.h,
-                          4.0f,
-                          branchEnabled ? ( branchHover ? 0.20f : 0.10f ) : 0.06f,
-                          branchEnabled ? ( branchHover ? 0.36f : 0.18f ) : 0.07f,
-                          branchEnabled ? ( branchHover ? 0.54f : 0.24f ) : 0.09f,
-                          branchEnabled ? 0.94f : 0.42f );
+                          radii.smallButton,
+                          branchHover ? palette.controlHover.r : palette.control.r,
+                          branchHover ? palette.controlHover.g : palette.control.g,
+                          branchHover ? palette.controlHover.b : palette.control.b,
+                          fadeA( branchEnabled ? 0.94f : 0.42f ) );
         draw.Outline( branchButton.x,
                       branchButton.y,
                       branchButton.w,
                       branchButton.h,
-                      0.56f,
-                      0.78f,
-                      1.0f,
-                      branchEnabled ? ( branchHover ? 0.84f : 0.42f ) : 0.18f );
-        draw.Text( branchButton.x + 12.0f,
-                   branchButton.y + 4.5f,
-                   9.5f,
-                   branchEnabled ? 0.78f : 0.42f,
-                   branchEnabled ? 0.92f : 0.48f,
-                   branchEnabled ? 1.0f : 0.56f,
-                   "BRANCH" );
+                      palette.accent.r,
+                      palette.accent.g,
+                      palette.accent.b,
+                      fadeA( branchEnabled ? ( branchHover ? 0.84f : 0.42f ) : 0.18f ) );
+        drawText( branchButton.x + 12.0f,
+                  branchButton.y + 4.5f,
+                  9.5f,
+                  branchEnabled ? palette.textPrimary.r : palette.textMuted.r,
+                  branchEnabled ? palette.textPrimary.g : palette.textMuted.g,
+                  branchEnabled ? palette.textPrimary.b : palette.textMuted.b,
+                  "BRANCH" );
     }
 
     if ( !loadedPresentation )
@@ -184,26 +208,26 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                           pauseButton.y,
                           pauseButton.w,
                           pauseButton.h,
-                          4.0f,
-                          liveAdvanceHeld ? 0.18f : 0.08f,
-                          liveAdvanceHeld ? 0.33f : 0.12f,
-                          liveAdvanceHeld ? 0.21f : 0.15f,
-                          pauseHover || liveAdvanceHeld ? 0.94f : 0.78f );
+                          radii.smallButton,
+                          pauseHover ? palette.controlHover.r : palette.control.r,
+                          pauseHover ? palette.controlHover.g : palette.control.g,
+                          pauseHover ? palette.controlHover.b : palette.control.b,
+                          fadeA( pauseHover || liveAdvanceHeld ? 0.94f : 0.78f ) );
         draw.Outline( pauseButton.x,
                       pauseButton.y,
                       pauseButton.w,
                       pauseButton.h,
-                      0.58f,
-                      0.92f,
-                      0.72f,
-                      pauseHover || liveAdvanceHeld ? 0.78f : 0.36f );
-        draw.Text( pauseButton.x + 9.0f,
-                   pauseButton.y + 5.0f,
-                   9.5f,
-                   liveAdvanceHeld ? 0.72f : 0.60f,
-                   liveAdvanceHeld ? 1.0f : 0.72f,
-                   liveAdvanceHeld ? 0.78f : 0.76f,
-                   liveAdvanceHeld ? "PLAY" : "PAUSE" );
+                      liveAdvanceHeld ? palette.accentStrong.r : palette.accent.r,
+                      liveAdvanceHeld ? palette.accentStrong.g : palette.accent.g,
+                      liveAdvanceHeld ? palette.accentStrong.b : palette.accent.b,
+                      fadeA( pauseHover || liveAdvanceHeld ? 0.78f : 0.36f ) );
+        drawText( pauseButton.x + 9.0f,
+                  pauseButton.y + 5.0f,
+                  9.5f,
+                  liveAdvanceHeld ? palette.accentStrong.r : palette.textSecondary.r,
+                  liveAdvanceHeld ? palette.accentStrong.g : palette.textSecondary.g,
+                  liveAdvanceHeld ? palette.accentStrong.b : palette.textSecondary.b,
+                  liveAdvanceHeld ? "PLAY" : "PAUSE" );
 
         {
             PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay/VelocityEditControls" );
@@ -214,33 +238,47 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                               velocityEdit.y,
                               velocityEdit.w,
                               velocityEdit.h,
-                              4.0f,
-                              velocityEditEnabled ? 0.25f : 0.08f,
-                              velocityEditEnabled ? 0.19f : 0.12f,
-                              velocityEditEnabled ? 0.06f : 0.15f,
-                              velocityEditHover || velocityEditEnabled ? 0.94f : 0.78f );
+                              radii.smallButton,
+                              velocityEditHover ? palette.controlHover.r : palette.control.r,
+                              velocityEditHover ? palette.controlHover.g : palette.control.g,
+                              velocityEditHover ? palette.controlHover.b : palette.control.b,
+                              fadeA( velocityEditHover || velocityEditEnabled ? 0.94f : 0.78f ) );
             draw.Outline( velocityEdit.x,
                           velocityEdit.y,
                           velocityEdit.w,
                           velocityEdit.h,
-                          0.98f,
-                          0.82f,
-                          0.42f,
-                          velocityEditHover || velocityEditEnabled ? 0.78f : 0.34f );
+                          palette.warningAccent.r,
+                          palette.warningAccent.g,
+                          palette.warningAccent.b,
+                          fadeA( velocityEditHover || velocityEditEnabled ? 0.78f : 0.34f ) );
             const float checkX = velocityEdit.x + 7.0f;
             const float checkY = velocityEdit.y + 5.0f;
-            draw.Outline( checkX, checkY, 10.0f, 10.0f, 0.98f, 0.86f, 0.54f, 0.82f );
+            draw.Outline( checkX,
+                          checkY,
+                          10.0f,
+                          10.0f,
+                          palette.warningAccent.r,
+                          palette.warningAccent.g,
+                          palette.warningAccent.b,
+                          fadeA( 0.82f ) );
             if ( velocityEditEnabled )
             {
-                draw.Rect( checkX + 2.0f, checkY + 2.0f, 6.0f, 6.0f, 1.0f, 0.62f, 0.16f, 0.95f );
+                draw.Rect( checkX + 2.0f,
+                           checkY + 2.0f,
+                           6.0f,
+                           6.0f,
+                           palette.warningAccent.r,
+                           palette.warningAccent.g,
+                           palette.warningAccent.b,
+                           fadeA( 0.95f ) );
             }
-            draw.Text( velocityEdit.x + 23.0f,
-                       velocityEdit.y + 4.5f,
-                       9.5f,
-                       velocityEditEnabled ? 1.0f : 0.66f,
-                       velocityEditEnabled ? 0.86f : 0.72f,
-                       velocityEditEnabled ? 0.56f : 0.76f,
-                       "ALT VEL" );
+            drawText( velocityEdit.x + 23.0f,
+                      velocityEdit.y + 4.5f,
+                      9.5f,
+                      velocityEditEnabled ? palette.warningAccent.r : palette.textSecondary.r,
+                      velocityEditEnabled ? palette.warningAccent.g : palette.textSecondary.g,
+                      velocityEditEnabled ? palette.warningAccent.b : palette.textSecondary.b,
+                      "ALT VEL" );
         }
     }
 
@@ -268,9 +306,12 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
             replayRuntime.Scrubber().saveMessage[0] != '\0' && replayRuntime.Scrubber().saveMessageUntil >= now;
         const bool saveFailed = saveFeedback && strstr( replayRuntime.Scrubber().saveMessage, "FAILED" ) != nullptr;
         const bool loadHover = replayRuntime.Scrubber().loadHovered;
-        const float saveR = saveFeedback ? ( saveFailed ? 0.48f : 0.13f ) : ( saveHover ? 0.20f : 0.09f );
-        const float saveG = saveFeedback ? ( saveFailed ? 0.12f : 0.48f ) : ( saveHover ? 0.42f : 0.20f );
-        const float saveB = saveFeedback ? ( saveFailed ? 0.12f : 0.34f ) : ( saveHover ? 0.55f : 0.28f );
+        const float saveR =
+            saveFeedback ? ( saveFailed ? 0.48f : palette.accent.r ) : ( saveHover ? palette.controlHover.r : palette.control.r );
+        const float saveG =
+            saveFeedback ? ( saveFailed ? 0.12f : palette.accent.g ) : ( saveHover ? palette.controlHover.g : palette.control.g );
+        const float saveB =
+            saveFeedback ? ( saveFailed ? 0.12f : palette.accent.b ) : ( saveHover ? palette.controlHover.b : palette.control.b );
 
         const float rowBack = inactiveDuringScrub ? 0.11f : 0.16f;
         const float rowFillR = inactiveDuringScrub ? 0.30f : fillR;
@@ -285,7 +326,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                           rowBack,
                           rowBack + 0.02f,
                           rowBack + 0.05f,
-                          inactiveDuringScrub ? 0.74f : 0.92f );
+                          fadeA( inactiveDuringScrub ? 0.74f : 0.92f ) );
         if ( trackName == RunReplayTrack::Solver && futureTimelineVisible )
         {
             const float presentX = track.x + track.w * solverPresentT;
@@ -296,9 +337,9 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                        0.09f,
                        0.26f,
                        0.20f,
-                       inactiveDuringScrub ? 0.34f : 0.62f );
+                       fadeA( inactiveDuringScrub ? 0.34f : 0.62f ) );
         }
-        draw.RoundedRect( track.x, track.y, fillW, track.h, track.h * 0.5f, rowFillR, rowFillG, rowFillB, rowFillA );
+        draw.RoundedRect( track.x, track.y, fillW, track.h, track.h * 0.5f, rowFillR, rowFillG, rowFillB, fadeA( rowFillA ) );
         draw.RoundedRect( knobX - 6.0f,
                           track.y - 5.0f,
                           12.0f,
@@ -307,7 +348,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                           active ? 0.98f : 0.52f,
                           active ? 0.98f : 0.56f,
                           active ? 1.0f : 0.60f,
-                          active ? 0.98f : 0.70f );
+                          fadeA( active ? 0.98f : 0.70f ) );
         draw.Outline( knobX - 6.0f,
                       track.y - 5.0f,
                       12.0f,
@@ -315,13 +356,13 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                       outlineR,
                       outlineG,
                       outlineB,
-                      active ? 0.72f : 0.22f );
+                      fadeA( active ? 0.72f : 0.22f ) );
         if ( trackName == RunReplayTrack::Solver && futureTimelineVisible )
         {
             const float presentX = track.x + track.w * solverPresentT;
-            draw.Rect( presentX - 1.0f, track.y - 6.0f, 2.0f, track.h + 12.0f, 0.92f, 1.0f, 0.84f, 0.86f );
-            draw.Rect( presentX - 4.0f, track.y - 8.0f, 8.0f, 2.0f, 0.92f, 1.0f, 0.84f, 0.70f );
-            draw.Rect( presentX - 4.0f, track.y + track.h + 6.0f, 8.0f, 2.0f, 0.92f, 1.0f, 0.84f, 0.70f );
+            draw.Rect( presentX - 1.0f, track.y - 6.0f, 2.0f, track.h + 12.0f, 0.92f, 1.0f, 0.84f, fadeA( 0.86f ) );
+            draw.Rect( presentX - 4.0f, track.y - 8.0f, 8.0f, 2.0f, 0.92f, 1.0f, 0.84f, fadeA( 0.70f ) );
+            draw.Rect( presentX - 4.0f, track.y + track.h + 6.0f, 8.0f, 2.0f, 0.92f, 1.0f, 0.84f, fadeA( 0.70f ) );
         }
 
         draw.RoundedRect( saveButton.x,
@@ -332,7 +373,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                           saveR,
                           saveG,
                           saveB,
-                          saveEnabled ? 0.96f : 0.34f );
+                          fadeA( saveEnabled ? 0.96f : 0.34f ) );
         draw.Outline( saveButton.x,
                       saveButton.y,
                       saveButton.w,
@@ -340,13 +381,13 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                       outlineR,
                       outlineG,
                       outlineB,
-                      saveEnabled ? ( saveHover || saveFeedback ? 0.74f : 0.36f ) : 0.16f );
+                      fadeA( saveEnabled ? ( saveHover || saveFeedback ? 0.74f : 0.36f ) : 0.16f ) );
 
         const float iconX = saveButton.x + 6.0f;
         const float iconY = saveButton.y + 5.0f;
         const float iconW = 10.0f;
         const float iconH = 12.0f;
-        const float iconA = saveEnabled ? 0.96f : 0.34f;
+        const float iconA = fadeA( saveEnabled ? 0.96f : 0.34f );
         draw.Outline( iconX, iconY, iconW, iconH, 0.88f, 0.97f, 1.0f, iconA );
         draw.Rect( iconX + 2.0f, iconY + 2.0f, iconW - 4.0f, 3.0f, 0.88f, 0.97f, 1.0f, iconA * 0.73f );
         draw.Rect( iconX + 3.0f, iconY + 8.0f, iconW - 6.0f, 3.0f, 0.88f, 0.97f, 1.0f, iconA * 0.85f );
@@ -355,11 +396,11 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                           loadButton.y,
                           loadButton.w,
                           loadButton.h,
-                          4.0f,
-                          loadHover ? 0.18f : 0.08f,
-                          loadHover ? 0.28f : 0.13f,
-                          loadHover ? 0.44f : 0.20f,
-                          0.92f );
+                          radii.smallButton,
+                          loadHover ? palette.controlHover.r : palette.control.r,
+                          loadHover ? palette.controlHover.g : palette.control.g,
+                          loadHover ? palette.controlHover.b : palette.control.b,
+                          fadeA( 0.92f ) );
         draw.Outline( loadButton.x,
                       loadButton.y,
                       loadButton.w,
@@ -367,17 +408,37 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                       outlineR,
                       outlineG,
                       outlineB,
-                      loadHover ? 0.72f : 0.34f );
-        draw.Text( loadButton.x + 9.0f, loadButton.y + 5.0f, 9.5f, 0.78f, 0.90f, 1.0f, "LOAD" );
+                      fadeA( loadHover ? 0.72f : 0.34f ) );
+        drawText( loadButton.x + 9.0f,
+                  loadButton.y + 5.0f,
+                  9.5f,
+                  palette.textPrimary.r,
+                  palette.textPrimary.g,
+                  palette.textPrimary.b,
+                  "LOAD" );
     };
 
     if ( loadedPresentation )
     {
-        drawReplayRow( RunReplayTrack::Presentation, 0.42f, 0.62f, 1.0f, 0.56f, 0.70f, 1.0f, false );
+        drawReplayRow( RunReplayTrack::Presentation,
+                       palette.accent.r,
+                       palette.accent.g,
+                       palette.accent.b,
+                       palette.accentStrong.r,
+                       palette.accentStrong.g,
+                       palette.accentStrong.b,
+                       false );
     }
     else
     {
-        drawReplayRow( RunReplayTrack::Solver, 0.30f, 0.93f, 0.72f, 0.48f, 0.86f, 0.74f, true );
+        drawReplayRow( RunReplayTrack::Solver,
+                       palette.accent.r,
+                       palette.accent.g,
+                       palette.accent.b,
+                       palette.accentStrong.r,
+                       palette.accentStrong.g,
+                       palette.accentStrong.b,
+                       true );
     }
 
     if ( loadedPresentation )
@@ -397,58 +458,65 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     const float predictSeconds = std::clamp( replayRuntime.Prediction().horizonSeconds,
                                              REPLAY_PREDICTION_MIN_SECONDS,
                                              REPLAY_PREDICTION_MAX_SECONDS );
-    const float predictBackR = predictEnabled ? 0.08f : 0.055f;
-    const float predictBackG = predictEnabled ? 0.24f : 0.08f;
-    const float predictBackB = predictEnabled ? 0.16f : 0.105f;
+    const UI::Style::UIColor predictFill =
+        replayRuntime.Prediction().checkboxHovered ? palette.controlHover : palette.control;
+    const UI::Style::UIColor predictControlFill = predictHover ? palette.controlHover : palette.control;
     draw.RoundedRect( predictToggle.x,
                       predictToggle.y,
                       predictToggle.w,
                       predictToggle.h,
-                      4.0f,
-                      predictBackR + ( replayRuntime.Prediction().checkboxHovered ? 0.07f : 0.0f ),
-                      predictBackG + ( replayRuntime.Prediction().checkboxHovered ? 0.07f : 0.0f ),
-                      predictBackB + ( replayRuntime.Prediction().checkboxHovered ? 0.07f : 0.0f ),
-                      0.88f );
+                      radii.smallButton,
+                      predictFill.r,
+                      predictFill.g,
+                      predictFill.b,
+                      fadeA( 0.88f ) );
     draw.Outline( predictToggle.x,
                   predictToggle.y,
                   predictToggle.w,
                   predictToggle.h,
-                  0.62f,
-                  0.86f,
-                  0.78f,
-                  replayRuntime.Prediction().checkboxHovered || predictEnabled ? 0.72f : 0.34f );
+                  palette.accent.r,
+                  palette.accent.g,
+                  palette.accent.b,
+                  fadeA( replayRuntime.Prediction().checkboxHovered || predictEnabled ? 0.72f : 0.34f ) );
     const float checkX = predictToggle.x + 7.0f;
     const float checkY = predictToggle.y + 5.0f;
-    draw.Outline( checkX, checkY, 10.0f, 10.0f, 0.82f, 0.94f, 0.90f, 0.82f );
+    draw.Outline( checkX, checkY, 10.0f, 10.0f, palette.accent.r, palette.accent.g, palette.accent.b, fadeA( 0.82f ) );
     if ( predictEnabled )
     {
-        draw.Rect( checkX + 2.0f, checkY + 2.0f, 6.0f, 6.0f, 0.38f, 1.0f, 0.58f, 0.95f );
+        draw.Rect( checkX + 2.0f,
+                   checkY + 2.0f,
+                   6.0f,
+                   6.0f,
+                   palette.accentStrong.r,
+                   palette.accentStrong.g,
+                   palette.accentStrong.b,
+                   fadeA( 0.95f ) );
     }
-    draw.Text( predictToggle.x + 23.0f,
-               predictToggle.y + 4.5f,
-               9.5f,
-               predictEnabled ? 0.70f : 0.60f,
-               predictEnabled ? 1.0f : 0.72f,
-               predictEnabled ? 0.78f : 0.76f,
-               "PREDICT" );
+    drawText( predictToggle.x + 23.0f,
+              predictToggle.y + 4.5f,
+              9.5f,
+              predictEnabled ? palette.accentStrong.r : palette.textSecondary.r,
+              predictEnabled ? palette.accentStrong.g : palette.textSecondary.g,
+              predictEnabled ? palette.accentStrong.b : palette.textSecondary.b,
+              "PREDICT" );
 
     draw.RoundedRect( predict.x,
                       predict.y,
                       predict.w,
                       predict.h,
-                      4.0f,
-                      predictBackR + ( predictHover ? 0.07f : 0.0f ),
-                      predictBackG + ( predictHover ? 0.07f : 0.0f ),
-                      predictBackB + ( predictHover ? 0.07f : 0.0f ),
-                      0.88f );
+                      radii.smallButton,
+                      predictControlFill.r,
+                      predictControlFill.g,
+                      predictControlFill.b,
+                      fadeA( 0.88f ) );
     draw.Outline( predict.x,
                   predict.y,
                   predict.w,
                   predict.h,
-                  0.62f,
-                  0.86f,
-                  0.78f,
-                  predictHover || predictEnabled ? 0.72f : 0.34f );
+                  palette.accent.r,
+                  palette.accent.g,
+                  palette.accent.b,
+                  fadeA( predictHover || predictEnabled ? 0.72f : 0.34f ) );
 
     char predictSecondsLabel[16] = {};
     sprintf_s( predictSecondsLabel, sizeof( predictSecondsLabel ), "%.0fs", static_cast<double>( predictSeconds ) );
@@ -463,7 +531,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                       0.10f,
                       0.14f,
                       0.15f,
-                      0.86f );
+                      fadeA( 0.86f ) );
     draw.RoundedRect( predictHorizon.x,
                       predictHorizon.y,
                       horizonFillW,
@@ -472,7 +540,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                       0.34f,
                       0.95f,
                       0.62f,
-                      predictEnabled ? 0.86f : 0.48f );
+                      fadeA( predictEnabled ? 0.86f : 0.48f ) );
     draw.RoundedRect(
         horizonKnobX - 4.0f,
         predictHorizon.y - 3.0f,
@@ -482,46 +550,61 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
         predictEnabled ? 0.88f : 0.56f,
         predictEnabled ? 1.0f : 0.62f,
         predictEnabled ? 0.82f : 0.64f,
-        replayRuntime.Prediction().horizonHovered || replayRuntime.Prediction().horizonDragging ? 0.98f : 0.86f );
-    draw.Text( predictHorizon.x + predictHorizon.w + 8.0f,
-               predict.y + 4.5f,
-               8.5f,
-               predictEnabled ? 0.90f : 0.64f,
-               predictEnabled ? 1.0f : 0.74f,
-               predictEnabled ? 0.88f : 0.76f,
-               predictSecondsLabel );
+        fadeA( replayRuntime.Prediction().horizonHovered || replayRuntime.Prediction().horizonDragging ? 0.98f
+                                                                                                        : 0.86f ) );
+    drawText( predictHorizon.x + predictHorizon.w + 8.0f,
+              predict.y + 4.5f,
+              8.5f,
+              predictEnabled ? palette.accentStrong.r : palette.textSecondary.r,
+              predictEnabled ? palette.accentStrong.g : palette.textSecondary.g,
+              predictEnabled ? palette.accentStrong.b : palette.textSecondary.b,
+              predictSecondsLabel );
 
     draw.RoundedRect( ragdollVisualToggle.x,
                       ragdollVisualToggle.y,
                       ragdollVisualToggle.w,
                       ragdollVisualToggle.h,
-                      4.0f,
-                      ragdollVisualsEnabled ? 0.12f : 0.055f,
-                      ragdollVisualsEnabled ? 0.20f : 0.08f,
-                      ragdollVisualsEnabled ? 0.26f : 0.105f,
-                      0.88f );
+                      radii.smallButton,
+                      replayRuntime.Prediction().ragdollVisualsHovered ? palette.controlHover.r : palette.control.r,
+                      replayRuntime.Prediction().ragdollVisualsHovered ? palette.controlHover.g : palette.control.g,
+                      replayRuntime.Prediction().ragdollVisualsHovered ? palette.controlHover.b : palette.control.b,
+                      fadeA( 0.88f ) );
     draw.Outline( ragdollVisualToggle.x,
                   ragdollVisualToggle.y,
                   ragdollVisualToggle.w,
                   ragdollVisualToggle.h,
-                  0.56f,
-                  0.76f,
-                  0.92f,
-                  replayRuntime.Prediction().ragdollVisualsHovered || ragdollVisualsEnabled ? 0.72f : 0.32f );
+                  palette.accent.r,
+                  palette.accent.g,
+                  palette.accent.b,
+                  fadeA( replayRuntime.Prediction().ragdollVisualsHovered || ragdollVisualsEnabled ? 0.72f : 0.32f ) );
     const float ragdollCheckX = ragdollVisualToggle.x + 7.0f;
     const float ragdollCheckY = ragdollVisualToggle.y + 5.0f;
-    draw.Outline( ragdollCheckX, ragdollCheckY, 10.0f, 10.0f, 0.72f, 0.86f, 0.98f, 0.82f );
+    draw.Outline( ragdollCheckX,
+                  ragdollCheckY,
+                  10.0f,
+                  10.0f,
+                  palette.accent.r,
+                  palette.accent.g,
+                  palette.accent.b,
+                  fadeA( 0.82f ) );
     if ( ragdollVisualsEnabled )
     {
-        draw.Rect( ragdollCheckX + 2.0f, ragdollCheckY + 2.0f, 6.0f, 6.0f, 0.42f, 0.82f, 1.0f, 0.95f );
+        draw.Rect( ragdollCheckX + 2.0f,
+                   ragdollCheckY + 2.0f,
+                   6.0f,
+                   6.0f,
+                   palette.accentStrong.r,
+                   palette.accentStrong.g,
+                   palette.accentStrong.b,
+                   fadeA( 0.95f ) );
     }
-    draw.Text( ragdollVisualToggle.x + 23.0f,
-               ragdollVisualToggle.y + 4.5f,
-               9.0f,
-               ragdollVisualsEnabled ? 0.76f : 0.58f,
-               ragdollVisualsEnabled ? 0.92f : 0.68f,
-               ragdollVisualsEnabled ? 1.0f : 0.74f,
-               "RAGDOLL" );
+    drawText( ragdollVisualToggle.x + 23.0f,
+              ragdollVisualToggle.y + 4.5f,
+              9.0f,
+              ragdollVisualsEnabled ? palette.accentStrong.r : palette.textSecondary.r,
+              ragdollVisualsEnabled ? palette.accentStrong.g : palette.textSecondary.g,
+              ragdollVisualsEnabled ? palette.accentStrong.b : palette.textSecondary.b,
+              "RAGDOLL" );
 
     Text2d::FlushQuads();
     Text2d::FlushText();

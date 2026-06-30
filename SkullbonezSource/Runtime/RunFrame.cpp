@@ -531,7 +531,7 @@ void Run::TickPhysics( double secondsPerFrame )
 #else
     constexpr bool physicsCapture = false;
 #endif
-    const RuntimeInteractionFramePolicy policy = m_interaction.BuildFramePolicy(
+    RuntimeInteractionFramePolicy policy = m_interaction.BuildFramePolicy(
         RuntimeInteractionFrameInput{ SceneState().isScenePhysics,
                                       stepRequested,
                                       false,
@@ -543,6 +543,17 @@ void Run::TickPhysics( double secondsPerFrame )
                                                                                  m_UI.BlocksCameraMouse() ),
                                       physicsCapture,
                                       SceneState().timeScale } );
+    if ( m_debug.isCrossScenePauseLocked )
+    {
+        // Invariant: the P-key pause lock outranks camera/tool mode. Launcher
+        // and passive scene cameras normally keep physics running, but the lock
+        // requires Space before any simulation step can proceed.
+        policy.physicsAdvance = PhysicsAdvanceState::RunWhileStepHeld;
+        if ( !stepRequested )
+        {
+            policy.physicsTimeScale = 0.0f;
+        }
+    }
     const bool manipulatorPhysics = policy.manipulatorActive;
     const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{
         secondsPerFrame,
@@ -2232,6 +2243,11 @@ void Run::HoldCompletedInteractiveScene()
 bool Run::TickScreenshots()
 {
     PROFILE_BEGIN( "Frame/PostDraw/Screenshots" );
+    if ( m_debug.isCrossScenePauseLocked && !Input::IsKeyDown( VK_SPACE ) )
+    {
+        PROFILE_END( "Frame/PostDraw/Screenshots" );
+        return false;
+    }
 
     auto executeSceneControlAction = [&]( const SceneRuntimeControlAction& action ) -> bool
     {
@@ -2337,6 +2353,11 @@ bool Run::TickScreenshots()
 
 void Run::TickAutoCycle()
 {
+    if ( m_debug.isCrossScenePauseLocked && !Input::IsKeyDown( VK_SPACE ) )
+    {
+        return;
+    }
+
     struct ScreenshotSink final : RuntimeCaptureSink
     {
         explicit ScreenshotSink( Run& owner ) : run( owner )
@@ -2419,6 +2440,12 @@ bool Run::TickSceneAdvance()
         }
         return false;
     };
+
+    const bool sceneProceedAllowed = !m_debug.isCrossScenePauseLocked || Input::IsKeyDown( VK_SPACE );
+    if ( !sceneProceedAllowed )
+    {
+        return false;
+    }
 
     ++SceneState().currentFrame;
 

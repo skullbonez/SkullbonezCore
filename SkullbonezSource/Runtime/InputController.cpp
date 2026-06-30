@@ -469,6 +469,8 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "ToggleCinematicFeature";
     case RuntimeInputAction::ApplyCinematicParam:
         return "ApplyCinematicParam";
+    case RuntimeInputAction::ToggleCrossScenePause:
+        return "ToggleCrossScenePause";
     default:
         return "UnknownAction";
     }

@@ -340,6 +340,7 @@ void AdvanceTakeInputKeyboardActionMemories( RuntimeInputContext& input )
                                                         { RuntimeInputAction::StepPhysicsPipelineNext, VK_F8 },
                                                         { RuntimeInputAction::TogglePhysicsDebugTransparent, '6' },
                                                         { RuntimeInputAction::ReportRendererRuntimeRetired, 'Q' },
+                                                        { RuntimeInputAction::ToggleCrossScenePause, 'P' },
                                                         { RuntimeInputAction::ToggleBroadphaseOverlay, 'G' },
                                                         { RuntimeInputAction::ToggleUIVisibility, '0' },
                                                         { RuntimeInputAction::TogglePerformanceHistogram, VK_F5 },
@@ -672,6 +673,8 @@ void Run::ClearReplayInteractionForRuntimeTransition()
     }
     m_replayRuntime.SetAllTrackPositions( 1.0f );
     m_replayRuntime.Scrubber().visible = false;
+    m_replayRuntime.Scrubber().visibleAlpha = 0.0f;
+    m_replayRuntime.Scrubber().fadeUpdatedAt = 0.0;
     m_replayRuntime.Scrubber().dragging = false;
     m_replayRuntime.Scrubber().mouseCaptured = false;
     m_replayRuntime.Scrubber().branchHovered = false;
@@ -1631,18 +1634,6 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
 void Run::CycleCameraMode()
 {
     const uint32_t enabledMask = CameraModeEnabledMask();
-    if ( m_camera.mode == RunCameraMode::Attach )
-    {
-        const RunCameraMode restoreMode = NormalizeCameraModeForCurrentScene( m_camera.modeBeforeAttach );
-        const int restoreIndex = static_cast<int>( restoreMode );
-        if ( restoreMode != RunCameraMode::Attach && restoreIndex >= 0 &&
-             restoreIndex < static_cast<int>( RunCameraMode::Count ) && ( enabledMask & ( 1u << restoreIndex ) ) != 0 )
-        {
-            ApplyCameraMode( restoreMode, RuntimeInputActionSource::Keyboard );
-            return;
-        }
-    }
-
     int current = static_cast<int>( m_camera.mode );
     if ( current < 0 || current >= static_cast<int>( RunCameraMode::Count ) )
     {
@@ -2203,6 +2194,18 @@ void Run::TakeInput()
                                                               'Q' ) )
             {
                 fprintf( stderr, "Renderer switch ignored: DX12 is the only runtime renderer.\n" );
+            }
+        }
+
+        // P key: cross-scene pause lock. This deliberately does not mark the
+        // scene interactive, so clearing the lock lets pre-existing automation
+        // resume instead of permanently converting the run to manual control.
+        {
+            if ( InputController::CaptureKeyboardActionPress( m_runtimeInput,
+                                                              RuntimeInputAction::ToggleCrossScenePause,
+                                                              'P' ) )
+            {
+                m_debug.isCrossScenePauseLocked = !m_debug.isCrossScenePauseLocked;
             }
         }
 

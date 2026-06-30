@@ -85,6 +85,8 @@ struct RunReplayScrubberState
     int mouseX = 0;
     int mouseY = 0;
     double visibleUntil = 0.0;
+    double fadeUpdatedAt = 0.0;      // Last scrubber opacity update in runtime seconds.
+    float visibleAlpha = 0.0f;       // 0 = hidden, 1 = fully faded in.
     double saveMessageUntil = 0.0;
     char saveMessage[96] = {};
 };
