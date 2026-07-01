@@ -238,6 +238,17 @@ float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
         return 1.0f;
     }
 
+    float3 receiverN = normalize(normalView);
+    float3 receiverL = normalize(lightView);
+    float ndotl = dot(receiverN, receiverL);
+    // Why: the shadow map only knows whether a caster is between this point and
+    // the sun. Back-side fill and rim lighting should not be darkened by a
+    // silhouette that belongs on the opposite face of a thin wall.
+    if (ndotl <= 0.001f)
+    {
+        return 1.0f;
+    }
+
     float4 shadowClip = mul(uShadowViewProj, float4(worldPos, 1.0f));
     if (shadowClip.w <= 0.0f)
     {
@@ -257,8 +268,7 @@ float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
         return 1.0f;
     }
 
-    float ndotl = max(dot(normalize(normalView), normalize(lightView)), 0.0f);
-    float bias = uShadowParams.y + uShadowParams.z * (1.0f - ndotl);
+    float bias = uShadowParams.y + uShadowParams.z * (1.0f - saturate(ndotl));
     int radius = (int)floor(uShadowFlags.z + 0.5f);
     float texel = max(uShadowParams.w, 0.00001f);
     float visible = 0.0f;
