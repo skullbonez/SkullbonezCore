@@ -7,11 +7,11 @@ audits when it is still useful.
 
 | Field | Value |
 |-------|-------|
-| Branch | `nightrunner-30th-june` in worktree `C:\SkullbonezCore`; last observed status was ahead of `origin/nightrunner-30th-june` by 1 commit. |
-| Active objective | None after documentation-only Agentic plan hygiene. |
-| Last documentation milestone | Done-plan leftovers were compacted into `Agentic/Plans/missed_plan_items.md`, and this handoff now points future agents there instead of stale archived-plan paths. |
-| Last source milestone | The previous run-composition-root shrink handoff is closed and archived under `Agentic/Plans/Done/`; later Carmack authoritative work also records final validation in `Agentic/Plans/Done/carmack-remaining-work-authoritative-plan.md`. |
-| Pending work | Use `Agentic/Plans/missed_plan_items.md` as the short action index for mostly completed Done-plan leftovers. Do not reopen old Done plans wholesale. |
+| Branch | `nightrunner-30th-june` in worktree `C:\SkullbonezCore`. |
+| Active objective | Overnight DX12 graphics stress soak is running; review `TestOutput\graphics_stress` artifacts after it completes. |
+| Last documentation milestone | General DX12 graphics stress is listed in the root validation map, tool inventory, and this session validation map. |
+| Last source milestone | Graphics stress memory tracking and DX12 PSO cache key hardening were committed in the current branch; PSO cache keys now hash compiled shader bytecode instead of shader blob addresses. |
+| Pending work | Inspect the overnight graphics stress memory CSV/JSON for growth trends, especially process private bytes, DXGI local/non-local usage, descriptor pressure, upload arena pressure, and cache/pool counts. |
 | Concurrent work warning | Another agent is editing code. Treat current dirty source files as user-owned and avoid source edits unless the user explicitly coordinates the work. |
 | Blockers | None for documentation-only plan hygiene. Source implementation should wait for, or coordinate with, the concurrent code agent. |
 | Validation | Documentation-only changes require no repository validation. Source/tool/script changes must use the validation map in `AGENTS.md`. |
@@ -67,6 +67,7 @@ not routine iteration steps.
 | Physics, collision, solver, determinism | `tools\validate_physics.bat` |
 | Broad physics baseline, bullet sweep, or SkullScope diagnostics | `tools\validate_physics_deep.bat` |
 | Performance-sensitive hot path | `tools\validate_perf.bat` |
+| General DX12 graphics stress or memory-growth investigation | `tools\run_graphics_stress.bat 1` for a bounded probe; `overnight` only when intentionally soaking |
 | Broad or uncertain scope | `tools\validate_full.bat` |
 
 ## Key Paths
