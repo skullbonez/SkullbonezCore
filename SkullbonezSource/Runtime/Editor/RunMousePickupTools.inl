@@ -46,25 +46,36 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
 
     const auto UpdatePickupTarget = [&]() -> bool
     {
-        // Concept: Manipulator drag follows a camera-facing plane through the
-        // original grab point. That avoids depth jumps as the mouse moves while
-        // still letting physics apply the final motion through impulses.
+        // Concept: Manipulator drag follows a camera-facing plane at the
+        // captured grab depth. Rebuilding that plane from the current camera
+        // lets forward/back camera movement change object depth without
+        // introducing a mouse-driven depth jump.
         Vector3 rayOrigin;
         Vector3 rayDirection;
-        if ( !TryBuildMouseWorldRay( rayOrigin, rayDirection ) )
+        if ( !TryBuildMouseWorldRay( rayOrigin, rayDirection, true ) )
         {
             return false;
         }
 
-        const float denom = rayDirection * m_runtimeTools.MousePickup().planeNormal;
+        Vector3 cameraNormal = m_systems.cameras->GetCameraView() - m_systems.cameras->GetCameraTranslation();
+        const float normalLenSq = VectorMagSquared( cameraNormal );
+        if ( normalLenSq <= TOLERANCE * TOLERANCE )
+        {
+            return false;
+        }
+        cameraNormal *= 1.0f / sqrtf( normalLenSq );
+
+        m_runtimeTools.MousePickup().planeNormal = cameraNormal;
+        m_runtimeTools.MousePickup().planePoint =
+            m_systems.cameras->GetCameraTranslation() + cameraNormal * m_runtimeTools.MousePickup().cameraPlaneDistance;
+
+        const float denom = rayDirection * cameraNormal;
         if ( fabsf( denom ) <= 1.0e-5f )
         {
             return false;
         }
 
-        const float planeT =
-            ( ( m_runtimeTools.MousePickup().planePoint - rayOrigin ) * m_runtimeTools.MousePickup().planeNormal ) /
-            denom;
+        const float planeT = ( ( m_runtimeTools.MousePickup().planePoint - rayOrigin ) * cameraNormal ) / denom;
         if ( planeT < 0.0f )
         {
             return false;
@@ -130,11 +141,17 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
     cameraNormal *= 1.0f / sqrtf( normalLenSq );
 
     const Vector3 grabPoint = rayOrigin + rayDirection * result.rayT;
+    const float cameraPlaneDistance = ( grabPoint - m_systems.cameras->GetCameraTranslation() ) * cameraNormal;
+    if ( cameraPlaneDistance <= TOLERANCE )
+    {
+        return true;
+    }
     m_runtimeTools.MousePickup().active = true;
     m_runtimeTools.MousePickup().mouseCaptured = true;
     m_runtimeTools.MousePickup().modelIndex = pickedIndex;
     m_runtimeTools.MousePickup().planePoint = grabPoint;
     m_runtimeTools.MousePickup().planeNormal = cameraNormal;
+    m_runtimeTools.MousePickup().cameraPlaneDistance = cameraPlaneDistance;
     m_runtimeTools.MousePickup().grabOffset = grabPoint - picked.GetPosition();
     m_runtimeTools.MousePickup().targetPoint = grabPoint;
     m_runtimeTools.MousePickup().preservedAngularVelocity = picked.GetAngularVelocity();

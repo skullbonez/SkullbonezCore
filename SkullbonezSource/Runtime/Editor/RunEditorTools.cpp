@@ -851,6 +851,7 @@ void CancelEditorGizmoDragState( EditorGizmoContext context )
     context.editor.gizmoDragIsRotation = false;
     context.editor.gizmoDragIsScale = false;
     context.editor.activeGizmoAxis = -1;
+    context.editor.gizmoDragPlaneNormal = Math::Vector::ZERO_VECTOR;
     context.editor.gizmoDragGroupCount = 0;
 }
 } // namespace RunInternal
@@ -1235,39 +1236,47 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             Vector3 rayDirection;
             float axisT = 0.0f;
             EditorGizmoContext gizmoContext{ m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction };
-            if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) &&
-                 TryEditorAxisRayParameter( gizmoContext,
-                                            m_runtimeTools.Editor().hotGizmoAxis,
-                                            rayOrigin,
-                                            rayDirection,
-                                            axisT ) )
+            const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+            Vector3 selectionOrigin;
+            float selectionRadius = 1.0f;
+            const bool haveSelectionFrame = TryGetEditorSelectionFrame( models,
+                                                                        m_runtimeTools.Editor().selectedModelIndex,
+                                                                        selectionOrigin,
+                                                                        selectionRadius );
+            if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) && haveSelectionFrame )
             {
-                EnterInteractiveSceneRun();
-                SetWorldInteractionOwnerAfterInteractionTransition( transformOwner, transformReason );
-                if ( !BeginEditorGizmoDragGesture( gizmoContext,
-                                                   m_runtimeTools.Editor().selectedModelIndex,
-                                                   m_runtimeTools.Editor().hotGizmoAxis,
-                                                   false ) )
+                const Vector3 planeNormal =
+                    EditorAxisDragPlaneNormal( m_runtimeTools.Editor().hotGizmoAxis, rayDirection );
+                if ( TryEditorAxisPlaneRayParameter( m_runtimeTools.Editor().hotGizmoAxis,
+                                                     selectionOrigin,
+                                                     planeNormal,
+                                                     rayOrigin,
+                                                     rayDirection,
+                                                     axisT ) )
                 {
-                    return consumedWorldClick;
+                    EnterInteractiveSceneRun();
+                    SetWorldInteractionOwnerAfterInteractionTransition( transformOwner, transformReason );
+                    if ( !BeginEditorGizmoDragGesture( gizmoContext,
+                                                       m_runtimeTools.Editor().selectedModelIndex,
+                                                       m_runtimeTools.Editor().hotGizmoAxis,
+                                                       false ) )
+                    {
+                        return consumedWorldClick;
+                    }
+                    m_runtimeTools.Editor().gizmoDragActive = true;
+                    m_runtimeTools.Editor().gizmoDragIsRotation = false;
+                    m_runtimeTools.Editor().gizmoDragIsScale = false;
+                    m_runtimeTools.Editor().activeGizmoAxis = m_runtimeTools.Editor().hotGizmoAxis;
+                    m_runtimeTools.Editor().gizmoDragStartAxisT = axisT;
+                    m_runtimeTools.Editor().gizmoDragStartPosition = selectionOrigin;
+                    m_runtimeTools.Editor().gizmoDragPlaneNormal = planeNormal;
+                    m_runtimeTools.Editor().gizmoDragStartOrientation =
+                        models[static_cast<size_t>( m_runtimeTools.Editor().selectedModelIndex )].GetOrientation();
+                    CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(), models, true );
+                    consumedWorldClick = true;
+                    UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoTranslate,
+                                                       RuntimeInputActionSource::Mouse );
                 }
-                m_runtimeTools.Editor().gizmoDragActive = true;
-                m_runtimeTools.Editor().gizmoDragIsRotation = false;
-                m_runtimeTools.Editor().gizmoDragIsScale = false;
-                m_runtimeTools.Editor().activeGizmoAxis = m_runtimeTools.Editor().hotGizmoAxis;
-                m_runtimeTools.Editor().gizmoDragStartAxisT = axisT;
-                const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-                float selectionRadius = 1.0f;
-                TryGetEditorSelectionFrame( models,
-                                            m_runtimeTools.Editor().selectedModelIndex,
-                                            m_runtimeTools.Editor().gizmoDragStartPosition,
-                                            selectionRadius );
-                m_runtimeTools.Editor().gizmoDragStartOrientation =
-                    models[static_cast<size_t>( m_runtimeTools.Editor().selectedModelIndex )].GetOrientation();
-                CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(), models, true );
-                consumedWorldClick = true;
-                UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoTranslate,
-                                                   RuntimeInputActionSource::Mouse );
             }
         }
 
@@ -1333,16 +1342,25 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
 
 
 #include "RunEditorTracer.inl"
-bool Run::TryBuildMouseWorldRay( Vector3& outOrigin, Vector3& outDirection ) const
+bool Run::TryBuildMouseWorldRay( Vector3& outOrigin, Vector3& outDirection, bool clampToViewport ) const
 {
     if ( !m_systems.window || !m_systems.cameras )
     {
         return false;
     }
 
-    const POINT mouse = Input::GetClientMouseCoordinates();
+    POINT mouse = Input::GetClientMouseCoordinates();
     const int screenW = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.x ) );
     const int screenH = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.y ) );
+    if ( clampToViewport )
+    {
+        // Invariant: Captured tool drags keep receiving mouse positions after
+        // the cursor leaves the client area. Clamp those positions to the
+        // nearest viewport edge so drag math remains continuous instead of
+        // dropping frames and jumping when the cursor re-enters.
+        mouse.x = std::clamp<LONG>( mouse.x, 0L, static_cast<LONG>( screenW - 1 ) );
+        mouse.y = std::clamp<LONG>( mouse.y, 0L, static_cast<LONG>( screenH - 1 ) );
+    }
     if ( mouse.x < 0 || mouse.y < 0 || mouse.x >= screenW || mouse.y >= screenH )
     {
         return false;

@@ -206,6 +206,13 @@ bool TryEditorAxisRayParameter( EditorGizmoContext context,
                                 const Math::Vector::Vector3& rayOrigin,
                                 const Math::Vector::Vector3& rayDirection,
                                 float& outAxisT );
+Math::Vector::Vector3 EditorAxisDragPlaneNormal( int axis, const Math::Vector::Vector3& rayDirection );
+bool TryEditorAxisPlaneRayParameter( int axis,
+                                     const Math::Vector::Vector3& planeOrigin,
+                                     const Math::Vector::Vector3& planeNormal,
+                                     const Math::Vector::Vector3& rayOrigin,
+                                     const Math::Vector::Vector3& rayDirection,
+                                     float& outAxisT );
 bool TryEditorRotationRayAngle( EditorGizmoContext context,
                                 int axis,
                                 const Math::Vector::Vector3& rayOrigin,

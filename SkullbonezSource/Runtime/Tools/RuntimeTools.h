@@ -138,6 +138,7 @@ struct RunMousePickupState
     int modelIndex = -1;
     Math::Vector::Vector3 planePoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 planeNormal = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
+    float cameraPlaneDistance = 0.0f;                                       // World units from camera eye to the camera-facing pickup plane.
     Math::Vector::Vector3 grabOffset = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 targetPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 preservedAngularVelocity = Math::Vector::ZERO_VECTOR;
@@ -184,6 +185,7 @@ struct RunEditorPlacementState
     Math::Orientation::Quaternion placementOrientation = Math::Orientation::IDENTITY_QUATERNION;
     POINT placementScaleStartClient = {};
     Math::Vector::Vector3 gizmoDragStartPosition = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 gizmoDragPlaneNormal = Math::Vector::ZERO_VECTOR; // Unit normal frozen for an axis drag.
     Math::Orientation::Quaternion gizmoDragStartOrientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::CollisionDetection::CollisionShape gizmoDragStartShape;
     // Lifetime: Drag-group indices and start transforms are valid only for the

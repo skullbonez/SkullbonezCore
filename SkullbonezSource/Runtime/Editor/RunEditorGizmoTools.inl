@@ -146,6 +146,65 @@ bool TryEditorAxisRayParameter( EditorGizmoContext context,
 }
 
 
+// Concept: Translation drags use a plane that contains the active world axis.
+// The plane is frozen at gesture start, so later mouse rays project into one
+// stable space instead of chasing the already-moved selection frame.
+Vector3 EditorAxisDragPlaneNormal( int axis, const Vector3& rayDirection )
+{
+    const Vector3 axisVector = EditorAxisVector( axis );
+    Vector3 normal = rayDirection - axisVector * ( rayDirection * axisVector );
+    float normalLenSq = VectorMagSquared( normal );
+    if ( normalLenSq <= TOLERANCE * TOLERANCE )
+    {
+        const Vector3 fallback =
+            fabsf( axisVector.y ) < 0.9f ? Vector3( 0.0f, 1.0f, 0.0f ) : Vector3( 1.0f, 0.0f, 0.0f );
+        normal = fallback - axisVector * ( fallback * axisVector );
+        normalLenSq = VectorMagSquared( normal );
+    }
+    if ( normalLenSq <= TOLERANCE * TOLERANCE )
+    {
+        return SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    }
+    return normal * ( 1.0f / sqrtf( normalLenSq ) );
+}
+
+
+bool TryEditorAxisPlaneRayParameter( int axis,
+                                     const Vector3& planeOrigin,
+                                     const Vector3& planeNormal,
+                                     const Vector3& rayOrigin,
+                                     const Vector3& rayDirection,
+                                     float& outAxisT )
+{
+    if ( axis < 0 || axis > 2 )
+    {
+        return false;
+    }
+
+    const float normalLenSq = VectorMagSquared( planeNormal );
+    if ( normalLenSq <= TOLERANCE * TOLERANCE )
+    {
+        return false;
+    }
+
+    const float denom = rayDirection * planeNormal;
+    if ( fabsf( denom ) <= 1e-5f )
+    {
+        return false;
+    }
+
+    const float rayT = ( ( planeOrigin - rayOrigin ) * planeNormal ) / denom;
+    if ( rayT < 0.0f )
+    {
+        return false;
+    }
+
+    const Vector3 hitPoint = rayOrigin + rayDirection * rayT;
+    outAxisT = ( hitPoint - planeOrigin ) * EditorAxisVector( axis );
+    return std::isfinite( outAxisT );
+}
+
+
 bool TryEditorRotationRayAngle( EditorGizmoContext context,
                                 int axis,
                                 const Vector3& rayOrigin,
@@ -203,7 +262,12 @@ void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
     }
 
     float axisT = 0.0f;
-    if ( !TryEditorAxisRayParameter( context, context.editor.activeGizmoAxis, rayOrigin, rayDirection, axisT ) )
+    if ( !TryEditorAxisPlaneRayParameter( context.editor.activeGizmoAxis,
+                                          context.editor.gizmoDragStartPosition,
+                                          context.editor.gizmoDragPlaneNormal,
+                                          rayOrigin,
+                                          rayDirection,
+                                          axisT ) )
     {
         return;
     }

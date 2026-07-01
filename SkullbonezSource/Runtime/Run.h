@@ -329,8 +329,10 @@ class Run
     void TickAutoCycle();                                                  // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     bool TickSceneAdvance();                                               // Frame count, exit/hold on completion, restarts; returns true to continue
     void UpdateWaterHeightControls( float dt );                            // Slide water surface up/down while held
-    bool TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin, Math::Vector::Vector3& outDirection )
-        const;                                                             // Mouse position projected into a world-space ray.
+    bool
+    TryBuildMouseWorldRay( Math::Vector::Vector3& outOrigin,
+                           Math::Vector::Vector3& outDirection,
+                           bool clampToViewport = false ) const;           // Mouse position projected into a world-space ray.
     void TickEditorViewportAndPlacementScaleInput(
         int unhandledWheelDelta );                                         // Updates viewport-look and placement scale/altitude gestures.
     bool TickEditorWorldClick(
