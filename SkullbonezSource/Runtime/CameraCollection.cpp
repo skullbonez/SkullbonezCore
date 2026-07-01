@@ -9,6 +9,9 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Tween: Time-based interpolation between camera poses for non-jarring cuts.
+  Render pose: The eye/view/up triple actually used for the current frame; it
+    can differ from the selected camera slot while a tween is active.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -136,6 +139,25 @@ void CameraCollection::UpdateTweenPath()
 }
 
 
+Camera CameraCollection::GetTweenSourcePose() const
+{
+    if ( m_isTweening )
+    {
+        return m_tweenCamera;
+    }
+
+    // Why: mode changes can rewrite the selected slot before render advances the
+    // new tween. The render pose is what the player actually saw last frame, so
+    // it is the least surprising source for a smooth transition.
+    if ( Vector::Distance( m_renderCamera.m_position, m_renderCamera.m_view ) > 0.000001f )
+    {
+        return m_renderCamera;
+    }
+
+    return m_cameraArray[m_selectedCamera];
+}
+
+
 void CameraCollection::SelectCamera( uint32_t hash, const bool fTween )
 {
     // local to store requested camera index
@@ -230,6 +252,44 @@ void CameraCollection::SetPrimaryUp( const Vector3& vUp )
 {
     m_cameraArray[m_selectedCamera].m_upVector = vUp;
     m_cameraArray[m_selectedCamera].m_upVector.Normalise();
+}
+
+
+void CameraCollection::SetPrimaryPose( const Vector3& position, const Vector3& view, const Vector3& up )
+{
+    m_cameraArray[m_selectedCamera].SetAll( position, view, up );
+}
+
+
+void CameraCollection::TweenPrimaryToPose( const Vector3& position, const Vector3& view, const Vector3& up )
+{
+    if ( !m_arrayPosition )
+    {
+        throw std::runtime_error( "No camera defined.  (CameraCollection::TweenPrimaryToPose)" );
+    }
+
+    const Camera tweenStart = GetTweenSourcePose();
+    SetPrimaryPose( position, view, up );
+
+    const Camera& destination = m_cameraArray[m_selectedCamera];
+    if ( Vector::Distance( tweenStart.m_position, destination.m_position ) <= 0.000001f &&
+         Vector::Distance( tweenStart.m_view, destination.m_view ) <= 0.000001f &&
+         Vector::Distance( tweenStart.m_upVector, destination.m_upVector ) <= 0.000001f )
+    {
+        // Why: replay inspection can switch ownership to the free camera while
+        // keeping the same visible pose. Treat that as a completed transition so
+        // IsCameraTweening does not stay true for a no-op move.
+        m_isTweening = false;
+        m_tweenProgress = 0.0f;
+        ResetRelativity();
+        return;
+    }
+
+    m_tweenStart = tweenStart;
+    UpdateTweenPath();
+    m_isTweening = true;
+    m_tweenProgress = 0.0f;
+    ResetRelativity();
 }
 
 

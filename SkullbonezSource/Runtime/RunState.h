@@ -175,6 +175,8 @@ struct AttachedCameraState
     bool hasOrbit = false;
     bool hasLastLookDirection = false;
     bool hasReturnCameraPose = false;
+    bool needsEntryTween = false;                                  // Next valid follow solve should glide from the visible pose.
+    uint32_t returnCameraHash = CAMERA_FREE;                       // Selected slot Attach should restore before applying returnEye/view/up.
     float orbitYawRadians = 0.0f;
     float orbitPitchRadians = 0.30f;
     float orbitDistance = 8.0f;

@@ -8,6 +8,8 @@ Mental model:
   Editor, launcher, and replay behavior live in dedicated runtime files.
 
 Glossary:
+  Attach return pose: The visible camera pose captured before Attach takes over
+    so the operator can return to the same view later.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
   Validation gate: Repository script that proves a class of changes before
@@ -1015,9 +1017,18 @@ void Run::CaptureAttachedCameraReturnState( RunCameraMode previousMode )
         return;
     }
 
-    m_attachedCamera.returnEye = m_systems.cameras->GetCameraTranslation();
-    m_attachedCamera.returnView = m_systems.cameras->GetCameraView();
-    m_attachedCamera.returnUp = m_systems.cameras->GetCameraUp();
+    // Why: capture the render pose, not only the selected camera slot. The
+    // player may enter Attach while another transition is still visible.
+    m_attachedCamera.returnCameraHash = m_systems.cameras->GetSelectedCameraName();
+    m_attachedCamera.returnEye = m_systems.cameras->GetRenderCameraTranslation();
+    m_attachedCamera.returnView = m_systems.cameras->GetRenderCameraView();
+    m_attachedCamera.returnUp = m_systems.cameras->GetRenderCameraUp();
+    if ( VectorMagSquared( m_attachedCamera.returnView - m_attachedCamera.returnEye ) <= TOLERANCE * TOLERANCE )
+    {
+        m_attachedCamera.returnEye = m_systems.cameras->GetCameraTranslation();
+        m_attachedCamera.returnView = m_systems.cameras->GetCameraView();
+        m_attachedCamera.returnUp = m_systems.cameras->GetCameraUp();
+    }
     m_attachedCamera.hasReturnCameraPose = true;
 }
 
@@ -1029,11 +1040,16 @@ void Run::RestoreAttachedCameraReturnState()
         return;
     }
 
-    m_systems.cameras->CancelTween();
-    m_systems.cameras->SetPrimaryPosition( m_attachedCamera.returnEye );
-    m_systems.cameras->SetViewCoordinates( m_attachedCamera.returnView );
-    m_systems.cameras->SetPrimaryUp( m_attachedCamera.returnUp );
-    m_systems.cameras->SetCamera();
+    // Why: switching the logical slot without tweening keeps the previous render
+    // pose alive as the source for TweenPrimaryToPose below.
+    if ( m_systems.cameras->HasCamera( m_attachedCamera.returnCameraHash ) &&
+         !m_systems.cameras->IsCameraSelected( m_attachedCamera.returnCameraHash ) )
+    {
+        m_systems.cameras->SelectCamera( m_attachedCamera.returnCameraHash, false );
+    }
+    m_systems.cameras->TweenPrimaryToPose( m_attachedCamera.returnEye,
+                                           m_attachedCamera.returnView,
+                                           m_attachedCamera.returnUp );
     m_attachedCamera.hasReturnCameraPose = false;
 }
 
@@ -1200,6 +1216,7 @@ void Run::SetAttachedCameraTarget( int modelIndex )
     command.claimSelectionOwner = false;
     ExecuteRuntimeInteractionCommand( command );
     m_attachedCamera.activeFollow = true;
+    m_attachedCamera.needsEntryTween = true;
     if ( m_attachedCamera.submode == AttachedCameraSubmode::RagdollEyes )
     {
         int headIndex = -1;
@@ -1365,6 +1382,7 @@ void Run::CycleAttachedCameraSubmode()
     }
 
     m_attachedCamera.submode = next;
+    m_attachedCamera.needsEntryTween = true;
     if ( next != AttachedCameraSubmode::RagdollEyes || !m_attachedCamera.hasFixedOffset )
     {
         CaptureAttachedCameraFixedOffset( m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )] );
@@ -1389,6 +1407,7 @@ void Run::ToggleAttachedCameraPin()
         {
             CaptureAttachedCameraFixedOffset( m_cGameModelCollection.Models()[static_cast<std::size_t>( modelIndex )] );
         }
+        m_attachedCamera.needsEntryTween = true;
     }
     else
     {
@@ -1449,6 +1468,21 @@ void Run::TickAttachedCamera()
 
     const std::vector<GameModel>& models = m_cGameModelCollection.Models();
     const GameModel& target = models[static_cast<std::size_t>( modelIndex )];
+    const auto applyAttachedPose = [this]( const Vector3& eye, const Vector3& view, const Vector3& up )
+    {
+        // Why: follow cameras update their destination every frame. Only the
+        // first valid solve after an Attach transition starts a tween; later
+        // solves retarget that live destination without cutting the render pose.
+        if ( m_attachedCamera.needsEntryTween )
+        {
+            m_systems.cameras->TweenPrimaryToPose( eye, view, up );
+            m_attachedCamera.needsEntryTween = false;
+        }
+        else
+        {
+            m_systems.cameras->SetPrimaryPose( eye, view, up );
+        }
+    };
     if ( m_attachedCamera.submode == AttachedCameraSubmode::RagdollEyes )
     {
         int headIndex = -1;
@@ -1462,10 +1496,7 @@ void Run::TickAttachedCamera()
                 NormalizedOr( ModelToWorldVector( head, Vector3( 0.0f, 0.0f, 1.0f ) ), Vector3( 0.0f, 0.0f, 1.0f ) );
             const Vector3 up =
                 NormalizedOr( ModelToWorldVector( head, Vector3( 0.0f, 1.0f, 0.0f ) ), Vector3( 0.0f, 1.0f, 0.0f ) );
-            m_systems.cameras->CancelTween();
-            m_systems.cameras->SetPrimaryPosition( eye );
-            m_systems.cameras->SetViewCoordinates( eye + forward );
-            m_systems.cameras->SetPrimaryUp( up );
+            applyAttachedPose( eye, eye + forward, up );
             m_attachedCamera.lastLookDirection = forward;
             m_attachedCamera.hasLastLookDirection = true;
             return;
@@ -1522,10 +1553,7 @@ void Run::TickAttachedCamera()
         return;
     }
 
-    m_systems.cameras->CancelTween();
-    m_systems.cameras->SetPrimaryPosition( eye );
-    m_systems.cameras->SetViewCoordinates( view );
-    m_systems.cameras->SetPrimaryUp( up );
+    applyAttachedPose( eye, view, up );
 }
 
 
@@ -1558,8 +1586,7 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
     const RunCameraMode previousMode = NormalizeCameraModeForCurrentScene( m_camera.mode );
     mode = NormalizeCameraModeForCurrentScene( mode );
     const bool enteringAttach = mode == RunCameraMode::Attach && previousMode != RunCameraMode::Attach;
-    const bool restoringFromAttach = previousMode == RunCameraMode::Attach &&
-                                     mode == NormalizeCameraModeForCurrentScene( m_camera.modeBeforeAttach );
+    const bool leavingAttach = previousMode == RunCameraMode::Attach && mode != RunCameraMode::Attach;
     if ( enteringAttach )
     {
         CaptureAttachedCameraReturnState( previousMode );
@@ -1587,13 +1614,14 @@ void Run::ApplyCameraMode( RunCameraMode mode, RuntimeInputActionSource source )
         m_camera.modeBeforeLauncher = mode == RunCameraMode::Manipulator ? RunCameraMode::Inspect : mode;
     }
     SetCameraModeLabelAfterInteractionTransition( mode );
-    if ( restoringFromAttach )
+    if ( leavingAttach )
     {
         RestoreAttachedCameraReturnState();
     }
     if ( mode == RunCameraMode::Attach )
     {
         m_attachedCamera.activeFollow = true;
+        m_attachedCamera.needsEntryTween = true;
     }
     if ( m_runtimeTools.Editor().editorModeEnabled )
     {
@@ -1638,6 +1666,21 @@ void Run::CycleCameraMode()
     if ( current < 0 || current >= static_cast<int>( RunCameraMode::Count ) )
     {
         current = static_cast<int>( SceneState().isSceneMode ? RunCameraMode::Scene : RunCameraMode::Demo );
+    }
+
+    if ( NormalizeCameraModeForCurrentScene( m_camera.mode ) == RunCameraMode::Attach )
+    {
+        const RunCameraMode restoreMode = NormalizeCameraModeForCurrentScene( m_camera.modeBeforeAttach );
+        const int restoreIndex = static_cast<int>( restoreMode );
+        // Why: Attach is a temporary follow workspace. Keyboard cycling out of
+        // it should return to the camera mode that entered Attach, not continue
+        // to the next enum value and strand the operator at the follow pose.
+        if ( restoreIndex >= 0 && restoreIndex < static_cast<int>( RunCameraMode::Count ) &&
+             ( enabledMask & ( 1u << restoreIndex ) ) != 0 )
+        {
+            ApplyCameraMode( restoreMode, RuntimeInputActionSource::Keyboard );
+            return;
+        }
     }
 
     for ( int step = 1; step <= static_cast<int>( RunCameraMode::Count ); ++step )
@@ -1716,7 +1759,7 @@ void Run::EnterFlyModeCamera()
     // on the current camera so fly controls work without requiring CAMERA_FREE
     if ( !SceneState().isSceneMode )
     {
-        m_systems.cameras->SelectCamera( CAMERA_FREE, false );
+        m_systems.cameras->SelectCamera( CAMERA_FREE, true );
     }
     m_camera.cameraTime = 0.0f;
     XZBounds unbounded;

@@ -62,11 +62,8 @@ void Run::EnterReplayInspectionCamera()
         m_replayRuntime.Camera().restoreView = view;
         m_replayRuntime.Camera().restoreUp = up;
         m_replayRuntime.Camera().hasRestorePose = true;
-        m_systems.cameras->CancelTween();
         m_systems.cameras->SelectCamera( CAMERA_FREE, false );
-        m_systems.cameras->SetPrimaryPosition( eye );
-        m_systems.cameras->SetViewCoordinates( view );
-        m_systems.cameras->SetPrimaryUp( up );
+        m_systems.cameras->TweenPrimaryToPose( eye, view, up );
         m_replayRuntime.Camera().active = true;
     }
 
@@ -113,7 +110,6 @@ void Run::ExitReplayInspectionCamera()
     }
     if ( m_systems.cameras )
     {
-        m_systems.cameras->CancelTween();
         // Hazard: scene-load cleanup can run after CameraCollection::Reset()
         // and before authored/generated cameras are registered. A replay
         // restore hash from the old scene must not be looked up until a matching
@@ -130,9 +126,9 @@ void Run::ExitReplayInspectionCamera()
             m_systems.cameras->SelectCamera( restoreCameraHash, false );
             if ( m_replayRuntime.Camera().hasRestorePose )
             {
-                m_systems.cameras->SetPrimaryPosition( m_replayRuntime.Camera().restoreEye );
-                m_systems.cameras->SetViewCoordinates( m_replayRuntime.Camera().restoreView );
-                m_systems.cameras->SetPrimaryUp( m_replayRuntime.Camera().restoreUp );
+                m_systems.cameras->TweenPrimaryToPose( m_replayRuntime.Camera().restoreEye,
+                                                       m_replayRuntime.Camera().restoreView,
+                                                       m_replayRuntime.Camera().restoreUp );
             }
             if ( m_systems.terrain )
             {

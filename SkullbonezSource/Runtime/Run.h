@@ -227,7 +227,7 @@ class Run
     void ResetAttachedCamera();                                            // Clears non-serialized attach target and camera offsets.
     void CaptureAttachedCameraReturnState(
         RunCameraMode previousMode );                                      // Saves the camera mode/pose Attach should restore on exit.
-    void RestoreAttachedCameraReturnState();                               // Restores the saved pre-Attach pose when returning to that mode.
+    void RestoreAttachedCameraReturnState();                               // Smoothly restores the saved pre-Attach pose when returning to that mode.
     bool TryResolveAttachedCameraTarget(
         int& outModelIndex );                                              // Revalidates/recover target by index, replay id, or exact name.
     void SetAttachedCameraTarget( int modelIndex );                        // Stores exact clicked/seeded model identity and captures offset.

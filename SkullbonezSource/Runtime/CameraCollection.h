@@ -13,6 +13,8 @@ Glossary:
   Relative camera: Secondary camera that preserves an authored offset from the
   primary camera.
   Tween: Time-based interpolation between camera poses for non-jarring cuts.
+  Render pose: The eye/view/up triple actually used for the current frame; it
+    can differ from the selected camera slot while a tween is active.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -71,6 +73,7 @@ class CameraCollection
     void SetViewMatrix( const Camera& cCameraData );               // Frame view matrix comes from the pose selected for rendering.
     int FindIndex( uint32_t hash );                                // Throws when the scene asks for an unregistered camera hash.
     Camera GetCameraDelta();                                       // Primary movement delta used to update relative cameras.
+    Camera GetTweenSourcePose() const;                             // Starts new tweens from the visible frame pose when available.
     void UpdateTweenPath();                                        // Retargets active tweens because the destination camera can move.
     void SetTweenPath( int fromIndex, int toIndex );               // fromIndex=-1 starts from the current tween pose.
 
@@ -93,6 +96,12 @@ class CameraCollection
     void
     SetPrimaryPosition( const Math::Vector::Vector3& vPos );       // Tracking cameras can bypass movement-buffer translation.
     void SetPrimaryUp( const Math::Vector::Vector3& vUp );         // Replay/debug camera restore can preserve the full pose.
+    void SetPrimaryPose( const Math::Vector::Vector3& position,
+                         const Math::Vector::Vector3& view,
+                         const Math::Vector::Vector3& up );        // Updates the selected slot without changing the current render pose.
+    void TweenPrimaryToPose( const Math::Vector::Vector3& position,
+                             const Math::Vector::Vector3& view,
+                             const Math::Vector::Vector3& up );    // Blends from the visible render pose to a selected-slot destination.
     void SetTweenSpeed( float fTweenSpeed );
     void SetCamera();                                              // Call once per frame after camera updates to refresh render pose and view matrix.
     void OverrideRenderCameraForFrame( const Math::Vector::Vector3& position,

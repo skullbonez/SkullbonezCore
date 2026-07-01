@@ -128,9 +128,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
             direction = ReplayNormalizeOr( direction, Vector3( 0.45f, 0.28f, 0.85f ) );
             const float distance = (std::max)( 12.0f, targetRadius * 5.5f );
             const Vector3 newEye = targetPosition + direction * distance + Vector3( 0.0f, targetRadius * 0.35f, 0.0f );
-            m_systems.cameras->CancelTween();
-            m_systems.cameras->SetPrimaryPosition( newEye );
-            m_systems.cameras->SetViewCoordinates( targetPosition );
+            m_systems.cameras->TweenPrimaryToPose( newEye, targetPosition, m_systems.cameras->GetRenderCameraUp() );
             m_systems.cameras->ResetRelativity();
         }
         InputController::ResetMouseLook( m_camera );
