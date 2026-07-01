@@ -541,52 +541,22 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         }
     }
     const std::vector<GameModel>& models = modelCollection.Models();
-    bool drewPredictionOverlayBeforeStep = false;
-    if ( replayRuntime.Prediction().building )
-    {
-        const std::vector<RunReplayPredictionFrame>& activePredictionFrames = replayRuntime.ActivePredictionFrames();
-        if ( activePredictionFrames.size() >= 2 )
-        {
-            PROFILE_SCOPED( "Frame/Replay/Prediction/StableOverlay" );
-            // Why: heavy prediction jobs can spend the shared slice before the
-            // renderer emits any line primitives. Draw the already-built overlay
-            // first so budget pressure degrades freshness instead of flashing
-            // every world-space path off for one render frame.
-            const auto overlayBudgetStart = std::chrono::steady_clock::now();
-            const double stableOverlayBudgetMilliseconds =
-                (std::min)( 1.5, (std::max)( 0.0, budgetMilliseconds ) );
-            drewPredictionOverlayBeforeStep = DrawReplayPredictionOverlay( replayRuntime,
-                                                                           models,
-                                                                           tracer,
-                                                                           overlayBudgetStart,
-                                                                           stableOverlayBudgetMilliseconds );
-            if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-            {
-                return;
-            }
-        }
-    }
-
     if ( replayRuntime.Prediction().building )
     {
         const double remainingMilliseconds = ReplayPredictionRemainingMilliseconds( budgetStart, budgetMilliseconds );
-        if ( remainingMilliseconds <= 0.0 )
+        if ( remainingMilliseconds > 0.0 )
         {
-            return;
-        }
-        StepReplayPredictionJob( replayRuntime,
-                                 modelCollection,
-                                 simulationTotalSeconds,
-                                 budgetStart,
-                                 budgetMilliseconds );
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-        {
-            return;
+            StepReplayPredictionJob( replayRuntime,
+                                     modelCollection,
+                                     simulationTotalSeconds,
+                                     budgetStart,
+                                     budgetMilliseconds );
         }
     }
 
-    if ( !drewPredictionOverlayBeforeStep )
-    {
-        DrawReplayPredictionOverlay( replayRuntime, models, tracer, budgetStart, budgetMilliseconds );
-    }
+    // Why: prediction stepping owns the mutation budget, but visible replay
+    // lines need a draw chance even on frames where stepping consumes that
+    // budget. Start a fresh draw-only timer so the overlay degrades by detail
+    // instead of disappearing for a frame.
+    DrawReplayPredictionOverlay( replayRuntime, models, tracer, std::chrono::steady_clock::now(), budgetMilliseconds );
 }
