@@ -66,6 +66,11 @@ The default broad gate is kept deliberately small: after builds, it launches the
 engine once for DX12 render validation and once for core physics determinism.
 Use `tools\validate_deep.bat` only for intentional broad sweeps.
 
+General graphics stress is an opt-in crash, resource-lifetime, and memory-growth
+test rather than part of the default PR gate. Use
+`tools\run_graphics_stress.bat` for DX12 scene churn, cinematic/sky/fog/ray
+settings churn, render-toggle fuzzing, and overnight soaks.
+
 Physics baseline changes are behavior changes. If a physics CSV or SkullScope
 baseline is intentionally refreshed, update it from the final Debug executable
 and committed scene/config state, then rerun the matching gate:
@@ -83,6 +88,13 @@ tools\validate_select.bat physics dx12-renderer
 tools\validate_select.bat physics-deep
 tools\validate_select.bat project-filters
 tools\validate_select.bat format build-profile
+```
+
+Run the general graphics stress test directly:
+
+```bat
+tools\run_graphics_stress.bat 1
+tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 ```
 
 ## Common Launches

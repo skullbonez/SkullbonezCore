@@ -800,6 +800,11 @@ struct ParsedArgs
     bool uiStress = false;
     unsigned int uiStressSeed = 0x7F4A7C15u;
     int uiStressActions = 5;
+    bool graphicsStress = false;
+    unsigned int graphicsStressSeed = 0xC11E2026u;
+    int graphicsStressActions = 12;
+    int graphicsStressSceneIntervalFrames = 45;
+    int graphicsStressMemoryIntervalFrames = 1800;
     bool replayRecording = true;
     bool replayExplicit = false;
     int replaySeconds = REPLAY_PAST_BUFFER_SECONDS;
@@ -2110,6 +2115,80 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               args.suppressExitDialog = true;
               return true;
           } },
+        { "--graphics-stress",
+          "--graphics_stress",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--graphics-stress expects optional on|off." );
+              }
+              args.graphicsStress = enabled;
+              args.interactiveRun = args.interactiveRun || enabled;
+              args.suppressExitDialog = args.suppressExitDialog || enabled;
+              return true;
+          } },
+        { "--graphics-stress-seed",
+          "--graphics_stress_seed",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              unsigned int seed = 0;
+              if ( !ParseUnsignedIntToken( value, seed ) || seed == 0 )
+              {
+                  return FailCommandLineParse( "--graphics-stress-seed expects a positive 32-bit integer." );
+              }
+              args.graphicsStress = true;
+              args.graphicsStressSeed = seed;
+              args.interactiveRun = true;
+              args.suppressExitDialog = true;
+              return true;
+          } },
+        { "--graphics-stress-actions",
+          "--graphics_stress_actions",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int actions = 0;
+              if ( !ParseIntToken( value, actions ) || actions <= 0 || actions > 64 )
+              {
+                  return FailCommandLineParse( "--graphics-stress-actions expects 1..64." );
+              }
+              args.graphicsStress = true;
+              args.graphicsStressActions = actions;
+              args.interactiveRun = true;
+              args.suppressExitDialog = true;
+              return true;
+          } },
+        { "--graphics-stress-scene-interval",
+          "--graphics_stress_scene_interval",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int frames = 0;
+              if ( !ParseIntToken( value, frames ) || frames <= 0 || frames > 600 )
+              {
+                  return FailCommandLineParse( "--graphics-stress-scene-interval expects 1..600 frames." );
+              }
+              args.graphicsStress = true;
+              args.graphicsStressSceneIntervalFrames = frames;
+              args.interactiveRun = true;
+              args.suppressExitDialog = true;
+              return true;
+          } },
+        { "--graphics-stress-memory-interval",
+          "--graphics_stress_memory_interval",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int frames = 0;
+              if ( !ParseIntToken( value, frames ) || frames < 0 || frames > 36000 )
+              {
+                  return FailCommandLineParse( "--graphics-stress-memory-interval expects 0..36000 frames." );
+              }
+              args.graphicsStress = true;
+              args.graphicsStressMemoryIntervalFrames = frames;
+              args.interactiveRun = true;
+              args.suppressExitDialog = true;
+              return true;
+          } },
     };
 
     return ApplyCliValueDirectives( commandLine, out, kValues );
@@ -2555,6 +2634,15 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
     {
         fprintf( stdout, "[ui-stress] Enabled seed=%u actions=%d.\n", out.uiStressSeed, out.uiStressActions );
     }
+    if ( out.graphicsStress )
+    {
+        fprintf( stdout,
+                 "[graphics-stress] Enabled seed=%u actions=%d scene_interval_frames=%d memory_interval_frames=%d.\n",
+                 out.graphicsStressSeed,
+                 out.graphicsStressActions,
+                 out.graphicsStressSceneIntervalFrames,
+                 out.graphicsStressMemoryIntervalFrames );
+    }
 
     if ( !ApplyGeneratedObjectOverride( commandLine, out ) )
     {
@@ -2665,6 +2753,13 @@ int RunApp( Window* window, ParsedArgs& args )
         if ( args.uiStress )
         {
             cRun->SetUIStressOverride( args.uiStressSeed, args.uiStressActions );
+        }
+        if ( args.graphicsStress )
+        {
+            cRun->SetGraphicsStressOverride( args.graphicsStressSeed,
+                                             args.graphicsStressActions,
+                                             args.graphicsStressSceneIntervalFrames,
+                                             args.graphicsStressMemoryIntervalFrames );
         }
         if ( args.memoryDumpPath[0] != '\0' )
         {
@@ -2795,6 +2890,11 @@ int RunApp( Window* window, ParsedArgs& args )
             else if ( !skipExecute )
             {
                 cRun->Execute();
+                if ( args.graphicsStress )
+                {
+                    printf( "[graphics-stress] Execute returned.\n" );
+                    fflush( stdout );
+                }
             }
 
             if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )

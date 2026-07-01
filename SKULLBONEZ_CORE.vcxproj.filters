@@ -1429,6 +1429,9 @@
     <None Include="SkullbonezData\scenes\concepts.suite.json">
       <Filter>Scene Files</Filter>
     </None>
+    <None Include="SkullbonezData\scenes\graphics_stress.suite.json">
+      <Filter>Scene Files</Filter>
+    </None>
     <None Include="SkullbonezData\scenes\concept_01_golden_hour_realism.scene.json">
       <Filter>Scene Files</Filter>
     </None>

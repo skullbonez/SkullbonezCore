@@ -109,6 +109,7 @@ class CameraCollection
         return m_currentViewMatrix;
     }
     uint32_t GetSelectedCameraName();
+    bool HasCamera( uint32_t hash ) const;                         // Lets teardown paths probe stale hashes without throwing.
     bool IsCameraSelected( uint32_t hash );
     void ApplyPrimaryMovementBuffer();
     const Math::Vector::Vector3& GetPrimaryMovementBuffer();

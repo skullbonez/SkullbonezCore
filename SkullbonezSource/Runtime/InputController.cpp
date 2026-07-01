@@ -379,6 +379,8 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "ToggleBroadphaseOverlay";
     case RuntimeInputAction::ToggleUIVisibility:
         return "ToggleUIVisibility";
+    case RuntimeInputAction::TogglePerformanceHistogram:
+        return "TogglePerformanceHistogram";
     case RuntimeInputAction::NavigateScenePrevious:
         return "NavigateScenePrevious";
     case RuntimeInputAction::NavigateSceneNext:
@@ -437,6 +439,8 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "SetRayCastImpulseStrength";
     case RuntimeInputAction::SetLauncherProjectileSpeed:
         return "SetLauncherProjectileSpeed";
+    case RuntimeInputAction::ApplyPhysicsFrictionSettings:
+        return "ApplyPhysicsFrictionSettings";
     case RuntimeInputAction::SetModelCount:
         return "SetModelCount";
     case RuntimeInputAction::SetWorkerThreads:
@@ -465,6 +469,8 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "ToggleCinematicFeature";
     case RuntimeInputAction::ApplyCinematicParam:
         return "ApplyCinematicParam";
+    case RuntimeInputAction::ToggleCrossScenePause:
+        return "ToggleCrossScenePause";
     default:
         return "UnknownAction";
     }

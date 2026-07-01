@@ -239,13 +239,14 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         return;
     }
 
-    // Transition mip 0 from COPY_DEST to NON_PIXEL_SHADER_RESOURCE so the compute
-    // shader can sample it. (Subsequent source mips are transitioned at end of each batch.)
+    // Transition mip 0 from COPY_DEST to SHADER_RESOURCE so compute can sample it
+    // now and later pixel passes can sample the same texture without another
+    // read-only transition. Stress runs flip those consumers rapidly.
     ExecuteGraphTransition( "GenerateMipsMip0",
                             "TextureMip0",
                             tex,
                             RenderGraphResourceAccess::CopyDest,
-                            RenderGraphResourceAccess::NonPixelShaderResource,
+                            RenderGraphResourceAccess::ShaderResource,
                             0 );
 
     UINT srcMip = 0;
@@ -356,8 +357,8 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         ExecuteGraphUavBarrier( "GenerateMipsUavOrder", "TextureMips", tex );
 
         // ------------------------------------------------------------------
-        // Transition output mips UNORDERED_ACCESS → NON_PIXEL_SHADER_RESOURCE
-        // so the next batch can read them as a source SRV.
+        // Transition output mips UNORDERED_ACCESS -> SHADER_RESOURCE so the next
+        // compute batch and later pixel passes both see a legal read state.
         // ------------------------------------------------------------------
         for ( UINT i = 0; i < mipsToGenerate; ++i )
         {
@@ -365,7 +366,7 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
                                     "TextureMip",
                                     tex,
                                     RenderGraphResourceAccess::UnorderedAccess,
-                                    RenderGraphResourceAccess::NonPixelShaderResource,
+                                    RenderGraphResourceAccess::ShaderResource,
                                     srcMip + 1 + i );
         }
 
@@ -374,13 +375,9 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         srcMipH = (std::max)( srcMipH >> mipsToGenerate, 1u );
     }
 
-    // All mips are now in NON_PIXEL_SHADER_RESOURCE. Transition ALL_SUBRESOURCES
-    // to PIXEL_SHADER_RESOURCE for use in pixel shaders.
-    ExecuteGraphTransition( "GenerateMipsFinalPixelSrv",
-                            "TextureMips",
-                            tex,
-                            RenderGraphResourceAccess::NonPixelShaderResource,
-                            RenderGraphResourceAccess::PixelShaderResource );
+    // Invariant: all mips end in SHADER_RESOURCE. That combined read-only state
+    // is legal for pixel and compute consumers, so scene stress can rebuild and
+    // immediately sample textures through either shader stage.
 
     // Force full rebind of graphics state on the next draw call, since we
     // switched root signatures and PSO for the compute dispatch.
@@ -508,7 +505,7 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data,
     if ( numMips > 1 )
     {
         GenerateMipsGPU( texResource, fmt, static_cast<UINT>( w ), static_cast<UINT>( h ), numMips );
-        // GenerateMipsGPU ends with all subresources in PIXEL_SHADER_RESOURCE state.
+        // GenerateMipsGPU leaves all subresources in combined shader-resource read state.
     }
     else
     {

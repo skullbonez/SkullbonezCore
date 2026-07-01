@@ -11,6 +11,10 @@ Mental model:
 Glossary:
   Asset system: Runtime-owned registry used to resolve logical asset-library
     names before falling back to conventional data paths.
+  Asset container: Compound asset definition that expands to multiple primitive
+    scene objects; the container itself is not a physics body.
+  Asset primitive: Single collision shape inside an asset, such as a box,
+    sphere, or convex hull.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -24,11 +28,14 @@ Related:
 */
 #include "TestScene.h"
 #include "../Assets/AssetSystem.h"
+#include "../Maths/Quaternion.h"
 #include "../Physics/ConvexHullShape.h"
+#include "../Physics/PhysicsMass.h"
 #include "../Runtime/Editor/EditorHullAssets.h"
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstring>
 #include <fstream>
 #include <iterator>
@@ -52,6 +59,38 @@ namespace
 using Json = nlohmann::ordered_json;
 
 constexpr int kMaxStyleIncludeDepth = 8;
+constexpr float kSceneDegreesToRadians = 3.14159265f / 180.0f;
+
+Math::Orientation::Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eulerZDeg )
+{
+    const float xHalf = eulerXDeg * kSceneDegreesToRadians * 0.5f;
+    const float yHalf = eulerYDeg * kSceneDegreesToRadians * 0.5f;
+    const float zHalf = eulerZDeg * kSceneDegreesToRadians * 0.5f;
+
+    const Math::Orientation::Quaternion xRotation( sinf( xHalf ), 0.0f, 0.0f, cosf( xHalf ) );
+    const Math::Orientation::Quaternion yRotation( 0.0f, sinf( yHalf ), 0.0f, cosf( yHalf ) );
+    const Math::Orientation::Quaternion zRotation( 0.0f, 0.0f, sinf( zHalf ), cosf( zHalf ) );
+
+    Math::Orientation::Quaternion orientation;
+    orientation *= xRotation * yRotation * zRotation;
+    orientation.Normalise();
+    return orientation;
+}
+
+Json QuaternionToJson( const Math::Orientation::Quaternion& orientation )
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+    float w = 1.0f;
+    orientation.GetComponents( x, y, z, w );
+    return Json::array( { x, y, z, w } );
+}
+
+Json Vector3ToJson( const Math::Vector::Vector3& value )
+{
+    return Json::array( { value.x, value.y, value.z } );
+}
 
 float LoadConvexHullDefaultMass( const char* hullPath )
 {
@@ -695,12 +734,22 @@ class TestSceneParser
         }
     }
 
-    void ValidateConvexHullAssetFields( const Json& asset, const std::string& path, const char* context ) const
+    void ValidateAssetCommonPhysicsFields( const Json& asset,
+                                           const std::string& path,
+                                           const char* context,
+                                           bool requireMass ) const
     {
-        ReadString( RequireMember( asset, path, context, "hull" ), path, "asset.hull" );
         if ( const Json* mass = FindMember( asset, "mass" ) )
         {
-            ReadFloat( *mass, path, "asset.mass" );
+            const float value = ReadFloat( *mass, path, "asset.mass" );
+            if ( value <= 0.0f )
+            {
+                Fail( path, "asset.mass must be greater than zero" );
+            }
+        }
+        else if ( requireMass )
+        {
+            RequireMember( asset, path, context, "mass" );
         }
         ReadFloat( RequireMember( asset, path, context, "restitution" ), path, "asset.restitution" );
         ValidateAssetMaterial( asset, path, context );
@@ -742,6 +791,89 @@ class TestSceneParser
         }
     }
 
+    std::string ReadAssetPrimitiveType( const Json& asset, const std::string& path, const char* context ) const
+    {
+        // Concept: old compound parts used a bare `hull` member. Keep that as a
+        // convex-hull shorthand while new container parts name their primitive.
+        if ( const Json* type = FindMember( asset, "type" ) )
+        {
+            const std::string primitiveType = ReadString( *type, path, "asset.primitive.type" );
+            if ( primitiveType == "convexHull" || primitiveType == "box" || primitiveType == "sphere" )
+            {
+                return primitiveType;
+            }
+            Fail( path, "Unknown asset primitive type: " + primitiveType );
+        }
+        if ( FindMember( asset, "hull" ) )
+        {
+            return "convexHull";
+        }
+        Fail( path, std::string( context ) + " must declare type or hull" );
+    }
+
+    void ValidateAssetBoxFields( const Json& asset, const std::string& path, const char* context ) const
+    {
+        float halfX = 0.0f;
+        float halfY = 0.0f;
+        float halfZ = 0.0f;
+        ReadVec3( RequireMember( asset, path, context, "halfExtents" ),
+                  path,
+                  "asset.halfExtents",
+                  halfX,
+                  halfY,
+                  halfZ );
+        if ( halfX <= 0.0f || halfY <= 0.0f || halfZ <= 0.0f )
+        {
+            Fail( path, "asset.halfExtents values must be greater than zero" );
+        }
+        ValidateAssetCommonPhysicsFields( asset, path, context, true );
+    }
+
+    void ValidateAssetSphereFields( const Json& asset, const std::string& path, const char* context ) const
+    {
+        const float radius = ReadFloat( RequireMember( asset, path, context, "radius" ), path, "asset.radius" );
+        if ( radius <= 0.0f )
+        {
+            Fail( path, "asset.radius must be greater than zero" );
+        }
+        if ( const Json* moment = FindMember( asset, "moment" ) )
+        {
+            const float value = ReadFloat( *moment, path, "asset.moment" );
+            if ( value <= 0.0f )
+            {
+                Fail( path, "asset.moment must be greater than zero" );
+            }
+        }
+        ValidateAssetCommonPhysicsFields( asset, path, context, true );
+    }
+
+    void ValidateConvexHullAssetFields( const Json& asset, const std::string& path, const char* context ) const
+    {
+        ReadString( RequireMember( asset, path, context, "hull" ), path, "asset.hull" );
+        ValidateAssetCommonPhysicsFields( asset, path, context, false );
+    }
+
+    void ValidateAssetPrimitiveFields( const Json& asset, const std::string& path, const char* context ) const
+    {
+        const std::string primitiveType = ReadAssetPrimitiveType( asset, path, context );
+        if ( primitiveType == "convexHull" )
+        {
+            ValidateConvexHullAssetFields( asset, path, context );
+            return;
+        }
+        if ( primitiveType == "box" )
+        {
+            ValidateAssetBoxFields( asset, path, context );
+            return;
+        }
+        if ( primitiveType == "sphere" )
+        {
+            ValidateAssetSphereFields( asset, path, context );
+            return;
+        }
+        Fail( path, "Unknown asset primitive type: " + primitiveType );
+    }
+
     void LoadAssetLibrary( const std::string& assetPath )
     {
         const Json root = ReadJsonFile( assetPath );
@@ -773,9 +905,9 @@ class TestSceneParser
 
             const std::string type =
                 ReadString( RequireMember( asset, assetPath, "asset", "type" ), assetPath, "asset.type" );
-            if ( type == "convexHull" )
+            if ( type == "convexHull" || type == "box" || type == "sphere" )
             {
-                ValidateConvexHullAssetFields( asset, assetPath, "asset" );
+                ValidateAssetPrimitiveFields( asset, assetPath, "asset" );
             }
             else if ( type == "compound" )
             {
@@ -795,7 +927,7 @@ class TestSceneParser
                     {
                         Fail( assetPath, "asset.parts[].name must not be empty" );
                     }
-                    ValidateConvexHullAssetFields( part, assetPath, "asset.parts[]" );
+                    ValidateAssetPrimitiveFields( part, assetPath, "asset.parts[]" );
                 }
             }
             else
@@ -853,30 +985,32 @@ class TestSceneParser
         ApplyObjectMaterial( material, path );
     }
 
-    void ApplyAssetConvexHullPart( const Json& asset,
-                                   const std::string& path,
-                                   const std::string& objectName,
-                                   float baseX,
-                                   float baseY,
-                                   float baseZ,
-                                   float instanceEulerX,
-                                   float instanceEulerY,
-                                   float instanceEulerZ,
-                                   bool hasInstanceEuler,
-                                   bool hasFixedOverride,
-                                   bool fixedOverride,
-                                   bool hasSleepingOverride,
-                                   bool sleepingOverride,
-                                   bool hasInstanceVelocity,
-                                   float instanceVelX,
-                                   float instanceVelY,
-                                   float instanceVelZ,
-                                   bool hasInstanceAngularVelocity,
-                                   float instanceAngVelX,
-                                   float instanceAngVelY,
-                                   float instanceAngVelZ )
+    void ApplyAssetPrimitivePart( const Json& asset,
+                                  const std::string& path,
+                                  const std::string& objectName,
+                                  float baseX,
+                                  float baseY,
+                                  float baseZ,
+                                  float instanceEulerX,
+                                  float instanceEulerY,
+                                  float instanceEulerZ,
+                                  bool hasInstanceEuler,
+                                  bool hasFixedOverride,
+                                  bool fixedOverride,
+                                  bool hasSleepingOverride,
+                                  bool sleepingOverride,
+                                  bool hasInstanceVelocity,
+                                  float instanceVelX,
+                                  float instanceVelY,
+                                  float instanceVelZ,
+                                  bool hasInstanceAngularVelocity,
+                                  float instanceAngVelX,
+                                  float instanceAngVelY,
+                                  float instanceAngVelZ )
     {
         CheckGeneratedSceneName( objectName, path, "asset instance name" );
+
+        const std::string primitiveType = ReadAssetPrimitiveType( asset, path, "asset" );
 
         float offsetX = 0.0f, offsetY = 0.0f, offsetZ = 0.0f;
         if ( const Json* offset = FindMember( asset, "offset" ) )
@@ -942,40 +1076,89 @@ class TestSceneParser
 
         Json object = Json::object();
         object["name"] = objectName;
-        object["hull"] = ReadString( RequireMember( asset, path, "asset", "hull" ), path, "asset.hull" );
         object["position"] = Json::array( { baseX + offsetX, baseY + offsetY, baseZ + offsetZ } );
-        if ( const Json* mass = FindMember( asset, "mass" ) )
-        {
-            object["mass"] = ReadFloat( *mass, path, "asset.mass" );
-        }
-        object["restitution"] =
-            ReadFloat( RequireMember( asset, path, "asset", "restitution" ), path, "asset.restitution" );
         object["fixed"] = fixed;
-        object["sleeping"] = sleeping;
-        if ( const Json* release = FindMember( asset, "contactReleaseOnImpact" ) )
+
+        if ( primitiveType == "convexHull" )
         {
-            object["contactReleaseOnImpact"] = ReadBool( *release, path, "asset.contactReleaseOnImpact" );
-        }
-        if ( const Json* threshold = FindMember( asset, "contactReleaseImpulseThreshold" ) )
-        {
-            object["contactReleaseImpulseThreshold"] =
-                (std::max)( 0.0f, ReadFloat( *threshold, path, "asset.contactReleaseImpulseThreshold" ) );
-        }
-        if ( hasEuler )
-        {
-            object["euler"] = Json::array( { eulerX, eulerY, eulerZ } );
-        }
-        if ( hasVelocity )
-        {
-            object["velocity"] = Json::array( { velX, velY, velZ } );
-        }
-        if ( hasAngularVelocity )
-        {
-            object["angularVelocity"] = Json::array( { angVelX, angVelY, angVelZ } );
+            object["hull"] = ReadString( RequireMember( asset, path, "asset", "hull" ), path, "asset.hull" );
+            if ( const Json* mass = FindMember( asset, "mass" ) )
+            {
+                object["mass"] = ReadFloat( *mass, path, "asset.mass" );
+            }
+            object["restitution"] =
+                ReadFloat( RequireMember( asset, path, "asset", "restitution" ), path, "asset.restitution" );
+            object["sleeping"] = sleeping;
+            if ( const Json* release = FindMember( asset, "contactReleaseOnImpact" ) )
+            {
+                object["contactReleaseOnImpact"] = ReadBool( *release, path, "asset.contactReleaseOnImpact" );
+            }
+            if ( const Json* threshold = FindMember( asset, "contactReleaseImpulseThreshold" ) )
+            {
+                object["contactReleaseImpulseThreshold"] =
+                    (std::max)( 0.0f, ReadFloat( *threshold, path, "asset.contactReleaseImpulseThreshold" ) );
+            }
+            if ( hasEuler )
+            {
+                object["euler"] = Json::array( { eulerX, eulerY, eulerZ } );
+            }
+            if ( hasVelocity )
+            {
+                object["velocity"] = Json::array( { velX, velY, velZ } );
+            }
+            if ( hasAngularVelocity )
+            {
+                object["angularVelocity"] = Json::array( { angVelX, angVelY, angVelZ } );
+            }
+
+            ApplyConvexHull( object, path, false );
+            ApplyAssetMaterialForTarget( asset, path, objectName );
+            return;
         }
 
-        ApplyConvexHull( object, path, false );
-        ApplyAssetMaterialForTarget( asset, path, objectName );
+        // Why: primitive container parts need state records so asset-authored
+        // sleep, velocity, angular velocity, and orientation survive expansion.
+        object["velocity"] =
+            Json::array( { hasVelocity ? velX : 0.0f, hasVelocity ? velY : 0.0f, hasVelocity ? velZ : 0.0f } );
+        object["angularVelocity"] = Json::array( { hasAngularVelocity ? angVelX : 0.0f,
+                                                   hasAngularVelocity ? angVelY : 0.0f,
+                                                   hasAngularVelocity ? angVelZ : 0.0f } );
+        object["orientation"] = QuaternionToJson( hasEuler ? MakeSceneEulerQuaternion( eulerX, eulerY, eulerZ )
+                                                           : Math::Orientation::IDENTITY_QUATERNION );
+        object["mass"] = ReadFloat( RequireMember( asset, path, "asset", "mass" ), path, "asset.mass" );
+        object["restitution"] =
+            ReadFloat( RequireMember( asset, path, "asset", "restitution" ), path, "asset.restitution" );
+        object["sleeping"] = sleeping;
+
+        if ( primitiveType == "box" )
+        {
+            Math::Vector::Vector3 halfExtents;
+            ReadVec3( RequireMember( asset, path, "asset", "halfExtents" ),
+                      path,
+                      "asset.halfExtents",
+                      halfExtents.x,
+                      halfExtents.y,
+                      halfExtents.z );
+            const float mass = object["mass"].get<float>();
+            object["halfExtents"] = Vector3ToJson( halfExtents );
+            object["inertia"] = Vector3ToJson( Physics::CalculateBoxInertiaForHalfExtents( halfExtents, mass ) );
+            ApplyBoxState( object, path );
+            ApplyAssetMaterialForTarget( asset, path, objectName );
+            return;
+        }
+
+        if ( primitiveType == "sphere" )
+        {
+            const float radius = ReadFloat( RequireMember( asset, path, "asset", "radius" ), path, "asset.radius" );
+            const float mass = object["mass"].get<float>();
+            object["radius"] = radius;
+            object["inertia"] = Vector3ToJson( Physics::CalculateSphereInertia( radius, mass ) );
+            ApplyBallState( object, path );
+            ApplyAssetMaterialForTarget( asset, path, objectName );
+            return;
+        }
+
+        Fail( path, "Unknown asset primitive type: " + primitiveType );
     }
 
     void ApplyAssetInstance( const Json& instance, const std::string& path )
@@ -1047,30 +1230,30 @@ class TestSceneParser
         }
 
         const std::string type = ReadString( RequireMember( *asset, path, "asset", "type" ), path, "asset.type" );
-        if ( type == "convexHull" )
+        if ( type == "convexHull" || type == "box" || type == "sphere" )
         {
-            ApplyAssetConvexHullPart( *asset,
-                                      path,
-                                      instanceName,
-                                      baseX,
-                                      baseY,
-                                      baseZ,
-                                      instanceEulerX,
-                                      instanceEulerY,
-                                      instanceEulerZ,
-                                      hasInstanceEuler,
-                                      hasFixedOverride,
-                                      fixedOverride,
-                                      hasSleepingOverride,
-                                      sleepingOverride,
-                                      hasInstanceVelocity,
-                                      instanceVelX,
-                                      instanceVelY,
-                                      instanceVelZ,
-                                      hasInstanceAngularVelocity,
-                                      instanceAngVelX,
-                                      instanceAngVelY,
-                                      instanceAngVelZ );
+            ApplyAssetPrimitivePart( *asset,
+                                     path,
+                                     instanceName,
+                                     baseX,
+                                     baseY,
+                                     baseZ,
+                                     instanceEulerX,
+                                     instanceEulerY,
+                                     instanceEulerZ,
+                                     hasInstanceEuler,
+                                     hasFixedOverride,
+                                     fixedOverride,
+                                     hasSleepingOverride,
+                                     sleepingOverride,
+                                     hasInstanceVelocity,
+                                     instanceVelX,
+                                     instanceVelY,
+                                     instanceVelZ,
+                                     hasInstanceAngularVelocity,
+                                     instanceAngVelX,
+                                     instanceAngVelY,
+                                     instanceAngVelZ );
             return;
         }
 
@@ -1082,28 +1265,28 @@ class TestSceneParser
             {
                 const std::string partName =
                     ReadString( RequireMember( part, path, "asset.parts[]", "name" ), path, "asset.parts[].name" );
-                ApplyAssetConvexHullPart( part,
-                                          path,
-                                          BuildAssetPartName( instanceName, partName, path ),
-                                          baseX,
-                                          baseY,
-                                          baseZ,
-                                          instanceEulerX,
-                                          instanceEulerY,
-                                          instanceEulerZ,
-                                          hasInstanceEuler,
-                                          hasFixedOverride,
-                                          fixedOverride,
-                                          hasSleepingOverride,
-                                          sleepingOverride,
-                                          hasInstanceVelocity,
-                                          instanceVelX,
-                                          instanceVelY,
-                                          instanceVelZ,
-                                          hasInstanceAngularVelocity,
-                                          instanceAngVelX,
-                                          instanceAngVelY,
-                                          instanceAngVelZ );
+                ApplyAssetPrimitivePart( part,
+                                         path,
+                                         BuildAssetPartName( instanceName, partName, path ),
+                                         baseX,
+                                         baseY,
+                                         baseZ,
+                                         instanceEulerX,
+                                         instanceEulerY,
+                                         instanceEulerZ,
+                                         hasInstanceEuler,
+                                         hasFixedOverride,
+                                         fixedOverride,
+                                         hasSleepingOverride,
+                                         sleepingOverride,
+                                         hasInstanceVelocity,
+                                         instanceVelX,
+                                         instanceVelY,
+                                         instanceVelZ,
+                                         hasInstanceAngularVelocity,
+                                         instanceAngVelX,
+                                         instanceAngVelY,
+                                         instanceAngVelZ );
             }
             return;
         }

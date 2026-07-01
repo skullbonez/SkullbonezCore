@@ -115,8 +115,8 @@ size_t RenderBackendDX12::HashPSOKey( const PSOKey12& key )
         return static_cast<size_t>( bits );
     };
     hashCombine( h, (size_t)key.rootSignature );
-    hashCombine( h, (size_t)key.shaderVS );
-    hashCombine( h, (size_t)key.shaderPS );
+    hashCombine( h, key.shaderVSHash );
+    hashCombine( h, key.shaderPSHash );
     hashCombine( h, (size_t)key.format );
     hashCombine( h, (size_t)key.isInstanced );
     hashCombine( h, (size_t)key.blendEnabled );
@@ -397,17 +397,17 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
     // Concept: the PSO cache key is the complete "shape" of a draw pipeline.
     //
     // DX12 cannot cheaply toggle individual pieces of fixed-function state the
-    // way old immediate renderers did. The vertex layout, shader bytecode,
-    // blend/depth/cull state, polygon offset, instancing mode, and render-target
-    // format all participate in the Pipeline State Object. If any of those
-    // values changes, the cached PSO may no longer describe the draw correctly.
+    // way old immediate renderers did. The vertex layout, stable shader bytecode
+    // hashes, blend/depth/cull state, polygon offset, instancing mode, and
+    // render-target format all participate in the Pipeline State Object. If any
+    // of those values changes, the cached PSO may no longer describe the draw correctly.
     // Include the root signature too: today ordinary raster draws share one
     // signature, but future fullscreen, material-table, or graph-local resource
     // signatures must not accidentally reuse an incompatible cached PSO.
     PSOKey12 key = {};
     key.rootSignature = m_rootSignature;
-    key.shaderVS = m_activeShader->GetVSBytecode();
-    key.shaderPS = m_activeShader->GetPSBytecode();
+    key.shaderVSHash = m_activeShader->GetVSBytecodeHash();
+    key.shaderPSHash = m_activeShader->GetPSBytecodeHash();
     key.format = format;
     key.isInstanced = instanced;
     key.blendEnabled = m_blendEnabled;
@@ -469,13 +469,14 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
             // misses in validation/perf runs can reveal root-signature churn,
             // render-target format drift, or state toggles happening in hot
             // loops.
-            Log().WriteEventf( "dx12_pso_cache_miss hash=%llu cache_size=%llu root_signature=%p vs=%p ps=%p format=%u "
-                               "instanced=%d blend=%d depth=%d depth_write=%d cull=%d rtv_format=%u",
+            Log().WriteEventf( "dx12_pso_cache_miss hash=%llu cache_size=%llu root_signature=%p vs_hash=%llu "
+                               "ps_hash=%llu format=%u instanced=%d blend=%d depth=%d depth_write=%d cull=%d "
+                               "rtv_format=%u",
                                static_cast<unsigned long long>( psoHash ),
                                static_cast<unsigned long long>( m_psoCache.size() ),
                                key.rootSignature,
-                               key.shaderVS,
-                               key.shaderPS,
+                               static_cast<unsigned long long>( key.shaderVSHash ),
+                               static_cast<unsigned long long>( key.shaderPSHash ),
                                static_cast<unsigned int>( key.format ),
                                key.isInstanced ? 1 : 0,
                                key.blendEnabled ? 1 : 0,

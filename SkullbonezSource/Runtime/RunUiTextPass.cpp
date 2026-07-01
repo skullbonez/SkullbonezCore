@@ -10,8 +10,10 @@ Mental model:
 
 Glossary:
   HUD (Heads-Up Display): Lightweight text diagnostics drawn over the scene.
-  Runtime mode badge: Small top-left label that names the current camera/input
+  Runtime mode badge: Compact top-right label that names the current camera/input
     workspace, such as Inspect or Manipulator.
+  Scene pause badge: Compact top-right scene-flow indicator for frame progress,
+    completion, and the cross-scene pause lock.
   Text-only mode: Validation mode that skips world rendering and renders glyphs
     on a solid background to isolate text output.
   UI frame data: Borrowed per-frame snapshot passed to the immediate-mode UI.
@@ -29,6 +31,8 @@ Related:
 */
 #include "RunInternal.h"
 #include "../Core/WorkerPool.h"
+#include "../UI/UIDraw.h"
+#include "../UI/UIStyle.h"
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Basics::RunInternal;
@@ -48,7 +52,9 @@ void UiTextPass::ReleaseGpuResources()
 bool UiTextPass::ShouldRender() const
 {
     return m_host.m_debug.isTextOnly || !m_host.SceneState().isSceneMode || m_host.SceneState().isSceneText ||
-           m_host.m_debug.overlayMode != OverlayMode::None || m_host.m_UI.IsVisible() ||
+           m_host.m_debug.overlayMode != OverlayMode::None || m_host.m_UI.NeedsUiTextPass() ||
+           ( m_host.m_debug.isCrossScenePauseLocked && !m_host.m_debug.isTopTextHidden ) ||
+           ( m_host.SceneState().isTestComplete && !m_host.m_debug.isTopTextHidden ) ||
            m_host.ShouldRenderReplayScrubber() || m_host.ReplayPathVisualizerHasTarget() ||
            ( m_host.m_camera.mode != RunCameraMode::Demo && m_host.m_camera.mode != RunCameraMode::Scene );
 }
@@ -57,6 +63,9 @@ bool UiTextPass::ShouldRender() const
 void UiTextPass::Render( const UiTextPassInputs& inputs )
 {
     const int uiPassDrawCallStart = inputs.renderDiagnostics.GetFrameDrawCallCount();
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    const Profiler& profiler = Profiler::Instance();
+#endif
 
     // Invariant: rolling diagnostics update before any overlay early return so
     // FPS, physics time, render time, and scene energy age at the same cadence.
@@ -123,6 +132,99 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     const float hh = Text2d::HalfH();
     const float mX = 0.022f; // horizontal inset from left/right edge
     const float mY = 0.015f; // vertical inset from top/bottom edge
+    constexpr float TOP_RIGHT_BADGE_MARGIN = 12.0f;
+    constexpr float TOP_RIGHT_BADGE_GAP = 6.0f;
+    float topRightBadgeY = TOP_RIGHT_BADGE_MARGIN;
+
+    const auto renderScenePauseBadge = [&]()
+    {
+        if ( m_host.m_debug.isTopTextHidden ||
+             ( !m_host.SceneState().isSceneMode && !m_host.m_debug.isCrossScenePauseLocked &&
+               !m_host.SceneState().isTestComplete ) )
+        {
+            return;
+        }
+
+        const int screenW = (std::max)( 1, m_host.WindowScreenWidth() );
+        const int screenH = (std::max)( 1, m_host.WindowScreenHeight() );
+        const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH );
+        const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
+        const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
+
+        char sceneLine[64] = {};
+        if ( !m_host.SceneState().isSceneMode )
+        {
+            sprintf_s( sceneLine, sizeof( sceneLine ), "Demo  Frame %d", m_host.SceneState().currentFrame );
+        }
+        else if ( m_host.SceneState().targetFrameCount > 0 )
+        {
+            const int frame = m_host.SceneState().isTestComplete &&
+                                      m_host.SceneState().currentFrame > m_host.SceneState().targetFrameCount
+                                  ? m_host.SceneState().targetFrameCount
+                                  : m_host.SceneState().currentFrame;
+            sprintf_s( sceneLine,
+                       sizeof( sceneLine ),
+                       "Scene %d/%d  Frame %d/%d",
+                       m_host.SceneState().currentSceneIndex + 1,
+                       m_host.m_sceneController.QueueSize(),
+                       frame,
+                       m_host.SceneState().targetFrameCount );
+        }
+        else
+        {
+            sprintf_s( sceneLine,
+                       sizeof( sceneLine ),
+                       "Scene %d/%d  Frame %d",
+                       m_host.SceneState().currentSceneIndex + 1,
+                       m_host.m_sceneController.QueueSize(),
+                       m_host.SceneState().currentFrame );
+        }
+
+        const char* stateLine = m_host.m_debug.isCrossScenePauseLocked
+                                    ? "P Pause Lock   Space advances"
+                                    : ( m_host.SceneState().isTestComplete ? "Scene complete" : "P pause lock" );
+        const float titlePx = 11.5f;
+        const float valuePx = 10.0f;
+        const float padX = 10.0f;
+        const float padY = 8.0f;
+        const float lineGap = 15.0f;
+        const float contentW =
+            (std::max)( Text2d::MeasureText( titlePx, sceneLine ), Text2d::MeasureText( valuePx, stateLine ) );
+        const float availableW = (std::max)( 80.0f, static_cast<float>( screenW ) - 24.0f );
+        const float panelW = (std::min)( availableW, contentW + padX * 2.0f + 4.0f );
+        const float panelH = 38.0f;
+        const float x = static_cast<float>( screenW ) - TOP_RIGHT_BADGE_MARGIN - panelW;
+        const float y = topRightBadgeY;
+
+        SkullbonezCore::UI::Style::UIColor fill = palette.windowSubtle;
+        fill.a = 0.88f;
+        draw.RoundedPanel( { x, y, panelW, panelH }, radii.control, fill, palette.innerBorder );
+        draw.RoundedRect( x + 1.0f,
+                          y + 1.0f,
+                          4.0f,
+                          panelH - 2.0f,
+                          radii.smallButton,
+                          m_host.m_debug.isCrossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
+                          m_host.m_debug.isCrossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
+                          m_host.m_debug.isCrossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
+                          0.90f );
+        Text2d::FlushQuads();
+        draw.Text( x + padX,
+                   y + padY,
+                   titlePx,
+                   palette.textPrimary.r,
+                   palette.textPrimary.g,
+                   palette.textPrimary.b,
+                   sceneLine );
+        draw.Text( x + padX,
+                   y + padY + lineGap,
+                   valuePx,
+                   m_host.m_debug.isCrossScenePauseLocked ? palette.warningAccent.r : palette.accent.r,
+                   m_host.m_debug.isCrossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
+                   m_host.m_debug.isCrossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
+                   stateLine );
+        topRightBadgeY = y + panelH + TOP_RIGHT_BADGE_GAP;
+    };
 
     const auto renderRuntimeModeBadge = [&]()
     {
@@ -137,60 +239,72 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             return;
         }
 
-        char modeLine[128] = {};
-        sprintf_s( modeLine, sizeof( modeLine ), "MODE  %s", m_host.CameraModeLabel( m_host.m_camera.mode ) );
+        const int screenW = (std::max)( 1, m_host.WindowScreenWidth() );
+        const int screenH = (std::max)( 1, m_host.WindowScreenHeight() );
+        const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH );
+        const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
+        const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
 
-        const char* detail = "RMB look   WASD move";
-        float accentR = 0.66f;
-        float accentG = 0.88f;
-        float accentB = 1.0f;
+        const char* modeLine = m_host.CameraModeLabel( m_host.m_camera.mode );
+
+        const char* detail = "RMB look  WASD  Space";
+        SkullbonezCore::UI::Style::UIColor accent = palette.accent;
         if ( m_host.m_camera.mode == RunCameraMode::Attach )
         {
-            detail = "LMB target   RMB orbit   Wheel distance   F1 mode   Enter pin";
-            accentR = 0.16f;
-            accentG = 1.0f;
-            accentB = 0.92f;
+            detail = "LMB target  RMB orbit  F1  Enter";
+            accent = palette.accentStrong;
         }
         else if ( m_host.m_camera.mode == RunCameraMode::Manipulator )
         {
-            detail = "LMB drag object   Hold Space play";
-            accentR = 0.18f;
-            accentG = 0.94f;
-            accentB = 1.0f;
+            detail = "LMB drag  Space";
+            accent = palette.accentStrong;
         }
         else if ( m_host.m_camera.mode == RunCameraMode::Launcher )
         {
-            detail = "LMB fire   M fire mode";
+            detail = "LMB fire  M mode";
         }
         else if ( m_host.m_camera.mode == RunCameraMode::Inspect )
         {
-            detail = "RMB look   WASD move   Hold Space play";
+            detail = "RMB look  WASD  Space";
         }
 
-        const float titleSz = 0.013f;
-        const float detailSz = 0.0105f;
-        const float pad = 0.010f;
-        const float lineGap = 0.020f;
+        const float titlePx = 11.5f;
+        const float detailPx = 9.5f;
+        const float padX = 9.0f;
+        const float padY = 7.0f;
+        const float lineGap = 14.0f;
         const float textW =
-            (std::max)( Text2d::MeasureText( titleSz, modeLine ), Text2d::MeasureText( detailSz, detail ) );
-        const float panelW = textW + pad * 2.0f;
-        const float panelH = pad * 2.0f + titleSz + lineGap;
-        const float x0 = -( hw - mX );
-        const float y1 = hh - mY;
-        const float y0 = y1 - panelH;
-        Text2d::Render2dQuad( x0, y0, x0 + panelW, y1, 0.018f, 0.024f, 0.032f, 0.78f );
-        Text2d::Render2dQuad( x0, y0, x0 + 0.004f, y1, accentR, accentG, accentB, 0.92f );
-        Text2d::Render2dTextColor( x0 + pad, y1 - pad - titleSz, titleSz, accentR, accentG, accentB, "%s", modeLine );
-        Text2d::Render2dTextColor( x0 + pad,
-                                   y1 - pad - titleSz - lineGap,
-                                   detailSz,
-                                   0.86f,
-                                   0.90f,
-                                   0.92f,
-                                   "%s",
-                                   detail );
+            (std::max)( Text2d::MeasureText( titlePx, modeLine ), Text2d::MeasureText( detailPx, detail ) );
+        const float availableW = (std::max)( 80.0f, static_cast<float>( screenW ) - 24.0f );
+        const float panelW = (std::min)( availableW, textW + padX * 2.0f + 4.0f );
+        const float panelH = 34.0f;
+        const float x = static_cast<float>( screenW ) - TOP_RIGHT_BADGE_MARGIN - panelW;
+        const float y = topRightBadgeY;
+
+        SkullbonezCore::UI::Style::UIColor fill = palette.windowSubtle;
+        fill.a = 0.86f;
+        draw.RoundedPanel( { x, y, panelW, panelH }, radii.control, fill, palette.innerBorder );
+        draw.RoundedRect( x + 1.0f,
+                          y + 1.0f,
+                          4.0f,
+                          panelH - 2.0f,
+                          radii.smallButton,
+                          accent.r,
+                          accent.g,
+                          accent.b,
+                          0.88f );
+        Text2d::FlushQuads();
+        draw.Text( x + padX, y + padY, titlePx, accent.r, accent.g, accent.b, modeLine );
+        draw.Text( x + padX,
+                   y + padY + lineGap,
+                   detailPx,
+                   palette.textSecondary.r,
+                   palette.textSecondary.g,
+                   palette.textSecondary.b,
+                   detail );
     };
 
+    renderScenePauseBadge();
     renderRuntimeModeBadge();
 
     // Crosshair - always visible when launcher mode is active, regardless of overlay state.
@@ -240,7 +354,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         sceneName = FileNameFromPath( m_host.m_sceneController.CurrentPath()->c_str() );
     }
 
-    if ( m_host.m_UI.IsVisible() )
+    if ( m_host.m_UI.NeedsUiTextPass() )
     {
         PROFILE_BEGIN( "Frame/UI/BuildData" );
         InGameUIFrameData UIData;
@@ -269,6 +383,109 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                            1000.0f;
         UIData.cpuFrameMs = m_host.m_timers.cpuFrameWorkMs;
         UIData.gpuFrameMs = m_host.m_timers.gpuFrameWorkMs;
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+        {
+            // Why: worker-core samples are committed at FrameEnd. Reading the
+            // last committed total here keeps the F5 chart a pure UI snapshot
+            // instead of reaching into profiler globals while drawing.
+            for ( int sampleIndex = 0; sampleIndex < profiler.WorkerCoreSampleCount(); ++sampleIndex )
+            {
+                UIData.workerCoreTotalMs += (std::max)( 0.0f, profiler.GetWorkerCoreSample( sampleIndex ).coreMs );
+            }
+        }
+#endif
+        {
+            // Concept: marker enumeration stays in the runtime pass that owns
+            // profiler access. The UI receives a bounded frame snapshot so
+            // drawing and hit testing do not reach into profiler globals.
+            auto markerOptionExists = [&]( uint32_t hash, bool isFrameTotal ) -> bool
+            {
+                for ( int i = 0; i < UIData.profilerMarkerOptionCount; ++i )
+                {
+                    const SkullbonezCore::UI::UIProfilerMarkerOption& option = UIData.profilerMarkerOptions[i];
+                    if ( option.isFrameTotal == isFrameTotal && ( isFrameTotal || option.hash == hash ) )
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            auto addMarkerOption = [&]( const char* name,
+                                        const char* leafName,
+                                        uint32_t hash,
+                                        float cpuMs,
+                                        float gpuMs,
+                                        bool hasGpu,
+                                        bool sampleValid,
+                                        bool isFrameTotal )
+            {
+                if ( UIData.profilerMarkerOptionCount >= SkullbonezCore::UI::UI_PROFILER_MARKER_OPTION_MAX ||
+                     markerOptionExists( hash, isFrameTotal ) )
+                {
+                    return;
+                }
+
+                SkullbonezCore::UI::UIProfilerMarkerOption& option =
+                    UIData.profilerMarkerOptions[UIData.profilerMarkerOptionCount++];
+                option.name = name ? name : "";
+                option.leafName = leafName ? leafName : option.name;
+                option.hash = hash;
+                option.cpuMs = (std::max)( 0.0f, cpuMs );
+                option.gpuMs = (std::max)( 0.0f, gpuMs );
+                option.hasGpu = hasGpu;
+                option.sampleValid = sampleValid;
+                option.isFrameTotal = isFrameTotal;
+            };
+
+            addMarkerOption( "Frame Total",
+                             "Frame Total",
+                             SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
+                             UIData.cpuFrameMs,
+                             UIData.gpuFrameMs,
+                             true,
+                             true,
+                             true );
+
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+            auto addProfilerMarker = [&]( const Profiler::Marker& marker )
+            {
+                addMarkerOption( marker.name,
+                                 marker.leafName,
+                                 marker.hash,
+                                 marker.lastFrameMs,
+                                 marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
+                                 marker.hasGpu,
+                                 true,
+                                 false );
+            };
+
+            static constexpr uint32_t kPinnedMarkerHashes[] = {
+                ::HashStr( "Frame/Physics" ),
+                ::HashStr( "Frame/Physics/Step" ),
+                ::HashStr( "Frame/Physics/Narrowphase/PersistentContacts/"
+                           "SolveRows" ),
+                ::HashStr( "Frame/Render" ),
+                ::HashStr( "Frame/UI" ) };
+            for ( uint32_t pinnedHash : kPinnedMarkerHashes )
+            {
+                for ( int markerIndex = 0; markerIndex < profiler.MarkerCount(); ++markerIndex )
+                {
+                    const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
+                    if ( marker.hash == pinnedHash )
+                    {
+                        addProfilerMarker( marker );
+                        break;
+                    }
+                }
+            }
+
+            for ( int markerIndex = 0; markerIndex < profiler.MarkerCount(); ++markerIndex )
+            {
+                addProfilerMarker( profiler.GetMarker( markerIndex ) );
+            }
+#endif
+        }
         UIData.modelCount = view.modelCount;
         UIData.modelCapacity = ActiveGameModelCapacity();
         UIData.workerThreadCount = SkullbonezCore::Threading::WorkerPool::Instance().GetThreadCount();
@@ -329,9 +546,13 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.tornadoInwardAcceleration = m_host.m_runtimeSettings.tornadoField.inwardAcceleration;
         UIData.tornadoSwirlAcceleration = m_host.m_runtimeSettings.tornadoField.swirlAcceleration;
         UIData.tornadoLiftAcceleration = m_host.m_runtimeSettings.tornadoField.liftAcceleration;
+        const EngineConfig& liveConfig = Cfg();
         UIData.rayCastVisualization = m_host.m_rayCastTest.visualizeRays;
         UIData.rayCastImpulseStrength = m_host.m_rayCastTest.impulseStrength;
         UIData.launcherProjectileSpeed = m_host.m_rayCastTest.projectileSpeed;
+        UIData.terrainFrictionCoeff = liveConfig.frictionCoeff;
+        UIData.objectFrictionCoeff = liveConfig.objectFrictionCoeff;
+        UIData.rollingFrictionCoeff = liveConfig.rollingFrictionCoeff;
         UIData.waterFreezeDebug = m_host.m_debug.isWaterFreezeDebug;
         UIData.waterFlatDebug = m_host.m_debug.isWaterFlatDebug;
         UIData.terrainHidden = m_host.m_debug.isTerrainHidden;
@@ -356,7 +577,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.canSaveSceneDefaults = view.sceneMode && m_host.m_sceneController.HasCurrentEntry() &&
                                       !m_host.m_sceneController.CurrentPath()->empty();
         UIData.cinematicRendering = m_host.IsCinematicRenderingEnabled();
-        UIData.ordinaryRender = Cfg().ordinaryRender;
+        UIData.ordinaryRender = liveConfig.ordinaryRender;
         UIData.cinematic = m_host.ActiveCinematicConfig();
         {
             auto addPreview = [&]( const char* label,
@@ -464,8 +685,11 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             Text2d::FlushText();
         }
         PROFILE_END( "Frame/UI/PostFlushText" );
-        m_host.RenderReplayScrubberOverlay();
-        return;
+        if ( m_host.m_UI.IsVisible() )
+        {
+            m_host.RenderReplayScrubberOverlay();
+            return;
+        }
     }
 
     // --- Overlay: None ---
@@ -537,7 +761,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panX = -( hw - mX ) + mX * 0.5f;   // slight left margin
         const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
         const bool absolute = ( m_host.m_debug.overlayMode == OverlayMode::BarsAbsolute );
-        Profiler::Instance().RenderBarOverlay( panX, panY, panW, panH, absolute );
+        profiler.RenderBarOverlay( panX, panY, panW, panH, absolute );
         m_host.RenderReplayScrubberOverlay();
         {
             DRAW_CALL_TRACE_SCOPE( "ProfilerBars" );
@@ -605,7 +829,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         static const KeyEntry kRight[nRows] = {
             { "Esc", "Min/expand UI" },
             { "Esc Esc", "Quit" },
-            { "Q", "Renderer notice" },
+            { "P", "Pause lock" },
             { "1", "Freeze water" },
             { "2", "Reflection mode" },
             { "3", "Toggle water flat" },
@@ -645,11 +869,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float lineH = 0.018f;
         const float profFSz = 0.012f;
         const float padY = lineH * 1.2f;
-        Profiler::Instance().RenderOverlay( -( hw - mX ),
-                                            -( hh - mY ) - padY,
-                                            lineH,
-                                            profFSz,
-                                            m_host.m_timers.rollingFpsTime );
+        profiler.RenderOverlay( -( hw - mX ), -( hh - mY ) - padY, lineH, profFSz, m_host.m_timers.rollingFpsTime );
     }
 #endif
 

@@ -153,6 +153,119 @@ RenderBackendDX12::RenderBackendDX12()
 }
 
 
+RenderMemoryStats RenderBackendDX12::GetRenderMemoryStats() const
+{
+    // Concept: this snapshot mixes engine-owned cache counters with DXGI's
+    // adapter-memory counters. The engine counters identify which renderer
+    // tables are growing; the DXGI counters say whether the graphics kernel is
+    // charging local or non-local video memory to this process.
+    RenderMemoryStats stats;
+    strcpy_s( stats.backendName, sizeof( stats.backendName ), "DirectX 12" );
+    stats.available = m_device != nullptr;
+    if ( !stats.available )
+    {
+        return stats;
+    }
+
+    const Dx12CpuDescriptorAllocatorStats rtvStats = m_rtvDescriptors.GetStats();
+    const Dx12CpuDescriptorAllocatorStats dsvStats = m_dsvDescriptors.GetStats();
+    const Dx12DescriptorAllocatorStats srvStats = m_srvDescriptors.GetStats();
+    stats.rtvDescriptorsUsed = rtvStats.used;
+    stats.rtvDescriptorsCapacity = rtvStats.capacity;
+    stats.dsvDescriptorsUsed = dsvStats.used;
+    stats.dsvDescriptorsCapacity = dsvStats.capacity;
+    stats.srvStaticDescriptorsUsed = srvStats.staticUsed;
+    stats.srvStaticDescriptorsCapacity = srvStats.staticCapacity;
+    stats.srvTransientDescriptorsUsedThisFrame = srvStats.transientUsedThisFrame;
+    stats.srvTransientDescriptorsCapacityPerFrame = srvStats.transientCapacityPerFrame;
+    stats.srvTransientDescriptorsPeakThisRun = srvStats.transientPeakThisRun;
+
+    for ( int frameIndex = 0; frameIndex < FRAME_COUNT; ++frameIndex )
+    {
+        const Dx12UploadArenaStats uploadStats = m_uploadSystem.GetStats( static_cast<UINT>( frameIndex ) );
+        stats.uploadCapacityBytes += uploadStats.capacityBytes;
+        stats.uploadUsedBytes += uploadStats.usedBytes;
+        stats.uploadPeakBytes += uploadStats.peakBytes;
+    }
+
+    const Dx12ReadbackBufferStats timerReadbackStats = m_gpuTimers.readback.GetStats();
+    if ( timerReadbackStats.ready )
+    {
+        stats.timerReadbackBytes = timerReadbackStats.sizeBytes;
+    }
+
+    stats.textureRegistryCount = m_textures.size();
+    stats.textureRegistryCapacity = m_textures.capacity();
+    stats.dynamicVertexBufferCount = m_dynamicVBs.size();
+    stats.dynamicVertexBufferCapacity = m_dynamicVBs.capacity();
+    stats.instancedMeshCount = m_instancedMeshes.size();
+    stats.instancedMeshCapacity = m_instancedMeshes.capacity();
+    stats.psoCacheCount = m_psoCache.size();
+    stats.graphTransientCount = m_graphTransientResources.size();
+    stats.graphTransientCapacity = m_graphTransientResources.capacity();
+
+    if ( m_factory )
+    {
+        // Why: multi-GPU machines can expose several adapters. Match the
+        // device LUID instead of sampling adapter 0 so stress logs describe the
+        // GPU actually backing this DX12 device.
+        const LUID deviceLuid = m_device->GetAdapterLuid();
+        ComPtr<IDXGIAdapter3> activeAdapter;
+        for ( UINT adapterIndex = 0;; ++adapterIndex )
+        {
+            ComPtr<IDXGIAdapter1> adapter;
+            const HRESULT enumResult = m_factory->EnumAdapters1( adapterIndex, adapter.GetAddressOf() );
+            if ( enumResult == DXGI_ERROR_NOT_FOUND )
+            {
+                break;
+            }
+            if ( FAILED( enumResult ) )
+            {
+                continue;
+            }
+
+            DXGI_ADAPTER_DESC1 desc = {};
+            if ( FAILED( adapter->GetDesc1( &desc ) ) || desc.AdapterLuid.HighPart != deviceLuid.HighPart ||
+                 desc.AdapterLuid.LowPart != deviceLuid.LowPart )
+            {
+                continue;
+            }
+
+            (void)adapter.As( &activeAdapter );
+            break;
+        }
+
+        if ( activeAdapter )
+        {
+            DXGI_QUERY_VIDEO_MEMORY_INFO localInfo = {};
+            DXGI_QUERY_VIDEO_MEMORY_INFO nonLocalInfo = {};
+            const bool localAvailable =
+                SUCCEEDED( activeAdapter->QueryVideoMemoryInfo( 0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &localInfo ) );
+            const bool nonLocalAvailable = SUCCEEDED(
+                activeAdapter->QueryVideoMemoryInfo( 0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &nonLocalInfo ) );
+            stats.adapterMemoryAvailable = localAvailable || nonLocalAvailable;
+            if ( localAvailable )
+            {
+                stats.localBudgetBytes = static_cast<uint64_t>( localInfo.Budget );
+                stats.localCurrentUsageBytes = static_cast<uint64_t>( localInfo.CurrentUsage );
+                stats.localCurrentReservationBytes = static_cast<uint64_t>( localInfo.CurrentReservation );
+                stats.localAvailableForReservationBytes = static_cast<uint64_t>( localInfo.AvailableForReservation );
+            }
+            if ( nonLocalAvailable )
+            {
+                stats.nonLocalBudgetBytes = static_cast<uint64_t>( nonLocalInfo.Budget );
+                stats.nonLocalCurrentUsageBytes = static_cast<uint64_t>( nonLocalInfo.CurrentUsage );
+                stats.nonLocalCurrentReservationBytes = static_cast<uint64_t>( nonLocalInfo.CurrentReservation );
+                stats.nonLocalAvailableForReservationBytes =
+                    static_cast<uint64_t>( nonLocalInfo.AvailableForReservation );
+            }
+        }
+    }
+
+    return stats;
+}
+
+
 // --- Helpers ---
 
 
@@ -2115,6 +2228,14 @@ bool RenderBackendDX12::IsVsyncEnabled() const
 
 void RenderBackendDX12::Finish()
 {
+    if ( !m_commandList || !m_commandQueue || !m_renderDevice.FrameFence().IsReady() ||
+         !m_commandAllocators[m_allocatorIndex] )
+    {
+        WaitForGpu();
+        TryConsumeGpuTimerReadback( true );
+        return;
+    }
+
     if ( m_commandListOpen )
     {
         AssertPlatformProfilerGpuStackClosed( "Finish" );
@@ -2125,11 +2246,23 @@ void RenderBackendDX12::Finish()
     }
     WaitForGpu();
     TryConsumeGpuTimerReadback( true );
+
+    // Hazard: runtime pipeline-sync calls Finish() between physics and render.
+    // That wait is allowed to drain submitted GPU work, but the next render pass
+    // still expects a recording command list for graph-owned barriers and draws.
+    EnsureCommandListOpen();
 }
 
 
 void RenderBackendDX12::FlushGPU()
 {
+    if ( !m_commandList || !m_commandQueue || !m_renderDevice.FrameFence().IsReady() ||
+         !m_commandAllocators[m_allocatorIndex] )
+    {
+        WaitForGpu();
+        return;
+    }
+
     if ( m_commandListOpen )
     {
         AssertPlatformProfilerGpuStackClosed( "FlushGPU" );
@@ -2139,6 +2272,12 @@ void RenderBackendDX12::FlushGPU()
         m_commandQueue->ExecuteCommandLists( 1, ppCLs );
     }
     WaitForGpu();
+
+    // Hazard: scene swaps and graphics stress use FlushGPU() in the middle of
+    // the runtime loop before the next render graph records transitions. A full
+    // drain makes resource destruction safe, but leaving the command list closed
+    // makes the next graph barrier trip the DX12 debug layer.
+    EnsureCommandListOpen();
 }
 
 

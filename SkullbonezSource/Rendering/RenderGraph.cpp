@@ -89,6 +89,8 @@ const char* ToString( RenderGraphResourceAccess access )
         return "DepthRead";
     case RenderGraphResourceAccess::DepthWrite:
         return "DepthWrite";
+    case RenderGraphResourceAccess::ShaderResource:
+        return "ShaderResource";
     case RenderGraphResourceAccess::PixelShaderResource:
         return "PixelShaderResource";
     case RenderGraphResourceAccess::NonPixelShaderResource:

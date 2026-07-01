@@ -13,6 +13,8 @@ Glossary:
     asset recipe availability without mutating the scene.
   Placement request: User-selected object type, static/dynamic mode, and target
     terrain point.
+  Asset primitive: Single spawned collision body inside a placeable asset
+    container, such as a box, sphere, or convex hull.
 
 Invariants:
   - Preflight and commit must use matching geometry decisions.
@@ -308,55 +310,106 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                 {
                     return;
                 }
-                const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
-                const ConvexHullShape* sourceHull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( hullPath );
-                if ( !sourceHull )
-                {
-                    failed = true;
-                    return;
-                }
-
-                ConvexHullShape hull = *sourceHull;
-                const float mass = EditorJsonFloatOr( part, "mass", hull.GetDefaultMass() );
                 const float restitution = EditorJsonFloatOr( part, "restitution", 0.08f );
                 const Vector3 offset = EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
                 const Quaternion partOrientation = EditorBuildingPartOrientation( placementOrientation, part );
                 Quaternion partCopy = partOrientation;
                 const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
                 const Vector3 authoredOrigin = base + placementRotation * offset;
-                const Vector3 center = authoredOrigin + partRotation * hull.GetAuthoredCenterOfMass();
-                GameModel model( &context.world, center, hull.ComputeBoxApproxInertia( mass ), mass );
-                model.SetTerrain( context.terrain );
-                model.SetCoefficientRestitution( restitution );
-                model.SetContactReleaseOnImpact(
-                    EditorJsonBoolOr( part, "contactReleaseOnImpact", false ),
-                    (std::max)( 0.0f, EditorJsonFloatOr( part, "contactReleaseImpulseThreshold", 1.0f ) ) );
-                model.AddConvexHull( hull );
-                model.SetOrientation( partOrientation );
-                model.SetRenderMaterial( EditorBuildingPartMaterial( part ) );
-                if ( const Json* velocity = EditorJsonFindMember( part, "velocity" ) )
+                const std::string primitiveType = EditorAssetPrimitiveType( part );
+                auto finishPartModel = [&]( GameModel&& model )
                 {
-                    Vector3 authoredVelocity;
-                    if ( TryReadEditorJsonVec3( *velocity, authoredVelocity ) )
+                    model.SetTerrain( context.terrain );
+                    model.SetCoefficientRestitution( restitution );
+                    model.SetContactReleaseOnImpact(
+                        EditorJsonBoolOr( part, "contactReleaseOnImpact", false ),
+                        (std::max)( 0.0f, EditorJsonFloatOr( part, "contactReleaseImpulseThreshold", 1.0f ) ) );
+                    model.SetOrientation( partOrientation );
+                    model.SetRenderMaterial( EditorBuildingPartMaterial( part ) );
+                    if ( const Json* velocity = EditorJsonFindMember( part, "velocity" ) )
                     {
-                        model.SetLinearVelocity( authoredVelocity );
+                        Vector3 authoredVelocity;
+                        if ( TryReadEditorJsonVec3( *velocity, authoredVelocity ) )
+                        {
+                            model.SetLinearVelocity( authoredVelocity );
+                        }
                     }
-                }
+                    if ( const Json* angularVelocity = EditorJsonFindMember( part, "angularVelocity" ) )
+                    {
+                        Vector3 authoredAngularVelocity;
+                        if ( TryReadEditorJsonVec3( *angularVelocity, authoredAngularVelocity ) )
+                        {
+                            model.SetAngularVelocity( authoredAngularVelocity );
+                        }
+                    }
 
-                char name[64];
-                const std::string partName = EditorJsonStringOr( part, "name", "part" );
-                snprintf( name,
-                          sizeof( name ),
-                          "%s_%s_%03d_%s",
-                          modePrefix,
-                          buildingDefinition.label,
-                          serial,
-                          partName.c_str() );
-                name[sizeof( name ) - 1] = '\0';
-                model.SetName( name );
-                const bool partFixed = placementFixed || EditorJsonBoolOr( part, "fixed", false );
-                const bool partSleeping = EditorJsonBoolOr( part, "sleeping", true );
-                addModel( std::move( model ), partFixed, partSleeping && !partFixed );
+                    char name[64];
+                    const std::string partName = EditorJsonStringOr( part, "name", "part" );
+                    snprintf( name,
+                              sizeof( name ),
+                              "%s_%s_%03d_%s",
+                              modePrefix,
+                              buildingDefinition.label,
+                              serial,
+                              partName.c_str() );
+                    name[sizeof( name ) - 1] = '\0';
+                    model.SetName( name );
+                    const bool partFixed = placementFixed || EditorJsonBoolOr( part, "fixed", false );
+                    const bool partSleeping = EditorJsonBoolOr( part, "sleeping", true );
+                    addModel( std::move( model ), partFixed, partSleeping && !partFixed );
+                };
+
+                if ( primitiveType == "convexHull" )
+                {
+                    const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
+                    const ConvexHullShape* sourceHull =
+                        hullPath.empty() ? nullptr : CachedEditorBuildingHull( hullPath );
+                    if ( !sourceHull )
+                    {
+                        failed = true;
+                        return;
+                    }
+
+                    ConvexHullShape hull = *sourceHull;
+                    const float mass = EditorJsonFloatOr( part, "mass", hull.GetDefaultMass() );
+                    const Vector3 center = authoredOrigin + partRotation * hull.GetAuthoredCenterOfMass();
+                    GameModel model( &context.world, center, hull.ComputeBoxApproxInertia( mass ), mass );
+                    model.AddConvexHull( hull );
+                    finishPartModel( std::move( model ) );
+                    return;
+                }
+                if ( primitiveType == "box" )
+                {
+                    Vector3 halfExtents;
+                    if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
+                    {
+                        failed = true;
+                        return;
+                    }
+                    const float mass = EditorJsonFloatOr( part, "mass", CalculateBoxMass( halfExtents ) );
+                    GameModel model( &context.world,
+                                     authoredOrigin,
+                                     CalculateBoxInertiaForHalfExtents( halfExtents, mass ),
+                                     mass );
+                    model.AddBoundingBox( halfExtents );
+                    finishPartModel( std::move( model ) );
+                    return;
+                }
+                if ( primitiveType == "sphere" )
+                {
+                    float radius = 0.0f;
+                    if ( !TryReadEditorSphereRadius( part, radius ) )
+                    {
+                        failed = true;
+                        return;
+                    }
+                    const float mass = EditorJsonFloatOr( part, "mass", CalculateSphereMass( radius ) );
+                    GameModel model( &context.world, authoredOrigin, CalculateSphereInertia( radius, mass ), mass );
+                    model.AddBoundingSphere( radius );
+                    finishPartModel( std::move( model ) );
+                    return;
+                }
+                failed = true;
             } );
         if ( failed || !ok )
         {

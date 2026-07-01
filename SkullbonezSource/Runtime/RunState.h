@@ -139,7 +139,7 @@ struct RunCameraState
     int selectedCamera = 0;                                    // Keeps track of which camera is selected
     RunCameraMode mode = RunCameraMode::Demo;                  // Explicit operator camera mode shown in the minimized HUD.
     RunCameraMode modeBeforeLauncher = RunCameraMode::Inspect; // N returns to the last non-launcher workspace.
-    RunCameraMode modeBeforeAttach = RunCameraMode::Inspect;   // Tab exits Attach to the camera mode it interrupted.
+    RunCameraMode modeBeforeAttach = RunCameraMode::Inspect;   // Pre-Attach workspace used by explicit attach-restore paths.
     bool needsMouseLookReset = true;                           // Discard stale absolute mouse deltas after UI/focus/fly transitions
     bool hasMouseLookLastClient = false;
     POINT mouseLookLastClient = {};
@@ -234,6 +234,7 @@ struct RunDebugState
     bool isUITestPattern = false;                              // Bright 2D backdrop behind UI for visual blur tests
     bool isTopTextHidden = false;                              // Hide top-left HUD text while leaving other overlays active
     bool isBroadphaseOverlay = false;                          // Broadphase spatial grid visualizer overlay (toggle with G)
+    bool isCrossScenePauseLocked = false;                      // P-key scene-flow lock; Space is the only way to advance while active.
     float frozenWaterTime = 0.0f;                              // Simulation time captured when freeze was toggled on
 #ifdef _DEBUG
     char reproSnapshotMessage[128] = {};                       // Short HUD confirmation after launcher-mode repro dump
@@ -261,6 +262,11 @@ struct RunLaunchOptions
     bool uiStress = false;                                     // CLI --ui-stress enables generated/demo stress without a scene file
     unsigned int uiStressSeed = 0;                             // CLI --ui-stress-seed
     int uiStressActions = 5;                                   // CLI --ui-stress-actions
+    bool graphicsStress = false;                               // CLI --graphics-stress enables render-setting and scene-load churn
+    unsigned int graphicsStressSeed = 0;                       // CLI --graphics-stress-seed
+    int graphicsStressActions = 12;                            // CLI --graphics-stress-actions
+    int graphicsStressSceneIntervalFrames = 45;                // CLI --graphics-stress-scene-interval
+    int graphicsStressMemoryIntervalFrames = 1800;             // CLI --graphics-stress-memory-interval
     GeneratedObjectTypeOverride generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     bool hasPhysicsDebugFlagsOverride = false;
     uint32_t physicsDebugFlagsOverride = Physics::PHYSICS_DEBUG_NONE;
@@ -270,6 +276,21 @@ struct RunLaunchOptions
     float physicsDebugAlphaOverride = 0.28f;
     bool hasPhysicsDebugContactLingerOverride = false;
     float physicsDebugContactLingerOverride = 0.45f;
+};
+
+struct RunGraphicsStressState
+{
+    // Concept: Graphics stress is a deterministic runtime fuzzer. It mutates
+    // live render settings and scene-load state from one seed so DX12 crashes
+    // can be replayed without depending on human UI timing.
+    bool enabled = false;                                      // Active after --graphics-stress is applied
+    unsigned int randomState = 0;                              // LCG state; 0 means uninitialized
+    int actionsPerFrame = 12;                                  // Render/state mutations per rendered frame
+    int sceneIntervalFrames = 45;                              // Minimum frames between forced scene reloads
+    int memoryLogIntervalFrames = 1800;                        // Coarse memory-attribution log cadence (0 disables)
+    int framesRun = 0;                                         // Persistent across scene reloads
+    int sceneLoadsRequested = 0;                               // Count of stress-driven LoadScene calls
+    int lastSceneLoadFrame = -1000000;                         // Frame index of the last stress scene load
 };
 
 struct RunSceneBrowserState

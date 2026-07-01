@@ -792,8 +792,10 @@ bool ReplayRuntime::ShouldRenderScrubber( bool editorModeEnabled, bool uiVisible
 
     const bool loadedPresentation = HasLoadedPresentation();
     const ReplayRecorderStats solverReplayStats = m_solver.GetStats();
-    const bool solverReplayAvailable = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
-    return ( loadedPresentation || solverReplayAvailable ) &&
+    const bool solverReplayEnabled = solverReplayStats.enabled;
+    // Why: visibility is about whether a replay control surface is armed, not
+    // whether enough retained frames exist to enable scrub/prediction tools.
+    return ( loadedPresentation || solverReplayEnabled ) &&
            ( m_scrubber.visible || m_scrubber.dragging || m_scrubber.historicalSamplePaused ||
              m_scrubber.liveAdvanceHeld );
 }

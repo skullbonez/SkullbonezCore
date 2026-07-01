@@ -10,6 +10,8 @@ Mental model:
 Glossary:
   Tracer: Per-frame line builder for placement rays, gizmos, replay paths, and selection outlines.
   Gizmo: World-space translate, rotate, or scale affordance drawn over selected models.
+  Placement ghost: Preview outline drawn before an editor placement commit; it
+    must match the primitive bodies that placement will actually spawn.
 
 Invariants:
   - Trace generation must stay transient; m_lineData is cleared every frame by the caller.
@@ -215,26 +217,56 @@ void RunEditorTracer::AddPlacementGhost( int objectType,
             assets,
             [&]( const Json& part )
             {
-                const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
-                const ConvexHullShape* hull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( hullPath );
-                if ( !hull )
-                {
-                    return;
-                }
                 const Vector3 offset = EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
                 const Quaternion partOrientation = EditorBuildingPartOrientation( orientation, part );
                 Quaternion partCopy = partOrientation;
                 const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
-                const Vector3 bodyCenter = base + rotation * offset + partRotation * hull->GetAuthoredCenterOfMass();
-                const Vector3 hullCenter = bodyCenter + partRotation * hull->GetPosition();
-                for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
+                const Vector3 bodyCenter = base + rotation * offset;
+                const std::string primitiveType = EditorAssetPrimitiveType( part );
+                if ( primitiveType == "convexHull" )
                 {
-                    const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
-                    EmitLine( hullCenter + partRotation * hull->GetVertex( edge.vertexA ),
-                              hullCenter + partRotation * hull->GetVertex( edge.vertexB ),
-                              ghostR,
-                              ghostG,
-                              ghostB );
+                    const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
+                    const ConvexHullShape* hull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( hullPath );
+                    if ( !hull )
+                    {
+                        return;
+                    }
+                    const Vector3 hullCenter =
+                        bodyCenter + partRotation * ( hull->GetAuthoredCenterOfMass() + hull->GetPosition() );
+                    for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
+                    {
+                        const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
+                        EmitLine( hullCenter + partRotation * hull->GetVertex( edge.vertexA ),
+                                  hullCenter + partRotation * hull->GetVertex( edge.vertexB ),
+                                  ghostR,
+                                  ghostG,
+                                  ghostB );
+                    }
+                    return;
+                }
+                if ( primitiveType == "box" )
+                {
+                    Vector3 halfExtents;
+                    if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
+                    {
+                        return;
+                    }
+                    EmitBox( bodyCenter,
+                             partRotation * Vector3( halfExtents.x, 0.0f, 0.0f ),
+                             partRotation * Vector3( 0.0f, halfExtents.y, 0.0f ),
+                             partRotation * Vector3( 0.0f, 0.0f, halfExtents.z ),
+                             ghostR,
+                             ghostG,
+                             ghostB );
+                    return;
+                }
+                if ( primitiveType == "sphere" )
+                {
+                    float radius = 0.0f;
+                    if ( TryReadEditorSphereRadius( part, radius ) )
+                    {
+                        EmitSphere( bodyCenter, radius, ghostR, ghostG, ghostB );
+                    }
                 }
             } );
         return;

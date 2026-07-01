@@ -128,6 +128,7 @@ perf, UI, and stress validation only when the change actually needs them:
 | Physics, collision, solver, or rigid body changes | `tools\validate_physics.bat` | 1 exe launch |
 | Broad physics baseline, bullet sweep, or SkullScope diagnostics | `tools\validate_physics_deep.bat` | ~45s+ |
 | Performance-sensitive hot path | `tools\validate_perf.bat` | ~1 min |
+| General DX12 graphics stress, crash reproduction, or memory-growth investigation | `tools\run_graphics_stress.bat 1`; use `overnight` only when intentionally soaking | bounded or overnight |
 | Broad or uncertain scope | `tools\validate_full.bat` | 2 exe launches |
 | Unsure what to run at the PR gate | `tools\agent_validate.bat` | 2 exe launches |
 | Comment-only source or documentation cleanup | No repository validation required; prove the diff is comments/docs only | N/A |
@@ -251,6 +252,7 @@ run the specified targeted validation:
 | Fixed-step simulation behavior | Physics replay not reproducible | `validate_physics` |
 | Coordinate conventions | Upside-down textures, clip-space bugs | `validate_dx12_renderer` |
 | Upload buffer / frame allocator | DX12 CPU overwrites in-flight GPU data | `validate_dx12_renderer` + run 3 consecutive times |
+| DX12 graphics stress memory growth | Resource or cache leak, descriptor pressure, GPU memory growth | bounded `tools\run_graphics_stress.bat` with memory artifacts; overnight only when requested |
 | Singleton lifecycle | Use-after-destroy, double-init crash | `validate_full` |
 | Broadphase spatial grid | Missed collisions, perf regression | `validate_physics` + `validate_perf` |
 

@@ -74,6 +74,9 @@ bool TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess access, 
     case RenderGraphResourceAccess::DepthWrite:
         outState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
         return true;
+    case RenderGraphResourceAccess::ShaderResource:
+        outState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        return true;
     case RenderGraphResourceAccess::PixelShaderResource:
         outState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
         return true;

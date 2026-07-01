@@ -85,6 +85,8 @@ struct RunReplayScrubberState
     int mouseX = 0;
     int mouseY = 0;
     double visibleUntil = 0.0;
+    double fadeUpdatedAt = 0.0;    // Last scrubber opacity update in runtime seconds.
+    float visibleAlpha = 0.0f;     // 0 = hidden, 1 = fully faded in.
     double saveMessageUntil = 0.0;
     char saveMessage[96] = {};
 };
@@ -258,7 +260,7 @@ struct RunReplayPredictionState
 {
     bool enabled = false;
     bool checkboxHovered = false;
-    bool ragdollVisualsEnabled = true;
+    bool ragdollVisualsEnabled = false;
     bool ragdollVisualsHovered = false;
     bool decreaseHovered = false;
     bool increaseHovered = false;
@@ -289,7 +291,7 @@ struct RunReplayPredictionState
     std::size_t futureNodesBuiltFrameCount = 0;
     std::size_t futureNodesBuiltContactIndex = 0;
     ReplayBodyId futureNodesBuiltTargetId;
-    bool futureNodesBuiltRagdollVisuals = true;
+    bool futureNodesBuiltRagdollVisuals = false;
     bool futureNodesBuiltFromBuildFrames = false;
     bool futureNodesCacheValid = false;
 };

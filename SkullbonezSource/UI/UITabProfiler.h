@@ -53,9 +53,10 @@ struct TimelineSegment
 
 struct PerformanceHistogramSample
 {
-    float cpuMs = 0.0f;
-    float gpuMs = 0.0f;
+    float primaryMs = 0.0f;
+    float secondaryMs = 0.0f;
     float spikeMs = 0.0f;
+    bool hasSecondary = false;
 };
 
 struct UIProfilerTabState
@@ -72,7 +73,31 @@ struct UIProfilerTabState
     PerformanceHistogramSample histogramSamples[HISTOGRAM_SAMPLE_COUNT] = {};
     int histogramHead = 0;
     int histogramCount = 0;
-    float histogramAxisMs = 16.67f;
+    float histogramAxisMs = 33.3f;                       // Default F5 frame-total CPU scale: 0..33.3ms.
+    double histogramAverageTextLastUpdateSeconds = -1.0; // Runtime seconds; -1 = footer average not latched yet.
+    float histogramAverageCpuMs = 0.0f;                  // Latched footer value refreshed on a 0.5s cadence.
+    float histogramAverageWorkerMs = 0.0f;               // Latched worker-core footer average for Frame Total.
+    uint32_t histogramSelectedMarkerHash = 0u;
+    bool histogramSelectedFrameTotal = true;
+    char histogramSelectedMarkerName[96] = "Frame Total";
+    bool histogramPanelInitialized = false;
+    float histogramPanelX = 16.0f;
+    float histogramPanelY = 16.0f;
+    float histogramPanelW = 340.0f;
+    float histogramPanelH = 166.0f;
+    bool histogramDragging = false;
+    bool histogramResizing = false;
+    int histogramDragOffsetX = 0;
+    int histogramDragOffsetY = 0;
+    int histogramResizeStartMouseX = 0;
+    int histogramResizeStartMouseY = 0;
+    float histogramResizeStartW = 0.0f;
+    float histogramResizeStartH = 0.0f;
+    bool histogramSelectorOpen = false;
+    int histogramSelectorScroll = 0;
+    uint32_t histogramOptionHashes[MAX_MARKERS + 1] = {};
+    bool histogramOptionFrameTotals[MAX_MARKERS + 1] = {};
+    int histogramOptionCount = 0;
     UICheckBox workerToggle;
     UISlider workerThreadSlider;
     int previewWorkerThreads = -1;
@@ -85,6 +110,8 @@ bool PerformanceHistogramEnabled( const UIProfilerTabState& state );
 void SetExpandAll( UIProfilerTabState& state, bool expandAll );
 void SetTimelineEnabled( UIProfilerTabState& state, bool enabled );
 void SetPerformanceHistogramEnabled( UIProfilerTabState& state, bool enabled );
+bool PerformanceHistogramIsInteracting( const UIProfilerTabState& state );
+void CancelPerformanceHistogramInteraction( UIProfilerTabState& state );
 
 void ResetPreviewState( UIProfilerTabState& state );
 void ApplyDefaultExpansion( UIProfilerTabState& state );
@@ -109,10 +136,18 @@ bool UpdateActiveSlider( UIProfilerTabState& state,
                          InGameUIInputResult& result );
 bool CommitActiveSlider( UIProfilerTabState& state, int activeSlider, InGameUIInputResult& result );
 
-void PushPerformanceHistogramSample( UIProfilerTabState& state, float cpuMs, float gpuMs );
-void DrawPerformanceHistogram( const UIProfilerTabState& state,
-                               const UIDrawContext& draw,
-                               const InGameUIFrameData& data );
+bool HandlePerformanceHistogramInput( UIProfilerTabState& state,
+                                      InGameUIInputResult& result,
+                                      int screenW,
+                                      int screenH,
+                                      int mouseX,
+                                      int mouseY,
+                                      bool leftDown,
+                                      bool leftPressed,
+                                      bool leftReleased,
+                                      int wheelDelta );
+void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFrameData& data );
+void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& draw, const InGameUIFrameData& data );
 
 void Draw( UIProfilerTabState& state,
            const UIDrawContext& draw,

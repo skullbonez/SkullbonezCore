@@ -174,6 +174,7 @@ enum class RenderGraphResourceAccess
     RenderTarget,
     DepthRead,
     DepthWrite,
+    ShaderResource,
     PixelShaderResource,
     NonPixelShaderResource,
     UnorderedAccess,

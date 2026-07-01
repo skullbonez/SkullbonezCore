@@ -96,6 +96,7 @@ enum class RuntimeInputAction
     ReportRendererRuntimeRetired,
     ToggleBroadphaseOverlay,
     ToggleUIVisibility,
+    TogglePerformanceHistogram,
     NavigateScenePrevious,
     NavigateSceneNext,
     DismissOrExitUI,
@@ -125,6 +126,7 @@ enum class RuntimeInputAction
     SetPhysicsDebugContactLinger,
     SetRayCastImpulseStrength,
     SetLauncherProjectileSpeed,
+    ApplyPhysicsFrictionSettings,
     SetModelCount,
     SetWorkerThreads,
     SetSolverCounts,
@@ -139,6 +141,7 @@ enum class RuntimeInputAction
     ToggleCinematicFeature,
     ApplyCinematicParam,
     SaveSkyDefaults,
+    ToggleCrossScenePause,
     Count
 };
 

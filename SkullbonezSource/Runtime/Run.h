@@ -73,6 +73,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Rendering
+{
+class IRenderDiagnostics;
+}
 namespace Basics
 {
 struct RuntimeInteractionCommand;
@@ -121,6 +125,7 @@ class Run
     RunLiveStyleControlState m_liveStyle;                                  // Live style tweak/capture harness state
     UI::InGameUI m_UI;                                                     // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                                                 // Runtime debug/overlay toggles
+    RunGraphicsStressState m_graphicsStress;                               // Deterministic graphics fuzzer state for overnight DX12 runs.
     RuntimeTools m_runtimeTools;                                           // Launcher, editor, manipulator state, and transient render feedback.
     std::vector<RunRequiredContactState> m_requiredSceneContacts;
     std::vector<RunRequiredBroadphaseXCellsState> m_requiredBroadphaseXCells;
@@ -276,6 +281,9 @@ class Run
     // Tight light-space frame for nearby object receivers.
     // Depth casters requested from the sun view.
     void RunUIStressActions();
+    void RunGraphicsStressActions(
+        const Rendering::IRenderDiagnostics&
+            renderDiagnostics );                                           // Deterministic render/scene churn used to shake out DX12 crashes.
     void ResetReplayTimelineForActiveScene(
         bool preserveBranchMetadata = false );                             // Scene/model rebuilds start a fresh in-memory replay branch.
     void AfterPhysicsStep();                                               // Post-step hooks that must see committed physics state.
@@ -362,6 +370,11 @@ class Run
     void SetLiveStyleControlDirectory( const char* path );                 // Enable live style/capture harness in a control folder
     void SetFrameCountOverride( int frames );                              // Stop scene/demo automation after N frames (CLI --frames)
     void SetUIStressOverride( unsigned int seed, int actionsPerFrame );    // Enable deterministic UI stress from CLI
+    void
+    SetGraphicsStressOverride( unsigned int seed,
+                               int actionsPerFrame,
+                               int sceneIntervalFrames,
+                               int memoryLogIntervalFrames );              // Enable deterministic graphics/scene churn from CLI.
     void SetInteractionAutomation(
         const char* scriptPath,
         const char* reportPath );                                          // CLI harness for deterministic world-click interaction scripts.

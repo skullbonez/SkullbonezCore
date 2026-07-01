@@ -11,6 +11,8 @@ Glossary:
   Asset system: Runtime-owned registry used to resolve editor asset-library
     names before falling back to conventional data paths.
   Placement recipe: Data and helper logic used to preview or spawn one editor object type.
+  Asset primitive: Single collision shape in a placeable asset recipe, such as a
+    box, sphere, or convex hull.
   Authored hull: Baked convex hull asset used for editor-placeable collision geometry.
 
 Invariants:
@@ -153,6 +155,52 @@ Vector3 EditorJsonVec3Or( const Json& object, const char* name, const Vector3& f
     const Json* value = EditorJsonFindMember( object, name );
     Vector3 result = fallback;
     return value && TryReadEditorJsonVec3( *value, result ) ? result : fallback;
+}
+
+
+std::string EditorAssetPrimitiveType( const Json& part )
+{
+    const std::string type = EditorJsonStringOr( part, "type", "" );
+    if ( type.empty() && EditorJsonFindMember( part, "hull" ) )
+    {
+        return "convexHull";
+    }
+    return type;
+}
+
+
+bool IsEditorAssetPrimitiveType( const std::string& type )
+{
+    return type == "convexHull" || type == "box" || type == "sphere";
+}
+
+
+bool TryReadEditorBoxHalfExtents( const Json& part, Vector3& outHalfExtents )
+{
+    const Json* halfExtents = EditorJsonFindMember( part, "halfExtents" );
+    if ( !halfExtents || !TryReadEditorJsonVec3( *halfExtents, outHalfExtents ) )
+    {
+        return false;
+    }
+    return outHalfExtents.x > 0.0f && outHalfExtents.y > 0.0f && outHalfExtents.z > 0.0f;
+}
+
+
+bool TryReadEditorSphereRadius( const Json& part, float& outRadius )
+{
+    outRadius = EditorJsonFloatOr( part, "radius", 0.0f );
+    return outRadius > 0.0f;
+}
+
+
+void IncludeEditorBoundsPoint( const Vector3& point, Vector3& inOutMin, Vector3& inOutMax )
+{
+    inOutMin.x = (std::min)( inOutMin.x, point.x );
+    inOutMin.y = (std::min)( inOutMin.y, point.y );
+    inOutMin.z = (std::min)( inOutMin.z, point.z );
+    inOutMax.x = (std::max)( inOutMax.x, point.x );
+    inOutMax.y = (std::max)( inOutMax.y, point.y );
+    inOutMax.z = (std::max)( inOutMax.z, point.z );
 }
 
 
@@ -342,7 +390,7 @@ int EditorBuildingPartCount( int objectType, const SkullbonezCore::Assets::Asset
         return 0;
     }
     const std::string type = EditorJsonStringOr( *asset, "type", "" );
-    if ( type == "convexHull" )
+    if ( IsEditorAssetPrimitiveType( type ) )
     {
         return 1;
     }
@@ -363,7 +411,7 @@ bool ForEachEditorBuildingPart( int objectType, const SkullbonezCore::Assets::As
         return false;
     }
     const std::string type = EditorJsonStringOr( *asset, "type", "" );
-    if ( type == "convexHull" )
+    if ( IsEditorAssetPrimitiveType( type ) )
     {
         fn( *asset );
         return true;
@@ -409,22 +457,60 @@ float EditorBuildingVerticalSize( int objectType, const SkullbonezCore::Assets::
         assets,
         [&]( const Json& part )
         {
-            const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
-            const ConvexHullShape* hull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( hullPath );
-            if ( !hull )
-            {
-                return;
-            }
             const Vector3 offset = EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
             const Quaternion orientation = EditorBuildingPartOrientation( IDENTITY_QUATERNION, part );
             Quaternion orientationCopy = orientation;
             const RotationMatrix rotation = orientationCopy.GetOrientationMatrix();
-            const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
-            for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
+            const std::string primitiveType = EditorAssetPrimitiveType( part );
+            if ( primitiveType == "convexHull" )
             {
-                const float y = offset.y + ( rotation * ( hullLocalOffset + hull->GetVertex( vertexIndex ) ) ).y;
-                minY = (std::min)( minY, y );
-                maxY = (std::max)( maxY, y );
+                const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
+                const ConvexHullShape* hull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( hullPath );
+                if ( !hull )
+                {
+                    return;
+                }
+                const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
+                for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
+                {
+                    const float y = offset.y + ( rotation * ( hullLocalOffset + hull->GetVertex( vertexIndex ) ) ).y;
+                    minY = (std::min)( minY, y );
+                    maxY = (std::max)( maxY, y );
+                }
+                return;
+            }
+            if ( primitiveType == "box" )
+            {
+                Vector3 halfExtents;
+                if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
+                {
+                    return;
+                }
+                for ( int xSign = -1; xSign <= 1; xSign += 2 )
+                {
+                    for ( int ySign = -1; ySign <= 1; ySign += 2 )
+                    {
+                        for ( int zSign = -1; zSign <= 1; zSign += 2 )
+                        {
+                            const Vector3 corner( halfExtents.x * static_cast<float>( xSign ),
+                                                  halfExtents.y * static_cast<float>( ySign ),
+                                                  halfExtents.z * static_cast<float>( zSign ) );
+                            const float y = offset.y + ( rotation * corner ).y;
+                            minY = (std::min)( minY, y );
+                            maxY = (std::max)( maxY, y );
+                        }
+                    }
+                }
+                return;
+            }
+            if ( primitiveType == "sphere" )
+            {
+                float radius = 0.0f;
+                if ( TryReadEditorSphereRadius( part, radius ) )
+                {
+                    minY = (std::min)( minY, offset.y - radius );
+                    maxY = (std::max)( maxY, offset.y + radius );
+                }
             }
         } );
     return ok && minY != FLT_MAX ? (std::max)( 1.0f, maxY - minY ) : 1.0f;
@@ -448,27 +534,60 @@ bool TryComputeEditorBuildingWorldBounds( int objectType,
         assets,
         [&]( const Json& part )
         {
-            const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
-            const ConvexHullShape* hull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( hullPath );
-            if ( !hull )
-            {
-                return;
-            }
             const Vector3 offset = EditorJsonVec3Or( part, "offset", Vector3( 0.0f, 0.0f, 0.0f ) );
             const Quaternion partOrientation = EditorBuildingPartOrientation( placementOrientation, part );
             Quaternion partCopy = partOrientation;
             const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
-            const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
-            for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
+            const Vector3 partCenter = base + placementRotation * offset;
+            const std::string primitiveType = EditorAssetPrimitiveType( part );
+            if ( primitiveType == "convexHull" )
             {
-                const Vector3 world = base + placementRotation * offset +
-                                      partRotation * ( hullLocalOffset + hull->GetVertex( vertexIndex ) );
-                outMin.x = (std::min)( outMin.x, world.x );
-                outMin.y = (std::min)( outMin.y, world.y );
-                outMin.z = (std::min)( outMin.z, world.z );
-                outMax.x = (std::max)( outMax.x, world.x );
-                outMax.y = (std::max)( outMax.y, world.y );
-                outMax.z = (std::max)( outMax.z, world.z );
+                const std::string hullPath = EditorJsonStringOr( part, "hull", "" );
+                const ConvexHullShape* hull = hullPath.empty() ? nullptr : CachedEditorBuildingHull( hullPath );
+                if ( !hull )
+                {
+                    return;
+                }
+                const Vector3 hullLocalOffset = HullAuthoredLocalOffset( *hull );
+                for ( uint16_t vertexIndex = 0; vertexIndex < hull->GetVertexCount(); ++vertexIndex )
+                {
+                    IncludeEditorBoundsPoint( partCenter + partRotation * ( hullLocalOffset + hull->GetVertex( vertexIndex ) ),
+                                              outMin,
+                                              outMax );
+                }
+                return;
+            }
+            if ( primitiveType == "box" )
+            {
+                Vector3 halfExtents;
+                if ( !TryReadEditorBoxHalfExtents( part, halfExtents ) )
+                {
+                    return;
+                }
+                for ( int xSign = -1; xSign <= 1; xSign += 2 )
+                {
+                    for ( int ySign = -1; ySign <= 1; ySign += 2 )
+                    {
+                        for ( int zSign = -1; zSign <= 1; zSign += 2 )
+                        {
+                            const Vector3 corner( halfExtents.x * static_cast<float>( xSign ),
+                                                  halfExtents.y * static_cast<float>( ySign ),
+                                                  halfExtents.z * static_cast<float>( zSign ) );
+                            IncludeEditorBoundsPoint( partCenter + partRotation * corner, outMin, outMax );
+                        }
+                    }
+                }
+                return;
+            }
+            if ( primitiveType == "sphere" )
+            {
+                float radius = 0.0f;
+                if ( !TryReadEditorSphereRadius( part, radius ) )
+                {
+                    return;
+                }
+                IncludeEditorBoundsPoint( partCenter + Vector3( -radius, -radius, -radius ), outMin, outMax );
+                IncludeEditorBoundsPoint( partCenter + Vector3( radius, radius, radius ), outMin, outMax );
             }
         } );
     return ok && outMin.x != FLT_MAX && outMax.x != -FLT_MAX;

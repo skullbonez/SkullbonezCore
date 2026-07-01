@@ -23,6 +23,7 @@ validation.
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep | ~10s |
 | `validate_demo_stress.bat` | Generated demo scene plus UI interaction crash sweep | ~depends |
+| `run_graphics_stress.bat` | General DX12 graphics stress fuzzer with scene/settings churn and memory telemetry | bounded or overnight |
 | `validate_physics.bat` | Standalone physics API smoke plus core physics, collision, solver, and rigid body baseline | 2 exe launches |
 | `validate_physics_deep.bat` | Opt-in bullet sweep, shooting, known-issue, and SkullScope physics baselines | ~45s+ |
 | `validate_physics_query.bat` | SkullScope query-output baseline check | ~depends |
@@ -50,6 +51,17 @@ tools\validate_select.bat ui
 tools\validate_select.bat build-profile
 ```
 
+### Direct Stress Runners
+
+General graphics stress runs directly so short probes and overnight soaks can
+choose their own duration, seed, mutation rate, scene interval, and memory sample
+interval without hiding that state inside a selector target:
+
+```bat
+tools\run_graphics_stress.bat 1
+tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
+```
+
 ## Utility Scripts
 
 | Script | Purpose |
@@ -67,6 +79,7 @@ tools\validate_select.bat build-profile
 | `validate_ui.bat` | Optional DX12 UI suite that captures UI screenshots and checks blur strength |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep over a UI backdrop |
 | `validate_demo_stress.bat` | Generated demo scene crash sweep that keeps physics/rendering active while changing UI settings |
+| `run_graphics_stress.bat [minutes\|overnight] [seed] [actions] [sceneInterval] [memoryInterval]` | General DX12 graphics stress runner; writes stdout, stderr, CSV, and JSON memory artifacts under `TestOutput\graphics_stress` |
 | `validate_dx12_renderer.bat` | Build or reuse Profile, run only DX12 render-test scenes, check InfoQueue, and compare screenshots against DX12 baselines |
 | `validate_deep.bat` | Opt-in broad validation pipeline for expensive sweeps |
 | `validate_physics.bat` | Build or reuse Debug, run the standalone physics API smoke, run one core physics scene, and compare `physics_regression_solver.csv` |
