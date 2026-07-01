@@ -605,7 +605,7 @@ void RenderBackendDX12::DeleteTexture( uint32_t handle )
     ClearBoundTextureSlotsForSrv( entry.srvIndex );
     if ( entry.owned && entry.resource )
     {
-        entry.resource->Release();
+        RetireResource( entry.resource );
     }
     entry.resource = nullptr;
     entry.srvIndex = UINT_MAX;

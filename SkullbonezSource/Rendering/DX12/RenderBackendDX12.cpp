@@ -273,6 +273,7 @@ void RenderBackendDX12::WaitForGpu()
 {
     if ( !m_renderDevice.FrameFence().IsReady() )
     {
+        ReleaseCompletedDeferredResources( !m_commandListOpen );
         return;
     }
 
@@ -287,6 +288,101 @@ void RenderBackendDX12::WaitForGpu()
     {
         m_frameFenceValues[i] = 0;
     }
+
+    ReleaseCompletedDeferredResources( !m_commandListOpen );
+}
+
+
+void RenderBackendDX12::AssignDeferredResourceReleaseFence( UINT64 fenceValue )
+{
+    if ( fenceValue == 0 )
+    {
+        return;
+    }
+
+    for ( DeferredResourceReleaseDX12& retired : m_deferredResourceReleases )
+    {
+        if ( retired.resource && !retired.fenceAssigned )
+        {
+            retired.fenceValue = fenceValue;
+            retired.fenceAssigned = true;
+        }
+    }
+}
+
+
+void RenderBackendDX12::ReleaseCompletedDeferredResources( bool releaseUnfenced )
+{
+    if ( m_deferredResourceReleases.empty() )
+    {
+        return;
+    }
+
+    const bool fenceReady = m_renderDevice.FrameFence().IsReady();
+    const UINT64 completedFence = fenceReady ? m_renderDevice.FrameFence().CompletedValue() : 0;
+    size_t writeIndex = 0;
+    for ( size_t readIndex = 0; readIndex < m_deferredResourceReleases.size(); ++readIndex )
+    {
+        DeferredResourceReleaseDX12& retired = m_deferredResourceReleases[readIndex];
+        const bool canRelease = retired.resource == nullptr || releaseUnfenced ||
+                                ( retired.fenceAssigned && fenceReady && retired.fenceValue <= completedFence );
+        if ( canRelease )
+        {
+            if ( retired.resource )
+            {
+                retired.resource->Release();
+                retired.resource = nullptr;
+            }
+            continue;
+        }
+
+        if ( writeIndex != readIndex )
+        {
+            m_deferredResourceReleases[writeIndex] = retired;
+        }
+        ++writeIndex;
+    }
+
+    m_deferredResourceReleases.resize( writeIndex );
+}
+
+
+void RenderBackendDX12::RetireResource( ID3D12Resource* resource )
+{
+    if ( !resource )
+    {
+        return;
+    }
+
+    if ( !m_device || !m_renderDevice.FrameFence().IsReady() )
+    {
+        resource->Release();
+        return;
+    }
+
+    const UINT64 completedFence = m_renderDevice.FrameFence().CompletedValue();
+    bool hasOutstandingFrameWork = false;
+    for ( int frame = 0; frame < FRAME_COUNT; ++frame )
+    {
+        if ( m_frameFenceValues[frame] > completedFence )
+        {
+            hasOutstandingFrameWork = true;
+            break;
+        }
+    }
+    if ( !m_commandListOpen && !hasOutstandingFrameWork )
+    {
+        resource->Release();
+        return;
+    }
+
+    // Lifetime: D3D12 command lists record references to resource objects, but
+    // execution is asynchronous. Keep the caller's COM reference alive until a
+    // later fence or full GPU drain proves every submitted command stream that
+    // could mention this resource has finished.
+    DeferredResourceReleaseDX12 retired;
+    retired.resource = resource;
+    m_deferredResourceReleases.push_back( retired );
 }
 
 
@@ -330,6 +426,7 @@ void RenderBackendDX12::EnsureCommandListOpen()
     {
         m_renderDevice.FrameFence().WaitForValue( m_frameFenceValues[m_allocatorIndex] );
     }
+    ReleaseCompletedDeferredResources( false );
 
     // Reset the command allocator — frees all memory from previously recorded commands.
     // This is only safe because we waited for the GPU to finish with this allocator above.
@@ -2181,6 +2278,7 @@ void RenderBackendDX12::Present()
     // has completed before reusing this frame's command allocator, upload arena,
     // and transient descriptor range.
     m_frameFenceValues[m_allocatorIndex] = m_renderDevice.FrameFence().Signal();
+    AssignDeferredResourceReleaseFence( m_frameFenceValues[m_allocatorIndex] );
 
     // Timer readback can be mapped once this frame's signal fence is reached.
     // If there's an unconsumed readback still pending (e.g. fence wasn't ready during the
@@ -2211,6 +2309,7 @@ void RenderBackendDX12::Present()
     {
         m_renderDevice.FrameFence().WaitForValue( nextFrameFenceValue );
     }
+    ReleaseCompletedDeferredResources( false );
 }
 
 

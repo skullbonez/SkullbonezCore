@@ -188,6 +188,13 @@ struct LiveUavBarrierRecordDX12
     char source[64] = {};
 };
 
+struct DeferredResourceReleaseDX12
+{
+    ID3D12Resource* resource = nullptr;
+    UINT64 fenceValue = 0;
+    bool fenceAssigned = false;
+};
+
 // Lifetime: graph transient slots own their DX12 resource until the backend
 // releases the graph pool. Descriptor rows come from the backend descriptor
 // allocators and are reused with the slot; they must not be mixed into
@@ -375,6 +382,10 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     bool m_psoDirty = true;
     std::vector<LiveBarrierRecordDX12> m_liveBarrierRecords;
     std::vector<LiveUavBarrierRecordDX12> m_liveUavBarrierRecords;
+    // Lifetime: resource owners transfer COM references here when a framebuffer
+    // or texture is invalidated before the GPU has necessarily consumed the
+    // command stream that mentioned it.
+    std::vector<DeferredResourceReleaseDX12> m_deferredResourceReleases;
     // Graph-created transient targets use the backend descriptor allocators, but
     // they are tracked in their own pool so material/object texture tables do
     // not become the owner of frame-target lifetime. A pool slot may be reused
@@ -441,6 +452,8 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     // --- Internal helpers ---
     void WaitForGpu();
     void EnsureCommandListOpen();
+    void AssignDeferredResourceReleaseFence( UINT64 fenceValue );
+    void ReleaseCompletedDeferredResources( bool releaseUnfenced );
     void TryConsumeGpuTimerReadback( bool waitForFence );
     void CreateRootSignature();
     void CreateDepthStencil( int w, int h );
@@ -678,6 +691,9 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
                       const DynamicVBDX12* dvb = nullptr );
     UINT RegisterSRV( UINT srvIndex );
     void UnregisterSRV( uint32_t handle );
+    // Transfers one COM reference to the backend so it can be released only
+    // after the frame fence proves submitted command lists no longer reference it.
+    void RetireResource( ID3D12Resource* resource );
 
     D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRTV() const
     {

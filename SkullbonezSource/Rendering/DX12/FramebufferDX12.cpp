@@ -302,16 +302,31 @@ void FramebufferDX12::ResetResources()
 
     if ( m_colorTexture )
     {
-        m_colorTexture->Release();
+        if ( backend )
+        {
+            backend->RetireResource( m_colorTexture );
+        }
+        else
+        {
+            m_colorTexture->Release();
+        }
         m_colorTexture = nullptr;
     }
     if ( m_depthTexture )
     {
-        m_depthTexture->Release();
+        if ( backend )
+        {
+            backend->RetireResource( m_depthTexture );
+        }
+        else
+        {
+            m_depthTexture->Release();
+        }
         m_depthTexture = nullptr;
     }
     m_texHandle = 0;
     m_depthTexHandle = 0;
+    m_srvIndex = 0;
     m_depthSrvIndex = 0;
     m_depthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 }
