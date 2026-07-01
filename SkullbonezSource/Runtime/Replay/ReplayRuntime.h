@@ -285,9 +285,8 @@ struct RunReplayPredictionState
     std::vector<RunReplayPredictionFrame> frames;
     std::vector<RunReplayPredictionFrame> buildFrames;
     std::vector<RunReplayPathTraceNode> futureNodes;
-    // Incremental tree cursors. Prediction can contain thousands of frames, so
-    // futureNodes is built over multiple render frames under the visualizer
-    // budget instead of rebuilding the whole tree every frame.
+    // Prediction tree completion flags. This test branch rebuilds futureNodes
+    // atomically so replay/prediction overlays never see partial contact trees.
     std::size_t futureNodesBuiltFrameCount = 0;
     std::size_t futureNodesBuiltContactIndex = 0;
     ReplayBodyId futureNodesBuiltTargetId;

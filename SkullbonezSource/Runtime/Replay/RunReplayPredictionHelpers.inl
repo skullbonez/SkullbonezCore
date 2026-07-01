@@ -920,25 +920,10 @@ void AddReplayPredictionFutureNode( ReplayPredictionFutureContext& context,
     context.prediction->futureNodes.push_back( node );
 }
 
-bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
-                                       ReplayPredictionFutureContext& context,
-                                       std::size_t startContactIndex,
-                                       const std::chrono::steady_clock::time_point& budgetStart,
-                                       double budgetMilliseconds,
-                                       std::size_t& outNextContactIndex )
+void BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame, ReplayPredictionFutureContext& context )
 {
-    outNextContactIndex = (std::min)( startContactIndex, frame.debugContacts.size() );
-    for ( std::size_t contactIndex = outNextContactIndex; contactIndex < frame.debugContacts.size(); ++contactIndex )
+    for ( const PhysicsDebugContact& contact : frame.debugContacts )
     {
-        // Invariant: if the deadline lands in a contact-heavy frame, report the
-        // next contact index instead of advancing the frame cursor. The next
-        // render frame resumes inside this same prediction frame.
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-        {
-            return false;
-        }
-
-        const PhysicsDebugContact& contact = frame.debugContacts[contactIndex];
         const bool ragdollA = context.models && ReplayModelIndexIsRagdollPart( *context.models, contact.bodyA );
         const bool ragdollB = context.models && ReplayModelIndexIsRagdollPart( *context.models, contact.bodyB );
         const int modelIndexA =
@@ -975,10 +960,7 @@ bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
                                            contact.normal * -1.0f,
                                            depthB + 1 );
         }
-        outNextContactIndex = contactIndex + 1;
     }
-    outNextContactIndex = 0;
-    return true;
 }
 
 void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction,
@@ -986,35 +968,30 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
                                             bool usingBuildFrames,
                                             const std::vector<GameModel>& models,
                                             ReplayBodyId rootId,
-                                            const std::chrono::steady_clock::time_point& budgetStart,
-                                            double budgetMilliseconds )
+                                            const std::chrono::steady_clock::time_point&,
+                                            double )
 {
-    // Invariant: these inputs define the meaning of the cached tree. Any change
-    // means old future nodes may point at the wrong root or include the wrong
-    // ragdoll aggregation policy.
-    const bool cacheMismatch = !prediction.futureNodesCacheValid ||
-                               prediction.futureNodesBuiltTargetId.value != rootId.value ||
-                               prediction.futureNodesBuiltRagdollVisuals != prediction.ragdollVisualsEnabled ||
-                               prediction.futureNodesBuiltFromBuildFrames != usingBuildFrames ||
-                               prediction.futureNodesBuiltFrameCount > frames.size();
-    if ( cacheMismatch )
-    {
-        ClearReplayPredictionFutureNodeCache( prediction );
-        prediction.futureNodesBuiltTargetId = rootId;
-        prediction.futureNodesBuiltRagdollVisuals = prediction.ragdollVisualsEnabled;
-        prediction.futureNodesBuiltFromBuildFrames = usingBuildFrames;
-        prediction.futureNodesCacheValid = rootId.value != 0;
-    }
-
-    if ( rootId.value == 0 || frames.empty() || !prediction.futureNodesCacheValid )
+    // Why: the atomic cache build is intentionally all-or-nothing. Once a full
+    // tree matches the active prediction frame set, reuse it so a 5ms overlay
+    // budget is spent drawing contact markers instead of rebuilding topology.
+    if ( prediction.futureNodesCacheValid && prediction.futureNodesBuiltTargetId.value == rootId.value &&
+         prediction.futureNodesBuiltRagdollVisuals == prediction.ragdollVisualsEnabled &&
+         prediction.futureNodesBuiltFromBuildFrames == usingBuildFrames &&
+         prediction.futureNodesBuiltFrameCount == frames.size() && prediction.futureNodesBuiltContactIndex == 0 )
     {
         return;
     }
 
-    if ( prediction.futureNodes.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
+    // Why: this branch deliberately disables the incremental future-node cache
+    // so contact topology is derived from one complete prediction frame set.
+    ClearReplayPredictionFutureNodeCache( prediction );
+    prediction.futureNodesBuiltTargetId = rootId;
+    prediction.futureNodesBuiltRagdollVisuals = prediction.ragdollVisualsEnabled;
+    prediction.futureNodesBuiltFromBuildFrames = usingBuildFrames;
+    prediction.futureNodesCacheValid = rootId.value != 0;
+
+    if ( rootId.value == 0 || frames.empty() )
     {
-        prediction.futureNodesBuiltFrameCount = frames.size();
-        prediction.futureNodesBuiltContactIndex = 0;
         return;
     }
 
@@ -1024,35 +1001,17 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
     futureContext.rootId = rootId;
     futureContext.includeRagdollVisuals = prediction.ragdollVisualsEnabled;
 
-    while ( prediction.futureNodesBuiltFrameCount < frames.size() )
+    for ( const RunReplayPredictionFrame& frame : frames )
     {
-        const std::size_t frameIndex = prediction.futureNodesBuiltFrameCount;
-        std::size_t nextContactIndex = prediction.futureNodesBuiltContactIndex;
-        if ( !BuildReplayPredictionFutureNodes( frames[frameIndex],
-                                                futureContext,
-                                                prediction.futureNodesBuiltContactIndex,
-                                                budgetStart,
-                                                budgetMilliseconds,
-                                                nextContactIndex ) )
-        {
-            prediction.futureNodesBuiltContactIndex = nextContactIndex;
-            return;
-        }
-        prediction.futureNodesBuiltContactIndex = 0;
-        ++prediction.futureNodesBuiltFrameCount;
-
+        BuildReplayPredictionFutureNodes( frame, futureContext );
         if ( prediction.futureNodes.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
         {
-            prediction.futureNodesBuiltFrameCount = frames.size();
-            prediction.futureNodesBuiltContactIndex = 0;
-            return;
-        }
-
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-        {
-            return;
+            break;
         }
     }
+
+    prediction.futureNodesBuiltFrameCount = frames.size();
+    prediction.futureNodesBuiltContactIndex = 0;
 }
 
 bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCollection& modelCollection,

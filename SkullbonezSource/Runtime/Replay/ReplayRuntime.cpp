@@ -42,6 +42,8 @@ Related:
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <system_error>
 
 namespace SkullbonezCore::Basics
 {
@@ -957,22 +959,8 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
     // alignment when it pairs visual frames with restore checkpoints.
     input.branch = m_branch;
     input.eventCursor = m_events.GetStats().nextSequence;
-    if ( m_solver.IsEnabled() )
-    {
-        const ReplayFrameIndex expectedSolverFrame = m_solver.GetStats().nextFrameIndex;
-        m_solver.CaptureFrame( input );
-        const ReplaySolverFrameSample* solverSample = m_solver.LatestSample();
-        if ( solverSample && solverSample->frameIndex == expectedSolverFrame )
-        {
-            // Why: the solver sample contains every presentation-facing body
-            // field plus the already computed presentation hash. Reusing it
-            // avoids a second per-body/contact pass in the frame tick.
-            m_presentation.CaptureFrameFromSolverSample( *solverSample );
-            return;
-        }
-    }
-
     m_presentation.CaptureFrame( input );
+    m_solver.CaptureFrame( input );
 }
 
 // Concept: render replay poses are temporary model overrides.
@@ -2327,6 +2315,23 @@ bool ReplayRuntime::SaveSolverReplay( const char* path ) const
 
 bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result ) const
 {
-    return ReplayV2Artifact::SavePresentationWithSolverHashes( m_presentation, m_solver, m_events, path, result );
+    // Why: this test branch intentionally routes new saves through the legacy
+    // dense JSON writer so replay artifacts keep every retained presentation
+    // field instead of BODY/PRES dictionary compression.
+    const bool saved = ReplayExporter::Save( m_presentation, path );
+    if ( saved && result )
+    {
+        const ReplayRecorderStats stats = m_presentation.GetStats();
+        std::error_code fileSizeError;
+        const std::uintmax_t fileBytes = std::filesystem::file_size( path, fileSizeError );
+        result->sampleCount = stats.sampleCount;
+        result->bodyDictionaryCount = 0;
+        result->solverHashCount = 0;
+        result->solverCheckpointCount = 0;
+        result->eventCount = 0;
+        result->eventCursorCount = 0;
+        result->fileBytes = fileSizeError ? 0u : static_cast<std::size_t>( fileBytes );
+    }
+    return saved;
 }
 } // namespace SkullbonezCore::Basics
