@@ -43,6 +43,7 @@ struct ReplayOverlayRenderContext
     bool editorModeEnabled = false;
     bool uiVisible = false;
     bool uiMinimized = false;
+    bool scenePhysicsEnabled = false;
     int screenW = 0;
     int screenH = 0;
     double nowSeconds = 0.0;

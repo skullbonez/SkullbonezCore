@@ -108,6 +108,7 @@ ReplayOverlay::ReplayOverlayRenderContext RuntimeRenderHost::BuildReplayOverlayR
              m_editor.editorModeEnabled,
              m_UI.IsVisible(),
              m_UI.IsMinimized(),
+             SceneState().isScenePhysics,
              WindowScreenWidth(),
              WindowScreenHeight(),
              m_timers.simulationTimer.GetTotalTime() };

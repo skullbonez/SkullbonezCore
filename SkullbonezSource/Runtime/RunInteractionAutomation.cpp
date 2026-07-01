@@ -723,8 +723,11 @@ void Run::TickInteractionAutomationBeforeInput()
                 const int screenW = RuntimeWindowScreenWidth( m_systems, Cfg() );
                 const int screenH = RuntimeWindowScreenHeight( m_systems, Cfg() );
                 const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
-                const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
-                if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
+                // Why: interaction scripts should match the real UI: Predict
+                // can branch from the current live solver state even before a
+                // paused scene has accumulated two retained solver samples.
+                const bool predictionToolsEnabled = solverReplayStats.enabled && SceneState().isScenePhysics;
+                if ( screenW > 0 && screenH > 0 && predictionToolsEnabled )
                 {
                     const UI::UIRect predictToggle = ReplayScrubberPredictToggleRect( screenW, screenH );
                     POINT mouse = {};

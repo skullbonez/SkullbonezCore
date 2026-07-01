@@ -1258,6 +1258,8 @@ void Run::RunSceneLoadOnly( const char* snapshotOutPath )
     const int sceneCount = m_sceneController.QueueSize();
     if ( sceneCount <= 0 )
     {
+        printf( "[scene-load-only] Exiting because --scene-load-only was requested, but no scenes were queued.\n" );
+        fflush( stdout );
         return;
     }
 
@@ -1301,6 +1303,12 @@ void Run::RunSceneLoadOnly( const char* snapshotOutPath )
                 sceneCount,
                 m_sceneController.PathAt( i ).empty() ? "generated" : m_sceneController.PathAt( i ).c_str() );
     }
+    // Why: --scene-load-only is expected to close immediately after loading;
+    // make that intentional automation end visible in Profile and Debug logs.
+    printf( "[scene-load-only] Exiting because --scene-load-only finished loading %d queued scene(s) without running "
+            "frames.\n",
+            sceneCount );
+    fflush( stdout );
 }
 
 

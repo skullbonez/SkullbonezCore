@@ -302,10 +302,11 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const UI::UIRect ragdollVisualToggle = ReplayScrubberRagdollVisualToggleRect( screenW, screenH );
     const RunReplayTrack scrubTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
     const UI::UIRect replayLoadButton = ReplayScrubberLoadButtonRect( screenW, screenH, scrubTrack );
-    // Why: paused scenes may not have accumulated two solver frames yet, but
-    // the user still needs the replay bar as a discoverable control surface.
-    // Scrub/predict tools stay disabled until there is enough retained history.
+    // Why: paused scenes may not have accumulated two solver frames yet. Scrub,
+    // save, and branch tools need retained history; prediction can start from
+    // the current live solver state as long as scene physics is available.
     const bool solverToolsEnabled = !loadedPresentation && solverReplayAvailable;
+    const bool predictionToolsEnabled = !loadedPresentation && solverReplayEnabled && SceneState().isScenePhysics;
     const bool inHotZone = hotZone.Contains( mouse.x, mouse.y );
     const bool overPanel = panel.Contains( mouse.x, mouse.y );
     const bool overSaveButton = solverToolsEnabled && solverSaveButton.Contains( mouse.x, mouse.y );
@@ -319,14 +320,14 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool overBranchButton = branchButton.Contains( mouse.x, mouse.y );
     const bool overPauseButton = solverToolsEnabled && pauseButton.Contains( mouse.x, mouse.y );
     const bool overVelocityEditToggle = solverToolsEnabled && velocityEditToggle.Contains( mouse.x, mouse.y );
-    const bool overPredictControl = solverToolsEnabled && predictControl.Contains( mouse.x, mouse.y );
-    const bool overPredictToggle = solverToolsEnabled && predictToggle.Contains( mouse.x, mouse.y );
-    const bool overRagdollVisualToggle = solverToolsEnabled && ragdollVisualToggle.Contains( mouse.x, mouse.y );
+    const bool overPredictControl = predictionToolsEnabled && predictControl.Contains( mouse.x, mouse.y );
+    const bool overPredictToggle = predictionToolsEnabled && predictToggle.Contains( mouse.x, mouse.y );
+    const bool overRagdollVisualToggle = predictionToolsEnabled && ragdollVisualToggle.Contains( mouse.x, mouse.y );
     const bool overPredictUi = overPredictControl || overPredictToggle || overRagdollVisualToggle;
     const bool overPredictHorizon =
-        solverToolsEnabled && ( predictHorizon.Contains( mouse.x, mouse.y ) ||
-                                ( predictControl.Contains( mouse.x, mouse.y ) && mouse.x >= predictHorizon.x &&
-                                  mouse.x <= predictHorizon.x + predictHorizon.w ) );
+        predictionToolsEnabled && ( predictHorizon.Contains( mouse.x, mouse.y ) ||
+                                    ( predictControl.Contains( mouse.x, mouse.y ) && mouse.x >= predictHorizon.x &&
+                                      mouse.x <= predictHorizon.x + predictHorizon.w ) );
     const RunReplayTrack hoveredTrack = scrubTrack;
     const bool canTakeMouse =
         !uiBlocksMouse || m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().horizonDragging;
@@ -417,20 +418,27 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         m_replayRuntime.Scrubber().visibleUntil >= now || m_replayRuntime.Scrubber().dragging ||
         m_replayRuntime.Scrubber().historicalSamplePaused || m_replayRuntime.Scrubber().liveAdvanceHeld;
     m_replayRuntime.Scrubber().branchHovered = branchTargetAvailable && overBranchButton && branchControlVisible;
-    const bool predictionControlVisible =
+    const bool solverControlVisible =
         solverToolsEnabled &&
         ( m_replayRuntime.Scrubber().visibleUntil >= now || m_replayRuntime.Scrubber().dragging ||
           m_replayRuntime.Prediction().horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
           m_replayRuntime.Scrubber().liveAdvanceHeld );
-    m_replayRuntime.Scrubber().pauseHovered = solverToolsEnabled && overPauseButton && predictionControlVisible;
+    const bool predictionControlVisible =
+        predictionToolsEnabled &&
+        ( m_replayRuntime.Scrubber().visibleUntil >= now || m_replayRuntime.Scrubber().dragging ||
+          m_replayRuntime.Prediction().horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
+          m_replayRuntime.Scrubber().liveAdvanceHeld );
+    m_replayRuntime.Scrubber().pauseHovered = solverToolsEnabled && overPauseButton && solverControlVisible;
     m_replayRuntime.VelocityEdit().toggleHovered =
-        solverToolsEnabled && overVelocityEditToggle && predictionControlVisible;
-    m_replayRuntime.Prediction().checkboxHovered = solverToolsEnabled && overPredictToggle && predictionControlVisible;
+        solverToolsEnabled && overVelocityEditToggle && solverControlVisible;
+    m_replayRuntime.Prediction().checkboxHovered =
+        predictionToolsEnabled && overPredictToggle && predictionControlVisible;
     m_replayRuntime.Prediction().ragdollVisualsHovered =
-        solverToolsEnabled && overRagdollVisualToggle && predictionControlVisible;
+        predictionToolsEnabled && overRagdollVisualToggle && predictionControlVisible;
     m_replayRuntime.Prediction().decreaseHovered = false;
     m_replayRuntime.Prediction().increaseHovered = false;
-    m_replayRuntime.Prediction().horizonHovered = solverToolsEnabled && overPredictHorizon && predictionControlVisible;
+    m_replayRuntime.Prediction().horizonHovered =
+        predictionToolsEnabled && overPredictHorizon && predictionControlVisible;
 
     bool consumesMouse =
         canTakeMouse && ( m_replayRuntime.Scrubber().dragging || m_replayRuntime.Prediction().horizonDragging ||
@@ -540,7 +548,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         m_replayRuntime.Scrubber().visible = true;
         consumesMouse = true;
     }
-    else if ( solverToolsEnabled && leftPressed && canTakeMouse && overRagdollVisualToggle &&
+    else if ( predictionToolsEnabled && leftPressed && canTakeMouse && overRagdollVisualToggle &&
               m_replayRuntime.Scrubber().visibleUntil >= now )
     {
         m_replayRuntime.Prediction().ragdollVisualsEnabled = !m_replayRuntime.Prediction().ragdollVisualsEnabled;
@@ -549,7 +557,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         m_replayRuntime.Scrubber().visible = true;
         consumesMouse = true;
     }
-    else if ( solverToolsEnabled && leftPressed && canTakeMouse && overPredictHorizon &&
+    else if ( predictionToolsEnabled && leftPressed && canTakeMouse && overPredictHorizon &&
               m_replayRuntime.Scrubber().visibleUntil >= now )
     {
         m_replayRuntime.Prediction().horizonDragging = true;
@@ -565,7 +573,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
             m_replayRuntime.Scrubber().mouseCaptured = true;
         }
     }
-    else if ( solverToolsEnabled && leftPressed && canTakeMouse && overPredictToggle &&
+    else if ( predictionToolsEnabled && leftPressed && canTakeMouse && overPredictToggle &&
               m_replayRuntime.Scrubber().visibleUntil >= now )
     {
         EnterInteractiveSceneRun();

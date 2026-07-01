@@ -96,6 +96,39 @@
       "fluidDensity": 0
     }
   },
+  "tornadoSystem": {
+    "enabled": true,
+    "visualizeVelocityField": false,
+    "vortices": [
+      {
+        "center": [
+          594,
+          -40,
+          501
+        ],
+        "spawnSeconds": 11,
+        "timeToLiveSeconds": 18,
+        "growSeconds": 1.2,
+        "shrinkSeconds": 4.5,
+        "driftRadius": 6,
+        "driftSpeed": 0.16,
+        "driftPhase": 3.14,
+        "repulsionRadius": 76,
+        "repulsionStrength": 0.12,
+        "radius": 95,
+        "height": 180,
+        "inwardAcceleration": 300,
+        "swirlAcceleration": 380,
+        "liftAcceleration": 520,
+        "ejectAcceleration": 220,
+        "ejectUpAcceleration": 220,
+        "ejectBand": 0.16,
+        "minCaptureSeconds": 0.15,
+        "ejectCooldownSeconds": 1.2,
+        "maxDeltaVelocity": 45
+      }
+    ]
+  },
   "runtime": {
     "vsync": true,
     "pipelineSync": false
@@ -110,7 +143,7 @@
     "frames": "unlimited",
     "fixedStep": false,
     "exitOnComplete": false,
-    "pauseSnapshotState": true,
+    "pauseSnapshotState": false,
     "trackHeight": 165
   },
   "editor": {
@@ -2449,11 +2482,5 @@
       "fixed": false,
       "sleeping": true
     }
-  ],
-  "capture": {
-    "screenshot": {
-      "path": "TestOutput/visual_validation/ragdoll_sunset_showcase/ragdoll_sunset_showcase_start.bmp",
-      "frame": 2
-    }
-  }
+  ]
 }

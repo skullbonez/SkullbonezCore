@@ -28,6 +28,8 @@ Related:
 #include "RunInternal.h"
 #include "../Rendering/IRenderCaptureBackend.h"
 
+#include <cstdio>
+
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
@@ -40,4 +42,6 @@ void Run::SaveScreenshot( const char* path )
     // Why: screenshot save only needs readback capability, so keep the call on
     // the narrow capture facade instead of handing CaptureController Gfx().
     CaptureController::SaveBackbufferBmp( SkullbonezCore::Rendering::GfxCapture(), path );
+    printf( "[capture] Screenshot taken: %s\n", path );
+    fflush( stdout );
 }

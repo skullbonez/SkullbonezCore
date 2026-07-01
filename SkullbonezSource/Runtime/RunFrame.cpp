@@ -32,6 +32,7 @@ Related:
 
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <limits>
 #include <stdexcept>
@@ -47,6 +48,14 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
 {
+// Why: Profile builds do not emit Debug-only scene-finished telemetry, so
+// automation exits need an explicit stdout breadcrumb near the quit request.
+void PrintRuntimeExitReason( const char* reason )
+{
+    printf( "[runtime-exit] %s\n", reason );
+    fflush( stdout );
+}
+
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED = 2u;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED = 4u;
@@ -2344,16 +2353,33 @@ bool Run::TickScreenshots()
     switch ( result.automation )
     {
     case RuntimeCaptureAutomation::Quit:
+        if ( result.completion == RuntimeCaptureCompletion::ScreenshotAndExit )
+        {
+            PrintRuntimeExitReason( "Exiting because screenshot-and-exit capture completed." );
+        }
+        else if ( result.completion == RuntimeCaptureCompletion::AutoCycle )
+        {
+            PrintRuntimeExitReason( "Exiting because auto-cycle screenshot capture completed." );
+        }
         PostQuitMessage( 0 );
         break;
     case RuntimeCaptureAutomation::AdvanceSceneOrQuit:
-        if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                                                          sPerfPass,
-                                                                          SceneState().isInteractiveRun ) ) )
+    {
+        const SceneRuntimeControlAction action =
+            m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                             sPerfPass,
+                                             SceneState().isInteractiveRun );
+        if ( !executeSceneControlAction( action ) )
         {
+            if ( result.completion == RuntimeCaptureCompletion::Screenshot )
+            {
+                PrintRuntimeExitReason(
+                    "Exiting because scene screenshot capture completed and no next scene is queued." );
+            }
             PostQuitMessage( 0 );
         }
         break;
+    }
     case RuntimeCaptureAutomation::HoldInteractive:
         HoldCompletedInteractiveScene();
         break;

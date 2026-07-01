@@ -68,8 +68,10 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     const ReplayRecorderStats solverReplayStats = replayRuntime.Solver().GetStats();
     const bool solverReplayEnabled = solverReplayStats.enabled;
     // Why: the replay bar may be visible while force-paused before two solver
-    // frames exist. Draw the surface, but dim tools that require history.
+    // frames exist. Retained-history tools stay dimmed, but prediction can run
+    // from the current live solver state once scene physics is available.
     const bool solverToolsEnabled = solverReplayEnabled && solverReplayStats.sampleCount >= 2;
+    const bool predictionToolsEnabled = solverReplayEnabled && context.scenePhysicsEnabled;
     if ( screenW <= 0 || screenH <= 0 || ( !loadedPresentation && !solverReplayEnabled ) )
     {
         return;
@@ -470,15 +472,15 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     const UI::UIRect predict = ReplayScrubberPredictControlRect( screenW, screenH );
     const UI::UIRect predictHorizon = ReplayScrubberPredictHorizonRect( screenW, screenH );
     const UI::UIRect ragdollVisualToggle = ReplayScrubberRagdollVisualToggleRect( screenW, screenH );
-    const bool predictHover = solverToolsEnabled && ( replayRuntime.Prediction().horizonHovered ||
-                                                      replayRuntime.Prediction().horizonDragging );
-    const bool predictEnabled = solverToolsEnabled && replayRuntime.Prediction().enabled;
-    const bool ragdollVisualsEnabled = solverToolsEnabled && replayRuntime.Prediction().ragdollVisualsEnabled;
+    const bool predictHover = predictionToolsEnabled && ( replayRuntime.Prediction().horizonHovered ||
+                                                          replayRuntime.Prediction().horizonDragging );
+    const bool predictEnabled = predictionToolsEnabled && replayRuntime.Prediction().enabled;
+    const bool ragdollVisualsEnabled = predictionToolsEnabled && replayRuntime.Prediction().ragdollVisualsEnabled;
     const float predictSeconds = std::clamp( replayRuntime.Prediction().horizonSeconds,
                                              REPLAY_PREDICTION_MIN_SECONDS,
                                              REPLAY_PREDICTION_MAX_SECONDS );
     const UI::Style::UIColor predictFill =
-        solverToolsEnabled && replayRuntime.Prediction().checkboxHovered ? palette.controlHover : palette.control;
+        predictionToolsEnabled && replayRuntime.Prediction().checkboxHovered ? palette.controlHover : palette.control;
     const UI::Style::UIColor predictControlFill = predictHover ? palette.controlHover : palette.control;
     draw.RoundedRect( predictToggle.x,
                       predictToggle.y,
@@ -488,7 +490,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                       predictFill.r,
                       predictFill.g,
                       predictFill.b,
-                      fadeA( solverToolsEnabled ? 0.88f : 0.38f ) );
+                      fadeA( predictionToolsEnabled ? 0.88f : 0.38f ) );
     draw.Outline(
         predictToggle.x,
         predictToggle.y,
@@ -497,8 +499,9 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
         palette.accent.r,
         palette.accent.g,
         palette.accent.b,
-        fadeA( solverToolsEnabled ? ( replayRuntime.Prediction().checkboxHovered || predictEnabled ? 0.72f : 0.34f )
-                                  : 0.14f ) );
+        fadeA( predictionToolsEnabled
+                   ? ( replayRuntime.Prediction().checkboxHovered || predictEnabled ? 0.72f : 0.34f )
+                   : 0.14f ) );
     const float checkX = predictToggle.x + 7.0f;
     const float checkY = predictToggle.y + 5.0f;
     draw.Outline( checkX,
@@ -508,7 +511,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                   palette.accent.r,
                   palette.accent.g,
                   palette.accent.b,
-                  fadeA( solverToolsEnabled ? 0.82f : 0.28f ) );
+                  fadeA( predictionToolsEnabled ? 0.82f : 0.28f ) );
     if ( predictEnabled )
     {
         draw.Rect( checkX + 2.0f,
@@ -523,12 +526,12 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     drawText( predictToggle.x + 23.0f,
               predictToggle.y + 4.5f,
               9.5f,
-              !solverToolsEnabled ? palette.textMuted.r
-                                  : ( predictEnabled ? palette.accentStrong.r : palette.textSecondary.r ),
-              !solverToolsEnabled ? palette.textMuted.g
-                                  : ( predictEnabled ? palette.accentStrong.g : palette.textSecondary.g ),
-              !solverToolsEnabled ? palette.textMuted.b
-                                  : ( predictEnabled ? palette.accentStrong.b : palette.textSecondary.b ),
+              !predictionToolsEnabled ? palette.textMuted.r
+                                      : ( predictEnabled ? palette.accentStrong.r : palette.textSecondary.r ),
+              !predictionToolsEnabled ? palette.textMuted.g
+                                      : ( predictEnabled ? palette.accentStrong.g : palette.textSecondary.g ),
+              !predictionToolsEnabled ? palette.textMuted.b
+                                      : ( predictEnabled ? palette.accentStrong.b : palette.textSecondary.b ),
               "PREDICT" );
 
     draw.RoundedRect( predict.x,
@@ -539,7 +542,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                       predictControlFill.r,
                       predictControlFill.g,
                       predictControlFill.b,
-                      fadeA( solverToolsEnabled ? 0.88f : 0.38f ) );
+                      fadeA( predictionToolsEnabled ? 0.88f : 0.38f ) );
     draw.Outline( predict.x,
                   predict.y,
                   predict.w,
@@ -547,7 +550,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                   palette.accent.r,
                   palette.accent.g,
                   palette.accent.b,
-                  fadeA( solverToolsEnabled ? ( predictHover || predictEnabled ? 0.72f : 0.34f ) : 0.14f ) );
+                  fadeA( predictionToolsEnabled ? ( predictHover || predictEnabled ? 0.72f : 0.34f ) : 0.14f ) );
 
     char predictSecondsLabel[16] = {};
     sprintf_s( predictSecondsLabel, sizeof( predictSecondsLabel ), "%.0fs", static_cast<double>( predictSeconds ) );
@@ -562,7 +565,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                       0.10f,
                       0.14f,
                       0.15f,
-                      fadeA( solverToolsEnabled ? 0.86f : 0.34f ) );
+                      fadeA( predictionToolsEnabled ? 0.86f : 0.34f ) );
     draw.RoundedRect( predictHorizon.x,
                       predictHorizon.y,
                       horizonFillW,
@@ -571,7 +574,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                       0.34f,
                       0.95f,
                       0.62f,
-                      fadeA( solverToolsEnabled ? ( predictEnabled ? 0.86f : 0.48f ) : 0.20f ) );
+                      fadeA( predictionToolsEnabled ? ( predictEnabled ? 0.86f : 0.48f ) : 0.20f ) );
     draw.RoundedRect( horizonKnobX - 4.0f,
                       predictHorizon.y - 3.0f,
                       8.0f,
@@ -580,16 +583,16 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                       predictEnabled ? 0.88f : 0.56f,
                       predictEnabled ? 1.0f : 0.62f,
                       predictEnabled ? 0.82f : 0.64f,
-                      fadeA( solverToolsEnabled ? ( predictHover ? 0.98f : 0.86f ) : 0.34f ) );
+                      fadeA( predictionToolsEnabled ? ( predictHover ? 0.98f : 0.86f ) : 0.34f ) );
     drawText( predictHorizon.x + predictHorizon.w + 8.0f,
               predict.y + 4.5f,
               8.5f,
-              !solverToolsEnabled ? palette.textMuted.r
-                                  : ( predictEnabled ? palette.accentStrong.r : palette.textSecondary.r ),
-              !solverToolsEnabled ? palette.textMuted.g
-                                  : ( predictEnabled ? palette.accentStrong.g : palette.textSecondary.g ),
-              !solverToolsEnabled ? palette.textMuted.b
-                                  : ( predictEnabled ? palette.accentStrong.b : palette.textSecondary.b ),
+              !predictionToolsEnabled ? palette.textMuted.r
+                                      : ( predictEnabled ? palette.accentStrong.r : palette.textSecondary.r ),
+              !predictionToolsEnabled ? palette.textMuted.g
+                                      : ( predictEnabled ? palette.accentStrong.g : palette.textSecondary.g ),
+              !predictionToolsEnabled ? palette.textMuted.b
+                                      : ( predictEnabled ? palette.accentStrong.b : palette.textSecondary.b ),
               predictSecondsLabel );
 
     draw.RoundedRect( ragdollVisualToggle.x,
@@ -597,13 +600,13 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                       ragdollVisualToggle.w,
                       ragdollVisualToggle.h,
                       radii.smallButton,
-                      solverToolsEnabled && replayRuntime.Prediction().ragdollVisualsHovered ? palette.controlHover.r
-                                                                                             : palette.control.r,
-                      solverToolsEnabled && replayRuntime.Prediction().ragdollVisualsHovered ? palette.controlHover.g
-                                                                                             : palette.control.g,
-                      solverToolsEnabled && replayRuntime.Prediction().ragdollVisualsHovered ? palette.controlHover.b
-                                                                                             : palette.control.b,
-                      fadeA( solverToolsEnabled ? 0.88f : 0.38f ) );
+                      predictionToolsEnabled && replayRuntime.Prediction().ragdollVisualsHovered ? palette.controlHover.r
+                                                                                                 : palette.control.r,
+                      predictionToolsEnabled && replayRuntime.Prediction().ragdollVisualsHovered ? palette.controlHover.g
+                                                                                                 : palette.control.g,
+                      predictionToolsEnabled && replayRuntime.Prediction().ragdollVisualsHovered ? palette.controlHover.b
+                                                                                                 : palette.control.b,
+                      fadeA( predictionToolsEnabled ? 0.88f : 0.38f ) );
     draw.Outline(
         ragdollVisualToggle.x,
         ragdollVisualToggle.y,
@@ -612,7 +615,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
         palette.accent.r,
         palette.accent.g,
         palette.accent.b,
-        fadeA( solverToolsEnabled
+        fadeA( predictionToolsEnabled
                    ? ( replayRuntime.Prediction().ragdollVisualsHovered || ragdollVisualsEnabled ? 0.72f : 0.32f )
                    : 0.14f ) );
     const float ragdollCheckX = ragdollVisualToggle.x + 7.0f;
@@ -624,7 +627,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                   palette.accent.r,
                   palette.accent.g,
                   palette.accent.b,
-                  fadeA( solverToolsEnabled ? 0.82f : 0.28f ) );
+                  fadeA( predictionToolsEnabled ? 0.82f : 0.28f ) );
     if ( ragdollVisualsEnabled )
     {
         draw.Rect( ragdollCheckX + 2.0f,
@@ -639,12 +642,12 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     drawText( ragdollVisualToggle.x + 23.0f,
               ragdollVisualToggle.y + 4.5f,
               9.0f,
-              !solverToolsEnabled ? palette.textMuted.r
-                                  : ( ragdollVisualsEnabled ? palette.accentStrong.r : palette.textSecondary.r ),
-              !solverToolsEnabled ? palette.textMuted.g
-                                  : ( ragdollVisualsEnabled ? palette.accentStrong.g : palette.textSecondary.g ),
-              !solverToolsEnabled ? palette.textMuted.b
-                                  : ( ragdollVisualsEnabled ? palette.accentStrong.b : palette.textSecondary.b ),
+              !predictionToolsEnabled ? palette.textMuted.r
+                                      : ( ragdollVisualsEnabled ? palette.accentStrong.r : palette.textSecondary.r ),
+              !predictionToolsEnabled ? palette.textMuted.g
+                                      : ( ragdollVisualsEnabled ? palette.accentStrong.g : palette.textSecondary.g ),
+              !predictionToolsEnabled ? palette.textMuted.b
+                                      : ( ragdollVisualsEnabled ? palette.accentStrong.b : palette.textSecondary.b ),
               "RAGDOLL" );
 
     Text2d::FlushQuads();
