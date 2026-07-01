@@ -13,10 +13,6 @@ Glossary:
   Solver sample: Physics-facing state retained for rollback and diagnostics.
   Hash log: Deterministic per-sample digest stream used to compare replay output.
   Retention window: Maximum in-memory duration retained by the ring buffers.
-  CPU (Central Processing Unit): Host-side work; recording must not add GPU or
-    renderer resource ownership.
-  GPU (Graphics Processing Unit): Rendering device; recorders should not own or
-    mutate GPU resources.
   UI (User Interface): Runtime controls and overlays; recorders observe state
     but never mutate UI state.
 
@@ -782,6 +778,72 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
 
     sample.stateHash = hash;
     m_latestStateHash = hash;
+    ++m_totalFramesCaptured;
+
+    if ( sample.checkpointBoundary )
+    {
+        StoreCheckpointSummary( sample );
+    }
+    WriteHashLogRow( sample );
+}
+
+void ReplayRecorder::CaptureFrameFromSolverSample( const ReplaySolverFrameSample& solverSample )
+{
+    if ( !m_config.enabled )
+    {
+        return;
+    }
+
+    ReplayPresentationSample& sample = AcquireSampleSlot();
+    // Why: solver capture already walked models, contacts, and hashes for this
+    // committed tick. Mirroring its presentation-facing fields keeps the public
+    // presentation timeline intact without repeating that hot-path work.
+    sample.frameIndex = solverSample.frameIndex;
+    m_nextFrameIndex = sample.frameIndex + 1u;
+    sample.branch = NormalizeBranchInfo( solverSample.branch );
+    sample.eventCursor = solverSample.eventCursor;
+    sample.sceneFrame = solverSample.sceneFrame;
+    sample.simulationSeconds = solverSample.simulationSeconds;
+    sample.physicsDt = solverSample.physicsDt;
+    sample.camera = solverSample.camera;
+    sample.world = solverSample.world;
+    sample.contactCount = solverSample.contactCount;
+    sample.pipelineRecordCount = solverSample.pipelineRecordCount;
+    sample.checkpointBoundary =
+        ( sample.frameIndex == 0 ) ||
+        ( sample.frameIndex % static_cast<ReplayFrameIndex>( m_config.checkpointIntervalFrames ) == 0 );
+
+    sample.bodies.clear();
+    sample.bodies.reserve( solverSample.bodies.size() );
+    for ( const ReplaySolverBodySample& solverBody : solverSample.bodies )
+    {
+        ReplayBodyPresentationSample body;
+        body.id = solverBody.id;
+        body.modelIndex = solverBody.modelIndex;
+        strncpy_s( body.name, sizeof( body.name ), solverBody.name, _TRUNCATE );
+        body.shapeKind = solverBody.shapeKind;
+        body.position = solverBody.position;
+        body.linearVelocity = solverBody.linearVelocity;
+        body.angularVelocity = solverBody.angularVelocity;
+        body.orientation[0] = solverBody.orientation[0];
+        body.orientation[1] = solverBody.orientation[1];
+        body.orientation[2] = solverBody.orientation[2];
+        body.orientation[3] = solverBody.orientation[3];
+        body.mass = solverBody.mass;
+        body.fixed = solverBody.fixed;
+        body.sleeping = solverBody.sleeping;
+        body.sleepSupported = solverBody.sleepSupported;
+        body.sleepInhibited = solverBody.sleepInhibited;
+        body.collisionContact = solverBody.collisionContact;
+        body.sleepIslandVisualId = solverBody.sleepIslandVisualId;
+        body.contactCount = solverBody.contactCount;
+        body.maxPenetration = solverBody.maxPenetration;
+        body.normalImpulseSum = solverBody.normalImpulseSum;
+        sample.bodies.push_back( body );
+    }
+
+    sample.stateHash = solverSample.presentationHash;
+    m_latestStateHash = sample.stateHash;
     ++m_totalFramesCaptured;
 
     if ( sample.checkpointBoundary )

@@ -957,8 +957,22 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
     // alignment when it pairs visual frames with restore checkpoints.
     input.branch = m_branch;
     input.eventCursor = m_events.GetStats().nextSequence;
+    if ( m_solver.IsEnabled() )
+    {
+        const ReplayFrameIndex expectedSolverFrame = m_solver.GetStats().nextFrameIndex;
+        m_solver.CaptureFrame( input );
+        const ReplaySolverFrameSample* solverSample = m_solver.LatestSample();
+        if ( solverSample && solverSample->frameIndex == expectedSolverFrame )
+        {
+            // Why: the solver sample contains every presentation-facing body
+            // field plus the already computed presentation hash. Reusing it
+            // avoids a second per-body/contact pass in the frame tick.
+            m_presentation.CaptureFrameFromSolverSample( *solverSample );
+            return;
+        }
+    }
+
     m_presentation.CaptureFrame( input );
-    m_solver.CaptureFrame( input );
 }
 
 // Concept: render replay poses are temporary model overrides.

@@ -327,6 +327,9 @@ class ReplayRecorder
     bool Configure( const ReplayRecorderConfig& config );
     void ResetTimeline( const char* sceneLabel );
     void CaptureFrame( const ReplayCaptureInput& input );
+    // Records the presentation track from an already captured solver sample.
+    // Use this when both tracks are enabled so frame capture does one model walk.
+    void CaptureFrameFromSolverSample( const ReplaySolverFrameSample& solverSample );
     void FlushHashLog();
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
