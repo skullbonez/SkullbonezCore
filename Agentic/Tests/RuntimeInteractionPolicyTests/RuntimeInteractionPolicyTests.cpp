@@ -1,17 +1,21 @@
 /*
 File: Agentic/Tests/RuntimeInteractionPolicyTests/RuntimeInteractionPolicyTests.cpp
 Purpose:
-  Verifies CPU-side runtime interaction policy rules that should not require a
-  renderer launch.
+  Verifies CPU-side runtime interaction and picker rules that should not require
+  a renderer launch.
 
 Mental model:
   The runtime interaction controller is the authority for workspace, tool,
   gesture, pointer capture, camera-look, and physics-advance policy. These
   tests lock down ownership rules before they reach frame, editor, or replay
-  code.
+  code. Exact picker tests exercise collision-shape ray math without loading a
+  scene or drawing a frame.
 
 Glossary:
   Pointer capture: Exclusive owner for an in-progress mouse gesture.
+  Pick ray: World-space line projected from a screen pointer into the scene.
+  Collision shape: Authored sphere, oriented box, or convex hull used as the
+    pickable geometry for a model.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -25,9 +29,12 @@ Related:
   - AGENTS.md
   - Agentic/Plans/runtime-interaction-state-machine-hardening-plan.md
   - SkullbonezSource/Runtime/RuntimeInteractionController.h
+  - SkullbonezSource/Runtime/RuntimePickGeometry.h
 */
 #include "Runtime/RuntimeInteractionController.h"
+#include "Runtime/RuntimePickGeometry.h"
 
+#include <cmath>
 #include <exception>
 #include <functional>
 #include <iostream>
@@ -36,6 +43,9 @@ Related:
 #include <string>
 
 using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Math::CollisionDetection;
+using namespace SkullbonezCore::Math::Orientation;
+using namespace SkullbonezCore::Math::Vector;
 
 namespace
 {
@@ -64,6 +74,24 @@ void ExpectTrue( bool value, const char* expression, const char* file, int line 
 }
 
 
+void ExpectFloatNear( float actual,
+                      float expected,
+                      float tolerance,
+                      const char* actualExpression,
+                      const char* expectedExpression,
+                      const char* file,
+                      int line )
+{
+    if ( fabsf( actual - expected ) > tolerance )
+    {
+        std::ostringstream out;
+        out << "expected " << actualExpression << " near " << expectedExpression << ", actual " << actual
+            << ", expected " << expected << ", tolerance " << tolerance;
+        Fail( file, line, out.str() );
+    }
+}
+
+
 template <typename T, typename U>
 void ExpectEqualImpl( const T& actual,
                       const U& expected,
@@ -85,6 +113,8 @@ void ExpectEqualImpl( const T& actual,
 #define EXPECT_FALSE( expression ) ExpectTrue( !( expression ), "!(" #expression ")", __FILE__, __LINE__ )
 #define EXPECT_EQ( actual, expected )                                                                                  \
     ExpectEqualImpl( ( actual ), ( expected ), #actual, #expected, __FILE__, __LINE__ )
+#define EXPECT_NEAR( actual, expected, tolerance )                                                                     \
+    ExpectFloatNear( ( actual ), ( expected ), ( tolerance ), #actual, #expected, __FILE__, __LINE__ )
 
 struct TestCase
 {
@@ -148,6 +178,90 @@ RuntimeInteractionGesture MakeGizmoGesture( bool angular )
     gesture.axis = 1;
     gesture.angular = angular;
     return gesture;
+}
+
+
+RuntimePickShapeTransform MakePickTransform( const Vector3& position = ZERO_VECTOR,
+                                             const Quaternion& orientation = IDENTITY_QUATERNION )
+{
+    RuntimePickShapeTransform transform;
+    transform.position = position;
+    transform.orientation = orientation;
+    return transform;
+}
+
+
+Quaternion MakeYawQuarterTurn()
+{
+    Quaternion yaw;
+    yaw.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), _HALF_PI );
+    return yaw;
+}
+
+
+void TestExactBoxPickRejectsOldBoundingSphereEnvelope()
+{
+    const CollisionShape shape = BoundingBox( Vector3( 1.0f, 5.0f, 1.0f ), ZERO_VECTOR );
+    const RuntimePickShapeTransform transform = MakePickTransform();
+    float rayT = 0.0f;
+
+    EXPECT_FALSE( TryIntersectRuntimePickShape( shape,
+                                                transform,
+                                                Vector3( 4.0f, 0.0f, -20.0f ),
+                                                Vector3( 0.0f, 0.0f, 1.0f ),
+                                                rayT ) );
+
+    EXPECT_TRUE( TryIntersectRuntimePickShape( shape,
+                                               transform,
+                                               Vector3( 0.0f, 0.0f, -20.0f ),
+                                               Vector3( 0.0f, 0.0f, 1.0f ),
+                                               rayT ) );
+    EXPECT_NEAR( rayT, 19.0f, 0.001f );
+}
+
+
+void TestTreeTrunkHullPickUsesConvexFaces()
+{
+    const ConvexHullShape trunk = ConvexHullShape::LoadFromFile( "SkullbonezData/hulls/tree_trunk_faceted.hull" );
+    const CollisionShape shape = trunk;
+    const RuntimePickShapeTransform transform = MakePickTransform();
+    float rayT = 0.0f;
+
+    EXPECT_TRUE( TryIntersectRuntimePickShape( shape,
+                                               transform,
+                                               Vector3( 0.0f, 0.0f, -20.0f ),
+                                               Vector3( 0.0f, 0.0f, 1.0f ),
+                                               rayT ) );
+    EXPECT_NEAR( rayT, 17.58f, 0.01f );
+
+    EXPECT_FALSE( TryIntersectRuntimePickShape( shape,
+                                                transform,
+                                                Vector3( 4.0f, 0.0f, -20.0f ),
+                                                Vector3( 0.0f, 0.0f, 1.0f ),
+                                                rayT ) );
+}
+
+
+void TestRotatedShapePickReturnsNearestEntry()
+{
+    const RuntimePickShapeTransform rotated = MakePickTransform( ZERO_VECTOR, MakeYawQuarterTurn() );
+    float rayT = 0.0f;
+
+    const CollisionShape box = BoundingBox( Vector3( 1.0f, 2.0f, 3.0f ), ZERO_VECTOR );
+    EXPECT_TRUE( TryIntersectRuntimePickShape( box,
+                                               rotated,
+                                               Vector3( 0.0f, 0.0f, -10.0f ),
+                                               Vector3( 0.0f, 0.0f, 1.0f ),
+                                               rayT ) );
+    EXPECT_NEAR( rayT, 9.0f, 0.001f );
+
+    const CollisionShape trunk = ConvexHullShape::LoadFromFile( "SkullbonezData/hulls/tree_trunk_faceted.hull" );
+    EXPECT_TRUE( TryIntersectRuntimePickShape( trunk,
+                                               rotated,
+                                               Vector3( 0.0f, 0.0f, -20.0f ),
+                                               Vector3( 0.0f, 0.0f, 1.0f ),
+                                               rayT ) );
+    EXPECT_NEAR( rayT, 17.2f, 0.02f );
 }
 
 
@@ -503,6 +617,9 @@ int main()
         { "WorkspaceOwnerTransitionKeepsExactReplayOwner", &TestWorkspaceOwnerTransitionKeepsExactReplayOwner },
         { "ReplayToolGesturesCapturePointer", &TestReplayToolGesturesCapturePointer },
         { "GizmoDragCapturesPointerForEditorAndInspect", &TestGizmoDragCapturesPointerForEditorAndInspect },
+        { "ExactBoxPickRejectsOldBoundingSphereEnvelope", &TestExactBoxPickRejectsOldBoundingSphereEnvelope },
+        { "TreeTrunkHullPickUsesConvexFaces", &TestTreeTrunkHullPickUsesConvexFaces },
+        { "RotatedShapePickReturnsNearestEntry", &TestRotatedShapePickReturnsNearestEntry },
 #ifndef _DEBUG
         { "InvalidToolGestureWithoutCaptureIsRejected", &TestInvalidToolGestureWithoutCaptureIsRejected },
 #endif

@@ -198,6 +198,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeInteractionController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimePickGeometry.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimePickService.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeTuning.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeViewModel.cpp" />
@@ -371,6 +372,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeTuning.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimePickGeometry.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimePickService.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderInputs.h" />

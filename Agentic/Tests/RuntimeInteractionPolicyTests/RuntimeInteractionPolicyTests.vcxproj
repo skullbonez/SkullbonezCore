@@ -92,7 +92,16 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="RuntimeInteractionPolicyTests.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Core\Config.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Maths\Matrix4.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Maths\Quaternion.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Maths\RotationMatrix.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Maths\Vector3.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Physics\BoundingBox.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Physics\BoundingSphere.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Physics\ConvexHullShape.cpp" />
     <ClCompile Include="..\..\..\SkullbonezSource\Runtime\RuntimeInteractionController.cpp" />
+    <ClCompile Include="..\..\..\SkullbonezSource\Runtime\RuntimePickGeometry.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

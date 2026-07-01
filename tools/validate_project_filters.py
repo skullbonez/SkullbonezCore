@@ -194,6 +194,7 @@ RUNTIME_PREFIXES = (
     "RuntimeFileWriter",
     "RuntimeInteractionCommands",
     "RuntimeInteractionController",
+    "RuntimePickGeometry",
     "RuntimePickService",
     "RuntimeTuning",
     "RuntimeViewModel",
