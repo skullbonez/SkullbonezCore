@@ -9,6 +9,10 @@ Mental model:
   active builds it draws the already-built overlay before spending more prediction-step budget.
 
 Glossary:
+  Build frames: In-progress prediction samples accumulated while a prediction job is still
+    stepping. They are useful for root-path progress but not stable enough for contact topology.
+  Future node tree: Contact-derived graph of bodies that the selected replay path is predicted
+    to affect after the root body hits something.
   Mutation window: Period where live physics stores temporarily contain prediction state.
   Stable overlay pass: Short pre-step draw that keeps current world-space lines visible while
     heavy prediction jobs continue building fresher samples.
@@ -330,21 +334,35 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         return true;
     }
 
+    bool drawFutureTree = !usingBuildFrames;
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/BuildTree" );
-        UpdateReplayPredictionFutureNodeCache( replayRuntime.Prediction(),
-                                               activePredictionFrames,
-                                               usingBuildFrames,
-                                               models,
-                                               replayRuntime.PathVisualizer().targetId,
-                                               budgetStart,
-                                               budgetMilliseconds );
+        // Why: buildFrames are an in-flight prediction product, not a stable
+        // topology. Drawing their contact tree exposes whichever nodes fit in
+        // this frame's time slice, so rings and contact markers pop between
+        // unrelated bodies while the prediction is still playing out.
+        if ( drawFutureTree )
+        {
+            UpdateReplayPredictionFutureNodeCache( replayRuntime.Prediction(),
+                                                   activePredictionFrames,
+                                                   usingBuildFrames,
+                                                   models,
+                                                   replayRuntime.PathVisualizer().targetId,
+                                                   budgetStart,
+                                                   budgetMilliseconds );
+        }
     }
-    if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+    if ( drawFutureTree && ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
     {
         return true;
     }
 
+    const bool futureNodeCacheComplete = drawFutureTree &&
+        replayRuntime.Prediction().futureNodesBuiltFrameCount >= activePredictionFrames.size() &&
+        replayRuntime.Prediction().futureNodesBuiltContactIndex == 0;
+    drawFutureTree = drawFutureTree && futureNodeCacheComplete;
+
+    if ( drawFutureTree )
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawChildren" );
         ReplayPathChildDrawContext childDraw;
