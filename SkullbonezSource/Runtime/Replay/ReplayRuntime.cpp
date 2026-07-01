@@ -538,6 +538,7 @@ const std::vector<RunReplayPredictionFrame>& ReplayRuntime::ActivePredictionFram
 void ReplayRuntime::ClearPredictionFutureNodeCache()
 {
     m_prediction.futureNodes.clear();
+    m_prediction.futureNodeBuildScratch.clear();
     m_prediction.futureNodesBuiltFrameCount = 0;
     m_prediction.futureNodesBuiltContactIndex = 0;
     m_prediction.futureNodesBuiltTargetId = ReplayBodyId{};
@@ -2038,6 +2039,7 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     stats.predictionBytes += VectorCapacityBytes( m_prediction.frames );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.buildFrames );
     stats.predictionBytes += VectorCapacityBytes( m_prediction.futureNodes );
+    stats.predictionBytes += VectorCapacityBytes( m_prediction.futureNodeBuildScratch );
     for ( const RunReplayPredictionFrame& frame : m_prediction.frames )
     {
         stats.predictionBytes += PredictionFrameMemoryBytes( frame );

@@ -5,18 +5,20 @@ Purpose:
 
 Mental model:
   The visualizer advances a prediction job in small slices, restores live physics state after
-  each mutation window, and emits only bounded overlay traces for the current frame. During
-  active builds it draws the already-built overlay before spending more prediction-step budget.
+  each mutation window, and emits bounded overlay traces for the current frame. Prediction
+  stepping, future-node topology, and visible path drawing each get short slices so one phase
+  cannot make the others disappear.
 
 Glossary:
   Build frames: In-progress prediction samples accumulated while a prediction job is still
-    stepping. They are useful for root-path progress but not stable enough for contact topology.
+    stepping. Future contact topology may be derived from them only through the committed
+    future-node cache, never by exposing a half-built scratch vector to drawing.
   Future node tree: Contact-derived graph of bodies that the selected replay path is predicted
     to affect after the root body hits something.
   Mutation window: Period where live physics stores temporarily contain prediction state.
   Stable overlay pass: Short pre-step draw that keeps current world-space lines visible while
     heavy prediction jobs continue building fresher samples.
-  Visualizer budget: Millisecond cap for prediction stepping and ordinary overlay drawing.
+  Visualizer budget: Millisecond cap applied to each bounded prediction or overlay work slice.
 
 Invariants:
   - Every successful prediction-state swap must restore live body and solver snapshots.
@@ -48,6 +50,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     }
 
     replayRuntime.CancelPredictionJob( false );
+    replayRuntime.ClearPredictionFutureNodeCache();
     replayRuntime.Prediction().targetId = replayRuntime.PathVisualizer().targetId;
     replayRuntime.Prediction().dirty = false;
 
@@ -257,7 +260,9 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         replayRuntime.Prediction().complete = true;
         replayRuntime.Prediction().frames.swap( replayRuntime.Prediction().buildFrames );
         replayRuntime.Prediction().buildFrames.clear();
-        replayRuntime.ClearPredictionFutureNodeCache();
+        // Why: future-node scratch was built from buildFrames. After this swap
+        // those samples are the final frames, so keeping the cache preserves
+        // progressively revealed child paths through the completion frame.
         replayRuntime.Prediction().lastBuildTime = simulationTotalSeconds;
     }
 
@@ -303,7 +308,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         {
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
-                return true;
+                break;
             }
 
             const std::size_t currentOrdinal = ordinal++;
@@ -329,38 +334,24 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
             hasPrevious = true;
         }
     }
-    if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-    {
-        return true;
-    }
-
-    bool drawFutureTree = !usingBuildFrames;
+    const auto buildBudgetStart = std::chrono::steady_clock::now();
+    bool drawFutureTree = false;
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/BuildTree" );
-        // Why: buildFrames are an in-flight prediction product, not a stable
-        // topology. Drawing their contact tree exposes whichever nodes fit in
-        // this frame's time slice, so rings and contact markers pop between
-        // unrelated bodies while the prediction is still playing out.
-        if ( drawFutureTree )
-        {
-            UpdateReplayPredictionFutureNodeCache( replayRuntime.Prediction(),
-                                                   activePredictionFrames,
-                                                   usingBuildFrames,
-                                                   models,
-                                                   replayRuntime.PathVisualizer().targetId,
-                                                   budgetStart,
-                                                   budgetMilliseconds );
-        }
+        // Why: the root path can spend its draw slice on long horizons. Future
+        // topology still needs a bounded chance to advance every render frame so
+        // contact children grow progressively instead of popping in after build.
+        UpdateReplayPredictionFutureNodeCache( replayRuntime.Prediction(),
+                                               activePredictionFrames,
+                                               usingBuildFrames,
+                                               models,
+                                               replayRuntime.PathVisualizer().targetId,
+                                               buildBudgetStart,
+                                               budgetMilliseconds );
+        drawFutureTree =
+            replayRuntime.Prediction().futureNodesCacheValid && !replayRuntime.Prediction().futureNodes.empty();
     }
-    if ( drawFutureTree && ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-    {
-        return true;
-    }
-
-    const bool futureNodeCacheComplete = drawFutureTree &&
-        replayRuntime.Prediction().futureNodesBuiltFrameCount >= activePredictionFrames.size() &&
-        replayRuntime.Prediction().futureNodesBuiltContactIndex == 0;
-    drawFutureTree = drawFutureTree && futureNodeCacheComplete;
+    const auto childDrawBudgetStart = std::chrono::steady_clock::now();
 
     if ( drawFutureTree )
     {
@@ -380,7 +371,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         std::size_t ordinal = 0;
         for ( const RunReplayPredictionFrame& frame : activePredictionFrames )
         {
-            if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+            if ( ReplayPredictionBudgetExpired( childDrawBudgetStart, budgetMilliseconds ) )
             {
                 return true;
             }
@@ -402,7 +393,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
 
             for ( std::size_t i = 0; i < childDraw.nodeCount; ++i )
             {
-                if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+                if ( ReplayPredictionBudgetExpired( childDrawBudgetStart, budgetMilliseconds ) )
                 {
                     return true;
                 }
@@ -459,7 +450,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
 
         for ( const RunReplayPathTraceNode& node : replayRuntime.Prediction().futureNodes )
         {
-            if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+            if ( ReplayPredictionBudgetExpired( childDrawBudgetStart, budgetMilliseconds ) )
             {
                 return true;
             }
@@ -478,12 +469,12 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
     }
 
     if ( replayRuntime.Prediction().ragdollVisualsEnabled &&
-         !ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+         !ReplayPredictionBudgetExpired( childDrawBudgetStart, budgetMilliseconds ) )
     {
         DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
                                                 models,
                                                 tracer,
-                                                budgetStart,
+                                                childDrawBudgetStart,
                                                 budgetMilliseconds );
     }
     return true;

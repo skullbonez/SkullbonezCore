@@ -284,10 +284,14 @@ struct RunReplayPredictionState
     std::vector<RunReplayPredictionBodyBackup> liveRestoreBodies;
     std::vector<RunReplayPredictionFrame> frames;
     std::vector<RunReplayPredictionFrame> buildFrames;
+    // Renderable future-contact topology. Build work publishes coherent prefixes
+    // here so the draw path never reads the scratch vector while it is mid-frame.
     std::vector<RunReplayPathTraceNode> futureNodes;
+    // Scratch future-contact topology advanced under the visualizer budget.
+    std::vector<RunReplayPathTraceNode> futureNodeBuildScratch;
     // Incremental tree cursors. Prediction can contain thousands of frames, so
-    // futureNodes is built over multiple render frames under the visualizer
-    // budget instead of rebuilding the whole tree every frame.
+    // futureNodeBuildScratch is built over multiple render frames and copied to
+    // futureNodes only at coherent prefix boundaries.
     std::size_t futureNodesBuiltFrameCount = 0;
     std::size_t futureNodesBuiltContactIndex = 0;
     ReplayBodyId futureNodesBuiltTargetId;
