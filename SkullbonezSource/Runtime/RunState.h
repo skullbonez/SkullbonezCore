@@ -86,6 +86,7 @@ struct RunRuntimeSettings
     bool isPipelineSyncEnabled = false;                        // Force CPU/GPU sync via Finish() before render
     bool isPhysicsSleepEnabled =
         true;                                                  // Live Catto sleep policy; false keeps bodies awake while leaving collision/solving active
+    bool contactAudioDebugCounters = false;                    // Live optional contact-audio counter logging toggle.
     Physics::TornadoFieldConfig tornadoField;                  // Live vortex force/debug vector field controlled by CLI/UI
     Physics::TornadoSystemConfig tornadoSystem;                // Scene-authored multi-vortex schedule and motion.
     TornadoVisualSettings tornadoVisual;                       // Render-only tornado art tuning outside deterministic physics state.

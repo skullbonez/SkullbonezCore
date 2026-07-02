@@ -213,6 +213,48 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.testComplete );
     hash = HashBool( hash, data.vsyncEnabled );
     hash = HashBool( hash, data.pipelineSyncEnabled );
+    hash = HashBool( hash, data.contactAudioEnabled );
+    hash = HashBool( hash, data.contactAudioAvailable );
+    hash = HashBool( hash, data.contactAudioDebugCounters );
+    hash = HashFloat( hash, data.contactAudioMasterGain, 1000.0f );
+    hash = HashFloat( hash, data.contactAudioMaxDistanceScale, 1000.0f );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioEventsSeen ) );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioRejectedByThreshold ) );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioRejectedByCooldown ) );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioSubmittedVoices ) );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioDroppedVoices ) );
+    const int soundSetCount = std::clamp( data.soundSetCount, 0, UI_SOUND_SET_MAX );
+    hash = HashInt( hash, soundSetCount );
+    for ( int setIndex = 0; setIndex < soundSetCount; ++setIndex )
+    {
+        const UISoundSetFrameData& set = data.soundSets[setIndex];
+        hash = HashTextValue( hash, set.name );
+        hash = HashInt( hash, static_cast<int>( set.materialA ) );
+        hash = HashInt( hash, static_cast<int>( set.materialB ) );
+        hash = HashFloat( hash, set.minImpulse, 1000.0f );
+        hash = HashFloat( hash, set.impulseRange, 1000.0f );
+        hash = HashFloat( hash, set.cooldownMs, 10.0f );
+        hash = HashFloat( hash, set.overrideCooldownMs, 10.0f );
+        hash = HashFloat( hash, set.maxDistance, 100.0f );
+        hash = HashFloat( hash, set.baseGain, 1000.0f );
+        hash = HashFloat( hash, set.pitchMin, 1000.0f );
+        hash = HashFloat( hash, set.pitchMax, 1000.0f );
+        hash = HashInt( hash, static_cast<int>( set.maxVoices ) );
+        hash = HashInt( hash, static_cast<int>( set.sampleCount ) );
+        const int bandCount = std::clamp( static_cast<int>( set.bandCount ), 0, UI_SOUND_BAND_MAX );
+        hash = HashInt( hash, bandCount );
+        for ( int bandIndex = 0; bandIndex < bandCount; ++bandIndex )
+        {
+            const UISoundBandFrameData& band = set.bands[bandIndex];
+            hash = HashTextValue( hash, band.name );
+            hash = HashFloat( hash, band.minImpulse, 1000.0f );
+            hash = HashFloat( hash, band.impulseRange, 1000.0f );
+            hash = HashFloat( hash, band.baseGain, 1000.0f );
+            hash = HashFloat( hash, band.pitchMin, 1000.0f );
+            hash = HashFloat( hash, band.pitchMax, 1000.0f );
+            hash = HashInt( hash, static_cast<int>( band.sampleCount ) );
+        }
+    }
     hash = HashFloat( hash, data.sceneEnergy, 1000.0f );
     hash = HashFloat( hash, data.timeScale, 1000.0f );
     hash = HashFloat( hash, data.trackHeight, 1000.0f );
@@ -955,6 +997,7 @@ void InGameUI::SetActiveTab( InGameUITab tab )
     OptionsTab::ResetPreviewState( m_optionsTab );
     PhysicsTab::ResetPreviewState( m_physicsTab );
     ControlsTab::ResetPreviewState( m_controlsTab );
+    SoundTab::ResetPreviewState( m_soundTab );
     m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Content );
     m_cache.Reset();
 }
@@ -977,6 +1020,7 @@ void InGameUI::CancelInputCapture()
     OptionsTab::ResetPreviewState( m_optionsTab );
     PhysicsTab::ResetPreviewState( m_physicsTab );
     ControlsTab::ResetPreviewState( m_controlsTab );
+    SoundTab::ResetPreviewState( m_soundTab );
     m_editorTab.objectCombo.Close();
     m_renderTargetCombo.Close();
     m_cameraModeCombo.Close();
@@ -1264,6 +1308,9 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
         DrawHitboxRect( draw, m_physicsTab.tornadoSwirlSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.tornadoLiftSlider.Bounds(), contentR, contentG, contentB );
         break;
+    case InGameUITab::Sound:
+        SoundTab::DrawHitboxes( m_soundTab, draw, data, contentR, contentG, contentB );
+        break;
     case InGameUITab::Options:
         for ( int i = 0; i < 6; ++i )
         {
@@ -1334,6 +1381,8 @@ int InGameUI::ContentHeight() const
         return EditorTab::ContentHeight();
     case InGameUITab::Physics:
         return PhysicsTab::ContentHeight();
+    case InGameUITab::Sound:
+        return SoundTab::ContentHeight();
     case InGameUITab::Options:
         return OptionsTab::ContentHeight();
     case InGameUITab::Render:
@@ -2031,6 +2080,30 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
             CinematicTab::CloseCombo( m_cinematicTab );
             m_editorTab.objectCombo.Close();
         }
+        else if ( inContent && m_activeTab == InGameUITab::Sound )
+        {
+            const float contentX = static_cast<float>( inputX + contentPad );
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
+            const int previousActiveSlider = m_activeSlider;
+            if ( SoundTab::HandleContentClick( m_soundTab,
+                                               result,
+                                               m_activeSlider,
+                                               m_mouseX,
+                                               m_mouseY,
+                                               contentX,
+                                               scrolledY,
+                                               contentW ) &&
+                 m_activeSlider != 0 && m_activeSlider != previousActiveSlider )
+            {
+                InputControl::BeginMouseCapture( hwnd );
+            }
+            m_rendererCombo.Close();
+            m_reflectionCombo.Close();
+            CinematicTab::CloseCombo( m_cinematicTab );
+            m_editorTab.objectCombo.Close();
+            m_renderTargetCombo.Close();
+        }
         else if ( inContent && m_activeTab == InGameUITab::Options )
         {
             const float contentX = static_cast<float>( inputX + contentPad );
@@ -2255,7 +2328,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                m_lastMaxWorkerThreadCount,
                                                result ) &&
              !OptionsTab::UpdateActiveSlider( m_optionsTab, m_activeSlider, m_mouseX, m_lastModelCapacity, result ) &&
-             !PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result ) )
+             !PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result ) &&
+             !SoundTab::UpdateActiveSlider( m_soundTab, m_activeSlider, m_mouseX, result ) )
         {
             const int renderSlider = RenderSliderIndexFromActiveSlider( m_activeSlider );
             if ( renderSlider >= 0 )
@@ -2320,7 +2394,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
         if ( !SceneTab::CommitActiveSlider( m_sceneTab, m_activeSlider, result ) &&
              !ProfilerTab::CommitActiveSlider( m_profilerTab, m_activeSlider, result ) &&
              !OptionsTab::CommitActiveSlider( m_optionsTab, m_activeSlider, result ) &&
-             !PhysicsTab::CommitActiveSlider( m_physicsTab, m_activeSlider, result ) )
+             !PhysicsTab::CommitActiveSlider( m_physicsTab, m_activeSlider, result ) &&
+             !SoundTab::CommitActiveSlider( m_soundTab, m_activeSlider, result ) )
         {
             const int renderSlider = RenderSliderIndexFromActiveSlider( m_activeSlider );
             if ( renderSlider >= 0 )
@@ -2345,6 +2420,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
         OptionsTab::ResetPreviewState( m_optionsTab );
         PhysicsTab::ResetPreviewState( m_physicsTab );
         ControlsTab::ResetPreviewState( m_controlsTab );
+        SoundTab::ResetPreviewState( m_soundTab );
         m_interaction.isDragging = false;
         m_interaction.isResizing = false;
         InputControl::EndMouseCapture();
@@ -2577,7 +2653,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     DrawEditorObjectCounter( draw, data, screenW, screenH, &objectCounterAvoidBounds );
 
     static const char* kTabs[] =
-        { "Profile", "Scene", "Editor", "Physics", "Options", "Render", "Targets", "Controls", "Sky", "Cine" };
+        { "Profile", "Scene", "Editor", "Physics", "Sound", "Options", "Render", "Targets", "Controls", "Sky", "Cine" };
     const int tabCount = static_cast<int>( InGameUITab::Count );
     const float tabPad = 14.0f;
     m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
@@ -2631,6 +2707,20 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                           m_activeSlider,
                           m_mouseX,
                           m_mouseY );
+    }
+    else if ( m_activeTab == InGameUITab::Sound )
+    {
+        SoundTab::Draw( m_soundTab,
+                        draw,
+                        data,
+                        contentX,
+                        contentY,
+                        contentW,
+                        contentH,
+                        scrolledY,
+                        m_activeSlider,
+                        m_mouseX,
+                        m_mouseY );
     }
     else if ( m_activeTab == InGameUITab::Editor )
     {

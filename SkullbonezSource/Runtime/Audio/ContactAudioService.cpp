@@ -127,6 +127,11 @@ float ContactAudioDistance( const Vector3& a, const Vector3& b )
     const Vector3 d = a - b;
     return sqrtf( d.x * d.x + d.y * d.y + d.z * d.z );
 }
+
+float ClampPitchRatio( float value )
+{
+    return std::clamp( value, 0.25f, 4.0f );
+}
 } // namespace
 
 struct ContactAudioService::Impl
@@ -211,6 +216,11 @@ struct ContactAudioService::Impl
 
     bool InitializeBackend()
     {
+        if ( initialized )
+        {
+            return true;
+        }
+
         HRESULT hr = XAudio2Create( &xaudio, 0, XAUDIO2_DEFAULT_PROCESSOR );
         if ( FAILED( hr ) )
         {
@@ -422,6 +432,125 @@ struct ContactAudioService::Impl
                  sets.size(),
                  sounds.size() );
         return !sets.empty();
+    }
+
+    bool GetSetTuning( int setIndex, ContactAudioSetTuning& out ) const
+    {
+        if ( setIndex < 0 || setIndex >= static_cast<int>( sets.size() ) )
+        {
+            return false;
+        }
+
+        const SoundSet& set = sets[static_cast<std::size_t>( setIndex )];
+        out = ContactAudioSetTuning{};
+        out.name = set.name.c_str();
+        out.materialA = set.materialA;
+        out.materialB = set.materialB;
+        out.minImpulse = set.minImpulse;
+        out.impulseRange = set.impulseRange;
+        out.cooldownMs = set.cooldownSeconds * 1000.0f;
+        out.overrideCooldownMs = set.overrideCooldownSeconds * 1000.0f;
+        out.maxDistance = set.maxDistance;
+        out.baseGain = set.baseGain;
+        out.pitchMin = set.pitchMin;
+        out.pitchMax = set.pitchMax;
+        out.maxVoices = set.maxVoices;
+        out.sampleCount = static_cast<uint32_t>( set.soundIndices.size() );
+        out.bandCount = static_cast<uint32_t>(
+            (std::min)( set.bands.size(), static_cast<std::size_t>( CONTACT_AUDIO_TUNING_MAX_BANDS ) ) );
+        for ( uint32_t i = 0; i < out.bandCount; ++i )
+        {
+            const SoundBand& band = set.bands[static_cast<std::size_t>( i )];
+            ContactAudioBandTuning& dst = out.bands[i];
+            dst.name = band.name.c_str();
+            dst.minImpulse = band.minImpulse;
+            dst.impulseRange = band.impulseRange;
+            dst.baseGain = band.baseGain;
+            dst.pitchMin = band.pitchMin;
+            dst.pitchMax = band.pitchMax;
+            dst.sampleCount = static_cast<uint32_t>( band.soundIndices.size() );
+        }
+        return true;
+    }
+
+    bool SetSetParam( int setIndex, ContactAudioSetParam param, float value )
+    {
+        if ( setIndex < 0 || setIndex >= static_cast<int>( sets.size() ) )
+        {
+            return false;
+        }
+        SoundSet& set = sets[static_cast<std::size_t>( setIndex )];
+        // Invariant: UI tuning edits only presentation thresholds. Sample lists
+        // and material hashes remain owned by the loaded material map.
+        switch ( param )
+        {
+        case ContactAudioSetParam::MinImpulse:
+            set.minImpulse = std::clamp( value, 0.0f, 1000.0f );
+            return true;
+        case ContactAudioSetParam::ImpulseRange:
+            set.impulseRange = std::clamp( value, 0.001f, 1000.0f );
+            return true;
+        case ContactAudioSetParam::CooldownMs:
+            set.cooldownSeconds = std::clamp( value, 0.0f, 5000.0f ) * 0.001f;
+            return true;
+        case ContactAudioSetParam::OverrideCooldownMs:
+            set.overrideCooldownSeconds = std::clamp( value, 0.0f, 5000.0f ) * 0.001f;
+            return true;
+        case ContactAudioSetParam::MaxDistance:
+            set.maxDistance = std::clamp( value, 1.0f, 2000.0f );
+            return true;
+        case ContactAudioSetParam::BaseGain:
+            set.baseGain = std::clamp( value, 0.0f, 4.0f );
+            return true;
+        case ContactAudioSetParam::PitchMin:
+            set.pitchMin = (std::min)( ClampPitchRatio( value ), set.pitchMax );
+            return true;
+        case ContactAudioSetParam::PitchMax:
+            set.pitchMax = (std::max)( ClampPitchRatio( value ), set.pitchMin );
+            return true;
+        case ContactAudioSetParam::MaxVoices:
+            set.maxVoices = static_cast<uint32_t>( std::clamp( static_cast<int>( std::round( value ) ), 1, 32 ) );
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    bool SetBandParam( int setIndex, int bandIndex, ContactAudioBandParam param, float value )
+    {
+        if ( setIndex < 0 || setIndex >= static_cast<int>( sets.size() ) )
+        {
+            return false;
+        }
+        SoundSet& set = sets[static_cast<std::size_t>( setIndex )];
+        if ( bandIndex < 0 || bandIndex >= static_cast<int>( set.bands.size() ) )
+        {
+            return false;
+        }
+        SoundBand& band = set.bands[static_cast<std::size_t>( bandIndex )];
+        switch ( param )
+        {
+        case ContactAudioBandParam::MinImpulse:
+            band.minImpulse = std::clamp( value, 0.0f, 1000.0f );
+            std::sort( set.bands.begin(),
+                       set.bands.end(),
+                       []( const SoundBand& lhs, const SoundBand& rhs ) { return lhs.minImpulse < rhs.minImpulse; } );
+            return true;
+        case ContactAudioBandParam::ImpulseRange:
+            band.impulseRange = std::clamp( value, 0.001f, 1000.0f );
+            return true;
+        case ContactAudioBandParam::BaseGain:
+            band.baseGain = std::clamp( value, 0.0f, 4.0f );
+            return true;
+        case ContactAudioBandParam::PitchMin:
+            band.pitchMin = (std::min)( ClampPitchRatio( value ), band.pitchMax );
+            return true;
+        case ContactAudioBandParam::PitchMax:
+            band.pitchMax = (std::max)( ClampPitchRatio( value ), band.pitchMin );
+            return true;
+        default:
+            return false;
+        }
     }
 
     const SoundSet* ResolveSet( uint32_t materialA, uint32_t materialB ) const
@@ -692,9 +821,45 @@ void ContactAudioService::SetMasterGain( float gain )
 }
 
 
+float ContactAudioService::MasterGain() const
+{
+    return m_impl->masterGain;
+}
+
+
 void ContactAudioService::SetMaxDistanceScale( float scale )
 {
     m_impl->maxDistanceScale = std::clamp( scale, 0.01f, 16.0f );
+}
+
+
+float ContactAudioService::MaxDistanceScale() const
+{
+    return m_impl->maxDistanceScale;
+}
+
+
+int ContactAudioService::SoundSetCount() const
+{
+    return static_cast<int>( m_impl->sets.size() );
+}
+
+
+bool ContactAudioService::GetSoundSetTuning( int setIndex, ContactAudioSetTuning& out ) const
+{
+    return m_impl->GetSetTuning( setIndex, out );
+}
+
+
+bool ContactAudioService::SetSoundSetParam( int setIndex, ContactAudioSetParam param, float value )
+{
+    return m_impl->SetSetParam( setIndex, param, value );
+}
+
+
+bool ContactAudioService::SetSoundBandParam( int setIndex, int bandIndex, ContactAudioBandParam param, float value )
+{
+    return m_impl->SetBandParam( setIndex, bandIndex, param, value );
 }
 
 

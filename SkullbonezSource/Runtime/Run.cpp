@@ -155,11 +155,13 @@ Run::Run( Window& window, std::vector<std::string> sceneQueue )
     BindEngineContext();
     RefreshRuntimeViewModel();
     RefreshSceneBrowserList( m_sceneController.Browser() );
-    m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
-    m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
-    m_defaultCinematicRender = Cfg().cinematicRender;
+    const EngineConfig& cfg = Cfg();
+    m_runtimeSettings.isVsyncEnabled = cfg.runtimeRender.vsyncEnabled;
+    m_runtimeSettings.isPipelineSyncEnabled = cfg.runtimeRender.forcePipelineSync;
+    m_runtimeSettings.contactAudioDebugCounters = cfg.contactAudio.debugCounters;
+    m_defaultCinematicRender = cfg.cinematicRender;
     m_startup.gameModelCapacity = ActiveGameModelCapacity();
-    m_startup.workerThreads = Cfg().workerThreads;
+    m_startup.workerThreads = cfg.workerThreads;
 }
 
 
@@ -195,6 +197,18 @@ void Run::BindEngineContext()
 void Run::RefreshRuntimeViewModel()
 {
     m_runtimeViewModel = RuntimeViewModelBuilder::Build( m_engineContext );
+    RuntimeContactAudioSnapshot& audio = m_runtimeViewModel.contactAudio;
+    audio.enabled = m_contactAudio.IsEnabled();
+    audio.available = m_contactAudio.IsAvailable();
+    audio.debugCounters = m_runtimeSettings.contactAudioDebugCounters;
+    audio.masterGain = m_contactAudio.MasterGain();
+    audio.maxDistanceScale = m_contactAudio.MaxDistanceScale();
+    audio.stats = m_contactAudio.Stats();
+    audio.soundSetCount = (std::min)( m_contactAudio.SoundSetCount(), RUNTIME_CONTACT_AUDIO_SET_MAX );
+    for ( int setIndex = 0; setIndex < audio.soundSetCount; ++setIndex )
+    {
+        m_contactAudio.GetSoundSetTuning( setIndex, audio.soundSets[setIndex] );
+    }
 }
 
 

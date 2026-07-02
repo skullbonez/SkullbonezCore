@@ -154,6 +154,34 @@ enum class UIRenderParam
     Count
 };
 
+enum class UISoundParam
+{
+    None = -1,
+    MasterGain,
+    MaxDistanceScale,
+    SetMinImpulse,
+    SetImpulseRange,
+    SetCooldownMs,
+    SetOverrideCooldownMs,
+    SetMaxDistance,
+    SetBaseGain,
+    SetPitchMin,
+    SetPitchMax,
+    SetMaxVoices,
+    Count
+};
+
+enum class UISoundBandParam
+{
+    None = -1,
+    MinImpulse,
+    ImpulseRange,
+    BaseGain,
+    PitchMin,
+    PitchMax,
+    Count
+};
+
 struct UIOnlyCommands
 {
     // Commands are one-frame requests, not durable state. The UI sets them
@@ -290,6 +318,19 @@ struct UIRenderCommands
     float requestedValue = 0.0f;
 };
 
+struct UISoundCommands
+{
+    // Sound-tab output is a one-frame request. Set and band indices come from
+    // the current UI snapshot; Run validates them before touching audio data.
+    bool toggleEnabled = false;
+    bool toggleDebugCounters = false;
+    int requestedSetIndex = -1;
+    int requestedBandIndex = -1;
+    UISoundParam requestedParam = UISoundParam::None;
+    UISoundBandParam requestedBandParam = UISoundBandParam::None;
+    float requestedValue = 0.0f;
+};
+
 struct InGameUICommands
 {
     UIOnlyCommands ui;
@@ -302,6 +343,7 @@ struct InGameUICommands
     UIRunCommands run;
     UIProfilerCommands profiler;
     UIRenderCommands renderTuning;
+    UISoundCommands sound;
     UICinematicCommands cinematic;
 };
 

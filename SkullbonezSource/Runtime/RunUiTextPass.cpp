@@ -544,6 +544,51 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.testComplete = m_host.SceneState().isTestComplete;
         UIData.vsyncEnabled = m_host.m_runtimeSettings.isVsyncEnabled;
         UIData.pipelineSyncEnabled = m_host.m_runtimeSettings.isPipelineSyncEnabled;
+        const RuntimeContactAudioSnapshot& contactAudio = m_host.m_runtimeViewModel.contactAudio;
+        UIData.contactAudioEnabled = contactAudio.enabled;
+        UIData.contactAudioAvailable = contactAudio.available;
+        UIData.contactAudioDebugCounters = contactAudio.debugCounters;
+        UIData.contactAudioMasterGain = contactAudio.masterGain;
+        UIData.contactAudioMaxDistanceScale = contactAudio.maxDistanceScale;
+        UIData.contactAudioEventsSeen = contactAudio.stats.eventsSeen;
+        UIData.contactAudioRejectedByThreshold = contactAudio.stats.rejectedByThreshold;
+        UIData.contactAudioRejectedByCooldown = contactAudio.stats.rejectedByCooldown;
+        UIData.contactAudioSubmittedVoices = contactAudio.stats.submittedVoices;
+        UIData.contactAudioDroppedVoices = contactAudio.stats.droppedVoices;
+        // Lifetime: names copied into UIData are borrowed from ContactAudioService
+        // through the runtime view model for this immediate draw pass.
+        UIData.soundSetCount = (std::min)( contactAudio.soundSetCount, SkullbonezCore::UI::UI_SOUND_SET_MAX );
+        for ( int setIndex = 0; setIndex < UIData.soundSetCount; ++setIndex )
+        {
+            const SkullbonezCore::Runtime::Audio::ContactAudioSetTuning& tuning = contactAudio.soundSets[setIndex];
+            SkullbonezCore::UI::UISoundSetFrameData& set = UIData.soundSets[setIndex];
+            set.name = tuning.name;
+            set.materialA = tuning.materialA;
+            set.materialB = tuning.materialB;
+            set.minImpulse = tuning.minImpulse;
+            set.impulseRange = tuning.impulseRange;
+            set.cooldownMs = tuning.cooldownMs;
+            set.overrideCooldownMs = tuning.overrideCooldownMs;
+            set.maxDistance = tuning.maxDistance;
+            set.baseGain = tuning.baseGain;
+            set.pitchMin = tuning.pitchMin;
+            set.pitchMax = tuning.pitchMax;
+            set.maxVoices = tuning.maxVoices;
+            set.sampleCount = tuning.sampleCount;
+            set.bandCount =
+                (std::min)( tuning.bandCount, static_cast<uint32_t>( SkullbonezCore::UI::UI_SOUND_BAND_MAX ) );
+            for ( uint32_t bandIndex = 0; bandIndex < set.bandCount; ++bandIndex )
+            {
+                SkullbonezCore::UI::UISoundBandFrameData& band = set.bands[bandIndex];
+                band.name = tuning.bands[bandIndex].name;
+                band.minImpulse = tuning.bands[bandIndex].minImpulse;
+                band.impulseRange = tuning.bands[bandIndex].impulseRange;
+                band.baseGain = tuning.bands[bandIndex].baseGain;
+                band.pitchMin = tuning.bands[bandIndex].pitchMin;
+                band.pitchMax = tuning.bands[bandIndex].pitchMax;
+                band.sampleCount = tuning.bands[bandIndex].sampleCount;
+            }
+        }
         UIData.sceneEnergy = sceneEnergyForDisplay;
         UIData.timeScale = view.timeScale;
         UIData.trackHeight = m_host.m_camera.trackBallIndex >= 0 ? m_host.m_camera.trackHeight : 0.0f;

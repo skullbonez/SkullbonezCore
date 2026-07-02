@@ -667,7 +667,7 @@ void Run::AfterPhysicsStep()
         }
 
         m_contactAudio.EndPhysicsStep();
-        if ( Cfg().contactAudio.debugCounters )
+        if ( m_runtimeSettings.contactAudioDebugCounters )
         {
             m_timers.contactAudioStatsLogTime += PHYSICS_FIXED_DT;
             if ( m_timers.contactAudioStatsLogTime >= 1.0f )

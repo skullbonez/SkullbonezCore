@@ -267,6 +267,7 @@
     <ClCompile Include="SkullbonezSource\UI\UITabPhysics.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabScene.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabSound.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabSky.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIWindowChrome.cpp" />
     <ClCompile Include="ThirdPtySource\stb\stb_image.cpp" />
@@ -450,6 +451,7 @@
     <ClInclude Include="SkullbonezSource\UI\UITabPhysics.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabProfiler.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabScene.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabSound.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabSky.h" />
     <ClInclude Include="SkullbonezSource\UI\UIWindowChrome.h" />
     <ClInclude Include="SkullbonezSource\Maths\Matrix4.h" />

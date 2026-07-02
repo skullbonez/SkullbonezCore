@@ -84,6 +84,8 @@ using SkullbonezCore::UI::InGameUITab;
 using SkullbonezCore::UI::UICinematicFeature;
 using SkullbonezCore::UI::UICinematicParam;
 using SkullbonezCore::UI::UIRenderParam;
+using SkullbonezCore::UI::UISoundBandParam;
+using SkullbonezCore::UI::UISoundParam;
 
 namespace SkullbonezCore
 {

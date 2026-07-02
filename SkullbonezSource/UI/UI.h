@@ -45,6 +45,7 @@ Related:
 #include "UITabPhysics.h"
 #include "UITabProfiler.h"
 #include "UITabScene.h"
+#include "UITabSound.h"
 #include "UITabSky.h"
 #include <cstdint>
 #include <memory>
@@ -60,6 +61,7 @@ enum class InGameUITab
     Scene,
     Editor,
     Physics,
+    Sound,
     Options,
     Render,
     Targets,
@@ -72,6 +74,8 @@ enum class InGameUITab
 constexpr int UI_RENDER_TARGET_PREVIEW_MAX = 12;
 constexpr int UI_PROFILER_MARKER_OPTION_MAX = ProfilerTab::MAX_MARKERS + 1;
 constexpr uint32_t UI_PROFILER_FRAME_TOTAL_HASH = 0u;
+constexpr int UI_SOUND_SET_MAX = 16;
+constexpr int UI_SOUND_BAND_MAX = 4;
 
 struct UIRenderTargetPreviewResource
 {
@@ -100,6 +104,36 @@ struct UIProfilerMarkerOption
     bool isFrameTotal = false;
 };
 
+struct UISoundBandFrameData
+{
+    const char* name = "";
+    float minImpulse = 0.0f;
+    float impulseRange = 0.0f;
+    float baseGain = 0.0f;
+    float pitchMin = 1.0f;
+    float pitchMax = 1.0f;
+    uint32_t sampleCount = 0;
+};
+
+struct UISoundSetFrameData
+{
+    const char* name = "";
+    uint32_t materialA = 0;
+    uint32_t materialB = 0;
+    float minImpulse = 0.0f;
+    float impulseRange = 0.0f;
+    float cooldownMs = 0.0f;
+    float overrideCooldownMs = 0.0f;
+    float maxDistance = 0.0f;
+    float baseGain = 0.0f;
+    float pitchMin = 1.0f;
+    float pitchMax = 1.0f;
+    uint32_t maxVoices = 0;
+    uint32_t sampleCount = 0;
+    uint32_t bandCount = 0;
+    UISoundBandFrameData bands[UI_SOUND_BAND_MAX];
+};
+
 // Snapshot of engine state needed to draw the UI for one frame.  The UI reads
 // this structure but does not mutate engine objects directly; that keeps render
 // code, input hit-testing, and runtime state changes separated.
@@ -123,6 +157,8 @@ struct InGameUIFrameData
     float workerCoreTotalMs = 0.0f; // Sum of worker-pool CPU chunk time from the last committed frame, in ms.
     UIProfilerMarkerOption profilerMarkerOptions[UI_PROFILER_MARKER_OPTION_MAX];
     int profilerMarkerOptionCount = 0;
+    UISoundSetFrameData soundSets[UI_SOUND_SET_MAX];
+    int soundSetCount = 0;
     Basics::MainMemoryStats mainMemory;
     int modelCount = 0;
     int modelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
@@ -145,6 +181,16 @@ struct InGameUIFrameData
     bool testComplete = false;
     bool vsyncEnabled = false;
     bool pipelineSyncEnabled = false;
+    bool contactAudioEnabled = false;
+    bool contactAudioAvailable = false;
+    bool contactAudioDebugCounters = false;
+    float contactAudioMasterGain = 0.0f;
+    float contactAudioMaxDistanceScale = 1.0f;
+    uint32_t contactAudioEventsSeen = 0;
+    uint32_t contactAudioRejectedByThreshold = 0;
+    uint32_t contactAudioRejectedByCooldown = 0;
+    uint32_t contactAudioSubmittedVoices = 0;
+    uint32_t contactAudioDroppedVoices = 0;
     float sceneEnergy = 0.0f;
     float timeScale = 1.0f;
     float trackHeight = 0.0f;
@@ -302,6 +348,7 @@ class InGameUI
     PhysicsTab::UIPhysicsTabState m_physicsTab;
     ProfilerTab::UIProfilerTabState m_profilerTab;
     SceneTab::UISceneTabState m_sceneTab;
+    SoundTab::UISoundTabState m_soundTab;
     SkyTab::UISkyTabState m_skyTab;
     CinematicTab::UICinematicTabState m_cinematicTab;
     float m_scrollY = 0.0f;

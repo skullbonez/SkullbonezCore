@@ -2744,6 +2744,135 @@ void Run::TakeInput()
                                         uiCommands.renderTuning.requestedValue );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyRenderTuning, RuntimeInputActionSource::UI );
         }
+        // Why: contact audio is presentation-only and may be disabled at launch
+        // or unavailable on a machine. The Sound tab can retry initialization,
+        // but failure must not affect simulation, input mode, or validation.
+        bool soundTuningChanged = false;
+        if ( uiCommands.sound.toggleEnabled )
+        {
+            if ( m_contactAudio.IsEnabled() )
+            {
+                m_contactAudio.SetEnabled( false );
+            }
+            else if ( !m_launchOptions.noContactAudio )
+            {
+                const bool ready =
+                    m_contactAudio.IsAvailable() ||
+                    ( m_contactAudio.Initialize() &&
+                      m_contactAudio.LoadContactAudioMap( "SkullbonezData/audio/contact_audio.materials.json" ) );
+                m_contactAudio.SetEnabled( ready );
+            }
+            soundTuningChanged = true;
+        }
+        if ( uiCommands.sound.toggleDebugCounters )
+        {
+            m_runtimeSettings.contactAudioDebugCounters = !m_runtimeSettings.contactAudioDebugCounters;
+            soundTuningChanged = true;
+        }
+        if ( uiCommands.sound.requestedParam != UISoundParam::None )
+        {
+            switch ( uiCommands.sound.requestedParam )
+            {
+            case UISoundParam::MasterGain:
+                m_contactAudio.SetMasterGain( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::MaxDistanceScale:
+                m_contactAudio.SetMaxDistanceScale( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetMinImpulse:
+                m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
+                                                 SkullbonezCore::Runtime::Audio::ContactAudioSetParam::MinImpulse,
+                                                 uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetImpulseRange:
+                m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
+                                                 SkullbonezCore::Runtime::Audio::ContactAudioSetParam::ImpulseRange,
+                                                 uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetCooldownMs:
+                m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
+                                                 SkullbonezCore::Runtime::Audio::ContactAudioSetParam::CooldownMs,
+                                                 uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetOverrideCooldownMs:
+                m_contactAudio.SetSoundSetParam(
+                    uiCommands.sound.requestedSetIndex,
+                    SkullbonezCore::Runtime::Audio::ContactAudioSetParam::OverrideCooldownMs,
+                    uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetMaxDistance:
+                m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
+                                                 SkullbonezCore::Runtime::Audio::ContactAudioSetParam::MaxDistance,
+                                                 uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetBaseGain:
+                m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
+                                                 SkullbonezCore::Runtime::Audio::ContactAudioSetParam::BaseGain,
+                                                 uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetPitchMin:
+                m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
+                                                 SkullbonezCore::Runtime::Audio::ContactAudioSetParam::PitchMin,
+                                                 uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetPitchMax:
+                m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
+                                                 SkullbonezCore::Runtime::Audio::ContactAudioSetParam::PitchMax,
+                                                 uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetMaxVoices:
+                m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
+                                                 SkullbonezCore::Runtime::Audio::ContactAudioSetParam::MaxVoices,
+                                                 uiCommands.sound.requestedValue );
+                break;
+            default:
+                break;
+            }
+            soundTuningChanged = true;
+        }
+        if ( uiCommands.sound.requestedBandParam != UISoundBandParam::None )
+        {
+            switch ( uiCommands.sound.requestedBandParam )
+            {
+            case UISoundBandParam::MinImpulse:
+                m_contactAudio.SetSoundBandParam( uiCommands.sound.requestedSetIndex,
+                                                  uiCommands.sound.requestedBandIndex,
+                                                  SkullbonezCore::Runtime::Audio::ContactAudioBandParam::MinImpulse,
+                                                  uiCommands.sound.requestedValue );
+                break;
+            case UISoundBandParam::ImpulseRange:
+                m_contactAudio.SetSoundBandParam( uiCommands.sound.requestedSetIndex,
+                                                  uiCommands.sound.requestedBandIndex,
+                                                  SkullbonezCore::Runtime::Audio::ContactAudioBandParam::ImpulseRange,
+                                                  uiCommands.sound.requestedValue );
+                break;
+            case UISoundBandParam::BaseGain:
+                m_contactAudio.SetSoundBandParam( uiCommands.sound.requestedSetIndex,
+                                                  uiCommands.sound.requestedBandIndex,
+                                                  SkullbonezCore::Runtime::Audio::ContactAudioBandParam::BaseGain,
+                                                  uiCommands.sound.requestedValue );
+                break;
+            case UISoundBandParam::PitchMin:
+                m_contactAudio.SetSoundBandParam( uiCommands.sound.requestedSetIndex,
+                                                  uiCommands.sound.requestedBandIndex,
+                                                  SkullbonezCore::Runtime::Audio::ContactAudioBandParam::PitchMin,
+                                                  uiCommands.sound.requestedValue );
+                break;
+            case UISoundBandParam::PitchMax:
+                m_contactAudio.SetSoundBandParam( uiCommands.sound.requestedSetIndex,
+                                                  uiCommands.sound.requestedBandIndex,
+                                                  SkullbonezCore::Runtime::Audio::ContactAudioBandParam::PitchMax,
+                                                  uiCommands.sound.requestedValue );
+                break;
+            default:
+                break;
+            }
+            soundTuningChanged = true;
+        }
+        if ( soundTuningChanged )
+        {
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplySoundTuning, RuntimeInputActionSource::UI );
+        }
         if ( uiCommands.water.toggleWaterReflection )
         {
             if ( m_debug.isWaterNoReflect )

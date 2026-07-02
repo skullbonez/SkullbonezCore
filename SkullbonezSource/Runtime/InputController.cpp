@@ -461,6 +461,8 @@ const char* InputController::DescribeAction( RuntimeInputAction action )
         return "SaveSkyDefaults";
     case RuntimeInputAction::ApplyRenderTuning:
         return "ApplyRenderTuning";
+    case RuntimeInputAction::ApplySoundTuning:
+        return "ApplySoundTuning";
     case RuntimeInputAction::ToggleCinematicRendering:
         return "ToggleCinematicRendering";
     case RuntimeInputAction::SelectCinematicScene:
