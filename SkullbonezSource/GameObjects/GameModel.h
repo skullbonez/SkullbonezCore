@@ -14,6 +14,8 @@ Glossary:
   bodies settle.
   Wet sample: Fixed point inside a box-like volume used to approximate how much
   water is under that part of the body.
+  Audio contact highlight: Short render-only flash used to show which objects
+    emitted contact audio.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -138,6 +140,7 @@ class GameModel
     float m_projectedSurfaceArea;                                           // Drag area in square meters after collision-shape updates.
     float m_dragCoefficient;                                                // Effective drag coefficient averaged from attached dynamics data.
     float m_fixedContactHighlightSeconds;                                   // Seconds remaining for fixed-body red contact feedback
+    float m_audioContactHighlightSeconds;                                   // Seconds remaining for contact-audio white feedback.
     float m_renderTintR;                                                    // Per-instance render tint red channel
     float m_renderTintG;                                                    // Per-instance render tint green channel
     float m_renderTintB;                                                    // Per-instance render tint blue channel
@@ -305,8 +308,10 @@ class GameModel
     float GetContactReleaseImpulseThreshold() const;
     void NotifyFixedContact(
         float highlightSeconds );                                           // Restarts red contact feedback when a dynamic body hits fixed geometry.
-    void TickFixedContactHighlight( float dt );                             // dt is seconds; saturates at no-contact tint.
+    void NotifyAudioContact( float highlightSeconds );                      // Restarts white feedback when this model emits contact audio.
+    void TickFixedContactHighlight( float dt );                             // dt is seconds; saturates both contact highlight timers.
     float GetFixedContactHighlightAlpha() const;                            // 0=no contact tint, 1=full red contact tint.
+    float GetAudioContactHighlightAlpha() const;                            // 0=no audio tint, 1=full white contact-audio flash.
     float GetFixedContactHighlightSeconds() const;                          // Raw highlight timer for replay/prediction state restore.
     void SetFixedContactHighlightSeconds(
         float seconds );                                                    // Restores the raw contact-highlight timer after speculative physics.

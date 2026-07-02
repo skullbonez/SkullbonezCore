@@ -326,6 +326,7 @@ struct UISoundCommands
     // the current UI snapshot; Run validates them before touching audio data.
     bool toggleEnabled = false;
     bool toggleDebugCounters = false;
+    bool toggleFlashOnSubmit = false;
     int requestedSetIndex = -1;
     int requestedBandIndex = -1;
     UISoundParam requestedParam = UISoundParam::None;

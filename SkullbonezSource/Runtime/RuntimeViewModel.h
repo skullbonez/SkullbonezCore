@@ -16,6 +16,8 @@ Glossary:
   Presentation layer: UI or diagnostics code that reads state without owning it.
   Borrowed sample path: Contact-audio asset path owned by the audio service and
     valid only for the current presentation snapshot.
+  Contact-audio flash: Optional render-only marker for bodies that actually
+    emitted a contact sound after audio rejection policy.
 
 Invariants:
   - View models are copies; consumers must not infer ownership from them.
@@ -43,6 +45,7 @@ struct RuntimeContactAudioSnapshot
     bool enabled = false;
     bool available = false;
     bool debugCounters = false;
+    bool flashOnSubmit = false;
     float masterGain = 0.0f;
     float maxDistanceScale = 1.0f;
     Runtime::Audio::ContactAudioStats stats;

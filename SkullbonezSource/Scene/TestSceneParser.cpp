@@ -494,12 +494,15 @@ int ParseUITab( const Json& value, const std::string& path )
     }
 
     const std::string tab = Lowercase( ReadString( value, path, "ui.tab" ) );
+    // Invariant: these ordinals mirror UI::InGameUITab. UI capture scenes store
+    // tab names as authoring text, but the runtime state still consumes the enum
+    // ordinal.
     static const SceneIntOption kTabs[] = {
-        { "profiler", 0 },  { "profile", 0 }, { "overview", 0 },       { "scene", 1 },          { "editor", 2 },
-        { "placement", 2 }, { "physics", 3 }, { "options", 4 },        { "params", 4 },         { "render", 5 },
-        { "renderer", 5 },  { "targets", 6 }, { "render_targets", 6 }, { "render-targets", 6 }, { "keys", 7 },
-        { "controls", 7 },  { "sky", 8 },     { "atmosphere", 8 },     { "cinematic", 9 },      { "cine", 9 },
-        { "look", 9 },
+        { "profiler", 0 },       { "profile", 0 }, { "overview", 0 }, { "scene", 1 },   { "editor", 2 },
+        { "placement", 2 },      { "physics", 3 }, { "sound", 4 },    { "audio", 4 },   { "options", 5 },
+        { "params", 5 },         { "render", 6 },  { "renderer", 6 }, { "targets", 7 }, { "render_targets", 7 },
+        { "render-targets", 7 }, { "keys", 8 },    { "controls", 8 }, { "sky", 9 },     { "atmosphere", 9 },
+        { "cinematic", 10 },     { "cine", 10 },   { "look", 10 },
     };
 
     int parsed = 0;

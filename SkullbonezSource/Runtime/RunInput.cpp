@@ -2776,6 +2776,11 @@ void Run::TakeInput()
             m_runtimeSettings.contactAudioDebugCounters = !m_runtimeSettings.contactAudioDebugCounters;
             soundTuningChanged = true;
         }
+        if ( uiCommands.sound.toggleFlashOnSubmit )
+        {
+            m_runtimeSettings.contactAudioFlashOnSubmit = !m_runtimeSettings.contactAudioFlashOnSubmit;
+            soundTuningChanged = true;
+        }
         if ( uiCommands.sound.requestedParam != UISoundParam::None )
         {
             switch ( uiCommands.sound.requestedParam )

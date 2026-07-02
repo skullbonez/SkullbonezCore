@@ -16,6 +16,8 @@ Glossary:
   Band parameter: Impulse-tier override inside a selected set.
   Sample library: Decoded contact-audio candidate sounds that can be previewed
     or assigned to the selected material set.
+  Fitted picker text: One-line selector label clipped before the right-aligned
+    previous/next buttons.
 
 Invariants:
   - Selected set indices are clamped against the current frame snapshot before
@@ -31,6 +33,7 @@ Related:
 #include "UI.h"
 #include "UIDrawWidgets.h"
 #include "UILayout.h"
+#include "../Rendering/Text.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -49,19 +52,20 @@ constexpr int UI_SOUND_SET_SLIDER_BASE = 8010;
 constexpr int UI_SOUND_BAND_SLIDER_BASE = 8100;
 constexpr float SOUND_HEADER_Y = 16.0f;
 constexpr float SOUND_TOGGLE_Y = 42.0f;
-constexpr float SOUND_STATS_Y = 80.0f;
-constexpr float SOUND_GLOBAL_TITLE_Y = 128.0f;
-constexpr float SOUND_GLOBAL_SLIDER_Y = 154.0f;
-constexpr float SOUND_SAMPLE_TITLE_Y = 250.0f;
-constexpr float SOUND_SAMPLE_PICKER_Y = 276.0f;
-constexpr float SOUND_SAMPLE_ACTION_Y = 310.0f;
+constexpr float SOUND_TOGGLE_ROW2_Y = 72.0f;
+constexpr float SOUND_STATS_Y = 112.0f;
+constexpr float SOUND_GLOBAL_TITLE_Y = 160.0f;
+constexpr float SOUND_GLOBAL_SLIDER_Y = 186.0f;
+constexpr float SOUND_SAMPLE_TITLE_Y = 282.0f;
+constexpr float SOUND_SAMPLE_PICKER_Y = 308.0f;
+constexpr float SOUND_SAMPLE_ACTION_Y = 342.0f;
 constexpr float SOUND_SAMPLE_BUTTON_W = 72.0f;
 constexpr float SOUND_SAMPLE_BUTTON_H = 26.0f;
-constexpr float SOUND_SET_TITLE_Y = 360.0f;
-constexpr float SOUND_SET_PICKER_Y = 386.0f;
-constexpr float SOUND_SET_META_Y = 420.0f;
-constexpr float SOUND_SET_SLIDER_Y = 462.0f;
-constexpr float SOUND_BAND_TITLE_Y = 852.0f;
+constexpr float SOUND_SET_TITLE_Y = 392.0f;
+constexpr float SOUND_SET_PICKER_Y = 418.0f;
+constexpr float SOUND_SET_META_Y = 452.0f;
+constexpr float SOUND_SET_SLIDER_Y = 494.0f;
+constexpr float SOUND_BAND_TITLE_Y = 884.0f;
 constexpr float SOUND_BAND_BLOCK_H = 238.0f;
 constexpr float SOUND_SLIDER_H = 34.0f;
 constexpr float SOUND_SLIDER_STEP_Y = 40.0f;
@@ -240,6 +244,65 @@ const char* SampleLeafName( const char* path )
     return leaf ? leaf + 1 : path;
 }
 
+void EllipsizeToWidth( char* text, size_t textSize, float pxSize, float maxWidth )
+{
+    if ( !text || textSize == 0 )
+    {
+        return;
+    }
+    if ( maxWidth <= 0.0f )
+    {
+        text[0] = '\0';
+        return;
+    }
+    if ( SkullbonezCore::Text::Text2d::MeasureText( pxSize, text ) <= maxWidth )
+    {
+        return;
+    }
+
+    size_t len = strlen( text );
+    while ( len > 3 && SkullbonezCore::Text::Text2d::MeasureText( pxSize, text ) > maxWidth )
+    {
+        text[len - 3] = '.';
+        text[len - 2] = '.';
+        text[len - 1] = '.';
+        text[len] = '\0';
+        --len;
+    }
+    if ( SkullbonezCore::Text::Text2d::MeasureText( pxSize, text ) > maxWidth )
+    {
+        text[0] = '\0';
+    }
+}
+
+
+void DrawFittedPickerText( const SkullbonezCore::UI::UIDrawContext& draw,
+                           float x,
+                           float y,
+                           float pxSize,
+                           float r,
+                           float g,
+                           float b,
+                           const char* value,
+                           float maxWidth )
+{
+    // Why: Sound picker buttons are right-aligned in narrow tabs, so labels must
+    // fit the left-side row space instead of drawing past the window edge.
+    if ( maxWidth <= 6.0f )
+    {
+        return;
+    }
+
+    char text[160] = {};
+    snprintf( text, sizeof( text ), "%s", value ? value : "" );
+    EllipsizeToWidth( text, sizeof( text ), pxSize, maxWidth );
+    if ( text[0] != '\0' )
+    {
+        draw.Text( x, y, pxSize, r, g, b, text );
+    }
+}
+
+
 float GlobalDisplayValue( const SkullbonezCore::UI::SoundTab::UISoundTabState& state,
                           const SkullbonezCore::UI::InGameUIFrameData& data,
                           int activeSlider,
@@ -345,6 +408,7 @@ void SetContentBounds( SkullbonezCore::UI::SoundTab::UISoundTabState& state,
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
     state.enabledToggle.SetBounds( contentX, scrolledY + SOUND_TOGGLE_Y, colW, 24.0f );
     state.debugCountersToggle.SetBounds( contentX + colW + 18.0f, scrolledY + SOUND_TOGGLE_Y, colW, 24.0f );
+    state.flashOnSubmitToggle.SetBounds( contentX, scrolledY + SOUND_TOGGLE_ROW2_Y, colW, 24.0f );
     state.masterGainSlider.SetBounds( contentX, scrolledY + SOUND_GLOBAL_SLIDER_Y, contentW, SOUND_SLIDER_H );
     state.distanceScaleSlider.SetBounds( contentX,
                                          scrolledY + SOUND_GLOBAL_SLIDER_Y + SOUND_SLIDER_STEP_Y,
@@ -461,6 +525,7 @@ void DrawHitboxes( const UISoundTabState& state,
 {
     DrawHitboxRect( draw, state.enabledToggle.Bounds(), r, g, b );
     DrawHitboxRect( draw, state.debugCountersToggle.Bounds(), r, g, b );
+    DrawHitboxRect( draw, state.flashOnSubmitToggle.Bounds(), r, g, b );
     DrawHitboxRect( draw, state.masterGainSlider.Bounds(), r, g, b );
     DrawHitboxRect( draw, state.distanceScaleSlider.Bounds(), r, g, b );
     DrawHitboxRect( draw, state.previousSampleButton, 1.0f, 0.62f, 0.18f );
@@ -525,6 +590,11 @@ bool HandleContentClick( UISoundTabState& state,
     if ( state.debugCountersToggle.HitTest( mouseX, mouseY ) )
     {
         result.commands.sound.toggleDebugCounters = true;
+        return false;
+    }
+    if ( state.flashOnSubmitToggle.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.sound.toggleFlashOnSubmit = true;
         return false;
     }
     if ( state.masterGainSlider.HitTest( mouseX, mouseY ) )
@@ -703,6 +773,15 @@ void Draw( UISoundTabState& state,
                        colW,
                        "Debug counters",
                        data.contactAudioDebugCounters );
+    DrawContentToggle( draw,
+                       contentY,
+                       contentH,
+                       state.flashOnSubmitToggle,
+                       col1,
+                       scrolledY + SOUND_TOGGLE_ROW2_Y,
+                       colW,
+                       "Flash emitters",
+                       data.contactAudioFlashOnSubmit );
 
     snprintf( buf,
               sizeof( buf ),
@@ -763,13 +842,16 @@ void Draw( UISoundTabState& state,
                   data.soundSampleCount > 0 ? state.selectedSampleIndex + 1 : 0,
                   data.soundSampleCount,
                   sampleName );
-        draw.Text( state.previousSampleButton.x + UI_PIPELINE_STEP_BUTTON_W * 2.0f + UI_PIPELINE_STEP_BUTTON_GAP * 2.0f,
-                   scrolledY + SOUND_SAMPLE_PICKER_Y + 5.0f,
-                   11.0f,
-                   0.84f,
-                   0.92f,
-                   0.94f,
-                   buf );
+        const float textMaxW = (std::max)( 0.0f, state.previousSampleButton.x - contentX - 12.0f );
+        DrawFittedPickerText( draw,
+                              contentX,
+                              scrolledY + SOUND_SAMPLE_PICKER_Y + 5.0f,
+                              11.0f,
+                              0.84f,
+                              0.92f,
+                              0.94f,
+                              buf,
+                              textMaxW );
     }
     if ( data.soundSampleCount > 0 &&
          IsRowVisible( contentY, contentH, scrolledY + SOUND_SAMPLE_ACTION_Y, SOUND_SAMPLE_BUTTON_H ) )
@@ -795,13 +877,16 @@ void Draw( UISoundTabState& state,
                   data.soundSetCount > 0 ? state.selectedSetIndex + 1 : 0,
                   data.soundSetCount,
                   set ? set->name : "No sets loaded" );
-        draw.Text( state.previousSetButton.x + UI_PIPELINE_STEP_BUTTON_W * 2.0f + UI_PIPELINE_STEP_BUTTON_GAP * 2.0f,
-                   scrolledY + SOUND_SET_PICKER_Y + 5.0f,
-                   11.0f,
-                   0.84f,
-                   0.92f,
-                   0.94f,
-                   buf );
+        const float textMaxW = (std::max)( 0.0f, state.previousSetButton.x - contentX - 12.0f );
+        DrawFittedPickerText( draw,
+                              contentX,
+                              scrolledY + SOUND_SET_PICKER_Y + 5.0f,
+                              11.0f,
+                              0.84f,
+                              0.92f,
+                              0.94f,
+                              buf,
+                              textMaxW );
     }
 
     if ( !set )

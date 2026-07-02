@@ -667,6 +667,25 @@ void Run::AfterPhysicsStep()
         }
 
         m_contactAudio.EndPhysicsStep();
+        if ( m_runtimeSettings.contactAudioFlashOnSubmit )
+        {
+            // Why: submitted contacts have already survived rolling, cooldown,
+            // distance, and voice-cap rejection, so the flash matches audible
+            // impacts instead of raw solver contacts.
+            constexpr float CONTACT_AUDIO_FLASH_SECONDS = 0.1f;
+            const int submittedCount = m_contactAudio.SubmittedContactCount();
+            for ( int i = 0; i < submittedCount; ++i )
+            {
+                Runtime::Audio::ContactAudioEvent submitted;
+                if ( !m_contactAudio.GetSubmittedContact( i, submitted ) )
+                {
+                    continue;
+                }
+
+                m_cGameModelCollection.NotifyAudioContact( submitted.bodyA, CONTACT_AUDIO_FLASH_SECONDS );
+                m_cGameModelCollection.NotifyAudioContact( submitted.bodyB, CONTACT_AUDIO_FLASH_SECONDS );
+            }
+        }
         if ( m_runtimeSettings.contactAudioDebugCounters )
         {
             m_timers.contactAudioStatsLogTime += PHYSICS_FIXED_DT;

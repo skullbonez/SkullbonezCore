@@ -159,6 +159,7 @@ class GameModelCollection : public Rendering::IRenderSceneView,
     Physics::PhysicsBodyEventSink& BodyEvents() override;
     Physics::PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const override;
     void NotifyFixedContact( int modelIndex, float highlightSeconds ) override;
+    void NotifyAudioContact( int modelIndex, float highlightSeconds );
     void ReleaseAttachedFixedTreeParts( const Physics::PhysicsFixedTreeReleaseEvent& event ) override;
     void ReleaseAttachedFixedTreeParts( int sourceIndex,
                                         const Math::Vector::Vector3& seedLinearVelocity,

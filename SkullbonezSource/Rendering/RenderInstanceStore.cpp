@@ -14,6 +14,8 @@ Glossary:
   Material intent: Engine-level material choice before a renderer maps it to
     shaders, textures, or descriptor rows.
   Replay body id: Stable per-scene id shared with physics/replay records.
+  Contact highlight: Render-only feedback alpha copied from GameModel after
+    gameplay/physics presentation state has advanced.
 
 Invariants:
   - Records stay in GameModelCollection model order and compatibility handles
@@ -70,6 +72,7 @@ void RenderInstanceStore::Refresh( std::vector<GameModel>& models )
         record.material = model.GetRenderMaterial();
         record.isFixed = model.IsFixed();
         record.fixedContactAlpha = model.GetFixedContactHighlightAlpha();
+        record.audioContactAlpha = model.GetAudioContactHighlightAlpha();
         m_modelInstanceHandles[i] = record.handle;
     }
 }
@@ -95,6 +98,7 @@ void RenderInstanceStore::Refresh( SkullbonezCore::Physics::PhysicsModelAccess& 
         record.material = model.GetRenderMaterial();
         record.isFixed = model.IsFixed();
         record.fixedContactAlpha = model.GetFixedContactHighlightAlpha();
+        record.audioContactAlpha = model.GetAudioContactHighlightAlpha();
         m_modelInstanceHandles[static_cast<std::size_t>( i )] = record.handle;
     }
 }

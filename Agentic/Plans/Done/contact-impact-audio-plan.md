@@ -1,7 +1,7 @@
 # Contact Impact Audio Plan And Progress
 
 Date: 2026-07-02
-Status: Plan complete; rolling-suppression and sample-browser follow-up in progress
+Status: Plan complete; Sound-tab flash/text follow-up validated
 Impact areas: runtime, physics contact diagnostics/events, scene/assets, audio, project configuration, validation
 Validation for this plan edit: Documentation/progress update only after continuation validation passed.
 
@@ -259,12 +259,15 @@ Audio is presentation only:
 - [x] Add optional light/medium/heavy impulse bands.
 - [x] Add dedicated earth/dirt samples instead of falling back to default/stone.
 - [x] Follow-up: replace broad/material placeholder sounds with a generic CC0 thud library and a single active default thwack sample.
+- [x] Follow-up: make `impact_thud_thwack_02.ogg` the active default impact sample.
 
 ### Phase 5 - UI, Diagnostics, And Tooling
 
 - [x] Add a small diagnostic counter set: events seen, events rejected by threshold, rejected by cooldown, submitted, voices dropped.
 - [x] Add optional UI/config controls for enable, master gain, max distance, and debug counters.
 - [x] Add Sound-tab sample browsing with Play and Use actions for decoded contact-audio samples.
+- [x] Add Sound-tab `Flash emitters` toggle for visible white contact-audio feedback.
+- [x] Bound Sound-tab sample and material-set picker labels so long sound names cannot draw past the selector area.
 - [x] Add startup console summary when the contact audio map loads.
 - [x] Add CLI opt-out for validation/headless launches.
 
@@ -284,6 +287,10 @@ Audio is presentation only:
 - [x] Follow-up targeted build: `tools\validate_build.bat Profile` passed in 8.4 seconds with 0 warnings / 0 errors after scoped formatting.
 - [x] Follow-up direct smoke: `Profile\SKULLBONEZ_CORE.exe --contact-audio-smoke` exited 0 in 1.3 seconds and loaded 1 sound set / 38 samples with submittedVoices=1.
 - [x] Follow-up final PR gate: `tools\validate_full.bat` passed in 38.6 seconds. DX12 InfoQueue reported 0 validation errors, DX12 screenshots matched committed baselines, and `physics_regression_solver.csv` matched byte-exactly.
+- [x] Sound-tab visual follow-up: inspected `TestOutput\contact_audio_sound_tab.png` and `TestOutput\contact_audio_sound_tab_tall.png`; sample and material-set picker labels no longer overrun their row.
+- [x] Sound-tab visual validation: `tools\validate_ui.bat` passed in 23.0 seconds. DX12 InfoQueue reported 0 validation errors, window containment reported 0 outside-window pixels, and UI screenshots passed.
+- [x] Tool/source follow-up validation: `tools\validate_fast.bat` passed in 18.8 seconds with format, project filters, runtime boundaries, and ready-build checks clean.
+- [x] Sound-tab flash final PR gate: `tools\validate_full.bat` passed in about 30 seconds. DX12 InfoQueue reported 0 validation errors, DX12 screenshots matched committed baselines, and `physics_regression_solver.csv` matched byte-exactly.
 
 ## Likely Files
 
@@ -307,6 +314,8 @@ Audio is presentation only:
 - [x] Existing asset material modes/kinds infer contact material. Bare generated/demo objects and legacy scene objects default to `default` unless authored otherwise.
 - [x] Enable/master-gain/max-distance/debug-counter controls are config-backed through `engine.cfg` instead of a new in-game panel for this slice.
 - [x] Rolling contacts are suppressed by treating an uninterrupted body pair as one continuing support contact unless it separates briefly or receives a strong impulse spike.
+- [x] Sound-emitter flash uses submitted contacts only, so rolling, threshold, cooldown, distance, and voice-cap rejects do not flash.
+- [x] White audio feedback uses a shader-side final-color blend through `material3.w`; it does not depend on base-color tint or material mode.
 
 ## Progress Ledger
 
@@ -334,6 +343,11 @@ Audio is presentation only:
 - [x] 2026-07-02: Added rolling-contact suppression so steady ball-ground contact does not replay every cooldown window.
 - [x] 2026-07-02: Added Sound-tab sample browsing, preview, and runtime sample assignment.
 - [x] 2026-07-02: Passed follow-up format, Profile build, contact-audio smoke, project-filter check, and `tools\validate_full.bat`.
+- [x] 2026-07-02: Set `impact_thud_thwack_02.ogg` as the default selected impact sample and the default active material-map sample.
+- [x] 2026-07-02: Added `Flash emitters` Sound-tab toggle, submitted-contact tracking, 100ms white object flash, and shader-side final-color blend.
+- [x] 2026-07-02: Fixed Sound-tab selector label overruns with measured ellipsis clipping before the right-side selector buttons.
+- [x] 2026-07-02: Updated UI scene tab parsing for the inserted Sound tab and adjusted UI screenshot validation to ignore runner status HUD outside the window under test.
+- [x] 2026-07-02: Passed `tools\validate_ui.bat`, `tools\validate_fast.bat`, and `tools\validate_full.bat` for the Sound-tab flash/text follow-up.
 - [x] Phase 0 complete.
 - [x] Phase 1 complete.
 - [x] Phase 2 complete.

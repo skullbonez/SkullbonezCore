@@ -189,6 +189,7 @@ struct InGameUIFrameData
     bool contactAudioEnabled = false;
     bool contactAudioAvailable = false;
     bool contactAudioDebugCounters = false;
+    bool contactAudioFlashOnSubmit = false;
     float contactAudioMasterGain = 0.0f;
     float contactAudioMaxDistanceScale = 1.0f;
     uint32_t contactAudioEventsSeen = 0;

@@ -15,8 +15,10 @@ Glossary:
   layout and shader stages.
   Material table: Fixed t4 texture that stores default material response values
   by material kind.
-  Material payload: Three per-instance float4 rows named material0, material1,
-  and material2.
+  Material payload: Four per-instance float4 rows named material0 through
+  material3.
+  Contact flash alpha: material3.w blend that pushes the final lit color toward
+  white for short render-only feedback.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -100,7 +102,7 @@ struct VS_IN
     float4 material0 : TEXCOORD5; // base rgb + legacy mode bridge
     float4 material1 : TEXCOORD6; // roughness, metallic, specular, emissive strength
     float4 material2 : TEXCOORD7; // emissive rgb + material-table row
-    float4 material3 : TEXCOORD8; // alpha, transmission, flags, pad
+    float4 material3 : TEXCOORD8; // alpha, transmission, flags, contact flash
 };
 
 struct VS_OUT
@@ -537,6 +539,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 
     float3 materialColor = input.material0.rgb;
     float materialAlpha = saturate(uMaterialAlpha * input.material3.x);
+    float contactFlash = saturate(input.material3.w);
     if (materialMode == 0)
     {
         float3 proceduralColor = uPrimitiveShape == 1 ? ProceduralBeachBallColorFromSphereDir(input.localDir)
@@ -565,10 +568,13 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         float3 styled = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, glint, input.texCoord);
         styled *= shadowFactor;
         float3 beachBall = warmAmbient + directSun + rimLight + specularSun;
-        return float4((materialMode == 0 ? beachBall : styled + rimLight * 0.35f) + emissive, materialAlpha);
+        float3 color = (materialMode == 0 ? beachBall : styled + rimLight * 0.35f) + emissive;
+        color = lerp(color, float3(1.0f, 1.0f, 1.0f), contactFlash);
+        return float4(color, materialAlpha);
     }
 
     float shadowFactor = ShadowVisibility(SphereShadowReceiverWorldPos(input.worldPos, input.sphereShadowInfo), N, L);
     float3 litColor = OrdinaryMaterialBRDF(materialColor, emissive, roughness, metallic, materialSpecular, worldN, N, V, L, shadowFactor);
+    litColor = lerp(litColor, float3(1.0f, 1.0f, 1.0f), contactFlash);
     return float4(litColor, materialAlpha);
 }

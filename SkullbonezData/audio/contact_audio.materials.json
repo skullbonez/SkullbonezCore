@@ -56,7 +56,7 @@
       "pitchMax": 1.04,
       "maxVoices": 8,
       "samples": [
-        "SkullbonezData/audio/impacts/impact_thud_thwack_04.ogg"
+        "SkullbonezData/audio/impacts/impact_thud_thwack_02.ogg"
       ],
       "bands": [
         { "name": "light", "minImpulse": 0.30, "impulseRange": 3.0, "baseGain": 0.38, "pitchMin": 0.98, "pitchMax": 1.06 },

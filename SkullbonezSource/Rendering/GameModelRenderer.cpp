@@ -13,6 +13,8 @@ Glossary:
   Back buffer: Swap-chain image that will be presented to the window.
   Convex hull: Immutable authored collision geometry rendered through dynamic
     hull vertices instead of the sphere or box instance streams.
+  Contact-audio flash: Short render-only white tint applied after a contact
+    sound actually submits, independent of physics state.
 
 Invariants:
   - GameModelRenderer consumes collection render streams; GameModelCollection
@@ -61,31 +63,41 @@ bool IsPineVisualMaterial( const RenderMaterial& material )
              static_cast<int>( std::floor( material.textureMode + 0.5f ) ) == PINE_VISUAL_MATERIAL_MODE );
 }
 
-RenderMaterial MaterialWithFixedContactHighlight( const GameModel& model, bool box )
+RenderMaterial MaterialWithContactHighlights( const GameModel& model, bool applyFixedHighlight, bool box )
 {
-    // Why: fixed-contact highlights are render-only feedback. They must not
-    // mutate the model's stored material or physics release policy.
+    // Why: contact highlights are render-only feedback. They must not mutate
+    // the model's stored material, physics release policy, or audio decisions.
     RenderMaterial material = model.GetRenderMaterial();
-    const float hit = model.GetFixedContactHighlightAlpha();
-    if ( hit <= 0.0f )
+    const float hit = applyFixedHighlight ? model.GetFixedContactHighlightAlpha() : 0.0f;
+    if ( hit > 0.0f )
+    {
+        if ( box && material.textureMode <= 0.5f && material.textureMode >= -0.5f )
+        {
+            constexpr float fixedBase = 241.0f / 255.0f;
+            material.baseColor[0] = fixedBase + ( 1.0f - fixedBase ) * hit;
+            material.baseColor[1] = fixedBase * ( 1.0f - hit );
+            material.baseColor[2] = fixedBase * ( 1.0f - hit );
+            material.kind = RenderMaterialKind::Matte;
+            material.textureMode = 1.0f;
+        }
+        else
+        {
+            material.baseColor[0] = material.baseColor[0] + ( 1.0f - material.baseColor[0] ) * hit;
+            material.baseColor[1] = material.baseColor[1] * ( 1.0f - hit );
+            material.baseColor[2] = material.baseColor[2] * ( 1.0f - hit );
+        }
+    }
+
+    const float audioHit = model.GetAudioContactHighlightAlpha();
+    if ( audioHit <= 0.0f )
     {
         return material;
     }
 
-    if ( box && material.textureMode <= 0.5f && material.textureMode >= -0.5f )
-    {
-        constexpr float fixedBase = 241.0f / 255.0f;
-        material.baseColor[0] = fixedBase + ( 1.0f - fixedBase ) * hit;
-        material.baseColor[1] = fixedBase * ( 1.0f - hit );
-        material.baseColor[2] = fixedBase * ( 1.0f - hit );
-        material.kind = RenderMaterialKind::Matte;
-        material.textureMode = 1.0f;
-        return material;
-    }
-
-    material.baseColor[0] = material.baseColor[0] + ( 1.0f - material.baseColor[0] ) * hit;
-    material.baseColor[1] = material.baseColor[1] * ( 1.0f - hit );
-    material.baseColor[2] = material.baseColor[2] * ( 1.0f - hit );
+    // Concept: audio flash is a shader-side final-color blend, not a texture or
+    // material-mode replacement. That makes the object visibly white for the
+    // 100ms timer and then fades back to its normal material branch.
+    material.contactFlashAlpha = (std::max)( material.contactFlashAlpha, audioHit );
     return material;
 }
 } // namespace
@@ -143,9 +155,7 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
             }
             if ( models[x].IsSphere() )
             {
-                RenderMaterial material = renderStream.isFixed[x]
-                                              ? MaterialWithFixedContactHighlight( models[x], false )
-                                              : models[x].GetRenderMaterial();
+                RenderMaterial material = MaterialWithContactHighlights( models[x], renderStream.isFixed[x], false );
                 RenderHelper::DrawSphereBatchModel( renderStream.modelMatrices[x], material );
             }
         }
@@ -163,8 +173,7 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
             }
             if ( renderStream.isBox[x] )
             {
-                RenderMaterial material = renderStream.isFixed[x] ? MaterialWithFixedContactHighlight( models[x], true )
-                                                                  : models[x].GetRenderMaterial();
+                RenderMaterial material = MaterialWithContactHighlights( models[x], renderStream.isFixed[x], true );
                 const bool isPineVisual = IsPineVisualMaterial( material );
                 if ( isPineVisual )
                 {
@@ -234,9 +243,7 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
 
             const Matrix4 bodyModel =
                 Matrix4::Translate( models[x].GetPosition() ) * Matrix4::FromQuaternion( models[x].GetOrientation() );
-            const RenderMaterial material = renderStream.isFixed[x]
-                                                ? MaterialWithFixedContactHighlight( models[x], false )
-                                                : models[x].GetRenderMaterial();
+            const RenderMaterial material = MaterialWithContactHighlights( models[x], renderStream.isFixed[x], false );
             RenderHelper::DrawConvexHullModel( *hull,
                                                bodyModel,
                                                material,

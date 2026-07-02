@@ -12,6 +12,8 @@ Glossary:
   Sound set: Material-pair impact recipe loaded from contact_audio.materials.json.
   Impact band: Light/medium/heavy impulse tier inside a sound set.
   Sample library: Decoded candidate sounds exposed for preview and assignment.
+  Sound-emitter flash: Optional white marker on bodies whose contact sound
+    actually submitted after rejection policy.
   Cooldown: Per-body-pair timeout that keeps persistent contacts from replaying
     every physics tick.
 
@@ -50,6 +52,7 @@ struct UISoundTabState
 {
     UICheckBox enabledToggle;
     UICheckBox debugCountersToggle;
+    UICheckBox flashOnSubmitToggle;
     UIRect previousSetButton;
     UIRect nextSetButton;
     UIRect previousSampleButton;
@@ -65,7 +68,7 @@ struct UISoundTabState
     float previewSetValues[SOUND_SET_SLIDER_COUNT];
     float previewBandValues[SOUND_UI_BAND_MAX][SOUND_BAND_SLIDER_COUNT];
     int selectedSetIndex = 0;
-    int selectedSampleIndex = 0;
+    int selectedSampleIndex = 1;
     int lastSetCount = 0;
     int lastSampleCount = 0;
     int lastBandCount = 0;

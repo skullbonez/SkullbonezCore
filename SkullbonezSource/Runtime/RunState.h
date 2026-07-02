@@ -87,6 +87,7 @@ struct RunRuntimeSettings
     bool isPhysicsSleepEnabled =
         true;                                                  // Live Catto sleep policy; false keeps bodies awake while leaving collision/solving active
     bool contactAudioDebugCounters = false;                    // Live optional contact-audio counter logging toggle.
+    bool contactAudioFlashOnSubmit = false;                    // Render-only white flash for contacts that actually submitted audio.
     Physics::TornadoFieldConfig tornadoField;                  // Live vortex force/debug vector field controlled by CLI/UI
     Physics::TornadoSystemConfig tornadoSystem;                // Scene-authored multi-vortex schedule and motion.
     TornadoVisualSettings tornadoVisual;                       // Render-only tornado art tuning outside deterministic physics state.

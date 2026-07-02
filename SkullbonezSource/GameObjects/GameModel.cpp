@@ -17,6 +17,8 @@ Glossary:
   without storing per-frame dynamic data.
   Righting torque: Corrective spin produced by buoyancy so long bodies settle on
   a side and broad flat bodies settle like rafts.
+  Audio contact highlight: Short render-only flash that marks objects that
+  actually emitted contact audio.
   OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
   collision tests.
   CCD (Continuous Collision Detection): Swept collision test that asks whether
@@ -57,6 +59,28 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
 namespace Rendering = SkullbonezCore::Rendering;
+
+namespace
+{
+float HighlightAlpha( float seconds, float fadeSeconds )
+{
+    if ( fadeSeconds <= 0.0f )
+    {
+        return 0.0f;
+    }
+    return std::clamp( seconds / fadeSeconds, 0.0f, 1.0f );
+}
+
+void TickHighlightSeconds( float& seconds, float dt )
+{
+    if ( seconds <= 0.0f || dt <= 0.0f )
+    {
+        return;
+    }
+
+    seconds = (std::max)( 0.0f, seconds - dt );
+}
+} // namespace
 
 // GameModel is the per-object physics bridge:
 //   - RigidBody stores motion state such as position, velocity, spin, and mass.
@@ -104,6 +128,7 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_projectedSurfaceArea = 0.0f;
     m_dragCoefficient = 0.0f;
     m_fixedContactHighlightSeconds = 0.0f;
+    m_audioContactHighlightSeconds = 0.0f;
     m_renderTintR = 1.0f;
     m_renderTintG = 1.0f;
     m_renderTintB = 1.0f;
@@ -247,34 +272,33 @@ void GameModel::NotifyFixedContact( float highlightSeconds )
 }
 
 
+void GameModel::NotifyAudioContact( float highlightSeconds )
+{
+    if ( highlightSeconds > m_audioContactHighlightSeconds )
+    {
+        m_audioContactHighlightSeconds = highlightSeconds;
+    }
+}
+
+
 void GameModel::TickFixedContactHighlight( float dt )
 {
-    if ( m_fixedContactHighlightSeconds <= 0.0f || dt <= 0.0f )
-    {
-        return;
-    }
-
-    m_fixedContactHighlightSeconds -= dt;
-    if ( m_fixedContactHighlightSeconds < 0.0f )
-    {
-        m_fixedContactHighlightSeconds = 0.0f;
-    }
+    TickHighlightSeconds( m_fixedContactHighlightSeconds, dt );
+    TickHighlightSeconds( m_audioContactHighlightSeconds, dt );
 }
 
 
 float GameModel::GetFixedContactHighlightAlpha() const
 {
     static constexpr float FADE_SECONDS = 0.5f;
-    float alpha = m_fixedContactHighlightSeconds / FADE_SECONDS;
-    if ( alpha < 0.0f )
-    {
-        return 0.0f;
-    }
-    if ( alpha > 1.0f )
-    {
-        return 1.0f;
-    }
-    return alpha;
+    return HighlightAlpha( m_fixedContactHighlightSeconds, FADE_SECONDS );
+}
+
+
+float GameModel::GetAudioContactHighlightAlpha() const
+{
+    static constexpr float FADE_SECONDS = 0.1f;
+    return HighlightAlpha( m_audioContactHighlightSeconds, FADE_SECONDS );
 }
 
 

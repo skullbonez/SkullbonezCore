@@ -205,6 +205,7 @@ struct ContactAudioService::Impl
     std::vector<DecodedSound> sounds;
     std::vector<SoundSet> sets;
     std::vector<StepCandidate> stepCandidates;
+    std::vector<ContactAudioEvent> submittedContacts;
     std::vector<CooldownEntry> cooldowns;
     Vector3 listenerPosition = Math::Vector::ZERO_VECTOR;
     ContactAudioStats stats;
@@ -220,6 +221,7 @@ struct ContactAudioService::Impl
         sounds.reserve( 32 );
         sets.reserve( 16 );
         stepCandidates.reserve( MAX_STEP_CANDIDATES );
+        submittedContacts.reserve( MAX_STEP_CANDIDATES );
         cooldowns.reserve( MAX_COOLDOWN_ENTRIES );
     }
 
@@ -266,6 +268,7 @@ struct ContactAudioService::Impl
         sounds.clear();
         sets.clear();
         stepCandidates.clear();
+        submittedContacts.clear();
         cooldowns.clear();
         if ( masterVoice )
         {
@@ -821,6 +824,12 @@ struct ContactAudioService::Impl
         if ( SubmitDecodedSound( soundIndex, gain, pitch, set->maxVoices ) )
         {
             ++stats.submittedVoices;
+            // Lifetime: Run reads this copied event immediately after
+            // EndPhysicsStep(); no GameModel or solver storage is borrowed.
+            if ( submittedContacts.size() < MAX_STEP_CANDIDATES )
+            {
+                submittedContacts.push_back( event );
+            }
             if ( cooldown )
             {
                 const float cooldownSeconds =
@@ -971,6 +980,7 @@ void ContactAudioService::BeginPhysicsStep( float deltaSeconds, const Vector3& l
     m_impl->timeSeconds += (std::max)( 0.0f, deltaSeconds );
     m_impl->listenerPosition = listenerPosition;
     m_impl->stepCandidates.clear();
+    m_impl->submittedContacts.clear();
 }
 
 
@@ -988,6 +998,7 @@ void ContactAudioService::EndPhysicsStep()
     if ( !m_impl->enabled )
     {
         m_impl->stepCandidates.clear();
+        m_impl->submittedContacts.clear();
         return;
     }
     for ( const Impl::StepCandidate& candidate : m_impl->stepCandidates )
@@ -995,6 +1006,24 @@ void ContactAudioService::EndPhysicsStep()
         m_impl->PlayCandidate( candidate );
     }
     m_impl->stepCandidates.clear();
+}
+
+
+int ContactAudioService::SubmittedContactCount() const
+{
+    return static_cast<int>( m_impl->submittedContacts.size() );
+}
+
+
+bool ContactAudioService::GetSubmittedContact( int index, ContactAudioEvent& out ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_impl->submittedContacts.size() ) )
+    {
+        return false;
+    }
+
+    out = m_impl->submittedContacts[static_cast<std::size_t>( index )];
+    return true;
 }
 
 

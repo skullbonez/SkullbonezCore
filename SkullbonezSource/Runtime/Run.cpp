@@ -201,6 +201,7 @@ void Run::RefreshRuntimeViewModel()
     audio.enabled = m_contactAudio.IsEnabled();
     audio.available = m_contactAudio.IsAvailable();
     audio.debugCounters = m_runtimeSettings.contactAudioDebugCounters;
+    audio.flashOnSubmit = m_runtimeSettings.contactAudioFlashOnSubmit;
     audio.masterGain = m_contactAudio.MasterGain();
     audio.maxDistanceScale = m_contactAudio.MaxDistanceScale();
     audio.stats = m_contactAudio.Stats();

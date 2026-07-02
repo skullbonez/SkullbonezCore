@@ -615,6 +615,17 @@ void GameModelCollection::NotifyFixedContact( int modelIndex, float highlightSec
 }
 
 
+void GameModelCollection::NotifyAudioContact( int modelIndex, float highlightSeconds )
+{
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_gameModels.size() ) )
+    {
+        return;
+    }
+
+    m_gameModels[static_cast<size_t>( modelIndex )].NotifyAudioContact( highlightSeconds );
+}
+
+
 void GameModelCollection::ReleaseAttachedFixedTreeParts(
     const SkullbonezCore::Physics::PhysicsFixedTreeReleaseEvent& event )
 {

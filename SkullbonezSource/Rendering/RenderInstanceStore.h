@@ -14,6 +14,8 @@ Glossary:
     material intent.
   Material intent: Renderer-neutral description of surface style and texture
     selection.
+  Contact highlight: Render-only feedback alpha for red fixed-body hits or
+    white contact-audio flashes.
   RenderSceneSnapshot: Future immutable frame input consumed by render passes.
   Replay body id: Stable per-scene id shared with physics/replay records.
 
@@ -88,6 +90,7 @@ struct RenderInstanceRecord
     RenderMaterial material;                                  // Backend-neutral material intent.
     bool isFixed = false;                                     // Fixed bodies can receive contact-highlight tinting.
     float fixedContactAlpha = 0.0f;                           // Render-only red contact feedback strength.
+    float audioContactAlpha = 0.0f;                           // Render-only white audio-emitter feedback strength.
 };
 
 class RenderInstanceStore

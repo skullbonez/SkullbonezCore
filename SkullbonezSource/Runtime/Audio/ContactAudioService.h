@@ -18,6 +18,8 @@ Glossary:
   Sound set: Material-pair tuning plus one or more decoded sample buffers.
   Sample library: Decoded candidate sounds that the Sound tab can preview and
     assign to a sound set at runtime.
+  Submitted contact: A contact event that passed threshold/cooldown/distance
+    policy and actually submitted a voice to XAudio2.
   Rolling/support contact: A body pair that remains touching across physics
     steps and should not be treated as a new impact each cooldown window.
 
@@ -162,6 +164,8 @@ class ContactAudioService
     void BeginPhysicsStep( float deltaSeconds, const Math::Vector::Vector3& listenerPosition );
     void SubmitContact( const ContactAudioEvent& event );
     void EndPhysicsStep();
+    int SubmittedContactCount() const;
+    bool GetSubmittedContact( int index, ContactAudioEvent& out ) const;
     bool PlaySmokeImpact( uint32_t materialId, float normalImpulse );
 
     const ContactAudioStats& Stats() const;
