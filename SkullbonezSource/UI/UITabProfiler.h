@@ -53,9 +53,10 @@ struct TimelineSegment
 
 struct PerformanceHistogramSample
 {
-    float primaryMs = 0.0f;
+    float markerMs[MAX_MARKERS + 1] = {};      // Per cached profiler option slot, in milliseconds.
+    float markerSpikeMs[MAX_MARKERS + 1] = {}; // Non-zero when that slot owns a spike label for this sample.
     float secondaryMs = 0.0f;
-    float spikeMs = 0.0f;
+    bool hasMarker[MAX_MARKERS + 1] = {};      // Guards sparse slots when markers are toggled or unavailable.
     bool hasSecondary = false;
 };
 
@@ -75,11 +76,8 @@ struct UIProfilerTabState
     int histogramCount = 0;
     float histogramAxisMs = 33.3f;                       // Default F5 frame-total CPU scale: 0..33.3ms.
     double histogramAverageTextLastUpdateSeconds = -1.0; // Runtime seconds; -1 = footer average not latched yet.
-    float histogramAverageCpuMs = 0.0f;                  // Latched footer value refreshed on a 0.5s cadence.
+    float histogramAverageCpuMs = 0.0f;                  // Latched selected-marker footer average refreshed on a 0.5s cadence.
     float histogramAverageWorkerMs = 0.0f;               // Latched worker-core footer average for Frame Total.
-    uint32_t histogramSelectedMarkerHash = 0u;
-    bool histogramSelectedFrameTotal = true;
-    char histogramSelectedMarkerName[96] = "Frame Total";
     bool histogramPanelInitialized = false;
     float histogramPanelX = 16.0f;
     float histogramPanelY = 16.0f;
@@ -97,7 +95,9 @@ struct UIProfilerTabState
     int histogramSelectorScroll = 0;
     uint32_t histogramOptionHashes[MAX_MARKERS + 1] = {};
     bool histogramOptionFrameTotals[MAX_MARKERS + 1] = {};
+    bool histogramOptionSelected[MAX_MARKERS + 1] = {};
     int histogramOptionCount = 0;
+    bool histogramSelectionInitialized = false;
     UICheckBox workerToggle;
     UISlider workerThreadSlider;
     int previewWorkerThreads = -1;

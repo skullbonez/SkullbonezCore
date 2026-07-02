@@ -378,21 +378,58 @@ constexpr float HISTOGRAM_HEADER_H = 28.0f;
 constexpr float HISTOGRAM_SELECTOR_H = 24.0f;
 constexpr float HISTOGRAM_RESIZE_HOTSPOT = 22.0f;
 constexpr float HISTOGRAM_DROPDOWN_ROW_H = 22.0f;
+constexpr float HISTOGRAM_DROPDOWN_FOOTER_H = 16.0f;
 constexpr int HISTOGRAM_DROPDOWN_VISIBLE_ROWS = 8;
 constexpr float HISTOGRAM_SAMPLE_CLAMP_MS = 250.0f;
 constexpr float HISTOGRAM_FRAME_CPU_BUDGET_MS = 16.7f;
 constexpr float HISTOGRAM_FRAME_CPU_DEFAULT_AXIS_MS = 33.3f;
 constexpr float HISTOGRAM_MARKER_DEFAULT_AXIS_MS = 16.67f;
 constexpr double HISTOGRAM_AVERAGE_TEXT_REFRESH_SECONDS = 0.5;
+constexpr int HISTOGRAM_OPTION_CAPACITY = SkullbonezCore::UI::ProfilerTab::MAX_MARKERS + 1;
+
+bool HistogramOptionKeyMatches( uint32_t hash, bool frameTotal, uint32_t candidateHash, bool candidateFrameTotal )
+{
+    return frameTotal == candidateFrameTotal && ( frameTotal || hash == candidateHash );
+}
+
+bool HistogramMainSelected( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
+{
+    for ( int i = 0; i < state.histogramOptionCount; ++i )
+    {
+        if ( state.histogramOptionFrameTotals[i] && state.histogramOptionSelected[i] )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+int HistogramSelectedOptionCount( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
+{
+    int count = 0;
+    for ( int i = 0; i < state.histogramOptionCount; ++i )
+    {
+        if ( state.histogramOptionSelected[i] )
+        {
+            ++count;
+        }
+    }
+    return count;
+}
+
+bool HistogramAnyOptionSelected( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
+{
+    return HistogramSelectedOptionCount( state ) > 0;
+}
 
 float HistogramInitialAxisMs( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
 {
-    return state.histogramSelectedFrameTotal ? HISTOGRAM_FRAME_CPU_DEFAULT_AXIS_MS : HISTOGRAM_MARKER_DEFAULT_AXIS_MS;
+    return HistogramMainSelected( state ) ? HISTOGRAM_FRAME_CPU_DEFAULT_AXIS_MS : HISTOGRAM_MARKER_DEFAULT_AXIS_MS;
 }
 
 float HistogramMinimumAxisMs( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
 {
-    return state.histogramSelectedFrameTotal ? HISTOGRAM_FRAME_CPU_DEFAULT_AXIS_MS : 0.25f;
+    return HistogramMainSelected( state ) ? HISTOGRAM_FRAME_CPU_DEFAULT_AXIS_MS : 0.25f;
 }
 
 void ClearHistogramSamples( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
@@ -409,57 +446,6 @@ void ClearHistogramSamples( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
     }
 }
 
-void CopyHistogramSelectedName( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, const char* name )
-{
-    snprintf( state.histogramSelectedMarkerName,
-              sizeof( state.histogramSelectedMarkerName ),
-              "%s",
-              name && name[0] != '\0' ? name : "Frame Total" );
-}
-
-bool HistogramOptionMatchesState( const SkullbonezCore::UI::UIProfilerMarkerOption& option,
-                                  const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
-{
-    return option.isFrameTotal == state.histogramSelectedFrameTotal &&
-           ( option.isFrameTotal || option.hash == state.histogramSelectedMarkerHash );
-}
-
-void SetHistogramSelection( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
-                            const SkullbonezCore::UI::UIProfilerMarkerOption& option )
-{
-    if ( HistogramOptionMatchesState( option, state ) )
-    {
-        CopyHistogramSelectedName( state, option.name );
-        return;
-    }
-
-    state.histogramSelectedFrameTotal = option.isFrameTotal;
-    state.histogramSelectedMarkerHash = option.hash;
-    CopyHistogramSelectedName( state, option.name );
-    ClearHistogramSamples( state );
-}
-
-void SetHistogramSelectionFromCache( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, int optionIndex )
-{
-    if ( optionIndex < 0 || optionIndex >= state.histogramOptionCount )
-    {
-        return;
-    }
-
-    const bool frameTotal = state.histogramOptionFrameTotals[optionIndex];
-    const uint32_t hash = state.histogramOptionHashes[optionIndex];
-    if ( state.histogramSelectedFrameTotal == frameTotal &&
-         ( frameTotal || state.histogramSelectedMarkerHash == hash ) )
-    {
-        return;
-    }
-
-    state.histogramSelectedFrameTotal = frameTotal;
-    state.histogramSelectedMarkerHash = hash;
-    CopyHistogramSelectedName( state, frameTotal ? "Frame Total" : "Marker" );
-    ClearHistogramSamples( state );
-}
-
 int HistogramVisibleDropdownRows( int optionCount )
 {
     return std::clamp( optionCount, 0, HISTOGRAM_DROPDOWN_VISIBLE_ROWS );
@@ -474,14 +460,23 @@ int FindCachedHistogramSelectionIndex( const SkullbonezCore::UI::ProfilerTab::UI
 {
     for ( int i = 0; i < state.histogramOptionCount; ++i )
     {
-        if ( state.histogramOptionFrameTotals[i] == state.histogramSelectedFrameTotal &&
-             ( state.histogramOptionFrameTotals[i] ||
-               state.histogramOptionHashes[i] == state.histogramSelectedMarkerHash ) )
+        if ( state.histogramOptionSelected[i] )
         {
             return i;
         }
     }
     return 0;
+}
+
+void ToggleHistogramSelectionFromCache( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, int optionIndex )
+{
+    if ( optionIndex < 0 || optionIndex >= state.histogramOptionCount )
+    {
+        return;
+    }
+
+    state.histogramOptionSelected[optionIndex] = !state.histogramOptionSelected[optionIndex];
+    ClearHistogramSamples( state );
 }
 
 void ClampHistogramPanelToScreen( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state, int screenW, int screenH )
@@ -556,7 +551,8 @@ SkullbonezCore::UI::UIRect HistogramDropdownBounds( const SkullbonezCore::UI::Pr
 {
     const SkullbonezCore::UI::UIRect selector = HistogramSelectorBounds( state );
     const int visibleRows = HistogramVisibleDropdownRows( state.histogramOptionCount );
-    const float dropdownH = 4.0f + static_cast<float>( visibleRows ) * HISTOGRAM_DROPDOWN_ROW_H;
+    const float footerH = state.histogramOptionCount > visibleRows ? HISTOGRAM_DROPDOWN_FOOTER_H : 0.0f;
+    const float dropdownH = 4.0f + static_cast<float>( visibleRows ) * HISTOGRAM_DROPDOWN_ROW_H + footerH;
     float dropdownY = selector.y + selector.h + 4.0f;
     if ( dropdownY + dropdownH > static_cast<float>( screenH ) - HISTOGRAM_PANEL_MARGIN )
     {
@@ -586,45 +582,133 @@ int HitHistogramDropdownOption( const SkullbonezCore::UI::ProfilerTab::UIProfile
     return optionIndex;
 }
 
+void RemapHistogramSamples( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
+                            const uint32_t* oldHashes,
+                            const bool* oldFrameTotals,
+                            int oldCount )
+{
+    if ( !oldHashes || !oldFrameTotals || oldCount <= 0 || state.histogramCount <= 0 )
+    {
+        return;
+    }
+
+    for ( int i = 0; i < state.histogramCount; ++i )
+    {
+        const int sampleIndex =
+            ( state.histogramHead - state.histogramCount + i + SkullbonezCore::UI::ProfilerTab::HISTOGRAM_SAMPLE_COUNT ) %
+            SkullbonezCore::UI::ProfilerTab::HISTOGRAM_SAMPLE_COUNT;
+        const SkullbonezCore::UI::ProfilerTab::PerformanceHistogramSample oldSample = state.histogramSamples[sampleIndex];
+        SkullbonezCore::UI::ProfilerTab::PerformanceHistogramSample remappedSample = {};
+        remappedSample.secondaryMs = oldSample.secondaryMs;
+        remappedSample.hasSecondary = oldSample.hasSecondary;
+
+        for ( int newIndex = 0; newIndex < state.histogramOptionCount; ++newIndex )
+        {
+            for ( int oldIndex = 0; oldIndex < oldCount; ++oldIndex )
+            {
+                if ( HistogramOptionKeyMatches( oldHashes[oldIndex],
+                                                oldFrameTotals[oldIndex],
+                                                state.histogramOptionHashes[newIndex],
+                                                state.histogramOptionFrameTotals[newIndex] ) )
+                {
+                    remappedSample.markerMs[newIndex] = oldSample.markerMs[oldIndex];
+                    remappedSample.markerSpikeMs[newIndex] = oldSample.markerSpikeMs[oldIndex];
+                    remappedSample.hasMarker[newIndex] = oldSample.hasMarker[oldIndex];
+                    break;
+                }
+            }
+        }
+        state.histogramSamples[sampleIndex] = remappedSample;
+    }
+}
+
 void CacheHistogramOptions( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
                             const SkullbonezCore::UI::InGameUIFrameData& data )
 {
-    state.histogramOptionCount =
-        std::clamp( data.profilerMarkerOptionCount, 0, SkullbonezCore::UI::UI_PROFILER_MARKER_OPTION_MAX );
+    uint32_t oldHashes[HISTOGRAM_OPTION_CAPACITY] = {};
+    bool oldFrameTotals[HISTOGRAM_OPTION_CAPACITY] = {};
+    bool oldSelected[HISTOGRAM_OPTION_CAPACITY] = {};
+    const int oldCount = state.histogramOptionCount;
+    for ( int i = 0; i < oldCount; ++i )
+    {
+        oldHashes[i] = state.histogramOptionHashes[i];
+        oldFrameTotals[i] = state.histogramOptionFrameTotals[i];
+        oldSelected[i] = state.histogramOptionSelected[i];
+    }
+
+    const bool defaultSelection = !state.histogramSelectionInitialized || oldCount <= 0;
+    state.histogramOptionCount = std::clamp( data.profilerMarkerOptionCount, 0, HISTOGRAM_OPTION_CAPACITY );
+    bool cacheChanged = oldCount != state.histogramOptionCount;
+    bool selectedAny = false;
     for ( int i = 0; i < state.histogramOptionCount; ++i )
     {
-        state.histogramOptionHashes[i] = data.profilerMarkerOptions[i].hash;
-        state.histogramOptionFrameTotals[i] = data.profilerMarkerOptions[i].isFrameTotal;
+        const SkullbonezCore::UI::UIProfilerMarkerOption& option = data.profilerMarkerOptions[i];
+        if ( !cacheChanged &&
+             !HistogramOptionKeyMatches( state.histogramOptionHashes[i],
+                                         state.histogramOptionFrameTotals[i],
+                                         option.hash,
+                                         option.isFrameTotal ) )
+        {
+            cacheChanged = true;
+        }
+
+        state.histogramOptionHashes[i] = option.hash;
+        state.histogramOptionFrameTotals[i] = option.isFrameTotal;
+        state.histogramOptionSelected[i] = false;
+        if ( defaultSelection )
+        {
+            state.histogramOptionSelected[i] = option.isFrameTotal;
+        }
+        else
+        {
+            for ( int oldIndex = 0; oldIndex < oldCount; ++oldIndex )
+            {
+                if ( oldSelected[oldIndex] &&
+                     HistogramOptionKeyMatches( oldHashes[oldIndex], oldFrameTotals[oldIndex], option.hash, option.isFrameTotal ) )
+                {
+                    state.histogramOptionSelected[i] = true;
+                    break;
+                }
+            }
+        }
+        selectedAny = selectedAny || state.histogramOptionSelected[i];
+    }
+
+    if ( defaultSelection && !selectedAny && state.histogramOptionCount > 0 )
+    {
+        state.histogramOptionSelected[0] = true;
+        selectedAny = true;
+    }
+    for ( int i = state.histogramOptionCount; i < HISTOGRAM_OPTION_CAPACITY; ++i )
+    {
+        state.histogramOptionHashes[i] = 0u;
+        state.histogramOptionFrameTotals[i] = false;
+        state.histogramOptionSelected[i] = false;
+    }
+    state.histogramSelectionInitialized = true;
+    if ( cacheChanged )
+    {
+        // Invariant: histogram samples are indexed by cached option slot. Scene
+        // startup can append or reorder marker options for several frames, so
+        // preserve history by moving old slots to their new key instead of
+        // clearing the ring.
+        RemapHistogramSamples( state, oldHashes, oldFrameTotals, oldCount );
     }
     state.histogramSelectorScroll = std::clamp( state.histogramSelectorScroll, 0, HistogramMaxScroll( state ) );
 }
 
-const SkullbonezCore::UI::UIProfilerMarkerOption*
-ResolveHistogramOption( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
-                        const SkullbonezCore::UI::InGameUIFrameData& data )
+float HistogramSampleMax( const SkullbonezCore::UI::ProfilerTab::PerformanceHistogramSample& sample,
+                          const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state )
 {
-    for ( int i = 0; i < data.profilerMarkerOptionCount; ++i )
+    float maxMs = 0.0f;
+    for ( int optionIndex = 0; optionIndex < state.histogramOptionCount; ++optionIndex )
     {
-        const SkullbonezCore::UI::UIProfilerMarkerOption& option = data.profilerMarkerOptions[i];
-        if ( HistogramOptionMatchesState( option, state ) )
+        if ( state.histogramOptionSelected[optionIndex] && sample.hasMarker[optionIndex] )
         {
-            CopyHistogramSelectedName( state, option.name );
-            return &option;
+            maxMs = (std::max)( maxMs, sample.markerMs[optionIndex] );
         }
     }
-
-    if ( data.profilerMarkerOptionCount <= 0 )
-    {
-        return nullptr;
-    }
-
-    SetHistogramSelection( state, data.profilerMarkerOptions[0] );
-    return &data.profilerMarkerOptions[0];
-}
-
-float HistogramSampleMax( const SkullbonezCore::UI::ProfilerTab::PerformanceHistogramSample& sample )
-{
-    return sample.primaryMs;
+    return maxMs;
 }
 
 float NiceHistogramAxis( float rawMs )
@@ -739,6 +823,106 @@ void FitHistogramText( char* text, std::size_t textSize, float pxSize, float max
             text[len - 3] = '\0';
         }
     }
+}
+
+const char* HistogramOptionDisplayName( const SkullbonezCore::UI::UIProfilerMarkerOption& option )
+{
+    if ( option.isFrameTotal )
+    {
+        return "Main";
+    }
+    if ( option.name && option.name[0] != '\0' )
+    {
+        return option.name;
+    }
+    return option.leafName && option.leafName[0] != '\0' ? option.leafName : "Marker";
+}
+
+void HistogramOptionColor( const SkullbonezCore::UI::UIProfilerMarkerOption& option,
+                           const SkullbonezCore::UI::Style::UIPalette& palette,
+                           float& r,
+                           float& g,
+                           float& b )
+{
+    const bool hasPayloadColor = option.colorR > 0.0f || option.colorG > 0.0f || option.colorB > 0.0f;
+    if ( hasPayloadColor )
+    {
+        r = option.colorR;
+        g = option.colorG;
+        b = option.colorB;
+        return;
+    }
+    r = palette.accent.r;
+    g = palette.accent.g;
+    b = palette.accent.b;
+}
+
+void FormatHistogramSelectionText( const SkullbonezCore::UI::ProfilerTab::UIProfilerTabState& state,
+                                   const SkullbonezCore::UI::InGameUIFrameData& data,
+                                   char* out,
+                                   std::size_t outSize )
+{
+    if ( !out || outSize == 0 )
+    {
+        return;
+    }
+
+    const int optionCount = (std::min)( state.histogramOptionCount, data.profilerMarkerOptionCount );
+    int selectedCount = 0;
+    bool mainSelected = false;
+    const char* firstSelectedName = nullptr;
+    for ( int optionIndex = 0; optionIndex < optionCount; ++optionIndex )
+    {
+        if ( !state.histogramOptionSelected[optionIndex] )
+        {
+            continue;
+        }
+        const SkullbonezCore::UI::UIProfilerMarkerOption& option = data.profilerMarkerOptions[optionIndex];
+        if ( !firstSelectedName )
+        {
+            firstSelectedName = HistogramOptionDisplayName( option );
+        }
+        mainSelected = mainSelected || option.isFrameTotal;
+        ++selectedCount;
+    }
+
+    if ( selectedCount <= 0 )
+    {
+        snprintf( out, outSize, "Select markers" );
+    }
+    else if ( selectedCount == 1 )
+    {
+        snprintf( out, outSize, "%s", firstSelectedName ? firstSelectedName : "Marker" );
+    }
+    else if ( mainSelected )
+    {
+        snprintf( out, outSize, "Main + %d %s", selectedCount - 1, selectedCount == 2 ? "marker" : "markers" );
+    }
+    else
+    {
+        snprintf( out, outSize, "%d markers", selectedCount );
+    }
+}
+
+void DrawHistogramCheckbox( const SkullbonezCore::UI::UIDrawContext& draw,
+                            const SkullbonezCore::UI::Style::UIPalette& palette,
+                            float x,
+                            float y,
+                            bool selected,
+                            float r,
+                            float g,
+                            float b )
+{
+    draw.RoundedRect( x, y, 11.0f, 11.0f, 2.0f, palette.control.r, palette.control.g, palette.control.b, 0.88f );
+    draw.Outline( x, y, 11.0f, 11.0f, palette.innerBorder.r, palette.innerBorder.g, palette.innerBorder.b, 0.80f );
+    if ( !selected )
+    {
+        return;
+    }
+
+    draw.Rect( x + 2.0f, y + 2.0f, 7.0f, 7.0f, r, g, b, 0.86f );
+    DrawHistogramLineSegment( draw, x + 3.0f, y + 6.0f, x + 5.0f, y + 8.0f, 1.4f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, 0.95f );
+    DrawHistogramLineSegment( draw, x + 5.0f, y + 8.0f, x + 9.0f, y + 3.0f, 1.4f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, 0.95f );
 }
 
 } // namespace
@@ -1103,8 +1287,7 @@ bool HandlePerformanceHistogramInput( UIProfilerTabState& state,
             const int optionIndex = HitHistogramDropdownOption( state, screenH, mouseX, mouseY );
             if ( optionIndex >= 0 )
             {
-                SetHistogramSelectionFromCache( state, optionIndex );
-                state.histogramSelectorOpen = false;
+                ToggleHistogramSelectionFromCache( state, optionIndex );
                 result.commands.ui.userInteracted = true;
                 handled = true;
             }
@@ -1202,39 +1385,68 @@ bool HandlePerformanceHistogramInput( UIProfilerTabState& state,
 
 void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFrameData& data )
 {
-    const UIProfilerMarkerOption* option = ResolveHistogramOption( state, data );
-    if ( !option || !option->sampleValid )
+    CacheHistogramOptions( state, data );
+    if ( !HistogramAnyOptionSelected( state ) )
     {
         return;
     }
 
-    // Invariant: Histogram samples are scoped to the selected marker. The main
-    // axis follows the selected CPU marker only; worker-core totals are an
-    // overlay on Frame Total so parallel work cannot permanently flatten the CPU
-    // frame-budget signal.
-    const float primaryMs = std::clamp( option->cpuMs, 0.0f, HISTOGRAM_SAMPLE_CLAMP_MS );
-    const bool hasWorkerCoreTotal = option->isFrameTotal && data.workerCoreTotalMs > 0.0f;
-    const float workerCoreTotalMs =
-        hasWorkerCoreTotal ? std::clamp( data.workerCoreTotalMs, 0.0f, HISTOGRAM_SAMPLE_CLAMP_MS ) : 0.0f;
-
-    float previousMaxMs = 0.0f;
+    float previousMaxMs[HISTOGRAM_OPTION_CAPACITY] = {};
     for ( int i = 0; i < state.histogramCount; ++i )
     {
         const int sampleIndex =
             ( state.histogramHead - state.histogramCount + i + HISTOGRAM_SAMPLE_COUNT ) % HISTOGRAM_SAMPLE_COUNT;
-        previousMaxMs = (std::max)( previousMaxMs, HistogramSampleMax( state.histogramSamples[sampleIndex] ) );
+        const PerformanceHistogramSample& sample = state.histogramSamples[sampleIndex];
+        for ( int optionIndex = 0; optionIndex < state.histogramOptionCount; ++optionIndex )
+        {
+            if ( state.histogramOptionSelected[optionIndex] && sample.hasMarker[optionIndex] )
+            {
+                previousMaxMs[optionIndex] = (std::max)( previousMaxMs[optionIndex], sample.markerMs[optionIndex] );
+            }
+        }
     }
 
-    const float sampleMaxMs = primaryMs;
+    const bool mainSelected = HistogramMainSelected( state );
+    const int optionCount = (std::min)( state.histogramOptionCount, data.profilerMarkerOptionCount );
     PerformanceHistogramSample& writeSample = state.histogramSamples[state.histogramHead];
-    writeSample.primaryMs = primaryMs;
-    writeSample.secondaryMs = workerCoreTotalMs;
-    writeSample.hasSecondary = hasWorkerCoreTotal;
-    writeSample.spikeMs = 0.0f;
-    if ( state.histogramCount > 8 && sampleMaxMs > 0.10f &&
-         sampleMaxMs > (std::max)( previousMaxMs * 1.20f, state.histogramAxisMs * 0.92f ) )
+    writeSample = {};
+    bool wroteMarker = false;
+    for ( int optionIndex = 0; optionIndex < optionCount; ++optionIndex )
     {
-        writeSample.spikeMs = sampleMaxMs;
+        if ( !state.histogramOptionSelected[optionIndex] )
+        {
+            continue;
+        }
+        const UIProfilerMarkerOption& option = data.profilerMarkerOptions[optionIndex];
+        if ( !option.sampleValid )
+        {
+            continue;
+        }
+
+        // Invariant: marker histories are stored by cached option slot. Main
+        // keeps the fixed frame-budget axis, while non-main selections can use
+        // their own dynamic scale without changing the ring layout.
+        const float markerMs = std::clamp( option.cpuMs, 0.0f, HISTOGRAM_SAMPLE_CLAMP_MS );
+        writeSample.markerMs[optionIndex] = markerMs;
+        writeSample.hasMarker[optionIndex] = true;
+        wroteMarker = true;
+
+        const float axisSpikeThreshold = mainSelected && !option.isFrameTotal ? 0.10f : state.histogramAxisMs * 0.92f;
+        if ( state.histogramCount > 8 && markerMs > 0.10f &&
+             markerMs > (std::max)( previousMaxMs[optionIndex] * 1.20f, axisSpikeThreshold ) )
+        {
+            writeSample.markerSpikeMs[optionIndex] = markerMs;
+        }
+    }
+    if ( !wroteMarker )
+    {
+        return;
+    }
+
+    if ( mainSelected && data.workerCoreTotalMs > 0.0f )
+    {
+        writeSample.secondaryMs = std::clamp( data.workerCoreTotalMs, 0.0f, HISTOGRAM_SAMPLE_CLAMP_MS );
+        writeSample.hasSecondary = true;
     }
 
     state.histogramHead = ( state.histogramHead + 1 ) % HISTOGRAM_SAMPLE_COUNT;
@@ -1248,16 +1460,20 @@ void PushPerformanceHistogramSample( UIProfilerTabState& state, const InGameUIFr
     {
         const int sampleIndex =
             ( state.histogramHead - state.histogramCount + i + HISTOGRAM_SAMPLE_COUNT ) % HISTOGRAM_SAMPLE_COUNT;
-        visibleMaxMs = (std::max)( visibleMaxMs, HistogramSampleMax( state.histogramSamples[sampleIndex] ) );
+        visibleMaxMs = (std::max)( visibleMaxMs, HistogramSampleMax( state.histogramSamples[sampleIndex], state ) );
     }
 
     const float minimumAxisMs = HistogramMinimumAxisMs( state );
-    float targetAxisMs = minimumAxisMs;
-    if ( visibleMaxMs > minimumAxisMs )
+    float targetAxisMs = mainSelected ? HISTOGRAM_FRAME_CPU_DEFAULT_AXIS_MS : minimumAxisMs;
+    if ( !mainSelected && visibleMaxMs > minimumAxisMs )
     {
         targetAxisMs = NiceHistogramAxis( visibleMaxMs * 1.18f );
     }
-    if ( targetAxisMs > state.histogramAxisMs )
+    if ( mainSelected )
+    {
+        state.histogramAxisMs = targetAxisMs;
+    }
+    else if ( targetAxisMs > state.histogramAxisMs )
     {
         state.histogramAxisMs = targetAxisMs;
     }
@@ -1276,7 +1492,6 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
 {
     ClampHistogramPanelToScreen( state, data.screenW, data.screenH );
     CacheHistogramOptions( state, data );
-    const UIProfilerMarkerOption* option = ResolveHistogramOption( state, data );
 
     const UIRect panel = HistogramPanelBounds( state );
     const UIRect selector = HistogramSelectorBounds( state );
@@ -1284,7 +1499,13 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
     const UIRect resize = HistogramResizeBounds( state );
     const float baseY = plot.y + plot.h;
     const float axisMs = (std::max)( 0.25f, state.histogramAxisMs );
-    const bool frameTotalSelected = option && option->isFrameTotal;
+    const bool mainSelected = HistogramMainSelected( state );
+    const bool anySelection = HistogramAnyOptionSelected( state );
+    const int selectedCount = HistogramSelectedOptionCount( state );
+    const int optionCount = (std::min)( state.histogramOptionCount, data.profilerMarkerOptionCount );
+    // Why: text rendering is batched separately from filled panels. While the
+    // dropdown is open, hide chart-side labels that would otherwise draw above it.
+    const bool dropdownOpen = state.histogramSelectorOpen && state.histogramOptionCount > 0;
 
     const Style::UIPalette& palette = Style::Palette();
     draw.RoundedRect( panel.x + 4.0f,
@@ -1306,7 +1527,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                palette.textPrimary.g,
                palette.textPrimary.b,
                "Marker History" );
-    snprintf( text, sizeof( text ), frameTotalSelected ? "CPU + WORK" : "CPU" );
+    snprintf( text, sizeof( text ), mainSelected ? "CPU + WORK" : "CPU" );
     draw.Text( panel.x + panel.w - 10.0f - SkullbonezCore::Text::Text2d::MeasureText( 9.6f, text ),
                panel.y + 8.0f,
                9.6f,
@@ -1332,10 +1553,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                   palette.innerBorder.g,
                   palette.innerBorder.b,
                   0.76f );
-    snprintf( text,
-              sizeof( text ),
-              "%s",
-              option && option->name && option->name[0] != '\0' ? option->name : state.histogramSelectedMarkerName );
+    FormatHistogramSelectionText( state, data, text, sizeof( text ) );
     FitHistogramText( text, sizeof( text ), 10.0f, selector.w - 26.0f );
     draw.Text( selector.x + 9.0f,
                selector.y + 6.0f,
@@ -1356,17 +1574,17 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                    0.88f );
 
     draw.Rect( plot.x, plot.y, plot.w, plot.h, palette.window.r, palette.window.g, palette.window.b, 0.58f );
-    const float budgetY = frameTotalSelected
+    const float budgetY = mainSelected
                               ? baseY - std::clamp( HISTOGRAM_FRAME_CPU_BUDGET_MS / axisMs, 0.0f, 1.0f ) * plot.h
                               : plot.y + plot.h * 0.50f;
     draw.Rect( plot.x,
                budgetY,
                plot.w,
                1.0f,
-               frameTotalSelected ? palette.warningAccent.r : palette.lineSoft.r,
-               frameTotalSelected ? palette.warningAccent.g : palette.lineSoft.g,
-               frameTotalSelected ? palette.warningAccent.b : palette.lineSoft.b,
-               frameTotalSelected ? 0.58f : 0.14f );
+               mainSelected ? palette.warningAccent.r : palette.lineSoft.r,
+               mainSelected ? palette.warningAccent.g : palette.lineSoft.g,
+               mainSelected ? palette.warningAccent.b : palette.lineSoft.b,
+               mainSelected ? 0.58f : 0.14f );
     draw.Rect( plot.x, plot.y, plot.w, 1.0f, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.18f );
     draw.Rect( plot.x, plot.y, 1.0f, plot.h, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.28f );
     draw.Rect( plot.x, baseY, plot.w, 1.0f, palette.accent.r, palette.accent.g, palette.accent.b, 0.34f );
@@ -1383,10 +1601,13 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                    palette.textSecondary.b,
                    text );
     };
-    drawAxisLabel( plot.y + 2.0f, axisMs );
-    drawAxisLabel( budgetY - 5.0f, frameTotalSelected ? HISTOGRAM_FRAME_CPU_BUDGET_MS : axisMs * 0.50f );
+    if ( !dropdownOpen )
+    {
+        drawAxisLabel( plot.y + 2.0f, axisMs );
+        drawAxisLabel( budgetY - 5.0f, mainSelected ? HISTOGRAM_FRAME_CPU_BUDGET_MS : axisMs * 0.50f );
+    }
 
-    if ( state.histogramCount <= 0 )
+    if ( !dropdownOpen && ( state.histogramCount <= 0 || !anySelection ) )
     {
         draw.Text( plot.x + 10.0f,
                    plot.y + plot.h * 0.5f - 6.0f,
@@ -1394,128 +1615,161 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                    palette.textMuted.r,
                    palette.textMuted.g,
                    palette.textMuted.b,
-                   "Waiting for samples" );
+                   anySelection ? "Waiting for samples" : "Select markers" );
     }
 
     const float step = plot.w / static_cast<float>( HISTOGRAM_SAMPLE_COUNT );
-    float spikeX = -1.0f;
-    float spikeY = plot.y;
-    float spikeMs = 0.0f;
-    float previousCpuX = 0.0f;
-    float previousCpuY = 0.0f;
-    float previousWorkerX = 0.0f;
-    float previousWorkerY = 0.0f;
-    bool previousCpuValid = false;
-    bool previousWorkerValid = false;
     constexpr float workerLineR = 0.42f;
     constexpr float workerLineG = 0.83f;
     constexpr float workerLineB = 1.00f;
 
-    // Concept: this is a CPU history line chart. The optional light-blue line is
-    // worker-core CPU work, not GPU timing, and appears only for Frame Total.
-    for ( int i = 0; i < state.histogramCount; ++i )
+    struct SpikeLabel
     {
-        const int sampleIndex =
-            ( state.histogramHead - state.histogramCount + i + HISTOGRAM_SAMPLE_COUNT ) % HISTOGRAM_SAMPLE_COUNT;
-        const PerformanceHistogramSample& sample = state.histogramSamples[sampleIndex];
-        const float x =
-            plot.x + ( static_cast<float>( HISTOGRAM_SAMPLE_COUNT - state.histogramCount + i ) + 0.5f ) * step;
-        const float cpuY = baseY - std::clamp( sample.primaryMs / axisMs, 0.0f, 1.0f ) * plot.h;
-        if ( previousCpuValid )
-        {
-            DrawHistogramLineSegment( draw,
-                                      previousCpuX,
-                                      previousCpuY,
-                                      x,
-                                      cpuY,
-                                      2.0f,
-                                      palette.accent.r,
-                                      palette.accent.g,
-                                      palette.accent.b,
-                                      0.86f );
-        }
-        draw.Rect( x - 1.0f, cpuY - 1.0f, 2.0f, 2.0f, palette.accent.r, palette.accent.g, palette.accent.b, 0.82f );
-        previousCpuX = x;
-        previousCpuY = cpuY;
-        previousCpuValid = true;
+        float x = -1.0f;
+        float y = 0.0f;
+        float ms = 0.0f;
+        float r = 0.0f;
+        float g = 0.0f;
+        float b = 0.0f;
+    };
+    SpikeLabel spikeLabels[HISTOGRAM_OPTION_CAPACITY] = {};
+    int spikeLabelCount = 0;
 
-        if ( frameTotalSelected && sample.hasSecondary )
+    // Concept: this is a CPU history line chart. Checked marker rows each get a
+    // colored series; the optional light-blue line is worker-core CPU work, not
+    // GPU timing, and appears only while Main is checked.
+    for ( int optionIndex = 0; optionIndex < optionCount; ++optionIndex )
+    {
+        if ( !state.histogramOptionSelected[optionIndex] )
         {
+            continue;
+        }
+        const UIProfilerMarkerOption& seriesOption = data.profilerMarkerOptions[optionIndex];
+        float seriesR = 0.0f;
+        float seriesG = 0.0f;
+        float seriesB = 0.0f;
+        HistogramOptionColor( seriesOption, palette, seriesR, seriesG, seriesB );
+
+        float previousX = 0.0f;
+        float previousY = 0.0f;
+        bool previousValid = false;
+        SpikeLabel seriesSpike;
+        seriesSpike.r = seriesR;
+        seriesSpike.g = seriesG;
+        seriesSpike.b = seriesB;
+        for ( int i = 0; i < state.histogramCount; ++i )
+        {
+            const int sampleIndex =
+                ( state.histogramHead - state.histogramCount + i + HISTOGRAM_SAMPLE_COUNT ) % HISTOGRAM_SAMPLE_COUNT;
+            const PerformanceHistogramSample& sample = state.histogramSamples[sampleIndex];
+            if ( !sample.hasMarker[optionIndex] )
+            {
+                previousValid = false;
+                continue;
+            }
+
+            const float x =
+                plot.x + ( static_cast<float>( HISTOGRAM_SAMPLE_COUNT - state.histogramCount + i ) + 0.5f ) * step;
+            const float markerY = baseY - std::clamp( sample.markerMs[optionIndex] / axisMs, 0.0f, 1.0f ) * plot.h;
+            if ( previousValid )
+            {
+                DrawHistogramLineSegment( draw, previousX, previousY, x, markerY, 2.0f, seriesR, seriesG, seriesB, 0.86f );
+            }
+            draw.Rect( x - 1.0f, markerY - 1.0f, 2.0f, 2.0f, seriesR, seriesG, seriesB, 0.82f );
+            previousX = x;
+            previousY = markerY;
+            previousValid = true;
+
+            if ( sample.markerSpikeMs[optionIndex] > seriesSpike.ms )
+            {
+                seriesSpike.ms = sample.markerSpikeMs[optionIndex];
+                seriesSpike.x = x;
+                seriesSpike.y = baseY - std::clamp( sample.markerSpikeMs[optionIndex] / axisMs, 0.0f, 1.0f ) * plot.h;
+            }
+        }
+        if ( seriesSpike.ms > 0.0f && seriesSpike.x >= plot.x && spikeLabelCount < HISTOGRAM_OPTION_CAPACITY )
+        {
+            spikeLabels[spikeLabelCount++] = seriesSpike;
+        }
+    }
+
+    if ( mainSelected )
+    {
+        float previousWorkerX = 0.0f;
+        float previousWorkerY = 0.0f;
+        bool previousWorkerValid = false;
+        for ( int i = 0; i < state.histogramCount; ++i )
+        {
+            const int sampleIndex =
+                ( state.histogramHead - state.histogramCount + i + HISTOGRAM_SAMPLE_COUNT ) % HISTOGRAM_SAMPLE_COUNT;
+            const PerformanceHistogramSample& sample = state.histogramSamples[sampleIndex];
+            if ( !sample.hasSecondary )
+            {
+                previousWorkerValid = false;
+                continue;
+            }
+
+            const float x =
+                plot.x + ( static_cast<float>( HISTOGRAM_SAMPLE_COUNT - state.histogramCount + i ) + 0.5f ) * step;
             const float workerY = baseY - std::clamp( sample.secondaryMs / axisMs, 0.0f, 1.0f ) * plot.h;
             if ( previousWorkerValid )
             {
-                DrawHistogramLineSegment( draw,
-                                          previousWorkerX,
-                                          previousWorkerY,
-                                          x,
-                                          workerY,
-                                          2.0f,
-                                          workerLineR,
-                                          workerLineG,
-                                          workerLineB,
-                                          0.88f );
+                DrawHistogramLineSegment(
+                    draw, previousWorkerX, previousWorkerY, x, workerY, 2.0f, workerLineR, workerLineG, workerLineB, 0.88f );
             }
             draw.Rect( x - 1.0f, workerY - 1.0f, 2.0f, 2.0f, workerLineR, workerLineG, workerLineB, 0.82f );
             previousWorkerX = x;
             previousWorkerY = workerY;
             previousWorkerValid = true;
         }
-        else
-        {
-            previousWorkerValid = false;
-        }
-
-        if ( sample.spikeMs > spikeMs )
-        {
-            spikeMs = sample.spikeMs;
-            spikeX = x;
-            spikeY = baseY - std::clamp( sample.spikeMs / axisMs, 0.0f, 1.0f ) * plot.h;
-        }
     }
 
-    if ( spikeMs > 0.0f && spikeX >= plot.x )
+    if ( !dropdownOpen )
     {
-        snprintf( text, sizeof( text ), "%.2f ms", spikeMs );
-        const float labelX = ( spikeX + 58.0f < panel.x + panel.w ) ? spikeX + 4.0f : spikeX - 58.0f;
-        const float labelY = (std::max)( plot.y + 2.0f, spikeY - 16.0f );
-        draw.Rect( spikeX,
-                   plot.y,
-                   1.0f,
-                   plot.h,
-                   palette.warningAccent.r,
-                   palette.warningAccent.g,
-                   palette.warningAccent.b,
-                   0.58f );
-        draw.Text( labelX,
-                   labelY,
-                   9.5f,
-                   palette.warningAccent.r,
-                   palette.warningAccent.g,
-                   palette.warningAccent.b,
-                   text );
+        for ( int spikeIndex = 0; spikeIndex < spikeLabelCount; ++spikeIndex )
+        {
+            const SpikeLabel& spike = spikeLabels[spikeIndex];
+            snprintf( text, sizeof( text ), "%.2f ms", spike.ms );
+            const float labelX = ( spike.x + 62.0f < panel.x + panel.w ) ? spike.x + 4.0f : spike.x - 62.0f;
+            float labelY = (std::max)( plot.y + 2.0f, spike.y - 16.0f + static_cast<float>( spikeIndex % 3 ) * 10.0f );
+            if ( labelY + 11.0f > baseY - 2.0f )
+            {
+                labelY = (std::max)( plot.y + 2.0f, baseY - 13.0f - static_cast<float>( spikeIndex % 3 ) * 10.0f );
+            }
+            draw.Rect( spike.x, plot.y, 1.0f, plot.h, spike.r, spike.g, spike.b, 0.48f );
+            draw.Text( labelX, labelY, 9.5f, spike.r, spike.g, spike.b, text );
+        }
     }
 
-    if ( state.histogramCount > 0 )
+    if ( state.histogramCount > 0 && anySelection && !dropdownOpen )
     {
         float candidateCpuAverageMs = 0.0f;
         float candidateWorkerAverageMs = 0.0f;
         {
             float cpuSum = 0.0f;
             float workerSum = 0.0f;
+            int cpuCount = 0;
             int workerCount = 0;
             for ( int i = 0; i < state.histogramCount; ++i )
             {
                 const int sampleIndex = ( state.histogramHead - state.histogramCount + i + HISTOGRAM_SAMPLE_COUNT ) %
                                         HISTOGRAM_SAMPLE_COUNT;
                 const PerformanceHistogramSample& sample = state.histogramSamples[sampleIndex];
-                cpuSum += sample.primaryMs;
-                if ( sample.hasSecondary )
+                for ( int optionIndex = 0; optionIndex < optionCount; ++optionIndex )
+                {
+                    if ( state.histogramOptionSelected[optionIndex] && sample.hasMarker[optionIndex] )
+                    {
+                        cpuSum += sample.markerMs[optionIndex];
+                        ++cpuCount;
+                    }
+                }
+                if ( mainSelected && sample.hasSecondary )
                 {
                     workerSum += sample.secondaryMs;
                     ++workerCount;
                 }
             }
-            candidateCpuAverageMs = cpuSum / static_cast<float>( state.histogramCount );
+            candidateCpuAverageMs = cpuCount > 0 ? cpuSum / static_cast<float>( cpuCount ) : 0.0f;
             candidateWorkerAverageMs = workerCount > 0 ? workerSum / static_cast<float>( workerCount ) : 0.0f;
         }
 
@@ -1533,7 +1787,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
         }
 
         const float footerY = panel.y + panel.h - 20.0f;
-        snprintf( text, sizeof( text ), "CPU avg %.2f ms", state.histogramAverageCpuMs );
+        snprintf( text, sizeof( text ), selectedCount > 1 ? "Selected avg %.2f ms" : "CPU avg %.2f ms", state.histogramAverageCpuMs );
         draw.Rect( panel.x + 10.0f,
                    footerY + 7.0f,
                    9.0f,
@@ -1543,7 +1797,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                    palette.accent.b,
                    0.86f );
         draw.Text( panel.x + 22.0f, footerY, 10.0f, palette.accent.r, palette.accent.g, palette.accent.b, text );
-        if ( frameTotalSelected && state.histogramAverageWorkerMs > 0.0f )
+        if ( mainSelected && state.histogramAverageWorkerMs > 0.0f )
         {
             const float workerX = panel.x + 34.0f + SkullbonezCore::Text::Text2d::MeasureText( 10.0f, text );
             snprintf( text, sizeof( text ), "Other cores avg %.2f ms", state.histogramAverageWorkerMs );
@@ -1569,21 +1823,27 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                palette.textMuted.b,
                0.44f );
 
-    if ( state.histogramSelectorOpen && state.histogramOptionCount > 0 )
+    if ( dropdownOpen )
     {
         const UIRect dropdown = HistogramDropdownBounds( state, data.screenH );
-        draw.RoundedPanel( dropdown, Style::Radii().control, palette.windowRaised, palette.border );
+        Style::UIColor dropdownFill = palette.window;
+        dropdownFill.a = 1.0f;
+        draw.RoundedPanel( dropdown, Style::Radii().control, dropdownFill, palette.border );
         const int visibleRows = HistogramVisibleDropdownRows( state.histogramOptionCount );
         for ( int row = 0; row < visibleRows; ++row )
         {
             const int optionIndex = state.histogramSelectorScroll + row;
-            if ( optionIndex < 0 || optionIndex >= data.profilerMarkerOptionCount )
+            if ( optionIndex < 0 || optionIndex >= optionCount )
             {
                 continue;
             }
             const UIProfilerMarkerOption& rowOption = data.profilerMarkerOptions[optionIndex];
             const float rowY = dropdown.y + 2.0f + static_cast<float>( row ) * HISTOGRAM_DROPDOWN_ROW_H;
-            const bool selected = HistogramOptionMatchesState( rowOption, state );
+            const bool selected = state.histogramOptionSelected[optionIndex];
+            float rowR = 0.0f;
+            float rowG = 0.0f;
+            float rowB = 0.0f;
+            HistogramOptionColor( rowOption, palette, rowR, rowG, rowB );
             if ( selected )
             {
                 draw.Rect( dropdown.x + 2.0f,
@@ -1595,29 +1855,36 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                            palette.controlHover.b,
                            0.58f );
             }
-            snprintf( text,
-                      sizeof( text ),
-                      "%s",
-                      rowOption.name && rowOption.name[0] != '\0' ? rowOption.name : rowOption.leafName );
-            FitHistogramText( text, sizeof( text ), 9.4f, dropdown.w - 88.0f );
-            draw.Text( dropdown.x + 8.0f,
+            DrawHistogramCheckbox( draw, palette, dropdown.x + 8.0f, rowY + 5.0f, selected, rowR, rowG, rowB );
+            snprintf( text, sizeof( text ), "%s", HistogramOptionDisplayName( rowOption ) );
+            FitHistogramText( text, sizeof( text ), 9.4f, dropdown.w - 120.0f );
+            draw.Text( dropdown.x + 39.0f,
                        rowY + 6.0f,
                        9.4f,
                        selected ? palette.textPrimary.r : palette.textSecondary.r,
                        selected ? palette.textPrimary.g : palette.textSecondary.g,
                        selected ? palette.textPrimary.b : palette.textSecondary.b,
                        text );
-            snprintf( text, sizeof( text ), "%.3f", rowOption.cpuMs );
+            snprintf( text, sizeof( text ), "%.3f", rowOption.cpuAverageMs > 0.0f ? rowOption.cpuAverageMs : rowOption.cpuMs );
             draw.Text( dropdown.x + dropdown.w - 62.0f,
                        rowY + 6.0f,
                        9.2f,
-                       palette.accent.r,
-                       palette.accent.g,
-                       palette.accent.b,
+                       rowR,
+                       rowG,
+                       rowB,
                        text );
         }
         if ( state.histogramOptionCount > visibleRows )
         {
+            const float footerY = dropdown.y + 2.0f + static_cast<float>( visibleRows ) * HISTOGRAM_DROPDOWN_ROW_H;
+            draw.Rect( dropdown.x + 2.0f,
+                       footerY,
+                       dropdown.w - 4.0f,
+                       1.0f,
+                       palette.innerBorder.r,
+                       palette.innerBorder.g,
+                       palette.innerBorder.b,
+                       0.78f );
             snprintf( text,
                       sizeof( text ),
                       "%d-%d/%d",
@@ -1625,7 +1892,7 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                       state.histogramSelectorScroll + visibleRows,
                       state.histogramOptionCount );
             draw.Text( dropdown.x + dropdown.w - 54.0f,
-                       dropdown.y + dropdown.h - 14.0f,
+                       footerY + 4.0f,
                        8.0f,
                        palette.textMuted.r,
                        palette.textMuted.g,

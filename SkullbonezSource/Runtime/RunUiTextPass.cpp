@@ -415,7 +415,11 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                                         const char* leafName,
                                         uint32_t hash,
                                         float cpuMs,
+                                        float cpuAverageMs,
                                         float gpuMs,
+                                        float colorR,
+                                        float colorG,
+                                        float colorB,
                                         bool hasGpu,
                                         bool sampleValid,
                                         bool isFrameTotal )
@@ -432,17 +436,41 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                 option.leafName = leafName ? leafName : option.name;
                 option.hash = hash;
                 option.cpuMs = (std::max)( 0.0f, cpuMs );
+                option.cpuAverageMs = (std::max)( 0.0f, cpuAverageMs );
                 option.gpuMs = (std::max)( 0.0f, gpuMs );
+                option.colorR = colorR;
+                option.colorG = colorG;
+                option.colorB = colorB;
                 option.hasGpu = hasGpu;
                 option.sampleValid = sampleValid;
                 option.isFrameTotal = isFrameTotal;
             };
 
+            float frameAverageMs = UIData.cpuFrameMs;
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+            {
+                static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
+                for ( int markerIndex = 0; markerIndex < profiler.MarkerCount(); ++markerIndex )
+                {
+                    const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
+                    if ( marker.hash == kFrameHash )
+                    {
+                        frameAverageMs = marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs;
+                        break;
+                    }
+                }
+            }
+#endif
+            const SkullbonezCore::UI::Style::UIColor& mainColor = SkullbonezCore::UI::Style::Palette().accent;
             addMarkerOption( "Frame Total",
                              "Frame Total",
                              SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
                              UIData.cpuFrameMs,
+                             frameAverageMs,
                              UIData.gpuFrameMs,
+                             mainColor.r,
+                             mainColor.g,
+                             mainColor.b,
                              true,
                              true,
                              true );
@@ -450,11 +478,16 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
             auto addProfilerMarker = [&]( const Profiler::Marker& marker )
             {
+                const Profiler::BarColor& color = Profiler::BAR_PALETTE[marker.colorIndex % Profiler::BAR_PALETTE_SIZE];
                 addMarkerOption( marker.name,
                                  marker.leafName,
                                  marker.hash,
                                  marker.lastFrameMs,
+                                 marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs,
                                  marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
+                                 color.r,
+                                 color.g,
+                                 color.b,
                                  marker.hasGpu,
                                  true,
                                  false );

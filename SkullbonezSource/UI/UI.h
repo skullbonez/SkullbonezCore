@@ -90,7 +90,11 @@ struct UIProfilerMarkerOption
     const char* leafName = "";
     uint32_t hash = UI_PROFILER_FRAME_TOTAL_HASH;
     float cpuMs = 0.0f;
+    float cpuAverageMs = 0.0f; // Same 500 ms moving average used by the profiler table.
     float gpuMs = 0.0f;
+    float colorR = 0.0f; // RGB borrowed from the profiler row palette for chart overlays.
+    float colorG = 0.0f;
+    float colorB = 0.0f;
     bool hasGpu = false;
     bool sampleValid = false;
     bool isFrameTotal = false;
