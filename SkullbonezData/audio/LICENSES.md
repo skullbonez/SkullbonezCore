@@ -13,12 +13,23 @@ OpenGameArt CC0 sound effect packs by `rubberduck`.
 - Original page notes: includes air, door, footstep, glass, hit, item, metal,
   stone, switch, thunder, water, and wood sounds.
 
+## Source Pack
+
+- Source page: https://opengameart.org/content/different-steps-on-wood-stone-leaves-gravel-and-mud
+- Author: K D
+- License: Creative Commons CC0
+- Download date: 2026-07-02
+- Downloaded archive: `[kdd]DifferentSteps_0.zip`
+- Original page notes: includes wood, stone, leaves, gravel, and mud step sounds.
+
 ## Runtime Files
 
 | Runtime file | Original file |
 | --- | --- |
 | `impacts/impact_default_01.ogg` | `sfx100v2_hit_01.ogg` |
 | `impacts/impact_default_02.ogg` | `sfx100v2_hit_02.ogg` |
+| `impacts/impact_earth_01.ogg` | `[kdd]DifferentSteps_0.zip/gravel.ogg` |
+| `impacts/impact_earth_02.ogg` | `[kdd]DifferentSteps_0.zip/mud02.ogg` |
 | `impacts/impact_metal_01.ogg` | `sfx100v2_metal_hit_01.ogg` |
 | `impacts/impact_metal_02.ogg` | `sfx100v2_metal_hit_02.ogg` |
 | `impacts/impact_stone_01.ogg` | `sfx100v2_stones_01.ogg` |

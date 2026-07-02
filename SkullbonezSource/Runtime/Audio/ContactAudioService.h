@@ -12,7 +12,9 @@ Mental model:
 Glossary:
   Contact material: Gameplay/audio material token such as metal, stone, or wood.
   Cooldown key: Stable body-pair key that prevents persistent contact rows from
-  replaying the same impact every fixed tick.
+    replaying the same impact every fixed tick.
+  Impact band: Light, medium, or heavy impulse tier that can select different
+    gain/pitch/sample tuning inside one material sound set.
   Sound set: Material-pair tuning plus one or more decoded sample buffers.
 
 Invariants:
@@ -74,10 +76,13 @@ class ContactAudioService
     void SetEnabled( bool enabled );
     bool IsEnabled() const;
     bool IsAvailable() const;
+    void SetMasterGain( float gain );
+    void SetMaxDistanceScale( float scale );
 
     void BeginPhysicsStep( float deltaSeconds, const Math::Vector::Vector3& listenerPosition );
     void SubmitContact( const ContactAudioEvent& event );
     void EndPhysicsStep();
+    bool PlaySmokeImpact( uint32_t materialId, float normalImpulse );
 
     const ContactAudioStats& Stats() const;
     void ResetFrameStats();

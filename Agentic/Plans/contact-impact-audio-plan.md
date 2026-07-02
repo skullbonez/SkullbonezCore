@@ -1,9 +1,9 @@
 # Contact Impact Audio Plan And Progress
 
 Date: 2026-07-02
-Status: Implementation validated; commit/push pending
+Status: Plan complete; validated, committed, and pushed in follow-up commits
 Impact areas: runtime, physics contact diagnostics/events, scene/assets, audio, project configuration, validation
-Validation for this plan edit: Documentation/progress update only after `tools\validate_full.bat` passed.
+Validation for this plan edit: Documentation/progress update only after continuation validation passed.
 
 ## Goal
 
@@ -233,7 +233,7 @@ Audio is presentation only:
 - [x] Add bounded XAudio2 source voice pooling.
 - [x] Add project dependencies and filters.
 - [x] Add launch switch to disable contact audio: `--no-contact-audio` / `--mute-contact-audio`.
-- [ ] Add a tiny manual smoke path that plays one known sound without physics.
+- [x] Add a tiny manual smoke path that plays one known sound without physics.
 
 ### Phase 2 - Contact Event Extraction
 
@@ -257,13 +257,13 @@ Audio is presentation only:
 - [x] Add initial CC0 sound assets for default, metal, stone, wood/bark, foliage, glass, matte, and water.
 - [x] Implement material-pair fallback with material-specific wildcard preference over `default/*`.
 - [x] Add pitch/volume variation that is audio-only and does not affect physics determinism.
-- [ ] Add optional light/medium/heavy impulse bands.
-- [ ] Add dedicated earth/dirt samples instead of falling back to default/stone.
+- [x] Add optional light/medium/heavy impulse bands.
+- [x] Add dedicated earth/dirt samples instead of falling back to default/stone.
 
 ### Phase 5 - UI, Diagnostics, And Tooling
 
 - [x] Add a small diagnostic counter set: events seen, events rejected by threshold, rejected by cooldown, submitted, voices dropped.
-- [ ] Add optional UI/config controls for enable, master gain, max distance, and debug counters.
+- [x] Add optional UI/config controls for enable, master gain, max distance, and debug counters.
 - [x] Add startup console summary when the contact audio map loads.
 - [x] Add CLI opt-out for validation/headless launches.
 
@@ -276,6 +276,10 @@ Audio is presentation only:
 - [x] Final PR gate: `tools\validate_full.bat` passed in 29.9 seconds. DX12 InfoQueue reported 0 validation errors, DX12 screenshots matched committed baselines, and `physics_regression_solver.csv` matched byte-exactly.
 - [x] Physics validation is covered by the final full gate for this branch.
 - [x] Final validation output recorded before commit in `TestOutput\contact_audio_validate_full.log`.
+- [x] Continuation targeted compile check: `tools\validate_build.bat Profile` passed in 11.5 seconds with 0 warnings / 0 errors after adding smoke/config/band controls.
+- [x] Continuation runtime boundary check: `tools\validate_runtime_boundaries.bat` passed in 5.1 seconds after reducing runtime `Cfg()` access count with config snapshots.
+- [x] Continuation final PR gate: `tools\validate_full.bat` passed in 44.5 seconds. DX12 InfoQueue reported 0 validation errors, DX12 screenshots matched committed baselines, and `physics_regression_solver.csv` matched byte-exactly.
+- [x] Continuation final manual smoke: `Profile\SKULLBONEZ_CORE.exe --contact-audio-smoke` exited 0 in 1.0 seconds, wrote `TestOutput/contact_audio_smoke.json`, and reported initialized=true, loaded=true, submitted=true, submittedVoices=1.
 
 ## Likely Files
 
@@ -297,6 +301,7 @@ Audio is presentation only:
 - [x] Contact audio is enabled by default when the backend and sound map load, with `--no-contact-audio` / `--mute-contact-audio` as deterministic validation/headless opt-outs.
 - [x] Replay gets no dedicated replay-audio policy in this slice; live post-step contacts can play presentation audio without changing replay artifacts.
 - [x] Existing asset material modes/kinds infer contact material. Bare generated/demo objects and legacy scene objects default to `default` unless authored otherwise.
+- [x] Enable/master-gain/max-distance/debug-counter controls are config-backed through `engine.cfg` instead of a new in-game panel for this slice.
 
 ## Progress Ledger
 
@@ -314,12 +319,18 @@ Audio is presentation only:
 - [x] 2026-07-02: Ran scoped formatting fixes required by validation, including pre-existing format drift in replay/UI files reported by the gate.
 - [x] 2026-07-02: Passed `tools\validate_fast.bat`.
 - [x] 2026-07-02: Passed `tools\validate_full.bat`.
+- [x] 2026-07-02: Added `--contact-audio-smoke`, with a file-backed smoke report at `TestOutput/contact_audio_smoke.json`.
+- [x] 2026-07-02: Added light/medium/heavy impulse bands to all material sound sets.
+- [x] 2026-07-02: Added dedicated OpenGameArt CC0 earth/gravel/mud sounds and updated the license ledger.
+- [x] 2026-07-02: Added `engine.cfg` contact audio controls: enabled, master gain, max-distance scale, and debug counters.
+- [x] 2026-07-02: Passed targeted Profile build and direct contact-audio smoke after the completion pass.
+- [x] 2026-07-02: Passed continuation `tools\validate_full.bat` and final direct smoke.
 - [x] Phase 0 complete.
-- [ ] Phase 1 complete. Manual direct-sound smoke command remains deferred.
+- [x] Phase 1 complete.
 - [x] Phase 2 complete.
 - [x] Phase 3 complete.
-- [ ] Phase 4 complete. Dedicated earth samples and impulse bands remain deferred.
-- [ ] Phase 5 complete. UI controls/counter display remain deferred.
+- [x] Phase 4 complete.
+- [x] Phase 5 complete.
 - [x] Phase 6 validation complete.
 
 ## Handoff Notes

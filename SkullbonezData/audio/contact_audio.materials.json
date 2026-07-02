@@ -18,6 +18,11 @@
       "samples": [
         "SkullbonezData/audio/impacts/impact_default_01.ogg",
         "SkullbonezData/audio/impacts/impact_default_02.ogg"
+      ],
+      "bands": [
+        { "name": "light", "minImpulse": 0.35, "impulseRange": 3.0, "baseGain": 0.40, "pitchMin": 0.98, "pitchMax": 1.08 },
+        { "name": "medium", "minImpulse": 2.5, "impulseRange": 6.0, "baseGain": 0.58, "pitchMin": 0.94, "pitchMax": 1.06 },
+        { "name": "heavy", "minImpulse": 6.0, "impulseRange": 12.0, "baseGain": 0.78, "pitchMin": 0.88, "pitchMax": 1.02 }
       ]
     },
     {
@@ -35,6 +40,11 @@
       "samples": [
         "SkullbonezData/audio/impacts/impact_metal_01.ogg",
         "SkullbonezData/audio/impacts/impact_metal_02.ogg"
+      ],
+      "bands": [
+        { "name": "light", "minImpulse": 0.25, "impulseRange": 2.8, "baseGain": 0.50, "pitchMin": 1.00, "pitchMax": 1.12 },
+        { "name": "medium", "minImpulse": 2.2, "impulseRange": 6.0, "baseGain": 0.72, "pitchMin": 0.92, "pitchMax": 1.08 },
+        { "name": "heavy", "minImpulse": 6.0, "impulseRange": 12.0, "baseGain": 0.95, "pitchMin": 0.86, "pitchMax": 1.00 }
       ]
     },
     {
@@ -52,6 +62,11 @@
       "samples": [
         "SkullbonezData/audio/impacts/impact_stone_01.ogg",
         "SkullbonezData/audio/impacts/impact_stone_02.ogg"
+      ],
+      "bands": [
+        { "name": "light", "minImpulse": 0.30, "impulseRange": 3.0, "baseGain": 0.44, "pitchMin": 0.99, "pitchMax": 1.10 },
+        { "name": "medium", "minImpulse": 2.6, "impulseRange": 6.5, "baseGain": 0.64, "pitchMin": 0.92, "pitchMax": 1.06 },
+        { "name": "heavy", "minImpulse": 6.5, "impulseRange": 13.0, "baseGain": 0.86, "pitchMin": 0.86, "pitchMax": 1.00 }
       ]
     },
     {
@@ -69,6 +84,11 @@
       "samples": [
         "SkullbonezData/audio/impacts/impact_wood_01.ogg",
         "SkullbonezData/audio/impacts/impact_wood_02.ogg"
+      ],
+      "bands": [
+        { "name": "light", "minImpulse": 0.25, "impulseRange": 2.6, "baseGain": 0.42, "pitchMin": 0.99, "pitchMax": 1.10 },
+        { "name": "medium", "minImpulse": 2.4, "impulseRange": 6.0, "baseGain": 0.60, "pitchMin": 0.92, "pitchMax": 1.08 },
+        { "name": "heavy", "minImpulse": 6.0, "impulseRange": 12.0, "baseGain": 0.78, "pitchMin": 0.86, "pitchMax": 1.00 }
       ]
     },
     {
@@ -86,6 +106,11 @@
       "samples": [
         "SkullbonezData/audio/impacts/impact_wood_01.ogg",
         "SkullbonezData/audio/impacts/impact_wood_02.ogg"
+      ],
+      "bands": [
+        { "name": "light", "minImpulse": 0.22, "impulseRange": 2.4, "baseGain": 0.38, "pitchMin": 0.98, "pitchMax": 1.08 },
+        { "name": "medium", "minImpulse": 2.2, "impulseRange": 5.5, "baseGain": 0.56, "pitchMin": 0.91, "pitchMax": 1.05 },
+        { "name": "heavy", "minImpulse": 5.5, "impulseRange": 11.0, "baseGain": 0.72, "pitchMin": 0.84, "pitchMax": 0.98 }
       ]
     },
     {
@@ -103,6 +128,11 @@
       "samples": [
         "SkullbonezData/audio/impacts/impact_glass_01.ogg",
         "SkullbonezData/audio/impacts/impact_glass_02.ogg"
+      ],
+      "bands": [
+        { "name": "light", "minImpulse": 0.18, "impulseRange": 1.8, "baseGain": 0.40, "pitchMin": 1.05, "pitchMax": 1.16 },
+        { "name": "medium", "minImpulse": 1.8, "impulseRange": 4.5, "baseGain": 0.64, "pitchMin": 0.96, "pitchMax": 1.12 },
+        { "name": "heavy", "minImpulse": 5.0, "impulseRange": 9.0, "baseGain": 0.82, "pitchMin": 0.88, "pitchMax": 1.02 }
       ]
     },
     {
@@ -120,6 +150,11 @@
       "samples": [
         "SkullbonezData/audio/impacts/impact_water_01.ogg",
         "SkullbonezData/audio/impacts/impact_water_02.ogg"
+      ],
+      "bands": [
+        { "name": "light", "minImpulse": 0.15, "impulseRange": 1.8, "baseGain": 0.34, "pitchMin": 1.00, "pitchMax": 1.12 },
+        { "name": "medium", "minImpulse": 1.8, "impulseRange": 4.5, "baseGain": 0.52, "pitchMin": 0.94, "pitchMax": 1.08 },
+        { "name": "heavy", "minImpulse": 5.0, "impulseRange": 10.0, "baseGain": 0.70, "pitchMin": 0.88, "pitchMax": 1.02 }
       ]
     },
     {
@@ -137,6 +172,33 @@
       "samples": [
         "SkullbonezData/audio/impacts/impact_foliage_01.ogg",
         "SkullbonezData/audio/impacts/impact_foliage_02.ogg"
+      ],
+      "bands": [
+        { "name": "light", "minImpulse": 0.12, "impulseRange": 1.5, "baseGain": 0.30, "pitchMin": 1.04, "pitchMax": 1.16 },
+        { "name": "medium", "minImpulse": 1.4, "impulseRange": 3.5, "baseGain": 0.44, "pitchMin": 0.98, "pitchMax": 1.12 },
+        { "name": "heavy", "minImpulse": 4.0, "impulseRange": 8.0, "baseGain": 0.58, "pitchMin": 0.90, "pitchMax": 1.04 }
+      ]
+    },
+    {
+      "name": "impact.earth",
+      "materials": [ "earth", "*" ],
+      "minImpulse": 0.20,
+      "impulseRange": 6.0,
+      "cooldownMs": 145,
+      "overrideCooldownMs": 60,
+      "maxDistance": 85.0,
+      "baseGain": 0.54,
+      "pitchMin": 0.92,
+      "pitchMax": 1.08,
+      "maxVoices": 8,
+      "samples": [
+        "SkullbonezData/audio/impacts/impact_earth_01.ogg",
+        "SkullbonezData/audio/impacts/impact_earth_02.ogg"
+      ],
+      "bands": [
+        { "name": "light", "minImpulse": 0.20, "impulseRange": 2.2, "baseGain": 0.34, "pitchMin": 1.00, "pitchMax": 1.10 },
+        { "name": "medium", "minImpulse": 2.0, "impulseRange": 5.0, "baseGain": 0.56, "pitchMin": 0.92, "pitchMax": 1.06 },
+        { "name": "heavy", "minImpulse": 5.5, "impulseRange": 11.0, "baseGain": 0.74, "pitchMin": 0.84, "pitchMax": 0.98 }
       ]
     },
     {
@@ -154,6 +216,11 @@
       "samples": [
         "SkullbonezData/audio/impacts/impact_stone_01.ogg",
         "SkullbonezData/audio/impacts/impact_stone_02.ogg"
+      ],
+      "bands": [
+        { "name": "light", "minImpulse": 0.32, "impulseRange": 3.0, "baseGain": 0.40, "pitchMin": 0.98, "pitchMax": 1.08 },
+        { "name": "medium", "minImpulse": 2.6, "impulseRange": 6.0, "baseGain": 0.58, "pitchMin": 0.92, "pitchMax": 1.05 },
+        { "name": "heavy", "minImpulse": 6.0, "impulseRange": 12.0, "baseGain": 0.76, "pitchMin": 0.86, "pitchMax": 0.99 }
       ]
     }
   ]

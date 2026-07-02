@@ -1312,6 +1312,12 @@
     <None Include="SkullbonezData\audio\impacts\impact_default_02.ogg">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="SkullbonezData\audio\impacts\impact_earth_01.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_earth_02.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
     <None Include="SkullbonezData\audio\impacts\impact_foliage_01.ogg">
       <Filter>Resource Files</Filter>
     </None>

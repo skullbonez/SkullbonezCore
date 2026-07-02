@@ -33,6 +33,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../Core/Common.h"
+#include "Audio/ContactAudioService.h"
 #include "Run.h"
 #include "../Rendering/Text.h"
 #include "Window.h"
@@ -787,6 +788,7 @@ struct ParsedArgs
     bool noWater = false;
     bool noSleep = false;
     bool noContactAudio = false;
+    bool contactAudioSmoke = false;
     bool hasTornadoOverride = false;
     bool tornadoEnabled = false;
     bool tornadoVectors = false;
@@ -957,6 +959,14 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
           "--mute-contact-audio",
           []( ParsedArgs& args ) { args.noContactAudio = true; },
           "[audio] Contact impact audio disabled." },
+        { "--contact-audio-smoke",
+          "--audio-smoke",
+          []( ParsedArgs& args )
+          {
+              args.contactAudioSmoke = true;
+              args.suppressExitDialog = true;
+          },
+          "[audio] Contact audio standalone smoke requested." },
         { "--scene-load-only",
           "--load-scenes-only",
           []( ParsedArgs& args )
@@ -2228,6 +2238,66 @@ bool ApplyGeneratedObjectOverride( const CommandLineView& commandLine, ParsedArg
     return true;
 }
 
+
+bool HandleContactAudioSmoke( const ParsedArgs& args, const EngineConfig& cfg, int& outExitCode )
+{
+    if ( !args.contactAudioSmoke )
+    {
+        return false;
+    }
+
+    // Concept: this smoke path proves decode, voice submission, and counters
+    // without creating a window, renderer, worker pool, or physics world.
+    SkullbonezCore::Runtime::Audio::ContactAudioService audio;
+    audio.SetMasterGain( cfg.contactAudio.masterGain );
+    audio.SetMaxDistanceScale( cfg.contactAudio.maxDistanceScale );
+    const bool initialized = audio.Initialize();
+    const bool loaded = audio.LoadContactAudioMap( "SkullbonezData/audio/contact_audio.materials.json" );
+    const bool submitted = initialized && loaded && audio.PlaySmokeImpact( HashStr( "earth" ), 6.0f );
+    Sleep( 350 );
+    const SkullbonezCore::Runtime::Audio::ContactAudioStats& stats = audio.Stats();
+    CreateDirectoryA( "TestOutput", nullptr );
+    FILE* report = nullptr;
+    if ( fopen_s( &report, "TestOutput/contact_audio_smoke.json", "w" ) == 0 && report )
+    {
+        fprintf( report,
+                 "{\n"
+                 "  \"initialized\": %s,\n"
+                 "  \"loaded\": %s,\n"
+                 "  \"submitted\": %s,\n"
+                 "  \"eventsSeen\": %u,\n"
+                 "  \"rejectedByThreshold\": %u,\n"
+                 "  \"rejectedByCooldown\": %u,\n"
+                 "  \"submittedVoices\": %u,\n"
+                 "  \"droppedVoices\": %u\n"
+                 "}\n",
+                 initialized ? "true" : "false",
+                 loaded ? "true" : "false",
+                 submitted ? "true" : "false",
+                 stats.eventsSeen,
+                 stats.rejectedByThreshold,
+                 stats.rejectedByCooldown,
+                 stats.submittedVoices,
+                 stats.droppedVoices );
+        fclose( report );
+    }
+    fprintf( stdout,
+             "[audio-smoke] initialized=%d loaded=%d submitted=%d events=%u threshold=%u cooldown=%u voices=%u "
+             "dropped=%u report=TestOutput/contact_audio_smoke.json\n",
+             initialized ? 1 : 0,
+             loaded ? 1 : 0,
+             submitted ? 1 : 0,
+             stats.eventsSeen,
+             stats.rejectedByThreshold,
+             stats.rejectedByCooldown,
+             stats.submittedVoices,
+             stats.droppedVoices );
+    fflush( stdout );
+    outExitCode = submitted ? 0 : 1;
+    return true;
+}
+
+
 // Guards --physics-regression-log against use in non-Debug builds.
 // False means startup should abort.
 bool ValidatePhysicsRegressionLog( const CommandLineView& commandLine )
@@ -3012,6 +3082,14 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return 1;
     }
 
+    const EngineConfig& cfg = Cfg();
+    int contactAudioSmokeExitCode = 0;
+    if ( HandleContactAudioSmoke( args, cfg, contactAudioSmokeExitCode ) )
+    {
+        CoUninitialize();
+        return contactAudioSmokeExitCode;
+    }
+
     int standalonePhysicsExitCode = 0;
     if ( HandlePhysicsStandaloneSmoke( commandLine, standalonePhysicsExitCode ) )
     {
@@ -3019,7 +3097,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return standalonePhysicsExitCode;
     }
 
-    WorkerPool::Instance().Initialise( Cfg().workerThreads );
+    WorkerPool::Instance().Initialise( cfg.workerThreads );
     if ( args.workerSelfTest )
     {
         const bool workersOk = RunWorkerSystemSelfTest( stdout );
@@ -3029,7 +3107,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     }
 
     Window* window = Window::Instance();
-    window->CreateAppWindow( hInstance, Cfg().window.fullscreen );
+    window->CreateAppWindow( hInstance, cfg.window.fullscreen );
     window->m_sDevice = GetDC( window->m_sWindow );
 
     InitRenderBackend( window );

@@ -1222,6 +1222,7 @@ void Run::Initialise()
     char titleText[256];
     sprintf_s( titleText, "%s [%s] -- LOADING!!!", TITLE_TEXT, rendererName );
     m_systems.window->SetTitleText( titleText );
+    const EngineConfig& cfg = Cfg();
 
     m_systems.textures = &m_systems.textureCollection;
     m_systems.textures->BindAssetSystem( &m_systems.assets );
@@ -1243,12 +1244,9 @@ void Run::Initialise()
     m_systems.skyBox->BindTextures( *m_systems.textures );
     m_systems.skyBox->ResetRenderResources();
 
-    {
-        const EngineConfig& cfg = Cfg();
-        m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
-        XZBounds tb = m_systems.terrain->GetXZBounds();
-        m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
-    }
+    m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
+    XZBounds tb = m_systems.terrain->GetXZBounds();
+    m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 
     // Init font (HDC, font)
     m_renderer.EnsureUiTextResources();
@@ -1256,10 +1254,18 @@ void Run::Initialise()
     // Init cameras (shared across scenes, Reset() between loads)
     m_systems.cameras = &m_systems.cameraCollection;
 
-    if ( !m_launchOptions.noContactAudio )
+    m_contactAudio.SetMasterGain( cfg.contactAudio.masterGain );
+    m_contactAudio.SetMaxDistanceScale( cfg.contactAudio.maxDistanceScale );
+    if ( !m_launchOptions.noContactAudio && cfg.contactAudio.enabled )
     {
-        m_contactAudio.Initialize();
-        m_contactAudio.LoadContactAudioMap( "SkullbonezData/audio/contact_audio.materials.json" );
+        const bool audioReady =
+            m_contactAudio.Initialize() &&
+            m_contactAudio.LoadContactAudioMap( "SkullbonezData/audio/contact_audio.materials.json" );
+        m_contactAudio.SetEnabled( audioReady );
+    }
+    else
+    {
+        m_contactAudio.SetEnabled( false );
     }
 
     LoadScene( 0 );

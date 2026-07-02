@@ -32,6 +32,8 @@ This file holds details that are useful during debugging or manual testing but t
 | `--replay-restore-failure-file-probe` | Debug path | Require `--physics-diag`, request an intentionally missing saved v2 target, emit a failed `replay_restore` SkullScope row with a reason, query it in validation, and exit before the frame loop. Alias: `--replay_restore_failure_file_probe`. |
 | `--no-water` | flag | Start the fluid surface below the active terrain. Page Up can raise it during runtime. |
 | `--no-sleep` | flag | Keep movable physics bodies awake for solver diagnostics and sleep/no-sleep performance comparisons. |
+| `--no-contact-audio` | flag | Disable presentation-only material impact playback. Alias: `--mute-contact-audio`. |
+| `--contact-audio-smoke` | flag | Run the standalone contact-audio smoke, submit one synthetic earth impact without physics/window/renderer startup, write `TestOutput/contact_audio_smoke.json`, and exit. Alias: `--audio-smoke`. |
 | `--tornado` | optional `on`, `off` | Start with the generated-demo tornado force field enabled or disabled. Bare flag means `on`; the Physics tab can still toggle it live. |
 | `--tornado-vectors` | optional `on`, `off` | Start with tornado velocity-field vectors visible. Green vectors are slower; red vectors are faster. Alias: `--tornado-vector-field`. |
 | `--cinematic` | optional `on`, `off` | Force cinematic HDR/post rendering on or off for every loaded scene. Bare flag means `on`. Alias: `--cinematic-rendering`. |
@@ -65,6 +67,17 @@ This file holds details that are useful during debugging or manual testing but t
 | `--gen-atlas` | optional path | Generate the SDF font atlas and exit before GPU init. |
 
 Physics debug command-line arguments also accept underscore spellings matching scene directives, for example `--physics_debug all` and `--physics_debug_contact_linger 0.75`.
+
+## Contact Audio
+
+Contact impact audio is configured from `SkullbonezData\audio\contact_audio.materials.json` and can be tuned at startup through `engine.cfg`:
+
+| Key | Description |
+|-----|-------------|
+| `contact_audio_enabled` | Master startup switch for contact impact playback. |
+| `contact_audio_master_gain` | Global gain multiplier applied after material and impulse-band gain. |
+| `contact_audio_max_distance_scale` | Multiplier applied to each sound set's authored max distance. |
+| `contact_audio_debug_counters` | Print copied presentation counters once per simulated second: events seen, threshold rejects, cooldown rejects, submitted voices, and dropped voices. |
 
 ## Cinematic Rendering
 

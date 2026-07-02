@@ -493,6 +493,8 @@
     <None Include="SkullbonezData\audio\LICENSES.md" />
     <None Include="SkullbonezData\audio\impacts\impact_default_01.ogg" />
     <None Include="SkullbonezData\audio\impacts\impact_default_02.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_earth_01.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_earth_02.ogg" />
     <None Include="SkullbonezData\audio\impacts\impact_foliage_01.ogg" />
     <None Include="SkullbonezData\audio\impacts\impact_foliage_02.ogg" />
     <None Include="SkullbonezData\audio\impacts\impact_glass_01.ogg" />

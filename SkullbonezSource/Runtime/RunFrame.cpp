@@ -667,6 +667,22 @@ void Run::AfterPhysicsStep()
         }
 
         m_contactAudio.EndPhysicsStep();
+        if ( Cfg().contactAudio.debugCounters )
+        {
+            m_timers.contactAudioStatsLogTime += PHYSICS_FIXED_DT;
+            if ( m_timers.contactAudioStatsLogTime >= 1.0f )
+            {
+                const Runtime::Audio::ContactAudioStats& stats = m_contactAudio.Stats();
+                printf( "[audio] contact stats events=%u threshold=%u cooldown=%u submitted=%u dropped=%u\n",
+                        stats.eventsSeen,
+                        stats.rejectedByThreshold,
+                        stats.rejectedByCooldown,
+                        stats.submittedVoices,
+                        stats.droppedVoices );
+                m_contactAudio.ResetFrameStats();
+                m_timers.contactAudioStatsLogTime = 0.0f;
+            }
+        }
     }
     if ( m_replayRuntime.IsCaptureEnabled() )
     {
@@ -2689,7 +2705,8 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     // frame time. Mouse look consumes a per-frame cursor delta, so using live dt
     // would make sensitivity vary with FPS; the fixed reference preserves the
     // existing 60 Hz tuning while making the result frame-rate independent.
-    MoveCamera( cameraDt * Cfg().keySpeed, CAMERA_MOUSE_REFERENCE_DT * Cfg().mouseSensitivity );
+    const EngineConfig& cfg = Cfg();
+    MoveCamera( cameraDt * cfg.keySpeed, CAMERA_MOUSE_REFERENCE_DT * cfg.mouseSensitivity );
     TickAttachedCamera();
 
     UpdateWaterHeightControls( simulationDt );
@@ -2697,7 +2714,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     // Tween speed is also presentation-time behavior. The selected destination
     // camera can still track moving scene objects, but the interpolation rate
     // itself should be stable in real seconds instead of following time_scale.
-    m_systems.cameras->SetTweenSpeed( Cfg().cameraTweenRate * cameraDt );
+    m_systems.cameras->SetTweenSpeed( cfg.cameraTweenRate * cameraDt );
 }
 
 

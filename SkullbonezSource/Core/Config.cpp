@@ -500,6 +500,10 @@ const ConfigSetting* ConfigSettings( size_t& outCount )
         CONFIG_BOOL( "vsync_enabled", runtimeRender.vsyncEnabled ),
         CONFIG_BOOL( "force_pipeline_sync", runtimeRender.forcePipelineSync ),
         CONFIG_BOOL( "render_collision_volumes", runtimeRender.renderCollisionVolumes ),
+        CONFIG_BOOL( "contact_audio_enabled", contactAudio.enabled ),
+        CONFIG_FLOAT( "contact_audio_master_gain", contactAudio.masterGain, 0.0, 4.0 ),
+        CONFIG_FLOAT( "contact_audio_max_distance_scale", contactAudio.maxDistanceScale, 0.01, 16.0 ),
+        CONFIG_BOOL( "contact_audio_debug_counters", contactAudio.debugCounters ),
     };
     outCount = sizeof( kSettings ) / sizeof( kSettings[0] );
     return kSettings;

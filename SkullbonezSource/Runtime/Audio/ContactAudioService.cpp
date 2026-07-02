@@ -144,6 +144,17 @@ struct ContactAudioService::Impl
         std::vector<VoiceSlot> voices;
     };
 
+    struct SoundBand
+    {
+        std::string name;
+        float minImpulse = 0.25f;
+        float impulseRange = 8.0f;
+        float baseGain = 0.55f;
+        float pitchMin = 0.94f;
+        float pitchMax = 1.06f;
+        std::vector<int> soundIndices;
+    };
+
     struct SoundSet
     {
         std::string name;
@@ -159,6 +170,7 @@ struct ContactAudioService::Impl
         float pitchMax = 1.06f;
         uint32_t maxVoices = 8;
         std::vector<int> soundIndices;
+        std::vector<SoundBand> bands;
     };
 
     struct StepCandidate
@@ -183,6 +195,8 @@ struct ContactAudioService::Impl
     Vector3 listenerPosition = Math::Vector::ZERO_VECTOR;
     ContactAudioStats stats;
     float timeSeconds = 0.0f;
+    float masterGain = 1.0f;
+    float maxDistanceScale = 1.0f;
     uint32_t sampleCursor = 0;
     bool initialized = false;
     bool enabled = true;
@@ -352,7 +366,52 @@ struct ContactAudioService::Impl
                 }
             }
 
-            if ( !set.soundIndices.empty() )
+            const auto bandsIt = setJson.find( "bands" );
+            if ( bandsIt != setJson.end() && bandsIt->is_array() )
+            {
+                for ( const Json& bandJson : *bandsIt )
+                {
+                    if ( !bandJson.is_object() )
+                    {
+                        continue;
+                    }
+
+                    SoundBand band;
+                    band.name = JsonStringOrDefault( bandJson, "name", "impact" );
+                    band.minImpulse = JsonFloatOrDefault( bandJson, "minImpulse", set.minImpulse );
+                    band.impulseRange =
+                        (std::max)( 0.001f, JsonFloatOrDefault( bandJson, "impulseRange", set.impulseRange ) );
+                    band.baseGain = JsonFloatOrDefault( bandJson, "baseGain", set.baseGain );
+                    band.pitchMin = JsonFloatOrDefault( bandJson, "pitchMin", set.pitchMin );
+                    band.pitchMax = JsonFloatOrDefault( bandJson, "pitchMax", set.pitchMax );
+
+                    const auto bandSamplesIt = bandJson.find( "samples" );
+                    if ( bandSamplesIt != bandJson.end() && bandSamplesIt->is_array() )
+                    {
+                        for ( const Json& sample : *bandSamplesIt )
+                        {
+                            if ( sample.is_string() )
+                            {
+                                const int index = LoadOggSound( sample.get<std::string>() );
+                                if ( index >= 0 )
+                                {
+                                    band.soundIndices.push_back( index );
+                                }
+                            }
+                        }
+                    }
+                    set.bands.push_back( std::move( band ) );
+                }
+                std::sort( set.bands.begin(),
+                           set.bands.end(),
+                           []( const SoundBand& lhs, const SoundBand& rhs )
+                           { return lhs.minImpulse < rhs.minImpulse; } );
+            }
+
+            if ( !set.soundIndices.empty() ||
+                 std::any_of( set.bands.begin(),
+                              set.bands.end(),
+                              []( const SoundBand& band ) { return !band.soundIndices.empty(); } ) )
             {
                 sets.push_back( std::move( set ) );
             }
@@ -405,6 +464,19 @@ struct ContactAudioService::Impl
         return fallback;
     }
 
+    const SoundBand* ResolveBand( const SoundSet& set, float normalImpulse ) const
+    {
+        const SoundBand* selected = nullptr;
+        for ( const SoundBand& band : set.bands )
+        {
+            if ( normalImpulse >= band.minImpulse )
+            {
+                selected = &band;
+            }
+        }
+        return selected;
+    }
+
     CooldownEntry* FindCooldown( uint64_t key )
     {
         for ( CooldownEntry& entry : cooldowns )
@@ -448,7 +520,20 @@ struct ContactAudioService::Impl
     {
         const ContactAudioEvent& event = candidate.event;
         const SoundSet* set = ResolveSet( event.materialA, event.materialB );
-        if ( !set || event.normalImpulse < set->minImpulse )
+        if ( !set )
+        {
+            ++stats.rejectedByThreshold;
+            return;
+        }
+        const SoundBand* band = ResolveBand( *set, event.normalImpulse );
+        const float minImpulse = band ? band->minImpulse : set->minImpulse;
+        const float impulseRange = band ? band->impulseRange : set->impulseRange;
+        const float baseGain = band ? band->baseGain : set->baseGain;
+        const float pitchMin = band ? band->pitchMin : set->pitchMin;
+        const float pitchMax = band ? band->pitchMax : set->pitchMax;
+        const std::vector<int>& soundIndices =
+            band && !band->soundIndices.empty() ? band->soundIndices : set->soundIndices;
+        if ( event.normalImpulse < minImpulse || soundIndices.empty() )
         {
             ++stats.rejectedByThreshold;
             return;
@@ -463,31 +548,35 @@ struct ContactAudioService::Impl
         }
 
         const float distance = ContactAudioDistance( event.point, listenerPosition );
-        if ( distance >= set->maxDistance )
+        const float maxDistance = (std::max)( 1.0f, set->maxDistance * maxDistanceScale );
+        if ( distance >= maxDistance )
         {
             ++stats.rejectedByThreshold;
             return;
         }
 
-        const float distanceT = Clamp01( 1.0f - distance / set->maxDistance );
+        const float distanceT = Clamp01( 1.0f - distance / maxDistance );
         const float distanceGain = distanceT * distanceT;
-        const float impactGain = Clamp01( ( event.normalImpulse - set->minImpulse ) / set->impulseRange );
-        const float gain = Clamp01( set->baseGain * distanceGain * impactGain );
+        const float impactGain = Clamp01( ( event.normalImpulse - minImpulse ) / impulseRange );
+        const float gain = Clamp01( masterGain * baseGain * distanceGain * impactGain );
         if ( gain <= 0.001f )
         {
             ++stats.rejectedByThreshold;
             return;
         }
 
-        if ( !initialized || set->soundIndices.empty() )
+        if ( !initialized )
         {
             ++stats.droppedVoices;
             return;
         }
 
-        const uint32_t sampleOrdinal = sampleCursor++ % static_cast<uint32_t>( set->soundIndices.size() );
+        // Concept: bands are presentation tiers only. Selecting a different
+        // sample/gain curve for a heavier impulse never feeds back into the
+        // solver, replay state, or body stores.
+        const uint32_t sampleOrdinal = sampleCursor++ % static_cast<uint32_t>( soundIndices.size() );
         DecodedSound& sound =
-            sounds[static_cast<std::size_t>( set->soundIndices[static_cast<std::size_t>( sampleOrdinal )] )];
+            sounds[static_cast<std::size_t>( soundIndices[static_cast<std::size_t>( sampleOrdinal )] )];
         IXAudio2SourceVoice* voice = nullptr;
         for ( VoiceSlot& slot : sound.voices )
         {
@@ -514,8 +603,8 @@ struct ContactAudioService::Impl
             return;
         }
 
-        const float pitchT = set->pitchMax > set->pitchMin ? static_cast<float>( sampleCursor % 997u ) / 996.0f : 0.0f;
-        const float pitch = set->pitchMin + ( set->pitchMax - set->pitchMin ) * pitchT;
+        const float pitchT = pitchMax > pitchMin ? static_cast<float>( sampleCursor % 997u ) / 996.0f : 0.0f;
+        const float pitch = pitchMin + ( pitchMax - pitchMin ) * pitchT;
         XAUDIO2_BUFFER buffer = {};
         buffer.AudioBytes = static_cast<UINT32>( sound.samples.size() * sizeof( short ) );
         buffer.pAudioData = reinterpret_cast<const BYTE*>( sound.samples.data() );
@@ -597,6 +686,18 @@ bool ContactAudioService::IsAvailable() const
 }
 
 
+void ContactAudioService::SetMasterGain( float gain )
+{
+    m_impl->masterGain = std::clamp( gain, 0.0f, 4.0f );
+}
+
+
+void ContactAudioService::SetMaxDistanceScale( float scale )
+{
+    m_impl->maxDistanceScale = std::clamp( scale, 0.01f, 16.0f );
+}
+
+
 void ContactAudioService::BeginPhysicsStep( float deltaSeconds, const Vector3& listenerPosition )
 {
     m_impl->timeSeconds += (std::max)( 0.0f, deltaSeconds );
@@ -626,6 +727,31 @@ void ContactAudioService::EndPhysicsStep()
         m_impl->PlayCandidate( candidate );
     }
     m_impl->stepCandidates.clear();
+}
+
+
+bool ContactAudioService::PlaySmokeImpact( uint32_t materialId, float normalImpulse )
+{
+    if ( !m_impl->enabled || !IsAvailable() )
+    {
+        return false;
+    }
+
+    ResetFrameStats();
+    BeginPhysicsStep( 0.016f, Math::Vector::ZERO_VECTOR );
+    ContactAudioEvent event;
+    event.bodyA = 0;
+    event.bodyB = -1;
+    event.featureId = 1;
+    event.materialA = materialId;
+    event.materialB = CONTACT_AUDIO_DEFAULT;
+    event.point = Math::Vector::ZERO_VECTOR;
+    event.normal = Vector3( 0.0f, 1.0f, 0.0f );
+    event.normalImpulse = normalImpulse;
+    event.isTerrain = true;
+    SubmitContact( event );
+    EndPhysicsStep();
+    return Stats().submittedVoices > 0;
 }
 
 
