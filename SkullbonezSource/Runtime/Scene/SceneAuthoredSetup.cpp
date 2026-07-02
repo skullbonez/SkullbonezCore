@@ -273,6 +273,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         gameModel.SetCoefficientRestitution( ball.restitution );
         gameModel.SetTerrain( context.terrain );
         gameModel.SetName( ball.name );
+        gameModel.SetContactMaterial( ball.contactMaterial );
         gameModel.AddBoundingSphere( ball.m_radius );
         gameModel.SetFixed( ball.isFixed );
         ApplyEditorPlacedSphereMaterial( gameModel );
@@ -309,6 +310,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         gameModel.SetCoefficientRestitution( bs.restitution );
         gameModel.SetTerrain( context.terrain );
         gameModel.SetName( bs.name );
+        gameModel.SetContactMaterial( bs.contactMaterial );
         gameModel.AddBoundingSphere( bs.radius );
         gameModel.SetLinearVelocity( Vector3( bs.velX, bs.velY, bs.velZ ) );
         gameModel.SetAngularVelocity( Vector3( bs.angVelX, bs.angVelY, bs.angVelZ ) );
@@ -341,6 +343,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         gameModel.SetCoefficientRestitution( box.restitution );
         gameModel.SetTerrain( context.terrain );
         gameModel.SetName( box.name );
+        gameModel.SetContactMaterial( box.contactMaterial );
         gameModel.AddBoundingBox( Vector3( box.halfX, box.halfY, box.halfZ ) );
 
         if ( box.hasInitOrient )
@@ -371,6 +374,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         gameModel.SetCoefficientRestitution( box.restitution );
         gameModel.SetTerrain( context.terrain );
         gameModel.SetName( box.name );
+        gameModel.SetContactMaterial( box.contactMaterial );
         gameModel.AddBoundingBox( Vector3( box.halfX, box.halfY, box.halfZ ) );
         gameModel.SetLinearVelocity( Vector3( box.velX, box.velY, box.velZ ) );
         gameModel.SetAngularVelocity( Vector3( box.angVelX, box.angVelY, box.angVelZ ) );
@@ -398,6 +402,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         gameModel.SetCoefficientRestitution( hullScene.restitution );
         gameModel.SetTerrain( context.terrain );
         gameModel.SetName( hullScene.name );
+        gameModel.SetContactMaterial( hullScene.contactMaterial );
         gameModel.SetContactReleaseOnImpact( hullScene.contactReleaseOnImpact,
                                              hullScene.contactReleaseImpulseThreshold );
         gameModel.AddConvexHull( hull );
@@ -446,6 +451,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         gameModel.SetCoefficientRestitution( hullScene.restitution );
         gameModel.SetTerrain( context.terrain );
         gameModel.SetName( hullScene.name );
+        gameModel.SetContactMaterial( hullScene.contactMaterial );
         gameModel.SetContactReleaseOnImpact( hullScene.contactReleaseOnImpact,
                                              hullScene.contactReleaseImpulseThreshold );
         gameModel.AddConvexHull( hull );

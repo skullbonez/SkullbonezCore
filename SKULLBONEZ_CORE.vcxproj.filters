@@ -116,6 +116,12 @@
     <Filter Include="Header Files\Runtime\Diagnostics">
       <UniqueIdentifier>{A55B726A-B5C3-408A-A364-7C84BEDE0B82}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Audio">
+      <UniqueIdentifier>{0C0AC555-5CA6-40F7-BAB2-A4E19D366895}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Audio">
+      <UniqueIdentifier>{0D08F4CF-1DAB-4E5B-B568-791394F4826E}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Render">
       <UniqueIdentifier>{D2F96B2C-591F-49D3-B4D7-1430E16449F1}</UniqueIdentifier>
     </Filter>
@@ -375,6 +381,9 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Audio\ContactAudioService.cpp">
+      <Filter>Source Files\Runtime\Audio</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeInteractionController.cpp">
       <Filter>Source Files\Runtime</Filter>
@@ -802,6 +811,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h">
       <Filter>Header Files\Runtime\Diagnostics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Audio\ContactAudioService.h">
+      <Filter>Header Files\Runtime\Audio</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeTuning.h">
       <Filter>Header Files\Runtime</Filter>
@@ -1287,6 +1299,57 @@
     </None>
     <None Include="SkullbonezData\engine.cfg">
       <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\contact_audio.materials.json">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\LICENSES.md">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_default_01.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_default_02.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_foliage_01.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_foliage_02.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_glass_01.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_glass_02.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_metal_01.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_metal_02.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_stone_01.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_stone_02.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_water_01.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_water_02.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_wood_01.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_wood_02.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="ThirdPtySource\stb\stb_vorbis.c">
+      <Filter>External</Filter>
     </None>
     <None Include="SkullbonezData\hulls\diamond.hull">
       <Filter>Scene Files</Filter>

@@ -594,10 +594,11 @@ void RemapHistogramSamples( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
 
     for ( int i = 0; i < state.histogramCount; ++i )
     {
-        const int sampleIndex =
-            ( state.histogramHead - state.histogramCount + i + SkullbonezCore::UI::ProfilerTab::HISTOGRAM_SAMPLE_COUNT ) %
-            SkullbonezCore::UI::ProfilerTab::HISTOGRAM_SAMPLE_COUNT;
-        const SkullbonezCore::UI::ProfilerTab::PerformanceHistogramSample oldSample = state.histogramSamples[sampleIndex];
+        const int sampleIndex = ( state.histogramHead - state.histogramCount + i +
+                                  SkullbonezCore::UI::ProfilerTab::HISTOGRAM_SAMPLE_COUNT ) %
+                                SkullbonezCore::UI::ProfilerTab::HISTOGRAM_SAMPLE_COUNT;
+        const SkullbonezCore::UI::ProfilerTab::PerformanceHistogramSample oldSample =
+            state.histogramSamples[sampleIndex];
         SkullbonezCore::UI::ProfilerTab::PerformanceHistogramSample remappedSample = {};
         remappedSample.secondaryMs = oldSample.secondaryMs;
         remappedSample.hasSecondary = oldSample.hasSecondary;
@@ -643,11 +644,10 @@ void CacheHistogramOptions( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
     for ( int i = 0; i < state.histogramOptionCount; ++i )
     {
         const SkullbonezCore::UI::UIProfilerMarkerOption& option = data.profilerMarkerOptions[i];
-        if ( !cacheChanged &&
-             !HistogramOptionKeyMatches( state.histogramOptionHashes[i],
-                                         state.histogramOptionFrameTotals[i],
-                                         option.hash,
-                                         option.isFrameTotal ) )
+        if ( !cacheChanged && !HistogramOptionKeyMatches( state.histogramOptionHashes[i],
+                                                          state.histogramOptionFrameTotals[i],
+                                                          option.hash,
+                                                          option.isFrameTotal ) )
         {
             cacheChanged = true;
         }
@@ -663,8 +663,10 @@ void CacheHistogramOptions( SkullbonezCore::UI::ProfilerTab::UIProfilerTabState&
         {
             for ( int oldIndex = 0; oldIndex < oldCount; ++oldIndex )
             {
-                if ( oldSelected[oldIndex] &&
-                     HistogramOptionKeyMatches( oldHashes[oldIndex], oldFrameTotals[oldIndex], option.hash, option.isFrameTotal ) )
+                if ( oldSelected[oldIndex] && HistogramOptionKeyMatches( oldHashes[oldIndex],
+                                                                         oldFrameTotals[oldIndex],
+                                                                         option.hash,
+                                                                         option.isFrameTotal ) )
                 {
                     state.histogramOptionSelected[i] = true;
                     break;
@@ -921,8 +923,26 @@ void DrawHistogramCheckbox( const SkullbonezCore::UI::UIDrawContext& draw,
     }
 
     draw.Rect( x + 2.0f, y + 2.0f, 7.0f, 7.0f, r, g, b, 0.86f );
-    DrawHistogramLineSegment( draw, x + 3.0f, y + 6.0f, x + 5.0f, y + 8.0f, 1.4f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, 0.95f );
-    DrawHistogramLineSegment( draw, x + 5.0f, y + 8.0f, x + 9.0f, y + 3.0f, 1.4f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, 0.95f );
+    DrawHistogramLineSegment( draw,
+                              x + 3.0f,
+                              y + 6.0f,
+                              x + 5.0f,
+                              y + 8.0f,
+                              1.4f,
+                              palette.textPrimary.r,
+                              palette.textPrimary.g,
+                              palette.textPrimary.b,
+                              0.95f );
+    DrawHistogramLineSegment( draw,
+                              x + 5.0f,
+                              y + 8.0f,
+                              x + 9.0f,
+                              y + 3.0f,
+                              1.4f,
+                              palette.textPrimary.r,
+                              palette.textPrimary.g,
+                              palette.textPrimary.b,
+                              0.95f );
 }
 
 } // namespace
@@ -1673,7 +1693,16 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
             const float markerY = baseY - std::clamp( sample.markerMs[optionIndex] / axisMs, 0.0f, 1.0f ) * plot.h;
             if ( previousValid )
             {
-                DrawHistogramLineSegment( draw, previousX, previousY, x, markerY, 2.0f, seriesR, seriesG, seriesB, 0.86f );
+                DrawHistogramLineSegment( draw,
+                                          previousX,
+                                          previousY,
+                                          x,
+                                          markerY,
+                                          2.0f,
+                                          seriesR,
+                                          seriesG,
+                                          seriesB,
+                                          0.86f );
             }
             draw.Rect( x - 1.0f, markerY - 1.0f, 2.0f, 2.0f, seriesR, seriesG, seriesB, 0.82f );
             previousX = x;
@@ -1714,8 +1743,16 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
             const float workerY = baseY - std::clamp( sample.secondaryMs / axisMs, 0.0f, 1.0f ) * plot.h;
             if ( previousWorkerValid )
             {
-                DrawHistogramLineSegment(
-                    draw, previousWorkerX, previousWorkerY, x, workerY, 2.0f, workerLineR, workerLineG, workerLineB, 0.88f );
+                DrawHistogramLineSegment( draw,
+                                          previousWorkerX,
+                                          previousWorkerY,
+                                          x,
+                                          workerY,
+                                          2.0f,
+                                          workerLineR,
+                                          workerLineG,
+                                          workerLineB,
+                                          0.88f );
             }
             draw.Rect( x - 1.0f, workerY - 1.0f, 2.0f, 2.0f, workerLineR, workerLineG, workerLineB, 0.82f );
             previousWorkerX = x;
@@ -1787,7 +1824,10 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
         }
 
         const float footerY = panel.y + panel.h - 20.0f;
-        snprintf( text, sizeof( text ), selectedCount > 1 ? "Selected avg %.2f ms" : "CPU avg %.2f ms", state.histogramAverageCpuMs );
+        snprintf( text,
+                  sizeof( text ),
+                  selectedCount > 1 ? "Selected avg %.2f ms" : "CPU avg %.2f ms",
+                  state.histogramAverageCpuMs );
         draw.Rect( panel.x + 10.0f,
                    footerY + 7.0f,
                    9.0f,
@@ -1865,14 +1905,11 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
                        selected ? palette.textPrimary.g : palette.textSecondary.g,
                        selected ? palette.textPrimary.b : palette.textSecondary.b,
                        text );
-            snprintf( text, sizeof( text ), "%.3f", rowOption.cpuAverageMs > 0.0f ? rowOption.cpuAverageMs : rowOption.cpuMs );
-            draw.Text( dropdown.x + dropdown.w - 62.0f,
-                       rowY + 6.0f,
-                       9.2f,
-                       rowR,
-                       rowG,
-                       rowB,
-                       text );
+            snprintf( text,
+                      sizeof( text ),
+                      "%.3f",
+                      rowOption.cpuAverageMs > 0.0f ? rowOption.cpuAverageMs : rowOption.cpuMs );
+            draw.Text( dropdown.x + dropdown.w - 62.0f, rowY + 6.0f, 9.2f, rowR, rowG, rowB, text );
         }
         if ( state.histogramOptionCount > visibleRows )
         {

@@ -786,6 +786,7 @@ struct ParsedArgs
     unsigned int seedOverride = 0; // 0 = not set
     bool noWater = false;
     bool noSleep = false;
+    bool noContactAudio = false;
     bool hasTornadoOverride = false;
     bool tornadoEnabled = false;
     bool tornadoVectors = false;
@@ -952,6 +953,10 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
           nullptr,
           []( ParsedArgs& args ) { args.noSleep = true; },
           "[physics] Sleep disabled via command line." },
+        { "--no-contact-audio",
+          "--mute-contact-audio",
+          []( ParsedArgs& args ) { args.noContactAudio = true; },
+          "[audio] Contact impact audio disabled." },
         { "--scene-load-only",
           "--load-scenes-only",
           []( ParsedArgs& args )
@@ -2717,6 +2722,10 @@ int RunApp( Window* window, ParsedArgs& args )
         if ( args.noSleep )
         {
             cRun->SetNoSleepOverride();
+        }
+        if ( args.noContactAudio )
+        {
+            cRun->SetNoContactAudioOverride();
         }
         if ( args.hasTornadoOverride )
         {

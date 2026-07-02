@@ -1,0 +1,160 @@
+{
+  "format": "skullbonez.contact_audio_materials.json",
+  "version": 1,
+  "defaultMaterial": "default",
+  "sets": [
+    {
+      "name": "impact.default",
+      "materials": [ "default", "*" ],
+      "minImpulse": 0.35,
+      "impulseRange": 8.0,
+      "cooldownMs": 140,
+      "overrideCooldownMs": 55,
+      "maxDistance": 95.0,
+      "baseGain": 0.55,
+      "pitchMin": 0.94,
+      "pitchMax": 1.06,
+      "maxVoices": 8,
+      "samples": [
+        "SkullbonezData/audio/impacts/impact_default_01.ogg",
+        "SkullbonezData/audio/impacts/impact_default_02.ogg"
+      ]
+    },
+    {
+      "name": "impact.metal",
+      "materials": [ "metal", "*" ],
+      "minImpulse": 0.25,
+      "impulseRange": 7.0,
+      "cooldownMs": 120,
+      "overrideCooldownMs": 45,
+      "maxDistance": 120.0,
+      "baseGain": 0.70,
+      "pitchMin": 0.91,
+      "pitchMax": 1.08,
+      "maxVoices": 8,
+      "samples": [
+        "SkullbonezData/audio/impacts/impact_metal_01.ogg",
+        "SkullbonezData/audio/impacts/impact_metal_02.ogg"
+      ]
+    },
+    {
+      "name": "impact.stone",
+      "materials": [ "stone", "*" ],
+      "minImpulse": 0.30,
+      "impulseRange": 8.5,
+      "cooldownMs": 135,
+      "overrideCooldownMs": 50,
+      "maxDistance": 105.0,
+      "baseGain": 0.62,
+      "pitchMin": 0.92,
+      "pitchMax": 1.07,
+      "maxVoices": 8,
+      "samples": [
+        "SkullbonezData/audio/impacts/impact_stone_01.ogg",
+        "SkullbonezData/audio/impacts/impact_stone_02.ogg"
+      ]
+    },
+    {
+      "name": "impact.wood",
+      "materials": [ "wood", "*" ],
+      "minImpulse": 0.25,
+      "impulseRange": 7.0,
+      "cooldownMs": 130,
+      "overrideCooldownMs": 50,
+      "maxDistance": 90.0,
+      "baseGain": 0.58,
+      "pitchMin": 0.92,
+      "pitchMax": 1.08,
+      "maxVoices": 8,
+      "samples": [
+        "SkullbonezData/audio/impacts/impact_wood_01.ogg",
+        "SkullbonezData/audio/impacts/impact_wood_02.ogg"
+      ]
+    },
+    {
+      "name": "impact.bark",
+      "materials": [ "bark", "*" ],
+      "minImpulse": 0.22,
+      "impulseRange": 6.5,
+      "cooldownMs": 135,
+      "overrideCooldownMs": 55,
+      "maxDistance": 90.0,
+      "baseGain": 0.54,
+      "pitchMin": 0.90,
+      "pitchMax": 1.06,
+      "maxVoices": 8,
+      "samples": [
+        "SkullbonezData/audio/impacts/impact_wood_01.ogg",
+        "SkullbonezData/audio/impacts/impact_wood_02.ogg"
+      ]
+    },
+    {
+      "name": "impact.glass",
+      "materials": [ "glass", "*" ],
+      "minImpulse": 0.18,
+      "impulseRange": 5.5,
+      "cooldownMs": 115,
+      "overrideCooldownMs": 45,
+      "maxDistance": 105.0,
+      "baseGain": 0.60,
+      "pitchMin": 0.95,
+      "pitchMax": 1.12,
+      "maxVoices": 6,
+      "samples": [
+        "SkullbonezData/audio/impacts/impact_glass_01.ogg",
+        "SkullbonezData/audio/impacts/impact_glass_02.ogg"
+      ]
+    },
+    {
+      "name": "impact.water",
+      "materials": [ "water", "*" ],
+      "minImpulse": 0.15,
+      "impulseRange": 5.0,
+      "cooldownMs": 160,
+      "overrideCooldownMs": 70,
+      "maxDistance": 85.0,
+      "baseGain": 0.50,
+      "pitchMin": 0.94,
+      "pitchMax": 1.08,
+      "maxVoices": 6,
+      "samples": [
+        "SkullbonezData/audio/impacts/impact_water_01.ogg",
+        "SkullbonezData/audio/impacts/impact_water_02.ogg"
+      ]
+    },
+    {
+      "name": "impact.foliage",
+      "materials": [ "foliage", "*" ],
+      "minImpulse": 0.12,
+      "impulseRange": 4.0,
+      "cooldownMs": 160,
+      "overrideCooldownMs": 75,
+      "maxDistance": 75.0,
+      "baseGain": 0.42,
+      "pitchMin": 0.96,
+      "pitchMax": 1.12,
+      "maxVoices": 6,
+      "samples": [
+        "SkullbonezData/audio/impacts/impact_foliage_01.ogg",
+        "SkullbonezData/audio/impacts/impact_foliage_02.ogg"
+      ]
+    },
+    {
+      "name": "impact.matte",
+      "materials": [ "matte", "*" ],
+      "minImpulse": 0.32,
+      "impulseRange": 8.0,
+      "cooldownMs": 140,
+      "overrideCooldownMs": 55,
+      "maxDistance": 100.0,
+      "baseGain": 0.56,
+      "pitchMin": 0.92,
+      "pitchMax": 1.05,
+      "maxVoices": 8,
+      "samples": [
+        "SkullbonezData/audio/impacts/impact_stone_01.ogg",
+        "SkullbonezData/audio/impacts/impact_stone_02.ogg"
+      ]
+    }
+  ]
+}

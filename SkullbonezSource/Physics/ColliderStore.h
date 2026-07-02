@@ -59,6 +59,7 @@ struct ColliderRecord
     ColliderShapeKind shapeKind = ColliderShapeKind::Sphere;   // Cheap typed discriminator for tools and migration checks.
     float boundingRadius = 0.0f;                               // Conservative broadphase radius.
     float restitution = 0.0f;                                  // Collision restitution authored on the model.
+    uint32_t contactMaterialId = 0;                            // Gameplay/audio material hash copied from the model.
     float projectedSurfaceArea = 0.0f;                         // Fluid-drag area mirrored from collision shape.
     float dragCoefficient = 0.0f;                              // Shape drag coefficient used by fluid forces.
 };

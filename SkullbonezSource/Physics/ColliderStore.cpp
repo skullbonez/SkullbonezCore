@@ -71,6 +71,7 @@ void ColliderStore::Refresh( std::vector<GameModel>& models )
         record.shape = model.GetCollisionShape();
         record.boundingRadius = model.GetBoundingRadius();
         record.restitution = model.GetCoefficientRestitution();
+        record.contactMaterialId = model.GetContactMaterialId();
         record.projectedSurfaceArea = model.GetProjectedSurfaceArea();
         record.dragCoefficient = model.GetDragCoefficient();
         if ( model.IsBox() )
@@ -111,6 +112,7 @@ void ColliderStore::Refresh( PhysicsModelAccess& modelAccess )
         record.shape = model.GetCollisionShape();
         record.boundingRadius = model.GetBoundingRadius();
         record.restitution = model.GetCoefficientRestitution();
+        record.contactMaterialId = model.GetContactMaterialId();
         record.projectedSurfaceArea = model.GetProjectedSurfaceArea();
         record.dragCoefficient = model.GetDragCoefficient();
         if ( model.IsBox() )

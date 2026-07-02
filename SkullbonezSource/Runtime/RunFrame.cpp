@@ -578,6 +578,7 @@ void Run::TickPhysics( double secondsPerFrame )
         }
     }
     const bool manipulatorPhysics = policy.manipulatorActive;
+    const bool contactAudioStep = m_contactAudio.IsEnabled();
     const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{
         secondsPerFrame,
         policy.physicsTimeScale,
@@ -589,7 +590,7 @@ void Run::TickPhysics( double secondsPerFrame )
         SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(), &m_cGameModelCollection },
         manipulatorPhysics ? &Run::ApplyMousePickupPhysicsStepThunk : nullptr,
         this,
-        ( manipulatorPhysics || replayCapture ) ? &Run::AfterPhysicsStepThunk : nullptr,
+        ( manipulatorPhysics || replayCapture || contactAudioStep ) ? &Run::AfterPhysicsStepThunk : nullptr,
         this } );
     m_runtimeTools.TickRayCastTestLines( static_cast<float>( secondsPerFrame ) );
     m_runtimeTools.Laser().Update( static_cast<float>( secondsPerFrame ) );
@@ -623,6 +624,50 @@ void Run::ApplyMousePickupPhysicsStepThunk( void* userData )
 void Run::AfterPhysicsStep()
 {
     RestoreMousePickupAngularVelocity();
+    if ( m_contactAudio.IsEnabled() )
+    {
+        PROFILE_SCOPED( "Frame/Physics/Step/ContactAudio" );
+
+        const Vector3 listenerPosition =
+            m_systems.cameras ? m_systems.cameras->GetRenderCameraTranslation() : Math::Vector::ZERO_VECTOR;
+        m_contactAudio.BeginPhysicsStep( PHYSICS_FIXED_DT, listenerPosition );
+
+        // Why: PhysicsDebugContact rows are emitted after accumulated normal
+        // impulses are known. Audio can consume those facts without entering
+        // solver math or changing deterministic physics state.
+        const std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.Models();
+        const std::vector<PhysicsDebugContact>& contacts = m_cGameModelCollection.GetPhysicsDebugContacts();
+        auto materialForBody = [&]( int bodyIndex ) -> uint32_t
+        {
+            if ( bodyIndex >= 0 && bodyIndex < static_cast<int>( models.size() ) )
+            {
+                return models[static_cast<std::size_t>( bodyIndex )].GetContactMaterialId();
+            }
+            return HashStr( "default" );
+        };
+
+        for ( const PhysicsDebugContact& contact : contacts )
+        {
+            if ( contact.bodyA < 0 || contact.normalImpulse <= 0.0f )
+            {
+                continue;
+            }
+
+            Runtime::Audio::ContactAudioEvent event;
+            event.bodyA = contact.bodyA;
+            event.bodyB = contact.bodyB;
+            event.featureId = contact.featureId;
+            event.materialA = materialForBody( contact.bodyA );
+            event.materialB = materialForBody( contact.bodyB );
+            event.point = contact.point;
+            event.normal = contact.normal;
+            event.normalImpulse = contact.normalImpulse;
+            event.isTerrain = contact.bodyB < 0;
+            m_contactAudio.SubmitContact( event );
+        }
+
+        m_contactAudio.EndPhysicsStep();
+    }
     if ( m_replayRuntime.IsCaptureEnabled() )
     {
         PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
@@ -2365,10 +2410,9 @@ bool Run::TickScreenshots()
         break;
     case RuntimeCaptureAutomation::AdvanceSceneOrQuit:
     {
-        const SceneRuntimeControlAction action =
-            m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                             sPerfPass,
-                                             SceneState().isInteractiveRun );
+        const SceneRuntimeControlAction action = m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                                                  sPerfPass,
+                                                                                  SceneState().isInteractiveRun );
         if ( !executeSceneControlAction( action ) )
         {
             if ( result.completion == RuntimeCaptureCompletion::Screenshot )

@@ -561,6 +561,13 @@ void Run::SetNoSleepOverride()
 }
 
 
+void Run::SetNoContactAudioOverride()
+{
+    m_launchOptions.noContactAudio = true;
+    m_contactAudio.SetEnabled( false );
+}
+
+
 void Run::SetTornadoOverride( bool enabled )
 {
     m_launchOptions.hasTornadoOverride = true;
@@ -1248,6 +1255,12 @@ void Run::Initialise()
 
     // Init cameras (shared across scenes, Reset() between loads)
     m_systems.cameras = &m_systems.cameraCollection;
+
+    if ( !m_launchOptions.noContactAudio )
+    {
+        m_contactAudio.Initialize();
+        m_contactAudio.LoadContactAudioMap( "SkullbonezData/audio/contact_audio.materials.json" );
+    }
 
     LoadScene( 0 );
 }

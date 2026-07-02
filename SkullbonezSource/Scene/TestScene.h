@@ -72,6 +72,7 @@ struct SceneBall
     float forceX, forceY, forceZ;
     float forcePosX, forcePosY, forcePosZ;
     float eulerX, eulerY, eulerZ;                             // Initial orientation in degrees (optional, default 0)
+    char contactMaterial[32];                                 // Optional gameplay/audio contact material token.
     bool hasInitOrient;                                       // False means use default identity orientation.
     bool isFixed;                                             // Fixed bodies participate in contacts but do not integrate.
 };
@@ -85,6 +86,7 @@ struct SceneBallState
     float orientX, orientY, orientZ, orientW;
     float radius, mass, restitution;
     float inertiaX, inertiaY, inertiaZ;
+    char contactMaterial[32];                                 // Snapshot-preserved gameplay/audio contact material token.
     bool isFixed;
     bool isSleeping;
 };
@@ -99,6 +101,7 @@ struct SceneBoxState
     float halfX, halfY, halfZ;
     float mass, restitution;
     float inertiaX, inertiaY, inertiaZ;
+    char contactMaterial[32];                                 // Snapshot-preserved gameplay/audio contact material token.
     bool isFixed;
     bool isSleeping;
 };
@@ -114,6 +117,7 @@ struct SceneConvexHullState
     float mass, restitution;
     float inertiaX, inertiaY, inertiaZ;
     float contactReleaseImpulseThreshold;
+    char contactMaterial[32];                                 // Snapshot-preserved gameplay/audio contact material token.
     bool isFixed;
     bool isSleeping;
     bool contactReleaseOnImpact;
@@ -152,6 +156,7 @@ struct SceneBox
     float restitution;
     float eulerX, eulerY, eulerZ;                             // Initial orientation in degrees (optional, default 0)
     float velX, velY, velZ;                                   // Initial linear velocity (optional, default 0)
+    char contactMaterial[32];                                 // Gameplay/audio contact material token.
     bool hasInitOrient;
     bool hasInitVelocity;
     bool isFixed;
@@ -168,6 +173,7 @@ struct SceneConvexHull
     float velX, velY, velZ;
     float angVelX, angVelY, angVelZ;
     float contactReleaseImpulseThreshold;
+    char contactMaterial[32];                                 // Gameplay/audio contact material token.
     bool hasInitOrient;
     bool hasInitVelocity;
     bool hasInitAngularVelocity;

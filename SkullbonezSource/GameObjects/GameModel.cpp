@@ -112,6 +112,7 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
                                                                     m_renderTintG,
                                                                     m_renderTintB,
                                                                     m_renderColorOverride );
+    SetContactMaterial( "default" );
     m_isResponseRequired = false;
     m_isFixed = false;
     m_releasesFromFixedOnContact = false;
@@ -425,6 +426,26 @@ void GameModel::SetRenderMaterial( const Rendering::RenderMaterial& material )
 const Rendering::RenderMaterial& GameModel::GetRenderMaterial() const
 {
     return m_renderMaterial;
+}
+
+
+void GameModel::SetContactMaterial( const char* materialName )
+{
+    const char* safeName = ( materialName && materialName[0] != '\0' ) ? materialName : "default";
+    strncpy_s( m_contactMaterialName, sizeof( m_contactMaterialName ), safeName, _TRUNCATE );
+    m_contactMaterialId = HashStr( m_contactMaterialName );
+}
+
+
+const char* GameModel::GetContactMaterialName() const
+{
+    return m_contactMaterialName;
+}
+
+
+uint32_t GameModel::GetContactMaterialId() const
+{
+    return m_contactMaterialId;
 }
 
 

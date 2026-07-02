@@ -645,6 +645,54 @@ void SetObjectMaterialBaseColor( SceneObjectMaterialOverride& material, float r,
     }
 }
 
+std::string ReadContactMaterialToken( const Json& value, const std::string& path, const char* context )
+{
+    const std::string token = Lowercase( ReadString( value, path, context ) );
+    if ( token.empty() || token.size() >= 32 )
+    {
+        Fail( path, std::string( context ) + " must be 1-31 characters" );
+    }
+    return token;
+}
+
+std::string ReadInferredContactMaterial( const Json& object, const std::string& path, const char* context )
+{
+    if ( const Json* material = FindMember( object, "contactMaterial" ) )
+    {
+        return ReadContactMaterialToken( *material, path, context );
+    }
+
+    const Json* renderMaterial = FindMember( object, "material" );
+    if ( renderMaterial && renderMaterial->is_object() )
+    {
+        // Why: asset libraries already tag render materials by substance; using
+        // that token keeps contact audio material-aware without duplicating JSON.
+        if ( const Json* mode = FindMember( *renderMaterial, "mode" ); mode && mode->is_string() )
+        {
+            return ReadContactMaterialToken( *mode, path, "asset.material.mode" );
+        }
+        if ( const Json* kind = FindMember( *renderMaterial, "kind" ); kind && kind->is_string() )
+        {
+            return ReadContactMaterialToken( *kind, path, "asset.material.kind" );
+        }
+    }
+
+    return "default";
+}
+
+void CopyOptionalContactMaterial( char ( &out )[32], const Json& object, const std::string& path, const char* context )
+{
+    const Json* material = FindMember( object, "contactMaterial" );
+    if ( !material )
+    {
+        strncpy_s( out, sizeof( out ), "default", _TRUNCATE );
+        return;
+    }
+
+    const std::string token = ReadContactMaterialToken( *material, path, context );
+    strncpy_s( out, sizeof( out ), token.c_str(), _TRUNCATE );
+}
+
 float ReadUnitFloat( const Json& value, const std::string& path, const char* context )
 {
     return std::clamp( ReadFloat( value, path, context ), 0.0f, 1.0f );
@@ -753,6 +801,7 @@ class TestSceneParser
         }
         ReadFloat( RequireMember( asset, path, context, "restitution" ), path, "asset.restitution" );
         ValidateAssetMaterial( asset, path, context );
+        (void)ReadInferredContactMaterial( asset, path, "asset.contactMaterial" );
         if ( const Json* fixed = FindMember( asset, "fixed" ) )
         {
             ReadBool( *fixed, path, "asset.fixed" );
@@ -1078,6 +1127,7 @@ class TestSceneParser
         object["name"] = objectName;
         object["position"] = Json::array( { baseX + offsetX, baseY + offsetY, baseZ + offsetZ } );
         object["fixed"] = fixed;
+        object["contactMaterial"] = ReadInferredContactMaterial( asset, path, "asset.contactMaterial" );
 
         if ( primitiveType == "convexHull" )
         {
@@ -2199,6 +2249,7 @@ class TestSceneParser
         ball.m_mass = ReadFloat( RequireMember( object, path, "ball", "mass" ), path, "ball.mass" );
         ball.moment = ReadFloat( RequireMember( object, path, "ball", "moment" ), path, "ball.moment" );
         ball.restitution = ReadFloat( RequireMember( object, path, "ball", "restitution" ), path, "ball.restitution" );
+        CopyOptionalContactMaterial( ball.contactMaterial, object, path, "ball.contactMaterial" );
         ball.isFixed = isFixed;
 
         if ( const Json* fixed = FindMember( object, "fixed" ) )
@@ -2239,6 +2290,7 @@ class TestSceneParser
                   box.halfZ );
         box.mass = ReadFloat( RequireMember( object, path, "box", "mass" ), path, "box.mass" );
         box.restitution = ReadFloat( RequireMember( object, path, "box", "restitution" ), path, "box.restitution" );
+        CopyOptionalContactMaterial( box.contactMaterial, object, path, "box.contactMaterial" );
         box.isFixed = isFixed;
         if ( const Json* fixed = FindMember( object, "fixed" ) )
         {
@@ -2278,6 +2330,7 @@ class TestSceneParser
         }
         hull.restitution =
             ReadFloat( RequireMember( object, path, "convexHull", "restitution" ), path, "convexHull.restitution" );
+        CopyOptionalContactMaterial( hull.contactMaterial, object, path, "convexHull.contactMaterial" );
         hull.isFixed = isFixed;
         hull.contactReleaseOnImpact = SkullbonezCore::Assets::HullAssetTokenDefaultsToContactRelease( hull.hullPath );
         hull.contactReleaseImpulseThreshold =
@@ -2350,6 +2403,7 @@ class TestSceneParser
         state.mass = ReadFloat( RequireMember( object, path, "ballState", "mass" ), path, "ballState.mass" );
         state.restitution =
             ReadFloat( RequireMember( object, path, "ballState", "restitution" ), path, "ballState.restitution" );
+        CopyOptionalContactMaterial( state.contactMaterial, object, path, "ballState.contactMaterial" );
         ReadVec3( RequireMember( object, path, "ballState", "inertia" ),
                   path,
                   "ballState.inertia",
@@ -2405,6 +2459,7 @@ class TestSceneParser
         state.mass = ReadFloat( RequireMember( object, path, "boxState", "mass" ), path, "boxState.mass" );
         state.restitution =
             ReadFloat( RequireMember( object, path, "boxState", "restitution" ), path, "boxState.restitution" );
+        CopyOptionalContactMaterial( state.contactMaterial, object, path, "boxState.contactMaterial" );
         ReadVec3( RequireMember( object, path, "boxState", "inertia" ),
                   path,
                   "boxState.inertia",
@@ -2454,6 +2509,7 @@ class TestSceneParser
         state.restitution = ReadFloat( RequireMember( object, path, "convexHullState", "restitution" ),
                                        path,
                                        "convexHullState.restitution" );
+        CopyOptionalContactMaterial( state.contactMaterial, object, path, "convexHullState.contactMaterial" );
         ReadVec3( RequireMember( object, path, "convexHullState", "inertia" ),
                   path,
                   "convexHullState.inertia",

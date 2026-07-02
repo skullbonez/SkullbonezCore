@@ -42,6 +42,7 @@ Related:
 #include "RuntimeInteractionController.h"
 #include "RuntimeCommandQueue.h"
 #include "RuntimeCameraMode.h"
+#include "Audio/ContactAudioService.h"
 #include "Render/RuntimeRenderHost.h"
 #include "Render/RuntimeRenderInputs.h"
 #include "Render/RuntimeRenderer.h"
@@ -121,6 +122,7 @@ class Run
     AttachedCameraState m_attachedCamera;                                  // Non-serialized object-follow camera state for Attach mode.
     SimulationController m_simulation;                                     // Simulation timestep policy and physics accumulators
     ReplayRuntime m_replayRuntime;                                         // Owns replay recorders, branch provenance, and replay interaction state.
+    Runtime::Audio::ContactAudioService m_contactAudio;                    // Presentation-only material impact playback sink.
     RunReplayMismatchState m_solverReplayMismatch;                         // Throttles repeated live-vs-solver replay mismatch reports.
     RunLiveStyleControlState m_liveStyle;                                  // Live style tweak/capture harness state
     UI::InGameUI m_UI;                                                     // Encapsulated in-game diagnostics window
@@ -363,6 +365,7 @@ class Run
     void SetSeedOverride( unsigned int seed );                             // Override RNG seed for every scene loaded (CLI --seed)
     void SetNoWaterOverride();                                             // Start scenes with fluid below terrain (CLI --no-water)
     void SetNoSleepOverride();                                             // Disable physics sleeping for every scene loaded (CLI --no-sleep)
+    void SetNoContactAudioOverride();                                      // Disable presentation-only contact impact playback
     void SetTornadoOverride( bool enabled );                               // Enable/disable tornado mode for loaded scenes (CLI --tornado)
     void SetTornadoVectorFieldOverride( bool enabled );                    // Show/hide tornado velocity vectors at startup
     void SetCinematicRenderingOverride( bool enabled );                    // Force cinematic HDR/post rendering on/off for every scene loaded

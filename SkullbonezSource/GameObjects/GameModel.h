@@ -143,6 +143,8 @@ class GameModel
     float m_renderTintB;                                                    // Per-instance render tint blue channel
     float m_renderColorOverride;                                            // 1 = render with tint as material color, 0 = material tint multiplier
     Rendering::RenderMaterial m_renderMaterial;                             // Render-only material intent, mirrored to the current tint bridge
+    char m_contactMaterialName[32];                                         // Gameplay/audio contact material token, independent of render material.
+    uint32_t m_contactMaterialId;                                           // Hash of m_contactMaterialName used by contact/audio hot paths.
     bool m_isResponseRequired;                                              // Terrain detection handoff flag; shared terrain rows consume generated manifolds
     bool m_isFixed;                                                         // True for immovable collision bodies such as floating ramps
     bool m_releasesFromFixedOnContact;                                      // Fixed decorative pieces can become dynamic after a real hit.
@@ -280,6 +282,9 @@ class GameModel
     void SetRenderMaterial(
         const Rendering::RenderMaterial& material );                        // Render intent only; collision material stays elsewhere.
     const Rendering::RenderMaterial& GetRenderMaterial() const;
+    void SetContactMaterial( const char* materialName );                    // Audio/gameplay contact material; defaults to "default".
+    const char* GetContactMaterialName() const;
+    uint32_t GetContactMaterialId() const;
     void AddBoundingSphere( float fRadius );
     void AddBoundingBox( const Math::Vector::Vector3& halfExtents );
     void AddConvexHull( const Math::CollisionDetection::ConvexHullShape& hull );
