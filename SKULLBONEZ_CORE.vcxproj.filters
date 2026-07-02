@@ -1312,52 +1312,118 @@
     <None Include="SkullbonezData\audio\LICENSES.md">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="SkullbonezData\audio\impacts\impact_default_01.ogg">
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_01.ogg">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="SkullbonezData\audio\impacts\impact_default_02.ogg">
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_02.ogg">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="SkullbonezData\audio\impacts\impact_earth_01.ogg">
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_03.ogg">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="SkullbonezData\audio\impacts\impact_earth_02.ogg">
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_04.ogg">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="SkullbonezData\audio\impacts\impact_foliage_01.ogg">
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_05.ogg">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="SkullbonezData\audio\impacts\impact_foliage_02.ogg">
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_06.ogg">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="SkullbonezData\audio\impacts\impact_glass_01.ogg">
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_07.ogg">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="SkullbonezData\audio\impacts\impact_glass_02.ogg">
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_08.ogg">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="SkullbonezData\audio\impacts\impact_metal_01.ogg">
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_09.ogg">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="SkullbonezData\audio\impacts\impact_metal_02.ogg">
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_10.ogg">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="SkullbonezData\audio\impacts\impact_stone_01.ogg">
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_01.ogg">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="SkullbonezData\audio\impacts\impact_stone_02.ogg">
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_02.ogg">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="SkullbonezData\audio\impacts\impact_water_01.ogg">
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_03.ogg">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="SkullbonezData\audio\impacts\impact_water_02.ogg">
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_04.ogg">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="SkullbonezData\audio\impacts\impact_wood_01.ogg">
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_05.ogg">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="SkullbonezData\audio\impacts\impact_wood_02.ogg">
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_06.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_07.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_08.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_09.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_10.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_11.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_12.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_13.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_rock_01.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_01.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_02.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_03.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_soft_01.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_soft_02.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_soft_03.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_stone_01.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_stone_02.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_stone_03.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_metal_01.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_metal_02.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_alt_01.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_alt_02.ogg">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_alt_03.ogg">
       <Filter>Resource Files</Filter>
     </None>
     <None Include="ThirdPtySource\stb\stb_vorbis.c">

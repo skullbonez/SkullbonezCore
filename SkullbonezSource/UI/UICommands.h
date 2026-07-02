@@ -18,6 +18,8 @@ Glossary:
   widget.
   Command struct: One-frame request packet emitted by UI code and consumed by
   the run loop.
+  Sound sample request: One-frame Sound-tab command to preview a decoded impact
+    candidate or assign it to the selected material set.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -329,6 +331,8 @@ struct UISoundCommands
     UISoundParam requestedParam = UISoundParam::None;
     UISoundBandParam requestedBandParam = UISoundBandParam::None;
     float requestedValue = 0.0f;
+    int previewSampleIndex = -1;
+    int selectSampleIndex = -1;
 };
 
 struct InGameUICommands

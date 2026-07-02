@@ -558,6 +558,11 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         // Lifetime: names copied into UIData are borrowed from ContactAudioService
         // through the runtime view model for this immediate draw pass.
         UIData.soundSetCount = (std::min)( contactAudio.soundSetCount, SkullbonezCore::UI::UI_SOUND_SET_MAX );
+        UIData.soundSampleCount = (std::min)( contactAudio.soundSampleCount, SkullbonezCore::UI::UI_SOUND_SAMPLE_MAX );
+        for ( int sampleIndex = 0; sampleIndex < UIData.soundSampleCount; ++sampleIndex )
+        {
+            UIData.soundSamplePaths[sampleIndex] = contactAudio.soundSamplePaths[sampleIndex];
+        }
         for ( int setIndex = 0; setIndex < UIData.soundSetCount; ++setIndex )
         {
             const SkullbonezCore::Runtime::Audio::ContactAudioSetTuning& tuning = contactAudio.soundSets[setIndex];

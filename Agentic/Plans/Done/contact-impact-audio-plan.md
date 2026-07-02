@@ -1,7 +1,7 @@
 # Contact Impact Audio Plan And Progress
 
 Date: 2026-07-02
-Status: Plan complete; validated, committed, and pushed in follow-up commits
+Status: Plan complete; rolling-suppression and sample-browser follow-up in progress
 Impact areas: runtime, physics contact diagnostics/events, scene/assets, audio, project configuration, validation
 Validation for this plan edit: Documentation/progress update only after continuation validation passed.
 
@@ -14,7 +14,8 @@ Add material-aware contact impact audio:
 - Scale volume by impact strength.
 - Enforce a minimum impact threshold so resting contacts do not chatter.
 - Enforce cooldowns so persistent solver rows do not produce rapid-fire noise.
-- Choose sound sets from contact material pairs such as metal/stone, wood/terrain, or foliage/wood.
+- Choose sound sets from contact material pairs such as metal/stone or wood/terrain when authored.
+- Provide an in-game generic thud sample library so impact candidates can be auditioned and assigned without editing JSON.
 - Keep audio asynchronous and non-authoritative: sound playback must never affect physics determinism.
 
 ## Current Source Facts
@@ -50,7 +51,6 @@ Initial material names:
 - `metal`
 - `stone`
 - `wood`
-- `foliage`
 - `earth`
 - `water`
 - `glass`
@@ -202,7 +202,6 @@ Initial material shopping list:
 - `metal`: clanks, rings, dull metal hits, scraped variants.
 - `stone`: rock chips, stone-on-stone impacts, debris ticks.
 - `wood`: hollow knocks, snaps, plank impacts.
-- `foliage`: branch/leaf crunch layers, light twig snaps.
 - `earth`: dirt thumps, gravel scatter, sand/soil impacts.
 - `water`: splash and wet slap layers for terrain/shoreline contacts.
 - `glass`: small brittle ticks and heavier shatter-compatible hits.
@@ -254,16 +253,18 @@ Audio is presentation only:
 
 ### Phase 4 - Material Sound Selection
 
-- [x] Add initial CC0 sound assets for default, metal, stone, wood/bark, foliage, glass, matte, and water.
+- [x] Add initial CC0 sound assets for default, metal, stone, wood/bark, glass, matte, and water.
 - [x] Implement material-pair fallback with material-specific wildcard preference over `default/*`.
 - [x] Add pitch/volume variation that is audio-only and does not affect physics determinism.
 - [x] Add optional light/medium/heavy impulse bands.
 - [x] Add dedicated earth/dirt samples instead of falling back to default/stone.
+- [x] Follow-up: replace broad/material placeholder sounds with a generic CC0 thud library and a single active default thwack sample.
 
 ### Phase 5 - UI, Diagnostics, And Tooling
 
 - [x] Add a small diagnostic counter set: events seen, events rejected by threshold, rejected by cooldown, submitted, voices dropped.
 - [x] Add optional UI/config controls for enable, master gain, max distance, and debug counters.
+- [x] Add Sound-tab sample browsing with Play and Use actions for decoded contact-audio samples.
 - [x] Add startup console summary when the contact audio map loads.
 - [x] Add CLI opt-out for validation/headless launches.
 
@@ -280,6 +281,9 @@ Audio is presentation only:
 - [x] Continuation runtime boundary check: `tools\validate_runtime_boundaries.bat` passed in 5.1 seconds after reducing runtime `Cfg()` access count with config snapshots.
 - [x] Continuation final PR gate: `tools\validate_full.bat` passed in 44.5 seconds. DX12 InfoQueue reported 0 validation errors, DX12 screenshots matched committed baselines, and `physics_regression_solver.csv` matched byte-exactly.
 - [x] Continuation final manual smoke: `Profile\SKULLBONEZ_CORE.exe --contact-audio-smoke` exited 0 in 1.0 seconds, wrote `TestOutput/contact_audio_smoke.json`, and reported initialized=true, loaded=true, submitted=true, submittedVoices=1.
+- [x] Follow-up targeted build: `tools\validate_build.bat Profile` passed in 8.4 seconds with 0 warnings / 0 errors after scoped formatting.
+- [x] Follow-up direct smoke: `Profile\SKULLBONEZ_CORE.exe --contact-audio-smoke` exited 0 in 1.3 seconds and loaded 1 sound set / 38 samples with submittedVoices=1.
+- [x] Follow-up final PR gate: `tools\validate_full.bat` passed in 38.6 seconds. DX12 InfoQueue reported 0 validation errors, DX12 screenshots matched committed baselines, and `physics_regression_solver.csv` matched byte-exactly.
 
 ## Likely Files
 
@@ -302,6 +306,7 @@ Audio is presentation only:
 - [x] Replay gets no dedicated replay-audio policy in this slice; live post-step contacts can play presentation audio without changing replay artifacts.
 - [x] Existing asset material modes/kinds infer contact material. Bare generated/demo objects and legacy scene objects default to `default` unless authored otherwise.
 - [x] Enable/master-gain/max-distance/debug-counter controls are config-backed through `engine.cfg` instead of a new in-game panel for this slice.
+- [x] Rolling contacts are suppressed by treating an uninterrupted body pair as one continuing support contact unless it separates briefly or receives a strong impulse spike.
 
 ## Progress Ledger
 
@@ -325,6 +330,10 @@ Audio is presentation only:
 - [x] 2026-07-02: Added `engine.cfg` contact audio controls: enabled, master gain, max-distance scale, and debug counters.
 - [x] 2026-07-02: Passed targeted Profile build and direct contact-audio smoke after the completion pass.
 - [x] 2026-07-02: Passed continuation `tools\validate_full.bat` and final direct smoke.
+- [x] 2026-07-02: Replaced the active default with a generic thwack sample and added 38 CC0 thud candidates from OpenGameArt packs.
+- [x] 2026-07-02: Added rolling-contact suppression so steady ball-ground contact does not replay every cooldown window.
+- [x] 2026-07-02: Added Sound-tab sample browsing, preview, and runtime sample assignment.
+- [x] 2026-07-02: Passed follow-up format, Profile build, contact-audio smoke, project-filter check, and `tools\validate_full.bat`.
 - [x] Phase 0 complete.
 - [x] Phase 1 complete.
 - [x] Phase 2 complete.

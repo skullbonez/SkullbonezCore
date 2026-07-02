@@ -14,6 +14,8 @@ Glossary:
   Snapshot payload: Small copyable values such as counts, flags, indices, and
     bounded frame-local arrays.
   Presentation layer: UI or diagnostics code that reads state without owning it.
+  Borrowed sample path: Contact-audio asset path owned by the audio service and
+    valid only for the current presentation snapshot.
 
 Invariants:
   - View models are copies; consumers must not infer ownership from them.
@@ -34,6 +36,7 @@ namespace Basics
 class EngineContext;
 
 constexpr int RUNTIME_CONTACT_AUDIO_SET_MAX = 16;
+constexpr int RUNTIME_CONTACT_AUDIO_SAMPLE_MAX = 64;
 
 struct RuntimeContactAudioSnapshot
 {
@@ -44,6 +47,8 @@ struct RuntimeContactAudioSnapshot
     float maxDistanceScale = 1.0f;
     Runtime::Audio::ContactAudioStats stats;
     int soundSetCount = 0;
+    int soundSampleCount = 0;
+    const char* soundSamplePaths[RUNTIME_CONTACT_AUDIO_SAMPLE_MAX] = {};
     Runtime::Audio::ContactAudioSetTuning soundSets[RUNTIME_CONTACT_AUDIO_SET_MAX];
 };
 

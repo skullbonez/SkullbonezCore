@@ -14,6 +14,8 @@ Glossary:
   Set parameter: Material-pair threshold, cooldown, gain, pitch, distance, or
     voice-count control.
   Band parameter: Impulse-tier override inside a selected set.
+  Sample library: Decoded contact-audio candidate sounds that can be previewed
+    or assigned to the selected material set.
 
 Invariants:
   - Selected set indices are clamped against the current frame snapshot before
@@ -32,6 +34,7 @@ Related:
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 
 using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::UI::Widgets;
@@ -49,11 +52,16 @@ constexpr float SOUND_TOGGLE_Y = 42.0f;
 constexpr float SOUND_STATS_Y = 80.0f;
 constexpr float SOUND_GLOBAL_TITLE_Y = 128.0f;
 constexpr float SOUND_GLOBAL_SLIDER_Y = 154.0f;
-constexpr float SOUND_SET_TITLE_Y = 250.0f;
-constexpr float SOUND_SET_PICKER_Y = 276.0f;
-constexpr float SOUND_SET_META_Y = 310.0f;
-constexpr float SOUND_SET_SLIDER_Y = 352.0f;
-constexpr float SOUND_BAND_TITLE_Y = 742.0f;
+constexpr float SOUND_SAMPLE_TITLE_Y = 250.0f;
+constexpr float SOUND_SAMPLE_PICKER_Y = 276.0f;
+constexpr float SOUND_SAMPLE_ACTION_Y = 310.0f;
+constexpr float SOUND_SAMPLE_BUTTON_W = 72.0f;
+constexpr float SOUND_SAMPLE_BUTTON_H = 26.0f;
+constexpr float SOUND_SET_TITLE_Y = 360.0f;
+constexpr float SOUND_SET_PICKER_Y = 386.0f;
+constexpr float SOUND_SET_META_Y = 420.0f;
+constexpr float SOUND_SET_SLIDER_Y = 462.0f;
+constexpr float SOUND_BAND_TITLE_Y = 852.0f;
 constexpr float SOUND_BAND_BLOCK_H = 238.0f;
 constexpr float SOUND_SLIDER_H = 34.0f;
 constexpr float SOUND_SLIDER_STEP_Y = 40.0f;
@@ -220,6 +228,18 @@ const SkullbonezCore::UI::UISoundSetFrameData* SelectedSet( const SkullbonezCore
     return &data.soundSets[setIndex];
 }
 
+const char* SampleLeafName( const char* path )
+{
+    if ( !path || path[0] == '\0' )
+    {
+        return "No samples loaded";
+    }
+    const char* slash = strrchr( path, '/' );
+    const char* backslash = strrchr( path, '\\' );
+    const char* leaf = slash && backslash ? ( slash > backslash ? slash : backslash ) : ( slash ? slash : backslash );
+    return leaf ? leaf + 1 : path;
+}
+
 float GlobalDisplayValue( const SkullbonezCore::UI::SoundTab::UISoundTabState& state,
                           const SkullbonezCore::UI::InGameUIFrameData& data,
                           int activeSlider,
@@ -330,6 +350,19 @@ void SetContentBounds( SkullbonezCore::UI::SoundTab::UISoundTabState& state,
                                          scrolledY + SOUND_GLOBAL_SLIDER_Y + SOUND_SLIDER_STEP_Y,
                                          contentW,
                                          SOUND_SLIDER_H );
+    SetPipelineStepButtonBounds( state.previousSampleButton,
+                                 state.nextSampleButton,
+                                 contentX,
+                                 contentW,
+                                 scrolledY + SOUND_SAMPLE_PICKER_Y );
+    state.previewSampleButton.SetBounds( contentX,
+                                         scrolledY + SOUND_SAMPLE_ACTION_Y,
+                                         SOUND_SAMPLE_BUTTON_W,
+                                         SOUND_SAMPLE_BUTTON_H );
+    state.selectSampleButton.SetBounds( contentX + SOUND_SAMPLE_BUTTON_W + 10.0f,
+                                        scrolledY + SOUND_SAMPLE_ACTION_Y,
+                                        SOUND_SAMPLE_BUTTON_W,
+                                        SOUND_SAMPLE_BUTTON_H );
     SetPipelineStepButtonBounds( state.previousSetButton,
                                  state.nextSetButton,
                                  contentX,
@@ -398,12 +431,24 @@ void ClampSelection( UISoundTabState& state, const InGameUIFrameData& data )
         state.selectedSetIndex = 0;
         state.lastSetCount = 0;
         state.lastBandCount = 0;
-        return;
     }
-    state.selectedSetIndex = std::clamp( state.selectedSetIndex, 0, data.soundSetCount - 1 );
-    state.lastSetCount = std::clamp( data.soundSetCount, 0, UI_SOUND_SET_MAX );
-    const UISoundSetFrameData& set = data.soundSets[state.selectedSetIndex];
-    state.lastBandCount = std::clamp( static_cast<int>( set.bandCount ), 0, SOUND_UI_BAND_MAX );
+    else
+    {
+        state.selectedSetIndex = std::clamp( state.selectedSetIndex, 0, data.soundSetCount - 1 );
+        state.lastSetCount = std::clamp( data.soundSetCount, 0, UI_SOUND_SET_MAX );
+        const UISoundSetFrameData& set = data.soundSets[state.selectedSetIndex];
+        state.lastBandCount = std::clamp( static_cast<int>( set.bandCount ), 0, SOUND_UI_BAND_MAX );
+    }
+    if ( data.soundSampleCount <= 0 )
+    {
+        state.selectedSampleIndex = 0;
+        state.lastSampleCount = 0;
+    }
+    else
+    {
+        state.selectedSampleIndex = std::clamp( state.selectedSampleIndex, 0, data.soundSampleCount - 1 );
+        state.lastSampleCount = std::clamp( data.soundSampleCount, 0, UI_SOUND_SAMPLE_MAX );
+    }
 }
 
 
@@ -418,6 +463,10 @@ void DrawHitboxes( const UISoundTabState& state,
     DrawHitboxRect( draw, state.debugCountersToggle.Bounds(), r, g, b );
     DrawHitboxRect( draw, state.masterGainSlider.Bounds(), r, g, b );
     DrawHitboxRect( draw, state.distanceScaleSlider.Bounds(), r, g, b );
+    DrawHitboxRect( draw, state.previousSampleButton, 1.0f, 0.62f, 0.18f );
+    DrawHitboxRect( draw, state.nextSampleButton, 1.0f, 0.62f, 0.18f );
+    DrawHitboxRect( draw, state.previewSampleButton.Bounds(), r, g, b );
+    DrawHitboxRect( draw, state.selectSampleButton.Bounds(), r, g, b );
     DrawHitboxRect( draw, state.previousSetButton, 1.0f, 0.62f, 0.18f );
     DrawHitboxRect( draw, state.nextSetButton, 1.0f, 0.62f, 0.18f );
     const UISoundSetFrameData* set = SelectedSet( state, data );
@@ -457,6 +506,14 @@ bool HandleContentClick( UISoundTabState& state,
     {
         state.selectedSetIndex = std::clamp( state.selectedSetIndex, 0, state.lastSetCount - 1 );
     }
+    if ( state.lastSampleCount <= 0 )
+    {
+        state.selectedSampleIndex = 0;
+    }
+    else
+    {
+        state.selectedSampleIndex = std::clamp( state.selectedSampleIndex, 0, state.lastSampleCount - 1 );
+    }
     const int bandCount = std::clamp( state.lastBandCount, 0, SOUND_UI_BAND_MAX );
     SetContentBounds( state, contentX, scrolledY, contentW, bandCount );
 
@@ -481,6 +538,27 @@ bool HandleContentClick( UISoundTabState& state,
         activeSlider = UI_SOUND_GLOBAL_SLIDER_BASE + 1;
         SetGlobalSliderResult( state, result, 1, mouseX );
         return true;
+    }
+    if ( state.previousSampleButton.Contains( mouseX, mouseY ) && state.lastSampleCount > 0 )
+    {
+        state.selectedSampleIndex = ( state.selectedSampleIndex + state.lastSampleCount - 1 ) % state.lastSampleCount;
+        return false;
+    }
+    if ( state.nextSampleButton.Contains( mouseX, mouseY ) && state.lastSampleCount > 0 )
+    {
+        state.selectedSampleIndex = ( state.selectedSampleIndex + 1 ) % state.lastSampleCount;
+        return false;
+    }
+    if ( state.previewSampleButton.HitTest( mouseX, mouseY ) && state.lastSampleCount > 0 )
+    {
+        result.commands.sound.previewSampleIndex = state.selectedSampleIndex;
+        return false;
+    }
+    if ( state.selectSampleButton.HitTest( mouseX, mouseY ) && state.lastSampleCount > 0 && state.lastSetCount > 0 )
+    {
+        result.commands.sound.requestedSetIndex = state.selectedSetIndex;
+        result.commands.sound.selectSampleIndex = state.selectedSampleIndex;
+        return false;
     }
     if ( state.previousSetButton.Contains( mouseX, mouseY ) && state.lastSetCount > 0 )
     {
@@ -661,6 +739,43 @@ void Draw( UISoundTabState& state,
                        kGlobalSliders[i].minValue,
                        kGlobalSliders[i].maxValue );
         }
+    }
+
+    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_SAMPLE_TITLE_Y, 12.0f, "Sample Library" );
+    if ( IsRowVisible( contentY, contentH, scrolledY + SOUND_SAMPLE_PICKER_Y, UI_PIPELINE_STEP_BUTTON_H ) )
+    {
+        DrawPipelineStepButton( draw,
+                                state.previousSampleButton,
+                                true,
+                                data.soundSampleCount > 0 && state.previousSampleButton.Contains( mouseX, mouseY ) );
+        DrawPipelineStepButton( draw,
+                                state.nextSampleButton,
+                                false,
+                                data.soundSampleCount > 0 && state.nextSampleButton.Contains( mouseX, mouseY ) );
+        const char* sampleName = "No samples loaded";
+        if ( data.soundSampleCount > 0 )
+        {
+            sampleName = SampleLeafName( data.soundSamplePaths[state.selectedSampleIndex] );
+        }
+        snprintf( buf,
+                  sizeof( buf ),
+                  "%d / %d  %s",
+                  data.soundSampleCount > 0 ? state.selectedSampleIndex + 1 : 0,
+                  data.soundSampleCount,
+                  sampleName );
+        draw.Text( state.previousSampleButton.x + UI_PIPELINE_STEP_BUTTON_W * 2.0f + UI_PIPELINE_STEP_BUTTON_GAP * 2.0f,
+                   scrolledY + SOUND_SAMPLE_PICKER_Y + 5.0f,
+                   11.0f,
+                   0.84f,
+                   0.92f,
+                   0.94f,
+                   buf );
+    }
+    if ( data.soundSampleCount > 0 &&
+         IsRowVisible( contentY, contentH, scrolledY + SOUND_SAMPLE_ACTION_Y, SOUND_SAMPLE_BUTTON_H ) )
+    {
+        state.previewSampleButton.Draw( draw, "Play", mouseX, mouseY );
+        state.selectSampleButton.Draw( draw, "Use", mouseX, mouseY );
     }
 
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_SET_TITLE_Y, 12.0f, "Material Set" );

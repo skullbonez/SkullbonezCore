@@ -14,6 +14,10 @@ Glossary:
   reused once their queued buffer drains.
   Wildcard material: A sound-map entry using "*" to match any partner material.
   Impulse range: Tuning span that maps solved normal impulse to gain.
+  Rolling/support contact: A body pair that remains touching across physics
+    steps; it should stay quiet unless a much stronger impulse arrives.
+  Sample library: Decoded sounds loaded for in-game auditioning even when only
+    one sample is assigned to the active impact set.
 
 Invariants:
   - SubmitContact() only appends or updates copied events in bounded scratch
@@ -61,6 +65,9 @@ constexpr uint32_t CONTACT_AUDIO_WILDCARD = HashStr( "*" );
 constexpr uint32_t CONTACT_AUDIO_DEFAULT = HashStr( "default" );
 constexpr std::size_t MAX_STEP_CANDIDATES = 64;
 constexpr std::size_t MAX_COOLDOWN_ENTRIES = 512;
+constexpr float CONTACT_AUDIO_REARM_GAP_SECONDS = 0.18f;
+constexpr float CONTACT_AUDIO_SPIKE_RATIO = 1.65f;
+constexpr float CONTACT_AUDIO_SPIKE_DELTA = 1.0f;
 
 float Clamp01( float value )
 {
@@ -189,6 +196,8 @@ struct ContactAudioService::Impl
         uint64_t key = 0;
         float nextTimeSeconds = 0.0f;
         float strongestRecentImpulse = 0.0f;
+        float lastContactTimeSeconds = -1000.0f;
+        bool hasRecentContact = false;
     };
 
     IXAudio2* xaudio = nullptr;
@@ -312,6 +321,56 @@ struct ContactAudioService::Impl
         return static_cast<int>( sounds.size() - 1 );
     }
 
+    bool SubmitDecodedSound( int soundIndex, float gain, float pitch, uint32_t maxVoices )
+    {
+        if ( !initialized || soundIndex < 0 || soundIndex >= static_cast<int>( sounds.size() ) )
+        {
+            return false;
+        }
+
+        DecodedSound& sound = sounds[static_cast<std::size_t>( soundIndex )];
+        IXAudio2SourceVoice* voice = nullptr;
+        for ( VoiceSlot& slot : sound.voices )
+        {
+            XAUDIO2_VOICE_STATE state = {};
+            slot.voice->GetState( &state, XAUDIO2_VOICE_NOSAMPLESPLAYED );
+            if ( state.BuffersQueued == 0 )
+            {
+                voice = slot.voice;
+                break;
+            }
+        }
+        if ( !voice && sound.voices.size() < maxVoices )
+        {
+            IXAudio2SourceVoice* newVoice = nullptr;
+            if ( SUCCEEDED( xaudio->CreateSourceVoice( &newVoice, &sound.format ) ) )
+            {
+                sound.voices.push_back( VoiceSlot{ newVoice } );
+                voice = newVoice;
+            }
+        }
+        if ( !voice )
+        {
+            return false;
+        }
+
+        XAUDIO2_BUFFER buffer = {};
+        buffer.AudioBytes = static_cast<UINT32>( sound.samples.size() * sizeof( short ) );
+        buffer.pAudioData = reinterpret_cast<const BYTE*>( sound.samples.data() );
+        buffer.Flags = XAUDIO2_END_OF_STREAM;
+
+        voice->Stop( 0 );
+        voice->FlushSourceBuffers();
+        voice->SetVolume( std::clamp( gain, 0.0f, 4.0f ) );
+        voice->SetFrequencyRatio( std::clamp( pitch, XAUDIO2_MIN_FREQ_RATIO, XAUDIO2_MAX_FREQ_RATIO ) );
+        if ( SUCCEEDED( voice->SubmitSourceBuffer( &buffer ) ) && SUCCEEDED( voice->Start( 0 ) ) )
+        {
+            return true;
+        }
+        voice->FlushSourceBuffers();
+        return false;
+    }
+
     bool LoadMap( const char* path )
     {
         Json root;
@@ -328,6 +387,17 @@ struct ContactAudioService::Impl
         }
 
         sets.clear();
+        const auto librarySamplesIt = root.find( "librarySamples" );
+        if ( librarySamplesIt != root.end() && librarySamplesIt->is_array() )
+        {
+            for ( const Json& sample : *librarySamplesIt )
+            {
+                if ( sample.is_string() )
+                {
+                    LoadOggSound( sample.get<std::string>() );
+                }
+            }
+        }
         for ( const Json& setJson : *setsIt )
         {
             if ( !setJson.is_object() )
@@ -553,6 +623,26 @@ struct ContactAudioService::Impl
         }
     }
 
+    bool SetSetSample( int setIndex, int sampleIndex )
+    {
+        if ( setIndex < 0 || setIndex >= static_cast<int>( sets.size() ) || sampleIndex < 0 ||
+             sampleIndex >= static_cast<int>( sounds.size() ) )
+        {
+            return false;
+        }
+        SoundSet& set = sets[static_cast<std::size_t>( setIndex )];
+        set.soundIndices.clear();
+        set.soundIndices.push_back( sampleIndex );
+        for ( SoundBand& band : set.bands )
+        {
+            // Why: a chosen audition sample should become the only active
+            // impact sound. Empty band sample lists intentionally fall back to
+            // the set-level choice while preserving each band's gain curve.
+            band.soundIndices.clear();
+        }
+        return true;
+    }
+
     const SoundSet* ResolveSet( uint32_t materialA, uint32_t materialB ) const
     {
         const SoundSet* fallback = nullptr;
@@ -669,11 +759,31 @@ struct ContactAudioService::Impl
         }
 
         CooldownEntry* cooldown = FindCooldown( candidate.key );
-        if ( cooldown && timeSeconds < cooldown->nextTimeSeconds &&
-             event.normalImpulse < cooldown->strongestRecentImpulse * 1.45f )
+        bool ongoingContact = false;
+        bool impulseSpike = true;
+        if ( cooldown )
         {
-            ++stats.rejectedByCooldown;
-            return;
+            const float contactAge = timeSeconds - cooldown->lastContactTimeSeconds;
+            ongoingContact = cooldown->hasRecentContact && contactAge <= CONTACT_AUDIO_REARM_GAP_SECONDS;
+            const float previousStrongest = ongoingContact ? cooldown->strongestRecentImpulse : 0.0f;
+            impulseSpike =
+                previousStrongest <= 0.0f || ( event.normalImpulse >= previousStrongest * CONTACT_AUDIO_SPIKE_RATIO &&
+                                               event.normalImpulse >= previousStrongest + CONTACT_AUDIO_SPIKE_DELTA );
+
+            // Invariant: a body pair that remains in contact is treated as a
+            // support/rolling contact, not as a new impact each cooldown window.
+            cooldown->lastContactTimeSeconds = timeSeconds;
+            cooldown->hasRecentContact = true;
+            if ( !ongoingContact )
+            {
+                cooldown->strongestRecentImpulse = 0.0f;
+            }
+            else if ( !impulseSpike )
+            {
+                cooldown->strongestRecentImpulse = (std::max)( cooldown->strongestRecentImpulse, event.normalImpulse );
+                ++stats.rejectedByCooldown;
+                return;
+            }
         }
 
         const float distance = ContactAudioDistance( event.point, listenerPosition );
@@ -704,60 +814,25 @@ struct ContactAudioService::Impl
         // sample/gain curve for a heavier impulse never feeds back into the
         // solver, replay state, or body stores.
         const uint32_t sampleOrdinal = sampleCursor++ % static_cast<uint32_t>( soundIndices.size() );
-        DecodedSound& sound =
-            sounds[static_cast<std::size_t>( soundIndices[static_cast<std::size_t>( sampleOrdinal )] )];
-        IXAudio2SourceVoice* voice = nullptr;
-        for ( VoiceSlot& slot : sound.voices )
-        {
-            XAUDIO2_VOICE_STATE state = {};
-            slot.voice->GetState( &state, XAUDIO2_VOICE_NOSAMPLESPLAYED );
-            if ( state.BuffersQueued == 0 )
-            {
-                voice = slot.voice;
-                break;
-            }
-        }
-        if ( !voice && sound.voices.size() < set->maxVoices )
-        {
-            IXAudio2SourceVoice* newVoice = nullptr;
-            if ( SUCCEEDED( xaudio->CreateSourceVoice( &newVoice, &sound.format ) ) )
-            {
-                sound.voices.push_back( VoiceSlot{ newVoice } );
-                voice = newVoice;
-            }
-        }
-        if ( !voice )
-        {
-            ++stats.droppedVoices;
-            return;
-        }
+        const int soundIndex = soundIndices[static_cast<std::size_t>( sampleOrdinal )];
 
         const float pitchT = pitchMax > pitchMin ? static_cast<float>( sampleCursor % 997u ) / 996.0f : 0.0f;
         const float pitch = pitchMin + ( pitchMax - pitchMin ) * pitchT;
-        XAUDIO2_BUFFER buffer = {};
-        buffer.AudioBytes = static_cast<UINT32>( sound.samples.size() * sizeof( short ) );
-        buffer.pAudioData = reinterpret_cast<const BYTE*>( sound.samples.data() );
-        buffer.Flags = XAUDIO2_END_OF_STREAM;
-
-        voice->Stop( 0 );
-        voice->FlushSourceBuffers();
-        voice->SetVolume( gain );
-        voice->SetFrequencyRatio( std::clamp( pitch, XAUDIO2_MIN_FREQ_RATIO, XAUDIO2_MAX_FREQ_RATIO ) );
-        if ( SUCCEEDED( voice->SubmitSourceBuffer( &buffer ) ) && SUCCEEDED( voice->Start( 0 ) ) )
+        if ( SubmitDecodedSound( soundIndex, gain, pitch, set->maxVoices ) )
         {
             ++stats.submittedVoices;
             if ( cooldown )
             {
-                const float cooldownSeconds = event.normalImpulse > cooldown->strongestRecentImpulse * 1.45f
-                                                  ? set->overrideCooldownSeconds
-                                                  : set->cooldownSeconds;
+                const float cooldownSeconds =
+                    ongoingContact && impulseSpike ? set->overrideCooldownSeconds : set->cooldownSeconds;
                 cooldown->nextTimeSeconds = timeSeconds + cooldownSeconds;
                 cooldown->strongestRecentImpulse = event.normalImpulse;
+                cooldown->lastContactTimeSeconds = timeSeconds;
+                cooldown->hasRecentContact = true;
             }
         }
         else
         {
-            voice->FlushSourceBuffers();
             ++stats.droppedVoices;
         }
     }
@@ -845,6 +920,22 @@ int ContactAudioService::SoundSetCount() const
 }
 
 
+int ContactAudioService::SoundSampleCount() const
+{
+    return static_cast<int>( m_impl->sounds.size() );
+}
+
+
+const char* ContactAudioService::SoundSamplePath( int sampleIndex ) const
+{
+    if ( sampleIndex < 0 || sampleIndex >= static_cast<int>( m_impl->sounds.size() ) )
+    {
+        return "";
+    }
+    return m_impl->sounds[static_cast<std::size_t>( sampleIndex )].path.c_str();
+}
+
+
 bool ContactAudioService::GetSoundSetTuning( int setIndex, ContactAudioSetTuning& out ) const
 {
     return m_impl->GetSetTuning( setIndex, out );
@@ -860,6 +951,18 @@ bool ContactAudioService::SetSoundSetParam( int setIndex, ContactAudioSetParam p
 bool ContactAudioService::SetSoundBandParam( int setIndex, int bandIndex, ContactAudioBandParam param, float value )
 {
     return m_impl->SetBandParam( setIndex, bandIndex, param, value );
+}
+
+
+bool ContactAudioService::SetSoundSetSample( int setIndex, int sampleIndex )
+{
+    return m_impl->SetSetSample( setIndex, sampleIndex );
+}
+
+
+bool ContactAudioService::PreviewSoundSample( int sampleIndex, float gain )
+{
+    return m_impl->SubmitDecodedSound( sampleIndex, gain, 1.0f, 4 );
 }
 
 

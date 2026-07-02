@@ -2748,6 +2748,16 @@ void Run::TakeInput()
         // or unavailable on a machine. The Sound tab can retry initialization,
         // but failure must not affect simulation, input mode, or validation.
         bool soundTuningChanged = false;
+        const auto ensureContactAudioReady = [&]() -> bool
+        {
+            if ( m_launchOptions.noContactAudio )
+            {
+                return false;
+            }
+            return m_contactAudio.IsAvailable() ||
+                   ( m_contactAudio.Initialize() &&
+                     m_contactAudio.LoadContactAudioMap( "SkullbonezData/audio/contact_audio.materials.json" ) );
+        };
         if ( uiCommands.sound.toggleEnabled )
         {
             if ( m_contactAudio.IsEnabled() )
@@ -2756,10 +2766,7 @@ void Run::TakeInput()
             }
             else if ( !m_launchOptions.noContactAudio )
             {
-                const bool ready =
-                    m_contactAudio.IsAvailable() ||
-                    ( m_contactAudio.Initialize() &&
-                      m_contactAudio.LoadContactAudioMap( "SkullbonezData/audio/contact_audio.materials.json" ) );
+                const bool ready = ensureContactAudioReady();
                 m_contactAudio.SetEnabled( ready );
             }
             soundTuningChanged = true;
@@ -2866,6 +2873,23 @@ void Run::TakeInput()
                 break;
             default:
                 break;
+            }
+            soundTuningChanged = true;
+        }
+        if ( uiCommands.sound.previewSampleIndex >= 0 )
+        {
+            if ( ensureContactAudioReady() )
+            {
+                m_contactAudio.PreviewSoundSample( uiCommands.sound.previewSampleIndex, 0.85f );
+            }
+            soundTuningChanged = true;
+        }
+        if ( uiCommands.sound.selectSampleIndex >= 0 )
+        {
+            if ( ensureContactAudioReady() && m_contactAudio.SetSoundSetSample( uiCommands.sound.requestedSetIndex,
+                                                                                uiCommands.sound.selectSampleIndex ) )
+            {
+                m_contactAudio.PreviewSoundSample( uiCommands.sound.selectSampleIndex, 0.85f );
             }
             soundTuningChanged = true;
         }

@@ -11,6 +11,7 @@ Mental model:
 Glossary:
   Sound set: Material-pair impact recipe loaded from contact_audio.materials.json.
   Impact band: Light/medium/heavy impulse tier inside a sound set.
+  Sample library: Decoded candidate sounds exposed for preview and assignment.
   Cooldown: Per-body-pair timeout that keeps persistent contacts from replaying
     every physics tick.
 
@@ -26,6 +27,7 @@ Related:
 #pragma once
 
 #include "UICheckBox.h"
+#include "UIButton.h"
 #include "UICommands.h"
 #include "UIDraw.h"
 #include "UISlider.h"
@@ -50,6 +52,10 @@ struct UISoundTabState
     UICheckBox debugCountersToggle;
     UIRect previousSetButton;
     UIRect nextSetButton;
+    UIRect previousSampleButton;
+    UIRect nextSampleButton;
+    UIButton previewSampleButton;
+    UIButton selectSampleButton;
     UISlider masterGainSlider;
     UISlider distanceScaleSlider;
     UISlider setSliders[SOUND_SET_SLIDER_COUNT];
@@ -59,7 +65,9 @@ struct UISoundTabState
     float previewSetValues[SOUND_SET_SLIDER_COUNT];
     float previewBandValues[SOUND_UI_BAND_MAX][SOUND_BAND_SLIDER_COUNT];
     int selectedSetIndex = 0;
+    int selectedSampleIndex = 0;
     int lastSetCount = 0;
+    int lastSampleCount = 0;
     int lastBandCount = 0;
 };
 

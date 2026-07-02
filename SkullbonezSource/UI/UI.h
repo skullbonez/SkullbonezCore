@@ -12,6 +12,8 @@ Glossary:
   render later in the frame.
   Hit box: Screen-space rectangle used to decide whether mouse input targets a
   widget.
+  Sound sample path: Borrowed contact-audio asset path displayed by the Sound
+    tab for immediate-frame preview and selection.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -76,6 +78,7 @@ constexpr int UI_PROFILER_MARKER_OPTION_MAX = ProfilerTab::MAX_MARKERS + 1;
 constexpr uint32_t UI_PROFILER_FRAME_TOTAL_HASH = 0u;
 constexpr int UI_SOUND_SET_MAX = 16;
 constexpr int UI_SOUND_BAND_MAX = 4;
+constexpr int UI_SOUND_SAMPLE_MAX = 64;
 
 struct UIRenderTargetPreviewResource
 {
@@ -159,6 +162,8 @@ struct InGameUIFrameData
     int profilerMarkerOptionCount = 0;
     UISoundSetFrameData soundSets[UI_SOUND_SET_MAX];
     int soundSetCount = 0;
+    const char* soundSamplePaths[UI_SOUND_SAMPLE_MAX] = {};
+    int soundSampleCount = 0;
     Basics::MainMemoryStats mainMemory;
     int modelCount = 0;
     int modelCapacity = DEFAULT_GAME_MODEL_CAPACITY;

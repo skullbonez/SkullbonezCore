@@ -16,6 +16,10 @@ Glossary:
   Impact band: Light, medium, or heavy impulse tier that can select different
     gain/pitch/sample tuning inside one material sound set.
   Sound set: Material-pair tuning plus one or more decoded sample buffers.
+  Sample library: Decoded candidate sounds that the Sound tab can preview and
+    assign to a sound set at runtime.
+  Rolling/support contact: A body pair that remains touching across physics
+    steps and should not be treated as a new impact each cooldown window.
 
 Invariants:
   - No audio decision writes back into physics state.
@@ -138,6 +142,10 @@ class ContactAudioService
     void SetMaxDistanceScale( float scale );
     float MaxDistanceScale() const;
     int SoundSetCount() const;
+    int SoundSampleCount() const;
+    // Sample paths are borrowed from decoded audio buffers and are valid until
+    // the contact-audio map is reloaded or the service shuts down.
+    const char* SoundSamplePath( int sampleIndex ) const;
     // Copies one material sound set into UI-friendly units. String pointers in
     // the snapshot are borrowed for immediate frame use; callers must not cache
     // them across audio-map reloads or Shutdown().
@@ -148,6 +156,8 @@ class ContactAudioService
     // Applies a bounded live tuning edit to one impact band inside a material
     // set. Band min-impulse edits may reorder bands for runtime selection.
     bool SetSoundBandParam( int setIndex, int bandIndex, ContactAudioBandParam param, float value );
+    bool SetSoundSetSample( int setIndex, int sampleIndex );
+    bool PreviewSoundSample( int sampleIndex, float gain );
 
     void BeginPhysicsStep( float deltaSeconds, const Math::Vector::Vector3& listenerPosition );
     void SubmitContact( const ContactAudioEvent& event );

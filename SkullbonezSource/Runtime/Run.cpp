@@ -205,9 +205,14 @@ void Run::RefreshRuntimeViewModel()
     audio.maxDistanceScale = m_contactAudio.MaxDistanceScale();
     audio.stats = m_contactAudio.Stats();
     audio.soundSetCount = (std::min)( m_contactAudio.SoundSetCount(), RUNTIME_CONTACT_AUDIO_SET_MAX );
+    audio.soundSampleCount = (std::min)( m_contactAudio.SoundSampleCount(), RUNTIME_CONTACT_AUDIO_SAMPLE_MAX );
     for ( int setIndex = 0; setIndex < audio.soundSetCount; ++setIndex )
     {
         m_contactAudio.GetSoundSetTuning( setIndex, audio.soundSets[setIndex] );
+    }
+    for ( int sampleIndex = 0; sampleIndex < audio.soundSampleCount; ++sampleIndex )
+    {
+        audio.soundSamplePaths[sampleIndex] = m_contactAudio.SoundSamplePath( sampleIndex );
     }
 }
 
