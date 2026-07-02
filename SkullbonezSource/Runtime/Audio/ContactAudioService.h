@@ -17,6 +17,10 @@ Glossary:
     replaying the same impact every fixed tick.
   Impact band: Light, medium, or heavy impulse tier that can select different
     gain/pitch/sample tuning inside one material sound set.
+  Pre-solve closing speed: Contact normal velocity before the solver applies
+    warm-start or corrective impulses; this is the impact-motion gate for thuds.
+  Impact score: Solved normal impulse multiplied by pre-solve closing speed,
+    used to keep force-transfer rows quieter than real contact work.
   Sound set: Material-pair tuning plus one or more decoded sample buffers.
   Sample library: Decoded candidate sounds that the Sound tab can preview and
     assign to a sound set at runtime.
@@ -56,7 +60,10 @@ struct ContactAudioEvent
     Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 normal = Math::Vector::ZERO_VECTOR;
     float normalImpulse = 0.0f;
+    float normalClosingSpeed = 0.0f;
+    float tangentSlipSpeed = 0.0f;
     bool isTerrain = false;
+    bool hasMotionData = false;
 };
 
 struct ContactAudioStats
@@ -82,6 +89,8 @@ struct ContactAudioDecision
     float maxDistance = 0.0f;
     float distanceGain = 0.0f;
     float impactGain = 0.0f;
+    float motionGain = 0.0f;
+    float impactScore = 0.0f;
     float gain = 0.0f;
     float contactAgeSeconds = 0.0f;
     float rearmGapSeconds = 0.0f;
@@ -171,6 +180,12 @@ class ContactAudioService
     float MasterGain() const;
     void SetMaxDistanceScale( float scale );
     float MaxDistanceScale() const;
+    void SetMinClosingSpeed( float speed );
+    float MinClosingSpeed() const;
+    void SetMinImpactScore( float score );
+    float MinImpactScore() const;
+    void SetImpactScoreRangeSeconds( float seconds );
+    float ImpactScoreRangeSeconds() const;
     int SoundSetCount() const;
     int SoundSampleCount() const;
     // Sample paths are borrowed from decoded audio buffers and are valid until

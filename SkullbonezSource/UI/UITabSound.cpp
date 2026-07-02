@@ -56,16 +56,16 @@ constexpr float SOUND_TOGGLE_ROW2_Y = 72.0f;
 constexpr float SOUND_STATS_Y = 112.0f;
 constexpr float SOUND_GLOBAL_TITLE_Y = 160.0f;
 constexpr float SOUND_GLOBAL_SLIDER_Y = 186.0f;
-constexpr float SOUND_SAMPLE_TITLE_Y = 282.0f;
-constexpr float SOUND_SAMPLE_PICKER_Y = 308.0f;
-constexpr float SOUND_SAMPLE_ACTION_Y = 342.0f;
+constexpr float SOUND_SAMPLE_TITLE_Y = 402.0f;
+constexpr float SOUND_SAMPLE_PICKER_Y = 428.0f;
+constexpr float SOUND_SAMPLE_ACTION_Y = 462.0f;
 constexpr float SOUND_SAMPLE_BUTTON_W = 72.0f;
 constexpr float SOUND_SAMPLE_BUTTON_H = 26.0f;
-constexpr float SOUND_SET_TITLE_Y = 392.0f;
-constexpr float SOUND_SET_PICKER_Y = 418.0f;
-constexpr float SOUND_SET_META_Y = 452.0f;
-constexpr float SOUND_SET_SLIDER_Y = 494.0f;
-constexpr float SOUND_BAND_TITLE_Y = 884.0f;
+constexpr float SOUND_SET_TITLE_Y = 512.0f;
+constexpr float SOUND_SET_PICKER_Y = 538.0f;
+constexpr float SOUND_SET_META_Y = 572.0f;
+constexpr float SOUND_SET_SLIDER_Y = 614.0f;
+constexpr float SOUND_BAND_TITLE_Y = 1004.0f;
 constexpr float SOUND_BAND_BLOCK_H = 238.0f;
 constexpr float SOUND_SLIDER_H = 34.0f;
 constexpr float SOUND_SLIDER_STEP_Y = 40.0f;
@@ -93,6 +93,9 @@ struct SoundBandSliderSpec
 constexpr SoundSliderSpec kGlobalSliders[] = {
     { UISoundParam::MasterGain, "Master gain", "%.2f", 0.0f, 4.0f, 0.05f },
     { UISoundParam::MaxDistanceScale, "Distance scale", "%.2fx", 0.01f, 16.0f, 0.05f },
+    { UISoundParam::MinClosingSpeed, "Min closing speed", "%.2f", 0.0f, 20.0f, 0.05f },
+    { UISoundParam::MinImpactScore, "Min impact score", "%.1f", 0.0f, 5000.0f, 1.0f },
+    { UISoundParam::ImpactScoreRangeSeconds, "Impact score range", "%.2fs", 0.001f, 10.0f, 0.05f },
 };
 
 constexpr SoundSliderSpec kSetSliders[] = {
@@ -115,6 +118,9 @@ constexpr SoundBandSliderSpec kBandSliders[] = {
     { UISoundBandParam::PitchMax, "Pitch max", "%.2f", 0.25f, 4.0f, 0.01f },
 };
 
+static_assert( sizeof( kGlobalSliders ) / sizeof( kGlobalSliders[0] ) ==
+                   SkullbonezCore::UI::SoundTab::SOUND_GLOBAL_SLIDER_COUNT,
+               "Global Sound tab slider specs must match Sound tab state." );
 static_assert( sizeof( kSetSliders ) / sizeof( kSetSliders[0] ) == SkullbonezCore::UI::SoundTab::SOUND_SET_SLIDER_COUNT,
                "Sound set slider specs must match Sound tab state." );
 static_assert( sizeof( kBandSliders ) / sizeof( kBandSliders[0] ) ==
@@ -308,18 +314,25 @@ float GlobalDisplayValue( const SkullbonezCore::UI::SoundTab::UISoundTabState& s
                           int activeSlider,
                           int index )
 {
-    if ( activeSlider == UI_SOUND_GLOBAL_SLIDER_BASE + index )
+    if ( activeSlider == UI_SOUND_GLOBAL_SLIDER_BASE + index && state.previewGlobalValues[index] >= 0.0f )
     {
-        if ( index == 0 && state.previewMasterGain >= 0.0f )
-        {
-            return state.previewMasterGain;
-        }
-        if ( index == 1 && state.previewDistanceScale >= 0.0f )
-        {
-            return state.previewDistanceScale;
-        }
+        return state.previewGlobalValues[index];
     }
-    return index == 0 ? data.contactAudioMasterGain : data.contactAudioMaxDistanceScale;
+    switch ( kGlobalSliders[index].param )
+    {
+    case UISoundParam::MasterGain:
+        return data.contactAudioMasterGain;
+    case UISoundParam::MaxDistanceScale:
+        return data.contactAudioMaxDistanceScale;
+    case UISoundParam::MinClosingSpeed:
+        return data.contactAudioMinClosingSpeed;
+    case UISoundParam::MinImpactScore:
+        return data.contactAudioMinImpactScore;
+    case UISoundParam::ImpactScoreRangeSeconds:
+        return data.contactAudioImpactScoreRangeSeconds;
+    default:
+        return 0.0f;
+    }
 }
 
 float SetDisplayValue( const SkullbonezCore::UI::SoundTab::UISoundTabState& state,
@@ -356,16 +369,9 @@ void SetGlobalSliderResult( SkullbonezCore::UI::SoundTab::UISoundTabState& state
                             int mouseX )
 {
     const SoundSliderSpec& spec = kGlobalSliders[sliderIndex];
-    const float value = ( sliderIndex == 0 ? state.masterGainSlider : state.distanceScaleSlider )
-                            .ValueFromMouse( mouseX, spec.minValue, spec.maxValue, spec.step );
-    if ( sliderIndex == 0 )
-    {
-        state.previewMasterGain = value;
-    }
-    else
-    {
-        state.previewDistanceScale = value;
-    }
+    const float value =
+        state.globalSliders[sliderIndex].ValueFromMouse( mouseX, spec.minValue, spec.maxValue, spec.step );
+    state.previewGlobalValues[sliderIndex] = value;
     result.commands.sound.requestedParam = spec.param;
     result.commands.sound.requestedValue = value;
 }
@@ -409,11 +415,14 @@ void SetContentBounds( SkullbonezCore::UI::SoundTab::UISoundTabState& state,
     state.enabledToggle.SetBounds( contentX, scrolledY + SOUND_TOGGLE_Y, colW, 24.0f );
     state.debugCountersToggle.SetBounds( contentX + colW + 18.0f, scrolledY + SOUND_TOGGLE_Y, colW, 24.0f );
     state.flashOnSubmitToggle.SetBounds( contentX, scrolledY + SOUND_TOGGLE_ROW2_Y, colW, 24.0f );
-    state.masterGainSlider.SetBounds( contentX, scrolledY + SOUND_GLOBAL_SLIDER_Y, contentW, SOUND_SLIDER_H );
-    state.distanceScaleSlider.SetBounds( contentX,
-                                         scrolledY + SOUND_GLOBAL_SLIDER_Y + SOUND_SLIDER_STEP_Y,
-                                         contentW,
-                                         SOUND_SLIDER_H );
+    for ( int i = 0; i < SkullbonezCore::UI::SoundTab::SOUND_GLOBAL_SLIDER_COUNT; ++i )
+    {
+        state.globalSliders[i].SetBounds(
+            contentX,
+            scrolledY + SOUND_GLOBAL_SLIDER_Y + static_cast<float>( i ) * SOUND_SLIDER_STEP_Y,
+            contentW,
+            SOUND_SLIDER_H );
+    }
     SetPipelineStepButtonBounds( state.previousSampleButton,
                                  state.nextSampleButton,
                                  contentX,
@@ -472,8 +481,10 @@ int ContentHeight()
 
 void ResetPreviewState( UISoundTabState& state )
 {
-    state.previewMasterGain = -1.0f;
-    state.previewDistanceScale = -1.0f;
+    for ( float& value : state.previewGlobalValues )
+    {
+        value = -1.0f;
+    }
     for ( float& value : state.previewSetValues )
     {
         value = -1.0f;
@@ -526,8 +537,10 @@ void DrawHitboxes( const UISoundTabState& state,
     DrawHitboxRect( draw, state.enabledToggle.Bounds(), r, g, b );
     DrawHitboxRect( draw, state.debugCountersToggle.Bounds(), r, g, b );
     DrawHitboxRect( draw, state.flashOnSubmitToggle.Bounds(), r, g, b );
-    DrawHitboxRect( draw, state.masterGainSlider.Bounds(), r, g, b );
-    DrawHitboxRect( draw, state.distanceScaleSlider.Bounds(), r, g, b );
+    for ( const UISlider& slider : state.globalSliders )
+    {
+        DrawHitboxRect( draw, slider.Bounds(), r, g, b );
+    }
     DrawHitboxRect( draw, state.previousSampleButton, 1.0f, 0.62f, 0.18f );
     DrawHitboxRect( draw, state.nextSampleButton, 1.0f, 0.62f, 0.18f );
     DrawHitboxRect( draw, state.previewSampleButton.Bounds(), r, g, b );
@@ -597,17 +610,14 @@ bool HandleContentClick( UISoundTabState& state,
         result.commands.sound.toggleFlashOnSubmit = true;
         return false;
     }
-    if ( state.masterGainSlider.HitTest( mouseX, mouseY ) )
+    for ( int i = 0; i < SOUND_GLOBAL_SLIDER_COUNT; ++i )
     {
-        activeSlider = UI_SOUND_GLOBAL_SLIDER_BASE;
-        SetGlobalSliderResult( state, result, 0, mouseX );
-        return true;
-    }
-    if ( state.distanceScaleSlider.HitTest( mouseX, mouseY ) )
-    {
-        activeSlider = UI_SOUND_GLOBAL_SLIDER_BASE + 1;
-        SetGlobalSliderResult( state, result, 1, mouseX );
-        return true;
+        if ( state.globalSliders[i].HitTest( mouseX, mouseY ) )
+        {
+            activeSlider = UI_SOUND_GLOBAL_SLIDER_BASE + i;
+            SetGlobalSliderResult( state, result, i, mouseX );
+            return true;
+        }
     }
     if ( state.previousSampleButton.Contains( mouseX, mouseY ) && state.lastSampleCount > 0 )
     {
@@ -699,16 +709,10 @@ bool UpdateActiveSlider( UISoundTabState& state, int activeSlider, int mouseX, I
 bool CommitActiveSlider( UISoundTabState& state, int activeSlider, InGameUIInputResult& result )
 {
     const int globalIndex = GlobalSliderIndexFromActiveSlider( activeSlider );
-    if ( globalIndex == 0 && state.previewMasterGain >= 0.0f )
+    if ( globalIndex >= 0 && state.previewGlobalValues[globalIndex] >= 0.0f )
     {
         result.commands.sound.requestedParam = kGlobalSliders[globalIndex].param;
-        result.commands.sound.requestedValue = state.previewMasterGain;
-        return true;
-    }
-    if ( globalIndex == 1 && state.previewDistanceScale >= 0.0f )
-    {
-        result.commands.sound.requestedParam = kGlobalSliders[globalIndex].param;
-        result.commands.sound.requestedValue = state.previewDistanceScale;
+        result.commands.sound.requestedValue = state.previewGlobalValues[globalIndex];
         return true;
     }
     const int setIndex = SetSliderIndexFromActiveSlider( activeSlider );
@@ -810,13 +814,12 @@ void Draw( UISoundTabState& state,
         FormatSliderValue( buf, sizeof( buf ), kGlobalSliders[i].format, value );
         if ( IsRowVisible( contentY, contentH, sliderY, SOUND_SLIDER_H ) )
         {
-            ( i == 0 ? state.masterGainSlider : state.distanceScaleSlider )
-                .Draw( draw,
-                       kGlobalSliders[i].label,
-                       buf,
-                       value,
-                       kGlobalSliders[i].minValue,
-                       kGlobalSliders[i].maxValue );
+            state.globalSliders[i].Draw( draw,
+                                         kGlobalSliders[i].label,
+                                         buf,
+                                         value,
+                                         kGlobalSliders[i].minValue,
+                                         kGlobalSliders[i].maxValue );
         }
     }
 

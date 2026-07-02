@@ -645,9 +645,11 @@ void RuntimeDiagnostics::LogContactAudioDecision( RunPhysicsDiagnosticsState& di
                   "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"%s\",\"frame\":%d,\"type\":\"contact_audio\","
                   "\"severity\":\"%s\",\"body_a\":%d,\"body_b\":%d,\"island_id\":null,\"summary\":\"contact audio %s\","
                   "\"data\":{\"decision\":\"%s\",\"pair_key\":%llu,\"feature_id\":%u,\"is_terrain\":%d,"
-                  "\"material_a\":%u,\"material_b\":%u,\"normal_impulse\":%.6f,\"min_impulse\":%.6f,"
-                  "\"impulse_range\":%.6f,\"distance\":%.6f,\"max_distance\":%.6f,\"distance_gain\":%.6f,"
-                  "\"impact_gain\":%.6f,\"gain\":%.6f,\"contact_age_seconds\":%.6f,"
+                  "\"material_a\":%u,\"material_b\":%u,\"normal_impulse\":%.6f,"
+                  "\"normal_closing_speed\":%.6f,\"tangent_slip_speed\":%.6f,\"has_motion_data\":%d,"
+                  "\"min_impulse\":%.6f,\"impulse_range\":%.6f,\"distance\":%.6f,\"max_distance\":%.6f,"
+                  "\"distance_gain\":%.6f,\"impact_gain\":%.6f,\"motion_gain\":%.6f,\"impact_score\":%.6f,"
+                  "\"gain\":%.6f,\"contact_age_seconds\":%.6f,"
                   "\"rearm_gap_seconds\":%.6f,\"previous_strongest_impulse\":%.6f,"
                   "\"ongoing_contact\":%d,\"impulse_spike\":%d,"
                   "\"submitted\":%d,\"flash_eligible\":%d,\"max_voices\":%u,\"sample_index\":%d,"
@@ -666,12 +668,17 @@ void RuntimeDiagnostics::LogContactAudioDecision( RunPhysicsDiagnosticsState& di
                   decision.event.materialA,
                   decision.event.materialB,
                   decision.event.normalImpulse,
+                  decision.event.normalClosingSpeed,
+                  decision.event.tangentSlipSpeed,
+                  decision.event.hasMotionData ? 1 : 0,
                   decision.minImpulse,
                   decision.impulseRange,
                   decision.distance,
                   decision.maxDistance,
                   decision.distanceGain,
                   decision.impactGain,
+                  decision.motionGain,
+                  decision.impactScore,
                   decision.gain,
                   decision.contactAgeSeconds,
                   decision.rearmGapSeconds,

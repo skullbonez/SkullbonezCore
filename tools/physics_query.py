@@ -41,7 +41,7 @@ import sys
 import time
 
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 DEFAULT_LIMIT = 50
 SUMMARY_LIMIT = 20
 BODY_SAMPLE_LIMIT = 120
@@ -256,6 +256,9 @@ def create_schema(conn):
             normal_z real,
             penetration real,
             normal_impulse real,
+            pre_solve_normal_speed real,
+            pre_solve_closing_speed real,
+            pre_solve_slip_speed real,
             tangent_impulse real,
             slip_speed real,
             rolling_residual real,
@@ -728,9 +731,10 @@ def insert_contact(conn, item):
         insert or replace into contacts(
             run_id, frame, contact_id, body_a, body_b, contact_type, feature_id,
             point_count, normal_x, normal_y, normal_z, penetration, normal_impulse,
+            pre_solve_normal_speed, pre_solve_closing_speed, pre_solve_slip_speed,
             tangent_impulse, slip_speed, rolling_residual, warm_started, supports_sleep
         )
-        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             item.get("run"),
@@ -746,6 +750,9 @@ def insert_contact(conn, item):
             normal[2],
             as_float(item.get("penetration")),
             as_float(item.get("normal_impulse")),
+            as_float(item.get("pre_solve_normal_speed")),
+            as_float(item.get("pre_solve_closing_speed")),
+            as_float(item.get("pre_solve_slip_speed")),
             as_float(item.get("tangent_impulse")),
             as_float(item.get("slip_speed")),
             as_float(item.get("rolling_residual")),
@@ -1220,12 +1227,19 @@ def query_audio(conn, cache, args):
                 "cooldownOngoing": 0,
                 "distanceRejected": 0,
                 "belowMinImpulse": 0,
+                "supportTransfer": 0,
                 "maxImpulse": 0.0,
+                "maxImpactScore": 0.0,
+                "maxClosingSpeed": 0.0,
             },
         )
         impulse = as_float(data.get("normal_impulse"), 0.0) or 0.0
+        impact_score = as_float(data.get("impact_score"), 0.0) or 0.0
+        closing_speed = as_float(data.get("normal_closing_speed"), 0.0) or 0.0
         bucket["events"] += 1
         bucket["maxImpulse"] = max(bucket["maxImpulse"], impulse)
+        bucket["maxImpactScore"] = max(bucket["maxImpactScore"], impact_score)
+        bucket["maxClosingSpeed"] = max(bucket["maxClosingSpeed"], closing_speed)
         if as_int(data.get("submitted"), 0):
             bucket["submitted"] += 1
         if decision == "voice_stolen":
@@ -1240,6 +1254,8 @@ def query_audio(conn, cache, args):
             bucket["distanceRejected"] += 1
         elif decision == "below_min_impulse":
             bucket["belowMinImpulse"] += 1
+        elif decision == "support_transfer":
+            bucket["supportTransfer"] += 1
 
         impacts.append(
             {
@@ -1249,7 +1265,12 @@ def query_audio(conn, cache, args):
                 "bodyA": row["body_a"],
                 "bodyB": row["body_b"],
                 "impulse": impulse,
+                "normalClosingSpeed": closing_speed,
+                "tangentSlipSpeed": as_float(data.get("tangent_slip_speed"), 0.0),
+                "impactScore": impact_score,
                 "gain": as_float(data.get("gain"), 0.0),
+                "impactGain": as_float(data.get("impact_gain"), 0.0),
+                "motionGain": as_float(data.get("motion_gain"), 0.0),
                 "distance": as_float(data.get("distance"), 0.0),
                 "maxDistance": as_float(data.get("max_distance"), 0.0),
                 "flashEligible": bool(as_int(data.get("flash_eligible"), 0)),
@@ -1261,10 +1282,16 @@ def query_audio(conn, cache, args):
     limit = args.limit or SUMMARY_LIMIT
     frame_hotspots = sorted(
         frame_stats.values(),
-        key=lambda item: (item["flashEligible"], item["submitted"], item["events"], item["maxImpulse"]),
+        key=lambda item: (
+            item["flashEligible"],
+            item["submitted"],
+            item["events"],
+            item["maxImpactScore"],
+            item["maxImpulse"],
+        ),
         reverse=True,
     )[:limit]
-    top_impacts = sorted(impacts, key=lambda item: item["impulse"], reverse=True)[:limit]
+    top_impacts = sorted(impacts, key=lambda item: (item["impactScore"], item["impulse"]), reverse=True)[:limit]
 
     return {
         "cache": cache,

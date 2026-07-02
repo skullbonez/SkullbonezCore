@@ -173,6 +173,12 @@ class PhysicsWorld
         uint8_t manifoldPointCount = 1;
         Math::Vector::Vector3 terrainNormal = Math::Vector::ZERO_VECTOR;
         float terrainWarmStart = 0.0f;
+        // Contact-point speeds captured before this row applies solver impulses.
+        // Audio and diagnostics use these to reject force-transfer rows that had
+        // no real relative impact motion.
+        float preSolveNormalSpeed = 0.0f;
+        float preSolveClosingSpeed = 0.0f;
+        float preSolveSlipSpeed = 0.0f;
     };
 
   public:

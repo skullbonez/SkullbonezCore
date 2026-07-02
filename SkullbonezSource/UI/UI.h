@@ -218,6 +218,9 @@ struct InGameUIFrameData
     bool contactAudioFlashOnSubmit = false;
     float contactAudioMasterGain = 0.0f;
     float contactAudioMaxDistanceScale = 1.0f;
+    float contactAudioMinClosingSpeed = 0.0f;
+    float contactAudioMinImpactScore = 0.0f;
+    float contactAudioImpactScoreRangeSeconds = 1.0f;
     uint32_t contactAudioEventsSeen = 0;
     uint32_t contactAudioRejectedByThreshold = 0;
     uint32_t contactAudioRejectedByCooldown = 0;

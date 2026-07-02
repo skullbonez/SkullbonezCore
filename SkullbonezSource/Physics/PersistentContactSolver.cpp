@@ -1094,6 +1094,23 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                 ++m_persistentContactSolverStats.cacheMisses;
             }
 
+            {
+                // Concept: impact presentation needs the relative motion that
+                // existed before warm-start and solver impulses push through an
+                // island. Solved impulse alone also represents support transfer.
+                const SolverBodyState& a = m_solverBodies[c.bodyA];
+                const SolverBodyState& b = c.isTerrain ? staticTerrainBody : m_solverBodies[c.bodyB];
+                const Vector3 contactVelA = a.linearVelocity + Vector::CrossProduct( a.angularVelocity, c.rA );
+                const Vector3 contactVelB =
+                    c.isTerrain ? ZERO_VECTOR : b.linearVelocity + Vector::CrossProduct( b.angularVelocity, c.rB );
+                const Vector3 relVel = contactVelB - contactVelA;
+                c.preSolveNormalSpeed = relVel * c.normal;
+                c.preSolveClosingSpeed = (std::max)( 0.0f, -c.preSolveNormalSpeed );
+                const float slipT1 = relVel * c.tangent1;
+                const float slipT2 = relVel * c.tangent2;
+                c.preSolveSlipSpeed = sqrtf( slipT1 * slipT1 + slipT2 * slipT2 );
+            }
+
             if ( c.isTerrain && c.terrainWarmStart > c.accN )
             {
                 c.accN = c.terrainWarmStart;
@@ -1380,6 +1397,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             out.tangent2 = c.tangent2;
             out.penetration = c.penetration;
             out.normalImpulse = c.accN;
+            out.preSolveNormalSpeed = c.preSolveNormalSpeed;
+            out.preSolveClosingSpeed = c.preSolveClosingSpeed;
+            out.preSolveSlipSpeed = c.preSolveSlipSpeed;
             m_physicsDebugContacts.push_back( out );
         }
     }

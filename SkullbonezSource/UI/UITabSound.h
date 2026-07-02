@@ -45,6 +45,7 @@ namespace SoundTab
 {
 
 constexpr int SOUND_UI_BAND_MAX = 4;
+constexpr int SOUND_GLOBAL_SLIDER_COUNT = 5;
 constexpr int SOUND_SET_SLIDER_COUNT = 9;
 constexpr int SOUND_BAND_SLIDER_COUNT = 5;
 
@@ -59,12 +60,10 @@ struct UISoundTabState
     UIRect nextSampleButton;
     UIButton previewSampleButton;
     UIButton selectSampleButton;
-    UISlider masterGainSlider;
-    UISlider distanceScaleSlider;
+    UISlider globalSliders[SOUND_GLOBAL_SLIDER_COUNT];
     UISlider setSliders[SOUND_SET_SLIDER_COUNT];
     UISlider bandSliders[SOUND_UI_BAND_MAX][SOUND_BAND_SLIDER_COUNT];
-    float previewMasterGain = -1.0f;
-    float previewDistanceScale = -1.0f;
+    float previewGlobalValues[SOUND_GLOBAL_SLIDER_COUNT];
     float previewSetValues[SOUND_SET_SLIDER_COUNT];
     float previewBandValues[SOUND_UI_BAND_MAX][SOUND_BAND_SLIDER_COUNT];
     int selectedSetIndex = 0;

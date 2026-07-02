@@ -2791,6 +2791,15 @@ void Run::TakeInput()
             case UISoundParam::MaxDistanceScale:
                 m_contactAudio.SetMaxDistanceScale( uiCommands.sound.requestedValue );
                 break;
+            case UISoundParam::MinClosingSpeed:
+                m_contactAudio.SetMinClosingSpeed( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::MinImpactScore:
+                m_contactAudio.SetMinImpactScore( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::ImpactScoreRangeSeconds:
+                m_contactAudio.SetImpactScoreRangeSeconds( uiCommands.sound.requestedValue );
+                break;
             case UISoundParam::SetMinImpulse:
                 m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
                                                  SkullbonezCore::Runtime::Audio::ContactAudioSetParam::MinImpulse,

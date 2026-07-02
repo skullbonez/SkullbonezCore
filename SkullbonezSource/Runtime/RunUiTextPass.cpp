@@ -551,6 +551,9 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.contactAudioFlashOnSubmit = contactAudio.flashOnSubmit;
         UIData.contactAudioMasterGain = contactAudio.masterGain;
         UIData.contactAudioMaxDistanceScale = contactAudio.maxDistanceScale;
+        UIData.contactAudioMinClosingSpeed = contactAudio.minClosingSpeed;
+        UIData.contactAudioMinImpactScore = contactAudio.minImpactScore;
+        UIData.contactAudioImpactScoreRangeSeconds = contactAudio.impactScoreRangeSeconds;
         UIData.contactAudioEventsSeen = contactAudio.stats.eventsSeen;
         UIData.contactAudioRejectedByThreshold = contactAudio.stats.rejectedByThreshold;
         UIData.contactAudioRejectedByCooldown = contactAudio.stats.rejectedByCooldown;

@@ -107,8 +107,9 @@ const char* PhysicsPipelineStageName( PhysicsPipelineStage stage );
 
 struct PhysicsDebugContact
 {
-    // Solver contact row captured for drawing: point, push direction, friction
-    // directions, overlap depth, and the normal impulse that was accumulated.
+    // Solver contact row captured for drawing and presentation sinks. The
+    // pre-solve speeds are measured before the row applies impulses, so audio
+    // can distinguish real relative motion from support force transmission.
     int bodyA = -1;
     int bodyB = -1;
     uint32_t featureId = 0;
@@ -118,6 +119,9 @@ struct PhysicsDebugContact
     Math::Vector::Vector3 tangent2 = Math::Vector::ZERO_VECTOR;
     float penetration = 0.0f;
     float normalImpulse = 0.0f;
+    float preSolveNormalSpeed = 0.0f;
+    float preSolveClosingSpeed = 0.0f;
+    float preSolveSlipSpeed = 0.0f;
 };
 
 class PhysicsDebugVisualizer

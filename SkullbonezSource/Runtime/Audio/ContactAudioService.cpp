@@ -16,6 +16,8 @@ Glossary:
     reused once their queued buffer drains.
   Wildcard material: A sound-map entry using "*" to match any partner material.
   Impulse range: Tuning span that maps solved normal impulse to gain.
+  Impact score: Normal impulse multiplied by pre-solve closing speed; this
+    approximates contact work better than solver force alone.
   Rolling/support contact: A body pair that remains touching across physics
     steps; it should stay quiet unless a much stronger impulse arrives.
   Sample library: Decoded sounds loaded for in-game auditioning even when only
@@ -74,10 +76,29 @@ constexpr float CONTACT_AUDIO_SPIKE_RATIO = 1.65f;
 constexpr float CONTACT_AUDIO_SPIKE_DELTA = 1.0f;
 constexpr float CONTACT_AUDIO_VOICE_STEAL_GAIN_RATIO = 1.20f;
 constexpr float CONTACT_AUDIO_VOICE_STEAL_GAIN_DELTA = 0.03f;
+constexpr float CONTACT_AUDIO_DEFAULT_MIN_CLOSING_SPEED = 0.35f;
+constexpr float CONTACT_AUDIO_DEFAULT_MIN_IMPACT_SCORE = 0.5f;
+constexpr float CONTACT_AUDIO_DEFAULT_IMPACT_SCORE_RANGE_SECONDS = 1.5f;
+constexpr float CONTACT_AUDIO_LEGACY_CLOSING_SPEED = 2.0f;
 
 float Clamp01( float value )
 {
     return std::clamp( value, 0.0f, 1.0f );
+}
+
+float ContactClosingSpeed( const ContactAudioEvent& event )
+{
+    return event.hasMotionData ? (std::max)( 0.0f, event.normalClosingSpeed ) : CONTACT_AUDIO_LEGACY_CLOSING_SPEED;
+}
+
+float ContactImpactScore( const ContactAudioEvent& event )
+{
+    return event.normalImpulse * ContactClosingSpeed( event );
+}
+
+float ContactCandidateRank( const ContactAudioEvent& event )
+{
+    return event.hasMotionData ? ContactImpactScore( event ) : event.normalImpulse;
 }
 
 uint32_t MaterialHashFromToken( const std::string& token )
@@ -220,6 +241,9 @@ struct ContactAudioService::Impl
     float timeSeconds = 0.0f;
     float masterGain = 1.0f;
     float maxDistanceScale = 1.0f;
+    float minClosingSpeed = CONTACT_AUDIO_DEFAULT_MIN_CLOSING_SPEED;
+    float minImpactScore = CONTACT_AUDIO_DEFAULT_MIN_IMPACT_SCORE;
+    float impactScoreRangeSeconds = CONTACT_AUDIO_DEFAULT_IMPACT_SCORE_RANGE_SECONDS;
     uint32_t sampleCursor = 0;
     bool initialized = false;
     bool enabled = true;
@@ -808,7 +832,7 @@ struct ContactAudioService::Impl
                     decision.previousStrongestImpulse = candidate.event.normalImpulse;
                     RecordDecision( decision );
                 }
-                if ( event.normalImpulse > candidate.event.normalImpulse )
+                if ( ContactCandidateRank( event ) > ContactCandidateRank( candidate.event ) )
                 {
                     candidate.event = event;
                 }
@@ -906,6 +930,20 @@ struct ContactAudioService::Impl
             }
         }
 
+        const float closingSpeed = ContactClosingSpeed( event );
+        const float impactScore = ContactImpactScore( event );
+        const float minImpactScoreForSet = (std::max)( minImpactScore, minImpulse * minClosingSpeed );
+        decision.impactScore = impactScore;
+        if ( event.hasMotionData && ( closingSpeed < minClosingSpeed || impactScore < minImpactScoreForSet ) )
+        {
+            // Why: solver impulse can travel through an already-touching wall. A
+            // thud needs contact work, not just constraint force.
+            decision.reason = "support_transfer";
+            RecordDecision( decision );
+            ++stats.rejectedByThreshold;
+            return;
+        }
+
         const float distance = ContactAudioDistance( event.point, listenerPosition );
         const float maxDistance = (std::max)( 1.0f, set->maxDistance * maxDistanceScale );
         decision.distance = distance;
@@ -920,10 +958,15 @@ struct ContactAudioService::Impl
 
         const float distanceT = Clamp01( 1.0f - distance / maxDistance );
         const float distanceGain = distanceT * distanceT;
-        const float impactGain = Clamp01( ( event.normalImpulse - minImpulse ) / impulseRange );
+        const float impulseGain = Clamp01( ( event.normalImpulse - minImpulse ) / impulseRange );
+        const float scoreRange = (std::max)( 0.001f, impulseRange * impactScoreRangeSeconds );
+        const float motionGain =
+            event.hasMotionData ? Clamp01( ( impactScore - minImpactScoreForSet ) / scoreRange ) : impulseGain;
+        const float impactGain = event.hasMotionData ? (std::min)( impulseGain, motionGain ) : impulseGain;
         const float gain = Clamp01( masterGain * baseGain * distanceGain * impactGain );
         decision.distanceGain = distanceGain;
         decision.impactGain = impactGain;
+        decision.motionGain = motionGain;
         decision.gain = gain;
         if ( gain <= 0.001f )
         {
@@ -1060,6 +1103,42 @@ void ContactAudioService::SetMaxDistanceScale( float scale )
 float ContactAudioService::MaxDistanceScale() const
 {
     return m_impl->maxDistanceScale;
+}
+
+
+void ContactAudioService::SetMinClosingSpeed( float speed )
+{
+    m_impl->minClosingSpeed = std::clamp( speed, 0.0f, 20.0f );
+}
+
+
+float ContactAudioService::MinClosingSpeed() const
+{
+    return m_impl->minClosingSpeed;
+}
+
+
+void ContactAudioService::SetMinImpactScore( float score )
+{
+    m_impl->minImpactScore = std::clamp( score, 0.0f, 5000.0f );
+}
+
+
+float ContactAudioService::MinImpactScore() const
+{
+    return m_impl->minImpactScore;
+}
+
+
+void ContactAudioService::SetImpactScoreRangeSeconds( float seconds )
+{
+    m_impl->impactScoreRangeSeconds = std::clamp( seconds, 0.001f, 10.0f );
+}
+
+
+float ContactAudioService::ImpactScoreRangeSeconds() const
+{
+    return m_impl->impactScoreRangeSeconds;
 }
 
 

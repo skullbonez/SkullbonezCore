@@ -672,7 +672,12 @@ void Run::AfterPhysicsStep()
             event.point = contact.point;
             event.normal = contact.normal;
             event.normalImpulse = contact.normalImpulse;
+            // Why: sound uses pre-solve relative motion so stationary wall bricks
+            // receiving propagated constraint force do not all become emitters.
+            event.normalClosingSpeed = contact.preSolveClosingSpeed;
+            event.tangentSlipSpeed = contact.preSolveSlipSpeed;
             event.isTerrain = contact.bodyB < 0;
+            event.hasMotionData = true;
             m_contactAudio.SubmitContact( event );
         }
 

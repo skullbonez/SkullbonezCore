@@ -48,6 +48,9 @@ struct RuntimeContactAudioSnapshot
     bool flashOnSubmit = false;
     float masterGain = 0.0f;
     float maxDistanceScale = 1.0f;
+    float minClosingSpeed = 0.0f;
+    float minImpactScore = 0.0f;
+    float impactScoreRangeSeconds = 1.0f;
     Runtime::Audio::ContactAudioStats stats;
     int soundSetCount = 0;
     int soundSampleCount = 0;

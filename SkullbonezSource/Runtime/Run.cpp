@@ -220,6 +220,9 @@ void Run::RefreshRuntimeViewModel()
     audio.flashOnSubmit = m_runtimeSettings.contactAudioFlashOnSubmit;
     audio.masterGain = m_contactAudio.MasterGain();
     audio.maxDistanceScale = m_contactAudio.MaxDistanceScale();
+    audio.minClosingSpeed = m_contactAudio.MinClosingSpeed();
+    audio.minImpactScore = m_contactAudio.MinImpactScore();
+    audio.impactScoreRangeSeconds = m_contactAudio.ImpactScoreRangeSeconds();
     audio.stats = m_contactAudio.Stats();
     audio.soundSetCount = (std::min)( m_contactAudio.SoundSetCount(), RUNTIME_CONTACT_AUDIO_SET_MAX );
     audio.soundSampleCount = (std::min)( m_contactAudio.SoundSampleCount(), RUNTIME_CONTACT_AUDIO_SAMPLE_MAX );

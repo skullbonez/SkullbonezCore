@@ -698,7 +698,9 @@ void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess, float dt )
         Log().Writef( m_physicsDiagnosticsPath,
                       "{\"kind\":\"contact\",\"run\":\"%s\",\"frame\":%d,\"contact_id\":\"%d:%d:%u\",\"body_a\":%d,"
                       "\"body_b\":%d,\"contact_type\":\"%s\",\"feature_id\":%u,\"point_count\":%u,\"normal\":[%.6f,%."
-                      "6f,%.6f],\"penetration\":%.6f,\"normal_impulse\":%.6f,\"tangent_impulse\":%.6f,\"slip_speed\":%."
+                      "6f,%.6f],\"penetration\":%.6f,\"normal_impulse\":%.6f,"
+                      "\"pre_solve_normal_speed\":%.6f,\"pre_solve_closing_speed\":%.6f,"
+                      "\"pre_solve_slip_speed\":%.6f,\"tangent_impulse\":%.6f,\"slip_speed\":%."
                       "6f,\"rolling_residual\":%.6f,\"warm_started\":%d,\"supports_sleep\":%d}\n",
                       m_physicsDiagnosticsRunId,
                       frame,
@@ -715,6 +717,9 @@ void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess, float dt )
                       diagnosticNormal.z,
                       c.penetration,
                       c.accN,
+                      c.preSolveNormalSpeed,
+                      c.preSolveClosingSpeed,
+                      c.preSolveSlipSpeed,
                       tangentImpulse,
                       slipSpeed,
                       slipSpeed,
