@@ -10,6 +10,8 @@ Mental model:
   simulation or validation behavior.
 
 Glossary:
+  Contact-audio decision: Presentation-side verdict explaining whether a copied
+    contact became a sound, flash feedback, or a specific rejection.
   Contact material: Gameplay/audio material token such as metal, stone, or wood.
   Cooldown key: Stable body-pair key that prevents persistent contact rows from
     replaying the same impact every fixed tick.
@@ -66,6 +68,32 @@ struct ContactAudioStats
     uint32_t droppedVoices = 0;
 };
 
+struct ContactAudioDecision
+{
+    ContactAudioEvent event;
+    uint64_t pairKey = 0;
+    const char* reason = "";       // String literal or borrowed map/sample text for immediate frame use.
+    const char* soundSetName = ""; // Borrowed from the loaded material map.
+    const char* bandName = "";     // Borrowed from the loaded material map.
+    const char* samplePath = "";   // Borrowed from decoded sample storage.
+    float minImpulse = 0.0f;
+    float impulseRange = 0.0f;
+    float distance = 0.0f;
+    float maxDistance = 0.0f;
+    float distanceGain = 0.0f;
+    float impactGain = 0.0f;
+    float gain = 0.0f;
+    float contactAgeSeconds = 0.0f;
+    float rearmGapSeconds = 0.0f;
+    float previousStrongestImpulse = 0.0f;
+    uint32_t maxVoices = 0;
+    int sampleIndex = -1;
+    bool ongoingContact = false;
+    bool impulseSpike = false;
+    bool submitted = false;
+    bool flashEligible = false;
+};
+
 constexpr int CONTACT_AUDIO_TUNING_MAX_BANDS = 4;
 
 // Live-tuning parameters are presentation-only controls. The UI exposes
@@ -95,7 +123,7 @@ enum class ContactAudioBandParam
 
 struct ContactAudioBandTuning
 {
-    const char* name = ""; // Borrowed from the loaded material map until it is reloaded or shutdown.
+    const char* name = "";         // Borrowed from the loaded material map until it is reloaded or shutdown.
     float minImpulse = 0.0f;
     float impulseRange = 0.0f;
     float baseGain = 0.0f;
@@ -106,7 +134,7 @@ struct ContactAudioBandTuning
 
 struct ContactAudioSetTuning
 {
-    const char* name = ""; // Borrowed from the loaded material map until it is reloaded or shutdown.
+    const char* name = "";         // Borrowed from the loaded material map until it is reloaded or shutdown.
     uint32_t materialA = 0;
     uint32_t materialB = 0;
     float minImpulse = 0.0f;
@@ -166,6 +194,10 @@ class ContactAudioService
     void EndPhysicsStep();
     int SubmittedContactCount() const;
     bool GetSubmittedContact( int index, ContactAudioEvent& out ) const;
+    // Returns bounded per-step verdicts for visual feedback and SkullScope. The
+    // records are valid until the next BeginPhysicsStep() or Shutdown().
+    int DecisionCount() const;
+    bool GetDecision( int index, ContactAudioDecision& out ) const;
     bool PlaySmokeImpact( uint32_t materialId, float normalImpulse );
 
     const ContactAudioStats& Stats() const;

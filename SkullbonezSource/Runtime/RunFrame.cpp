@@ -667,23 +667,39 @@ void Run::AfterPhysicsStep()
         }
 
         m_contactAudio.EndPhysicsStep();
+#ifdef _DEBUG
+        if ( m_diagnosticsRuntime.PhysicsDiagnosticsEnabled() )
+        {
+            const int decisionCount = m_contactAudio.DecisionCount();
+            for ( int i = 0; i < decisionCount; ++i )
+            {
+                Runtime::Audio::ContactAudioDecision decision;
+                if ( m_contactAudio.GetDecision( i, decision ) )
+                {
+                    RuntimeDiagnostics::LogContactAudioDecision( m_diagnosticsRuntime.PhysicsDiagnostics(),
+                                                                 SceneState(),
+                                                                 decision );
+                }
+            }
+        }
+#endif
         if ( m_runtimeSettings.contactAudioFlashOnSubmit )
         {
-            // Why: submitted contacts have already survived rolling, cooldown,
-            // distance, and voice-cap rejection, so the flash matches audible
-            // impacts instead of raw solver contacts.
+            // Why: voice caps are a mixer limit, not an impact classifier. Flash
+            // every contact that cleared material, cooldown, distance, and gain
+            // policy so big pileups still show their sound-worthy impacts.
             constexpr float CONTACT_AUDIO_FLASH_SECONDS = 0.1f;
-            const int submittedCount = m_contactAudio.SubmittedContactCount();
-            for ( int i = 0; i < submittedCount; ++i )
+            const int decisionCount = m_contactAudio.DecisionCount();
+            for ( int i = 0; i < decisionCount; ++i )
             {
-                Runtime::Audio::ContactAudioEvent submitted;
-                if ( !m_contactAudio.GetSubmittedContact( i, submitted ) )
+                Runtime::Audio::ContactAudioDecision decision;
+                if ( !m_contactAudio.GetDecision( i, decision ) || !decision.flashEligible )
                 {
                     continue;
                 }
 
-                m_cGameModelCollection.NotifyAudioContact( submitted.bodyA, CONTACT_AUDIO_FLASH_SECONDS );
-                m_cGameModelCollection.NotifyAudioContact( submitted.bodyB, CONTACT_AUDIO_FLASH_SECONDS );
+                m_cGameModelCollection.NotifyAudioContact( decision.event.bodyA, CONTACT_AUDIO_FLASH_SECONDS );
+                m_cGameModelCollection.NotifyAudioContact( decision.event.bodyB, CONTACT_AUDIO_FLASH_SECONDS );
             }
         }
         if ( m_runtimeSettings.contactAudioDebugCounters )

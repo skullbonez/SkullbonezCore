@@ -10,8 +10,10 @@ Mental model:
   them.
 
 Glossary:
+  Contact-audio decision: Bounded per-step verdict explaining whether a copied
+    contact was submitted, made eligible for flash feedback, or rejected.
   XAudio2 source voice: Backend object that plays one PCM format. Voices are
-  reused once their queued buffer drains.
+    reused once their queued buffer drains.
   Wildcard material: A sound-map entry using "*" to match any partner material.
   Impulse range: Tuning span that maps solved normal impulse to gain.
   Rolling/support contact: A body pair that remains touching across physics
@@ -63,11 +65,15 @@ namespace
 {
 constexpr uint32_t CONTACT_AUDIO_WILDCARD = HashStr( "*" );
 constexpr uint32_t CONTACT_AUDIO_DEFAULT = HashStr( "default" );
-constexpr std::size_t MAX_STEP_CANDIDATES = 64;
-constexpr std::size_t MAX_COOLDOWN_ENTRIES = 512;
+constexpr std::size_t MAX_STEP_CANDIDATES = 512;
+constexpr std::size_t MAX_STEP_DECISIONS = 2048;
+constexpr std::size_t MAX_COOLDOWN_ENTRIES = 4096;
 constexpr float CONTACT_AUDIO_REARM_GAP_SECONDS = 0.18f;
+constexpr float CONTACT_AUDIO_TERRAIN_REARM_GAP_SECONDS = 0.90f;
 constexpr float CONTACT_AUDIO_SPIKE_RATIO = 1.65f;
 constexpr float CONTACT_AUDIO_SPIKE_DELTA = 1.0f;
+constexpr float CONTACT_AUDIO_VOICE_STEAL_GAIN_RATIO = 1.20f;
+constexpr float CONTACT_AUDIO_VOICE_STEAL_GAIN_DELTA = 0.03f;
 
 float Clamp01( float value )
 {
@@ -146,6 +152,7 @@ struct ContactAudioService::Impl
     struct VoiceSlot
     {
         IXAudio2SourceVoice* voice = nullptr;
+        float gain = 0.0f;
     };
 
     struct DecodedSound
@@ -180,7 +187,7 @@ struct ContactAudioService::Impl
         float baseGain = 0.55f;
         float pitchMin = 0.94f;
         float pitchMax = 1.06f;
-        uint32_t maxVoices = 8;
+        uint32_t maxVoices = 24;
         std::vector<int> soundIndices;
         std::vector<SoundBand> bands;
     };
@@ -206,6 +213,7 @@ struct ContactAudioService::Impl
     std::vector<SoundSet> sets;
     std::vector<StepCandidate> stepCandidates;
     std::vector<ContactAudioEvent> submittedContacts;
+    std::vector<ContactAudioDecision> decisions;
     std::vector<CooldownEntry> cooldowns;
     Vector3 listenerPosition = Math::Vector::ZERO_VECTOR;
     ContactAudioStats stats;
@@ -222,6 +230,7 @@ struct ContactAudioService::Impl
         sets.reserve( 16 );
         stepCandidates.reserve( MAX_STEP_CANDIDATES );
         submittedContacts.reserve( MAX_STEP_CANDIDATES );
+        decisions.reserve( MAX_STEP_DECISIONS );
         cooldowns.reserve( MAX_COOLDOWN_ENTRIES );
     }
 
@@ -269,6 +278,7 @@ struct ContactAudioService::Impl
         sets.clear();
         stepCandidates.clear();
         submittedContacts.clear();
+        decisions.clear();
         cooldowns.clear();
         if ( masterVoice )
         {
@@ -324,8 +334,9 @@ struct ContactAudioService::Impl
         return static_cast<int>( sounds.size() - 1 );
     }
 
-    bool SubmitDecodedSound( int soundIndex, float gain, float pitch, uint32_t maxVoices )
+    bool SubmitDecodedSound( int soundIndex, float gain, float pitch, uint32_t maxVoices, bool& outStoleVoice )
     {
+        outStoleVoice = false;
         if ( !initialized || soundIndex < 0 || soundIndex >= static_cast<int>( sounds.size() ) )
         {
             return false;
@@ -333,14 +344,24 @@ struct ContactAudioService::Impl
 
         DecodedSound& sound = sounds[static_cast<std::size_t>( soundIndex )];
         IXAudio2SourceVoice* voice = nullptr;
+        VoiceSlot* selectedSlot = nullptr;
+        VoiceSlot* weakestActiveSlot = nullptr;
+        float weakestActiveGain = ( std::numeric_limits<float>::max )();
         for ( VoiceSlot& slot : sound.voices )
         {
             XAUDIO2_VOICE_STATE state = {};
             slot.voice->GetState( &state, XAUDIO2_VOICE_NOSAMPLESPLAYED );
             if ( state.BuffersQueued == 0 )
             {
+                selectedSlot = &slot;
                 voice = slot.voice;
+                slot.gain = 0.0f;
                 break;
+            }
+            if ( slot.gain < weakestActiveGain )
+            {
+                weakestActiveGain = slot.gain;
+                weakestActiveSlot = &slot;
             }
         }
         if ( !voice && sound.voices.size() < maxVoices )
@@ -349,7 +370,21 @@ struct ContactAudioService::Impl
             if ( SUCCEEDED( xaudio->CreateSourceVoice( &newVoice, &sound.format ) ) )
             {
                 sound.voices.push_back( VoiceSlot{ newVoice } );
+                selectedSlot = &sound.voices.back();
                 voice = newVoice;
+            }
+        }
+        if ( !voice && weakestActiveSlot )
+        {
+            // Why: large collapses can legitimately exceed the mix cap. Let a
+            // stronger new thud replace the quietest active thud, but do not let
+            // minor settling churn the voice pool.
+            if ( gain >= weakestActiveGain * CONTACT_AUDIO_VOICE_STEAL_GAIN_RATIO &&
+                 gain >= weakestActiveGain + CONTACT_AUDIO_VOICE_STEAL_GAIN_DELTA )
+            {
+                selectedSlot = weakestActiveSlot;
+                voice = weakestActiveSlot->voice;
+                outStoleVoice = true;
             }
         }
         if ( !voice )
@@ -368,9 +403,17 @@ struct ContactAudioService::Impl
         voice->SetFrequencyRatio( std::clamp( pitch, XAUDIO2_MIN_FREQ_RATIO, XAUDIO2_MAX_FREQ_RATIO ) );
         if ( SUCCEEDED( voice->SubmitSourceBuffer( &buffer ) ) && SUCCEEDED( voice->Start( 0 ) ) )
         {
+            if ( selectedSlot )
+            {
+                selectedSlot->gain = gain;
+            }
             return true;
         }
         voice->FlushSourceBuffers();
+        if ( selectedSlot )
+        {
+            selectedSlot->gain = 0.0f;
+        }
         return false;
     }
 
@@ -699,6 +742,23 @@ struct ContactAudioService::Impl
         return selected;
     }
 
+    ContactAudioDecision BaseDecision( const ContactAudioEvent& event, uint64_t key, const char* reason ) const
+    {
+        ContactAudioDecision decision;
+        decision.event = event;
+        decision.pairKey = key;
+        decision.reason = reason;
+        return decision;
+    }
+
+    void RecordDecision( const ContactAudioDecision& decision )
+    {
+        if ( decisions.size() < MAX_STEP_DECISIONS )
+        {
+            decisions.push_back( decision );
+        }
+    }
+
     CooldownEntry* FindCooldown( uint64_t key )
     {
         for ( CooldownEntry& entry : cooldowns )
@@ -710,6 +770,23 @@ struct ContactAudioService::Impl
         }
         if ( cooldowns.size() >= MAX_COOLDOWN_ENTRIES )
         {
+            CooldownEntry* oldest = nullptr;
+            for ( CooldownEntry& entry : cooldowns )
+            {
+                if ( !oldest || entry.lastContactTimeSeconds < oldest->lastContactTimeSeconds )
+                {
+                    oldest = &entry;
+                }
+            }
+            if ( oldest )
+            {
+                // Invariant: a full cooldown table must degrade deterministically.
+                // Reusing the stalest pair keeps rolling/support contacts tracked
+                // in large piles instead of treating them as fresh impacts forever.
+                *oldest = CooldownEntry{};
+                oldest->key = key;
+                return oldest;
+            }
             return nullptr;
         }
         cooldowns.push_back( CooldownEntry{} );
@@ -725,6 +802,12 @@ struct ContactAudioService::Impl
         {
             if ( candidate.key == key )
             {
+                if ( decisions.size() < MAX_STEP_CANDIDATES )
+                {
+                    ContactAudioDecision decision = BaseDecision( event, key, "candidate_collapsed" );
+                    decision.previousStrongestImpulse = candidate.event.normalImpulse;
+                    RecordDecision( decision );
+                }
                 if ( event.normalImpulse > candidate.event.normalImpulse )
                 {
                     candidate.event = event;
@@ -736,6 +819,13 @@ struct ContactAudioService::Impl
         {
             stepCandidates.push_back( StepCandidate{ key, event } );
         }
+        else
+        {
+            if ( decisions.size() < MAX_STEP_CANDIDATES )
+            {
+                RecordDecision( BaseDecision( event, key, "candidate_cap" ) );
+            }
+        }
     }
 
     void PlayCandidate( const StepCandidate& candidate )
@@ -744,6 +834,7 @@ struct ContactAudioService::Impl
         const SoundSet* set = ResolveSet( event.materialA, event.materialB );
         if ( !set )
         {
+            RecordDecision( BaseDecision( event, candidate.key, "no_sound_set" ) );
             ++stats.rejectedByThreshold;
             return;
         }
@@ -755,8 +846,23 @@ struct ContactAudioService::Impl
         const float pitchMax = band ? band->pitchMax : set->pitchMax;
         const std::vector<int>& soundIndices =
             band && !band->soundIndices.empty() ? band->soundIndices : set->soundIndices;
-        if ( event.normalImpulse < minImpulse || soundIndices.empty() )
+        ContactAudioDecision decision = BaseDecision( event, candidate.key, "" );
+        decision.soundSetName = set->name.c_str();
+        decision.bandName = band ? band->name.c_str() : "";
+        decision.minImpulse = minImpulse;
+        decision.impulseRange = impulseRange;
+        decision.maxVoices = set->maxVoices;
+        if ( event.normalImpulse < minImpulse )
         {
+            decision.reason = "below_min_impulse";
+            RecordDecision( decision );
+            ++stats.rejectedByThreshold;
+            return;
+        }
+        if ( soundIndices.empty() )
+        {
+            decision.reason = "no_samples";
+            RecordDecision( decision );
             ++stats.rejectedByThreshold;
             return;
         }
@@ -764,14 +870,23 @@ struct ContactAudioService::Impl
         CooldownEntry* cooldown = FindCooldown( candidate.key );
         bool ongoingContact = false;
         bool impulseSpike = true;
+        float contactAge = 0.0f;
+        float previousStrongest = 0.0f;
         if ( cooldown )
         {
-            const float contactAge = timeSeconds - cooldown->lastContactTimeSeconds;
-            ongoingContact = cooldown->hasRecentContact && contactAge <= CONTACT_AUDIO_REARM_GAP_SECONDS;
-            const float previousStrongest = ongoingContact ? cooldown->strongestRecentImpulse : 0.0f;
+            contactAge = timeSeconds - cooldown->lastContactTimeSeconds;
+            const float rearmGapSeconds =
+                event.isTerrain ? CONTACT_AUDIO_TERRAIN_REARM_GAP_SECONDS : CONTACT_AUDIO_REARM_GAP_SECONDS;
+            ongoingContact = cooldown->hasRecentContact && contactAge <= rearmGapSeconds;
+            previousStrongest = ongoingContact ? cooldown->strongestRecentImpulse : 0.0f;
             impulseSpike =
                 previousStrongest <= 0.0f || ( event.normalImpulse >= previousStrongest * CONTACT_AUDIO_SPIKE_RATIO &&
                                                event.normalImpulse >= previousStrongest + CONTACT_AUDIO_SPIKE_DELTA );
+            decision.contactAgeSeconds = contactAge;
+            decision.rearmGapSeconds = rearmGapSeconds;
+            decision.previousStrongestImpulse = previousStrongest;
+            decision.ongoingContact = ongoingContact;
+            decision.impulseSpike = impulseSpike;
 
             // Invariant: a body pair that remains in contact is treated as a
             // support/rolling contact, not as a new impact each cooldown window.
@@ -784,6 +899,8 @@ struct ContactAudioService::Impl
             else if ( !impulseSpike )
             {
                 cooldown->strongestRecentImpulse = (std::max)( cooldown->strongestRecentImpulse, event.normalImpulse );
+                decision.reason = "cooldown_ongoing";
+                RecordDecision( decision );
                 ++stats.rejectedByCooldown;
                 return;
             }
@@ -791,8 +908,12 @@ struct ContactAudioService::Impl
 
         const float distance = ContactAudioDistance( event.point, listenerPosition );
         const float maxDistance = (std::max)( 1.0f, set->maxDistance * maxDistanceScale );
+        decision.distance = distance;
+        decision.maxDistance = maxDistance;
         if ( distance >= maxDistance )
         {
+            decision.reason = "distance";
+            RecordDecision( decision );
             ++stats.rejectedByThreshold;
             return;
         }
@@ -801,14 +922,23 @@ struct ContactAudioService::Impl
         const float distanceGain = distanceT * distanceT;
         const float impactGain = Clamp01( ( event.normalImpulse - minImpulse ) / impulseRange );
         const float gain = Clamp01( masterGain * baseGain * distanceGain * impactGain );
+        decision.distanceGain = distanceGain;
+        decision.impactGain = impactGain;
+        decision.gain = gain;
         if ( gain <= 0.001f )
         {
+            decision.reason = "gain_floor";
+            RecordDecision( decision );
             ++stats.rejectedByThreshold;
             return;
         }
 
+        decision.flashEligible = true;
         if ( !initialized )
         {
+            decision.reason = "backend_unavailable";
+            decision.flashEligible = false;
+            RecordDecision( decision );
             ++stats.droppedVoices;
             return;
         }
@@ -818,12 +948,20 @@ struct ContactAudioService::Impl
         // solver, replay state, or body stores.
         const uint32_t sampleOrdinal = sampleCursor++ % static_cast<uint32_t>( soundIndices.size() );
         const int soundIndex = soundIndices[static_cast<std::size_t>( sampleOrdinal )];
+        decision.sampleIndex = soundIndex;
+        if ( soundIndex >= 0 && soundIndex < static_cast<int>( sounds.size() ) )
+        {
+            decision.samplePath = sounds[static_cast<std::size_t>( soundIndex )].path.c_str();
+        }
 
         const float pitchT = pitchMax > pitchMin ? static_cast<float>( sampleCursor % 997u ) / 996.0f : 0.0f;
         const float pitch = pitchMin + ( pitchMax - pitchMin ) * pitchT;
-        if ( SubmitDecodedSound( soundIndex, gain, pitch, set->maxVoices ) )
+        bool stoleVoice = false;
+        if ( SubmitDecodedSound( soundIndex, gain, pitch, set->maxVoices, stoleVoice ) )
         {
             ++stats.submittedVoices;
+            decision.reason = stoleVoice ? "voice_stolen" : "submitted";
+            decision.submitted = true;
             // Lifetime: Run reads this copied event immediately after
             // EndPhysicsStep(); no GameModel or solver storage is borrowed.
             if ( submittedContacts.size() < MAX_STEP_CANDIDATES )
@@ -842,8 +980,10 @@ struct ContactAudioService::Impl
         }
         else
         {
+            decision.reason = "voice_cap";
             ++stats.droppedVoices;
         }
+        RecordDecision( decision );
     }
 };
 
@@ -971,7 +1111,8 @@ bool ContactAudioService::SetSoundSetSample( int setIndex, int sampleIndex )
 
 bool ContactAudioService::PreviewSoundSample( int sampleIndex, float gain )
 {
-    return m_impl->SubmitDecodedSound( sampleIndex, gain, 1.0f, 4 );
+    bool stoleVoice = false;
+    return m_impl->SubmitDecodedSound( sampleIndex, gain, 1.0f, 4, stoleVoice );
 }
 
 
@@ -981,6 +1122,7 @@ void ContactAudioService::BeginPhysicsStep( float deltaSeconds, const Vector3& l
     m_impl->listenerPosition = listenerPosition;
     m_impl->stepCandidates.clear();
     m_impl->submittedContacts.clear();
+    m_impl->decisions.clear();
 }
 
 
@@ -999,6 +1141,7 @@ void ContactAudioService::EndPhysicsStep()
     {
         m_impl->stepCandidates.clear();
         m_impl->submittedContacts.clear();
+        m_impl->decisions.clear();
         return;
     }
     for ( const Impl::StepCandidate& candidate : m_impl->stepCandidates )
@@ -1023,6 +1166,23 @@ bool ContactAudioService::GetSubmittedContact( int index, ContactAudioEvent& out
     }
 
     out = m_impl->submittedContacts[static_cast<std::size_t>( index )];
+    return true;
+}
+
+
+int ContactAudioService::DecisionCount() const
+{
+    return static_cast<int>( m_impl->decisions.size() );
+}
+
+
+bool ContactAudioService::GetDecision( int index, ContactAudioDecision& out ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_impl->decisions.size() ) )
+    {
+        return false;
+    }
+    out = m_impl->decisions[static_cast<std::size_t>( index )];
     return true;
 }
 

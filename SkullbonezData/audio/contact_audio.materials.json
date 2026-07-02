@@ -54,7 +54,7 @@
       "baseGain": 0.58,
       "pitchMin": 0.92,
       "pitchMax": 1.04,
-      "maxVoices": 8,
+      "maxVoices": 24,
       "samples": [
         "SkullbonezData/audio/impacts/impact_thud_thwack_02.ogg"
       ],

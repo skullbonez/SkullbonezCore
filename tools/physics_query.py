@@ -1184,6 +1184,104 @@ def query_events(conn, cache, args):
     }
 
 
+def query_audio(conn, cache, args):
+    run_id = resolve_run_id(conn, args)
+    where = ["run_id=?", "type='contact_audio'"]
+    params = [run_id]
+    apply_frame_where(where, params, frame_range=args.frames)
+    rows = conn.execute(
+        f"""
+        select event_id, frame, severity, body_a, body_b, summary, data_json
+        from events
+        where {' and '.join(where)}
+        order by frame, event_id
+        """,
+        params,
+    ).fetchall()
+
+    decision_counts = {}
+    frame_stats = {}
+    impacts = []
+    for row in rows:
+        data = decode_event_data(row)
+        decision = data.get("decision") or "unknown"
+        decision_counts[decision] = decision_counts.get(decision, 0) + 1
+
+        frame = as_int(row["frame"], -1)
+        bucket = frame_stats.setdefault(
+            frame,
+            {
+                "frame": frame,
+                "events": 0,
+                "submitted": 0,
+                "voiceStolen": 0,
+                "flashEligible": 0,
+                "voiceCap": 0,
+                "cooldownOngoing": 0,
+                "distanceRejected": 0,
+                "belowMinImpulse": 0,
+                "maxImpulse": 0.0,
+            },
+        )
+        impulse = as_float(data.get("normal_impulse"), 0.0) or 0.0
+        bucket["events"] += 1
+        bucket["maxImpulse"] = max(bucket["maxImpulse"], impulse)
+        if as_int(data.get("submitted"), 0):
+            bucket["submitted"] += 1
+        if decision == "voice_stolen":
+            bucket["voiceStolen"] += 1
+        if as_int(data.get("flash_eligible"), 0):
+            bucket["flashEligible"] += 1
+        if decision == "voice_cap":
+            bucket["voiceCap"] += 1
+        elif decision == "cooldown_ongoing":
+            bucket["cooldownOngoing"] += 1
+        elif decision == "distance":
+            bucket["distanceRejected"] += 1
+        elif decision == "below_min_impulse":
+            bucket["belowMinImpulse"] += 1
+
+        impacts.append(
+            {
+                "eventId": row["event_id"],
+                "frame": frame,
+                "decision": decision,
+                "bodyA": row["body_a"],
+                "bodyB": row["body_b"],
+                "impulse": impulse,
+                "gain": as_float(data.get("gain"), 0.0),
+                "distance": as_float(data.get("distance"), 0.0),
+                "maxDistance": as_float(data.get("max_distance"), 0.0),
+                "flashEligible": bool(as_int(data.get("flash_eligible"), 0)),
+                "submitted": bool(as_int(data.get("submitted"), 0)),
+                "sample": data.get("sample"),
+            }
+        )
+
+    limit = args.limit or SUMMARY_LIMIT
+    frame_hotspots = sorted(
+        frame_stats.values(),
+        key=lambda item: (item["flashEligible"], item["submitted"], item["events"], item["maxImpulse"]),
+        reverse=True,
+    )[:limit]
+    top_impacts = sorted(impacts, key=lambda item: item["impulse"], reverse=True)[:limit]
+
+    return {
+        "cache": cache,
+        "run": run_id,
+        "frames": args.frames,
+        "eventCount": len(rows),
+        "decisionCounts": decision_counts,
+        "frameHotspots": frame_hotspots,
+        "topImpacts": top_impacts,
+        "relatedQueries": [
+            "events --type contact_audio --frames <start>:<end>",
+            "event <eventId> --window 20",
+            "contacts --top impulse --frames <start>:<end>",
+        ],
+    }
+
+
 def query_event(conn, cache, args):
     run_id = resolve_run_id(conn, args)
     row = conn.execute(
@@ -2077,6 +2175,11 @@ def build_parser():
     events.add_argument("--severity", default=None, help="Comma-separated severities.")
     events.add_argument("--frames", default=None, help="Frame range A:B.")
     events.set_defaults(func=query_events)
+
+    audio = sub.add_parser("audio", help="Summarize contact audio decision events.")
+    add_common(audio)
+    audio.add_argument("--frames", default=None, help="Frame range A:B.")
+    audio.set_defaults(func=query_audio)
 
     event = sub.add_parser("event", help="Focused event context.")
     add_common(event)
