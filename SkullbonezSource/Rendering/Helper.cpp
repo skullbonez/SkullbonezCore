@@ -32,7 +32,8 @@ Related:
 #include "../Assets/AssetSystem.h"
 #include "../Physics/ConvexHullShape.h"
 #include "../Core/Profiler.h"
-#include "IRenderBackend.h"
+#include "IRenderCommandContext.h"
+#include "IRenderResourceFactory.h"
 #include "PrimitiveMeshBuilder.h"
 
 #include <algorithm>
@@ -85,6 +86,34 @@ static bool sPineBatchReady = false;
 static uint32_t sMaterialTableTexture = 0;
 static uint32_t sConvexHullDynamicVB = 0;
 static std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> sConvexHullVertexData = {};
+static IRenderResourceFactory* sRenderResources = nullptr;
+static IRenderCommandContext* sRenderCommands = nullptr;
+static const SkullbonezCore::Assets::AssetSystem* sAssets = nullptr;
+static const EngineConfig* sConfig = nullptr;
+
+static IRenderResourceFactory& Resources()
+{
+    assert( sRenderResources && "RenderHelper used before BindRenderContexts" );
+    return *sRenderResources;
+}
+
+static IRenderCommandContext& Commands()
+{
+    assert( sRenderCommands && "RenderHelper used before BindRenderContexts" );
+    return *sRenderCommands;
+}
+
+static const SkullbonezCore::Assets::AssetSystem& AssetRegistry()
+{
+    assert( sAssets && "RenderHelper used before BindRenderContexts" );
+    return *sAssets;
+}
+
+static const EngineConfig& Config()
+{
+    assert( sConfig && "RenderHelper used before BindRenderContexts" );
+    return *sConfig;
+}
 
 // Layout contract: mirrors the Uniforms cbuffer in lit_textured_instanced.hlsl.
 // SetConstantBufferBytes rejects this block if the reflected shader size drifts,
@@ -123,9 +152,9 @@ static void BeginPrimitiveBatchTransparency( bool isTransparent )
 {
     if ( isTransparent )
     {
-        Gfx().SetBlend( true );
-        Gfx().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
-        Gfx().SetDepthWrite( false );
+        Commands().SetBlend( true );
+        Commands().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
+        Commands().SetDepthWrite( false );
     }
 }
 
@@ -133,9 +162,9 @@ static void EndPrimitiveBatchTransparency( bool wasTransparent )
 {
     if ( wasTransparent )
     {
-        Gfx().SetDepthWrite( true );
+        Commands().SetDepthWrite( true );
     }
-    Gfx().SetBlend( false );
+    Commands().SetBlend( false );
 }
 
 static uint8_t MaterialByte( float value )
@@ -157,7 +186,7 @@ static void EnsureMaterialTableTexture()
     // model beyond the ordinary raster ABI.
     if ( sMaterialTableTexture != 0 )
     {
-        Gfx().BindTexture( sMaterialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
+        Commands().BindTexture( sMaterialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
         return;
     }
 
@@ -174,8 +203,8 @@ static void EnsureMaterialTableTexture()
         rows[i * 4 + 3] = MaterialByte( material.stylization );
     }
 
-    sMaterialTableTexture = Gfx().CreateTexture2D( rows, MATERIAL_TABLE_WIDTH, 1, 4, false, false );
-    Gfx().BindTexture( sMaterialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
+    sMaterialTableTexture = Resources().CreateTexture2D( rows, MATERIAL_TABLE_WIDTH, 1, 4, false, false );
+    Commands().BindTexture( sMaterialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
 }
 
 static void
@@ -224,7 +253,7 @@ static void EnsureConvexHullDynamicVB()
     }
 
     int attribs[] = { 3, 3, 2, 4, 4, 4, 4, 4, 4, 4, 4 };
-    sConvexHullDynamicVB = Gfx().CreateDynamicVB( attribs, 11, HULL_MAX_TRIANGLE_VERTICES );
+    sConvexHullDynamicVB = Resources().CreateDynamicVB( attribs, 11, HULL_MAX_TRIANGLE_VERTICES );
 }
 
 static int BuildConvexHullDynamicVertices( const ConvexHullShape& hull,
@@ -276,7 +305,7 @@ static int BuildConvexHullDynamicVertices( const ConvexHullShape& hull,
 
 static void ApplySceneLightConstants( PrimitiveBatchShaderConstants& constants )
 {
-    const OrdinaryRenderConfig& ordinary = Cfg().ordinaryRender;
+    const OrdinaryRenderConfig& ordinary = Config().ordinaryRender;
     constants.lightAmbient[0] = ordinary.skyAmbientR;
     constants.lightAmbient[1] = ordinary.skyAmbientG;
     constants.lightAmbient[2] = ordinary.skyAmbientB;
@@ -298,7 +327,7 @@ static void ApplySceneLightConstants( PrimitiveBatchShaderConstants& constants )
 
 static void ApplySceneLightUniforms( IShader& shader )
 {
-    const OrdinaryRenderConfig& ordinary = Cfg().ordinaryRender;
+    const OrdinaryRenderConfig& ordinary = Config().ordinaryRender;
     shader.SetVec4( "uLightAmbient",
                     ordinary.skyAmbientR,
                     ordinary.skyAmbientG,
@@ -365,7 +394,7 @@ static void FillShadowReceiverConstants( PrimitiveBatchShaderConstants& constant
     constants.shadowFlags[2] = enabled ? static_cast<float>( shadow->pcfRadius ) : 0.0f;
     constants.shadowFlags[3] = enabled && shadow->zeroToOneDepth ? 1.0f : 0.0f;
 
-    Gfx().BindTexture( enabled ? shadow->depthTextureHandle : 0, SHADOW_TEXTURE_SLOT );
+    Commands().BindTexture( enabled ? shadow->depthTextureHandle : 0, SHADOW_TEXTURE_SLOT );
 }
 
 struct PrimitiveBatchShaderParams
@@ -432,6 +461,27 @@ void RenderHelper::SetClipPlane( float x, float y, float z, float w )
 }
 
 
+void RenderHelper::BindRenderContexts( IRenderResourceFactory& renderResources,
+                                       IRenderCommandContext& renderCommands,
+                                       const SkullbonezCore::Assets::AssetSystem& assets,
+                                       const EngineConfig& config )
+{
+    sRenderResources = &renderResources;
+    sRenderCommands = &renderCommands;
+    sAssets = &assets;
+    sConfig = &config;
+}
+
+
+void RenderHelper::UnbindRenderContexts()
+{
+    sRenderResources = nullptr;
+    sRenderCommands = nullptr;
+    sAssets = nullptr;
+    sConfig = nullptr;
+}
+
+
 const float* RenderHelper::GetClipPlane()
 {
     return sClipPlane;
@@ -444,32 +494,32 @@ void RenderHelper::ResetRenderResources()
     shadowDepthShader.reset();
     if ( sphereInstMesh != 0 )
     {
-        Gfx().DestroyInstancedMesh( sphereInstMesh );
+        Resources().DestroyInstancedMesh( sphereInstMesh );
         sphereInstMesh = 0;
     }
     if ( lowPolySphereInstMesh != 0 )
     {
-        Gfx().DestroyInstancedMesh( lowPolySphereInstMesh );
+        Resources().DestroyInstancedMesh( lowPolySphereInstMesh );
         lowPolySphereInstMesh = 0;
     }
     if ( boxInstMesh != 0 )
     {
-        Gfx().DestroyInstancedMesh( boxInstMesh );
+        Resources().DestroyInstancedMesh( boxInstMesh );
         boxInstMesh = 0;
     }
     if ( pineInstMesh != 0 )
     {
-        Gfx().DestroyInstancedMesh( pineInstMesh );
+        Resources().DestroyInstancedMesh( pineInstMesh );
         pineInstMesh = 0;
     }
     if ( sMaterialTableTexture != 0 )
     {
-        Gfx().DeleteTexture( sMaterialTableTexture );
+        Resources().DeleteTexture( sMaterialTableTexture );
         sMaterialTableTexture = 0;
     }
     if ( sConvexHullDynamicVB != 0 )
     {
-        Gfx().DestroyDynamicVB( sConvexHullDynamicVB );
+        Resources().DestroyDynamicVB( sConvexHullDynamicVB );
         sConvexHullDynamicVB = 0;
     }
     activeSphereInstMesh = 0;
@@ -481,7 +531,7 @@ void RenderHelper::EnsureSphereShader()
 {
     if ( !sphereShader )
     {
-        sphereShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.lit_textured_instanced" );
+        sphereShader = AssetRegistry().CreateShader( Resources(), "shader.lit_textured_instanced" );
         sphereShader->Use();
         ApplySceneLightUniforms( *sphereShader );
         sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
@@ -499,7 +549,7 @@ void RenderHelper::EnsureShadowDepthShader()
         // visuals because all three meshes expose the same static attributes and
         // per-instance material layout. The fragment output is irrelevant; the
         // depth attachment is the shadow map product.
-        shadowDepthShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.shadow_depth_instanced" );
+        shadowDepthShader = AssetRegistry().CreateShader( Resources(), "shader.shadow_depth_instanced" );
     }
 }
 
@@ -534,16 +584,16 @@ void RenderHelper::BuildSphereMesh( int slices, int stacks )
     int staticAttribSizes[] = { 3, 3, 2 };
     // Instance layout: model matrix plus three float4 material rows, starting at location 3.
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    sphereInstMesh = Gfx().CreateInstancedMesh( verts.data(),
-                                                sphereVertexCount,
-                                                8,
-                                                MAX_GAME_MODELS,
-                                                INSTANCE_FLOATS,
-                                                3,
-                                                instanceAttribSizes,
-                                                8,
-                                                staticAttribSizes,
-                                                3 );
+    sphereInstMesh = Resources().CreateInstancedMesh( verts.data(),
+                                                      sphereVertexCount,
+                                                      8,
+                                                      MAX_GAME_MODELS,
+                                                      INSTANCE_FLOATS,
+                                                      3,
+                                                      instanceAttribSizes,
+                                                      8,
+                                                      staticAttribSizes,
+                                                      3 );
 
     sphereInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
@@ -567,16 +617,16 @@ void RenderHelper::BuildLowPolySphereMesh( int slices, int stacks )
 
     int staticAttribSizes[] = { 3, 3, 2 };
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    lowPolySphereInstMesh = Gfx().CreateInstancedMesh( verts.data(),
-                                                       lowPolySphereVertexCount,
-                                                       8,
-                                                       MAX_GAME_MODELS,
-                                                       INSTANCE_FLOATS,
-                                                       3,
-                                                       instanceAttribSizes,
-                                                       8,
-                                                       staticAttribSizes,
-                                                       3 );
+    lowPolySphereInstMesh = Resources().CreateInstancedMesh( verts.data(),
+                                                             lowPolySphereVertexCount,
+                                                             8,
+                                                             MAX_GAME_MODELS,
+                                                             INSTANCE_FLOATS,
+                                                             3,
+                                                             instanceAttribSizes,
+                                                             8,
+                                                             staticAttribSizes,
+                                                             3 );
 
     sphereInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
@@ -658,10 +708,10 @@ void RenderHelper::DrawSphereBatchEnd()
     {
         if ( sSphereBatchReady )
         {
-            Gfx().UploadInstanceData( activeSphereInstMesh,
-                                      sphereInstanceData.data(),
-                                      static_cast<int>( sphereInstanceData.size() ) );
-            Gfx().DrawInstancedMesh( activeSphereInstMesh, activeSphereVertexCount, instanceCount );
+            Commands().UploadInstanceData( activeSphereInstMesh,
+                                           sphereInstanceData.data(),
+                                           static_cast<int>( sphereInstanceData.size() ) );
+            Commands().DrawInstancedMesh( activeSphereInstMesh, activeSphereVertexCount, instanceCount );
         }
     }
     EndPrimitiveBatchTransparency( sSphereBatchTransparent );
@@ -727,10 +777,10 @@ void RenderHelper::DrawShadowDepthSphereBatchEnd()
         // Upload only the compact per-instance stream, then issue one instanced
         // draw for every sphere caster. This keeps the shadow pass draw-call
         // count predictable even in scenes with hundreds of balls.
-        Gfx().UploadInstanceData( activeSphereInstMesh,
-                                  sphereInstanceData.data(),
-                                  static_cast<int>( sphereInstanceData.size() ) );
-        Gfx().DrawInstancedMesh( activeSphereInstMesh, activeSphereVertexCount, instanceCount );
+        Commands().UploadInstanceData( activeSphereInstMesh,
+                                       sphereInstanceData.data(),
+                                       static_cast<int>( sphereInstanceData.size() ) );
+        Commands().DrawInstancedMesh( activeSphereInstMesh, activeSphereVertexCount, instanceCount );
     }
     sSphereBatchReady = false;
 }
@@ -763,16 +813,16 @@ void RenderHelper::BuildBoxMesh()
 
     int staticAttribSizes[] = { 3, 3, 2 };
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    boxInstMesh = Gfx().CreateInstancedMesh( verts.data(),
-                                             boxVertexCount,
-                                             8,
-                                             MAX_GAME_MODELS,
-                                             INSTANCE_FLOATS,
-                                             3,
-                                             instanceAttribSizes,
-                                             8,
-                                             staticAttribSizes,
-                                             3 );
+    boxInstMesh = Resources().CreateInstancedMesh( verts.data(),
+                                                   boxVertexCount,
+                                                   8,
+                                                   MAX_GAME_MODELS,
+                                                   INSTANCE_FLOATS,
+                                                   3,
+                                                   instanceAttribSizes,
+                                                   8,
+                                                   staticAttribSizes,
+                                                   3 );
 
     boxInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
@@ -829,8 +879,10 @@ void RenderHelper::DrawBoxBatchEnd()
     int instanceCount = static_cast<int>( boxInstanceData.size() ) / INSTANCE_FLOATS;
     if ( sBoxBatchReady && instanceCount > 0 )
     {
-        Gfx().UploadInstanceData( boxInstMesh, boxInstanceData.data(), static_cast<int>( boxInstanceData.size() ) );
-        Gfx().DrawInstancedMesh( boxInstMesh, boxVertexCount, instanceCount );
+        Commands().UploadInstanceData( boxInstMesh,
+                                       boxInstanceData.data(),
+                                       static_cast<int>( boxInstanceData.size() ) );
+        Commands().DrawInstancedMesh( boxInstMesh, boxVertexCount, instanceCount );
     }
     EndPrimitiveBatchTransparency( sBoxBatchTransparent );
     sBoxBatchTransparent = false;
@@ -874,8 +926,10 @@ void RenderHelper::DrawShadowDepthBoxBatchEnd()
         // This draw is the box-caster fix point: if a scene has boxes and shadow
         // maps are active, their depth is written here before terrain/objects
         // sample the map in the forward pass.
-        Gfx().UploadInstanceData( boxInstMesh, boxInstanceData.data(), static_cast<int>( boxInstanceData.size() ) );
-        Gfx().DrawInstancedMesh( boxInstMesh, boxVertexCount, instanceCount );
+        Commands().UploadInstanceData( boxInstMesh,
+                                       boxInstanceData.data(),
+                                       static_cast<int>( boxInstanceData.size() ) );
+        Commands().DrawInstancedMesh( boxInstMesh, boxVertexCount, instanceCount );
     }
     sBoxBatchReady = false;
 }
@@ -913,7 +967,7 @@ void RenderHelper::DrawConvexHullModel( const ConvexHullShape& hull,
                                                    materialAlpha } );
     if ( ready )
     {
-        Gfx().UploadAndDrawDynamicVB( sConvexHullDynamicVB, sConvexHullVertexData.data(), vertexCount );
+        Commands().UploadAndDrawDynamicVB( sConvexHullDynamicVB, sConvexHullVertexData.data(), vertexCount );
     }
     EndPrimitiveBatchTransparency( isTransparent );
 }
@@ -942,7 +996,7 @@ void RenderHelper::DrawShadowDepthConvexHullModel( const ConvexHullShape& hull,
     constants.clipPlane[3] = sClipPlane[3];
     if ( shadowDepthShader->SetConstantBufferBytes( &constants, sizeof( constants ), "InstancedShadowDepthConstants" ) )
     {
-        Gfx().UploadAndDrawDynamicVB( sConvexHullDynamicVB, sConvexHullVertexData.data(), vertexCount );
+        Commands().UploadAndDrawDynamicVB( sConvexHullDynamicVB, sConvexHullVertexData.data(), vertexCount );
     }
 }
 
@@ -963,16 +1017,16 @@ void RenderHelper::BuildPineMesh()
 
     int staticAttribSizes[] = { 3, 3, 2 };
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    pineInstMesh = Gfx().CreateInstancedMesh( verts.data(),
-                                              pineVertexCount,
-                                              8,
-                                              MAX_GAME_MODELS,
-                                              INSTANCE_FLOATS,
-                                              3,
-                                              instanceAttribSizes,
-                                              8,
-                                              staticAttribSizes,
-                                              3 );
+    pineInstMesh = Resources().CreateInstancedMesh( verts.data(),
+                                                    pineVertexCount,
+                                                    8,
+                                                    MAX_GAME_MODELS,
+                                                    INSTANCE_FLOATS,
+                                                    3,
+                                                    instanceAttribSizes,
+                                                    8,
+                                                    staticAttribSizes,
+                                                    3 );
 
     pineInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
@@ -1032,8 +1086,10 @@ void RenderHelper::DrawPineBatchEnd()
     int instanceCount = static_cast<int>( pineInstanceData.size() ) / INSTANCE_FLOATS;
     if ( sPineBatchReady && instanceCount > 0 )
     {
-        Gfx().UploadInstanceData( pineInstMesh, pineInstanceData.data(), static_cast<int>( pineInstanceData.size() ) );
-        Gfx().DrawInstancedMesh( pineInstMesh, pineVertexCount, instanceCount );
+        Commands().UploadInstanceData( pineInstMesh,
+                                       pineInstanceData.data(),
+                                       static_cast<int>( pineInstanceData.size() ) );
+        Commands().DrawInstancedMesh( pineInstMesh, pineVertexCount, instanceCount );
     }
     EndPrimitiveBatchTransparency( sPineBatchTransparent );
     sPineBatchTransparent = false;
@@ -1074,8 +1130,10 @@ void RenderHelper::DrawShadowDepthPineBatchEnd()
     int instanceCount = static_cast<int>( pineInstanceData.size() ) / INSTANCE_FLOATS;
     if ( sPineBatchReady && instanceCount > 0 && pineInstMesh != 0 )
     {
-        Gfx().UploadInstanceData( pineInstMesh, pineInstanceData.data(), static_cast<int>( pineInstanceData.size() ) );
-        Gfx().DrawInstancedMesh( pineInstMesh, pineVertexCount, instanceCount );
+        Commands().UploadInstanceData( pineInstMesh,
+                                       pineInstanceData.data(),
+                                       static_cast<int>( pineInstanceData.size() ) );
+        Commands().DrawInstancedMesh( pineInstMesh, pineVertexCount, instanceCount );
     }
     sPineBatchReady = false;
 }

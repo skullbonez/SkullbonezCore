@@ -58,6 +58,11 @@ namespace Assets
 class AssetSystem;
 } // namespace Assets
 
+namespace UI
+{
+struct UIRenderContext;
+} // namespace UI
+
 namespace Basics
 {
 class RuntimeRenderHost;
@@ -210,6 +215,7 @@ struct UiTextPassInputs
     // UI/text can run even when text-only mode skips RuntimeRenderer::RenderFrame(),
     // so it borrows only the narrow render facets sampled by overlays.
     Rendering::IRenderDiagnostics& renderDiagnostics;
+    const UI::UIRenderContext& uiRender;
     Rendering::IRenderRayTracing* renderRayTracing;
     double secondsPerFrame = 0.0;
 };

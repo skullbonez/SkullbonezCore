@@ -2769,10 +2769,10 @@ void InitRenderBackend( Window* window )
 // before the DX12 backend and the Win32 window are torn down.
 // ---------------------------------------------------------------------------
 
-int RunApp( Window* window, ParsedArgs& args )
+int RunApp( Window* window, ParsedArgs& args, EngineConfig& cfg, WorkerPool& workerPool )
 {
     {
-        std::unique_ptr<Run> cRun = std::make_unique<Run>( *window, std::move( args.sceneList ) );
+        std::unique_ptr<Run> cRun = std::make_unique<Run>( *window, std::move( args.sceneList ), cfg, workerPool );
         if ( args.timeScaleOverride > 0.0f )
         {
             cRun->SetTimeScaleOverride( args.timeScaleOverride );
@@ -3082,7 +3082,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return 1;
     }
 
-    const EngineConfig& cfg = Cfg();
+    EngineConfig& cfg = Cfg();
     int contactAudioSmokeExitCode = 0;
     if ( HandleContactAudioSmoke( args, cfg, contactAudioSmokeExitCode ) )
     {
@@ -3097,11 +3097,12 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return standalonePhysicsExitCode;
     }
 
-    WorkerPool::Instance().Initialise( cfg.workerThreads );
+    WorkerPool& workerPool = WorkerPool::Instance();
+    workerPool.Initialise( cfg.workerThreads );
     if ( args.workerSelfTest )
     {
         const bool workersOk = RunWorkerSystemSelfTest( stdout );
-        WorkerPool::Instance().Shutdown();
+        workerPool.Shutdown();
         CoUninitialize();
         return workersOk ? 0 : 1;
     }
@@ -3113,9 +3114,9 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     InitRenderBackend( window );
     window->HandleScreenResize();
 
-    const int runExitCode = RunApp( window, args );
+    const int runExitCode = RunApp( window, args, cfg, workerPool );
 
-    WorkerPool::Instance().Shutdown();
+    workerPool.Shutdown();
     CleanupWindow( window, hInstance );
 
     CoUninitialize();

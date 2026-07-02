@@ -144,6 +144,7 @@ struct UiTextGraphCallbackData
 {
     UiTextPass* uiTextPass = nullptr;
     SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
+    const SkullbonezCore::UI::UIRenderContext* uiRender = nullptr;
     SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = nullptr;
     double secondsPerFrame = 0.0;
 };
@@ -293,11 +294,12 @@ void ExecuteSkyboxGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
 {
     auto* data = static_cast<UiTextGraphCallbackData*>( userData );
-    if ( !data || !data->uiTextPass || !data->renderDiagnostics )
+    if ( !data || !data->uiTextPass || !data->renderDiagnostics || !data->uiRender )
     {
         throw std::runtime_error( "UiTextPass graph callback missing execution data" );
     }
-    data->uiTextPass->Render( { *data->renderDiagnostics, data->renderRayTracing, data->secondsPerFrame } );
+    data->uiTextPass->Render(
+        { *data->renderDiagnostics, *data->uiRender, data->renderRayTracing, data->secondsPerFrame } );
 }
 
 void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
@@ -987,6 +989,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
 
 
 bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
+                                                       const UI::UIRenderContext& uiRender,
                                                        Rendering::IRenderRayTracing* renderRayTracing,
                                                        double secondsPerFrame )
 {
@@ -1002,6 +1005,7 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
     UiTextGraphCallbackData callbackData;
     callbackData.uiTextPass = &m_uiTextPass;
     callbackData.renderDiagnostics = &renderDiagnostics;
+    callbackData.uiRender = &uiRender;
     callbackData.renderRayTracing = renderRayTracing;
     callbackData.secondsPerFrame = secondsPerFrame;
     graph.SetPassCallback( uiTextPass, ExecuteUiTextGraphCallback, &callbackData, true, "Frame/UI" );
@@ -1356,6 +1360,8 @@ void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::IRenderResourceFa
     m_sceneTargetPass.ReleaseGpuResources();
     m_shadowPass.ReleaseGpuResources();
     m_reflectionPass.ReleaseGpuResources();
+    m_waterPass.ReleaseGpuResources();
+    m_terrainPass.ReleaseGpuResources();
     m_skyPass.ReleaseGpuResources();
     m_fullscreenQuadPass.ReleaseGpuResources( renderResources );
     m_uiTextPass.ReleaseGpuResources();
@@ -1381,9 +1387,11 @@ void RuntimeRenderer::SetUiTextRayTracingCapability( Rendering::IRenderRayTracin
 }
 
 
-void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics, double dSecondsPerFrame )
+void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,
+                                    const UI::UIRenderContext& uiRender,
+                                    double dSecondsPerFrame )
 {
-    (void)ExecuteUiTextThroughRenderGraph( renderDiagnostics, m_uiTextRayTracing, dSecondsPerFrame );
+    (void)ExecuteUiTextThroughRenderGraph( renderDiagnostics, uiRender, m_uiTextRayTracing, dSecondsPerFrame );
 }
 
 

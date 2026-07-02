@@ -45,12 +45,18 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+class EngineConfig;
 struct MainMemoryGameObjectStats;
-}
+} // namespace Basics
 
 namespace Environment
 {
 class WorldEnvironment;
+}
+
+namespace Threading
+{
+class WorkerPool;
 }
 
 namespace GameObjects
@@ -79,6 +85,10 @@ class GameModelCollection : public Rendering::IRenderSceneView,
     std::vector<GameModel> m_gameModels;
     GameModelSoACache m_soaCache;
     Physics::PhysicsEngine m_physicsEngine;
+    GameModelRuntimePhysicsTuning m_runtimePhysicsTuning;
+    Threading::WorkerPool* m_workerPool = nullptr; // Borrowed startup worker pool for render/physics parallel helpers.
+    bool m_renderCollisionVolumes = false;         // Cached render debug toggle copied from EngineConfig.
+    bool m_shadowParallelPrep = false;             // Cached worker-prep toggle copied from EngineConfig.
     uint32_t m_nextReplayBodyId = 1;
 
     void InvalidateSoA();
@@ -88,9 +98,14 @@ class GameModelCollection : public Rendering::IRenderSceneView,
     GameModelCollection();
     ~GameModelCollection() = default;
 
+    void BindWorkerPool( Threading::WorkerPool& workerPool );
+    void ApplyRuntimeConfig( const Basics::EngineConfig& config );
+    bool ShouldRenderCollisionVolumes() const;
+    bool ShouldUseShadowParallelPrep() const;
+    Threading::WorkerPool* RenderWorkerPool() const;
     void AddGameModel( GameModel gameModel );
     void Clear();
-    void RunPhysics( float fChangeInTime );
+    void RunPhysics( float fChangeInTime, const Basics::EngineConfig& config, Threading::WorkerPool& workerPool );
     int GetRenderModelCount() const override;
     int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount ) override;
     void RenderModels( const Math::Transformation::Matrix4& view,

@@ -67,6 +67,7 @@ class CameraCollection
     float m_tweenSpeed;                                            // Camera interpolation speed in normalized tween units.
     bool m_isTweening;                                             // Render camera follows m_tweenCamera while this is true.
     float m_tweenProgress;                                         // Normalized tween progress through m_tweenPath.
+    CameraMovementSettings m_movementSettings;                     // Cached runtime tuning used by private camera clamp paths.
     Geometry::Terrain* m_terrain;                                  // Borrowed scene terrain used to keep tweened cameras collision-aware.
     Math::Transformation::Matrix4 m_currentViewMatrix;             // Render-facing view matrix refreshed once per frame.
 
@@ -83,6 +84,7 @@ class CameraCollection
     CameraCollection( const CameraCollection& ) = delete;
     CameraCollection& operator=( const CameraCollection& ) = delete;
 
+    void ApplyMovementSettings( const CameraMovementSettings& settings );
     const Math::Vector::Vector3& GetCameraView();
     const Math::Vector::Vector3& GetCameraTranslation();
     const Math::Vector::Vector3& GetCameraUp();

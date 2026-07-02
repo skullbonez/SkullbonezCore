@@ -270,12 +270,14 @@ void BindSkyPassParams( SkullbonezCore::Rendering::IShader& shader,
 void BindVolumetricPassParams( SkullbonezCore::Rendering::IShader& shader,
                                const Vector3& eye,
                                const Matrix4& viewProjection,
-                               const CinematicRenderConfig& cinematic )
+                               const CinematicRenderConfig& cinematic,
+                               float frustumNear,
+                               float frustumFar )
 {
     const ScreenSunPosition sunScreen = ProjectCinematicSunToScreen( eye, viewProjection, cinematic );
     shader.SetInt( "uSceneTex", 0 );
     shader.SetInt( "uDepthTex", 1 );
-    shader.SetVec4( "uDepthParams", Cfg().frustumNear, Cfg().frustumFar, 0.0f, 0.0f );
+    shader.SetVec4( "uDepthParams", frustumNear, frustumFar, 0.0f, 0.0f );
     shader.SetVec4( "uSunShaftParams",
                     sunScreen.x,
                     sunScreen.y,
@@ -298,6 +300,8 @@ void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader,
                             const Vector3& eye,
                             const Matrix4& viewProjection,
                             const CinematicRenderConfig& cinematic,
+                            float frustumNear,
+                            float frustumFar,
                             bool volumetricReady )
 {
     const ScreenSunPosition sunScreen = ProjectCinematicSunToScreen( eye, viewProjection, cinematic );
@@ -306,7 +310,7 @@ void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader,
     shader.SetInt( "uVolumetricTex", 2 );
     shader.SetFloat( "uExposure", cinematic.exposure );
     shader.SetFloat( "uGamma", cinematic.gamma );
-    shader.SetVec4( "uDepthParams", Cfg().frustumNear, Cfg().frustumFar, 0.0f, 0.0f );
+    shader.SetVec4( "uDepthParams", frustumNear, frustumFar, 0.0f, 0.0f );
     shader.SetVec4( "uFogParams",
                     cinematic.fogStart,
                     cinematic.fogEnd,
@@ -895,8 +899,8 @@ void SkyPass::Render( const RenderFrameContext& frame, const Math::Transformatio
 
     // The cube-map sky follows camera X/Z so the box feels infinitely far away,
     // while its Y stays authored by config to preserve the long-standing horizon.
-    Matrix4 skyView = view * Matrix4::Translate( frame.eye.x, Cfg().skyboxRenderHeight, frame.eye.z ) *
-                      Matrix4::Scale( Cfg().skyboxScale );
+    Matrix4 skyView = view * Matrix4::Translate( frame.eye.x, m_host.m_config.skyboxRenderHeight, frame.eye.z ) *
+                      Matrix4::Scale( m_host.m_config.skyboxScale );
     // Pass contract: cube-map skybox faces sample only slot 0. Slots owned by
     // water, post, or shadows must not leak into these six mesh draws.
     ClearRenderTextureSlotsExcept( RenderCommands( frame ), RENDER_TEXTURE_SLOT_0 );
@@ -1001,7 +1005,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
                                     reflectionResources.target->GetHeight() );
         renderCommands.Clear( true, true );
 
-        // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight).
+        // Skybox reflected (XZ follows eye; Y anchored at runtime config).
         // Cinematic mode can reflect the generated sunset sky into the water
         // instead of the usual cube-map sky.
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Skybox" );
@@ -1139,12 +1143,14 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
     DRAW_CALL_TRACE_SCOPE( "Frame/Render/Terrain" );
     // Pass contract: terrain reads ground albedo from slot 0 and optional
     // shadow depth from slot 3.
+    Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
     ClearRenderTextureSlotsExcept(
-        RenderCommands( inputs.frame ),
+        renderCommands,
         RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
     m_host.SelectRenderTexture( TEXTURE_GROUND );
     m_host.m_systems.terrain->Render( inputs.frame.baseView,
                                       inputs.frame.projection,
+                                      renderCommands,
                                       inputs.frame.lightPosition,
                                       inputs.cinematic,
                                       inputs.shadow );
@@ -1152,16 +1158,25 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
 }
 
 
-void TerrainPass::EnsureGpuResources( const RenderResourceContext& /*resources*/ )
+void TerrainPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
     // Terrain mesh/material resources live on Terrain; this pass owns ordering
     // and the receiver texture-slot contract.
+    if ( m_host.m_systems.terrain )
+    {
+        m_host.m_systems.terrain->EnsureRenderResources( m_host.m_config,
+                                                         resources.assets,
+                                                         RenderResources( resources ) );
+    }
 }
 
 
 void TerrainPass::ReleaseGpuResources()
 {
-    // Terrain releases its backend resources through terrain lifecycle hooks.
+    if ( m_host.m_systems.terrain )
+    {
+        m_host.m_systems.terrain->ReleaseRenderResources();
+    }
 }
 
 
@@ -1211,6 +1226,7 @@ void WaterPass::Render( const WaterPassInputs& inputs )
     m_host.m_cWorldEnvironment.RenderFluid( inputs.frame.baseView,
                                             inputs.frame.projection,
                                             inputs.frame.eye,
+                                            renderCommands,
                                             reflectionInput,
                                             waterTime,
                                             inputs.flatWater,
@@ -1224,10 +1240,11 @@ void WaterPass::Render( const WaterPassInputs& inputs )
 }
 
 
-void WaterPass::EnsureGpuResources( const RenderResourceContext& /*resources*/ )
+void WaterPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
     // Water shader/mesh resources are owned by WorldEnvironment; this pass
     // makes reflection input explicit and keeps water downstream of reflection.
+    m_host.m_cWorldEnvironment.EnsureRenderResources( m_host.m_config, resources.assets, RenderResources( resources ) );
 }
 
 
@@ -1815,7 +1832,12 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
         }
         DRAW_CALL_TRACE_SCOPE( "Draw" );
         volumetric.shader->Use();
-        BindVolumetricPassParams( *volumetric.shader, frame.eye, frame.viewProjection, cinematic );
+        BindVolumetricPassParams( *volumetric.shader,
+                                  frame.eye,
+                                  frame.viewProjection,
+                                  cinematic,
+                                  m_host.m_config.frustumNear,
+                                  m_host.m_config.frustumFar );
         // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
         // depth. The shader uses depth to tell sky pixels from solid geometry so
         // rays pass through sky and fade when they cross hills/balls.
@@ -1918,7 +1940,13 @@ void TonemapPass::Render( const RenderFrameContext& frame,
         DRAW_CALL_TRACE_SCOPE( "Draw" );
         tonemap.shader->Use();
         const CinematicRenderConfig& cinematic = m_host.ActiveCinematicConfig();
-        BindTonemapPassParams( *tonemap.shader, frame.eye, frame.viewProjection, cinematic, volumetricReady );
+        BindTonemapPassParams( *tonemap.shader,
+                               frame.eye,
+                               frame.viewProjection,
+                               cinematic,
+                               m_host.m_config.frustumNear,
+                               m_host.m_config.frustumFar,
+                               volumetricReady );
         const bool useGraphVolumetric =
             volumetricReady && graphVolumetric && graphVolumetric->IsValid() && graphVolumetric->shaderResource;
         const uint32_t volumetricTexture =

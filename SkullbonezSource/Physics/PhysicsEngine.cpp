@@ -32,6 +32,12 @@ using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsModelAccess;
 
 
+void PhysicsEngine::ApplyRuntimeConfig( const Basics::EngineConfig& config )
+{
+    m_scene.ApplyRuntimeConfig( config );
+}
+
+
 void PhysicsEngine::Clear()
 {
     m_scene.Clear();
@@ -74,9 +80,12 @@ void PhysicsEngine::RefreshRenderStore( PhysicsModelAccess& modelAccess )
 }
 
 
-void PhysicsEngine::Step( PhysicsModelAccess& modelAccess, float deltaSeconds )
+void PhysicsEngine::Step( PhysicsModelAccess& modelAccess,
+                          float deltaSeconds,
+                          const Basics::EngineConfig& config,
+                          Threading::WorkerPool& workerPool )
 {
-    m_scene.RunPhysics( modelAccess, deltaSeconds );
+    m_scene.RunPhysics( modelAccess, deltaSeconds, config, workerPool );
 }
 
 

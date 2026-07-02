@@ -66,7 +66,15 @@ class TextureCollection;
 namespace Basics
 {
 class Window;
+} // namespace Basics
 
+namespace Threading
+{
+class WorkerPool;
+} // namespace Threading
+
+namespace Basics
+{
 struct TornadoVisualSettings
 {
     bool enabled = true;                                       // Render-only sparse funnel shell; physics force state remains separate.
@@ -131,6 +139,8 @@ struct RunSubsystemState
 
     Environment::CameraCollection* cameras = nullptr;          // Borrowed alias of cameraCollection after Initialise wires services.
     Textures::TextureCollection* textures = nullptr;           // Borrowed alias of textureCollection after Initialise wires services.
+    const EngineConfig* config = nullptr;                      // Borrowed process config sampled through the Run composition root.
+    Threading::WorkerPool* workerPool = nullptr;               // Borrowed worker service initialised and shut down by Runtime/Init.cpp.
     Window* window = nullptr;
     Geometry::SkyBox* skyBox = nullptr;                        // Borrowed alias of skyBoxOwner after Initialise wires services.
 };

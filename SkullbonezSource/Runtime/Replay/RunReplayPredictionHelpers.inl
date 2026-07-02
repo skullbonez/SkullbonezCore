@@ -1082,6 +1082,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 }
 
 bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                       SkullbonezCore::Threading::WorkerPool& workerPool,
                                        std::vector<RunReplayPredictionBodyBackup>& outBodies )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureBodyState" );
@@ -1110,7 +1111,7 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
     // because it mutates live GameModel state.
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor(
+        workerPool.ParallelFor(
             0,
             modelCount,
             captureBody,
@@ -1165,6 +1166,7 @@ bool ApplyReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelColle
 
 void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
                                    SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                   SkullbonezCore::Threading::WorkerPool& workerPool,
                                    ReplayFrameIndex frameIndex )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
@@ -1192,7 +1194,7 @@ void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
     // Parallel capture pays off there, but small scenes stay serial by threshold.
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelFor(
+        workerPool.ParallelFor(
             0,
             modelCount,
             captureBody,

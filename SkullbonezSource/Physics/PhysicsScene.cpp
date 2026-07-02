@@ -39,6 +39,12 @@ using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Physics::PhysicsScene;
 
 
+void PhysicsScene::ApplyRuntimeConfig( const Basics::EngineConfig& config )
+{
+    m_world.ApplyRuntimeConfig( config );
+}
+
+
 void PhysicsScene::Clear()
 {
     m_world.Clear();
@@ -144,7 +150,10 @@ void PhysicsScene::ValidateRenderStoreMappings( int modelCount ) const
 #endif
 
 
-void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess, float fChangeInTime )
+void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
+                               float fChangeInTime,
+                               const Basics::EngineConfig& config,
+                               Threading::WorkerPool& workerPool )
 {
     // Invariant: PhysicsModelAccess is the named compatibility sync bridge for
     // legacy GameModel pose/state. The step loads body records from that bridge,
@@ -158,7 +167,7 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess, float fChangeInT
     {
         m_colliderStore.Refresh( modelAccess );
     }
-    m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime );
+    m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime, config, workerPool );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
     m_bodyStore.WriteBackToModelAccess( modelAccess );
 }

@@ -521,7 +521,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
         UIData.modelCount = view.modelCount;
         UIData.modelCapacity = ActiveGameModelCapacity();
-        UIData.workerThreadCount = SkullbonezCore::Threading::WorkerPool::Instance().GetThreadCount();
+        UIData.workerThreadCount = m_host.m_systems.workerPool ? m_host.m_systems.workerPool->GetThreadCount() : 0;
         UIData.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
         UIData.currentFrame = view.frame;
         UIData.targetFrameCount = view.targetFrameCount;
@@ -630,7 +630,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.tornadoInwardAcceleration = m_host.m_runtimeSettings.tornadoField.inwardAcceleration;
         UIData.tornadoSwirlAcceleration = m_host.m_runtimeSettings.tornadoField.swirlAcceleration;
         UIData.tornadoLiftAcceleration = m_host.m_runtimeSettings.tornadoField.liftAcceleration;
-        const EngineConfig& liveConfig = Cfg();
+        const EngineConfig& liveConfig = m_host.m_config;
         UIData.rayCastVisualization = m_host.m_rayCastTest.visualizeRays;
         UIData.rayCastImpulseStrength = m_host.m_rayCastTest.impulseStrength;
         UIData.launcherProjectileSpeed = m_host.m_rayCastTest.projectileSpeed;
@@ -762,7 +762,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
         PROFILE_END( "Frame/UI/PreFlushText" );
         UIData.drawCallsBeforeUI = uiPassDrawCallStart;
-        m_host.m_UI.Draw( UIData );
+        m_host.m_UI.Draw( UIData, inputs.uiRender );
         PROFILE_BEGIN( "Frame/UI/PostFlushText" );
         {
             DRAW_CALL_TRACE_SCOPE( "Frame/UI/PostFlushText" );

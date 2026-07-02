@@ -24,7 +24,7 @@ Related:
 */
 #include "SkyBox.h"
 #include "../Assets/AssetSystem.h"
-#include "../Rendering/IRenderBackend.h"
+#include "../Rendering/IRenderResourceFactory.h"
 #include <vector>
 
 
@@ -43,13 +43,15 @@ SkyBox::SkyBox( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin, int m_zM
     m_boundaries.m_zMin = m_zMin;
     m_boundaries.m_zMax = m_zMax;
     m_textures = 0;
+    m_config = nullptr;
+    m_assets = nullptr;
+    m_resources = nullptr;
 }
 
 
-void SkyBox::LoadTextures()
+void SkyBox::LoadTextures( const SkullbonezCore::Basics::EngineConfig& cfg )
 {
     assert( m_textures );
-    const SkullbonezCore::Basics::EngineConfig& cfg = Cfg();
     m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyLeft ).c_str(), TEXTURE_SKY_LEFT );
     m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyRight ).c_str(), TEXTURE_SKY_RIGHT );
     m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyFront ).c_str(), TEXTURE_SKY_FRONT );
@@ -59,10 +61,12 @@ void SkyBox::LoadTextures()
 }
 
 
-void SkyBox::BuildMeshes()
+void SkyBox::BuildMeshes( const SkullbonezCore::Basics::EngineConfig& cfg,
+                          SkullbonezCore::Assets::AssetSystem& assets,
+                          IRenderResourceFactory& resources )
 {
     // Shorthand for boundary values with overflow
-    const int overflow = Cfg().skyboxOverflow;
+    const int overflow = cfg.skyboxOverflow;
     float xn = static_cast<float>( m_boundaries.m_xMin - overflow );
     float xp = static_cast<float>( m_boundaries.m_xMax + overflow );
     float yn = static_cast<float>( m_boundaries.yMin - overflow );
@@ -121,10 +125,10 @@ void SkyBox::BuildMeshes()
 
     for ( int i = 0; i < 6; ++i )
     {
-        m_faceMeshes[i] = Gfx().CreateMesh( faceData[i], 6, false, true );
+        m_faceMeshes[i] = resources.CreateMesh( faceData[i], 6, false, true );
     }
 
-    m_shader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.unlit_textured" );
+    m_shader = assets.CreateShader( resources, "shader.unlit_textured" );
     m_shader->Use();
     m_shader->SetMat4( "uModel", Matrix4() );
     m_shader->SetVec4( "uColorTint", 1.0f, 1.0f, 1.0f, 1.0f );
@@ -139,6 +143,18 @@ void SkyBox::BindTextures( TextureCollection& textures )
 }
 
 
+void SkyBox::BindRenderContexts( const SkullbonezCore::Basics::EngineConfig& config,
+                                 SkullbonezCore::Assets::AssetSystem& assets,
+                                 IRenderResourceFactory& resources )
+{
+    // Lifetime: sky resources rebuild during backend init/reset while all three
+    // borrows are owned by Run.
+    m_config = &config;
+    m_assets = &assets;
+    m_resources = &resources;
+}
+
+
 void SkyBox::ResetRenderResources()
 {
     for ( int i = 0; i < 6; ++i )
@@ -147,8 +163,11 @@ void SkyBox::ResetRenderResources()
     }
     m_shader.reset();
     assert( m_textures );
-    LoadTextures();
-    BuildMeshes();
+    assert( m_config );
+    assert( m_assets );
+    assert( m_resources );
+    LoadTextures( *m_config );
+    BuildMeshes( *m_config, *m_assets, *m_resources );
 }
 
 
@@ -160,6 +179,9 @@ void SkyBox::ReleaseRenderResources()
     }
     m_shader.reset();
     m_textures = nullptr;
+    m_config = nullptr;
+    m_assets = nullptr;
+    m_resources = nullptr;
 }
 
 

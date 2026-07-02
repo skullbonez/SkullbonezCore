@@ -628,16 +628,18 @@ void DrawEditorObjectCounter( const UIDrawContext& draw,
 }
 
 
-void EnsureRenderTargetPreviewResources( std::unique_ptr<IShader>& shader, uint32_t& dynamicVB )
+void EnsureRenderTargetPreviewResources( std::unique_ptr<IShader>& shader,
+                                         uint32_t& dynamicVB,
+                                         const UIRenderContext& render )
 {
-    if ( !IsGfxReady() )
+    if ( !render.IsReady() )
     {
         return;
     }
 
     if ( !shader )
     {
-        shader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.ui_render_target_preview" );
+        shader = render.assets->CreateShader( *render.resources, "shader.ui_render_target_preview" );
         shader->Use();
         shader->SetInt( "uTexture", 0 );
     }
@@ -645,18 +647,20 @@ void EnsureRenderTargetPreviewResources( std::unique_ptr<IShader>& shader, uint3
     if ( dynamicVB == 0 )
     {
         const int attribs[] = { 2, 2 };
-        dynamicVB = Gfx().CreateDynamicVB( attribs, 2, 6 );
+        dynamicVB = render.resources->CreateDynamicVB( attribs, 2, 6 );
     }
 }
 
-void ResetRenderTargetPreviewResources( std::unique_ptr<IShader>& shader, uint32_t& dynamicVB )
+void ResetRenderTargetPreviewResources( std::unique_ptr<IShader>& shader,
+                                        uint32_t& dynamicVB,
+                                        IRenderResourceFactory* resources )
 {
     shader.reset();
     if ( dynamicVB != 0 )
     {
-        if ( IsGfxReady() )
+        if ( resources )
         {
-            Gfx().DestroyDynamicVB( dynamicVB );
+            resources->DestroyDynamicVB( dynamicVB );
         }
         dynamicVB = 0;
     }
@@ -667,14 +671,16 @@ void DrawRenderTargetPreviewTexture( std::unique_ptr<IShader>& shader,
                                      const UIDrawContext& draw,
                                      const UIRenderTargetPreviewResource& resource,
                                      const UIRect& bounds,
-                                     const UIRect& clipBounds )
+                                     const UIRect& clipBounds,
+                                     const UIRenderContext& render )
 {
-    if ( !resource.available || resource.textureHandle == 0 || bounds.w <= 1.0f || bounds.h <= 1.0f || !IsGfxReady() )
+    if ( !resource.available || resource.textureHandle == 0 || bounds.w <= 1.0f || bounds.h <= 1.0f ||
+         !render.IsReady() )
     {
         return;
     }
 
-    EnsureRenderTargetPreviewResources( shader, dynamicVB );
+    EnsureRenderTargetPreviewResources( shader, dynamicVB, render );
     if ( !shader || dynamicVB == 0 )
     {
         return;
@@ -700,31 +706,32 @@ void DrawRenderTargetPreviewTexture( std::unique_ptr<IShader>& shader,
     };
 
     const Matrix4 proj = Matrix4::Ortho( -draw.HalfW(), draw.HalfW(), -draw.HalfH(), draw.HalfH(), -1.0f, 1.0f );
-    const bool depthTestWasEnabled = Gfx().IsDepthTestEnabled();
-    const bool depthWriteWasEnabled = Gfx().IsDepthWriteEnabled();
-    const bool blendWasEnabled = Gfx().IsBlendEnabled();
+    IRenderCommandContext& commands = *render.commands;
+    const bool depthTestWasEnabled = commands.IsDepthTestEnabled();
+    const bool depthWriteWasEnabled = commands.IsDepthWriteEnabled();
+    const bool blendWasEnabled = commands.IsBlendEnabled();
     BlendFactor blendSrc = BlendFactor::One;
     BlendFactor blendDst = BlendFactor::Zero;
-    Gfx().GetBlendFunc( blendSrc, blendDst );
+    commands.GetBlendFunc( blendSrc, blendDst );
 
     const int mode = resource.depth ? 2 : ( resource.hdr ? 1 : 0 );
-    Gfx().SetDepthTest( false );
-    Gfx().SetDepthWrite( false );
-    Gfx().SetBlend( false );
+    commands.SetDepthTest( false );
+    commands.SetDepthWrite( false );
+    commands.SetBlend( false );
     shader->Use();
     shader->SetMat4( "uProjection", proj );
     shader->SetInt( "uTexture", 0 );
     shader->SetVec4( "uPreviewParams", static_cast<float>( mode ), 1.0f, 2.2f, 0.0f );
-    Gfx().BindTexture( resource.textureHandle, 0 );
+    commands.BindTexture( resource.textureHandle, 0 );
     {
         DRAW_CALL_TRACE_SCOPE( "RenderTargetPreview" );
-        Gfx().UploadAndDrawDynamicVB( dynamicVB, verts, 6 );
+        commands.UploadAndDrawDynamicVB( dynamicVB, verts, 6 );
     }
-    Gfx().BindTexture( 0, 0 );
-    Gfx().SetDepthWrite( depthWriteWasEnabled );
-    Gfx().SetDepthTest( depthTestWasEnabled );
-    Gfx().SetBlendFunc( blendSrc, blendDst );
-    Gfx().SetBlend( blendWasEnabled );
+    commands.BindTexture( 0, 0 );
+    commands.SetDepthWrite( depthWriteWasEnabled );
+    commands.SetDepthTest( depthTestWasEnabled );
+    commands.SetBlendFunc( blendSrc, blendDst );
+    commands.SetBlend( blendWasEnabled );
 }
 
 int WaterReflectionModeFromData( const InGameUIFrameData& data )
@@ -1214,10 +1221,10 @@ void InGameUI::SetMaximized( bool maximized, int screenW, int screenH, double no
 }
 
 
-void InGameUI::ResetResources()
+void InGameUI::ResetResources( IRenderResourceFactory* resources )
 {
     m_backdropBlur.ResetResources();
-    ResetRenderTargetPreviewResources( m_renderTargetPreviewShader, m_renderTargetPreviewVB );
+    ResetRenderTargetPreviewResources( m_renderTargetPreviewShader, m_renderTargetPreviewVB, resources );
     m_cache.Reset();
 }
 
@@ -2434,7 +2441,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
 }
 
 
-void InGameUI::Draw( const InGameUIFrameData& data )
+void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& render )
 {
     const bool histogramEnabled = ProfilerTab::PerformanceHistogramEnabled( m_profilerTab );
     if ( !m_window.isVisible && !histogramEnabled )
@@ -2890,7 +2897,8 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                                             draw,
                                             *selected,
                                             previewImage,
-                                            previewClip );
+                                            previewClip,
+                                            render );
         }
         else if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_PREVIEW_Y + 116.0f, 18.0f ) )
         {

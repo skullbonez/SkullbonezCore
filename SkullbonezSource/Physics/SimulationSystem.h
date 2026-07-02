@@ -39,17 +39,26 @@ class PhysicsEngine;
 class PhysicsModelAccess;
 } // namespace Physics
 
+namespace Threading
+{
+class WorkerPool;
+} // namespace Threading
+
 namespace Basics
 {
+class EngineConfig;
+
 struct SimulationPhysicsStep
 {
     Physics::PhysicsEngine* engine = nullptr;
     Physics::PhysicsModelAccess* modelAccess = nullptr;
+    const EngineConfig* config = nullptr;
+    Threading::WorkerPool* workerPool = nullptr;
 
-    // Returns true when both halves of the borrowed physics-step context are present.
+    // Returns true when every borrowed physics-step service is present.
     bool IsBound() const;
 
-    // Advances one fixed physics step through the current engine and compatibility model access.
+    // Advances one fixed physics step through the current engine, compatibility model access, and Run-owned services.
     void Run( float deltaSeconds ) const;
 };
 

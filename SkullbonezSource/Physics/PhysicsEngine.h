@@ -31,6 +31,15 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Basics
+{
+class EngineConfig;
+} // namespace Basics
+
+namespace Threading
+{
+class WorkerPool;
+} // namespace Threading
 
 namespace Physics
 {
@@ -39,6 +48,7 @@ class PhysicsEngine
   public:
     PhysicsEngine() = default;
 
+    void ApplyRuntimeConfig( const Basics::EngineConfig& config );
     void Clear();
     void RefreshStores( PhysicsModelAccess& modelAccess );
     void RefreshPhysicsStores( PhysicsModelAccess& modelAccess );
@@ -46,7 +56,10 @@ class PhysicsEngine
     void ClearPendingBodyImpulses();
     void RefreshColliderStore( PhysicsModelAccess& modelAccess );
     void RefreshRenderStore( PhysicsModelAccess& modelAccess );
-    void Step( PhysicsModelAccess& modelAccess, float deltaSeconds );
+    void Step( PhysicsModelAccess& modelAccess,
+               float deltaSeconds,
+               const Basics::EngineConfig& config,
+               Threading::WorkerPool& workerPool );
     void WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
     void SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
     void ApplyBodyImpulse( PhysicsModelAccess& modelAccess,

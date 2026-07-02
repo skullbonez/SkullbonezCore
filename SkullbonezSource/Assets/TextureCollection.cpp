@@ -35,21 +35,6 @@ using namespace SkullbonezCore::Textures;
 using namespace SkullbonezCore::Rendering;
 
 
-TextureCollection* TextureCollection::Instance()
-{
-    static TextureCollection instance;
-    return &instance;
-}
-
-
-void TextureCollection::Destroy()
-{
-    TextureCollection* textures = Instance();
-    textures->DeleteAllTextures();
-    textures->m_assets = nullptr;
-}
-
-
 int TextureCollection::FindIndex( uint32_t hash ) const
 {
     const int index = FindIndexNoThrow( hash );

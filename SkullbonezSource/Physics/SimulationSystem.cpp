@@ -41,14 +41,14 @@ constexpr int FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME = 32;
 
 bool SimulationPhysicsStep::IsBound() const
 {
-    return engine != nullptr && modelAccess != nullptr;
+    return engine != nullptr && modelAccess != nullptr && config != nullptr && workerPool != nullptr;
 }
 
 
 void SimulationPhysicsStep::Run( float deltaSeconds ) const
 {
     assert( IsBound() );
-    engine->Step( *modelAccess, deltaSeconds );
+    engine->Step( *modelAccess, deltaSeconds, *config, *workerPool );
 }
 
 

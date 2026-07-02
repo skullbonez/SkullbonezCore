@@ -96,6 +96,7 @@ class Run
     // top-level subsystem for
     // process lifetime/order, or keep launch/session choices that coordinate
     // multiple subsystems and therefore do not have one narrower owner yet.
+    EngineConfig& m_config;                                                // Borrowed process config loaded and CLI-patched by Runtime/Init.cpp.
     SceneController m_sceneController;                                     // Owns scene queue and current scene-run state
     SceneRuntimeCoordinator m_sceneCoordinator;                            // Produces scene load/reset/advance control intents.
     RunInputLatchState m_inputLatches;                                     // Cross-frame key/mouse latches that are not semantic input state.
@@ -355,7 +356,10 @@ class Run
 #endif
 
   public:
-    Run( Window& window, std::vector<std::string> sceneQueue );            // sceneQueue empty string selects generated demo mode.
+    Run( Window& window,
+         std::vector<std::string> sceneQueue,
+         EngineConfig& config,
+         Threading::WorkerPool& workerPool );                              // sceneQueue empty string selects generated demo mode.
     ~Run();
     void Initialise();                                                     // Initialises shared resources and loads first scene
     void RunSceneLoadOnly( const char* snapshotOutPath = nullptr );        // Scene-load smoke path; skips the frame loop.

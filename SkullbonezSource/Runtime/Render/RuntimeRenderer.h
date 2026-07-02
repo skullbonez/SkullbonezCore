@@ -52,7 +52,9 @@ class RuntimeRenderer
     void EnsureUiTextResources();
     bool ShouldRenderUiText() const;
     void SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing );
-    void RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics, double dSecondsPerFrame );
+    void RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,
+                       const UI::UIRenderContext& uiRender,
+                       double dSecondsPerFrame );
 
   private:
     struct CinematicPostGraphResult
@@ -127,6 +129,7 @@ class RuntimeRenderer
     bool ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget );
     CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const RenderFrameContext& frame );
     bool ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
+                                          const UI::UIRenderContext& uiRender,
                                           Rendering::IRenderRayTracing* renderRayTracing,
                                           double secondsPerFrame );
 

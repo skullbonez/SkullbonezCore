@@ -38,6 +38,15 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
+namespace Rendering
+{
+class IRenderCommandContext;
+class IRenderResourceFactory;
+} // namespace Rendering
 namespace Text
 {
 /* -- Text 2d
@@ -65,6 +74,11 @@ class Text2d
     inline static float s_halfW = 0.0f;                                  // current ortho half-width  (right edge X)
     inline static float s_halfH = 0.0f;                                  // current ortho half-height (top edge Y)
 
+    static void BindRenderContexts( Rendering::IRenderResourceFactory& renderResources,
+                                    Rendering::IRenderCommandContext& renderCommands,
+                                    const Assets::AssetSystem& assets,
+                                    const Basics::EngineConfig& config );
+    static void UnbindRenderContexts();
     // Text coordinates are centered on the client rect in legacy frustum units:
     // x/y normally stay within [-0.5, 0.5], fSize is normalized, and the format
     // string accepts printf-style arguments.

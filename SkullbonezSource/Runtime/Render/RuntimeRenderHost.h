@@ -61,6 +61,11 @@ class BroadphaseVisualizer;
 class CollisionVisualizer;
 class PhysicsDebugVisualizer;
 } // namespace Physics
+namespace Rendering
+{
+class IRenderBackend;
+class IRenderRayTracing;
+} // namespace Rendering
 namespace UI
 {
 class InGameUI;
@@ -100,6 +105,7 @@ struct ReplayOverlayRenderContext;
 struct RenderRuntimeView
 {
     RunSubsystemState* systems = nullptr;
+    EngineConfig* config = nullptr;
     const RunLaunchOptions* launchOptions = nullptr;
     RunRuntimeSettings* runtimeSettings = nullptr;
 };
@@ -179,8 +185,8 @@ class RuntimeRenderHost
   public:
     RuntimeRenderHost( RuntimeRenderHostBindings bindings, RuntimeRenderHostCallbacks callbacks )
         : m_systems( *bindings.runtime.systems ), m_debug( *bindings.diagnostics.debug ),
-          m_timers( *bindings.diagnostics.timers ), m_launchOptions( *bindings.runtime.launchOptions ),
-          m_runtimeSettings( *bindings.runtime.runtimeSettings ),
+          m_timers( *bindings.diagnostics.timers ), m_config( *bindings.runtime.config ),
+          m_launchOptions( *bindings.runtime.launchOptions ), m_runtimeSettings( *bindings.runtime.runtimeSettings ),
           m_cGameModelCollection( *bindings.world.gameModelCollection ),
           m_cWorldEnvironment( *bindings.world.worldEnvironment ),
           m_collisionVisualizer( *bindings.world.collisionVisualizer ),
@@ -209,6 +215,16 @@ class RuntimeRenderHost
     int WindowScreenWidth() const;
 
     int WindowScreenHeight() const;
+
+    Rendering::IRenderBackend* ActiveRenderBackend() const;
+
+    Rendering::IRenderRayTracing* ActiveRayTracingBackend() const;
+
+    const char* RendererNameOrDefault( const char* fallbackName ) const;
+
+    bool SupportsDxrReflection() const;
+
+    void SetVsyncEnabled( bool enabled ) const;
 
     void LogRenderResourceLifecycleStep( const char* phase, const char* step ) const
     {
@@ -316,6 +332,7 @@ class RuntimeRenderHost
     RunSubsystemState& m_systems;
     RunDebugState& m_debug;
     RunTimerState& m_timers;
+    EngineConfig& m_config;
     const RunLaunchOptions& m_launchOptions;
     RunRuntimeSettings& m_runtimeSettings;
     GameObjects::GameModelCollection& m_cGameModelCollection;

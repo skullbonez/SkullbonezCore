@@ -466,6 +466,11 @@ AssetSystem* ActiveAssetSystem()
     return g_activeAssetSystem;
 }
 
+const char* BuiltInShaderBaseName( const char* logicalNameOrBaseName )
+{
+    return BuiltInShaderBaseNameForLogicalName( logicalNameOrBaseName );
+}
+
 std::unique_ptr<Rendering::IShader> CreateShaderFromActiveAssets( const char* logicalNameOrBaseName )
 {
     if ( g_activeAssetSystem )

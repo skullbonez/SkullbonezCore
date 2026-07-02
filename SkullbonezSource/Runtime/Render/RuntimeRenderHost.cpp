@@ -32,6 +32,7 @@ Related:
 #include "../../Core/Profiler.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Rendering/Helper.h"
+#include "../../Rendering/IRenderBackend.h"
 #include "../RunInternal.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Replay/ReplayOverlayRenderer.h"
@@ -48,13 +49,13 @@ using namespace SkullbonezCore::Basics;
 
 CinematicRenderConfig& RuntimeRenderHost::ActiveCinematicConfig() const
 {
-    return RunInternal::RuntimeActiveCinematicConfig( m_sceneController.State(), Cfg() );
+    return RunInternal::RuntimeActiveCinematicConfig( m_sceneController.State(), m_config );
 }
 
 bool RuntimeRenderHost::IsCinematicRenderingEnabled() const
 {
     return RunInternal::RuntimeCinematicRenderingEnabled( m_sceneController.State(),
-                                                          Cfg(),
+                                                          m_config,
                                                           m_launchOptions,
                                                           m_debug,
                                                           IsGfxReady() );
@@ -88,13 +89,53 @@ void RuntimeRenderHost::SelectRenderTexture( uint32_t textureHash ) const
 
 int RuntimeRenderHost::WindowScreenWidth() const
 {
-    return RunInternal::RuntimeWindowScreenWidth( m_systems, Cfg() );
+    return RunInternal::RuntimeWindowScreenWidth( m_systems, m_config );
 }
 
 int RuntimeRenderHost::WindowScreenHeight() const
 {
-    return RunInternal::RuntimeWindowScreenHeight( m_systems, Cfg() );
+    return RunInternal::RuntimeWindowScreenHeight( m_systems, m_config );
 }
+
+
+SkullbonezCore::Rendering::IRenderBackend* RuntimeRenderHost::ActiveRenderBackend() const
+{
+    // Lifetime: the process renderer remains owned by the bootstrap backend.
+    // The host exposes only a per-call borrow so input/scene helpers do not
+    // retain renderer pointers across teardown.
+    return SkullbonezCore::Rendering::IsGfxReady() ? &SkullbonezCore::Rendering::Gfx() : nullptr;
+}
+
+
+SkullbonezCore::Rendering::IRenderRayTracing* RuntimeRenderHost::ActiveRayTracingBackend() const
+{
+    return SkullbonezCore::Rendering::IsGfxRayTracingReady() ? &SkullbonezCore::Rendering::GfxRayTracing() : nullptr;
+}
+
+
+const char* RuntimeRenderHost::RendererNameOrDefault( const char* fallbackName ) const
+{
+    const SkullbonezCore::Rendering::IRenderBackend* renderBackend = ActiveRenderBackend();
+    return renderBackend ? renderBackend->GetRendererName() : fallbackName;
+}
+
+
+bool RuntimeRenderHost::SupportsDxrReflection() const
+{
+    const SkullbonezCore::Rendering::IRenderBackend* renderBackend = ActiveRenderBackend();
+    return renderBackend && renderBackend->GetCapabilities().supportsDxrReflection;
+}
+
+
+void RuntimeRenderHost::SetVsyncEnabled( bool enabled ) const
+{
+    SkullbonezCore::Rendering::IRenderBackend* renderBackend = ActiveRenderBackend();
+    if ( renderBackend )
+    {
+        renderBackend->SetVsyncEnabled( enabled );
+    }
+}
+
 
 const RunSceneState& RuntimeRenderHost::SceneState() const
 {

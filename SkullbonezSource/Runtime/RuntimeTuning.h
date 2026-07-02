@@ -27,6 +27,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Threading
+{
+class WorkerPool;
+}
+
 namespace Basics
 {
 namespace RunInternal
@@ -34,7 +39,9 @@ namespace RunInternal
 uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param );
 uint64_t CinematicOverrideMaskForUIFeature( UICinematicFeature feature );
 Math::Vector::Vector3 CinematicSkySunDirection( const CinematicRenderConfig& cinematic );
-void ApplyWorkerThreadCountOverride( int requestedWorkerThreads );
+void ApplyWorkerThreadCountOverride( EngineConfig& config,
+                                     Threading::WorkerPool& workerPool,
+                                     int requestedWorkerThreads );
 void ApplyUIWorldOverride( WorldEnvironment& world,
                            ReplayRuntime& replayRuntime,
                            float gravity,

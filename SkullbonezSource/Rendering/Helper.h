@@ -42,6 +42,15 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
+namespace Rendering
+{
+class IRenderCommandContext;
+class IRenderResourceFactory;
+} // namespace Rendering
 namespace Math
 {
 namespace CollisionDetection
@@ -65,7 +74,7 @@ class RenderHelper
   private:
     static std::unique_ptr<Rendering::IShader> sphereShader;      // Shared lit_textured_instanced shader
     static std::unique_ptr<Rendering::IShader> shadowDepthShader; // Shared instanced directional shadow depth shader
-    static uint32_t sphereInstMesh;                               // Instanced mesh handle (via Gfx())
+    static uint32_t sphereInstMesh;                               // Instanced mesh handle owned by the active render resource factory.
     static int sphereVertexCount;                                 // Per-sphere vertex count
     static std::vector<float> sphereInstanceData;                 // Per-frame sphere transforms/materials queued between BatchBegin/End.
     static uint32_t lowPolySphereInstMesh;                        // Faceted sphere mesh for low-poly cinematic styles
@@ -91,6 +100,11 @@ class RenderHelper
     static void BuildPineMesh();                                  // Generate unit low-poly pine tier mesh
 
   public:
+    static void BindRenderContexts( Rendering::IRenderResourceFactory& renderResources,
+                                    Rendering::IRenderCommandContext& renderCommands,
+                                    const Assets::AssetSystem& assets,
+                                    const EngineConfig& config );
+    static void UnbindRenderContexts();
     static void StateSetup();                                     // Extension point for helper-level setup after renderer init
     static void SetClipPlane( float x, float y, float z, float w );
     static const float* GetClipPlane();

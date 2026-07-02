@@ -373,6 +373,13 @@ void Run::Execute()
                 static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( frameRenderBackend );
             SkullbonezCore::Rendering::IRenderDeviceLifecycle& renderLifecycle =
                 static_cast<SkullbonezCore::Rendering::IRenderDeviceLifecycle&>( frameRenderBackend );
+            SkullbonezCore::Rendering::IRenderResourceFactory& frameRenderResources =
+                static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( frameRenderBackend );
+            SkullbonezCore::Rendering::IRenderCommandContext& frameRenderCommands =
+                static_cast<SkullbonezCore::Rendering::IRenderCommandContext&>( frameRenderBackend );
+            const SkullbonezCore::UI::UIRenderContext uiRender = { &m_systems.assets,
+                                                                   &frameRenderResources,
+                                                                   &frameRenderCommands };
             frameRenderDiagnostics.ResetFrameDrawCalls();
 
             PROFILE_BEGIN( "Frame/Input" );
@@ -451,7 +458,7 @@ void Run::Execute()
                 PROFILE_BEGIN( "Frame/UI" );
                 {
                     DRAW_CALL_TRACE_SCOPE( "Frame/UI" );
-                    m_renderer.RenderUiText( frameRenderDiagnostics, secondsPerFrame );
+                    m_renderer.RenderUiText( frameRenderDiagnostics, uiRender, secondsPerFrame );
                 }
                 PROFILE_END( "Frame/UI" );
                 const int uiDrawCallEnd = frameRenderDiagnostics.GetFrameDrawCallCount();
@@ -587,7 +594,10 @@ void Run::TickPhysics( double secondsPerFrame )
         SceneState().isFixedStep,
         policy.physicsAdvance,
         stepRequested,
-        SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(), &m_cGameModelCollection },
+        SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(),
+                               &m_cGameModelCollection,
+                               m_systems.config,
+                               m_systems.workerPool },
         manipulatorPhysics ? &Run::ApplyMousePickupPhysicsStepThunk : nullptr,
         this,
         ( manipulatorPhysics || replayCapture || contactAudioStep ) ? &Run::AfterPhysicsStepThunk : nullptr,
@@ -1862,7 +1872,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         {
             SceneGeneratedSetup::SetUpSolverObjects(
                 BuildSceneGeneratedModelContext( SceneState(),
-                                                 Cfg(),
+                                                 m_config,
                                                  m_cWorldEnvironment,
                                                  m_systems.terrain.get(),
                                                  m_cGameModelCollection,
@@ -1875,7 +1885,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         {
             SceneGeneratedSetup::SetUpGameModels(
                 BuildSceneGeneratedModelContext( SceneState(),
-                                                 Cfg(),
+                                                 m_config,
                                                  m_cWorldEnvironment,
                                                  m_systems.terrain.get(),
                                                  m_cGameModelCollection,
@@ -2008,8 +2018,11 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             SceneState().currentFrame = currentSceneFrame;
             m_cGameModelCollection.BeginCollisionVisualFrame();
 
-            SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(), &m_cGameModelCollection }.Run(
-                PHYSICS_FIXED_DT );
+            SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(),
+                                   &m_cGameModelCollection,
+                                   m_systems.config,
+                                   m_systems.workerPool }
+                .Run( PHYSICS_FIXED_DT );
             currentFrame = nextFrame;
 
             const ReplayV2SolverHashSample* expectedHash = FindReplaySolverHashForFrame( hashes, currentFrame );
@@ -2395,7 +2408,7 @@ bool Run::TickScreenshots()
                                           m_sceneController.Browser(),
                                           m_cGameModelCollection,
                                           m_systems.assets,
-                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                           m_defaultCinematicRender },
                 action.index );
         case SceneRuntimeControlActionType::None:
@@ -2567,7 +2580,7 @@ bool Run::TickSceneAdvance()
                                           m_sceneController.Browser(),
                                           m_cGameModelCollection,
                                           m_systems.assets,
-                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                           m_defaultCinematicRender },
                 action.index );
         case SceneRuntimeControlActionType::None:
@@ -2740,7 +2753,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     // frame time. Mouse look consumes a per-frame cursor delta, so using live dt
     // would make sensitivity vary with FPS; the fixed reference preserves the
     // existing 60 Hz tuning while making the result frame-rate independent.
-    const EngineConfig& cfg = Cfg();
+    const EngineConfig& cfg = m_config;
     MoveCamera( cameraDt * cfg.keySpeed, CAMERA_MOUSE_REFERENCE_DT * cfg.mouseSensitivity );
     TickAttachedCamera();
 

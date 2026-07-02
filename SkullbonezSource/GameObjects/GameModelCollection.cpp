@@ -181,6 +181,43 @@ GameModelCollection::GameModelCollection()
 }
 
 
+void GameModelCollection::BindWorkerPool( SkullbonezCore::Threading::WorkerPool& workerPool )
+{
+    m_workerPool = &workerPool;
+}
+
+
+void GameModelCollection::ApplyRuntimeConfig( const Basics::EngineConfig& config )
+{
+    m_runtimePhysicsTuning = GameModelRuntimePhysicsTuning::FromConfig( config );
+    m_renderCollisionVolumes = config.runtimeRender.renderCollisionVolumes;
+    m_shadowParallelPrep = config.shadowParallelPrep;
+    m_physicsEngine.ApplyRuntimeConfig( config );
+    for ( GameModel& model : m_gameModels )
+    {
+        model.ApplyRuntimePhysicsTuning( m_runtimePhysicsTuning );
+    }
+}
+
+
+bool GameModelCollection::ShouldRenderCollisionVolumes() const
+{
+    return m_renderCollisionVolumes;
+}
+
+
+bool GameModelCollection::ShouldUseShadowParallelPrep() const
+{
+    return m_shadowParallelPrep;
+}
+
+
+SkullbonezCore::Threading::WorkerPool* GameModelCollection::RenderWorkerPool() const
+{
+    return m_workerPool;
+}
+
+
 void GameModelCollection::AddGameModel( GameModel gameModel )
 {
     const int activeCapacity = ActiveGameModelCapacity();
@@ -199,6 +236,7 @@ void GameModelCollection::AddGameModel( GameModel gameModel )
     {
         m_nextReplayBodyId = (std::max)( m_nextReplayBodyId, gameModel.GetReplayBodyId() + 1u );
     }
+    gameModel.ApplyRuntimePhysicsTuning( m_runtimePhysicsTuning );
     m_gameModels.push_back( std::move( gameModel ) );
     InvalidateSoA();
 }
@@ -685,9 +723,11 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
 }
 
 
-void GameModelCollection::RunPhysics( float fChangeInTime )
+void GameModelCollection::RunPhysics( float fChangeInTime,
+                                      const Basics::EngineConfig& config,
+                                      Threading::WorkerPool& workerPool )
 {
-    m_physicsEngine.Step( *this, fChangeInTime );
+    m_physicsEngine.Step( *this, fChangeInTime, config, workerPool );
 }
 
 

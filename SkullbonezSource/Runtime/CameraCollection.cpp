@@ -55,6 +55,12 @@ CameraCollection::CameraCollection()
 }
 
 
+void CameraCollection::ApplyMovementSettings( const CameraMovementSettings& settings )
+{
+    m_movementSettings = settings;
+}
+
+
 void CameraCollection::Reset()
 {
     m_arrayPosition = 0;
@@ -232,7 +238,7 @@ void CameraCollection::RotatePrimary( float xMove, float yMove )
     }
 
     // rotate the primary camera
-    m_cameraArray[m_selectedCamera].RotateCamera( xMove, yMove );
+    m_cameraArray[m_selectedCamera].RotateCamera( xMove, yMove, m_movementSettings );
 }
 
 
@@ -302,7 +308,7 @@ void CameraCollection::MovePrimary( Camera::TravelDirection enumDir, float fQuan
     }
 
     // move the primary camera
-    m_cameraArray[m_selectedCamera].MoveCamera( enumDir, fQuantity );
+    m_cameraArray[m_selectedCamera].MoveCamera( enumDir, fQuantity, m_movementSettings );
 }
 
 
@@ -364,7 +370,7 @@ void CameraCollection::RelativeUpdate( uint32_t hash, float yMin, float yMax )
     }
 
     // use vector addition to apply the updates to the specified camera
-    m_cameraArray[cameraIndex].ApplyDelta( GetCameraDelta() );
+    m_cameraArray[cameraIndex].ApplyDelta( GetCameraDelta(), m_movementSettings );
 
     // cap the y m_position of the camera to specified value if required
     if ( m_cameraArray[cameraIndex].m_position.y < yMin )
@@ -388,7 +394,7 @@ Camera CameraCollection::GetCameraDelta()
 
 void CameraCollection::ApplyPrimaryMovementBuffer()
 {
-    m_cameraArray[m_selectedCamera].ApplyMovementBuffer();
+    m_cameraArray[m_selectedCamera].ApplyMovementBuffer( m_movementSettings );
 }
 
 
@@ -452,7 +458,7 @@ void CameraCollection::SetCamera()
 
             if ( m_tweenCamera.m_position.y < terrainHeight )
             {
-                m_tweenCamera.m_position.y = terrainHeight + Cfg().minCameraHeight;
+                m_tweenCamera.m_position.y = terrainHeight + m_movementSettings.minCameraHeight;
             }
         }
         else

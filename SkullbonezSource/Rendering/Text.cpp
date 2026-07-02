@@ -26,7 +26,8 @@ Related:
 */
 #include "Text.h"
 #include "../Assets/AssetSystem.h"
-#include "IRenderBackend.h"
+#include "IRenderCommandContext.h"
+#include "IRenderResourceFactory.h"
 
 #include <memory>
 
@@ -73,9 +74,37 @@ static int s_quadBatchVerts = 0;
 // Ortho projection matrix cached once at BuildFont time — screen dimensions never
 // change after init, so there is no need to recompute this every frame.
 static Matrix4 s_orthoProj;
+static IRenderResourceFactory* s_renderResources = nullptr;
+static IRenderCommandContext* s_renderCommands = nullptr;
+static const SkullbonezCore::Assets::AssetSystem* s_assets = nullptr;
+static const SkullbonezCore::Basics::EngineConfig* s_config = nullptr;
 
 namespace
 {
+IRenderResourceFactory& Resources()
+{
+    assert( s_renderResources && "Text2d used before BindRenderContexts" );
+    return *s_renderResources;
+}
+
+IRenderCommandContext& Commands()
+{
+    assert( s_renderCommands && "Text2d used before BindRenderContexts" );
+    return *s_renderCommands;
+}
+
+const SkullbonezCore::Assets::AssetSystem& AssetRegistry()
+{
+    assert( s_assets && "Text2d used before BindRenderContexts" );
+    return *s_assets;
+}
+
+const SkullbonezCore::Basics::EngineConfig& Config()
+{
+    assert( s_config && "Text2d used before BindRenderContexts" );
+    return *s_config;
+}
+
 struct FileCloser
 {
     void operator()( FILE* file ) const
@@ -176,6 +205,27 @@ static void ComputeEDT1D( float* f, int n, float* scratch_src, int* scratch_v, f
 }
 
 
+void Text2d::BindRenderContexts( IRenderResourceFactory& renderResources,
+                                 IRenderCommandContext& renderCommands,
+                                 const SkullbonezCore::Assets::AssetSystem& assets,
+                                 const SkullbonezCore::Basics::EngineConfig& config )
+{
+    s_renderResources = &renderResources;
+    s_renderCommands = &renderCommands;
+    s_assets = &assets;
+    s_config = &config;
+}
+
+
+void Text2d::UnbindRenderContexts()
+{
+    s_renderResources = nullptr;
+    s_renderCommands = nullptr;
+    s_assets = nullptr;
+    s_config = nullptr;
+}
+
+
 // Reuse one scratch buffer while running the 1D distance transform across rows
 // and then columns.
 static void ComputeEDT2D( float* grid, int w, int h )
@@ -245,7 +295,7 @@ static bool LoadSdfAtlasFromFile( const char* path )
 
     // SDF rendering requires linear filtering; nearest-neighbour would staircase
     // the distance gradient and make glyph edges look aliased.
-    Text2d::fontTexture = Gfx().CreateTexture2D( pixels.get(), FONT_ATLAS_W, FONT_ATLAS_H, 1, false, true );
+    Text2d::fontTexture = Resources().CreateTexture2D( pixels.get(), FONT_ATLAS_W, FONT_ATLAS_H, 1, false, true );
     return true;
 }
 
@@ -516,32 +566,33 @@ void Text2d::BuildFont( const char* cFontName )
     // Create the text batch VB: [x, y, u, v, r, g, b] per vertex, large enough for a full HUD frame.
     // All Render2dText* calls accumulate into this; FlushText() does one upload+draw per frame.
     int batchAttribs[] = { 2, 2, 3 };
-    Text2d::textBatchVB = Gfx().CreateDynamicVB( batchAttribs, 3, TEXT_BATCH_MAX_CHARS * TEXT_BATCH_VERTS_PER_CHAR );
+    Text2d::textBatchVB =
+        Resources().CreateDynamicVB( batchAttribs, 3, TEXT_BATCH_MAX_CHARS * TEXT_BATCH_VERTS_PER_CHAR );
 
     // Create the solid-quad VB: [x, y, u, v] per vertex (Render2dQuad only; 6 verts max).
     int quadAttribs[] = { 2, 2 };
-    Text2d::dynamicVB = Gfx().CreateDynamicVB( quadAttribs, 2, 6 );
+    Text2d::dynamicVB = Resources().CreateDynamicVB( quadAttribs, 2, 6 );
 
     // Create the quad batch VB: [x, y, r, g, b, a] per vertex, sized for QUAD_BATCH_MAX_QUADS.
     // All BatchQuad() calls accumulate here; FlushQuads() does one upload+draw per flush.
     int quadBatchAttribs[] = { 2, 4 };
     Text2d::quadBatchVB =
-        Gfx().CreateDynamicVB( quadBatchAttribs, 2, QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD );
+        Resources().CreateDynamicVB( quadBatchAttribs, 2, QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD );
 
     // Compile the text shader and bind the atlas sampler slot once.
-    Text2d::pTextShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.text" );
+    Text2d::pTextShader = AssetRegistry().CreateShader( Resources(), "shader.text" );
     Text2d::pTextShader->Use();
     Text2d::pTextShader->SetInt( "uFontTexture", 0 );
 
     // Compile the solid-colour HUD quad shader (used by Render2dQuad — immediate, one draw per call)
-    Text2d::pSolidShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.solid_color" );
+    Text2d::pSolidShader = AssetRegistry().CreateShader( Resources(), "shader.solid_color" );
 
     // Compile the batched per-vertex-RGBA quad shader (used by FlushQuads — one draw for all quads)
-    Text2d::pSolidBatchShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.solid_color_batch" );
+    Text2d::pSolidBatchShader = AssetRegistry().CreateShader( Resources(), "shader.solid_color_batch" );
 
     // RebuildProjection() must be called whenever the window is resized so the
     // ortho extents stay matched to the actual viewport aspect ratio.
-    Text2d::RebuildProjection( Cfg().window.screenX, Cfg().window.screenY );
+    Text2d::RebuildProjection( Config().window.screenX, Config().window.screenY );
 }
 
 
@@ -589,22 +640,22 @@ void Text2d::DeleteFont()
 {
     if ( Text2d::fontTexture )
     {
-        Gfx().DeleteTexture( Text2d::fontTexture );
+        Resources().DeleteTexture( Text2d::fontTexture );
         Text2d::fontTexture = 0;
     }
     if ( Text2d::textBatchVB )
     {
-        Gfx().DestroyDynamicVB( Text2d::textBatchVB );
+        Resources().DestroyDynamicVB( Text2d::textBatchVB );
         Text2d::textBatchVB = 0;
     }
     if ( Text2d::dynamicVB )
     {
-        Gfx().DestroyDynamicVB( Text2d::dynamicVB );
+        Resources().DestroyDynamicVB( Text2d::dynamicVB );
         Text2d::dynamicVB = 0;
     }
     if ( Text2d::quadBatchVB )
     {
-        Gfx().DestroyDynamicVB( Text2d::quadBatchVB );
+        Resources().DestroyDynamicVB( Text2d::quadBatchVB );
         Text2d::quadBatchVB = 0;
     }
     Text2d::pTextShader.reset();
@@ -735,22 +786,22 @@ void Text2d::FlushText()
         return;
     }
 
-    bool depthWasEnabled = Gfx().IsDepthTestEnabled();
-    bool blendWasEnabled = Gfx().IsBlendEnabled();
+    bool depthWasEnabled = Commands().IsDepthTestEnabled();
+    bool blendWasEnabled = Commands().IsBlendEnabled();
 
-    Gfx().SetDepthTest( false );
-    Gfx().SetBlend( true );
-    Gfx().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
+    Commands().SetDepthTest( false );
+    Commands().SetBlend( true );
+    Commands().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
 
     Text2d::pTextShader->Use();
     Text2d::pTextShader->SetMat4( "uProjection", s_orthoProj );
-    Gfx().BindTexture( Text2d::fontTexture, 0 );
+    Commands().BindTexture( Text2d::fontTexture, 0 );
 
     // One GPU upload + one draw call covers the entire frame's text at all colors.
-    Gfx().UploadAndDrawDynamicVB( Text2d::textBatchVB, s_batchBuf, s_batchVerts );
+    Commands().UploadAndDrawDynamicVB( Text2d::textBatchVB, s_batchBuf, s_batchVerts );
 
-    Gfx().SetDepthTest( depthWasEnabled );
-    Gfx().SetBlend( blendWasEnabled );
+    Commands().SetDepthTest( depthWasEnabled );
+    Commands().SetBlend( blendWasEnabled );
 
     s_batchVerts = 0;
 }
@@ -834,21 +885,21 @@ void Text2d::Render2dQuad( float x0, float y0, float x1, float y1, float r, floa
 
     const Matrix4& proj = s_orthoProj; // Kept current by RebuildProjection() on every resize
 
-    bool depthWasEnabled = Gfx().IsDepthTestEnabled();
-    bool blendWasEnabled = Gfx().IsBlendEnabled();
+    bool depthWasEnabled = Commands().IsDepthTestEnabled();
+    bool blendWasEnabled = Commands().IsBlendEnabled();
 
-    Gfx().SetDepthTest( false );
-    Gfx().SetBlend( true );
-    Gfx().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
+    Commands().SetDepthTest( false );
+    Commands().SetBlend( true );
+    Commands().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
 
     Text2d::pSolidShader->Use();
     Text2d::pSolidShader->SetMat4( "uProjection", proj );
     Text2d::pSolidShader->SetVec4( "uColor", r, g, b, a );
 
-    Gfx().UploadAndDrawDynamicVB( Text2d::dynamicVB, s_quadBuf, 6 );
+    Commands().UploadAndDrawDynamicVB( Text2d::dynamicVB, s_quadBuf, 6 );
 
-    Gfx().SetDepthTest( depthWasEnabled );
-    Gfx().SetBlend( blendWasEnabled );
+    Commands().SetDepthTest( depthWasEnabled );
+    Commands().SetBlend( blendWasEnabled );
 }
 
 
@@ -959,21 +1010,21 @@ void Text2d::FlushQuads()
         return;
     }
 
-    bool depthWasEnabled = Gfx().IsDepthTestEnabled();
-    bool blendWasEnabled = Gfx().IsBlendEnabled();
+    bool depthWasEnabled = Commands().IsDepthTestEnabled();
+    bool blendWasEnabled = Commands().IsBlendEnabled();
 
-    Gfx().SetDepthTest( false );
-    Gfx().SetBlend( true );
-    Gfx().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
+    Commands().SetDepthTest( false );
+    Commands().SetBlend( true );
+    Commands().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
 
     Text2d::pSolidBatchShader->Use();
     Text2d::pSolidBatchShader->SetMat4( "uProjection", s_orthoProj );
 
     // One GPU upload + one draw call covers every quad batched this frame.
-    Gfx().UploadAndDrawDynamicVB( Text2d::quadBatchVB, s_quadBatchBuf, s_quadBatchVerts );
+    Commands().UploadAndDrawDynamicVB( Text2d::quadBatchVB, s_quadBatchBuf, s_quadBatchVerts );
 
-    Gfx().SetDepthTest( depthWasEnabled );
-    Gfx().SetBlend( blendWasEnabled );
+    Commands().SetDepthTest( depthWasEnabled );
+    Commands().SetBlend( blendWasEnabled );
 
     s_quadBatchVerts = 0;
 }

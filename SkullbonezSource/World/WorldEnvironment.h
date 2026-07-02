@@ -48,10 +48,21 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Assets
+{
+class AssetSystem;
+}
+
 namespace GameObjects
 {
 class GameModel;
 } // namespace GameObjects
+
+namespace Rendering
+{
+class IRenderCommandContext;
+class IRenderResourceFactory;
+} // namespace Rendering
 
 namespace Environment
 {
@@ -66,33 +77,33 @@ enum class WaterMode
 
 struct WaterReflectionInput
 {
-    Math::Transformation::Matrix4 sampleViewProjection;                   // Reflection sampling matrix for raster or raytraced water.
-    uint32_t textureHandle = 0;                                           // Engine reflection texture handle; 0 means none.
-    bool noReflection = false;                                            // Scene/style explicitly disables reflection sampling.
-    bool raytraced = false;                                               // Reflection texture came from the DXR path instead of raster capture.
+    Math::Transformation::Matrix4 sampleViewProjection;                    // Reflection sampling matrix for raster or raytraced water.
+    uint32_t textureHandle = 0;                                            // Engine reflection texture handle; 0 means none.
+    bool noReflection = false;                                             // Scene/style explicitly disables reflection sampling.
+    bool raytraced = false;                                                // Reflection texture came from the DXR path instead of raster capture.
 };
 
 struct WaterStyleParams
 {
-    float tintR = 0.05f;                                                  // Linear water tint red channel.
-    float tintG = 0.15f;                                                  // Linear water tint green channel.
-    float tintB = 0.42f;                                                  // Linear water tint blue channel.
-    float alpha = 0.65f;                                                  // Blend alpha used by water material.
-    float reflectionStrength = 0.35f;                                     // Reflection mix weight before Fresnel response.
-    float fresnelF0 = 0.025f;                                             // Base reflectance for grazing-angle highlight falloff.
-    float glintStrength = 0.0f;                                           // Sun glint multiplier for cinematic styles.
-    float waveHeight = 4.0f;                                              // Visual wave displacement amplitude, not physics height.
-    float perturbStrength = 0.002f;                                       // Normal/UV perturbation scale for reflection distortion.
-    float sunR = 1.0f;                                                    // Linear sun color red channel for glints.
-    float sunG = 1.0f;                                                    // Linear sun color green channel for glints.
-    float sunB = 1.0f;                                                    // Linear sun color blue channel for glints.
-    WaterMode mode = WaterMode::Ocean;                                    // Visual water mesh/shader mode chosen by scene/style.
-    float basinCenterX = 620.0f;                                          // Basin mask center X in world meters.
-    float basinCenterZ = 615.0f;                                          // Basin mask center Z in world meters.
-    float basinRadiusX = 205.0f;                                          // Basin mask horizontal radius in world meters.
-    float basinRadiusZ = 145.0f;                                          // Basin mask depth radius in world meters.
-    float basinFeather = 1.0f;                                            // Soft edge width for basin/ocean transition.
-    bool cinematic = false;                                               // Scene/style path enabled higher-art-direction water tuning.
+    float tintR = 0.05f;                                                   // Linear water tint red channel.
+    float tintG = 0.15f;                                                   // Linear water tint green channel.
+    float tintB = 0.42f;                                                   // Linear water tint blue channel.
+    float alpha = 0.65f;                                                   // Blend alpha used by water material.
+    float reflectionStrength = 0.35f;                                      // Reflection mix weight before Fresnel response.
+    float fresnelF0 = 0.025f;                                              // Base reflectance for grazing-angle highlight falloff.
+    float glintStrength = 0.0f;                                            // Sun glint multiplier for cinematic styles.
+    float waveHeight = 4.0f;                                               // Visual wave displacement amplitude, not physics height.
+    float perturbStrength = 0.002f;                                        // Normal/UV perturbation scale for reflection distortion.
+    float sunR = 1.0f;                                                     // Linear sun color red channel for glints.
+    float sunG = 1.0f;                                                     // Linear sun color green channel for glints.
+    float sunB = 1.0f;                                                     // Linear sun color blue channel for glints.
+    WaterMode mode = WaterMode::Ocean;                                     // Visual water mesh/shader mode chosen by scene/style.
+    float basinCenterX = 620.0f;                                           // Basin mask center X in world meters.
+    float basinCenterZ = 615.0f;                                           // Basin mask center Z in world meters.
+    float basinRadiusX = 205.0f;                                           // Basin mask horizontal radius in world meters.
+    float basinRadiusZ = 145.0f;                                           // Basin mask depth radius in world meters.
+    float basinFeather = 1.0f;                                             // Soft edge width for basin/ocean transition.
+    bool cinematic = false;                                                // Scene/style path enabled higher-art-direction water tuning.
 };
 
 /* -- World Environment
@@ -123,53 +134,81 @@ class WorldEnvironment
 {
 
   public:
-    WorldEnvironment();                                                   // Initializes default gravity/fluid values from config-era constants.
+    WorldEnvironment();                                                    // Initializes default gravity/fluid values from config-era constants.
     WorldEnvironment( float fFluidSurfaceHeight,
                       float fFluidDensity,
                       float fGasDensity,
-                      float fGravity );                                   // Explicit physics constants for tests and scene loading.
-    ~WorldEnvironment();                                                  // Releases owned water mesh/shader resources.
-    WorldEnvironment( WorldEnvironment&& ) noexcept = default;            // Scene containers move worlds during setup only.
-    WorldEnvironment& operator=( WorldEnvironment&& ) noexcept = default; // Scene containers move worlds during setup only.
+                      float fGravity );                                    // Explicit physics constants for tests and scene loading.
+    ~WorldEnvironment();                                                   // Releases owned water mesh/shader resources.
+    WorldEnvironment( WorldEnvironment&& ) noexcept = default;             // Scene containers move worlds during setup only.
+    WorldEnvironment& operator=( WorldEnvironment&& ) noexcept = default;  // Scene containers move worlds during setup only.
 
     void SetTerrainBounds( float xMin,
                            float xMax,
                            float zMin,
-                           float zMax );                                  // Must be called before first render; drives calm/ocean mesh split
+                           float zMax );                                   // Must be called before first render; drives calm/ocean mesh split
     void RenderFluid( const Math::Transformation::Matrix4& view,
                       const Math::Transformation::Matrix4& proj,
                       const Math::Vector::Vector3& cameraWorld,
+                      Rendering::IRenderCommandContext& commands,
                       const WaterReflectionInput& reflection,
                       float time,
                       bool flatWater = false,
                       bool cinematic = false,
                       const Basics::CinematicRenderConfig* cinematicConfig =
-                          nullptr );                                      // Active water mesh render path with current style/reflection inputs.
-    void ResetRenderResources();                                          // Rebuilds GPU resources after renderer reset/switch
-    float GetFluidSurfaceHeight();                                        // World-space Y plane where water begins.
-    void SetFluidSurfaceHeight( float height );                           // Moves the water plane without rebuilding collision geometry.
-    float GetGravity() const;                                             // Gravitational acceleration in m/s^2; negative is downward.
-    void SetGravity( float gravity );                                     // Updates gravity for future force integration ticks.
-    float GetFluidDensity() const;                                        // Fluid density in kg/m^3 for buoyancy and drag.
-    void SetFluidDensity( float density );                                // Updates fluid density for future force integration ticks.
+                          nullptr );                                       // Active water mesh render path with current style/reflection inputs.
+    void BindRuntimeConfig(
+        const Basics::EngineConfig& config );                              // Borrow runtime settings for water physics and style constants.
+    void BindRenderContexts(
+        const Basics::EngineConfig& config,
+        Assets::AssetSystem& assets,
+        Rendering::IRenderResourceFactory& resources );                    // Borrow rebuild-only services for water resources.
+    void
+    EnsureRenderResources( const Basics::EngineConfig& config,
+                           Assets::AssetSystem& assets,
+                           Rendering::IRenderResourceFactory& resources ); // Lazily rebuilds missing backend resources.
+    void ResetRenderResources();                                           // Rebuilds GPU resources after renderer reset/switch
+    void ReleaseRenderResources();                                         // Releases GPU resources without rebuilding.
+    float GetFluidSurfaceHeight();                                         // World-space Y plane where water begins.
+    void SetFluidSurfaceHeight( float height );                            // Moves the water plane without rebuilding collision geometry.
+    float GetGravity() const;                                              // Gravitational acceleration in m/s^2; negative is downward.
+    void SetGravity( float gravity );                                      // Updates gravity for future force integration ticks.
+    float GetFluidDensity() const;                                         // Fluid density in kg/m^3 for buoyancy and drag.
+    void SetFluidDensity( float density );                                 // Updates fluid density for future force integration ticks.
     void AddWorldForces( GameObjects::GameModel& target,
-                         float changeInTime );                            // Adds world forces to the referenced game model
+                         float changeInTime );                             // Adds world forces to the referenced game model
 
   private:
-    float m_fluidSurfaceHeight;                                           // World-space Y of the fluid surface (m).  Objects below this are submerged
-    float m_fluidDensity;                                                 // Density of the fluid medium (kg/m³).  Water ≈ 1000, heavy oil ≈ 850
-    float m_gasDensity;                                                   // Density of the gas medium above the surface (kg/m³).  Air ≈ 1.225
-    float m_gravity;                                                      // Gravitational acceleration (m/s², stored NEGATIVE for downward, e.g. -9.81)
-    float m_terrainXMin = 0.0f;                                           // terrain footprint — calm mesh bounds
+    struct RuntimeConfigSnapshot
+    {
+        Basics::OrdinaryRenderConfig ordinaryRender;                       // Water style values copied from the current runtime config.
+        Basics::CinematicRenderConfig cinematicRender;                     // Fallback cinematic water style when no per-frame override is supplied.
+        float frustumFar = 5500.0f;                                        // Far plane used to size generated ocean water mesh.
+        float oceanWaveHeight = 4.0f;                                      // Visual wave amplitude copied from config.
+        float oceanPerturbStrength = 0.002f;                               // Reflection perturbation scale copied from config.
+        float fluidAngularDragMultiplier = 2.0f;                           // Physics damping multiplier copied from config.
+    };
+
+    float m_fluidSurfaceHeight;                                            // World-space Y of the fluid surface (m).  Objects below this are submerged
+    float m_fluidDensity;                                                  // Density of the fluid medium (kg/m³).  Water ≈ 1000, heavy oil ≈ 850
+    float m_gasDensity;                                                    // Density of the gas medium above the surface (kg/m³).  Air ≈ 1.225
+    float m_gravity;                                                       // Gravitational acceleration (m/s², stored NEGATIVE for downward, e.g. -9.81)
+    float m_terrainXMin = 0.0f;                                            // terrain footprint — calm mesh bounds
     float m_terrainXMax = 0.0f;
     float m_terrainZMin = 0.0f;
     float m_terrainZMax = 0.0f;
-    std::unique_ptr<Rendering::IMesh> m_calmMesh;                         // Inner water: flat, reflective
+    std::unique_ptr<Rendering::IMesh> m_calmMesh;                          // Inner water: flat, reflective
     std::unique_ptr<Rendering::IShader> m_calmShader;
-    std::unique_ptr<Rendering::IMesh> m_oceanMesh;                        // Outer water: waves + perturbation
+    std::unique_ptr<Rendering::IMesh> m_oceanMesh;                         // Outer water: waves + perturbation
     std::unique_ptr<Rendering::IShader> m_oceanShader;
+    RuntimeConfigSnapshot m_config;                                        // Owned config subset; standalone worlds use defaults until rebound.
+    Assets::AssetSystem* m_assets = nullptr;                               // Borrowed asset registry for water shaders.
+    Rendering::IRenderResourceFactory* m_resources = nullptr;              // Borrowed active backend resource factory for water meshes.
 
-    void BuildFluidMesh();                                                // Builds calm and ocean meshes from current terrain bounds.
+    void BuildFluidMesh();                                                 // Builds calm and ocean meshes from current terrain bounds.
+    void ApplyRuntimeConfigSnapshot(
+        const Basics::EngineConfig& config );                              // Copies the water/drag fields this type consumes.
+    const RuntimeConfigSnapshot& Config() const;                           // Safe owned config snapshot for water work.
     WaterStyleParams BuildCalmWaterStyle( bool cinematic, const Basics::CinematicRenderConfig& cinematicConfig ) const;
     WaterStyleParams BuildOceanWaterStyle( bool cinematic, const Basics::CinematicRenderConfig& cinematicConfig ) const;
     void BindCommonWaterStyle( Rendering::IShader& shader,
@@ -180,14 +219,14 @@ class WorldEnvironment
     void
     BindOceanWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style, float time, bool flatWater ) const;
 
-    float CalculateGravity( float objectMass );                           // F_g = m * g  (returns negative Y Newtons = downward)
+    float CalculateGravity( float objectMass );                            // F_g = m * g  (returns negative Y Newtons = downward)
     float CalculateBuoyancy(
-        float submergedObjectVolume );                                    // F_b = -g * ρ_fluid * V_sub  (returns positive Y = upward lift, Archimedes)
+        float submergedObjectVolume );                                     // F_b = -g * ρ_fluid * V_sub  (returns positive Y = upward lift, Archimedes)
     Math::Vector::Vector3
     CalculateViscousDrag( Math::Vector::Vector3 velocityVector,
                           float submergedVolumePercent,
                           float dragCoefficient,
-                          float projectedSurfaceArea );                   // F_d = -v̂ * 0.5 * ρ_avg * v² * C_d * A  (opposes motion)
+                          float projectedSurfaceArea );                    // F_d = -v̂ * 0.5 * ρ_avg * v² * C_d * A  (opposes motion)
 };
 } // namespace Environment
 } // namespace SkullbonezCore

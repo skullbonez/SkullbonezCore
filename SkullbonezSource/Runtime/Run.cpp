@@ -67,6 +67,16 @@ void HashReplayInt( uint64_t& hash, int32_t value )
     }
 }
 
+SkullbonezCore::Environment::CameraMovementSettings BuildCameraMovementSettings( const EngineConfig& cfg )
+{
+    SkullbonezCore::Environment::CameraMovementSettings settings;
+    settings.minViewMag = cfg.minViewMag;
+    settings.maxViewMag = cfg.maxViewMag;
+    settings.minCameraHeight = cfg.minCameraHeight;
+    settings.cameraCollisionThreshold = cfg.cameraCollisionThreshold;
+    return settings;
+}
+
 } // namespace
 
 
@@ -74,6 +84,7 @@ RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
 {
     RuntimeRenderHostBindings bindings;
     bindings.runtime.systems = &m_systems;
+    bindings.runtime.config = &m_config;
     bindings.runtime.launchOptions = &m_launchOptions;
     bindings.runtime.runtimeSettings = &m_runtimeSettings;
     bindings.world.gameModelCollection = &m_cGameModelCollection;
@@ -147,20 +158,25 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
 }
 
 
-Run::Run( Window& window, std::vector<std::string> sceneQueue )
-    : m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
+Run::Run( Window& window, std::vector<std::string> sceneQueue, EngineConfig& config, Threading::WorkerPool& workerPool )
+    : m_config( config ), m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
       m_renderHost( BuildRuntimeRenderHostBindings(), BuildRuntimeRenderHostCallbacks() ), m_renderer( m_renderHost )
 {
     m_systems.window = &window;
+    m_systems.workerPool = &workerPool;
     BindEngineContext();
     RefreshRuntimeViewModel();
     RefreshSceneBrowserList( m_sceneController.Browser() );
-    const EngineConfig& cfg = Cfg();
+    const EngineConfig& cfg = m_config;
+    m_systems.config = &cfg;
+    m_systems.cameraCollection.ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
+    m_cGameModelCollection.BindWorkerPool( workerPool );
+    m_cGameModelCollection.ApplyRuntimeConfig( cfg );
     m_runtimeSettings.isVsyncEnabled = cfg.runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = cfg.runtimeRender.forcePipelineSync;
     m_runtimeSettings.contactAudioDebugCounters = cfg.contactAudio.debugCounters;
     m_defaultCinematicRender = cfg.cinematicRender;
-    m_startup.gameModelCapacity = ActiveGameModelCapacity();
+    m_startup.gameModelCapacity = std::clamp( cfg.gameModelCapacity, 1, MAX_GAME_MODELS );
     m_startup.workerThreads = cfg.workerThreads;
 }
 
@@ -268,13 +284,14 @@ Run::~Run()
     }
 
     // Lifetime: clean up backend-owned render resources while the current
-    // backend is still alive. WorldEnvironment::ResetRenderResources() rebuilds
-    // fluid meshes, records GPU upload commands, and leaves the DX12 command
-    // list open. Flush immediately after that step so later releases cannot hit
-    // "ID3D12Resource deleted before command list close" validation errors.
+    // backend is still alive. The world step now releases water GPU resources
+    // without rebuilding; the flush keeps any already-submitted GPU work out of
+    // teardown.
     ReleaseBackendOwnedRenderResources( "shutdown_release" );
 
     SkullbonezCore::Assets::BindActiveAssetSystem( nullptr );
+    Text2d::UnbindRenderContexts();
+    RenderHelper::UnbindRenderContexts();
 }
 
 
@@ -316,13 +333,19 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
         { "launcher_laser", BackendResourceStep::LauncherLaser, false },
     };
 
+    SkullbonezCore::Rendering::IRenderResourceFactory* releaseRenderResources = nullptr;
+    if ( IsGfxReady() )
+    {
+        releaseRenderResources = &static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( Gfx() );
+    }
+
     for ( const BackendResourcePhase& phase : releaseSteps )
     {
         LogRenderResourceLifecycleStep( phaseName, phase.name );
         switch ( phase.step )
         {
         case BackendResourceStep::WorldEnvironment:
-            m_cWorldEnvironment.ResetRenderResources();
+            m_cWorldEnvironment.ReleaseRenderResources();
             break;
         case BackendResourceStep::HelperResources:
             RenderHelper::ResetRenderResources();
@@ -334,21 +357,14 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
             m_collisionVisualizer.ResetResources();
             break;
         case BackendResourceStep::UIResources:
-            m_UI.ResetResources();
+            m_UI.ResetResources( releaseRenderResources );
             break;
         case BackendResourceStep::RenderPassResources:
-        {
             // Lifetime: shutdown can run after a failed backend init. Pass
             // resources still need their CPU-side handles reset, but dynamic
             // buffer destruction can only call into a live backend.
-            SkullbonezCore::Rendering::IRenderResourceFactory* renderResources = nullptr;
-            if ( IsGfxReady() )
-            {
-                renderResources = &static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( Gfx() );
-            }
-            m_renderer.ReleaseBackendOwnedResources( renderResources );
+            m_renderer.ReleaseBackendOwnedResources( releaseRenderResources );
             break;
-        }
         case BackendResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
             Profiler::Instance().InvalidateGpuQueries();
@@ -393,7 +409,7 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
 
 void Run::RegisterBuiltInAssets()
 {
-    const EngineConfig& cfg = Cfg();
+    const EngineConfig& cfg = m_config;
     m_systems.assets
         .RegisterTextureSourceAsset( "texture.terrain", cfg.terrainTexture.c_str(), TEXTURE_GROUND, true, true, 3 );
     m_systems.assets.RegisterTextureSourceAsset( "texture.sphere",
@@ -1242,11 +1258,13 @@ void Run::Initialise()
     char titleText[256];
     sprintf_s( titleText, "%s [%s] -- LOADING!!!", TITLE_TEXT, rendererName );
     m_systems.window->SetTitleText( titleText );
-    const EngineConfig& cfg = Cfg();
+    const EngineConfig& cfg = m_config;
 
     m_systems.textures = &m_systems.textureCollection;
     m_systems.textures->BindAssetSystem( &m_systems.assets );
     m_systems.textures->BindRenderContexts( &renderResources, &renderCommands );
+    RenderHelper::BindRenderContexts( renderResources, renderCommands, m_systems.assets, m_config );
+    Text2d::BindRenderContexts( renderResources, renderCommands, m_systems.assets, m_config );
     SkullbonezCore::Assets::BindActiveAssetSystem( &m_systems.assets );
     RegisterBuiltInAssets();
 
@@ -1254,17 +1272,20 @@ void Run::Initialise()
     RebuildRegisteredRenderResources();
 
     const std::string terrainRawPath =
-        ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", Cfg().terrainRaw );
-    m_systems.terrain = std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15 );
+        ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", cfg.terrainRaw );
+    m_systems.terrain =
+        std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15, m_config, m_systems.assets, renderResources );
     m_systems.isFlatSlopeTerrain = false;
 
     // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)
     m_systems.skyBoxOwner = std::make_unique<SkyBox>( -250, 300, -300, 300, -250, 300 );
     m_systems.skyBox = m_systems.skyBoxOwner.get();
     m_systems.skyBox->BindTextures( *m_systems.textures );
+    m_systems.skyBox->BindRenderContexts( m_config, m_systems.assets, renderResources );
     m_systems.skyBox->ResetRenderResources();
 
     m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
+    m_cWorldEnvironment.BindRenderContexts( m_config, m_systems.assets, renderResources );
     XZBounds tb = m_systems.terrain->GetXZBounds();
     m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 
@@ -1372,7 +1393,7 @@ void Run::BeginPhysicsDiagnosticsRun( const char* scenePath )
 {
     m_diagnosticsRuntime.BeginPhysicsDiagnosticsRun( m_cGameModelCollection,
                                                      SceneState(),
-                                                     Cfg(),
+                                                     m_config,
                                                      scenePath,
                                                      IsGfxReady() ? Gfx().GetRendererName() : "unknown" );
 }

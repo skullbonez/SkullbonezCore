@@ -96,6 +96,21 @@ enum class GameModelCollectionKind : uint8_t
     ReleasableTree
 };
 
+struct GameModelRuntimePhysicsTuning
+{
+    // Process config is copied into this POD before model hot paths run. Terrain
+    // and contact routines can then read stable scalar fields without reaching
+    // back through the global config accessor.
+    float frictionCoefficient = 0.1f;
+    float sphereDragCoefficient = 0.4f;
+    float angularVelocityLimit = 5.0f;
+    float contactEpsilon = 0.05f;
+    float terrainContactThreshold = 0.15f;
+    float contactRestitutionThreshold = 2.0f;
+
+    static GameModelRuntimePhysicsTuning FromConfig( const Basics::EngineConfig& config );
+};
+
 /* -- Game Model
 -------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -139,6 +154,7 @@ class GameModel
         m_responseInformation;                                              // Legacy terrain-response mailbox consumed before shared manifold solving.
     float m_projectedSurfaceArea;                                           // Drag area in square meters after collision-shape updates.
     float m_dragCoefficient;                                                // Effective drag coefficient averaged from attached dynamics data.
+    GameModelRuntimePhysicsTuning m_runtimePhysicsTuning;                   // Run-owned physics constants copied out of EngineConfig.
     float m_fixedContactHighlightSeconds;                                   // Seconds remaining for fixed-body red contact feedback
     float m_audioContactHighlightSeconds;                                   // Seconds remaining for contact-audio white feedback.
     float m_renderTintR;                                                    // Per-instance render tint red channel
@@ -288,6 +304,8 @@ class GameModel
     void SetContactMaterial( const char* materialName );                    // Audio/gameplay contact material; defaults to "default".
     const char* GetContactMaterialName() const;
     uint32_t GetContactMaterialId() const;
+    void ApplyRuntimeConfig( const Basics::EngineConfig& config );
+    void ApplyRuntimePhysicsTuning( const GameModelRuntimePhysicsTuning& tuning );
     void AddBoundingSphere( float fRadius );
     void AddBoundingBox( const Math::Vector::Vector3& halfExtents );
     void AddConvexHull( const Math::CollisionDetection::ConvexHullShape& hull );

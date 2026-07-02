@@ -339,6 +339,8 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
     const auto visualizerStart = std::chrono::steady_clock::now();
     RenderReplayPredictionVisualizer( m_replayRuntime,
                                       m_cGameModelCollection,
+                                      *m_systems.config,
+                                      *m_systems.workerPool,
                                       SceneState().isScenePhysics,
                                       m_timers.simulationTimer.GetTimeSinceLastStart(),
                                       m_timers.simulationTimer.GetTotalTime(),

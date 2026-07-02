@@ -131,7 +131,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
     //   for the row geometry. The cache and PGS row shape are Catto; the exact
     //   sphere/box/OBB feature encodings are local engine policy.
     const int modelCount = static_cast<int>( m_gameModels.size() );
-    const auto& config = Cfg();
+    const auto& config = context.config;
     m_persistentContactSolverStats = PersistentContactSolverStats();
     m_persistentContactSolverStats.cachePreviousRows = static_cast<int>( m_persistentContactCache.size() );
     m_persistentContactCounts.assign( modelCount, 0 );

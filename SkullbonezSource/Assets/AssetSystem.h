@@ -195,6 +195,7 @@ struct AssetContext
 // owns the real AssetSystem, while helpers still own their GPU shader handles.
 void BindActiveAssetSystem( AssetSystem* assets );
 AssetSystem* ActiveAssetSystem();
+const char* BuiltInShaderBaseName( const char* logicalNameOrBaseName );
 std::unique_ptr<Rendering::IShader> CreateShaderFromActiveAssets( const char* logicalNameOrBaseName );
 } // namespace Assets
 } // namespace SkullbonezCore

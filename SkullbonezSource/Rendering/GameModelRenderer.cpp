@@ -20,7 +20,7 @@ Invariants:
   - GameModelRenderer consumes collection render streams; GameModelCollection
     remains the owner of model order and lifetime.
   - Shadow caster preparation may run worker-side, but draw submission remains
-    on the render thread through RenderHelper/Gfx().
+    on the render thread through RenderHelper command/resource contexts.
 
 Related:
   - SkullbonezSource/Rendering/GameModelRenderer.h
@@ -123,7 +123,7 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
     const GameModelRenderStream renderStream = collection.GetRenderStream();
     const int modelCount = renderStream.count;
     const float clampedMaterialAlpha = std::clamp( materialAlpha, 0.0f, 1.0f );
-    const bool alphaBlendedPass = Cfg().runtimeRender.renderCollisionVolumes || clampedMaterialAlpha < 1.0f;
+    const bool alphaBlendedPass = collection.ShouldRenderCollisionVolumes() || clampedMaterialAlpha < 1.0f;
     const auto shouldDrawModel = [&]( int index ) -> bool
     {
         if ( !modelMask )
@@ -313,12 +313,13 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
         }
     };
 
-    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && Cfg().shadowParallelPrep &&
+    SkullbonezCore::Threading::WorkerPool* workerPool = collection.RenderWorkerPool();
+    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && collection.ShouldUseShadowParallelPrep() && workerPool &&
          modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/OrderedWorkerCollect" );
         std::vector<ShadowCasterBatches> chunkOutputs;
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelCollectOrdered<ShadowCasterBatches>(
+        workerPool->ParallelCollectOrdered<ShadowCasterBatches>(
             0,
             modelCount,
             chunkOutputs,
@@ -489,12 +490,13 @@ bool GameModelRenderer::GetObjectShadowBounds( GameModelCollection& collection,
     };
 
     BoundsAccumulator bounds;
-    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && Cfg().shadowParallelPrep &&
+    SkullbonezCore::Threading::WorkerPool* workerPool = collection.RenderWorkerPool();
+    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && collection.ShouldUseShadowParallelPrep() && workerPool &&
          modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/OrderedWorkerCollect" );
         std::vector<BoundsAccumulator> chunkOutputs;
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelCollectOrdered<BoundsAccumulator>(
+        workerPool->ParallelCollectOrdered<BoundsAccumulator>(
             0,
             modelCount,
             chunkOutputs,

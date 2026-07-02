@@ -48,10 +48,20 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Basics
+{
+class EngineConfig;
+} // namespace Basics
+
 namespace GameObjects
 {
 struct GameModelBodyStream;
 } // namespace GameObjects
+
+namespace Threading
+{
+class WorkerPool;
+} // namespace Threading
 
 namespace Physics
 {
@@ -101,6 +111,7 @@ class PhysicsWorld
     std::vector<int> m_sleepIslandAssignedVisualId;
     int m_nextSleepIslandVisualId = 1;
     bool m_sleepEnabled = true;
+    uint8_t m_seedSleepFrameCount = 30;
     bool m_collisionVisualFrameActive = false;
 
     // Sleep islands are connected components of "this body is safely supported
@@ -253,7 +264,9 @@ class PhysicsWorld
     void RunSolverPhysics( PhysicsModelAccess& modelAccess,
                            PhysicsBodyStore& bodyStore,
                            const ColliderStore& colliderStore,
-                           float dt );
+                           float dt,
+                           const Basics::EngineConfig& config,
+                           Threading::WorkerPool& workerPool );
     void SolvePersistentObjectContacts( PhysicsModelAccess& modelAccess, float dt );
 #ifdef _DEBUG
     void EmitPhysicsDiagnosticsFrame( PhysicsModelAccess& modelAccess, float dt );
@@ -265,7 +278,8 @@ class PhysicsWorld
                                    float collisionTime,
                                    float availableTime );
     PersistentContactSolverContext CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
-                                                                         const ColliderStore& colliderStore );
+                                                                         const ColliderStore& colliderStore,
+                                                                         const Basics::EngineConfig& config );
     SleepSupportPropagationContext CreateSleepSupportPropagationContext();
     bool CanRecordPhysicsPipelineStage() const;
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record );
@@ -284,7 +298,11 @@ class PhysicsWorld
                                   int index );
     void MarkCollisionVisualContact( int index );
     void MarkFixedContact( PhysicsModelAccess& modelAccess, int index );
-    void ApplyTornadoField( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, float dt );
+    void ApplyTornadoField( PhysicsModelAccess& modelAccess,
+                            PhysicsBodyStore& bodyStore,
+                            float dt,
+                            const Basics::EngineConfig& runtimeConfig,
+                            Threading::WorkerPool& workerPool );
     void PropagateSleepSupport( PhysicsModelAccess& modelAccess );
     void AppendPointJointSupportEdges( int modelCount );
     void ForgetPersistentContactCacheForBody( int bodyIndex );
@@ -314,11 +332,14 @@ class PhysicsWorld
   public:
     PhysicsWorld();
 
+    void ApplyRuntimeConfig( const Basics::EngineConfig& config );
     void Clear();
     void RunPhysics( PhysicsModelAccess& modelAccess,
                      PhysicsBodyStore& bodyStore,
                      const ColliderStore& colliderStore,
-                     float fChangeInTime );
+                     float fChangeInTime,
+                     const Basics::EngineConfig& config,
+                     Threading::WorkerPool& workerPool );
     void WakeModel( PhysicsModelAccess& modelAccess, int index );
     void SeedModelAsleep( PhysicsModelAccess& modelAccess, int index );
     void SetPhysicsSleepEnabled( bool enabled );
@@ -413,6 +434,7 @@ struct PersistentContactSolverContext
     const std::vector<ColliderRecord>& colliderRecords;
     PhysicsBodyStore& bodyStore;
     PhysicsWorld& world;
+    const Basics::EngineConfig& config;
 
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record ) const;
     bool CanRecordPhysicsPipelineStage() const;

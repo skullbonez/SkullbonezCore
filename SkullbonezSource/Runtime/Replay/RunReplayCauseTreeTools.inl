@@ -135,8 +135,8 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         Input::SetSystemCursorVisible( true );
     };
 
-    const int screenW = RuntimeWindowScreenWidth( m_systems, Cfg() );
-    const int screenH = RuntimeWindowScreenHeight( m_systems, Cfg() );
+    const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
+    const int screenH = RuntimeWindowScreenHeight( m_systems, m_config );
     if ( m_runtimeTools.Editor().editorModeEnabled || screenW <= 0 || screenH <= 0 ||
          !m_replayRuntime.BuildCauseTreeRows( m_cGameModelCollection.Models() ) )
     {
