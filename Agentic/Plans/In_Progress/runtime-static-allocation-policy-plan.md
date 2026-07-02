@@ -19,6 +19,7 @@ No unregistered dynamic allocation during gameplay or replay runtime phases.
 No per-frame dynamic allocation.
 Runtime growth is allowed only through RuntimeReserveAllocator.
 Emergency overflow should be rare: once or twice across an entire run, not every frame.
+Hard caps fail deterministically instead of silently falling back to generic heap growth.
 ```
 
 The preferred end state is static or preallocated storage sized at startup or
@@ -62,6 +63,9 @@ source of truth, and use this checklist as the Carmack-test acceptance overlay.
   shutdown.
 - [ ] Implement `RuntimeReserveAllocator` owner registration with owner name,
   phase, capacity source, hard cap, emergency bump cap, and diagnostic counters.
+- [ ] Define runtime memory budgets and backing arenas by subsystem, with
+  `RuntimeReserveAllocator` as the policy gate rather than a generic malloc
+  replacement.
 - [ ] Convert runtime growable owners to fixed storage, preallocated storage, or
   registered reserve bumps.
 - [ ] Add policy comments beside every runtime growable storage owner.
@@ -148,6 +152,8 @@ that the perf log is local/ignored. Follow-up review found no blockers.
 | High-water allocation | Growth to a known capacity during startup, scene load, backend init, or explicit warmup, followed by reuse without further heap growth. |
 | Emergency overflow | A bounded, logged, commented growth path used only when a scene exceeds a documented best-guess high-water mark. |
 | RuntimeReserveAllocator | The single runtime path allowed to perform bounded dynamic reserve bumps for registered mostly-static memory owners. |
+| Runtime memory budget | A startup-selected CPU memory budget split into named subsystem pools or arenas, sized for the platform and scene/replay class. |
+| Runtime arena | A reserved backing region for one subsystem or memory class, such as physics scratch, replay working sets, runtime commands, worker scratch, diagnostics, or renderer CPU telemetry. |
 | Mostly-static memory | Runtime storage that is preallocated for the expected high-water mark and may grow only through a bounded `RuntimeReserveAllocator` bump. |
 | Replay system | Storage and tools under replay capture, scrub, restore, prediction, artifact load/save, and replay diagnostics. Replay memory is allowed larger prediction/model-count reserves, but still must register and grow only through `RuntimeReserveAllocator`. |
 
@@ -227,6 +233,19 @@ bumps. It owns the "mostly static" memory contract: storage is pre-sized from a
 capacity policy, then any rare overflow is requested, counted, logged, and
 bounded through this allocator.
 
+This does not mean every allocation should immediately route through one giant
+custom heap. The first implementation should make allocation policy measurable
+and enforceable; the backing implementation can then move owner groups onto
+explicit arenas and pools. The console-oriented end state is a known startup
+budget split across named runtime arenas, with steady gameplay running from
+preallocated capacity and with every overflow attributed to a registered owner.
+
+Do not use one anonymous "reserve 1 GB and dole it out" heap as the main
+contract. A global reserved backing region is acceptable underneath the system,
+but ownership and caps must stay per subsystem and per owner so runaway replay,
+diagnostics, or physics scratch cannot consume another system's budget without
+leaving a precise trail.
+
 ### Responsibilities
 
 1. Register every runtime-growable owner before steady gameplay begins.
@@ -242,6 +261,52 @@ bounded through this allocator.
    requested capacity, granted capacity, bytes, growth count, and hard cap.
 8. Feed allocation guard diagnostics and profiler/event markers.
 9. Expose compact stats for memory diagnostics and validation logs.
+10. Track backing arena, reserved bytes, committed or granted bytes, high-water,
+    and failed requests by subsystem.
+11. Keep owner hard caps stricter than any shared backing arena cap. The owner
+    cap is the behavioral contract; the backing arena cap is the platform memory
+    budget.
+
+### Budget And Arena Backing Strategy
+
+The allocator should be introduced in layers:
+
+1. Policy gate: owner registration, phase checks, caps, growth counters, and
+   validation summaries. This can initially wrap existing container reserves.
+2. Owner wrappers: `RuntimeReserveVector`, fixed rings, fixed strings, worker
+   scratch buffers, and replay working-set containers route growth through the
+   policy gate.
+3. Arena backing: high-pressure owners move from ordinary heap-backed reserves
+   to named subsystem arenas or pools.
+4. Platform budgets: startup chooses budget sizes from platform, build config,
+   scene class, replay mode, and diagnostic flags.
+
+Recommended CPU-side arena groups:
+
+| Arena | Owners | Failure behavior |
+|-------|--------|------------------|
+| Physics runtime arena | candidate pairs, contacts, manifolds, sleep/island scratch, solver scratch | In Profile/Debug, assert or fatal at the owner cap; in shipping, fail scene load or disable the oversized optional feature before steady gameplay. |
+| Replay arena | capture frames, prediction rows, restore snapshots, branch/path records, artifact staging | Reject oversized artifact or shorten/deny prediction setup before replay interaction begins. |
+| Runtime command arena | input/UI command queue, fixed command payload text, deferred runtime actions | Drop or reject noncritical command with a visible diagnostic only if the command contract allows it; otherwise fatal in validation. |
+| Worker scratch arena | task chunks, worker-local temporary arrays, dispatch bookkeeping | Fail validation on growth during steady gameplay; resize during startup or scene warmup. |
+| Diagnostics/capture arena | screenshot/readback CPU buffers, diagnostic strings, SkullScope/query staging | Allocate only in capture or diagnostics phase; deny diagnostics rather than stealing gameplay memory. |
+| Renderer CPU telemetry arena | DX12 barrier/live-object telemetry, render graph diagnostics, frame summaries | Use fixed storage during frame/present; allow larger buffers only under explicit diagnostics phase. |
+
+Console-oriented policy:
+
+- Reserve budgets during startup or scene load, not in the middle of a gameplay
+  frame.
+- Prefer many named arenas or pools over one anonymous global heap.
+- Keep arena headers, free lists, and stats in fixed storage so allocation
+  tracking cannot allocate while reporting allocation failures.
+- Treat over-budget requests as deterministic failures. Development and
+  validation builds should assert/fatal with owner, arena, phase, requested
+  bytes, cap, and high-water. Shipping builds should fail the phase boundary
+  gracefully when possible: scene load, replay artifact load, prediction setup,
+  or diagnostics enablement.
+- Once steady gameplay begins, the desired result is zero generic heap
+  allocation and zero unregistered reserve bumps. Registered emergency bumps
+  remain visible debt, not normal behavior.
 
 ### Suggested Types
 
