@@ -13,11 +13,15 @@ Glossary:
   Point joint: Constraint that keeps two local anchors near each other.
   Slack: Allowed anchor separation before the solver applies correction.
   Preview lines: Editor-only visualization geometry for placement feedback.
+  Body record: Physics-owned snapshot of pose, velocity, mass, and inertia used
+    by the joint solver.
 
 Invariants:
   - Constraint order is deterministic and scene-authored.
   - Constraint bodies refer to PhysicsBodyHandle values; compatibility index
     helpers are temporary solver glue.
+  - The joint solver receives the borrowed compatibility model range from
+    PhysicsWorld; it does not own the broader PhysicsModelAccess facade.
 
 Related:
   - SkullbonezSource/Physics/Ragdoll.cpp
@@ -53,7 +57,7 @@ namespace Physics
 {
 class PhysicsEngine;
 class PhysicsBodyStore;
-class PhysicsModelAccess;
+class PhysicsModelMutableRange;
 
 struct PointJointConstraint
 {
@@ -134,7 +138,7 @@ class Ragdoll
                                    Environment::WorldEnvironment& worldEnvironment,
                                    Geometry::Terrain* terrain,
                                    const RagdollBuildOptions& options );
-    static void SolvePointJoints( PhysicsModelAccess& modelAccess,
+    static bool SolvePointJoints( PhysicsModelMutableRange models,
                                   PhysicsBodyStore& bodyStore,
                                   const std::vector<PointJointConstraint>& constraints,
                                   const std::vector<uint8_t>& sleepState,

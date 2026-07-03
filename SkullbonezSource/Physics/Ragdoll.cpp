@@ -13,10 +13,14 @@ Glossary:
   Slack: Allowed anchor separation before the solver pushes the bodies back
   toward the constraint.
   Neck swing limit: Special angular clamp applied to the head/torso joint.
+  Body record: Physics-owned snapshot of pose, velocity, mass, and inertia used
+    by the joint solver.
 
 Invariants:
   - Body and constraint creation order must stay deterministic.
   - Constraint solving must not allocate per row while physics is stepping.
+  - Joint inertia math reads body-record flags; GameModel is only the temporary
+    compatibility writeback target for this slice.
 
 Related:
   - SkullbonezSource/Physics/Ragdoll.h
@@ -226,9 +230,9 @@ RotationMatrix BodyRotation( const PhysicsBodyRecord& record )
     return q.GetOrientationMatrix();
 }
 
-Vector3 ApplyRecordInvInertia( const GameModel& model, const PhysicsBodyRecord& record, const Vector3& value )
+Vector3 ApplyRecordInvInertia( const PhysicsBodyRecord& record, const Vector3& value )
 {
-    if ( !model.UsesWorldInertia() )
+    if ( !record.usesWorldInertia )
     {
         return VectorMultiply( record.invRotationalInertia, value );
     }
@@ -261,9 +265,7 @@ void ClampRagdollBodyVelocity( PhysicsBodyRecord& record )
     record.angularVelocity = ClampVectorMagnitude( record.angularVelocity, RAGDOLL_JOINT_MAX_ANGULAR_SPEED );
 }
 
-void ApplyConstraintImpulse( const GameModel& aModel,
-                             const GameModel& bModel,
-                             PhysicsBodyRecord& a,
+void ApplyConstraintImpulse( PhysicsBodyRecord& a,
                              PhysicsBodyRecord& b,
                              const Vector3& rA,
                              const Vector3& rB,
@@ -274,12 +276,12 @@ void ApplyConstraintImpulse( const GameModel& aModel,
     if ( invMassA > 0.0f )
     {
         a.linearVelocity += impulse * invMassA;
-        a.angularVelocity += ApplyRecordInvInertia( aModel, a, CrossProduct( rA, impulse ) );
+        a.angularVelocity += ApplyRecordInvInertia( a, CrossProduct( rA, impulse ) );
     }
     if ( invMassB > 0.0f )
     {
         b.linearVelocity -= impulse * invMassB;
-        b.angularVelocity -= ApplyRecordInvInertia( bModel, b, CrossProduct( rB, impulse ) );
+        b.angularVelocity -= ApplyRecordInvInertia( b, CrossProduct( rB, impulse ) );
     }
     if ( invMassA > 0.0f )
     {
@@ -468,7 +470,7 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
     }
 }
 
-void Ragdoll::SolvePointJoints( PhysicsModelAccess& modelAccess,
+bool Ragdoll::SolvePointJoints( PhysicsModelMutableRange models,
                                 PhysicsBodyStore& bodyStore,
                                 const std::vector<PointJointConstraint>& constraints,
                                 const std::vector<uint8_t>& sleepState,
@@ -476,10 +478,9 @@ void Ragdoll::SolvePointJoints( PhysicsModelAccess& modelAccess,
 {
     if ( constraints.empty() || dt <= TOLERANCE )
     {
-        return;
+        return false;
     }
 
-    auto models = modelAccess.Models();
     std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
     const int modelCount = static_cast<int>( models.size() );
     const float invDt = 1.0f / dt;
@@ -494,8 +495,6 @@ void Ragdoll::SolvePointJoints( PhysicsModelAccess& modelAccess,
                 continue;
             }
 
-            GameModel& a = models[static_cast<size_t>( bodyAIndex )];
-            GameModel& b = models[static_cast<size_t>( bodyBIndex )];
             PhysicsBodyRecord& bodyA = bodyRecords[static_cast<size_t>( bodyAIndex )];
             PhysicsBodyRecord& bodyB = bodyRecords[static_cast<size_t>( bodyBIndex )];
             const bool aSleeping = bodyAIndex < static_cast<int>( sleepState.size() ) && sleepState[bodyAIndex] != 0;
@@ -543,14 +542,12 @@ void Ragdoll::SolvePointJoints( PhysicsModelAccess& modelAccess,
                 rA,
                 rB,
                 [&]( const Vector3& v )
-                { return invMassA > 0.0f ? ApplyRecordInvInertia( a, bodyA, v ) : ZERO_VECTOR; },
+                { return invMassA > 0.0f ? ApplyRecordInvInertia( bodyA, v ) : ZERO_VECTOR; },
                 [&]( const Vector3& v )
-                { return invMassB > 0.0f ? ApplyRecordInvInertia( b, bodyB, v ) : ZERO_VECTOR; } );
+                { return invMassB > 0.0f ? ApplyRecordInvInertia( bodyB, v ) : ZERO_VECTOR; } );
             if ( effectiveMass > 0.0f )
             {
-                ApplyConstraintImpulse( a,
-                                        b,
-                                        bodyA,
+                ApplyConstraintImpulse( bodyA,
                                         bodyB,
                                         rA,
                                         rB,
@@ -580,5 +577,5 @@ void Ragdoll::SolvePointJoints( PhysicsModelAccess& modelAccess,
 
     ApplyNeckSwingLimits( models, bodyStore, constraints, sleepState );
     bodyStore.WriteBackToModels( models );
-    modelAccess.InvalidatePhysicsStreams();
+    return true;
 }

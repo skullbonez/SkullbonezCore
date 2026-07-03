@@ -2755,7 +2755,10 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         CreatePersistentContactSolverContext( bodyStore, colliderStore, config );
     m_contactSolver.Solve( solverContext, modelAccess, dt );
     WakePointJointConnectedBodies( modelAccess, bodyStore, dt );
-    Ragdoll::SolvePointJoints( modelAccess, bodyStore, m_pointJointConstraints, m_sleepState, dt );
+    if ( Ragdoll::SolvePointJoints( m_gameModels, bodyStore, m_pointJointConstraints, m_sleepState, dt ) )
+    {
+        modelAccess.InvalidatePhysicsStreams();
+    }
     AppendPointJointSupportEdges( modelCount );
     // Object contacts are converted into stack support only after terrain
     // response has had a chance to seed true support for this frame.
