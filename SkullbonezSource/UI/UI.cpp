@@ -224,6 +224,11 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashFloat( hash, data.contactAudioImpactScoreRangeSeconds, 1000.0f );
     hash = HashInt( hash, static_cast<int>( data.contactAudioBurstVoicesPerWindow ) );
     hash = HashInt( hash, static_cast<int>( data.contactAudioEventsSeen ) );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioPatchCandidates ) );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioMergedCandidates ) );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioCandidateOverflows ) );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioBurstWindowSkippedCandidates ) );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioBudgetRejectedCandidates ) );
     hash = HashInt( hash, static_cast<int>( data.contactAudioRejectedByThreshold ) );
     hash = HashInt( hash, static_cast<int>( data.contactAudioRejectedByCooldown ) );
     hash = HashInt( hash, static_cast<int>( data.contactAudioSubmittedVoices ) );

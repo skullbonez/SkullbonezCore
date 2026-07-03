@@ -244,10 +244,9 @@ Yes: sound information should be queryable in SkullScope.
 
 Add compact contact-audio rows for:
 
-- raw fact count per step
-- classified candidate count per kind
-- rejected count by reason
-- merged count by merge key
+- raw fact count per step, emitted as `contact_audio_frame` aggregate rows
+- reduced patch-candidate count and merged patch-fact count
+- rejected count by reason from per-verdict `contact_audio` rows
 - emitted count
 - dropped count by voice cap/burst cap/distance/threshold
 - top N emitted events with body ids, material pair, score, selected sample, and
@@ -538,6 +537,28 @@ Validation:
   `propagated_impulse` 1,222, `cooldown_ongoing` 74, `gain_floor` 4, and
   `distance` 3. Hot frames submitted at most 7 voices; the initial striker/ragdoll
   impact at frame 20 submitted 3 heavy hits.
+- [x] 2026-07-03: Added compact contact-audio reducer aggregate rows and query
+  support. New Debug SkullScope traces write one `contact_audio_frame` row per
+  physics step with raw facts, reduced patch candidates, merged patch facts,
+  queue overflow, burst-window skip, budget rejection, quiet rejection, and
+  submitted voice counts. `contact-audio-summary` now includes
+  `frameAggregateTotals` and `frameAggregateHotspots` for those rows while the
+  existing verdict/event/rejection/body/timeline queries keep their
+  per-candidate semantics. New traces rename reducer-internal verdicts from
+  `candidate_collapsed`/`candidate_cap` to `patch_merged`/`patch_queue_full`.
+  The Sound tab runtime row now presents the reducer as facts, patches, merged,
+  played, quiet, and budget counts. Validation: `tools\validate_build.bat Debug`
+  passed with 0 warnings and 0 errors; `Debug\SKULLBONEZ_CORE.exe
+  --contact-audio-smoke` submitted one voice; `python -m py_compile
+  tools\physics_query.py tools\check_physics_query_regression.py` passed;
+  `python tools\check_physics_query_regression.py --update` refreshed
+  `TestOutput/baselines/physics_query_varied.json` from the final Debug
+  executable; `python tools\check_physics_query_regression.py` passed exact
+  baseline match; `tools\validate_format.bat`, `tools\validate_fast.bat`, and
+  `tools\validate_physics_deep.bat` passed. The refreshed small trace summary
+  reports 15,673 facts,
+  15,612 reduced patch candidates, 61 merged patch facts, 9,028 burst-window
+  skipped patch candidates, and 59 submitted voices.
 - [x] Phase 0 baseline trace and counts.
 - [ ] Phase 1 contact fact upgrade.
 - [ ] Phase 2 classifier and rejection reasons. Partial: local classifier reasons
@@ -546,12 +567,10 @@ Validation:
 - [ ] Phase 3 reducer and perceptual budget. Partial: patch merge, deterministic
   ranking, global burst cap, and per-body budget are implemented; the 200-brick
   proof shows 191 submitted voices from 205,287 verdict rows, with hot frames
-  capped to at most 7 submitted voices. Remaining work is cluster budgeting and
-  deciding whether `candidate_cap` should become a clearer named domain budget.
-- [ ] Phase 4 SkullScope contact-audio queries. Partial: bounded query commands,
-  regression coverage, and reference docs are implemented for verdict events;
-  remaining work is a compact raw-fact/merge aggregate row if strict raw fact and
-  merged-count reporting is required.
+  capped to at most 7 submitted voices. New traces expose reducer overflow as
+  `patch_queue_full`; remaining work is cluster budgeting if acceptance-scene
+  evidence shows one local cluster can still monopolize a collapse.
+- [x] Phase 4 SkullScope contact-audio queries.
 - [ ] Phase 5 material layers and better samples.
 - [ ] Phase 6 Sound-tab tuning polish. Partial: flash diagnostics mode is
   implemented; remaining work is any new stable sliders and screenshot evidence

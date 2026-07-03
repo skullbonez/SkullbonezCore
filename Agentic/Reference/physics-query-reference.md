@@ -116,6 +116,12 @@ tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions why_not_resting
 ```
 
+`contact-audio-summary` includes per-verdict counts from `contact_audio` rows.
+On traces written by newer builds it also reports `frameAggregateTotals` and
+`frameAggregateHotspots` from `contact_audio_frame` rows: raw facts seen, reduced
+patch candidates, merged patch facts, queue overflows, burst-window skips,
+budget rejections, quiet rejections, and played voices.
+
 ## Output Controls
 
 ```bat

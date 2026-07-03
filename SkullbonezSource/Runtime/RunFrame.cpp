@@ -715,6 +715,9 @@ void Run::AfterPhysicsStep()
 #ifdef _DEBUG
         if ( m_diagnosticsRuntime.PhysicsDiagnosticsEnabled() )
         {
+            RuntimeDiagnostics::LogContactAudioStepStats( m_diagnosticsRuntime.PhysicsDiagnostics(),
+                                                          SceneState(),
+                                                          m_contactAudio.StepStats() );
             const int decisionCount = m_contactAudio.DecisionCount();
             for ( int i = 0; i < decisionCount; ++i )
             {
@@ -753,11 +756,15 @@ void Run::AfterPhysicsStep()
             if ( m_timers.contactAudioStatsLogTime >= 1.0f )
             {
                 const Runtime::Audio::ContactAudioStats& stats = m_contactAudio.Stats();
-                printf( "[audio] contact stats events=%u threshold=%u cooldown=%u submitted=%u dropped=%u\n",
+                printf( "[audio] contact stats facts=%u patches=%u merged=%u threshold=%u cooldown=%u "
+                        "submitted=%u budget=%u dropped=%u\n",
                         stats.eventsSeen,
+                        stats.patchCandidates,
+                        stats.mergedCandidates,
                         stats.rejectedByThreshold,
                         stats.rejectedByCooldown,
                         stats.submittedVoices,
+                        stats.candidateOverflows + stats.burstWindowSkippedCandidates + stats.budgetRejectedCandidates,
                         stats.droppedVoices );
                 m_contactAudio.ResetFrameStats();
                 m_timers.contactAudioStatsLogTime = 0.0f;

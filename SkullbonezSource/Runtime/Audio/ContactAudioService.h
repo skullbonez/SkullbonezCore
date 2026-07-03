@@ -15,6 +15,8 @@ Glossary:
   Contact material: Gameplay/audio material token such as metal, stone, or wood.
   Cooldown key: Stable contact-patch key that prevents persistent contact rows
     from replaying the same impact every fixed tick.
+  Patch candidate: One reduced contact patch kept after duplicate solver facts
+    for the same body/material/feature key have been merged.
   Impact band: Light, medium, or heavy impulse tier that can select different
     gain/pitch/sample tuning inside one material sound set.
   Pre-solve closing speed: Contact normal velocity before the solver applies
@@ -69,6 +71,11 @@ struct ContactAudioEvent
 struct ContactAudioStats
 {
     uint32_t eventsSeen = 0;
+    uint32_t patchCandidates = 0;
+    uint32_t mergedCandidates = 0;
+    uint32_t candidateOverflows = 0;
+    uint32_t burstWindowSkippedCandidates = 0;
+    uint32_t budgetRejectedCandidates = 0;
     uint32_t rejectedByThreshold = 0;
     uint32_t rejectedByCooldown = 0;
     uint32_t submittedVoices = 0;
@@ -219,6 +226,7 @@ class ContactAudioService
     bool PlaySmokeImpact( uint32_t materialId, float normalImpulse );
 
     const ContactAudioStats& Stats() const;
+    const ContactAudioStats& StepStats() const;
     void ResetFrameStats();
 
   private:

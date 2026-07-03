@@ -694,6 +694,54 @@ void RuntimeDiagnostics::LogContactAudioDecision( RunPhysicsDiagnosticsState& di
                   escapedSample.c_str() );
 }
 
+void RuntimeDiagnostics::LogContactAudioStepStats( RunPhysicsDiagnosticsState& diagnostics,
+                                                   const RunSceneState& scene,
+                                                   const Runtime::Audio::ContactAudioStats& stats )
+{
+    if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
+    {
+        return;
+    }
+    if ( stats.eventsSeen == 0 && stats.patchCandidates == 0 && stats.mergedCandidates == 0 &&
+         stats.candidateOverflows == 0 && stats.burstWindowSkippedCandidates == 0 &&
+         stats.budgetRejectedCandidates == 0 && stats.rejectedByThreshold == 0 && stats.rejectedByCooldown == 0 &&
+         stats.submittedVoices == 0 && stats.droppedVoices == 0 )
+    {
+        return;
+    }
+
+    char eventId[32];
+    sprintf_s( eventId, sizeof( eventId ), "CAS%08u", diagnostics.contactAudioEventSequence++ );
+
+    // Concept: this row is the reducer summary for one physics step. Verdict
+    // rows explain individual examples; this row preserves the raw fact and
+    // patch-merge counts even when per-candidate diagnostics are capped.
+    Log().Writef( diagnostics.path,
+                  "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"%s\",\"frame\":%d,"
+                  "\"type\":\"contact_audio_frame\",\"severity\":\"low\",\"body_a\":-1,\"body_b\":-1,"
+                  "\"island_id\":null,\"summary\":\"contact audio frame facts %u patches %u played %u\","
+                  "\"data\":{\"facts_seen\":%u,\"patch_candidates\":%u,\"merged_candidates\":%u,"
+                  "\"candidate_overflows\":%u,\"burst_window_skipped_candidates\":%u,"
+                  "\"budget_rejected_candidates\":%u,\"rejected_by_threshold\":%u,"
+                  "\"rejected_by_cooldown\":%u,\"submitted_voices\":%u,\"dropped_voices\":%u}}\n",
+                  diagnostics.currentRunId,
+                  eventId,
+                  scene.currentFrame,
+                  stats.eventsSeen,
+                  stats.patchCandidates,
+                  stats.submittedVoices,
+                  stats.eventsSeen,
+                  stats.patchCandidates,
+                  stats.mergedCandidates,
+                  stats.candidateOverflows,
+                  stats.burstWindowSkippedCandidates,
+                  stats.budgetRejectedCandidates,
+                  stats.rejectedByThreshold,
+                  stats.rejectedByCooldown,
+                  stats.submittedVoices,
+                  stats.droppedVoices );
+}
+
 void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
                                                    const RunSceneState& scene,
                                                    const char* status )

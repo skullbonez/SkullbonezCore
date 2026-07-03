@@ -16,6 +16,8 @@ Glossary:
   Band parameter: Impulse-tier override inside a selected set.
   Sample library: Decoded contact-audio candidate sounds that can be previewed
     or assigned to the selected material set.
+  Patch candidate: One reduced contact patch kept after duplicate solver facts
+    for the same body/material/feature key have been merged.
   Flash mode toggle: Sound-tab control that cycles emitted, candidate,
     rejected, or hidden body flashes for contact-audio decision review.
   Fitted picker text: One-line selector label clipped before the right-aligned
@@ -792,14 +794,19 @@ void Draw( UISoundTabState& state,
                        data.contactAudioFlashModeLabel,
                        data.contactAudioFlashMode != 0 );
 
+    const uint32_t quietContacts = data.contactAudioRejectedByThreshold + data.contactAudioRejectedByCooldown;
+    const uint32_t budgetContacts = data.contactAudioCandidateOverflows +
+                                    data.contactAudioBurstWindowSkippedCandidates +
+                                    data.contactAudioBudgetRejectedCandidates + data.contactAudioDroppedVoices;
     snprintf( buf,
               sizeof( buf ),
-              "%u seen  %u played  %u quiet  %u cooldown  %u dropped",
+              "%u facts  %u patches  %u merged  %u played  %u quiet  %u budget",
               data.contactAudioEventsSeen,
+              data.contactAudioPatchCandidates,
+              data.contactAudioMergedCandidates,
               data.contactAudioSubmittedVoices,
-              data.contactAudioRejectedByThreshold,
-              data.contactAudioRejectedByCooldown,
-              data.contactAudioDroppedVoices );
+              quietContacts,
+              budgetContacts );
     DrawLabelValueAt( draw,
                       contentY,
                       contentH,

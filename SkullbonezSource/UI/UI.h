@@ -16,6 +16,8 @@ Glossary:
     tab for immediate-frame preview and selection.
   Contact-audio flash mode: Frame-data label and value for the Sound tab's
     render-only decision flash selector.
+  Contact-audio reducer counter: Runtime count showing how raw contact facts
+    were merged, silenced, budgeted, or submitted by the Sound tab model.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -226,6 +228,11 @@ struct InGameUIFrameData
     float contactAudioImpactScoreRangeSeconds = 1.0f;
     uint32_t contactAudioBurstVoicesPerWindow = 0; // Max submitted sounds per 100 ms burst.
     uint32_t contactAudioEventsSeen = 0;
+    uint32_t contactAudioPatchCandidates = 0;
+    uint32_t contactAudioMergedCandidates = 0;
+    uint32_t contactAudioCandidateOverflows = 0;
+    uint32_t contactAudioBurstWindowSkippedCandidates = 0;
+    uint32_t contactAudioBudgetRejectedCandidates = 0;
     uint32_t contactAudioRejectedByThreshold = 0;
     uint32_t contactAudioRejectedByCooldown = 0;
     uint32_t contactAudioSubmittedVoices = 0;

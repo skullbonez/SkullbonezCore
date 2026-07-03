@@ -13,6 +13,8 @@
 #   diagnostics traces.
 #   Contact-audio event: Runtime diagnostic row for one copied contact-audio
 #   verdict, including rejection reason, score, body ids, and submitted flag.
+#   Contact-audio frame: Compact reducer summary row with raw fact, patch,
+#   merge, budget, quiet-rejection, and submitted voice counts for one step.
 #   Validation gate: Repository script that proves a class of changes before
 #   commit or PR.
 #
@@ -1262,7 +1264,75 @@ def contact_audio_rows(conn, run_id, args, submitted=None):
     return items
 
 
-def contact_audio_summary_from_items(items, limit):
+def contact_audio_frame_item(row):
+    data = decode_event_data(row)
+    return {
+        "eventId": row["event_id"],
+        "frame": as_int(row["frame"], -1),
+        "factsSeen": as_int(data.get("facts_seen"), 0),
+        "patchCandidates": as_int(data.get("patch_candidates"), 0),
+        "mergedCandidates": as_int(data.get("merged_candidates"), 0),
+        "candidateOverflows": as_int(data.get("candidate_overflows"), 0),
+        "burstWindowSkippedCandidates": as_int(data.get("burst_window_skipped_candidates"), 0),
+        "budgetRejectedCandidates": as_int(data.get("budget_rejected_candidates"), 0),
+        "rejectedByThreshold": as_int(data.get("rejected_by_threshold"), 0),
+        "rejectedByCooldown": as_int(data.get("rejected_by_cooldown"), 0),
+        "submittedVoices": as_int(data.get("submitted_voices"), 0),
+        "droppedVoices": as_int(data.get("dropped_voices"), 0),
+    }
+
+
+def contact_audio_frame_rows(conn, run_id, args):
+    # Invariant: aggregate rows are frame-level reducer counters, so body and
+    # reason filters intentionally keep them out of scoped verdict queries.
+    if getattr(args, "body", None) is not None or getattr(args, "reason", None):
+        return []
+    where = ["run_id=?", "type='contact_audio_frame'"]
+    params = [run_id]
+    apply_frame_where(where, params, frame_range=getattr(args, "frames", None), frame=getattr(args, "frame", None))
+    rows = conn.execute(
+        f"""
+        select event_id, frame, severity, body_a, body_b, summary, data_json
+        from events
+        where {' and '.join(where)}
+        order by frame, event_id
+        """,
+        params,
+    ).fetchall()
+    return [contact_audio_frame_item(row) for row in rows]
+
+
+def contact_audio_aggregate_summary(frame_items, limit):
+    totals = {
+        "factsSeen": 0,
+        "patchCandidates": 0,
+        "mergedCandidates": 0,
+        "candidateOverflows": 0,
+        "burstWindowSkippedCandidates": 0,
+        "budgetRejectedCandidates": 0,
+        "rejectedByThreshold": 0,
+        "rejectedByCooldown": 0,
+        "submittedVoices": 0,
+        "droppedVoices": 0,
+    }
+    for item in frame_items:
+        for key in totals:
+            totals[key] += item.get(key, 0)
+    bounded_limit = limit or SUMMARY_LIMIT
+    hotspots = sorted(
+        frame_items,
+        key=lambda item: (
+            item["submittedVoices"],
+            item["factsSeen"],
+            item["mergedCandidates"],
+            item["budgetRejectedCandidates"] + item["candidateOverflows"],
+        ),
+        reverse=True,
+    )[:bounded_limit]
+    return {"frameAggregateTotals": totals, "frameAggregateHotspots": hotspots}
+
+
+def contact_audio_summary_from_items(items, limit, frame_items=None):
     decision_counts = {}
     frame_stats = {}
     submitted = 0
@@ -1316,7 +1386,7 @@ def contact_audio_summary_from_items(items, limit):
         key=lambda item: (item["impactScore"] or 0.0, item["normalImpulse"] or 0.0, item["normalClosingSpeed"] or 0.0),
         reverse=True,
     )[:bounded_limit]
-    return {
+    summary = {
         "eventCount": len(items),
         "submitted": submitted,
         "rejected": rejected,
@@ -1324,12 +1394,16 @@ def contact_audio_summary_from_items(items, limit):
         "frameHotspots": frame_hotspots,
         "topImpacts": top_impacts,
     }
+    if frame_items:
+        summary.update(contact_audio_aggregate_summary(frame_items, limit))
+    return summary
 
 
 def query_contact_audio_summary(conn, cache, args):
     run_id = resolve_run_id(conn, args)
     items = contact_audio_rows(conn, run_id, args)
-    summary = contact_audio_summary_from_items(items, args.limit)
+    frame_items = contact_audio_frame_rows(conn, run_id, args)
+    summary = contact_audio_summary_from_items(items, args.limit, frame_items=frame_items)
     return {
         "cache": cache,
         "run": run_id,

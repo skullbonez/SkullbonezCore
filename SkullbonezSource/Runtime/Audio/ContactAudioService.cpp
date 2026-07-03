@@ -284,6 +284,7 @@ struct ContactAudioService::Impl
     std::vector<BodySubmissionCount> bodySubmissionCounts;
     Vector3 listenerPosition = Math::Vector::ZERO_VECTOR;
     ContactAudioStats stats;
+    ContactAudioStats stepStats;
     float timeSeconds = 0.0f;
     float masterGain = 1.0f;
     float maxDistanceScale = 1.0f;
@@ -825,6 +826,68 @@ struct ContactAudioService::Impl
         return decision;
     }
 
+    void CountEventSeen()
+    {
+        ++stats.eventsSeen;
+        ++stepStats.eventsSeen;
+    }
+
+    void CountPatchCandidate()
+    {
+        ++stats.patchCandidates;
+        ++stepStats.patchCandidates;
+    }
+
+    void CountMergedCandidate()
+    {
+        ++stats.mergedCandidates;
+        ++stepStats.mergedCandidates;
+    }
+
+    void CountCandidateOverflow()
+    {
+        ++stats.candidateOverflows;
+        ++stepStats.candidateOverflows;
+    }
+
+    void CountBurstWindowSkip( uint32_t count )
+    {
+        stats.burstWindowSkippedCandidates += count;
+        stepStats.burstWindowSkippedCandidates += count;
+    }
+
+    void CountBudgetRejection()
+    {
+        ++stats.budgetRejectedCandidates;
+        ++stepStats.budgetRejectedCandidates;
+        ++stats.droppedVoices;
+        ++stepStats.droppedVoices;
+    }
+
+    void CountThresholdRejection()
+    {
+        ++stats.rejectedByThreshold;
+        ++stepStats.rejectedByThreshold;
+    }
+
+    void CountCooldownRejection()
+    {
+        ++stats.rejectedByCooldown;
+        ++stepStats.rejectedByCooldown;
+    }
+
+    void CountSubmittedVoice()
+    {
+        ++stats.submittedVoices;
+        ++stepStats.submittedVoices;
+    }
+
+    void CountDroppedVoice()
+    {
+        ++stats.droppedVoices;
+        ++stepStats.droppedVoices;
+    }
+
     void RecordDecision( const ContactAudioDecision& decision )
     {
         if ( decisions.size() < MAX_STEP_DECISIONS )
@@ -922,15 +985,16 @@ struct ContactAudioService::Impl
 
     void AddCandidate( const ContactAudioEvent& event )
     {
-        ++stats.eventsSeen;
+        CountEventSeen();
         const uint64_t key = ContactPatchKey( event );
         for ( StepCandidate& candidate : stepCandidates )
         {
             if ( candidate.key == key )
             {
+                CountMergedCandidate();
                 if ( decisions.size() < MAX_STEP_CANDIDATES )
                 {
-                    ContactAudioDecision decision = BaseDecision( event, key, "candidate_collapsed" );
+                    ContactAudioDecision decision = BaseDecision( event, key, "patch_merged" );
                     decision.previousStrongestImpulse = candidate.event.normalImpulse;
                     RecordDecision( decision );
                 }
@@ -967,12 +1031,14 @@ struct ContactAudioService::Impl
         if ( stepCandidates.size() < MAX_STEP_CANDIDATES )
         {
             stepCandidates.push_back( next );
+            CountPatchCandidate();
         }
         else
         {
+            CountCandidateOverflow();
             if ( decisions.size() < MAX_STEP_CANDIDATES )
             {
-                RecordDecision( BaseDecision( event, key, "candidate_cap" ) );
+                RecordDecision( BaseDecision( event, key, "patch_queue_full" ) );
             }
         }
     }
@@ -984,7 +1050,7 @@ struct ContactAudioService::Impl
         if ( !set )
         {
             RecordDecision( BaseDecision( event, candidate.key, "no_sound_set" ) );
-            ++stats.rejectedByThreshold;
+            CountThresholdRejection();
             return;
         }
         const SoundBand* band = ResolveBand( *set, event.normalImpulse );
@@ -1005,14 +1071,14 @@ struct ContactAudioService::Impl
         {
             decision.reason = "below_min_impulse";
             RecordDecision( decision );
-            ++stats.rejectedByThreshold;
+            CountThresholdRejection();
             return;
         }
         if ( soundIndices.empty() )
         {
             decision.reason = "no_samples";
             RecordDecision( decision );
-            ++stats.rejectedByThreshold;
+            CountThresholdRejection();
             return;
         }
 
@@ -1040,7 +1106,7 @@ struct ContactAudioService::Impl
             // but it is not a new audible contact patch.
             decision.reason = "ongoing_object_contact";
             RecordDecision( decision );
-            ++stats.rejectedByCooldown;
+            CountCooldownRejection();
             return;
         }
 
@@ -1049,7 +1115,7 @@ struct ContactAudioService::Impl
         {
             decision.reason = "roll_or_slide";
             RecordDecision( decision );
-            ++stats.rejectedByThreshold;
+            CountThresholdRejection();
             return;
         }
 
@@ -1058,7 +1124,7 @@ struct ContactAudioService::Impl
         {
             decision.reason = "settle";
             RecordDecision( decision );
-            ++stats.rejectedByCooldown;
+            CountCooldownRejection();
             return;
         }
 
@@ -1068,7 +1134,7 @@ struct ContactAudioService::Impl
             {
                 decision.reason = ongoingContact ? "cooldown_ongoing" : "cooldown";
                 RecordDecision( decision );
-                ++stats.rejectedByCooldown;
+                CountCooldownRejection();
                 return;
             }
         }
@@ -1079,14 +1145,14 @@ struct ContactAudioService::Impl
             // thud needs contact work, not just constraint force.
             decision.reason = "propagated_impulse";
             RecordDecision( decision );
-            ++stats.rejectedByThreshold;
+            CountThresholdRejection();
             return;
         }
         if ( event.hasMotionData && impactScore < minImpactScoreForSet )
         {
             decision.reason = "below_min_impact_score";
             RecordDecision( decision );
-            ++stats.rejectedByThreshold;
+            CountThresholdRejection();
             return;
         }
 
@@ -1098,7 +1164,7 @@ struct ContactAudioService::Impl
         {
             decision.reason = "distance";
             RecordDecision( decision );
-            ++stats.rejectedByThreshold;
+            CountThresholdRejection();
             return;
         }
 
@@ -1118,7 +1184,7 @@ struct ContactAudioService::Impl
         {
             decision.reason = "gain_floor";
             RecordDecision( decision );
-            ++stats.rejectedByThreshold;
+            CountThresholdRejection();
             return;
         }
 
@@ -1126,7 +1192,7 @@ struct ContactAudioService::Impl
         {
             decision.reason = "backend_unavailable";
             RecordDecision( decision );
-            ++stats.droppedVoices;
+            CountDroppedVoice();
             return;
         }
 
@@ -1146,7 +1212,7 @@ struct ContactAudioService::Impl
         bool stoleVoice = false;
         if ( SubmitDecodedSound( soundIndex, gain, pitch, set->maxVoices, stoleVoice ) )
         {
-            ++stats.submittedVoices;
+            CountSubmittedVoice();
             decision.reason = stoleVoice ? "voice_stolen" : "submitted";
             decision.submitted = true;
             decision.flashEligible = true;
@@ -1169,7 +1235,7 @@ struct ContactAudioService::Impl
         else
         {
             decision.reason = "voice_cap";
-            ++stats.droppedVoices;
+            CountDroppedVoice();
         }
         RecordDecision( decision );
     }
@@ -1359,6 +1425,7 @@ void ContactAudioService::BeginPhysicsStep( float deltaSeconds, const Vector3& l
     m_impl->stepCandidates.clear();
     m_impl->submittedContacts.clear();
     m_impl->decisions.clear();
+    m_impl->stepStats = ContactAudioStats{};
 }
 
 
@@ -1385,6 +1452,7 @@ void ContactAudioService::EndPhysicsStep()
     {
         // Why: piles can generate hundreds of real contact rows per second. The
         // sound model is intentionally a burst selector, not a contact counter.
+        m_impl->CountBurstWindowSkip( static_cast<uint32_t>( m_impl->stepCandidates.size() ) );
         m_impl->stepCandidates.clear();
         m_impl->bodySubmissionCounts.clear();
         return;
@@ -1417,14 +1485,14 @@ void ContactAudioService::EndPhysicsStep()
         {
             ContactAudioDecision decision = m_impl->BaseDecision( candidate.event, candidate.key, "burst_budget" );
             m_impl->RecordDecision( decision );
-            ++m_impl->stats.droppedVoices;
+            m_impl->CountBudgetRejection();
             continue;
         }
         if ( !m_impl->HasBodyBudget( candidate.event ) )
         {
             ContactAudioDecision decision = m_impl->BaseDecision( candidate.event, candidate.key, "body_budget" );
             m_impl->RecordDecision( decision );
-            ++m_impl->stats.droppedVoices;
+            m_impl->CountBudgetRejection();
             continue;
         }
         const std::size_t submittedBefore = m_impl->submittedContacts.size();
@@ -1517,9 +1585,16 @@ const ContactAudioStats& ContactAudioService::Stats() const
 }
 
 
+const ContactAudioStats& ContactAudioService::StepStats() const
+{
+    return m_impl->stepStats;
+}
+
+
 void ContactAudioService::ResetFrameStats()
 {
     m_impl->stats = ContactAudioStats{};
+    m_impl->stepStats = ContactAudioStats{};
 }
 } // namespace Audio
 } // namespace Runtime
