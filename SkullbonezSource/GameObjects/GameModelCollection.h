@@ -118,7 +118,8 @@ class GameModelCollection : public Rendering::IRenderSceneView,
     void RunPhysics( float fChangeInTime, const Basics::EngineConfig& config, Threading::WorkerPool& workerPool );
     int GetRenderModelCount() const override;
     int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount ) override;
-    void RenderModels( const Math::Transformation::Matrix4& view,
+    void RenderModels( const Basics::RenderHelperContext& helperContext,
+                       const Math::Transformation::Matrix4& view,
                        const Math::Transformation::Matrix4& proj,
                        const float lightPos[4],
                        const Basics::CinematicRenderConfig* cinematic = nullptr,
@@ -127,11 +128,13 @@ class GameModelCollection : public Rendering::IRenderSceneView,
                        const std::vector<uint8_t>* modelMask = nullptr,
                        bool drawMaskedModels = true ) override;
     void BuildShadowCasterBatches( Rendering::ShadowCasterBatches& outBatches ) override;
-    void RenderShadowCasterBatches( const Rendering::ShadowCasterBatches& batches,
+    void RenderShadowCasterBatches( const Basics::RenderHelperContext& helperContext,
+                                    const Rendering::ShadowCasterBatches& batches,
                                     const Math::Transformation::Matrix4& view,
                                     const Math::Transformation::Matrix4& proj,
                                     const Basics::CinematicRenderConfig* cinematic = nullptr ) override;
-    void RenderShadowCasters( const Math::Transformation::Matrix4& view,
+    void RenderShadowCasters( const Basics::RenderHelperContext& helperContext,
+                              const Math::Transformation::Matrix4& view,
                               const Math::Transformation::Matrix4& proj,
                               const Basics::CinematicRenderConfig* cinematic = nullptr ) override;
     void PrepareRenderStreams();

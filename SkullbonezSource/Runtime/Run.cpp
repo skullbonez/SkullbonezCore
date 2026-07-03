@@ -304,7 +304,6 @@ Run::~Run()
     ReleaseBackendOwnedRenderResources( "shutdown_release" );
 
     Text2d::UnbindRenderContexts();
-    RenderHelper::UnbindRenderContexts();
 }
 
 
@@ -361,7 +360,7 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
             m_cWorldEnvironment.ReleaseRenderResources();
             break;
         case BackendResourceStep::HelperResources:
-            RenderHelper::ResetRenderResources();
+            RenderHelper::ResetRenderResources( releaseRenderResources );
             break;
         case BackendResourceStep::GameModelResources:
             m_cGameModelCollection.ResetRenderResources();
@@ -1276,7 +1275,6 @@ void Run::Initialise()
     m_systems.textures = &m_systems.textureCollection;
     m_systems.textures->BindAssetSystem( &m_systems.assets );
     m_systems.textures->BindRenderContexts( &renderResources, &renderCommands );
-    RenderHelper::BindRenderContexts( renderResources, renderCommands, m_systems.assets, m_config );
     Text2d::BindRenderContexts( renderResources, renderCommands, m_systems.assets, m_config );
     RegisterBuiltInAssets();
 

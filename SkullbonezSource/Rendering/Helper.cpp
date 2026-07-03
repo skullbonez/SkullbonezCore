@@ -86,33 +86,25 @@ static bool sPineBatchReady = false;
 static uint32_t sMaterialTableTexture = 0;
 static uint32_t sConvexHullDynamicVB = 0;
 static std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> sConvexHullVertexData = {};
-static IRenderResourceFactory* sRenderResources = nullptr;
-static IRenderCommandContext* sRenderCommands = nullptr;
-static const SkullbonezCore::Assets::AssetSystem* sAssets = nullptr;
-static const EngineConfig* sConfig = nullptr;
 
-static IRenderResourceFactory& Resources()
+static IRenderResourceFactory& Resources( const RenderHelperContext& context )
 {
-    assert( sRenderResources && "RenderHelper used before BindRenderContexts" );
-    return *sRenderResources;
+    return context.renderResources;
 }
 
-static IRenderCommandContext& Commands()
+static IRenderCommandContext& Commands( const RenderHelperContext& context )
 {
-    assert( sRenderCommands && "RenderHelper used before BindRenderContexts" );
-    return *sRenderCommands;
+    return context.renderCommands;
 }
 
-static const SkullbonezCore::Assets::AssetSystem& AssetRegistry()
+static const SkullbonezCore::Assets::AssetSystem& AssetRegistry( const RenderHelperContext& context )
 {
-    assert( sAssets && "RenderHelper used before BindRenderContexts" );
-    return *sAssets;
+    return context.assets;
 }
 
-static const EngineConfig& Config()
+static const EngineConfig& Config( const RenderHelperContext& context )
 {
-    assert( sConfig && "RenderHelper used before BindRenderContexts" );
-    return *sConfig;
+    return context.config;
 }
 
 // Layout contract: mirrors the Uniforms cbuffer in lit_textured_instanced.hlsl.
@@ -148,23 +140,23 @@ struct InstancedShadowDepthConstants
     float clipPlane[4];
 };
 
-static void BeginPrimitiveBatchTransparency( bool isTransparent )
+static void BeginPrimitiveBatchTransparency( const RenderHelperContext& context, bool isTransparent )
 {
     if ( isTransparent )
     {
-        Commands().SetBlend( true );
-        Commands().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
-        Commands().SetDepthWrite( false );
+        Commands( context ).SetBlend( true );
+        Commands( context ).SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
+        Commands( context ).SetDepthWrite( false );
     }
 }
 
-static void EndPrimitiveBatchTransparency( bool wasTransparent )
+static void EndPrimitiveBatchTransparency( const RenderHelperContext& context, bool wasTransparent )
 {
     if ( wasTransparent )
     {
-        Commands().SetDepthWrite( true );
+        Commands( context ).SetDepthWrite( true );
     }
-    Commands().SetBlend( false );
+    Commands( context ).SetBlend( false );
 }
 
 static uint8_t MaterialByte( float value )
@@ -174,7 +166,7 @@ static uint8_t MaterialByte( float value )
     return static_cast<uint8_t>( std::clamp( value, 0.0f, 1.0f ) * 255.0f + 0.5f );
 }
 
-static void EnsureMaterialTableTexture()
+static void EnsureMaterialTableTexture( const RenderHelperContext& context )
 {
     // Concept: the current object material table is a tiny texture, not a
     // structured buffer or bindless descriptor table.
@@ -186,7 +178,7 @@ static void EnsureMaterialTableTexture()
     // model beyond the ordinary raster ABI.
     if ( sMaterialTableTexture != 0 )
     {
-        Commands().BindTexture( sMaterialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
+        Commands( context ).BindTexture( sMaterialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
         return;
     }
 
@@ -203,8 +195,8 @@ static void EnsureMaterialTableTexture()
         rows[i * 4 + 3] = MaterialByte( material.stylization );
     }
 
-    sMaterialTableTexture = Resources().CreateTexture2D( rows, MATERIAL_TABLE_WIDTH, 1, 4, false, false );
-    Commands().BindTexture( sMaterialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
+    sMaterialTableTexture = Resources( context ).CreateTexture2D( rows, MATERIAL_TABLE_WIDTH, 1, 4, false, false );
+    Commands( context ).BindTexture( sMaterialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
 }
 
 static void
@@ -245,7 +237,7 @@ static std::array<float, INSTANCE_FLOATS> BuildSingleMatrixPayload( const Matrix
     return out;
 }
 
-static void EnsureConvexHullDynamicVB()
+static void EnsureConvexHullDynamicVB( const RenderHelperContext& context )
 {
     if ( sConvexHullDynamicVB != 0 )
     {
@@ -253,7 +245,7 @@ static void EnsureConvexHullDynamicVB()
     }
 
     int attribs[] = { 3, 3, 2, 4, 4, 4, 4, 4, 4, 4, 4 };
-    sConvexHullDynamicVB = Resources().CreateDynamicVB( attribs, 11, HULL_MAX_TRIANGLE_VERTICES );
+    sConvexHullDynamicVB = Resources( context ).CreateDynamicVB( attribs, 11, HULL_MAX_TRIANGLE_VERTICES );
 }
 
 static int BuildConvexHullDynamicVertices( const ConvexHullShape& hull,
@@ -303,9 +295,9 @@ static int BuildConvexHullDynamicVertices( const ConvexHullShape& hull,
     return vertexCount;
 }
 
-static void ApplySceneLightConstants( PrimitiveBatchShaderConstants& constants )
+static void ApplySceneLightConstants( const RenderHelperContext& context, PrimitiveBatchShaderConstants& constants )
 {
-    const OrdinaryRenderConfig& ordinary = Config().ordinaryRender;
+    const OrdinaryRenderConfig& ordinary = Config( context ).ordinaryRender;
     constants.lightAmbient[0] = ordinary.skyAmbientR;
     constants.lightAmbient[1] = ordinary.skyAmbientG;
     constants.lightAmbient[2] = ordinary.skyAmbientB;
@@ -325,9 +317,9 @@ static void ApplySceneLightConstants( PrimitiveBatchShaderConstants& constants )
     constants.objectStylePad = ordinary.boxSpecularScale;
 }
 
-static void ApplySceneLightUniforms( IShader& shader )
+static void ApplySceneLightUniforms( const RenderHelperContext& context, IShader& shader )
 {
-    const OrdinaryRenderConfig& ordinary = Config().ordinaryRender;
+    const OrdinaryRenderConfig& ordinary = Config( context ).ordinaryRender;
     shader.SetVec4( "uLightAmbient",
                     ordinary.skyAmbientR,
                     ordinary.skyAmbientG,
@@ -341,6 +333,7 @@ static void ApplySceneLightUniforms( IShader& shader )
 }
 
 static void ApplyBatchLightConstants( PrimitiveBatchShaderConstants& constants,
+                                      const RenderHelperContext& context,
                                       const CinematicRenderConfig* cinematicOverride )
 {
     if ( cinematicOverride )
@@ -357,7 +350,7 @@ static void ApplyBatchLightConstants( PrimitiveBatchShaderConstants& constants,
         return;
     }
 
-    ApplySceneLightConstants( constants );
+    ApplySceneLightConstants( context, constants );
 }
 
 static int ObjectStyleForShader( const CinematicRenderConfig* cinematicOverride )
@@ -374,6 +367,7 @@ static int ObjectStyleForMeshSelection( const CinematicRenderConfig* cinematicOv
 }
 
 static void FillShadowReceiverConstants( PrimitiveBatchShaderConstants& constants,
+                                         const RenderHelperContext& context,
                                          const ShadowFrameData* shadow,
                                          bool receive,
                                          bool objectReceiver )
@@ -394,11 +388,12 @@ static void FillShadowReceiverConstants( PrimitiveBatchShaderConstants& constant
     constants.shadowFlags[2] = enabled ? static_cast<float>( shadow->pcfRadius ) : 0.0f;
     constants.shadowFlags[3] = enabled && shadow->zeroToOneDepth ? 1.0f : 0.0f;
 
-    Commands().BindTexture( enabled ? shadow->depthTextureHandle : 0, SHADOW_TEXTURE_SLOT );
+    Commands( context ).BindTexture( enabled ? shadow->depthTextureHandle : 0, SHADOW_TEXTURE_SLOT );
 }
 
 struct PrimitiveBatchShaderParams
 {
+    const RenderHelperContext& context;
     const Matrix4& view;
     const Matrix4& projection;
     const float* lightPosition;
@@ -412,7 +407,7 @@ struct PrimitiveBatchShaderParams
 
 static bool BindPrimitiveBatchShader( IShader& shader, const PrimitiveBatchShaderParams& params )
 {
-    EnsureMaterialTableTexture();
+    EnsureMaterialTableTexture( params.context );
 
     float viewLightPos[4];
     for ( int i = 0; i < 3; ++i )
@@ -447,8 +442,8 @@ static bool BindPrimitiveBatchShader( IShader& shader, const PrimitiveBatchShade
     constants.primitiveShape = params.primitiveShape;
     constants.materialAlpha = std::clamp( params.materialAlpha, 0.0f, 1.0f );
     constants.objectStylePad = 0.0f;
-    ApplyBatchLightConstants( constants, params.cinematic );
-    FillShadowReceiverConstants( constants, params.shadow, params.receiveShadows, true );
+    ApplyBatchLightConstants( constants, params.context, params.cinematic );
+    FillShadowReceiverConstants( constants, params.context, params.shadow, params.receiveShadows, true );
     return shader.SetConstantBufferBytes( &constants, sizeof( constants ), "PrimitiveBatchShaderConstants" );
 }
 
@@ -461,65 +456,62 @@ void RenderHelper::SetClipPlane( float x, float y, float z, float w )
 }
 
 
-void RenderHelper::BindRenderContexts( IRenderResourceFactory& renderResources,
-                                       IRenderCommandContext& renderCommands,
-                                       const SkullbonezCore::Assets::AssetSystem& assets,
-                                       const EngineConfig& config )
-{
-    sRenderResources = &renderResources;
-    sRenderCommands = &renderCommands;
-    sAssets = &assets;
-    sConfig = &config;
-}
-
-
-void RenderHelper::UnbindRenderContexts()
-{
-    sRenderResources = nullptr;
-    sRenderCommands = nullptr;
-    sAssets = nullptr;
-    sConfig = nullptr;
-}
-
-
 const float* RenderHelper::GetClipPlane()
 {
     return sClipPlane;
 }
 
 
-void RenderHelper::ResetRenderResources()
+void RenderHelper::ResetRenderResources( IRenderResourceFactory* renderResources )
 {
     sphereShader.reset();
     shadowDepthShader.reset();
     if ( sphereInstMesh != 0 )
     {
-        Resources().DestroyInstancedMesh( sphereInstMesh );
+        if ( renderResources )
+        {
+            renderResources->DestroyInstancedMesh( sphereInstMesh );
+        }
         sphereInstMesh = 0;
     }
     if ( lowPolySphereInstMesh != 0 )
     {
-        Resources().DestroyInstancedMesh( lowPolySphereInstMesh );
+        if ( renderResources )
+        {
+            renderResources->DestroyInstancedMesh( lowPolySphereInstMesh );
+        }
         lowPolySphereInstMesh = 0;
     }
     if ( boxInstMesh != 0 )
     {
-        Resources().DestroyInstancedMesh( boxInstMesh );
+        if ( renderResources )
+        {
+            renderResources->DestroyInstancedMesh( boxInstMesh );
+        }
         boxInstMesh = 0;
     }
     if ( pineInstMesh != 0 )
     {
-        Resources().DestroyInstancedMesh( pineInstMesh );
+        if ( renderResources )
+        {
+            renderResources->DestroyInstancedMesh( pineInstMesh );
+        }
         pineInstMesh = 0;
     }
     if ( sMaterialTableTexture != 0 )
     {
-        Resources().DeleteTexture( sMaterialTableTexture );
+        if ( renderResources )
+        {
+            renderResources->DeleteTexture( sMaterialTableTexture );
+        }
         sMaterialTableTexture = 0;
     }
     if ( sConvexHullDynamicVB != 0 )
     {
-        Resources().DestroyDynamicVB( sConvexHullDynamicVB );
+        if ( renderResources )
+        {
+            renderResources->DestroyDynamicVB( sConvexHullDynamicVB );
+        }
         sConvexHullDynamicVB = 0;
     }
     activeSphereInstMesh = 0;
@@ -527,13 +519,13 @@ void RenderHelper::ResetRenderResources()
 }
 
 
-void RenderHelper::EnsureSphereShader()
+void RenderHelper::EnsureSphereShader( const RenderHelperContext& context )
 {
     if ( !sphereShader )
     {
-        sphereShader = AssetRegistry().CreateShader( Resources(), "shader.lit_textured_instanced" );
+        sphereShader = AssetRegistry( context ).CreateShader( Resources( context ), "shader.lit_textured_instanced" );
         sphereShader->Use();
-        ApplySceneLightUniforms( *sphereShader );
+        ApplySceneLightUniforms( context, *sphereShader );
         sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
         sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
         sphereShader->SetFloat( "uMaterialAlpha", 1.0f );
@@ -541,7 +533,7 @@ void RenderHelper::EnsureSphereShader()
 }
 
 
-void RenderHelper::EnsureShadowDepthShader()
+void RenderHelper::EnsureShadowDepthShader( const RenderHelperContext& context )
 {
     if ( !shadowDepthShader )
     {
@@ -549,22 +541,23 @@ void RenderHelper::EnsureShadowDepthShader()
         // visuals because all three meshes expose the same static attributes and
         // per-instance material layout. The fragment output is irrelevant; the
         // depth attachment is the shadow map product.
-        shadowDepthShader = AssetRegistry().CreateShader( Resources(), "shader.shadow_depth_instanced" );
+        shadowDepthShader =
+            AssetRegistry( context ).CreateShader( Resources( context ), "shader.shadow_depth_instanced" );
     }
 }
 
 
-void RenderHelper::EnsureSphereMesh()
+void RenderHelper::EnsureSphereMesh( const RenderHelperContext& context )
 {
     if ( sphereInstMesh == 0 )
     {
-        BuildSphereMesh( 25, 25 );
+        BuildSphereMesh( context, 25, 25 );
     }
-    EnsureSphereShader();
+    EnsureSphereShader( context );
 }
 
 
-void RenderHelper::BuildSphereMesh( int slices, int stacks )
+void RenderHelper::BuildSphereMesh( const RenderHelperContext& context, int slices, int stacks )
 {
     std::vector<float> verts;
     verts.reserve( PrimitiveMeshes::SphereTriangleVertexCount( slices, stacks ) * 8 );
@@ -584,22 +577,22 @@ void RenderHelper::BuildSphereMesh( int slices, int stacks )
     int staticAttribSizes[] = { 3, 3, 2 };
     // Instance layout: model matrix plus three float4 material rows, starting at location 3.
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    sphereInstMesh = Resources().CreateInstancedMesh( verts.data(),
-                                                      sphereVertexCount,
-                                                      8,
-                                                      MAX_GAME_MODELS,
-                                                      INSTANCE_FLOATS,
-                                                      3,
-                                                      instanceAttribSizes,
-                                                      8,
-                                                      staticAttribSizes,
-                                                      3 );
+    sphereInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
+                                                               sphereVertexCount,
+                                                               8,
+                                                               MAX_GAME_MODELS,
+                                                               INSTANCE_FLOATS,
+                                                               3,
+                                                               instanceAttribSizes,
+                                                               8,
+                                                               staticAttribSizes,
+                                                               3 );
 
     sphereInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
 
 
-void RenderHelper::BuildLowPolySphereMesh( int slices, int stacks )
+void RenderHelper::BuildLowPolySphereMesh( const RenderHelperContext& context, int slices, int stacks )
 {
     std::vector<float> verts;
     verts.reserve( PrimitiveMeshes::SphereTriangleVertexCount( slices, stacks ) * 8 );
@@ -617,22 +610,23 @@ void RenderHelper::BuildLowPolySphereMesh( int slices, int stacks )
 
     int staticAttribSizes[] = { 3, 3, 2 };
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    lowPolySphereInstMesh = Resources().CreateInstancedMesh( verts.data(),
-                                                             lowPolySphereVertexCount,
-                                                             8,
-                                                             MAX_GAME_MODELS,
-                                                             INSTANCE_FLOATS,
-                                                             3,
-                                                             instanceAttribSizes,
-                                                             8,
-                                                             staticAttribSizes,
-                                                             3 );
+    lowPolySphereInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
+                                                                      lowPolySphereVertexCount,
+                                                                      8,
+                                                                      MAX_GAME_MODELS,
+                                                                      INSTANCE_FLOATS,
+                                                                      3,
+                                                                      instanceAttribSizes,
+                                                                      8,
+                                                                      staticAttribSizes,
+                                                                      3 );
 
     sphereInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
 
 
-void RenderHelper::DrawSphereBatchBegin( const Matrix4& view,
+void RenderHelper::DrawSphereBatchBegin( const RenderHelperContext& context,
+                                         const Matrix4& view,
                                          const Matrix4& proj,
                                          const float lightPos[4],
                                          bool isTransparent,
@@ -648,7 +642,7 @@ void RenderHelper::DrawSphereBatchBegin( const Matrix4& view,
     {
         if ( lowPolySphereInstMesh == 0 )
         {
-            BuildLowPolySphereMesh( 12, 7 );
+            BuildLowPolySphereMesh( context, 12, 7 );
         }
         activeSphereInstMesh = lowPolySphereInstMesh;
         activeSphereVertexCount = lowPolySphereVertexCount;
@@ -657,14 +651,14 @@ void RenderHelper::DrawSphereBatchBegin( const Matrix4& view,
     {
         if ( sphereInstMesh == 0 )
         {
-            BuildSphereMesh( 25, 25 );
+            BuildSphereMesh( context, 25, 25 );
         }
         activeSphereInstMesh = sphereInstMesh;
         activeSphereVertexCount = sphereVertexCount;
     }
-    EnsureSphereShader();
+    EnsureSphereShader( context );
 
-    BeginPrimitiveBatchTransparency( isTransparent );
+    BeginPrimitiveBatchTransparency( context, isTransparent );
 
     // Low-poly spheres still cast real shadows onto terrain, but they do not
     // receive object shadows. The shadow map is single and terrain-sized, so
@@ -672,7 +666,8 @@ void RenderHelper::DrawSphereBatchBegin( const Matrix4& view,
     // used by the low-poly beachball style.
     const bool receiveSphereShadows = shadow && shadow->objectsReceive && !useLowPolySphereMesh;
     sSphereBatchReady = BindPrimitiveBatchShader( *sphereShader,
-                                                  { view,
+                                                  { context,
+                                                    view,
                                                     proj,
                                                     lightPos,
                                                     sClipPlane,
@@ -701,26 +696,27 @@ void RenderHelper::DrawSphereBatchModel( const Matrix4& model,
 }
 
 
-void RenderHelper::DrawSphereBatchEnd()
+void RenderHelper::DrawSphereBatchEnd( const RenderHelperContext& context )
 {
     int instanceCount = static_cast<int>( sphereInstanceData.size() ) / INSTANCE_FLOATS;
     if ( instanceCount > 0 && activeSphereInstMesh != 0 )
     {
         if ( sSphereBatchReady )
         {
-            Commands().UploadInstanceData( activeSphereInstMesh,
-                                           sphereInstanceData.data(),
-                                           static_cast<int>( sphereInstanceData.size() ) );
-            Commands().DrawInstancedMesh( activeSphereInstMesh, activeSphereVertexCount, instanceCount );
+            Commands( context ).UploadInstanceData( activeSphereInstMesh,
+                                                    sphereInstanceData.data(),
+                                                    static_cast<int>( sphereInstanceData.size() ) );
+            Commands( context ).DrawInstancedMesh( activeSphereInstMesh, activeSphereVertexCount, instanceCount );
         }
     }
-    EndPrimitiveBatchTransparency( sSphereBatchTransparent );
+    EndPrimitiveBatchTransparency( context, sSphereBatchTransparent );
     sSphereBatchTransparent = false;
     sSphereBatchReady = false;
 }
 
 
-void RenderHelper::DrawShadowDepthSphereBatchBegin( const Matrix4& view,
+void RenderHelper::DrawShadowDepthSphereBatchBegin( const RenderHelperContext& context,
+                                                    const Matrix4& view,
                                                     const Matrix4& proj,
                                                     const CinematicRenderConfig* cinematic )
 {
@@ -733,7 +729,7 @@ void RenderHelper::DrawShadowDepthSphereBatchBegin( const Matrix4& view,
     {
         if ( lowPolySphereInstMesh == 0 )
         {
-            BuildLowPolySphereMesh( 12, 7 );
+            BuildLowPolySphereMesh( context, 12, 7 );
         }
         activeSphereInstMesh = lowPolySphereInstMesh;
         activeSphereVertexCount = lowPolySphereVertexCount;
@@ -742,13 +738,13 @@ void RenderHelper::DrawShadowDepthSphereBatchBegin( const Matrix4& view,
     {
         if ( sphereInstMesh == 0 )
         {
-            BuildSphereMesh( 25, 25 );
+            BuildSphereMesh( context, 25, 25 );
         }
         activeSphereInstMesh = sphereInstMesh;
         activeSphereVertexCount = sphereVertexCount;
     }
 
-    EnsureShadowDepthShader();
+    EnsureShadowDepthShader( context );
     shadowDepthShader->Use();
     InstancedShadowDepthConstants constants = {};
     constants.view = view;
@@ -769,7 +765,7 @@ void RenderHelper::DrawShadowDepthSphereBatchModel( const Matrix4& model )
 }
 
 
-void RenderHelper::DrawShadowDepthSphereBatchEnd()
+void RenderHelper::DrawShadowDepthSphereBatchEnd( const RenderHelperContext& context )
 {
     int instanceCount = static_cast<int>( sphereInstanceData.size() ) / INSTANCE_FLOATS;
     if ( sSphereBatchReady && instanceCount > 0 && activeSphereInstMesh != 0 )
@@ -777,10 +773,10 @@ void RenderHelper::DrawShadowDepthSphereBatchEnd()
         // Upload only the compact per-instance stream, then issue one instanced
         // draw for every sphere caster. This keeps the shadow pass draw-call
         // count predictable even in scenes with hundreds of balls.
-        Commands().UploadInstanceData( activeSphereInstMesh,
-                                       sphereInstanceData.data(),
-                                       static_cast<int>( sphereInstanceData.size() ) );
-        Commands().DrawInstancedMesh( activeSphereInstMesh, activeSphereVertexCount, instanceCount );
+        Commands( context ).UploadInstanceData( activeSphereInstMesh,
+                                                sphereInstanceData.data(),
+                                                static_cast<int>( sphereInstanceData.size() ) );
+        Commands( context ).DrawInstancedMesh( activeSphereInstMesh, activeSphereVertexCount, instanceCount );
     }
     sSphereBatchReady = false;
 }
@@ -797,7 +793,7 @@ void RenderHelper::DrawShadowDepthSphereBatchEnd()
 // =============================================================================
 
 
-void RenderHelper::BuildBoxMesh()
+void RenderHelper::BuildBoxMesh( const RenderHelperContext& context )
 {
     std::vector<float> verts;
     verts.reserve( PrimitiveMeshes::BoxTriangleVertexCount() * 8 );
@@ -813,22 +809,23 @@ void RenderHelper::BuildBoxMesh()
 
     int staticAttribSizes[] = { 3, 3, 2 };
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    boxInstMesh = Resources().CreateInstancedMesh( verts.data(),
-                                                   boxVertexCount,
-                                                   8,
-                                                   MAX_GAME_MODELS,
-                                                   INSTANCE_FLOATS,
-                                                   3,
-                                                   instanceAttribSizes,
-                                                   8,
-                                                   staticAttribSizes,
-                                                   3 );
+    boxInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
+                                                            boxVertexCount,
+                                                            8,
+                                                            MAX_GAME_MODELS,
+                                                            INSTANCE_FLOATS,
+                                                            3,
+                                                            instanceAttribSizes,
+                                                            8,
+                                                            staticAttribSizes,
+                                                            3 );
 
     boxInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
 
 
-void RenderHelper::DrawBoxBatchBegin( const Matrix4& view,
+void RenderHelper::DrawBoxBatchBegin( const RenderHelperContext& context,
+                                      const Matrix4& view,
                                       const Matrix4& proj,
                                       const float lightPos[4],
                                       bool isTransparent,
@@ -840,16 +837,17 @@ void RenderHelper::DrawBoxBatchBegin( const Matrix4& view,
     sBoxBatchReady = false;
     if ( boxInstMesh == 0 )
     {
-        BuildBoxMesh();
+        BuildBoxMesh( context );
     }
 
     // Reuse sphere shader (same vertex layout, same lighting model).
-    EnsureSphereShader();
+    EnsureSphereShader( context );
 
-    BeginPrimitiveBatchTransparency( isTransparent );
+    BeginPrimitiveBatchTransparency( context, isTransparent );
 
     sBoxBatchReady = BindPrimitiveBatchShader( *sphereShader,
-                                               { view,
+                                               { context,
+                                                 view,
                                                  proj,
                                                  lightPos,
                                                  sClipPlane,
@@ -874,30 +872,32 @@ void RenderHelper::DrawBoxBatchModel( const Matrix4& model, float tintR, float t
 }
 
 
-void RenderHelper::DrawBoxBatchEnd()
+void RenderHelper::DrawBoxBatchEnd( const RenderHelperContext& context )
 {
     int instanceCount = static_cast<int>( boxInstanceData.size() ) / INSTANCE_FLOATS;
     if ( sBoxBatchReady && instanceCount > 0 )
     {
-        Commands().UploadInstanceData( boxInstMesh,
-                                       boxInstanceData.data(),
-                                       static_cast<int>( boxInstanceData.size() ) );
-        Commands().DrawInstancedMesh( boxInstMesh, boxVertexCount, instanceCount );
+        Commands( context ).UploadInstanceData( boxInstMesh,
+                                                boxInstanceData.data(),
+                                                static_cast<int>( boxInstanceData.size() ) );
+        Commands( context ).DrawInstancedMesh( boxInstMesh, boxVertexCount, instanceCount );
     }
-    EndPrimitiveBatchTransparency( sBoxBatchTransparent );
+    EndPrimitiveBatchTransparency( context, sBoxBatchTransparent );
     sBoxBatchTransparent = false;
     sBoxBatchReady = false;
 }
 
 
-void RenderHelper::DrawShadowDepthBoxBatchBegin( const Matrix4& view, const Matrix4& proj )
+void RenderHelper::DrawShadowDepthBoxBatchBegin( const RenderHelperContext& context,
+                                                 const Matrix4& view,
+                                                 const Matrix4& proj )
 {
     sBoxBatchReady = false;
     if ( boxInstMesh == 0 )
     {
-        BuildBoxMesh();
+        BuildBoxMesh( context );
     }
-    EnsureShadowDepthShader();
+    EnsureShadowDepthShader( context );
     shadowDepthShader->Use();
     InstancedShadowDepthConstants constants = {};
     constants.view = view;
@@ -918,7 +918,7 @@ void RenderHelper::DrawShadowDepthBoxBatchModel( const Matrix4& model )
 }
 
 
-void RenderHelper::DrawShadowDepthBoxBatchEnd()
+void RenderHelper::DrawShadowDepthBoxBatchEnd( const RenderHelperContext& context )
 {
     int instanceCount = static_cast<int>( boxInstanceData.size() ) / INSTANCE_FLOATS;
     if ( sBoxBatchReady && instanceCount > 0 && boxInstMesh != 0 )
@@ -926,15 +926,16 @@ void RenderHelper::DrawShadowDepthBoxBatchEnd()
         // This draw is the box-caster fix point: if a scene has boxes and shadow
         // maps are active, their depth is written here before terrain/objects
         // sample the map in the forward pass.
-        Commands().UploadInstanceData( boxInstMesh,
-                                       boxInstanceData.data(),
-                                       static_cast<int>( boxInstanceData.size() ) );
-        Commands().DrawInstancedMesh( boxInstMesh, boxVertexCount, instanceCount );
+        Commands( context ).UploadInstanceData( boxInstMesh,
+                                                boxInstanceData.data(),
+                                                static_cast<int>( boxInstanceData.size() ) );
+        Commands( context ).DrawInstancedMesh( boxInstMesh, boxVertexCount, instanceCount );
     }
     sBoxBatchReady = false;
 }
 
-void RenderHelper::DrawConvexHullModel( const ConvexHullShape& hull,
+void RenderHelper::DrawConvexHullModel( const RenderHelperContext& context,
+                                        const ConvexHullShape& hull,
                                         const Matrix4& model,
                                         const RenderMaterial& material,
                                         const Matrix4& view,
@@ -945,7 +946,7 @@ void RenderHelper::DrawConvexHullModel( const ConvexHullShape& hull,
                                         const ShadowFrameData* shadow,
                                         float materialAlpha )
 {
-    EnsureConvexHullDynamicVB();
+    EnsureConvexHullDynamicVB( context );
     const std::array<float, INSTANCE_FLOATS> instancePayload = BuildSingleMaterialInstancePayload( model, material );
     const int vertexCount = BuildConvexHullDynamicVertices( hull, instancePayload );
     if ( sConvexHullDynamicVB == 0 || vertexCount <= 0 )
@@ -953,10 +954,11 @@ void RenderHelper::DrawConvexHullModel( const ConvexHullShape& hull,
         return;
     }
 
-    EnsureSphereShader();
-    BeginPrimitiveBatchTransparency( isTransparent );
+    EnsureSphereShader( context );
+    BeginPrimitiveBatchTransparency( context, isTransparent );
     const bool ready = BindPrimitiveBatchShader( *sphereShader,
-                                                 { view,
+                                                 { context,
+                                                   view,
                                                    proj,
                                                    lightPos,
                                                    sClipPlane,
@@ -967,17 +969,18 @@ void RenderHelper::DrawConvexHullModel( const ConvexHullShape& hull,
                                                    materialAlpha } );
     if ( ready )
     {
-        Commands().UploadAndDrawDynamicVB( sConvexHullDynamicVB, sConvexHullVertexData.data(), vertexCount );
+        Commands( context ).UploadAndDrawDynamicVB( sConvexHullDynamicVB, sConvexHullVertexData.data(), vertexCount );
     }
-    EndPrimitiveBatchTransparency( isTransparent );
+    EndPrimitiveBatchTransparency( context, isTransparent );
 }
 
-void RenderHelper::DrawShadowDepthConvexHullModel( const ConvexHullShape& hull,
+void RenderHelper::DrawShadowDepthConvexHullModel( const RenderHelperContext& context,
+                                                   const ConvexHullShape& hull,
                                                    const Matrix4& model,
                                                    const Matrix4& view,
                                                    const Matrix4& proj )
 {
-    EnsureConvexHullDynamicVB();
+    EnsureConvexHullDynamicVB( context );
     const std::array<float, INSTANCE_FLOATS> instancePayload = BuildSingleMatrixPayload( model );
     const int vertexCount = BuildConvexHullDynamicVertices( hull, instancePayload );
     if ( sConvexHullDynamicVB == 0 || vertexCount <= 0 )
@@ -985,7 +988,7 @@ void RenderHelper::DrawShadowDepthConvexHullModel( const ConvexHullShape& hull,
         return;
     }
 
-    EnsureShadowDepthShader();
+    EnsureShadowDepthShader( context );
     shadowDepthShader->Use();
     InstancedShadowDepthConstants constants = {};
     constants.view = view;
@@ -996,12 +999,12 @@ void RenderHelper::DrawShadowDepthConvexHullModel( const ConvexHullShape& hull,
     constants.clipPlane[3] = sClipPlane[3];
     if ( shadowDepthShader->SetConstantBufferBytes( &constants, sizeof( constants ), "InstancedShadowDepthConstants" ) )
     {
-        Commands().UploadAndDrawDynamicVB( sConvexHullDynamicVB, sConvexHullVertexData.data(), vertexCount );
+        Commands( context ).UploadAndDrawDynamicVB( sConvexHullDynamicVB, sConvexHullVertexData.data(), vertexCount );
     }
 }
 
 
-void RenderHelper::BuildPineMesh()
+void RenderHelper::BuildPineMesh( const RenderHelperContext& context )
 {
     std::vector<float> verts;
     verts.reserve( PrimitiveMeshes::PineTriangleVertexCount() * 8 );
@@ -1017,22 +1020,23 @@ void RenderHelper::BuildPineMesh()
 
     int staticAttribSizes[] = { 3, 3, 2 };
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    pineInstMesh = Resources().CreateInstancedMesh( verts.data(),
-                                                    pineVertexCount,
-                                                    8,
-                                                    MAX_GAME_MODELS,
-                                                    INSTANCE_FLOATS,
-                                                    3,
-                                                    instanceAttribSizes,
-                                                    8,
-                                                    staticAttribSizes,
-                                                    3 );
+    pineInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
+                                                             pineVertexCount,
+                                                             8,
+                                                             MAX_GAME_MODELS,
+                                                             INSTANCE_FLOATS,
+                                                             3,
+                                                             instanceAttribSizes,
+                                                             8,
+                                                             staticAttribSizes,
+                                                             3 );
 
     pineInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
 
 
-void RenderHelper::DrawPineBatchBegin( const Matrix4& view,
+void RenderHelper::DrawPineBatchBegin( const RenderHelperContext& context,
+                                       const Matrix4& view,
                                        const Matrix4& proj,
                                        const float lightPos[4],
                                        bool isTransparent,
@@ -1044,15 +1048,16 @@ void RenderHelper::DrawPineBatchBegin( const Matrix4& view,
     sPineBatchReady = false;
     if ( pineInstMesh == 0 )
     {
-        BuildPineMesh();
+        BuildPineMesh( context );
     }
 
-    EnsureSphereShader();
+    EnsureSphereShader( context );
 
-    BeginPrimitiveBatchTransparency( isTransparent );
+    BeginPrimitiveBatchTransparency( context, isTransparent );
 
     sPineBatchReady = BindPrimitiveBatchShader( *sphereShader,
-                                                { view,
+                                                { context,
+                                                  view,
                                                   proj,
                                                   lightPos,
                                                   sClipPlane,
@@ -1081,30 +1086,32 @@ void RenderHelper::DrawPineBatchModel( const Matrix4& model,
 }
 
 
-void RenderHelper::DrawPineBatchEnd()
+void RenderHelper::DrawPineBatchEnd( const RenderHelperContext& context )
 {
     int instanceCount = static_cast<int>( pineInstanceData.size() ) / INSTANCE_FLOATS;
     if ( sPineBatchReady && instanceCount > 0 )
     {
-        Commands().UploadInstanceData( pineInstMesh,
-                                       pineInstanceData.data(),
-                                       static_cast<int>( pineInstanceData.size() ) );
-        Commands().DrawInstancedMesh( pineInstMesh, pineVertexCount, instanceCount );
+        Commands( context ).UploadInstanceData( pineInstMesh,
+                                                pineInstanceData.data(),
+                                                static_cast<int>( pineInstanceData.size() ) );
+        Commands( context ).DrawInstancedMesh( pineInstMesh, pineVertexCount, instanceCount );
     }
-    EndPrimitiveBatchTransparency( sPineBatchTransparent );
+    EndPrimitiveBatchTransparency( context, sPineBatchTransparent );
     sPineBatchTransparent = false;
     sPineBatchReady = false;
 }
 
 
-void RenderHelper::DrawShadowDepthPineBatchBegin( const Matrix4& view, const Matrix4& proj )
+void RenderHelper::DrawShadowDepthPineBatchBegin( const RenderHelperContext& context,
+                                                  const Matrix4& view,
+                                                  const Matrix4& proj )
 {
     sPineBatchReady = false;
     if ( pineInstMesh == 0 )
     {
-        BuildPineMesh();
+        BuildPineMesh( context );
     }
-    EnsureShadowDepthShader();
+    EnsureShadowDepthShader( context );
     shadowDepthShader->Use();
     InstancedShadowDepthConstants constants = {};
     constants.view = view;
@@ -1125,15 +1132,15 @@ void RenderHelper::DrawShadowDepthPineBatchModel( const Matrix4& model )
 }
 
 
-void RenderHelper::DrawShadowDepthPineBatchEnd()
+void RenderHelper::DrawShadowDepthPineBatchEnd( const RenderHelperContext& context )
 {
     int instanceCount = static_cast<int>( pineInstanceData.size() ) / INSTANCE_FLOATS;
     if ( sPineBatchReady && instanceCount > 0 && pineInstMesh != 0 )
     {
-        Commands().UploadInstanceData( pineInstMesh,
-                                       pineInstanceData.data(),
-                                       static_cast<int>( pineInstanceData.size() ) );
-        Commands().DrawInstancedMesh( pineInstMesh, pineVertexCount, instanceCount );
+        Commands( context ).UploadInstanceData( pineInstMesh,
+                                                pineInstanceData.data(),
+                                                static_cast<int>( pineInstanceData.size() ) );
+        Commands( context ).DrawInstancedMesh( pineInstMesh, pineVertexCount, instanceCount );
     }
     sPineBatchReady = false;
 }

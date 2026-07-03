@@ -1107,10 +1107,14 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     // Initialize DXR raytracing on first scene load (requires terrain + sphere meshes to exist)
     // Force sphere mesh creation (normally lazy-init on first render)
     SkullbonezCore::Rendering::IRenderRayTracing* rayTracing = m_renderHost.ActiveRayTracingBackend();
-    const bool hasRayTracingReflection = m_renderHost.SupportsDxrReflection() && rayTracing;
+    SkullbonezCore::Rendering::IRenderBackend* renderBackend = m_renderHost.ActiveRenderBackend();
+    const bool hasRayTracingReflection = m_renderHost.SupportsDxrReflection() && rayTracing && renderBackend;
     if ( hasRayTracingReflection && RenderHelper::GetSphereInstMeshHandle() == 0 )
     {
-        RenderHelper::EnsureSphereMesh();
+        auto& renderResources = static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( *renderBackend );
+        auto& renderCommands = static_cast<SkullbonezCore::Rendering::IRenderCommandContext&>( *renderBackend );
+        const RenderHelperContext helperContext{ renderResources, renderCommands, m_systems.assets, m_config };
+        RenderHelper::EnsureSphereMesh( helperContext );
     }
     if ( hasRayTracingReflection && m_systems.terrain && m_systems.terrain->GetMesh() )
     {

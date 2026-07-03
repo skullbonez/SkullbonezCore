@@ -1524,7 +1524,10 @@ void Run::RebuildRegisteredRenderResources()
         switch ( phase.step )
         {
         case RebuildStep::ResetHelperCache:
-            RenderHelper::ResetRenderResources();
+            RenderHelper::ResetRenderResources( m_renderBackendView.renderBackend
+                                                    ? &static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>(
+                                                          *m_renderBackendView.renderBackend )
+                                                    : nullptr );
             break;
         case RebuildStep::RegisterBuiltInSources:
             RegisterBuiltInAssets();

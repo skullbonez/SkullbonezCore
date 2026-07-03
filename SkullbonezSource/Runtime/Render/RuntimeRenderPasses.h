@@ -369,6 +369,7 @@ class ShadowPass
                                                      const Math::Vector::Vector3& focusHint,
                                                      Rendering::IRenderSceneView& scene );
     void RenderShadowMap( Rendering::IFramebuffer& target,
+                          const RenderHelperContext& helperContext,
                           const Rendering::ShadowFrameData& shadowFrame,
                           const CinematicRenderConfig& cinematic,
                           Rendering::IRenderCommandContext& renderCommands,

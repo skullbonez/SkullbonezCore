@@ -122,6 +122,11 @@ SkullbonezCore::Rendering::IRenderResourceFactory& RenderResources( const Render
     return *frame.renderResources;
 }
 
+RenderHelperContext RenderHelperServices( const RenderFrameContext& frame, const EngineConfig& config )
+{
+    return RenderHelperContext{ RenderResources( frame ), RenderCommands( frame ), RenderAssets( frame ), config };
+}
+
 SkullbonezCore::Rendering::IRenderDiagnostics& RenderDiagnostics( const RenderFrameContext& frame )
 {
     assert( frame.renderDiagnostics && "RenderFrameContext requires a render diagnostics context" );
@@ -704,6 +709,7 @@ ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
 
 
 void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
+                                  const RenderHelperContext& helperContext,
                                   const Rendering::ShadowFrameData& shadowFrame,
                                   const CinematicRenderConfig& cinematic,
                                   Rendering::IRenderCommandContext& renderCommands,
@@ -773,14 +779,15 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
         // the same mesh silhouette as the visible forward pass.
         if ( objectCasters )
         {
-            scene.RenderShadowCasterBatches( *objectCasters,
+            scene.RenderShadowCasterBatches( helperContext,
+                                             *objectCasters,
                                              shadowFrame.lightView,
                                              shadowFrame.lightProjection,
                                              &cinematic );
         }
         else
         {
-            scene.RenderShadowCasters( shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
+            scene.RenderShadowCasters( helperContext, shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
         }
     }
 
@@ -831,6 +838,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
             if ( shadows.terrainTarget )
             {
                 RenderShadowMap( *shadows.terrainTarget,
+                                 RenderHelperServices( inputs.frame, m_host.m_config ),
                                  shadows.terrainFrame,
                                  *inputs.cinematic,
                                  RenderCommands( inputs.frame ),
@@ -847,6 +855,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
             if ( shadows.objectTarget )
             {
                 RenderShadowMap( *shadows.objectTarget,
+                                 RenderHelperServices( inputs.frame, m_host.m_config ),
                                  shadows.objectFrame,
                                  *inputs.cinematic,
                                  RenderCommands( inputs.frame ),
@@ -1062,7 +1071,8 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             m_host.SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
             if ( inputs.frame.scene )
             {
-                inputs.frame.scene->RenderModels( inputs.frame.reflectionView,
+                inputs.frame.scene->RenderModels( RenderHelperServices( inputs.frame, m_host.m_config ),
+                                                  inputs.frame.reflectionView,
                                                   inputs.frame.projection,
                                                   inputs.frame.lightPosition,
                                                   inputs.cinematic,
@@ -1122,7 +1132,8 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         m_host.SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
         if ( inputs.frame.scene )
         {
-            inputs.frame.scene->RenderModels( inputs.frame.baseView,
+            inputs.frame.scene->RenderModels( RenderHelperServices( inputs.frame, m_host.m_config ),
+                                              inputs.frame.baseView,
                                               inputs.frame.projection,
                                               inputs.frame.lightPosition,
                                               inputs.cinematic,

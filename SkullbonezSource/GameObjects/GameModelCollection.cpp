@@ -307,7 +307,8 @@ int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxMo
 }
 
 
-void GameModelCollection::RenderModels( const Matrix4& view,
+void GameModelCollection::RenderModels( const RenderHelperContext& helperContext,
+                                        const Matrix4& view,
                                         const Matrix4& proj,
                                         const float lightPos[4],
                                         const CinematicRenderConfig* cinematic,
@@ -316,7 +317,8 @@ void GameModelCollection::RenderModels( const Matrix4& view,
                                         const std::vector<uint8_t>* modelMask,
                                         bool drawMaskedModels )
 {
-    GameModelRenderer::RenderModels( *this,
+    GameModelRenderer::RenderModels( helperContext,
+                                     *this,
                                      view,
                                      proj,
                                      lightPos,
@@ -334,20 +336,22 @@ void GameModelCollection::BuildShadowCasterBatches( Rendering::ShadowCasterBatch
 }
 
 
-void GameModelCollection::RenderShadowCasterBatches( const Rendering::ShadowCasterBatches& batches,
+void GameModelCollection::RenderShadowCasterBatches( const RenderHelperContext& helperContext,
+                                                     const Rendering::ShadowCasterBatches& batches,
                                                      const Matrix4& view,
                                                      const Matrix4& proj,
                                                      const CinematicRenderConfig* cinematic )
 {
-    GameModelRenderer::SubmitShadowCasterBatches( batches, view, proj, cinematic );
+    GameModelRenderer::SubmitShadowCasterBatches( helperContext, batches, view, proj, cinematic );
 }
 
 
-void GameModelCollection::RenderShadowCasters( const Matrix4& view,
+void GameModelCollection::RenderShadowCasters( const RenderHelperContext& helperContext,
+                                               const Matrix4& view,
                                                const Matrix4& proj,
                                                const CinematicRenderConfig* cinematic )
 {
-    GameModelRenderer::RenderShadowCasters( *this, view, proj, cinematic );
+    GameModelRenderer::RenderShadowCasters( helperContext, *this, view, proj, cinematic );
 }
 
 

@@ -37,7 +37,8 @@ namespace SkullbonezCore
 namespace Basics
 {
 struct CinematicRenderConfig;
-}
+struct RenderHelperContext;
+} // namespace Basics
 
 namespace Assets
 {
@@ -67,7 +68,8 @@ class IRenderSceneView
     virtual int GetRenderModelCount() const = 0;
     virtual int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount ) = 0;
 
-    virtual void RenderModels( const Math::Transformation::Matrix4& view,
+    virtual void RenderModels( const Basics::RenderHelperContext& helperContext,
+                               const Math::Transformation::Matrix4& view,
                                const Math::Transformation::Matrix4& proj,
                                const float lightPos[4],
                                const Basics::CinematicRenderConfig* cinematic = nullptr,
@@ -81,11 +83,13 @@ class IRenderSceneView
                                         float& outRadius,
                                         float& outHeightRange ) = 0;
     virtual void BuildShadowCasterBatches( ShadowCasterBatches& outBatches ) = 0;
-    virtual void RenderShadowCasterBatches( const ShadowCasterBatches& batches,
+    virtual void RenderShadowCasterBatches( const Basics::RenderHelperContext& helperContext,
+                                            const ShadowCasterBatches& batches,
                                             const Math::Transformation::Matrix4& view,
                                             const Math::Transformation::Matrix4& proj,
                                             const Basics::CinematicRenderConfig* cinematic = nullptr ) = 0;
-    virtual void RenderShadowCasters( const Math::Transformation::Matrix4& view,
+    virtual void RenderShadowCasters( const Basics::RenderHelperContext& helperContext,
+                                      const Math::Transformation::Matrix4& view,
                                       const Math::Transformation::Matrix4& proj,
                                       const Basics::CinematicRenderConfig* cinematic = nullptr ) = 0;
     virtual void RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,

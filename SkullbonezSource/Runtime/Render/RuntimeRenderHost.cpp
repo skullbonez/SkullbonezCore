@@ -34,6 +34,8 @@ Related:
 #include "../../Rendering/Helper.h"
 #include "../../Rendering/IRenderBackend.h"
 #include "../RunInternal.h"
+
+#include <cassert>
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Replay/ReplayOverlayRenderer.h"
 #include "../RunState.h"
@@ -194,7 +196,10 @@ void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& 
     }
 
     SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
-    RenderHelper::DrawBoxBatchBegin( frame.baseView,
+    assert( frame.renderResources && frame.renderCommands && frame.assets );
+    const RenderHelperContext helperContext{ *frame.renderResources, *frame.renderCommands, *frame.assets, m_config };
+    RenderHelper::DrawBoxBatchBegin( helperContext,
+                                     frame.baseView,
                                      frame.projection,
                                      frame.lightPosition,
                                      true,
@@ -225,5 +230,5 @@ void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& 
         RenderHelper::DrawBoxBatchModel( modelMatrix, material );
     }
 
-    RenderHelper::DrawBoxBatchEnd();
+    RenderHelper::DrawBoxBatchEnd( helperContext );
 }
