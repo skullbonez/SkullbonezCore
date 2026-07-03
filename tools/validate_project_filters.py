@@ -92,6 +92,7 @@ PHYSICS_PREFIXES = (
     "PersistentContactSolver",
     "PhysicsApi",
     "PhysicsBodyStore",
+    "PhysicsDiagnosticsModel",
     "PhysicsDiagnosticsSink",
     "PhysicsEngine",
     "PhysicsHandles",

@@ -26,6 +26,8 @@
 #   Composition root: Top-level owner that wires subsystems together.
 #   Boundary guardrail: Static check that blocks architecture drift.
 #   Allowlist: Explicit set of legacy references accepted during migration.
+#   Migration artifact: Temporary adapter, DTO, or compatibility name that must
+#     disappear once its real owner or API replaces it.
 #
 # Invariants:
 #   - Run.h may own subsystem objects, but not their extracted transient state.
@@ -90,6 +92,32 @@ PHYSICS_DELETED_MODEL_VIEW_PATTERN = re.compile(r"\b(?:MakePhysicsModelView|Phys
 PHYSICS_MODELS_ACCESS_PATTERN = re.compile(r"\bPhysicsModels\s*\(")
 PHYSICS_MODELS_COMPAT_ACCESS_PATTERN = re.compile(
     r"\b(?:MutablePhysicsModelsForCompatibility|PhysicsModelsForCompatibility)\s*\("
+)
+DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
+    (
+        "GameModelRuntimePhysicsTuning",
+        re.compile(r"\bGameModelRuntimePhysicsTuning\b"),
+        "Keep runtime physics tuning on authored assets or explicit body descriptors, not a migration DTO.",
+    ),
+    (
+        "legacyModelIndex",
+        re.compile(r"\blegacyModelIndex\b"),
+        "Use stable physics/entity handles or a quarantined migration map instead of reviving legacy model indices.",
+    ),
+    (
+        "RuntimeConfigSnapshot",
+        re.compile(r"\bRuntimeConfigSnapshot\b"),
+        "Pass WorldEnvironmentSettings and other owner-specific settings instead of a catch-all runtime snapshot.",
+    ),
+    (
+        "AssetSystem::CreateShader(const char*)",
+        re.compile(
+            r"\bAssetSystem\s*::\s*CreateShader\s*\(\s*const\s+char\s*\*\s*[A-Za-z_]\w*\s*\)"
+            r"|\bCreateShader\s*\(\s*const\s+char\s*\*\s*[A-Za-z_]\w*\s*\)\s*const\s*;",
+            re.S,
+        ),
+        "Create shaders through AssetSystem::CreateShader(renderResources, name) so render resource authority is explicit.",
+    ),
 )
 PUBLIC_PHYSICS_FACADE_HEADERS = (
     Path("SkullbonezSource/Physics/PhysicsApi.h"),
@@ -352,93 +380,10 @@ PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
 # body/entity handles replace them.
 PHYSICS_MODELS_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter()
 
-# Counted allowlist: named compatibility accessors are temporary debt. Keep the
-# current borrowers explicit and fail any new call site until stable body/entity
-# handles replace this compatibility surface.
-PHYSICS_MODELS_COMPAT_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
-    ( Path(path), normalize_boundary_line(line) )
-    for path, line in (
-        (
-            "SkullbonezSource/GameObjects/GameModelCollection.h",
-            "std::vector<GameModel>& MutablePhysicsModelsForCompatibility();",
-        ),
-        (
-            "SkullbonezSource/GameObjects/GameModelCollection.h",
-            "const std::vector<GameModel>& PhysicsModelsForCompatibility() const;",
-        ),
-        (
-            "SkullbonezSource/GameObjects/GameModelCollection.cpp",
-            "std::vector<GameModel>& GameModelCollection::MutablePhysicsModelsForCompatibility()",
-        ),
-        (
-            "SkullbonezSource/GameObjects/GameModelCollection.cpp",
-            "const std::vector<GameModel>& GameModelCollection::PhysicsModelsForCompatibility() const",
-        ),
-        (
-            "SkullbonezSource/Runtime/Run.cpp",
-            "std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.MutablePhysicsModelsForCompatibility();",
-        ),
-        ( "SkullbonezSource/Runtime/RunFrame.cpp", "m_cGameModelCollection.MutablePhysicsModelsForCompatibility();" ),
-        ( "SkullbonezSource/Runtime/RunFrame.cpp", "m_cGameModelCollection.MutablePhysicsModelsForCompatibility();" ),
-        ( "SkullbonezSource/Runtime/RunFrame.cpp", "m_cGameModelCollection.MutablePhysicsModelsForCompatibility();" ),
-        (
-            "SkullbonezSource/Runtime/RunFrame.cpp",
-            "const std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModelsForCompatibility();",
-        ),
-        (
-            "SkullbonezSource/Runtime/RunFrame.cpp",
-            "const std::vector<GameModel>& restoredModels = m_cGameModelCollection.PhysicsModelsForCompatibility();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl",
-            "std::vector<GameModel>& models = m_cGameModelCollection.MutablePhysicsModelsForCompatibility();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl",
-            "std::vector<GameModel>& models = m_cGameModelCollection.MutablePhysicsModelsForCompatibility();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
-            "std::vector<GameObjects::GameModel>& models = collection.MutablePhysicsModelsForCompatibility();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
-            "std::vector<GameObjects::GameModel>& models = collection.MutablePhysicsModelsForCompatibility();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
-            "std::vector<GameObjects::GameModel>& models = collection.MutablePhysicsModelsForCompatibility();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp",
-            "std::vector<GameObjects::GameModel>& models = collection.MutablePhysicsModelsForCompatibility();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
-            "std::vector<GameModel>& physicsModels = models.MutablePhysicsModelsForCompatibility();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
-            "std::vector<GameModel>& physicsModels = models.MutablePhysicsModelsForCompatibility();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
-            "std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
-            "std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
-            "std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();",
-        ),
-        (
-            "SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl",
-            "std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();",
-        ),
-    )
-)
+# Deleted named compatibility accessors stay blocked at zero hits. Remaining
+# raw model borrowers are tracked by PhysicsModelAccess and owner-specific
+# store migration rows instead of by reviving these vector accessor names.
+PHYSICS_MODELS_COMPAT_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter()
 
 # Counted allowlist for the current global-service compatibility surface. This
 # is not approval for more singleton use; it is a ratchet. New Gfx(), active
@@ -1629,6 +1574,31 @@ def check_public_physics_facade_game_object_guardrails(repo: Path) -> list[Bound
     for relative_path in PUBLIC_PHYSICS_FACADE_HEADERS:
         path = repo / relative_path
         errors.extend(check_public_physics_facade_game_object_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_deleted_migration_artifact_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for label, pattern, detail in DELETED_MIGRATION_ARTIFACT_PATTERNS:
+        for match in pattern.finditer(stripped):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    f"deleted migration artifact is blocked: {label}",
+                    detail,
+                )
+            )
+    return errors
+
+
+def check_deleted_migration_artifact_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
+        if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+            continue
+        errors.extend(check_deleted_migration_artifact_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -5921,6 +5891,34 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("deleted PhysicsModelView synthetic surface was not rejected")
 
+    deleted_migration_artifact_text = """
+    struct GameModelRuntimePhysicsTuning {};
+    int legacyModelIndex = 0;
+    RuntimeConfigSnapshot snapshot;
+    std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logicalNameOrBaseName ) const;
+    """
+    if not any(
+        error.message.startswith("deleted migration artifact is blocked:")
+        for error in check_deleted_migration_artifact_guardrails_text(
+            Path("SkullbonezSource/Runtime/SyntheticDeletedArtifacts.cpp"),
+            deleted_migration_artifact_text,
+        )
+    ):
+        failures.append("deleted migration artifact synthetic surface was not rejected")
+
+    commented_deleted_migration_artifact_text = """
+    // GameModelRuntimePhysicsTuning, legacyModelIndex, and RuntimeConfigSnapshot are migration notes only.
+    /*
+       AssetSystem::CreateShader( const char* name ) is mentioned in the plan but must not be code.
+    */
+    void UseExplicitStoresAndFactories();
+    """
+    if check_deleted_migration_artifact_guardrails_text(
+        Path("SkullbonezSource/Runtime/SyntheticDeletedArtifacts.cpp"),
+        commented_deleted_migration_artifact_text,
+    ):
+        failures.append("comment-only deleted migration artifact synthetic text was rejected")
+
     compatibility_physics_models_text = (
         "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = "
         "m_cGameModelCollection.MutablePhysicsModelsForCompatibility();"
@@ -5985,6 +5983,17 @@ def run_self_tests() -> list[str]:
         synthetic_named_physics_models_allowlist,
     ):
         failures.append("allowed named PhysicsModels compatibility access failed")
+
+    if not any(
+        error.message == "named physics model vector compatibility access is count-guarded"
+        for error in check_named_physics_models_compat_access_guardrails_text(
+            allowed_named_physics_models_path,
+            allowed_named_physics_models_line,
+            allowed_named_physics_models_path,
+            empty_physics_models_allowlist,
+        )
+    ):
+        failures.append("deleted named PhysicsModels compatibility access was not rejected without an allowlist")
 
     commented_named_physics_models_text = """
     // m_cGameModelCollection.MutablePhysicsModelsForCompatibility() is mentioned in a note only.
@@ -6178,6 +6187,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_interaction_guardrails(repo))
     errors.extend(check_physics_game_model_collection_guardrails(repo))
     errors.extend(check_public_physics_facade_game_object_guardrails(repo))
+    errors.extend(check_deleted_migration_artifact_guardrails(repo))
     errors.extend(check_deleted_physics_model_view_guardrails(repo))
     errors.extend(check_physics_models_access_guardrails(repo))
     errors.extend(check_named_physics_models_compat_access_guardrails(repo))

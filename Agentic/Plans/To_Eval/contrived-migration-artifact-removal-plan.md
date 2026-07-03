@@ -16,6 +16,11 @@ Implementation status:
   tracker. K003 is partial. K004 and K005 require larger force-authority and
   handle-allocation work before they can be removed without adding another
   migration artifact.
+- Guardrail follow-up added `tools/check_runtime_boundaries.py` checks for
+  deleted migration artifacts (`GameModelRuntimePhysicsTuning`,
+  `legacyModelIndex`, `RuntimeConfigSnapshot`, and the no-factory
+  `AssetSystem::CreateShader(const char*)` overload), and reset the named
+  `*PhysicsModelsForCompatibility()` allowlist to zero hits.
 
 ## Goal
 
