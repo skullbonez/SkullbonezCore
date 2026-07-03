@@ -19,10 +19,12 @@ Glossary:
   Point joint: Constraint that keeps two local anchor points close together
     without yet modelling a full hinge, cone, or motor.
   Sleep island: Connected body group that may deactivate only as a unit.
+  Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
+    so buoyancy jitter does not repeatedly wake them.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
 
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.cpp
@@ -292,10 +294,10 @@ class PhysicsWorld
     void EnsureCollisionVisualBuffers( int modelCount );
     void EnsureTornadoStateBuffers( int modelCount );
     void EnsureUnderwaterSleepLockBuffer( int modelCount );
-    bool IsFullySubmergedBall( PhysicsModelAccess& modelAccess,
+    bool IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord,
                                const GameObjects::GameModelBodyStream& bodyStream,
                                int index );
-    void LockUnderwaterSleeperIfReady( PhysicsModelAccess& modelAccess,
+    void LockUnderwaterSleeperIfReady( PhysicsModelMutableRange models,
                                        PhysicsBodyStore& bodyStore,
                                        const GameObjects::GameModelBodyStream& bodyStream,
                                        int index );

@@ -21,10 +21,12 @@ Glossary:
   Point joint: Constraint that keeps two local anchor points close together
     without yet modelling a full hinge, cone, or motor.
   Sleep island: Connected body group that may deactivate only as a unit.
+  Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
+    so buoyancy jitter does not repeatedly wake them.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
 
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.h
@@ -459,31 +461,37 @@ void PhysicsWorld::EnsureUnderwaterSleepLockBuffer( int modelCount )
 }
 
 
-bool PhysicsWorld::IsFullySubmergedBall( PhysicsModelAccess& modelAccess,
+bool PhysicsWorld::IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord,
                                          const GameModelBodyStream& bodyStream,
                                          int index )
 {
-    auto m_gameModels = modelAccess.Models();
-    if ( index < 0 || index >= bodyStream.count || index >= static_cast<int>( m_gameModels.size() ) ||
-         bodyStream.isFixed[index] || bodyStream.isBox[index] )
+    if ( index < 0 || index >= bodyStream.count || bodyStream.isFixed[index] || bodyStream.isBox[index] )
     {
         return false;
     }
 
-    return m_gameModels[index].GetSubmergedVolumePercent() >= UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT;
+    return bodyRecord.submergedVolumePercent >= UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT;
 }
 
 
-void PhysicsWorld::LockUnderwaterSleeperIfReady( PhysicsModelAccess& modelAccess,
+void PhysicsWorld::LockUnderwaterSleeperIfReady( PhysicsModelMutableRange models,
                                                  PhysicsBodyStore& bodyStore,
                                                  const GameModelBodyStream& bodyStream,
                                                  int index )
 {
-    auto m_gameModels = modelAccess.Models();
     EnsureUnderwaterSleepLockBuffer( bodyStream.count );
     if ( index < 0 || index >= bodyStream.count || index >= static_cast<int>( m_sleepState.size() ) ||
-         !m_sleepState[index] || m_underwaterSleepLocked[index] ||
-         !IsFullySubmergedBall( modelAccess, bodyStream, index ) )
+         !m_sleepState[index] || m_underwaterSleepLocked[index] )
+    {
+        return;
+    }
+
+    if ( !bodyStore.RefreshSubmergedVolumePercentFromModelAt( models, index ) )
+    {
+        return;
+    }
+    PhysicsBodyRecord* record = bodyStore.MutableRecordForModelIndex( index );
+    if ( !record || !IsFullySubmergedBall( *record, bodyStream, index ) )
     {
         return;
     }
@@ -493,14 +501,9 @@ void PhysicsWorld::LockUnderwaterSleeperIfReady( PhysicsModelAccess& modelAccess
     {
         m_timeRemaining[index] = 0.0f;
     }
-    PhysicsBodyRecord* record = bodyStore.MutableRecordForModelIndex( index );
-    if ( record )
-    {
-        record->linearVelocity = ZERO_VECTOR;
-        record->angularVelocity = ZERO_VECTOR;
-        record->isSleeping = true;
-        bodyStore.WriteBackToModelAt( m_gameModels, index );
-    }
+    record->linearVelocity = ZERO_VECTOR;
+    record->angularVelocity = ZERO_VECTOR;
+    record->isSleeping = true;
 }
 
 
@@ -788,15 +791,22 @@ void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess,
     EnsureUnderwaterSleepLockBuffer( modelCount );
     if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
     {
-        if ( !m_underwaterSleepLocked[index] && m_sleepState[index] &&
-             IsFullySubmergedBall( modelAccess, bodyStream, index ) )
+        if ( bodyStore && !m_underwaterSleepLocked[index] && m_sleepState[index] )
         {
-            m_underwaterSleepLocked[index] = 1;
-            if ( index < static_cast<int>( m_timeRemaining.size() ) )
+            PhysicsModelMutableRange models = modelAccess.Models();
+            if ( bodyStore->RefreshSubmergedVolumePercentFromModelAt( models, index ) )
             {
-                m_timeRemaining[index] = 0.0f;
+                const PhysicsBodyRecord* record = bodyStore->RecordForModelIndex( index );
+                if ( record && IsFullySubmergedBall( *record, bodyStream, index ) )
+                {
+                    m_underwaterSleepLocked[index] = 1;
+                    if ( index < static_cast<int>( m_timeRemaining.size() ) )
+                    {
+                        m_timeRemaining[index] = 0.0f;
+                    }
+                    return;
+                }
             }
-            return;
         }
         if ( IsUnderwaterSleepLocked( modelAccess, bodyStream, index ) )
         {
@@ -1757,7 +1767,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     {
         if ( m_sleepState[x] )
         {
-            LockUnderwaterSleeperIfReady( modelAccess, bodyStore, bodyStream, x );
+            LockUnderwaterSleeperIfReady( m_gameModels, bodyStore, bodyStream, x );
         }
     }
 
@@ -3242,7 +3252,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
             bodyRecords[static_cast<size_t>( x )].angularVelocity = Math::Vector::ZERO_VECTOR;
             bodyRecords[static_cast<size_t>( x )].isSleeping = true;
             bodyStore.WriteBackToModelAt( m_gameModels, x );
-            LockUnderwaterSleeperIfReady( modelAccess, bodyStore, bodyStream, x );
+            LockUnderwaterSleeperIfReady( m_gameModels, bodyStore, bodyStream, x );
         }
     }
     PROFILE_END( "Frame/Physics/Integrate" );

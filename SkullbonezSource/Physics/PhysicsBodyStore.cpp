@@ -14,6 +14,8 @@ Glossary:
     and sleep flag.
   Sleep: Optimization that stops simulating stable bodies until something wakes
     them.
+  Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
+    so buoyancy jitter does not repeatedly wake them.
   Replay body id: Stable per-scene id used by replay and SkullScope traces.
 
 Invariants:
@@ -53,6 +55,9 @@ void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record )
     record.mass = model.GetMass();
     record.invMass = model.GetInvertedMass();
     record.boundingRadius = model.GetBoundingRadius();
+    // Why: buoyancy sampling is deliberately targeted. Ordinary body refreshes
+    // clear this field, and underwater sleep probes refresh only the candidate.
+    record.submergedVolumePercent = 0.0f;
     record.contactReleaseImpulseThreshold = model.GetContactReleaseImpulseThreshold();
     record.isFixed = model.IsFixed();
     record.usesWorldInertia = model.UsesWorldInertia();
@@ -252,6 +257,32 @@ void PhysicsBodyStore::CaptureMutableStateFromModelAt( PhysicsModelMutableRange 
     }
 
     CaptureMutableBodyState( models[static_cast<std::size_t>( modelIndex )], *record );
+}
+
+
+bool PhysicsBodyStore::RefreshSubmergedVolumePercentFromModelAt( std::vector<GameModel>& models, int modelIndex )
+{
+    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
+    if ( !record || modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) )
+    {
+        return false;
+    }
+
+    record->submergedVolumePercent = models[static_cast<std::size_t>( modelIndex )].GetSubmergedVolumePercent();
+    return true;
+}
+
+
+bool PhysicsBodyStore::RefreshSubmergedVolumePercentFromModelAt( PhysicsModelMutableRange models, int modelIndex )
+{
+    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
+    if ( !record || modelIndex < 0 || modelIndex >= models.Count() )
+    {
+        return false;
+    }
+
+    record->submergedVolumePercent = models[static_cast<std::size_t>( modelIndex )].GetSubmergedVolumePercent();
+    return true;
 }
 
 

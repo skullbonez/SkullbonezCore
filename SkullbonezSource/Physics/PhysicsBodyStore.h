@@ -13,6 +13,8 @@ Glossary:
   Body: Simulated object state consumed by the physics step.
   Sleep: Optimization that skips stable bodies until contact or user action
     wakes them.
+  Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
+    so buoyancy jitter does not repeatedly wake them.
   Inverse mass: Reciprocal mass value; zero means an immovable body.
   Replay body id: Stable per-scene id used by replay and diagnostics.
 
@@ -64,6 +66,7 @@ struct PhysicsBodyRecord
     float mass = 0.0f;                                 // Authoring mass; fixed bodies still report mass.
     float invMass = 0.0f;                              // Solver inverse mass; fixed bodies use zero.
     float boundingRadius = 0.0f;                       // Conservative radius for body-level release/spin policy.
+    float submergedVolumePercent = 0.0f;               // Targeted water snapshot for underwater sleep gates.
     float contactReleaseImpulseThreshold = 1.0f;       // Minimum contact impulse before authored fixed props release.
     bool isFixed = false;                              // True for immovable collision bodies.
     bool isSleeping = false;                           // Physics-owned sleep flag mirrored to diagnostics by model index.
@@ -88,6 +91,8 @@ class PhysicsBodyStore
     void WriteBackToModelAt( PhysicsModelMutableRange models, int modelIndex ) const;
     void CaptureMutableStateFromModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex );
     void CaptureMutableStateFromModelAt( PhysicsModelMutableRange models, int modelIndex );
+    bool RefreshSubmergedVolumePercentFromModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex );
+    bool RefreshSubmergedVolumePercentFromModelAt( PhysicsModelMutableRange models, int modelIndex );
     void CopySleepStatesFrom( const std::vector<uint8_t>& sleepStates );
     void CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) const;
 
