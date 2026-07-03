@@ -41,7 +41,9 @@ Related:
 */
 #pragma once
 
+#include <cstdint>
 #include <cstddef>
+#include <vector>
 
 #include "../Maths/Vector3.h"
 #include "../GameObjects/GameModelSoACache.h"
@@ -55,6 +57,7 @@ class GameModel;
 
 namespace Physics
 {
+class PhysicsBodyStore;
 struct PhysicsDiagnosticsModelRecord;
 struct PhysicsDiagnosticsView;
 
@@ -163,6 +166,15 @@ class PhysicsModelAccess
     virtual const GameObjects::GameModel* ModelData() const = 0;
     virtual GameObjects::GameModelBodyStream GetPhysicsBodyStream() = 0;
     virtual void InvalidatePhysicsStreams() = 0;
+    // Named compatibility sync for legacy GameModel readers that still sit
+    // downstream of store-owned physics mutations. This keeps model-range debt
+    // with the model owner instead of reopening raw ranges in solver code.
+    virtual void WriteBackPhysicsBody( const PhysicsBodyStore& bodyStore, int modelIndex ) = 0;
+    // Reloads body records after model-owned event sinks mutate compatibility
+    // models, such as fixed-tree release. Callers still own stream invalidation
+    // when a later SoA read must observe those model writes.
+    virtual void ReloadPhysicsBodiesFromCompatibilityModels( PhysicsBodyStore& bodyStore,
+                                                             const std::vector<uint8_t>& sleepStates ) = 0;
     virtual PhysicsBodyEventSink& BodyEvents() = 0;
     virtual PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const = 0;
 #ifdef _DEBUG

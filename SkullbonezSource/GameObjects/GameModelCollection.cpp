@@ -791,6 +791,21 @@ void GameModelCollection::InvalidatePhysicsStreams()
 }
 
 
+void GameModelCollection::WriteBackPhysicsBody( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
+                                                int modelIndex )
+{
+    bodyStore.WriteBackToModelAt( m_gameModels, modelIndex );
+}
+
+
+void GameModelCollection::ReloadPhysicsBodiesFromCompatibilityModels(
+    SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
+    const std::vector<uint8_t>& sleepStates )
+{
+    bodyStore.LoadFromModels( m_gameModels, sleepStates );
+}
+
+
 SkullbonezCore::Physics::PhysicsBodyEventSink& GameModelCollection::BodyEvents()
 {
     return *this;

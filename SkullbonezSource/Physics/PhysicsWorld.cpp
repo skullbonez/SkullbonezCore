@@ -1022,7 +1022,6 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
     }
 
     PROFILE_SCOPED( "Frame/Physics/TornadoField" );
-    auto m_gameModels = modelAccess.Models();
     std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
     auto sampleAcceleration =
         [&]( const Vector3& position, TornadoFieldConfig& outBestConfig, float& outBestAccelerationSq ) -> Vector3
@@ -1055,7 +1054,7 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
     bool releasedFixedParts = false;
     if ( useSystem )
     {
-        for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
+        for ( int i = 0; i < bodyStore.Count(); ++i )
         {
             PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( i )];
             if ( !record.isFixed || !record.releasesFromFixedOnContact )
@@ -1078,7 +1077,7 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
             record.isFixed = false;
             record.linearVelocity = seedLinearVelocity;
             record.angularVelocity = Vector3( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f );
-            bodyStore.WriteBackToModelAt( m_gameModels, i );
+            modelAccess.WriteBackPhysicsBody( bodyStore, i );
             WakeModel( modelAccess, bodyStore, colliderStore, worldForces, i );
             modelAccess.BodyEvents().ReleaseAttachedFixedTreeParts( PhysicsFixedTreeReleaseEvent{
                 i,
@@ -1089,7 +1088,7 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
     }
     if ( releasedFixedParts )
     {
-        bodyStore.LoadFromModels( m_gameModels, m_sleepState );
+        modelAccess.ReloadPhysicsBodiesFromCompatibilityModels( bodyStore, m_sleepState );
         modelAccess.InvalidatePhysicsStreams();
     }
 
@@ -1132,7 +1131,7 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
             bodyRecords[static_cast<size_t>( i )].isSleeping = false;
             if ( bodyStore.ApplyForces( worldForces, colliderStore, i, dt ) )
             {
-                bodyStore.WriteBackToModelAt( m_gameModels, i );
+                modelAccess.WriteBackPhysicsBody( bodyStore, i );
             }
         }
 
@@ -1184,7 +1183,7 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
 
         velocity += ClampVectorMagnitude( acceleration * step, maxDeltaVelocity );
         bodyRecords[static_cast<size_t>( i )].linearVelocity = velocity;
-        bodyStore.WriteBackToModelAt( m_gameModels, i );
+        modelAccess.WriteBackPhysicsBody( bodyStore, i );
     };
 
     if ( runtimeConfig.physicsParallel && runtimeConfig.physicsParallelTornadoField )

@@ -26,9 +26,11 @@ Implementation status:
   tests resolve through store-owned handles. `GameModel::UpdatePosition` and
   its terrain-clamp wrapper are deleted; `GameModel` still owns terrain query
   helpers that terrain CCD/manifold generation uses until that later K003 slice.
-  Tornado, persistent contact, terrain/manifold, object sweep, and solver
-  writeback paths still need real physics-owned views before K003 can delete
-  the remaining compatibility model ranges.
+  Tornado field code no longer opens a raw model range; its remaining model sync
+  is named on `PhysicsModelAccess` as owner-side compatibility. Persistent
+  contact, terrain/manifold, object sweep, and solver writeback paths still need
+  real physics-owned views before K003 can delete the remaining compatibility
+  model ranges.
 - Guardrail follow-up added `tools/check_runtime_boundaries.py` checks for
   deleted migration artifacts (`GameModelRuntimePhysicsTuning`,
   `legacyModelIndex`, `RuntimeConfigSnapshot`, and the no-factory

@@ -220,6 +220,9 @@ class GameModelCollection : public Rendering::IRenderSceneView,
     double GetSceneKineticEnergy();
     GameModelBodyStream GetPhysicsBodyStream() override;
     void InvalidatePhysicsStreams() override;
+    void WriteBackPhysicsBody( const Physics::PhysicsBodyStore& bodyStore, int modelIndex ) override;
+    void ReloadPhysicsBodiesFromCompatibilityModels( Physics::PhysicsBodyStore& bodyStore,
+                                                     const std::vector<uint8_t>& sleepStates ) override;
     Physics::PhysicsBodyEventSink& BodyEvents() override;
     Physics::PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const override;
     void NotifyFixedContact( int modelIndex, float highlightSeconds ) override;
