@@ -160,7 +160,6 @@ class AssetSystem
     const std::vector<ShaderSourceAsset>& GetShaderSourceAssets() const;
     std::unique_ptr<Rendering::IShader> CreateShader( Rendering::IRenderResourceFactory& renderResources,
                                                       const char* logicalNameOrBaseName ) const;
-    std::unique_ptr<Rendering::IShader> CreateShader( const char* logicalNameOrBaseName ) const;
 
     const AssetLibrarySourceAsset& RegisterAssetLibrarySourceAsset( const char* logicalName, const char* relativePath );
     const AssetLibrarySourceAsset* FindAssetLibrarySourceAsset( const char* logicalName ) const;

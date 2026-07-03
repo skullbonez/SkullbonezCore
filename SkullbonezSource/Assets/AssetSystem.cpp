@@ -356,11 +356,6 @@ std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( Rendering::IRende
 }
 
 
-std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logicalNameOrBaseName ) const
-{
-    return CreateShader( Rendering::Gfx(), logicalNameOrBaseName );
-}
-
 const AssetLibrarySourceAsset& AssetSystem::RegisterAssetLibrarySourceAsset( const char* logicalName,
                                                                              const char* relativePath )
 {
@@ -475,7 +470,7 @@ std::unique_ptr<Rendering::IShader> CreateShaderFromActiveAssets( const char* lo
 {
     if ( g_activeAssetSystem )
     {
-        return g_activeAssetSystem->CreateShader( logicalNameOrBaseName );
+        return g_activeAssetSystem->CreateShader( Rendering::Gfx(), logicalNameOrBaseName );
     }
     const char* fallbackBaseName = BuiltInShaderBaseNameForLogicalName( logicalNameOrBaseName );
     return Rendering::Gfx().CreateShader( fallbackBaseName ? fallbackBaseName : logicalNameOrBaseName );
