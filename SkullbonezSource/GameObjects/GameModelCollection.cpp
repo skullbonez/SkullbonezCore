@@ -514,6 +514,29 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
 }
 
 
+bool GameModelCollection::TrySetReplayRenderPose( int index,
+                                                  uint32_t replayBodyId,
+                                                  const Vector3& position,
+                                                  const Quaternion& orientation )
+{
+    if ( index < 0 || index >= GetModelCount() )
+    {
+        return false;
+    }
+
+    GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+    if ( model.GetReplayBodyId() != replayBodyId )
+    {
+        return false;
+    }
+
+    model.SetPosition( position );
+    model.SetOrientation( orientation );
+    InvalidateSoA();
+    return true;
+}
+
+
 bool GameModelCollection::TrySetModelAngularVelocity( int index, const Vector3& angularVelocity )
 {
     if ( index < 0 || index >= GetModelCount() )

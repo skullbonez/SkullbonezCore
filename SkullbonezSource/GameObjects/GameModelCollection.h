@@ -179,6 +179,12 @@ class GameModelCollection : public Rendering::IRenderSceneView,
                                     const Math::Orientation::Quaternion& orientation,
                                     const Math::Vector::Vector3& linearVelocity,
                                     const Math::Vector::Vector3& angularVelocity );
+    // Replay scrub rendering may override only the draw pose for a frame. The
+    // replay id check prevents stale sample indices from moving the wrong body.
+    bool TrySetReplayRenderPose( int index,
+                                 uint32_t replayBodyId,
+                                 const Math::Vector::Vector3& position,
+                                 const Math::Orientation::Quaternion& orientation );
     // Mutates angular velocity through the collection so derived body streams
     // cannot keep a stale copy.
     bool TrySetModelAngularVelocity( int index, const Math::Vector::Vector3& angularVelocity );
