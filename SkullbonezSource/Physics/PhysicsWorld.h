@@ -288,12 +288,13 @@ class PhysicsWorld
                                    int bodyB,
                                    float collisionTime,
                                    float availableTime );
-    PersistentContactSolverContext CreatePersistentContactSolverContext( PhysicsModelAccess& modelAccess,
-                                                                         const GameObjects::GameModelBodyStream& bodyStream,
-                                                                         PhysicsBodyStore& bodyStore,
-                                                                         const ColliderStore& colliderStore,
-                                                                         const PhysicsWorldForces& worldForces,
-                                                                         const Basics::EngineConfig& config );
+    PersistentContactSolverContext
+    CreatePersistentContactSolverContext( PhysicsModelAccess& modelAccess,
+                                          const GameObjects::GameModelBodyStream& bodyStream,
+                                          PhysicsBodyStore& bodyStore,
+                                          const ColliderStore& colliderStore,
+                                          const PhysicsWorldForces& worldForces,
+                                          const Basics::EngineConfig& config );
     SleepSupportPropagationContext CreateSleepSupportPropagationContext();
     bool CanRecordPhysicsPipelineStage() const;
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record );
@@ -483,10 +484,10 @@ struct PersistentContactSolverContext
     std::vector<TerrainContactManifold>& terrainContactManifolds;
     std::array<uint8_t, MAX_GAME_MODELS>& terrainRestApplied;
     std::vector<uint8_t>& sleepSupportedThisFrame;
-    // Compatibility command sink for legacy model-side events and writeback.
+    // Model-owner command sink for legacy model-side events and writeback.
     // The solver calls named operations on this context instead of borrowing a
-    // mutable GameModel range; deleting this reference belongs to the final K003
-    // writeback/scene-boundary slice.
+    // mutable GameModel range. Strict store-authority follow-up can replace the
+    // boundary when those model-order events move to durable handles.
     PhysicsModelAccess& modelAccess;
     const GameObjects::GameModelBodyStream& bodyStream;
     std::vector<PhysicsBodyRecord>& bodyRecords;

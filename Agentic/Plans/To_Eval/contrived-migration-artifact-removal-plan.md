@@ -1,7 +1,7 @@
 # Contrived Migration Artifact Removal Plan
 
 Date: 2026-07-03
-Status: Implementation in progress; Phase 0 kill-list CSV complete
+Status: Implementation complete; whole-job rubber-duck review passed
 Impact area: architecture, global-service remediation, physics, runtime settings, render/resource contexts, scene/world ownership
 Validation for this document-only change: none required
 
@@ -11,36 +11,17 @@ Implementation status:
   `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-plan.csv`.
 - Current implementation tracker:
   `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-implementation-status.csv`.
-- As of `536b2fb0` after `b806fce9`, `ad41c98c`, `4366ad7c`, `87df4b77`, `78533f94`, and
-  `d5571316`, rows K001, K002, K004, K005, K006, K007, K008, K009, K010, K011,
-  and K012 have source-side deletion/split work recorded in the tracker. K003 is
-  still partial: diagnostics, render/collider/sleep/body stores, ragdoll,
-  wake/seed island helpers, top-level contact-highlight ticking, explicit
-  wake-time underwater refresh, and store-owned force integration are off raw
-  `modelAccess.Models()` reads. `PhysicsBodyStore` now owns gravity, buoyancy,
-  drag, water damping, righting torque, angular damping, pending impulses, pose
-  integration, terrain clamping after integration, and allocator-owned body
-  handle identity; `ColliderStore` owns collider handle identity and resolves
-  collider bodies from store-owned body handles. Ragdoll joint solving mutates
-  `PhysicsBodyStore` records, and point-joint setup, serialization, and smoke
-  tests resolve through store-owned handles. `GameModel::UpdatePosition` and
-  its terrain-clamp wrapper are deleted; `Physics/TerrainContactManifold` now
-  owns terrain CCD/manifold generation from `PhysicsBodyRecord` pose plus
-  `ColliderStore` shapes, and the `GameModel` terrain response mailbox plus
-  `ResponseInformation` are deleted.
-  Tornado field code no longer opens a raw model range; its remaining model sync
-  is named on `PhysicsModelAccess` as owner-side compatibility.
-  `PersistentContactSolver::Solve` no longer receives `PhysicsModelAccess`,
-  opens `modelAccess.Models()`, or writes through raw model ranges; object
-  manifold building now consumes an `ObjectContactBodyView` built from
-  `PhysicsBodyRecord` pose plus `ColliderStore` shapes. Object/object CCD and
-  wake-persistent contact checks now use `SweepObjectContact` plus
-  `ObjectContactBodyView` inputs, and `GameModel::SweepGameModel`/
-  `GameModel::GetModelCollisionTime` are deleted. RunSolverPhysics per-body
-  and ragdoll compatibility writebacks, plus wake-time apply-forces writeback,
-  now route through named `PhysicsModelAccess::WriteBackPhysicsBody` commands.
-  The scene-boundary paths still need real physics-owned views before K003 can
-  delete the remaining compatibility model ranges.
+- As of `697ca364`, rows K001 through K012 are source-side complete in the
+  implementation tracker. K003 now has no `PhysicsModelAccess` raw GameModel
+  range facade: `PhysicsModelMutableRange`, `PhysicsModelConstRange`,
+  `MutableModelData`, `ModelData`, and `PhysicsModelAccess::Models()` are
+  deleted. `PhysicsScene` reloads body records, refreshes collider/render
+  stores, and writes back bulk/per-body body state through named model-owner
+  commands instead of borrowing pointer/count model ranges. Earlier K003 slices
+  moved diagnostics, render/collider/sleep/body stores, ragdoll solving, object
+  and terrain manifolds, persistent contact solving, tornado sync, wake/seed
+  writebacks, force/pose integration, and terrain clamping off raw
+  `modelAccess.Models()` reads.
 - Guardrail follow-up added `tools/check_runtime_boundaries.py` checks for
   deleted migration artifacts (`GameModelRuntimePhysicsTuning`,
   `legacyModelIndex`, `RuntimeConfigSnapshot`, and the no-factory

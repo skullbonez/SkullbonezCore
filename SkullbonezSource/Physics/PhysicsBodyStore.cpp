@@ -125,9 +125,7 @@ bool FindClosestBoxTerrainVertex( const PhysicsBodyRecord& record,
     float bestGap = 1.0e30f;
     for ( int v = 0; v < 8; ++v )
     {
-        const Vector3 local( ( v & 1 ) ? he.x : -he.x,
-                             ( v & 2 ) ? he.y : -he.y,
-                             ( v & 4 ) ? he.z : -he.z );
+        const Vector3 local( ( v & 1 ) ? he.x : -he.x, ( v & 2 ) ? he.y : -he.y, ( v & 4 ) ? he.z : -he.z );
         const Vector3 worldVertex = record.position + ( rotMat * local );
 
         if ( !record.terrain->IsInBounds( worldVertex.x, worldVertex.z ) )

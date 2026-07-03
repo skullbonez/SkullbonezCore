@@ -71,7 +71,7 @@ struct TerrainContactPoint
 struct TerrainContactManifold
 {
     int bodyA = -1;
-    int bodyB = -1;                                           // -1 marks terrain, which is static and not stored in the body array.
+    int bodyB = -1;                // -1 marks terrain, which is static and not stored in the body array.
     Math::Vector::Vector3 normal = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 tangent1 = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 tangent2 = Math::Vector::ZERO_VECTOR;
@@ -88,10 +88,10 @@ struct TerrainContactManifold
 
 struct TerrainContactSweepResult
 {
-    bool hit = false;                                      // Valid terrain hit occurred in the tested substep.
-    float collisionTime = 0.0f;                            // Seconds from the start of the tested substep.
-    Geometry::Ray collidedRay;                             // Sweep ray captured for diagnostics and future terrain row metadata.
-    Geometry::Plane collidedPlane;                         // Terrain plane used to build the contact manifold.
+    bool hit = false;              // Valid terrain hit occurred in the tested substep.
+    float collisionTime = 0.0f;    // Seconds from the start of the tested substep.
+    Geometry::Ray collidedRay;     // Sweep ray captured for diagnostics and future terrain row metadata.
+    Geometry::Plane collidedPlane; // Terrain plane used to build the contact manifold.
 };
 
 TerrainContactSweepResult SweepTerrainContact( const TerrainContactBodyView& body,

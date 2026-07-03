@@ -93,8 +93,8 @@ struct ObjectContactManifold
 
 struct ObjectContactSweepResult
 {
-    bool hit = false;           // Candidate object/object hit occurred in the tested substep.
-    float collisionTime = 0.0f; // Seconds from the start of the tested substep.
+    bool hit = false;                                         // Candidate object/object hit occurred in the tested substep.
+    float collisionTime = 0.0f;                               // Seconds from the start of the tested substep.
 };
 
 // Runs the object/object CCD front-end from body/collider inputs. The result is

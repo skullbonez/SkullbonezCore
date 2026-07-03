@@ -110,6 +110,15 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "Pass WorldEnvironmentSettings and other owner-specific settings instead of a catch-all runtime snapshot.",
     ),
     (
+        "PhysicsModelAccess raw model range facade",
+        re.compile(
+            r"\b(?:PhysicsModelMutableRange|PhysicsModelConstRange|BorrowMutableModels)\b"
+            r"|\b(?:MutableModelData|ModelData)\s*\("
+            r"|\b(?:modelAccess|physicsModelAccess)\s*\.\s*Models\s*\("
+        ),
+        "Use PhysicsModelAccess command/query methods and store-backed views instead of raw GameModel ranges.",
+    ),
+    (
         "AssetSystem::CreateShader(const char*)",
         re.compile(
             r"\bAssetSystem\s*::\s*CreateShader\s*\(\s*const\s+char\s*\*\s*[A-Za-z_]\w*\s*\)"
@@ -5895,6 +5904,12 @@ def run_self_tests() -> list[str]:
     struct GameModelRuntimePhysicsTuning {};
     int legacyModelIndex = 0;
     RuntimeConfigSnapshot snapshot;
+    PhysicsModelMutableRange mutableRange;
+    PhysicsModelConstRange constRange;
+    auto* mutableModels = modelAccess.MutableModelData();
+    auto* constModels = modelAccess.ModelData();
+    auto rawRange = modelAccess.Models();
+    auto borrowedRange = BorrowMutableModels( modelAccess );
     std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logicalNameOrBaseName ) const;
     """
     if not any(
@@ -5908,8 +5923,10 @@ def run_self_tests() -> list[str]:
 
     commented_deleted_migration_artifact_text = """
     // GameModelRuntimePhysicsTuning, legacyModelIndex, and RuntimeConfigSnapshot are migration notes only.
+    // PhysicsModelMutableRange, MutableModelData(), and modelAccess.Models() are notes only.
     /*
        AssetSystem::CreateShader( const char* name ) is mentioned in the plan but must not be code.
+       BorrowMutableModels(modelAccess) appears in the audit notes, not compiled source.
     */
     void UseExplicitStoresAndFactories();
     """

@@ -110,6 +110,33 @@ Comment quality is part of completion, not a follow-up nicety.
   validation, provided the diff is strictly comments/docs. If code behavior
   changes accidentally, stop and switch to the validation map below.
 
+## Migration Artifact Gate
+
+Compatibility code is allowed only when it is honest, bounded, and guarded.
+Do not introduce new types, functions, fields, or modules named around migration
+mechanics such as `Runtime`, `Snapshot`, `Compatibility`, `Transitional`,
+`Bridge`, `Tuning`, `ForCompatibility`, or raw `Model`/`GameModel` access unless
+the change names all four of these in the owning plan, source comment, or commit
+body: owner, reason, deletion condition, and checker budget.
+
+- Prefer domain nouns over migration nouns. For example, split values into
+  `PhysicsMaterial`, `BodySimulationLimits`, `ContactPolicy`,
+  `WaterRenderStyleSettings`, `FluidForceSettings`, `RenderResourceContext`, or
+  other owner-specific concepts instead of creating a catch-all runtime bag.
+- A bridge that mostly answers "how did we avoid the old global/service/storage
+  path?" is not done until it either becomes a domain API or has an explicit
+  follow-up row with a deletion condition.
+- When deleting a migration artifact, update or add a static guardrail in
+  `tools/check_runtime_boundaries.py` in the same slice whenever the artifact can
+  be detected textually. Include a self-test for the guardrail and rerun the
+  boundary checker.
+- Do not mark a kill-list row or migration-cleanup plan complete while source
+  still exposes the deleted shape under a new compatibility spelling. If a real
+  model-owner command or context remains, describe it as the remaining domain
+  boundary and move strict-authority work to the appropriate follow-up plan.
+- Use a single independent rubber-duck review at the end of a whole cleanup
+  plan, not one review per tiny slice, unless the user explicitly asks for more.
+
 ## After Editing
 
 Do not run validation scripts automatically after every edit. Formal repository

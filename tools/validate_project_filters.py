@@ -108,6 +108,7 @@ PHYSICS_PREFIXES = (
     "SimulationSystem",
     "SleepIslandSystem",
     "SpatialGrid",
+    "TerrainContactManifold",
     "TornadoField",
 )
 

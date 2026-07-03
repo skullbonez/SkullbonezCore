@@ -236,9 +236,7 @@ float GetTerrainCollisionRatio( const TerrainContactBodyView& body,
             PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSweptVertexProbe" );
             for ( int v = 0; v < 8; ++v )
             {
-                const Vector3 local( ( v & 1 ) ? he.x : -he.x,
-                                     ( v & 2 ) ? he.y : -he.y,
-                                     ( v & 4 ) ? he.z : -he.z );
+                const Vector3 local( ( v & 1 ) ? he.x : -he.x, ( v & 2 ) ? he.y : -he.y, ( v & 4 ) ? he.z : -he.z );
                 const Vector3 worldVertex = body.position + ( rotMat * local );
 
                 if ( !body.terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
@@ -249,9 +247,9 @@ float GetTerrainCollisionRatio( const TerrainContactBodyView& body,
                 float vertexTerrainHeight = 0.0f;
                 Plane vertexPlane;
                 body.terrain->GetTerrainHeightAndPlaneAt( worldVertex.x,
-                                                           worldVertex.z,
-                                                           vertexTerrainHeight,
-                                                           vertexPlane );
+                                                          worldVertex.z,
+                                                          vertexTerrainHeight,
+                                                          vertexPlane );
 
                 const Ray vertexRay( worldVertex, body.linearVelocity * changeInTime );
                 const float vertexCollisionTime = GeometricMath::CalculateIntersectionTime( vertexPlane, vertexRay );
@@ -315,9 +313,9 @@ float GetTerrainCollisionRatio( const TerrainContactBodyView& body,
                 float vertexTerrainHeight = 0.0f;
                 Plane vertexPlane;
                 body.terrain->GetTerrainHeightAndPlaneAt( worldVertex.x,
-                                                           worldVertex.z,
-                                                           vertexTerrainHeight,
-                                                           vertexPlane );
+                                                          worldVertex.z,
+                                                          vertexTerrainHeight,
+                                                          vertexPlane );
 
                 const Ray vertexRay( worldVertex, body.linearVelocity * changeInTime );
                 const float vertexCollisionTime = GeometricMath::CalculateIntersectionTime( vertexPlane, vertexRay );
@@ -361,10 +359,9 @@ float GetTerrainCollisionRatio( const TerrainContactBodyView& body,
 }
 } // namespace
 
-TerrainContactSweepResult
-SkullbonezCore::Physics::SweepTerrainContact( const TerrainContactBodyView& body,
-                                              const CollisionShape& shape,
-                                              float changeInTime )
+TerrainContactSweepResult SkullbonezCore::Physics::SweepTerrainContact( const TerrainContactBodyView& body,
+                                                                        const CollisionShape& shape,
+                                                                        float changeInTime )
 {
     // This answers "how many seconds can this body move before it hits terrain?"
     // and returns the hit plane directly instead of writing a GameModel mailbox.
