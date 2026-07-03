@@ -46,6 +46,7 @@ Related:
 #include "../Runtime/Replay/ReplaySolverSnapshot.h"
 #include "SleepIslandSystem.h"
 #include "SpatialGrid.h"
+#include "TerrainContactManifold.h"
 #include "TornadoField.h"
 
 namespace SkullbonezCore
@@ -205,7 +206,7 @@ class PhysicsWorld
     struct TerrainDetectionCandidate
     {
         float availableTime = 0.0f;
-        float collisionTime = 0.0f;
+        TerrainContactSweepResult sweep;
         uint8_t tested = 0;
     };
 

@@ -152,6 +152,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\CameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Debug\CollisionVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\ObjectContactManifold.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\TerrainContactManifold.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Debug\PhysicsDebugVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherLaser.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp" />
@@ -310,6 +311,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\CameraCollection.h" />
     <ClInclude Include="SkullbonezSource\Physics\Debug\CollisionVisualizer.h" />
     <ClInclude Include="SkullbonezSource\Physics\ObjectContactManifold.h" />
+    <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h" />
     <ClInclude Include="SkullbonezSource\Physics\Debug\PhysicsDebugVisualizer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.h" />
@@ -362,7 +364,6 @@
     <ClInclude Include="SkullbonezSource\Core\Log.h" />
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveMeshBuilder.h" />
     <ClInclude Include="SkullbonezSource\Maths\Quaternion.h" />
-    <ClInclude Include="SkullbonezSource\Physics\ResponseInformation.h" />
     <ClInclude Include="SkullbonezSource\Physics\RigidBody.h" />
     <ClInclude Include="SkullbonezSource\Maths\RotationMatrix.h" />
     <ClInclude Include="SkullbonezSource\Core\Config.h" />

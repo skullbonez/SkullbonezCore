@@ -41,6 +41,7 @@ Related:
 #include "PhysicsWorldForces.h"
 #include "ColliderStore.h"
 #include "ObjectContactManifold.h"
+#include "TerrainContactManifold.h"
 #include "../Core/Profiler.h"
 #include "../Core/WorkerPool.h"
 
@@ -1892,7 +1893,6 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
                                      const PhysicsWorldForces& worldForces,
                                      Threading::WorkerPool& workerPool )
 {
-    auto m_gameModels = modelAccess.Models();
     const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
     const int modelCount = bodyStream.count;
     std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
@@ -2299,6 +2299,22 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         ObjectContactBodyView body;
         body.position = record.position + record.linearVelocity * time;
         body.orientation = record.orientation;
+        return body;
+    };
+
+    auto terrainContactBodyViewForIndex = [&]( int index ) -> TerrainContactBodyView
+    {
+        const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
+        TerrainContactBodyView body;
+        body.position = record.position;
+        body.orientation = record.orientation;
+        body.linearVelocity = record.linearVelocity;
+        body.terrain = record.terrain;
+        body.boundingRadius = record.boundingRadius;
+        body.contactEpsilon = record.contactEpsilon;
+        body.terrainContactThreshold = config.terrainContactThreshold;
+        body.restitutionThreshold = config.contactRestitutionThreshold;
+        body.isFixed = record.isFixed;
         return body;
     };
 
@@ -2940,29 +2956,36 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         {
             return;
         }
+        if ( x >= static_cast<int>( bodyRecords.size() ) || x >= static_cast<int>( colliderRecords.size() ) )
+        {
+            return;
+        }
 
         candidate.availableTime = m_timeRemaining[x];
-        candidate.collisionTime = m_gameModels[x].CollisionDetectTerrain( candidate.availableTime );
+        candidate.sweep = SweepTerrainContact( terrainContactBodyViewForIndex( x ),
+                                               colliderRecords[static_cast<size_t>( x )].shape,
+                                               candidate.availableTime );
         candidate.tested = 1;
     };
 
-    auto commitTerrainCandidate = [&]( int x, float availableTime, float colTime )
+    auto commitTerrainCandidate = [&]( int x, float availableTime, const TerrainContactSweepResult& sweep )
     {
-        if ( m_gameModels[x].IsResponseRequired() )
+        if ( sweep.hit )
         {
+            const float colTime = sweep.collisionTime;
             if ( bodyStore.IntegrateBodyPose( colliderStore, x, colTime ) )
             {
                 modelAccess.WriteBackPhysicsBody( bodyStore, x );
             }
             const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
-            // BuildTerrainContactManifold is the handoff from terrain-specific
-            // collision data to solver-neutral contact geometry. The old
-            // response-required flag is now just a detection latch; clear it
-            // once the manifold is captured so no later path can replay terrain
-            // response work.
             Physics::TerrainContactManifold manifold;
-            const bool hasManifold = m_gameModels[x].BuildTerrainContactManifold( x, colTime, availableTime, manifold );
-            m_gameModels[x].ClearResponseRequired();
+            const bool hasManifold =
+                Physics::BuildTerrainContactManifold( terrainContactBodyViewForIndex( x ),
+                                                      colliderRecords[static_cast<size_t>( x )].shape,
+                                                      x,
+                                                      sweep,
+                                                      availableTime,
+                                                      manifold );
 
             Physics::PhysicsPipelineRecord record;
             record.stage = Physics::PhysicsPipelineStage::TerrainHit;
@@ -3020,7 +3043,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         const TerrainDetectionCandidate& candidate = m_terrainDetectionCandidates[static_cast<size_t>( x )];
         if ( candidate.tested )
         {
-            commitTerrainCandidate( x, candidate.availableTime, candidate.collisionTime );
+            commitTerrainCandidate( x, candidate.availableTime, candidate.sweep );
         }
     }
     PROFILE_END( "Frame/Physics/Terrain/Detect" );

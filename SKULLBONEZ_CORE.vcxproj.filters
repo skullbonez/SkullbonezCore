@@ -517,6 +517,9 @@
     <ClCompile Include="SkullbonezSource\Physics\ObjectContactManifold.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\TerrainContactManifold.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Debug\PhysicsDebugVisualizer.cpp">
       <Filter>Source Files\Physics\Debug</Filter>
     </ClCompile>
@@ -784,9 +787,6 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Maths\Quaternion.h">
       <Filter>Header Files\Maths</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Physics\ResponseInformation.h">
-      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\RigidBody.h">
       <Filter>Header Files\Physics</Filter>
@@ -1086,6 +1086,9 @@
       <Filter>Header Files\Physics\Debug</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\ObjectContactManifold.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Debug\PhysicsDebugVisualizer.h">
