@@ -145,6 +145,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
 bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
                               SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
                               const EngineConfig& config,
+                              const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
                               SkullbonezCore::Threading::WorkerPool& workerPool,
                               double simulationTotalSeconds,
                               const std::chrono::steady_clock::time_point& budgetStart,
@@ -209,7 +210,11 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 
                 {
                     PROFILE_SCOPED( "Frame/Replay/Prediction/StepPhysics" );
-                    SimulationPhysicsStep{ &modelCollection.GetPhysicsEngine(), &modelCollection, &config, &workerPool }
+                    SimulationPhysicsStep{ &modelCollection.GetPhysicsEngine(),
+                                           &modelCollection,
+                                           &config,
+                                           &workerPool,
+                                           &worldForces }
                         .Run( PHYSICS_FIXED_DT );
                 }
                 CaptureReplayPredictionFrame( replayRuntime,
@@ -491,6 +496,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
 void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
                                        SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
                                        const EngineConfig& config,
+                                       const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
                                        SkullbonezCore::Threading::WorkerPool& workerPool,
                                        bool scenePhysics,
                                        double fallbackSourceSimulationSeconds,
@@ -550,6 +556,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
             StepReplayPredictionJob( replayRuntime,
                                      modelCollection,
                                      config,
+                                     worldForces,
                                      workerPool,
                                      simulationTotalSeconds,
                                      budgetStart,

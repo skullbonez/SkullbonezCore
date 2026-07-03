@@ -34,7 +34,6 @@ Related:
 #include "PhysicsBodyStore.h"
 #include "PhysicsEngine.h"
 #include "PhysicsMass.h"
-#include "PhysicsModelAccess.h"
 
 #include <algorithm>
 #include <cmath>
@@ -300,13 +299,12 @@ bool IsBodySleeping( int bodyIndex, const std::vector<uint8_t>& sleepState )
 }
 
 
-bool ApplyNeckSwingLimits( PhysicsModelMutableRange models,
-                           PhysicsBodyStore& bodyStore,
+bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore,
                            const std::vector<PointJointConstraint>& constraints,
                            const std::vector<uint8_t>& sleepState )
 {
-    const int modelCount = static_cast<int>( models.size() );
     std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
+    const int modelCount = bodyStore.Count();
     bool changed = false;
     for ( const PointJointConstraint& constraint : constraints )
     {
@@ -314,8 +312,8 @@ bool ApplyNeckSwingLimits( PhysicsModelMutableRange models,
         {
             continue;
         }
-        const int bodyAIndex = constraint.BodyAIndex();
-        const int bodyBIndex = constraint.BodyBIndex();
+        const int bodyAIndex = constraint.BodyAIndex( bodyStore );
+        const int bodyBIndex = constraint.BodyBIndex( bodyStore );
         if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= modelCount || bodyBIndex >= modelCount )
         {
             continue;
@@ -353,13 +351,24 @@ bool ApplyNeckSwingLimits( PhysicsModelMutableRange models,
         orientation.RotateAboutAxis( correctionAxis, correctionAngle );
         headRecord.orientation = orientation;
         headRecord.angularVelocity = headRecord.angularVelocity * RAGDOLL_NECK_ANGULAR_DAMPING;
-        bodyStore.WriteBackToModelAt( models, bodyBIndex );
         changed = true;
     }
     return changed;
 }
 
 } // namespace
+
+int PointJointConstraint::BodyAIndex( const PhysicsBodyStore& bodyStore ) const
+{
+    return bodyStore.ModelIndexForHandle( bodyA );
+}
+
+
+int PointJointConstraint::BodyBIndex( const PhysicsBodyStore& bodyStore ) const
+{
+    return bodyStore.ModelIndexForHandle( bodyB );
+}
+
 
 float Ragdoll::DefaultEditorScale()
 {
@@ -447,10 +456,12 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
 
     int jointCount = 0;
     const SimpleJointDef* joints = SimpleJoints( jointCount );
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
     for ( int i = 0; i < jointCount; ++i )
     {
         PointJointConstraint constraint;
-        constraint.SetCompatibilityBodies( firstBody + joints[i].bodyA, firstBody + joints[i].bodyB );
+        constraint.SetBodies( bodyStore.HandleForModelIndex( firstBody + joints[i].bodyA ),
+                              bodyStore.HandleForModelIndex( firstBody + joints[i].bodyB ) );
         constraint.localAnchorA = ScaleVector( joints[i].localAnchorA, scale );
         constraint.localAnchorB = ScaleVector( joints[i].localAnchorB, scale );
         constraint.slack = joints[i].slack * scale;
@@ -470,8 +481,7 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
     }
 }
 
-bool Ragdoll::SolvePointJoints( PhysicsModelMutableRange models,
-                                PhysicsBodyStore& bodyStore,
+bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore,
                                 const std::vector<PointJointConstraint>& constraints,
                                 const std::vector<uint8_t>& sleepState,
                                 float dt )
@@ -482,14 +492,14 @@ bool Ragdoll::SolvePointJoints( PhysicsModelMutableRange models,
     }
 
     std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
-    const int modelCount = static_cast<int>( models.size() );
+    const int modelCount = bodyStore.Count();
     const float invDt = 1.0f / dt;
     for ( int iteration = 0; iteration < RAGDOLL_SOLVER_ITERATIONS; ++iteration )
     {
         for ( const PointJointConstraint& constraint : constraints )
         {
-            const int bodyAIndex = constraint.BodyAIndex();
-            const int bodyBIndex = constraint.BodyBIndex();
+            const int bodyAIndex = constraint.BodyAIndex( bodyStore );
+            const int bodyBIndex = constraint.BodyBIndex( bodyStore );
             if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= modelCount || bodyBIndex >= modelCount )
             {
                 continue;
@@ -541,10 +551,8 @@ bool Ragdoll::SolvePointJoints( PhysicsModelMutableRange models,
                 axis,
                 rA,
                 rB,
-                [&]( const Vector3& v )
-                { return invMassA > 0.0f ? ApplyRecordInvInertia( bodyA, v ) : ZERO_VECTOR; },
-                [&]( const Vector3& v )
-                { return invMassB > 0.0f ? ApplyRecordInvInertia( bodyB, v ) : ZERO_VECTOR; } );
+                [&]( const Vector3& v ) { return invMassA > 0.0f ? ApplyRecordInvInertia( bodyA, v ) : ZERO_VECTOR; },
+                [&]( const Vector3& v ) { return invMassB > 0.0f ? ApplyRecordInvInertia( bodyB, v ) : ZERO_VECTOR; } );
             if ( effectiveMass > 0.0f )
             {
                 ApplyConstraintImpulse( bodyA,
@@ -564,18 +572,15 @@ bool Ragdoll::SolvePointJoints( PhysicsModelMutableRange models,
                 if ( invMassA > 0.0f )
                 {
                     bodyA.position += correction * invMassA;
-                    bodyStore.WriteBackToModelAt( models, bodyAIndex );
                 }
                 if ( invMassB > 0.0f )
                 {
                     bodyB.position -= correction * invMassB;
-                    bodyStore.WriteBackToModelAt( models, bodyBIndex );
                 }
             }
         }
     }
 
-    ApplyNeckSwingLimits( models, bodyStore, constraints, sleepState );
-    bodyStore.WriteBackToModels( models );
+    (void)ApplyNeckSwingLimits( bodyStore, constraints, sleepState );
     return true;
 }

@@ -47,6 +47,7 @@ Related:
 #include "../GameObjects/GameModel.h"
 #include "../Maths/Vector3.h"
 #include "../Maths/Matrix4.h"
+#include "../Physics/PhysicsWorldForces.h"
 #include "../Rendering/IMesh.h"
 #include "../Rendering/IShader.h"
 
@@ -180,6 +181,7 @@ class WorldEnvironment
     void SetGravity( float gravity );                                      // Updates gravity for future force integration ticks.
     float GetFluidDensity() const;                                         // Fluid density in kg/m^3 for buoyancy and drag.
     void SetFluidDensity( float density );                                 // Updates fluid density for future force integration ticks.
+    Physics::PhysicsWorldForces GetPhysicsWorldForces() const;             // Tick-local force inputs for physics-owned integration.
     void AddWorldForces( GameObjects::GameModel& target,
                          float changeInTime );                             // Adds world forces to the referenced game model
 

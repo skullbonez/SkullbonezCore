@@ -586,6 +586,7 @@ void Run::TickPhysics( double secondsPerFrame )
     }
     const bool manipulatorPhysics = policy.manipulatorActive;
     const bool contactAudioStep = m_contactAudio.IsEnabled();
+    const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
     const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{
         secondsPerFrame,
         policy.physicsTimeScale,
@@ -597,7 +598,8 @@ void Run::TickPhysics( double secondsPerFrame )
         SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(),
                                &m_cGameModelCollection,
                                m_systems.config,
-                               m_systems.workerPool },
+                               m_systems.workerPool,
+                               &physicsWorldForces },
         manipulatorPhysics ? &Run::ApplyMousePickupPhysicsStepThunk : nullptr,
         this,
         ( manipulatorPhysics || replayCapture || contactAudioStep ) ? &Run::AfterPhysicsStepThunk : nullptr,
@@ -2054,10 +2056,12 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             SceneState().currentFrame = currentSceneFrame;
             m_cGameModelCollection.BeginCollisionVisualFrame();
 
+            const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
             SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(),
                                    &m_cGameModelCollection,
                                    m_systems.config,
-                                   m_systems.workerPool }
+                                   m_systems.workerPool,
+                                   &physicsWorldForces }
                 .Run( PHYSICS_FIXED_DT );
             currentFrame = nextFrame;
 

@@ -574,6 +574,24 @@ void GameModel::ApplyContactPolicy( const Physics::ContactPolicy& policy )
 }
 
 
+float GameModel::GetAngularVelocityLimit() const
+{
+    return m_bodySimulationLimits.angularVelocityLimit;
+}
+
+
+float GameModel::GetContactEpsilon() const
+{
+    return m_contactPolicy.contactEpsilon;
+}
+
+
+Terrain* GameModel::GetTerrain() const
+{
+    return m_terrain;
+}
+
+
 void GameModel::AddBoundingBox( const Vector3& halfExtents )
 {
     if ( halfExtents.x <= 0.0f || halfExtents.y <= 0.0f || halfExtents.z <= 0.0f )

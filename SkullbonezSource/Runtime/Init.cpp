@@ -576,6 +576,7 @@ struct PhysicsRuntimeHandleSmokeResult
     bool renderMirrorMatches = false;
     bool jointUsesHandles = false;
     bool colliderRefreshMatches = false;
+    bool reorderPreservesHandleState = false;
     int bodyCount = 0;
     int colliderCount = 0;
     int renderInstanceCount = 0;
@@ -658,20 +659,58 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                      !renderStore.Records().empty() &&
                                      renderStore.Records()[0].replayBodyId == bodyARecord->replayBodyId;
     const bool jointUsesHandles = pointJoints.size() == 1 && pointJoints[0].bodyA == bodyA &&
-                                  pointJoints[0].bodyB == bodyB && pointJoints[0].BodyAIndex() == 0 &&
-                                  pointJoints[0].BodyBIndex() == 1;
+                                  pointJoints[0].bodyB == bodyB && pointJoints[0].BodyAIndex( bodyStore ) == 0 &&
+                                  pointJoints[0].BodyBIndex( bodyStore ) == 1;
+
+    PhysicsBodyStore reorderBodyStore;
+    std::vector<SkullbonezCore::GameObjects::GameModel> reorderModels;
+    for ( int i = 0; i < 2; ++i )
+    {
+        SkullbonezCore::GameObjects::GameModel model(
+            world.get(),
+            SkullbonezCore::Math::Vector::Vector3( static_cast<float>( i ) * 3.0f, 5.0f, 0.0f ),
+            SkullbonezCore::Math::Vector::Vector3( 1.0f, 1.0f, 1.0f ),
+            3.0f + static_cast<float>( i ) );
+        model.AddBoundingSphere( 0.5f );
+        model.SetReplayBodyId( 100u + static_cast<uint32_t>( i ) );
+        reorderModels.push_back( std::move( model ) );
+    }
+    reorderBodyStore.LoadFromModels( reorderModels, std::vector<uint8_t>{} );
+    const PhysicsBodyHandle reorderedOriginalBody = reorderBodyStore.HandleForModelIndex( 0 );
+    const uint32_t reorderBodyAReplayId = reorderModels[0].GetReplayBodyId();
+    const uint32_t reorderBodyBReplayId = reorderModels[1].GetReplayBodyId();
+    const SkullbonezCore::Math::Vector::Vector3 pendingImpulse( 0.0f, 2.0f, 0.0f );
+    const SkullbonezCore::Math::Vector::Vector3 pendingImpulsePoint( 0.25f, 0.0f, 0.0f );
+    reorderBodyStore.SetPendingBodyImpulse( 0, pendingImpulse, pendingImpulsePoint );
+    reorderBodyStore.SeedBodyAsleep( 0 );
+    reorderModels[0].SetReplayBodyId( reorderBodyBReplayId );
+    reorderModels[1].SetReplayBodyId( reorderBodyAReplayId );
+    reorderBodyStore.LoadFromModels( reorderModels, std::vector<uint8_t>{} );
+    const int reorderedBodyAIndex = reorderBodyStore.ModelIndexForHandle( reorderedOriginalBody );
+    const PhysicsBodyRecord* reorderedBodyARecord =
+        reorderedBodyAIndex >= 0 ? reorderBodyStore.RecordForModelIndex( reorderedBodyAIndex ) : nullptr;
+    // Invariant: allocator-owned handles must carry physics-owned one-shot
+    // state through a same-scene reorder. Otherwise the handle identity is only
+    // nominally independent from model order.
+    const bool reorderPreservesHandleState =
+        reorderedBodyAIndex == 1 && reorderedBodyARecord && reorderedBodyARecord->handle == reorderedOriginalBody &&
+        reorderedBodyARecord->hasPendingImpulse && reorderedBodyARecord->isSleeping &&
+        fabsf( reorderedBodyARecord->pendingImpulse.y - pendingImpulse.y ) < 0.0001f &&
+        fabsf( reorderedBodyARecord->pendingImpulseApplicationPoint.x - pendingImpulsePoint.x ) < 0.0001f;
 
     PhysicsRuntimeHandleSmokeResult result;
     result.handlesMatchStores = handlesMatchStores;
     result.renderMirrorMatches = renderMirrorMatches;
     result.jointUsesHandles = jointUsesHandles;
     result.colliderRefreshMatches = colliderRefreshMatches;
+    result.reorderPreservesHandleState = reorderPreservesHandleState;
     result.bodyCount = bodyStore.Count();
     result.colliderCount = colliderStore.Count();
     result.renderInstanceCount = renderStore.Count();
     result.pointJointCount = pointJoints.size();
     result.bodyA = bodyA;
-    result.passed = handlesMatchStores && renderMirrorMatches && jointUsesHandles && colliderRefreshMatches;
+    result.passed = handlesMatchStores && renderMirrorMatches && jointUsesHandles && colliderRefreshMatches &&
+                    reorderPreservesHandleState;
     return result;
 }
 
@@ -719,7 +758,8 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
                  static_cast<unsigned long long>( result.deterministicHash ) );
         fprintf( stream,
                  "[physics-runtime-handle-smoke] bodies=%d colliders=%d render_instances=%d point_joints=%zu "
-                 "handle_a=(%u,%u) store_handles=%s render_mirror=%s joint_handles=%s collider_refresh=%s\n",
+                 "handle_a=(%u,%u) store_handles=%s render_mirror=%s joint_handles=%s collider_refresh=%s "
+                 "reorder_state=%s\n",
                  runtimeMirror.bodyCount,
                  runtimeMirror.colliderCount,
                  runtimeMirror.renderInstanceCount,
@@ -729,7 +769,8 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
                  runtimeMirror.handlesMatchStores ? "pass" : "fail",
                  runtimeMirror.renderMirrorMatches ? "pass" : "fail",
                  runtimeMirror.jointUsesHandles ? "pass" : "fail",
-                 runtimeMirror.colliderRefreshMatches ? "pass" : "fail" );
+                 runtimeMirror.colliderRefreshMatches ? "pass" : "fail",
+                 runtimeMirror.reorderPreservesHandleState ? "pass" : "fail" );
         if ( !runtimeMirror.errorMessage.empty() )
         {
             fprintf( stream, "[physics-runtime-handle-smoke] error=\"%s\"\n", runtimeMirror.errorMessage.c_str() );

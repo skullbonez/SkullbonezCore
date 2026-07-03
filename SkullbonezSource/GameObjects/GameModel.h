@@ -309,6 +309,9 @@ class GameModel
     void ApplyPhysicsMaterial( const Physics::PhysicsMaterial& material );
     void ApplyBodySimulationLimits( const Physics::BodySimulationLimits& limits );
     void ApplyContactPolicy( const Physics::ContactPolicy& policy );
+    float GetAngularVelocityLimit() const;                                  // Body spin cap copied from runtime config.
+    float GetContactEpsilon() const;                                        // Terrain/contact proximity tolerance copied from runtime config.
+    Geometry::Terrain* GetTerrain() const;                                  // Borrowed scene terrain used by water and terrain-contact paths.
     void AddBoundingSphere( float fRadius );
     void AddBoundingBox( const Math::Vector::Vector3& halfExtents );
     void AddConvexHull( const Math::CollisionDetection::ConvexHullShape& hull );

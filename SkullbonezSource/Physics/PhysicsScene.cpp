@@ -78,7 +78,8 @@ void PhysicsScene::ClearPendingBodyImpulses()
 
 void PhysicsScene::RefreshColliderStore( PhysicsModelAccess& modelAccess )
 {
-    m_colliderStore.Refresh( modelAccess.MutableModelData(), modelAccess.ModelCount() );
+    RefreshBodyStore( modelAccess );
+    m_colliderStore.Refresh( modelAccess.MutableModelData(), modelAccess.ModelCount(), m_bodyStore );
 }
 
 
@@ -143,6 +144,7 @@ void PhysicsScene::ValidateRenderStoreMappings( int modelCount ) const
 void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
                                float fChangeInTime,
                                const Basics::EngineConfig& config,
+                               const PhysicsWorldForces& worldForces,
                                Threading::WorkerPool& workerPool )
 {
     // Invariant: PhysicsModelAccess is the named compatibility sync bridge for
@@ -155,9 +157,11 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
     // the hot step only needs to catch topology changes.
     if ( m_colliderStore.Count() != modelAccess.ModelCount() )
     {
-        m_colliderStore.Refresh( modelAccess.MutableModelData(), modelAccess.ModelCount() );
+        m_colliderStore.Refresh( modelAccess.MutableModelData(), modelAccess.ModelCount(), m_bodyStore );
     }
-    m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime, config, workerPool );
+    m_lastWorldForces = worldForces;
+    m_hasLastWorldForces = true;
+    m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime, config, worldForces, workerPool );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
     m_bodyStore.WriteBackToModels( BorrowMutableModels( modelAccess ) );
 }
@@ -166,12 +170,23 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
 void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
 {
     RefreshBodyStore( modelAccess );
+    if ( m_colliderStore.Count() != modelAccess.ModelCount() )
+    {
+        RefreshColliderStore( modelAccess );
+    }
     const int index = m_bodyStore.ModelIndexForHandle( body );
     if ( index < 0 )
     {
         return;
     }
-    m_world.WakeModel( modelAccess, m_bodyStore, index );
+    if ( m_hasLastWorldForces )
+    {
+        m_world.WakeModel( modelAccess, m_bodyStore, m_colliderStore, m_lastWorldForces, index );
+    }
+    else
+    {
+        m_world.WakeModel( modelAccess, m_bodyStore, index );
+    }
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
     m_bodyStore.WriteBackToModelAt( BorrowMutableModels( modelAccess ), index );
 }

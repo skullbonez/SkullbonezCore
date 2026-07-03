@@ -102,6 +102,7 @@ PHYSICS_PREFIXES = (
     "Ragdoll",
     "PhysicsScene",
     "PhysicsWorld",
+    "PhysicsWorldForces",
     "ResponseInformation",
     "RigidBody",
     "SimulationSystem",

@@ -57,6 +57,7 @@ class PhysicsEngine
     void Step( PhysicsModelAccess& modelAccess,
                float deltaSeconds,
                const Basics::EngineConfig& config,
+               const PhysicsWorldForces& worldForces,
                Threading::WorkerPool& workerPool );
     void WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
     void SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );

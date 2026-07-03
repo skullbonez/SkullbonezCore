@@ -31,6 +31,7 @@ Related:
 #include "PhysicsBodyStore.h"
 #include "PhysicsModelAccess.h"
 #include "PhysicsWorld.h"
+#include "PhysicsWorldForces.h"
 #include "../Rendering/RenderInstanceStore.h"
 
 namespace SkullbonezCore
@@ -61,6 +62,7 @@ class PhysicsScene
     void RunPhysics( PhysicsModelAccess& modelAccess,
                      float fChangeInTime,
                      const Basics::EngineConfig& config,
+                     const PhysicsWorldForces& worldForces,
                      Threading::WorkerPool& workerPool );
     void WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
     void SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
@@ -121,6 +123,8 @@ class PhysicsScene
     PhysicsBodyStore m_bodyStore;                         // Mutable body state in model/replay order.
     ColliderStore m_colliderStore;                        // Collider snapshot in model/replay order.
     Rendering::RenderInstanceStore m_renderInstanceStore; // Render snapshot in model/replay order.
+    PhysicsWorldForces m_lastWorldForces;                 // Last real step boundary forces used by explicit wake commands.
+    bool m_hasLastWorldForces = false;                    // False until the first physics step supplies world forces.
 };
 } // namespace Physics
 } // namespace SkullbonezCore

@@ -71,9 +71,10 @@ void PhysicsEngine::RefreshRenderStore( PhysicsModelAccess& modelAccess )
 void PhysicsEngine::Step( PhysicsModelAccess& modelAccess,
                           float deltaSeconds,
                           const Basics::EngineConfig& config,
+                          const PhysicsWorldForces& worldForces,
                           Threading::WorkerPool& workerPool )
 {
-    m_scene.RunPhysics( modelAccess, deltaSeconds, config, workerPool );
+    m_scene.RunPhysics( modelAccess, deltaSeconds, config, worldForces, workerPool );
 }
 
 

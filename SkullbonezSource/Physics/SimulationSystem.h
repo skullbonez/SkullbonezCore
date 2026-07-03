@@ -14,6 +14,8 @@ Glossary:
   Accumulator: Stored fractional tick state that carries time across frames.
   PhysicsModelAccess: Temporary compatibility interface that lets the physics
     world step legacy model-backed storage without naming GameModelCollection.
+  World-force snapshot: Tick-local gravity/fluid values handed to physics so
+    solver work does not reach back into WorldEnvironment.
 
 Invariants:
   - SimulationTickInput borrows physics step context only for the duration of Tick.
@@ -37,6 +39,7 @@ namespace Physics
 {
 class PhysicsEngine;
 class PhysicsModelAccess;
+struct PhysicsWorldForces;
 } // namespace Physics
 
 namespace Threading
@@ -54,11 +57,14 @@ struct SimulationPhysicsStep
     Physics::PhysicsModelAccess* modelAccess = nullptr;
     const EngineConfig* config = nullptr;
     Threading::WorkerPool* workerPool = nullptr;
+    // Borrowed gravity/fluid inputs for this fixed step.
+    const Physics::PhysicsWorldForces* worldForces = nullptr;
 
     // Returns true when every borrowed physics-step service is present.
     bool IsBound() const;
 
-    // Advances one fixed physics step through the current engine, compatibility model access, and Run-owned services.
+    // Advances one fixed physics step through the current engine,
+    // compatibility model access, world-force snapshot, and Run-owned services.
     void Run( float deltaSeconds ) const;
 };
 

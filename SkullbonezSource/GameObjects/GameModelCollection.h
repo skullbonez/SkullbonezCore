@@ -104,7 +104,6 @@ class GameModelCollection : public Rendering::IRenderSceneView,
     uint32_t m_nextReplayBodyId = 1;
 
     void InvalidateSoA();
-    Physics::PhysicsBodyHandle BodyHandleForModelIndex( int index ) const;
 
   public:
     GameModelCollection();
@@ -117,7 +116,10 @@ class GameModelCollection : public Rendering::IRenderSceneView,
     Threading::WorkerPool* RenderWorkerPool() const;
     void AddGameModel( GameModel gameModel );
     void Clear();
-    void RunPhysics( float fChangeInTime, const Basics::EngineConfig& config, Threading::WorkerPool& workerPool );
+    void RunPhysics( float fChangeInTime,
+                     const Basics::EngineConfig& config,
+                     const Physics::PhysicsWorldForces& worldForces,
+                     Threading::WorkerPool& workerPool );
     int GetRenderModelCount() const override;
     int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount ) override;
     void RenderModels( const Basics::RenderHelperContext& helperContext,

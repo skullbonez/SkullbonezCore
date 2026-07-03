@@ -11,17 +11,21 @@ Implementation status:
   `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-plan.csv`.
 - Current implementation tracker:
   `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-implementation-status.csv`.
-- As of `d5571316`, rows K001, K002, K006, K007, K008, K009,
-  K010, K011, and K012 have source-side deletion/split commits recorded in the
-  tracker. K003 is partial: diagnostics, render/collider/sleep/body stores,
-  ragdoll, wake/seed island helpers, and top-level contact-highlight ticking
-  are off raw `modelAccess.Models()` reads; underwater sleep now records a
-  targeted submerged-volume snapshot on `PhysicsBodyRecord` for the sleep-lock
-  predicate. Wake-time underwater refresh, tornado, persistent contact, and
-  solver paths still need real physics-owned views before deletion. K004 and
-  K005 require larger force-authority and
-  handle-allocation work before they can be removed without adding another
-  migration artifact.
+- As of the uncommitted store-force/wake/ragdoll/allocator-handle slice after
+  `d5571316`, rows K001, K002, K004, K005, K006, K007, K008, K009, K010, K011,
+  and K012 have source-side deletion/split work recorded in the tracker. K003 is
+  still partial: diagnostics, render/collider/sleep/body stores, ragdoll,
+  wake/seed island helpers, top-level contact-highlight ticking, explicit
+  wake-time underwater refresh, and store-owned force integration are off raw
+  `modelAccess.Models()` reads. `PhysicsBodyStore` now owns gravity, buoyancy,
+  drag, water damping, righting torque, angular damping, pending impulses, and
+  allocator-owned body handle identity; `ColliderStore` owns collider handle
+  identity and resolves collider bodies from store-owned body handles. Ragdoll
+  joint solving mutates `PhysicsBodyStore` records, and point-joint setup,
+  serialization, and smoke tests resolve through store-owned handles. Tornado,
+  persistent contact, terrain/manifold, object sweep, integration, and solver
+  writeback paths still need real physics-owned views before K003 can delete the
+  remaining compatibility model ranges.
 - Guardrail follow-up added `tools/check_runtime_boundaries.py` checks for
   deleted migration artifacts (`GameModelRuntimePhysicsTuning`,
   `legacyModelIndex`, `RuntimeConfigSnapshot`, and the no-factory

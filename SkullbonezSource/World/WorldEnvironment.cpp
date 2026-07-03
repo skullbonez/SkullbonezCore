@@ -493,6 +493,18 @@ float WorldEnvironment::GetFluidSurfaceHeight()
 }
 
 
+SkullbonezCore::Physics::PhysicsWorldForces WorldEnvironment::GetPhysicsWorldForces() const
+{
+    SkullbonezCore::Physics::PhysicsWorldForces forces;
+    forces.fluidSurfaceHeight = m_fluidSurfaceHeight;
+    forces.fluidDensity = m_fluidDensity;
+    forces.gasDensity = m_gasDensity;
+    forces.gravity = m_gravity;
+    forces.angularDragMultiplier = m_fluidForces.angularDragMultiplier;
+    return forces;
+}
+
+
 void WorldEnvironment::SetFluidSurfaceHeight( float height )
 {
     m_fluidSurfaceHeight = height;

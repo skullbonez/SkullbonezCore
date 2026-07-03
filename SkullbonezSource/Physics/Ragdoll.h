@@ -6,8 +6,8 @@ Purpose:
 Mental model:
   This is deliberately a small bridge toward a future generic constraint system.
   Ragdoll owns prefab construction, while PointJointConstraint is generic solver
-  data that already names bodies with physics handles while the current solver
-  converts compatibility handles back to scene-order indices.
+  data that names bodies with physics handles while solvers ask PhysicsBodyStore
+  to resolve the current scene-order rows.
 
 Glossary:
   Point joint: Constraint that keeps two local anchors near each other.
@@ -18,10 +18,10 @@ Glossary:
 
 Invariants:
   - Constraint order is deterministic and scene-authored.
-  - Constraint bodies refer to PhysicsBodyHandle values; compatibility index
-    helpers are temporary solver glue.
-  - The joint solver receives the borrowed compatibility model range from
-    PhysicsWorld; it does not own the broader PhysicsModelAccess facade.
+  - Constraint bodies refer to PhysicsBodyHandle values; only owners with a live
+    PhysicsBodyStore may resolve those handles to current model-order rows.
+  - The joint solver mutates PhysicsBodyStore records only; PhysicsWorld owns
+    any temporary compatibility writeback needed by later legacy solver paths.
 
 Related:
   - SkullbonezSource/Physics/Ragdoll.cpp
@@ -57,7 +57,6 @@ namespace Physics
 {
 class PhysicsEngine;
 class PhysicsBodyStore;
-class PhysicsModelMutableRange;
 
 struct PointJointConstraint
 {
@@ -73,37 +72,18 @@ struct PointJointConstraint
     uint32_t groupId = 0;
     uint8_t flags = 0;
 
-    void SetCompatibilityBodies( int modelIndexA, int modelIndexB )
+    void SetBodies( PhysicsBodyHandle bodyAHandle, PhysicsBodyHandle bodyBHandle )
     {
-        bodyA = modelIndexA >= 0 ? MakeCompatibilityPhysicsBodyHandle( static_cast<uint32_t>( modelIndexA ) )
-                                 : PhysicsBodyHandle{};
-        bodyB = modelIndexB >= 0 ? MakeCompatibilityPhysicsBodyHandle( static_cast<uint32_t>( modelIndexB ) )
-                                 : PhysicsBodyHandle{};
+        bodyA = bodyAHandle;
+        bodyB = bodyBHandle;
     }
 
-    int BodyAIndex() const
-    {
-        return CompatibilityBodyIndex( bodyA );
-    }
-
-    int BodyBIndex() const
-    {
-        return CompatibilityBodyIndex( bodyB );
-    }
+    int BodyAIndex( const PhysicsBodyStore& bodyStore ) const;
+    int BodyBIndex( const PhysicsBodyStore& bodyStore ) const;
 
     bool HasValidBodies() const
     {
         return bodyA.IsValid() && bodyB.IsValid() && bodyA != bodyB;
-    }
-
-  private:
-    static int CompatibilityBodyIndex( PhysicsBodyHandle body )
-    {
-        if ( !body.IsValid() || body.generation != PHYSICS_COMPATIBILITY_HANDLE_GENERATION || body.index > 0x7fffffffu )
-        {
-            return -1;
-        }
-        return static_cast<int>( body.index );
     }
 };
 
@@ -138,8 +118,7 @@ class Ragdoll
                                    Environment::WorldEnvironment& worldEnvironment,
                                    Geometry::Terrain* terrain,
                                    const RagdollBuildOptions& options );
-    static bool SolvePointJoints( PhysicsModelMutableRange models,
-                                  PhysicsBodyStore& bodyStore,
+    static bool SolvePointJoints( PhysicsBodyStore& bodyStore,
                                   const std::vector<PointJointConstraint>& constraints,
                                   const std::vector<uint8_t>& sleepState,
                                   float dt );

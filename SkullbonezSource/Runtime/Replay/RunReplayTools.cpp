@@ -337,9 +337,11 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
     // markers all share this deadline. Child functions receive the same start
     // time so profiler nesting cannot hide extra replay work outside the cap.
     const auto visualizerStart = std::chrono::steady_clock::now();
+    const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
     RenderReplayPredictionVisualizer( m_replayRuntime,
                                       m_cGameModelCollection,
                                       *m_systems.config,
+                                      physicsWorldForces,
                                       *m_systems.workerPool,
                                       SceneState().isScenePhysics,
                                       m_timers.simulationTimer.GetTimeSinceLastStart(),

@@ -281,12 +281,6 @@ void GameModelCollection::InvalidateSoA()
 }
 
 
-SkullbonezCore::Physics::PhysicsBodyHandle GameModelCollection::BodyHandleForModelIndex( int index ) const
-{
-    return Physics::MakeCompatibilityPhysicsBodyHandle( static_cast<uint32_t>( index ) );
-}
-
-
 void GameModelCollection::PrepareRenderStreams()
 {
     GameModelStreamProvider::PrepareRenderStreams( m_soaCache, m_gameModels );
@@ -909,9 +903,10 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
 
 void GameModelCollection::RunPhysics( float fChangeInTime,
                                       const Basics::EngineConfig& config,
+                                      const Physics::PhysicsWorldForces& worldForces,
                                       Threading::WorkerPool& workerPool )
 {
-    m_physicsEngine.Step( *this, fChangeInTime, config, workerPool );
+    m_physicsEngine.Step( *this, fChangeInTime, config, worldForces, workerPool );
 }
 
 

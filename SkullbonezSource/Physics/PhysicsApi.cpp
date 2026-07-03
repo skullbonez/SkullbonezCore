@@ -27,7 +27,7 @@ Glossary:
   Determinism: Same fixed-step inputs produce the same final state and hash.
 
 Invariants:
-  - Standalone handles never use the compatibility generation value.
+  - Standalone handles pair a slot index with a nonzero generation value.
   - Step mutates only alive, dynamic, awake body records.
   - The smoke sample uses binary-exact fixed-step values so validation can check
     exact final state without tolerance drift.
@@ -49,8 +49,7 @@ using SkullbonezCore::Math::CollisionDetection::GetShapePosition;
 using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::VectorMag;
-using SkullbonezCore::Physics::PHYSICS_COMPATIBILITY_HANDLE_GENERATION;
-using SkullbonezCore::Physics::PHYSICS_STANDALONE_HANDLE_INITIAL_GENERATION;
+using SkullbonezCore::Physics::PHYSICS_HANDLE_INITIAL_GENERATION;
 using SkullbonezCore::Physics::PhysicsActivationCommand;
 using SkullbonezCore::Physics::PhysicsActivationCommandKind;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
@@ -225,13 +224,10 @@ bool SphereOverlapsAabb( const Vector3& center, float radius, const Vector3& min
 
 uint32_t NextStandaloneInitialGeneration( uint32_t current )
 {
-    // Invariant: generation 1 is reserved for GameModel compatibility handles.
-    // Clear() must advance away from old standalone handles without colliding
-    // with that compatibility range.
     ++current;
-    if ( current == 0u || current == PHYSICS_COMPATIBILITY_HANDLE_GENERATION )
+    if ( current == 0u )
     {
-        return PHYSICS_STANDALONE_HANDLE_INITIAL_GENERATION;
+        return PHYSICS_HANDLE_INITIAL_GENERATION;
     }
     return current;
 }
@@ -339,7 +335,7 @@ bool PhysicsStandaloneWorld::DestroyBody( PhysicsBodyHandle body )
 
     m_alive[body.index] = 0;
     ++m_generations[body.index];
-    if ( m_generations[body.index] == 0 || m_generations[body.index] == PHYSICS_COMPATIBILITY_HANDLE_GENERATION )
+    if ( m_generations[body.index] == 0 )
     {
         m_generations[body.index] = m_nextInitialGeneration;
     }
@@ -899,7 +895,7 @@ void PhysicsStandaloneWorld::TombstoneColliderSlot( uint32_t index )
 
     m_colliderAlive[index] = 0;
     ++m_colliderGenerations[index];
-    if ( m_colliderGenerations[index] == 0 || m_colliderGenerations[index] == PHYSICS_COMPATIBILITY_HANDLE_GENERATION )
+    if ( m_colliderGenerations[index] == 0 )
     {
         m_colliderGenerations[index] = m_nextInitialGeneration;
     }
@@ -916,8 +912,7 @@ void PhysicsStandaloneWorld::TombstoneConstraintSlot( uint32_t index )
 
     m_constraintAlive[index] = 0;
     ++m_constraintGenerations[index];
-    if ( m_constraintGenerations[index] == 0 ||
-         m_constraintGenerations[index] == PHYSICS_COMPATIBILITY_HANDLE_GENERATION )
+    if ( m_constraintGenerations[index] == 0 )
     {
         m_constraintGenerations[index] = m_nextInitialGeneration;
     }

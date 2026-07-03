@@ -214,19 +214,19 @@ struct PhysicsPointJointUpdateDesc
 
 struct PhysicsStepDesc
 {
-    float deltaSeconds = 0.0f;                                                       // Seconds to integrate; negative values are invalid.
-    uint64_t frameIndex = 0;                                                         // Deterministic caller frame id for traceable samples.
-    bool fixedStep = true;                                                           // True when deltaSeconds comes from a fixed tick schedule.
+    float deltaSeconds = 0.0f;                                                  // Seconds to integrate; negative values are invalid.
+    uint64_t frameIndex = 0;                                                    // Deterministic caller frame id for traceable samples.
+    bool fixedStep = true;                                                      // True when deltaSeconds comes from a fixed tick schedule.
     // m/s^2-style acceleration applied to awake dynamic bodies.
     Math::Vector::Vector3 worldLinearAcceleration = Math::Vector::ZERO_VECTOR;
-    bool scenePhysicsEnabled = true;                                                 // False means the step is a no-op, not an error.
+    bool scenePhysicsEnabled = true;                                            // False means the step is a no-op, not an error.
 };
 
 struct PhysicsActivationCommand
 {
-    PhysicsActivationCommandKind kind = PhysicsActivationCommandKind::WakeBody;      // Operation selector.
-    PhysicsBodyHandle body;                                                          // Target for body commands; ignored by SetSleepEnabled.
-    bool enabled = true;                                                             // Desired sleep-gate value for SetSleepEnabled.
+    PhysicsActivationCommandKind kind = PhysicsActivationCommandKind::WakeBody; // Operation selector.
+    PhysicsBodyHandle body;                                                     // Target for body commands; ignored by SetSleepEnabled.
+    bool enabled = true;                                                        // Desired sleep-gate value for SetSleepEnabled.
 };
 
 struct PhysicsRayCastDesc
@@ -540,26 +540,26 @@ class PhysicsStandaloneWorld
     void TombstoneColliderSlot( uint32_t index );
     void TombstoneConstraintSlot( uint32_t index );
 
-    std::vector<PhysicsBodyView> m_bodies;                                           // Slot-indexed body records; tombstoned slots may be reused.
-    std::vector<uint32_t> m_generations;                                             // Per-slot stale-handle counter.
-    std::vector<uint8_t> m_alive;                                                    // 0/1 slot liveness for compact deterministic scans.
-    std::vector<uint32_t> m_freeIndices;                                             // Reusable tombstoned slots; pop_back gives deterministic reuse order.
-    mutable std::vector<PhysicsBodyView> m_bodyViewScratch;                          // Filtered alive-body view returned by Bodies().
-    std::vector<PhysicsColliderView> m_colliders;                                    // Slot-indexed collider records paired with body handles.
-    std::vector<uint32_t> m_colliderGenerations;                                     // Per-collider stale-handle counter.
-    std::vector<uint8_t> m_colliderAlive;                                            // 0/1 collider liveness for compact deterministic scans.
-    std::vector<uint32_t> m_freeColliderIndices;                                     // Reusable tombstoned collider slots.
-    mutable std::vector<PhysicsColliderView> m_colliderViewScratch;                  // Filtered alive-collider view returned by Colliders().
-    std::vector<PhysicsPointJointView> m_pointJoints;                                // Slot-indexed public constraint records.
-    std::vector<uint32_t> m_constraintGenerations;                                   // Per-constraint stale-handle counter.
-    std::vector<uint8_t> m_constraintAlive;                                          // 0/1 constraint liveness for deterministic scans.
-    std::vector<uint32_t> m_freeConstraintIndices;                                   // Reusable tombstoned constraint slots.
+    std::vector<PhysicsBodyView> m_bodies;                                      // Slot-indexed body records; tombstoned slots may be reused.
+    std::vector<uint32_t> m_generations;                                        // Per-slot stale-handle counter.
+    std::vector<uint8_t> m_alive;                                               // 0/1 slot liveness for compact deterministic scans.
+    std::vector<uint32_t> m_freeIndices;                                        // Reusable tombstoned slots; pop_back gives deterministic reuse order.
+    mutable std::vector<PhysicsBodyView> m_bodyViewScratch;                     // Filtered alive-body view returned by Bodies().
+    std::vector<PhysicsColliderView> m_colliders;                               // Slot-indexed collider records paired with body handles.
+    std::vector<uint32_t> m_colliderGenerations;                                // Per-collider stale-handle counter.
+    std::vector<uint8_t> m_colliderAlive;                                       // 0/1 collider liveness for compact deterministic scans.
+    std::vector<uint32_t> m_freeColliderIndices;                                // Reusable tombstoned collider slots.
+    mutable std::vector<PhysicsColliderView> m_colliderViewScratch;             // Filtered alive-collider view returned by Colliders().
+    std::vector<PhysicsPointJointView> m_pointJoints;                           // Slot-indexed public constraint records.
+    std::vector<uint32_t> m_constraintGenerations;                              // Per-constraint stale-handle counter.
+    std::vector<uint8_t> m_constraintAlive;                                     // 0/1 constraint liveness for deterministic scans.
+    std::vector<uint32_t> m_freeConstraintIndices;                              // Reusable tombstoned constraint slots.
     mutable std::vector<PhysicsPointJointView>
-        m_pointJointViewScratch;                                                     // Filtered alive-point-joint view returned by PointJoints().
+        m_pointJointViewScratch;                                                // Filtered alive-point-joint view returned by PointJoints().
     mutable std::vector<PhysicsBodyHandle>
-        m_broadphaseQueryScratch;                                                    // Filtered body handles returned by broadphase queries.
-    uint32_t m_nextInitialGeneration = PHYSICS_STANDALONE_HANDLE_INITIAL_GENERATION; // Generation base after Clear().
-    bool m_sleepEnabled = true;                                                      // Standalone sleep gate controlled by activation commands.
+        m_broadphaseQueryScratch;                                               // Filtered body handles returned by broadphase queries.
+    uint32_t m_nextInitialGeneration = PHYSICS_HANDLE_INITIAL_GENERATION;       // Generation base after Clear().
+    bool m_sleepEnabled = true;                                                 // Standalone sleep gate controlled by activation commands.
 };
 
 PhysicsStandaloneSmokeResult RunPhysicsStandaloneSmoke();

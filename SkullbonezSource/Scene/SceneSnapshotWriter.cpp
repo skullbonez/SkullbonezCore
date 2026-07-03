@@ -26,6 +26,7 @@ Related:
 #include "../Physics/BoundingBox.h"
 #include "../Physics/BoundingSphere.h"
 #include "../Physics/ConvexHullShape.h"
+#include "../Physics/PhysicsBodyStore.h"
 #include "../Runtime/Editor/EditorHullAssets.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "../Rendering/RenderMaterial.h"
@@ -326,13 +327,14 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
 
     const std::vector<SkullbonezCore::Physics::PointJointConstraint>& pointJoints =
         collection.GetPointJointConstraints();
+    const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
     if ( !pointJoints.empty() )
     {
         scene["ragdollJoints"] = Json::array();
         for ( const SkullbonezCore::Physics::PointJointConstraint& joint : pointJoints )
         {
-            const int bodyAIndex = joint.BodyAIndex();
-            const int bodyBIndex = joint.BodyBIndex();
+            const int bodyAIndex = joint.BodyAIndex( bodyStore );
+            const int bodyBIndex = joint.BodyBIndex( bodyStore );
             if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= static_cast<int>( m_gameModels.size() ) ||
                  bodyBIndex >= static_cast<int>( m_gameModels.size() ) )
             {

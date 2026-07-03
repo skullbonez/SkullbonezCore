@@ -37,6 +37,7 @@ Related:
 #include "../../Maths/RotationMatrix.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/ConvexHullShape.h"
+#include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/Ragdoll.h"
 #include "../../Scene/TestScene.h"
@@ -60,6 +61,7 @@ using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PointJointConstraint;
 using SkullbonezCore::Physics::Ragdoll;
 using SkullbonezCore::Physics::RagdollBuildOptions;
@@ -486,13 +488,13 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
     }
 
     const std::vector<GameModel>& models = context.models.Models();
+    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsBodyStore();
     for ( int i = 0; i < scene.GetPointJointConstraintCount(); ++i )
     {
         const ScenePointJointConstraint& sceneJoint = scene.GetPointJointConstraint( i );
         PointJointConstraint joint;
         const int bodyAIndex = FindModelByName( models, sceneJoint.bodyA );
         const int bodyBIndex = FindModelByName( models, sceneJoint.bodyB );
-        joint.SetCompatibilityBodies( bodyAIndex, bodyBIndex );
         if ( bodyAIndex < 0 || bodyBIndex < 0 )
         {
             fprintf( stderr,
@@ -501,6 +503,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
                      sceneJoint.bodyB );
             continue;
         }
+        joint.SetBodies( bodyStore.HandleForModelIndex( bodyAIndex ), bodyStore.HandleForModelIndex( bodyBIndex ) );
         joint.localAnchorA = sceneJoint.localAnchorA;
         joint.localAnchorB = sceneJoint.localAnchorB;
         joint.slack = sceneJoint.slack;

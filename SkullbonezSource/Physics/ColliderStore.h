@@ -16,6 +16,8 @@ Glossary:
 
 Invariants:
   - Store index order must match GameModelCollection physics model order.
+  - Collider handles are allocator-owned; model-order arrays use explicit maps
+    instead of encoding model index inside the handle.
   - Refresh must not mutate GameModel state; it is a snapshot boundary only.
 
 Related:
@@ -39,6 +41,8 @@ class GameModel;
 
 namespace Physics
 {
+class PhysicsBodyStore;
+
 enum class ColliderShapeKind : uint8_t
 {
     Sphere,
@@ -48,8 +52,8 @@ enum class ColliderShapeKind : uint8_t
 
 struct ColliderRecord
 {
-    PhysicsColliderHandle handle;                              // Stable collider handle paired with the legacy model slot.
-    PhysicsBodyHandle body;                                    // Body handle for the same compatibility slot.
+    PhysicsColliderHandle handle;                              // Stable collider handle resolved through store maps.
+    PhysicsBodyHandle body;                                    // Body handle resolved by PhysicsBodyStore for the same model slot.
     PhysicsSceneObjectId sceneObjectId;                        // Scene-local id currently mirrored from replay body id.
     uint32_t replayBodyId = 0;                                 // Stable replay-facing body id paired with this collider.
     Math::CollisionDetection::CollisionShape shape;            // Exact shape variant used by narrowphase.
@@ -67,8 +71,8 @@ class ColliderStore
     ColliderStore();
 
     void Clear();
-    void Refresh( std::vector<GameObjects::GameModel>& models );
-    void Refresh( GameObjects::GameModel* models, int modelCount );
+    void Refresh( std::vector<GameObjects::GameModel>& models, const PhysicsBodyStore& bodyStore );
+    void Refresh( GameObjects::GameModel* models, int modelCount, const PhysicsBodyStore& bodyStore );
 
     const ColliderRecord* Data() const;
     int Count() const;
@@ -79,8 +83,17 @@ class ColliderStore
     const std::vector<ColliderRecord>& Records() const;
 
   private:
+    PhysicsColliderHandle
+    ResolveHandleForModelIndex( int modelIndex, uint32_t replayBodyId, std::vector<uint8_t>& assignedHandleSlots );
+    void RetireUnassignedHandles( const std::vector<uint8_t>& assignedHandleSlots );
+
     std::vector<ColliderRecord> m_colliders;                   // Collider records in GameModelCollection index order.
-    std::vector<PhysicsColliderHandle> m_modelColliderHandles; // Legacy model index to collider handle map.
+    std::vector<PhysicsColliderHandle> m_modelColliderHandles; // Model index to store-owned collider handle map.
+    std::vector<uint32_t> m_handleGenerations;                 // Handle-slot generation counters.
+    std::vector<uint8_t> m_handleAlive;                        // Live handle slot flags.
+    std::vector<int> m_handleModelIndices;                     // Handle slot to current model index, or -1.
+    std::vector<uint32_t> m_handleReplayBodyIds;               // Replay id paired with each live handle slot.
+    std::vector<uint32_t> m_freeHandleSlots;                   // Retired slots available for deterministic reuse.
 };
 } // namespace Physics
 } // namespace SkullbonezCore
