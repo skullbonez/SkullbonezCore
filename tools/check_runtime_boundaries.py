@@ -93,6 +93,13 @@ PHYSICS_MODELS_ACCESS_PATTERN = re.compile(r"\bPhysicsModels\s*\(")
 PHYSICS_MODELS_COMPAT_ACCESS_PATTERN = re.compile(
     r"\b(?:MutablePhysicsModelsForCompatibility|PhysicsModelsForCompatibility)\s*\("
 )
+PERSISTENT_CONTACT_SOLVER_CONTEXT_PATTERN = re.compile(
+    r"\bstruct\s+PersistentContactSolverContext\b(?P<body>.*?)\n\s*\};",
+    re.S,
+)
+# Invariant: fixed-contact events and compatibility writeback stay on narrow
+# sinks; only wake release may keep the named wake-only model boundary.
+PERSISTENT_SOLVER_BROAD_MODEL_ACCESS_PATTERN = re.compile(r"\bPhysicsModelAccess\s*&\s*modelAccess\s*;")
 DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
     (
         "GameModelRuntimePhysicsTuning",
@@ -1634,6 +1641,28 @@ def check_deleted_physics_model_view_guardrails(repo: Path) -> list[BoundaryErro
                 continue
             errors.extend(check_deleted_physics_model_view_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
+
+
+def check_persistent_solver_context_model_access_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for context_match in PERSISTENT_CONTACT_SOLVER_CONTEXT_PATTERN.finditer(stripped):
+        context_body = context_match.group("body")
+        for member_match in PERSISTENT_SOLVER_BROAD_MODEL_ACCESS_PATTERN.finditer(context_body):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, context_match.start("body") + member_match.start()),
+                    "persistent contact solver broad model access is blocked",
+                    "Use PhysicsBodyEventSink, PhysicsBodyWritebackSink, or a named wake-only boundary instead.",
+                )
+            )
+    return errors
+
+
+def check_persistent_solver_context_model_access_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / PHYSICS_ROOT / "PhysicsWorld.h"
+    return check_persistent_solver_context_model_access_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_physics_models_access_guardrails_text(
@@ -5936,6 +5965,48 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only deleted migration artifact synthetic text was rejected")
 
+    allowed_persistent_solver_context = """
+    struct PersistentContactSolverContext
+    {
+        PhysicsBodyEventSink& bodyEvents;
+        PhysicsBodyWritebackSink& bodyWritebacks;
+        PhysicsModelAccess& wakeModelAccess;
+    };
+    """
+    if check_persistent_solver_context_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.h"),
+        allowed_persistent_solver_context,
+    ):
+        failures.append("allowed persistent solver sink context synthetic surface was rejected")
+
+    old_persistent_solver_context = """
+    struct PersistentContactSolverContext
+    {
+        PhysicsModelAccess& modelAccess;
+    };
+    """
+    if not any(
+        error.message == "persistent contact solver broad model access is blocked"
+        for error in check_persistent_solver_context_model_access_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.h"),
+            old_persistent_solver_context,
+        )
+    ):
+        failures.append("old persistent solver broad model access synthetic surface was not rejected")
+
+    commented_persistent_solver_context = """
+    struct PersistentContactSolverContext
+    {
+        // PhysicsModelAccess& modelAccess; is a deleted migration note only.
+        PhysicsModelAccess& wakeModelAccess;
+    };
+    """
+    if check_persistent_solver_context_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.h"),
+        commented_persistent_solver_context,
+    ):
+        failures.append("comment-only persistent solver broad model access synthetic text was rejected")
+
     compatibility_physics_models_text = (
         "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = "
         "m_cGameModelCollection.MutablePhysicsModelsForCompatibility();"
@@ -6206,6 +6277,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_public_physics_facade_game_object_guardrails(repo))
     errors.extend(check_deleted_migration_artifact_guardrails(repo))
     errors.extend(check_deleted_physics_model_view_guardrails(repo))
+    errors.extend(check_persistent_solver_context_model_access_guardrails(repo))
     errors.extend(check_physics_models_access_guardrails(repo))
     errors.extend(check_named_physics_models_compat_access_guardrails(repo))
     errors.extend(check_direct_gfx_raytracing_guardrails(repo))

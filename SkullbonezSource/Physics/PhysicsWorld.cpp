@@ -638,6 +638,8 @@ PhysicsWorld::CreatePersistentContactSolverContext( PhysicsModelAccess& modelAcc
                                            m_terrainContactManifolds,
                                            m_terrainRestApplied,
                                            m_sleepSupportedThisFrame,
+                                           modelAccess.BodyEvents(),
+                                           modelAccess,
                                            modelAccess,
                                            bodyStream,
                                            bodyStore.MutableRecords(),
@@ -676,25 +678,25 @@ void PersistentContactSolverContext::MarkCollisionVisualContact( int index ) con
 
 void PersistentContactSolverContext::MarkFixedContact( int index ) const
 {
-    modelAccess.BodyEvents().NotifyFixedContact( index, 0.5f );
+    bodyEvents.NotifyFixedContact( index, 0.5f );
 }
 
 
 void PersistentContactSolverContext::WriteBackCompatibilityBody( int index ) const
 {
-    modelAccess.WriteBackPhysicsBody( bodyStore, index );
+    bodyWritebacks.WriteBackPhysicsBody( bodyStore, index );
 }
 
 
 void PersistentContactSolverContext::WakeReleasedBody( int index ) const
 {
-    world.WakeModel( modelAccess, bodyStore, colliderStore, worldForces, index );
+    world.WakeModel( wakeModelAccess, bodyStore, colliderStore, worldForces, index );
 }
 
 
 void PersistentContactSolverContext::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event ) const
 {
-    modelAccess.BodyEvents().ReleaseAttachedFixedTreeParts( event );
+    bodyEvents.ReleaseAttachedFixedTreeParts( event );
 }
 
 

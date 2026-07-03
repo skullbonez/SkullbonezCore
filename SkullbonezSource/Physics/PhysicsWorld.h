@@ -484,11 +484,12 @@ struct PersistentContactSolverContext
     std::vector<TerrainContactManifold>& terrainContactManifolds;
     std::array<uint8_t, MAX_GAME_MODELS>& terrainRestApplied;
     std::vector<uint8_t>& sleepSupportedThisFrame;
-    // Model-owner command sink for legacy model-side events and writeback.
-    // The solver calls named operations on this context instead of borrowing a
-    // mutable GameModel range. Strict store-authority follow-up can replace the
-    // boundary when those model-order events move to durable handles.
-    PhysicsModelAccess& modelAccess;
+    // Model-owner event and writeback sinks keep fixed-contact side effects out
+    // of the broad model boundary. Wake release still needs the remaining
+    // model-access path below until wake islands move to durable handles.
+    PhysicsBodyEventSink& bodyEvents;
+    PhysicsBodyWritebackSink& bodyWritebacks;
+    PhysicsModelAccess& wakeModelAccess;
     const GameObjects::GameModelBodyStream& bodyStream;
     std::vector<PhysicsBodyRecord>& bodyRecords;
     const std::vector<ColliderRecord>& colliderRecords;
