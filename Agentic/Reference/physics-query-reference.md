@@ -120,7 +120,10 @@ tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions why_not_resti
 On traces written by newer builds it also reports `frameAggregateTotals` and
 `frameAggregateHotspots` from `contact_audio_frame` rows: raw facts seen, reduced
 patch candidates, merged patch facts, queue overflows, burst-window skips,
-budget rejections, quiet rejections, and played voices.
+budget rejections, quiet rejections, and played voices. Verdict rows also carry
+`kind`, and summaries/timeline buckets expose `kindCounts` for perceptual classes
+such as `impact`, `heavy_landing`, `support`, `settle`, `roll_slide`, and
+`propagated_impulse`.
 
 ## Output Controls
 

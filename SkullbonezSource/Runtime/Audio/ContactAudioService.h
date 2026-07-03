@@ -12,6 +12,8 @@ Mental model:
 Glossary:
   Contact-audio decision: Presentation-side verdict explaining whether a copied
     contact became a sound, flash feedback, or a specific rejection.
+  Contact-audio kind: Perceptual class such as impact, heavy_landing, support,
+    settle, roll_slide, or propagated_impulse.
   Contact material: Gameplay/audio material token such as metal, stone, or wood.
   Cooldown key: Stable contact-patch key that prevents persistent contact rows
     from replaying the same impact every fixed tick.
@@ -87,6 +89,7 @@ struct ContactAudioDecision
     ContactAudioEvent event;
     uint64_t pairKey = 0;
     const char* reason = "";       // String literal or borrowed map/sample text for immediate frame use.
+    const char* kind = "";         // String literal classification used by SkullScope summaries.
     const char* soundSetName = ""; // Borrowed from the loaded material map.
     const char* bandName = "";     // Borrowed from the loaded material map.
     const char* samplePath = "";   // Borrowed from decoded sample storage.

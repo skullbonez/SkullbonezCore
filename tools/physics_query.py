@@ -15,6 +15,8 @@
 #   verdict, including rejection reason, score, body ids, and submitted flag.
 #   Contact-audio frame: Compact reducer summary row with raw fact, patch,
 #   merge, budget, quiet-rejection, and submitted voice counts for one step.
+#   Contact-audio kind: Perceptual class that says what the sound model thought
+#   a contact represented, separate from the pass/reject reason.
 #   Validation gate: Repository script that proves a class of changes before
 #   commit or PR.
 #
@@ -1207,6 +1209,7 @@ def contact_audio_item(row):
         "eventId": row["event_id"],
         "frame": as_int(row["frame"], -1),
         "decision": decision,
+        "kind": data.get("kind") or "unknown",
         "submitted": submitted,
         "flashEligible": bool(as_int(data.get("flash_eligible"), 0)),
         "bodyA": row["body_a"],
@@ -1334,12 +1337,15 @@ def contact_audio_aggregate_summary(frame_items, limit):
 
 def contact_audio_summary_from_items(items, limit, frame_items=None):
     decision_counts = {}
+    kind_counts = {}
     frame_stats = {}
     submitted = 0
     rejected = 0
     for item in items:
         decision = item["decision"]
+        kind = item["kind"]
         decision_counts[decision] = decision_counts.get(decision, 0) + 1
+        kind_counts[kind] = kind_counts.get(kind, 0) + 1
         if item["submitted"]:
             submitted += 1
         else:
@@ -1355,6 +1361,7 @@ def contact_audio_summary_from_items(items, limit, frame_items=None):
                 "rejected": 0,
                 "flashEligible": 0,
                 "decisionCounts": {},
+                "kindCounts": {},
                 "maxImpulse": 0.0,
                 "maxImpactScore": 0.0,
                 "maxClosingSpeed": 0.0,
@@ -1365,6 +1372,7 @@ def contact_audio_summary_from_items(items, limit, frame_items=None):
         bucket["rejected"] += 0 if item["submitted"] else 1
         bucket["flashEligible"] += 1 if item["flashEligible"] else 0
         bucket["decisionCounts"][decision] = bucket["decisionCounts"].get(decision, 0) + 1
+        bucket["kindCounts"][kind] = bucket["kindCounts"].get(kind, 0) + 1
         bucket["maxImpulse"] = max(bucket["maxImpulse"], item["normalImpulse"] or 0.0)
         bucket["maxImpactScore"] = max(bucket["maxImpactScore"], item["impactScore"] or 0.0)
         bucket["maxClosingSpeed"] = max(bucket["maxClosingSpeed"], item["normalClosingSpeed"] or 0.0)
@@ -1391,6 +1399,7 @@ def contact_audio_summary_from_items(items, limit, frame_items=None):
         "submitted": submitted,
         "rejected": rejected,
         "decisionCounts": decision_counts,
+        "kindCounts": kind_counts,
         "frameHotspots": frame_hotspots,
         "topImpacts": top_impacts,
     }
@@ -1488,15 +1497,18 @@ def query_contact_audio_timeline(conn, cache, args):
                 "submitted": 0,
                 "rejected": 0,
                 "decisionCounts": {},
+                "kindCounts": {},
                 "maxImpactScore": 0.0,
                 "maxImpulse": 0.0,
             },
         )
         decision = item["decision"]
+        kind = item["kind"]
         bucket["events"] += 1
         bucket["submitted"] += 1 if item["submitted"] else 0
         bucket["rejected"] += 0 if item["submitted"] else 1
         bucket["decisionCounts"][decision] = bucket["decisionCounts"].get(decision, 0) + 1
+        bucket["kindCounts"][kind] = bucket["kindCounts"].get(kind, 0) + 1
         bucket["maxImpactScore"] = max(bucket["maxImpactScore"], item["impactScore"] or 0.0)
         bucket["maxImpulse"] = max(bucket["maxImpulse"], item["normalImpulse"] or 0.0)
     timeline = sorted(

@@ -629,11 +629,13 @@ void RuntimeDiagnostics::LogContactAudioDecision( RunPhysicsDiagnosticsState& di
     }
 
     const char* reason = decision.reason && decision.reason[0] != '\0' ? decision.reason : "unknown";
+    const char* kind = decision.kind && decision.kind[0] != '\0' ? decision.kind : "unknown";
     const char* severity = ( decision.submitted || decision.flashEligible ) ? "medium" : "low";
     char eventId[32];
     sprintf_s( eventId, sizeof( eventId ), "CA%08u", diagnostics.contactAudioEventSequence++ );
 
     std::string escapedReason = JsonEscape( reason );
+    std::string escapedKind = JsonEscape( kind );
     std::string escapedSet = JsonEscape( decision.soundSetName );
     std::string escapedBand = JsonEscape( decision.bandName );
     std::string escapedSample = JsonEscape( decision.samplePath );
@@ -644,7 +646,7 @@ void RuntimeDiagnostics::LogContactAudioDecision( RunPhysicsDiagnosticsState& di
     Log().Writef( diagnostics.path,
                   "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"%s\",\"frame\":%d,\"type\":\"contact_audio\","
                   "\"severity\":\"%s\",\"body_a\":%d,\"body_b\":%d,\"island_id\":null,\"summary\":\"contact audio %s\","
-                  "\"data\":{\"decision\":\"%s\",\"pair_key\":%llu,\"feature_id\":%u,\"is_terrain\":%d,"
+                  "\"data\":{\"decision\":\"%s\",\"kind\":\"%s\",\"pair_key\":%llu,\"feature_id\":%u,\"is_terrain\":%d,"
                   "\"material_a\":%u,\"material_b\":%u,\"normal_impulse\":%.6f,"
                   "\"normal_closing_speed\":%.6f,\"tangent_slip_speed\":%.6f,\"has_motion_data\":%d,"
                   "\"min_impulse\":%.6f,\"impulse_range\":%.6f,\"distance\":%.6f,\"max_distance\":%.6f,"
@@ -662,6 +664,7 @@ void RuntimeDiagnostics::LogContactAudioDecision( RunPhysicsDiagnosticsState& di
                   decision.event.bodyB,
                   escapedReason.c_str(),
                   escapedReason.c_str(),
+                  escapedKind.c_str(),
                   static_cast<unsigned long long>( decision.pairKey ),
                   decision.event.featureId,
                   decision.event.isTerrain ? 1 : 0,

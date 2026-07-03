@@ -92,6 +92,7 @@ constexpr float CONTACT_AUDIO_DEFAULT_MIN_CLOSING_SPEED = 2.0f;
 constexpr float CONTACT_AUDIO_DEFAULT_MIN_IMPACT_SCORE = 250.0f;
 constexpr float CONTACT_AUDIO_DEFAULT_IMPACT_SCORE_RANGE_SECONDS = 3.0f;
 constexpr float CONTACT_AUDIO_LEGACY_CLOSING_SPEED = 2.0f;
+constexpr float CONTACT_AUDIO_HEAVY_LANDING_SCORE_MULTIPLIER = 4.0f;
 
 float Clamp01( float value )
 {
@@ -817,12 +818,50 @@ struct ContactAudioService::Impl
         return selected;
     }
 
+    const char* ClassifyEvent( const ContactAudioEvent& event,
+                               bool ongoingContact,
+                               bool impulseSpike,
+                               float impactScore,
+                               float minImpactScoreForKind ) const
+    {
+        const float closingSpeed = ContactClosingSpeed( event );
+        if ( ongoingContact && !event.isTerrain )
+        {
+            return "support";
+        }
+        if ( event.hasMotionData && closingSpeed <= CONTACT_AUDIO_ROLL_SLIDE_CLOSING_SPEED &&
+             event.tangentSlipSpeed >= CONTACT_AUDIO_ROLL_SLIDE_MIN_SLIP_SPEED )
+        {
+            return "roll_slide";
+        }
+        if ( ongoingContact && event.isTerrain && !impulseSpike && event.hasMotionData &&
+             closingSpeed < minClosingSpeed )
+        {
+            return "settle";
+        }
+        if ( event.hasMotionData && closingSpeed < minClosingSpeed )
+        {
+            return "propagated_impulse";
+        }
+        if ( event.isTerrain && impactScore >= minImpactScoreForKind * CONTACT_AUDIO_HEAVY_LANDING_SCORE_MULTIPLIER )
+        {
+            return "heavy_landing";
+        }
+        return "impact";
+    }
+
+    const char* ClassifyEvent( const ContactAudioEvent& event ) const
+    {
+        return ClassifyEvent( event, false, true, ContactImpactScore( event ), (std::max)( minImpactScore, 0.001f ) );
+    }
+
     ContactAudioDecision BaseDecision( const ContactAudioEvent& event, uint64_t key, const char* reason ) const
     {
         ContactAudioDecision decision;
         decision.event = event;
         decision.pairKey = key;
         decision.reason = reason;
+        decision.kind = ClassifyEvent( event );
         return decision;
     }
 
@@ -995,6 +1034,11 @@ struct ContactAudioService::Impl
                 if ( decisions.size() < MAX_STEP_CANDIDATES )
                 {
                     ContactAudioDecision decision = BaseDecision( event, key, "patch_merged" );
+                    decision.kind = ClassifyEvent( event,
+                                                   candidate.ongoingContact,
+                                                   candidate.impulseSpike,
+                                                   ContactImpactScore( event ),
+                                                   (std::max)( minImpactScore, 0.001f ) );
                     decision.previousStrongestImpulse = candidate.event.normalImpulse;
                     RecordDecision( decision );
                 }
@@ -1097,6 +1141,7 @@ struct ContactAudioService::Impl
         const float closingSpeed = ContactClosingSpeed( event );
         const float impactScore = ContactImpactScore( event );
         const float minImpactScoreForSet = (std::max)( minImpactScore, minImpulse * minClosingSpeed );
+        decision.kind = ClassifyEvent( event, ongoingContact, impulseSpike, impactScore, minImpactScoreForSet );
         decision.impactScore = impactScore;
 
         if ( ongoingContact && !event.isTerrain )
@@ -1484,6 +1529,11 @@ void ContactAudioService::EndPhysicsStep()
         if ( submittedThisBurst >= m_impl->burstVoicesPerWindow )
         {
             ContactAudioDecision decision = m_impl->BaseDecision( candidate.event, candidate.key, "burst_budget" );
+            decision.kind = m_impl->ClassifyEvent( candidate.event,
+                                                   candidate.ongoingContact,
+                                                   candidate.impulseSpike,
+                                                   ContactImpactScore( candidate.event ),
+                                                   (std::max)( m_impl->minImpactScore, 0.001f ) );
             m_impl->RecordDecision( decision );
             m_impl->CountBudgetRejection();
             continue;
@@ -1491,6 +1541,11 @@ void ContactAudioService::EndPhysicsStep()
         if ( !m_impl->HasBodyBudget( candidate.event ) )
         {
             ContactAudioDecision decision = m_impl->BaseDecision( candidate.event, candidate.key, "body_budget" );
+            decision.kind = m_impl->ClassifyEvent( candidate.event,
+                                                   candidate.ongoingContact,
+                                                   candidate.impulseSpike,
+                                                   ContactImpactScore( candidate.event ),
+                                                   (std::max)( m_impl->minImpactScore, 0.001f ) );
             m_impl->RecordDecision( decision );
             m_impl->CountBudgetRejection();
             continue;

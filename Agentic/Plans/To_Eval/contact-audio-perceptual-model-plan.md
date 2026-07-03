@@ -559,11 +559,27 @@ Validation:
   reports 15,673 facts,
   15,612 reduced patch candidates, 61 merged patch facts, 9,028 burst-window
   skipped patch candidates, and 59 submitted voices.
+- [x] 2026-07-04: Added explicit perceptual kind reporting to contact-audio
+  verdict diagnostics. Each `contact_audio` row now carries `kind`, with
+  summaries and timeline buckets reporting `kindCounts`. The current classes are
+  `impact`, `heavy_landing`, `support`, `settle`, `roll_slide`, and
+  `propagated_impulse`; `reason` remains the pass/reject explanation. The
+  refreshed `physics_query_varied` summary reports 28 heavy landings, 88
+  impacts, 679 support rows, 5,375 settle rows, 236 roll/slide rows, and 239
+  propagated impulses. Validation: `tools\validate_format.bat` passed;
+  `tools\validate_build.bat Debug` passed with 0 warnings and 0 errors;
+  `Debug\SKULLBONEZ_CORE.exe --contact-audio-smoke` submitted one voice;
+  `python -m py_compile tools\physics_query.py tools\check_physics_query_regression.py`
+  passed; `python tools\check_physics_query_regression.py --update` refreshed
+  `TestOutput/baselines/physics_query_varied.json`; `python
+  tools\check_physics_query_regression.py` passed exact baseline match;
+  `tools\validate_fast.bat` and `tools\validate_physics_deep.bat` passed.
 - [x] Phase 0 baseline trace and counts.
 - [ ] Phase 1 contact fact upgrade.
-- [ ] Phase 2 classifier and rejection reasons. Partial: local classifier reasons
-  above are implemented; remaining work is explicit heavy-landing/support-kind
-  reporting, rejection counters by reason, and acceptance-scene proof.
+- [ ] Phase 2 classifier and rejection reasons. Partial: local classifier
+  reasons, rejection counters, and explicit perceptual kind reporting are
+  implemented. Remaining work is acceptance-scene proof and a future roll-vs-slide
+  split if dedicated looped sound support lands.
 - [ ] Phase 3 reducer and perceptual budget. Partial: patch merge, deterministic
   ranking, global burst cap, and per-body budget are implemented; the 200-brick
   proof shows 191 submitted voices from 205,287 verdict rows, with hot frames
