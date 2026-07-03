@@ -170,6 +170,18 @@ GLOBAL_SERVICE_ACCESS_PATTERNS: tuple[tuple[str, re.Pattern[str], str, str], ...
         "Borrow IRenderRayTracing through an explicit render context before adding another global DXR access.",
     ),
     (
+        "IsGfxReady()",
+        re.compile(r"\bIsGfxReady\s*\(\s*\)"),
+        "global renderer readiness access is count-guarded",
+        "Carry renderer readiness through an explicit backend view instead of adding another global readiness probe.",
+    ),
+    (
+        "IsGfxRayTracingReady()",
+        re.compile(r"\bIsGfxRayTracingReady\s*\(\s*\)"),
+        "global raytracing readiness access is count-guarded",
+        "Carry DXR readiness through an explicit backend view instead of adding another global readiness probe.",
+    ),
+    (
         "ActiveAssetSystem()",
         re.compile(r"\bActiveAssetSystem\s*\("),
         "global asset-system access is count-guarded",
@@ -218,7 +230,7 @@ GLOBAL_SERVICE_ACCESS_PATTERNS: tuple[tuple[str, re.Pattern[str], str, str], ...
         "Route diagnostics/profiling through an explicit diagnostics context before adding another profiler singleton call.",
     ),
 )
-GLOBAL_RENDERER_SERVICE_LABELS = { "Gfx()", "GfxRayTracing()" }
+GLOBAL_RENDERER_SERVICE_LABELS = { "Gfx()", "GfxRayTracing()", "IsGfxReady()", "IsGfxRayTracingReady()" }
 # Location classifications are a second fence over the counted Gfx() ratchet:
 # they make each remaining direct renderer-service file an explicitly reviewed
 # compatibility location instead of letting a raw count entry approve a new file.
@@ -232,9 +244,10 @@ GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS: dict[Path, str] = {
     Path("SkullbonezSource/Rendering/IRenderBackend.h"): "backend accessor declaration and tracing RAII",
     Path("SkullbonezSource/Runtime/Editor/LauncherLaser.cpp"): "editor transient geometry compatibility",
     Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.inl"): "editor debug tracing compatibility",
-    Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp"): "runtime render host service view",
     Path("SkullbonezSource/Runtime/Run.cpp"): "runtime composition root",
     Path("SkullbonezSource/Runtime/RunFrame.cpp"): "runtime frame lifecycle",
+    Path("SkullbonezSource/Runtime/RunInput.cpp"): "runtime input cinematic bridge",
+    Path("SkullbonezSource/Runtime/RunPasses.cpp"): "runtime render pass lifecycle",
     Path("SkullbonezSource/Runtime/RunRender.cpp"): "runtime render service composition",
     Path("SkullbonezSource/Runtime/RunStress.cpp"): "runtime stress harness bridge",
     Path("SkullbonezSource/Runtime/RunUiTextPass.cpp"): "UI text pass compatibility",
@@ -442,46 +455,60 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Core/LockOrderValidator.cpp", "g_*", 12 ),
             ( "SkullbonezSource/Core/PlatformProfiler.cpp", "g_*", 12 ),
             ( "SkullbonezSource/Core/Profiler.cpp", "Gfx()", 9 ),
+            ( "SkullbonezSource/Core/Profiler.cpp", "IsGfxReady()", 6 ),
             ( "SkullbonezSource/Core/Profiler.cpp", "Profiler::Instance()", 2 ),
             ( "SkullbonezSource/Core/Profiler.h", "Profiler::Instance()", 11 ),
             ( "SkullbonezSource/Core/WorkerPool.cpp", "WorkerPool::Instance()", 2 ),
             ( "SkullbonezSource/Core/WorkerPool.cpp", "g_*", 8 ),
             ( "SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp", "Gfx()", 2 ),
             ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "Gfx()", 14 ),
+            ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "Gfx()", 2 ),
             ( "SkullbonezSource/Physics/TornadoField.cpp", "Gfx()", 2 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "Gfx()", 2 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "GfxRayTracing()", 1 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "IsGfxReady()", 1 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "IsGfxRayTracingReady()", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "Gfx()", 3 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "GfxRayTracing()", 1 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.h", "IsGfxReady()", 2 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.h", "IsGfxRayTracingReady()", 1 ),
             ( "SkullbonezSource/Runtime/Editor/LauncherLaser.cpp", "Gfx()", 18 ),
+            ( "SkullbonezSource/Runtime/Editor/LauncherLaser.cpp", "IsGfxReady()", 3 ),
             ( "SkullbonezSource/Runtime/Editor/LauncherTools.cpp", "Cfg()", 3 ),
             ( "SkullbonezSource/Runtime/Editor/RunEditorTracer.inl", "Gfx()", 1 ),
+            ( "SkullbonezSource/Runtime/Editor/RunEditorTracer.inl", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "Cfg()", 15 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "Window::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "WorkerPool::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "g_*", 6 ),
             ( "SkullbonezSource/Runtime/Input.cpp", "g_*", 43 ),
             ( "SkullbonezSource/Runtime/Run.cpp", "Gfx()", 8 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "IsGfxReady()", 6 ),
             ( "SkullbonezSource/Runtime/Run.cpp", "Profiler::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/RunFrame.cpp", "Gfx()", 1 ),
             ( "SkullbonezSource/Runtime/RunFrame.cpp", "Profiler::Instance()", 3 ),
-            ( "SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp", "Gfx()", 1 ),
-            ( "SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp", "GfxRayTracing()", 1 ),
             ( "SkullbonezSource/Runtime/RunInteractionAutomation.cpp", "Cfg()", 2 ),
+            ( "SkullbonezSource/Runtime/RunInput.cpp", "IsGfxReady()", 1 ),
+            ( "SkullbonezSource/Runtime/RunPasses.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Runtime/RunRender.cpp", "Cfg()", 3 ),
             ( "SkullbonezSource/Runtime/RunRender.cpp", "Gfx()", 1 ),
             ( "SkullbonezSource/Runtime/RunRender.cpp", "GfxRayTracing()", 1 ),
+            ( "SkullbonezSource/Runtime/RunRender.cpp", "IsGfxReady()", 1 ),
+            ( "SkullbonezSource/Runtime/RunRender.cpp", "IsGfxRayTracingReady()", 1 ),
             ( "SkullbonezSource/Runtime/RunStress.cpp", "Cfg()", 1 ),
             ( "SkullbonezSource/Runtime/RunStress.cpp", "Gfx()", 2 ),
+            ( "SkullbonezSource/Runtime/RunStress.cpp", "IsGfxReady()", 2 ),
             ( "SkullbonezSource/Runtime/RunUiTextPass.cpp", "Profiler::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/RuntimeDiagnostics.cpp", "Profiler::Instance()", 2 ),
             ( "SkullbonezSource/Runtime/Window.cpp", "Cfg()", 6 ),
             ( "SkullbonezSource/Runtime/Window.cpp", "Gfx()", 1 ),
+            ( "SkullbonezSource/Runtime/Window.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Runtime/Window.cpp", "Window::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Window.cpp", "pInstance", 4 ),
             ( "SkullbonezSource/Runtime/Window.h", "pInstance", 1 ),
             ( "SkullbonezSource/UI/UITabProfiler.cpp", "Gfx()", 1 ),
+            ( "SkullbonezSource/UI/UITabProfiler.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/UI/UITabProfiler.cpp", "Profiler::Instance()", 6 ),
         )
     }
@@ -1273,6 +1300,7 @@ ALLOWED_WORLD_OWNER_WRITE_FUNCTIONS = {
 }
 
 ALLOWED_RENDER_HOST_BINDINGS = {
+    "backend",
     "runtime",
     "world",
     "scene",
@@ -1286,6 +1314,13 @@ ALLOWED_RENDER_HOST_BINDINGS = {
 # Each view gets its own field allowlist so broad state cannot hide under a
 # legitimate top-level binding root.
 ALLOWED_RENDER_HOST_VIEW_FIELDS = {
+    "RuntimeRenderBackendView": {
+        "renderBackend",
+        "rayTracingBackend",
+    },
+    "RenderBackendView": {
+        "active",
+    },
     "RenderRuntimeView": {
         "systems",
         "config",
@@ -3334,6 +3369,7 @@ def run_self_tests() -> list[str]:
     };
     struct RuntimeRenderHostBindings
     {
+        RenderBackendView backend;
         RenderRuntimeView runtime;
         RenderWorldView world;
         RenderSceneView scene;

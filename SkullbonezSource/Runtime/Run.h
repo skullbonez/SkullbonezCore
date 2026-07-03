@@ -141,6 +141,7 @@ class Run
     RuntimeCommandQueue m_runtimeCommands;                                 // Deferred runtime/tool command intent.
     EngineContext m_engineContext;                                         // Bound view over runtime-owned systems.
     RuntimeViewModel m_runtimeViewModel;                                   // Scalar runtime snapshot for presentation/diagnostics.
+    RuntimeRenderBackendView m_renderBackendView;                          // Borrowed active renderer capabilities for render-host users.
     RuntimeRenderHost m_renderHost;                                        // Explicit render-facing service view over Run-owned state.
     RuntimeRenderer m_renderer;                                            // Owns runtime render passes and frame render ordering.
 
@@ -359,7 +360,8 @@ class Run
     Run( Window& window,
          std::vector<std::string> sceneQueue,
          EngineConfig& config,
-         Threading::WorkerPool& workerPool );                              // sceneQueue empty string selects generated demo mode.
+         Threading::WorkerPool& workerPool,
+         RuntimeRenderBackendView renderBackendView );                     // sceneQueue empty string selects generated demo mode.
     ~Run();
     void Initialise();                                                     // Initialises shared resources and loads first scene
     void RunSceneLoadOnly( const char* snapshotOutPath = nullptr );        // Scene-load smoke path; skips the frame loop.

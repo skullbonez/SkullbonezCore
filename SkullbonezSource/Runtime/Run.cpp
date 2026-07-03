@@ -83,6 +83,7 @@ SkullbonezCore::Environment::CameraMovementSettings BuildCameraMovementSettings(
 RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
 {
     RuntimeRenderHostBindings bindings;
+    bindings.backend.active = &m_renderBackendView;
     bindings.runtime.systems = &m_systems;
     bindings.runtime.config = &m_config;
     bindings.runtime.launchOptions = &m_launchOptions;
@@ -163,8 +164,13 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
 }
 
 
-Run::Run( Window& window, std::vector<std::string> sceneQueue, EngineConfig& config, Threading::WorkerPool& workerPool )
+Run::Run( Window& window,
+          std::vector<std::string> sceneQueue,
+          EngineConfig& config,
+          Threading::WorkerPool& workerPool,
+          RuntimeRenderBackendView renderBackendView )
     : m_config( config ), m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
+      m_renderBackendView( renderBackendView ),
       m_renderHost( BuildRuntimeRenderHostBindings(), BuildRuntimeRenderHostCallbacks() ), m_renderer( m_renderHost )
 {
     m_systems.window = &window;

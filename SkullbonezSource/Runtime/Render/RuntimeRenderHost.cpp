@@ -58,7 +58,7 @@ bool RuntimeRenderHost::IsCinematicRenderingEnabled() const
                                                           m_config,
                                                           m_launchOptions,
                                                           m_debug,
-                                                          IsGfxReady() );
+                                                          ActiveRenderBackend() != nullptr );
 }
 
 bool RuntimeRenderHost::IsLauncherCameraMode() const
@@ -100,16 +100,13 @@ int RuntimeRenderHost::WindowScreenHeight() const
 
 SkullbonezCore::Rendering::IRenderBackend* RuntimeRenderHost::ActiveRenderBackend() const
 {
-    // Lifetime: the process renderer remains owned by the bootstrap backend.
-    // The host exposes only a per-call borrow so input/scene helpers do not
-    // retain renderer pointers across teardown.
-    return SkullbonezCore::Rendering::IsGfxReady() ? &SkullbonezCore::Rendering::Gfx() : nullptr;
+    return m_renderBackend.renderBackend;
 }
 
 
 SkullbonezCore::Rendering::IRenderRayTracing* RuntimeRenderHost::ActiveRayTracingBackend() const
 {
-    return SkullbonezCore::Rendering::IsGfxRayTracingReady() ? &SkullbonezCore::Rendering::GfxRayTracing() : nullptr;
+    return m_renderBackend.rayTracingBackend;
 }
 
 

@@ -2752,15 +2752,19 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
 // Render backend
 // ---------------------------------------------------------------------------
 
-void InitRenderBackend( Window* window )
+RuntimeRenderBackendView InitRenderBackend( Window* window )
 {
     auto backend = std::make_unique<RenderBackendDX12>();
-    // Lifetime: SetGfxBackend takes ownership; the raytracing accessor keeps
-    // only a borrowed alias that DestroyGfxBackend clears before releasing it.
-    RenderBackendDX12* rayTracingBackend = backend.get();
+    // Lifetime: SetGfxBackend takes ownership. The raytracing accessor and
+    // render host keep borrowed aliases that expire before DestroyGfxBackend.
+    RenderBackendDX12* renderBackend = backend.get();
+    RuntimeRenderBackendView renderBackendView;
+    renderBackendView.renderBackend = renderBackend;
+    renderBackendView.rayTracingBackend = renderBackend;
     backend->Init( window->m_sWindow, window->m_sDevice, window->m_sWindowDimensions.x, window->m_sWindowDimensions.y );
     SetGfxBackend( std::move( backend ) );
-    SetGfxRayTracingBackend( rayTracingBackend );
+    SetGfxRayTracingBackend( renderBackendView.rayTracingBackend );
+    return renderBackendView;
 }
 
 // ---------------------------------------------------------------------------
@@ -2769,10 +2773,15 @@ void InitRenderBackend( Window* window )
 // before the DX12 backend and the Win32 window are torn down.
 // ---------------------------------------------------------------------------
 
-int RunApp( Window* window, ParsedArgs& args, EngineConfig& cfg, WorkerPool& workerPool )
+int RunApp( Window* window,
+            ParsedArgs& args,
+            EngineConfig& cfg,
+            WorkerPool& workerPool,
+            RuntimeRenderBackendView renderBackendView )
 {
     {
-        std::unique_ptr<Run> cRun = std::make_unique<Run>( *window, std::move( args.sceneList ), cfg, workerPool );
+        std::unique_ptr<Run> cRun =
+            std::make_unique<Run>( *window, std::move( args.sceneList ), cfg, workerPool, renderBackendView );
         if ( args.timeScaleOverride > 0.0f )
         {
             cRun->SetTimeScaleOverride( args.timeScaleOverride );
@@ -3111,10 +3120,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     window->CreateAppWindow( hInstance, cfg.window.fullscreen );
     window->m_sDevice = GetDC( window->m_sWindow );
 
-    InitRenderBackend( window );
+    const RuntimeRenderBackendView renderBackendView = InitRenderBackend( window );
     window->HandleScreenResize();
 
-    const int runExitCode = RunApp( window, args, cfg, workerPool );
+    const int runExitCode = RunApp( window, args, cfg, workerPool, renderBackendView );
 
     workerPool.Shutdown();
     CleanupWindow( window, hInstance );

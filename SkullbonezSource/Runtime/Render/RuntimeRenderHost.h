@@ -14,6 +14,8 @@ Glossary:
   Binding: Pointer set that connects host methods to current runtime owners.
   Callback: Transitional function pointer used for behavior still implemented
     on Run.
+  Render backend view: Borrowed active renderer capabilities published by the
+    composition root; null pointers mean the backend is not available.
   DXR reflection transform buffer: Host-owned per-frame scratch matrix data
     streamed from the scene view into the DX12 TLAS build.
 
@@ -151,8 +153,20 @@ struct RenderDiagnosticsView
     RunTimerState* timers = nullptr;
 };
 
+struct RuntimeRenderBackendView
+{
+    Rendering::IRenderBackend* renderBackend = nullptr;        // Active renderer borrow; null when no backend is ready.
+    Rendering::IRenderRayTracing* rayTracingBackend = nullptr; // Optional DXR facet borrowed from the active renderer.
+};
+
+struct RenderBackendView
+{
+    RuntimeRenderBackendView* active = nullptr;                // Run-owned mutable view observed by the long-lived host.
+};
+
 struct RuntimeRenderHostBindings
 {
+    RenderBackendView backend;
     RenderRuntimeView runtime;
     RenderWorldView world;
     RenderSceneView scene;
@@ -186,9 +200,10 @@ class RuntimeRenderHost
 {
   public:
     RuntimeRenderHost( RuntimeRenderHostBindings bindings, RuntimeRenderHostCallbacks callbacks )
-        : m_systems( *bindings.runtime.systems ), m_debug( *bindings.diagnostics.debug ),
-          m_timers( *bindings.diagnostics.timers ), m_config( *bindings.runtime.config ),
-          m_launchOptions( *bindings.runtime.launchOptions ), m_runtimeSettings( *bindings.runtime.runtimeSettings ),
+        : m_renderBackend( *bindings.backend.active ), m_systems( *bindings.runtime.systems ),
+          m_debug( *bindings.diagnostics.debug ), m_timers( *bindings.diagnostics.timers ),
+          m_config( *bindings.runtime.config ), m_launchOptions( *bindings.runtime.launchOptions ),
+          m_runtimeSettings( *bindings.runtime.runtimeSettings ),
           m_cGameModelCollection( *bindings.world.gameModelCollection ),
           m_cWorldEnvironment( *bindings.world.worldEnvironment ),
           m_collisionVisualizer( *bindings.world.collisionVisualizer ),
@@ -332,6 +347,7 @@ class RuntimeRenderHost
                                        const CinematicRenderConfig* cinematic,
                                        const Rendering::ShadowFrameData* shadow ) const;
 
+    RuntimeRenderBackendView& m_renderBackend;
     RunSubsystemState& m_systems;
     RunDebugState& m_debug;
     RunTimerState& m_timers;
@@ -344,7 +360,7 @@ class RuntimeRenderHost
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
     std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms =
-        {}; // Scratch matrices for DXR TLAS instance upload.
+        {};                                                    // Scratch matrices for DXR TLAS instance upload.
     RuntimeTools& m_runtimeTools;
     RunRayCastTestState& m_rayCastTest;
     RunEditorPlacementState& m_editor;
