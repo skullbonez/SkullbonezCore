@@ -24,7 +24,6 @@ Related:
   - SkullbonezSource/Physics/ColliderStore.h
 */
 #include "ColliderStore.h"
-#include "PhysicsModelAccess.h"
 
 #include <cstddef>
 
@@ -54,53 +53,19 @@ void ColliderStore::Clear()
 
 void ColliderStore::Refresh( std::vector<GameModel>& models )
 {
-    // Invariant: compatibility handles mirror model indices until the physics
-    // facade owns allocation. Do not sort or compact this store independently.
-    m_colliders.resize( models.size() );
-    m_modelColliderHandles.resize( models.size() );
-    for ( std::size_t i = 0; i < models.size(); ++i )
-    {
-        GameModel& model = models[i];
-        ColliderRecord& record = m_colliders[i];
-        const uint32_t modelIndex = static_cast<uint32_t>( i );
-        record.handle = MakeCompatibilityPhysicsColliderHandle( modelIndex );
-        record.body = MakeCompatibilityPhysicsBodyHandle( modelIndex );
-        record.replayBodyId = model.GetReplayBodyId();
-        record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
-        record.shape = model.GetCollisionShape();
-        record.boundingRadius = model.GetBoundingRadius();
-        record.restitution = model.GetCoefficientRestitution();
-        record.contactMaterialId = model.GetContactMaterialId();
-        record.projectedSurfaceArea = model.GetProjectedSurfaceArea();
-        record.dragCoefficient = model.GetDragCoefficient();
-        if ( model.IsBox() )
-        {
-            record.shapeKind = ColliderShapeKind::Box;
-        }
-        else if ( model.IsConvexHull() )
-        {
-            record.shapeKind = ColliderShapeKind::ConvexHull;
-        }
-        else
-        {
-            record.shapeKind = ColliderShapeKind::Sphere;
-        }
-        m_modelColliderHandles[i] = record.handle;
-    }
+    Refresh( models.empty() ? nullptr : models.data(), static_cast<int>( models.size() ) );
 }
 
 
-void ColliderStore::Refresh( PhysicsModelAccess& modelAccess )
+void ColliderStore::Refresh( GameModel* models, int modelCount )
 {
     // Invariant: compatibility handles mirror model indices until the physics
     // facade owns allocation. Do not sort or compact this store independently.
-    auto models = modelAccess.Models();
-    const int modelCount = models.Count();
     m_colliders.resize( static_cast<std::size_t>( modelCount ) );
     m_modelColliderHandles.resize( static_cast<std::size_t>( modelCount ) );
     for ( int i = 0; i < modelCount; ++i )
     {
-        GameModel& model = models[static_cast<std::size_t>( i )];
+        GameModel& model = models[i];
         ColliderRecord& record = m_colliders[static_cast<std::size_t>( i )];
         const uint32_t modelIndex = static_cast<uint32_t>( i );
         record.handle = MakeCompatibilityPhysicsColliderHandle( modelIndex );

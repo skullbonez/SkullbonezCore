@@ -68,7 +68,7 @@ void PhysicsScene::ClearPendingBodyImpulses()
 
 void PhysicsScene::RefreshColliderStore( PhysicsModelAccess& modelAccess )
 {
-    m_colliderStore.Refresh( modelAccess );
+    m_colliderStore.Refresh( modelAccess.MutableModelData(), modelAccess.ModelCount() );
 }
 
 
@@ -145,7 +145,7 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
     // the hot step only needs to catch topology changes.
     if ( m_colliderStore.Count() != modelAccess.ModelCount() )
     {
-        m_colliderStore.Refresh( modelAccess );
+        m_colliderStore.Refresh( modelAccess.MutableModelData(), modelAccess.ModelCount() );
     }
     m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime, config, workerPool );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );

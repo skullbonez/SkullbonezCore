@@ -39,8 +39,6 @@ class GameModel;
 
 namespace Physics
 {
-class PhysicsModelAccess;
-
 enum class ColliderShapeKind : uint8_t
 {
     Sphere,
@@ -70,7 +68,7 @@ class ColliderStore
 
     void Clear();
     void Refresh( std::vector<GameObjects::GameModel>& models );
-    void Refresh( PhysicsModelAccess& modelAccess );
+    void Refresh( GameObjects::GameModel* models, int modelCount );
 
     const ColliderRecord* Data() const;
     int Count() const;
