@@ -127,8 +127,10 @@ class PhysicsBodyStore
     bool ApplyBodyImpulse( int modelIndex,
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
-    bool IntegrateBodyPose( std::vector<GameObjects::GameModel>& models, int modelIndex, float deltaSeconds );
-    bool IntegrateBodyPose( PhysicsModelMutableRange models, int modelIndex, float deltaSeconds );
+    // Advances one mutable body record from its current velocities and shape
+    // snapshot. Returns false when the slot is fixed, sleeping, missing, or has
+    // no positive time to integrate.
+    bool IntegrateBodyPose( const ColliderStore& colliderStore, int modelIndex, float deltaSeconds );
     bool ApplyForces( const PhysicsWorldForces& worldForces,
                       const ColliderStore& colliderStore,
                       int modelIndex,

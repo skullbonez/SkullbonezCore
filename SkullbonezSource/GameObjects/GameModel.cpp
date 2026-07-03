@@ -871,26 +871,6 @@ float GameModel::GetVolume()
 }
 
 
-void GameModel::UpdatePosition( float changeInTime )
-{
-    if ( m_isFixed )
-    {
-        return;
-    }
-
-    // Skip entirely when no time has passed (e.g., zero-time terrain collision cap).
-    // Position hasn't changed, so no need to clamp against terrain.
-    if ( changeInTime <= 0.0f )
-    {
-        return;
-    }
-
-    m_physicsInfo.UpdatePosition( changeInTime );
-
-    ClampToTerrainSurface();
-}
-
-
 void GameModel::CalculateVolume()
 {
     m_physicsInfo.SetVolume( m_ballPhysics.volume );
@@ -1535,68 +1515,6 @@ const Vector3& GameModel::GetPosition() const
     //   Const access lets the narrowphase manifold builder inspect immutable
     //   GameModels without opening write access to physics state.
     return m_physicsInfo.GetPosition();
-}
-
-
-void GameModel::ClampToTerrainSurface()
-{
-    if ( !m_terrain )
-    {
-        return;
-    }
-
-    // if we are not in bounds then exit now!
-    if ( !m_terrain->IsInBounds( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z ) )
-    {
-        return;
-    }
-
-    if ( std::holds_alternative<BoundingBox>( m_boundingVolume ) )
-    {
-        // This debug clamp is intentionally conservative for boxes: only lift the
-        // model by the deepest actual vertex penetration. The previous center
-        // height plus support extent logic could push boxes upward on uneven
-        // terrain and preserve a visible floating gap after sleep.
-        Vector3 closestVertex;
-        float terrainHeight = 0.0f;
-        Plane terrainPlane;
-        float gap = 0.0f;
-        if ( GetClosestBoxTerrainVertex( closestVertex, terrainHeight, terrainPlane, gap ) && gap < 0.0f )
-        {
-            Vector3 updatePos( m_physicsInfo.GetPosition().x,
-                               m_physicsInfo.GetPosition().y - gap,
-                               m_physicsInfo.GetPosition().z );
-            m_physicsInfo.SetPosition( updatePos );
-        }
-        return;
-    }
-
-    if ( std::holds_alternative<ConvexHullShape>( m_boundingVolume ) )
-    {
-        Vector3 closestVertex;
-        float terrainHeight = 0.0f;
-        Plane terrainPlane;
-        float gap = 0.0f;
-        if ( GetClosestHullTerrainVertex( closestVertex, terrainHeight, terrainPlane, gap ) && gap < 0.0f )
-        {
-            Vector3 updatePos( m_physicsInfo.GetPosition().x,
-                               m_physicsInfo.GetPosition().y - gap,
-                               m_physicsInfo.GetPosition().z );
-            m_physicsInfo.SetPosition( updatePos );
-        }
-        return;
-    }
-
-    float bottomOffset = m_ballPhysics.radius;
-
-    float terrainH = m_terrain->GetTerrainHeightAt( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z );
-
-    // if we are lower than the terrain, push up
-    if ( m_physicsInfo.GetPosition().y - bottomOffset < terrainH )
-    {
-        Vector3 updatePos( m_physicsInfo.GetPosition().x, terrainH + bottomOffset, m_physicsInfo.GetPosition().z );
-        m_physicsInfo.SetPosition( updatePos );
-    }
 }
 
 

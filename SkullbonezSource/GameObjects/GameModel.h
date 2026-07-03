@@ -201,7 +201,6 @@ class GameModel
                                       float& outTerrainHeight,
                                       Geometry::Plane& outPlane,
                                       float& outGap );
-    void ClampToTerrainSurface();                                           // Corrects tiny post-solve terrain overlap before it accumulates visibly.
 
   public:
     struct BuoyancySample
@@ -260,7 +259,6 @@ class GameModel
     const Math::Vector::Vector3& GetAngularVelocity();
     const Math::Vector::Vector3& GetAngularVelocity() const;
     void ApplyForces( float changeInTime );
-    void UpdatePosition( float changeInTime );
     void SetTerrain( Geometry::Terrain* pTerrain );                         // Borrowed scene terrain; caller keeps it alive for this model.
     float CollisionDetectTerrain(
         float changeInTime );                                               // Swept terrain query that fills the response mailbox but applies no impulse.

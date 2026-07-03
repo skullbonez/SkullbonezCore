@@ -18,14 +18,17 @@ Implementation status:
   wake/seed island helpers, top-level contact-highlight ticking, explicit
   wake-time underwater refresh, and store-owned force integration are off raw
   `modelAccess.Models()` reads. `PhysicsBodyStore` now owns gravity, buoyancy,
-  drag, water damping, righting torque, angular damping, pending impulses, and
-  allocator-owned body handle identity; `ColliderStore` owns collider handle
-  identity and resolves collider bodies from store-owned body handles. Ragdoll
-  joint solving mutates `PhysicsBodyStore` records, and point-joint setup,
-  serialization, and smoke tests resolve through store-owned handles. Tornado,
-  persistent contact, terrain/manifold, object sweep, integration, and solver
-  writeback paths still need real physics-owned views before K003 can delete the
-  remaining compatibility model ranges.
+  drag, water damping, righting torque, angular damping, pending impulses, pose
+  integration, terrain clamping after integration, and allocator-owned body
+  handle identity; `ColliderStore` owns collider handle identity and resolves
+  collider bodies from store-owned body handles. Ragdoll joint solving mutates
+  `PhysicsBodyStore` records, and point-joint setup, serialization, and smoke
+  tests resolve through store-owned handles. `GameModel::UpdatePosition` and
+  its terrain-clamp wrapper are deleted; `GameModel` still owns terrain query
+  helpers that terrain CCD/manifold generation uses until that later K003 slice.
+  Tornado, persistent contact, terrain/manifold, object sweep, and solver
+  writeback paths still need real physics-owned views before K003 can delete
+  the remaining compatibility model ranges.
 - Guardrail follow-up added `tools/check_runtime_boundaries.py` checks for
   deleted migration artifacts (`GameModelRuntimePhysicsTuning`,
   `legacyModelIndex`, `RuntimeConfigSnapshot`, and the no-factory

@@ -2556,7 +2556,10 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
                         recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
                         emitObjectCollisionTimeEvent( event, y, x, colTime, availableTime );
 
-                        bodyStore.IntegrateBodyPose( m_gameModels, y, colTime );
+                        if ( bodyStore.IntegrateBodyPose( colliderStore, y, colTime ) )
+                        {
+                            bodyStore.WriteBackToModelAt( m_gameModels, y );
+                        }
                         m_timeRemaining[y] = (std::max)( 0.0f, m_timeRemaining[y] - colTime );
                         if ( !sleepingLocked )
                         {
@@ -2615,7 +2618,10 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
                         recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
                         emitObjectCollisionTimeEvent( event, x, y, colTime, availableTime );
 
-                        bodyStore.IntegrateBodyPose( m_gameModels, x, colTime );
+                        if ( bodyStore.IntegrateBodyPose( colliderStore, x, colTime ) )
+                        {
+                            bodyStore.WriteBackToModelAt( m_gameModels, x );
+                        }
                         m_timeRemaining[x] = (std::max)( 0.0f, m_timeRemaining[x] - colTime );
                         if ( !sleepingLocked )
                         {
@@ -2691,8 +2697,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
             recordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
             emitObjectCollisionTimeEvent( event, x, y, colTime, availableTime );
 
-            bodyStore.IntegrateBodyPose( m_gameModels, x, colTime );
-            bodyStore.IntegrateBodyPose( m_gameModels, y, colTime );
+            if ( bodyStore.IntegrateBodyPose( colliderStore, x, colTime ) )
+            {
+                bodyStore.WriteBackToModelAt( m_gameModels, x );
+            }
+            if ( bodyStore.IntegrateBodyPose( colliderStore, y, colTime ) )
+            {
+                bodyStore.WriteBackToModelAt( m_gameModels, y );
+            }
             m_timeRemaining[x] = (std::max)( 0.0f, m_timeRemaining[x] - colTime );
             m_timeRemaining[y] = (std::max)( 0.0f, m_timeRemaining[y] - colTime );
 
@@ -2899,7 +2911,10 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     {
         if ( m_gameModels[x].IsResponseRequired() )
         {
-            bodyStore.IntegrateBodyPose( m_gameModels, x, colTime );
+            if ( bodyStore.IntegrateBodyPose( colliderStore, x, colTime ) )
+            {
+                bodyStore.WriteBackToModelAt( m_gameModels, x );
+            }
             const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
             // BuildTerrainContactManifold is the handoff from terrain-specific
             // collision data to solver-neutral contact geometry. The old
@@ -3001,7 +3016,10 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
 
         if ( m_timeRemaining[x] > 0.0f )
         {
-            bodyStore.IntegrateBodyPose( m_gameModels, x, m_timeRemaining[x] );
+            if ( bodyStore.IntegrateBodyPose( colliderStore, x, m_timeRemaining[x] ) )
+            {
+                bodyStore.WriteBackToModelAt( m_gameModels, x );
+            }
         }
     };
 

@@ -39,15 +39,18 @@ Related:
 #include <type_traits>
 
 #include "../Core/Common.h"
+#include "../Core/Profiler.h"
 #include "../GameObjects/GameModel.h"
 #include "../World/Terrain.h"
 #include "../World/TerrainSupportClassifier.h"
 
 using SkullbonezCore::GameObjects::GameModel;
+using SkullbonezCore::Geometry::Plane;
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
+using SkullbonezCore::Math::CollisionDetection::GetShapeTerrainBottomOffset;
 using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::CrossProduct;
 using SkullbonezCore::Math::Vector::Vector3;
@@ -93,6 +96,167 @@ const ColliderRecord* ColliderRecordForModelIndex( const ColliderStore& collider
         return nullptr;
     }
     return &colliders[static_cast<std::size_t>( modelIndex )];
+}
+
+// Concept: integrated terrain clamp samples the real support vertices.
+//
+// Boxes and hulls should be lifted only by their deepest actual vertex
+// penetration. A center-height clamp would make tilted or uneven-terrain bodies
+// visibly float and would change the deterministic physics baseline.
+bool FindClosestBoxTerrainVertex( const PhysicsBodyRecord& record,
+                                  const BoundingBox& box,
+                                  Vector3& outVertex,
+                                  float& outTerrainHeight,
+                                  Plane& outPlane,
+                                  float& outGap )
+{
+    PROFILE_SCOPED( "Frame/Physics/Terrain/BoxClosestVertexProbe" );
+
+    if ( !record.terrain )
+    {
+        return false;
+    }
+
+    const Vector3& he = box.GetHalfExtents();
+    auto orientation = record.orientation;
+    const RotationMatrix rotMat = orientation.GetOrientationMatrix();
+
+    bool found = false;
+    float bestGap = 1.0e30f;
+    for ( int v = 0; v < 8; ++v )
+    {
+        const Vector3 local( ( v & 1 ) ? he.x : -he.x,
+                             ( v & 2 ) ? he.y : -he.y,
+                             ( v & 4 ) ? he.z : -he.z );
+        const Vector3 worldVertex = record.position + ( rotMat * local );
+
+        if ( !record.terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
+        {
+            continue;
+        }
+
+        float terrainHeight = 0.0f;
+        Plane terrainPlane;
+        record.terrain->GetTerrainHeightAndPlaneAt( worldVertex.x, worldVertex.z, terrainHeight, terrainPlane );
+        const float gap = worldVertex.y - terrainHeight;
+        if ( !found || gap < bestGap )
+        {
+            found = true;
+            bestGap = gap;
+            outVertex = worldVertex;
+            outTerrainHeight = terrainHeight;
+            outPlane = terrainPlane;
+            outGap = gap;
+        }
+    }
+
+    return found;
+}
+
+bool FindClosestHullTerrainVertex( const PhysicsBodyRecord& record,
+                                   const ConvexHullShape& hull,
+                                   Vector3& outVertex,
+                                   float& outTerrainHeight,
+                                   Plane& outPlane,
+                                   float& outGap )
+{
+    PROFILE_SCOPED( "Frame/Physics/Terrain/HullClosestVertexProbe" );
+
+    if ( !record.terrain )
+    {
+        return false;
+    }
+
+    auto orientation = record.orientation;
+    const RotationMatrix rotMat = orientation.GetOrientationMatrix();
+    const Vector3 hullCenter = record.position + ( rotMat * hull.GetPosition() );
+
+    bool found = false;
+    float bestGap = 1.0e30f;
+    const uint16_t vertexCount = hull.GetVertexCount();
+    for ( uint16_t v = 0; v < vertexCount; ++v )
+    {
+        const Vector3 worldVertex = hullCenter + ( rotMat * hull.GetVertex( v ) );
+
+        if ( !record.terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
+        {
+            continue;
+        }
+
+        float terrainHeight = 0.0f;
+        Plane terrainPlane;
+        record.terrain->GetTerrainHeightAndPlaneAt( worldVertex.x, worldVertex.z, terrainHeight, terrainPlane );
+        const float gap = worldVertex.y - terrainHeight;
+        if ( !found || gap < bestGap )
+        {
+            found = true;
+            bestGap = gap;
+            outVertex = worldVertex;
+            outTerrainHeight = terrainHeight;
+            outPlane = terrainPlane;
+            outGap = gap;
+        }
+    }
+
+    return found;
+}
+
+void ClampBodyToTerrainSurface( PhysicsBodyRecord& record, const ColliderRecord& collider )
+{
+    if ( !record.terrain )
+    {
+        return;
+    }
+
+    if ( !record.terrain->IsInBounds( record.position.x, record.position.z ) )
+    {
+        return;
+    }
+
+    if ( std::holds_alternative<BoundingBox>( collider.shape ) )
+    {
+        Vector3 closestVertex;
+        float terrainHeight = 0.0f;
+        Plane terrainPlane;
+        float gap = 0.0f;
+        if ( FindClosestBoxTerrainVertex( record,
+                                          std::get<BoundingBox>( collider.shape ),
+                                          closestVertex,
+                                          terrainHeight,
+                                          terrainPlane,
+                                          gap ) &&
+             gap < 0.0f )
+        {
+            record.position.y -= gap;
+        }
+        return;
+    }
+
+    if ( std::holds_alternative<ConvexHullShape>( collider.shape ) )
+    {
+        Vector3 closestVertex;
+        float terrainHeight = 0.0f;
+        Plane terrainPlane;
+        float gap = 0.0f;
+        if ( FindClosestHullTerrainVertex( record,
+                                           std::get<ConvexHullShape>( collider.shape ),
+                                           closestVertex,
+                                           terrainHeight,
+                                           terrainPlane,
+                                           gap ) &&
+             gap < 0.0f )
+        {
+            record.position.y -= gap;
+        }
+        return;
+    }
+
+    const float bottomOffset = GetShapeTerrainBottomOffset( collider.shape );
+    const float terrainHeight = record.terrain->GetTerrainHeightAt( record.position.x, record.position.z );
+    if ( record.position.y - bottomOffset < terrainHeight )
+    {
+        record.position.y = terrainHeight + bottomOffset;
+    }
 }
 
 uint32_t NextHandleGeneration( uint32_t generation )
@@ -693,6 +857,26 @@ void ApplyWorldForces( PhysicsBodyRecord& record,
     ApplyWorldImpulse( record, worldForce * deltaSeconds, worldTorque * deltaSeconds );
 }
 
+// Concept: store-owned pose integration is the data-record successor to
+// RigidBody::UpdatePosition plus GameModel::ClampToTerrainSurface. Keeping this
+// here means solver hot paths no longer round-trip through GameModel just to
+// advance a position and orientation.
+void IntegrateBodyRecordPose( PhysicsBodyRecord& record, float deltaSeconds )
+{
+    record.linearVelocity.Simplify();
+    record.angularVelocity.Simplify();
+
+    record.position += record.linearVelocity * deltaSeconds;
+
+    const Vector3 omega = record.angularVelocity;
+    const float omegaMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
+    if ( omegaMag > 0.0001f )
+    {
+        const Vector3 axis( omega.x / omegaMag, omega.y / omegaMag, omega.z / omegaMag );
+        record.orientation.RotateAboutAxis( axis, omegaMag * deltaSeconds );
+    }
+}
+
 void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record )
 {
     record.position = model.GetPosition();
@@ -1202,36 +1386,20 @@ bool PhysicsBodyStore::ApplyBodyImpulse( int modelIndex, const Vector3& impulse,
 }
 
 
-bool PhysicsBodyStore::IntegrateBodyPose( std::vector<GameModel>& models, int modelIndex, float deltaSeconds )
+bool PhysicsBodyStore::IntegrateBodyPose( const ColliderStore& colliderStore, int modelIndex, float deltaSeconds )
 {
     PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
-    if ( !record || modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) || record->isFixed ||
-         record->isSleeping || deltaSeconds <= 0.0f )
+    const ColliderRecord* collider = ColliderRecordForModelIndex( colliderStore, modelIndex );
+    if ( !record || !collider || record->isFixed || record->isSleeping || deltaSeconds <= 0.0f )
     {
         return false;
     }
 
-    WriteBackToModelAt( models, modelIndex );
-    GameModel& model = models[static_cast<std::size_t>( modelIndex )];
-    model.UpdatePosition( deltaSeconds );
-    CaptureMutableBodyState( model, *record );
-    return true;
-}
-
-
-bool PhysicsBodyStore::IntegrateBodyPose( PhysicsModelMutableRange models, int modelIndex, float deltaSeconds )
-{
-    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
-    if ( !record || modelIndex < 0 || modelIndex >= models.Count() || record->isFixed || record->isSleeping ||
-         deltaSeconds <= 0.0f )
-    {
-        return false;
-    }
-
-    WriteBackToModelAt( models, modelIndex );
-    GameModel& model = models[static_cast<std::size_t>( modelIndex )];
-    model.UpdatePosition( deltaSeconds );
-    CaptureMutableBodyState( model, *record );
+    IntegrateBodyRecordPose( *record, deltaSeconds );
+    ClampBodyToTerrainSurface( *record, *collider );
+    // Why: this value is a targeted underwater-sleep probe, not general body
+    // state. Any pose integration invalidates the previous water sample.
+    record->submergedVolumePercent = 0.0f;
     return true;
 }
 
