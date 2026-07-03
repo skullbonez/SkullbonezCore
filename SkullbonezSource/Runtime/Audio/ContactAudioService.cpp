@@ -70,15 +70,17 @@ constexpr uint32_t CONTACT_AUDIO_DEFAULT = HashStr( "default" );
 constexpr std::size_t MAX_STEP_CANDIDATES = 512;
 constexpr std::size_t MAX_STEP_DECISIONS = 2048;
 constexpr std::size_t MAX_COOLDOWN_ENTRIES = 4096;
+constexpr std::size_t CONTACT_AUDIO_MAX_BURST_VOICES = 3;
 constexpr float CONTACT_AUDIO_REARM_GAP_SECONDS = 0.18f;
 constexpr float CONTACT_AUDIO_TERRAIN_REARM_GAP_SECONDS = 0.90f;
+constexpr float CONTACT_AUDIO_BURST_GAP_SECONDS = 0.10f;
 constexpr float CONTACT_AUDIO_SPIKE_RATIO = 1.65f;
 constexpr float CONTACT_AUDIO_SPIKE_DELTA = 1.0f;
 constexpr float CONTACT_AUDIO_VOICE_STEAL_GAIN_RATIO = 1.20f;
 constexpr float CONTACT_AUDIO_VOICE_STEAL_GAIN_DELTA = 0.03f;
-constexpr float CONTACT_AUDIO_DEFAULT_MIN_CLOSING_SPEED = 0.35f;
-constexpr float CONTACT_AUDIO_DEFAULT_MIN_IMPACT_SCORE = 0.5f;
-constexpr float CONTACT_AUDIO_DEFAULT_IMPACT_SCORE_RANGE_SECONDS = 1.5f;
+constexpr float CONTACT_AUDIO_DEFAULT_MIN_CLOSING_SPEED = 2.0f;
+constexpr float CONTACT_AUDIO_DEFAULT_MIN_IMPACT_SCORE = 250.0f;
+constexpr float CONTACT_AUDIO_DEFAULT_IMPACT_SCORE_RANGE_SECONDS = 3.0f;
 constexpr float CONTACT_AUDIO_LEGACY_CLOSING_SPEED = 2.0f;
 
 float Clamp01( float value )
@@ -244,6 +246,7 @@ struct ContactAudioService::Impl
     float minClosingSpeed = CONTACT_AUDIO_DEFAULT_MIN_CLOSING_SPEED;
     float minImpactScore = CONTACT_AUDIO_DEFAULT_MIN_IMPACT_SCORE;
     float impactScoreRangeSeconds = CONTACT_AUDIO_DEFAULT_IMPACT_SCORE_RANGE_SECONDS;
+    float nextBurstTimeSeconds = 0.0f;
     uint32_t sampleCursor = 0;
     bool initialized = false;
     bool enabled = true;
@@ -976,11 +979,9 @@ struct ContactAudioService::Impl
             return;
         }
 
-        decision.flashEligible = true;
         if ( !initialized )
         {
             decision.reason = "backend_unavailable";
-            decision.flashEligible = false;
             RecordDecision( decision );
             ++stats.droppedVoices;
             return;
@@ -1005,6 +1006,7 @@ struct ContactAudioService::Impl
             ++stats.submittedVoices;
             decision.reason = stoleVoice ? "voice_stolen" : "submitted";
             decision.submitted = true;
+            decision.flashEligible = true;
             // Lifetime: Run reads this copied event immediately after
             // EndPhysicsStep(); no GameModel or solver storage is borrowed.
             if ( submittedContacts.size() < MAX_STEP_CANDIDATES )
@@ -1223,9 +1225,35 @@ void ContactAudioService::EndPhysicsStep()
         m_impl->decisions.clear();
         return;
     }
+    if ( m_impl->timeSeconds < m_impl->nextBurstTimeSeconds )
+    {
+        // Why: piles can generate hundreds of real contact rows per second. The
+        // sound model is intentionally a burst selector, not a contact counter.
+        m_impl->stepCandidates.clear();
+        return;
+    }
+    std::sort( m_impl->stepCandidates.begin(),
+               m_impl->stepCandidates.end(),
+               []( const Impl::StepCandidate& lhs, const Impl::StepCandidate& rhs )
+               { return ContactCandidateRank( lhs.event ) > ContactCandidateRank( rhs.event ); } );
+
+    std::size_t submittedThisBurst = 0;
     for ( const Impl::StepCandidate& candidate : m_impl->stepCandidates )
     {
+        if ( submittedThisBurst >= CONTACT_AUDIO_MAX_BURST_VOICES )
+        {
+            break;
+        }
+        const std::size_t submittedBefore = m_impl->submittedContacts.size();
         m_impl->PlayCandidate( candidate );
+        if ( m_impl->submittedContacts.size() > submittedBefore )
+        {
+            ++submittedThisBurst;
+        }
+    }
+    if ( submittedThisBurst > 0 )
+    {
+        m_impl->nextBurstTimeSeconds = m_impl->timeSeconds + CONTACT_AUDIO_BURST_GAP_SECONDS;
     }
     m_impl->stepCandidates.clear();
 }
@@ -1284,7 +1312,15 @@ bool ContactAudioService::PlaySmokeImpact( uint32_t materialId, float normalImpu
     event.point = Math::Vector::ZERO_VECTOR;
     event.normal = Vector3( 0.0f, 1.0f, 0.0f );
     event.normalImpulse = normalImpulse;
+    // Why: the smoke path is synthetic and has no solver velocity row. Give it
+    // enough closing speed to exercise the current score gate without lowering
+    // gameplay thresholds just to keep the headless test audible.
+    const float syntheticImpactScore =
+        m_impl->minImpactScore + (std::max)( normalImpulse, 1.0f ) * CONTACT_AUDIO_LEGACY_CLOSING_SPEED * 2.0f;
+    event.normalClosingSpeed =
+        (std::max)( m_impl->minClosingSpeed, syntheticImpactScore / (std::max)( normalImpulse, 0.001f ) );
     event.isTerrain = true;
+    event.hasMotionData = true;
     SubmitContact( event );
     EndPhysicsStep();
     return Stats().submittedVoices > 0;

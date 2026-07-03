@@ -702,15 +702,14 @@ void Run::AfterPhysicsStep()
 #endif
         if ( m_runtimeSettings.contactAudioFlashOnSubmit )
         {
-            // Why: voice caps are a mixer limit, not an impact classifier. Flash
-            // every contact that cleared material, cooldown, distance, and gain
-            // policy so big pileups still show their sound-worthy impacts.
+            // Why: the white flash marks actual sound emitters. Rejected,
+            // rate-limited, or voice-capped contacts stay visual-noise-free.
             constexpr float CONTACT_AUDIO_FLASH_SECONDS = 0.1f;
             const int decisionCount = m_contactAudio.DecisionCount();
             for ( int i = 0; i < decisionCount; ++i )
             {
                 Runtime::Audio::ContactAudioDecision decision;
-                if ( !m_contactAudio.GetDecision( i, decision ) || !decision.flashEligible )
+                if ( !m_contactAudio.GetDecision( i, decision ) || !decision.submitted )
                 {
                     continue;
                 }
