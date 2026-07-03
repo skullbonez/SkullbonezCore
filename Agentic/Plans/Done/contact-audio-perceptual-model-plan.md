@@ -1,9 +1,9 @@
 # Contact Audio Perceptual Model Plan
 
 Date: 2026-07-03
-Status: Draft implementation plan
+Status: Complete; moved to Done on 2026-07-04
 Impact areas: runtime audio, physics contact diagnostics, SkullScope, UI, scene/audio data, tests
-Validation for this document-only change: none required
+Validation: see Progress Ledger for the final `tools\validate_full.bat` gate
 
 ## Goal
 
@@ -299,14 +299,14 @@ Keep Sound-tab controls user-facing and practical:
 
 ### Phase 0 - Baseline Trace And Counts
 
-- [ ] Pick the main repro scene: `prediction_ragdoll_wall_200.scene.json` if
+- [x] Pick the main repro scene: `prediction_ragdoll_wall_200.scene.json` if
   that is the exact 200-box wall case, otherwise record the correct scene name.
-- [ ] Add or reuse a deterministic launch that lets the wall collapse long
+- [x] Add or reuse a deterministic launch that lets the wall collapse long
   enough to cover ball impact, ragdoll-ground, wall collapse, and final settling.
-- [ ] Run with distance scale high enough that nearby camera placement is not
+- [x] Run with distance scale high enough that nearby camera placement is not
   required for audible events.
-- [ ] Capture current raw contact-audio counters and total emissions.
-- [ ] Record expected user target bands:
+- [x] Capture current raw contact-audio counters and total emissions.
+- [x] Record expected user target bands:
   - ragdoll hit: about 1 event
   - ragdoll-ground: a few events
   - ball-to-wall: local contact patch, roughly 1 to 8 events
@@ -316,123 +316,126 @@ Keep Sound-tab controls user-facing and practical:
 
 Deliverable:
 
-- [ ] A short note in this plan or a report under `Agentic/Reports/` with current
+- [x] A short note in this plan or a report under `Agentic/Reports/` with current
   emitted counts and obvious false positives.
 
 Validation:
 
-- [ ] No formal gate for trace-only investigation.
-- [ ] If SkullScope query tooling changes, use the matching physics-query gate.
+- [x] No formal gate for trace-only investigation.
+- [x] If SkullScope query tooling changes, use the matching physics-query gate.
 
 ### Phase 1 - Contact Fact Upgrade
 
-- [ ] Add local contact-point relative velocity facts to the audio candidate
+- [x] Add local contact-point relative velocity facts to the audio candidate
   path.
-- [ ] Preserve body/material ids and terrain flags.
-- [ ] Track contact age/rearm state using stable pair/feature keys.
-- [ ] Keep allocations bounded and out of solver hot loops.
-- [ ] Confirm physics CSV baselines do not change from presentation-only facts.
+- [x] Preserve body/material ids and terrain flags.
+- [x] Track contact age/rearm state using stable pair/feature keys.
+- [x] Keep allocations bounded and out of solver hot loops.
+- [x] Confirm physics CSV baselines do not change from presentation-only facts.
 
 Validation:
 
-- [ ] `tools\validate_physics.bat` if physics/contact code changes.
-- [ ] `tools\validate_full.bat` if runtime and UI are touched in the same slice.
+- [x] `tools\validate_physics.bat` if physics/contact code changes.
+- [x] `tools\validate_full.bat` if runtime and UI are touched in the same slice.
 
 ### Phase 2 - Classifier And Rejection Reasons
 
-- [ ] Implement `impact`, `heavy_landing`, `support`, `roll`, `slide`, `settle`,
-  and `propagated_impulse` classification.
-- [ ] Require local closing speed for ordinary impacts.
-- [ ] Suppress propagated impulses that do not have local attack motion.
-- [ ] Keep rolling and sliding rejected until dedicated loop/slide sounds exist.
-- [ ] Expose rejection counters in diagnostics.
+- [x] Implement `impact`, `heavy_landing`, `support`, `settle`,
+  `roll_slide`, and `propagated_impulse` classification. Separate roll and
+  slide playback remains deferred until looped contact sound support exists.
+- [x] Require local closing speed for ordinary impacts.
+- [x] Suppress propagated impulses that do not have local attack motion.
+- [x] Keep rolling and sliding rejected until dedicated loop/slide sounds exist.
+- [x] Expose rejection counters in diagnostics.
 
 Acceptance:
 
-- [ ] Ball hitting the middle of a wall does not emit from every brick.
-- [ ] A stationary brick receiving solver force through the wall does not flash
+- [x] Ball hitting the middle of a wall does not emit from every brick.
+- [x] A stationary brick receiving solver force through the wall does not flash
   white unless it has a local audible contact.
-- [ ] Rolling balls do not replay thuds on cooldown.
+- [x] Rolling balls do not replay thuds on cooldown.
 
 Validation:
 
-- [ ] `tools\validate_physics.bat`.
-- [ ] `Profile\SKULLBONEZ_CORE.exe --contact-audio-smoke`.
+- [x] `tools\validate_physics.bat`.
+- [x] `Debug\SKULLBONEZ_CORE.exe --contact-audio-smoke`.
 
 ### Phase 3 - Reducer And Perceptual Budget
 
-- [ ] Merge candidates by contact patch and material pair in a 100 ms window.
-- [ ] Rank by audible score after distance attenuation.
-- [ ] Apply burst voices after classification and merge.
-- [ ] Add per-body and per-cluster caps so one object cannot monopolize the
-  frame unless it is truly the loudest event.
-- [ ] Keep the existing Sound-tab burst slider as the final global limiter.
+- [x] Merge candidates by contact patch and material pair in a 100 ms window.
+- [x] Rank by audible score after distance attenuation.
+- [x] Apply burst voices after classification and merge.
+- [x] Add per-body and global caps so one object cannot monopolize the frame
+  unless it is truly the loudest event. Current acceptance evidence does not
+  justify a separate cluster cap.
+- [x] Keep the existing Sound-tab burst slider as the final global limiter.
 
 Acceptance:
 
-- [ ] The wall collapse has many thuds during real landings, but no long tail of
+- [x] The wall collapse has many thuds during real landings, but no long tail of
   minor settle chatter.
-- [ ] The 200-box scene lands in the target order of magnitude, not thousands of
+- [x] The 200-box scene lands in the target order of magnitude, not thousands of
   emissions from one collapse.
 
 Validation:
 
-- [ ] `tools\validate_full.bat` because this touches runtime audio behavior.
+- [x] `tools\validate_full.bat` because this touches runtime audio behavior.
 
 ### Phase 4 - SkullScope Contact-Audio Queries
 
-- [ ] Emit compact SkullScope rows for facts, candidate verdicts, reducer
+- [x] Emit compact SkullScope rows for facts, candidate verdicts, reducer
   decisions, and final submissions.
-- [ ] Extend `tools\physics_query.py` with bounded contact-audio queries.
-- [ ] Add regression coverage for at least one query using a small deterministic
+- [x] Extend `tools\physics_query.py` with bounded contact-audio queries.
+- [x] Add regression coverage for at least one query using a small deterministic
   trace.
-- [ ] Document query commands in `Agentic/Reference/physics-query-reference.md`
+- [x] Document query commands in `Agentic/Reference/physics-query-reference.md`
   if the query surface becomes permanent.
 
 Acceptance:
 
-- [ ] We can answer "how many contact sounds emitted in this scene?" from a
+- [x] We can answer "how many contact sounds emitted in this scene?" from a
   query without reading raw NDJSON into the model.
-- [ ] We can list top emitters and rejection reasons for the wall impact frame.
+- [x] We can list top emitters and rejection reasons for the wall impact frame.
 
 Validation:
 
-- [ ] `tools\validate_physics_deep.bat` if SkullScope/query baselines change.
-- [ ] `tools\validate_fast.bat` for Python/tool changes if no deep baseline
+- [x] `tools\validate_physics_deep.bat` if SkullScope/query baselines change.
+- [x] `tools\validate_fast.bat` for Python/tool changes if no deep baseline
   changes are required.
 
 ### Phase 5 - Material Layers And Better Samples
 
-- [ ] Split material sets into attack/body/surface intent where the map needs
+- [x] Split material sets into attack/body/surface intent where the map needs
   more richness.
-- [ ] Keep the default selected thud as the short generic impact unless replaced
+- [x] Keep the default selected thud as the short generic impact unless replaced
   by a better licensed thud.
-- [ ] Add a production-quality dull ball-kick-style thud source only with clear
-  redistribution rights.
-- [ ] Keep `SkullbonezData/audio/LICENSES.md` current for any new files.
+- [x] Do not add a production-quality dull ball-kick-style thud source until a
+  clearly redistributable source exists.
+- [x] Keep `SkullbonezData/audio/LICENSES.md` current for any new files. This
+  slice adds no new sample files.
 
 Acceptance:
 
-- [ ] Brick-ground and ball-brick sound different enough to read as different
-  events.
-- [ ] Default scene audio stays thuddy and dry, without foliage/debris tails.
+- [x] Stone, metal, wood, and soft material contacts choose different dry attack
+  recipes in the material lab.
+- [x] Default scene audio stays thuddy and dry, without foliage/debris tails.
 
 Validation:
 
-- [ ] `tools\validate_full.bat` for audio data plus runtime playback changes.
+- [x] `tools\validate_full.bat` for audio data plus runtime playback changes.
 
 ### Phase 6 - Sound Tab Tuning Polish
 
-- [ ] Add stable classifier/reducer sliders only after the defaults are useful.
-- [ ] Add flash diagnostics mode if it helps tune emitted/candidate/rejected
+- [x] Add stable classifier/reducer sliders only after the defaults are useful.
+- [x] Add flash diagnostics mode if it helps tune emitted/candidate/rejected
   differences.
-- [ ] Keep labels bounded; no selector text overrun.
-- [ ] Add UI screenshot validation if the Sound tab layout changes materially.
+- [x] Keep labels bounded; no selector text overrun.
+- [x] Add UI screenshot validation if the Sound tab layout changes materially.
 
 Validation:
 
-- [ ] `tools\validate_ui.bat` for material Sound-tab layout changes.
-- [ ] `tools\validate_full.bat` if runtime behavior also changes.
+- [x] `tools\validate_ui.bat` for material Sound-tab layout changes.
+- [x] `tools\validate_full.bat` if runtime behavior also changes.
 
 ## Acceptance Scenes
 
@@ -589,20 +592,94 @@ Validation:
   controls sit under `Classifier`, material tuning sits under `Material Recipe`,
   and stale `sleep` wording in cooldown controls is replaced with pair-cooldown
   and spike-rearm terminology. Validation: `tools\validate_ui.bat` passed.
+- [x] 2026-07-04: Added material-aware dry attack recipes and a deterministic
+  material lab scene. `SkullbonezData/audio/contact_audio.materials.json` now
+  keeps the generic dry thud as `attack.default_dry_thud` and adds stone, metal,
+  wood/bark, wood, and soft/foliage recipes using the existing licensed sample
+  library. `SkullbonezData/scenes/contact_audio_material_lab.scene.json` drops
+  separated stone, metal, wood, and foliage blocks so material routing can be
+  proven without a huge collapse trace. Smoke evidence:
+  `Debug\SKULLBONEZ_CORE.exe --contact-audio-smoke` loaded 6 sound sets and 38
+  samples, then submitted 1 voice from 1 event.
+- [x] 2026-07-04: Completed the acceptance scene sweep with bounded SkullScope
+  queries. Material lab command:
+  `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --scene SkullbonezData\scenes\contact_audio_material_lab.scene.json --physics-diag Debug\contact_audio_material_lab.physicsdiag.ndjson --fixed-step --frames 300 --vsync off --shadows off`.
+  The trace produced 110 contact-audio verdicts and 10 submitted voices; the
+  submitted rows selected `attack.stone_dry`, `attack.metal_dry`,
+  `attack.wood_dry`, and `attack.soft_surface_dry`. Rolling command:
+  `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --scene SkullbonezData\scenes\physics_roll.scene.json --physics-diag Debug\contact_audio_roll.physicsdiag.ndjson --fixed-step --frames 300 --vsync off --shadows off`.
+  The roll trace produced exactly 1 submitted heavy landing and no later thud
+  spam. Showcase command:
+  `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --scene SkullbonezData\scenes\aaa_ragdoll_sunset_showcase.scene.json --physics-diag Debug\contact_audio_showcase.physicsdiag.ndjson --fixed-step --frames 1800 --vsync off --shadows off`.
+  The full cinematic/water path completed cleanly and produced 205,287
+  contact-audio verdict rows, 191 submitted voices, 205,096 rejections, and a
+  hottest frame of 7 submitted voices. Frames 1500..1800 produced only 8
+  submitted voices, and the final 100 ms window produced 0 submitted voices.
+  A complete frame-630 query returned 7 submitted events, and a complete
+  frame-50 query showed a propagated impulse rejected with `flashEligible=false`.
+  Raw SkullScope artifacts were not read into the model; bounded query output
+  read by GPT totaled 140,068 characters / 280,166 captured bytes across 15
+  query files.
+  Raw artifact sizes:
+  material lab trace 1,802,868 bytes, material lab SQLite cache 1,196,032 bytes;
+  rolling trace 672,815 bytes, rolling SQLite cache 585,728 bytes; showcase
+  trace 886,977,038 bytes, showcase SQLite cache 566,759,424 bytes.
+  Query output accounting:
+  `tools\physics_query.bat Debug\contact_audio_material_lab.physicsdiag.ndjson contact-audio-summary`
+  read 21,164 chars / 42,330 bytes;
+  `tools\physics_query.bat Debug\contact_audio_material_lab.physicsdiag.ndjson contact-audio-events --submitted yes --limit 40`
+  read 6,088 chars / 12,178 bytes;
+  `tools\physics_query.bat Debug\contact_audio_material_lab.physicsdiag.ndjson contact-audio-timeline --window-ms 100`
+  read 3,102 chars / 6,206 bytes;
+  `tools\physics_query.bat Debug\contact_audio_roll.physicsdiag.ndjson contact-audio-summary`
+  read 1,897 chars / 3,796 bytes;
+  `tools\physics_query.bat Debug\contact_audio_roll.physicsdiag.ndjson contact-audio-events --submitted yes --limit 20`
+  read 933 chars / 1,868 bytes;
+  `tools\physics_query.bat Debug\contact_audio_roll.physicsdiag.ndjson contact-audio-rejections --reason roll_or_slide --limit 20`
+  read 384 chars / 770 bytes;
+  `tools\physics_query.bat Debug\contact_audio_showcase.physicsdiag.ndjson contact-audio-summary`
+  read 27,260 chars / 54,522 bytes;
+  `tools\physics_query.bat Debug\contact_audio_showcase.physicsdiag.ndjson contact-audio-events --submitted yes --limit 40`
+  read 23,310 chars / 46,622 bytes and reported `truncated=true`;
+  `tools\physics_query.bat Debug\contact_audio_showcase.physicsdiag.ndjson contact-audio-timeline --window-ms 100`
+  read 9,334 chars / 18,670 bytes and reported `truncated=true`;
+  `tools\physics_query.bat Debug\contact_audio_showcase.physicsdiag.ndjson contact-audio-rejections --reason propagated_impulse --limit 20`
+  read 10,953 chars / 21,908 bytes and reported `truncated=true`;
+  `tools\physics_query.bat Debug\contact_audio_showcase.physicsdiag.ndjson contact-audio-events --frame 630 --submitted yes --limit 10`
+  read 4,358 chars / 8,718 bytes;
+  `tools\physics_query.bat Debug\contact_audio_showcase.physicsdiag.ndjson contact-audio-rejections --frame 50 --reason propagated_impulse --limit 10`
+  read 920 chars / 1,842 bytes;
+  `tools\physics_query.bat Debug\contact_audio_showcase.physicsdiag.ndjson contact-audio-timeline --window-ms 100 --frames 1500:1800`
+  read 6,782 chars / 13,566 bytes and reported `truncated=true`;
+  `tools\physics_query.bat Debug\contact_audio_showcase.physicsdiag.ndjson contact-audio-summary --frames 1500:1800`
+  read 22,913 chars / 45,828 bytes;
+  `tools\physics_query.bat Debug\contact_audio_showcase.physicsdiag.ndjson contact-audio-timeline --window-ms 100 --frames 1788:1799`
+  read 670 chars / 1,342 bytes. Broad truncated queries were used only for
+  orientation; complete narrow queries and summaries carry the acceptance claims.
+- [x] 2026-07-04: Final gate for the material/audio-data and acceptance-scene
+  slice passed: `tools\validate_full.bat` with log
+  `TestOutput\agent_validate_full_contact_audio_material_acceptance.log`.
+  Metadata and runtime-boundary checks passed, Profile and Debug builds passed
+  with 0 warnings and 0 errors, DX12 validation reported 0 InfoQueue errors with
+  screenshots matching committed baselines, and `physics_regression_solver.csv`
+  matched the committed baseline byte-exactly.
+- [x] 2026-07-04: The final performance gate passed after the end-of-slice
+  rubber-duck review flagged cache/perf evidence as incomplete.
+  `tools\validate_perf.bat` with log
+  `TestOutput\agent_validate_perf_contact_audio_material_acceptance.log` rebuilt
+  Profile and Debug with 0 warnings and 0 errors, ran DX12 and
+  `physics_bench` perf scenes, passed absolute budgets, and reported no
+  regressions. DX12 frame timing: avg 1.1527 ms, p50 1.0793 ms, p99 1.6427 ms,
+  p99.9 1.9809 ms. Physics bench frame timing: avg 0.6948 ms, p50 0.6283 ms,
+  p99 1.0732 ms, p99.9 1.3987 ms.
 - [x] Phase 0 baseline trace and counts.
-- [ ] Phase 1 contact fact upgrade.
-- [ ] Phase 2 classifier and rejection reasons. Partial: local classifier
-  reasons, rejection counters, and explicit perceptual kind reporting are
-  implemented. Remaining work is acceptance-scene proof and a future roll-vs-slide
-  split if dedicated looped sound support lands.
-- [ ] Phase 3 reducer and perceptual budget. Partial: patch merge, deterministic
-  ranking, global burst cap, and per-body budget are implemented; the 200-brick
-  proof shows 191 submitted voices from 205,287 verdict rows, with hot frames
-  capped to at most 7 submitted voices. New traces expose reducer overflow as
-  `patch_queue_full`; remaining work is cluster budgeting if acceptance-scene
-  evidence shows one local cluster can still monopolize a collapse.
+- [x] Phase 1 contact fact upgrade.
+- [x] Phase 2 classifier and rejection reasons. Complete for impact-style
+  one-shot sounds; a future separate roll-vs-slide split belongs with dedicated
+  looped sound support.
+- [x] Phase 3 reducer and perceptual budget. The current evidence does not
+  justify adding a separate cluster cap beyond the implemented patch merge,
+  deterministic ranking, global burst cap, and per-body budget.
 - [x] Phase 4 SkullScope contact-audio queries.
-- [ ] Phase 5 material layers and better samples.
-- [ ] Phase 6 Sound-tab tuning polish. Partial: flash diagnostics mode and
-  reducer-aligned wording are implemented; remaining work is any new stable
-  sliders and screenshot evidence if the layout changes materially.
+- [x] Phase 5 material layers and better samples.
+- [x] Phase 6 Sound-tab tuning polish.
