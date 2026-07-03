@@ -25,7 +25,6 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "AssetSystem.h"
-#include "../Rendering/IRenderBackend.h"
 #include "../Rendering/IRenderResourceFactory.h"
 
 #include <cstring>
@@ -38,8 +37,6 @@ namespace Assets
 {
 namespace
 {
-AssetSystem* g_activeAssetSystem = nullptr;
-
 const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
 {
     struct BuiltInShaderName
@@ -451,29 +448,9 @@ size_t AssetSystem::GetAssetLibrarySourceAssetCount() const
     return m_assetLibraryAssets.size();
 }
 
-void BindActiveAssetSystem( AssetSystem* assets )
-{
-    g_activeAssetSystem = assets;
-}
-
-AssetSystem* ActiveAssetSystem()
-{
-    return g_activeAssetSystem;
-}
-
 const char* BuiltInShaderBaseName( const char* logicalNameOrBaseName )
 {
     return BuiltInShaderBaseNameForLogicalName( logicalNameOrBaseName );
-}
-
-std::unique_ptr<Rendering::IShader> CreateShaderFromActiveAssets( const char* logicalNameOrBaseName )
-{
-    if ( g_activeAssetSystem )
-    {
-        return g_activeAssetSystem->CreateShader( Rendering::Gfx(), logicalNameOrBaseName );
-    }
-    const char* fallbackBaseName = BuiltInShaderBaseNameForLogicalName( logicalNameOrBaseName );
-    return Rendering::Gfx().CreateShader( fallbackBaseName ? fallbackBaseName : logicalNameOrBaseName );
 }
 } // namespace Assets
 } // namespace SkullbonezCore

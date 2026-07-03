@@ -64,6 +64,7 @@ class PhysicsDebugVisualizer;
 namespace Rendering
 {
 class IRenderBackend;
+class IRenderResourceFactory;
 class IRenderRayTracing;
 } // namespace Rendering
 namespace UI
@@ -165,6 +166,7 @@ struct RuntimeRenderHostCallbacks
 {
     using LogLifecycleStepFn = void ( * )( void* user, const char* phase, const char* step );
     using RenderEditorOverlayFn = void ( * )( void* user,
+                                              Rendering::IRenderResourceFactory& renderResources,
                                               const Math::Transformation::Matrix4& viewProjection,
                                               const Math::Vector::Vector3& cameraEye,
                                               const Math::Vector::Vector3& cameraUp );
@@ -246,11 +248,12 @@ class RuntimeRenderHost
         return m_replayRuntime.CurrentPredictionScrubFrame();
     }
 
-    void RenderEditorOverlay( const Math::Transformation::Matrix4& viewProjection,
+    void RenderEditorOverlay( Rendering::IRenderResourceFactory& renderResources,
+                              const Math::Transformation::Matrix4& viewProjection,
                               const Math::Vector::Vector3& cameraEye,
                               const Math::Vector::Vector3& cameraUp ) const
     {
-        m_callbacks.renderEditorOverlay( m_callbacks.user, viewProjection, cameraEye, cameraUp );
+        m_callbacks.renderEditorOverlay( m_callbacks.user, renderResources, viewProjection, cameraEye, cameraUp );
     }
 
     void RefreshRuntimeViewModel() const

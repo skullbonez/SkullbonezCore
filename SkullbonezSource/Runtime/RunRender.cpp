@@ -1030,6 +1030,8 @@ RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRender
     frame.cinematicEnabled = cinematicRender;
     frame.cinematic = cinematicRender ? &renderConfig : nullptr;
     frame.scene = &services.models;
+    frame.assets = &services.assets;
+    frame.renderResources = &services.renderResources;
     frame.renderCommands = &services.renderCommands;
     frame.renderDiagnostics = &services.renderDiagnostics;
     frame.renderRayTracing = services.renderRayTracing;

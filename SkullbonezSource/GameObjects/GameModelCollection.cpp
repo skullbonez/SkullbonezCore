@@ -352,13 +352,15 @@ void GameModelCollection::RenderShadowCasters( const Matrix4& view,
 
 
 void GameModelCollection::RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
+                                                      Assets::AssetSystem& assets,
+                                                      Rendering::IRenderResourceFactory& renderResources,
                                                       const Matrix4& view,
                                                       const Matrix4& proj,
                                                       const float lightPos[4],
                                                       float alphaOverride )
 {
     visualizer.SetAlphaOverride( alphaOverride );
-    visualizer.Render( *this, view, proj, lightPos );
+    visualizer.Render( assets, renderResources, *this, view, proj, lightPos );
     visualizer.SetAlphaOverride( -1.0f );
 }
 

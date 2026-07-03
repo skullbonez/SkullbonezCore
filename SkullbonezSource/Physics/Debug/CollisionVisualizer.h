@@ -14,6 +14,8 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Render resource factory: Renderer capability borrowed only while creating
+    debug-only shader resources.
   Sleep group: Connected set of bodies that can stop simulating together once
   the solver decides motion is stable.
 
@@ -43,6 +45,14 @@ namespace GameObjects
 class GameModel;
 class GameModelCollection;
 } // namespace GameObjects
+namespace Assets
+{
+class AssetSystem;
+} // namespace Assets
+namespace Rendering
+{
+class IRenderResourceFactory;
+} // namespace Rendering
 
 namespace Math
 {
@@ -99,7 +109,7 @@ class CollisionVisualizer
 
     void BuildSphereMesh();
     void BuildBoxMesh();
-    void EnsureResources();
+    void EnsureResources( Assets::AssetSystem& assets, Rendering::IRenderResourceFactory& renderResources );
     void AppendInstance( std::vector<float>& out, const Math::Transformation::Matrix4& model, const Color& color );
     Color ComputeModelColor( int modelIndex, GameObjects::GameModelCollection& models ) const;
     void BuildSleepGroupSizes( GameObjects::GameModelCollection& models );
@@ -128,7 +138,9 @@ class CollisionVisualizer
     void SetAlphaOverride( float alpha );
     void ResetResources();
     void Update( float dt, GameObjects::GameModelCollection& models );
-    void Render( GameObjects::GameModelCollection& models,
+    void Render( Assets::AssetSystem& assets,
+                 Rendering::IRenderResourceFactory& renderResources,
+                 GameObjects::GameModelCollection& models,
                  const Math::Transformation::Matrix4& view,
                  const Math::Transformation::Matrix4& proj,
                  const float lightPos[4] );

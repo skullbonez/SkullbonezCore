@@ -16,6 +16,8 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Render resource factory: Renderer capability borrowed only while creating
+    debug-only shader resources.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -188,14 +190,15 @@ void CollisionVisualizer::BuildBoxMesh()
 }
 
 
-void CollisionVisualizer::EnsureResources()
+void CollisionVisualizer::EnsureResources( Assets::AssetSystem& assets,
+                                           Rendering::IRenderResourceFactory& renderResources )
 {
     // Resource creation is lazy so toggling the visualizer off has no startup cost.
     // The shader and both primitive meshes are created together on the first visible
     // frame, then reused until ResetResources() is called.
     if ( !m_shader )
     {
-        m_shader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.collision_visualizer" );
+        m_shader = assets.CreateShader( renderResources, "shader.collision_visualizer" );
     }
     if ( m_sphereInstMesh == 0 )
     {
@@ -432,7 +435,9 @@ void CollisionVisualizer::DrawHullInstance( const ConvexHullShape& hull, const M
 }
 
 
-void CollisionVisualizer::Render( GameModelCollection& models,
+void CollisionVisualizer::Render( Assets::AssetSystem& assets,
+                                  Rendering::IRenderResourceFactory& renderResources,
+                                  GameModelCollection& models,
                                   const Matrix4& view,
                                   const Matrix4& proj,
                                   const float lightPos[4] )
@@ -442,7 +447,7 @@ void CollisionVisualizer::Render( GameModelCollection& models,
         return;
     }
 
-    EnsureResources();
+    EnsureResources( assets, renderResources );
     BuildSleepGroupSizes( models );
 
     m_sphereInstanceData.clear();

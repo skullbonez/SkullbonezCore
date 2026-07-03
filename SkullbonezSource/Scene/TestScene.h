@@ -453,7 +453,7 @@ class TestScene
     static TestScene LoadFromFile( const char* path );
 
     // Runtime callers pass the owned asset registry so scene asset-library
-    // tokens resolve without touching ActiveAssetSystem().
+    // tokens resolve through an explicit parser dependency.
     static TestScene LoadFromFile( const char* path, const Assets::AssetSystem& assets );
     static TestScene LoadStyleFromFile( const char* path );
 

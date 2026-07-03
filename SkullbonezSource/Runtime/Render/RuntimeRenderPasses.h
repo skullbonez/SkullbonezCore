@@ -120,6 +120,13 @@ struct RenderFrameContext
     // Lifetime: borrowed from RuntimeRenderInputs for this frame only. It is
     // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
     // must not store it beyond the current RenderFrame call.
+    Assets::AssetSystem* assets = nullptr;
+    // Lifetime: borrowed from RuntimeRenderInputs for lazy debug resource
+    // creation in this frame only.
+    Rendering::IRenderResourceFactory* renderResources = nullptr;
+    // Lifetime: borrowed from RuntimeRenderInputs for this frame only. It is
+    // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
+    // must not store it beyond the current RenderFrame call.
     Rendering::IRenderCommandContext* renderCommands = nullptr;
     // Lifetime: borrowed from RuntimeRenderInputs for capability checks and
     // tracing decisions in this frame only.

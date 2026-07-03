@@ -39,6 +39,11 @@ namespace Basics
 struct CinematicRenderConfig;
 }
 
+namespace Assets
+{
+class AssetSystem;
+}
+
 namespace Geometry
 {
 class Terrain;
@@ -52,6 +57,7 @@ class PhysicsDebugVisualizer;
 
 namespace Rendering
 {
+class IRenderResourceFactory;
 
 class IRenderSceneView
 {
@@ -83,6 +89,8 @@ class IRenderSceneView
                                       const Math::Transformation::Matrix4& proj,
                                       const Basics::CinematicRenderConfig* cinematic = nullptr ) = 0;
     virtual void RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
+                                             Assets::AssetSystem& assets,
+                                             IRenderResourceFactory& renderResources,
                                              const Math::Transformation::Matrix4& view,
                                              const Math::Transformation::Matrix4& proj,
                                              const float lightPos[4],

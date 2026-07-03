@@ -223,7 +223,6 @@ GLOBAL_RENDERER_SERVICE_LABELS = { "Gfx()", "GfxRayTracing()" }
 # they make each remaining direct renderer-service file an explicitly reviewed
 # compatibility location instead of letting a raw count entry approve a new file.
 GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS: dict[Path, str] = {
-    Path("SkullbonezSource/Assets/AssetSystem.cpp"): "asset shader factory compatibility",
     Path("SkullbonezSource/Core/Profiler.cpp"): "diagnostics/profiler bridge",
     Path("SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp"): "physics debug visualizer compatibility",
     Path("SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp"): "physics debug visualizer compatibility",
@@ -278,7 +277,7 @@ PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp",
             "CollisionVisualizer::Color CollisionVisualizer::ComputeModelColor( int modelIndex, GameModelCollection& models ) const",
         ),
-        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "void CollisionVisualizer::Render( GameModelCollection& models," ),
+        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "GameModelCollection& models," ),
         ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.h", "class GameModelCollection;" ),
         (
             "SkullbonezSource/Physics/Debug/CollisionVisualizer.h",
@@ -289,7 +288,7 @@ PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             "void BuildSleepGroupSizes( GameObjects::GameModelCollection& models );",
         ),
         ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.h", "void Update( float dt, GameObjects::GameModelCollection& models );" ),
-        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.h", "void Render( GameObjects::GameModelCollection& models," ),
+        ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.h", "GameObjects::GameModelCollection& models," ),
         ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", '#include "../../GameObjects/GameModelCollection.h"' ),
         ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "void PhysicsDebugVisualizer::EmitObjectAxes( GameModelCollection& models )" ),
         (
@@ -342,7 +341,7 @@ PHYSICS_MODELS_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter()
 
 # Counted allowlist: named compatibility accessors are temporary debt. Keep the
 # current borrowers explicit and fail any new call site until stable body/entity
-# handles replace this seam.
+# handles replace this compatibility surface.
 PHYSICS_MODELS_COMPAT_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     ( Path(path), normalize_boundary_line(line) )
     for path, line in (
@@ -429,19 +428,13 @@ PHYSICS_MODELS_COMPAT_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
 )
 
 # Counted allowlist for the current global-service compatibility surface. This
-# is not approval for more singleton use; it is a ratchet. New Gfx(),
-# ActiveAssetSystem(), shader-factory, and service Instance() calls must either
-# migrate to explicit context wiring or deliberately lower another entry.
+# is not approval for more singleton use; it is a ratchet. New Gfx(), active
+# asset bridge, shader-factory, and service Instance() calls must either migrate
+# to explicit context wiring or deliberately lower another entry.
 GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     {
         ( Path(path), label ): count
         for path, label, count in (
-            ( "SkullbonezSource/Assets/AssetSystem.cpp", "ActiveAssetSystem()", 1 ),
-            ( "SkullbonezSource/Assets/AssetSystem.cpp", "CreateShaderFromActiveAssets()", 1 ),
-            ( "SkullbonezSource/Assets/AssetSystem.cpp", "Gfx()", 2 ),
-            ( "SkullbonezSource/Assets/AssetSystem.cpp", "g_*", 5 ),
-            ( "SkullbonezSource/Assets/AssetSystem.h", "ActiveAssetSystem()", 1 ),
-            ( "SkullbonezSource/Assets/AssetSystem.h", "CreateShaderFromActiveAssets()", 1 ),
             ( "SkullbonezSource/Core/Common.h", "Cfg()", 2 ),
             ( "SkullbonezSource/Core/Common.h", "EngineConfig::Instance()", 1 ),
             ( "SkullbonezSource/Core/Config.cpp", "EngineConfig::Instance()", 1 ),
@@ -454,7 +447,6 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Core/WorkerPool.cpp", "WorkerPool::Instance()", 2 ),
             ( "SkullbonezSource/Core/WorkerPool.cpp", "g_*", 8 ),
             ( "SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp", "Gfx()", 2 ),
-            ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "CreateShaderFromActiveAssets()", 1 ),
             ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "Gfx()", 14 ),
             ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "Gfx()", 2 ),
             ( "SkullbonezSource/Physics/TornadoField.cpp", "Gfx()", 2 ),
@@ -462,7 +454,6 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "GfxRayTracing()", 1 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "Gfx()", 3 ),
             ( "SkullbonezSource/Rendering/IRenderBackend.h", "GfxRayTracing()", 1 ),
-            ( "SkullbonezSource/Runtime/Editor/LauncherLaser.cpp", "CreateShaderFromActiveAssets()", 1 ),
             ( "SkullbonezSource/Runtime/Editor/LauncherLaser.cpp", "Gfx()", 18 ),
             ( "SkullbonezSource/Runtime/Editor/LauncherTools.cpp", "Cfg()", 3 ),
             ( "SkullbonezSource/Runtime/Editor/RunEditorTracer.inl", "Gfx()", 1 ),

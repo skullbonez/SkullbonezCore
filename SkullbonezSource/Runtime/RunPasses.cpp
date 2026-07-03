@@ -110,6 +110,18 @@ SkullbonezCore::Rendering::IRenderResourceFactory& RenderResources( const Render
     return resources.renderResources;
 }
 
+SkullbonezCore::Assets::AssetSystem& RenderAssets( const RenderFrameContext& frame )
+{
+    assert( frame.assets && "RenderFrameContext requires an asset registry" );
+    return *frame.assets;
+}
+
+SkullbonezCore::Rendering::IRenderResourceFactory& RenderResources( const RenderFrameContext& frame )
+{
+    assert( frame.renderResources && "RenderFrameContext requires a render resource factory" );
+    return *frame.renderResources;
+}
+
 SkullbonezCore::Rendering::IRenderDiagnostics& RenderDiagnostics( const RenderFrameContext& frame )
 {
     assert( frame.renderDiagnostics && "RenderFrameContext requires a render diagnostics context" );
@@ -1031,6 +1043,8 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             if ( inputs.frame.scene )
             {
                 inputs.frame.scene->RenderCollisionStateSolids( m_host.m_collisionVisualizer,
+                                                                RenderAssets( inputs.frame ),
+                                                                RenderResources( inputs.frame ),
                                                                 inputs.frame.reflectionView,
                                                                 inputs.frame.projection,
                                                                 inputs.frame.lightPosition,
@@ -1090,6 +1104,8 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         if ( inputs.frame.scene )
         {
             inputs.frame.scene->RenderCollisionStateSolids( m_host.m_collisionVisualizer,
+                                                            RenderAssets( inputs.frame ),
+                                                            RenderResources( inputs.frame ),
                                                             inputs.frame.baseView,
                                                             inputs.frame.projection,
                                                             inputs.frame.lightPosition,
@@ -1633,7 +1649,10 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         }
     }
 
-    m_host.RenderEditorOverlay( inputs.frame.viewProjection, inputs.frame.eye, inputs.frame.up );
+    m_host.RenderEditorOverlay( RenderResources( inputs.frame ),
+                                inputs.frame.viewProjection,
+                                inputs.frame.eye,
+                                inputs.frame.up );
 
     if ( m_host.m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE )
     {

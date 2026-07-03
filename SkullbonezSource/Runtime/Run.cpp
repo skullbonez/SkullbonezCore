@@ -114,6 +114,7 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
     callbacks.logRenderResourceLifecycleStep = []( void* user, const char* phase, const char* step )
     { static_cast<Run*>( user )->LogRenderResourceLifecycleStep( phase, step ); };
     callbacks.renderEditorOverlay = []( void* user,
+                                        SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
                                         const Math::Transformation::Matrix4& viewProjection,
                                         const Math::Vector::Vector3& cameraEye,
                                         const Math::Vector::Vector3& cameraUp )
@@ -147,7 +148,11 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
         run->RenderReplayCauseFocusOverlay( tracer );
         run->RenderReplayVelocityEditOverlay( tracer );
         tracer.Render( viewProjection );
-        run->m_runtimeTools.Laser().Render( viewProjection, cameraEye, cameraUp );
+        run->m_runtimeTools.Laser().Render( viewProjection,
+                                            cameraEye,
+                                            cameraUp,
+                                            run->m_systems.assets,
+                                            renderResources );
     };
     callbacks.refreshRuntimeViewModel = []( void* user ) { static_cast<Run*>( user )->RefreshRuntimeViewModel(); };
     callbacks.cameraModeEnabledMask = []( void* user ) -> uint32_t
@@ -292,7 +297,6 @@ Run::~Run()
     // teardown.
     ReleaseBackendOwnedRenderResources( "shutdown_release" );
 
-    SkullbonezCore::Assets::BindActiveAssetSystem( nullptr );
     Text2d::UnbindRenderContexts();
     RenderHelper::UnbindRenderContexts();
 }
@@ -1268,7 +1272,6 @@ void Run::Initialise()
     m_systems.textures->BindRenderContexts( &renderResources, &renderCommands );
     RenderHelper::BindRenderContexts( renderResources, renderCommands, m_systems.assets, m_config );
     Text2d::BindRenderContexts( renderResources, renderCommands, m_systems.assets, m_config );
-    SkullbonezCore::Assets::BindActiveAssetSystem( &m_systems.assets );
     RegisterBuiltInAssets();
 
     // Build renderer-owned resources from source asset records.

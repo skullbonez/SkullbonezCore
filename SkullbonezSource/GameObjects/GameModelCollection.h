@@ -218,6 +218,8 @@ class GameModelCollection : public Rendering::IRenderSceneView,
         return m_physicsEngine.GetTornadoSystemElapsedSeconds();
     }
     void RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
+                                     Assets::AssetSystem& assets,
+                                     Rendering::IRenderResourceFactory& renderResources,
                                      const Math::Transformation::Matrix4& view,
                                      const Math::Transformation::Matrix4& proj,
                                      const float lightPos[4],

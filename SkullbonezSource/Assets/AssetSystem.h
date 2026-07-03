@@ -186,15 +186,10 @@ struct AssetContext
 {
     // Lifetime: callers borrow the registry for one parse, setup, or tool
     // operation. Null keeps standalone utilities on their historical path
-    // fallback without making ActiveAssetSystem() part of normal parsing.
+    // fallback without reaching for process-global asset state.
     const AssetSystem* assets = nullptr;
 };
 
-// Transitional bridge for legacy singleton-style render helpers. The run loop
-// owns the real AssetSystem, while helpers still own their GPU shader handles.
-void BindActiveAssetSystem( AssetSystem* assets );
-AssetSystem* ActiveAssetSystem();
 const char* BuiltInShaderBaseName( const char* logicalNameOrBaseName );
-std::unique_ptr<Rendering::IShader> CreateShaderFromActiveAssets( const char* logicalNameOrBaseName );
 } // namespace Assets
 } // namespace SkullbonezCore
