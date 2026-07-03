@@ -11,7 +11,7 @@ Implementation status:
   `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-plan.csv`.
 - Current implementation tracker:
   `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-implementation-status.csv`.
-- As of `b806fce9` after `ad41c98c`, `4366ad7c`, `87df4b77`, `78533f94`, and
+- As of `536b2fb0` after `b806fce9`, `ad41c98c`, `4366ad7c`, `87df4b77`, `78533f94`, and
   `d5571316`, rows K001, K002, K004, K005, K006, K007, K008, K009, K010, K011,
   and K012 have source-side deletion/split work recorded in the tracker. K003 is
   still partial: diagnostics, render/collider/sleep/body stores, ragdoll,
@@ -24,8 +24,10 @@ Implementation status:
   collider bodies from store-owned body handles. Ragdoll joint solving mutates
   `PhysicsBodyStore` records, and point-joint setup, serialization, and smoke
   tests resolve through store-owned handles. `GameModel::UpdatePosition` and
-  its terrain-clamp wrapper are deleted; `GameModel` still owns terrain query
-  helpers that terrain CCD/manifold generation uses until that later K003 slice.
+  its terrain-clamp wrapper are deleted; `Physics/TerrainContactManifold` now
+  owns terrain CCD/manifold generation from `PhysicsBodyRecord` pose plus
+  `ColliderStore` shapes, and the `GameModel` terrain response mailbox plus
+  `ResponseInformation` are deleted.
   Tornado field code no longer opens a raw model range; its remaining model sync
   is named on `PhysicsModelAccess` as owner-side compatibility.
   `PersistentContactSolver::Solve` no longer receives `PhysicsModelAccess`,
@@ -37,8 +39,8 @@ Implementation status:
   `GameModel::GetModelCollisionTime` are deleted. RunSolverPhysics per-body
   and ragdoll compatibility writebacks, plus wake-time apply-forces writeback,
   now route through named `PhysicsModelAccess::WriteBackPhysicsBody` commands.
-  Terrain/manifold and scene-boundary paths still need real physics-owned views
-  before K003 can delete the remaining compatibility model ranges.
+  The scene-boundary paths still need real physics-owned views before K003 can
+  delete the remaining compatibility model ranges.
 - Guardrail follow-up added `tools/check_runtime_boundaries.py` checks for
   deleted migration artifacts (`GameModelRuntimePhysicsTuning`,
   `legacyModelIndex`, `RuntimeConfigSnapshot`, and the no-factory
