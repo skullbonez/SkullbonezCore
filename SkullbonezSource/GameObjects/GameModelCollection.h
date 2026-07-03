@@ -165,6 +165,12 @@ class GameModelCollection : public Rendering::IRenderSceneView,
     GameModel* MutableModelData() override;
     const GameModel* ModelData() const override;
     const std::vector<GameModel>& Models() const;
+    // Lifetime: returned model pointers are stable only until collection
+    // mutation. Null means the caller held a stale model index.
+    const GameModel* TryGetModel( int index ) const;
+    // Mutates angular velocity through the collection so derived body streams
+    // cannot keep a stale copy.
+    bool TrySetModelAngularVelocity( int index, const Math::Vector::Vector3& angularVelocity );
     Basics::MainMemoryGameObjectStats CollectMemoryStats() const;
     // Compatibility: legacy replay/editor paths still borrow the model vector
     // while body, collider, and render stores become authoritative.

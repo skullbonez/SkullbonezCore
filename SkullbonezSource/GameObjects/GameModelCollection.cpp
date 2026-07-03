@@ -470,6 +470,30 @@ const std::vector<GameModel>& GameModelCollection::Models() const
 }
 
 
+const GameModel* GameModelCollection::TryGetModel( int index ) const
+{
+    if ( index < 0 || index >= GetModelCount() )
+    {
+        return nullptr;
+    }
+
+    return &m_gameModels[static_cast<std::size_t>( index )];
+}
+
+
+bool GameModelCollection::TrySetModelAngularVelocity( int index, const Vector3& angularVelocity )
+{
+    if ( index < 0 || index >= GetModelCount() )
+    {
+        return false;
+    }
+
+    m_gameModels[static_cast<std::size_t>( index )].SetAngularVelocity( angularVelocity );
+    InvalidateSoA();
+    return true;
+}
+
+
 MainMemoryGameObjectStats GameModelCollection::CollectMemoryStats() const
 {
     MainMemoryGameObjectStats stats;

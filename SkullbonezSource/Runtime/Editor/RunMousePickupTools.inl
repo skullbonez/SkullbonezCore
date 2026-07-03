@@ -13,7 +13,7 @@ Glossary:
 
 Invariants:
   - Pointer capture and interaction gesture state must end whenever pickup is canceled.
-  - Body indices are revalidated against PhysicsModels before applying impulses.
+  - Body indices are revalidated through GameModelCollection before applying impulses.
   - This file must only be included from RunEditorTools.cpp after terrain-placement helpers.
 
 Related:
@@ -124,14 +124,13 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
         return true;
     }
 
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
     const int pickedIndex = result.modelIndex;
-    if ( pickedIndex < 0 || pickedIndex >= static_cast<int>( models.size() ) )
+    const GameModel* picked = m_cGameModelCollection.TryGetModel( pickedIndex );
+    if ( !picked )
     {
         return true;
     }
 
-    const GameModel& picked = models[static_cast<size_t>( pickedIndex )];
     Vector3 cameraNormal = m_systems.cameras->GetCameraView() - m_systems.cameras->GetCameraTranslation();
     const float normalLenSq = VectorMagSquared( cameraNormal );
     if ( normalLenSq <= TOLERANCE * TOLERANCE )
@@ -152,9 +151,9 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
     m_runtimeTools.MousePickup().planePoint = grabPoint;
     m_runtimeTools.MousePickup().planeNormal = cameraNormal;
     m_runtimeTools.MousePickup().cameraPlaneDistance = cameraPlaneDistance;
-    m_runtimeTools.MousePickup().grabOffset = grabPoint - picked.GetPosition();
+    m_runtimeTools.MousePickup().grabOffset = grabPoint - picked->GetPosition();
     m_runtimeTools.MousePickup().targetPoint = grabPoint;
-    m_runtimeTools.MousePickup().preservedAngularVelocity = picked.GetAngularVelocity();
+    m_runtimeTools.MousePickup().preservedAngularVelocity = picked->GetAngularVelocity();
     m_runtimeTools.MousePickup().lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     UI::InputControl::BeginMouseCapture( hwnd );
     const POINT mouse = Input::GetClientMouseCoordinates();
@@ -180,26 +179,30 @@ void Run::ApplyMousePickupPhysicsStep()
         return;
     }
 
-    // Hazard: Pickup stores a frame-local model index. Revalidate against the
-    // physics model vector on every step before restoring angular velocity or
+    // Hazard: Pickup stores a frame-local model index. Revalidate through the
+    // collection on every step before restoring angular velocity or
     // applying the spring-like impulse.
-    std::vector<GameModel>& models = m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
-    if ( m_runtimeTools.MousePickup().modelIndex < 0 ||
-         m_runtimeTools.MousePickup().modelIndex >= static_cast<int>( models.size() ) )
+    const int modelIndex = m_runtimeTools.MousePickup().modelIndex;
+    const GameModel* model = m_cGameModelCollection.TryGetModel( modelIndex );
+    if ( !model )
     {
         CancelMousePickup();
         return;
     }
 
-    GameModel& model = models[static_cast<size_t>( m_runtimeTools.MousePickup().modelIndex )];
-    if ( model.IsFixed() )
+    if ( model->IsFixed() )
     {
         CancelMousePickup();
         return;
     }
-    model.SetAngularVelocity( m_runtimeTools.MousePickup().preservedAngularVelocity );
+    if ( !m_cGameModelCollection.TrySetModelAngularVelocity( modelIndex,
+                                                             m_runtimeTools.MousePickup().preservedAngularVelocity ) )
+    {
+        CancelMousePickup();
+        return;
+    }
 
-    const Vector3 grabPoint = model.GetPosition() + m_runtimeTools.MousePickup().grabOffset;
+    const Vector3 grabPoint = model->GetPosition() + m_runtimeTools.MousePickup().grabOffset;
     const Vector3 pull = m_runtimeTools.MousePickup().targetPoint - grabPoint;
     const float pullLenSq = VectorMagSquared( pull );
     if ( pullLenSq <= MOUSE_PICKUP_DEAD_ZONE * MOUSE_PICKUP_DEAD_ZONE )
@@ -208,17 +211,14 @@ void Run::ApplyMousePickupPhysicsStep()
         return;
     }
 
-    Vector3 impulse = pull * MOUSE_PICKUP_STIFFNESS - model.GetVelocity() * MOUSE_PICKUP_DAMPING;
+    Vector3 impulse = pull * MOUSE_PICKUP_STIFFNESS - model->GetVelocity() * MOUSE_PICKUP_DAMPING;
     const float impulseLenSq = VectorMagSquared( impulse );
     if ( impulseLenSq > MOUSE_PICKUP_MAX_IMPULSE * MOUSE_PICKUP_MAX_IMPULSE )
     {
         impulse *= MOUSE_PICKUP_MAX_IMPULSE / sqrtf( impulseLenSq );
     }
 
-    m_cGameModelCollection.ApplyBodyImpulse( m_runtimeTools.MousePickup().modelIndex,
-                                             impulse,
-                                             SkullbonezCore::Math::Vector::ZERO_VECTOR );
-    m_cGameModelCollection.InvalidatePhysicsStreams();
+    m_cGameModelCollection.ApplyBodyImpulse( modelIndex, impulse, SkullbonezCore::Math::Vector::ZERO_VECTOR );
     m_runtimeTools.MousePickup().lastImpulse = impulse;
 }
 
@@ -230,21 +230,23 @@ void Run::RestoreMousePickupAngularVelocity()
         return;
     }
 
-    std::vector<GameModel>& models = m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
-    if ( m_runtimeTools.MousePickup().modelIndex < 0 ||
-         m_runtimeTools.MousePickup().modelIndex >= static_cast<int>( models.size() ) )
+    const int modelIndex = m_runtimeTools.MousePickup().modelIndex;
+    const GameModel* model = m_cGameModelCollection.TryGetModel( modelIndex );
+    if ( !model )
     {
         CancelMousePickup();
         return;
     }
 
-    GameModel& model = models[static_cast<size_t>( m_runtimeTools.MousePickup().modelIndex )];
-    if ( model.IsFixed() )
+    if ( model->IsFixed() )
     {
         CancelMousePickup();
         return;
     }
 
-    model.SetAngularVelocity( m_runtimeTools.MousePickup().preservedAngularVelocity );
-    m_cGameModelCollection.InvalidatePhysicsStreams();
+    if ( !m_cGameModelCollection.TrySetModelAngularVelocity( modelIndex,
+                                                             m_runtimeTools.MousePickup().preservedAngularVelocity ) )
+    {
+        CancelMousePickup();
+    }
 }
