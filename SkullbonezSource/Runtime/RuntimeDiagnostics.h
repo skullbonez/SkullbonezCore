@@ -39,6 +39,14 @@ namespace GameObjects
 class GameModelCollection;
 }
 
+namespace Runtime
+{
+namespace Audio
+{
+struct ContactAudioDecision;
+}
+} // namespace Runtime
+
 namespace Basics
 {
 class EngineConfig;
@@ -71,6 +79,7 @@ struct RunPhysicsDiagnosticsState
     bool isRunActive = false;                       // True after a run row and before the matching end row
     bool fixedStepForcedByDiagnostics = false;      // True when --physics-diag forced fixed-step mode
     int runSequence = 0;                            // Incremented on every scene/generated load
+    uint32_t contactAudioEventSequence = 0;         // Unique event ids for runtime-side contact audio verdicts.
 };
 #endif
 
@@ -153,6 +162,9 @@ class RuntimeDiagnostics
                                         bool fallbackAttempted,
                                         bool fallbackRestored,
                                         const char* failureReason );
+    static void LogContactAudioDecision( RunPhysicsDiagnosticsState& diagnostics,
+                                         const RunSceneState& scene,
+                                         const Runtime::Audio::ContactAudioDecision& decision );
     static void
     EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const RunSceneState& scene, const char* status );
 #endif

@@ -13,6 +13,8 @@ Glossary:
     direction.
   Ribbon: Thin quad strip used to render one laser streak.
   Afterimage: Fading visual trail that remains briefly after the shot.
+  Render resource factory: Renderer capability borrowed only while creating
+    laser-owned shader resources.
   Shader handle: Runtime id that resolves to a renderer-owned shader resource.
 
 Invariants:
@@ -87,7 +89,7 @@ void LauncherLaser::Clear()
     m_nextShot = 0;
 }
 
-void LauncherLaser::EnsureResources()
+void LauncherLaser::EnsureResources( Assets::AssetSystem& assets, Rendering::IRenderResourceFactory& renderResources )
 {
     if ( !IsGfxReady() )
     {
@@ -96,7 +98,7 @@ void LauncherLaser::EnsureResources()
 
     if ( !m_shader )
     {
-        m_shader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.launcher_laser" );
+        m_shader = assets.CreateShader( renderResources, "shader.launcher_laser" );
     }
 
     if ( m_dynamicVB == 0 )
@@ -357,7 +359,11 @@ void LauncherLaser::EmitShot( const Shot& shot )
     }
 }
 
-void LauncherLaser::Render( const Matrix4& viewProjection, const Vector3& cameraEye, const Vector3& cameraUp )
+void LauncherLaser::Render( const Matrix4& viewProjection,
+                            const Vector3& cameraEye,
+                            const Vector3& cameraUp,
+                            Assets::AssetSystem& assets,
+                            Rendering::IRenderResourceFactory& renderResources )
 {
     if ( !IsGfxReady() )
     {
@@ -376,7 +382,7 @@ void LauncherLaser::Render( const Matrix4& viewProjection, const Vector3& camera
         return;
     }
 
-    EnsureResources();
+    EnsureResources( assets, renderResources );
     if ( !m_shader || m_dynamicVB == 0 )
     {
         return;

@@ -18,6 +18,10 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Contact body view: Pose-only body input used by narrowphase so contact
+  geometry can be built from PhysicsBodyRecord state instead of GameModel.
+  Contact sweep: Conservative object/object time-of-impact query that advances
+  fast bodies to a candidate contact before exact manifolds solve the response.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -36,9 +40,12 @@ Related:
 #include "CollisionShape.h"
 #include "ConvexHullShape.h"
 #include "../Core/Profiler.h"
+#include "../GameObjects/GameModel.h"
+#include "../Maths/GeometricStructures.h"
 #include "../Maths/Quaternion.h"
 
 using namespace SkullbonezCore::GameObjects;
+using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
@@ -62,7 +69,7 @@ namespace
 {
 // ENGINE-SPECIFIC:
 //   Feature IDs are compact and deterministic because the warm-start cache only
-//   keeps the low 16 bits in GameModelCollection::makeKey. The kind bits make
+//   keeps the low 16 bits in the persistent solver cache key. The kind bits make
 //   sphere/box, face/face, and edge/edge contacts distinct even for the same
 //   body pair.
 constexpr uint32_t FEATURE_KIND_SPHERE_BOX = 1u;
@@ -182,13 +189,24 @@ float ClampFloat( float value, float lo, float hi )
     return (std::max)( lo, (std::min)( value, hi ) );
 }
 
-BoxWorld MakeBoxWorld( const GameModel& model, const BoundingBox& box )
+ObjectContactBodyView MakeObjectContactBodyView( const GameModel& model )
+{
+    // Legacy callers still arrive with GameModel storage. Convert at the public
+    // boundary so the narrowphase internals speak the same pose-only contract as
+    // physics-store callers.
+    ObjectContactBodyView body;
+    body.position = model.GetPosition();
+    body.orientation = model.GetOrientation();
+    return body;
+}
+
+BoxWorld MakeBoxWorld( const ObjectContactBodyView& body, const BoundingBox& box )
 {
     // ENGINE-SPECIFIC:
     //   Convert the engine's local box shape plus body orientation into an OBB
     //   basis. Catto's equations downstream operate in world space; this is the
-    //   bridge from Skullbonez render/shape state to solver row geometry.
-    Quaternion q = model.GetOrientation();
+    //   conversion from Skullbonez body pose and shape state to solver row geometry.
+    Quaternion q = body.orientation;
     RotationMatrix rot = q.GetOrientationMatrix();
 
     BoxWorld out;
@@ -196,18 +214,18 @@ BoxWorld MakeBoxWorld( const GameModel& model, const BoundingBox& box )
     out.axes[0] = rot * Vector3( 1.0f, 0.0f, 0.0f );
     out.axes[1] = rot * Vector3( 0.0f, 1.0f, 0.0f );
     out.axes[2] = rot * Vector3( 0.0f, 0.0f, 1.0f );
-    out.center = model.GetPosition() + rot * box.GetPosition();
+    out.center = body.position + rot * box.GetPosition();
     return out;
 }
 
-Vector3 SphereCenter( const GameModel& model, const BoundingSphere& sphere )
+Vector3 SphereCenter( const ObjectContactBodyView& body, const BoundingSphere& sphere )
 {
     // ENGINE-SPECIFIC:
     //   Spheres can carry a local shape offset. Rotate it through the body
     //   orientation before building Catto-style world-space contact arms.
-    Quaternion q = model.GetOrientation();
+    Quaternion q = body.orientation;
     RotationMatrix rot = q.GetOrientationMatrix();
-    return model.GetPosition() + rot * sphere.GetPosition();
+    return body.position + rot * sphere.GetPosition();
 }
 
 uint32_t FaceId( int axis, float sign )
@@ -248,8 +266,8 @@ uint32_t EncodeBoxEdgeFeature( uint32_t edgeA, uint32_t edgeB )
     return ( FEATURE_KIND_BOX_EDGE << 14 ) | ( ( edgeA & 0x0fu ) << 10 ) | ( ( edgeB & 0x0fu ) << 6 );
 }
 
-void AddContactPoint( const GameModel& a,
-                      const GameModel& b,
+void AddContactPoint( const ObjectContactBodyView& a,
+                      const ObjectContactBodyView& b,
                       ObjectContactManifold& manifold,
                       const Vector3& point,
                       float penetration,
@@ -266,8 +284,8 @@ void AddContactPoint( const GameModel& a,
 
     ObjectContactPoint& cp = manifold.points[manifold.pointCount++];
     cp.point = point;
-    cp.rA = point - a.GetPosition();
-    cp.rB = point - b.GetPosition();
+    cp.rA = point - a.position;
+    cp.rB = point - b.position;
     cp.penetration = ( penetration > 0.0f ) ? penetration : 0.0f;
     cp.featureId = featureId;
 }
@@ -278,9 +296,9 @@ void AddContactPoint( const GameModel& a,
 // ENGINE-SPECIFIC:
 //   Sphere centers may include local shape offsets, so SphereCenter applies the
 //   current orientation before using the classic center-to-center normal.
-bool BuildSphereSphere( const GameModel& a,
+bool BuildSphereSphere( const ObjectContactBodyView& a,
                         const BoundingSphere& sphereA,
-                        const GameModel& b,
+                        const ObjectContactBodyView& b,
                         const BoundingSphere& sphereB,
                         float contactSkin,
                         ObjectContactManifold& out )
@@ -333,17 +351,17 @@ int ChooseDominantFace( const Vector3& localPoint, const Vector3& halfExtents, f
 //   Sphere/OBB uses the closest point on the oriented box in box-local space.
 //   When the sphere center is inside the box, the closest point is ambiguous; we
 //   choose the nearest face so the normal and feature ID stay deterministic.
-bool BuildSphereBoxOrdered( const GameModel& sphereModel,
+bool BuildSphereBoxOrdered( const ObjectContactBodyView& sphereBody,
                             const BoundingSphere& sphere,
-                            const GameModel& boxModel,
+                            const ObjectContactBodyView& boxBody,
                             const BoundingBox& box,
                             bool sphereIsA,
                             float contactSkin,
                             ObjectContactManifold& out )
 {
-    BoxWorld bw = MakeBoxWorld( boxModel, box );
-    Vector3 sphereCenter = SphereCenter( sphereModel, sphere );
-    Quaternion q = boxModel.GetOrientation();
+    BoxWorld bw = MakeBoxWorld( boxBody, box );
+    Vector3 sphereCenter = SphereCenter( sphereBody, sphere );
+    Quaternion q = boxBody.orientation;
     RotationMatrix rot = q.GetOrientationMatrix();
     Vector3 local = rot.TransposeMultiply( sphereCenter - bw.center );
 
@@ -400,8 +418,8 @@ bool BuildSphereBoxOrdered( const GameModel& sphereModel,
 
     Vector3 spherePoint = sphereCenter + normalSphereToBox * sphere.GetRadius();
     Vector3 contactPoint = ( spherePoint + closestWorld ) * 0.5f;
-    AddContactPoint( sphereIsA ? sphereModel : boxModel,
-                     sphereIsA ? boxModel : sphereModel,
+    AddContactPoint( sphereIsA ? sphereBody : boxBody,
+                     sphereIsA ? boxBody : sphereBody,
                      out,
                      contactPoint,
                      penetration,
@@ -684,8 +702,8 @@ int ChooseIncidentFace( const BoxWorld& incidentBox, const Vector3& refNormal, f
 //   Reference/incident face clipping is the engine's 3D OBB manifold generator.
 //   Contact points are placed halfway through the residual separation so the
 //   solver receives centered rA/rB arms for shallow overlap.
-bool BuildBoxFaceContact( const GameModel& aModel,
-                          const GameModel& bModel,
+bool BuildBoxFaceContact( const ObjectContactBodyView& aBody,
+                          const ObjectContactBodyView& bBody,
                           const BoxWorld& boxA,
                           const BoxWorld& boxB,
                           bool referenceIsA,
@@ -726,8 +744,8 @@ bool BuildBoxFaceContact( const GameModel& aModel,
         }
 
         Vector3 contactPoint = clipped[i].point - refNormal * ( separation * 0.5f );
-        AddContactPoint( aModel,
-                         bModel,
+        AddContactPoint( aBody,
+                         bBody,
                          out,
                          contactPoint,
                          -separation,
@@ -845,8 +863,8 @@ void ClosestPointsOnSegments( const Vector3& p1,
 //   Edge contacts are the fallback for cross-product SAT axes. They intentionally
 //   produce a single row because two OBB edges touching do not have a contact
 //   patch to clip.
-bool BuildBoxEdgeContact( const GameModel& aModel,
-                          const GameModel& bModel,
+bool BuildBoxEdgeContact( const ObjectContactBodyView& aBody,
+                          const ObjectContactBodyView& bBody,
                           const BoxWorld& boxA,
                           const BoxWorld& boxB,
                           const SatResult& sat,
@@ -864,7 +882,7 @@ bool BuildBoxEdgeContact( const GameModel& aModel,
     Vector3 ca;
     Vector3 cb;
     ClosestPointsOnSegments( a0, a1, b0, b1, ca, cb );
-    AddContactPoint( aModel, bModel, out, ( ca + cb ) * 0.5f, sat.overlap, EncodeBoxEdgeFeature( edgeA, edgeB ) );
+    AddContactPoint( aBody, bBody, out, ( ca + cb ) * 0.5f, sat.overlap, EncodeBoxEdgeFeature( edgeA, edgeB ) );
     return out.pointCount > 0;
 }
 
@@ -872,15 +890,15 @@ bool BuildBoxEdgeContact( const GameModel& aModel,
 //   Box/box first chooses the SAT minimum-overlap axis, then maps face axes to a
 //   clipped four-point manifold and edge axes to a one-point edge manifold. The
 //   persistent solver downstream is Catto-style; this shape dispatch is local.
-bool BuildBoxBox( const GameModel& aModel,
+bool BuildBoxBox( const ObjectContactBodyView& aBody,
                   const BoundingBox& aBox,
-                  const GameModel& bModel,
+                  const ObjectContactBodyView& bBody,
                   const BoundingBox& bBox,
                   float contactSkin,
                   ObjectContactManifold& out )
 {
-    BoxWorld boxA = MakeBoxWorld( aModel, aBox );
-    BoxWorld boxB = MakeBoxWorld( bModel, bBox );
+    BoxWorld boxA = MakeBoxWorld( aBody, aBox );
+    BoxWorld boxB = MakeBoxWorld( bBody, bBox );
     SatResult sat;
     if ( !BoxBoxSat( boxA, boxB, contactSkin, sat ) )
     {
@@ -890,13 +908,13 @@ bool BuildBoxBox( const GameModel& aModel,
     out.normal = sat.normal;
     if ( sat.axisType == 0 )
     {
-        return BuildBoxFaceContact( aModel, bModel, boxA, boxB, true, sat.axisA, sat.normal, contactSkin, out );
+        return BuildBoxFaceContact( aBody, bBody, boxA, boxB, true, sat.axisA, sat.normal, contactSkin, out );
     }
     if ( sat.axisType == 1 )
     {
-        return BuildBoxFaceContact( aModel, bModel, boxA, boxB, false, sat.axisB, sat.normal, contactSkin, out );
+        return BuildBoxFaceContact( aBody, bBody, boxA, boxB, false, sat.axisB, sat.normal, contactSkin, out );
     }
-    return BuildBoxEdgeContact( aModel, bModel, boxA, boxB, sat, out );
+    return BuildBoxEdgeContact( aBody, bBody, boxA, boxB, sat, out );
 }
 
 uint32_t EncodeSphereHullFeature( bool hullIsA, SphereHullFeatureKind kind, uint32_t sourceId )
@@ -955,9 +973,9 @@ void AddPolyFace( PolytopeWorld& poly,
     }
 }
 
-PolytopeWorld MakeBoxPolytope( const GameModel& model, const BoundingBox& box )
+PolytopeWorld MakeBoxPolytope( const ObjectContactBodyView& body, const BoundingBox& box )
 {
-    BoxWorld bw = MakeBoxWorld( model, box );
+    BoxWorld bw = MakeBoxWorld( body, box );
     PolytopeWorld out;
     out.center = bw.center;
     out.vertexCount = 8;
@@ -1021,13 +1039,13 @@ PolytopeWorld MakeBoxPolytope( const GameModel& model, const BoundingBox& box )
     return out;
 }
 
-PolytopeWorld MakeHullPolytope( const GameModel& model, const ConvexHullShape& hull )
+PolytopeWorld MakeHullPolytope( const ObjectContactBodyView& body, const ConvexHullShape& hull )
 {
-    Quaternion q = model.GetOrientation();
+    Quaternion q = body.orientation;
     RotationMatrix rot = q.GetOrientationMatrix();
 
     PolytopeWorld out;
-    out.center = model.GetPosition() + rot * hull.GetPosition();
+    out.center = body.position + rot * hull.GetPosition();
     out.vertexCount = hull.GetVertexCount();
     out.faceCount = hull.GetFaceCount();
     out.edgeCount = hull.GetEdgeCount();
@@ -1408,8 +1426,8 @@ ClosestSphereHullBoundaryFeature( const PolytopeWorld& hullWorld, const Vector3&
     return best;
 }
 
-bool BuildPolyFaceContact( const GameModel& aModel,
-                           const GameModel& bModel,
+bool BuildPolyFaceContact( const ObjectContactBodyView& aBody,
+                           const ObjectContactBodyView& bBody,
                            const PolytopeWorld& polyA,
                            const PolytopeWorld& polyB,
                            bool referenceIsA,
@@ -1602,13 +1620,13 @@ bool BuildPolyFaceContact( const GameModel& aModel,
     for ( int i = 0; i < selectedCount && out.pointCount < 4; ++i )
     {
         const CandidatePoint& candidate = candidates[selectedIndices[i]];
-        AddContactPoint( aModel, bModel, out, candidate.point, candidate.penetration, candidate.featureId );
+        AddContactPoint( aBody, bBody, out, candidate.point, candidate.penetration, candidate.featureId );
     }
     return out.pointCount > 0;
 }
 
-bool BuildBestPolyFaceContact( const GameModel& aModel,
-                               const GameModel& bModel,
+bool BuildBestPolyFaceContact( const ObjectContactBodyView& aBody,
+                               const ObjectContactBodyView& bBody,
                                const PolytopeWorld& polyA,
                                const PolytopeWorld& polyB,
                                const Vector3& finalNormal,
@@ -1630,8 +1648,8 @@ bool BuildBestPolyFaceContact( const GameModel& aModel,
         candidate.bodyA = out.bodyA;
         candidate.bodyB = out.bodyB;
         candidate.normal = finalNormal;
-        return referenceIsA ? BuildPolyFaceContact( aModel,
-                                                    bModel,
+        return referenceIsA ? BuildPolyFaceContact( aBody,
+                                                    bBody,
                                                     polyA,
                                                     polyB,
                                                     true,
@@ -1639,8 +1657,8 @@ bool BuildBestPolyFaceContact( const GameModel& aModel,
                                                     finalNormal,
                                                     contactSkin,
                                                     candidate )
-                            : BuildPolyFaceContact( aModel,
-                                                    bModel,
+                            : BuildPolyFaceContact( aBody,
+                                                    bBody,
                                                     polyA,
                                                     polyB,
                                                     false,
@@ -1680,8 +1698,8 @@ bool BuildBestPolyFaceContact( const GameModel& aModel,
     return true;
 }
 
-bool BuildPolyEdgeContact( const GameModel& aModel,
-                           const GameModel& bModel,
+bool BuildPolyEdgeContact( const ObjectContactBodyView& aBody,
+                           const ObjectContactBodyView& bBody,
                            const PolytopeWorld& polyA,
                            const PolytopeWorld& polyB,
                            const SatResult& sat,
@@ -1697,8 +1715,8 @@ bool BuildPolyEdgeContact( const GameModel& aModel,
                              polyB.vertices[edgeB.vertexB],
                              ca,
                              cb );
-    AddContactPoint( aModel,
-                     bModel,
+    AddContactPoint( aBody,
+                     bBody,
                      out,
                      ( ca + cb ) * 0.5f,
                      sat.overlap,
@@ -1706,9 +1724,9 @@ bool BuildPolyEdgeContact( const GameModel& aModel,
     return out.pointCount > 0;
 }
 
-bool BuildPolyPoly( const GameModel& aModel,
+bool BuildPolyPoly( const ObjectContactBodyView& aBody,
                     const PolytopeWorld& polyA,
-                    const GameModel& bModel,
+                    const ObjectContactBodyView& bBody,
                     const PolytopeWorld& polyB,
                     float contactSkin,
                     ObjectContactManifold& out )
@@ -1728,8 +1746,8 @@ bool BuildPolyPoly( const GameModel& aModel,
             ObjectContactManifold faceOut;
             faceOut.bodyA = out.bodyA;
             faceOut.bodyB = out.bodyB;
-            const bool builtFace = BuildBestPolyFaceContact( aModel,
-                                                             bModel,
+            const bool builtFace = BuildBestPolyFaceContact( aBody,
+                                                             bBody,
                                                              polyA,
                                                              polyB,
                                                              sat.faceNormal,
@@ -1746,25 +1764,25 @@ bool BuildPolyPoly( const GameModel& aModel,
 
     if ( sat.axisType == 0 )
     {
-        return BuildBestPolyFaceContact( aModel, bModel, polyA, polyB, sat.normal, 0, contactSkin, out );
+        return BuildBestPolyFaceContact( aBody, bBody, polyA, polyB, sat.normal, 0, contactSkin, out );
     }
     if ( sat.axisType == 1 )
     {
-        return BuildBestPolyFaceContact( aModel, bModel, polyA, polyB, sat.normal, 1, contactSkin, out );
+        return BuildBestPolyFaceContact( aBody, bBody, polyA, polyB, sat.normal, 1, contactSkin, out );
     }
-    return BuildPolyEdgeContact( aModel, bModel, polyA, polyB, sat, out );
+    return BuildPolyEdgeContact( aBody, bBody, polyA, polyB, sat, out );
 }
 
-bool BuildSphereHullOrdered( const GameModel& sphereModel,
+bool BuildSphereHullOrdered( const ObjectContactBodyView& sphereBody,
                              const BoundingSphere& sphere,
-                             const GameModel& hullModel,
+                             const ObjectContactBodyView& hullBody,
                              const ConvexHullShape& hull,
                              bool sphereIsA,
                              float contactSkin,
                              ObjectContactManifold& out )
 {
-    const PolytopeWorld hullWorld = MakeHullPolytope( hullModel, hull );
-    const Vector3 sphereCenter = SphereCenter( sphereModel, sphere );
+    const PolytopeWorld hullWorld = MakeHullPolytope( hullBody, hull );
+    const Vector3 sphereCenter = SphereCenter( sphereBody, sphere );
 
     float maxSignedDistance = -FLT_MAX;
     int closestFace = 0;
@@ -1826,8 +1844,8 @@ bool BuildSphereHullOrdered( const GameModel& sphereModel,
     out.normal = sphereIsA ? normalSphereToHull : -normalSphereToHull;
     const Vector3 spherePoint = sphereCenter + normalSphereToHull * sphere.GetRadius();
     const Vector3 contactPoint = ( spherePoint + closestPoint ) * 0.5f;
-    AddContactPoint( sphereIsA ? sphereModel : hullModel,
-                     sphereIsA ? hullModel : sphereModel,
+    AddContactPoint( sphereIsA ? sphereBody : hullBody,
+                     sphereIsA ? hullBody : sphereBody,
                      out,
                      contactPoint,
                      penetration,
@@ -1835,35 +1853,65 @@ bool BuildSphereHullOrdered( const GameModel& sphereModel,
     return out.pointCount > 0;
 }
 
-bool BuildBoxHull( const GameModel& boxModel,
+bool BuildBoxHull( const ObjectContactBodyView& boxBody,
                    const BoundingBox& box,
-                   const GameModel& hullModel,
+                   const ObjectContactBodyView& hullBody,
                    const ConvexHullShape& hull,
                    bool boxIsA,
                    float contactSkin,
                    ObjectContactManifold& out )
 {
-    const PolytopeWorld boxPoly = MakeBoxPolytope( boxModel, box );
-    const PolytopeWorld hullPoly = MakeHullPolytope( hullModel, hull );
+    const PolytopeWorld boxPoly = MakeBoxPolytope( boxBody, box );
+    const PolytopeWorld hullPoly = MakeHullPolytope( hullBody, hull );
     if ( boxIsA )
     {
-        return BuildPolyPoly( boxModel, boxPoly, hullModel, hullPoly, contactSkin, out );
+        return BuildPolyPoly( boxBody, boxPoly, hullBody, hullPoly, contactSkin, out );
     }
-    return BuildPolyPoly( hullModel, hullPoly, boxModel, boxPoly, contactSkin, out );
+    return BuildPolyPoly( hullBody, hullPoly, boxBody, boxPoly, contactSkin, out );
 }
 
-bool BuildHullHull( const GameModel& aModel,
+bool BuildHullHull( const ObjectContactBodyView& aBody,
                     const ConvexHullShape& aHull,
-                    const GameModel& bModel,
+                    const ObjectContactBodyView& bBody,
                     const ConvexHullShape& bHull,
                     float contactSkin,
                     ObjectContactManifold& out )
 {
-    const PolytopeWorld polyA = MakeHullPolytope( aModel, aHull );
-    const PolytopeWorld polyB = MakeHullPolytope( bModel, bHull );
-    return BuildPolyPoly( aModel, polyA, bModel, polyB, contactSkin, out );
+    const PolytopeWorld polyA = MakeHullPolytope( aBody, aHull );
+    const PolytopeWorld polyB = MakeHullPolytope( bBody, bHull );
+    return BuildPolyPoly( aBody, polyA, bBody, polyB, contactSkin, out );
 }
 } // namespace
+
+ObjectContactSweepResult SkullbonezCore::Physics::SweepObjectContact( const ObjectContactBodyView& a,
+                                                                      const CollisionShape& shapeA,
+                                                                      const Vector3& linearVelocityA,
+                                                                      const ObjectContactBodyView& b,
+                                                                      const CollisionShape& shapeB,
+                                                                      const Vector3& linearVelocityB,
+                                                                      float changeInTime )
+{
+    // Concept: CCD sweep is only a conservative front-end. It uses each body's
+    // current position plus linear displacement to find the first candidate
+    // overlap; precise contact geometry and velocity response remain with the
+    // manifold builder and persistent solver.
+    ObjectContactSweepResult result;
+    result.collisionTime = changeInTime;
+
+    const Ray targetRay( b.position, linearVelocityB * changeInTime );
+    const Ray focusRay( a.position, linearVelocityA * changeInTime );
+    const float collisionTime = TestShapeCollision( shapeA, shapeB, focusRay, targetRay );
+
+    if ( collisionTime > 1.0f || collisionTime < ZERO_TAKE_TOLERANCE )
+    {
+        return result;
+    }
+
+    result.hit = true;
+    result.collisionTime = collisionTime * changeInTime;
+    return result;
+}
+
 
 // CATTO REF:
 //   Public entry point that returns the contact rows Catto's iterative solver
@@ -1893,6 +1941,26 @@ bool SkullbonezCore::Physics::BuildObjectContactManifold( const GameModel& a,
 bool SkullbonezCore::Physics::BuildObjectContactManifold( const GameModel& a,
                                                           const CollisionShape& shapeA,
                                                           const GameModel& b,
+                                                          const CollisionShape& shapeB,
+                                                          int bodyA,
+                                                          int bodyB,
+                                                          float contactSkin,
+                                                          ObjectContactManifold& out )
+{
+    return BuildObjectContactManifold( MakeObjectContactBodyView( a ),
+                                       shapeA,
+                                       MakeObjectContactBodyView( b ),
+                                       shapeB,
+                                       bodyA,
+                                       bodyB,
+                                       contactSkin,
+                                       out );
+}
+
+
+bool SkullbonezCore::Physics::BuildObjectContactManifold( const ObjectContactBodyView& a,
+                                                          const CollisionShape& shapeA,
+                                                          const ObjectContactBodyView& b,
                                                           const CollisionShape& shapeB,
                                                           int bodyA,
                                                           int bodyB,

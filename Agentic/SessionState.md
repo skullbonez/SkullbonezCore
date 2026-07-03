@@ -7,14 +7,14 @@ audits when it is still useful.
 
 | Field | Value |
 |-------|-------|
-| Branch | `nightrunner-30th-june` in worktree `C:\SkullbonezCore`. |
-| Active objective | Overnight DX12 graphics stress soak is running; review `TestOutput\graphics_stress` artifacts after it completes. |
-| Last documentation milestone | General DX12 graphics stress is listed in the root validation map, tool inventory, and this session validation map. |
-| Last source milestone | Graphics stress memory tracking and DX12 PSO cache key hardening were committed in the current branch; PSO cache keys now hash compiled shader bytecode instead of shader blob addresses. |
-| Pending work | Inspect the overnight graphics stress memory CSV/JSON for growth trends, especially process private bytes, DXGI local/non-local usage, descriptor pressure, upload arena pressure, and cache/pool counts. |
-| Concurrent work warning | Another agent is editing code. Treat current dirty source files as user-owned and avoid source edits unless the user explicitly coordinates the work. |
-| Blockers | None for documentation-only plan hygiene. Source implementation should wait for, or coordinate with, the concurrent code agent. |
-| Validation | Documentation-only changes require no repository validation. Source/tool/script changes must use the validation map in `AGENTS.md`. |
+| Branch | `nightrunner-3rd-july` in worktree `C:\SkullbonezCore`. |
+| Active objective | Continue `Agentic/Plans/To_Eval/physics-game-model-authority-plan.md` in narrow, validated slices. |
+| Last documentation milestone | Updated `Agentic/Plans/To_Eval/physics-game-model-authority-plan.md` with the 2026-07-03 persistent solver sink split and guardrail status. |
+| Last source milestone | `PersistentContactSolverContext` no longer reaches through broad `PhysicsModelAccess` for fixed-contact events or single-body compatibility writeback. Those now use `PhysicsBodyEventSink` and `PhysicsBodyWritebackSink`; `wakeModelAccess` remains only for release wake-up. |
+| Pending work | Move wake-island/release wake paths to durable handles, then delete compatibility body writeback after render, replay, and diagnostics consume physics-owned body rows directly. The old `game-model-data-boundary-plan.md` path named in prior handoff is not present in this worktree; use the active physics authority plan unless a replacement appears. |
+| Concurrent work warning | No concurrent dirty source work observed at the last status check. Still run `git status --short --branch` before editing. |
+| Blockers | `tools\validate_fast.bat` currently stops at the formatting gate on untouched `SkullbonezSource\Runtime\RuntimeViewModel.h` and `SkullbonezSource\UI\UI.h`; do not attribute that to the persistent solver sink split. `tools\validate_physics_deep.bat` had a prior known stacking signature mismatch on this branch. |
+| Validation | 2026-07-03 persistent solver sink split: touched-source comment audit inspected `PhysicsModelAccess.h`, `PhysicsWorld.h`, `PhysicsWorld.cpp`, and `tools\check_runtime_boundaries.py` with 0 deferred files. `git diff --check` passed. `tools\validate_project_filters.bat` passed with log `TestOutput\agent_validate_project_filters_persistent_solver_sinks.log`. `python tools\check_runtime_boundaries.py --repo .` passed with log `TestOutput\agent_runtime_boundaries_persistent_solver_sinks.log` and 0 errors. `tools\validate_physics.bat` passed with log `TestOutput\agent_validate_physics_persistent_solver_sinks.log`; Debug/Profile builds had 0 warnings and 0 errors, and `physics_regression_solver.csv` matched byte-exactly. `tools\validate_fast.bat` failed before build on unrelated header formatting drift; log `TestOutput\agent_validate_fast_persistent_solver_sinks.log`. |
 
 ## Active Notes
 
@@ -37,11 +37,12 @@ audits when it is still useful.
 
 | Item | Status | Notes |
 |------|--------|-------|
+| Contrived migration artifact cleanup | Complete; final review passed | Plan: `Agentic/Plans/To_Eval/contrived-migration-artifact-removal-plan.md`; kill list: `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-plan.csv`; implementation status: `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-implementation-status.csv`. |
 | Missed plan items index | Active reference | `Agentic/Plans/missed_plan_items.md` summarizes actionable leftovers from mostly completed Done plans. |
 | Runtime interaction state-machine hardening | Active plan | `Agentic/Plans/runtime-interaction-state-machine-hardening-plan.md`; avoid while another agent is editing UI/replay/camera/input code. |
 | Render graph / backend interface continuation | Active plan | `Agentic/Plans/render-graph-irender-interface-plan.md`; barrier migration is done, but graph callbacks/transients/capability cleanup continue in focused slices. |
 | Global service context cleanup | Active plan | `Agentic/Plans/global-service-context-plan.md`; Carmack plans are complete and only provide evidence for current compatibility debt. |
-| Game model data boundary | Active follow-up | `Agentic/Plans/game-model-data-boundary-plan.md`; the physics step boundary is narrowed, but strict store authority is future work. |
+| Physics/GameModel authority | Active follow-up | `Agentic/Plans/To_Eval/physics-game-model-authority-plan.md`; the persistent solver event/writeback boundary is narrowed, but strict store authority and wake-handle ownership remain future work. |
 | Runtime static allocation policy | Draft active plan | `Agentic/Plans/runtime-static-allocation-policy-plan.md`; implementation touches hot runtime paths and needs perf-aware validation. |
 | Architecture pass follow-up | Active reference | `Agentic/Plans/architecture_pass_2026-06-02.md` remains the broad checkpoint for runtime, physics data, assets, parser, water, and render graph boundaries. |
 

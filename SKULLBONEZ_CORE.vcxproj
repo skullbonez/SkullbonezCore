@@ -82,7 +82,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>LIBC;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
@@ -106,7 +106,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -130,7 +130,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -152,6 +152,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\CameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Debug\CollisionVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\ObjectContactManifold.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\TerrainContactManifold.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Debug\PhysicsDebugVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherLaser.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp" />
@@ -196,6 +197,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeCommandQueue.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Audio\ContactAudioService.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeInteractionController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimePickGeometry.cpp" />
@@ -266,6 +268,7 @@
     <ClCompile Include="SkullbonezSource\UI\UITabPhysics.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabScene.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabSound.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabSky.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIWindowChrome.cpp" />
     <ClCompile Include="ThirdPtySource\stb\stb_image.cpp" />
@@ -308,6 +311,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\CameraCollection.h" />
     <ClInclude Include="SkullbonezSource\Physics\Debug\CollisionVisualizer.h" />
     <ClInclude Include="SkullbonezSource\Physics\ObjectContactManifold.h" />
+    <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h" />
     <ClInclude Include="SkullbonezSource\Physics\Debug\PhysicsDebugVisualizer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorOverlayTools.h" />
@@ -336,10 +340,13 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsApi.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsModel.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsModelAccess.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsObjectPolicy.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsWorldForces.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorld.h" />
     <ClInclude Include="SkullbonezSource\Physics\Ragdoll.h" />
@@ -357,7 +364,6 @@
     <ClInclude Include="SkullbonezSource\Core\Log.h" />
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveMeshBuilder.h" />
     <ClInclude Include="SkullbonezSource\Maths\Quaternion.h" />
-    <ClInclude Include="SkullbonezSource\Physics\ResponseInformation.h" />
     <ClInclude Include="SkullbonezSource\Physics\RigidBody.h" />
     <ClInclude Include="SkullbonezSource\Maths\RotationMatrix.h" />
     <ClInclude Include="SkullbonezSource\Core\Config.h" />
@@ -370,6 +376,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionCommands.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Audio\ContactAudioService.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeTuning.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimePickGeometry.h" />
@@ -448,6 +455,7 @@
     <ClInclude Include="SkullbonezSource\UI\UITabPhysics.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabProfiler.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabScene.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabSound.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabSky.h" />
     <ClInclude Include="SkullbonezSource\UI\UIWindowChrome.h" />
     <ClInclude Include="SkullbonezSource\Maths\Matrix4.h" />
@@ -487,6 +495,47 @@
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="SkullbonezData\engine.cfg" />
+    <None Include="SkullbonezData\audio\contact_audio.materials.json" />
+    <None Include="SkullbonezData\audio\LICENSES.md" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_01.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_02.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_03.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_04.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_05.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_06.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_07.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_08.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_09.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_10.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_01.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_02.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_03.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_04.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_05.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_06.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_07.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_08.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_09.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_10.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_11.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_12.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_13.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_rock_01.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_01.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_02.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_03.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_soft_01.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_soft_02.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_soft_03.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_stone_01.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_stone_02.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_stone_03.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_metal_01.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_metal_02.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_alt_01.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_alt_02.ogg" />
+    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_alt_03.ogg" />
+    <None Include="ThirdPtySource\stb\stb_vorbis.c" />
     <None Include="SkullbonezData\shaders\launcher_laser.hlsl" />
     <None Include="SkullbonezData\shaders\tornado_fx.hlsl" />
     <None Include="SkullbonezData\hulls\diamond.hull" />

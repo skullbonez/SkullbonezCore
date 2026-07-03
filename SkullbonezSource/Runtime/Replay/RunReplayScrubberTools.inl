@@ -255,8 +255,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     const bool solverReplayEnabled = solverReplayStats.enabled;
     const bool solverReplayAvailable = solverReplayEnabled && solverReplayStats.sampleCount >= 2;
     const bool replaySurfaceAvailable = loadedPresentation || solverReplayEnabled;
-    const int screenW = RuntimeWindowScreenWidth( m_systems, Cfg() );
-    const int screenH = RuntimeWindowScreenHeight( m_systems, Cfg() );
+    const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
+    const int screenH = RuntimeWindowScreenHeight( m_systems, m_config );
     if ( !scrubberAllowed || !replaySurfaceAvailable || screenW <= 0 || screenH <= 0 )
     {
         CancelReplayToolDragState();

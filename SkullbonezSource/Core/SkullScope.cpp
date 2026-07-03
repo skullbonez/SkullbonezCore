@@ -28,7 +28,7 @@ Related:
 
 #ifdef _DEBUG
 
-#include "../GameObjects/GameModel.h"
+#include "../Physics/PhysicsDiagnosticsModel.h"
 #include "../Physics/PhysicsModelAccess.h"
 #include "../Physics/PhysicsWorld.h"
 #include <algorithm>
@@ -36,7 +36,6 @@ Related:
 #include <cstdio>
 #include <cstring>
 #include <string>
-#include <type_traits>
 #include <vector>
 
 
@@ -135,7 +134,21 @@ void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess, float dt )
         return;
     }
 
-    const auto m_gameModels = modelAccess.Models();
+    const int modelCount = modelAccess.ModelCount();
+    std::vector<Physics::PhysicsDiagnosticsModelRecord> modelDiagnostics( static_cast<std::size_t>( modelCount ) );
+    // Lifetime: records may borrow name strings from the collection; keeping
+    // them inside this frame emission avoids caching diagnostics-owned aliases.
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        if ( !modelAccess.TryGetPhysicsDiagnosticsModel( i, modelDiagnostics[static_cast<std::size_t>( i )] ) )
+        {
+            // Invariant: ModelCount() defines dense diagnostics row count. A
+            // rejected index keeps its default record so later arrays retain the
+            // same body id mapping instead of silently truncating the frame.
+            continue;
+        }
+    }
+
     const auto physicsDiagnostics = modelAccess.GetPhysicsDiagnosticsView();
     const auto& m_persistentContacts = physicsDiagnostics.persistentContacts;
     const auto& m_persistentContactSolverStats = physicsDiagnostics.persistentContactSolverStats;
@@ -158,7 +171,6 @@ void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess, float dt )
     // bodies.  The query layer uses these aggregate maxima/counts to decide which
     // body/contact/island details are worth expanding in a follow-up query.
     const int frame = m_physicsDiagnosticsFrame;
-    const int modelCount = static_cast<int>( m_gameModels.size() );
     int awakeCount = 0;
     int sleepingCount = 0;
     int supportedCount = 0;
@@ -233,17 +245,17 @@ void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess, float dt )
 
     for ( int i = 0; i < modelCount; ++i )
     {
-        const GameModel& model = m_gameModels[i];
-        const Vector3& vel = model.GetVelocity();
-        const Vector3& omega = model.GetAngularVelocity();
-        const Vector3& inertia = model.GetRotationalInertia();
+        const Physics::PhysicsDiagnosticsModelRecord& model = modelDiagnostics[static_cast<std::size_t>( i )];
+        const Vector3& vel = model.velocity;
+        const Vector3& omega = model.angularVelocity;
+        const Vector3& inertia = model.rotationalInertia;
         const double speedSq = static_cast<double>( vel.x ) * vel.x + static_cast<double>( vel.y ) * vel.y +
                                static_cast<double>( vel.z ) * vel.z;
         const double omegaSq = static_cast<double>( omega.x ) * omega.x + static_cast<double>( omega.y ) * omega.y +
                                static_cast<double>( omega.z ) * omega.z;
         const double speed = sqrt( speedSq );
         const double omegaMag = sqrt( omegaSq );
-        const double mass = model.GetMass();
+        const double mass = model.mass;
         const double linearEnergy = 0.5 * mass * speedSq;
         const double angularEnergy = 0.5 * ( static_cast<double>( inertia.x ) * omega.x * omega.x +
                                              static_cast<double>( inertia.y ) * omega.y * omega.y +
@@ -671,19 +683,22 @@ void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess, float dt )
             continue;
         }
 
-        const GameModel& a = m_gameModels[c.bodyA];
-        const Vector3 velA = a.GetVelocity() + Vector::CrossProduct( a.GetAngularVelocity(), c.rA );
-        const Vector3 velB = c.isTerrain ? ZERO_VECTOR
-                                         : m_gameModels[c.bodyB].GetVelocity() +
-                                               Vector::CrossProduct( m_gameModels[c.bodyB].GetAngularVelocity(), c.rB );
+        const Physics::PhysicsDiagnosticsModelRecord& a = modelDiagnostics[static_cast<std::size_t>( c.bodyA )];
+        const Vector3 velA = a.velocity + Vector::CrossProduct( a.angularVelocity, c.rA );
+        const Vector3 velB =
+            c.isTerrain
+                ? ZERO_VECTOR
+                : modelDiagnostics[static_cast<std::size_t>( c.bodyB )].velocity +
+                      Vector::CrossProduct( modelDiagnostics[static_cast<std::size_t>( c.bodyB )].angularVelocity,
+                                            c.rB );
         const Vector3 relVel = velB - velA;
         const float normalSpeed = relVel * c.normal;
         const Vector3 tangentVel = relVel - c.normal * normalSpeed;
         const float slipSpeed = Vector::VectorMag( tangentVel );
         const double tangentImpulse =
             sqrt( static_cast<double>( c.accT1 ) * c.accT1 + static_cast<double>( c.accT2 ) * c.accT2 );
-        const char* shapeA = a.GetShapeName();
-        const char* shapeB = c.isTerrain ? "terrain" : m_gameModels[c.bodyB].GetShapeName();
+        const char* shapeA = a.shapeName;
+        const char* shapeB = c.isTerrain ? "terrain" : modelDiagnostics[static_cast<std::size_t>( c.bodyB )].shapeName;
         char contactType[32] = "";
         sprintf_s( contactType, sizeof( contactType ), "%s/%s", shapeA, shapeB );
         const int supportsSleep =
@@ -698,7 +713,9 @@ void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess, float dt )
         Log().Writef( m_physicsDiagnosticsPath,
                       "{\"kind\":\"contact\",\"run\":\"%s\",\"frame\":%d,\"contact_id\":\"%d:%d:%u\",\"body_a\":%d,"
                       "\"body_b\":%d,\"contact_type\":\"%s\",\"feature_id\":%u,\"point_count\":%u,\"normal\":[%.6f,%."
-                      "6f,%.6f],\"penetration\":%.6f,\"normal_impulse\":%.6f,\"tangent_impulse\":%.6f,\"slip_speed\":%."
+                      "6f,%.6f],\"penetration\":%.6f,\"normal_impulse\":%.6f,"
+                      "\"pre_solve_normal_speed\":%.6f,\"pre_solve_closing_speed\":%.6f,"
+                      "\"pre_solve_slip_speed\":%.6f,\"tangent_impulse\":%.6f,\"slip_speed\":%."
                       "6f,\"rolling_residual\":%.6f,\"warm_started\":%d,\"supports_sleep\":%d}\n",
                       m_physicsDiagnosticsRunId,
                       frame,
@@ -715,6 +732,9 @@ void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess, float dt )
                       diagnosticNormal.z,
                       c.penetration,
                       c.accN,
+                      c.preSolveNormalSpeed,
+                      c.preSolveClosingSpeed,
+                      c.preSolveSlipSpeed,
                       tangentImpulse,
                       slipSpeed,
                       slipSpeed,
@@ -784,18 +804,13 @@ void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess, float dt )
 
     for ( int i = 0; i < modelCount; ++i )
     {
-        const GameModel& model = m_gameModels[i];
-        const char* shapeType = model.GetShapeName();
-        std::string escapedName = EscapeSkullScopeJson( model.GetName() );
-        const Vector3& pos = model.GetPosition();
-        const Vector3& vel = model.GetVelocity();
-        const Vector3& omega = model.GetAngularVelocity();
-        const Vector3& inertia = model.GetRotationalInertia();
-        float qx = 0.0f;
-        float qy = 0.0f;
-        float qz = 0.0f;
-        float qw = 1.0f;
-        model.GetOrientation().GetComponents( qx, qy, qz, qw );
+        const Physics::PhysicsDiagnosticsModelRecord& model = modelDiagnostics[static_cast<std::size_t>( i )];
+        const char* shapeType = model.shapeName;
+        std::string escapedName = EscapeSkullScopeJson( model.name );
+        const Vector3& pos = model.position;
+        const Vector3& vel = model.velocity;
+        const Vector3& omega = model.angularVelocity;
+        const Vector3& inertia = model.rotationalInertia;
 
         const double speedSq = static_cast<double>( vel.x ) * vel.x + static_cast<double>( vel.y ) * vel.y +
                                static_cast<double>( vel.z ) * vel.z;
@@ -803,7 +818,7 @@ void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess, float dt )
                                static_cast<double>( omega.z ) * omega.z;
         const double speed = sqrt( speedSq );
         const double omegaMag = sqrt( omegaSq );
-        const double mass = model.GetMass();
+        const double mass = model.mass;
         const double linearEnergy = 0.5 * mass * speedSq;
         const double angularEnergy = 0.5 * ( static_cast<double>( inertia.x ) * omega.x * omega.x +
                                              static_cast<double>( inertia.y ) * omega.y * omega.y +
@@ -818,34 +833,12 @@ void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess, float dt )
         const int visualIslandId =
             ( i < static_cast<int>( m_sleepIslandVisualId.size() ) ) ? m_sleepIslandVisualId[i] : 0;
 
-        float radius = 0.0f;
-        Vector3 halfExtents = ZERO_VECTOR;
-        uint16_t hullVertices = 0;
-        uint16_t hullFaces = 0;
-        uint16_t hullEdges = 0;
-        std::string escapedHullName;
-        std::visit(
-            [&]( const auto& shape )
-            {
-                using ShapeT = std::decay_t<decltype( shape )>;
-                if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
-                {
-                    radius = shape.GetRadius();
-                }
-                else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
-                {
-                    halfExtents = shape.GetHalfExtents();
-                }
-                else
-                {
-                    radius = shape.GetBoundingRadius();
-                    hullVertices = shape.GetVertexCount();
-                    hullFaces = shape.GetFaceCount();
-                    hullEdges = shape.GetEdgeCount();
-                    escapedHullName = EscapeSkullScopeJson( shape.GetName() );
-                }
-            },
-            model.GetCollisionShape() );
+        const float radius = model.radius;
+        const Vector3& halfExtents = model.halfExtents;
+        const uint16_t hullVertices = model.hullVertices;
+        const uint16_t hullFaces = model.hullFaces;
+        const uint16_t hullEdges = model.hullEdges;
+        const std::string escapedHullName = EscapeSkullScopeJson( model.hullName );
 
         Log().Writef(
             m_physicsDiagnosticsPath,
@@ -869,14 +862,14 @@ void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess, float dt )
             omega.x,
             omega.y,
             omega.z,
-            qx,
-            qy,
-            qz,
-            qw,
+            model.qx,
+            model.qy,
+            model.qz,
+            model.qw,
             speed,
             omegaMag,
             mass,
-            model.GetInvertedMass(),
+            model.inverseMass,
             inertia.x,
             inertia.y,
             inertia.z,

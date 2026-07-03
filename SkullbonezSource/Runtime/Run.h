@@ -42,6 +42,7 @@ Related:
 #include "RuntimeInteractionController.h"
 #include "RuntimeCommandQueue.h"
 #include "RuntimeCameraMode.h"
+#include "Audio/ContactAudioService.h"
 #include "Render/RuntimeRenderHost.h"
 #include "Render/RuntimeRenderInputs.h"
 #include "Render/RuntimeRenderer.h"
@@ -95,6 +96,7 @@ class Run
     // top-level subsystem for
     // process lifetime/order, or keep launch/session choices that coordinate
     // multiple subsystems and therefore do not have one narrower owner yet.
+    EngineConfig& m_config;                                                // Borrowed process config loaded and CLI-patched by Runtime/Init.cpp.
     SceneController m_sceneController;                                     // Owns scene queue and current scene-run state
     SceneRuntimeCoordinator m_sceneCoordinator;                            // Produces scene load/reset/advance control intents.
     RunInputLatchState m_inputLatches;                                     // Cross-frame key/mouse latches that are not semantic input state.
@@ -121,6 +123,7 @@ class Run
     AttachedCameraState m_attachedCamera;                                  // Non-serialized object-follow camera state for Attach mode.
     SimulationController m_simulation;                                     // Simulation timestep policy and physics accumulators
     ReplayRuntime m_replayRuntime;                                         // Owns replay recorders, branch provenance, and replay interaction state.
+    Runtime::Audio::ContactAudioService m_contactAudio;                    // Presentation-only material impact playback sink.
     RunReplayMismatchState m_solverReplayMismatch;                         // Throttles repeated live-vs-solver replay mismatch reports.
     RunLiveStyleControlState m_liveStyle;                                  // Live style tweak/capture harness state
     UI::InGameUI m_UI;                                                     // Encapsulated in-game diagnostics window
@@ -138,6 +141,7 @@ class Run
     RuntimeCommandQueue m_runtimeCommands;                                 // Deferred runtime/tool command intent.
     EngineContext m_engineContext;                                         // Bound view over runtime-owned systems.
     RuntimeViewModel m_runtimeViewModel;                                   // Scalar runtime snapshot for presentation/diagnostics.
+    RuntimeRenderBackendView m_renderBackendView;                          // Borrowed active renderer capabilities for render-host users.
     RuntimeRenderHost m_renderHost;                                        // Explicit render-facing service view over Run-owned state.
     RuntimeRenderer m_renderer;                                            // Owns runtime render passes and frame render ordering.
 
@@ -353,7 +357,11 @@ class Run
 #endif
 
   public:
-    Run( Window& window, std::vector<std::string> sceneQueue );            // sceneQueue empty string selects generated demo mode.
+    Run( Window& window,
+         std::vector<std::string> sceneQueue,
+         EngineConfig& config,
+         Threading::WorkerPool& workerPool,
+         RuntimeRenderBackendView renderBackendView );                     // sceneQueue empty string selects generated demo mode.
     ~Run();
     void Initialise();                                                     // Initialises shared resources and loads first scene
     void RunSceneLoadOnly( const char* snapshotOutPath = nullptr );        // Scene-load smoke path; skips the frame loop.
@@ -363,6 +371,7 @@ class Run
     void SetSeedOverride( unsigned int seed );                             // Override RNG seed for every scene loaded (CLI --seed)
     void SetNoWaterOverride();                                             // Start scenes with fluid below terrain (CLI --no-water)
     void SetNoSleepOverride();                                             // Disable physics sleeping for every scene loaded (CLI --no-sleep)
+    void SetNoContactAudioOverride();                                      // Disable presentation-only contact impact playback
     void SetTornadoOverride( bool enabled );                               // Enable/disable tornado mode for loaded scenes (CLI --tornado)
     void SetTornadoVectorFieldOverride( bool enabled );                    // Show/hide tornado velocity vectors at startup
     void SetCinematicRenderingOverride( bool enabled );                    // Force cinematic HDR/post rendering on/off for every scene loaded

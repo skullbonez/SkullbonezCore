@@ -31,6 +31,7 @@ Related:
 #include "../Core/Config.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "../Core/Profiler.h"
+#include "Audio/ContactAudioService.h"
 #include "Replay/ReplayRecorder.h"
 #include "Scene/SceneRuntime.h"
 
@@ -417,6 +418,7 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
     ++diagnostics.runSequence;
     sprintf_s( diagnostics.currentRunId, sizeof( diagnostics.currentRunId ), "run_%04d", diagnostics.runSequence );
     diagnostics.isRunActive = true;
+    diagnostics.contactAudioEventSequence = 0;
     models.SetPhysicsDiagnosticsRunId( diagnostics.currentRunId );
 
     const char* solverName = "solver";
@@ -615,6 +617,81 @@ void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& dia
                   fallbackRestored ? 1 : 0,
                   escapedReason.c_str() );
     Log().FlushAll();
+}
+
+void RuntimeDiagnostics::LogContactAudioDecision( RunPhysicsDiagnosticsState& diagnostics,
+                                                  const RunSceneState& scene,
+                                                  const Runtime::Audio::ContactAudioDecision& decision )
+{
+    if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
+    {
+        return;
+    }
+
+    const char* reason = decision.reason && decision.reason[0] != '\0' ? decision.reason : "unknown";
+    const char* severity = ( decision.submitted || decision.flashEligible ) ? "medium" : "low";
+    char eventId[32];
+    sprintf_s( eventId, sizeof( eventId ), "CA%08u", diagnostics.contactAudioEventSequence++ );
+
+    std::string escapedReason = JsonEscape( reason );
+    std::string escapedSet = JsonEscape( decision.soundSetName );
+    std::string escapedBand = JsonEscape( decision.bandName );
+    std::string escapedSample = JsonEscape( decision.samplePath );
+
+    // Concept: contact audio is runtime presentation built from deterministic
+    // contact facts. Logging the verdict here keeps SkullScope useful without
+    // moving audio policy into the physics solver.
+    Log().Writef( diagnostics.path,
+                  "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"%s\",\"frame\":%d,\"type\":\"contact_audio\","
+                  "\"severity\":\"%s\",\"body_a\":%d,\"body_b\":%d,\"island_id\":null,\"summary\":\"contact audio %s\","
+                  "\"data\":{\"decision\":\"%s\",\"pair_key\":%llu,\"feature_id\":%u,\"is_terrain\":%d,"
+                  "\"material_a\":%u,\"material_b\":%u,\"normal_impulse\":%.6f,"
+                  "\"normal_closing_speed\":%.6f,\"tangent_slip_speed\":%.6f,\"has_motion_data\":%d,"
+                  "\"min_impulse\":%.6f,\"impulse_range\":%.6f,\"distance\":%.6f,\"max_distance\":%.6f,"
+                  "\"distance_gain\":%.6f,\"impact_gain\":%.6f,\"motion_gain\":%.6f,\"impact_score\":%.6f,"
+                  "\"gain\":%.6f,\"contact_age_seconds\":%.6f,"
+                  "\"rearm_gap_seconds\":%.6f,\"previous_strongest_impulse\":%.6f,"
+                  "\"ongoing_contact\":%d,\"impulse_spike\":%d,"
+                  "\"submitted\":%d,\"flash_eligible\":%d,\"max_voices\":%u,\"sample_index\":%d,"
+                  "\"sound_set\":\"%s\",\"band\":\"%s\",\"sample\":\"%s\"}}\n",
+                  diagnostics.currentRunId,
+                  eventId,
+                  scene.currentFrame,
+                  severity,
+                  decision.event.bodyA,
+                  decision.event.bodyB,
+                  escapedReason.c_str(),
+                  escapedReason.c_str(),
+                  static_cast<unsigned long long>( decision.pairKey ),
+                  decision.event.featureId,
+                  decision.event.isTerrain ? 1 : 0,
+                  decision.event.materialA,
+                  decision.event.materialB,
+                  decision.event.normalImpulse,
+                  decision.event.normalClosingSpeed,
+                  decision.event.tangentSlipSpeed,
+                  decision.event.hasMotionData ? 1 : 0,
+                  decision.minImpulse,
+                  decision.impulseRange,
+                  decision.distance,
+                  decision.maxDistance,
+                  decision.distanceGain,
+                  decision.impactGain,
+                  decision.motionGain,
+                  decision.impactScore,
+                  decision.gain,
+                  decision.contactAgeSeconds,
+                  decision.rearmGapSeconds,
+                  decision.previousStrongestImpulse,
+                  decision.ongoingContact ? 1 : 0,
+                  decision.impulseSpike ? 1 : 0,
+                  decision.submitted ? 1 : 0,
+                  decision.flashEligible ? 1 : 0,
+                  decision.maxVoices,
+                  decision.sampleIndex,
+                  escapedSet.c_str(),
+                  escapedBand.c_str(),
+                  escapedSample.c_str() );
 }
 
 void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,

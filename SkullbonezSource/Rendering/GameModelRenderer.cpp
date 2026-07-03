@@ -13,12 +13,14 @@ Glossary:
   Back buffer: Swap-chain image that will be presented to the window.
   Convex hull: Immutable authored collision geometry rendered through dynamic
     hull vertices instead of the sphere or box instance streams.
+  Contact-audio flash: Short render-only white tint applied after a contact
+    sound actually submits, independent of physics state.
 
 Invariants:
   - GameModelRenderer consumes collection render streams; GameModelCollection
     remains the owner of model order and lifetime.
   - Shadow caster preparation may run worker-side, but draw submission remains
-    on the render thread through RenderHelper/Gfx().
+    on the render thread through RenderHelper command/resource contexts.
 
 Related:
   - SkullbonezSource/Rendering/GameModelRenderer.h
@@ -61,37 +63,48 @@ bool IsPineVisualMaterial( const RenderMaterial& material )
              static_cast<int>( std::floor( material.textureMode + 0.5f ) ) == PINE_VISUAL_MATERIAL_MODE );
 }
 
-RenderMaterial MaterialWithFixedContactHighlight( const GameModel& model, bool box )
+RenderMaterial MaterialWithContactHighlights( const GameModel& model, bool applyFixedHighlight, bool box )
 {
-    // Why: fixed-contact highlights are render-only feedback. They must not
-    // mutate the model's stored material or physics release policy.
+    // Why: contact highlights are render-only feedback. They must not mutate
+    // the model's stored material, physics release policy, or audio decisions.
     RenderMaterial material = model.GetRenderMaterial();
-    const float hit = model.GetFixedContactHighlightAlpha();
-    if ( hit <= 0.0f )
+    const float hit = applyFixedHighlight ? model.GetFixedContactHighlightAlpha() : 0.0f;
+    if ( hit > 0.0f )
+    {
+        if ( box && material.textureMode <= 0.5f && material.textureMode >= -0.5f )
+        {
+            constexpr float fixedBase = 241.0f / 255.0f;
+            material.baseColor[0] = fixedBase + ( 1.0f - fixedBase ) * hit;
+            material.baseColor[1] = fixedBase * ( 1.0f - hit );
+            material.baseColor[2] = fixedBase * ( 1.0f - hit );
+            material.kind = RenderMaterialKind::Matte;
+            material.textureMode = 1.0f;
+        }
+        else
+        {
+            material.baseColor[0] = material.baseColor[0] + ( 1.0f - material.baseColor[0] ) * hit;
+            material.baseColor[1] = material.baseColor[1] * ( 1.0f - hit );
+            material.baseColor[2] = material.baseColor[2] * ( 1.0f - hit );
+        }
+    }
+
+    const float audioHit = model.GetAudioContactHighlightAlpha();
+    if ( audioHit <= 0.0f )
     {
         return material;
     }
 
-    if ( box && material.textureMode <= 0.5f && material.textureMode >= -0.5f )
-    {
-        constexpr float fixedBase = 241.0f / 255.0f;
-        material.baseColor[0] = fixedBase + ( 1.0f - fixedBase ) * hit;
-        material.baseColor[1] = fixedBase * ( 1.0f - hit );
-        material.baseColor[2] = fixedBase * ( 1.0f - hit );
-        material.kind = RenderMaterialKind::Matte;
-        material.textureMode = 1.0f;
-        return material;
-    }
-
-    material.baseColor[0] = material.baseColor[0] + ( 1.0f - material.baseColor[0] ) * hit;
-    material.baseColor[1] = material.baseColor[1] * ( 1.0f - hit );
-    material.baseColor[2] = material.baseColor[2] * ( 1.0f - hit );
+    // Concept: audio flash is a shader-side final-color blend, not a texture or
+    // material-mode replacement. That makes the object visibly white for the
+    // 100ms timer and then fades back to its normal material branch.
+    material.contactFlashAlpha = (std::max)( material.contactFlashAlpha, audioHit );
     return material;
 }
 } // namespace
 
 
-void GameModelRenderer::RenderModels( GameModelCollection& collection,
+void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
+                                      GameModelCollection& collection,
                                       const Matrix4& view,
                                       const Matrix4& proj,
                                       const float lightPos[4],
@@ -111,7 +124,7 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
     const GameModelRenderStream renderStream = collection.GetRenderStream();
     const int modelCount = renderStream.count;
     const float clampedMaterialAlpha = std::clamp( materialAlpha, 0.0f, 1.0f );
-    const bool alphaBlendedPass = Cfg().runtimeRender.renderCollisionVolumes || clampedMaterialAlpha < 1.0f;
+    const bool alphaBlendedPass = collection.ShouldRenderCollisionVolumes() || clampedMaterialAlpha < 1.0f;
     const auto shouldDrawModel = [&]( int index ) -> bool
     {
         if ( !modelMask )
@@ -128,7 +141,8 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
 
     {
         DRAW_CALL_TRACE_SCOPE( "Spheres" );
-        RenderHelper::DrawSphereBatchBegin( view,
+        RenderHelper::DrawSphereBatchBegin( helperContext,
+                                            view,
                                             proj,
                                             lightPos,
                                             alphaBlendedPass,
@@ -143,13 +157,11 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
             }
             if ( models[x].IsSphere() )
             {
-                RenderMaterial material = renderStream.isFixed[x]
-                                              ? MaterialWithFixedContactHighlight( models[x], false )
-                                              : models[x].GetRenderMaterial();
+                RenderMaterial material = MaterialWithContactHighlights( models[x], renderStream.isFixed[x], false );
                 RenderHelper::DrawSphereBatchModel( renderStream.modelMatrices[x], material );
             }
         }
-        RenderHelper::DrawSphereBatchEnd();
+        RenderHelper::DrawSphereBatchEnd( helperContext );
     }
 
     bool hasPineVisualModels = false;
@@ -163,8 +175,7 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
             }
             if ( renderStream.isBox[x] )
             {
-                RenderMaterial material = renderStream.isFixed[x] ? MaterialWithFixedContactHighlight( models[x], true )
-                                                                  : models[x].GetRenderMaterial();
+                RenderMaterial material = MaterialWithContactHighlights( models[x], renderStream.isFixed[x], true );
                 const bool isPineVisual = IsPineVisualMaterial( material );
                 if ( isPineVisual )
                 {
@@ -188,7 +199,8 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
 
     {
         DRAW_CALL_TRACE_SCOPE( "Boxes" );
-        RenderHelper::DrawBoxBatchBegin( view,
+        RenderHelper::DrawBoxBatchBegin( helperContext,
+                                         view,
                                          proj,
                                          lightPos,
                                          alphaBlendedPass,
@@ -196,13 +208,14 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
                                          shadow,
                                          clampedMaterialAlpha );
         appendBoxLikeModels( false );
-        RenderHelper::DrawBoxBatchEnd();
+        RenderHelper::DrawBoxBatchEnd( helperContext );
     }
 
     if ( hasPineVisualModels )
     {
         DRAW_CALL_TRACE_SCOPE( "Pines" );
-        RenderHelper::DrawPineBatchBegin( view,
+        RenderHelper::DrawPineBatchBegin( helperContext,
+                                          view,
                                           proj,
                                           lightPos,
                                           alphaBlendedPass,
@@ -210,7 +223,7 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
                                           shadow,
                                           clampedMaterialAlpha );
         appendBoxLikeModels( true );
-        RenderHelper::DrawPineBatchEnd();
+        RenderHelper::DrawPineBatchEnd( helperContext );
     }
 
     {
@@ -234,10 +247,9 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection,
 
             const Matrix4 bodyModel =
                 Matrix4::Translate( models[x].GetPosition() ) * Matrix4::FromQuaternion( models[x].GetOrientation() );
-            const RenderMaterial material = renderStream.isFixed[x]
-                                                ? MaterialWithFixedContactHighlight( models[x], false )
-                                                : models[x].GetRenderMaterial();
-            RenderHelper::DrawConvexHullModel( *hull,
+            const RenderMaterial material = MaterialWithContactHighlights( models[x], renderStream.isFixed[x], false );
+            RenderHelper::DrawConvexHullModel( helperContext,
+                                               *hull,
                                                bodyModel,
                                                material,
                                                view,
@@ -306,12 +318,13 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
         }
     };
 
-    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && Cfg().shadowParallelPrep &&
+    SkullbonezCore::Threading::WorkerPool* workerPool = collection.RenderWorkerPool();
+    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && collection.ShouldUseShadowParallelPrep() && workerPool &&
          modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/OrderedWorkerCollect" );
         std::vector<ShadowCasterBatches> chunkOutputs;
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelCollectOrdered<ShadowCasterBatches>(
+        workerPool->ParallelCollectOrdered<ShadowCasterBatches>(
             0,
             modelCount,
             chunkOutputs,
@@ -338,7 +351,8 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
 }
 
 
-void GameModelRenderer::SubmitShadowCasterBatches( const ShadowCasterBatches& batches,
+void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& helperContext,
+                                                   const ShadowCasterBatches& batches,
                                                    const Matrix4& view,
                                                    const Matrix4& proj,
                                                    const CinematicRenderConfig* cinematic )
@@ -352,24 +366,24 @@ void GameModelRenderer::SubmitShadowCasterBatches( const ShadowCasterBatches& ba
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Spheres" );
         DRAW_CALL_TRACE_SCOPE( "Spheres" );
 
-        RenderHelper::DrawShadowDepthSphereBatchBegin( view, proj, cinematic );
+        RenderHelper::DrawShadowDepthSphereBatchBegin( helperContext, view, proj, cinematic );
         for ( const Matrix4& model : batches.spheres )
         {
             RenderHelper::DrawShadowDepthSphereBatchModel( model );
         }
-        RenderHelper::DrawShadowDepthSphereBatchEnd();
+        RenderHelper::DrawShadowDepthSphereBatchEnd( helperContext );
     }
 
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Boxes" );
         DRAW_CALL_TRACE_SCOPE( "Boxes" );
 
-        RenderHelper::DrawShadowDepthBoxBatchBegin( view, proj );
+        RenderHelper::DrawShadowDepthBoxBatchBegin( helperContext, view, proj );
         for ( const Matrix4& model : batches.boxes )
         {
             RenderHelper::DrawShadowDepthBoxBatchModel( model );
         }
-        RenderHelper::DrawShadowDepthBoxBatchEnd();
+        RenderHelper::DrawShadowDepthBoxBatchEnd( helperContext );
     }
 
     if ( !batches.pines.empty() )
@@ -377,12 +391,12 @@ void GameModelRenderer::SubmitShadowCasterBatches( const ShadowCasterBatches& ba
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Pines" );
         DRAW_CALL_TRACE_SCOPE( "Pines" );
 
-        RenderHelper::DrawShadowDepthPineBatchBegin( view, proj );
+        RenderHelper::DrawShadowDepthPineBatchBegin( helperContext, view, proj );
         for ( const Matrix4& model : batches.pines )
         {
             RenderHelper::DrawShadowDepthPineBatchModel( model );
         }
-        RenderHelper::DrawShadowDepthPineBatchEnd();
+        RenderHelper::DrawShadowDepthPineBatchEnd( helperContext );
     }
 
     if ( !batches.convexHulls.empty() )
@@ -394,21 +408,22 @@ void GameModelRenderer::SubmitShadowCasterBatches( const ShadowCasterBatches& ba
         {
             if ( caster.hull )
             {
-                RenderHelper::DrawShadowDepthConvexHullModel( *caster.hull, caster.model, view, proj );
+                RenderHelper::DrawShadowDepthConvexHullModel( helperContext, *caster.hull, caster.model, view, proj );
             }
         }
     }
 }
 
 
-void GameModelRenderer::RenderShadowCasters( GameModelCollection& collection,
+void GameModelRenderer::RenderShadowCasters( const RenderHelperContext& helperContext,
+                                             GameModelCollection& collection,
                                              const Matrix4& view,
                                              const Matrix4& proj,
                                              const CinematicRenderConfig* cinematic )
 {
     ShadowCasterBatches batches;
     BuildShadowCasterBatches( collection, batches );
-    SubmitShadowCasterBatches( batches, view, proj, cinematic );
+    SubmitShadowCasterBatches( helperContext, batches, view, proj, cinematic );
 }
 
 
@@ -482,12 +497,13 @@ bool GameModelRenderer::GetObjectShadowBounds( GameModelCollection& collection,
     };
 
     BoundsAccumulator bounds;
-    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && Cfg().shadowParallelPrep &&
+    SkullbonezCore::Threading::WorkerPool* workerPool = collection.RenderWorkerPool();
+    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && collection.ShouldUseShadowParallelPrep() && workerPool &&
          modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/OrderedWorkerCollect" );
         std::vector<BoundsAccumulator> chunkOutputs;
-        SkullbonezCore::Threading::WorkerPool::Instance().ParallelCollectOrdered<BoundsAccumulator>(
+        workerPool->ParallelCollectOrdered<BoundsAccumulator>(
             0,
             modelCount,
             chunkOutputs,

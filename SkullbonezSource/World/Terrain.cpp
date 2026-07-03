@@ -27,7 +27,7 @@ Related:
 #include "Terrain.h"
 #include "../Assets/AssetSystem.h"
 #include "../Rendering/Helper.h"
-#include "../Rendering/IRenderBackend.h"
+#include "../Rendering/IRenderResourceFactory.h"
 #include "../Core/Profiler.h"
 
 #include <algorithm>
@@ -59,7 +59,13 @@ using FileHandle = std::unique_ptr<FILE, FileCloser>;
 } // namespace
 
 
-Terrain::Terrain( const char* sFileName, int iMapSize, int iStepSize, int iTextureWrap )
+Terrain::Terrain( const char* sFileName,
+                  int iMapSize,
+                  int iStepSize,
+                  int iTextureWrap,
+                  const SkullbonezCore::Basics::EngineConfig& config,
+                  SkullbonezCore::Assets::AssetSystem& assets,
+                  IRenderResourceFactory& resources )
 {
     m_mapSize = iMapSize;
     m_stepSize = iStepSize;
@@ -79,6 +85,7 @@ Terrain::Terrain( const char* sFileName, int iMapSize, int iStepSize, int iTextu
     m_terrainSizeWorldCoords = ( ( m_mapSize - m_stepSize ) / m_stepSize ) * m_stepSize;
 
     m_postsPerSide = m_mapSize / m_stepSize;
+    BindRenderContexts( config, assets, resources );
     ConfigureRenderStepSize();
 
     LoadTerrainData( sFileName );
@@ -88,7 +95,12 @@ Terrain::Terrain( const char* sFileName, int iMapSize, int iStepSize, int iTextu
 }
 
 
-Terrain::Terrain( float slopeBaseY, float slopeX, float slopeZ )
+Terrain::Terrain( float slopeBaseY,
+                  float slopeX,
+                  float slopeZ,
+                  const SkullbonezCore::Basics::EngineConfig& config,
+                  SkullbonezCore::Assets::AssetSystem& assets,
+                  IRenderResourceFactory& resources )
 {
     m_mapSize = 0;
     m_stepSize = 0;
@@ -109,6 +121,7 @@ Terrain::Terrain( float slopeBaseY, float slopeX, float slopeZ )
     }
     m_flatSlopePlane.m_normal = m_flatSlopeNormal;
     m_flatSlopePlane.m_distance = m_flatSlopeNormal.y * m_slopeBaseY;
+    BindRenderContexts( config, assets, resources );
 
     // Max height at the 4 corners of the flat slope play area
     float h00 = slopeBaseY;
@@ -128,11 +141,32 @@ Terrain::~Terrain()
 }
 
 
+void Terrain::BindRenderContexts( const SkullbonezCore::Basics::EngineConfig& config,
+                                  SkullbonezCore::Assets::AssetSystem& assets,
+                                  IRenderResourceFactory& resources )
+{
+    // Lifetime: Terrain keeps these as rebuild-only borrows owned by Run and
+    // refreshed by the render pass before lazy resource recreation.
+    m_config = &config;
+    m_assets = &assets;
+    m_resources = &resources;
+}
+
+
+const SkullbonezCore::Basics::EngineConfig& Terrain::Config() const
+{
+    assert( m_config );
+    return *m_config;
+}
+
+
 void Terrain::InitialiseTerrainShader()
 {
-    m_terrainShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.lit_textured" );
+    assert( m_assets );
+    assert( m_resources );
+    m_terrainShader = m_assets->CreateShader( *m_resources, "shader.lit_textured" );
     m_terrainShader->Use();
-    const auto& ordinary = Cfg().ordinaryRender;
+    const auto& ordinary = Config().ordinaryRender;
     m_terrainShader->SetVec4( "uLightAmbient",
                               ordinary.skyAmbientR,
                               ordinary.skyAmbientG,
@@ -178,9 +212,29 @@ void Terrain::ResetRenderResources()
 }
 
 
+void Terrain::EnsureRenderResources( const SkullbonezCore::Basics::EngineConfig& config,
+                                     SkullbonezCore::Assets::AssetSystem& assets,
+                                     IRenderResourceFactory& resources )
+{
+    BindRenderContexts( config, assets, resources );
+    if ( !m_terrainMesh || !m_terrainShader )
+    {
+        ResetRenderResources();
+    }
+}
+
+
+void Terrain::ReleaseRenderResources()
+{
+    m_terrainMesh.reset();
+    m_terrainShader.reset();
+    m_shadowDepthShader.reset();
+}
+
+
 void Terrain::ConfigureRenderStepSize()
 {
-    int requestedStep = Cfg().terrainRenderStepSize;
+    int requestedStep = Config().terrainRenderStepSize;
     requestedStep = (std::max)( 1, (std::min)( requestedStep, m_stepSize ) );
 
     const int renderRawExtent = m_mapSize - m_stepSize;
@@ -306,7 +360,7 @@ void Terrain::BuildCollisionCache()
 
 int Terrain::GetQuadCacheIndex( float xPosition, float zPosition, bool& isTriangleA )
 {
-    float scaledStepSize = m_stepSize * Cfg().terrainScale;
+    float scaledStepSize = m_stepSize * Config().terrainScale;
     int xPosting = static_cast<int>( floorf( zPosition / scaledStepSize ) );
     int zPosting = static_cast<int>( floorf( xPosition / scaledStepSize ) );
     int quadsPerSide = m_postsPerSide - 1;
@@ -416,7 +470,7 @@ float Terrain::SampleRenderHeightRaw( float rawX, float rawZ ) const
 
     const float h0 = h00 + ( h10 - h00 ) * tx;
     const float h1 = h01 + ( h11 - h01 ) * tx;
-    return ( h0 + ( h1 - h0 ) * tz ) * Cfg().terrainHeightScale * Cfg().terrainScale;
+    return ( h0 + ( h1 - h0 ) * tz ) * Config().terrainHeightScale * Config().terrainScale;
 }
 
 
@@ -429,7 +483,7 @@ Vector3 Terrain::SampleRenderNormalRaw( float rawX, float rawZ ) const
     const float top = (std::max)( 0.0f, rawZ - sampleStep );
     const float bottom = (std::min)( rawExtent, rawZ + sampleStep );
 
-    const float terrainScale = Cfg().terrainScale;
+    const float terrainScale = Config().terrainScale;
     const float hLeft = SampleRenderHeightRaw( left, rawZ );
     const float hRight = SampleRenderHeightRaw( right, rawZ );
     const float hTop = SampleRenderHeightRaw( rawX, top );
@@ -456,7 +510,8 @@ Vector3 Terrain::SampleRenderNormalRaw( float rawX, float rawZ ) const
 TerrainPost Terrain::BuildRenderPost( float rawX, float rawZ ) const
 {
     TerrainPost post;
-    post.vPosition.SetAll( rawX * Cfg().terrainScale, SampleRenderHeightRaw( rawX, rawZ ), rawZ * Cfg().terrainScale );
+    const float terrainScale = Config().terrainScale;
+    post.vPosition.SetAll( rawX * terrainScale, SampleRenderHeightRaw( rawX, rawZ ), rawZ * terrainScale );
     post.vNormal = SampleRenderNormalRaw( rawX, rawZ );
     return post;
 }
@@ -487,6 +542,7 @@ void Terrain::LoadTerrainData( const char* sFileName )
 
 void Terrain::Render( const Matrix4& view,
                       const Matrix4& projection,
+                      IRenderCommandContext& commands,
                       const float* lightPosition,
                       const SkullbonezCore::Basics::CinematicRenderConfig* cinematicOverride,
                       const ShadowFrameData* shadow )
@@ -558,7 +614,7 @@ void Terrain::Render( const Matrix4& view,
     }
     else
     {
-        const auto& ordinary = Cfg().ordinaryRender;
+        const auto& ordinary = Config().ordinaryRender;
         m_terrainShader->SetVec4( "uLightAmbient",
                                   ordinary.skyAmbientR,
                                   ordinary.skyAmbientG,
@@ -583,7 +639,7 @@ void Terrain::Render( const Matrix4& view,
         m_terrainShader->SetVec4( "uTerrainGrid", 46.0f, 0.0f, 0.0f, 0.0f );
     }
     m_terrainShader->SetVec4( "uLightPosition", lx, ly, lz, lightPosition[3] );
-    ApplyShadowReceiverUniforms( *m_terrainShader, shadow, shadow ? shadow->terrainReceives : false );
+    ApplyShadowReceiverUniforms( *m_terrainShader, commands, shadow, shadow ? shadow->terrainReceives : false );
 
     m_terrainMesh->Draw();
 }
@@ -601,7 +657,9 @@ void Terrain::RenderShadowDepth( const Matrix4& lightView,
         // shader. It still writes into the same framebuffer/depth map as object
         // casters, which lets hills self-shadow and lets balls/boxes disappear
         // behind terrain from the light's point of view.
-        m_shadowDepthShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.shadow_depth" );
+        assert( m_assets );
+        assert( m_resources );
+        m_shadowDepthShader = m_assets->CreateShader( *m_resources, "shader.shadow_depth" );
     }
 
     m_shadowDepthShader->Use();
@@ -653,7 +711,7 @@ float Terrain::GetTerrainHeightAt( float xPosition, float zPosition, bool isFlui
 
     if ( isFluidMin )
     {
-        return ( terrainHeight < Cfg().fluidHeight ) ? Cfg().fluidHeight : terrainHeight;
+        return ( terrainHeight < Config().fluidHeight ) ? Config().fluidHeight : terrainHeight;
     }
     else
     {
@@ -695,11 +753,11 @@ bool Terrain::IsInBounds( float xPosition, float zPosition )
         Justification for not allowing coordinates to the absolute outer bound:
         -----------------------------------------------------------------------
         It is arguable that a point would be in bounds of the m_terrain if it was
-        equal to (m_terrainSizeWorldCoords * Cfg().terrainScale).  This may be true on
+        equal to the scaled terrain extent. This may be true on
         a physical level, however, this can cause major problems for the
         Terrain::LocatePolygon method as it uses:
-        floor(xPosition/(m_stepSize * Cfg().terrainScale)) and
-        floor(zPosition/(m_stepSize * Cfg().terrainScale))
+        floor(xPosition / scaledStepSize) and
+        floor(zPosition / scaledStepSize)
         to determine which m_terrain quadric the point is in - you can only imagine
         what happens when the xPosition or the zPosition are equal to the upper
         bound of the m_terrain - the quadric is set to something that does not exist
@@ -711,8 +769,8 @@ bool Terrain::IsInBounds( float xPosition, float zPosition )
     */
 
     return ( ( xPosition >= 0.0f ) && ( zPosition >= 0.0f ) &&
-             ( xPosition < m_terrainSizeWorldCoords * Cfg().terrainScale ) &&
-             ( zPosition < m_terrainSizeWorldCoords * Cfg().terrainScale ) );
+             ( xPosition < m_terrainSizeWorldCoords * Config().terrainScale ) &&
+             ( zPosition < m_terrainSizeWorldCoords * Config().terrainScale ) );
 }
 
 
@@ -731,8 +789,8 @@ XZBounds Terrain::GetXZBounds()
 
     bounds.m_xMin = 0.0f;
     bounds.m_zMin = 0.0f;
-    bounds.m_xMax = m_terrainSizeWorldCoords * Cfg().terrainScale;
-    bounds.m_zMax = m_terrainSizeWorldCoords * Cfg().terrainScale;
+    bounds.m_xMax = m_terrainSizeWorldCoords * Config().terrainScale;
+    bounds.m_zMax = m_terrainSizeWorldCoords * Config().terrainScale;
 
     return bounds;
 }
@@ -764,14 +822,14 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     // NOTE:  X and Z params are switched in this method to account for world
     // co-ordinate space find which quadric we are in (treat m_terrain as orthagonal
     // XZ projection to locate the quadric)
-    int xPosting = static_cast<int>( floorf( zPosition / ( m_stepSize * Cfg().terrainScale ) ) );
-    int zPosting = static_cast<int>( floorf( xPosition / ( m_stepSize * Cfg().terrainScale ) ) );
+    int xPosting = static_cast<int>( floorf( zPosition / ( m_stepSize * Config().terrainScale ) ) );
+    int zPosting = static_cast<int>( floorf( xPosition / ( m_stepSize * Config().terrainScale ) ) );
 
     // Use the bottom-right post as the target quad so the A/B split below can
     // work in one local coordinate frame.
     int targetQuadric = zPosting * m_postsPerSide + xPosting + m_postsPerSide;
 
-    float scaledStepSize = m_stepSize * Cfg().terrainScale;
+    float scaledStepSize = m_stepSize * Config().terrainScale;
 
     // NOTE:  X and Z params are switched in this method to account for world
     // co-ordinate space make our X and Z positions relative to the target quadric
@@ -839,9 +897,9 @@ void Terrain::TranslatePostings()
         for ( int Z = 0; Z < m_mapSize; Z += m_stepSize )
         {
             m_postData[indexCounter].vPosition.SetAll(
-                static_cast<float>( X ) * Cfg().terrainScale,
-                static_cast<float>( GetPixelHeightAt( X, Z ) ) * Cfg().terrainHeightScale * Cfg().terrainScale,
-                static_cast<float>( Z ) * Cfg().terrainScale );
+                static_cast<float>( X ) * Config().terrainScale,
+                static_cast<float>( GetPixelHeightAt( X, Z ) ) * Config().terrainHeightScale * Config().terrainScale,
+                static_cast<float>( Z ) * Config().terrainScale );
 
             ++indexCounter;
         }
@@ -1214,10 +1272,11 @@ void Terrain::BuildMesh()
         }
     }
 
-    m_terrainMesh = Gfx().CreateMesh( vertexData.data(),
-                                      totalVerts,
-                                      true, // hasNormals
-                                      true  // hasTexCoords
+    assert( m_resources );
+    m_terrainMesh = m_resources->CreateMesh( vertexData.data(),
+                                             totalVerts,
+                                             true, // hasNormals
+                                             true  // hasTexCoords
     );
 }
 
@@ -1276,5 +1335,6 @@ void Terrain::BuildFlatSlopeMesh()
         }
     }
 
-    m_terrainMesh = Gfx().CreateMesh( vertexData.data(), totalVerts, true, true );
+    assert( m_resources );
+    m_terrainMesh = m_resources->CreateMesh( vertexData.data(), totalVerts, true, true );
 }

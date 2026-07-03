@@ -47,6 +47,7 @@ EXTERNAL_FILTER = "External"
 SCENE_FILTER = "Scene Files"
 STYLE_FILTER = "Style Files"
 PROJECT_FILTER = "Project Files"
+RESOURCE_FILTER = "Resource Files"
 SHADER_FILTER = "Resource Files\\HLSL"
 SOURCE_PROJECT_ROOT = "SkullbonezSource"
 # Concept: `.inl` files are source-bearing include slices, not build units.
@@ -91,19 +92,23 @@ PHYSICS_PREFIXES = (
     "PersistentContactSolver",
     "PhysicsApi",
     "PhysicsBodyStore",
+    "PhysicsDiagnosticsModel",
     "PhysicsDiagnosticsSink",
     "PhysicsEngine",
     "PhysicsHandles",
     "PhysicsMass",
     "PhysicsModelAccess",
+    "PhysicsObjectPolicy",
     "Ragdoll",
     "PhysicsScene",
     "PhysicsWorld",
+    "PhysicsWorldForces",
     "ResponseInformation",
     "RigidBody",
     "SimulationSystem",
     "SleepIslandSystem",
     "SpatialGrid",
+    "TerrainContactManifold",
     "TornadoField",
 )
 
@@ -218,6 +223,10 @@ RUNTIME_SCENE_PREFIXES = (
     "SceneRuntimeUiOptions",
 )
 
+RUNTIME_AUDIO_PREFIXES = (
+    "ContactAudioService",
+)
+
 RUNTIME_REPLAY_PREFIXES = (
     "ReplayExporter",
     "ReplayOverlayLayout",
@@ -285,6 +294,7 @@ CORE_PREFIXES = (
 AREA_PREFIXES = (
     ("Rendering\\DX12", DX12_RENDERING_PREFIXES),
     ("Runtime\\Scene", RUNTIME_SCENE_PREFIXES),
+    ("Runtime\\Audio", RUNTIME_AUDIO_PREFIXES),
     ("Runtime\\Replay", RUNTIME_REPLAY_PREFIXES),
     ("Runtime\\Render", RUNTIME_RENDER_PREFIXES),
     ("Runtime\\Editor", RUNTIME_EDITOR_PREFIXES),
@@ -439,6 +449,10 @@ def expected_filter_for(item: ProjectItem) -> str | None:
     if item.item_type == "None":
         if lower == "packages.config":
             return PROJECT_FILTER
+        if lower.startswith("thirdptysource\\"):
+            return EXTERNAL_FILTER
+        if lower.startswith("skullbonezdata\\audio\\") and suffix in {".json", ".md", ".ogg"}:
+            return RESOURCE_FILTER
         if lower.startswith("skullbonezdata\\shaders\\") and suffix in {".hlsl", ".dxil"}:
             return SHADER_FILTER
         if lower.startswith("skullbonezdata\\scenes\\") and (lower.endswith(".scene.json") or lower.endswith(".suite.json")):

@@ -1514,10 +1514,10 @@ void Run::TickAttachedCamera()
     {
         m_attachedCamera.orbitYawRadians =
             WrapAttachedCameraOrbitYaw( m_attachedCamera.orbitYawRadians +
-                                        m_camera.input.xMove * CAMERA_MOUSE_REFERENCE_DT * Cfg().mouseSensitivity );
-        m_attachedCamera.orbitPitchRadians =
-            ClampAttachedCameraOrbitPitch( m_attachedCamera.orbitPitchRadians +
-                                           m_camera.input.yMove * CAMERA_MOUSE_REFERENCE_DT * Cfg().mouseSensitivity );
+                                        m_camera.input.xMove * CAMERA_MOUSE_REFERENCE_DT * m_config.mouseSensitivity );
+        m_attachedCamera.orbitPitchRadians = ClampAttachedCameraOrbitPitch(
+            m_attachedCamera.orbitPitchRadians +
+            m_camera.input.yMove * CAMERA_MOUSE_REFERENCE_DT * m_config.mouseSensitivity );
     }
 
     m_attachedCamera.orbitDistance = ClampAttachedCameraOrbitDistance( target, m_attachedCamera.orbitDistance );
@@ -2011,7 +2011,7 @@ void Run::TakeInput()
                                                                  m_launchOptions,
                                                                  m_runtimeSettings,
                                                                  m_debug,
-                                                                 IsGfxReady() ? Gfx().GetRendererName() : "DirectX 12",
+                                                                 m_renderHost.RendererNameOrDefault( "DirectX 12" ),
                                                                  simulationSeconds } );
                 const char* snapshotMessage = "Failed to write repro snapshot";
                 if ( snapshotStatus == LauncherReproSnapshotStatus::Wrote )
@@ -2110,7 +2110,7 @@ void Run::TakeInput()
             {
                 if ( !m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
                 {
-                    if ( Gfx().GetCapabilities().supportsDxrReflection )
+                    if ( m_renderHost.SupportsDxrReflection() )
                     {
                         m_debug.isWaterRTReflect = true;
                     }
@@ -2329,7 +2329,7 @@ void Run::TakeInput()
                                               m_sceneController.Browser(),
                                               m_cGameModelCollection,
                                               m_systems.assets,
-                                              RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                              RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                               m_defaultCinematicRender },
                     action.index );
             case SceneRuntimeControlActionType::None:
@@ -2466,7 +2466,7 @@ void Run::TakeInput()
         if ( uiCommands.renderer.toggleVsync )
         {
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
-            Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+            m_renderHost.SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleVsync, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.run.requestedCameraMode >= 0 &&
@@ -2713,23 +2713,23 @@ void Run::TakeInput()
         }
         if ( uiCommands.sceneOptions.toggleShadows )
         {
-            if ( RuntimeCinematicRenderingEnabled( SceneState(), Cfg(), m_launchOptions, m_debug, IsGfxReady() ) )
+            if ( RuntimeCinematicRenderingEnabled( SceneState(), m_config, m_launchOptions, m_debug, IsGfxReady() ) )
             {
-                const bool shadowsActive = RuntimeActiveCinematicConfig( SceneState(), Cfg() ).shadowsEnabled;
+                const bool shadowsActive = RuntimeActiveCinematicConfig( SceneState(), m_config ).shadowsEnabled;
                 m_launchOptions.hasCinematicShadowsOverride = false;
-                SetCinematicShadowsEnabledFromUI( RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                SetCinematicShadowsEnabledFromUI( RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                                   SceneState(),
                                                   !shadowsActive );
             }
             else
             {
-                Cfg().ordinaryRender.shadowsEnabled = !Cfg().ordinaryRender.shadowsEnabled;
+                m_config.ordinaryRender.shadowsEnabled = !m_config.ordinaryRender.shadowsEnabled;
             }
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleShadows, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.renderTuning.toggleShadows )
         {
-            Cfg().ordinaryRender.shadowsEnabled = !Cfg().ordinaryRender.shadowsEnabled;
+            m_config.ordinaryRender.shadowsEnabled = !m_config.ordinaryRender.shadowsEnabled;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleRenderShadows, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.renderTuning.saveDefaults )
@@ -2739,10 +2739,180 @@ void Run::TakeInput()
         }
         if ( uiCommands.renderTuning.requestedParam != UIRenderParam::None )
         {
-            ApplyOrdinaryRenderUIParam( Cfg().ordinaryRender,
+            ApplyOrdinaryRenderUIParam( m_config.ordinaryRender,
                                         uiCommands.renderTuning.requestedParam,
                                         uiCommands.renderTuning.requestedValue );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyRenderTuning, RuntimeInputActionSource::UI );
+        }
+        // Why: contact audio is presentation-only and may be disabled at launch
+        // or unavailable on a machine. The Sound tab can retry initialization,
+        // but failure must not affect simulation, input mode, or validation.
+        bool soundTuningChanged = false;
+        const auto ensureContactAudioReady = [&]() -> bool
+        {
+            if ( m_launchOptions.noContactAudio )
+            {
+                return false;
+            }
+            return m_contactAudio.IsAvailable() ||
+                   ( m_contactAudio.Initialize() &&
+                     m_contactAudio.LoadContactAudioMap( "SkullbonezData/audio/contact_audio.materials.json" ) );
+        };
+        if ( uiCommands.sound.toggleEnabled )
+        {
+            if ( m_contactAudio.IsEnabled() )
+            {
+                m_contactAudio.SetEnabled( false );
+            }
+            else if ( !m_launchOptions.noContactAudio )
+            {
+                const bool ready = ensureContactAudioReady();
+                m_contactAudio.SetEnabled( ready );
+            }
+            soundTuningChanged = true;
+        }
+        if ( uiCommands.sound.toggleDebugCounters )
+        {
+            m_runtimeSettings.contactAudioDebugCounters = !m_runtimeSettings.contactAudioDebugCounters;
+            soundTuningChanged = true;
+        }
+        if ( uiCommands.sound.toggleFlashOnSubmit )
+        {
+            m_runtimeSettings.contactAudioFlashOnSubmit = !m_runtimeSettings.contactAudioFlashOnSubmit;
+            soundTuningChanged = true;
+        }
+        if ( uiCommands.sound.requestedParam != UISoundParam::None )
+        {
+            switch ( uiCommands.sound.requestedParam )
+            {
+            case UISoundParam::MasterGain:
+                m_contactAudio.SetMasterGain( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::MaxDistanceScale:
+                m_contactAudio.SetMaxDistanceScale( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::MinClosingSpeed:
+                m_contactAudio.SetMinClosingSpeed( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::MinImpactScore:
+                m_contactAudio.SetMinImpactScore( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::ImpactScoreRangeSeconds:
+                m_contactAudio.SetImpactScoreRangeSeconds( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::BurstVoicesPerWindow:
+                m_contactAudio.SetBurstVoicesPerWindow( static_cast<uint32_t>( uiCommands.sound.requestedValue ) );
+                break;
+            case UISoundParam::SetMinImpulse:
+                m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
+                                                 SkullbonezCore::Runtime::Audio::ContactAudioSetParam::MinImpulse,
+                                                 uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetImpulseRange:
+                m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
+                                                 SkullbonezCore::Runtime::Audio::ContactAudioSetParam::ImpulseRange,
+                                                 uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetCooldownMs:
+                m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
+                                                 SkullbonezCore::Runtime::Audio::ContactAudioSetParam::CooldownMs,
+                                                 uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetOverrideCooldownMs:
+                m_contactAudio.SetSoundSetParam(
+                    uiCommands.sound.requestedSetIndex,
+                    SkullbonezCore::Runtime::Audio::ContactAudioSetParam::OverrideCooldownMs,
+                    uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetMaxDistance:
+                m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
+                                                 SkullbonezCore::Runtime::Audio::ContactAudioSetParam::MaxDistance,
+                                                 uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetBaseGain:
+                m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
+                                                 SkullbonezCore::Runtime::Audio::ContactAudioSetParam::BaseGain,
+                                                 uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetPitchMin:
+                m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
+                                                 SkullbonezCore::Runtime::Audio::ContactAudioSetParam::PitchMin,
+                                                 uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetPitchMax:
+                m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
+                                                 SkullbonezCore::Runtime::Audio::ContactAudioSetParam::PitchMax,
+                                                 uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SetMaxVoices:
+                m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
+                                                 SkullbonezCore::Runtime::Audio::ContactAudioSetParam::MaxVoices,
+                                                 uiCommands.sound.requestedValue );
+                break;
+            default:
+                break;
+            }
+            soundTuningChanged = true;
+        }
+        if ( uiCommands.sound.requestedBandParam != UISoundBandParam::None )
+        {
+            switch ( uiCommands.sound.requestedBandParam )
+            {
+            case UISoundBandParam::MinImpulse:
+                m_contactAudio.SetSoundBandParam( uiCommands.sound.requestedSetIndex,
+                                                  uiCommands.sound.requestedBandIndex,
+                                                  SkullbonezCore::Runtime::Audio::ContactAudioBandParam::MinImpulse,
+                                                  uiCommands.sound.requestedValue );
+                break;
+            case UISoundBandParam::ImpulseRange:
+                m_contactAudio.SetSoundBandParam( uiCommands.sound.requestedSetIndex,
+                                                  uiCommands.sound.requestedBandIndex,
+                                                  SkullbonezCore::Runtime::Audio::ContactAudioBandParam::ImpulseRange,
+                                                  uiCommands.sound.requestedValue );
+                break;
+            case UISoundBandParam::BaseGain:
+                m_contactAudio.SetSoundBandParam( uiCommands.sound.requestedSetIndex,
+                                                  uiCommands.sound.requestedBandIndex,
+                                                  SkullbonezCore::Runtime::Audio::ContactAudioBandParam::BaseGain,
+                                                  uiCommands.sound.requestedValue );
+                break;
+            case UISoundBandParam::PitchMin:
+                m_contactAudio.SetSoundBandParam( uiCommands.sound.requestedSetIndex,
+                                                  uiCommands.sound.requestedBandIndex,
+                                                  SkullbonezCore::Runtime::Audio::ContactAudioBandParam::PitchMin,
+                                                  uiCommands.sound.requestedValue );
+                break;
+            case UISoundBandParam::PitchMax:
+                m_contactAudio.SetSoundBandParam( uiCommands.sound.requestedSetIndex,
+                                                  uiCommands.sound.requestedBandIndex,
+                                                  SkullbonezCore::Runtime::Audio::ContactAudioBandParam::PitchMax,
+                                                  uiCommands.sound.requestedValue );
+                break;
+            default:
+                break;
+            }
+            soundTuningChanged = true;
+        }
+        if ( uiCommands.sound.previewSampleIndex >= 0 )
+        {
+            if ( ensureContactAudioReady() )
+            {
+                m_contactAudio.PreviewSoundSample( uiCommands.sound.previewSampleIndex, 0.85f );
+            }
+            soundTuningChanged = true;
+        }
+        if ( uiCommands.sound.selectSampleIndex >= 0 )
+        {
+            if ( ensureContactAudioReady() && m_contactAudio.SetSoundSetSample( uiCommands.sound.requestedSetIndex,
+                                                                                uiCommands.sound.selectSampleIndex ) )
+            {
+                m_contactAudio.PreviewSoundSample( uiCommands.sound.selectSampleIndex, 0.85f );
+            }
+            soundTuningChanged = true;
+        }
+        if ( soundTuningChanged )
+        {
+            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplySoundTuning, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.water.toggleWaterReflection )
         {
@@ -2819,12 +2989,14 @@ void Run::TakeInput()
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetLauncherProjectileSpeed,
                                                RuntimeInputActionSource::UI );
         }
-        EngineConfig& liveConfig = Cfg();
+        EngineConfig& liveConfig = m_config;
+        bool runtimePhysicsConfigChanged = false;
         if ( uiCommands.physics.requestTerrainFrictionCoeff )
         {
             liveConfig.frictionCoeff = std::clamp( uiCommands.physics.requestedTerrainFrictionCoeff,
                                                    UI_FRICTION_COEFF_MIN,
                                                    UI_FRICTION_COEFF_MAX );
+            runtimePhysicsConfigChanged = true;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyPhysicsFrictionSettings,
                                                RuntimeInputActionSource::UI );
         }
@@ -2833,6 +3005,7 @@ void Run::TakeInput()
             liveConfig.objectFrictionCoeff = std::clamp( uiCommands.physics.requestedObjectFrictionCoeff,
                                                          UI_FRICTION_COEFF_MIN,
                                                          UI_FRICTION_COEFF_MAX );
+            runtimePhysicsConfigChanged = true;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyPhysicsFrictionSettings,
                                                RuntimeInputActionSource::UI );
         }
@@ -2841,8 +3014,16 @@ void Run::TakeInput()
             liveConfig.rollingFrictionCoeff = std::clamp( uiCommands.physics.requestedRollingFrictionCoeff,
                                                           UI_ROLLING_FRICTION_COEFF_MIN,
                                                           UI_ROLLING_FRICTION_COEFF_MAX );
+            runtimePhysicsConfigChanged = true;
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ApplyPhysicsFrictionSettings,
                                                RuntimeInputActionSource::UI );
+        }
+        if ( runtimePhysicsConfigChanged )
+        {
+            // Invariant: GameModelCollection caches per-model runtime tuning so
+            // existing bodies and newly added bodies must observe the same live
+            // physics settings immediately after UI config edits.
+            m_cGameModelCollection.ApplyRuntimeConfig( liveConfig );
         }
         const auto makeSceneGeneratedControlContext = [this, &liveConfig]() -> SceneRuntimeGeneratedControlContext
         {
@@ -2856,7 +3037,7 @@ void Run::TakeInput()
                                                         m_cGameModelCollection,
                                                         m_simulation,
                                                         m_runtimeTools,
-                                                        IsGfxReady() ? &Gfx() : nullptr,
+                                                        m_renderHost.ActiveRenderBackend(),
                                                         m_launchOptions.generatedObjectTypeOverride,
                                                         ActiveGameModelCapacity() };
         };
@@ -2880,7 +3061,9 @@ void Run::TakeInput()
         }
         if ( uiCommands.profiler.requestedWorkerThreads >= -1 )
         {
-            ApplyWorkerThreadCountOverride( uiCommands.profiler.requestedWorkerThreads );
+            ApplyWorkerThreadCountOverride( m_config,
+                                            *m_systems.workerPool,
+                                            uiCommands.profiler.requestedWorkerThreads );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SetWorkerThreads, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.run.requestedSolverBallCount >= 0 )
@@ -2930,7 +3113,7 @@ void Run::TakeInput()
         {
             // Master Cine switch. Clearing m_launchOptions.hasCinematicRenderingOverride lets
             // the runtime toggle become the new source of truth after launch.
-            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), Cfg() );
+            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
             const bool currentlyEnabled =
                 m_launchOptions.hasCinematicRenderingOverride ? m_launchOptions.cinematicRendering : cinematic.enabled;
             cinematic.enabled = !currentlyEnabled;
@@ -2959,14 +3142,14 @@ void Run::TakeInput()
                                           m_sceneController.Browser(),
                                           m_cGameModelCollection,
                                           m_systems.assets,
-                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                           m_defaultCinematicRender },
                 uiCommands.cinematic.requestedModeSceneIndex );
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::SelectCinematicScene, RuntimeInputActionSource::UI );
         }
         if ( uiCommands.cinematic.requestedFeature != UICinematicFeature::None )
         {
-            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), Cfg() );
+            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
             if ( uiCommands.cinematic.requestedFeature == UICinematicFeature::Shadows )
             {
                 m_launchOptions.hasCinematicShadowsOverride = false;
@@ -2977,7 +3160,7 @@ void Run::TakeInput()
         }
         if ( uiCommands.cinematic.requestedParam != UICinematicParam::None )
         {
-            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), Cfg() );
+            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
             ApplyCinematicUIParam( cinematic,
                                    SceneState(),
                                    uiCommands.cinematic.requestedParam,
@@ -3186,7 +3369,7 @@ bool Run::DrainRuntimeCommands()
                                           m_sceneController.Browser(),
                                           m_cGameModelCollection,
                                           m_systems.assets,
-                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                           m_defaultCinematicRender },
                 action.index );
         case SceneRuntimeControlActionType::None:
@@ -3230,10 +3413,10 @@ bool Run::DrainRuntimeCommands()
             SaveCurrentSceneDefaults();
             break;
         case RuntimeCommandType::SaveRenderDefaults:
-            SaveRenderDefaults( Cfg().ordinaryRender );
+            SaveRenderDefaults( m_config.ordinaryRender );
             break;
         case RuntimeCommandType::SaveSkyDefaults:
-            SaveSkyDefaults( RuntimeActiveCinematicConfig( SceneState(), Cfg() ) );
+            SaveSkyDefaults( RuntimeActiveCinematicConfig( SceneState(), m_config ) );
             break;
         case RuntimeCommandType::AdvanceScene:
             if ( !executeSceneControlAction( m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
@@ -3319,14 +3502,14 @@ void Run::MoveCamera( float keyMovementQty, float mouseMovementQty )
         Vector3 translatedCameraPosition = m_systems.cameras->GetCameraTranslation();
         float minY =
             m_systems.terrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) +
-            Cfg().minCameraHeight;
+            m_config.minCameraHeight;
         if ( minY > translatedCameraPosition.y )
         {
             m_systems.cameras->AmmendPrimaryY( minY );
         }
-        else if ( translatedCameraPosition.y > Cfg().maxCameraHeight )
+        else if ( translatedCameraPosition.y > m_config.maxCameraHeight )
         {
-            m_systems.cameras->AmmendPrimaryY( Cfg().maxCameraHeight );
+            m_systems.cameras->AmmendPrimaryY( m_config.maxCameraHeight );
         }
     }
 }

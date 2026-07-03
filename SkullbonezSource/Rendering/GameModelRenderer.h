@@ -36,7 +36,8 @@ namespace SkullbonezCore
 namespace Basics
 {
 struct CinematicRenderConfig;
-}
+struct RenderHelperContext;
+} // namespace Basics
 
 namespace GameObjects
 {
@@ -45,7 +46,8 @@ class GameModelCollection;
 class GameModelRenderer
 {
   public:
-    static void RenderModels( GameModelCollection& collection,
+    static void RenderModels( const Basics::RenderHelperContext& helperContext,
+                              GameModelCollection& collection,
                               const Math::Transformation::Matrix4& view,
                               const Math::Transformation::Matrix4& proj,
                               const float lightPos[4],
@@ -55,11 +57,13 @@ class GameModelRenderer
                               const std::vector<uint8_t>* modelMask = nullptr,
                               bool drawMaskedModels = true );
     static void BuildShadowCasterBatches( GameModelCollection& collection, Rendering::ShadowCasterBatches& outBatches );
-    static void SubmitShadowCasterBatches( const Rendering::ShadowCasterBatches& batches,
+    static void SubmitShadowCasterBatches( const Basics::RenderHelperContext& helperContext,
+                                           const Rendering::ShadowCasterBatches& batches,
                                            const Math::Transformation::Matrix4& view,
                                            const Math::Transformation::Matrix4& proj,
                                            const Basics::CinematicRenderConfig* cinematic );
-    static void RenderShadowCasters( GameModelCollection& collection,
+    static void RenderShadowCasters( const Basics::RenderHelperContext& helperContext,
+                                     GameModelCollection& collection,
                                      const Math::Transformation::Matrix4& view,
                                      const Math::Transformation::Matrix4& proj,
                                      const Basics::CinematicRenderConfig* cinematic );

@@ -34,10 +34,18 @@ namespace SkullbonezCore::GameObjects
 class GameModel;
 }
 
+namespace SkullbonezCore::Rendering
+{
+class IRenderCommandContext;
+}
+
 namespace SkullbonezCore::Basics::ReplayOverlay
 {
 struct ReplayOverlayRenderContext
 {
+    // Lifetime: borrowed from the current UI/text pass; overlay code must not
+    // store it after the draw call returns.
+    Rendering::IRenderCommandContext& renderCommands;
     ReplayRuntime& replayRuntime;
     const std::vector<GameObjects::GameModel>& models;
     bool editorModeEnabled = false;

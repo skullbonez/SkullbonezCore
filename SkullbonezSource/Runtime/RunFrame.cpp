@@ -373,6 +373,13 @@ void Run::Execute()
                 static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( frameRenderBackend );
             SkullbonezCore::Rendering::IRenderDeviceLifecycle& renderLifecycle =
                 static_cast<SkullbonezCore::Rendering::IRenderDeviceLifecycle&>( frameRenderBackend );
+            SkullbonezCore::Rendering::IRenderResourceFactory& frameRenderResources =
+                static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( frameRenderBackend );
+            SkullbonezCore::Rendering::IRenderCommandContext& frameRenderCommands =
+                static_cast<SkullbonezCore::Rendering::IRenderCommandContext&>( frameRenderBackend );
+            const SkullbonezCore::UI::UIRenderContext uiRender = { &m_systems.assets,
+                                                                   &frameRenderResources,
+                                                                   &frameRenderCommands };
             frameRenderDiagnostics.ResetFrameDrawCalls();
 
             PROFILE_BEGIN( "Frame/Input" );
@@ -451,7 +458,7 @@ void Run::Execute()
                 PROFILE_BEGIN( "Frame/UI" );
                 {
                     DRAW_CALL_TRACE_SCOPE( "Frame/UI" );
-                    m_renderer.RenderUiText( frameRenderDiagnostics, secondsPerFrame );
+                    m_renderer.RenderUiText( frameRenderDiagnostics, uiRender, secondsPerFrame );
                 }
                 PROFILE_END( "Frame/UI" );
                 const int uiDrawCallEnd = frameRenderDiagnostics.GetFrameDrawCallCount();
@@ -578,6 +585,8 @@ void Run::TickPhysics( double secondsPerFrame )
         }
     }
     const bool manipulatorPhysics = policy.manipulatorActive;
+    const bool contactAudioStep = m_contactAudio.IsEnabled();
+    const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
     const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{
         secondsPerFrame,
         policy.physicsTimeScale,
@@ -586,10 +595,14 @@ void Run::TickPhysics( double secondsPerFrame )
         SceneState().isFixedStep,
         policy.physicsAdvance,
         stepRequested,
-        SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(), &m_cGameModelCollection },
+        SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(),
+                               &m_cGameModelCollection,
+                               m_systems.config,
+                               m_systems.workerPool,
+                               &physicsWorldForces },
         manipulatorPhysics ? &Run::ApplyMousePickupPhysicsStepThunk : nullptr,
         this,
-        ( manipulatorPhysics || replayCapture ) ? &Run::AfterPhysicsStepThunk : nullptr,
+        ( manipulatorPhysics || replayCapture || contactAudioStep ) ? &Run::AfterPhysicsStepThunk : nullptr,
         this } );
     m_runtimeTools.TickRayCastTestLines( static_cast<float>( secondsPerFrame ) );
     m_runtimeTools.Laser().Update( static_cast<float>( secondsPerFrame ) );
@@ -623,6 +636,105 @@ void Run::ApplyMousePickupPhysicsStepThunk( void* userData )
 void Run::AfterPhysicsStep()
 {
     RestoreMousePickupAngularVelocity();
+    if ( m_contactAudio.IsEnabled() )
+    {
+        PROFILE_SCOPED( "Frame/Physics/Step/ContactAudio" );
+
+        const Vector3 listenerPosition =
+            m_systems.cameras ? m_systems.cameras->GetRenderCameraTranslation() : Math::Vector::ZERO_VECTOR;
+        m_contactAudio.BeginPhysicsStep( PHYSICS_FIXED_DT, listenerPosition );
+
+        // Why: PhysicsDebugContact rows are emitted after accumulated normal
+        // impulses are known. Audio can consume those facts without entering
+        // solver math or changing deterministic physics state.
+        const std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.Models();
+        const std::vector<PhysicsDebugContact>& contacts = m_cGameModelCollection.GetPhysicsDebugContacts();
+        auto materialForBody = [&]( int bodyIndex ) -> uint32_t
+        {
+            if ( bodyIndex >= 0 && bodyIndex < static_cast<int>( models.size() ) )
+            {
+                return models[static_cast<std::size_t>( bodyIndex )].GetContactMaterialId();
+            }
+            return HashStr( "default" );
+        };
+
+        for ( const PhysicsDebugContact& contact : contacts )
+        {
+            if ( contact.bodyA < 0 || contact.normalImpulse <= 0.0f )
+            {
+                continue;
+            }
+
+            Runtime::Audio::ContactAudioEvent event;
+            event.bodyA = contact.bodyA;
+            event.bodyB = contact.bodyB;
+            event.featureId = contact.featureId;
+            event.materialA = materialForBody( contact.bodyA );
+            event.materialB = materialForBody( contact.bodyB );
+            event.point = contact.point;
+            event.normal = contact.normal;
+            event.normalImpulse = contact.normalImpulse;
+            // Why: sound uses pre-solve relative motion so stationary wall bricks
+            // receiving propagated constraint force do not all become emitters.
+            event.normalClosingSpeed = contact.preSolveClosingSpeed;
+            event.tangentSlipSpeed = contact.preSolveSlipSpeed;
+            event.isTerrain = contact.bodyB < 0;
+            event.hasMotionData = true;
+            m_contactAudio.SubmitContact( event );
+        }
+
+        m_contactAudio.EndPhysicsStep();
+#ifdef _DEBUG
+        if ( m_diagnosticsRuntime.PhysicsDiagnosticsEnabled() )
+        {
+            const int decisionCount = m_contactAudio.DecisionCount();
+            for ( int i = 0; i < decisionCount; ++i )
+            {
+                Runtime::Audio::ContactAudioDecision decision;
+                if ( m_contactAudio.GetDecision( i, decision ) )
+                {
+                    RuntimeDiagnostics::LogContactAudioDecision( m_diagnosticsRuntime.PhysicsDiagnostics(),
+                                                                 SceneState(),
+                                                                 decision );
+                }
+            }
+        }
+#endif
+        if ( m_runtimeSettings.contactAudioFlashOnSubmit )
+        {
+            // Why: the white flash marks actual sound emitters. Rejected,
+            // rate-limited, or voice-capped contacts stay visual-noise-free.
+            constexpr float CONTACT_AUDIO_FLASH_SECONDS = 0.1f;
+            const int decisionCount = m_contactAudio.DecisionCount();
+            for ( int i = 0; i < decisionCount; ++i )
+            {
+                Runtime::Audio::ContactAudioDecision decision;
+                if ( !m_contactAudio.GetDecision( i, decision ) || !decision.submitted )
+                {
+                    continue;
+                }
+
+                m_cGameModelCollection.NotifyAudioContact( decision.event.bodyA, CONTACT_AUDIO_FLASH_SECONDS );
+                m_cGameModelCollection.NotifyAudioContact( decision.event.bodyB, CONTACT_AUDIO_FLASH_SECONDS );
+            }
+        }
+        if ( m_runtimeSettings.contactAudioDebugCounters )
+        {
+            m_timers.contactAudioStatsLogTime += PHYSICS_FIXED_DT;
+            if ( m_timers.contactAudioStatsLogTime >= 1.0f )
+            {
+                const Runtime::Audio::ContactAudioStats& stats = m_contactAudio.Stats();
+                printf( "[audio] contact stats events=%u threshold=%u cooldown=%u submitted=%u dropped=%u\n",
+                        stats.eventsSeen,
+                        stats.rejectedByThreshold,
+                        stats.rejectedByCooldown,
+                        stats.submittedVoices,
+                        stats.droppedVoices );
+                m_contactAudio.ResetFrameStats();
+                m_timers.contactAudioStatsLogTime = 0.0f;
+            }
+        }
+    }
     if ( m_replayRuntime.IsCaptureEnabled() )
     {
         PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
@@ -714,16 +826,14 @@ void Run::TickReplayScrubProbe()
         throw std::runtime_error( "replay scrub probe did not find a moved body in the selected replay window" );
     }
 
-    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels =
-        m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
-    if ( liveBody->modelIndex < 0 || liveBody->modelIndex >= static_cast<int>( physicsModels.size() ) )
+    const int probedModelIndex = liveBody->modelIndex;
+    const SkullbonezCore::GameObjects::GameModel* probedModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !probedModel )
     {
         throw std::runtime_error( "replay scrub probe selected an invalid live model index" );
     }
 
-    SkullbonezCore::GameObjects::GameModel& probedModel =
-        physicsModels[static_cast<std::size_t>( liveBody->modelIndex )];
-    const Math::Vector::Vector3 preApplyPosition = probedModel.GetPosition();
+    const Math::Vector::Vector3 preApplyPosition = probedModel->GetPosition();
     const float preLiveDeltaSquared = distanceSquared( preApplyPosition, liveBody->position );
     if ( preLiveDeltaSquared > m_replayScrubProbe.minDistanceSquared )
     {
@@ -736,7 +846,13 @@ void Run::TickReplayScrubProbe()
     {
         throw std::runtime_error( "replay scrub probe failed to apply the selected presentation sample" );
     }
-    const Math::Vector::Vector3 appliedPosition = probedModel.GetPosition();
+    const SkullbonezCore::GameObjects::GameModel* appliedModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !appliedModel )
+    {
+        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+        throw std::runtime_error( "replay scrub probe lost the selected live model after applying scrub state" );
+    }
+    const Math::Vector::Vector3 appliedPosition = appliedModel->GetPosition();
     const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
     if ( appliedDeltaSquared > m_replayScrubProbe.minDistanceSquared )
     {
@@ -745,7 +861,13 @@ void Run::TickReplayScrubProbe()
     }
 
     m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
-    const Math::Vector::Vector3 restoredPosition = probedModel.GetPosition();
+    const SkullbonezCore::GameObjects::GameModel* restoredModel =
+        m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !restoredModel )
+    {
+        throw std::runtime_error( "replay scrub probe lost the selected live model after restoring scrub state" );
+    }
+    const Math::Vector::Vector3 restoredPosition = restoredModel->GetPosition();
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     const bool restored = restoredDeltaSquared <= m_replayScrubProbe.minDistanceSquared;
     if ( !restored )
@@ -1011,16 +1133,14 @@ void Run::TickReplaySaveProbe()
         throw std::runtime_error( "replay save probe did not find a moved body in the loaded v2 artifact" );
     }
 
-    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels =
-        m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
-    if ( liveBody->modelIndex < 0 || liveBody->modelIndex >= static_cast<int>( physicsModels.size() ) )
+    const int probedModelIndex = liveBody->modelIndex;
+    const SkullbonezCore::GameObjects::GameModel* probedModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !probedModel )
     {
         throw std::runtime_error( "replay save probe loaded an invalid live model index" );
     }
 
-    SkullbonezCore::GameObjects::GameModel& probedModel =
-        physicsModels[static_cast<std::size_t>( liveBody->modelIndex )];
-    const Math::Vector::Vector3 preApplyPosition = probedModel.GetPosition();
+    const Math::Vector::Vector3 preApplyPosition = probedModel->GetPosition();
     const float preLiveDeltaSquared = distanceSquared( preApplyPosition, liveBody->position );
     if ( preLiveDeltaSquared > 0.0001f )
     {
@@ -1032,7 +1152,13 @@ void Run::TickReplaySaveProbe()
     {
         throw std::runtime_error( "replay save probe failed to apply the loaded v2 presentation sample" );
     }
-    const Math::Vector::Vector3 appliedPosition = probedModel.GetPosition();
+    const SkullbonezCore::GameObjects::GameModel* appliedModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !appliedModel )
+    {
+        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+        throw std::runtime_error( "replay save probe lost the selected live model after applying the v2 sample" );
+    }
+    const Math::Vector::Vector3 appliedPosition = appliedModel->GetPosition();
     const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
     if ( appliedDeltaSquared > 0.0001f )
     {
@@ -1041,7 +1167,13 @@ void Run::TickReplaySaveProbe()
     }
 
     m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
-    const Math::Vector::Vector3 restoredPosition = probedModel.GetPosition();
+    const SkullbonezCore::GameObjects::GameModel* restoredModel =
+        m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !restoredModel )
+    {
+        throw std::runtime_error( "replay save probe lost the selected live model after restoring the v2 sample" );
+    }
+    const Math::Vector::Vector3 restoredPosition = restoredModel->GetPosition();
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     if ( restoredDeltaSquared > 0.0001f )
     {
@@ -1146,23 +1278,27 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
         throw std::runtime_error( "replay load probe did not find a moved body in the loaded v2 artifact" );
     }
 
-    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels =
-        m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
-    if ( selectedBody->modelIndex < 0 || selectedBody->modelIndex >= static_cast<int>( physicsModels.size() ) )
+    const int probedModelIndex = selectedBody->modelIndex;
+    const SkullbonezCore::GameObjects::GameModel* probedModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !probedModel )
     {
         throw std::runtime_error( "replay load probe loaded an invalid model index" );
     }
 
-    SkullbonezCore::GameObjects::GameModel& probedModel =
-        physicsModels[static_cast<std::size_t>( selectedBody->modelIndex )];
-    const Math::Vector::Vector3 preApplyPosition = probedModel.GetPosition();
+    const Math::Vector::Vector3 preApplyPosition = probedModel->GetPosition();
     const bool applied = m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, *selected );
     if ( !applied )
     {
         throw std::runtime_error( "replay load probe failed to apply the selected loaded v2 sample" );
     }
 
-    const Math::Vector::Vector3 appliedPosition = probedModel.GetPosition();
+    const SkullbonezCore::GameObjects::GameModel* appliedModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !appliedModel )
+    {
+        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+        throw std::runtime_error( "replay load probe lost the selected model after applying the v2 sample" );
+    }
+    const Math::Vector::Vector3 appliedPosition = appliedModel->GetPosition();
     const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
     if ( appliedDeltaSquared > 0.0001f )
     {
@@ -1171,7 +1307,13 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
     }
 
     m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
-    const Math::Vector::Vector3 restoredPosition = probedModel.GetPosition();
+    const SkullbonezCore::GameObjects::GameModel* restoredModel =
+        m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !restoredModel )
+    {
+        throw std::runtime_error( "replay load probe lost the selected model after restoring the v2 sample" );
+    }
+    const Math::Vector::Vector3 restoredPosition = restoredModel->GetPosition();
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     if ( restoredDeltaSquared > 0.0001f )
     {
@@ -1673,18 +1815,19 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 
     auto checkpointTopologyMatchesLive = [&]() -> bool
     {
-        const std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModelsForCompatibility();
-        if ( checkpoint->bodies.size() > models.size() )
+        const int liveModelCount = m_cGameModelCollection.GetModelCount();
+        if ( checkpoint->bodies.size() > static_cast<std::size_t>( liveModelCount ) )
         {
             return false;
         }
         for ( const ReplaySolverBodySample& body : checkpoint->bodies )
         {
-            if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
+            if ( body.modelIndex < 0 || body.modelIndex >= liveModelCount )
             {
                 return false;
             }
-            if ( models[static_cast<std::size_t>( body.modelIndex )].GetReplayBodyId() != body.id.value )
+            const GameModel* model = m_cGameModelCollection.TryGetModel( body.modelIndex );
+            if ( !model || model->GetReplayBodyId() != body.id.value )
             {
                 return false;
             }
@@ -1766,7 +1909,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         {
             SceneGeneratedSetup::SetUpSolverObjects(
                 BuildSceneGeneratedModelContext( SceneState(),
-                                                 Cfg(),
+                                                 m_config,
                                                  m_cWorldEnvironment,
                                                  m_systems.terrain.get(),
                                                  m_cGameModelCollection,
@@ -1779,7 +1922,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         {
             SceneGeneratedSetup::SetUpGameModels(
                 BuildSceneGeneratedModelContext( SceneState(),
-                                                 Cfg(),
+                                                 m_config,
                                                  m_cWorldEnvironment,
                                                  m_systems.terrain.get(),
                                                  m_cGameModelCollection,
@@ -1912,8 +2055,13 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             SceneState().currentFrame = currentSceneFrame;
             m_cGameModelCollection.BeginCollisionVisualFrame();
 
-            SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(), &m_cGameModelCollection }.Run(
-                PHYSICS_FIXED_DT );
+            const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
+            SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(),
+                                   &m_cGameModelCollection,
+                                   m_systems.config,
+                                   m_systems.workerPool,
+                                   &physicsWorldForces }
+                .Run( PHYSICS_FIXED_DT );
             currentFrame = nextFrame;
 
             const ReplayV2SolverHashSample* expectedHash = FindReplaySolverHashForFrame( hashes, currentFrame );
@@ -1942,18 +2090,17 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 char message[1024] = {};
                 const ReplayPresentationSample* expectedPresentation =
                     FindReplayPresentationForFrame( presentationSamples, currentFrame );
-                const std::vector<GameModel>& restoredModels = m_cGameModelCollection.PhysicsModelsForCompatibility();
-                if ( expectedPresentation && !expectedPresentation->bodies.empty() && !restoredModels.empty() )
+                const GameModel* restoredModel = m_cGameModelCollection.TryGetModel( 0 );
+                if ( expectedPresentation && !expectedPresentation->bodies.empty() && restoredModel )
                 {
                     const ReplayBodyPresentationSample& expectedBody = expectedPresentation->bodies[0];
-                    const GameModel& restoredModel = restoredModels[0];
-                    const Vector3& restoredPosition = restoredModel.GetPosition();
-                    const Vector3& restoredVelocity = restoredModel.GetVelocity();
+                    const Vector3& restoredPosition = restoredModel->GetPosition();
+                    const Vector3& restoredVelocity = restoredModel->GetVelocity();
                     float restoredQx = 0.0f;
                     float restoredQy = 0.0f;
                     float restoredQz = 0.0f;
                     float restoredQw = 1.0f;
-                    restoredModel.GetOrientation().GetComponents( restoredQx, restoredQy, restoredQz, restoredQw );
+                    restoredModel->GetOrientation().GetComponents( restoredQx, restoredQy, restoredQz, restoredQw );
 
                     sprintf_s( message,
                                sizeof( message ),
@@ -1985,7 +2132,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                expectedBody.orientation[1],
                                expectedBody.orientation[2],
                                expectedBody.orientation[3],
-                               restoredModel.GetReplayBodyId(),
+                               restoredModel->GetReplayBodyId(),
                                expectedBody.id.value,
                                static_cast<unsigned long long>( eventsApplied ) );
                 }
@@ -2299,7 +2446,7 @@ bool Run::TickScreenshots()
                                           m_sceneController.Browser(),
                                           m_cGameModelCollection,
                                           m_systems.assets,
-                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                           m_defaultCinematicRender },
                 action.index );
         case SceneRuntimeControlActionType::None:
@@ -2365,10 +2512,9 @@ bool Run::TickScreenshots()
         break;
     case RuntimeCaptureAutomation::AdvanceSceneOrQuit:
     {
-        const SceneRuntimeControlAction action =
-            m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
-                                             sPerfPass,
-                                             SceneState().isInteractiveRun );
+        const SceneRuntimeControlAction action = m_sceneCoordinator.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
+                                                                                  sPerfPass,
+                                                                                  SceneState().isInteractiveRun );
         if ( !executeSceneControlAction( action ) )
         {
             if ( result.completion == RuntimeCaptureCompletion::Screenshot )
@@ -2472,7 +2618,7 @@ bool Run::TickSceneAdvance()
                                           m_sceneController.Browser(),
                                           m_cGameModelCollection,
                                           m_systems.assets,
-                                          RuntimeActiveCinematicConfig( SceneState(), Cfg() ),
+                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
                                           m_defaultCinematicRender },
                 action.index );
         case SceneRuntimeControlActionType::None:
@@ -2645,7 +2791,8 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     // frame time. Mouse look consumes a per-frame cursor delta, so using live dt
     // would make sensitivity vary with FPS; the fixed reference preserves the
     // existing 60 Hz tuning while making the result frame-rate independent.
-    MoveCamera( cameraDt * Cfg().keySpeed, CAMERA_MOUSE_REFERENCE_DT * Cfg().mouseSensitivity );
+    const EngineConfig& cfg = m_config;
+    MoveCamera( cameraDt * cfg.keySpeed, CAMERA_MOUSE_REFERENCE_DT * cfg.mouseSensitivity );
     TickAttachedCamera();
 
     UpdateWaterHeightControls( simulationDt );
@@ -2653,7 +2800,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
     // Tween speed is also presentation-time behavior. The selected destination
     // camera can still track moving scene objects, but the interpolation rate
     // itself should be stable in real seconds instead of following time_scale.
-    m_systems.cameras->SetTweenSpeed( Cfg().cameraTweenRate * cameraDt );
+    m_systems.cameras->SetTweenSpeed( cfg.cameraTweenRate * cameraDt );
 }
 
 

@@ -15,7 +15,8 @@ Glossary:
     does not call into PhysicsEngine.
 
 Invariants:
-  - Model-index validation happens before creating a compatibility handle.
+  - Model-index validation happens before asking PhysicsBodyStore for a body
+    handle.
   - Scene-object lookup scans current model order only to find identity; it does
     not lend out the backing vector.
   - PhysicsEngine remains the only object that mutates physics state.
@@ -31,6 +32,7 @@ Related:
 
 #include "GameModel.h"
 #include "GameModelCollection.h"
+#include "../Physics/PhysicsBodyStore.h"
 #include "../Physics/PhysicsEngine.h"
 
 using SkullbonezCore::GameObjects::GameModel;
@@ -52,7 +54,8 @@ PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForModelIndex( in
         return PhysicsBodyHandle{};
     }
 
-    return m_collection.BodyHandleForModelIndex( modelIndex );
+    m_collection.m_physicsEngine.RefreshBodyStore( m_collection );
+    return m_collection.m_physicsEngine.BodyStore().HandleForModelIndex( modelIndex );
 }
 
 

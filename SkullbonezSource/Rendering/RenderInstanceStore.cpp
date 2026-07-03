@@ -14,6 +14,8 @@ Glossary:
   Material intent: Engine-level material choice before a renderer maps it to
     shaders, textures, or descriptor rows.
   Replay body id: Stable per-scene id shared with physics/replay records.
+  Contact highlight: Render-only feedback alpha copied from GameModel after
+    gameplay/physics presentation state has advanced.
 
 Invariants:
   - Records stay in GameModelCollection model order and compatibility handles
@@ -30,7 +32,6 @@ Related:
 
 #include "../Core/Common.h"
 #include "../GameObjects/GameModel.h"
-#include "../Physics/PhysicsModelAccess.h"
 
 using SkullbonezCore::GameObjects::GameModel;
 using SkullbonezCore::Rendering::RenderInstanceHandle;
@@ -54,47 +55,28 @@ void RenderInstanceStore::Clear()
 
 void RenderInstanceStore::Refresh( std::vector<GameModel>& models )
 {
-    // Invariant: render instance handles intentionally mirror model slots until
-    // a future renderer-facing allocation owner replaces compatibility ids.
-    m_instances.resize( models.size() );
-    m_modelInstanceHandles.resize( models.size() );
-    for ( std::size_t i = 0; i < models.size(); ++i )
-    {
-        GameModel& model = models[i];
-        RenderInstanceRecord& record = m_instances[i];
-        const uint32_t modelIndex = static_cast<uint32_t>( i );
-        record.handle = MakeCompatibilityRenderInstanceHandle( modelIndex );
-        record.legacyModelIndex = static_cast<int>( i );
-        record.replayBodyId = model.GetReplayBodyId();
-        record.modelMatrix = model.GetModelMatrix();
-        record.material = model.GetRenderMaterial();
-        record.isFixed = model.IsFixed();
-        record.fixedContactAlpha = model.GetFixedContactHighlightAlpha();
-        m_modelInstanceHandles[i] = record.handle;
-    }
+    Refresh( models.empty() ? nullptr : models.data(), static_cast<int>( models.size() ) );
 }
 
 
-void RenderInstanceStore::Refresh( SkullbonezCore::Physics::PhysicsModelAccess& modelAccess )
+void RenderInstanceStore::Refresh( GameModel* models, int modelCount )
 {
     // Invariant: render instance handles intentionally mirror model slots until
     // a future renderer-facing allocation owner replaces compatibility ids.
-    auto models = modelAccess.Models();
-    const int modelCount = models.Count();
     m_instances.resize( static_cast<std::size_t>( modelCount ) );
     m_modelInstanceHandles.resize( static_cast<std::size_t>( modelCount ) );
     for ( int i = 0; i < modelCount; ++i )
     {
-        GameModel& model = models[static_cast<std::size_t>( i )];
+        GameModel& model = models[i];
         RenderInstanceRecord& record = m_instances[static_cast<std::size_t>( i )];
         const uint32_t modelIndex = static_cast<uint32_t>( i );
         record.handle = MakeCompatibilityRenderInstanceHandle( modelIndex );
-        record.legacyModelIndex = i;
         record.replayBodyId = model.GetReplayBodyId();
         record.modelMatrix = model.GetModelMatrix();
         record.material = model.GetRenderMaterial();
         record.isFixed = model.IsFixed();
         record.fixedContactAlpha = model.GetFixedContactHighlightAlpha();
+        record.audioContactAlpha = model.GetAudioContactHighlightAlpha();
         m_modelInstanceHandles[static_cast<std::size_t>( i )] = record.handle;
     }
 }
@@ -136,7 +118,7 @@ int RenderInstanceStore::ModelIndexForHandle( RenderInstanceHandle handle ) cons
         return -1;
     }
 
-    return m_instances[static_cast<std::size_t>( handle.index )].legacyModelIndex;
+    return static_cast<int>( handle.index );
 }
 
 

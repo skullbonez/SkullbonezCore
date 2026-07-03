@@ -104,6 +104,7 @@ RigidBody::RigidBody()
     m_worldTorque = Vector::ZERO_VECTOR;
     m_changeInAngularVelocity = Vector::ZERO_VECTOR;
     m_rotationalInertia = Vector3( 1.0f, 1.0f, 1.0f );
+    m_angularVelocityLimit = 5.0f;
     m_orientation.Identity();
 }
 
@@ -217,10 +218,10 @@ void RigidBody::ThrottleAngularVelocity()
 {
     float magSq = m_angularVelocity.x * m_angularVelocity.x + m_angularVelocity.y * m_angularVelocity.y +
                   m_angularVelocity.z * m_angularVelocity.z;
-    float limitSq = Cfg().velocityLimit * Cfg().velocityLimit;
+    float limitSq = m_angularVelocityLimit * m_angularVelocityLimit;
     if ( magSq > limitSq )
     {
-        float scale = Cfg().velocityLimit / sqrtf( magSq );
+        float scale = m_angularVelocityLimit / sqrtf( magSq );
         m_angularVelocity.x *= scale;
         m_angularVelocity.y *= scale;
         m_angularVelocity.z *= scale;
@@ -504,6 +505,12 @@ void RigidBody::SetLinearVelocity( const Vector3& vLinear )
 void RigidBody::SetAngularVelocity( const Vector3& vAngular )
 {
     m_angularVelocity = vAngular;
+}
+
+
+void RigidBody::SetAngularVelocityLimit( float velocityLimit )
+{
+    m_angularVelocityLimit = (std::max)( 0.0f, velocityLimit );
 }
 
 

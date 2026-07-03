@@ -14,6 +14,14 @@ Glossary:
   bodies settle.
   Wet sample: Fixed point inside a box-like volume used to approximate how much
   water is under that part of the body.
+  Audio contact highlight: Short render-only flash used to show which objects
+    emitted contact audio.
+  Physics material: Per-object friction and drag coefficients consumed by the
+    body integrator, collision shape, and fluid-force cache.
+  Body simulation limit: Scalar cap enforced by the body before solver rows see
+    velocity state.
+  Contact policy: Geometry thresholds that decide when terrain is close enough
+    to count as contact and when bounce response may be applied.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -37,52 +45,23 @@ Related:
 #include "../Rendering/RenderMaterial.h"
 #include "../Physics/RigidBody.h"
 #include "../Physics/CollisionShape.h"
+#include "../Physics/PhysicsObjectPolicy.h"
 #include "../World/Terrain.h"
-#include "../Physics/ResponseInformation.h"
 
 
 namespace SkullbonezCore
 {
+namespace Basics
+{
+class EngineConfig;
+} // namespace Basics
+
 namespace Environment
 {
 class WorldEnvironment;
 } // namespace Environment
 namespace Physics
 {
-// A TerrainContactPoint is one exact place where a moving model is touching
-// the terrain. Think of it as a thumbtack on the object: the solver will push
-// at this thumbtack, not at the object's center. rA is the lever arm from the
-// body center to the thumbtack, so the same push can also create spin.
-struct TerrainContactPoint
-{
-    Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 rA = Math::Vector::ZERO_VECTOR;
-    float penetration = 0.0f;
-    uint32_t featureId = 0;
-};
-
-// A TerrainContactManifold is the full "touching terrain" report for one body
-// during one physics tick. Spheres usually have one point; boxes can have
-// several corners touching at once. This struct is only geometry and policy
-// metadata. The actual velocity response happens later in GameModelCollection's
-// shared contact-row solver.
-struct TerrainContactManifold
-{
-    int bodyA = -1;
-    int bodyB = -1;                                                         // -1 marks terrain, which is static and not stored in the body array.
-    Math::Vector::Vector3 normal = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 tangent1 = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 tangent2 = Math::Vector::ZERO_VECTOR;
-    TerrainContactPoint points[8];
-    uint8_t pointCount = 0;
-    float timeOfImpact = 0.0f;
-    bool sweptHit = false;
-    bool supportsRestingPolicy = true;
-    bool allowsTangentFriction = true;
-    bool inhibitsSleep = false;
-    uint32_t terrainCellId = 0;
-    uint32_t materialId = 0;
-};
 } // namespace Physics
 
 namespace GameObjects
@@ -130,20 +109,22 @@ class GameModel
     Physics::RigidBody m_physicsInfo;                                       // Integrator state: position, velocity, orientation, forces, and impulses.
     Environment::WorldEnvironment* m_worldEnvironment;                      // Borrowed world force/fluid settings; owning scene keeps it alive.
     Geometry::Terrain* m_terrain;                                           // Borrowed terrain used for height samples and terrain contacts.
-    // Temporary terrain-hit mailbox. CollisionDetectTerrain writes where and
-    // when a terrain hit happened; BuildTerrainContactManifold reads it and
-    // converts it into solver-neutral contact points. It is not the solver.
-    Physics::ResponseInformation
-        m_responseInformation;                                              // Legacy terrain-response mailbox consumed before shared manifold solving.
     float m_projectedSurfaceArea;                                           // Drag area in square meters after collision-shape updates.
     float m_dragCoefficient;                                                // Effective drag coefficient averaged from attached dynamics data.
+    // Model-local physics policy copied from the owning collection. Contact and
+    // force hot paths read these values directly after config application.
+    Physics::PhysicsMaterial m_physicsMaterial;
+    Physics::BodySimulationLimits m_bodySimulationLimits;
+    Physics::ContactPolicy m_contactPolicy;
     float m_fixedContactHighlightSeconds;                                   // Seconds remaining for fixed-body red contact feedback
+    float m_audioContactHighlightSeconds;                                   // Seconds remaining for contact-audio white feedback.
     float m_renderTintR;                                                    // Per-instance render tint red channel
     float m_renderTintG;                                                    // Per-instance render tint green channel
     float m_renderTintB;                                                    // Per-instance render tint blue channel
     float m_renderColorOverride;                                            // 1 = render with tint as material color, 0 = material tint multiplier
     Rendering::RenderMaterial m_renderMaterial;                             // Render-only material intent, mirrored to the current tint bridge
-    bool m_isResponseRequired;                                              // Terrain detection handoff flag; shared terrain rows consume generated manifolds
+    char m_contactMaterialName[32];                                         // Gameplay/audio contact material token, independent of render material.
+    uint32_t m_contactMaterialId;                                           // Hash of m_contactMaterialName used by contact/audio hot paths.
     bool m_isFixed;                                                         // True for immovable collision bodies such as floating ramps
     bool m_releasesFromFixedOnContact;                                      // Fixed decorative pieces can become dynamic after a real hit.
     float m_contactReleaseImpulseThreshold;                                 // Minimum solved normal impulse before fixed-contact release.
@@ -162,24 +143,6 @@ class GameModel
     void CalculateVolume();                                                 // Refreshes cached collision volume after shape changes.
     void ApplyWorldForces( float changeInTime );
     void UpdateModelInfo();                                                 // Refreshes derived physics/render scalars after object-list mutations.
-    float GetTerrainCollisionTime( float changeInTime );                    // Swept terrain time-of-impact over changeInTime seconds.
-    float GetModelCollisionTime( GameModel& collisionTarget,
-                                 float changeInTime );                      // Swept object/object time-of-impact over changeInTime seconds.
-
-    // Box/terrain contact must be measured from the actual oriented box vertices,
-    // not from the model center plus a vertical support extent. On uneven terrain,
-    // the center-based shortcut can say a box is supported while every real vertex
-    // is still visibly above the surface. This helper returns the closest true
-    // vertex, the terrain sample under that vertex, and the signed vertical gap.
-    bool GetClosestBoxTerrainVertex( Math::Vector::Vector3& outVertex,
-                                     float& outTerrainHeight,
-                                     Geometry::Plane& outPlane,
-                                     float& outGap );
-    bool GetClosestHullTerrainVertex( Math::Vector::Vector3& outVertex,
-                                      float& outTerrainHeight,
-                                      Geometry::Plane& outPlane,
-                                      float& outGap );
-    void ClampToTerrainSurface();                                           // Corrects tiny post-solve terrain overlap before it accumulates visibly.
 
   public:
     struct BuoyancySample
@@ -201,12 +164,6 @@ class GameModel
         uint8_t wetPointCount = 0;
     };
 
-    struct ObjectSweepResult
-    {
-        bool hit = false;
-        float collisionTime = 0.0f;
-    };
-
     GameModel( Environment::WorldEnvironment* pWorldEnv,
                const Math::Vector::Vector3& vPosition,
                const Math::Vector::Vector3& vRotationalInertia,
@@ -217,8 +174,6 @@ class GameModel
 
     Math::Transformation::Matrix4
     GetModelMatrix();                                                       // World transform sent to rendering; order is translate * rotate * terrain-offset * scale.
-    bool IsResponseRequired();                                              // Legacy terrain-response mailbox has data waiting for the owner.
-    void ClearResponseRequired();                                           // Owner has consumed the terrain-response mailbox for this tick.
     float GetSubmergedVolumePercent();                                      // Fraction in [0,1] used by buoyancy and fluid drag.
     BuoyancySample CalculateBuoyancySample();                               // Submerged fraction plus the world-space center of displaced water.
     Math::Vector::Vector3
@@ -238,16 +193,7 @@ class GameModel
     const Math::Vector::Vector3& GetAngularVelocity();
     const Math::Vector::Vector3& GetAngularVelocity() const;
     void ApplyForces( float changeInTime );
-    void UpdatePosition( float changeInTime );
     void SetTerrain( Geometry::Terrain* pTerrain );                         // Borrowed scene terrain; caller keeps it alive for this model.
-    float CollisionDetectTerrain(
-        float changeInTime );                                               // Swept terrain query that fills the response mailbox but applies no impulse.
-    bool BuildTerrainContactManifold(
-        int bodyIndex,
-        float timeOfImpact,
-        float availableTime,
-        Physics::TerrainContactManifold& out );                             // Emits solver-row terrain geometry from the terrain
-                                                // mailbox; false when mailbox has no hit.
     void SetImpulseForce( const Math::Vector::Vector3& vForce,
                           const Math::Vector::Vector3&
                               vApplicationPoint );                          // Stages a one-shot impulse at a world-space application point.
@@ -280,6 +226,16 @@ class GameModel
     void SetRenderMaterial(
         const Rendering::RenderMaterial& material );                        // Render intent only; collision material stays elsewhere.
     const Rendering::RenderMaterial& GetRenderMaterial() const;
+    void SetContactMaterial( const char* materialName );                    // Audio/gameplay contact material; defaults to "default".
+    const char* GetContactMaterialName() const;
+    uint32_t GetContactMaterialId() const;
+    void ApplyRuntimeConfig( const Basics::EngineConfig& config );
+    void ApplyPhysicsMaterial( const Physics::PhysicsMaterial& material );
+    void ApplyBodySimulationLimits( const Physics::BodySimulationLimits& limits );
+    void ApplyContactPolicy( const Physics::ContactPolicy& policy );
+    float GetAngularVelocityLimit() const;                                  // Body spin cap copied from runtime config.
+    float GetContactEpsilon() const;                                        // Terrain/contact proximity tolerance copied from runtime config.
+    Geometry::Terrain* GetTerrain() const;                                  // Borrowed scene terrain used by water and terrain-contact paths.
     void AddBoundingSphere( float fRadius );
     void AddBoundingBox( const Math::Vector::Vector3& halfExtents );
     void AddConvexHull( const Math::CollisionDetection::ConvexHullShape& hull );
@@ -300,18 +256,19 @@ class GameModel
     float GetContactReleaseImpulseThreshold() const;
     void NotifyFixedContact(
         float highlightSeconds );                                           // Restarts red contact feedback when a dynamic body hits fixed geometry.
-    void TickFixedContactHighlight( float dt );                             // dt is seconds; saturates at no-contact tint.
+    void NotifyAudioContact( float highlightSeconds );                      // Restarts white feedback when this model emits contact audio.
+    void TickFixedContactHighlight( float dt );                             // dt is seconds; saturates both contact highlight timers.
     float GetFixedContactHighlightAlpha() const;                            // 0=no contact tint, 1=full red contact tint.
+    float GetAudioContactHighlightAlpha() const;                            // 0=no audio tint, 1=full white contact-audio flash.
     float GetFixedContactHighlightSeconds() const;                          // Raw highlight timer for replay/prediction state restore.
     void SetFixedContactHighlightSeconds(
         float seconds );                                                    // Restores the raw contact-highlight timer after speculative physics.
-    ObjectSweepResult SweepGameModel( GameModel& collisionTarget,
-                                      float changeInTime );                 // Swept object/object query with explicit hit state.
     float GetBoundingRadius();                                              // Conservative broadphase radius; convex hulls and boxes are not sphere geometry.
     Math::Vector::Vector3 GetOrientationUp();                               // Local +Y axis rotated into world space by the visual orientation.
     const Math::Orientation::Quaternion& GetOrientation() const;
     const Math::Vector::Vector3& GetRotationalInertia() const;
-    const Math::Vector::Vector3& GetInvertedRotationalInertia();            // Component-wise inverse inertia cache for solver rows.
+    const Math::Vector::Vector3&
+    GetInvertedRotationalInertia() const;                                   // Component-wise inverse inertia cache for solver rows.
     float GetCoefficientRestitution() const;
     const Math::CollisionDetection::CollisionShape&
     GetCollisionShape() const;                                              // Authoritative shape variant for narrowphase manifold dispatch.

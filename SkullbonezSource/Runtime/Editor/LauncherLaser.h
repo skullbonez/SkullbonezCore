@@ -11,6 +11,8 @@ Glossary:
   Billboard: Camera-facing quad built from a world-space segment and view
     direction.
   Ribbon: Thin render strip used for the laser core and glow.
+  Render resource factory: Renderer capability borrowed only while creating
+    laser-owned shader resources.
   Snapshot: Compact replay record of visible launcher feedback.
   Shader handle: Runtime id that resolves to renderer-owned shader state.
 
@@ -36,8 +38,13 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
+class IRenderResourceFactory;
 class IShader;
-}
+} // namespace Rendering
+namespace Assets
+{
+class AssetSystem;
+} // namespace Assets
 
 namespace Basics
 {
@@ -77,7 +84,7 @@ class LauncherLaser
     std::unique_ptr<Rendering::IShader> m_shader;
     uint32_t m_dynamicVB = 0;
 
-    void EnsureResources();
+    void EnsureResources( Assets::AssetSystem& assets, Rendering::IRenderResourceFactory& renderResources );
     void EmitVertex( const Math::Vector::Vector3& p, float r, float g, float b, float a );
     void EmitQuad( const Math::Vector::Vector3& a,
                    const Math::Vector::Vector3& b,
@@ -123,7 +130,9 @@ class LauncherLaser
     void RestoreShots( const std::vector<LauncherLaserShotSnapshot>& shots, int nextShot );
     void Render( const Math::Transformation::Matrix4& viewProjection,
                  const Math::Vector::Vector3& cameraEye,
-                 const Math::Vector::Vector3& cameraUp );
+                 const Math::Vector::Vector3& cameraUp,
+                 Assets::AssetSystem& assets,
+                 Rendering::IRenderResourceFactory& renderResources );
 };
 } // namespace Basics
 } // namespace SkullbonezCore

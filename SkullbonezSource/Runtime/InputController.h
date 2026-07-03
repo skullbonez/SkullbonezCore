@@ -136,6 +136,7 @@ enum class RuntimeInputAction
     ToggleRenderShadows,
     SaveRenderDefaults,
     ApplyRenderTuning,
+    ApplySoundTuning,
     ToggleCinematicRendering,
     SelectCinematicScene,
     ToggleCinematicFeature,

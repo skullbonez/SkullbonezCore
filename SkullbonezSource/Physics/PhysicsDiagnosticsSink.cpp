@@ -26,6 +26,9 @@ Related:
 */
 #include "PhysicsDiagnosticsSink.h"
 
+#ifdef _DEBUG
+#include "PhysicsDiagnosticsModel.h"
+#endif
 #include "PhysicsModelAccess.h"
 #include "PhysicsWorld.h"
 
@@ -67,7 +70,6 @@ void PhysicsDiagnosticsSink::SetPhysicsDiagnosticsRunId( const char* runId )
 
 void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess )
 {
-    auto m_gameModels = modelAccess.Models();
     const PhysicsDiagnosticsView diagnosticsView = world.GetDiagnosticsView();
     const auto& m_sleepSupportedThisFrame = diagnosticsView.sleepSupportedThisFrame;
     const auto& m_sleepState = diagnosticsView.sleepState;
@@ -78,7 +80,7 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsMode
         return;
     }
 
-    const int modelCount = static_cast<int>( m_gameModels.size() );
+    const int modelCount = modelAccess.ModelCount();
     if ( m_physicsRegressionLogFrame == 0 )
     {
         Log().Writef( m_physicsRegressionLogPath,
@@ -87,15 +89,15 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsMode
     }
     for ( int i = 0; i < modelCount; ++i )
     {
-        const char* name = m_gameModels[i].GetName();
-        const Vector3& pos = m_gameModels[i].GetPosition();
-        const Vector3& vel = m_gameModels[i].GetVelocity();
-        const Vector3& omega = m_gameModels[i].GetAngularVelocity();
-        float qx = 0.0f;
-        float qy = 0.0f;
-        float qz = 0.0f;
-        float qw = 1.0f;
-        m_gameModels[i].GetOrientation().GetComponents( qx, qy, qz, qw );
+        PhysicsDiagnosticsModelRecord model;
+        if ( !modelAccess.TryGetPhysicsDiagnosticsModel( i, model ) )
+        {
+            continue;
+        }
+
+        const Vector3& pos = model.position;
+        const Vector3& vel = model.velocity;
+        const Vector3& omega = model.angularVelocity;
         float speed = sqrtf( vel.x * vel.x + vel.y * vel.y + vel.z * vel.z );
         float omegaMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
         int sleepSupported = m_sleepSupportedThisFrame[i];
@@ -106,7 +108,7 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsMode
                       "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d\n",
                       m_physicsRegressionLogFrame,
                       i,
-                      name,
+                      model.name,
                       pos.x,
                       pos.y,
                       pos.z,
@@ -118,10 +120,10 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsMode
                       omega.y,
                       omega.z,
                       omegaMag,
-                      qx,
-                      qy,
-                      qz,
-                      qw,
+                      model.qx,
+                      model.qy,
+                      model.qz,
+                      model.qw,
                       sleepSupported,
                       sleeping,
                       sleepInhibited );
@@ -154,7 +156,6 @@ void PhysicsDiagnosticsSink::EmitCollisionTime( PhysicsModelAccess& modelAccess,
                                                 float availableTime )
 {
 #ifdef _DEBUG
-    auto m_gameModels = modelAccess.Models();
     if ( m_physicsCollisionTimeLogPath[0] == '\0' )
     {
         return;
@@ -165,10 +166,10 @@ void PhysicsDiagnosticsSink::EmitCollisionTime( PhysicsModelAccess& modelAccess,
                       "frame,type,bodyA,bodyB,nameA,nameB,collisionTime,availableTime\n" );
         m_physicsCollisionTimeHeaderWritten = true;
     }
-    const char* nameA =
-        ( bodyA >= 0 && bodyA < static_cast<int>( m_gameModels.size() ) ) ? m_gameModels[bodyA].GetName() : "terrain";
-    const char* nameB =
-        ( bodyB >= 0 && bodyB < static_cast<int>( m_gameModels.size() ) ) ? m_gameModels[bodyB].GetName() : "terrain";
+    PhysicsDiagnosticsModelRecord modelA;
+    PhysicsDiagnosticsModelRecord modelB;
+    const char* nameA = modelAccess.TryGetPhysicsDiagnosticsModel( bodyA, modelA ) ? modelA.name : "terrain";
+    const char* nameB = modelAccess.TryGetPhysicsDiagnosticsModel( bodyB, modelB ) ? modelB.name : "terrain";
     Log().Writef( m_physicsCollisionTimeLogPath,
                   "%d,%s,%d,%d,%s,%s,%.6f,%.6f\n",
                   m_physicsCollisionTimeLogFrame,

@@ -14,6 +14,8 @@ Glossary:
     material intent.
   Material intent: Renderer-neutral description of surface style and texture
     selection.
+  Contact highlight: Render-only feedback alpha for red fixed-body hits or
+    white contact-audio flashes.
   RenderSceneSnapshot: Future immutable frame input consumed by render passes.
   Replay body id: Stable per-scene id shared with physics/replay records.
 
@@ -38,11 +40,6 @@ namespace SkullbonezCore
 namespace GameObjects
 {
 class GameModel;
-}
-
-namespace Physics
-{
-class PhysicsModelAccess;
 }
 
 namespace Rendering
@@ -82,12 +79,12 @@ inline bool operator!=( const RenderInstanceHandle& lhs, const RenderInstanceHan
 struct RenderInstanceRecord
 {
     RenderInstanceHandle handle;                              // Stable render handle paired with the legacy model slot.
-    int legacyModelIndex = -1;                                // Compatibility lookup back to GameModelCollection order.
     uint32_t replayBodyId = 0;                                // Stable replay-facing body id paired with this instance.
     Math::Transformation::Matrix4 modelMatrix;                // World transform used by object rendering.
     RenderMaterial material;                                  // Backend-neutral material intent.
     bool isFixed = false;                                     // Fixed bodies can receive contact-highlight tinting.
     float fixedContactAlpha = 0.0f;                           // Render-only red contact feedback strength.
+    float audioContactAlpha = 0.0f;                           // Render-only white audio-emitter feedback strength.
 };
 
 class RenderInstanceStore
@@ -97,7 +94,7 @@ class RenderInstanceStore
 
     void Clear();
     void Refresh( std::vector<GameObjects::GameModel>& models );
-    void Refresh( Physics::PhysicsModelAccess& modelAccess );
+    void Refresh( GameObjects::GameModel* models, int modelCount );
 
     const RenderInstanceRecord* Data() const;
     int Count() const;

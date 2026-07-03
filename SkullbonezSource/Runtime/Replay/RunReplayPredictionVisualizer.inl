@@ -32,6 +32,7 @@ Related:
 
 bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
                                SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                               SkullbonezCore::Threading::WorkerPool& workerPool,
                                bool scenePhysics,
                                double fallbackSourceSimulationSeconds,
                                double simulationTotalSeconds,
@@ -73,9 +74,9 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
 
     if ( replayRuntime.PathVisualizer().hasTarget && replayRuntime.PathVisualizer().targetId.value != 0 )
     {
-        std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();
         int targetIndex = -1;
-        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        const int modelCount = modelCollection.GetModelCount();
+        for ( int i = 0; i < modelCount; ++i )
         {
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
@@ -83,8 +84,8 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
                 return false;
             }
 
-            if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() ==
-                 replayRuntime.PathVisualizer().targetId.value )
+            const GameModel* model = modelCollection.TryGetModel( i );
+            if ( model && model->GetReplayBodyId() == replayRuntime.PathVisualizer().targetId.value )
             {
                 targetIndex = i;
                 break;
@@ -113,7 +114,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    if ( !CaptureReplayPredictionBodyState( modelCollection, replayRuntime.Prediction().predictionBodies ) )
+    if ( !CaptureReplayPredictionBodyState( modelCollection, workerPool, replayRuntime.Prediction().predictionBodies ) )
     {
         replayRuntime.CancelPredictionJob( true );
         return false;
@@ -134,7 +135,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    CaptureReplayPredictionFrame( replayRuntime, modelCollection, 0 );
+    CaptureReplayPredictionFrame( replayRuntime, modelCollection, workerPool, 0 );
     replayRuntime.Prediction().building = true;
 
     return !replayRuntime.Prediction().buildFrames.empty();
@@ -143,6 +144,9 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
 
 bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
                               SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                              const EngineConfig& config,
+                              const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
+                              SkullbonezCore::Threading::WorkerPool& workerPool,
                               double simulationTotalSeconds,
                               const std::chrono::steady_clock::time_point& budgetStart,
                               double budgetMilliseconds )
@@ -161,7 +165,9 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
     // Hazard: everything after liveRestoreBodies/liveRestoreWorld succeeds may
     // swap live state for prediction state. All early exits before RestoreLive
     // must happen before the swap, or after the restore block below.
-    if ( !CaptureReplayPredictionBodyState( modelCollection, replayRuntime.Prediction().liveRestoreBodies ) )
+    if ( !CaptureReplayPredictionBodyState( modelCollection,
+                                            workerPool,
+                                            replayRuntime.Prediction().liveRestoreBodies ) )
     {
         replayRuntime.CancelPredictionJob( true );
         replayRuntime.Prediction().dirty = true;
@@ -204,11 +210,16 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 
                 {
                     PROFILE_SCOPED( "Frame/Replay/Prediction/StepPhysics" );
-                    SimulationPhysicsStep{ &modelCollection.GetPhysicsEngine(), &modelCollection }.Run(
-                        PHYSICS_FIXED_DT );
+                    SimulationPhysicsStep{ &modelCollection.GetPhysicsEngine(),
+                                           &modelCollection,
+                                           &config,
+                                           &workerPool,
+                                           &worldForces }
+                        .Run( PHYSICS_FIXED_DT );
                 }
                 CaptureReplayPredictionFrame( replayRuntime,
                                               modelCollection,
+                                              workerPool,
                                               static_cast<ReplayFrameIndex>( replayRuntime.Prediction().nextTick ) );
                 ++replayRuntime.Prediction().nextTick;
                 progressed = true;
@@ -222,8 +233,9 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 
         {
             PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureJobState" );
-            jobStateCaptured =
-                CaptureReplayPredictionBodyState( modelCollection, replayRuntime.Prediction().predictionBodies );
+            jobStateCaptured = CaptureReplayPredictionBodyState( modelCollection,
+                                                                 workerPool,
+                                                                 replayRuntime.Prediction().predictionBodies );
             if ( jobStateCaptured )
             {
                 modelCollection.GetPhysicsEngine().CaptureReplaySolverSnapshot(
@@ -483,6 +495,9 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
 
 void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
                                        SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                       const EngineConfig& config,
+                                       const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
+                                       SkullbonezCore::Threading::WorkerPool& workerPool,
                                        bool scenePhysics,
                                        double fallbackSourceSimulationSeconds,
                                        double simulationTotalSeconds,
@@ -519,6 +534,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         }
         BeginReplayPredictionJob( replayRuntime,
                                   modelCollection,
+                                  workerPool,
                                   scenePhysics,
                                   fallbackSourceSimulationSeconds,
                                   simulationTotalSeconds,
@@ -539,6 +555,9 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         {
             StepReplayPredictionJob( replayRuntime,
                                      modelCollection,
+                                     config,
+                                     worldForces,
+                                     workerPool,
                                      simulationTotalSeconds,
                                      budgetStart,
                                      budgetMilliseconds );

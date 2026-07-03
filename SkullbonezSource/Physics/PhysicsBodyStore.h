@@ -13,11 +13,15 @@ Glossary:
   Body: Simulated object state consumed by the physics step.
   Sleep: Optimization that skips stable bodies until contact or user action
     wakes them.
+  Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
+    so buoyancy jitter does not repeatedly wake them.
   Inverse mass: Reciprocal mass value; zero means an immovable body.
   Replay body id: Stable per-scene id used by replay and diagnostics.
 
 Invariants:
   - Body records stay in GameModelCollection physics model order.
+  - Public body handles are allocator-owned identities; model-order arrays use
+    explicit maps instead of encoding model index inside the handle.
   - Store refreshes load compatibility GameModel state into the physics-owned
     body records before a step.
   - Store writeback is a named compatibility bridge for legacy render, replay,
@@ -39,6 +43,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Geometry
+{
+class Terrain;
+}
+
 namespace GameObjects
 {
 class GameModel;
@@ -46,14 +55,13 @@ class GameModel;
 
 namespace Physics
 {
-class PhysicsModelAccess;
-class PhysicsModelMutableRange;
+class ColliderStore;
+struct PhysicsWorldForces;
 
 struct PhysicsBodyRecord
 {
-    PhysicsBodyHandle handle;                          // Stable body handle paired with the legacy model slot.
+    PhysicsBodyHandle handle;                          // Stable body handle resolved through the store maps.
     PhysicsSceneObjectId sceneObjectId;                // Scene-local id currently mirrored from replay body id.
-    int legacyModelIndex = -1;                         // Compatibility lookup back to GameModelCollection order.
     uint32_t replayBodyId = 0;                         // Stable replay-facing body id for this scene.
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
@@ -63,10 +71,17 @@ struct PhysicsBodyRecord
     Math::Vector::Vector3 invRotationalInertia = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 pendingImpulse = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 pendingImpulseApplicationPoint = Math::Vector::ZERO_VECTOR;
+    Geometry::Terrain* terrain = nullptr;              // Borrowed terrain pointer copied from the compatibility model.
     float mass = 0.0f;                                 // Authoring mass; fixed bodies still report mass.
     float invMass = 0.0f;                              // Solver inverse mass; fixed bodies use zero.
     float boundingRadius = 0.0f;                       // Conservative radius for body-level release/spin policy.
+    float volume = 0.0f;                               // Cached body volume used by buoyancy force math.
+    float projectedSurfaceArea = 0.0f;                 // Cached drag area used by world-force integration.
+    float dragCoefficient = 0.0f;                      // Cached drag coefficient used by world-force integration.
+    float submergedVolumePercent = 0.0f;               // Targeted water snapshot for underwater sleep gates.
     float contactReleaseImpulseThreshold = 1.0f;       // Minimum contact impulse before authored fixed props release.
+    float angularVelocityLimit = 5.0f;                 // Per-body spin cap applied before force integration.
+    float contactEpsilon = 0.05f;                      // Terrain proximity tolerance used by buoyancy support damping.
     bool isFixed = false;                              // True for immovable collision bodies.
     bool isSleeping = false;                           // Physics-owned sleep flag mirrored to diagnostics by model index.
     bool usesWorldInertia = false;                     // Non-sphere bodies rotate inertia through orientation.
@@ -81,24 +96,11 @@ class PhysicsBodyStore
 
     void Clear();
     void Refresh( std::vector<GameObjects::GameModel>& models, const std::vector<uint8_t>& sleepStates );
-    void Refresh( PhysicsModelAccess& modelAccess, const std::vector<uint8_t>& sleepStates );
     void LoadFromModels( std::vector<GameObjects::GameModel>& models, const std::vector<uint8_t>& sleepStates );
-    void LoadFromModels( PhysicsModelMutableRange models, const std::vector<uint8_t>& sleepStates );
-    void LoadFromModels( PhysicsModelAccess& modelAccess, const std::vector<uint8_t>& sleepStates );
-    void LoadFromModelAccess( PhysicsModelAccess& modelAccess, const std::vector<uint8_t>& sleepStates );
     void ClearPendingImpulses();
     void WriteBackToModels( std::vector<GameObjects::GameModel>& models ) const;
-    void WriteBackToModels( PhysicsModelMutableRange models ) const;
-    void WriteBackToModels( PhysicsModelAccess& modelAccess ) const;
     void WriteBackToModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex ) const;
-    void WriteBackToModelAt( PhysicsModelMutableRange models, int modelIndex ) const;
-    void WriteBackToModelAt( PhysicsModelAccess& modelAccess, int modelIndex ) const;
-    void WriteBackToModelAccess( PhysicsModelAccess& modelAccess ) const;
-    void WriteBackToModelAccessAt( PhysicsModelAccess& modelAccess, int modelIndex ) const;
     void CaptureMutableStateFromModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex );
-    void CaptureMutableStateFromModelAt( PhysicsModelMutableRange models, int modelIndex );
-    void CaptureMutableStateFromModelAt( PhysicsModelAccess& modelAccess, int modelIndex );
-    void CaptureMutableStateFromModelAccessAt( PhysicsModelAccess& modelAccess, int modelIndex );
     void CopySleepStatesFrom( const std::vector<uint8_t>& sleepStates );
     void CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) const;
 
@@ -120,16 +122,27 @@ class PhysicsBodyStore
     bool ApplyBodyImpulse( int modelIndex,
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
-    bool IntegrateBodyPose( std::vector<GameObjects::GameModel>& models, int modelIndex, float deltaSeconds );
-    bool IntegrateBodyPose( PhysicsModelMutableRange models, int modelIndex, float deltaSeconds );
-    bool ApplyCompatibilityForces( std::vector<GameObjects::GameModel>& models, int modelIndex, float deltaSeconds );
-    bool ApplyCompatibilityForces( PhysicsModelMutableRange models, int modelIndex, float deltaSeconds );
-    bool IntegrateBodyPose( PhysicsModelAccess& modelAccess, int modelIndex, float deltaSeconds );
-    bool ApplyCompatibilityForces( PhysicsModelAccess& modelAccess, int modelIndex, float deltaSeconds );
+    // Advances one mutable body record from its current velocities and shape
+    // snapshot. Returns false when the slot is fixed, sleeping, missing, or has
+    // no positive time to integrate.
+    bool IntegrateBodyPose( const ColliderStore& colliderStore, int modelIndex, float deltaSeconds );
+    bool ApplyForces( const PhysicsWorldForces& worldForces,
+                      const ColliderStore& colliderStore,
+                      int modelIndex,
+                      float deltaSeconds );
 
   private:
+    PhysicsBodyHandle
+    ResolveHandleForModelIndex( int modelIndex, uint32_t replayBodyId, std::vector<uint8_t>& assignedHandleSlots );
+    void RetireUnassignedHandles( const std::vector<uint8_t>& assignedHandleSlots );
+
     std::vector<PhysicsBodyRecord> m_bodies;           // Body records in GameModelCollection index order.
-    std::vector<PhysicsBodyHandle> m_modelBodyHandles; // Legacy model index to body handle map.
+    std::vector<PhysicsBodyHandle> m_modelBodyHandles; // Model index to store-owned body handle map.
+    std::vector<uint32_t> m_handleGenerations;         // Handle-slot generation counters.
+    std::vector<uint8_t> m_handleAlive;                // Live handle slot flags.
+    std::vector<int> m_handleModelIndices;             // Handle slot to current model index, or -1.
+    std::vector<uint32_t> m_handleReplayBodyIds;       // Replay id paired with each live handle slot.
+    std::vector<uint32_t> m_freeHandleSlots;           // Retired slots available for deterministic reuse.
 };
 } // namespace Physics
 } // namespace SkullbonezCore

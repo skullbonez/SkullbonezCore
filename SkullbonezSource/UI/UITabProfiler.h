@@ -53,10 +53,10 @@ struct TimelineSegment
 
 struct PerformanceHistogramSample
 {
-    float markerMs[MAX_MARKERS + 1] = {};      // Per cached profiler option slot, in milliseconds.
-    float markerSpikeMs[MAX_MARKERS + 1] = {}; // Non-zero when that slot owns a spike label for this sample.
+    float markerMs[MAX_MARKERS + 1] = {};                // Per cached profiler option slot, in milliseconds.
+    float markerSpikeMs[MAX_MARKERS + 1] = {};           // Non-zero when that slot owns a spike label for this sample.
     float secondaryMs = 0.0f;
-    bool hasMarker[MAX_MARKERS + 1] = {};      // Guards sparse slots when markers are toggled or unavailable.
+    bool hasMarker[MAX_MARKERS + 1] = {};                // Guards sparse slots when markers are toggled or unavailable.
     bool hasSecondary = false;
 };
 

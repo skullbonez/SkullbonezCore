@@ -66,7 +66,15 @@ class TextureCollection;
 namespace Basics
 {
 class Window;
+} // namespace Basics
 
+namespace Threading
+{
+class WorkerPool;
+} // namespace Threading
+
+namespace Basics
+{
 struct TornadoVisualSettings
 {
     bool enabled = true;                                       // Render-only sparse funnel shell; physics force state remains separate.
@@ -86,6 +94,8 @@ struct RunRuntimeSettings
     bool isPipelineSyncEnabled = false;                        // Force CPU/GPU sync via Finish() before render
     bool isPhysicsSleepEnabled =
         true;                                                  // Live Catto sleep policy; false keeps bodies awake while leaving collision/solving active
+    bool contactAudioDebugCounters = false;                    // Live optional contact-audio counter logging toggle.
+    bool contactAudioFlashOnSubmit = false;                    // Render-only white flash for contacts that actually submitted audio.
     Physics::TornadoFieldConfig tornadoField;                  // Live vortex force/debug vector field controlled by CLI/UI
     Physics::TornadoSystemConfig tornadoSystem;                // Scene-authored multi-vortex schedule and motion.
     TornadoVisualSettings tornadoVisual;                       // Render-only tornado art tuning outside deterministic physics state.
@@ -107,6 +117,7 @@ struct RunTimerState
     float rollingSceneEnergy = 0.0f;                           // Half-second averaged kinetic energy
     float cpuFrameWorkMs = 0.0f;                               // Last frame CPU work before Present/VSync
     float gpuFrameWorkMs = 0.0f;                               // Last available GPU work before Present/VSync
+    float contactAudioStatsLogTime = 0.0f;                     // Seconds since the last optional contact-audio counter print.
     float timeSinceLastRender = 0.0f;
     double sceneEnergyAccumulator = 0.0;
     int sceneEnergySampleCount = 0;
@@ -128,6 +139,8 @@ struct RunSubsystemState
 
     Environment::CameraCollection* cameras = nullptr;          // Borrowed alias of cameraCollection after Initialise wires services.
     Textures::TextureCollection* textures = nullptr;           // Borrowed alias of textureCollection after Initialise wires services.
+    const EngineConfig* config = nullptr;                      // Borrowed process config sampled through the Run composition root.
+    Threading::WorkerPool* workerPool = nullptr;               // Borrowed worker service initialised and shut down by Runtime/Init.cpp.
     Window* window = nullptr;
     Geometry::SkyBox* skyBox = nullptr;                        // Borrowed alias of skyBoxOwner after Initialise wires services.
 };
@@ -175,8 +188,8 @@ struct AttachedCameraState
     bool hasOrbit = false;
     bool hasLastLookDirection = false;
     bool hasReturnCameraPose = false;
-    bool needsEntryTween = false;                                  // Next valid follow solve should glide from the visible pose.
-    uint32_t returnCameraHash = CAMERA_FREE;                       // Selected slot Attach should restore before applying returnEye/view/up.
+    bool needsEntryTween = false;                              // Next valid follow solve should glide from the visible pose.
+    uint32_t returnCameraHash = CAMERA_FREE;                   // Selected slot Attach should restore before applying returnEye/view/up.
     float orbitYawRadians = 0.0f;
     float orbitPitchRadians = 0.30f;
     float orbitDistance = 8.0f;
@@ -251,6 +264,7 @@ struct RunLaunchOptions
     unsigned int seedOverride = 0;                             // CLI --seed override applied after each scene load (0 = not set)
     bool noWater = false;                                      // CLI --no-water starts fluid below terrain
     bool noSleep = false;                                      // Startup CLI --no-sleep request; live policy can still be toggled from the Physics tab
+    bool noContactAudio = false;                               // CLI --no-contact-audio disables presentation-only impact playback
     bool hasTornadoOverride = false;
     bool tornadoEnabled = false;
     bool tornadoVectors = false;

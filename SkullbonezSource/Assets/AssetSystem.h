@@ -160,7 +160,6 @@ class AssetSystem
     const std::vector<ShaderSourceAsset>& GetShaderSourceAssets() const;
     std::unique_ptr<Rendering::IShader> CreateShader( Rendering::IRenderResourceFactory& renderResources,
                                                       const char* logicalNameOrBaseName ) const;
-    std::unique_ptr<Rendering::IShader> CreateShader( const char* logicalNameOrBaseName ) const;
 
     const AssetLibrarySourceAsset& RegisterAssetLibrarySourceAsset( const char* logicalName, const char* relativePath );
     const AssetLibrarySourceAsset* FindAssetLibrarySourceAsset( const char* logicalName ) const;
@@ -187,14 +186,10 @@ struct AssetContext
 {
     // Lifetime: callers borrow the registry for one parse, setup, or tool
     // operation. Null keeps standalone utilities on their historical path
-    // fallback without making ActiveAssetSystem() part of normal parsing.
+    // fallback without reaching for process-global asset state.
     const AssetSystem* assets = nullptr;
 };
 
-// Transitional bridge for legacy singleton-style render helpers. The run loop
-// owns the real AssetSystem, while helpers still own their GPU shader handles.
-void BindActiveAssetSystem( AssetSystem* assets );
-AssetSystem* ActiveAssetSystem();
-std::unique_ptr<Rendering::IShader> CreateShaderFromActiveAssets( const char* logicalNameOrBaseName );
+const char* BuiltInShaderBaseName( const char* logicalNameOrBaseName );
 } // namespace Assets
 } // namespace SkullbonezCore

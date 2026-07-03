@@ -58,6 +58,11 @@ namespace Assets
 class AssetSystem;
 } // namespace Assets
 
+namespace UI
+{
+struct UIRenderContext;
+} // namespace UI
+
 namespace Basics
 {
 class RuntimeRenderHost;
@@ -112,6 +117,13 @@ struct RenderFrameContext
     // passes borrow it only for this frame.
     Rendering::IRenderSceneView* scene = nullptr;
 
+    // Lifetime: borrowed from RuntimeRenderInputs for this frame only. It is
+    // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
+    // must not store it beyond the current RenderFrame call.
+    Assets::AssetSystem* assets = nullptr;
+    // Lifetime: borrowed from RuntimeRenderInputs for lazy debug resource
+    // creation in this frame only.
+    Rendering::IRenderResourceFactory* renderResources = nullptr;
     // Lifetime: borrowed from RuntimeRenderInputs for this frame only. It is
     // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
     // must not store it beyond the current RenderFrame call.
@@ -210,6 +222,7 @@ struct UiTextPassInputs
     // UI/text can run even when text-only mode skips RuntimeRenderer::RenderFrame(),
     // so it borrows only the narrow render facets sampled by overlays.
     Rendering::IRenderDiagnostics& renderDiagnostics;
+    const UI::UIRenderContext& uiRender;
     Rendering::IRenderRayTracing* renderRayTracing;
     double secondsPerFrame = 0.0;
 };
@@ -356,6 +369,7 @@ class ShadowPass
                                                      const Math::Vector::Vector3& focusHint,
                                                      Rendering::IRenderSceneView& scene );
     void RenderShadowMap( Rendering::IFramebuffer& target,
+                          const RenderHelperContext& helperContext,
                           const Rendering::ShadowFrameData& shadowFrame,
                           const CinematicRenderConfig& cinematic,
                           Rendering::IRenderCommandContext& renderCommands,
@@ -569,8 +583,11 @@ class UiTextPass
     {
     }
 
-    void EnsureGpuResources();
-    void ReleaseGpuResources();
+    void EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources,
+                             const Assets::AssetSystem& assets,
+                             int screenW,
+                             int screenH );
+    void ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources );
     bool ShouldRender() const;
     void Render( const UiTextPassInputs& inputs );
 

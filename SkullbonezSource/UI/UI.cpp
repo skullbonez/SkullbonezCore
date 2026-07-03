@@ -213,6 +213,52 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.testComplete );
     hash = HashBool( hash, data.vsyncEnabled );
     hash = HashBool( hash, data.pipelineSyncEnabled );
+    hash = HashBool( hash, data.contactAudioEnabled );
+    hash = HashBool( hash, data.contactAudioAvailable );
+    hash = HashBool( hash, data.contactAudioDebugCounters );
+    hash = HashFloat( hash, data.contactAudioMasterGain, 1000.0f );
+    hash = HashFloat( hash, data.contactAudioMaxDistanceScale, 1000.0f );
+    hash = HashFloat( hash, data.contactAudioMinClosingSpeed, 1000.0f );
+    hash = HashFloat( hash, data.contactAudioMinImpactScore, 1000.0f );
+    hash = HashFloat( hash, data.contactAudioImpactScoreRangeSeconds, 1000.0f );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioBurstVoicesPerWindow ) );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioEventsSeen ) );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioRejectedByThreshold ) );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioRejectedByCooldown ) );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioSubmittedVoices ) );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioDroppedVoices ) );
+    const int soundSetCount = std::clamp( data.soundSetCount, 0, UI_SOUND_SET_MAX );
+    hash = HashInt( hash, soundSetCount );
+    for ( int setIndex = 0; setIndex < soundSetCount; ++setIndex )
+    {
+        const UISoundSetFrameData& set = data.soundSets[setIndex];
+        hash = HashTextValue( hash, set.name );
+        hash = HashInt( hash, static_cast<int>( set.materialA ) );
+        hash = HashInt( hash, static_cast<int>( set.materialB ) );
+        hash = HashFloat( hash, set.minImpulse, 1000.0f );
+        hash = HashFloat( hash, set.impulseRange, 1000.0f );
+        hash = HashFloat( hash, set.cooldownMs, 10.0f );
+        hash = HashFloat( hash, set.overrideCooldownMs, 10.0f );
+        hash = HashFloat( hash, set.maxDistance, 100.0f );
+        hash = HashFloat( hash, set.baseGain, 1000.0f );
+        hash = HashFloat( hash, set.pitchMin, 1000.0f );
+        hash = HashFloat( hash, set.pitchMax, 1000.0f );
+        hash = HashInt( hash, static_cast<int>( set.maxVoices ) );
+        hash = HashInt( hash, static_cast<int>( set.sampleCount ) );
+        const int bandCount = std::clamp( static_cast<int>( set.bandCount ), 0, UI_SOUND_BAND_MAX );
+        hash = HashInt( hash, bandCount );
+        for ( int bandIndex = 0; bandIndex < bandCount; ++bandIndex )
+        {
+            const UISoundBandFrameData& band = set.bands[bandIndex];
+            hash = HashTextValue( hash, band.name );
+            hash = HashFloat( hash, band.minImpulse, 1000.0f );
+            hash = HashFloat( hash, band.impulseRange, 1000.0f );
+            hash = HashFloat( hash, band.baseGain, 1000.0f );
+            hash = HashFloat( hash, band.pitchMin, 1000.0f );
+            hash = HashFloat( hash, band.pitchMax, 1000.0f );
+            hash = HashInt( hash, static_cast<int>( band.sampleCount ) );
+        }
+    }
     hash = HashFloat( hash, data.sceneEnergy, 1000.0f );
     hash = HashFloat( hash, data.timeScale, 1000.0f );
     hash = HashFloat( hash, data.trackHeight, 1000.0f );
@@ -389,18 +435,23 @@ uint32_t BuildUIInteractionSignature( int mouseX,
 }
 
 
-void FlushUIDrawList( const UIDrawList& drawList, int screenW, int screenH, float offsetX = 0.0f, float offsetY = 0.0f )
+void FlushUIDrawList( const UIDrawList& drawList,
+                      IRenderCommandContext& renderCommands,
+                      int screenW,
+                      int screenH,
+                      float offsetX = 0.0f,
+                      float offsetY = 0.0f )
 {
     PROFILE_GPU_BEGIN( "Frame/UI/Draw" );
-    const UIDrawContext immediateDraw( screenW, screenH );
+    const UIDrawContext immediateDraw( screenW, screenH, nullptr, &renderCommands );
     drawList.Flush( immediateDraw, offsetX, offsetY );
     {
         DRAW_CALL_TRACE_SCOPE( "Widgets" );
-        Text2d::FlushQuads();
+        Text2d::FlushQuads( renderCommands );
     }
     {
         DRAW_CALL_TRACE_SCOPE( "Text" );
-        Text2d::FlushText();
+        Text2d::FlushText( renderCommands );
     }
     PROFILE_GPU_END( "Frame/UI/Draw" );
 }
@@ -586,16 +637,18 @@ void DrawEditorObjectCounter( const UIDrawContext& draw,
 }
 
 
-void EnsureRenderTargetPreviewResources( std::unique_ptr<IShader>& shader, uint32_t& dynamicVB )
+void EnsureRenderTargetPreviewResources( std::unique_ptr<IShader>& shader,
+                                         uint32_t& dynamicVB,
+                                         const UIRenderContext& render )
 {
-    if ( !IsGfxReady() )
+    if ( !render.IsReady() )
     {
         return;
     }
 
     if ( !shader )
     {
-        shader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.ui_render_target_preview" );
+        shader = render.assets->CreateShader( *render.resources, "shader.ui_render_target_preview" );
         shader->Use();
         shader->SetInt( "uTexture", 0 );
     }
@@ -603,18 +656,20 @@ void EnsureRenderTargetPreviewResources( std::unique_ptr<IShader>& shader, uint3
     if ( dynamicVB == 0 )
     {
         const int attribs[] = { 2, 2 };
-        dynamicVB = Gfx().CreateDynamicVB( attribs, 2, 6 );
+        dynamicVB = render.resources->CreateDynamicVB( attribs, 2, 6 );
     }
 }
 
-void ResetRenderTargetPreviewResources( std::unique_ptr<IShader>& shader, uint32_t& dynamicVB )
+void ResetRenderTargetPreviewResources( std::unique_ptr<IShader>& shader,
+                                        uint32_t& dynamicVB,
+                                        IRenderResourceFactory* resources )
 {
     shader.reset();
     if ( dynamicVB != 0 )
     {
-        if ( IsGfxReady() )
+        if ( resources )
         {
-            Gfx().DestroyDynamicVB( dynamicVB );
+            resources->DestroyDynamicVB( dynamicVB );
         }
         dynamicVB = 0;
     }
@@ -625,14 +680,16 @@ void DrawRenderTargetPreviewTexture( std::unique_ptr<IShader>& shader,
                                      const UIDrawContext& draw,
                                      const UIRenderTargetPreviewResource& resource,
                                      const UIRect& bounds,
-                                     const UIRect& clipBounds )
+                                     const UIRect& clipBounds,
+                                     const UIRenderContext& render )
 {
-    if ( !resource.available || resource.textureHandle == 0 || bounds.w <= 1.0f || bounds.h <= 1.0f || !IsGfxReady() )
+    if ( !resource.available || resource.textureHandle == 0 || bounds.w <= 1.0f || bounds.h <= 1.0f ||
+         !render.IsReady() )
     {
         return;
     }
 
-    EnsureRenderTargetPreviewResources( shader, dynamicVB );
+    EnsureRenderTargetPreviewResources( shader, dynamicVB, render );
     if ( !shader || dynamicVB == 0 )
     {
         return;
@@ -658,31 +715,32 @@ void DrawRenderTargetPreviewTexture( std::unique_ptr<IShader>& shader,
     };
 
     const Matrix4 proj = Matrix4::Ortho( -draw.HalfW(), draw.HalfW(), -draw.HalfH(), draw.HalfH(), -1.0f, 1.0f );
-    const bool depthTestWasEnabled = Gfx().IsDepthTestEnabled();
-    const bool depthWriteWasEnabled = Gfx().IsDepthWriteEnabled();
-    const bool blendWasEnabled = Gfx().IsBlendEnabled();
+    IRenderCommandContext& commands = *render.commands;
+    const bool depthTestWasEnabled = commands.IsDepthTestEnabled();
+    const bool depthWriteWasEnabled = commands.IsDepthWriteEnabled();
+    const bool blendWasEnabled = commands.IsBlendEnabled();
     BlendFactor blendSrc = BlendFactor::One;
     BlendFactor blendDst = BlendFactor::Zero;
-    Gfx().GetBlendFunc( blendSrc, blendDst );
+    commands.GetBlendFunc( blendSrc, blendDst );
 
     const int mode = resource.depth ? 2 : ( resource.hdr ? 1 : 0 );
-    Gfx().SetDepthTest( false );
-    Gfx().SetDepthWrite( false );
-    Gfx().SetBlend( false );
+    commands.SetDepthTest( false );
+    commands.SetDepthWrite( false );
+    commands.SetBlend( false );
     shader->Use();
     shader->SetMat4( "uProjection", proj );
     shader->SetInt( "uTexture", 0 );
     shader->SetVec4( "uPreviewParams", static_cast<float>( mode ), 1.0f, 2.2f, 0.0f );
-    Gfx().BindTexture( resource.textureHandle, 0 );
+    commands.BindTexture( resource.textureHandle, 0 );
     {
         DRAW_CALL_TRACE_SCOPE( "RenderTargetPreview" );
-        Gfx().UploadAndDrawDynamicVB( dynamicVB, verts, 6 );
+        commands.UploadAndDrawDynamicVB( dynamicVB, verts, 6 );
     }
-    Gfx().BindTexture( 0, 0 );
-    Gfx().SetDepthWrite( depthWriteWasEnabled );
-    Gfx().SetDepthTest( depthTestWasEnabled );
-    Gfx().SetBlendFunc( blendSrc, blendDst );
-    Gfx().SetBlend( blendWasEnabled );
+    commands.BindTexture( 0, 0 );
+    commands.SetDepthWrite( depthWriteWasEnabled );
+    commands.SetDepthTest( depthTestWasEnabled );
+    commands.SetBlendFunc( blendSrc, blendDst );
+    commands.SetBlend( blendWasEnabled );
 }
 
 int WaterReflectionModeFromData( const InGameUIFrameData& data )
@@ -955,6 +1013,7 @@ void InGameUI::SetActiveTab( InGameUITab tab )
     OptionsTab::ResetPreviewState( m_optionsTab );
     PhysicsTab::ResetPreviewState( m_physicsTab );
     ControlsTab::ResetPreviewState( m_controlsTab );
+    SoundTab::ResetPreviewState( m_soundTab );
     m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Content );
     m_cache.Reset();
 }
@@ -977,6 +1036,7 @@ void InGameUI::CancelInputCapture()
     OptionsTab::ResetPreviewState( m_optionsTab );
     PhysicsTab::ResetPreviewState( m_physicsTab );
     ControlsTab::ResetPreviewState( m_controlsTab );
+    SoundTab::ResetPreviewState( m_soundTab );
     m_editorTab.objectCombo.Close();
     m_renderTargetCombo.Close();
     m_cameraModeCombo.Close();
@@ -1170,10 +1230,10 @@ void InGameUI::SetMaximized( bool maximized, int screenW, int screenH, double no
 }
 
 
-void InGameUI::ResetResources()
+void InGameUI::ResetResources( IRenderResourceFactory* resources )
 {
     m_backdropBlur.ResetResources();
-    ResetRenderTargetPreviewResources( m_renderTargetPreviewShader, m_renderTargetPreviewVB );
+    ResetRenderTargetPreviewResources( m_renderTargetPreviewShader, m_renderTargetPreviewVB, resources );
     m_cache.Reset();
 }
 
@@ -1264,6 +1324,9 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
         DrawHitboxRect( draw, m_physicsTab.tornadoSwirlSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.tornadoLiftSlider.Bounds(), contentR, contentG, contentB );
         break;
+    case InGameUITab::Sound:
+        SoundTab::DrawHitboxes( m_soundTab, draw, data, contentR, contentG, contentB );
+        break;
     case InGameUITab::Options:
         for ( int i = 0; i < 6; ++i )
         {
@@ -1334,6 +1397,8 @@ int InGameUI::ContentHeight() const
         return EditorTab::ContentHeight();
     case InGameUITab::Physics:
         return PhysicsTab::ContentHeight();
+    case InGameUITab::Sound:
+        return SoundTab::ContentHeight();
     case InGameUITab::Options:
         return OptionsTab::ContentHeight();
     case InGameUITab::Render:
@@ -2031,6 +2096,30 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
             CinematicTab::CloseCombo( m_cinematicTab );
             m_editorTab.objectCombo.Close();
         }
+        else if ( inContent && m_activeTab == InGameUITab::Sound )
+        {
+            const float contentX = static_cast<float>( inputX + contentPad );
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
+            const int previousActiveSlider = m_activeSlider;
+            if ( SoundTab::HandleContentClick( m_soundTab,
+                                               result,
+                                               m_activeSlider,
+                                               m_mouseX,
+                                               m_mouseY,
+                                               contentX,
+                                               scrolledY,
+                                               contentW ) &&
+                 m_activeSlider != 0 && m_activeSlider != previousActiveSlider )
+            {
+                InputControl::BeginMouseCapture( hwnd );
+            }
+            m_rendererCombo.Close();
+            m_reflectionCombo.Close();
+            CinematicTab::CloseCombo( m_cinematicTab );
+            m_editorTab.objectCombo.Close();
+            m_renderTargetCombo.Close();
+        }
         else if ( inContent && m_activeTab == InGameUITab::Options )
         {
             const float contentX = static_cast<float>( inputX + contentPad );
@@ -2255,7 +2344,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
                                                m_lastMaxWorkerThreadCount,
                                                result ) &&
              !OptionsTab::UpdateActiveSlider( m_optionsTab, m_activeSlider, m_mouseX, m_lastModelCapacity, result ) &&
-             !PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result ) )
+             !PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result ) &&
+             !SoundTab::UpdateActiveSlider( m_soundTab, m_activeSlider, m_mouseX, result ) )
         {
             const int renderSlider = RenderSliderIndexFromActiveSlider( m_activeSlider );
             if ( renderSlider >= 0 )
@@ -2320,7 +2410,8 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
         if ( !SceneTab::CommitActiveSlider( m_sceneTab, m_activeSlider, result ) &&
              !ProfilerTab::CommitActiveSlider( m_profilerTab, m_activeSlider, result ) &&
              !OptionsTab::CommitActiveSlider( m_optionsTab, m_activeSlider, result ) &&
-             !PhysicsTab::CommitActiveSlider( m_physicsTab, m_activeSlider, result ) )
+             !PhysicsTab::CommitActiveSlider( m_physicsTab, m_activeSlider, result ) &&
+             !SoundTab::CommitActiveSlider( m_soundTab, m_activeSlider, result ) )
         {
             const int renderSlider = RenderSliderIndexFromActiveSlider( m_activeSlider );
             if ( renderSlider >= 0 )
@@ -2345,6 +2436,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
         OptionsTab::ResetPreviewState( m_optionsTab );
         PhysicsTab::ResetPreviewState( m_physicsTab );
         ControlsTab::ResetPreviewState( m_controlsTab );
+        SoundTab::ResetPreviewState( m_soundTab );
         m_interaction.isDragging = false;
         m_interaction.isResizing = false;
         InputControl::EndMouseCapture();
@@ -2358,7 +2450,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd,
 }
 
 
-void InGameUI::Draw( const InGameUIFrameData& data )
+void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& render )
 {
     const bool histogramEnabled = ProfilerTab::PerformanceHistogramEnabled( m_profilerTab );
     if ( !m_window.isVisible && !histogramEnabled )
@@ -2369,6 +2461,8 @@ void InGameUI::Draw( const InGameUIFrameData& data )
 
     const int screenW = (std::max)( 1, data.screenW );
     const int screenH = (std::max)( 1, data.screenH );
+    assert( render.IsReady() );
+    IRenderCommandContext& renderCommands = *render.commands;
     m_lastScreenW = screenW;
     m_lastScreenH = screenH;
     m_lastModelCapacity = std::clamp( data.modelCapacity, 1, MAX_GAME_MODELS );
@@ -2393,7 +2487,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         m_histogramDrawList.Clear();
         const UIDrawContext histogramDraw( screenW, screenH, &m_histogramDrawList );
         ProfilerTab::DrawPerformanceHistogram( m_profilerTab, histogramDraw, data );
-        FlushUIDrawList( m_histogramDrawList, screenW, screenH );
+        FlushUIDrawList( m_histogramDrawList, renderCommands, screenW, screenH );
     };
 
     if ( histogramEnabled )
@@ -2419,7 +2513,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
             if ( m_window.animationActive )
             {
                 Chrome::DrawWindowAnimationShell( draw, animBounds );
-                FlushUIDrawList( drawList, screenW, screenH );
+                FlushUIDrawList( drawList, renderCommands, screenW, screenH );
                 drawHistogramOverlay();
                 return;
             }
@@ -2484,7 +2578,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                                     cameraModeDisabledMask );
         }
         DrawEditorObjectCounter( draw, data, screenW, screenH );
-        FlushUIDrawList( drawList, screenW, screenH );
+        FlushUIDrawList( drawList, renderCommands, screenW, screenH );
         drawHistogramOverlay();
         return;
     }
@@ -2553,7 +2647,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     {
         const float replayOffsetX = m_cache.ReplayOffsetX( cacheKey );
         const float replayOffsetY = m_cache.ReplayOffsetY( cacheKey );
-        FlushUIDrawList( m_cache.DrawList(), screenW, screenH, replayOffsetX, replayOffsetY );
+        FlushUIDrawList( m_cache.DrawList(), renderCommands, screenW, screenH, replayOffsetX, replayOffsetY );
         drawHistogramOverlay();
         m_cache.StoreFrame( cacheKey );
         return;
@@ -2565,7 +2659,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     PROFILE_BEGIN( "Frame/UI/DrawBuild" );
 
     const UIRect blurBounds = { x, y, w, h };
-    Text2d::FlushQuads();
+    Text2d::FlushQuads( renderCommands );
     PROFILE_BEGIN( "Frame/UI/Blur" );
     m_backdropBlur.Draw( draw, blurBounds, screenW, screenH, data.currentFrame, data.now, m_blurPreviewEnabled );
     PROFILE_END( "Frame/UI/Blur" );
@@ -2577,7 +2671,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     DrawEditorObjectCounter( draw, data, screenW, screenH, &objectCounterAvoidBounds );
 
     static const char* kTabs[] =
-        { "Profile", "Scene", "Editor", "Physics", "Options", "Render", "Targets", "Controls", "Sky", "Cine" };
+        { "Profile", "Scene", "Editor", "Physics", "Sound", "Options", "Render", "Targets", "Controls", "Sky", "Cine" };
     const int tabCount = static_cast<int>( InGameUITab::Count );
     const float tabPad = 14.0f;
     m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
@@ -2631,6 +2725,20 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                           m_activeSlider,
                           m_mouseX,
                           m_mouseY );
+    }
+    else if ( m_activeTab == InGameUITab::Sound )
+    {
+        SoundTab::Draw( m_soundTab,
+                        draw,
+                        data,
+                        contentX,
+                        contentY,
+                        contentW,
+                        contentH,
+                        scrolledY,
+                        m_activeSlider,
+                        m_mouseX,
+                        m_mouseY );
     }
     else if ( m_activeTab == InGameUITab::Editor )
     {
@@ -2793,14 +2901,15 @@ void InGameUI::Draw( const InGameUIFrameData& data )
 
         if ( selectedAvailable && IsBlockVisible( contentY, contentH, previewImage.y, previewImage.h ) )
         {
-            FlushUIDrawList( drawList, screenW, screenH );
+            FlushUIDrawList( drawList, renderCommands, screenW, screenH );
             drawList.Clear();
             DrawRenderTargetPreviewTexture( m_renderTargetPreviewShader,
                                             m_renderTargetPreviewVB,
                                             draw,
                                             *selected,
                                             previewImage,
-                                            previewClip );
+                                            previewClip,
+                                            render );
         }
         else if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_PREVIEW_Y + 116.0f, 18.0f ) )
         {
@@ -3059,7 +3168,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                        { footerX, by + 16.0f, controlsW, 56.0f } );
 
     PROFILE_END( "Frame/UI/DrawBuild" );
-    FlushUIDrawList( drawList, screenW, screenH );
+    FlushUIDrawList( drawList, renderCommands, screenW, screenH );
     drawHistogramOverlay();
     if ( drawsLiveRenderTargetPreview )
     {

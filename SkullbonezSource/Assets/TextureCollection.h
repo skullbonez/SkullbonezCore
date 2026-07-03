@@ -84,8 +84,6 @@ class TextureCollection
     TextureCollection( const TextureCollection& ) = delete;
     TextureCollection& operator=( const TextureCollection& ) = delete;
 
-    static TextureCollection* Instance();
-    static void Destroy();
     void BindAssetSystem( Assets::AssetSystem* assets );
     void BindRenderContexts( Rendering::IRenderResourceFactory* renderResources,
                              Rendering::IRenderCommandContext* renderCommands );

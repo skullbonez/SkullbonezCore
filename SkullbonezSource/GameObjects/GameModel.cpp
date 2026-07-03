@@ -17,16 +17,24 @@ Glossary:
   without storing per-frame dynamic data.
   Righting torque: Corrective spin produced by buoyancy so long bodies settle on
   a side and broad flat bodies settle like rafts.
+  Audio contact highlight: Short render-only flash that marks objects that
+  actually emitted contact audio.
   OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
   collision tests.
   CCD (Continuous Collision Detection): Swept collision test that asks whether
   objects hit during a tick, not only where they end the tick.
+  Physics material: Per-object friction and drag coefficients consumed by the
+    body integrator, collision shape, and fluid-force cache.
+  Body simulation limit: Scalar cap enforced by the body before solver rows see
+    velocity state.
+  Contact policy: Geometry thresholds that decide when terrain is close enough
+    to count as contact and when bounce response may be applied.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
 Invariants:
   - GameModel owns per-object physics/render data, but multi-body response is
-    finalized by GameModelCollection and the physics solver.
+    finalized by PhysicsWorld and the persistent contact solver.
   - Collision-shape scalar caches must be refreshed whenever the authoritative
     shape changes.
 
@@ -37,10 +45,7 @@ Related:
 */
 #include "GameModel.h"
 #include "../Physics/CollisionShape.h"
-#include "../Maths/GeometricStructures.h"
-#include "../Maths/GeometricMath.h"
 #include "../World/TerrainSupportClassifier.h"
-#include "../Physics/ContactSolverCommon.h"
 #include "../Core/Profiler.h"
 #include <algorithm>
 #include <cmath>
@@ -58,15 +63,54 @@ using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
 namespace Rendering = SkullbonezCore::Rendering;
 
-// GameModel is the per-object physics bridge:
-//   - RigidBody stores motion state such as position, velocity, spin, and mass.
-//   - CollisionShape stores the local sphere/box used for collision geometry.
-//   - Terrain detection records a hit in m_responseInformation.
-//   - GameModelCollection later consumes that hit, builds contact rows, and
-//     applies the actual shared solver response.
-//
-// In short: GameModel can detect and describe contacts, but the collection owns
-// the final multi-body response because contacts often involve several objects.
+namespace
+{
+float HighlightAlpha( float seconds, float fadeSeconds )
+{
+    if ( fadeSeconds <= 0.0f )
+    {
+        return 0.0f;
+    }
+    return std::clamp( seconds / fadeSeconds, 0.0f, 1.0f );
+}
+
+void TickHighlightSeconds( float& seconds, float dt )
+{
+    if ( seconds <= 0.0f || dt <= 0.0f )
+    {
+        return;
+    }
+
+    seconds = (std::max)( 0.0f, seconds - dt );
+}
+} // namespace
+
+SkullbonezCore::Physics::PhysicsMaterial
+SkullbonezCore::Physics::PhysicsMaterial::FromConfig( const SkullbonezCore::Basics::EngineConfig& config )
+{
+    PhysicsMaterial material;
+    material.frictionCoefficient = config.frictionCoeff;
+    material.sphereDragCoefficient = config.sphereDragCoeff;
+    return material;
+}
+
+SkullbonezCore::Physics::BodySimulationLimits
+SkullbonezCore::Physics::BodySimulationLimits::FromConfig( const SkullbonezCore::Basics::EngineConfig& config )
+{
+    BodySimulationLimits limits;
+    limits.angularVelocityLimit = config.velocityLimit;
+    return limits;
+}
+
+SkullbonezCore::Physics::ContactPolicy
+SkullbonezCore::Physics::ContactPolicy::FromConfig( const SkullbonezCore::Basics::EngineConfig& config )
+{
+    ContactPolicy policy;
+    policy.contactEpsilon = config.contactEpsilon;
+    policy.terrainContactThreshold = config.terrainContactThreshold;
+    policy.restitutionThreshold = config.contactRestitutionThreshold;
+    return policy;
+}
 
 GameModel::GameModel( WorldEnvironment* pWorldEnv,
                       const Vector3& vPosition,
@@ -82,7 +126,7 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_physicsInfo.SetPosition( vPosition );
     m_physicsInfo.SetRotationalInertia( vRotationalInertia );
     m_physicsInfo.SetMass( fMass );
-    m_physicsInfo.SetFrictionCoefficient( Cfg().frictionCoeff );
+    m_physicsInfo.SetFrictionCoefficient( m_physicsMaterial.frictionCoefficient );
 
     // Immutable body properties are read repeatedly in broadphase/narrowphase and
     // terrain response. Cache them once at construction to keep hot loops on plain
@@ -104,6 +148,7 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_projectedSurfaceArea = 0.0f;
     m_dragCoefficient = 0.0f;
     m_fixedContactHighlightSeconds = 0.0f;
+    m_audioContactHighlightSeconds = 0.0f;
     m_renderTintR = 1.0f;
     m_renderTintG = 1.0f;
     m_renderTintB = 1.0f;
@@ -112,7 +157,7 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
                                                                     m_renderTintG,
                                                                     m_renderTintB,
                                                                     m_renderColorOverride );
-    m_isResponseRequired = false;
+    SetContactMaterial( "default" );
     m_isFixed = false;
     m_releasesFromFixedOnContact = false;
     m_contactReleaseImpulseThreshold = 1.0f;
@@ -141,7 +186,7 @@ void GameModel::BuildSpherePhysicsCache( float radius )
     m_ballPhysics.volume = FOUR_OVER_THREE * _PI * m_ballPhysics.radiusSq * radius;
     m_ballPhysics.invVolume = 1.0f / m_ballPhysics.volume;
     m_ballPhysics.projectedSurfaceArea = _PI * m_ballPhysics.radiusSq;
-    m_ballPhysics.dragCoefficient = Cfg().sphereDragCoeff;
+    m_ballPhysics.dragCoefficient = m_physicsMaterial.sphereDragCoefficient;
 }
 
 
@@ -201,13 +246,11 @@ void GameModel::SetFixed( bool isFixed )
     if ( m_isFixed )
     {
         // Fixed bodies are immovable collision participants. They can be hit and
-        // shown in debug visuals, but they do not accumulate forces, velocity, or
-        // pending terrain responses.
+        // shown in debug visuals, but they do not accumulate forces or velocity.
         m_physicsInfo.SetLinearVelocity( Vector::ZERO_VECTOR );
         m_physicsInfo.SetAngularVelocity( Vector::ZERO_VECTOR );
         m_physicsInfo.SetWorldForce( Vector::ZERO_VECTOR, Vector::ZERO_VECTOR );
         m_physicsInfo.ZeroForce();
-        m_isResponseRequired = false;
     }
 }
 
@@ -246,34 +289,33 @@ void GameModel::NotifyFixedContact( float highlightSeconds )
 }
 
 
+void GameModel::NotifyAudioContact( float highlightSeconds )
+{
+    if ( highlightSeconds > m_audioContactHighlightSeconds )
+    {
+        m_audioContactHighlightSeconds = highlightSeconds;
+    }
+}
+
+
 void GameModel::TickFixedContactHighlight( float dt )
 {
-    if ( m_fixedContactHighlightSeconds <= 0.0f || dt <= 0.0f )
-    {
-        return;
-    }
-
-    m_fixedContactHighlightSeconds -= dt;
-    if ( m_fixedContactHighlightSeconds < 0.0f )
-    {
-        m_fixedContactHighlightSeconds = 0.0f;
-    }
+    TickHighlightSeconds( m_fixedContactHighlightSeconds, dt );
+    TickHighlightSeconds( m_audioContactHighlightSeconds, dt );
 }
 
 
 float GameModel::GetFixedContactHighlightAlpha() const
 {
     static constexpr float FADE_SECONDS = 0.5f;
-    float alpha = m_fixedContactHighlightSeconds / FADE_SECONDS;
-    if ( alpha < 0.0f )
-    {
-        return 0.0f;
-    }
-    if ( alpha > 1.0f )
-    {
-        return 1.0f;
-    }
-    return alpha;
+    return HighlightAlpha( m_fixedContactHighlightSeconds, FADE_SECONDS );
+}
+
+
+float GameModel::GetAudioContactHighlightAlpha() const
+{
+    static constexpr float FADE_SECONDS = 0.1f;
+    return HighlightAlpha( m_audioContactHighlightSeconds, FADE_SECONDS );
 }
 
 
@@ -428,6 +470,26 @@ const Rendering::RenderMaterial& GameModel::GetRenderMaterial() const
 }
 
 
+void GameModel::SetContactMaterial( const char* materialName )
+{
+    const char* safeName = ( materialName && materialName[0] != '\0' ) ? materialName : "default";
+    strncpy_s( m_contactMaterialName, sizeof( m_contactMaterialName ), safeName, _TRUNCATE );
+    m_contactMaterialId = HashStr( m_contactMaterialName );
+}
+
+
+const char* GameModel::GetContactMaterialName() const
+{
+    return m_contactMaterialName;
+}
+
+
+uint32_t GameModel::GetContactMaterialId() const
+{
+    return m_contactMaterialId;
+}
+
+
 float GameModel::GetBoundingRadius()
 {
     return m_ballPhysics.radius;
@@ -457,8 +519,60 @@ Vector3 GameModel::GetOrientationUp()
 void GameModel::AddBoundingSphere( float fRadius )
 {
     BuildSpherePhysicsCache( fRadius );
-    m_boundingVolume = BoundingSphere( fRadius, Vector::ZERO_VECTOR );
+    m_boundingVolume = BoundingSphere( fRadius, Vector::ZERO_VECTOR, m_physicsMaterial.sphereDragCoefficient );
     UpdateModelInfo();
+}
+
+
+void GameModel::ApplyRuntimeConfig( const Basics::EngineConfig& config )
+{
+    ApplyPhysicsMaterial( PhysicsMaterial::FromConfig( config ) );
+    ApplyBodySimulationLimits( BodySimulationLimits::FromConfig( config ) );
+    ApplyContactPolicy( ContactPolicy::FromConfig( config ) );
+}
+
+
+void GameModel::ApplyPhysicsMaterial( const Physics::PhysicsMaterial& material )
+{
+    m_physicsMaterial = material;
+    m_physicsInfo.SetFrictionCoefficient( m_physicsMaterial.frictionCoefficient );
+    if ( BoundingSphere* sphere = std::get_if<BoundingSphere>( &m_boundingVolume ) )
+    {
+        sphere->SetDragCoefficient( m_physicsMaterial.sphereDragCoefficient );
+        m_ballPhysics.dragCoefficient = m_physicsMaterial.sphereDragCoefficient;
+        CalculateDragCoefficient();
+    }
+}
+
+
+void GameModel::ApplyBodySimulationLimits( const Physics::BodySimulationLimits& limits )
+{
+    m_bodySimulationLimits = limits;
+    m_physicsInfo.SetAngularVelocityLimit( m_bodySimulationLimits.angularVelocityLimit );
+}
+
+
+void GameModel::ApplyContactPolicy( const Physics::ContactPolicy& policy )
+{
+    m_contactPolicy = policy;
+}
+
+
+float GameModel::GetAngularVelocityLimit() const
+{
+    return m_bodySimulationLimits.angularVelocityLimit;
+}
+
+
+float GameModel::GetContactEpsilon() const
+{
+    return m_contactPolicy.contactEpsilon;
+}
+
+
+Terrain* GameModel::GetTerrain() const
+{
+    return m_terrain;
 }
 
 
@@ -547,7 +661,7 @@ bool GameModel::ScaleCollisionShapeAxisFromBase( const CollisionShape& baseShape
         const float radius = (std::max)( 0.25f, sphere->GetRadius() * factor );
         const float moment = 0.4f * mass * radius * radius;
         const Vector3 inertia( moment, moment, moment );
-        m_boundingVolume = BoundingSphere( radius, sphere->GetPosition() );
+        m_boundingVolume = BoundingSphere( radius, sphere->GetPosition(), sphere->GetDragCoefficient() );
         BuildSpherePhysicsCache( radius );
         m_ballPhysics.mass = mass;
         m_ballPhysics.invMass = 1.0f / mass;
@@ -662,32 +776,6 @@ void GameModel::UpdateModelInfo()
 }
 
 
-float GameModel::GetModelCollisionTime( GameModel& collisionTarget, float changeInTime )
-{
-    // Swept tests use the path each body would travel during this substep if
-    // unobstructed.  The solver only needs the simple kinematic ray: current
-    // position plus velocity scaled by the candidate timestep.
-    Ray targetRay( collisionTarget.m_physicsInfo.GetPosition(),
-                   collisionTarget.m_physicsInfo.GetVelocity() * changeInTime );
-    Ray focusRay( m_physicsInfo.GetPosition(), m_physicsInfo.GetVelocity() * changeInTime );
-
-    // Dispatch collision test via the variant visitor (handles sphere-sphere, sphere-box, box-box)
-    return TestShapeCollision( m_boundingVolume, collisionTarget.m_boundingVolume, focusRay, targetRay );
-}
-
-
-bool GameModel::IsResponseRequired()
-{
-    return m_isResponseRequired;
-}
-
-
-void GameModel::ClearResponseRequired()
-{
-    m_isResponseRequired = false;
-}
-
-
 Matrix4 GameModel::GetModelMatrix()
 {
     // Natural model transform: T(worldPos) * FromQuaternion(q) * Scale(size).
@@ -741,26 +829,6 @@ float GameModel::GetVolume()
 }
 
 
-void GameModel::UpdatePosition( float changeInTime )
-{
-    if ( m_isFixed )
-    {
-        return;
-    }
-
-    // Skip entirely when no time has passed (e.g., zero-time terrain collision cap).
-    // Position hasn't changed, so no need to clamp against terrain.
-    if ( changeInTime <= 0.0f )
-    {
-        return;
-    }
-
-    m_physicsInfo.UpdatePosition( changeInTime );
-
-    ClampToTerrainSurface();
-}
-
-
 void GameModel::CalculateVolume()
 {
     m_physicsInfo.SetVolume( m_ballPhysics.volume );
@@ -801,598 +869,6 @@ void GameModel::SetTerrain( Terrain* pTerrain )
 }
 
 
-bool GameModel::GetClosestBoxTerrainVertex( Vector3& outVertex,
-                                            float& outTerrainHeight,
-                                            Plane& outPlane,
-                                            float& outGap )
-{
-    // Profile just the eight-vertex terrain sampling loop. This is called from
-    // collision detection and debug clamping, so keeping the marker narrow makes
-    // it easy to see the cost of the box-specific fix separately from the rest of
-    // the terrain response.
-    PROFILE_SCOPED( "Frame/Physics/Terrain/BoxClosestVertexProbe" );
-
-    if ( !m_terrain || !std::holds_alternative<BoundingBox>( m_boundingVolume ) )
-    {
-        return false;
-    }
-
-    const BoundingBox& box = std::get<BoundingBox>( m_boundingVolume );
-    const Vector3& he = box.GetHalfExtents();
-    Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
-    const Vector3& position = m_physicsInfo.GetPosition();
-
-    bool found = false;
-    float bestGap = 1.0e30f;
-    for ( int v = 0; v < 8; ++v )
-    {
-        // The low three bits enumerate the OBB corner signs. Sampling each
-        // world-space corner against its own terrain height keeps sleep/contact
-        // decisions tied to the visible geometry instead of a center XZ sample.
-        Vector3 local( ( v & 1 ) ? he.x : -he.x, ( v & 2 ) ? he.y : -he.y, ( v & 4 ) ? he.z : -he.z );
-        Vector3 worldVertex = position + ( rotMat * local );
-
-        if ( !m_terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
-        {
-            continue;
-        }
-
-        float terrainHeight = 0.0f;
-        Plane terrainPlane;
-        m_terrain->GetTerrainHeightAndPlaneAt( worldVertex.x, worldVertex.z, terrainHeight, terrainPlane );
-        float gap = worldVertex.y - terrainHeight;
-        if ( !found || gap < bestGap )
-        {
-            found = true;
-            bestGap = gap;
-            outVertex = worldVertex;
-            outTerrainHeight = terrainHeight;
-            outPlane = terrainPlane;
-            outGap = gap;
-        }
-    }
-
-    return found;
-}
-
-bool GameModel::GetClosestHullTerrainVertex( Vector3& outVertex,
-                                             float& outTerrainHeight,
-                                             Plane& outPlane,
-                                             float& outGap )
-{
-    PROFILE_SCOPED( "Frame/Physics/Terrain/HullClosestVertexProbe" );
-
-    if ( !m_terrain || !std::holds_alternative<ConvexHullShape>( m_boundingVolume ) )
-    {
-        return false;
-    }
-
-    const ConvexHullShape& hull = std::get<ConvexHullShape>( m_boundingVolume );
-    Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
-    const Vector3 hullCenter = m_physicsInfo.GetPosition() + ( rotMat * hull.GetPosition() );
-
-    bool found = false;
-    float bestGap = 1.0e30f;
-    const uint16_t vertexCount = hull.GetVertexCount();
-    for ( uint16_t v = 0; v < vertexCount; ++v )
-    {
-        Vector3 worldVertex = hullCenter + ( rotMat * hull.GetVertex( v ) );
-
-        if ( !m_terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
-        {
-            continue;
-        }
-
-        float terrainHeight = 0.0f;
-        Plane terrainPlane;
-        m_terrain->GetTerrainHeightAndPlaneAt( worldVertex.x, worldVertex.z, terrainHeight, terrainPlane );
-        float gap = worldVertex.y - terrainHeight;
-        if ( !found || gap < bestGap )
-        {
-            found = true;
-            bestGap = gap;
-            outVertex = worldVertex;
-            outTerrainHeight = terrainHeight;
-            outPlane = terrainPlane;
-            outGap = gap;
-        }
-    }
-
-    return found;
-}
-
-
-float GameModel::GetTerrainCollisionTime( float changeInTime )
-{
-    // Swept terrain tests use the model's unobstructed path for the candidate
-    // timestep. Keeping this local makes the ray construction explicit at the
-    // point where terrain collision state is prepared.
-    m_responseInformation.testingRay = Ray( m_physicsInfo.GetPosition(), m_physicsInfo.GetVelocity() * changeInTime );
-
-    // if out of bounds, no collision has occured
-    if ( !m_terrain->IsInBounds( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z ) )
-    {
-        return NO_COLLISION;
-    }
-
-    // For boxes and hulls, check the lowest actual vertex against terrain instead
-    // of using a sphere radius offset. For spheres, use the classic single-point test.
-    bool isBox = std::holds_alternative<BoundingBox>( m_boundingVolume );
-    bool isHull = std::holds_alternative<ConvexHullShape>( m_boundingVolume );
-    float bottomOffset;
-
-    if ( isBox )
-    {
-        // Closed-form lowest-vertex Y offset. For an OBB, the maximum downward extent
-        // from centre is dot(abs(rotationRow_Y), halfExtents). This replaces the naive
-        // 8-vertex loop with 3 abs + 3 multiply-adds (>10× faster for boxes).
-        // Layman version: ask "how far below the box center can any rotated
-        // corner be?" without checking all eight corners. This is only an
-        // early-out aid; exact terrain contact below still samples real vertices.
-        const BoundingBox& box = std::get<BoundingBox>( m_boundingVolume );
-        const Vector3& he = box.GetHalfExtents();
-        Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
-        bottomOffset = rotMat.SupportExtentY( he );
-    }
-    else if ( isHull )
-    {
-        // Conservative early-out only. Exact hull terrain detection below samples
-        // every authored vertex; the radius here only avoids terrain work while
-        // the hull is clearly above the heightfield.
-        bottomOffset = m_ballPhysics.radius;
-    }
-    else
-    {
-        bottomOffset = m_ballPhysics.radius;
-    }
-
-    // Airborne early-out: if the object's lowest point cannot reach the terrain's
-    // maximum height during this timestep (even while falling), skip the expensive
-    // cached terrain query entirely.
-    {
-        float minBottomY = m_physicsInfo.GetPosition().y - bottomOffset;
-        float velY = m_physicsInfo.GetVelocity().y;
-        if ( velY < 0.0f )
-        {
-            minBottomY += velY * changeInTime;
-        }
-        if ( minBottomY > m_terrain->GetMaxHeight() )
-        {
-            return NO_COLLISION;
-        }
-    }
-
-    if ( isBox )
-    {
-        // Boxes need a real vertex/terrain gap test before the old center-based
-        // sphere path runs. The at_rest regression exposed that using the model
-        // center height plus SupportExtentY can produce a false current contact
-        // on sloped terrain, leaving the box sleeping above the ground.
-        Vector3 closestVertex;
-        float terrainHeight = 0.0f;
-        Plane terrainPlane;
-        float gap = 0.0f;
-        if ( !GetClosestBoxTerrainVertex( closestVertex, terrainHeight, terrainPlane, gap ) )
-        {
-            return NO_COLLISION;
-        }
-
-        if ( gap <= Cfg().contactEpsilon )
-        {
-            // Reuse the terrain plane from the actual closest vertex so detection
-            // and response agree about which patch of terrain is carrying the box.
-            m_responseInformation.testingPlane = terrainPlane;
-            m_responseInformation.collisionTime = 0.0f;
-            return 0.0f;
-        }
-
-        if ( m_responseInformation.testingRay.vector3.IsCloseToZero() )
-        {
-            return NO_COLLISION;
-        }
-
-        const BoundingBox& box = std::get<BoundingBox>( m_boundingVolume );
-        const Vector3& he = box.GetHalfExtents();
-        Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
-        const Vector3& position = m_physicsInfo.GetPosition();
-
-        float earliestCollisionTime = NO_COLLISION;
-        Plane earliestPlane;
-        {
-            // When no vertex is currently touching, sweep every box vertex along
-            // the body's linear motion and take the earliest plane hit. This keeps
-            // the existing linear CCD behavior but avoids inventing terrain contact
-            // from a center sample that may be nowhere near the lowest corner.
-            PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSweptVertexProbe" );
-            for ( int v = 0; v < 8; ++v )
-            {
-                Vector3 local( ( v & 1 ) ? he.x : -he.x, ( v & 2 ) ? he.y : -he.y, ( v & 4 ) ? he.z : -he.z );
-                Vector3 worldVertex = position + ( rotMat * local );
-
-                if ( !m_terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
-                {
-                    continue;
-                }
-
-                float vertexTerrainHeight = 0.0f;
-                Plane vertexPlane;
-                m_terrain->GetTerrainHeightAndPlaneAt( worldVertex.x, worldVertex.z, vertexTerrainHeight, vertexPlane );
-
-                Ray vertexRay( worldVertex, m_physicsInfo.GetVelocity() * changeInTime );
-                float vertexCollisionTime = GeometricMath::CalculateIntersectionTime( vertexPlane, vertexRay );
-                if ( vertexCollisionTime >= ZERO_TAKE_TOLERANCE && vertexCollisionTime <= 1.0f &&
-                     vertexCollisionTime < earliestCollisionTime )
-                {
-                    earliestCollisionTime = vertexCollisionTime;
-                    earliestPlane = vertexPlane;
-                }
-            }
-        }
-
-        if ( earliestCollisionTime <= 1.0f )
-        {
-            m_responseInformation.testingPlane = earliestPlane;
-            m_responseInformation.collisionTime = earliestCollisionTime;
-            return earliestCollisionTime;
-        }
-
-        return NO_COLLISION;
-    }
-
-    if ( isHull )
-    {
-        Vector3 closestVertex;
-        float terrainHeight = 0.0f;
-        Plane terrainPlane;
-        float gap = 0.0f;
-        if ( !GetClosestHullTerrainVertex( closestVertex, terrainHeight, terrainPlane, gap ) )
-        {
-            return NO_COLLISION;
-        }
-
-        if ( gap <= Cfg().contactEpsilon )
-        {
-            m_responseInformation.testingPlane = terrainPlane;
-            m_responseInformation.collisionTime = 0.0f;
-            return 0.0f;
-        }
-
-        if ( m_responseInformation.testingRay.vector3.IsCloseToZero() )
-        {
-            return NO_COLLISION;
-        }
-
-        const ConvexHullShape& hull = std::get<ConvexHullShape>( m_boundingVolume );
-        Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
-        const Vector3 hullCenter = m_physicsInfo.GetPosition() + ( rotMat * hull.GetPosition() );
-
-        float earliestCollisionTime = NO_COLLISION;
-        Plane earliestPlane;
-        {
-            PROFILE_SCOPED( "Frame/Physics/Terrain/HullSweptVertexProbe" );
-            const uint16_t vertexCount = hull.GetVertexCount();
-            for ( uint16_t v = 0; v < vertexCount; ++v )
-            {
-                Vector3 worldVertex = hullCenter + ( rotMat * hull.GetVertex( v ) );
-
-                if ( !m_terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
-                {
-                    continue;
-                }
-
-                float vertexTerrainHeight = 0.0f;
-                Plane vertexPlane;
-                m_terrain->GetTerrainHeightAndPlaneAt( worldVertex.x, worldVertex.z, vertexTerrainHeight, vertexPlane );
-
-                Ray vertexRay( worldVertex, m_physicsInfo.GetVelocity() * changeInTime );
-                float vertexCollisionTime = GeometricMath::CalculateIntersectionTime( vertexPlane, vertexRay );
-                if ( vertexCollisionTime >= ZERO_TAKE_TOLERANCE && vertexCollisionTime <= 1.0f &&
-                     vertexCollisionTime < earliestCollisionTime )
-                {
-                    earliestCollisionTime = vertexCollisionTime;
-                    earliestPlane = vertexPlane;
-                }
-            }
-        }
-
-        if ( earliestCollisionTime <= 1.0f )
-        {
-            m_responseInformation.testingPlane = earliestPlane;
-            m_responseInformation.collisionTime = earliestCollisionTime;
-            return earliestCollisionTime;
-        }
-
-        return NO_COLLISION;
-    }
-
-    // Cache-backed terrain lookup: one query returns the exact collision plane and
-    // height for this XZ position, avoiding per-frame LocatePolygon + ComputePlane.
-    float terrainHeight = 0.0f;
-    m_terrain->GetTerrainHeightAndPlaneAt( m_physicsInfo.GetPosition().x,
-                                           m_physicsInfo.GetPosition().z,
-                                           terrainHeight,
-                                           m_responseInformation.testingPlane );
-    float gap = m_physicsInfo.GetPosition().y - bottomOffset - terrainHeight;
-    if ( gap <= Cfg().contactEpsilon )
-    {
-        m_responseInformation.collisionTime = 0.0f;
-        return 0.0f;
-    }
-
-    // if the dynamics object is stationary and not in contact, no collision will occur
-    if ( m_responseInformation.testingRay.vector3.IsCloseToZero() )
-    {
-        return NO_COLLISION;
-    }
-
-    // offset the ray origin for swept test
-    m_responseInformation.testingRay.origin.y -= bottomOffset;
-
-    m_responseInformation.collisionTime = GeometricMath::CalculateIntersectionTime( m_responseInformation.testingPlane,
-                                                                                    m_responseInformation.testingRay );
-
-    return m_responseInformation.collisionTime;
-}
-
-
-float GameModel::CollisionDetectTerrain( float changeInTime )
-{
-    // This answers "how many seconds can this body move before it hits terrain?"
-    // If a hit occurs, it records a response-required flag and stores the
-    // plane/ray details. It does not push the body or change velocity.
-    if ( !m_terrain )
-    {
-        throw std::runtime_error( "Terrain pointer not valid!  (GameModel::CollisionDetectTerrain)" );
-    }
-
-    if ( m_isResponseRequired )
-    {
-        throw std::runtime_error(
-            "Cannot detect collision when a response is required first!  (GameModel::CollisionDetectTerrain)" );
-    }
-
-    float collisionTime = GetTerrainCollisionTime( changeInTime );
-
-    // if no collision in this time frame
-    if ( collisionTime > 1.0f || collisionTime < ZERO_TAKE_TOLERANCE )
-    {
-        // allow full time to be applied as no collision will occur
-        collisionTime = changeInTime;
-    }
-    else
-    {
-        // perform the cap - cap time to be applied by converting collision from time ratio to actual seconds
-        collisionTime *= changeInTime;
-
-        m_isResponseRequired = true;
-
-        m_responseInformation.collidedPlane = m_responseInformation.testingPlane;
-        m_responseInformation.collidedRay = m_responseInformation.testingRay;
-    }
-
-    return collisionTime;
-}
-
-
-bool GameModel::BuildTerrainContactManifold( int bodyIndex,
-                                             float timeOfImpact,
-                                             float availableTime,
-                                             Physics::TerrainContactManifold& out )
-{
-    PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold" );
-    PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold/Build" );
-
-    // Geometry-only boundary for the shared terrain row path. This converts the
-    // swept terrain hit cached by CollisionDetectTerrain into contact points,
-    // feature ids, tangent axes, and support-policy metadata. It must not apply
-    // impulses, write warm-start caches, or decide final sleep state; those jobs
-    // belong to GameModelCollection's shared row solver.
-    if ( !m_terrain || m_isFixed )
-    {
-        return false;
-    }
-
-    out = Physics::TerrainContactManifold();
-    out.bodyA = bodyIndex;
-    out.bodyB = -1;
-    out.normal = m_responseInformation.collidedPlane.m_normal;
-    out.timeOfImpact = timeOfImpact;
-    out.sweptHit = timeOfImpact > ZERO_TAKE_TOLERANCE && timeOfImpact < availableTime;
-
-    // Build one stable tangent basis per terrain manifold. Every contact point
-    // in the manifold reuses this basis so friction rows are deterministic and
-    // do not drift because of point ordering.
-    Physics::ContactSolver::BuildContactTangents( out.normal, out.tangent1, out.tangent2 );
-
-    Geometry::Plane colPlane = m_responseInformation.collidedPlane;
-    const Vector3 planeNormal = out.normal;
-    const Vector3 position = m_physicsInfo.GetPosition();
-
-    std::visit(
-        [&]( const auto& shape )
-        {
-            using ShapeT = std::decay_t<decltype( shape )>;
-
-            if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
-            {
-                // A sphere has one terrain point: the bottom pole along the terrain
-                // normal. That becomes one normal row and two tangent friction rows.
-                float radius = shape.GetRadius();
-                Vector3 contactWorldPos = position - planeNormal * radius;
-                float signedDist = ( contactWorldPos * planeNormal ) - colPlane.m_distance;
-
-                Physics::TerrainContactPoint& point = out.points[0];
-                point.point = contactWorldPos;
-                point.rA = contactWorldPos - position;
-                point.penetration = -signedDist;
-                point.featureId = 0;
-                out.pointCount = 1;
-            }
-            else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
-            {
-                PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold/BoxVertices" );
-
-                // Boxes may touch terrain on a face, an edge, or a single corner.
-                // Sample all eight oriented-box corners against the collided terrain
-                // plane and keep the closest cluster. The terrain contact threshold
-                // lets a slightly uneven heightfield still form a stable patch, but
-                // rejects corners that are clearly not part of the touching feature.
-                const Vector3& he = shape.GetHalfExtents();
-                Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
-                Vector3 worldVerts[8];
-                float signedDists[8];
-                float minSignedDist = 1e10f;
-
-                for ( int v = 0; v < 8; ++v )
-                {
-                    Vector3 local = Physics::GetBoxTerrainLocalCorner( he, v );
-                    worldVerts[v] = position + ( rotMat * local );
-                    signedDists[v] = ( worldVerts[v] * planeNormal ) - colPlane.m_distance;
-                    if ( signedDists[v] < minSignedDist )
-                    {
-                        minSignedDist = signedDists[v];
-                    }
-                }
-
-                const float contactThreshold = (std::max)( 0.0f, Cfg().terrainContactThreshold );
-                const float cutoff = minSignedDist + contactThreshold;
-                for ( int v = 0; v < 8; ++v )
-                {
-                    if ( signedDists[v] > cutoff )
-                    {
-                        continue;
-                    }
-
-                    float penetration = -signedDists[v];
-                    Physics::TerrainContactPoint& point = out.points[out.pointCount];
-                    point.point = worldVerts[v];
-                    point.rA = worldVerts[v] - position;
-                    point.penetration = ( penetration > 0.0f ) ? penetration : 0.0f;
-                    point.featureId = static_cast<uint32_t>( v + 1 );
-                    ++out.pointCount;
-                }
-            }
-            else if constexpr ( std::is_same_v<ShapeT, ConvexHullShape> )
-            {
-                PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold/HullVertices" );
-
-                Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
-                const Vector3 hullCenter = position + ( rotMat * shape.GetPosition() );
-                Vector3 worldVerts[ConvexHullShape::MAX_VERTICES];
-                float signedDists[ConvexHullShape::MAX_VERTICES];
-                float minSignedDist = 1e10f;
-
-                const uint16_t vertexCount = shape.GetVertexCount();
-                for ( uint16_t v = 0; v < vertexCount; ++v )
-                {
-                    worldVerts[v] = hullCenter + ( rotMat * shape.GetVertex( v ) );
-                    signedDists[v] = ( worldVerts[v] * planeNormal ) - colPlane.m_distance;
-                    if ( signedDists[v] < minSignedDist )
-                    {
-                        minSignedDist = signedDists[v];
-                    }
-                }
-
-                const float contactThreshold = (std::max)( 0.0f, Cfg().terrainContactThreshold );
-                const float cutoff = minSignedDist + contactThreshold;
-                for ( uint16_t v = 0; v < vertexCount && out.pointCount < 8; ++v )
-                {
-                    if ( signedDists[v] > cutoff )
-                    {
-                        continue;
-                    }
-
-                    float penetration = -signedDists[v];
-                    Physics::TerrainContactPoint& point = out.points[out.pointCount];
-                    point.point = worldVerts[v];
-                    point.rA = worldVerts[v] - position;
-                    point.penetration = ( penetration > 0.0f ) ? penetration : 0.0f;
-                    point.featureId = 0x6000u | static_cast<uint32_t>( v & 0x0fffu );
-                    ++out.pointCount;
-                }
-            }
-        },
-        m_boundingVolume );
-
-    if ( out.pointCount == 0 )
-    {
-        return false;
-    }
-
-    const float preVn = m_physicsInfo.GetVelocity() * planeNormal;
-    if ( preVn < -Cfg().contactRestitutionThreshold && out.pointCount > 1 )
-    {
-        // For fast impacts, collapse a multi-point box footprint to a centroid
-        // impact row. Resting contacts should use the full patch, but a high
-        // speed bounce should not stack several restitution rows and over-launch
-        // the body.
-        Vector3 centroid = Vector::ZERO_VECTOR;
-        Vector3 centroidR = Vector::ZERO_VECTOR;
-        float avgPen = 0.0f;
-        for ( uint8_t i = 0; i < out.pointCount; ++i )
-        {
-            centroid += out.points[i].point;
-            centroidR += out.points[i].rA;
-            avgPen += out.points[i].penetration;
-        }
-
-        const float invCount = 1.0f / static_cast<float>( out.pointCount );
-        out.points[0].point = centroid * invCount;
-        out.points[0].rA = centroidR * invCount;
-        out.points[0].penetration = avgPen * invCount;
-        out.points[0].featureId = 0x7fffu;
-        out.pointCount = 1;
-    }
-
-    const Transformation::RotationMatrix orientMat = m_physicsInfo.GetOrientationMatrix();
-    const Physics::BoxTerrainSupportClassification terrainSupport =
-        Physics::ClassifyBoxTerrainSupport( m_boundingVolume,
-                                            position,
-                                            orientMat,
-                                            planeNormal,
-                                            m_terrain,
-                                            out.pointCount,
-                                            Cfg().contactEpsilon,
-                                            true );
-
-    // Support policy is metadata, not collision response. Unsupported edge or
-    // point contacts still generate rows and solve penetration, but they cannot
-    // seed sleep, receive rest-only gravity warm start, or keep cached impulses.
-    out.supportsRestingPolicy =
-        !( terrainSupport.isBox || terrainSupport.isConvexHull ) || terrainSupport.supportsRestingPolicy;
-    out.allowsTangentFriction = !terrainSupport.isConvexHull || out.supportsRestingPolicy;
-    out.inhibitsSleep = !out.supportsRestingPolicy;
-    return true;
-}
-
-
-GameModel::ObjectSweepResult GameModel::SweepGameModel( GameModel& collisionTarget, float changeInTime )
-{
-    // Object/object sweep is the continuous-collision-detection front door. It
-    // returns a hit time so callers can move bodies up to first contact. The
-    // actual bounce/friction response is still handled by persistent rows.
-    ObjectSweepResult result;
-    result.collisionTime = changeInTime;
-
-    float collisionTime = GetModelCollisionTime( collisionTarget, changeInTime );
-
-    // if no collision in this time frame
-    if ( collisionTime > 1.0f || collisionTime < ZERO_TAKE_TOLERANCE )
-    {
-        // allow full time to be applied as no collision will occur
-        collisionTime = changeInTime;
-    }
-    else
-    {
-        // perform the cap - cap time to be applied by converting collision from time ratio to actual seconds
-        result.hit = true;
-        result.collisionTime = collisionTime * changeInTime;
-    }
-
-    return result;
-}
-
-
 const Vector3& GameModel::GetPosition()
 {
     return m_physicsInfo.GetPosition();
@@ -1405,68 +881,6 @@ const Vector3& GameModel::GetPosition() const
     //   Const access lets the narrowphase manifold builder inspect immutable
     //   GameModels without opening write access to physics state.
     return m_physicsInfo.GetPosition();
-}
-
-
-void GameModel::ClampToTerrainSurface()
-{
-    if ( !m_terrain )
-    {
-        return;
-    }
-
-    // if we are not in bounds then exit now!
-    if ( !m_terrain->IsInBounds( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z ) )
-    {
-        return;
-    }
-
-    if ( std::holds_alternative<BoundingBox>( m_boundingVolume ) )
-    {
-        // This debug clamp is intentionally conservative for boxes: only lift the
-        // model by the deepest actual vertex penetration. The previous center
-        // height plus support extent logic could push boxes upward on uneven
-        // terrain and preserve a visible floating gap after sleep.
-        Vector3 closestVertex;
-        float terrainHeight = 0.0f;
-        Plane terrainPlane;
-        float gap = 0.0f;
-        if ( GetClosestBoxTerrainVertex( closestVertex, terrainHeight, terrainPlane, gap ) && gap < 0.0f )
-        {
-            Vector3 updatePos( m_physicsInfo.GetPosition().x,
-                               m_physicsInfo.GetPosition().y - gap,
-                               m_physicsInfo.GetPosition().z );
-            m_physicsInfo.SetPosition( updatePos );
-        }
-        return;
-    }
-
-    if ( std::holds_alternative<ConvexHullShape>( m_boundingVolume ) )
-    {
-        Vector3 closestVertex;
-        float terrainHeight = 0.0f;
-        Plane terrainPlane;
-        float gap = 0.0f;
-        if ( GetClosestHullTerrainVertex( closestVertex, terrainHeight, terrainPlane, gap ) && gap < 0.0f )
-        {
-            Vector3 updatePos( m_physicsInfo.GetPosition().x,
-                               m_physicsInfo.GetPosition().y - gap,
-                               m_physicsInfo.GetPosition().z );
-            m_physicsInfo.SetPosition( updatePos );
-        }
-        return;
-    }
-
-    float bottomOffset = m_ballPhysics.radius;
-
-    float terrainH = m_terrain->GetTerrainHeightAt( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z );
-
-    // if we are lower than the terrain, push up
-    if ( m_physicsInfo.GetPosition().y - bottomOffset < terrainH )
-    {
-        Vector3 updatePos( m_physicsInfo.GetPosition().x, terrainH + bottomOffset, m_physicsInfo.GetPosition().z );
-        m_physicsInfo.SetPosition( updatePos );
-    }
 }
 
 
@@ -1735,7 +1149,7 @@ Vector3 GameModel::CalculateBuoyancyRightingTorque( float buoyancyForce, float s
         int closeSamples = 0;
         int terrainSamples = 0;
         const Vector3 position = m_physicsInfo.GetPosition();
-        const float supportGap = Cfg().contactEpsilon + Physics::BOX_TERRAIN_VERTEX_SUPPORT_SLACK;
+        const float supportGap = m_contactPolicy.contactEpsilon + Physics::BOX_TERRAIN_VERTEX_SUPPORT_SLACK;
         std::visit(
             [&]( const auto& shape )
             {
@@ -1883,7 +1297,7 @@ const Vector3& GameModel::GetRotationalInertia() const
 }
 
 
-const Vector3& GameModel::GetInvertedRotationalInertia()
+const Vector3& GameModel::GetInvertedRotationalInertia() const
 {
     if ( m_isFixed )
     {

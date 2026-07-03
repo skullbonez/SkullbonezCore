@@ -32,9 +32,7 @@ namespace SkullbonezCore
 namespace Physics
 {
 inline constexpr uint32_t INVALID_PHYSICS_HANDLE_INDEX = 0xffffffffu;
-inline constexpr uint32_t PHYSICS_COMPATIBILITY_HANDLE_GENERATION = 1u;
-// Standalone handles use a different generation range than model compatibility slots.
-inline constexpr uint32_t PHYSICS_STANDALONE_HANDLE_INITIAL_GENERATION = 2u;
+inline constexpr uint32_t PHYSICS_HANDLE_INITIAL_GENERATION = 1u;
 
 struct PhysicsBodyHandle
 {
@@ -78,22 +76,6 @@ struct PhysicsSceneObjectId
         return value != 0;
     }
 };
-
-inline PhysicsBodyHandle MakeCompatibilityPhysicsBodyHandle( uint32_t modelIndex )
-{
-    PhysicsBodyHandle handle;
-    handle.index = modelIndex;
-    handle.generation = PHYSICS_COMPATIBILITY_HANDLE_GENERATION;
-    return handle;
-}
-
-inline PhysicsColliderHandle MakeCompatibilityPhysicsColliderHandle( uint32_t modelIndex )
-{
-    PhysicsColliderHandle handle;
-    handle.index = modelIndex;
-    handle.generation = PHYSICS_COMPATIBILITY_HANDLE_GENERATION;
-    return handle;
-}
 
 inline PhysicsSceneObjectId MakePhysicsSceneObjectIdFromReplayBodyId( uint32_t replayBodyId )
 {

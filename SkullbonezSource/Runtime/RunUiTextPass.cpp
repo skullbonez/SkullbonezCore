@@ -37,15 +37,18 @@ Related:
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Basics::RunInternal;
 
-void UiTextPass::EnsureGpuResources()
+void UiTextPass::EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources,
+                                     const Assets::AssetSystem& assets,
+                                     int screenW,
+                                     int screenH )
 {
-    Text2d::BuildFont( "Verdana" );
+    Text2d::BuildFont( renderResources, assets, screenW, screenH, "Verdana" );
 }
 
 
-void UiTextPass::ReleaseGpuResources()
+void UiTextPass::ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources )
 {
-    Text2d::DeleteFont();
+    Text2d::DeleteFont( renderResources );
 }
 
 
@@ -63,6 +66,8 @@ bool UiTextPass::ShouldRender() const
 void UiTextPass::Render( const UiTextPassInputs& inputs )
 {
     const int uiPassDrawCallStart = inputs.renderDiagnostics.GetFrameDrawCallCount();
+    assert( inputs.uiRender.IsReady() );
+    Rendering::IRenderCommandContext& renderCommands = *inputs.uiRender.commands;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     const Profiler& profiler = Profiler::Instance();
 #endif
@@ -109,7 +114,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     if ( m_host.m_debug.isTextOnly )
     {
         // Dark background covering the full viewport
-        Text2d::Render2dQuad( -0.55f, -0.45f, 0.55f, 0.45f, 0.08f, 0.08f, 0.12f, 1.0f );
+        Text2d::Render2dQuad( renderCommands, -0.55f, -0.45f, 0.55f, 0.45f, 0.08f, 0.08f, 0.12f, 1.0f );
 
         // Three rows of the pangram - each line uses a slightly different color
         // so hue/brightness fringing artifacts are visible on all channel combinations
@@ -123,7 +128,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         {
             DRAW_CALL_TRACE_SCOPE( "TextOnly" );
-            Text2d::FlushText();
+            Text2d::FlushText( renderCommands );
         }
         return;
     }
@@ -147,7 +152,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         const int screenW = (std::max)( 1, m_host.WindowScreenWidth() );
         const int screenH = (std::max)( 1, m_host.WindowScreenHeight() );
-        const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH );
+        const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands );
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
         const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
 
@@ -208,7 +213,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                           m_host.m_debug.isCrossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
                           m_host.m_debug.isCrossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
                           0.90f );
-        Text2d::FlushQuads();
+        Text2d::FlushQuads( renderCommands );
         draw.Text( x + padX,
                    y + padY,
                    titlePx,
@@ -241,7 +246,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         const int screenW = (std::max)( 1, m_host.WindowScreenWidth() );
         const int screenH = (std::max)( 1, m_host.WindowScreenHeight() );
-        const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH );
+        const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands );
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
         const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
 
@@ -293,7 +298,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                           accent.g,
                           accent.b,
                           0.88f );
-        Text2d::FlushQuads();
+        Text2d::FlushQuads( renderCommands );
         draw.Text( x + padX, y + padY, titlePx, accent.r, accent.g, accent.b, modeLine );
         draw.Text( x + padX,
                    y + padY + lineGap,
@@ -315,14 +320,14 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float cGap = 0.004f;
         const float cHalf = 0.00045f;
         const float cShadowHalf = 0.00080f;
-        Text2d::Render2dQuad( -cArm, -cShadowHalf, -cGap, cShadowHalf, 0.0f, 0.0f, 0.0f, 0.40f );
-        Text2d::Render2dQuad( cGap, -cShadowHalf, cArm, cShadowHalf, 0.0f, 0.0f, 0.0f, 0.40f );
-        Text2d::Render2dQuad( -cShadowHalf, -cArm, cShadowHalf, -cGap, 0.0f, 0.0f, 0.0f, 0.40f );
-        Text2d::Render2dQuad( -cShadowHalf, cGap, cShadowHalf, cArm, 0.0f, 0.0f, 0.0f, 0.40f );
-        Text2d::Render2dQuad( -cArm, -cHalf, -cGap, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
-        Text2d::Render2dQuad( cGap, -cHalf, cArm, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
-        Text2d::Render2dQuad( -cHalf, -cArm, cHalf, -cGap, 0.80f, 0.96f, 1.0f, 0.88f );
-        Text2d::Render2dQuad( -cHalf, cGap, cHalf, cArm, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( renderCommands, -cArm, -cShadowHalf, -cGap, cShadowHalf, 0.0f, 0.0f, 0.0f, 0.40f );
+        Text2d::Render2dQuad( renderCommands, cGap, -cShadowHalf, cArm, cShadowHalf, 0.0f, 0.0f, 0.0f, 0.40f );
+        Text2d::Render2dQuad( renderCommands, -cShadowHalf, -cArm, cShadowHalf, -cGap, 0.0f, 0.0f, 0.0f, 0.40f );
+        Text2d::Render2dQuad( renderCommands, -cShadowHalf, cGap, cShadowHalf, cArm, 0.0f, 0.0f, 0.0f, 0.40f );
+        Text2d::Render2dQuad( renderCommands, -cArm, -cHalf, -cGap, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( renderCommands, cGap, -cHalf, cArm, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( renderCommands, -cHalf, -cArm, cHalf, -cGap, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( renderCommands, -cHalf, cGap, cHalf, cArm, 0.80f, 0.96f, 1.0f, 0.88f );
         const char* fireModeLabel = m_host.LauncherFireModeLabel();
         const float modeSz = 0.011f;
         const float modeW = Text2d::MeasureText( modeSz, fireModeLabel );
@@ -362,7 +367,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.screenH = m_host.WindowScreenHeight();
         if ( m_host.m_debug.isUITestPattern )
         {
-            DrawUITestPattern( UIData.screenW, UIData.screenH );
+            DrawUITestPattern( renderCommands, UIData.screenW, UIData.screenH );
         }
         UIData.rendererName = rendererName;
         UIData.sceneName = sceneName;
@@ -521,7 +526,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
         UIData.modelCount = view.modelCount;
         UIData.modelCapacity = ActiveGameModelCapacity();
-        UIData.workerThreadCount = SkullbonezCore::Threading::WorkerPool::Instance().GetThreadCount();
+        UIData.workerThreadCount = m_host.m_systems.workerPool ? m_host.m_systems.workerPool->GetThreadCount() : 0;
         UIData.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
         UIData.currentFrame = view.frame;
         UIData.targetFrameCount = view.targetFrameCount;
@@ -544,6 +549,61 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.testComplete = m_host.SceneState().isTestComplete;
         UIData.vsyncEnabled = m_host.m_runtimeSettings.isVsyncEnabled;
         UIData.pipelineSyncEnabled = m_host.m_runtimeSettings.isPipelineSyncEnabled;
+        const RuntimeContactAudioSnapshot& contactAudio = m_host.m_runtimeViewModel.contactAudio;
+        UIData.contactAudioEnabled = contactAudio.enabled;
+        UIData.contactAudioAvailable = contactAudio.available;
+        UIData.contactAudioDebugCounters = contactAudio.debugCounters;
+        UIData.contactAudioFlashOnSubmit = contactAudio.flashOnSubmit;
+        UIData.contactAudioMasterGain = contactAudio.masterGain;
+        UIData.contactAudioMaxDistanceScale = contactAudio.maxDistanceScale;
+        UIData.contactAudioMinClosingSpeed = contactAudio.minClosingSpeed;
+        UIData.contactAudioMinImpactScore = contactAudio.minImpactScore;
+        UIData.contactAudioImpactScoreRangeSeconds = contactAudio.impactScoreRangeSeconds;
+        UIData.contactAudioBurstVoicesPerWindow = contactAudio.burstVoicesPerWindow;
+        UIData.contactAudioEventsSeen = contactAudio.stats.eventsSeen;
+        UIData.contactAudioRejectedByThreshold = contactAudio.stats.rejectedByThreshold;
+        UIData.contactAudioRejectedByCooldown = contactAudio.stats.rejectedByCooldown;
+        UIData.contactAudioSubmittedVoices = contactAudio.stats.submittedVoices;
+        UIData.contactAudioDroppedVoices = contactAudio.stats.droppedVoices;
+        // Lifetime: names copied into UIData are borrowed from ContactAudioService
+        // through the runtime view model for this immediate draw pass.
+        UIData.soundSetCount = (std::min)( contactAudio.soundSetCount, SkullbonezCore::UI::UI_SOUND_SET_MAX );
+        UIData.soundSampleCount = (std::min)( contactAudio.soundSampleCount, SkullbonezCore::UI::UI_SOUND_SAMPLE_MAX );
+        for ( int sampleIndex = 0; sampleIndex < UIData.soundSampleCount; ++sampleIndex )
+        {
+            UIData.soundSamplePaths[sampleIndex] = contactAudio.soundSamplePaths[sampleIndex];
+        }
+        for ( int setIndex = 0; setIndex < UIData.soundSetCount; ++setIndex )
+        {
+            const SkullbonezCore::Runtime::Audio::ContactAudioSetTuning& tuning = contactAudio.soundSets[setIndex];
+            SkullbonezCore::UI::UISoundSetFrameData& set = UIData.soundSets[setIndex];
+            set.name = tuning.name;
+            set.materialA = tuning.materialA;
+            set.materialB = tuning.materialB;
+            set.minImpulse = tuning.minImpulse;
+            set.impulseRange = tuning.impulseRange;
+            set.cooldownMs = tuning.cooldownMs;
+            set.overrideCooldownMs = tuning.overrideCooldownMs;
+            set.maxDistance = tuning.maxDistance;
+            set.baseGain = tuning.baseGain;
+            set.pitchMin = tuning.pitchMin;
+            set.pitchMax = tuning.pitchMax;
+            set.maxVoices = tuning.maxVoices;
+            set.sampleCount = tuning.sampleCount;
+            set.bandCount =
+                (std::min)( tuning.bandCount, static_cast<uint32_t>( SkullbonezCore::UI::UI_SOUND_BAND_MAX ) );
+            for ( uint32_t bandIndex = 0; bandIndex < set.bandCount; ++bandIndex )
+            {
+                SkullbonezCore::UI::UISoundBandFrameData& band = set.bands[bandIndex];
+                band.name = tuning.bands[bandIndex].name;
+                band.minImpulse = tuning.bands[bandIndex].minImpulse;
+                band.impulseRange = tuning.bands[bandIndex].impulseRange;
+                band.baseGain = tuning.bands[bandIndex].baseGain;
+                band.pitchMin = tuning.bands[bandIndex].pitchMin;
+                band.pitchMax = tuning.bands[bandIndex].pitchMax;
+                band.sampleCount = tuning.bands[bandIndex].sampleCount;
+            }
+        }
         UIData.sceneEnergy = sceneEnergyForDisplay;
         UIData.timeScale = view.timeScale;
         UIData.trackHeight = m_host.m_camera.trackBallIndex >= 0 ? m_host.m_camera.trackHeight : 0.0f;
@@ -579,7 +639,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.tornadoInwardAcceleration = m_host.m_runtimeSettings.tornadoField.inwardAcceleration;
         UIData.tornadoSwirlAcceleration = m_host.m_runtimeSettings.tornadoField.swirlAcceleration;
         UIData.tornadoLiftAcceleration = m_host.m_runtimeSettings.tornadoField.liftAcceleration;
-        const EngineConfig& liveConfig = Cfg();
+        const EngineConfig& liveConfig = m_host.m_config;
         UIData.rayCastVisualization = m_host.m_rayCastTest.visualizeRays;
         UIData.rayCastImpulseStrength = m_host.m_rayCastTest.impulseStrength;
         UIData.launcherProjectileSpeed = m_host.m_rayCastTest.projectileSpeed;
@@ -707,20 +767,20 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         PROFILE_BEGIN( "Frame/UI/PreFlushText" );
         {
             DRAW_CALL_TRACE_SCOPE( "PreFlushText" );
-            Text2d::FlushText();
+            Text2d::FlushText( renderCommands );
         }
         PROFILE_END( "Frame/UI/PreFlushText" );
         UIData.drawCallsBeforeUI = uiPassDrawCallStart;
-        m_host.m_UI.Draw( UIData );
+        m_host.m_UI.Draw( UIData, inputs.uiRender );
         PROFILE_BEGIN( "Frame/UI/PostFlushText" );
         {
             DRAW_CALL_TRACE_SCOPE( "Frame/UI/PostFlushText" );
-            Text2d::FlushText();
+            Text2d::FlushText( renderCommands );
         }
         PROFILE_END( "Frame/UI/PostFlushText" );
         if ( m_host.m_UI.IsVisible() )
         {
-            m_host.RenderReplayScrubberOverlay();
+            m_host.RenderReplayScrubberOverlay( inputs.uiRender );
             return;
         }
     }
@@ -728,10 +788,10 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     // --- Overlay: None ---
     if ( m_host.m_debug.overlayMode == OverlayMode::None )
     {
-        m_host.RenderReplayScrubberOverlay();
+        m_host.RenderReplayScrubberOverlay( inputs.uiRender );
         {
             DRAW_CALL_TRACE_SCOPE( "HUD" );
-            Text2d::FlushText();
+            Text2d::FlushText( renderCommands );
         }
         return;
     }
@@ -750,7 +810,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panX1 = panX0 + panW;
         const float panY1 = panY0 + panH;
 
-        Text2d::Render2dQuad( panX0, panY0, panX1, panY1, 0.04f, 0.04f, 0.07f, 0.93f );
+        Text2d::Render2dQuad( renderCommands, panX0, panY0, panX1, panY1, 0.04f, 0.04f, 0.07f, 0.93f );
         Text2d::Render2dTextColor( panX0 + panPad,
                                    panY1 - panPad - titleSz,
                                    titleSz,
@@ -774,10 +834,10 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                                    0.85f,
                                    "Scene Energy: %.6f",
                                    sceneEnergyForDisplay );
-        m_host.RenderReplayScrubberOverlay();
+        m_host.RenderReplayScrubberOverlay( inputs.uiRender );
         {
             DRAW_CALL_TRACE_SCOPE( "SceneStats" );
-            Text2d::FlushText();
+            Text2d::FlushText( renderCommands );
         }
         return;
     }
@@ -794,11 +854,11 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panX = -( hw - mX ) + mX * 0.5f;   // slight left margin
         const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
         const bool absolute = ( m_host.m_debug.overlayMode == OverlayMode::BarsAbsolute );
-        profiler.RenderBarOverlay( panX, panY, panW, panH, absolute );
-        m_host.RenderReplayScrubberOverlay();
+        profiler.RenderBarOverlay( renderCommands, panX, panY, panW, panH, absolute );
+        m_host.RenderReplayScrubberOverlay( inputs.uiRender );
         {
             DRAW_CALL_TRACE_SCOPE( "ProfilerBars" );
-            Text2d::FlushText();
+            Text2d::FlushText( renderCommands );
         }
         return;
     }
@@ -825,7 +885,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panX1 = panX0 + panW;
         const float panY1 = panY0 + panH;
 
-        Text2d::Render2dQuad( panX0, panY0, panX1, panY1, 0.04f, 0.04f, 0.07f, 0.93f );
+        Text2d::Render2dQuad( renderCommands, panX0, panY0, panX1, panY1, 0.04f, 0.04f, 0.07f, 0.93f );
 
         // Title left-aligned inside panel
         const float titleY = panY1 - panPad - titleSz;
@@ -885,10 +945,10 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             Text2d::Render2dTextColor( col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
         }
 
-        m_host.RenderReplayScrubberOverlay();
+        m_host.RenderReplayScrubberOverlay( inputs.uiRender );
         {
             DRAW_CALL_TRACE_SCOPE( "Keys" );
-            Text2d::FlushText();
+            Text2d::FlushText( renderCommands );
         }
         return;
     }
@@ -902,13 +962,18 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float lineH = 0.018f;
         const float profFSz = 0.012f;
         const float padY = lineH * 1.2f;
-        profiler.RenderOverlay( -( hw - mX ), -( hh - mY ) - padY, lineH, profFSz, m_host.m_timers.rollingFpsTime );
+        profiler.RenderOverlay( renderCommands,
+                                -( hw - mX ),
+                                -( hh - mY ) - padY,
+                                lineH,
+                                profFSz,
+                                m_host.m_timers.rollingFpsTime );
     }
 #endif
 
-    m_host.RenderReplayScrubberOverlay();
+    m_host.RenderReplayScrubberOverlay( inputs.uiRender );
     {
         DRAW_CALL_TRACE_SCOPE( "ProfilerOverlay" );
-        Text2d::FlushText();
+        Text2d::FlushText( renderCommands );
     }
 }

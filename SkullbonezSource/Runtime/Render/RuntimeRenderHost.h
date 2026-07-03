@@ -14,6 +14,8 @@ Glossary:
   Binding: Pointer set that connects host methods to current runtime owners.
   Callback: Transitional function pointer used for behavior still implemented
     on Run.
+  Render backend view: Borrowed active renderer capabilities published by the
+    composition root; null pointers mean the backend is not available.
   DXR reflection transform buffer: Host-owned per-frame scratch matrix data
     streamed from the scene view into the DX12 TLAS build.
 
@@ -61,6 +63,12 @@ class BroadphaseVisualizer;
 class CollisionVisualizer;
 class PhysicsDebugVisualizer;
 } // namespace Physics
+namespace Rendering
+{
+class IRenderBackend;
+class IRenderResourceFactory;
+class IRenderRayTracing;
+} // namespace Rendering
 namespace UI
 {
 class InGameUI;
@@ -100,6 +108,7 @@ struct ReplayOverlayRenderContext;
 struct RenderRuntimeView
 {
     RunSubsystemState* systems = nullptr;
+    EngineConfig* config = nullptr;
     const RunLaunchOptions* launchOptions = nullptr;
     RunRuntimeSettings* runtimeSettings = nullptr;
 };
@@ -144,8 +153,20 @@ struct RenderDiagnosticsView
     RunTimerState* timers = nullptr;
 };
 
+struct RuntimeRenderBackendView
+{
+    Rendering::IRenderBackend* renderBackend = nullptr;        // Active renderer borrow; null when no backend is ready.
+    Rendering::IRenderRayTracing* rayTracingBackend = nullptr; // Optional DXR facet borrowed from the active renderer.
+};
+
+struct RenderBackendView
+{
+    RuntimeRenderBackendView* active = nullptr;                // Run-owned mutable view observed by the long-lived host.
+};
+
 struct RuntimeRenderHostBindings
 {
+    RenderBackendView backend;
     RenderRuntimeView runtime;
     RenderWorldView world;
     RenderSceneView scene;
@@ -159,6 +180,7 @@ struct RuntimeRenderHostCallbacks
 {
     using LogLifecycleStepFn = void ( * )( void* user, const char* phase, const char* step );
     using RenderEditorOverlayFn = void ( * )( void* user,
+                                              Rendering::IRenderResourceFactory& renderResources,
                                               const Math::Transformation::Matrix4& viewProjection,
                                               const Math::Vector::Vector3& cameraEye,
                                               const Math::Vector::Vector3& cameraUp );
@@ -178,8 +200,9 @@ class RuntimeRenderHost
 {
   public:
     RuntimeRenderHost( RuntimeRenderHostBindings bindings, RuntimeRenderHostCallbacks callbacks )
-        : m_systems( *bindings.runtime.systems ), m_debug( *bindings.diagnostics.debug ),
-          m_timers( *bindings.diagnostics.timers ), m_launchOptions( *bindings.runtime.launchOptions ),
+        : m_renderBackend( *bindings.backend.active ), m_systems( *bindings.runtime.systems ),
+          m_debug( *bindings.diagnostics.debug ), m_timers( *bindings.diagnostics.timers ),
+          m_config( *bindings.runtime.config ), m_launchOptions( *bindings.runtime.launchOptions ),
           m_runtimeSettings( *bindings.runtime.runtimeSettings ),
           m_cGameModelCollection( *bindings.world.gameModelCollection ),
           m_cWorldEnvironment( *bindings.world.worldEnvironment ),
@@ -210,6 +233,16 @@ class RuntimeRenderHost
 
     int WindowScreenHeight() const;
 
+    Rendering::IRenderBackend* ActiveRenderBackend() const;
+
+    Rendering::IRenderRayTracing* ActiveRayTracingBackend() const;
+
+    const char* RendererNameOrDefault( const char* fallbackName ) const;
+
+    bool SupportsDxrReflection() const;
+
+    void SetVsyncEnabled( bool enabled ) const;
+
     void LogRenderResourceLifecycleStep( const char* phase, const char* step ) const
     {
         m_callbacks.logRenderResourceLifecycleStep( m_callbacks.user, phase, step );
@@ -230,11 +263,12 @@ class RuntimeRenderHost
         return m_replayRuntime.CurrentPredictionScrubFrame();
     }
 
-    void RenderEditorOverlay( const Math::Transformation::Matrix4& viewProjection,
+    void RenderEditorOverlay( Rendering::IRenderResourceFactory& renderResources,
+                              const Math::Transformation::Matrix4& viewProjection,
                               const Math::Vector::Vector3& cameraEye,
                               const Math::Vector::Vector3& cameraUp ) const
     {
-        m_callbacks.renderEditorOverlay( m_callbacks.user, viewProjection, cameraEye, cameraUp );
+        m_callbacks.renderEditorOverlay( m_callbacks.user, renderResources, viewProjection, cameraEye, cameraUp );
     }
 
     void RefreshRuntimeViewModel() const
@@ -288,7 +322,7 @@ class RuntimeRenderHost
         return m_runtimeTools.LauncherFireModeLabel();
     }
 
-    void RenderReplayScrubberOverlay() const;
+    void RenderReplayScrubberOverlay( const UI::UIRenderContext& uiRender ) const;
 
     int CurrentSceneBrowserIndex() const;
 
@@ -313,9 +347,11 @@ class RuntimeRenderHost
                                        const CinematicRenderConfig* cinematic,
                                        const Rendering::ShadowFrameData* shadow ) const;
 
+    RuntimeRenderBackendView& m_renderBackend;
     RunSubsystemState& m_systems;
     RunDebugState& m_debug;
     RunTimerState& m_timers;
+    EngineConfig& m_config;
     const RunLaunchOptions& m_launchOptions;
     RunRuntimeSettings& m_runtimeSettings;
     GameObjects::GameModelCollection& m_cGameModelCollection;
@@ -324,7 +360,7 @@ class RuntimeRenderHost
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
     std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms =
-        {}; // Scratch matrices for DXR TLAS instance upload.
+        {};                                                    // Scratch matrices for DXR TLAS instance upload.
     RuntimeTools& m_runtimeTools;
     RunRayCastTestState& m_rayCastTest;
     RunEditorPlacementState& m_editor;
@@ -340,8 +376,9 @@ class RuntimeRenderHost
     DiagnosticsRuntime& m_diagnosticsRuntime;
 
   private:
-    ReplayOverlay::ReplayOverlayRenderContext BuildReplayOverlayRenderContext() const;
-    void RenderReplayCauseTreeOverlay() const;
+    ReplayOverlay::ReplayOverlayRenderContext
+    BuildReplayOverlayRenderContext( const UI::UIRenderContext& uiRender ) const;
+    void RenderReplayCauseTreeOverlay( const UI::UIRenderContext& uiRender ) const;
 
     RuntimeRenderHostCallbacks m_callbacks;
 };

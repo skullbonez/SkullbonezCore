@@ -35,7 +35,6 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
-class PhysicsModelAccess;
 struct PersistentContactSolverContext;
 
 struct PersistentContactCacheEntry
@@ -53,7 +52,7 @@ struct SolverBodyState
 {
     // Solver scratch copy of dynamic body state. Rows iterate over this
     // compact representation first, then the final velocities are written
-    // back to GameModel/RigidBody storage after the solve.
+    // back to PhysicsBodyRecord storage after the solve.
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 invInertia = Math::Vector::ZERO_VECTOR;
@@ -65,7 +64,7 @@ struct SolverBodyState
 class PersistentContactSolver
 {
   public:
-    void Solve( PersistentContactSolverContext& context, PhysicsModelAccess& modelAccess, float dt );
+    void Solve( PersistentContactSolverContext& context, float dt );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

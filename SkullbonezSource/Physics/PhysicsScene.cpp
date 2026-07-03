@@ -16,7 +16,7 @@ Glossary:
   Determinism: Same inputs produce byte-exact validation artifacts.
 
 Invariants:
-  - Store refresh order must preserve compatibility model-view order.
+  - Store refresh order must preserve deterministic model-view order.
   - RunPhysics delegates to PhysicsWorld without changing floating-point order.
 
 Related:
@@ -39,6 +39,12 @@ using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Physics::PhysicsScene;
 
 
+void PhysicsScene::ApplyRuntimeConfig( const Basics::EngineConfig& config )
+{
+    m_world.ApplyRuntimeConfig( config );
+}
+
+
 void PhysicsScene::Clear()
 {
     m_world.Clear();
@@ -48,26 +54,9 @@ void PhysicsScene::Clear()
 }
 
 
-void PhysicsScene::RefreshStores( PhysicsModelAccess& modelAccess )
-{
-    RefreshPhysicsStores( modelAccess );
-    RefreshRenderStore( modelAccess );
-}
-
-
-void PhysicsScene::RefreshPhysicsStores( PhysicsModelAccess& modelAccess )
-{
-    RefreshBodyStore( modelAccess );
-    RefreshColliderStore( modelAccess );
-#ifdef _DEBUG
-    ValidatePhysicsStoreMappings( modelAccess.ModelCount() );
-#endif
-}
-
-
 void PhysicsScene::RefreshBodyStore( PhysicsModelAccess& modelAccess )
 {
-    m_bodyStore.LoadFromModelAccess( modelAccess, m_world.GetSleepStates() );
+    modelAccess.ReloadPhysicsBodies( m_bodyStore, m_world.GetSleepStates() );
 }
 
 
@@ -79,13 +68,14 @@ void PhysicsScene::ClearPendingBodyImpulses()
 
 void PhysicsScene::RefreshColliderStore( PhysicsModelAccess& modelAccess )
 {
-    m_colliderStore.Refresh( modelAccess );
+    RefreshBodyStore( modelAccess );
+    modelAccess.RefreshPhysicsColliders( m_colliderStore, m_bodyStore );
 }
 
 
 void PhysicsScene::RefreshRenderStore( PhysicsModelAccess& modelAccess )
 {
-    m_renderInstanceStore.Refresh( modelAccess );
+    modelAccess.RefreshRenderInstances( m_renderInstanceStore );
 #ifdef _DEBUG
     ValidateRenderStoreMappings( modelAccess.ModelCount() );
 #endif
@@ -115,8 +105,6 @@ void PhysicsScene::ValidatePhysicsStoreMappings( int modelCount ) const
         assert( collider.body == bodyHandle );
         assert( m_bodyStore.ModelIndexForHandle( bodyHandle ) == i );
         assert( m_colliderStore.ModelIndexForHandle( colliderHandle ) == i );
-        assert( body.legacyModelIndex == i );
-        assert( collider.legacyModelIndex == i );
         assert( body.replayBodyId == collider.replayBodyId );
         assert( body.sceneObjectId == collider.sceneObjectId );
     }
@@ -138,44 +126,59 @@ void PhysicsScene::ValidateRenderStoreMappings( int modelCount ) const
         assert( renderHandle.IsValid() );
         assert( instance.handle == renderHandle );
         assert( m_renderInstanceStore.ModelIndexForHandle( renderHandle ) == i );
-        assert( instance.legacyModelIndex == i );
     }
 }
 #endif
 
 
-void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess, float fChangeInTime )
+void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
+                               float fChangeInTime,
+                               const Basics::EngineConfig& config,
+                               const PhysicsWorldForces& worldForces,
+                               Threading::WorkerPool& workerPool )
 {
-    // Invariant: PhysicsModelAccess is the named compatibility sync bridge for
-    // legacy GameModel pose/state. The step loads body records from that bridge,
+    // Invariant: PhysicsModelAccess is the model-owner sync boundary for legacy
+    // GameModel pose/state. The step reloads body records through that boundary,
     // solves through PhysicsBodyStore/ColliderStore, then writes back once for
     // render, replay, editor, and diagnostics consumers that still read models.
-    m_bodyStore.LoadFromModelAccess( modelAccess, m_world.GetSleepStates() );
+    modelAccess.ReloadPhysicsBodies( m_bodyStore, m_world.GetSleepStates() );
     // Why: collider metadata is construction/authoring state, not per-tick
     // solver state. Scene setup and explicit refresh calls rebuild the snapshot;
     // the hot step only needs to catch topology changes.
     if ( m_colliderStore.Count() != modelAccess.ModelCount() )
     {
-        m_colliderStore.Refresh( modelAccess );
+        modelAccess.RefreshPhysicsColliders( m_colliderStore, m_bodyStore );
     }
-    m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime );
+    m_lastWorldForces = worldForces;
+    m_hasLastWorldForces = true;
+    m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime, config, worldForces, workerPool );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    m_bodyStore.WriteBackToModelAccess( modelAccess );
+    modelAccess.WriteBackPhysicsBodies( m_bodyStore );
 }
 
 
 void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
 {
     RefreshBodyStore( modelAccess );
+    if ( m_colliderStore.Count() != modelAccess.ModelCount() )
+    {
+        RefreshColliderStore( modelAccess );
+    }
     const int index = m_bodyStore.ModelIndexForHandle( body );
     if ( index < 0 )
     {
         return;
     }
-    m_bodyStore.WakeBody( index );
-    m_world.WakeModel( modelAccess, index );
+    if ( m_hasLastWorldForces )
+    {
+        m_world.WakeModel( modelAccess, m_bodyStore, m_colliderStore, m_lastWorldForces, index );
+    }
+    else
+    {
+        m_world.WakeModel( modelAccess, m_bodyStore, index );
+    }
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    m_bodyStore.WriteBackToModelAccessAt( modelAccess, index );
+    modelAccess.WriteBackPhysicsBody( m_bodyStore, index );
 }
 
 
@@ -187,10 +190,9 @@ void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyH
     {
         return;
     }
-    m_bodyStore.SeedBodyAsleep( index );
-    m_world.SeedModelAsleep( modelAccess, index );
+    m_world.SeedModelAsleep( modelAccess, m_bodyStore, index );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    m_bodyStore.WriteBackToModelAccessAt( modelAccess, index );
+    modelAccess.WriteBackPhysicsBody( m_bodyStore, index );
 }
 
 
@@ -217,7 +219,7 @@ void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
     }
     if ( m_bodyStore.SetPendingBodyImpulse( bodyIndex, impulse, localApplicationPoint ) )
     {
-        m_bodyStore.WriteBackToModelAccessAt( modelAccess, bodyIndex );
+        modelAccess.WriteBackPhysicsBody( m_bodyStore, bodyIndex );
         modelAccess.InvalidatePhysicsStreams();
     }
 }

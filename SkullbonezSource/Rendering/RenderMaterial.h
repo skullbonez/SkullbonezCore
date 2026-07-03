@@ -10,8 +10,10 @@ Mental model:
 Glossary:
   Material kind: Small render-facing category that chooses the current object
   shader's visual branch, such as matte, metal, foliage, or shore.
-  Material instance payload: Three float4 rows appended after each instance
+  Material instance payload: Four float4 rows appended after each instance
   model matrix and consumed by lit_textured_instanced.hlsl.
+  Contact flash alpha: Per-instance final-color blend toward white for short
+    hit or audio feedback that must be visible over any material branch.
   Material table: Fixed t4 texture storing default material response values by
   material kind for the current object shader.
   Legacy tint bridge: Compatibility path that maps old tint/colorOverride scene
@@ -25,6 +27,7 @@ Invariants:
     so legacy scenes and generated objects keep their visual branch.
   - material2.w carries the material-kind row sampled from the fixed t4 table.
   - material3.x carries per-object alpha; pass alpha multiplies it in the lit shader.
+  - material3.w carries contact flash alpha and is shader-only presentation data.
 
 Related:
   - Agentic/Reference/shader-inventory.md
@@ -76,6 +79,7 @@ struct RenderMaterial
 
     float stylization = 0.0f;
     float textureMode = 0.0f;
+    float contactFlashAlpha = 0.0f;
     uint32_t flags = 0;
 };
 
@@ -251,7 +255,7 @@ inline void ApplyRenderMaterialDefaults( RenderMaterial& material )
 // material0 = base rgb plus legacy material mode in w.
 // material1 = roughness, metallic, specular, emissive strength.
 // material2 = emissive rgb plus t4 material-table row in w.
-// material3 = per-object alpha plus room for later material controls.
+// material3 = per-object alpha, transmission, flags, contact flash alpha.
 struct RenderMaterialInstancePayload
 {
     float material0[4];
@@ -284,7 +288,7 @@ inline RenderMaterialInstancePayload PackRenderMaterialInstancePayload( const Re
     payload.material3[0] = material.baseColor[3];
     payload.material3[1] = material.transmission;
     payload.material3[2] = static_cast<float>( material.flags );
-    payload.material3[3] = 0.0f;
+    payload.material3[3] = material.contactFlashAlpha;
     return payload;
 }
 

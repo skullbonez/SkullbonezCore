@@ -508,6 +508,7 @@ class ReplayRuntime
     struct RenderPoseBackup
     {
         int modelIndex = -1;
+        uint32_t replayBodyId = 0;
         Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
         Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     };

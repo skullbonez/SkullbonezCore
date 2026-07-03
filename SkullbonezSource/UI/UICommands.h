@@ -18,6 +18,8 @@ Glossary:
   widget.
   Command struct: One-frame request packet emitted by UI code and consumed by
   the run loop.
+  Sound sample request: One-frame Sound-tab command to preview a decoded impact
+    candidate or assign it to the selected material set.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -151,6 +153,38 @@ enum class UIRenderParam
     BallSpecular,
     BoxRoughness,
     BoxSpecular,
+    Count
+};
+
+enum class UISoundParam
+{
+    None = -1,
+    MasterGain,
+    MaxDistanceScale,
+    MinClosingSpeed,
+    MinImpactScore,
+    ImpactScoreRangeSeconds,
+    BurstVoicesPerWindow,
+    SetMinImpulse,
+    SetImpulseRange,
+    SetCooldownMs,
+    SetOverrideCooldownMs,
+    SetMaxDistance,
+    SetBaseGain,
+    SetPitchMin,
+    SetPitchMax,
+    SetMaxVoices,
+    Count
+};
+
+enum class UISoundBandParam
+{
+    None = -1,
+    MinImpulse,
+    ImpulseRange,
+    BaseGain,
+    PitchMin,
+    PitchMax,
     Count
 };
 
@@ -290,6 +324,22 @@ struct UIRenderCommands
     float requestedValue = 0.0f;
 };
 
+struct UISoundCommands
+{
+    // Sound-tab output is a one-frame request. Set and band indices come from
+    // the current UI snapshot; Run validates them before touching audio data.
+    bool toggleEnabled = false;
+    bool toggleDebugCounters = false;
+    bool toggleFlashOnSubmit = false;
+    int requestedSetIndex = -1;
+    int requestedBandIndex = -1;
+    UISoundParam requestedParam = UISoundParam::None;
+    UISoundBandParam requestedBandParam = UISoundBandParam::None;
+    float requestedValue = 0.0f;
+    int previewSampleIndex = -1;
+    int selectSampleIndex = -1;
+};
+
 struct InGameUICommands
 {
     UIOnlyCommands ui;
@@ -302,6 +352,7 @@ struct InGameUICommands
     UIRunCommands run;
     UIProfilerCommands profiler;
     UIRenderCommands renderTuning;
+    UISoundCommands sound;
     UICinematicCommands cinematic;
 };
 

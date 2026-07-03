@@ -74,7 +74,7 @@ void Camera::SetAll( const Vector3& vPosition, const Vector3& vView, const Vecto
 }
 
 
-void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity )
+void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity, const CameraMovementSettings& settings )
 {
     // declare local variable to store movement results
     Vector3 movementResults = Vector::ZERO_VECTOR;
@@ -88,7 +88,7 @@ void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity )
             // in locked mode we only want to be able to translate the camera
             // within a certain m_distance to the view point, so here we test to
             // ensure this rule is not violated
-            if ( Vector::Distance( m_position, m_view ) < Cfg().minViewMag )
+            if ( Vector::Distance( m_position, m_view ) < settings.minViewMag )
             {
                 return;
             }
@@ -128,7 +128,7 @@ void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity )
             // in locked mode we only want to be able to translate the camera
             // within a certain m_distance from the view point, so here we test to
             // ensure this rule is not violated
-            if ( Vector::Distance( m_position, m_view ) > Cfg().maxViewMag )
+            if ( Vector::Distance( m_position, m_view ) > settings.maxViewMag )
             {
                 return;
             }
@@ -145,13 +145,13 @@ void Camera::MoveCamera( const TravelDirection enumDir, float fQuantity )
 }
 
 
-void Camera::ApplyMovementBuffer()
+void Camera::ApplyMovementBuffer( const CameraMovementSettings& settings )
 {
     Vector3 oldPosition = m_position;
 
     PrepareTranslation();
     m_position += m_movementBuffer;
-    FinishTranslation();
+    FinishTranslation( settings );
 
     Vector3 actualTranslation = m_position - oldPosition;
 
@@ -165,10 +165,10 @@ void Camera::ApplyMovementBuffer()
 }
 
 
-void Camera::RotateCamera( float xMove, float yMove )
+void Camera::RotateCamera( float xMove, float yMove, const CameraMovementSettings& settings )
 {
     // caps the y rotation quantity to avoid view-up collisions
-    float yMoveCapped = UpVectorViewVectorRotationCap( yMove );
+    float yMoveCapped = UpVectorViewVectorRotationCap( yMove, settings );
 
     // the following code will move the view vector - this is not allowed
     // in locked mode
@@ -235,36 +235,36 @@ void Camera::PrepareTranslation()
 }
 
 
-void Camera::FinishTranslation()
+void Camera::FinishTranslation( const CameraMovementSettings& settings )
 {
     bool isOnBoundX = false;
     bool isOnBoundZ = false;
 
     // reposition X on a bound violation
-    if ( m_position.x < m_boundary.m_xMin + Cfg().minCameraHeight )
+    if ( m_position.x < m_boundary.m_xMin + settings.minCameraHeight )
     {
-        m_position.x = m_boundary.m_xMin + Cfg().minCameraHeight;
+        m_position.x = m_boundary.m_xMin + settings.minCameraHeight;
     }
-    else if ( m_position.x > m_boundary.m_xMax - Cfg().minCameraHeight )
+    else if ( m_position.x > m_boundary.m_xMax - settings.minCameraHeight )
     {
-        m_position.x = m_boundary.m_xMax - Cfg().minCameraHeight;
+        m_position.x = m_boundary.m_xMax - settings.minCameraHeight;
     }
 
-    isOnBoundX = ( ( m_position.x == m_boundary.m_xMin + Cfg().minCameraHeight ) ||
-                   ( m_position.x == m_boundary.m_xMax - Cfg().minCameraHeight ) );
+    isOnBoundX = ( ( m_position.x == m_boundary.m_xMin + settings.minCameraHeight ) ||
+                   ( m_position.x == m_boundary.m_xMax - settings.minCameraHeight ) );
 
     // reposition Z on a bound violation
-    if ( m_position.z < m_boundary.m_zMin + Cfg().minCameraHeight )
+    if ( m_position.z < m_boundary.m_zMin + settings.minCameraHeight )
     {
-        m_position.z = m_boundary.m_zMin + Cfg().minCameraHeight;
+        m_position.z = m_boundary.m_zMin + settings.minCameraHeight;
     }
-    else if ( m_position.z > m_boundary.m_zMax - Cfg().minCameraHeight )
+    else if ( m_position.z > m_boundary.m_zMax - settings.minCameraHeight )
     {
-        m_position.z = m_boundary.m_zMax - Cfg().minCameraHeight;
+        m_position.z = m_boundary.m_zMax - settings.minCameraHeight;
     }
 
-    isOnBoundZ = ( ( m_position.z == m_boundary.m_zMin + Cfg().minCameraHeight ) ||
-                   ( m_position.z == m_boundary.m_zMax - Cfg().minCameraHeight ) );
+    isOnBoundZ = ( ( m_position.z == m_boundary.m_zMin + settings.minCameraHeight ) ||
+                   ( m_position.z == m_boundary.m_zMax - settings.minCameraHeight ) );
 
     // if we have recursed once already
     if ( m_isFinishedTranslationRecursed )
@@ -284,12 +284,14 @@ void Camera::FinishTranslation()
     else
     {
         // test to see if we need to recover lost view magnitude
-        RecoverViewMagnitude( isOnBoundX, isOnBoundZ );
+        RecoverViewMagnitude( isOnBoundX, isOnBoundZ, settings );
     }
 }
 
 
-void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ )
+void Camera::RecoverViewMagnitude( const bool isOnBoundX,
+                                   const bool isOnBoundZ,
+                                   const CameraMovementSettings& settings )
 {
     // only recover view magnitude if the camera has been set to do so
     if ( !m_doPreserveViewMagnitude )
@@ -326,10 +328,10 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ 
             if ( !isOnBoundX && !isOnBoundZ )
             {
                 // determine component distances from m_boundaries
-                float dxMin = positionStore.x - m_boundary.m_xMin + Cfg().minCameraHeight;
-                float dxMax = m_boundary.m_xMax - Cfg().minCameraHeight - positionStore.x;
-                float dzMin = positionStore.z - m_boundary.m_zMin + Cfg().minCameraHeight;
-                float dzMax = m_boundary.m_zMax - Cfg().minCameraHeight - positionStore.z;
+                float dxMin = positionStore.x - m_boundary.m_xMin + settings.minCameraHeight;
+                float dxMax = m_boundary.m_xMax - settings.minCameraHeight - positionStore.x;
+                float dzMin = positionStore.z - m_boundary.m_zMin + settings.minCameraHeight;
+                float dzMax = m_boundary.m_zMax - settings.minCameraHeight - positionStore.z;
 
                 // determine closest boundary per component
                 float dx = ( dxMin < dxMax ) ? dxMin : dxMax;
@@ -375,7 +377,7 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ 
 
             // indirectly recurse this function to cap the vector we have
             // just applied to m_position
-            FinishTranslation();
+            FinishTranslation( settings );
 
             if ( isModifiedComponentX )
             {
@@ -408,15 +410,15 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ 
 }
 
 
-void Camera::ApplyDelta( const Camera& delta )
+void Camera::ApplyDelta( const Camera& delta, const CameraMovementSettings& settings )
 {
     PrepareTranslation();
     *this += delta;
-    FinishTranslation();
+    FinishTranslation( settings );
 }
 
 
-float Camera::UpVectorViewVectorRotationCap( float requestRadians )
+float Camera::UpVectorViewVectorRotationCap( float requestRadians, const CameraMovementSettings& settings )
 {
     Vector3 vNegatedView = -GetViewVectorNormalised();
 
@@ -426,17 +428,17 @@ float Camera::UpVectorViewVectorRotationCap( float requestRadians )
     float currentDownAngle = acosf( vNegatedView * -m_upVector );
 
     // pre-detect up-vector view-vector collision, return a capped rotation angle
-    if ( currentUpAngle - requestRadians < Cfg().cameraCollisionThreshold )
+    if ( currentUpAngle - requestRadians < settings.cameraCollisionThreshold )
     {
-        return currentUpAngle - Cfg().cameraCollisionThreshold;
+        return currentUpAngle - settings.cameraCollisionThreshold;
     }
 
     // pre-detect down-vector view-vector collision, return a capped rotation angle
     // NOTE:  request radians will be negative, and if required should be returned
     // as a negative value
-    if ( currentDownAngle + requestRadians < Cfg().cameraCollisionThreshold )
+    if ( currentDownAngle + requestRadians < settings.cameraCollisionThreshold )
     {
-        return -( currentDownAngle - Cfg().cameraCollisionThreshold );
+        return -( currentDownAngle - settings.cameraCollisionThreshold );
     }
 
     // no collisions have been detected, return the requested rotation amount

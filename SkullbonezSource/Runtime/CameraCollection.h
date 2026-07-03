@@ -67,6 +67,7 @@ class CameraCollection
     float m_tweenSpeed;                                            // Camera interpolation speed in normalized tween units.
     bool m_isTweening;                                             // Render camera follows m_tweenCamera while this is true.
     float m_tweenProgress;                                         // Normalized tween progress through m_tweenPath.
+    CameraMovementSettings m_movementSettings;                     // Cached runtime tuning used by private camera clamp paths.
     Geometry::Terrain* m_terrain;                                  // Borrowed scene terrain used to keep tweened cameras collision-aware.
     Math::Transformation::Matrix4 m_currentViewMatrix;             // Render-facing view matrix refreshed once per frame.
 
@@ -83,6 +84,7 @@ class CameraCollection
     CameraCollection( const CameraCollection& ) = delete;
     CameraCollection& operator=( const CameraCollection& ) = delete;
 
+    void ApplyMovementSettings( const CameraMovementSettings& settings );
     const Math::Vector::Vector3& GetCameraView();
     const Math::Vector::Vector3& GetCameraTranslation();
     const Math::Vector::Vector3& GetCameraUp();
@@ -96,12 +98,14 @@ class CameraCollection
     void
     SetPrimaryPosition( const Math::Vector::Vector3& vPos );       // Tracking cameras can bypass movement-buffer translation.
     void SetPrimaryUp( const Math::Vector::Vector3& vUp );         // Replay/debug camera restore can preserve the full pose.
-    void SetPrimaryPose( const Math::Vector::Vector3& position,
-                         const Math::Vector::Vector3& view,
-                         const Math::Vector::Vector3& up );        // Updates the selected slot without changing the current render pose.
-    void TweenPrimaryToPose( const Math::Vector::Vector3& position,
-                             const Math::Vector::Vector3& view,
-                             const Math::Vector::Vector3& up );    // Blends from the visible render pose to a selected-slot destination.
+    void SetPrimaryPose(
+        const Math::Vector::Vector3& position,
+        const Math::Vector::Vector3& view,
+        const Math::Vector::Vector3& up );                         // Updates the selected slot without changing the current render pose.
+    void TweenPrimaryToPose(
+        const Math::Vector::Vector3& position,
+        const Math::Vector::Vector3& view,
+        const Math::Vector::Vector3& up );                         // Blends from the visible render pose to a selected-slot destination.
     void SetTweenSpeed( float fTweenSpeed );
     void SetCamera();                                              // Call once per frame after camera updates to refresh render pose and view matrix.
     void OverrideRenderCameraForFrame( const Math::Vector::Vector3& position,

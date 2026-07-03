@@ -67,13 +67,25 @@ void HashReplayInt( uint64_t& hash, int32_t value )
     }
 }
 
+SkullbonezCore::Environment::CameraMovementSettings BuildCameraMovementSettings( const EngineConfig& cfg )
+{
+    SkullbonezCore::Environment::CameraMovementSettings settings;
+    settings.minViewMag = cfg.minViewMag;
+    settings.maxViewMag = cfg.maxViewMag;
+    settings.minCameraHeight = cfg.minCameraHeight;
+    settings.cameraCollisionThreshold = cfg.cameraCollisionThreshold;
+    return settings;
+}
+
 } // namespace
 
 
 RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
 {
     RuntimeRenderHostBindings bindings;
+    bindings.backend.active = &m_renderBackendView;
     bindings.runtime.systems = &m_systems;
+    bindings.runtime.config = &m_config;
     bindings.runtime.launchOptions = &m_launchOptions;
     bindings.runtime.runtimeSettings = &m_runtimeSettings;
     bindings.world.gameModelCollection = &m_cGameModelCollection;
@@ -103,6 +115,7 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
     callbacks.logRenderResourceLifecycleStep = []( void* user, const char* phase, const char* step )
     { static_cast<Run*>( user )->LogRenderResourceLifecycleStep( phase, step ); };
     callbacks.renderEditorOverlay = []( void* user,
+                                        SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
                                         const Math::Transformation::Matrix4& viewProjection,
                                         const Math::Vector::Vector3& cameraEye,
                                         const Math::Vector::Vector3& cameraUp )
@@ -136,7 +149,11 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
         run->RenderReplayCauseFocusOverlay( tracer );
         run->RenderReplayVelocityEditOverlay( tracer );
         tracer.Render( viewProjection );
-        run->m_runtimeTools.Laser().Render( viewProjection, cameraEye, cameraUp );
+        run->m_runtimeTools.Laser().Render( viewProjection,
+                                            cameraEye,
+                                            cameraUp,
+                                            run->m_systems.assets,
+                                            renderResources );
     };
     callbacks.refreshRuntimeViewModel = []( void* user ) { static_cast<Run*>( user )->RefreshRuntimeViewModel(); };
     callbacks.cameraModeEnabledMask = []( void* user ) -> uint32_t
@@ -147,19 +164,31 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
 }
 
 
-Run::Run( Window& window, std::vector<std::string> sceneQueue )
-    : m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
+Run::Run( Window& window,
+          std::vector<std::string> sceneQueue,
+          EngineConfig& config,
+          Threading::WorkerPool& workerPool,
+          RuntimeRenderBackendView renderBackendView )
+    : m_config( config ), m_sceneController( std::move( sceneQueue ) ), m_sceneCoordinator( m_sceneController ),
+      m_renderBackendView( renderBackendView ),
       m_renderHost( BuildRuntimeRenderHostBindings(), BuildRuntimeRenderHostCallbacks() ), m_renderer( m_renderHost )
 {
     m_systems.window = &window;
+    m_systems.workerPool = &workerPool;
     BindEngineContext();
     RefreshRuntimeViewModel();
     RefreshSceneBrowserList( m_sceneController.Browser() );
-    m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
-    m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
-    m_defaultCinematicRender = Cfg().cinematicRender;
-    m_startup.gameModelCapacity = ActiveGameModelCapacity();
-    m_startup.workerThreads = Cfg().workerThreads;
+    const EngineConfig& cfg = m_config;
+    m_systems.config = &cfg;
+    m_systems.cameraCollection.ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
+    m_cGameModelCollection.BindWorkerPool( workerPool );
+    m_cGameModelCollection.ApplyRuntimeConfig( cfg );
+    m_runtimeSettings.isVsyncEnabled = cfg.runtimeRender.vsyncEnabled;
+    m_runtimeSettings.isPipelineSyncEnabled = cfg.runtimeRender.forcePipelineSync;
+    m_runtimeSettings.contactAudioDebugCounters = cfg.contactAudio.debugCounters;
+    m_defaultCinematicRender = cfg.cinematicRender;
+    m_startup.gameModelCapacity = std::clamp( cfg.gameModelCapacity, 1, MAX_GAME_MODELS );
+    m_startup.workerThreads = cfg.workerThreads;
 }
 
 
@@ -195,6 +224,28 @@ void Run::BindEngineContext()
 void Run::RefreshRuntimeViewModel()
 {
     m_runtimeViewModel = RuntimeViewModelBuilder::Build( m_engineContext );
+    RuntimeContactAudioSnapshot& audio = m_runtimeViewModel.contactAudio;
+    audio.enabled = m_contactAudio.IsEnabled();
+    audio.available = m_contactAudio.IsAvailable();
+    audio.debugCounters = m_runtimeSettings.contactAudioDebugCounters;
+    audio.flashOnSubmit = m_runtimeSettings.contactAudioFlashOnSubmit;
+    audio.masterGain = m_contactAudio.MasterGain();
+    audio.maxDistanceScale = m_contactAudio.MaxDistanceScale();
+    audio.minClosingSpeed = m_contactAudio.MinClosingSpeed();
+    audio.minImpactScore = m_contactAudio.MinImpactScore();
+    audio.impactScoreRangeSeconds = m_contactAudio.ImpactScoreRangeSeconds();
+    audio.burstVoicesPerWindow = m_contactAudio.BurstVoicesPerWindow();
+    audio.stats = m_contactAudio.Stats();
+    audio.soundSetCount = (std::min)( m_contactAudio.SoundSetCount(), RUNTIME_CONTACT_AUDIO_SET_MAX );
+    audio.soundSampleCount = (std::min)( m_contactAudio.SoundSampleCount(), RUNTIME_CONTACT_AUDIO_SAMPLE_MAX );
+    for ( int setIndex = 0; setIndex < audio.soundSetCount; ++setIndex )
+    {
+        m_contactAudio.GetSoundSetTuning( setIndex, audio.soundSets[setIndex] );
+    }
+    for ( int sampleIndex = 0; sampleIndex < audio.soundSampleCount; ++sampleIndex )
+    {
+        audio.soundSamplePaths[sampleIndex] = m_contactAudio.SoundSamplePath( sampleIndex );
+    }
 }
 
 
@@ -248,13 +299,10 @@ Run::~Run()
     }
 
     // Lifetime: clean up backend-owned render resources while the current
-    // backend is still alive. WorldEnvironment::ResetRenderResources() rebuilds
-    // fluid meshes, records GPU upload commands, and leaves the DX12 command
-    // list open. Flush immediately after that step so later releases cannot hit
-    // "ID3D12Resource deleted before command list close" validation errors.
+    // backend is still alive. The world step now releases water GPU resources
+    // without rebuilding; the flush keeps any already-submitted GPU work out of
+    // teardown.
     ReleaseBackendOwnedRenderResources( "shutdown_release" );
-
-    SkullbonezCore::Assets::BindActiveAssetSystem( nullptr );
 }
 
 
@@ -296,16 +344,22 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
         { "launcher_laser", BackendResourceStep::LauncherLaser, false },
     };
 
+    SkullbonezCore::Rendering::IRenderResourceFactory* releaseRenderResources = nullptr;
+    if ( IsGfxReady() )
+    {
+        releaseRenderResources = &static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( Gfx() );
+    }
+
     for ( const BackendResourcePhase& phase : releaseSteps )
     {
         LogRenderResourceLifecycleStep( phaseName, phase.name );
         switch ( phase.step )
         {
         case BackendResourceStep::WorldEnvironment:
-            m_cWorldEnvironment.ResetRenderResources();
+            m_cWorldEnvironment.ReleaseRenderResources();
             break;
         case BackendResourceStep::HelperResources:
-            RenderHelper::ResetRenderResources();
+            RenderHelper::ResetRenderResources( releaseRenderResources );
             break;
         case BackendResourceStep::GameModelResources:
             m_cGameModelCollection.ResetRenderResources();
@@ -314,21 +368,14 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
             m_collisionVisualizer.ResetResources();
             break;
         case BackendResourceStep::UIResources:
-            m_UI.ResetResources();
+            m_UI.ResetResources( releaseRenderResources );
             break;
         case BackendResourceStep::RenderPassResources:
-        {
             // Lifetime: shutdown can run after a failed backend init. Pass
             // resources still need their CPU-side handles reset, but dynamic
             // buffer destruction can only call into a live backend.
-            SkullbonezCore::Rendering::IRenderResourceFactory* renderResources = nullptr;
-            if ( IsGfxReady() )
-            {
-                renderResources = &static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( Gfx() );
-            }
-            m_renderer.ReleaseBackendOwnedResources( renderResources );
+            m_renderer.ReleaseBackendOwnedResources( releaseRenderResources );
             break;
-        }
         case BackendResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
             Profiler::Instance().InvalidateGpuQueries();
@@ -373,7 +420,7 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
 
 void Run::RegisterBuiltInAssets()
 {
-    const EngineConfig& cfg = Cfg();
+    const EngineConfig& cfg = m_config;
     m_systems.assets
         .RegisterTextureSourceAsset( "texture.terrain", cfg.terrainTexture.c_str(), TEXTURE_GROUND, true, true, 3 );
     m_systems.assets.RegisterTextureSourceAsset( "texture.sphere",
@@ -558,6 +605,13 @@ void Run::SetNoSleepOverride()
     m_launchOptions.noSleep = true;
     m_runtimeSettings.isPhysicsSleepEnabled = false;
     m_cGameModelCollection.SetPhysicsSleepEnabled( false );
+}
+
+
+void Run::SetNoContactAudioOverride()
+{
+    m_launchOptions.noContactAudio = true;
+    m_contactAudio.SetEnabled( false );
 }
 
 
@@ -882,23 +936,24 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         return false;
     }
 
-    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
-    if ( sample.bodies.size() > models.size() )
+    const int liveModelCount = m_cGameModelCollection.GetModelCount();
+    if ( sample.bodies.size() > static_cast<std::size_t>( liveModelCount ) )
     {
         writeReason( "selected frame needs unavailable bodies" );
         return false;
     }
 
+    const int restoreModelCount = static_cast<int>( sample.bodies.size() );
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
-        if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
+        if ( body.modelIndex < 0 || body.modelIndex >= liveModelCount || body.modelIndex >= restoreModelCount )
         {
             writeReason( "selected frame has invalid body index" );
             return false;
         }
 
-        const GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
-        if ( model.GetReplayBodyId() != body.id.value )
+        const GameObjects::GameModel* model = m_cGameModelCollection.TryGetModel( body.modelIndex );
+        if ( !model || model->GetReplayBodyId() != body.id.value )
         {
             writeReason( "selected frame body ids no longer match" );
             return false;
@@ -906,7 +961,6 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
     }
 
     m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
-    const int restoreModelCount = static_cast<int>( sample.bodies.size() );
     if ( !m_cGameModelCollection.TrimModelsForReplayRestore( restoreModelCount ) )
     {
         writeReason( "failed to trim live model list" );
@@ -915,17 +969,21 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
 
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
-        GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
         Math::Orientation::Quaternion orientation( body.orientation[0],
                                                    body.orientation[1],
                                                    body.orientation[2],
                                                    body.orientation[3] );
-        model.SetFixed( body.fixed );
-        model.SetPosition( body.position );
-        model.SetOrientation( orientation );
-        model.SetLinearVelocity( body.linearVelocity );
-        model.SetAngularVelocity( body.angularVelocity );
-        model.ClearImpulseForce();
+        if ( !m_cGameModelCollection.TryRestoreReplayBodyState( body.modelIndex,
+                                                                body.id.value,
+                                                                body.fixed,
+                                                                body.position,
+                                                                orientation,
+                                                                body.linearVelocity,
+                                                                body.angularVelocity ) )
+        {
+            writeReason( "failed to restore replay body state" );
+            return false;
+        }
     }
     (void)m_cGameModelCollection.GetPhysicsBodyStore();
     m_cGameModelCollection.GetPhysicsEngine().ClearPendingBodyImpulses();
@@ -1215,39 +1273,53 @@ void Run::Initialise()
     char titleText[256];
     sprintf_s( titleText, "%s [%s] -- LOADING!!!", TITLE_TEXT, rendererName );
     m_systems.window->SetTitleText( titleText );
+    const EngineConfig& cfg = m_config;
 
     m_systems.textures = &m_systems.textureCollection;
     m_systems.textures->BindAssetSystem( &m_systems.assets );
     m_systems.textures->BindRenderContexts( &renderResources, &renderCommands );
-    SkullbonezCore::Assets::BindActiveAssetSystem( &m_systems.assets );
     RegisterBuiltInAssets();
 
     // Build renderer-owned resources from source asset records.
     RebuildRegisteredRenderResources();
 
     const std::string terrainRawPath =
-        ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", Cfg().terrainRaw );
-    m_systems.terrain = std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15 );
+        ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", cfg.terrainRaw );
+    m_systems.terrain =
+        std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15, m_config, m_systems.assets, renderResources );
     m_systems.isFlatSlopeTerrain = false;
 
     // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)
     m_systems.skyBoxOwner = std::make_unique<SkyBox>( -250, 300, -300, 300, -250, 300 );
     m_systems.skyBox = m_systems.skyBoxOwner.get();
     m_systems.skyBox->BindTextures( *m_systems.textures );
+    m_systems.skyBox->BindRenderContexts( m_config, m_systems.assets, renderResources );
     m_systems.skyBox->ResetRenderResources();
 
-    {
-        const EngineConfig& cfg = Cfg();
-        m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
-        XZBounds tb = m_systems.terrain->GetXZBounds();
-        m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
-    }
+    m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
+    m_cWorldEnvironment.BindRenderContexts( m_config, m_systems.assets, renderResources );
+    XZBounds tb = m_systems.terrain->GetXZBounds();
+    m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 
     // Init font (HDC, font)
-    m_renderer.EnsureUiTextResources();
+    m_renderer.EnsureUiTextResources( renderResources, m_systems.assets, cfg.window.screenX, cfg.window.screenY );
 
     // Init cameras (shared across scenes, Reset() between loads)
     m_systems.cameras = &m_systems.cameraCollection;
+
+    m_contactAudio.SetMasterGain( cfg.contactAudio.masterGain );
+    m_contactAudio.SetMaxDistanceScale( cfg.contactAudio.maxDistanceScale );
+    if ( !m_launchOptions.noContactAudio && cfg.contactAudio.enabled )
+    {
+        const bool audioReady =
+            m_contactAudio.Initialize() &&
+            m_contactAudio.LoadContactAudioMap( "SkullbonezData/audio/contact_audio.materials.json" );
+        m_contactAudio.SetEnabled( audioReady );
+    }
+    else
+    {
+        m_contactAudio.SetEnabled( false );
+    }
 
     LoadScene( 0 );
 }
@@ -1333,7 +1405,7 @@ void Run::BeginPhysicsDiagnosticsRun( const char* scenePath )
 {
     m_diagnosticsRuntime.BeginPhysicsDiagnosticsRun( m_cGameModelCollection,
                                                      SceneState(),
-                                                     Cfg(),
+                                                     m_config,
                                                      scenePath,
                                                      IsGfxReady() ? Gfx().GetRendererName() : "unknown" );
 }

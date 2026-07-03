@@ -25,7 +25,6 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "AssetSystem.h"
-#include "../Rendering/IRenderBackend.h"
 #include "../Rendering/IRenderResourceFactory.h"
 
 #include <cstring>
@@ -38,8 +37,6 @@ namespace Assets
 {
 namespace
 {
-AssetSystem* g_activeAssetSystem = nullptr;
-
 const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
 {
     struct BuiltInShaderName
@@ -356,11 +353,6 @@ std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( Rendering::IRende
 }
 
 
-std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logicalNameOrBaseName ) const
-{
-    return CreateShader( Rendering::Gfx(), logicalNameOrBaseName );
-}
-
 const AssetLibrarySourceAsset& AssetSystem::RegisterAssetLibrarySourceAsset( const char* logicalName,
                                                                              const char* relativePath )
 {
@@ -456,24 +448,9 @@ size_t AssetSystem::GetAssetLibrarySourceAssetCount() const
     return m_assetLibraryAssets.size();
 }
 
-void BindActiveAssetSystem( AssetSystem* assets )
+const char* BuiltInShaderBaseName( const char* logicalNameOrBaseName )
 {
-    g_activeAssetSystem = assets;
-}
-
-AssetSystem* ActiveAssetSystem()
-{
-    return g_activeAssetSystem;
-}
-
-std::unique_ptr<Rendering::IShader> CreateShaderFromActiveAssets( const char* logicalNameOrBaseName )
-{
-    if ( g_activeAssetSystem )
-    {
-        return g_activeAssetSystem->CreateShader( logicalNameOrBaseName );
-    }
-    const char* fallbackBaseName = BuiltInShaderBaseNameForLogicalName( logicalNameOrBaseName );
-    return Rendering::Gfx().CreateShader( fallbackBaseName ? fallbackBaseName : logicalNameOrBaseName );
+    return BuiltInShaderBaseNameForLogicalName( logicalNameOrBaseName );
 }
 } // namespace Assets
 } // namespace SkullbonezCore

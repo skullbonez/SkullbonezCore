@@ -33,6 +33,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../Core/Common.h"
+#include "Audio/ContactAudioService.h"
 #include "Run.h"
 #include "../Rendering/Text.h"
 #include "Window.h"
@@ -575,6 +576,7 @@ struct PhysicsRuntimeHandleSmokeResult
     bool renderMirrorMatches = false;
     bool jointUsesHandles = false;
     bool colliderRefreshMatches = false;
+    bool reorderPreservesHandleState = false;
     int bodyCount = 0;
     int colliderCount = 0;
     int renderInstanceCount = 0;
@@ -657,20 +659,58 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                      !renderStore.Records().empty() &&
                                      renderStore.Records()[0].replayBodyId == bodyARecord->replayBodyId;
     const bool jointUsesHandles = pointJoints.size() == 1 && pointJoints[0].bodyA == bodyA &&
-                                  pointJoints[0].bodyB == bodyB && pointJoints[0].BodyAIndex() == 0 &&
-                                  pointJoints[0].BodyBIndex() == 1;
+                                  pointJoints[0].bodyB == bodyB && pointJoints[0].BodyAIndex( bodyStore ) == 0 &&
+                                  pointJoints[0].BodyBIndex( bodyStore ) == 1;
+
+    PhysicsBodyStore reorderBodyStore;
+    std::vector<SkullbonezCore::GameObjects::GameModel> reorderModels;
+    for ( int i = 0; i < 2; ++i )
+    {
+        SkullbonezCore::GameObjects::GameModel model(
+            world.get(),
+            SkullbonezCore::Math::Vector::Vector3( static_cast<float>( i ) * 3.0f, 5.0f, 0.0f ),
+            SkullbonezCore::Math::Vector::Vector3( 1.0f, 1.0f, 1.0f ),
+            3.0f + static_cast<float>( i ) );
+        model.AddBoundingSphere( 0.5f );
+        model.SetReplayBodyId( 100u + static_cast<uint32_t>( i ) );
+        reorderModels.push_back( std::move( model ) );
+    }
+    reorderBodyStore.LoadFromModels( reorderModels, std::vector<uint8_t>{} );
+    const PhysicsBodyHandle reorderedOriginalBody = reorderBodyStore.HandleForModelIndex( 0 );
+    const uint32_t reorderBodyAReplayId = reorderModels[0].GetReplayBodyId();
+    const uint32_t reorderBodyBReplayId = reorderModels[1].GetReplayBodyId();
+    const SkullbonezCore::Math::Vector::Vector3 pendingImpulse( 0.0f, 2.0f, 0.0f );
+    const SkullbonezCore::Math::Vector::Vector3 pendingImpulsePoint( 0.25f, 0.0f, 0.0f );
+    reorderBodyStore.SetPendingBodyImpulse( 0, pendingImpulse, pendingImpulsePoint );
+    reorderBodyStore.SeedBodyAsleep( 0 );
+    reorderModels[0].SetReplayBodyId( reorderBodyBReplayId );
+    reorderModels[1].SetReplayBodyId( reorderBodyAReplayId );
+    reorderBodyStore.LoadFromModels( reorderModels, std::vector<uint8_t>{} );
+    const int reorderedBodyAIndex = reorderBodyStore.ModelIndexForHandle( reorderedOriginalBody );
+    const PhysicsBodyRecord* reorderedBodyARecord =
+        reorderedBodyAIndex >= 0 ? reorderBodyStore.RecordForModelIndex( reorderedBodyAIndex ) : nullptr;
+    // Invariant: allocator-owned handles must carry physics-owned one-shot
+    // state through a same-scene reorder. Otherwise the handle identity is only
+    // nominally independent from model order.
+    const bool reorderPreservesHandleState =
+        reorderedBodyAIndex == 1 && reorderedBodyARecord && reorderedBodyARecord->handle == reorderedOriginalBody &&
+        reorderedBodyARecord->hasPendingImpulse && reorderedBodyARecord->isSleeping &&
+        fabsf( reorderedBodyARecord->pendingImpulse.y - pendingImpulse.y ) < 0.0001f &&
+        fabsf( reorderedBodyARecord->pendingImpulseApplicationPoint.x - pendingImpulsePoint.x ) < 0.0001f;
 
     PhysicsRuntimeHandleSmokeResult result;
     result.handlesMatchStores = handlesMatchStores;
     result.renderMirrorMatches = renderMirrorMatches;
     result.jointUsesHandles = jointUsesHandles;
     result.colliderRefreshMatches = colliderRefreshMatches;
+    result.reorderPreservesHandleState = reorderPreservesHandleState;
     result.bodyCount = bodyStore.Count();
     result.colliderCount = colliderStore.Count();
     result.renderInstanceCount = renderStore.Count();
     result.pointJointCount = pointJoints.size();
     result.bodyA = bodyA;
-    result.passed = handlesMatchStores && renderMirrorMatches && jointUsesHandles && colliderRefreshMatches;
+    result.passed = handlesMatchStores && renderMirrorMatches && jointUsesHandles && colliderRefreshMatches &&
+                    reorderPreservesHandleState;
     return result;
 }
 
@@ -718,7 +758,8 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
                  static_cast<unsigned long long>( result.deterministicHash ) );
         fprintf( stream,
                  "[physics-runtime-handle-smoke] bodies=%d colliders=%d render_instances=%d point_joints=%zu "
-                 "handle_a=(%u,%u) store_handles=%s render_mirror=%s joint_handles=%s collider_refresh=%s\n",
+                 "handle_a=(%u,%u) store_handles=%s render_mirror=%s joint_handles=%s collider_refresh=%s "
+                 "reorder_state=%s\n",
                  runtimeMirror.bodyCount,
                  runtimeMirror.colliderCount,
                  runtimeMirror.renderInstanceCount,
@@ -728,7 +769,8 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
                  runtimeMirror.handlesMatchStores ? "pass" : "fail",
                  runtimeMirror.renderMirrorMatches ? "pass" : "fail",
                  runtimeMirror.jointUsesHandles ? "pass" : "fail",
-                 runtimeMirror.colliderRefreshMatches ? "pass" : "fail" );
+                 runtimeMirror.colliderRefreshMatches ? "pass" : "fail",
+                 runtimeMirror.reorderPreservesHandleState ? "pass" : "fail" );
         if ( !runtimeMirror.errorMessage.empty() )
         {
             fprintf( stream, "[physics-runtime-handle-smoke] error=\"%s\"\n", runtimeMirror.errorMessage.c_str() );
@@ -786,6 +828,8 @@ struct ParsedArgs
     unsigned int seedOverride = 0; // 0 = not set
     bool noWater = false;
     bool noSleep = false;
+    bool noContactAudio = false;
+    bool contactAudioSmoke = false;
     bool hasTornadoOverride = false;
     bool tornadoEnabled = false;
     bool tornadoVectors = false;
@@ -952,6 +996,18 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
           nullptr,
           []( ParsedArgs& args ) { args.noSleep = true; },
           "[physics] Sleep disabled via command line." },
+        { "--no-contact-audio",
+          "--mute-contact-audio",
+          []( ParsedArgs& args ) { args.noContactAudio = true; },
+          "[audio] Contact impact audio disabled." },
+        { "--contact-audio-smoke",
+          "--audio-smoke",
+          []( ParsedArgs& args )
+          {
+              args.contactAudioSmoke = true;
+              args.suppressExitDialog = true;
+          },
+          "[audio] Contact audio standalone smoke requested." },
         { "--scene-load-only",
           "--load-scenes-only",
           []( ParsedArgs& args )
@@ -2223,6 +2279,66 @@ bool ApplyGeneratedObjectOverride( const CommandLineView& commandLine, ParsedArg
     return true;
 }
 
+
+bool HandleContactAudioSmoke( const ParsedArgs& args, const EngineConfig& cfg, int& outExitCode )
+{
+    if ( !args.contactAudioSmoke )
+    {
+        return false;
+    }
+
+    // Concept: this smoke path proves decode, voice submission, and counters
+    // without creating a window, renderer, worker pool, or physics world.
+    SkullbonezCore::Runtime::Audio::ContactAudioService audio;
+    audio.SetMasterGain( cfg.contactAudio.masterGain );
+    audio.SetMaxDistanceScale( cfg.contactAudio.maxDistanceScale );
+    const bool initialized = audio.Initialize();
+    const bool loaded = audio.LoadContactAudioMap( "SkullbonezData/audio/contact_audio.materials.json" );
+    const bool submitted = initialized && loaded && audio.PlaySmokeImpact( HashStr( "earth" ), 6.0f );
+    Sleep( 350 );
+    const SkullbonezCore::Runtime::Audio::ContactAudioStats& stats = audio.Stats();
+    CreateDirectoryA( "TestOutput", nullptr );
+    FILE* report = nullptr;
+    if ( fopen_s( &report, "TestOutput/contact_audio_smoke.json", "w" ) == 0 && report )
+    {
+        fprintf( report,
+                 "{\n"
+                 "  \"initialized\": %s,\n"
+                 "  \"loaded\": %s,\n"
+                 "  \"submitted\": %s,\n"
+                 "  \"eventsSeen\": %u,\n"
+                 "  \"rejectedByThreshold\": %u,\n"
+                 "  \"rejectedByCooldown\": %u,\n"
+                 "  \"submittedVoices\": %u,\n"
+                 "  \"droppedVoices\": %u\n"
+                 "}\n",
+                 initialized ? "true" : "false",
+                 loaded ? "true" : "false",
+                 submitted ? "true" : "false",
+                 stats.eventsSeen,
+                 stats.rejectedByThreshold,
+                 stats.rejectedByCooldown,
+                 stats.submittedVoices,
+                 stats.droppedVoices );
+        fclose( report );
+    }
+    fprintf( stdout,
+             "[audio-smoke] initialized=%d loaded=%d submitted=%d events=%u threshold=%u cooldown=%u voices=%u "
+             "dropped=%u report=TestOutput/contact_audio_smoke.json\n",
+             initialized ? 1 : 0,
+             loaded ? 1 : 0,
+             submitted ? 1 : 0,
+             stats.eventsSeen,
+             stats.rejectedByThreshold,
+             stats.rejectedByCooldown,
+             stats.submittedVoices,
+             stats.droppedVoices );
+    fflush( stdout );
+    outExitCode = submitted ? 0 : 1;
+    return true;
+}
+
+
 // Guards --physics-regression-log against use in non-Debug builds.
 // False means startup should abort.
 bool ValidatePhysicsRegressionLog( const CommandLineView& commandLine )
@@ -2677,15 +2793,19 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
 // Render backend
 // ---------------------------------------------------------------------------
 
-void InitRenderBackend( Window* window )
+RuntimeRenderBackendView InitRenderBackend( Window* window )
 {
     auto backend = std::make_unique<RenderBackendDX12>();
-    // Lifetime: SetGfxBackend takes ownership; the raytracing accessor keeps
-    // only a borrowed alias that DestroyGfxBackend clears before releasing it.
-    RenderBackendDX12* rayTracingBackend = backend.get();
+    // Lifetime: SetGfxBackend takes ownership. The raytracing accessor and
+    // render host keep borrowed aliases that expire before DestroyGfxBackend.
+    RenderBackendDX12* renderBackend = backend.get();
+    RuntimeRenderBackendView renderBackendView;
+    renderBackendView.renderBackend = renderBackend;
+    renderBackendView.rayTracingBackend = renderBackend;
     backend->Init( window->m_sWindow, window->m_sDevice, window->m_sWindowDimensions.x, window->m_sWindowDimensions.y );
     SetGfxBackend( std::move( backend ) );
-    SetGfxRayTracingBackend( rayTracingBackend );
+    SetGfxRayTracingBackend( renderBackendView.rayTracingBackend );
+    return renderBackendView;
 }
 
 // ---------------------------------------------------------------------------
@@ -2694,10 +2814,15 @@ void InitRenderBackend( Window* window )
 // before the DX12 backend and the Win32 window are torn down.
 // ---------------------------------------------------------------------------
 
-int RunApp( Window* window, ParsedArgs& args )
+int RunApp( Window* window,
+            ParsedArgs& args,
+            EngineConfig& cfg,
+            WorkerPool& workerPool,
+            RuntimeRenderBackendView renderBackendView )
 {
     {
-        std::unique_ptr<Run> cRun = std::make_unique<Run>( *window, std::move( args.sceneList ) );
+        std::unique_ptr<Run> cRun =
+            std::make_unique<Run>( *window, std::move( args.sceneList ), cfg, workerPool, renderBackendView );
         if ( args.timeScaleOverride > 0.0f )
         {
             cRun->SetTimeScaleOverride( args.timeScaleOverride );
@@ -2717,6 +2842,10 @@ int RunApp( Window* window, ParsedArgs& args )
         if ( args.noSleep )
         {
             cRun->SetNoSleepOverride();
+        }
+        if ( args.noContactAudio )
+        {
+            cRun->SetNoContactAudioOverride();
         }
         if ( args.hasTornadoOverride )
         {
@@ -3003,6 +3132,14 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return 1;
     }
 
+    EngineConfig& cfg = Cfg();
+    int contactAudioSmokeExitCode = 0;
+    if ( HandleContactAudioSmoke( args, cfg, contactAudioSmokeExitCode ) )
+    {
+        CoUninitialize();
+        return contactAudioSmokeExitCode;
+    }
+
     int standalonePhysicsExitCode = 0;
     if ( HandlePhysicsStandaloneSmoke( commandLine, standalonePhysicsExitCode ) )
     {
@@ -3010,25 +3147,26 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return standalonePhysicsExitCode;
     }
 
-    WorkerPool::Instance().Initialise( Cfg().workerThreads );
+    WorkerPool& workerPool = WorkerPool::Instance();
+    workerPool.Initialise( cfg.workerThreads );
     if ( args.workerSelfTest )
     {
         const bool workersOk = RunWorkerSystemSelfTest( stdout );
-        WorkerPool::Instance().Shutdown();
+        workerPool.Shutdown();
         CoUninitialize();
         return workersOk ? 0 : 1;
     }
 
     Window* window = Window::Instance();
-    window->CreateAppWindow( hInstance, Cfg().window.fullscreen );
+    window->CreateAppWindow( hInstance, cfg.window.fullscreen );
     window->m_sDevice = GetDC( window->m_sWindow );
 
-    InitRenderBackend( window );
+    const RuntimeRenderBackendView renderBackendView = InitRenderBackend( window );
     window->HandleScreenResize();
 
-    const int runExitCode = RunApp( window, args );
+    const int runExitCode = RunApp( window, args, cfg, workerPool, renderBackendView );
 
-    WorkerPool::Instance().Shutdown();
+    workerPool.Shutdown();
     CleanupWindow( window, hInstance );
 
     CoUninitialize();

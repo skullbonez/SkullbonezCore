@@ -177,10 +177,16 @@ def changed_pixels_outside_window(
         bg_pixels = background.load()
         width, height = ui.size
         changed = 0
+        suite_hud_x0 = max(0, width - 220)
+        suite_hud_y1 = min(height, 70)
         for y in range(height):
             inside_y = y0 <= y <= y1
             for x in range(width):
                 if inside_y and x0 <= x <= x1:
+                    continue
+                # Why: test-suite progress text is drawn by the runner outside
+                # the window under test; containment should measure UI leakage.
+                if y <= suite_hud_y1 and x >= suite_hud_x0:
                     continue
                 ur, ug, ub = ui_pixels[x, y]
                 br, bg, bb = bg_pixels[x, y]

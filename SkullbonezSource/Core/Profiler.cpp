@@ -979,8 +979,13 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
 }
 
 
-void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, float fSize, float fps, bool rightAnchored )
-    const
+void Profiler::RenderOverlay( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                              float xLeft,
+                              float yAnchor,
+                              float lineHeight,
+                              float fSize,
+                              float fps,
+                              bool rightAnchored ) const
 {
     using SkullbonezCore::Text::Text2d;
 
@@ -1047,7 +1052,15 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     const float yTop = yBottom + rowsHeight;
 
     // Background quad
-    Text2d::Render2dQuad( xLeft - padX, yBottom, xLeft - padX + panelW, yTop + padY, 0.12f, 0.12f, 0.12f, 0.5f );
+    Text2d::Render2dQuad( renderCommands,
+                          xLeft - padX,
+                          yBottom,
+                          xLeft - padX + panelW,
+                          yTop + padY,
+                          0.12f,
+                          0.12f,
+                          0.12f,
+                          0.5f );
 
     // Color palette
     const float hdrR = 1.0f, hdrG = 0.85f, hdrB = 0.2f; // gold header
@@ -1222,7 +1235,12 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
 
     The panel is designed with vertical headroom for future multi-core stacking (CPU bar per thread).
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, float panelHeight, bool absolute ) const
+void Profiler::RenderBarOverlay( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                 float xLeft,
+                                 float yBottom,
+                                 float panelWidth,
+                                 float panelHeight,
+                                 bool absolute ) const
 {
     using SkullbonezCore::Text::Text2d;
 
@@ -1304,7 +1322,15 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
     const float fSz = barHeight * 0.45f; // text size proportional to bar
 
     // Background quad
-    Text2d::BatchQuad( xLeft, yBottom, xLeft + panelWidth, yBottom + panelHeight, 0.06f, 0.06f, 0.10f, 0.90f );
+    Text2d::BatchQuad( renderCommands,
+                       xLeft,
+                       yBottom,
+                       xLeft + panelWidth,
+                       yBottom + panelHeight,
+                       0.06f,
+                       0.06f,
+                       0.10f,
+                       0.90f );
 
     // Title
     float ty = yBottom + panelHeight - pad - titleH;
@@ -1338,7 +1364,7 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
     float cpuBarWidth = barX1 - cpuBarX0;
 
     // Draw background (dark grey = empty / absolute idle)
-    Text2d::BatchQuad( cpuBarX0, cpuBarY, barX1, cpuBarY + barHeight, 0.15f, 0.15f, 0.15f, 1.0f );
+    Text2d::BatchQuad( renderCommands, cpuBarX0, cpuBarY, barX1, cpuBarY + barHeight, 0.15f, 0.15f, 0.15f, 1.0f );
 
     // Scale bars either against the absolute frame or the CPU subtotal.
     float cpuScale = 1.0f;
@@ -1365,14 +1391,14 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
             segW = barX1 - cx; // Keep the segment inside the panel.
         }
         const BarColor& c = BAR_PALETTE[m.colorIndex % BAR_PALETTE_SIZE];
-        Text2d::BatchQuad( cx, cpuBarY, cx + segW, cpuBarY + barHeight, c.r, c.g, c.b, 1.0f );
+        Text2d::BatchQuad( renderCommands, cx, cpuBarY, cx + segW, cpuBarY + barHeight, c.r, c.g, c.b, 1.0f );
         cx += segW;
     }
 
     // Absolute mode: remaining space = white (idle)
     if ( absolute && cx < barX1 )
     {
-        Text2d::BatchQuad( cx, cpuBarY, barX1, cpuBarY + barHeight, 0.85f, 0.85f, 0.85f, 0.7f );
+        Text2d::BatchQuad( renderCommands, cx, cpuBarY, barX1, cpuBarY + barHeight, 0.85f, 0.85f, 0.85f, 0.7f );
     }
 
     // --- GPU bar ---
@@ -1383,7 +1409,7 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
         float gpuLabelW = cpuLabelW; // align with CPU bar
         float gpuBarX0 = barX0 + gpuLabelW;
 
-        Text2d::BatchQuad( gpuBarX0, gpuBarY, barX1, gpuBarY + barHeight, 0.15f, 0.15f, 0.15f, 1.0f );
+        Text2d::BatchQuad( renderCommands, gpuBarX0, gpuBarY, barX1, gpuBarY + barHeight, 0.15f, 0.15f, 0.15f, 1.0f );
 
         float gpuScale = 1.0f;
         if ( absolute )
@@ -1409,13 +1435,13 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
                 segW = barX1 - gx;
             }
             const BarColor& c = BAR_PALETTE[m.colorIndex % BAR_PALETTE_SIZE];
-            Text2d::BatchQuad( gx, gpuBarY, gx + segW, gpuBarY + barHeight, c.r, c.g, c.b, 1.0f );
+            Text2d::BatchQuad( renderCommands, gx, gpuBarY, gx + segW, gpuBarY + barHeight, c.r, c.g, c.b, 1.0f );
             gx += segW;
         }
 
         if ( absolute && gx < barX1 )
         {
-            Text2d::BatchQuad( gx, gpuBarY, barX1, gpuBarY + barHeight, 0.85f, 0.85f, 0.85f, 0.7f );
+            Text2d::BatchQuad( renderCommands, gx, gpuBarY, barX1, gpuBarY + barHeight, 0.85f, 0.85f, 0.85f, 0.7f );
         }
     }
 
@@ -1465,7 +1491,7 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
         }
 
         // Swatch
-        Text2d::BatchQuad( lx, ly, lx + swatchW, ly + swatchH, c.r, c.g, c.b, 1.0f );
+        Text2d::BatchQuad( renderCommands, lx, ly, lx + swatchW, ly + swatchH, c.r, c.g, c.b, 1.0f );
         // Label
         Text2d::Render2dTextColor( lx + swatchW + legendSpacing, ly, legendFSz, 0.85f, 0.85f, 0.85f, "%s", m.leafName );
         lx += entryW;
@@ -1473,7 +1499,7 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
 
     // Flush all batched quads in one draw call before the text labels are flushed by the caller.
     // This gives the full bar overlay exactly 2 draw calls: one for all quads, one for all text.
-    Text2d::FlushQuads();
+    Text2d::FlushQuads( renderCommands );
 }
 
 

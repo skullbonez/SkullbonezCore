@@ -41,7 +41,7 @@ import sys
 import time
 
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 DEFAULT_LIMIT = 50
 SUMMARY_LIMIT = 20
 BODY_SAMPLE_LIMIT = 120
@@ -256,6 +256,9 @@ def create_schema(conn):
             normal_z real,
             penetration real,
             normal_impulse real,
+            pre_solve_normal_speed real,
+            pre_solve_closing_speed real,
+            pre_solve_slip_speed real,
             tangent_impulse real,
             slip_speed real,
             rolling_residual real,
@@ -728,9 +731,10 @@ def insert_contact(conn, item):
         insert or replace into contacts(
             run_id, frame, contact_id, body_a, body_b, contact_type, feature_id,
             point_count, normal_x, normal_y, normal_z, penetration, normal_impulse,
+            pre_solve_normal_speed, pre_solve_closing_speed, pre_solve_slip_speed,
             tangent_impulse, slip_speed, rolling_residual, warm_started, supports_sleep
         )
-        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             item.get("run"),
@@ -746,6 +750,9 @@ def insert_contact(conn, item):
             normal[2],
             as_float(item.get("penetration")),
             as_float(item.get("normal_impulse")),
+            as_float(item.get("pre_solve_normal_speed")),
+            as_float(item.get("pre_solve_closing_speed")),
+            as_float(item.get("pre_solve_slip_speed")),
             as_float(item.get("tangent_impulse")),
             as_float(item.get("slip_speed")),
             as_float(item.get("rolling_residual")),
@@ -1181,6 +1188,124 @@ def query_events(conn, cache, args):
         "run": run_id,
         "events": events,
         "relatedQueries": ["event <id> --window 30", "frame <frame>", "body <body> --frames <start>:<end>"],
+    }
+
+
+def query_audio(conn, cache, args):
+    run_id = resolve_run_id(conn, args)
+    where = ["run_id=?", "type='contact_audio'"]
+    params = [run_id]
+    apply_frame_where(where, params, frame_range=args.frames)
+    rows = conn.execute(
+        f"""
+        select event_id, frame, severity, body_a, body_b, summary, data_json
+        from events
+        where {' and '.join(where)}
+        order by frame, event_id
+        """,
+        params,
+    ).fetchall()
+
+    decision_counts = {}
+    frame_stats = {}
+    impacts = []
+    for row in rows:
+        data = decode_event_data(row)
+        decision = data.get("decision") or "unknown"
+        decision_counts[decision] = decision_counts.get(decision, 0) + 1
+
+        frame = as_int(row["frame"], -1)
+        bucket = frame_stats.setdefault(
+            frame,
+            {
+                "frame": frame,
+                "events": 0,
+                "submitted": 0,
+                "voiceStolen": 0,
+                "flashEligible": 0,
+                "voiceCap": 0,
+                "cooldownOngoing": 0,
+                "distanceRejected": 0,
+                "belowMinImpulse": 0,
+                "supportTransfer": 0,
+                "maxImpulse": 0.0,
+                "maxImpactScore": 0.0,
+                "maxClosingSpeed": 0.0,
+            },
+        )
+        impulse = as_float(data.get("normal_impulse"), 0.0) or 0.0
+        impact_score = as_float(data.get("impact_score"), 0.0) or 0.0
+        closing_speed = as_float(data.get("normal_closing_speed"), 0.0) or 0.0
+        bucket["events"] += 1
+        bucket["maxImpulse"] = max(bucket["maxImpulse"], impulse)
+        bucket["maxImpactScore"] = max(bucket["maxImpactScore"], impact_score)
+        bucket["maxClosingSpeed"] = max(bucket["maxClosingSpeed"], closing_speed)
+        if as_int(data.get("submitted"), 0):
+            bucket["submitted"] += 1
+        if decision == "voice_stolen":
+            bucket["voiceStolen"] += 1
+        if as_int(data.get("flash_eligible"), 0):
+            bucket["flashEligible"] += 1
+        if decision == "voice_cap":
+            bucket["voiceCap"] += 1
+        elif decision == "cooldown_ongoing":
+            bucket["cooldownOngoing"] += 1
+        elif decision == "distance":
+            bucket["distanceRejected"] += 1
+        elif decision == "below_min_impulse":
+            bucket["belowMinImpulse"] += 1
+        elif decision == "support_transfer":
+            bucket["supportTransfer"] += 1
+
+        impacts.append(
+            {
+                "eventId": row["event_id"],
+                "frame": frame,
+                "decision": decision,
+                "bodyA": row["body_a"],
+                "bodyB": row["body_b"],
+                "impulse": impulse,
+                "normalClosingSpeed": closing_speed,
+                "tangentSlipSpeed": as_float(data.get("tangent_slip_speed"), 0.0),
+                "impactScore": impact_score,
+                "gain": as_float(data.get("gain"), 0.0),
+                "impactGain": as_float(data.get("impact_gain"), 0.0),
+                "motionGain": as_float(data.get("motion_gain"), 0.0),
+                "distance": as_float(data.get("distance"), 0.0),
+                "maxDistance": as_float(data.get("max_distance"), 0.0),
+                "flashEligible": bool(as_int(data.get("flash_eligible"), 0)),
+                "submitted": bool(as_int(data.get("submitted"), 0)),
+                "sample": data.get("sample"),
+            }
+        )
+
+    limit = args.limit or SUMMARY_LIMIT
+    frame_hotspots = sorted(
+        frame_stats.values(),
+        key=lambda item: (
+            item["flashEligible"],
+            item["submitted"],
+            item["events"],
+            item["maxImpactScore"],
+            item["maxImpulse"],
+        ),
+        reverse=True,
+    )[:limit]
+    top_impacts = sorted(impacts, key=lambda item: (item["impactScore"], item["impulse"]), reverse=True)[:limit]
+
+    return {
+        "cache": cache,
+        "run": run_id,
+        "frames": args.frames,
+        "eventCount": len(rows),
+        "decisionCounts": decision_counts,
+        "frameHotspots": frame_hotspots,
+        "topImpacts": top_impacts,
+        "relatedQueries": [
+            "events --type contact_audio --frames <start>:<end>",
+            "event <eventId> --window 20",
+            "contacts --top impulse --frames <start>:<end>",
+        ],
     }
 
 
@@ -2077,6 +2202,11 @@ def build_parser():
     events.add_argument("--severity", default=None, help="Comma-separated severities.")
     events.add_argument("--frames", default=None, help="Frame range A:B.")
     events.set_defaults(func=query_events)
+
+    audio = sub.add_parser("audio", help="Summarize contact audio decision events.")
+    add_common(audio)
+    audio.add_argument("--frames", default=None, help="Frame range A:B.")
+    audio.set_defaults(func=query_audio)
 
     event = sub.add_parser("event", help="Focused event context.")
     add_common(event)

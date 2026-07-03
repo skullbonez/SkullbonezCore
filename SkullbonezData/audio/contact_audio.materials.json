@@ -1,0 +1,68 @@
+{
+  "format": "skullbonez.contact_audio_materials.json",
+  "version": 1,
+  "defaultMaterial": "default",
+  "librarySamples": [
+    "SkullbonezData/audio/impacts/impact_thud_thwack_01.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_thwack_02.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_thwack_03.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_thwack_04.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_thwack_05.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_thwack_06.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_thwack_07.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_thwack_08.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_thwack_09.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_thwack_10.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_hit_01.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_hit_02.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_hit_03.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_hit_04.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_hit_05.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_hit_06.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_hit_07.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_hit_08.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_hit_09.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_hit_10.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_hit_11.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_hit_12.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_hit_13.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_rock_01.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_wood_01.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_wood_02.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_wood_03.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_soft_01.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_soft_02.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_soft_03.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_stone_01.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_stone_02.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_stone_03.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_metal_01.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_metal_02.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_wood_alt_01.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_wood_alt_02.ogg",
+    "SkullbonezData/audio/impacts/impact_thud_wood_alt_03.ogg"
+  ],
+  "sets": [
+    {
+      "name": "impact.thud",
+      "materials": [ "*", "*" ],
+      "minImpulse": 0.30,
+      "impulseRange": 8.0,
+      "cooldownMs": 145,
+      "overrideCooldownMs": 60,
+      "maxDistance": 95.0,
+      "baseGain": 0.58,
+      "pitchMin": 0.92,
+      "pitchMax": 1.04,
+      "maxVoices": 24,
+      "samples": [
+        "SkullbonezData/audio/impacts/impact_thud_thwack_02.ogg"
+      ],
+      "bands": [
+        { "name": "light", "minImpulse": 0.30, "impulseRange": 3.0, "baseGain": 0.38, "pitchMin": 0.98, "pitchMax": 1.06 },
+        { "name": "medium", "minImpulse": 2.4, "impulseRange": 6.0, "baseGain": 0.58, "pitchMin": 0.94, "pitchMax": 1.04 },
+        { "name": "heavy", "minImpulse": 5.0, "impulseRange": 12.0, "baseGain": 0.78, "pitchMin": 0.88, "pitchMax": 0.98 }
+      ]
+    }
+  ]
+}

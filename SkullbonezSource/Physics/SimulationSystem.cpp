@@ -11,6 +11,8 @@ Glossary:
   Fixed-step: Deterministic mode that advances physics by one fixed delta per
   requested tick instead of wall-clock time.
   Accumulator: Stored fractional tick state that carries time across frames.
+  World-force snapshot: Tick-local gravity/fluid values handed to physics so
+    solver work does not reach back into WorldEnvironment.
 
 Invariants:
   - Fixed-step mode ignores wall-clock accumulation and commits whole
@@ -28,6 +30,7 @@ Related:
 #include "../Core/Profiler.h"
 #include "PhysicsEngine.h"
 #include "PhysicsModelAccess.h"
+#include "PhysicsWorldForces.h"
 
 #include <algorithm>
 #include <cmath>
@@ -41,14 +44,15 @@ constexpr int FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME = 32;
 
 bool SimulationPhysicsStep::IsBound() const
 {
-    return engine != nullptr && modelAccess != nullptr;
+    return engine != nullptr && modelAccess != nullptr && config != nullptr && workerPool != nullptr &&
+           worldForces != nullptr;
 }
 
 
 void SimulationPhysicsStep::Run( float deltaSeconds ) const
 {
     assert( IsBound() );
-    engine->Step( *modelAccess, deltaSeconds );
+    engine->Step( *modelAccess, deltaSeconds, *config, *worldForces, *workerPool );
 }
 
 

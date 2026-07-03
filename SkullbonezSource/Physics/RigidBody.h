@@ -86,6 +86,7 @@ class RigidBody
     // Solver-staged linear delta consumed after all pair rows finish.
     Math::Vector::Vector3 m_changeInLinearVelocity;
     Math::Orientation::Quaternion m_orientation;
+    float m_angularVelocityLimit;                     // Runtime tuning cap, radians/s, borrowed from EngineConfig at composition time.
 
     void ApplyWorldForce();                           // Continuous world forces, such as gravity, update velocity through a = F/m.
     /* NOTE: Despite being named "Force", both of the following apply ONE-SHOT IMPULSES
@@ -132,6 +133,7 @@ class RigidBody
     float GetDensity();                               // Density assumes mass and volume caches are already current.
     void SetLinearVelocity( const Math::Vector::Vector3& vLinear );
     void SetAngularVelocity( const Math::Vector::Vector3& vAngular );
+    void SetAngularVelocityLimit( float velocityLimit );
     void SetOrientation( const Math::Orientation::Quaternion& q );
     void SetImpulseForce( const Math::Vector::Vector3& vImpulseForce, const Math::Vector::Vector3& vApplicationPoint );
     void ClearImpulseForce();                         // Clears any pending one-shot impulse and marks it consumed.

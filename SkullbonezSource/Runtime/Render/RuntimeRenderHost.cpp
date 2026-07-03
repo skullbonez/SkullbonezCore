@@ -32,7 +32,10 @@ Related:
 #include "../../Core/Profiler.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Rendering/Helper.h"
+#include "../../Rendering/IRenderBackend.h"
 #include "../RunInternal.h"
+
+#include <cassert>
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../Replay/ReplayOverlayRenderer.h"
 #include "../RunState.h"
@@ -48,16 +51,16 @@ using namespace SkullbonezCore::Basics;
 
 CinematicRenderConfig& RuntimeRenderHost::ActiveCinematicConfig() const
 {
-    return RunInternal::RuntimeActiveCinematicConfig( m_sceneController.State(), Cfg() );
+    return RunInternal::RuntimeActiveCinematicConfig( m_sceneController.State(), m_config );
 }
 
 bool RuntimeRenderHost::IsCinematicRenderingEnabled() const
 {
     return RunInternal::RuntimeCinematicRenderingEnabled( m_sceneController.State(),
-                                                          Cfg(),
+                                                          m_config,
                                                           m_launchOptions,
                                                           m_debug,
-                                                          IsGfxReady() );
+                                                          ActiveRenderBackend() != nullptr );
 }
 
 bool RuntimeRenderHost::IsLauncherCameraMode() const
@@ -88,22 +91,62 @@ void RuntimeRenderHost::SelectRenderTexture( uint32_t textureHash ) const
 
 int RuntimeRenderHost::WindowScreenWidth() const
 {
-    return RunInternal::RuntimeWindowScreenWidth( m_systems, Cfg() );
+    return RunInternal::RuntimeWindowScreenWidth( m_systems, m_config );
 }
 
 int RuntimeRenderHost::WindowScreenHeight() const
 {
-    return RunInternal::RuntimeWindowScreenHeight( m_systems, Cfg() );
+    return RunInternal::RuntimeWindowScreenHeight( m_systems, m_config );
 }
+
+
+SkullbonezCore::Rendering::IRenderBackend* RuntimeRenderHost::ActiveRenderBackend() const
+{
+    return m_renderBackend.renderBackend;
+}
+
+
+SkullbonezCore::Rendering::IRenderRayTracing* RuntimeRenderHost::ActiveRayTracingBackend() const
+{
+    return m_renderBackend.rayTracingBackend;
+}
+
+
+const char* RuntimeRenderHost::RendererNameOrDefault( const char* fallbackName ) const
+{
+    const SkullbonezCore::Rendering::IRenderBackend* renderBackend = ActiveRenderBackend();
+    return renderBackend ? renderBackend->GetRendererName() : fallbackName;
+}
+
+
+bool RuntimeRenderHost::SupportsDxrReflection() const
+{
+    const SkullbonezCore::Rendering::IRenderBackend* renderBackend = ActiveRenderBackend();
+    return renderBackend && renderBackend->GetCapabilities().supportsDxrReflection;
+}
+
+
+void RuntimeRenderHost::SetVsyncEnabled( bool enabled ) const
+{
+    SkullbonezCore::Rendering::IRenderBackend* renderBackend = ActiveRenderBackend();
+    if ( renderBackend )
+    {
+        renderBackend->SetVsyncEnabled( enabled );
+    }
+}
+
 
 const RunSceneState& RuntimeRenderHost::SceneState() const
 {
     return m_sceneController.State();
 }
 
-ReplayOverlay::ReplayOverlayRenderContext RuntimeRenderHost::BuildReplayOverlayRenderContext() const
+ReplayOverlay::ReplayOverlayRenderContext
+RuntimeRenderHost::BuildReplayOverlayRenderContext( const UI::UIRenderContext& uiRender ) const
 {
-    return { m_replayRuntime,
+    assert( uiRender.IsReady() );
+    return { *uiRender.commands,
+             m_replayRuntime,
              m_cGameModelCollection.Models(),
              m_editor.editorModeEnabled,
              m_UI.IsVisible(),
@@ -114,14 +157,14 @@ ReplayOverlay::ReplayOverlayRenderContext RuntimeRenderHost::BuildReplayOverlayR
              m_timers.simulationTimer.GetTotalTime() };
 }
 
-void RuntimeRenderHost::RenderReplayScrubberOverlay() const
+void RuntimeRenderHost::RenderReplayScrubberOverlay( const UI::UIRenderContext& uiRender ) const
 {
-    ReplayOverlay::RenderReplayScrubberOverlay( BuildReplayOverlayRenderContext() );
+    ReplayOverlay::RenderReplayScrubberOverlay( BuildReplayOverlayRenderContext( uiRender ) );
 }
 
-void RuntimeRenderHost::RenderReplayCauseTreeOverlay() const
+void RuntimeRenderHost::RenderReplayCauseTreeOverlay( const UI::UIRenderContext& uiRender ) const
 {
-    ReplayOverlay::RenderReplayCauseTreeOverlay( BuildReplayOverlayRenderContext() );
+    ReplayOverlay::RenderReplayCauseTreeOverlay( BuildReplayOverlayRenderContext( uiRender ) );
 }
 
 int RuntimeRenderHost::CurrentSceneBrowserIndex() const
@@ -156,7 +199,10 @@ void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& 
     }
 
     SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
-    RenderHelper::DrawBoxBatchBegin( frame.baseView,
+    assert( frame.renderResources && frame.renderCommands && frame.assets );
+    const RenderHelperContext helperContext{ *frame.renderResources, *frame.renderCommands, *frame.assets, m_config };
+    RenderHelper::DrawBoxBatchBegin( helperContext,
+                                     frame.baseView,
                                      frame.projection,
                                      frame.lightPosition,
                                      true,
@@ -187,5 +233,5 @@ void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& 
         RenderHelper::DrawBoxBatchModel( modelMatrix, material );
     }
 
-    RenderHelper::DrawBoxBatchEnd();
+    RenderHelper::DrawBoxBatchEnd( helperContext );
 }

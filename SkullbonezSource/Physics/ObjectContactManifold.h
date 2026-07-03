@@ -16,6 +16,10 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Contact body view: Pose-only body input used by narrowphase so the manifold
+  builder does not need to borrow whole GameModel storage.
+  Contact sweep: Conservative object/object time-of-impact query used before
+  exact manifold generation and solver response.
   Feature ID: Deterministic contact key used to match rows across frames for
   warm starting.
   Baumgarte bias: Positional correction term that turns penetration depth into
@@ -33,18 +37,33 @@ Related:
 #pragma once
 
 #include <cstdint>
-#include "../GameObjects/GameModel.h"
+#include "CollisionShape.h"
+#include "../Maths/Quaternion.h"
 #include "../Maths/Vector3.h"
 
 namespace SkullbonezCore
 {
+namespace GameObjects
+{
+class GameModel;
+} // namespace GameObjects
+
 namespace Physics
 {
+struct ObjectContactBodyView
+{
+    // Narrowphase contact geometry needs pose plus shape, not the whole
+    // GameModel. PhysicsBodyRecord callers fill this view directly; legacy model
+    // overloads below adapt at the boundary until the remaining callers migrate.
+    Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion orientation;
+};
+
 // CATTO REF:
 //   Catto 2005, Section 4 "Contact Model" represents each contact row with a
 //   world-space contact point, a normal, penetration/separation, and the rA/rB
-//   arms from each body center to the contact point. The iterative solver in
-//   GameModelCollection consumes exactly that row shape.
+//   arms from each body center to the contact point. PersistentContactSolver
+//   consumes exactly that row shape.
 // ENGINE-SPECIFIC:
 //   Catto does not prescribe this engine's 3D narrowphase. This file builds the
 //   Skullbonez shape-pair manifolds that feed Catto-style rows: sphere/sphere,
@@ -72,6 +91,21 @@ struct ObjectContactManifold
     uint8_t pointCount = 0;
 };
 
+struct ObjectContactSweepResult
+{
+    bool hit = false;                                         // Candidate object/object hit occurred in the tested substep.
+    float collisionTime = 0.0f;                               // Seconds from the start of the tested substep.
+};
+
+// Runs the object/object CCD front-end from body/collider inputs. The result is
+// only a time candidate; exact contact rows still come from BuildObjectContactManifold.
+ObjectContactSweepResult SweepObjectContact( const ObjectContactBodyView& a,
+                                             const Math::CollisionDetection::CollisionShape& shapeA,
+                                             const Math::Vector::Vector3& linearVelocityA,
+                                             const ObjectContactBodyView& b,
+                                             const Math::CollisionDetection::CollisionShape& shapeB,
+                                             const Math::Vector::Vector3& linearVelocityB,
+                                             float changeInTime );
 bool BuildObjectContactManifold( const GameObjects::GameModel& a,
                                  const GameObjects::GameModel& b,
                                  int bodyA,
@@ -81,6 +115,14 @@ bool BuildObjectContactManifold( const GameObjects::GameModel& a,
 bool BuildObjectContactManifold( const GameObjects::GameModel& a,
                                  const Math::CollisionDetection::CollisionShape& shapeA,
                                  const GameObjects::GameModel& b,
+                                 const Math::CollisionDetection::CollisionShape& shapeB,
+                                 int bodyA,
+                                 int bodyB,
+                                 float contactSkin,
+                                 ObjectContactManifold& out );
+bool BuildObjectContactManifold( const ObjectContactBodyView& a,
+                                 const Math::CollisionDetection::CollisionShape& shapeA,
+                                 const ObjectContactBodyView& b,
                                  const Math::CollisionDetection::CollisionShape& shapeB,
                                  int bodyA,
                                  int bodyB,

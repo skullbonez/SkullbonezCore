@@ -11,6 +11,14 @@ Mental model:
 Glossary:
   SoA (Structure of Arrays): Data layout that stores each field in a separate
   contiguous array for cache-friendly iteration.
+  Physics material: Per-object friction and drag coefficients cached by the
+    collection before models are added or reconfigured.
+  Body simulation limit: Scalar cap cached by the collection before models hand
+    velocity state to RigidBody integration.
+  Contact policy: Terrain and contact thresholds cached by the collection so
+    existing and newly added models receive the same physics policy.
+  Replay body id: Per-collection identity saved in replay samples so restore
+    paths can reject stale model slots.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -32,6 +40,9 @@ Related:
 #include "../Core/SkullScope.h"
 #include "../Physics/Debug/CollisionVisualizer.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#ifdef _DEBUG
+#include "../Physics/PhysicsDiagnosticsModel.h"
+#endif
 #include "../Rendering/GameModelRenderer.h"
 #include "../Scene/SceneSnapshotWriter.h"
 
@@ -41,10 +52,14 @@ Related:
 #include <cstring>
 #include <cmath>
 #include <stdexcept>
+#ifdef _DEBUG
+#include <type_traits>
+#endif
 #include <utility>
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::GameObjects;
+using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Rendering::ShadowFrameData;
@@ -181,6 +196,47 @@ GameModelCollection::GameModelCollection()
 }
 
 
+void GameModelCollection::BindWorkerPool( SkullbonezCore::Threading::WorkerPool& workerPool )
+{
+    m_workerPool = &workerPool;
+}
+
+
+void GameModelCollection::ApplyRuntimeConfig( const Basics::EngineConfig& config )
+{
+    m_physicsMaterial = Physics::PhysicsMaterial::FromConfig( config );
+    m_bodySimulationLimits = Physics::BodySimulationLimits::FromConfig( config );
+    m_contactPolicy = Physics::ContactPolicy::FromConfig( config );
+    m_renderCollisionVolumes = config.runtimeRender.renderCollisionVolumes;
+    m_shadowParallelPrep = config.shadowParallelPrep;
+    m_physicsEngine.ApplyRuntimeConfig( config );
+    for ( GameModel& model : m_gameModels )
+    {
+        model.ApplyPhysicsMaterial( m_physicsMaterial );
+        model.ApplyBodySimulationLimits( m_bodySimulationLimits );
+        model.ApplyContactPolicy( m_contactPolicy );
+    }
+}
+
+
+bool GameModelCollection::ShouldRenderCollisionVolumes() const
+{
+    return m_renderCollisionVolumes;
+}
+
+
+bool GameModelCollection::ShouldUseShadowParallelPrep() const
+{
+    return m_shadowParallelPrep;
+}
+
+
+SkullbonezCore::Threading::WorkerPool* GameModelCollection::RenderWorkerPool() const
+{
+    return m_workerPool;
+}
+
+
 void GameModelCollection::AddGameModel( GameModel gameModel )
 {
     const int activeCapacity = ActiveGameModelCapacity();
@@ -199,6 +255,9 @@ void GameModelCollection::AddGameModel( GameModel gameModel )
     {
         m_nextReplayBodyId = (std::max)( m_nextReplayBodyId, gameModel.GetReplayBodyId() + 1u );
     }
+    gameModel.ApplyPhysicsMaterial( m_physicsMaterial );
+    gameModel.ApplyBodySimulationLimits( m_bodySimulationLimits );
+    gameModel.ApplyContactPolicy( m_contactPolicy );
     m_gameModels.push_back( std::move( gameModel ) );
     InvalidateSoA();
 }
@@ -219,12 +278,6 @@ void GameModelCollection::InvalidateSoA()
     // body/render state, so mark the cache dirty and let the next hot-path user
     // rebuild it from the authoritative vector.
     m_soaCache.Invalidate();
-}
-
-
-SkullbonezCore::Physics::PhysicsBodyHandle GameModelCollection::BodyHandleForModelIndex( int index ) const
-{
-    return Physics::MakeCompatibilityPhysicsBodyHandle( static_cast<uint32_t>( index ) );
 }
 
 
@@ -257,7 +310,8 @@ int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxMo
 }
 
 
-void GameModelCollection::RenderModels( const Matrix4& view,
+void GameModelCollection::RenderModels( const RenderHelperContext& helperContext,
+                                        const Matrix4& view,
                                         const Matrix4& proj,
                                         const float lightPos[4],
                                         const CinematicRenderConfig* cinematic,
@@ -266,7 +320,8 @@ void GameModelCollection::RenderModels( const Matrix4& view,
                                         const std::vector<uint8_t>* modelMask,
                                         bool drawMaskedModels )
 {
-    GameModelRenderer::RenderModels( *this,
+    GameModelRenderer::RenderModels( helperContext,
+                                     *this,
                                      view,
                                      proj,
                                      lightPos,
@@ -284,31 +339,35 @@ void GameModelCollection::BuildShadowCasterBatches( Rendering::ShadowCasterBatch
 }
 
 
-void GameModelCollection::RenderShadowCasterBatches( const Rendering::ShadowCasterBatches& batches,
+void GameModelCollection::RenderShadowCasterBatches( const RenderHelperContext& helperContext,
+                                                     const Rendering::ShadowCasterBatches& batches,
                                                      const Matrix4& view,
                                                      const Matrix4& proj,
                                                      const CinematicRenderConfig* cinematic )
 {
-    GameModelRenderer::SubmitShadowCasterBatches( batches, view, proj, cinematic );
+    GameModelRenderer::SubmitShadowCasterBatches( helperContext, batches, view, proj, cinematic );
 }
 
 
-void GameModelCollection::RenderShadowCasters( const Matrix4& view,
+void GameModelCollection::RenderShadowCasters( const RenderHelperContext& helperContext,
+                                               const Matrix4& view,
                                                const Matrix4& proj,
                                                const CinematicRenderConfig* cinematic )
 {
-    GameModelRenderer::RenderShadowCasters( *this, view, proj, cinematic );
+    GameModelRenderer::RenderShadowCasters( helperContext, *this, view, proj, cinematic );
 }
 
 
 void GameModelCollection::RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
+                                                      Assets::AssetSystem& assets,
+                                                      Rendering::IRenderResourceFactory& renderResources,
                                                       const Matrix4& view,
                                                       const Matrix4& proj,
                                                       const float lightPos[4],
                                                       float alphaOverride )
 {
     visualizer.SetAlphaOverride( alphaOverride );
-    visualizer.Render( *this, view, proj, lightPos );
+    visualizer.Render( assets, renderResources, *this, view, proj, lightPos );
     visualizer.SetAlphaOverride( -1.0f );
 }
 
@@ -396,21 +455,165 @@ int GameModelCollection::ModelCount() const
 }
 
 
-GameModel* GameModelCollection::MutableModelData()
-{
-    return m_gameModels.data();
-}
-
-
-const GameModel* GameModelCollection::ModelData() const
-{
-    return m_gameModels.data();
-}
-
-
 const std::vector<GameModel>& GameModelCollection::Models() const
 {
     return m_gameModels;
+}
+
+
+const GameModel* GameModelCollection::TryGetModel( int index ) const
+{
+    if ( index < 0 || index >= GetModelCount() )
+    {
+        return nullptr;
+    }
+
+    return &m_gameModels[static_cast<std::size_t>( index )];
+}
+
+
+#ifdef _DEBUG
+bool GameModelCollection::TryGetPhysicsDiagnosticsModel( int index,
+                                                         Physics::PhysicsDiagnosticsModelRecord& outRecord ) const
+{
+    if ( index < 0 || index >= GetModelCount() )
+    {
+        return false;
+    }
+
+    const GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+    outRecord = Physics::PhysicsDiagnosticsModelRecord{};
+    outRecord.name = model.GetName();
+    outRecord.shapeName = model.GetShapeName();
+    outRecord.position = model.GetPosition();
+    outRecord.velocity = model.GetVelocity();
+    outRecord.angularVelocity = model.GetAngularVelocity();
+    outRecord.rotationalInertia = model.GetRotationalInertia();
+    model.GetOrientation().GetComponents( outRecord.qx, outRecord.qy, outRecord.qz, outRecord.qw );
+    outRecord.mass = model.GetMass();
+    outRecord.inverseMass = model.GetInvertedMass();
+
+    std::visit(
+        [&]( const auto& shape )
+        {
+            using ShapeT = std::decay_t<decltype( shape )>;
+            if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingSphere> )
+            {
+                outRecord.radius = shape.GetRadius();
+            }
+            else if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingBox> )
+            {
+                outRecord.halfExtents = shape.GetHalfExtents();
+            }
+            else
+            {
+                outRecord.radius = shape.GetBoundingRadius();
+                outRecord.hullName = shape.GetName();
+                outRecord.hullVertices = shape.GetVertexCount();
+                outRecord.hullFaces = shape.GetFaceCount();
+                outRecord.hullEdges = shape.GetEdgeCount();
+            }
+        },
+        model.GetCollisionShape() );
+    return true;
+}
+#endif
+
+
+bool GameModelCollection::TryRestoreReplayBodyState( int index,
+                                                     uint32_t replayBodyId,
+                                                     bool fixed,
+                                                     const Vector3& position,
+                                                     const Quaternion& orientation,
+                                                     const Vector3& linearVelocity,
+                                                     const Vector3& angularVelocity )
+{
+    if ( index < 0 || index >= GetModelCount() )
+    {
+        return false;
+    }
+
+    GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+    if ( model.GetReplayBodyId() != replayBodyId )
+    {
+        return false;
+    }
+
+    model.SetFixed( fixed );
+    model.SetPosition( position );
+    model.SetOrientation( orientation );
+    model.SetLinearVelocity( linearVelocity );
+    model.SetAngularVelocity( angularVelocity );
+    model.ClearImpulseForce();
+    InvalidateSoA();
+    return true;
+}
+
+
+bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
+                                                               uint32_t replayBodyId,
+                                                               bool fixed,
+                                                               const Vector3& position,
+                                                               const Quaternion& orientation,
+                                                               const Vector3& linearVelocity,
+                                                               const Vector3& angularVelocity,
+                                                               float fixedContactHighlightSeconds )
+{
+    if ( index < 0 || index >= GetModelCount() )
+    {
+        return false;
+    }
+
+    GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+    if ( model.GetReplayBodyId() != replayBodyId )
+    {
+        return false;
+    }
+
+    model.SetFixed( fixed );
+    model.SetPosition( position );
+    model.SetOrientation( orientation );
+    model.SetLinearVelocity( linearVelocity );
+    model.SetAngularVelocity( angularVelocity );
+    model.SetFixedContactHighlightSeconds( fixedContactHighlightSeconds );
+    InvalidateSoA();
+    return true;
+}
+
+
+bool GameModelCollection::TrySetReplayRenderPose( int index,
+                                                  uint32_t replayBodyId,
+                                                  const Vector3& position,
+                                                  const Quaternion& orientation )
+{
+    if ( index < 0 || index >= GetModelCount() )
+    {
+        return false;
+    }
+
+    GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+    if ( model.GetReplayBodyId() != replayBodyId )
+    {
+        return false;
+    }
+
+    model.SetPosition( position );
+    model.SetOrientation( orientation );
+    InvalidateSoA();
+    return true;
+}
+
+
+bool GameModelCollection::TrySetModelAngularVelocity( int index, const Vector3& angularVelocity )
+{
+    if ( index < 0 || index >= GetModelCount() )
+    {
+        return false;
+    }
+
+    m_gameModels[static_cast<std::size_t>( index )].SetAngularVelocity( angularVelocity );
+    InvalidateSoA();
+    return true;
 }
 
 
@@ -436,18 +639,6 @@ MainMemoryGameObjectStats GameModelCollection::CollectMemoryStats() const
     stats.totalBytes = stats.modelVectorBytes + stats.soaCacheBytes + stats.physicsStoreBytes +
                        stats.colliderStoreBytes + stats.renderStoreBytes + stats.physicsWorldBytes;
     return stats;
-}
-
-
-std::vector<GameModel>& GameModelCollection::MutablePhysicsModelsForCompatibility()
-{
-    return m_gameModels;
-}
-
-
-const std::vector<GameModel>& GameModelCollection::PhysicsModelsForCompatibility() const
-{
-    return m_gameModels;
 }
 
 
@@ -588,6 +779,39 @@ void GameModelCollection::InvalidatePhysicsStreams()
 }
 
 
+void GameModelCollection::WriteBackPhysicsBodies( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
+{
+    bodyStore.WriteBackToModels( m_gameModels );
+}
+
+
+void GameModelCollection::WriteBackPhysicsBody( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
+                                                int modelIndex )
+{
+    bodyStore.WriteBackToModelAt( m_gameModels, modelIndex );
+}
+
+
+void GameModelCollection::ReloadPhysicsBodies( SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
+                                               const std::vector<uint8_t>& sleepStates )
+{
+    bodyStore.LoadFromModels( m_gameModels, sleepStates );
+}
+
+
+void GameModelCollection::RefreshPhysicsColliders( SkullbonezCore::Physics::ColliderStore& colliderStore,
+                                                   const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
+{
+    colliderStore.Refresh( m_gameModels, bodyStore );
+}
+
+
+void GameModelCollection::RefreshRenderInstances( SkullbonezCore::Rendering::RenderInstanceStore& renderInstanceStore )
+{
+    renderInstanceStore.Refresh( m_gameModels );
+}
+
+
 SkullbonezCore::Physics::PhysicsBodyEventSink& GameModelCollection::BodyEvents()
 {
     return *this;
@@ -612,6 +836,30 @@ void GameModelCollection::NotifyFixedContact( int modelIndex, float highlightSec
     {
         model.NotifyFixedContact( highlightSeconds );
     }
+}
+
+
+void GameModelCollection::TickContactHighlights( int modelCount, float deltaSeconds )
+{
+    // Why: contact highlights are presentation state on GameModel. Physics owns
+    // when contact events happen, but the model collection owns the timers that
+    // render/debug/audio views later sample.
+    const int tickCount = (std::min)( modelCount, static_cast<int>( m_gameModels.size() ) );
+    for ( int i = 0; i < tickCount; ++i )
+    {
+        m_gameModels[static_cast<size_t>( i )].TickFixedContactHighlight( deltaSeconds );
+    }
+}
+
+
+void GameModelCollection::NotifyAudioContact( int modelIndex, float highlightSeconds )
+{
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_gameModels.size() ) )
+    {
+        return;
+    }
+
+    m_gameModels[static_cast<size_t>( modelIndex )].NotifyAudioContact( highlightSeconds );
 }
 
 
@@ -674,9 +922,12 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
 }
 
 
-void GameModelCollection::RunPhysics( float fChangeInTime )
+void GameModelCollection::RunPhysics( float fChangeInTime,
+                                      const Basics::EngineConfig& config,
+                                      const Physics::PhysicsWorldForces& worldForces,
+                                      Threading::WorkerPool& workerPool )
 {
-    m_physicsEngine.Step( *this, fChangeInTime );
+    m_physicsEngine.Step( *this, fChangeInTime, config, worldForces, workerPool );
 }
 
 
