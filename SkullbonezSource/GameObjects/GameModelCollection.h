@@ -170,6 +170,11 @@ class GameModelCollection : public Rendering::IRenderSceneView,
     // Lifetime: returned model pointers are stable only until collection
     // mutation. Null means the caller held a stale model index.
     const GameModel* TryGetModel( int index ) const;
+#ifdef _DEBUG
+    // Returns only the model facts diagnostics serialize, without handing debug
+    // sinks a mutable or indexable GameModel range.
+    bool TryGetPhysicsDiagnosticsModel( int index, Physics::PhysicsDiagnosticsModelRecord& outRecord ) const override;
+#endif
     // Replays restore saved body state through the collection so cache
     // invalidation and replay-id validation stay with the model owner.
     bool TryRestoreReplayBodyState( int index,

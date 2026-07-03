@@ -22,6 +22,8 @@ Glossary:
     gameplay reactions such as fixed-tree release.
   Physics diagnostics view: Borrowed read-only retained solver/debug state used
     by SkullScope without giving diagnostics ownership of scene storage.
+  Diagnostics model record: Debug-only value record that SkullScope/CSV streams
+    serialize without borrowing a GameModel range.
 
 Invariants:
   - Implementations own the underlying model storage and SoA cache.
@@ -29,6 +31,8 @@ Invariants:
     that requested them.
   - Mutations performed through compatibility model ranges must explicitly call
     InvalidatePhysicsStreams() before a later stream read can observe stale SoA data.
+  - Debug diagnostics records may contain borrowed string pointers that are
+    valid only for the current emission pass.
 
 Related:
   - SkullbonezSource/GameObjects/GameModelCollection.h
@@ -51,6 +55,7 @@ class GameModel;
 
 namespace Physics
 {
+struct PhysicsDiagnosticsModelRecord;
 struct PhysicsDiagnosticsView;
 
 struct PhysicsFixedTreeReleaseEvent
@@ -157,6 +162,12 @@ class PhysicsModelAccess
     virtual void InvalidatePhysicsStreams() = 0;
     virtual PhysicsBodyEventSink& BodyEvents() = 0;
     virtual PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const = 0;
+#ifdef _DEBUG
+    // Lifetime: string pointers in the returned record are borrowed from the
+    // model owner and must not be cached after the current diagnostics write.
+    // False means the requested index is outside the dense model order.
+    virtual bool TryGetPhysicsDiagnosticsModel( int index, PhysicsDiagnosticsModelRecord& outRecord ) const = 0;
+#endif
 
     PhysicsModelMutableRange Models()
     {

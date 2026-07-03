@@ -40,6 +40,9 @@ Related:
 #include "../Core/SkullScope.h"
 #include "../Physics/Debug/CollisionVisualizer.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#ifdef _DEBUG
+#include "../Physics/PhysicsDiagnosticsModel.h"
+#endif
 #include "../Rendering/GameModelRenderer.h"
 #include "../Scene/SceneSnapshotWriter.h"
 
@@ -49,6 +52,9 @@ Related:
 #include <cstring>
 #include <cmath>
 #include <stdexcept>
+#ifdef _DEBUG
+#include <type_traits>
+#endif
 #include <utility>
 
 using namespace SkullbonezCore::Basics;
@@ -482,6 +488,54 @@ const GameModel* GameModelCollection::TryGetModel( int index ) const
 
     return &m_gameModels[static_cast<std::size_t>( index )];
 }
+
+
+#ifdef _DEBUG
+bool GameModelCollection::TryGetPhysicsDiagnosticsModel( int index,
+                                                         Physics::PhysicsDiagnosticsModelRecord& outRecord ) const
+{
+    if ( index < 0 || index >= GetModelCount() )
+    {
+        return false;
+    }
+
+    const GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+    outRecord = Physics::PhysicsDiagnosticsModelRecord{};
+    outRecord.name = model.GetName();
+    outRecord.shapeName = model.GetShapeName();
+    outRecord.position = model.GetPosition();
+    outRecord.velocity = model.GetVelocity();
+    outRecord.angularVelocity = model.GetAngularVelocity();
+    outRecord.rotationalInertia = model.GetRotationalInertia();
+    model.GetOrientation().GetComponents( outRecord.qx, outRecord.qy, outRecord.qz, outRecord.qw );
+    outRecord.mass = model.GetMass();
+    outRecord.inverseMass = model.GetInvertedMass();
+
+    std::visit(
+        [&]( const auto& shape )
+        {
+            using ShapeT = std::decay_t<decltype( shape )>;
+            if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingSphere> )
+            {
+                outRecord.radius = shape.GetRadius();
+            }
+            else if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingBox> )
+            {
+                outRecord.halfExtents = shape.GetHalfExtents();
+            }
+            else
+            {
+                outRecord.radius = shape.GetBoundingRadius();
+                outRecord.hullName = shape.GetName();
+                outRecord.hullVertices = shape.GetVertexCount();
+                outRecord.hullFaces = shape.GetFaceCount();
+                outRecord.hullEdges = shape.GetEdgeCount();
+            }
+        },
+        model.GetCollisionShape() );
+    return true;
+}
+#endif
 
 
 bool GameModelCollection::TryRestoreReplayBodyState( int index,
