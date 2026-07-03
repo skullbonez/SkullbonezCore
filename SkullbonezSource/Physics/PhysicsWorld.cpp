@@ -1440,8 +1440,7 @@ bool PhysicsWorld::WakeDynamicBodyState( PhysicsModelAccess& modelAccess,
     {
         if ( bodyStore->ApplyForces( *worldForces, *colliderStore, index, dt ) )
         {
-            PhysicsModelMutableRange models( modelAccess.MutableModelData(), modelAccess.ModelCount() );
-            bodyStore->WriteBackToModelAt( models, index );
+            modelAccess.WriteBackPhysicsBody( *bodyStore, index );
         }
     }
     // Hazard: waking a body must also forget any cached contact impulses that
