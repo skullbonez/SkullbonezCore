@@ -618,11 +618,9 @@ bool PhysicsWorld::CanRecordPhysicsPipelineStage() const
 
 
 PersistentContactSolverContext
-PhysicsWorld::CreatePersistentContactSolverContext( PhysicsModelAccess& modelAccess,
-                                                    const GameModelBodyStream& bodyStream,
+PhysicsWorld::CreatePersistentContactSolverContext( const GameModelBodyStream& bodyStream,
                                                     PhysicsBodyStore& bodyStore,
                                                     const ColliderStore& colliderStore,
-                                                    const PhysicsWorldForces& worldForces,
                                                     const Basics::EngineConfig& config )
 {
     return PersistentContactSolverContext{ m_candidatePairs,
@@ -638,65 +636,81 @@ PhysicsWorld::CreatePersistentContactSolverContext( PhysicsModelAccess& modelAcc
                                            m_terrainContactManifolds,
                                            m_terrainRestApplied,
                                            m_sleepSupportedThisFrame,
-                                           modelAccess.BodyEvents(),
-                                           modelAccess,
-                                           modelAccess,
+                                           m_persistentContactSideEffects,
                                            bodyStream,
                                            bodyStore.MutableRecords(),
                                            colliderStore.Records(),
-                                           bodyStore,
-                                           colliderStore,
-                                           worldForces,
-                                           *this,
+                                           bodyStore.Count(),
+                                           (std::max)( 0,
+                                                       static_cast<int>( MAX_PIPELINE_TRACE_RECORDS ) -
+                                                           static_cast<int>( m_physicsPipelineTrace.size() ) ),
                                            config };
+}
+
+
+void PhysicsWorld::PreparePersistentContactSideEffects( int modelCount )
+{
+    PersistentContactSolverSideEffects& effects = m_persistentContactSideEffects;
+    effects.pipelineRecords.clear();
+    effects.collisionVisualBodies.clear();
+    effects.fixedContactBodies.clear();
+    effects.bodyMirrorWritebacks.clear();
+    effects.releaseWakeBodies.clear();
+    effects.fixedTreeReleases.clear();
+
+    // Why: the solver appends compact output queues during the contact pass.
+    // Reserving from existing frame scale avoids allocator noise in the hot path
+    // without promising exact counts for position-correction duplicates.
+    effects.collisionVisualBodies.reserve( m_candidatePairs.size() * 2 );
+    effects.fixedContactBodies.reserve( static_cast<std::size_t>( modelCount ) );
+    effects.bodyMirrorWritebacks.reserve( static_cast<std::size_t>( modelCount ) * 2 );
+    effects.releaseWakeBodies.reserve( 8 );
+    effects.fixedTreeReleases.reserve( 8 );
+    const int pipelineCapacity = (std::max)( 0,
+                                            static_cast<int>( MAX_PIPELINE_TRACE_RECORDS ) -
+                                                static_cast<int>( m_physicsPipelineTrace.size() ) );
+    effects.pipelineRecords.reserve( static_cast<std::size_t>( pipelineCapacity ) );
+}
+
+
+void PhysicsWorld::ApplyPersistentContactSideEffects( PhysicsModelAccess& modelAccess,
+                                                      PhysicsBodyStore& bodyStore,
+                                                      const ColliderStore& colliderStore,
+                                                      const PhysicsWorldForces& worldForces )
+{
+    const PersistentContactSolverSideEffects& effects = m_persistentContactSideEffects;
+    for ( const PhysicsPipelineRecord& record : effects.pipelineRecords )
+    {
+        RecordPhysicsPipelineStage( record );
+    }
+    for ( int index : effects.collisionVisualBodies )
+    {
+        MarkCollisionVisualContact( index );
+    }
+
+    PhysicsBodyEventSink& bodyEvents = modelAccess.BodyEvents();
+    for ( int index : effects.fixedContactBodies )
+    {
+        bodyEvents.NotifyFixedContact( index, 0.5f );
+    }
+    for ( int index : effects.bodyMirrorWritebacks )
+    {
+        modelAccess.WriteBackPhysicsBody( bodyStore, index );
+    }
+    for ( int index : effects.releaseWakeBodies )
+    {
+        WakeModel( modelAccess, bodyStore, colliderStore, worldForces, index );
+    }
+    for ( const PhysicsFixedTreeReleaseEvent& event : effects.fixedTreeReleases )
+    {
+        bodyEvents.ReleaseAttachedFixedTreeParts( event );
+    }
 }
 
 
 SleepSupportPropagationContext PhysicsWorld::CreateSleepSupportPropagationContext()
 {
     return SleepSupportPropagationContext{ m_sleepState, m_sleepSupportEdges, m_sleepSupportedThisFrame };
-}
-
-
-void PersistentContactSolverContext::RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record ) const
-{
-    world.RecordSolverPhysicsPipelineStage( record );
-}
-
-
-bool PersistentContactSolverContext::CanRecordPhysicsPipelineStage() const
-{
-    return world.CanRecordSolverPhysicsPipelineStage();
-}
-
-
-void PersistentContactSolverContext::MarkCollisionVisualContact( int index ) const
-{
-    world.MarkSolverCollisionVisualContact( index );
-}
-
-
-void PersistentContactSolverContext::MarkFixedContact( int index ) const
-{
-    bodyEvents.NotifyFixedContact( index, 0.5f );
-}
-
-
-void PersistentContactSolverContext::WriteBackCompatibilityBody( int index ) const
-{
-    bodyWritebacks.WriteBackPhysicsBody( bodyStore, index );
-}
-
-
-void PersistentContactSolverContext::WakeReleasedBody( int index ) const
-{
-    world.WakeModel( wakeModelAccess, bodyStore, colliderStore, worldForces, index );
-}
-
-
-void PersistentContactSolverContext::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event ) const
-{
-    bodyEvents.ReleaseAttachedFixedTreeParts( event );
 }
 
 
@@ -3051,9 +3065,11 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     PROFILE_END( "Frame/Physics/Terrain/Detect" );
     PROFILE_END( "Frame/Physics/Terrain" );
 
+    PreparePersistentContactSideEffects( modelCount );
     PersistentContactSolverContext solverContext =
-        CreatePersistentContactSolverContext( modelAccess, bodyStream, bodyStore, colliderStore, worldForces, config );
+        CreatePersistentContactSolverContext( bodyStream, bodyStore, colliderStore, config );
     m_contactSolver.Solve( solverContext, dt );
+    ApplyPersistentContactSideEffects( modelAccess, bodyStore, colliderStore, worldForces );
     WakePointJointConnectedBodies( modelAccess, bodyStore, colliderStore, worldForces, dt );
     if ( Ragdoll::SolvePointJoints( bodyStore, m_pointJointConstraints, m_sleepState, dt ) )
     {

@@ -97,9 +97,11 @@ PERSISTENT_CONTACT_SOLVER_CONTEXT_PATTERN = re.compile(
     r"\bstruct\s+PersistentContactSolverContext\b(?P<body>.*?)\n\s*\};",
     re.S,
 )
-# Invariant: fixed-contact events and compatibility writeback stay on narrow
-# sinks; only wake release may keep the named wake-only model boundary.
-PERSISTENT_SOLVER_BROAD_MODEL_ACCESS_PATTERN = re.compile(r"\bPhysicsModelAccess\s*&\s*modelAccess\s*;")
+# Invariant: persistent contact solving emits compact side-effect arrays. The
+# context must not regain model/event/world callback references.
+PERSISTENT_SOLVER_CALLBACK_BOUNDARY_PATTERN = re.compile(
+    r"\b(?:PhysicsModelAccess|PhysicsBodyEventSink|PhysicsBodyWritebackSink|PhysicsWorld)\s*&\s*[A-Za-z_]\w*\s*;"
+)
 DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
     (
         "GameModelRuntimePhysicsTuning",
@@ -124,6 +126,11 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
             r"|\b(?:modelAccess|physicsModelAccess)\s*\.\s*Models\s*\("
         ),
         "Use PhysicsModelAccess command/query methods and store-backed views instead of raw GameModel ranges.",
+    ),
+    (
+        "PhysicsBodyWritebackSink",
+        re.compile(r"\bPhysicsBodyWritebackSink\b"),
+        "Queue solver body writeback as plain side-effect data and apply it from PhysicsWorld after the solve.",
     ),
     (
         "AssetSystem::CreateShader(const char*)",
@@ -1648,13 +1655,13 @@ def check_persistent_solver_context_model_access_guardrails_text(path: Path, tex
     errors: list[BoundaryError] = []
     for context_match in PERSISTENT_CONTACT_SOLVER_CONTEXT_PATTERN.finditer(stripped):
         context_body = context_match.group("body")
-        for member_match in PERSISTENT_SOLVER_BROAD_MODEL_ACCESS_PATTERN.finditer(context_body):
+        for member_match in PERSISTENT_SOLVER_CALLBACK_BOUNDARY_PATTERN.finditer(context_body):
             errors.append(
                 BoundaryError(
                     path,
                     line_for_offset(stripped, context_match.start("body") + member_match.start()),
-                    "persistent contact solver broad model access is blocked",
-                    "Use PhysicsBodyEventSink, PhysicsBodyWritebackSink, or a named wake-only boundary instead.",
+                    "persistent contact solver callback boundary is blocked",
+                    "Emit PersistentContactSolverSideEffects arrays and apply owner-side consequences after Solve().",
                 )
             )
     return errors
@@ -5939,6 +5946,7 @@ def run_self_tests() -> list[str]:
     auto* constModels = modelAccess.ModelData();
     auto rawRange = modelAccess.Models();
     auto borrowedRange = BorrowMutableModels( modelAccess );
+    PhysicsBodyWritebackSink* writebackSink = nullptr;
     std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logicalNameOrBaseName ) const;
     """
     if not any(
@@ -5953,6 +5961,7 @@ def run_self_tests() -> list[str]:
     commented_deleted_migration_artifact_text = """
     // GameModelRuntimePhysicsTuning, legacyModelIndex, and RuntimeConfigSnapshot are migration notes only.
     // PhysicsModelMutableRange, MutableModelData(), and modelAccess.Models() are notes only.
+    // PhysicsBodyWritebackSink is a deleted migration note only.
     /*
        AssetSystem::CreateShader( const char* name ) is mentioned in the plan but must not be code.
        BorrowMutableModels(modelAccess) appears in the audit notes, not compiled source.
@@ -5968,9 +5977,9 @@ def run_self_tests() -> list[str]:
     allowed_persistent_solver_context = """
     struct PersistentContactSolverContext
     {
-        PhysicsBodyEventSink& bodyEvents;
-        PhysicsBodyWritebackSink& bodyWritebacks;
-        PhysicsModelAccess& wakeModelAccess;
+        PersistentContactSolverSideEffects& sideEffects;
+        int bodyStoreCount = 0;
+        int pipelineRecordCapacity = 0;
     };
     """
     if check_persistent_solver_context_model_access_guardrails_text(
@@ -5983,10 +5992,12 @@ def run_self_tests() -> list[str]:
     struct PersistentContactSolverContext
     {
         PhysicsModelAccess& modelAccess;
+        PhysicsBodyEventSink& bodyEvents;
+        PhysicsWorld& world;
     };
     """
     if not any(
-        error.message == "persistent contact solver broad model access is blocked"
+        error.message == "persistent contact solver callback boundary is blocked"
         for error in check_persistent_solver_context_model_access_guardrails_text(
             Path("SkullbonezSource/Physics/PhysicsWorld.h"),
             old_persistent_solver_context,
@@ -5997,8 +6008,8 @@ def run_self_tests() -> list[str]:
     commented_persistent_solver_context = """
     struct PersistentContactSolverContext
     {
-        // PhysicsModelAccess& modelAccess; is a deleted migration note only.
-        PhysicsModelAccess& wakeModelAccess;
+        // PhysicsModelAccess& modelAccess; and PhysicsBodyEventSink& bodyEvents are deleted migration notes only.
+        PersistentContactSolverSideEffects& sideEffects;
     };
     """
     if check_persistent_solver_context_model_access_guardrails_text(

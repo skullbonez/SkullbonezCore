@@ -89,18 +89,27 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     auto& m_sleepSupportedThisFrame = context.sleepSupportedThisFrame;
     auto& m_bodyRecords = context.bodyRecords;
     const auto& m_colliderRecords = context.colliderRecords;
+    auto& sideEffects = context.sideEffects;
     // Why: pipeline tracing is capped. Once full, later record calls are no-ops,
     // so the contact hot path should stop building detailed records that would
     // be discarded. Simulation state still follows the same deterministic path.
-    bool pipelineTraceCanRecord = context.CanRecordPhysicsPipelineStage();
+    const std::size_t pipelineRecordCapacity = static_cast<std::size_t>( context.pipelineRecordCapacity );
+    bool pipelineTraceCanRecord = sideEffects.pipelineRecords.size() < pipelineRecordCapacity;
     auto CanRecordPhysicsPipelineStage = [&]() { return pipelineTraceCanRecord; };
     auto RecordPhysicsPipelineStage = [&]( const PhysicsPipelineRecord& record )
     {
-        context.RecordPhysicsPipelineStage( record );
-        pipelineTraceCanRecord = context.CanRecordPhysicsPipelineStage();
+        if ( sideEffects.pipelineRecords.size() < pipelineRecordCapacity )
+        {
+            sideEffects.pipelineRecords.push_back( record );
+        }
+        pipelineTraceCanRecord = sideEffects.pipelineRecords.size() < pipelineRecordCapacity;
     };
-    auto MarkCollisionVisualContact = [&]( int index ) { context.MarkCollisionVisualContact( index ); };
-    auto MarkFixedContact = [&]( int index ) { context.MarkFixedContact( index ); };
+    auto MarkCollisionVisualContact = [&]( int index ) { sideEffects.collisionVisualBodies.push_back( index ); };
+    auto MarkFixedContact = [&]( int index ) { sideEffects.fixedContactBodies.push_back( index ); };
+    auto QueueBodyMirrorWriteback = [&]( int index ) { sideEffects.bodyMirrorWritebacks.push_back( index ); };
+    auto QueueReleaseWake = [&]( int index ) { sideEffects.releaseWakeBodies.push_back( index ); };
+    auto QueueFixedTreeRelease = [&]( const PhysicsFixedTreeReleaseEvent& event )
+    { sideEffects.fixedTreeReleases.push_back( event ); };
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts" );
 
     // Concept: persistent contact rows solve the quiet resting case.
@@ -126,7 +135,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     //   for the row geometry. The cache and PGS row shape are Catto; the exact
     //   sphere/box/OBB feature encodings are local engine policy.
     const int modelCount =
-        (std::min)( { bodyStream.count, context.bodyStore.Count(), static_cast<int>( m_colliderRecords.size() ) } );
+        (std::min)( { bodyStream.count, context.bodyStoreCount, static_cast<int>( m_colliderRecords.size() ) } );
     const auto& config = context.config;
     m_persistentContactSolverStats = PersistentContactSolverStats();
     m_persistentContactSolverStats.cachePreviousRows = static_cast<int>( m_persistentContactCache.size() );
@@ -1373,7 +1382,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
 
             m_bodyRecords[static_cast<size_t>( i )].linearVelocity = m_solverBodies[i].linearVelocity;
             m_bodyRecords[static_cast<size_t>( i )].angularVelocity = m_solverBodies[i].angularVelocity;
-            context.WriteBackCompatibilityBody( i );
+            QueueBodyMirrorWriteback( i );
         }
     }
 
@@ -1470,11 +1479,11 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 RecordPhysicsPipelineStage( record );
             }
             m_bodyRecords[static_cast<size_t>( c.bodyA )].position -= correction * invMassA;
-            context.WriteBackCompatibilityBody( c.bodyA );
+            QueueBodyMirrorWriteback( c.bodyA );
             if ( hasBodyB )
             {
                 m_bodyRecords[static_cast<size_t>( c.bodyB )].position += correction * invMassB;
-                context.WriteBackCompatibilityBody( c.bodyB );
+                QueueBodyMirrorWriteback( c.bodyB );
             }
         }
     }
@@ -1585,9 +1594,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             fixedRecord.isFixed = false;
             fixedRecord.linearVelocity = releaseDir * releaseSpeed + tangentVelocity;
             fixedRecord.angularVelocity = angularVelocity;
-            context.WriteBackCompatibilityBody( fixedIndex );
-            context.WakeReleasedBody( fixedIndex );
-            context.ReleaseAttachedFixedTreeParts(
+            QueueBodyMirrorWriteback( fixedIndex );
+            QueueReleaseWake( fixedIndex );
+            QueueFixedTreeRelease(
                 PhysicsFixedTreeReleaseEvent{ fixedIndex,
                                               m_bodyRecords[static_cast<size_t>( fixedIndex )].linearVelocity,
                                               m_bodyRecords[static_cast<size_t>( fixedIndex )].angularVelocity } );

@@ -85,19 +85,7 @@ class PhysicsBodyEventSink
     virtual void ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event ) = 0;
 };
 
-class PhysicsBodyWritebackSink
-{
-  public:
-    virtual ~PhysicsBodyWritebackSink() = default;
-
-    // Owner: the model collection while legacy readers still mirror solved
-    // body state. Delete this sink when render, replay, and diagnostics consume
-    // physics-owned body rows directly and the boundary checker can forbid
-    // single-body GameModel writeback.
-    virtual void WriteBackPhysicsBody( const PhysicsBodyStore& bodyStore, int modelIndex ) = 0;
-};
-
-class PhysicsModelAccess : public PhysicsBodyWritebackSink
+class PhysicsModelAccess
 {
   public:
     virtual ~PhysicsModelAccess() = default;
@@ -109,6 +97,7 @@ class PhysicsModelAccess : public PhysicsBodyWritebackSink
     // of store-owned physics mutations. This keeps model-order work with the
     // model owner instead of reopening raw ranges in solver code.
     virtual void WriteBackPhysicsBodies( const PhysicsBodyStore& bodyStore ) = 0;
+    virtual void WriteBackPhysicsBody( const PhysicsBodyStore& bodyStore, int modelIndex ) = 0;
     // Reloads body records after model-owned event sinks mutate model state,
     // such as fixed-tree release. Callers still own stream invalidation
     // when a later SoA read must observe those model writes.

@@ -3,11 +3,10 @@
 Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
-Validation for latest source slice: `tools\validate_project_filters.bat`,
+Validation for latest source slice: `tools\validate_build.bat Profile`,
 `tools\check_runtime_boundaries.py --repo .`, and `tools\validate_physics.bat`
-passed on 2026-07-03. The broader `tools\validate_fast.bat` gate currently
-stops at unrelated formatting drift in untouched
-`SkullbonezSource\Runtime\RuntimeViewModel.h` and `SkullbonezSource\UI\UI.h`.
+passed on 2026-07-03 after replacing the persistent solver sink split with
+compact side-effect queues.
 
 ## Completed Slices
 
@@ -30,17 +29,16 @@ stops at unrelated formatting drift in untouched
   runtime callers still need durable handle storage in later slices. Validation
   evidence is recorded in
   `Agentic/Plans/IN PROGRESS/carmack-physics-standalone-boundary-plan.md`.
-- [x] 2026-07-03: Split `PersistentContactSolverContext` fixed-contact events
-  and single-body compatibility writeback onto explicit
-  `PhysicsBodyEventSink` and `PhysicsBodyWritebackSink` dependencies. The
-  solver context still carries a named `wakeModelAccess` boundary only for
-  release wake-up; deleting that requires wake-island handle ownership work.
-  `tools\check_runtime_boundaries.py` now blocks reintroducing a broad
-  `PhysicsModelAccess& modelAccess` member in that context. Validation:
-  `tools\validate_project_filters.bat`,
-  `tools\check_runtime_boundaries.py --repo .`, and
-  `tools\validate_physics.bat` passed; `tools\validate_fast.bat` is blocked by
-  unrelated formatting drift in untouched UI/runtime headers.
+- [x] 2026-07-03: Replaced the temporary `PersistentContactSolverContext`
+  event/writeback sink split with compact solver side-effect queues. Persistent
+  contact solving now appends plain pipeline records, visual body indices, fixed
+  contact body indices, model-mirror writebacks, release wake bodies, and fixed
+  tree release events into `PersistentContactSolverSideEffects`; `PhysicsWorld`
+  applies those owner-side consequences after `Solve()`. The checker now blocks
+  `PhysicsBodyWritebackSink` and any model/event/world callback reference inside
+  `PersistentContactSolverContext`. Validation: `tools\validate_build.bat
+  Profile`, `tools\check_runtime_boundaries.py --repo .`, and
+  `tools\validate_physics.bat` passed.
 
 ## Goal
 
@@ -129,9 +127,7 @@ Deleted-view parameter surface:
 | `PhysicsEngine` refresh, step, wake, seed-asleep, impulse, and pending-impulse methods | `PhysicsModelAccess&`; command targets use `PhysicsBodyHandle` |
 | `PhysicsScene` refresh, run, wake, seed-asleep, impulse, and pending-impulse methods | `PhysicsModelAccess&`; command targets resolve through `PhysicsBodyStore` |
 | `PhysicsWorld` solver, contact, diagnostics, underwater sleep, fixed-contact, tornado, wake-island, and step methods | `PhysicsModelAccess&` plus explicit `PhysicsBodyStore&` where body rows are required |
-| `PersistentContactSolverContext` fixed-contact callback | `PhysicsBodyEventSink&` |
-| `PersistentContactSolverContext` single-body compatibility writeback | `PhysicsBodyWritebackSink&` |
-| `PersistentContactSolverContext` release wake callback | remaining `PhysicsModelAccess&` wake boundary until wake islands move to durable handles |
+| `PersistentContactSolverContext` fixed-contact/writeback/release callbacks | `PersistentContactSolverSideEffects&` output queues applied by `PhysicsWorld` after `Solve()` |
 | `Ragdoll::SolvePointJoints()` | `PhysicsModelAccess&` plus `PhysicsBodyStore&` |
 | `SleepIslandSystem::PropagateSupport()` | `PhysicsModelAccess&` plus sleep support context |
 | `PhysicsDiagnosticsSink` frame/collision-time emission | `PhysicsModelAccess&` |
@@ -224,9 +220,11 @@ Move one body-state group at a time. Keep compatibility writeback narrow and tem
 - [ ] Route body deletion through a single path that invalidates handles and removes store rows deterministically.
 - [ ] Keep any required `GameModel` writeback behind an explicitly named compatibility function.
   - [x] 2026-07-03 persistent contact solving no longer reaches through broad
-    `PhysicsModelAccess` for its single-body compatibility writeback. It still
-    writes through `PhysicsBodyWritebackSink` until render, replay, and
-    diagnostics consume physics-owned body rows directly.
+    `PhysicsModelAccess` or a virtual writeback sink from inside the solver.
+    It queues body mirror writebacks as plain side-effect body indices, then
+    `PhysicsWorld` applies the existing model-owner writeback after the solve
+    until render, replay, and diagnostics consume physics-owned body rows
+    directly.
 - [ ] Add a temporary comparison/assertion path if old and new state coexist during the slice.
 - [ ] Remove old writes as soon as the final reader migrates.
 
@@ -319,17 +317,17 @@ Only remove compatibility after callers have moved and validation has covered th
 - [x] Verify `PhysicsModelView` was already deleted by the required first slice.
 - [x] Delete `GameModelCollection::PhysicsModels()` after production physics no longer uses it. The vector compatibility seam remains under explicit `*PhysicsModelsForCompatibility()` accessors.
 - [ ] Delete compatibility writeback from body store to `GameModel` after final reader migrates.
-  - [x] 2026-07-03 persistent contact solver writeback was narrowed from
-    broad `PhysicsModelAccess` to `PhysicsBodyWritebackSink`; full deletion is
-    still pending final reader migration.
+  - [x] 2026-07-03 persistent contact solver writeback is no longer a solver
+    callback or virtual sink; the remaining model mirror update is an owner-side
+    post-solve application step. Full deletion is still pending final reader
+    migration.
 - [ ] Delete compatibility collider fields from `GameModel` after final reader migrates.
 - [ ] Delete production render reliance on `GameModelCollection` after render callers migrate.
 - [ ] Remove temporary allowlists that permitted compatibility reads or writes.
 - [x] Add search guardrails for banned production calls, including `MakePhysicsModelView`, `PhysicsModelView`, and any remaining direct production `GameModelCollection::PhysicsModels()` usage.
-  - [x] 2026-07-03 added a guardrail that rejects a broad
-    `PhysicsModelAccess& modelAccess` member inside
-    `PersistentContactSolverContext`, while allowing the named wake-only
-    `wakeModelAccess` boundary.
+  - [x] 2026-07-03 added a guardrail that rejects model/event/world callback
+    references inside `PersistentContactSolverContext` and blocks the deleted
+    `PhysicsBodyWritebackSink` type from source.
 - [ ] Update comments and learning headers in every touched source-bearing file.
 - [ ] Run `Agentic/Skills/comment-style-audit/skill.md` over every touched source-bearing file before reporting done.
 
