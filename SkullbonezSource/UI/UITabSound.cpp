@@ -99,20 +99,20 @@ constexpr SoundSliderSpec kGlobalSliders[] = {
     { UISoundParam::MaxDistanceScale, "Distance scale", "%.2fx", 0.01f, 16.0f, 0.05f },
     { UISoundParam::MinClosingSpeed, "Min closing speed", "%.2f", 0.0f, 20.0f, 0.05f },
     { UISoundParam::MinImpactScore, "Min impact score", "%.1f", 0.0f, 5000.0f, 1.0f },
-    { UISoundParam::ImpactScoreRangeSeconds, "Impact score range", "%.2fs", 0.001f, 10.0f, 0.05f },
-    { UISoundParam::BurstVoicesPerWindow, "Burst voices / 100ms", "%.0f", 1.0f, 40.0f, 1.0f },
+    { UISoundParam::ImpactScoreRangeSeconds, "Score gain range", "%.2fs", 0.001f, 10.0f, 0.05f },
+    { UISoundParam::BurstVoicesPerWindow, "Voices / 100ms", "%.0f", 1.0f, 40.0f, 1.0f },
 };
 
 constexpr SoundSliderSpec kSetSliders[] = {
     { UISoundParam::SetMinImpulse, "Min impulse", "%.2f", 0.0f, 100.0f, 0.05f },
     { UISoundParam::SetImpulseRange, "Impulse range", "%.2f", 0.05f, 100.0f, 0.05f },
-    { UISoundParam::SetCooldownMs, "Cooldown / sleep ms", "%.0f ms", 0.0f, 1000.0f, 5.0f },
-    { UISoundParam::SetOverrideCooldownMs, "Override sleep ms", "%.0f ms", 0.0f, 1000.0f, 5.0f },
-    { UISoundParam::SetMaxDistance, "Max distance", "%.0f", 1.0f, 500.0f, 1.0f },
-    { UISoundParam::SetBaseGain, "Base gain", "%.2f", 0.0f, 4.0f, 0.05f },
+    { UISoundParam::SetCooldownMs, "Pair cooldown", "%.0f ms", 0.0f, 1000.0f, 5.0f },
+    { UISoundParam::SetOverrideCooldownMs, "Spike rearm", "%.0f ms", 0.0f, 1000.0f, 5.0f },
+    { UISoundParam::SetMaxDistance, "Patch distance", "%.0f", 1.0f, 500.0f, 1.0f },
+    { UISoundParam::SetBaseGain, "Set gain", "%.2f", 0.0f, 4.0f, 0.05f },
     { UISoundParam::SetPitchMin, "Pitch min", "%.2f", 0.25f, 4.0f, 0.01f },
     { UISoundParam::SetPitchMax, "Pitch max", "%.2f", 0.25f, 4.0f, 0.01f },
-    { UISoundParam::SetMaxVoices, "Max voices", "%.0f", 1.0f, 32.0f, 1.0f },
+    { UISoundParam::SetMaxVoices, "Voice cap", "%.0f", 1.0f, 32.0f, 1.0f },
 };
 
 constexpr SoundBandSliderSpec kBandSliders[] = {
@@ -812,13 +812,13 @@ void Draw( UISoundTabState& state,
                       contentH,
                       contentX,
                       scrolledY + SOUND_STATS_Y,
-                      data.contactAudioAvailable ? "Runtime" : "Runtime",
+                      data.contactAudioAvailable ? "Reducer" : "Reducer",
                       data.contactAudioAvailable ? buf : "Not available",
                       data.contactAudioAvailable ? 0.78f : 0.95f,
                       data.contactAudioAvailable ? 0.88f : 0.55f,
                       data.contactAudioAvailable ? 0.91f : 0.32f );
 
-    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_GLOBAL_TITLE_Y, 12.0f, "Global" );
+    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_GLOBAL_TITLE_Y, 12.0f, "Classifier" );
     for ( int i = 0; i < static_cast<int>( sizeof( kGlobalSliders ) / sizeof( kGlobalSliders[0] ) ); ++i )
     {
         const float sliderY = scrolledY + SOUND_GLOBAL_SLIDER_Y + static_cast<float>( i ) * SOUND_SLIDER_STEP_Y;
@@ -875,7 +875,7 @@ void Draw( UISoundTabState& state,
         state.selectSampleButton.Draw( draw, "Use", mouseX, mouseY );
     }
 
-    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_SET_TITLE_Y, 12.0f, "Material Set" );
+    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_SET_TITLE_Y, 12.0f, "Material Recipe" );
     if ( IsRowVisible( contentY, contentH, scrolledY + SOUND_SET_PICKER_Y, UI_PIPELINE_STEP_BUTTON_H ) )
     {
         DrawPipelineStepButton( draw,

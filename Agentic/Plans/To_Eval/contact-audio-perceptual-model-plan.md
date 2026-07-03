@@ -574,6 +574,11 @@ Validation:
   `TestOutput/baselines/physics_query_varied.json`; `python
   tools\check_physics_query_regression.py` passed exact baseline match;
   `tools\validate_fast.bat` and `tools\validate_physics_deep.bat` passed.
+- [x] 2026-07-04: Polished the Sound tab wording around the perceptual reducer:
+  the runtime counter line is now labeled `Reducer`, global contact-audio
+  controls sit under `Classifier`, material tuning sits under `Material Recipe`,
+  and stale `sleep` wording in cooldown controls is replaced with pair-cooldown
+  and spike-rearm terminology. Validation: `tools\validate_ui.bat` passed.
 - [x] Phase 0 baseline trace and counts.
 - [ ] Phase 1 contact fact upgrade.
 - [ ] Phase 2 classifier and rejection reasons. Partial: local classifier
@@ -588,6 +593,6 @@ Validation:
   evidence shows one local cluster can still monopolize a collapse.
 - [x] Phase 4 SkullScope contact-audio queries.
 - [ ] Phase 5 material layers and better samples.
-- [ ] Phase 6 Sound-tab tuning polish. Partial: flash diagnostics mode is
-  implemented; remaining work is any new stable sliders and screenshot evidence
-  if the layout changes materially.
+- [ ] Phase 6 Sound-tab tuning polish. Partial: flash diagnostics mode and
+  reducer-aligned wording are implemented; remaining work is any new stable
+  sliders and screenshot evidence if the layout changes materially.
