@@ -7,14 +7,14 @@ audits when it is still useful.
 
 | Field | Value |
 |-------|-------|
-| Branch | `nightrunner-30th-june` in worktree `C:\SkullbonezCore`. |
-| Active objective | Overnight DX12 graphics stress soak is running; review `TestOutput\graphics_stress` artifacts after it completes. |
-| Last documentation milestone | General DX12 graphics stress is listed in the root validation map, tool inventory, and this session validation map. |
-| Last source milestone | Graphics stress memory tracking and DX12 PSO cache key hardening were committed in the current branch; PSO cache keys now hash compiled shader bytecode instead of shader blob addresses. |
-| Pending work | Inspect the overnight graphics stress memory CSV/JSON for growth trends, especially process private bytes, DXGI local/non-local usage, descriptor pressure, upload arena pressure, and cache/pool counts. |
-| Concurrent work warning | Another agent is editing code. Treat current dirty source files as user-owned and avoid source edits unless the user explicitly coordinates the work. |
-| Blockers | None for documentation-only plan hygiene. Source implementation should wait for, or coordinate with, the concurrent code agent. |
-| Validation | Documentation-only changes require no repository validation. Source/tool/script changes must use the validation map in `AGENTS.md`. |
+| Branch | `nightrunner-3rd-july` in worktree `C:\SkullbonezCore`. |
+| Active objective | Implement `Agentic/Plans/To_Eval/contrived-migration-artifact-removal-plan.md` from the committed kill-list CSV. |
+| Last documentation milestone | Added implementation status at `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-implementation-status.csv`. |
+| Last source milestone | K003 diagnostics cleanup committed as `98b7cf48`; physics diagnostics no longer walk `PhysicsModelAccess::Models()`. |
+| Pending work | K003 still has raw solver/store/render model ranges. K004/K005 remain blocked on real force-authority and handle-allocation ownership moves. |
+| Concurrent work warning | No concurrent dirty source work observed at the last status check. Still run `git status --short --branch` before editing. |
+| Blockers | `tools\validate_physics_deep.bat` currently fails on `physics_known_stacking.csv` even with the K003 diagnostics patch reversed; do not attribute that failure to `98b7cf48` without rechecking. |
+| Validation | Final K003 diagnostics patch passed `tools\validate_physics.bat`; deep physics known-issue signature mismatch is pre-existing on this branch. Documentation-only updates require no repository validation. |
 
 ## Active Notes
 
@@ -37,6 +37,7 @@ audits when it is still useful.
 
 | Item | Status | Notes |
 |------|--------|-------|
+| Contrived migration artifact cleanup | Active implementation | Plan: `Agentic/Plans/To_Eval/contrived-migration-artifact-removal-plan.md`; kill list: `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-plan.csv`; implementation status: `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-implementation-status.csv`. |
 | Missed plan items index | Active reference | `Agentic/Plans/missed_plan_items.md` summarizes actionable leftovers from mostly completed Done plans. |
 | Runtime interaction state-machine hardening | Active plan | `Agentic/Plans/runtime-interaction-state-machine-hardening-plan.md`; avoid while another agent is editing UI/replay/camera/input code. |
 | Render graph / backend interface continuation | Active plan | `Agentic/Plans/render-graph-irender-interface-plan.md`; barrier migration is done, but graph callbacks/transients/capability cleanup continue in focused slices. |

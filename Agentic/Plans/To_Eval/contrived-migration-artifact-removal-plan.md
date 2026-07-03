@@ -1,9 +1,21 @@
 # Contrived Migration Artifact Removal Plan
 
 Date: 2026-07-03
-Status: Draft follow-up plan; Phase 0 kill-list CSV complete
+Status: Implementation in progress; Phase 0 kill-list CSV complete
 Impact area: architecture, global-service remediation, physics, runtime settings, render/resource contexts, scene/world ownership
 Validation for this document-only change: none required
+
+Implementation status:
+
+- Kill list:
+  `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-plan.csv`.
+- Current implementation tracker:
+  `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-implementation-status.csv`.
+- As of `98b7cf48`, rows K001, K002, K006, K007, K008, K009,
+  K010, K011, and K012 have source-side deletion/split commits recorded in the
+  tracker. K003 is partial. K004 and K005 require larger force-authority and
+  handle-allocation work before they can be removed without adding another
+  migration artifact.
 
 ## Goal
 
