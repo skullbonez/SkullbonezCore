@@ -611,7 +611,7 @@ void PersistentContactSolverContext::MarkFixedContact( PhysicsModelAccess& model
 
 void PersistentContactSolverContext::WakeModel( PhysicsModelAccess& modelAccess, int index ) const
 {
-    world.WakeModel( modelAccess, index );
+    world.WakeModel( modelAccess, bodyStore, index );
 }
 
 
@@ -745,13 +745,40 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
 
 void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, int index )
 {
-    auto m_gameModels = modelAccess.Models();
-    if ( index >= 0 && index < static_cast<int>( m_gameModels.size() ) && m_gameModels[index].IsFixed() )
+    const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
+    WakeModel( modelAccess, bodyStream, nullptr, index );
+}
+
+
+void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, int index )
+{
+    const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
+    WakeModel( modelAccess, bodyStream, &bodyStore, index );
+}
+
+
+void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess,
+                              const GameModelBodyStream& bodyStream,
+                              PhysicsBodyStore* bodyStore,
+                              int index )
+{
+    const std::vector<PhysicsBodyRecord>* bodyRecords = bodyStore ? &bodyStore->Records() : nullptr;
+    if ( index >= 0 && index < bodyStream.count )
+    {
+        const bool isFixed = bodyRecords && index < static_cast<int>( bodyRecords->size() )
+                                 ? ( *bodyRecords )[static_cast<size_t>( index )].isFixed
+                                 : bodyStream.isFixed[index];
+        if ( isFixed )
+        {
+            return;
+        }
+    }
+    else if ( index >= 0 )
     {
         return;
     }
 
-    const int modelCount = static_cast<int>( m_gameModels.size() );
+    const int modelCount = bodyStream.count;
     if ( static_cast<int>( m_sleepState.size() ) < modelCount )
     {
         m_sleepState.resize( modelCount, 0 );
@@ -765,7 +792,6 @@ void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, int index )
     EnsureUnderwaterSleepLockBuffer( modelCount );
     if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
     {
-        GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
         if ( !m_underwaterSleepLocked[index] && m_sleepState[index] &&
              IsFullySubmergedBall( modelAccess, bodyStream, index ) )
         {
@@ -784,27 +810,51 @@ void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, int index )
     if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
     {
         modelAccess.InvalidatePhysicsStreams();
-        WakeSleepVisualIsland( modelAccess, nullptr, index, 0.0f, false );
-        WakePointJointIsland( modelAccess, nullptr, index, 0.0f, false );
-        WakeRestingContactIsland( modelAccess, nullptr, index, 0.0f, false );
+        WakeSleepVisualIsland( modelAccess, bodyStream, bodyStore, index, 0.0f, false );
+        WakePointJointIsland( modelAccess, bodyStream, bodyStore, index, 0.0f, false );
+        WakeRestingContactIsland( modelAccess, bodyStream, bodyStore, index, 0.0f, false );
     }
 }
 
 
 void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, int index )
 {
+    const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
+    SeedModelAsleep( modelAccess, bodyStream, nullptr, index );
+}
+
+
+void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, const PhysicsBodyStore& bodyStore, int index )
+{
+    const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
+    SeedModelAsleep( modelAccess, bodyStream, &bodyStore, index );
+}
+
+
+void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess,
+                                    const GameModelBodyStream& bodyStream,
+                                    const PhysicsBodyStore* bodyStore,
+                                    int index )
+{
     if ( !m_sleepEnabled )
     {
         return;
     }
 
-    auto m_gameModels = modelAccess.Models();
-    if ( index < 0 || index >= static_cast<int>( m_gameModels.size() ) || m_gameModels[index].IsFixed() )
+    const std::vector<PhysicsBodyRecord>* bodyRecords = bodyStore ? &bodyStore->Records() : nullptr;
+    if ( index < 0 || index >= bodyStream.count )
+    {
+        return;
+    }
+    const bool isFixed = bodyRecords && index < static_cast<int>( bodyRecords->size() )
+                             ? ( *bodyRecords )[static_cast<size_t>( index )].isFixed
+                             : bodyStream.isFixed[index];
+    if ( isFixed )
     {
         return;
     }
 
-    const int modelCount = static_cast<int>( m_gameModels.size() );
+    const int modelCount = bodyStream.count;
     if ( static_cast<int>( m_sleepState.size() ) < modelCount )
     {
         m_sleepState.resize( modelCount, 0 );
@@ -933,7 +983,7 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
             record.linearVelocity = seedLinearVelocity;
             record.angularVelocity = Vector3( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f );
             bodyStore.WriteBackToModelAt( m_gameModels, i );
-            WakeModel( modelAccess, i );
+            WakeModel( modelAccess, bodyStore, i );
             modelAccess.BodyEvents().ReleaseAttachedFixedTreeParts( PhysicsFixedTreeReleaseEvent{
                 i,
                 seedLinearVelocity,
@@ -1229,14 +1279,21 @@ void PhysicsWorld::ForgetPersistentContactCacheForBody( int bodyIndex )
 
 
 bool PhysicsWorld::WakeDynamicBodyState( PhysicsModelAccess& modelAccess,
+                                         const GameModelBodyStream& bodyStream,
                                          PhysicsBodyStore* bodyStore,
                                          int index,
                                          float dt,
                                          bool applyForces )
 {
-    auto models = modelAccess.Models();
-    if ( index < 0 || index >= static_cast<int>( models.size() ) || models[index].IsFixed() ||
-         index >= static_cast<int>( m_sleepState.size() ) )
+    const std::vector<PhysicsBodyRecord>* bodyRecords = bodyStore ? &bodyStore->Records() : nullptr;
+    if ( index < 0 || index >= bodyStream.count || index >= static_cast<int>( m_sleepState.size() ) )
+    {
+        return false;
+    }
+    const bool isFixed = bodyRecords && index < static_cast<int>( bodyRecords->size() )
+                             ? ( *bodyRecords )[static_cast<size_t>( index )].isFixed
+                             : bodyStream.isFixed[index];
+    if ( isFixed )
     {
         return false;
     }
@@ -1269,16 +1326,12 @@ bool PhysicsWorld::WakeDynamicBodyState( PhysicsModelAccess& modelAccess,
     {
         m_timeRemaining[index] = dt;
     }
-    if ( applyForces && wasSleeping && dt > TOLERANCE )
+    if ( applyForces && wasSleeping && dt > TOLERANCE && bodyStore )
     {
-        if ( bodyStore )
-        {
-            bodyStore->ApplyCompatibilityForces( models, index, dt );
-        }
-        else
-        {
-            models[index].ApplyForces( dt );
-        }
+        // Why: force integration is still a compatibility bridge, but wake and
+        // island decisions no longer need to borrow GameModel state.
+        PhysicsModelMutableRange models( modelAccess.MutableModelData(), modelAccess.ModelCount() );
+        bodyStore->ApplyCompatibilityForces( models, index, dt );
     }
     // Hazard: waking a body must also forget any cached contact impulses that
     // involve that body. Warm-start impulses are great for resting contact, but
@@ -1291,6 +1344,7 @@ bool PhysicsWorld::WakeDynamicBodyState( PhysicsModelAccess& modelAccess,
 
 
 void PhysicsWorld::WakeSleepVisualIsland( PhysicsModelAccess& modelAccess,
+                                          const GameModelBodyStream& bodyStream,
                                           PhysicsBodyStore* bodyStore,
                                           int index,
                                           float dt,
@@ -1308,18 +1362,18 @@ void PhysicsWorld::WakeSleepVisualIsland( PhysicsModelAccess& modelAccess,
     bool changed = false;
     if ( visualId > 0 )
     {
-        const int count = static_cast<int>( m_sleepIslandVisualId.size() );
+        const int count = (std::min)( static_cast<int>( m_sleepIslandVisualId.size() ), bodyStream.count );
         for ( int i = 0; i < count; ++i )
         {
             if ( m_sleepIslandVisualId[i] == visualId )
             {
-                changed = WakeDynamicBodyState( modelAccess, bodyStore, i, dt, applyForces ) || changed;
+                changed = WakeDynamicBodyState( modelAccess, bodyStream, bodyStore, i, dt, applyForces ) || changed;
             }
         }
     }
     else
     {
-        changed = WakeDynamicBodyState( modelAccess, bodyStore, index, dt, applyForces );
+        changed = WakeDynamicBodyState( modelAccess, bodyStream, bodyStore, index, dt, applyForces );
     }
 
     if ( changed )
@@ -1330,6 +1384,7 @@ void PhysicsWorld::WakeSleepVisualIsland( PhysicsModelAccess& modelAccess,
 
 
 void PhysicsWorld::WakePointJointIsland( PhysicsModelAccess& modelAccess,
+                                         const GameModelBodyStream& bodyStream,
                                          PhysicsBodyStore* bodyStore,
                                          int index,
                                          float dt,
@@ -1338,8 +1393,7 @@ void PhysicsWorld::WakePointJointIsland( PhysicsModelAccess& modelAccess,
     // Hazard: solving a ragdoll with one awake piece and several sleeping pieces
     // treats the sleepers as temporary static anchors. Wake the whole constraint
     // component so later point-joint impulses are applied to the same live island.
-    auto models = modelAccess.Models();
-    const int modelCount = static_cast<int>( models.size() );
+    const int modelCount = bodyStore ? (std::min)( bodyStream.count, bodyStore->Count() ) : bodyStream.count;
     if ( m_pointJointConstraints.empty() || index < 0 || index >= modelCount ||
          index >= static_cast<int>( m_sleepState.size() ) )
     {
@@ -1420,7 +1474,7 @@ void PhysicsWorld::WakePointJointIsland( PhysicsModelAccess& modelAccess,
         {
             continue;
         }
-        changed = WakeDynamicBodyState( modelAccess, bodyStore, i, dt, applyForces ) || changed;
+        changed = WakeDynamicBodyState( modelAccess, bodyStream, bodyStore, i, dt, applyForces ) || changed;
     }
 
     if ( changed )
@@ -1431,20 +1485,20 @@ void PhysicsWorld::WakePointJointIsland( PhysicsModelAccess& modelAccess,
 
 
 void PhysicsWorld::WakeRestingContactIsland( PhysicsModelAccess& modelAccess,
+                                             const GameModelBodyStream& bodyStream,
                                              PhysicsBodyStore* bodyStore,
                                              int index,
                                              float dt,
                                              bool applyForces )
 {
-    auto models = modelAccess.Models();
-    const int modelCount = static_cast<int>( models.size() );
+    const std::vector<PhysicsBodyRecord>* bodyRecords = bodyStore ? &bodyStore->Records() : nullptr;
+    const int modelCount =
+        bodyRecords ? (std::min)( bodyStream.count, static_cast<int>( bodyRecords->size() ) ) : bodyStream.count;
     if ( index < 0 || index >= modelCount || index >= static_cast<int>( m_sleepState.size() ) )
     {
         return;
     }
 
-    GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
-    const std::vector<PhysicsBodyRecord>* bodyRecords = bodyStore ? &bodyStore->Records() : nullptr;
     std::vector<uint8_t> visited( static_cast<size_t>( modelCount ), 0 );
     std::vector<int> wakeQueue;
     wakeQueue.reserve( static_cast<size_t>( modelCount ) );
@@ -1465,12 +1519,16 @@ void PhysicsWorld::WakeRestingContactIsland( PhysicsModelAccess& modelAccess,
 
     auto isLikelyRestingNeighbor = [&]( int a, int b ) -> bool
     {
-        const Vector3 posA = bodyRecords ? ( *bodyRecords )[static_cast<size_t>( a )].position
-                                         : models[static_cast<size_t>( a )].GetPosition();
-        const Vector3 posB = bodyRecords ? ( *bodyRecords )[static_cast<size_t>( b )].position
-                                         : models[static_cast<size_t>( b )].GetPosition();
-        const float radiusA = (std::max)( 0.01f, models[static_cast<size_t>( a )].GetBoundingRadius() );
-        const float radiusB = (std::max)( 0.01f, models[static_cast<size_t>( b )].GetBoundingRadius() );
+        const bool hasRecordA = bodyRecords && a < static_cast<int>( bodyRecords->size() );
+        const bool hasRecordB = bodyRecords && b < static_cast<int>( bodyRecords->size() );
+        const Vector3 posA = hasRecordA ? ( *bodyRecords )[static_cast<size_t>( a )].position : bodyStream.positions[a];
+        const Vector3 posB = hasRecordB ? ( *bodyRecords )[static_cast<size_t>( b )].position : bodyStream.positions[b];
+        const float radiusA =
+            (std::max)( 0.01f, hasRecordA ? ( *bodyRecords )[static_cast<size_t>( a )].boundingRadius
+                                           : bodyStream.boundingRadii[a] );
+        const float radiusB =
+            (std::max)( 0.01f, hasRecordB ? ( *bodyRecords )[static_cast<size_t>( b )].boundingRadius
+                                           : bodyStream.boundingRadii[b] );
         if ( posB.y + radiusB + EXPLICIT_WAKE_VERTICAL_SLOP < posA.y - radiusA )
         {
             return false;
@@ -1488,7 +1546,15 @@ void PhysicsWorld::WakeRestingContactIsland( PhysicsModelAccess& modelAccess,
         for ( int candidate = 0; candidate < modelCount; ++candidate )
         {
             if ( visited[static_cast<size_t>( candidate )] || candidate >= static_cast<int>( m_sleepState.size() ) ||
-                 m_sleepState[candidate] == 0 || bodyStream.isFixed[candidate] )
+                 m_sleepState[candidate] == 0 )
+            {
+                continue;
+            }
+            const bool candidateFixed =
+                bodyRecords && candidate < static_cast<int>( bodyRecords->size() )
+                    ? ( *bodyRecords )[static_cast<size_t>( candidate )].isFixed
+                    : bodyStream.isFixed[candidate];
+            if ( candidateFixed )
             {
                 continue;
             }
@@ -1503,7 +1569,7 @@ void PhysicsWorld::WakeRestingContactIsland( PhysicsModelAccess& modelAccess,
 
             visited[static_cast<size_t>( candidate )] = 1;
             wakeQueue.push_back( candidate );
-            changed = WakeDynamicBodyState( modelAccess, bodyStore, candidate, dt, applyForces ) || changed;
+            changed = WakeDynamicBodyState( modelAccess, bodyStream, bodyStore, candidate, dt, applyForces ) || changed;
         }
     }
 
@@ -1554,9 +1620,9 @@ void PhysicsWorld::WakePointJointConnectedBodies( PhysicsModelAccess& modelAcces
         return;
     }
 
-    auto models = modelAccess.Models();
+    const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
     const std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.Records();
-    const int modelCount = static_cast<int>( models.size() );
+    const int modelCount = (std::min)( bodyStream.count, static_cast<int>( bodyRecords.size() ) );
     m_sleepIslandParent.assign( modelCount, 0 );
     m_sleepIslandRank.assign( modelCount, 0 );
     m_sleepPointJointBody.assign( modelCount, 0 );
@@ -1651,7 +1717,7 @@ void PhysicsWorld::WakePointJointConnectedBodies( PhysicsModelAccess& modelAcces
         const int root = findIsland( i );
         if ( m_sleepIslandHasAwake[root] != 0 && m_sleepIslandCanSleep[root] != 0 )
         {
-            changed = WakeDynamicBodyState( modelAccess, &bodyStore, i, dt, true ) || changed;
+            changed = WakeDynamicBodyState( modelAccess, bodyStream, &bodyStore, i, dt, true ) || changed;
         }
     }
 

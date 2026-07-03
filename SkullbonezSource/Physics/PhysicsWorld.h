@@ -312,22 +312,34 @@ class PhysicsWorld
     void PropagateSleepSupport( const std::vector<PhysicsBodyRecord>& bodyRecords );
     void AppendPointJointSupportEdges( int modelCount );
     void ForgetPersistentContactCacheForBody( int bodyIndex );
+    void WakeModel( PhysicsModelAccess& modelAccess,
+                    const GameObjects::GameModelBodyStream& bodyStream,
+                    PhysicsBodyStore* bodyStore,
+                    int index );
+    void SeedModelAsleep( PhysicsModelAccess& modelAccess,
+                          const GameObjects::GameModelBodyStream& bodyStream,
+                          const PhysicsBodyStore* bodyStore,
+                          int index );
     bool WakeDynamicBodyState( PhysicsModelAccess& modelAccess,
+                               const GameObjects::GameModelBodyStream& bodyStream,
                                PhysicsBodyStore* bodyStore,
                                int index,
                                float dt,
                                bool applyForces );
     void WakeSleepVisualIsland( PhysicsModelAccess& modelAccess,
+                                const GameObjects::GameModelBodyStream& bodyStream,
                                 PhysicsBodyStore* bodyStore,
                                 int index,
                                 float dt,
                                 bool applyForces );
     void WakePointJointIsland( PhysicsModelAccess& modelAccess,
+                               const GameObjects::GameModelBodyStream& bodyStream,
                                PhysicsBodyStore* bodyStore,
                                int index,
                                float dt,
                                bool applyForces );
     void WakeRestingContactIsland( PhysicsModelAccess& modelAccess,
+                                   const GameObjects::GameModelBodyStream& bodyStream,
                                    PhysicsBodyStore* bodyStore,
                                    int index,
                                    float dt,
@@ -346,8 +358,13 @@ class PhysicsWorld
                      float fChangeInTime,
                      const Basics::EngineConfig& config,
                      Threading::WorkerPool& workerPool );
+    // Callers with a refreshed body store should use the overload so wake and
+    // seed decisions read physics-owned fixed/sleep state before compatibility
+    // writeback.
     void WakeModel( PhysicsModelAccess& modelAccess, int index );
+    void WakeModel( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, int index );
     void SeedModelAsleep( PhysicsModelAccess& modelAccess, int index );
+    void SeedModelAsleep( PhysicsModelAccess& modelAccess, const PhysicsBodyStore& bodyStore, int index );
     void SetPhysicsSleepEnabled( bool enabled );
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();

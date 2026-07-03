@@ -171,8 +171,7 @@ void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle 
     {
         return;
     }
-    m_bodyStore.WakeBody( index );
-    m_world.WakeModel( modelAccess, index );
+    m_world.WakeModel( modelAccess, m_bodyStore, index );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
     m_bodyStore.WriteBackToModelAt( BorrowMutableModels( modelAccess ), index );
 }
@@ -186,8 +185,7 @@ void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyH
     {
         return;
     }
-    m_bodyStore.SeedBodyAsleep( index );
-    m_world.SeedModelAsleep( modelAccess, index );
+    m_world.SeedModelAsleep( modelAccess, m_bodyStore, index );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
     m_bodyStore.WriteBackToModelAt( BorrowMutableModels( modelAccess ), index );
 }
