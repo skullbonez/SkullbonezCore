@@ -16,6 +16,12 @@ Glossary:
   water is under that part of the body.
   Audio contact highlight: Short render-only flash used to show which objects
     emitted contact audio.
+  Physics material: Per-object friction and drag coefficients consumed by the
+    body integrator, collision shape, and fluid-force cache.
+  Body simulation limit: Scalar cap enforced by the body before solver rows see
+    velocity state.
+  Contact policy: Geometry thresholds that decide when terrain is close enough
+    to count as contact and when bounce response may be applied.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -39,12 +45,18 @@ Related:
 #include "../Rendering/RenderMaterial.h"
 #include "../Physics/RigidBody.h"
 #include "../Physics/CollisionShape.h"
+#include "../Physics/PhysicsObjectPolicy.h"
 #include "../World/Terrain.h"
 #include "../Physics/ResponseInformation.h"
 
 
 namespace SkullbonezCore
 {
+namespace Basics
+{
+class EngineConfig;
+} // namespace Basics
+
 namespace Environment
 {
 class WorldEnvironment;
@@ -96,21 +108,6 @@ enum class GameModelCollectionKind : uint8_t
     ReleasableTree
 };
 
-struct GameModelRuntimePhysicsTuning
-{
-    // Process config is copied into this POD before model hot paths run. Terrain
-    // and contact routines can then read stable scalar fields without reaching
-    // back through the global config accessor.
-    float frictionCoefficient = 0.1f;
-    float sphereDragCoefficient = 0.4f;
-    float angularVelocityLimit = 5.0f;
-    float contactEpsilon = 0.05f;
-    float terrainContactThreshold = 0.15f;
-    float contactRestitutionThreshold = 2.0f;
-
-    static GameModelRuntimePhysicsTuning FromConfig( const Basics::EngineConfig& config );
-};
-
 /* -- Game Model
 -------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -154,7 +151,11 @@ class GameModel
         m_responseInformation;                                              // Legacy terrain-response mailbox consumed before shared manifold solving.
     float m_projectedSurfaceArea;                                           // Drag area in square meters after collision-shape updates.
     float m_dragCoefficient;                                                // Effective drag coefficient averaged from attached dynamics data.
-    GameModelRuntimePhysicsTuning m_runtimePhysicsTuning;                   // Run-owned physics constants copied out of EngineConfig.
+    // Model-local physics policy copied from the owning collection. Contact and
+    // force hot paths read these values directly after config application.
+    Physics::PhysicsMaterial m_physicsMaterial;
+    Physics::BodySimulationLimits m_bodySimulationLimits;
+    Physics::ContactPolicy m_contactPolicy;
     float m_fixedContactHighlightSeconds;                                   // Seconds remaining for fixed-body red contact feedback
     float m_audioContactHighlightSeconds;                                   // Seconds remaining for contact-audio white feedback.
     float m_renderTintR;                                                    // Per-instance render tint red channel
@@ -305,7 +306,9 @@ class GameModel
     const char* GetContactMaterialName() const;
     uint32_t GetContactMaterialId() const;
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
-    void ApplyRuntimePhysicsTuning( const GameModelRuntimePhysicsTuning& tuning );
+    void ApplyPhysicsMaterial( const Physics::PhysicsMaterial& material );
+    void ApplyBodySimulationLimits( const Physics::BodySimulationLimits& limits );
+    void ApplyContactPolicy( const Physics::ContactPolicy& policy );
     void AddBoundingSphere( float fRadius );
     void AddBoundingBox( const Math::Vector::Vector3& halfExtents );
     void AddConvexHull( const Math::CollisionDetection::ConvexHullShape& hull );

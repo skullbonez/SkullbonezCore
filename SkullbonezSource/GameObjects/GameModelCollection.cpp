@@ -11,6 +11,12 @@ Mental model:
 Glossary:
   SoA (Structure of Arrays): Data layout that stores each field in a separate
   contiguous array for cache-friendly iteration.
+  Physics material: Per-object friction and drag coefficients cached by the
+    collection before models are added or reconfigured.
+  Body simulation limit: Scalar cap cached by the collection before models hand
+    velocity state to RigidBody integration.
+  Contact policy: Terrain and contact thresholds cached by the collection so
+    existing and newly added models receive the same physics policy.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -189,13 +195,17 @@ void GameModelCollection::BindWorkerPool( SkullbonezCore::Threading::WorkerPool&
 
 void GameModelCollection::ApplyRuntimeConfig( const Basics::EngineConfig& config )
 {
-    m_runtimePhysicsTuning = GameModelRuntimePhysicsTuning::FromConfig( config );
+    m_physicsMaterial = Physics::PhysicsMaterial::FromConfig( config );
+    m_bodySimulationLimits = Physics::BodySimulationLimits::FromConfig( config );
+    m_contactPolicy = Physics::ContactPolicy::FromConfig( config );
     m_renderCollisionVolumes = config.runtimeRender.renderCollisionVolumes;
     m_shadowParallelPrep = config.shadowParallelPrep;
     m_physicsEngine.ApplyRuntimeConfig( config );
     for ( GameModel& model : m_gameModels )
     {
-        model.ApplyRuntimePhysicsTuning( m_runtimePhysicsTuning );
+        model.ApplyPhysicsMaterial( m_physicsMaterial );
+        model.ApplyBodySimulationLimits( m_bodySimulationLimits );
+        model.ApplyContactPolicy( m_contactPolicy );
     }
 }
 
@@ -236,7 +246,9 @@ void GameModelCollection::AddGameModel( GameModel gameModel )
     {
         m_nextReplayBodyId = (std::max)( m_nextReplayBodyId, gameModel.GetReplayBodyId() + 1u );
     }
-    gameModel.ApplyRuntimePhysicsTuning( m_runtimePhysicsTuning );
+    gameModel.ApplyPhysicsMaterial( m_physicsMaterial );
+    gameModel.ApplyBodySimulationLimits( m_bodySimulationLimits );
+    gameModel.ApplyContactPolicy( m_contactPolicy );
     m_gameModels.push_back( std::move( gameModel ) );
     InvalidateSoA();
 }

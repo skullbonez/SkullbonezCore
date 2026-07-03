@@ -13,6 +13,12 @@ Glossary:
   contiguous array for faster iteration.
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
   output and local queries.
+  Physics material: Per-object friction and drag coefficients cached by the
+    collection before models are added or reconfigured.
+  Body simulation limit: Scalar cap cached by the collection before models hand
+    velocity state to RigidBody integration.
+  Contact policy: Terrain and contact thresholds cached by the collection so
+    existing and newly added models receive the same physics policy.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -85,7 +91,11 @@ class GameModelCollection : public Rendering::IRenderSceneView,
     std::vector<GameModel> m_gameModels;
     GameModelSoACache m_soaCache;
     Physics::PhysicsEngine m_physicsEngine;
-    GameModelRuntimePhysicsTuning m_runtimePhysicsTuning;
+    // Cached physics policy applied to existing and newly added models whenever
+    // runtime config changes.
+    Physics::PhysicsMaterial m_physicsMaterial;
+    Physics::BodySimulationLimits m_bodySimulationLimits;
+    Physics::ContactPolicy m_contactPolicy;
     Threading::WorkerPool* m_workerPool = nullptr; // Borrowed startup worker pool for render/physics parallel helpers.
     bool m_renderCollisionVolumes = false;         // Cached render debug toggle copied from EngineConfig.
     bool m_shadowParallelPrep = false;             // Cached worker-prep toggle copied from EngineConfig.

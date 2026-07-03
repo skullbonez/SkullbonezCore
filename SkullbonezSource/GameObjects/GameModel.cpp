@@ -23,6 +23,12 @@ Glossary:
   collision tests.
   CCD (Continuous Collision Detection): Swept collision test that asks whether
   objects hit during a tick, not only where they end the tick.
+  Physics material: Per-object friction and drag coefficients consumed by the
+    body integrator, collision shape, and fluid-force cache.
+  Body simulation limit: Scalar cap enforced by the body before solver rows see
+    velocity state.
+  Contact policy: Geometry thresholds that decide when terrain is close enough
+    to count as contact and when bounce response may be applied.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -82,17 +88,31 @@ void TickHighlightSeconds( float& seconds, float dt )
 }
 } // namespace
 
-GameModelRuntimePhysicsTuning
-GameModelRuntimePhysicsTuning::FromConfig( const SkullbonezCore::Basics::EngineConfig& config )
+SkullbonezCore::Physics::PhysicsMaterial
+SkullbonezCore::Physics::PhysicsMaterial::FromConfig( const SkullbonezCore::Basics::EngineConfig& config )
 {
-    GameModelRuntimePhysicsTuning tuning;
-    tuning.frictionCoefficient = config.frictionCoeff;
-    tuning.sphereDragCoefficient = config.sphereDragCoeff;
-    tuning.angularVelocityLimit = config.velocityLimit;
-    tuning.contactEpsilon = config.contactEpsilon;
-    tuning.terrainContactThreshold = config.terrainContactThreshold;
-    tuning.contactRestitutionThreshold = config.contactRestitutionThreshold;
-    return tuning;
+    PhysicsMaterial material;
+    material.frictionCoefficient = config.frictionCoeff;
+    material.sphereDragCoefficient = config.sphereDragCoeff;
+    return material;
+}
+
+SkullbonezCore::Physics::BodySimulationLimits
+SkullbonezCore::Physics::BodySimulationLimits::FromConfig( const SkullbonezCore::Basics::EngineConfig& config )
+{
+    BodySimulationLimits limits;
+    limits.angularVelocityLimit = config.velocityLimit;
+    return limits;
+}
+
+SkullbonezCore::Physics::ContactPolicy
+SkullbonezCore::Physics::ContactPolicy::FromConfig( const SkullbonezCore::Basics::EngineConfig& config )
+{
+    ContactPolicy policy;
+    policy.contactEpsilon = config.contactEpsilon;
+    policy.terrainContactThreshold = config.terrainContactThreshold;
+    policy.restitutionThreshold = config.contactRestitutionThreshold;
+    return policy;
 }
 
 // GameModel is the per-object physics bridge:
@@ -119,7 +139,7 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_physicsInfo.SetPosition( vPosition );
     m_physicsInfo.SetRotationalInertia( vRotationalInertia );
     m_physicsInfo.SetMass( fMass );
-    m_physicsInfo.SetFrictionCoefficient( m_runtimePhysicsTuning.frictionCoefficient );
+    m_physicsInfo.SetFrictionCoefficient( m_physicsMaterial.frictionCoefficient );
 
     // Immutable body properties are read repeatedly in broadphase/narrowphase and
     // terrain response. Cache them once at construction to keep hot loops on plain
@@ -180,7 +200,7 @@ void GameModel::BuildSpherePhysicsCache( float radius )
     m_ballPhysics.volume = FOUR_OVER_THREE * _PI * m_ballPhysics.radiusSq * radius;
     m_ballPhysics.invVolume = 1.0f / m_ballPhysics.volume;
     m_ballPhysics.projectedSurfaceArea = _PI * m_ballPhysics.radiusSq;
-    m_ballPhysics.dragCoefficient = m_runtimePhysicsTuning.sphereDragCoefficient;
+    m_ballPhysics.dragCoefficient = m_physicsMaterial.sphereDragCoefficient;
 }
 
 
@@ -515,28 +535,42 @@ Vector3 GameModel::GetOrientationUp()
 void GameModel::AddBoundingSphere( float fRadius )
 {
     BuildSpherePhysicsCache( fRadius );
-    m_boundingVolume = BoundingSphere( fRadius, Vector::ZERO_VECTOR, m_runtimePhysicsTuning.sphereDragCoefficient );
+    m_boundingVolume = BoundingSphere( fRadius, Vector::ZERO_VECTOR, m_physicsMaterial.sphereDragCoefficient );
     UpdateModelInfo();
 }
 
 
 void GameModel::ApplyRuntimeConfig( const Basics::EngineConfig& config )
 {
-    ApplyRuntimePhysicsTuning( GameModelRuntimePhysicsTuning::FromConfig( config ) );
+    ApplyPhysicsMaterial( PhysicsMaterial::FromConfig( config ) );
+    ApplyBodySimulationLimits( BodySimulationLimits::FromConfig( config ) );
+    ApplyContactPolicy( ContactPolicy::FromConfig( config ) );
 }
 
 
-void GameModel::ApplyRuntimePhysicsTuning( const GameModelRuntimePhysicsTuning& tuning )
+void GameModel::ApplyPhysicsMaterial( const Physics::PhysicsMaterial& material )
 {
-    m_runtimePhysicsTuning = tuning;
-    m_physicsInfo.SetFrictionCoefficient( m_runtimePhysicsTuning.frictionCoefficient );
-    m_physicsInfo.SetAngularVelocityLimit( m_runtimePhysicsTuning.angularVelocityLimit );
+    m_physicsMaterial = material;
+    m_physicsInfo.SetFrictionCoefficient( m_physicsMaterial.frictionCoefficient );
     if ( BoundingSphere* sphere = std::get_if<BoundingSphere>( &m_boundingVolume ) )
     {
-        sphere->SetDragCoefficient( m_runtimePhysicsTuning.sphereDragCoefficient );
-        m_ballPhysics.dragCoefficient = m_runtimePhysicsTuning.sphereDragCoefficient;
+        sphere->SetDragCoefficient( m_physicsMaterial.sphereDragCoefficient );
+        m_ballPhysics.dragCoefficient = m_physicsMaterial.sphereDragCoefficient;
         CalculateDragCoefficient();
     }
+}
+
+
+void GameModel::ApplyBodySimulationLimits( const Physics::BodySimulationLimits& limits )
+{
+    m_bodySimulationLimits = limits;
+    m_physicsInfo.SetAngularVelocityLimit( m_bodySimulationLimits.angularVelocityLimit );
+}
+
+
+void GameModel::ApplyContactPolicy( const Physics::ContactPolicy& policy )
+{
+    m_contactPolicy = policy;
 }
 
 
@@ -1055,7 +1089,7 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
             return NO_COLLISION;
         }
 
-        if ( gap <= m_runtimePhysicsTuning.contactEpsilon )
+        if ( gap <= m_contactPolicy.contactEpsilon )
         {
             // Reuse the terrain plane from the actual closest vertex so detection
             // and response agree about which patch of terrain is carrying the box.
@@ -1128,7 +1162,7 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
             return NO_COLLISION;
         }
 
-        if ( gap <= m_runtimePhysicsTuning.contactEpsilon )
+        if ( gap <= m_contactPolicy.contactEpsilon )
         {
             m_responseInformation.testingPlane = terrainPlane;
             m_responseInformation.collisionTime = 0.0f;
@@ -1191,7 +1225,7 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
                                            terrainHeight,
                                            m_responseInformation.testingPlane );
     float gap = m_physicsInfo.GetPosition().y - bottomOffset - terrainHeight;
-    if ( gap <= m_runtimePhysicsTuning.contactEpsilon )
+    if ( gap <= m_contactPolicy.contactEpsilon )
     {
         m_responseInformation.collisionTime = 0.0f;
         return 0.0f;
@@ -1332,7 +1366,7 @@ bool GameModel::BuildTerrainContactManifold( int bodyIndex,
                     }
                 }
 
-                const float contactThreshold = (std::max)( 0.0f, m_runtimePhysicsTuning.terrainContactThreshold );
+                const float contactThreshold = (std::max)( 0.0f, m_contactPolicy.terrainContactThreshold );
                 const float cutoff = minSignedDist + contactThreshold;
                 for ( int v = 0; v < 8; ++v )
                 {
@@ -1371,7 +1405,7 @@ bool GameModel::BuildTerrainContactManifold( int bodyIndex,
                     }
                 }
 
-                const float contactThreshold = (std::max)( 0.0f, m_runtimePhysicsTuning.terrainContactThreshold );
+                const float contactThreshold = (std::max)( 0.0f, m_contactPolicy.terrainContactThreshold );
                 const float cutoff = minSignedDist + contactThreshold;
                 for ( uint16_t v = 0; v < vertexCount && out.pointCount < 8; ++v )
                 {
@@ -1398,7 +1432,7 @@ bool GameModel::BuildTerrainContactManifold( int bodyIndex,
     }
 
     const float preVn = m_physicsInfo.GetVelocity() * planeNormal;
-    if ( preVn < -m_runtimePhysicsTuning.contactRestitutionThreshold && out.pointCount > 1 )
+    if ( preVn < -m_contactPolicy.restitutionThreshold && out.pointCount > 1 )
     {
         // For fast impacts, collapse a multi-point box footprint to a centroid
         // impact row. Resting contacts should use the full patch, but a high
@@ -1430,7 +1464,7 @@ bool GameModel::BuildTerrainContactManifold( int bodyIndex,
                                             planeNormal,
                                             m_terrain,
                                             out.pointCount,
-                                            m_runtimePhysicsTuning.contactEpsilon,
+                                            m_contactPolicy.contactEpsilon,
                                             true );
 
     // Support policy is metadata, not collision response. Unsupported edge or
@@ -1813,7 +1847,7 @@ Vector3 GameModel::CalculateBuoyancyRightingTorque( float buoyancyForce, float s
         int closeSamples = 0;
         int terrainSamples = 0;
         const Vector3 position = m_physicsInfo.GetPosition();
-        const float supportGap = m_runtimePhysicsTuning.contactEpsilon + Physics::BOX_TERRAIN_VERTEX_SUPPORT_SLACK;
+        const float supportGap = m_contactPolicy.contactEpsilon + Physics::BOX_TERRAIN_VERTEX_SUPPORT_SLACK;
         std::visit(
             [&]( const auto& shape )
             {
