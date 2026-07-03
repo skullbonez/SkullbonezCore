@@ -10,11 +10,11 @@ audits when it is still useful.
 | Branch | `nightrunner-3rd-july` in worktree `C:\SkullbonezCore`. |
 | Active objective | Implement `Agentic/Plans/To_Eval/contrived-migration-artifact-removal-plan.md` from the committed kill-list CSV. |
 | Last documentation milestone | Added implementation status at `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-implementation-status.csv`. |
-| Last source milestone | K003 store-boundary cleanup is in progress: `RenderInstanceStore`, `ColliderStore`, and `SleepIslandSystem` no longer refresh through `PhysicsModelAccess::Models()` and no longer depend on `PhysicsModelAccess`; the public physics facade still keeps the allowed compatibility view. |
-| Pending work | K003 still has raw solver/body-store/ragdoll/world model ranges. K004/K005 remain blocked on real force-authority and handle-allocation ownership moves. |
+| Last source milestone | K003 store-boundary cleanup is in progress: `RenderInstanceStore`, `ColliderStore`, `SleepIslandSystem`, and `PhysicsBodyStore` no longer refresh through `PhysicsModelAccess::Models()`; the public physics facade still keeps the allowed compatibility view. |
+| Pending work | K003 still has raw solver/ragdoll/world model ranges. K004/K005 remain blocked on real force-authority and handle-allocation ownership moves. |
 | Concurrent work warning | No concurrent dirty source work observed at the last status check. Still run `git status --short --branch` before editing. |
 | Blockers | `tools\validate_physics_deep.bat` currently fails on `physics_known_stacking.csv` even with the K003 diagnostics patch reversed; do not attribute that failure to `98b7cf48` without rechecking. |
-| Validation | K003 render-store slice passed `tools\validate_full.bat`, including runtime boundaries, DX12 validation with 0 InfoQueue errors, and byte-exact core physics baseline. K003 collider-store and sleep-island slices each passed `python tools\check_runtime_boundaries.py --repo .` and `tools\validate_physics.bat`, including byte-exact core physics baseline. Latest guardrail slice passed `tools\validate_fast.bat`; final K003 diagnostics patch passed `tools\validate_physics.bat`. Deep physics known-issue signature mismatch is pre-existing on this branch. |
+| Validation | K003 render-store slice passed `tools\validate_full.bat`, including runtime boundaries, DX12 validation with 0 InfoQueue errors, and byte-exact core physics baseline. K003 collider-store, sleep-island, and body-store slices each passed `python tools\check_runtime_boundaries.py --repo .` and `tools\validate_physics.bat`, including byte-exact core physics baseline. Latest guardrail slice passed `tools\validate_fast.bat`; final K003 diagnostics patch passed `tools\validate_physics.bat`. Deep physics known-issue signature mismatch is pre-existing on this branch. |
 
 ## Active Notes
 

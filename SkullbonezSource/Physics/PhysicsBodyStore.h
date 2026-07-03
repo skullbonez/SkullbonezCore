@@ -46,7 +46,6 @@ class GameModel;
 
 namespace Physics
 {
-class PhysicsModelAccess;
 class PhysicsModelMutableRange;
 
 struct PhysicsBodyRecord
@@ -80,24 +79,15 @@ class PhysicsBodyStore
 
     void Clear();
     void Refresh( std::vector<GameObjects::GameModel>& models, const std::vector<uint8_t>& sleepStates );
-    void Refresh( PhysicsModelAccess& modelAccess, const std::vector<uint8_t>& sleepStates );
     void LoadFromModels( std::vector<GameObjects::GameModel>& models, const std::vector<uint8_t>& sleepStates );
     void LoadFromModels( PhysicsModelMutableRange models, const std::vector<uint8_t>& sleepStates );
-    void LoadFromModels( PhysicsModelAccess& modelAccess, const std::vector<uint8_t>& sleepStates );
-    void LoadFromModelAccess( PhysicsModelAccess& modelAccess, const std::vector<uint8_t>& sleepStates );
     void ClearPendingImpulses();
     void WriteBackToModels( std::vector<GameObjects::GameModel>& models ) const;
     void WriteBackToModels( PhysicsModelMutableRange models ) const;
-    void WriteBackToModels( PhysicsModelAccess& modelAccess ) const;
     void WriteBackToModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex ) const;
     void WriteBackToModelAt( PhysicsModelMutableRange models, int modelIndex ) const;
-    void WriteBackToModelAt( PhysicsModelAccess& modelAccess, int modelIndex ) const;
-    void WriteBackToModelAccess( PhysicsModelAccess& modelAccess ) const;
-    void WriteBackToModelAccessAt( PhysicsModelAccess& modelAccess, int modelIndex ) const;
     void CaptureMutableStateFromModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex );
     void CaptureMutableStateFromModelAt( PhysicsModelMutableRange models, int modelIndex );
-    void CaptureMutableStateFromModelAt( PhysicsModelAccess& modelAccess, int modelIndex );
-    void CaptureMutableStateFromModelAccessAt( PhysicsModelAccess& modelAccess, int modelIndex );
     void CopySleepStatesFrom( const std::vector<uint8_t>& sleepStates );
     void CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) const;
 
@@ -123,8 +113,6 @@ class PhysicsBodyStore
     bool IntegrateBodyPose( PhysicsModelMutableRange models, int modelIndex, float deltaSeconds );
     bool ApplyCompatibilityForces( std::vector<GameObjects::GameModel>& models, int modelIndex, float deltaSeconds );
     bool ApplyCompatibilityForces( PhysicsModelMutableRange models, int modelIndex, float deltaSeconds );
-    bool IntegrateBodyPose( PhysicsModelAccess& modelAccess, int modelIndex, float deltaSeconds );
-    bool ApplyCompatibilityForces( PhysicsModelAccess& modelAccess, int modelIndex, float deltaSeconds );
 
   private:
     std::vector<PhysicsBodyRecord> m_bodies;           // Body records in GameModelCollection index order.

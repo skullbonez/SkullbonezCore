@@ -99,12 +99,6 @@ void PhysicsBodyStore::Refresh( std::vector<GameModel>& models, const std::vecto
 }
 
 
-void PhysicsBodyStore::Refresh( PhysicsModelAccess& modelAccess, const std::vector<uint8_t>& sleepStates )
-{
-    LoadFromModelAccess( modelAccess, sleepStates );
-}
-
-
 void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std::vector<uint8_t>& sleepStates )
 {
     m_bodies.resize( models.size() );
@@ -181,18 +175,6 @@ void PhysicsBodyStore::LoadFromModels( PhysicsModelMutableRange models, const st
 }
 
 
-void PhysicsBodyStore::LoadFromModels( PhysicsModelAccess& modelAccess, const std::vector<uint8_t>& sleepStates )
-{
-    LoadFromModelAccess( modelAccess, sleepStates );
-}
-
-
-void PhysicsBodyStore::LoadFromModelAccess( PhysicsModelAccess& modelAccess, const std::vector<uint8_t>& sleepStates )
-{
-    LoadFromModels( modelAccess.Models(), sleepStates );
-}
-
-
 void PhysicsBodyStore::ClearPendingImpulses()
 {
     for ( PhysicsBodyRecord& record : m_bodies )
@@ -224,12 +206,6 @@ void PhysicsBodyStore::WriteBackToModels( PhysicsModelMutableRange models ) cons
 }
 
 
-void PhysicsBodyStore::WriteBackToModels( PhysicsModelAccess& modelAccess ) const
-{
-    WriteBackToModelAccess( modelAccess );
-}
-
-
 void PhysicsBodyStore::WriteBackToModelAt( std::vector<GameModel>& models, int modelIndex ) const
 {
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) ||
@@ -255,24 +231,6 @@ void PhysicsBodyStore::WriteBackToModelAt( PhysicsModelMutableRange models, int 
 }
 
 
-void PhysicsBodyStore::WriteBackToModelAt( PhysicsModelAccess& modelAccess, int modelIndex ) const
-{
-    WriteBackToModelAccessAt( modelAccess, modelIndex );
-}
-
-
-void PhysicsBodyStore::WriteBackToModelAccess( PhysicsModelAccess& modelAccess ) const
-{
-    WriteBackToModels( modelAccess.Models() );
-}
-
-
-void PhysicsBodyStore::WriteBackToModelAccessAt( PhysicsModelAccess& modelAccess, int modelIndex ) const
-{
-    WriteBackToModelAt( modelAccess.Models(), modelIndex );
-}
-
-
 void PhysicsBodyStore::CaptureMutableStateFromModelAt( std::vector<GameModel>& models, int modelIndex )
 {
     PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
@@ -294,18 +252,6 @@ void PhysicsBodyStore::CaptureMutableStateFromModelAt( PhysicsModelMutableRange 
     }
 
     CaptureMutableBodyState( models[static_cast<std::size_t>( modelIndex )], *record );
-}
-
-
-void PhysicsBodyStore::CaptureMutableStateFromModelAt( PhysicsModelAccess& modelAccess, int modelIndex )
-{
-    CaptureMutableStateFromModelAccessAt( modelAccess, modelIndex );
-}
-
-
-void PhysicsBodyStore::CaptureMutableStateFromModelAccessAt( PhysicsModelAccess& modelAccess, int modelIndex )
-{
-    CaptureMutableStateFromModelAt( modelAccess.Models(), modelIndex );
 }
 
 
@@ -545,16 +491,4 @@ bool PhysicsBodyStore::ApplyCompatibilityForces( PhysicsModelMutableRange models
     record->pendingImpulseApplicationPoint = ZERO_VECTOR;
     record->hasPendingImpulse = false;
     return true;
-}
-
-
-bool PhysicsBodyStore::IntegrateBodyPose( PhysicsModelAccess& modelAccess, int modelIndex, float deltaSeconds )
-{
-    return IntegrateBodyPose( modelAccess.Models(), modelIndex, deltaSeconds );
-}
-
-
-bool PhysicsBodyStore::ApplyCompatibilityForces( PhysicsModelAccess& modelAccess, int modelIndex, float deltaSeconds )
-{
-    return ApplyCompatibilityForces( modelAccess.Models(), modelIndex, deltaSeconds );
 }

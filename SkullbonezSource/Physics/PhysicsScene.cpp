@@ -36,7 +36,17 @@ using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsModelAccess;
+using SkullbonezCore::Physics::PhysicsModelMutableRange;
 using SkullbonezCore::Physics::PhysicsScene;
+
+
+namespace
+{
+PhysicsModelMutableRange BorrowMutableModels( PhysicsModelAccess& modelAccess )
+{
+    return PhysicsModelMutableRange( modelAccess.MutableModelData(), modelAccess.ModelCount() );
+}
+} // namespace
 
 
 void PhysicsScene::ApplyRuntimeConfig( const Basics::EngineConfig& config )
@@ -56,7 +66,7 @@ void PhysicsScene::Clear()
 
 void PhysicsScene::RefreshBodyStore( PhysicsModelAccess& modelAccess )
 {
-    m_bodyStore.LoadFromModelAccess( modelAccess, m_world.GetSleepStates() );
+    m_bodyStore.LoadFromModels( BorrowMutableModels( modelAccess ), m_world.GetSleepStates() );
 }
 
 
@@ -139,7 +149,7 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
     // legacy GameModel pose/state. The step loads body records from that bridge,
     // solves through PhysicsBodyStore/ColliderStore, then writes back once for
     // render, replay, editor, and diagnostics consumers that still read models.
-    m_bodyStore.LoadFromModelAccess( modelAccess, m_world.GetSleepStates() );
+    m_bodyStore.LoadFromModels( BorrowMutableModels( modelAccess ), m_world.GetSleepStates() );
     // Why: collider metadata is construction/authoring state, not per-tick
     // solver state. Scene setup and explicit refresh calls rebuild the snapshot;
     // the hot step only needs to catch topology changes.
@@ -149,7 +159,7 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
     }
     m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime, config, workerPool );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    m_bodyStore.WriteBackToModelAccess( modelAccess );
+    m_bodyStore.WriteBackToModels( BorrowMutableModels( modelAccess ) );
 }
 
 
@@ -164,7 +174,7 @@ void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle 
     m_bodyStore.WakeBody( index );
     m_world.WakeModel( modelAccess, index );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    m_bodyStore.WriteBackToModelAccessAt( modelAccess, index );
+    m_bodyStore.WriteBackToModelAt( BorrowMutableModels( modelAccess ), index );
 }
 
 
@@ -179,7 +189,7 @@ void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyH
     m_bodyStore.SeedBodyAsleep( index );
     m_world.SeedModelAsleep( modelAccess, index );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    m_bodyStore.WriteBackToModelAccessAt( modelAccess, index );
+    m_bodyStore.WriteBackToModelAt( BorrowMutableModels( modelAccess ), index );
 }
 
 
@@ -206,7 +216,7 @@ void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
     }
     if ( m_bodyStore.SetPendingBodyImpulse( bodyIndex, impulse, localApplicationPoint ) )
     {
-        m_bodyStore.WriteBackToModelAccessAt( modelAccess, bodyIndex );
+        m_bodyStore.WriteBackToModelAt( BorrowMutableModels( modelAccess ), bodyIndex );
         modelAccess.InvalidatePhysicsStreams();
     }
 }
