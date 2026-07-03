@@ -50,8 +50,6 @@ class PhysicsEngine
 
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
     void Clear();
-    void RefreshStores( PhysicsModelAccess& modelAccess );
-    void RefreshPhysicsStores( PhysicsModelAccess& modelAccess );
     void RefreshBodyStore( PhysicsModelAccess& modelAccess );
     void ClearPendingBodyImpulses();
     void RefreshColliderStore( PhysicsModelAccess& modelAccess );

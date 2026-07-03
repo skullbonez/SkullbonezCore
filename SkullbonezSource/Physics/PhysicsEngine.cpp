@@ -44,18 +44,6 @@ void PhysicsEngine::Clear()
 }
 
 
-void PhysicsEngine::RefreshStores( PhysicsModelAccess& modelAccess )
-{
-    m_scene.RefreshStores( modelAccess );
-}
-
-
-void PhysicsEngine::RefreshPhysicsStores( PhysicsModelAccess& modelAccess )
-{
-    m_scene.RefreshPhysicsStores( modelAccess );
-}
-
-
 void PhysicsEngine::RefreshBodyStore( PhysicsModelAccess& modelAccess )
 {
     m_scene.RefreshBodyStore( modelAccess );

@@ -54,23 +54,6 @@ void PhysicsScene::Clear()
 }
 
 
-void PhysicsScene::RefreshStores( PhysicsModelAccess& modelAccess )
-{
-    RefreshPhysicsStores( modelAccess );
-    RefreshRenderStore( modelAccess );
-}
-
-
-void PhysicsScene::RefreshPhysicsStores( PhysicsModelAccess& modelAccess )
-{
-    RefreshBodyStore( modelAccess );
-    RefreshColliderStore( modelAccess );
-#ifdef _DEBUG
-    ValidatePhysicsStoreMappings( modelAccess.ModelCount() );
-#endif
-}
-
-
 void PhysicsScene::RefreshBodyStore( PhysicsModelAccess& modelAccess )
 {
     m_bodyStore.LoadFromModelAccess( modelAccess, m_world.GetSleepStates() );
@@ -91,7 +74,7 @@ void PhysicsScene::RefreshColliderStore( PhysicsModelAccess& modelAccess )
 
 void PhysicsScene::RefreshRenderStore( PhysicsModelAccess& modelAccess )
 {
-    m_renderInstanceStore.Refresh( modelAccess );
+    m_renderInstanceStore.Refresh( modelAccess.MutableModelData(), modelAccess.ModelCount() );
 #ifdef _DEBUG
     ValidateRenderStoreMappings( modelAccess.ModelCount() );
 #endif
