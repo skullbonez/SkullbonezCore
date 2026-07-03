@@ -1940,7 +1940,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         }
         if ( bodyStore.ApplyForces( worldForces, colliderStore, x, dt ) )
         {
-            bodyStore.WriteBackToModelAt( m_gameModels, x );
+            modelAccess.WriteBackPhysicsBody( bodyStore, x );
         }
     };
 
@@ -2290,7 +2290,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         bodyRecords[static_cast<size_t>( sleepingIndex )].isSleeping = false;
         if ( bodyStore.ApplyForces( worldForces, colliderStore, sleepingIndex, dt ) )
         {
-            bodyStore.WriteBackToModelAt( m_gameModels, sleepingIndex );
+            modelAccess.WriteBackPhysicsBody( bodyStore, sleepingIndex );
         }
     };
 
@@ -2598,7 +2598,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
 
                         if ( bodyStore.IntegrateBodyPose( colliderStore, y, colTime ) )
                         {
-                            bodyStore.WriteBackToModelAt( m_gameModels, y );
+                            modelAccess.WriteBackPhysicsBody( bodyStore, y );
                         }
                         m_timeRemaining[y] = (std::max)( 0.0f, m_timeRemaining[y] - colTime );
                         if ( !sleepingLocked )
@@ -2660,7 +2660,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
 
                         if ( bodyStore.IntegrateBodyPose( colliderStore, x, colTime ) )
                         {
-                            bodyStore.WriteBackToModelAt( m_gameModels, x );
+                            modelAccess.WriteBackPhysicsBody( bodyStore, x );
                         }
                         m_timeRemaining[x] = (std::max)( 0.0f, m_timeRemaining[x] - colTime );
                         if ( !sleepingLocked )
@@ -2739,11 +2739,11 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
 
             if ( bodyStore.IntegrateBodyPose( colliderStore, x, colTime ) )
             {
-                bodyStore.WriteBackToModelAt( m_gameModels, x );
+                modelAccess.WriteBackPhysicsBody( bodyStore, x );
             }
             if ( bodyStore.IntegrateBodyPose( colliderStore, y, colTime ) )
             {
-                bodyStore.WriteBackToModelAt( m_gameModels, y );
+                modelAccess.WriteBackPhysicsBody( bodyStore, y );
             }
             m_timeRemaining[x] = (std::max)( 0.0f, m_timeRemaining[x] - colTime );
             m_timeRemaining[y] = (std::max)( 0.0f, m_timeRemaining[y] - colTime );
@@ -2953,7 +2953,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         {
             if ( bodyStore.IntegrateBodyPose( colliderStore, x, colTime ) )
             {
-                bodyStore.WriteBackToModelAt( m_gameModels, x );
+                modelAccess.WriteBackPhysicsBody( bodyStore, x );
             }
             const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
             // BuildTerrainContactManifold is the handoff from terrain-specific
@@ -3033,7 +3033,10 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     WakePointJointConnectedBodies( modelAccess, bodyStore, colliderStore, worldForces, dt );
     if ( Ragdoll::SolvePointJoints( bodyStore, m_pointJointConstraints, m_sleepState, dt ) )
     {
-        bodyStore.WriteBackToModels( m_gameModels );
+        for ( int i = 0; i < modelCount; ++i )
+        {
+            modelAccess.WriteBackPhysicsBody( bodyStore, i );
+        }
         modelAccess.InvalidatePhysicsStreams();
     }
     AppendPointJointSupportEdges( bodyStore, modelCount );
@@ -3058,7 +3061,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         {
             if ( bodyStore.IntegrateBodyPose( colliderStore, x, m_timeRemaining[x] ) )
             {
-                bodyStore.WriteBackToModelAt( m_gameModels, x );
+                modelAccess.WriteBackPhysicsBody( bodyStore, x );
             }
         }
     };
@@ -3459,7 +3462,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
             bodyRecords[static_cast<size_t>( x )].linearVelocity = Math::Vector::ZERO_VECTOR;
             bodyRecords[static_cast<size_t>( x )].angularVelocity = Math::Vector::ZERO_VECTOR;
             bodyRecords[static_cast<size_t>( x )].isSleeping = true;
-            bodyStore.WriteBackToModelAt( m_gameModels, x );
+            modelAccess.WriteBackPhysicsBody( bodyStore, x );
             LockUnderwaterSleeperIfReady( worldForces, bodyStore, colliderStore, bodyStream, x );
         }
     }
