@@ -525,11 +525,11 @@ Validation:
 - [x] 2026-07-03: Captured the 200-brick/ragdoll contact-audio baseline with
   SkullScope. Command:
   `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --scene SkullbonezData\scenes\aaa_ragdoll_sunset_showcase.scene.json --fixed-step --frames 1800 --vsync off --shadows off --cinematic off --no-water --physics-diag Debug\contact_audio_ragdoll_wall_200.physicsdiag.ndjson`.
-  The default cinematic/water render path hit an unrelated DX12 debug-layer
-  transition break in `EmitDx12RenderGraphTransitionBarrier`, so the physics
-  evidence disables cinematic water rendering while keeping the authored physics
-  scene and 200-brick asset intact. The run completed frames 0..1799 with 211
-  bodies and DX12 InfoQueue 0 errors. Contact-audio query counts:
+  At capture time, the default cinematic/water render path hit an unrelated DX12
+  debug-layer transition break in `EmitDx12RenderGraphTransitionBarrier`, so this
+  physics evidence disables cinematic water rendering while keeping the authored
+  physics scene and 200-brick asset intact. The run completed frames 0..1799 with
+  211 bodies and DX12 InfoQueue 0 errors. Contact-audio query counts:
   205,287 verdict rows, 191 submitted voices, and 205,096 rejected rows. Decision
   counts: `ongoing_object_contact` 67,662, `settle` 51,484,
   `candidate_collapsed` 37,780, `candidate_cap` 30,697, `below_min_impulse`
@@ -537,6 +537,16 @@ Validation:
   `propagated_impulse` 1,222, `cooldown_ongoing` 74, `gain_floor` 4, and
   `distance` 3. Hot frames submitted at most 7 voices; the initial striker/ragdoll
   impact at frame 20 submitted 3 heavy hits.
+- [x] 2026-07-04: Fixed the unrelated DX12 default cinematic/water abort seen in
+  `aaa_ragdoll_sunset_showcase.scene.json`. Graph-owned transition and UAV
+  barriers now reopen the DX12 command list when they are the first command after
+  `Present()` or a mid-frame drain, so `FramebufferDX12::Bind()` no longer emits
+  a `ResourceBarrier` into a closed list. Evidence: before-fix CDB repro stopped
+  on `COMMAND_LIST_CLOSED` in `EmitDx12RenderGraphTransitionBarrier`; after-fix
+  CDB repro command
+  `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --scene SkullbonezData\scenes\aaa_ragdoll_sunset_showcase.scene.json --fixed-step --frames 10 --vsync off --shadows off`
+  exited cleanly with the default cinematic/water path; `tools\validate_dx12_renderer.bat`
+  passed with DX12 InfoQueue 0 errors and screenshots matching baselines.
 - [x] 2026-07-03: Added compact contact-audio reducer aggregate rows and query
   support. New Debug SkullScope traces write one `contact_audio_frame` row per
   physics step with raw facts, reduced patch candidates, merged patch facts,
