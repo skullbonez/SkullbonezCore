@@ -11,6 +11,8 @@
 # Glossary:
 #   SQLite: Local embedded database used as a bounded query cache for large
 #   diagnostics traces.
+#   Contact-audio event: Runtime diagnostic row for one copied contact-audio
+#   verdict, including rejection reason, score, body ids, and submitted flag.
 #   Validation gate: Repository script that proves a class of changes before
 #   commit or PR.
 #
@@ -45,6 +47,10 @@ SCHEMA_VERSION = 6
 DEFAULT_LIMIT = 50
 SUMMARY_LIMIT = 20
 BODY_SAMPLE_LIMIT = 120
+# Invariant: contact-audio verdict timestamps are frame-based. The runtime uses
+# a 120 Hz fixed physics step for deterministic diagnostics, so timeline windows
+# convert milliseconds to frame buckets with this rate.
+CONTACT_AUDIO_FIXED_HZ = 120.0
 QUESTIONS_PATH = Path(__file__).resolve().parents[1] / "Agentic" / "Reference" / "physics-query-questions.json"
 
 
@@ -1191,11 +1197,50 @@ def query_events(conn, cache, args):
     }
 
 
-def query_audio(conn, cache, args):
-    run_id = resolve_run_id(conn, args)
+def contact_audio_item(row):
+    data = decode_event_data(row)
+    decision = data.get("decision") or "unknown"
+    submitted = bool(as_int(data.get("submitted"), 0))
+    return {
+        "eventId": row["event_id"],
+        "frame": as_int(row["frame"], -1),
+        "decision": decision,
+        "submitted": submitted,
+        "flashEligible": bool(as_int(data.get("flash_eligible"), 0)),
+        "bodyA": row["body_a"],
+        "bodyB": row["body_b"],
+        "featureId": as_int(data.get("feature_id"), 0),
+        "isTerrain": bool(as_int(data.get("is_terrain"), 0)),
+        "materialA": as_int(data.get("material_a"), 0),
+        "materialB": as_int(data.get("material_b"), 0),
+        "normalImpulse": as_float(data.get("normal_impulse"), 0.0),
+        "normalClosingSpeed": as_float(data.get("normal_closing_speed"), 0.0),
+        "tangentSlipSpeed": as_float(data.get("tangent_slip_speed"), 0.0),
+        "impactScore": as_float(data.get("impact_score"), 0.0),
+        "gain": as_float(data.get("gain"), 0.0),
+        "distance": as_float(data.get("distance"), 0.0),
+        "maxDistance": as_float(data.get("max_distance"), 0.0),
+        "contactAgeSeconds": as_float(data.get("contact_age_seconds"), 0.0),
+        "ongoingContact": bool(as_int(data.get("ongoing_contact"), 0)),
+        "impulseSpike": bool(as_int(data.get("impulse_spike"), 0)),
+        "soundSet": data.get("sound_set") or "",
+        "band": data.get("band") or "",
+        "sample": data.get("sample") or "",
+    }
+
+
+def contact_audio_rows(conn, run_id, args, submitted=None):
+    # Concept: contact-audio verdicts are ordinary event rows. Keeping the query
+    # on the existing event table avoids a schema bump while the runtime still
+    # logs one compact verdict packet per candidate.
     where = ["run_id=?", "type='contact_audio'"]
     params = [run_id]
-    apply_frame_where(where, params, frame_range=args.frames)
+    apply_frame_where(where, params, frame_range=getattr(args, "frames", None), frame=getattr(args, "frame", None))
+    body_ref = getattr(args, "body", None)
+    if body_ref is not None:
+        body_id = resolve_body_id(conn, run_id, body_ref)
+        where.append("(body_a=? or body_b=?)")
+        params.extend([body_id, body_id])
     rows = conn.execute(
         f"""
         select event_id, frame, severity, body_a, body_b, summary, data_json
@@ -1205,108 +1250,201 @@ def query_audio(conn, cache, args):
         """,
         params,
     ).fetchall()
+    reasons = set(split_csv_filter(getattr(args, "reason", None)))
+    items = []
+    for row in rows:
+        item = contact_audio_item(row)
+        if reasons and item["decision"] not in reasons:
+            continue
+        if submitted is not None and item["submitted"] != submitted:
+            continue
+        items.append(item)
+    return items
 
+
+def contact_audio_summary_from_items(items, limit):
     decision_counts = {}
     frame_stats = {}
-    impacts = []
-    for row in rows:
-        data = decode_event_data(row)
-        decision = data.get("decision") or "unknown"
+    submitted = 0
+    rejected = 0
+    for item in items:
+        decision = item["decision"]
         decision_counts[decision] = decision_counts.get(decision, 0) + 1
+        if item["submitted"]:
+            submitted += 1
+        else:
+            rejected += 1
 
-        frame = as_int(row["frame"], -1)
+        frame = item["frame"]
         bucket = frame_stats.setdefault(
             frame,
             {
                 "frame": frame,
                 "events": 0,
                 "submitted": 0,
-                "voiceStolen": 0,
+                "rejected": 0,
                 "flashEligible": 0,
-                "voiceCap": 0,
-                "cooldownOngoing": 0,
-                "distanceRejected": 0,
-                "belowMinImpulse": 0,
-                "supportTransfer": 0,
+                "decisionCounts": {},
                 "maxImpulse": 0.0,
                 "maxImpactScore": 0.0,
                 "maxClosingSpeed": 0.0,
             },
         )
-        impulse = as_float(data.get("normal_impulse"), 0.0) or 0.0
-        impact_score = as_float(data.get("impact_score"), 0.0) or 0.0
-        closing_speed = as_float(data.get("normal_closing_speed"), 0.0) or 0.0
         bucket["events"] += 1
-        bucket["maxImpulse"] = max(bucket["maxImpulse"], impulse)
-        bucket["maxImpactScore"] = max(bucket["maxImpactScore"], impact_score)
-        bucket["maxClosingSpeed"] = max(bucket["maxClosingSpeed"], closing_speed)
-        if as_int(data.get("submitted"), 0):
-            bucket["submitted"] += 1
-        if decision == "voice_stolen":
-            bucket["voiceStolen"] += 1
-        if as_int(data.get("flash_eligible"), 0):
-            bucket["flashEligible"] += 1
-        if decision == "voice_cap":
-            bucket["voiceCap"] += 1
-        elif decision == "cooldown_ongoing":
-            bucket["cooldownOngoing"] += 1
-        elif decision == "distance":
-            bucket["distanceRejected"] += 1
-        elif decision == "below_min_impulse":
-            bucket["belowMinImpulse"] += 1
-        elif decision == "support_transfer":
-            bucket["supportTransfer"] += 1
+        bucket["submitted"] += 1 if item["submitted"] else 0
+        bucket["rejected"] += 0 if item["submitted"] else 1
+        bucket["flashEligible"] += 1 if item["flashEligible"] else 0
+        bucket["decisionCounts"][decision] = bucket["decisionCounts"].get(decision, 0) + 1
+        bucket["maxImpulse"] = max(bucket["maxImpulse"], item["normalImpulse"] or 0.0)
+        bucket["maxImpactScore"] = max(bucket["maxImpactScore"], item["impactScore"] or 0.0)
+        bucket["maxClosingSpeed"] = max(bucket["maxClosingSpeed"], item["normalClosingSpeed"] or 0.0)
 
-        impacts.append(
-            {
-                "eventId": row["event_id"],
-                "frame": frame,
-                "decision": decision,
-                "bodyA": row["body_a"],
-                "bodyB": row["body_b"],
-                "impulse": impulse,
-                "normalClosingSpeed": closing_speed,
-                "tangentSlipSpeed": as_float(data.get("tangent_slip_speed"), 0.0),
-                "impactScore": impact_score,
-                "gain": as_float(data.get("gain"), 0.0),
-                "impactGain": as_float(data.get("impact_gain"), 0.0),
-                "motionGain": as_float(data.get("motion_gain"), 0.0),
-                "distance": as_float(data.get("distance"), 0.0),
-                "maxDistance": as_float(data.get("max_distance"), 0.0),
-                "flashEligible": bool(as_int(data.get("flash_eligible"), 0)),
-                "submitted": bool(as_int(data.get("submitted"), 0)),
-                "sample": data.get("sample"),
-            }
-        )
-
-    limit = args.limit or SUMMARY_LIMIT
+    bounded_limit = limit or SUMMARY_LIMIT
     frame_hotspots = sorted(
         frame_stats.values(),
         key=lambda item: (
-            item["flashEligible"],
             item["submitted"],
+            item["rejected"],
             item["events"],
             item["maxImpactScore"],
             item["maxImpulse"],
         ),
         reverse=True,
-    )[:limit]
-    top_impacts = sorted(impacts, key=lambda item: (item["impactScore"], item["impulse"]), reverse=True)[:limit]
-
+    )[:bounded_limit]
+    top_impacts = sorted(
+        items,
+        key=lambda item: (item["impactScore"] or 0.0, item["normalImpulse"] or 0.0, item["normalClosingSpeed"] or 0.0),
+        reverse=True,
+    )[:bounded_limit]
     return {
-        "cache": cache,
-        "run": run_id,
-        "frames": args.frames,
-        "eventCount": len(rows),
+        "eventCount": len(items),
+        "submitted": submitted,
+        "rejected": rejected,
         "decisionCounts": decision_counts,
         "frameHotspots": frame_hotspots,
         "topImpacts": top_impacts,
+    }
+
+
+def query_contact_audio_summary(conn, cache, args):
+    run_id = resolve_run_id(conn, args)
+    items = contact_audio_rows(conn, run_id, args)
+    summary = contact_audio_summary_from_items(items, args.limit)
+    return {
+        "cache": cache,
+        "run": run_id,
+        "frames": getattr(args, "frames", None),
+        **summary,
         "relatedQueries": [
-            "events --type contact_audio --frames <start>:<end>",
+            "contact-audio-events --frames <start>:<end>",
+            "contact-audio-rejections --reason propagated_impulse --limit 40",
+            "contact-audio-timeline --window-ms 100",
             "event <eventId> --window 20",
-            "contacts --top impulse --frames <start>:<end>",
         ],
     }
+
+
+def query_contact_audio_events(conn, cache, args):
+    run_id = resolve_run_id(conn, args)
+    submitted_filter = None
+    if getattr(args, "submitted", None) == "yes":
+        submitted_filter = True
+    elif getattr(args, "submitted", None) == "no":
+        submitted_filter = False
+    items = contact_audio_rows(conn, run_id, args, submitted=submitted_filter)
+    limit = args.limit or DEFAULT_LIMIT
+    return {
+        "cache": cache,
+        "run": run_id,
+        "events": items[:limit],
+        "truncated": len(items) > limit,
+        "totalMatched": len(items),
+        "relatedQueries": ["contact-audio-summary", "event <eventId> --window 20", "contact-audio-body --body <body>"],
+    }
+
+
+def query_contact_audio_rejections(conn, cache, args):
+    run_id = resolve_run_id(conn, args)
+    items = contact_audio_rows(conn, run_id, args, submitted=False)
+    limit = args.limit or DEFAULT_LIMIT
+    return {
+        "cache": cache,
+        "run": run_id,
+        "reason": args.reason,
+        "rejections": items[:limit],
+        "truncated": len(items) > limit,
+        "totalMatched": len(items),
+        "relatedQueries": ["contact-audio-summary", "contact-audio-events --submitted no", "event <eventId> --window 20"],
+    }
+
+
+def query_contact_audio_body(conn, cache, args):
+    run_id = resolve_run_id(conn, args)
+    body_id = resolve_body_id(conn, run_id, args.body)
+    items = contact_audio_rows(conn, run_id, args)
+    limit = args.limit or DEFAULT_LIMIT
+    return {
+        "cache": cache,
+        "run": run_id,
+        "body": body_id,
+        "summary": contact_audio_summary_from_items(items, args.limit),
+        "events": items[:limit],
+        "truncated": len(items) > limit,
+        "totalMatched": len(items),
+        "relatedQueries": ["body %d --frames <start>:<end>" % body_id, "contact-audio-summary"],
+    }
+
+
+def query_contact_audio_timeline(conn, cache, args):
+    run_id = resolve_run_id(conn, args)
+    items = contact_audio_rows(conn, run_id, args)
+    window_ms = max(1, args.window_ms)
+    frames_per_window = max(1, int(round((window_ms / 1000.0) * CONTACT_AUDIO_FIXED_HZ)))
+    buckets = {}
+    for item in items:
+        frame = item["frame"]
+        start = (frame // frames_per_window) * frames_per_window
+        end = start + frames_per_window - 1
+        bucket = buckets.setdefault(
+            start,
+            {
+                "startFrame": start,
+                "endFrame": end,
+                "events": 0,
+                "submitted": 0,
+                "rejected": 0,
+                "decisionCounts": {},
+                "maxImpactScore": 0.0,
+                "maxImpulse": 0.0,
+            },
+        )
+        decision = item["decision"]
+        bucket["events"] += 1
+        bucket["submitted"] += 1 if item["submitted"] else 0
+        bucket["rejected"] += 0 if item["submitted"] else 1
+        bucket["decisionCounts"][decision] = bucket["decisionCounts"].get(decision, 0) + 1
+        bucket["maxImpactScore"] = max(bucket["maxImpactScore"], item["impactScore"] or 0.0)
+        bucket["maxImpulse"] = max(bucket["maxImpulse"], item["normalImpulse"] or 0.0)
+    timeline = sorted(
+        buckets.values(),
+        key=lambda item: (item["submitted"], item["rejected"], item["events"], item["maxImpactScore"]),
+        reverse=True,
+    )
+    limit = args.limit or SUMMARY_LIMIT
+    return {
+        "cache": cache,
+        "run": run_id,
+        "windowMs": window_ms,
+        "framesPerWindow": frames_per_window,
+        "timeline": timeline[:limit],
+        "truncated": len(timeline) > limit,
+        "totalWindows": len(timeline),
+        "relatedQueries": ["contact-audio-events --frames <start>:<end>", "contact-audio-summary"],
+    }
+
+
+def query_audio(conn, cache, args):
+    return query_contact_audio_summary(conn, cache, args)
 
 
 def query_event(conn, cache, args):
@@ -2207,6 +2345,47 @@ def build_parser():
     add_common(audio)
     audio.add_argument("--frames", default=None, help="Frame range A:B.")
     audio.set_defaults(func=query_audio)
+
+    audio_summary = sub.add_parser("contact-audio-summary", help="Summarize contact-audio decisions.")
+    add_common(audio_summary)
+    audio_summary.add_argument("--frames", default=None, help="Frame range A:B.")
+    audio_summary.add_argument("--frame", type=int, default=None, help="Single frame.")
+    audio_summary.add_argument("--body", default=None, help="Body id or name.")
+    audio_summary.add_argument("--reason", default=None, help="Comma-separated decision/rejection reasons.")
+    audio_summary.set_defaults(func=query_contact_audio_summary)
+
+    audio_events = sub.add_parser("contact-audio-events", help="List bounded contact-audio decisions.")
+    add_common(audio_events)
+    audio_events.add_argument("--frames", default=None, help="Frame range A:B.")
+    audio_events.add_argument("--frame", type=int, default=None, help="Single frame.")
+    audio_events.add_argument("--body", default=None, help="Body id or name.")
+    audio_events.add_argument("--reason", default=None, help="Comma-separated decision/rejection reasons.")
+    audio_events.add_argument("--submitted", choices=["any", "yes", "no"], default="any")
+    audio_events.set_defaults(func=query_contact_audio_events)
+
+    audio_rejections = sub.add_parser("contact-audio-rejections", help="List rejected contact-audio decisions.")
+    add_common(audio_rejections)
+    audio_rejections.add_argument("--frames", default=None, help="Frame range A:B.")
+    audio_rejections.add_argument("--frame", type=int, default=None, help="Single frame.")
+    audio_rejections.add_argument("--body", default=None, help="Body id or name.")
+    audio_rejections.add_argument("--reason", default=None, help="Comma-separated rejection reasons.")
+    audio_rejections.set_defaults(func=query_contact_audio_rejections)
+
+    audio_body = sub.add_parser("contact-audio-body", help="Contact-audio decisions for one body.")
+    add_common(audio_body)
+    audio_body.add_argument("--body", required=True, help="Body id or name.")
+    audio_body.add_argument("--frames", default=None, help="Frame range A:B.")
+    audio_body.add_argument("--frame", type=int, default=None, help="Single frame.")
+    audio_body.add_argument("--reason", default=None, help="Comma-separated decision/rejection reasons.")
+    audio_body.set_defaults(func=query_contact_audio_body)
+
+    audio_timeline = sub.add_parser("contact-audio-timeline", help="Contact-audio decision buckets over time.")
+    add_common(audio_timeline)
+    audio_timeline.add_argument("--frames", default=None, help="Frame range A:B.")
+    audio_timeline.add_argument("--body", default=None, help="Body id or name.")
+    audio_timeline.add_argument("--reason", default=None, help="Comma-separated decision/rejection reasons.")
+    audio_timeline.add_argument("--window-ms", type=int, default=100)
+    audio_timeline.set_defaults(func=query_contact_audio_timeline)
 
     event = sub.add_parser("event", help="Focused event context.")
     add_common(event)

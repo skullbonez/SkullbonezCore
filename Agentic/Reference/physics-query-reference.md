@@ -107,6 +107,11 @@ tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson rolling --frames 300:70
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson broadphase --frames 0:1000
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson solver --frames 0:1000
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson pipeline --frames 0:1000
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson contact-audio-summary
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson contact-audio-events --frames 300:360 --limit 40
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson contact-audio-rejections --reason propagated_impulse --limit 40
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson contact-audio-body --body 17 --limit 40
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson contact-audio-timeline --window-ms 100
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions why_not_resting
 ```
@@ -123,6 +128,9 @@ tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions why_not_resti
 --body box_03
 --severity high
 --type penetration_sustained,penetration_growing
+--reason propagated_impulse,body_budget
+--submitted yes|no|any
+--window-ms 100
 ```
 
 Default output should be compact JSON. Use `--pretty` only when a human needs to read the result.

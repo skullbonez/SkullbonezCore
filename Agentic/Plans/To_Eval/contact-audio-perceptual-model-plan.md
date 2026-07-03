@@ -510,6 +510,19 @@ Validation:
   `TestOutput\agent_validate_full_contact_audio_classifier_flash_mode.log` passed
   with DX12 InfoQueue 0 errors, screenshots matching committed baselines, and
   `physics_regression_solver.csv` matching byte-exactly.
+- [x] 2026-07-03: Added the Phase 4 contact-audio SkullScope query surface over
+  existing `type:"contact_audio"` verdict events: `contact-audio-summary`,
+  `contact-audio-events`, `contact-audio-rejections`, `contact-audio-body`, and
+  `contact-audio-timeline`. The existing `audio` command remains a summary
+  alias. Regression coverage now includes contact-audio summary/events,
+  propagated-impulse rejections, the `roll_a` body query, and timeline buckets
+  in `tools\check_physics_query_regression.py`; the SkullScope reference docs
+  list the permanent commands. Validation: `python -m py_compile
+  tools\physics_query.py tools\check_physics_query_regression.py`;
+  `python tools\check_physics_query_regression.py` passed with exact baseline
+  match; `tools\validate_fast.bat` passed; `tools\validate_physics_deep.bat`
+  passed after refreshing `physics_query_varied.json` and the stale known
+  stacking issue signature from final Debug artifacts.
 - [ ] Phase 0 baseline trace and counts.
 - [ ] Phase 1 contact fact upgrade.
 - [ ] Phase 2 classifier and rejection reasons. Partial: local classifier reasons
@@ -518,7 +531,10 @@ Validation:
 - [ ] Phase 3 reducer and perceptual budget. Partial: patch merge, deterministic
   ranking, global burst cap, and per-body budget are implemented; remaining work
   is cluster budgeting and 200-box emitted-count proof.
-- [ ] Phase 4 SkullScope contact-audio queries.
+- [ ] Phase 4 SkullScope contact-audio queries. Partial: bounded query commands,
+  regression coverage, and reference docs are implemented for verdict events;
+  remaining work is a compact raw-fact/merge aggregate row if strict raw fact and
+  merged-count reporting is required.
 - [ ] Phase 5 material layers and better samples.
 - [ ] Phase 6 Sound-tab tuning polish. Partial: flash diagnostics mode is
   implemented; remaining work is any new stable sliders and screenshot evidence
