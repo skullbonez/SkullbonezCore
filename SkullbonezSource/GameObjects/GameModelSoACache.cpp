@@ -26,8 +26,6 @@ Related:
 */
 #include "GameModelSoACache.h"
 
-#include "../Core/Profiler.h"
-
 using namespace SkullbonezCore::GameObjects;
 
 
@@ -47,9 +45,9 @@ void GameModelSoACache::Invalidate()
 
 void GameModelSoACache::RefreshBodyData( std::vector<GameModel>& models )
 {
-    PROFILE_SCOPED( "Frame/SoA" );
-    PROFILE_SCOPED( "Frame/SoA/RefreshBodyData" );
-
+    // Invariant: scene-load sleep seeding can refresh this cache before the
+    // profiler has opened a frame. Keep the refresh itself unprofiled; frame
+    // callers should profile their broader physics or render stage instead.
     // Refresh only the fields needed by physics broadphase/solver decisions:
     // position, conservative collision radius, shape class, and fixed/dynamic
     // state. Model matrices are intentionally separate because rendering may

@@ -523,14 +523,31 @@ Validation:
   match; `tools\validate_fast.bat` passed; `tools\validate_physics_deep.bat`
   passed after refreshing `physics_query_varied.json` and the stale known
   stacking issue signature from final Debug artifacts.
-- [ ] Phase 0 baseline trace and counts.
+- [x] 2026-07-03: Captured the 200-brick/ragdoll contact-audio baseline with
+  SkullScope. Command:
+  `Debug\SKULLBONEZ_CORE.exe --renderer dx12 --scene SkullbonezData\scenes\aaa_ragdoll_sunset_showcase.scene.json --fixed-step --frames 1800 --vsync off --shadows off --cinematic off --no-water --physics-diag Debug\contact_audio_ragdoll_wall_200.physicsdiag.ndjson`.
+  The default cinematic/water render path hit an unrelated DX12 debug-layer
+  transition break in `EmitDx12RenderGraphTransitionBarrier`, so the physics
+  evidence disables cinematic water rendering while keeping the authored physics
+  scene and 200-brick asset intact. The run completed frames 0..1799 with 211
+  bodies and DX12 InfoQueue 0 errors. Contact-audio query counts:
+  205,287 verdict rows, 191 submitted voices, and 205,096 rejected rows. Decision
+  counts: `ongoing_object_contact` 67,662, `settle` 51,484,
+  `candidate_collapsed` 37,780, `candidate_cap` 30,697, `below_min_impulse`
+  11,460, `below_min_impact_score` 2,482, `roll_or_slide` 2,228,
+  `propagated_impulse` 1,222, `cooldown_ongoing` 74, `gain_floor` 4, and
+  `distance` 3. Hot frames submitted at most 7 voices; the initial striker/ragdoll
+  impact at frame 20 submitted 3 heavy hits.
+- [x] Phase 0 baseline trace and counts.
 - [ ] Phase 1 contact fact upgrade.
 - [ ] Phase 2 classifier and rejection reasons. Partial: local classifier reasons
   above are implemented; remaining work is explicit heavy-landing/support-kind
   reporting, rejection counters by reason, and acceptance-scene proof.
 - [ ] Phase 3 reducer and perceptual budget. Partial: patch merge, deterministic
-  ranking, global burst cap, and per-body budget are implemented; remaining work
-  is cluster budgeting and 200-box emitted-count proof.
+  ranking, global burst cap, and per-body budget are implemented; the 200-brick
+  proof shows 191 submitted voices from 205,287 verdict rows, with hot frames
+  capped to at most 7 submitted voices. Remaining work is cluster budgeting and
+  deciding whether `candidate_cap` should become a clearer named domain budget.
 - [ ] Phase 4 SkullScope contact-audio queries. Partial: bounded query commands,
   regression coverage, and reference docs are implemented for verdict events;
   remaining work is a compact raw-fact/merge aggregate row if strict raw fact and
