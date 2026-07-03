@@ -146,6 +146,11 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "Pass WorldEnvironmentSettings and other owner-specific settings instead of a catch-all runtime snapshot.",
     ),
     (
+        "IRenderSceneView",
+        re.compile(r"\bIRenderSceneView\b"),
+        "Render passes should consume concrete render/model data paths, not a one-implementation migration interface.",
+    ),
+    (
         "PhysicsModelAccess raw model range facade",
         re.compile(
             r"\b(?:PhysicsModelMutableRange|PhysicsModelConstRange|BorrowMutableModels)\b"
@@ -6027,6 +6032,7 @@ def run_self_tests() -> list[str]:
     struct GameModelRuntimePhysicsTuning {};
     int legacyModelIndex = 0;
     RuntimeConfigSnapshot snapshot;
+    class GameModelCollection : public Rendering::IRenderSceneView {};
     PhysicsModelMutableRange mutableRange;
     PhysicsModelConstRange constRange;
     auto* mutableModels = modelAccess.MutableModelData();
@@ -6046,8 +6052,20 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("deleted migration artifact synthetic surface was not rejected")
 
+    deleted_render_scene_view_text = """
+    class GameModelCollection : public Rendering::IRenderSceneView {};
+    """
+    if not any(
+        error.message == "deleted migration artifact is blocked: IRenderSceneView"
+        for error in check_deleted_migration_artifact_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
+            deleted_render_scene_view_text,
+        )
+    ):
+        failures.append("deleted IRenderSceneView synthetic surface was not rejected")
+
     commented_deleted_migration_artifact_text = """
-    // GameModelRuntimePhysicsTuning, legacyModelIndex, and RuntimeConfigSnapshot are migration notes only.
+    // GameModelRuntimePhysicsTuning, legacyModelIndex, RuntimeConfigSnapshot, and IRenderSceneView are migration notes only.
     // PhysicsModelMutableRange, MutableModelData(), and modelAccess.Models() are notes only.
     // PhysicsBodyWritebackSink and PhysicsBodyEventSink are deleted migration notes only.
     /*

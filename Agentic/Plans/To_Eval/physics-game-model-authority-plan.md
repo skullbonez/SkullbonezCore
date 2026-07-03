@@ -93,7 +93,11 @@ Inventory checklist:
 - [ ] List all places that read or mutate physics body pose, velocity, mass, inertia, sleep, force, and impulse state.
 - [ ] List all places that read or mutate collider shape, material, filtering, and bounds state.
 - [ ] List all places that use model indices for physics commands, replay, editor selection, scene persistence, or diagnostics.
-- [ ] List all rendering callers that still read renderable state through `GameModelCollection` or `IRenderSceneView`.
+- [x] 2026-07-04: Listed all remaining runtime render callers that went through
+  `IRenderSceneView`; they were confined to `RenderFrameContext`,
+  `ShadowPass`, `ReflectionPass`, `ObjectPass`, and `DebugOverlayPass`.
+  `GameModelCollection` is still the concrete legacy render projection until
+  `RenderInstanceStore` becomes authoritative.
 - [ ] Record the inventory in a short handoff note under `Agentic/Reports/` if the slice is not completed in one sitting.
 
 ## Required First Track - Bootstrap Handles, Then Delete `MakePhysicsModelView()`
@@ -277,14 +281,19 @@ Do-not-miss checklist:
 
 Rendering should consume render projection stores, not production physics/game-object containers.
 
-- [ ] Identify all production render paths that consume `GameModelCollection` or `IRenderSceneView`.
+- [x] 2026-07-04: Identified the production render paths that consumed
+  `IRenderSceneView`; the inheritance/interface was deleted and the remaining
+  production debt is direct `GameModelCollection` render projection use.
 - [ ] Make `RenderInstanceStore` the authoritative owner of visible render instance records.
 - [ ] Add or reuse an update path that projects final body/entity transforms into render instances after simulation.
 - [ ] Route render material, mesh, visibility, and transform updates through render instance handles.
 - [ ] Migrate the main runtime renderer to consume `RenderInstanceStore` directly.
 - [ ] Migrate shadow, reflection, debug, terrain/object, and DXR paths only when their dependencies are understood.
 - [ ] Keep editor-only wrappers separate from production render submission.
-- [ ] Remove `GameModelCollection : Rendering::IRenderSceneView` only after all production render callers migrate.
+- [x] 2026-07-04: Removed `GameModelCollection : Rendering::IRenderSceneView`
+  and deleted the one-implementation migration interface. Production rendering
+  still reads the concrete collection, so full `RenderInstanceStore` migration
+  remains open above.
 
 Do-not-miss checklist:
 
@@ -331,7 +340,8 @@ Only remove compatibility after callers have moved and validation has covered th
     post-solve application step. Full deletion is still pending final reader
     migration.
 - [ ] Delete compatibility collider fields from `GameModel` after final reader migrates.
-- [ ] Delete production render reliance on `GameModelCollection` after render callers migrate.
+- [ ] Delete production render reliance on concrete `GameModelCollection` after
+  render callers migrate to `RenderInstanceStore`.
 - [ ] Remove temporary allowlists that permitted compatibility reads or writes.
 - [x] Add search guardrails for banned production calls, including `MakePhysicsModelView`, `PhysicsModelView`, and any remaining direct production `GameModelCollection::PhysicsModels()` usage.
   - [x] 2026-07-03 added a guardrail that rejects model/event/world callback
@@ -348,7 +358,7 @@ Searches to run before declaring compatibility gone:
 - [x] `rg "MakePhysicsModelView" SkullbonezSource`
 - [x] `rg "PhysicsModels\(" SkullbonezSource`
 - [x] `rg "PhysicsModelView" SkullbonezSource`
-- [ ] `rg "GameModelCollection.*IRenderSceneView|IRenderSceneView" SkullbonezSource`
+- [x] `rg "GameModelCollection.*IRenderSceneView|IRenderSceneView" SkullbonezSource`
 - [ ] `rg "GetModelAtIndex|model index|modelIndex|ModelIndex" SkullbonezSource`
 - [ ] `rg "GameModel" SkullbonezSource/Physics SkullbonezSource/Runtime SkullbonezSource/Rendering`
 
@@ -359,10 +369,17 @@ Repository validation scripts are PR/commit gates. Do not run them repeatedly wh
 - [ ] Documentation-only changes: no repository validation required.
 - [x] Body, collider, solver, command buffer, or physics determinism changes: run `tools\validate_physics.bat` before PR-bound commit.
 - [ ] Broad physics diagnostics, SkullScope baselines, query baselines, or deep fixture changes: run `tools\validate_physics_deep.bat`.
-- [ ] Render projection or render instance behavior changes: run `tools\validate_dx12_renderer.bat`.
+- [x] Render projection or render instance behavior changes: run `tools\validate_dx12_renderer.bat`.
+  - [x] 2026-07-04 `tools\validate_dx12_renderer.bat` passed; log mirrored to
+    `TestOutput\agent_validate_dx12_renderer_render_scene_view.log`, DX12
+    InfoQueue errors were 0, and screenshots matched committed baselines.
 - [x] Storage/hot-loop changes that may affect per-frame allocations or broadphase cost: run `tools\validate_perf.bat`.
 - [ ] Runtime lifecycle, scene/replay, or mixed broad-scope changes: run `tools\validate_full.bat`.
 - [x] Tooling script changes: run `tools\validate_fast.bat`, then run the changed script.
+  - [x] 2026-07-04 `tools\validate_fast.bat` passed; log mirrored to
+    `TestOutput\agent_validate_fast_render_scene_view.log`. The changed
+    `tools\check_runtime_boundaries.py --repo .` checker also passed with 0
+    errors in `TestOutput\agent_runtime_boundaries_render_scene_view.log`.
 - [ ] If unsure at PR gate: run `tools\agent_validate.bat`.
 
 Validation evidence checklist:
@@ -372,7 +389,7 @@ Validation evidence checklist:
 - [x] Capture the log path if output is mirrored to a file.
 - [x] Confirm zero warnings for builds.
 - [x] Confirm physics CSV byte-exact match when physics validation is required.
-- [ ] Confirm zero DX12 validation errors when renderer validation is required.
+- [x] Confirm zero DX12 validation errors when renderer validation is required.
 - [ ] Report any skipped required validation as an explicit blocker, not as success.
 
 ## Final Acceptance Checklist

@@ -383,7 +383,7 @@ and use the validation map in `AGENTS.md`.
 - [x] `SkullbonezSource/Rendering/RenderPipeline.cpp`
 - [x] `SkullbonezSource/Rendering/RenderPipeline.h`
 - [x] `SkullbonezSource/Rendering/RenderSceneSnapshot.h`
-- [x] `SkullbonezSource/Rendering/RenderSceneView.h`
+- [x] `SkullbonezSource/Rendering/RenderSceneView.h` (deleted 2026-07-04 with the one-implementation render-view artifact)
 - [x] `SkullbonezSource/Rendering/ShaderContracts.h`
 - [x] `SkullbonezSource/Rendering/Shadow.h`
 - [x] `SkullbonezSource/Rendering/Text.cpp`

@@ -380,12 +380,6 @@ void GameModelCollection::PrepareRenderStreams()
 }
 
 
-int GameModelCollection::GetRenderModelCount() const
-{
-    return GetModelCount();
-}
-
-
 int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount )
 {
     if ( !outMatrixFloats || maxModelCount <= 0 )

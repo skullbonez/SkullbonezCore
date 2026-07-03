@@ -47,10 +47,12 @@ GameModelCollection
 - `SkullbonezSource/GameObjects/GameModelCollection.h` stores
   `std::vector<GameModel> m_gameModels` and a `Physics::PhysicsEngine` in the
   same class.
-- `GameModelCollection` implements `Rendering::IRenderSceneView` while also
-  exposing `RunPhysics`, physics body/collider/render stores, scene snapshots,
-  sleep/debug diagnostics, point joints, tornado settings, and replay snapshot
-  restore.
+- 2026-07-04 update: `GameModelCollection` no longer implements
+  `Rendering::IRenderSceneView`; the deleted interface was a one-implementation
+  migration artifact. It still exposes `RunPhysics`, physics
+  body/collider/render stores, scene snapshots, sleep/debug diagnostics, point
+  joints, tornado settings, replay snapshot restore, and concrete legacy render
+  projection calls.
 - `SkullbonezSource/GameObjects/GameModel.h` combines collision shape,
   `RigidBody`, borrowed world/terrain pointers, terrain response mailbox,
   render tint/material, fixed-contact behavior, replay id, and collection
@@ -168,8 +170,9 @@ Tasks:
    material, visibility, instance kind, and shadow participation.
 2. Have scene setup and replay restore update render instances through explicit
    APIs.
-3. Update `GameModelRenderer` and `IRenderSceneView` usage so production render
-   paths read `RenderInstanceStore` instead of `std::vector<GameModel>`.
+3. Update `GameModelRenderer` and the remaining concrete
+   `GameModelCollection` render calls so production render paths read
+   `RenderInstanceStore` instead of `std::vector<GameModel>`.
 4. Keep collision/debug overlays using physics/collider views, not render
    instance internals.
 5. Make replay render pose override/restore operate through body/render handles.

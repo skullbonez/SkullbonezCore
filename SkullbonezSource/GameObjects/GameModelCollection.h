@@ -47,7 +47,6 @@ Related:
 #include "../Maths/Matrix4.h"
 #include "../Physics/PhysicsEngine.h"
 #include "../Physics/PhysicsModelAccess.h"
-#include "../Rendering/RenderSceneView.h"
 #include "../Rendering/Shadow.h"
 #include "../Maths/Vector3.h"
 
@@ -55,13 +54,31 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+struct CinematicRenderConfig;
 class EngineConfig;
 struct MainMemoryGameObjectStats;
+struct RenderHelperContext;
 } // namespace Basics
+
+namespace Assets
+{
+class AssetSystem;
+}
 
 namespace Environment
 {
 class WorldEnvironment;
+}
+
+namespace Physics
+{
+class CollisionVisualizer;
+class PhysicsDebugVisualizer;
+} // namespace Physics
+
+namespace Rendering
+{
+class IRenderResourceFactory;
 }
 
 namespace Threading
@@ -82,7 +99,7 @@ class GameModelCollectionPhysicsAdapter;
     dedicated collaborators. Some runtime tools still use model-indexed calls
     because scene files, replay streams, and editor picks preserve model order.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class GameModelCollection : public Rendering::IRenderSceneView
+class GameModelCollection
 {
     // Why: the adapter is the named model-order boundary while old callers
     // migrate from model indices to durable physics handles.
@@ -119,8 +136,7 @@ class GameModelCollection : public Rendering::IRenderSceneView
                      const Basics::EngineConfig& config,
                      const Physics::PhysicsWorldForces& worldForces,
                      Threading::WorkerPool& workerPool );
-    int GetRenderModelCount() const override;
-    int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount ) override;
+    int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount );
     void RenderModels( const Basics::RenderHelperContext& helperContext,
                        const Math::Transformation::Matrix4& view,
                        const Math::Transformation::Matrix4& proj,
@@ -129,23 +145,23 @@ class GameModelCollection : public Rendering::IRenderSceneView
                        const Rendering::ShadowFrameData* shadow = nullptr,
                        float materialAlpha = 1.0f,
                        const std::vector<uint8_t>* modelMask = nullptr,
-                       bool drawMaskedModels = true ) override;
-    void BuildShadowCasterBatches( Rendering::ShadowCasterBatches& outBatches ) override;
+                       bool drawMaskedModels = true );
+    void BuildShadowCasterBatches( Rendering::ShadowCasterBatches& outBatches );
     void RenderShadowCasterBatches( const Basics::RenderHelperContext& helperContext,
                                     const Rendering::ShadowCasterBatches& batches,
                                     const Math::Transformation::Matrix4& view,
                                     const Math::Transformation::Matrix4& proj,
-                                    const Basics::CinematicRenderConfig* cinematic = nullptr ) override;
+                                    const Basics::CinematicRenderConfig* cinematic = nullptr );
     void RenderShadowCasters( const Basics::RenderHelperContext& helperContext,
                               const Math::Transformation::Matrix4& view,
                               const Math::Transformation::Matrix4& proj,
-                              const Basics::CinematicRenderConfig* cinematic = nullptr ) override;
+                              const Basics::CinematicRenderConfig* cinematic = nullptr );
     void PrepareRenderStreams();
     bool GetObjectShadowBounds( const Math::Vector::Vector3& focus,
                                 float maxDistance,
                                 Math::Vector::Vector3& outCenter,
                                 float& outRadius,
-                                float& outHeightRange ) override;
+                                float& outHeightRange );
     void ResetRenderResources();
     bool SaveSceneSnapshot( const char* path,
                             bool physicsOn,
@@ -264,11 +280,11 @@ class GameModelCollection : public Rendering::IRenderSceneView
                                      const Math::Transformation::Matrix4& view,
                                      const Math::Transformation::Matrix4& proj,
                                      const float lightPos[4],
-                                     float alphaOverride ) override;
+                                     float alphaOverride );
     void RenderPhysicsDebug( Physics::PhysicsDebugVisualizer& visualizer,
                              const Math::Transformation::Matrix4& viewProjection,
-                             Geometry::Terrain* terrain ) override;
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj ) override;
+                             Geometry::Terrain* terrain );
+    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const
     {

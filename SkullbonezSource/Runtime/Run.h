@@ -63,7 +63,6 @@ Related:
 #include "../Maths/GeometricMath.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "../World/WorldEnvironment.h"
-#include "../Rendering/RenderSceneView.h"
 #include "../Scene/TestScene.h"
 #include "../Physics/Debug/BroadphaseVisualizer.h"
 #include "../Physics/Debug/CollisionVisualizer.h"
