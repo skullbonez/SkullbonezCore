@@ -76,17 +76,16 @@ class GameModelCollectionPhysicsAdapter;
 --------------------------------------------------------------------------------------------------------------------------------------
 
     Owns the scene's GameModel storage and exposes stable model-facing calls.
-    During the store migration this class remains a compatibility facade:
-    physics, rendering, hot SoA streams, and scene serialization sit behind
-    dedicated collaborators, while older runtime tools still use model-indexed
-    accessors until their APIs are moved.
+    Physics, rendering, hot SoA streams, and scene serialization sit behind
+    dedicated collaborators. Some runtime tools still use model-indexed calls
+    because scene files, replay streams, and editor picks preserve model order.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class GameModelCollection : public Rendering::IRenderSceneView,
                             public Physics::PhysicsModelAccess,
                             public Physics::PhysicsBodyEventSink
 {
-    // Why: the adapter is the named compatibility bridge while old
-    // model-indexed callers migrate to durable physics handles.
+    // Why: the adapter is the named model-order boundary while old callers
+    // migrate from model indices to durable physics handles.
     friend class GameModelCollectionPhysicsAdapter;
 
   private:
@@ -166,8 +165,6 @@ class GameModelCollection : public Rendering::IRenderSceneView,
     Math::Vector::Vector3 GetModelPosition( int index );
     int GetModelCount() const;
     int ModelCount() const override;
-    GameModel* MutableModelData() override;
-    const GameModel* ModelData() const override;
     const std::vector<GameModel>& Models() const;
     // Lifetime: returned model pointers are stable only until collection
     // mutation. Null means the caller held a stale model index.
@@ -220,9 +217,12 @@ class GameModelCollection : public Rendering::IRenderSceneView,
     double GetSceneKineticEnergy();
     GameModelBodyStream GetPhysicsBodyStream() override;
     void InvalidatePhysicsStreams() override;
+    void WriteBackPhysicsBodies( const Physics::PhysicsBodyStore& bodyStore ) override;
     void WriteBackPhysicsBody( const Physics::PhysicsBodyStore& bodyStore, int modelIndex ) override;
-    void ReloadPhysicsBodiesFromCompatibilityModels( Physics::PhysicsBodyStore& bodyStore,
-                                                     const std::vector<uint8_t>& sleepStates ) override;
+    void ReloadPhysicsBodies( Physics::PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates ) override;
+    void RefreshPhysicsColliders( Physics::ColliderStore& colliderStore,
+                                  const Physics::PhysicsBodyStore& bodyStore ) override;
+    void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore ) override;
     Physics::PhysicsBodyEventSink& BodyEvents() override;
     Physics::PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const override;
     void NotifyFixedContact( int modelIndex, float highlightSeconds ) override;

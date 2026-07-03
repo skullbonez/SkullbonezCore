@@ -56,7 +56,6 @@ class GameModel;
 namespace Physics
 {
 class ColliderStore;
-class PhysicsModelMutableRange;
 struct PhysicsWorldForces;
 
 struct PhysicsBodyRecord
@@ -98,14 +97,10 @@ class PhysicsBodyStore
     void Clear();
     void Refresh( std::vector<GameObjects::GameModel>& models, const std::vector<uint8_t>& sleepStates );
     void LoadFromModels( std::vector<GameObjects::GameModel>& models, const std::vector<uint8_t>& sleepStates );
-    void LoadFromModels( PhysicsModelMutableRange models, const std::vector<uint8_t>& sleepStates );
     void ClearPendingImpulses();
     void WriteBackToModels( std::vector<GameObjects::GameModel>& models ) const;
-    void WriteBackToModels( PhysicsModelMutableRange models ) const;
     void WriteBackToModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex ) const;
-    void WriteBackToModelAt( PhysicsModelMutableRange models, int modelIndex ) const;
     void CaptureMutableStateFromModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex );
-    void CaptureMutableStateFromModelAt( PhysicsModelMutableRange models, int modelIndex );
     void CopySleepStatesFrom( const std::vector<uint8_t>& sleepStates );
     void CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) const;
 

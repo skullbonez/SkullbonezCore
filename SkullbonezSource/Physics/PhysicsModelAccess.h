@@ -1,23 +1,22 @@
 /*
 File: SkullbonezSource/Physics/PhysicsModelAccess.h
 Purpose:
-  Defines the temporary compatibility access contract between physics and legacy GameModel storage.
+  Defines the model-owner access contract between physics stores and GameModel storage.
 
 Mental model:
-  Physics is migrating toward authoritative body, collider, and render stores,
-  but several solver paths still need legacy GameModel behavior. This interface
-  names that dependency without constructing a per-call view object or exposing
-  the raw model vector to physics code. Hot loops borrow pointer/count ranges so
-  they can keep direct indexed iteration while the compatibility surface shrinks.
+  Physics hot paths use body, collider, and render stores. GameModelCollection
+  still owns model-order authoring and presentation state. This interface names
+  the commands and queries physics may ask of the model owner without exposing
+  the raw model vector to scene/solver code.
 
 Glossary:
-  Compatibility access: Narrow borrowed interface over legacy GameModel state
-    while authoritative stores take over body, collider, and render ownership.
+  Model-owner access: Narrow command/query interface over GameModelCollection
+    state that physics stores still need for model-order sync.
   Body stream: SoA-backed read-only body data used by hot physics loops.
   SoA (Structure of Arrays): Cache layout that stores each field in a separate
     contiguous array for faster iteration.
-  Model range: Non-owning pointer/count view over the current deterministic
-    compatibility model order.
+  Model-order command: Owner-side operation that applies a body/collider/render
+    store update across the current deterministic model order.
   Physics body event sink: Explicit side-effect boundary for solver-triggered
     gameplay reactions such as fixed-tree release.
   Physics diagnostics view: Borrowed read-only retained solver/debug state used
@@ -27,9 +26,9 @@ Glossary:
 
 Invariants:
   - Implementations own the underlying model storage and SoA cache.
-  - Callers must not keep model ranges or references after the physics operation
-    that requested them.
-  - Mutations performed through compatibility model ranges must explicitly call
+  - Callers must not cache model-owner references after the operation that
+    requested them.
+  - Mutations performed through model-owner commands must explicitly call
     InvalidatePhysicsStreams() before a later stream read can observe stale SoA data.
   - Debug diagnostics records may contain borrowed string pointers that are
     valid only for the current emission pass.
@@ -55,8 +54,14 @@ namespace GameObjects
 class GameModel;
 } // namespace GameObjects
 
+namespace Rendering
+{
+class RenderInstanceStore;
+} // namespace Rendering
+
 namespace Physics
 {
+class ColliderStore;
 class PhysicsBodyStore;
 struct PhysicsDiagnosticsModelRecord;
 struct PhysicsDiagnosticsView;
@@ -80,101 +85,28 @@ class PhysicsBodyEventSink
     virtual void ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event ) = 0;
 };
 
-class PhysicsModelMutableRange
-{
-  public:
-    PhysicsModelMutableRange() = default;
-    PhysicsModelMutableRange( GameObjects::GameModel* models, int count ) : m_models( models ), m_count( count )
-    {
-    }
-
-    std::size_t size() const
-    {
-        return static_cast<std::size_t>( m_count );
-    }
-
-    int Count() const
-    {
-        return m_count;
-    }
-
-    bool empty() const
-    {
-        return m_count == 0;
-    }
-
-    GameObjects::GameModel& operator[]( std::size_t index ) const
-    {
-        return m_models[index];
-    }
-
-    GameObjects::GameModel* data() const
-    {
-        return m_models;
-    }
-
-  private:
-    GameObjects::GameModel* m_models = nullptr;
-    int m_count = 0;
-};
-
-class PhysicsModelConstRange
-{
-  public:
-    PhysicsModelConstRange() = default;
-    PhysicsModelConstRange( const GameObjects::GameModel* models, int count ) : m_models( models ), m_count( count )
-    {
-    }
-
-    std::size_t size() const
-    {
-        return static_cast<std::size_t>( m_count );
-    }
-
-    int Count() const
-    {
-        return m_count;
-    }
-
-    bool empty() const
-    {
-        return m_count == 0;
-    }
-
-    const GameObjects::GameModel& operator[]( std::size_t index ) const
-    {
-        return m_models[index];
-    }
-
-    const GameObjects::GameModel* data() const
-    {
-        return m_models;
-    }
-
-  private:
-    const GameObjects::GameModel* m_models = nullptr;
-    int m_count = 0;
-};
-
 class PhysicsModelAccess
 {
   public:
     virtual ~PhysicsModelAccess() = default;
 
     virtual int ModelCount() const = 0;
-    virtual GameObjects::GameModel* MutableModelData() = 0;
-    virtual const GameObjects::GameModel* ModelData() const = 0;
     virtual GameObjects::GameModelBodyStream GetPhysicsBodyStream() = 0;
     virtual void InvalidatePhysicsStreams() = 0;
-    // Named compatibility sync for legacy GameModel readers that still sit
-    // downstream of store-owned physics mutations. This keeps model-range debt
-    // with the model owner instead of reopening raw ranges in solver code.
+    // Named sync commands for legacy GameModel readers that still sit downstream
+    // of store-owned physics mutations. This keeps model-order work with the
+    // model owner instead of reopening raw ranges in solver code.
+    virtual void WriteBackPhysicsBodies( const PhysicsBodyStore& bodyStore ) = 0;
     virtual void WriteBackPhysicsBody( const PhysicsBodyStore& bodyStore, int modelIndex ) = 0;
-    // Reloads body records after model-owned event sinks mutate compatibility
-    // models, such as fixed-tree release. Callers still own stream invalidation
+    // Reloads body records after model-owned event sinks mutate model state,
+    // such as fixed-tree release. Callers still own stream invalidation
     // when a later SoA read must observe those model writes.
-    virtual void ReloadPhysicsBodiesFromCompatibilityModels( PhysicsBodyStore& bodyStore,
-                                                             const std::vector<uint8_t>& sleepStates ) = 0;
+    virtual void ReloadPhysicsBodies( PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates ) = 0;
+    // Store refreshes still read model-owned authoring/presentation state. Keep
+    // that access with the model owner until those stores have their own
+    // construction-time inputs.
+    virtual void RefreshPhysicsColliders( ColliderStore& colliderStore, const PhysicsBodyStore& bodyStore ) = 0;
+    virtual void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore ) = 0;
     virtual PhysicsBodyEventSink& BodyEvents() = 0;
     virtual PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const = 0;
 #ifdef _DEBUG
@@ -183,16 +115,6 @@ class PhysicsModelAccess
     // False means the requested index is outside the dense model order.
     virtual bool TryGetPhysicsDiagnosticsModel( int index, PhysicsDiagnosticsModelRecord& outRecord ) const = 0;
 #endif
-
-    PhysicsModelMutableRange Models()
-    {
-        return PhysicsModelMutableRange( MutableModelData(), ModelCount() );
-    }
-
-    PhysicsModelConstRange Models() const
-    {
-        return PhysicsModelConstRange( ModelData(), ModelCount() );
-    }
 
     std::size_t size() const
     {

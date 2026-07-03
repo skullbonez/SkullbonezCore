@@ -455,18 +455,6 @@ int GameModelCollection::ModelCount() const
 }
 
 
-GameModel* GameModelCollection::MutableModelData()
-{
-    return m_gameModels.data();
-}
-
-
-const GameModel* GameModelCollection::ModelData() const
-{
-    return m_gameModels.data();
-}
-
-
 const std::vector<GameModel>& GameModelCollection::Models() const
 {
     return m_gameModels;
@@ -791,6 +779,12 @@ void GameModelCollection::InvalidatePhysicsStreams()
 }
 
 
+void GameModelCollection::WriteBackPhysicsBodies( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
+{
+    bodyStore.WriteBackToModels( m_gameModels );
+}
+
+
 void GameModelCollection::WriteBackPhysicsBody( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
                                                 int modelIndex )
 {
@@ -798,11 +792,23 @@ void GameModelCollection::WriteBackPhysicsBody( const SkullbonezCore::Physics::P
 }
 
 
-void GameModelCollection::ReloadPhysicsBodiesFromCompatibilityModels(
-    SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
-    const std::vector<uint8_t>& sleepStates )
+void GameModelCollection::ReloadPhysicsBodies( SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
+                                               const std::vector<uint8_t>& sleepStates )
 {
     bodyStore.LoadFromModels( m_gameModels, sleepStates );
+}
+
+
+void GameModelCollection::RefreshPhysicsColliders( SkullbonezCore::Physics::ColliderStore& colliderStore,
+                                                   const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
+{
+    colliderStore.Refresh( m_gameModels, bodyStore );
+}
+
+
+void GameModelCollection::RefreshRenderInstances( SkullbonezCore::Rendering::RenderInstanceStore& renderInstanceStore )
+{
+    renderInstanceStore.Refresh( m_gameModels );
 }
 
 

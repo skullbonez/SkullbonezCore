@@ -1100,46 +1100,6 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std
 }
 
 
-void PhysicsBodyStore::LoadFromModels( PhysicsModelMutableRange models, const std::vector<uint8_t>& sleepStates )
-{
-    const int modelCount = models.Count();
-    const std::vector<PreservedRefreshState> preservedStateByHandle =
-        CapturePreservedRefreshState( m_bodies, m_handleGenerations.size() );
-    std::vector<uint8_t> assignedHandleSlots( m_handleGenerations.size(), 0 );
-    m_bodies.resize( static_cast<std::size_t>( modelCount ) );
-    m_modelBodyHandles.resize( static_cast<std::size_t>( modelCount ) );
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        GameModel& model = models[static_cast<std::size_t>( i )];
-        PhysicsBodyRecord& record = m_bodies[static_cast<std::size_t>( i )];
-        const uint32_t replayBodyId = model.GetReplayBodyId();
-        const PhysicsBodyHandle handle = ResolveHandleForModelIndex( i, replayBodyId, assignedHandleSlots );
-        const PreservedRefreshState* preservedState = PreservedStateForHandle( preservedStateByHandle, handle );
-        record.handle = handle;
-        record.replayBodyId = replayBodyId;
-        record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
-        CaptureMutableBodyState( model, record );
-        if ( preservedState && preservedState->hasPendingImpulse )
-        {
-            record.pendingImpulse = preservedState->pendingImpulse;
-            record.pendingImpulseApplicationPoint = preservedState->pendingImpulseApplicationPoint;
-            record.hasPendingImpulse = true;
-        }
-        else
-        {
-            record.pendingImpulse = ZERO_VECTOR;
-            record.pendingImpulseApplicationPoint = ZERO_VECTOR;
-            record.hasPendingImpulse = false;
-        }
-        record.isSleeping =
-            ( preservedState && preservedState->isSleeping ) ||
-            ( i < static_cast<int>( sleepStates.size() ) && sleepStates[static_cast<std::size_t>( i )] != 0 );
-        m_modelBodyHandles[static_cast<std::size_t>( i )] = record.handle;
-    }
-    RetireUnassignedHandles( assignedHandleSlots );
-}
-
-
 void PhysicsBodyStore::ClearPendingImpulses()
 {
     for ( PhysicsBodyRecord& record : m_bodies )
@@ -1161,16 +1121,6 @@ void PhysicsBodyStore::WriteBackToModels( std::vector<GameModel>& models ) const
 }
 
 
-void PhysicsBodyStore::WriteBackToModels( PhysicsModelMutableRange models ) const
-{
-    const int modelCount = (std::min)( models.Count(), Count() );
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        WriteBackToModelAt( models, i );
-    }
-}
-
-
 void PhysicsBodyStore::WriteBackToModelAt( std::vector<GameModel>& models, int modelIndex ) const
 {
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) ||
@@ -1184,34 +1134,10 @@ void PhysicsBodyStore::WriteBackToModelAt( std::vector<GameModel>& models, int m
 }
 
 
-void PhysicsBodyStore::WriteBackToModelAt( PhysicsModelMutableRange models, int modelIndex ) const
-{
-    if ( modelIndex < 0 || modelIndex >= models.Count() || modelIndex >= static_cast<int>( m_bodies.size() ) )
-    {
-        return;
-    }
-
-    WriteRecordToCompatibilityModel( m_bodies[static_cast<std::size_t>( modelIndex )],
-                                     models[static_cast<std::size_t>( modelIndex )] );
-}
-
-
 void PhysicsBodyStore::CaptureMutableStateFromModelAt( std::vector<GameModel>& models, int modelIndex )
 {
     PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
     if ( !record || modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) )
-    {
-        return;
-    }
-
-    CaptureMutableBodyState( models[static_cast<std::size_t>( modelIndex )], *record );
-}
-
-
-void PhysicsBodyStore::CaptureMutableStateFromModelAt( PhysicsModelMutableRange models, int modelIndex )
-{
-    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
-    if ( !record || modelIndex < 0 || modelIndex >= models.Count() )
     {
         return;
     }

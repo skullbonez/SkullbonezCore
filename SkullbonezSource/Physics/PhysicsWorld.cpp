@@ -1099,7 +1099,7 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
     }
     if ( releasedFixedParts )
     {
-        modelAccess.ReloadPhysicsBodiesFromCompatibilityModels( bodyStore, m_sleepState );
+        modelAccess.ReloadPhysicsBodies( bodyStore, m_sleepState );
         modelAccess.InvalidatePhysicsStreams();
     }
 
