@@ -84,6 +84,22 @@ RUNTIME_RENDER_PASS_CAPABILITY_SOURCES = (
     Path("SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h"),
     Path("SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h"),
 )
+PHYSICS_HOT_PATH_INHERITANCE_SOURCES = (
+    PHYSICS_ROOT / "PhysicsWorld.h",
+    PHYSICS_ROOT / "PhysicsWorld.cpp",
+    PHYSICS_ROOT / "PersistentContactSolver.h",
+    PHYSICS_ROOT / "PersistentContactSolver.cpp",
+    PHYSICS_ROOT / "PhysicsBodyStore.h",
+    PHYSICS_ROOT / "PhysicsBodyStore.cpp",
+    PHYSICS_ROOT / "ColliderStore.h",
+    PHYSICS_ROOT / "ColliderStore.cpp",
+    PHYSICS_ROOT / "SimulationSystem.h",
+    PHYSICS_ROOT / "SimulationSystem.cpp",
+    PHYSICS_ROOT / "SleepIslandSystem.h",
+    PHYSICS_ROOT / "SleepIslandSystem.cpp",
+    PHYSICS_ROOT / "Ragdoll.h",
+    PHYSICS_ROOT / "Ragdoll.cpp",
+)
 FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
@@ -101,6 +117,10 @@ PERSISTENT_CONTACT_SOLVER_CONTEXT_PATTERN = re.compile(
 # context must not regain model/event/world callback references.
 PERSISTENT_SOLVER_CALLBACK_BOUNDARY_PATTERN = re.compile(
     r"\b(?:PhysicsModelAccess|PhysicsBodyEventSink|PhysicsBodyWritebackSink|PhysicsWorld)\s*&\s*[A-Za-z_]\w*\s*;"
+)
+HOT_PATH_INHERITANCE_PATTERN = re.compile(
+    r"^\s*(?:class|struct)\s+[A-Za-z_]\w*[^{;\n]*:\s*(?:public|protected|private)\b",
+    re.M,
 )
 DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
     (
@@ -1670,6 +1690,29 @@ def check_persistent_solver_context_model_access_guardrails_text(path: Path, tex
 def check_persistent_solver_context_model_access_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / PHYSICS_ROOT / "PhysicsWorld.h"
     return check_persistent_solver_context_model_access_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_physics_hot_path_inheritance_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in HOT_PATH_INHERITANCE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "physics hot-path inheritance is blocked",
+                "Use compact store arrays, value structs, and explicit post-pass side-effect buffers unless a plan approves a stable runtime-polymorphic boundary.",
+            )
+        )
+    return errors
+
+
+def check_physics_hot_path_inheritance_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in PHYSICS_HOT_PATH_INHERITANCE_SOURCES:
+        path = repo / relative_path
+        errors.extend(check_physics_hot_path_inheritance_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_physics_models_access_guardrails_text(
@@ -6018,6 +6061,50 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only persistent solver broad model access synthetic text was rejected")
 
+    allowed_physics_hot_path_values = """
+    struct SolverBodyState
+    {
+        float invMass = 0.0f;
+    };
+    class PersistentContactSolver
+    {
+      public:
+        void Solve();
+    };
+    """
+    if check_physics_hot_path_inheritance_guardrails_text(
+        Path("SkullbonezSource/Physics/PersistentContactSolver.h"),
+        allowed_physics_hot_path_values,
+    ):
+        failures.append("allowed physics hot-path value types synthetic surface was rejected")
+
+    old_physics_hot_path_inheritance = """
+    class SolverSideEffectSink : public PhysicsBodyEventSink
+    {
+    };
+    """
+    if not any(
+        error.message == "physics hot-path inheritance is blocked"
+        for error in check_physics_hot_path_inheritance_guardrails_text(
+            Path("SkullbonezSource/Physics/PersistentContactSolver.h"),
+            old_physics_hot_path_inheritance,
+        )
+    ):
+        failures.append("physics hot-path inheritance synthetic surface was not rejected")
+
+    commented_physics_hot_path_inheritance = """
+    // class SolverSideEffectSink : public PhysicsBodyEventSink is a deleted migration note only.
+    struct PersistentContactSolverSideEffects
+    {
+        int count = 0;
+    };
+    """
+    if check_physics_hot_path_inheritance_guardrails_text(
+        Path("SkullbonezSource/Physics/PersistentContactSolver.h"),
+        commented_physics_hot_path_inheritance,
+    ):
+        failures.append("comment-only physics hot-path inheritance synthetic text was rejected")
+
     compatibility_physics_models_text = (
         "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = "
         "m_cGameModelCollection.MutablePhysicsModelsForCompatibility();"
@@ -6289,6 +6376,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_deleted_migration_artifact_guardrails(repo))
     errors.extend(check_deleted_physics_model_view_guardrails(repo))
     errors.extend(check_persistent_solver_context_model_access_guardrails(repo))
+    errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_models_access_guardrails(repo))
     errors.extend(check_named_physics_models_compat_access_guardrails(repo))
     errors.extend(check_direct_gfx_raytracing_guardrails(repo))
