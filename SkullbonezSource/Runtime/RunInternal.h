@@ -126,9 +126,9 @@ inline bool ReplayModelIsRagdollTorso( const GameModel& model )
     return ReplayModelIsRagdollPart( model ) && model.GetRuntimeCollectionPartIndex() == 0;
 }
 
-inline void DrawUITestPattern( int screenW, int screenH )
+inline void DrawUITestPattern( Rendering::IRenderCommandContext& renderCommands, int screenW, int screenH )
 {
-    const UI::UIDrawContext draw( screenW, screenH );
+    const UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands );
     draw.Rect( 0.0f, 0.0f, static_cast<float>( screenW ), static_cast<float>( screenH ), 0.20f, 0.31f, 0.36f, 1.0f );
 
     constexpr float tile = 88.0f;
@@ -156,7 +156,7 @@ inline void DrawUITestPattern( int screenW, int screenH )
     draw.Rect( 76.0f, 116.0f, 720.0f, 8.0f, 0.98f, 0.12f, 0.46f, 0.82f );
     draw.Rect( 76.0f, 300.0f, 720.0f, 8.0f, 0.30f, 1.0f, 0.56f, 0.78f );
     draw.Rect( 76.0f, 484.0f, 720.0f, 8.0f, 0.38f, 0.54f, 1.0f, 0.82f );
-    Text::Text2d::FlushQuads();
+    Text::Text2d::FlushQuads( renderCommands );
 }
 
 inline int RuntimeWindowScreenWidth( const RunSubsystemState& systems, const EngineConfig& config )

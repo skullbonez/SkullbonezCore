@@ -322,7 +322,7 @@ class RuntimeRenderHost
         return m_runtimeTools.LauncherFireModeLabel();
     }
 
-    void RenderReplayScrubberOverlay() const;
+    void RenderReplayScrubberOverlay( const UI::UIRenderContext& uiRender ) const;
 
     int CurrentSceneBrowserIndex() const;
 
@@ -376,8 +376,9 @@ class RuntimeRenderHost
     DiagnosticsRuntime& m_diagnosticsRuntime;
 
   private:
-    ReplayOverlay::ReplayOverlayRenderContext BuildReplayOverlayRenderContext() const;
-    void RenderReplayCauseTreeOverlay() const;
+    ReplayOverlay::ReplayOverlayRenderContext
+    BuildReplayOverlayRenderContext( const UI::UIRenderContext& uiRender ) const;
+    void RenderReplayCauseTreeOverlay( const UI::UIRenderContext& uiRender ) const;
 
     RuntimeRenderHostCallbacks m_callbacks;
 };

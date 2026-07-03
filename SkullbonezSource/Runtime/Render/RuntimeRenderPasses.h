@@ -583,8 +583,11 @@ class UiTextPass
     {
     }
 
-    void EnsureGpuResources();
-    void ReleaseGpuResources();
+    void EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources,
+                             const Assets::AssetSystem& assets,
+                             int screenW,
+                             int screenH );
+    void ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources );
     bool ShouldRender() const;
     void Render( const UiTextPassInputs& inputs );
 

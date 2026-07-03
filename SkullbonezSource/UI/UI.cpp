@@ -434,18 +434,23 @@ uint32_t BuildUIInteractionSignature( int mouseX,
 }
 
 
-void FlushUIDrawList( const UIDrawList& drawList, int screenW, int screenH, float offsetX = 0.0f, float offsetY = 0.0f )
+void FlushUIDrawList( const UIDrawList& drawList,
+                      IRenderCommandContext& renderCommands,
+                      int screenW,
+                      int screenH,
+                      float offsetX = 0.0f,
+                      float offsetY = 0.0f )
 {
     PROFILE_GPU_BEGIN( "Frame/UI/Draw" );
-    const UIDrawContext immediateDraw( screenW, screenH );
+    const UIDrawContext immediateDraw( screenW, screenH, nullptr, &renderCommands );
     drawList.Flush( immediateDraw, offsetX, offsetY );
     {
         DRAW_CALL_TRACE_SCOPE( "Widgets" );
-        Text2d::FlushQuads();
+        Text2d::FlushQuads( renderCommands );
     }
     {
         DRAW_CALL_TRACE_SCOPE( "Text" );
-        Text2d::FlushText();
+        Text2d::FlushText( renderCommands );
     }
     PROFILE_GPU_END( "Frame/UI/Draw" );
 }
@@ -2455,6 +2460,8 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
 
     const int screenW = (std::max)( 1, data.screenW );
     const int screenH = (std::max)( 1, data.screenH );
+    assert( render.IsReady() );
+    IRenderCommandContext& renderCommands = *render.commands;
     m_lastScreenW = screenW;
     m_lastScreenH = screenH;
     m_lastModelCapacity = std::clamp( data.modelCapacity, 1, MAX_GAME_MODELS );
@@ -2479,7 +2486,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         m_histogramDrawList.Clear();
         const UIDrawContext histogramDraw( screenW, screenH, &m_histogramDrawList );
         ProfilerTab::DrawPerformanceHistogram( m_profilerTab, histogramDraw, data );
-        FlushUIDrawList( m_histogramDrawList, screenW, screenH );
+        FlushUIDrawList( m_histogramDrawList, renderCommands, screenW, screenH );
     };
 
     if ( histogramEnabled )
@@ -2505,7 +2512,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
             if ( m_window.animationActive )
             {
                 Chrome::DrawWindowAnimationShell( draw, animBounds );
-                FlushUIDrawList( drawList, screenW, screenH );
+                FlushUIDrawList( drawList, renderCommands, screenW, screenH );
                 drawHistogramOverlay();
                 return;
             }
@@ -2570,7 +2577,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                                     cameraModeDisabledMask );
         }
         DrawEditorObjectCounter( draw, data, screenW, screenH );
-        FlushUIDrawList( drawList, screenW, screenH );
+        FlushUIDrawList( drawList, renderCommands, screenW, screenH );
         drawHistogramOverlay();
         return;
     }
@@ -2639,7 +2646,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     {
         const float replayOffsetX = m_cache.ReplayOffsetX( cacheKey );
         const float replayOffsetY = m_cache.ReplayOffsetY( cacheKey );
-        FlushUIDrawList( m_cache.DrawList(), screenW, screenH, replayOffsetX, replayOffsetY );
+        FlushUIDrawList( m_cache.DrawList(), renderCommands, screenW, screenH, replayOffsetX, replayOffsetY );
         drawHistogramOverlay();
         m_cache.StoreFrame( cacheKey );
         return;
@@ -2651,7 +2658,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     PROFILE_BEGIN( "Frame/UI/DrawBuild" );
 
     const UIRect blurBounds = { x, y, w, h };
-    Text2d::FlushQuads();
+    Text2d::FlushQuads( renderCommands );
     PROFILE_BEGIN( "Frame/UI/Blur" );
     m_backdropBlur.Draw( draw, blurBounds, screenW, screenH, data.currentFrame, data.now, m_blurPreviewEnabled );
     PROFILE_END( "Frame/UI/Blur" );
@@ -2893,7 +2900,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
 
         if ( selectedAvailable && IsBlockVisible( contentY, contentH, previewImage.y, previewImage.h ) )
         {
-            FlushUIDrawList( drawList, screenW, screenH );
+            FlushUIDrawList( drawList, renderCommands, screenW, screenH );
             drawList.Clear();
             DrawRenderTargetPreviewTexture( m_renderTargetPreviewShader,
                                             m_renderTargetPreviewVB,
@@ -3160,7 +3167,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                        { footerX, by + 16.0f, controlsW, 56.0f } );
 
     PROFILE_END( "Frame/UI/DrawBuild" );
-    FlushUIDrawList( drawList, screenW, screenH );
+    FlushUIDrawList( drawList, renderCommands, screenW, screenH );
     drawHistogramOverlay();
     if ( drawsLiveRenderTargetPreview )
     {

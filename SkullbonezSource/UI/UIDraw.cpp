@@ -44,7 +44,10 @@ bool UIRect::Contains( int px, int py ) const
 }
 
 
-UIDrawContext::UIDrawContext( int screenW, int screenH, UIDrawList* drawList )
+UIDrawContext::UIDrawContext( int screenW,
+                              int screenH,
+                              UIDrawList* drawList,
+                              Rendering::IRenderCommandContext* renderCommands )
 {
     screenW = (std::max)( 1, screenW );
     screenH = (std::max)( 1, screenH );
@@ -53,6 +56,7 @@ UIDrawContext::UIDrawContext( int screenW, int screenH, UIDrawList* drawList )
     m_sx = ( m_hw * 2.0f ) / static_cast<float>( screenW );
     m_sy = ( m_hh * 2.0f ) / static_cast<float>( screenH );
     m_drawList = drawList;
+    m_renderCommands = renderCommands;
 }
 
 
@@ -76,7 +80,8 @@ void UIDrawContext::Rect( float x, float y, float w, float h, float r, float g, 
     {
         y1 = y0 + 1.0f;
     }
-    Text2d::BatchQuad( PixelX( x0 ), PixelY( y1 ), PixelX( x1 ), PixelY( y0 ), r, g, b, a );
+    assert( m_renderCommands && "UIDrawContext immediate Rect requires render commands" );
+    Text2d::BatchQuad( *m_renderCommands, PixelX( x0 ), PixelY( y1 ), PixelX( x1 ), PixelY( y0 ), r, g, b, a );
 }
 
 
@@ -97,7 +102,9 @@ void UIDrawContext::Triangle( float x0,
         return;
     }
 
-    Text2d::BatchTriangle( PixelXUnsnapped( x0 ),
+    assert( m_renderCommands && "UIDrawContext immediate Triangle requires render commands" );
+    Text2d::BatchTriangle( *m_renderCommands,
+                           PixelXUnsnapped( x0 ),
                            PixelYUnsnapped( y0 ),
                            PixelXUnsnapped( x1 ),
                            PixelYUnsnapped( y1 ),
@@ -267,6 +274,30 @@ float UIDrawContext::HalfH() const
 float UIDrawContext::ScaleY() const
 {
     return m_sy;
+}
+
+
+void UIDrawContext::FlushQuads() const
+{
+    if ( m_drawList )
+    {
+        return;
+    }
+
+    assert( m_renderCommands && "UIDrawContext immediate FlushQuads requires render commands" );
+    Text2d::FlushQuads( *m_renderCommands );
+}
+
+
+void UIDrawContext::FlushText() const
+{
+    if ( m_drawList )
+    {
+        return;
+    }
+
+    assert( m_renderCommands && "UIDrawContext immediate FlushText requires render commands" );
+    Text2d::FlushText( *m_renderCommands );
 }
 
 

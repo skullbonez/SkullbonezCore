@@ -74,11 +74,6 @@ class Text2d
     inline static float s_halfW = 0.0f;                                  // current ortho half-width  (right edge X)
     inline static float s_halfH = 0.0f;                                  // current ortho half-height (top edge Y)
 
-    static void BindRenderContexts( Rendering::IRenderResourceFactory& renderResources,
-                                    Rendering::IRenderCommandContext& renderCommands,
-                                    const Assets::AssetSystem& assets,
-                                    const Basics::EngineConfig& config );
-    static void UnbindRenderContexts();
     // Text coordinates are centered on the client rect in legacy frustum units:
     // x/y normally stay within [-0.5, 0.5], fSize is normalized, and the format
     // string accepts printf-style arguments.
@@ -95,8 +90,10 @@ class Text2d
                                    float b,
                                    const char* cRawText,
                                    ... );                                // Queues colored SDF text for this frame's text batch.
-    static void FlushText();                                             // Uploads queued text once so HUD strings stay one draw call.
-    static void Render2dQuad( float x0,
+    static void FlushText( Rendering::IRenderCommandContext&
+                               renderCommands );                         // Uploads queued text once so HUD strings stay one draw call.
+    static void Render2dQuad( Rendering::IRenderCommandContext& renderCommands,
+                              float x0,
                               float y0,
                               float x1,
                               float y1,
@@ -104,7 +101,8 @@ class Text2d
                               float g,
                               float b,
                               float a );                                 // Immediate HUD quad path for legacy call sites.
-    static void BatchQuad( float x0,
+    static void BatchQuad( Rendering::IRenderCommandContext& renderCommands,
+                           float x0,
                            float y0,
                            float x1,
                            float y1,
@@ -112,7 +110,8 @@ class Text2d
                            float g,
                            float b,
                            float a );                                    // Queues a colored quad for the shared HUD batch.
-    static void BatchTriangle( float x0,
+    static void BatchTriangle( Rendering::IRenderCommandContext& renderCommands,
+                               float x0,
                                float y0,
                                float x1,
                                float y1,
@@ -122,11 +121,17 @@ class Text2d
                                float g,
                                float b,
                                float a );                                // Queues a colored triangle in the shared HUD batch.
-    static void FlushQuads();                                            // Uploads queued quads/triangles once for the frame.
-    static void BuildFont( const char* cFontName );                      // Loads or generates SDF atlas resources for the active backend.
+    static void FlushQuads(
+        Rendering::IRenderCommandContext& renderCommands );              // Uploads queued quads/triangles once for the frame.
+    static void BuildFont( Rendering::IRenderResourceFactory& renderResources,
+                           const Assets::AssetSystem& assets,
+                           int screenW,
+                           int screenH,
+                           const char* cFontName );                      // Loads or generates SDF atlas resources for the active backend.
     static bool GenerateSdfAtlasToFile( const char* cFontName,
                                         const char* cOutPath );          // Offline SDF atlas writer used by --gen-atlas tooling.
-    static void DeleteFont();                                            // Releases GPU font resources before backend teardown.
+    static void DeleteFont( Rendering::IRenderResourceFactory*
+                                renderResources );                       // Releases GPU font resources while a backend is still available.
     static void RebuildProjection( int w, int h );                       // Recomputes ortho projection after a window resize
     static float HalfW()
     {

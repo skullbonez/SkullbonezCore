@@ -53,6 +53,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
 {
     PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay" );
     ReplayRuntime& replayRuntime = context.replayRuntime;
+    Rendering::IRenderCommandContext& renderCommands = context.renderCommands;
     // Why: the cause tree is an inspection tool, not a child of the scrubber.
     // Draw it even when the scrubber itself is hidden by UI/editor policy.
     RenderReplayCauseTreeOverlay( context );
@@ -131,7 +132,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
         sprintf_s( timeLabel, sizeof( timeLabel ), "-%.1fs", secondsBack );
     }
 
-    const UI::UIDrawContext draw( screenW, screenH );
+    const UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands );
     const UI::UIRect panel = ReplayScrubberPanelRect( screenW, screenH );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     const UI::Style::UIRadii& radii = UI::Style::Radii();
@@ -463,8 +464,8 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
 
     if ( loadedPresentation )
     {
-        Text2d::FlushQuads();
-        Text2d::FlushText();
+        Text2d::FlushQuads( renderCommands );
+        Text2d::FlushText( renderCommands );
         return;
     }
 
@@ -650,14 +651,15 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                                       : ( ragdollVisualsEnabled ? palette.accentStrong.b : palette.textSecondary.b ),
               "RAGDOLL" );
 
-    Text2d::FlushQuads();
-    Text2d::FlushText();
+    Text2d::FlushQuads( renderCommands );
+    Text2d::FlushText( renderCommands );
 }
 
 void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Overlay" );
     ReplayRuntime& replayRuntime = context.replayRuntime;
+    Rendering::IRenderCommandContext& renderCommands = context.renderCommands;
     const int screenW = context.screenW;
     const int screenH = context.screenH;
     if ( screenW <= 0 || screenH <= 0 || !replayRuntime.BuildCauseTreeRows( context.models ) )
@@ -674,7 +676,7 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
     const UI::UIRect content = ReplayCauseWindowContentRect( replayRuntime.CauseTree() );
     const UI::UIRect resize = ReplayCauseWindowResizeRect( replayRuntime.CauseTree() );
 
-    const UI::UIDrawContext draw( screenW, screenH );
+    const UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     const UI::Style::UIRadii& radii = UI::Style::Radii();
     UI::Style::UIColor panelFill = palette.windowSubtle;
@@ -953,7 +955,7 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
                palette.innerBorder.b,
                0.68f );
 
-    Text2d::FlushQuads();
-    Text2d::FlushText();
+    Text2d::FlushQuads( renderCommands );
+    Text2d::FlushText( renderCommands );
 }
 } // namespace SkullbonezCore::Basics::ReplayOverlay

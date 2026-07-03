@@ -27,6 +27,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Rendering
+{
+class IRenderCommandContext;
+}
+
 namespace UI
 {
 
@@ -50,7 +55,10 @@ class UIDrawList;
 class UIDrawContext
 {
   public:
-    UIDrawContext( int screenW, int screenH, UIDrawList* drawList = nullptr );
+    UIDrawContext( int screenW,
+                   int screenH,
+                   UIDrawList* drawList = nullptr,
+                   Rendering::IRenderCommandContext* renderCommands = nullptr );
 
     void Rect( float x, float y, float w, float h, float r, float g, float b, float a ) const;
     void
@@ -66,6 +74,8 @@ class UIDrawContext
     float HalfW() const;
     float HalfH() const;
     float ScaleY() const;
+    void FlushQuads() const;
+    void FlushText() const;
 
   private:
     static float Snap( float value );
@@ -79,6 +89,9 @@ class UIDrawContext
     float m_sx = 1.0f;
     float m_sy = 1.0f;
     UIDrawList* m_drawList = nullptr;
+    // Lifetime: immediate contexts borrow commands for this draw replay only.
+    // Recording contexts keep this null because they enqueue CPU draw commands.
+    Rendering::IRenderCommandContext* m_renderCommands = nullptr;
 };
 
 } // namespace UI

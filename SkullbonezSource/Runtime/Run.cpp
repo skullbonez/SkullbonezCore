@@ -302,8 +302,6 @@ Run::~Run()
     // without rebuilding; the flush keeps any already-submitted GPU work out of
     // teardown.
     ReleaseBackendOwnedRenderResources( "shutdown_release" );
-
-    Text2d::UnbindRenderContexts();
 }
 
 
@@ -1275,7 +1273,6 @@ void Run::Initialise()
     m_systems.textures = &m_systems.textureCollection;
     m_systems.textures->BindAssetSystem( &m_systems.assets );
     m_systems.textures->BindRenderContexts( &renderResources, &renderCommands );
-    Text2d::BindRenderContexts( renderResources, renderCommands, m_systems.assets, m_config );
     RegisterBuiltInAssets();
 
     // Build renderer-owned resources from source asset records.
@@ -1300,7 +1297,7 @@ void Run::Initialise()
     m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 
     // Init font (HDC, font)
-    m_renderer.EnsureUiTextResources();
+    m_renderer.EnsureUiTextResources( renderResources, m_systems.assets, cfg.window.screenX, cfg.window.screenY );
 
     // Init cameras (shared across scenes, Reset() between loads)
     m_systems.cameras = &m_systems.cameraCollection;

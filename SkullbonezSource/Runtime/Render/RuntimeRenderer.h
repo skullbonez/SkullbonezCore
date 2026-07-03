@@ -49,7 +49,10 @@ class RuntimeRenderer
     void RenderFrame( const RuntimeRenderInputs& renderInputs );
     void ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources );
 
-    void EnsureUiTextResources();
+    void EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
+                                const Assets::AssetSystem& assets,
+                                int screenW,
+                                int screenH );
     bool ShouldRenderUiText() const;
     void SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing );
     void RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,

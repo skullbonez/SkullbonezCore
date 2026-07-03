@@ -141,9 +141,12 @@ const RunSceneState& RuntimeRenderHost::SceneState() const
     return m_sceneController.State();
 }
 
-ReplayOverlay::ReplayOverlayRenderContext RuntimeRenderHost::BuildReplayOverlayRenderContext() const
+ReplayOverlay::ReplayOverlayRenderContext
+RuntimeRenderHost::BuildReplayOverlayRenderContext( const UI::UIRenderContext& uiRender ) const
 {
-    return { m_replayRuntime,
+    assert( uiRender.IsReady() );
+    return { *uiRender.commands,
+             m_replayRuntime,
              m_cGameModelCollection.Models(),
              m_editor.editorModeEnabled,
              m_UI.IsVisible(),
@@ -154,14 +157,14 @@ ReplayOverlay::ReplayOverlayRenderContext RuntimeRenderHost::BuildReplayOverlayR
              m_timers.simulationTimer.GetTotalTime() };
 }
 
-void RuntimeRenderHost::RenderReplayScrubberOverlay() const
+void RuntimeRenderHost::RenderReplayScrubberOverlay( const UI::UIRenderContext& uiRender ) const
 {
-    ReplayOverlay::RenderReplayScrubberOverlay( BuildReplayOverlayRenderContext() );
+    ReplayOverlay::RenderReplayScrubberOverlay( BuildReplayOverlayRenderContext( uiRender ) );
 }
 
-void RuntimeRenderHost::RenderReplayCauseTreeOverlay() const
+void RuntimeRenderHost::RenderReplayCauseTreeOverlay( const UI::UIRenderContext& uiRender ) const
 {
-    ReplayOverlay::RenderReplayCauseTreeOverlay( BuildReplayOverlayRenderContext() );
+    ReplayOverlay::RenderReplayCauseTreeOverlay( BuildReplayOverlayRenderContext( uiRender ) );
 }
 
 int RuntimeRenderHost::CurrentSceneBrowserIndex() const

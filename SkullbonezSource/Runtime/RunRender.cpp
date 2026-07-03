@@ -1366,14 +1366,17 @@ void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::IRenderResourceFa
     m_terrainPass.ReleaseGpuResources();
     m_skyPass.ReleaseGpuResources();
     m_fullscreenQuadPass.ReleaseGpuResources( renderResources );
-    m_uiTextPass.ReleaseGpuResources();
+    m_uiTextPass.ReleaseGpuResources( renderResources );
     m_uiTextRayTracing = nullptr;
 }
 
 
-void RuntimeRenderer::EnsureUiTextResources()
+void RuntimeRenderer::EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
+                                             const Assets::AssetSystem& assets,
+                                             int screenW,
+                                             int screenH )
 {
-    m_uiTextPass.EnsureGpuResources();
+    m_uiTextPass.EnsureGpuResources( renderResources, assets, screenW, screenH );
 }
 
 
