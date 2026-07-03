@@ -1169,10 +1169,10 @@ void PhysicsWorld::EmitPhysicsCollisionTime( PhysicsModelAccess& modelAccess,
 }
 
 
-void PhysicsWorld::PropagateSleepSupport( PhysicsModelAccess& modelAccess )
+void PhysicsWorld::PropagateSleepSupport( const std::vector<PhysicsBodyRecord>& bodyRecords )
 {
     SleepSupportPropagationContext context = CreateSleepSupportPropagationContext();
-    m_sleepIslandSystem.PropagateSupport( context, modelAccess );
+    m_sleepIslandSystem.PropagateSupport( context, bodyRecords );
 }
 
 
@@ -2759,7 +2759,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     AppendPointJointSupportEdges( modelCount );
     // Object contacts are converted into stack support only after terrain
     // response has had a chance to seed true support for this frame.
-    PropagateSleepSupport( modelAccess );
+    PropagateSleepSupport( bodyStore.Records() );
 
     // Integrate remaining time for awake models
     PROFILE_BEGIN( "Frame/Physics/Integrate" );

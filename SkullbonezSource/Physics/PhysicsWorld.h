@@ -309,7 +309,7 @@ class PhysicsWorld
                             float dt,
                             const Basics::EngineConfig& runtimeConfig,
                             Threading::WorkerPool& workerPool );
-    void PropagateSleepSupport( PhysicsModelAccess& modelAccess );
+    void PropagateSleepSupport( const std::vector<PhysicsBodyRecord>& bodyRecords );
     void AppendPointJointSupportEdges( int modelCount );
     void ForgetPersistentContactCacheForBody( int bodyIndex );
     bool WakeDynamicBodyState( PhysicsModelAccess& modelAccess,

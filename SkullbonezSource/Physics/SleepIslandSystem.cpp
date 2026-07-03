@@ -14,10 +14,14 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Body record: Physics-owned snapshot of a body's fixed/sleep/velocity state for
+    the current tick.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - Support propagation reads fixed-body state from body records, not directly
+    from compatibility GameModel storage.
 
 Related:
   - SkullbonezSource/Physics/SleepIslandSystem.h
@@ -26,14 +30,14 @@ Related:
 */
 #include "SleepIslandSystem.h"
 
-#include "PhysicsModelAccess.h"
+#include "PhysicsBodyStore.h"
 #include "PhysicsWorld.h"
 
-using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Physics;
 
 
-void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& context, PhysicsModelAccess& modelAccess )
+void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& context,
+                                          const std::vector<PhysicsBodyRecord>& bodyRecords )
 {
     // Concept: support propagates upward through a stack.
     //
@@ -41,12 +45,11 @@ void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& contex
     // B can be considered supported too. Repeating that rule lets a whole tower
     // become one stable sleep island instead of requiring every object to touch
     // terrain directly.
-    auto m_gameModels = modelAccess.Models();
     auto& m_sleepState = context.sleepState;
     auto& m_sleepSupportEdges = context.sleepSupportEdges;
     auto& m_sleepSupportedThisFrame = context.sleepSupportedThisFrame;
 
-    const int modelCount = static_cast<int>( m_gameModels.size() );
+    const int modelCount = static_cast<int>( bodyRecords.size() );
     if ( modelCount <= 0 || m_sleepSupportEdges.empty() )
     {
         return;
@@ -69,7 +72,7 @@ void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& contex
             }
 
             bool supporterHasSupport = m_sleepSupportedThisFrame[supporter] != 0;
-            if ( !supporterHasSupport && m_gameModels[supporter].IsFixed() )
+            if ( !supporterHasSupport && bodyRecords[static_cast<std::size_t>( supporter )].isFixed )
             {
                 supporterHasSupport = true;
             }

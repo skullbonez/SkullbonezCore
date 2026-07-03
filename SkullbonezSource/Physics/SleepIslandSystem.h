@@ -14,10 +14,14 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Body record: Physics-owned snapshot of a body's fixed/sleep/velocity state for
+    the current tick.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - Support propagation reads fixed-body state from body records, not directly
+    from compatibility GameModel storage.
 
 Related:
   - SkullbonezSource/Physics/SleepIslandSystem.cpp
@@ -26,17 +30,19 @@ Related:
 */
 #pragma once
 
+#include <vector>
+
 namespace SkullbonezCore
 {
 namespace Physics
 {
-class PhysicsModelAccess;
+struct PhysicsBodyRecord;
 struct SleepSupportPropagationContext;
 
 class SleepIslandSystem
 {
   public:
-    void PropagateSupport( SleepSupportPropagationContext& context, PhysicsModelAccess& modelAccess );
+    void PropagateSupport( SleepSupportPropagationContext& context, const std::vector<PhysicsBodyRecord>& bodyRecords );
 };
 } // namespace Physics
 } // namespace SkullbonezCore
