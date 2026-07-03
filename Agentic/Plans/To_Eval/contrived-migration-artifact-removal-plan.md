@@ -11,14 +11,15 @@ Implementation status:
   `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-plan.csv`.
 - Current implementation tracker:
   `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-implementation-status.csv`.
-- As of `3015136c`, rows K001, K002, K006, K007, K008, K009,
+- As of `fbf6ad13`, rows K001, K002, K006, K007, K008, K009,
   K010, K011, and K012 have source-side deletion/split commits recorded in the
   tracker. K003 is partial: diagnostics, render/collider/sleep/body stores,
-  ragdoll, and wake/seed island helpers are off raw `modelAccess.Models()`
-  reads, but underwater sleep, tornado, persistent contact, and solver/world
-  paths still need real physics-owned views before deletion. K004 and K005
-  require larger force-authority and handle-allocation work before they can be
-  removed without adding another migration artifact.
+  ragdoll, wake/seed island helpers, and top-level contact-highlight ticking
+  are off raw `modelAccess.Models()` reads, but underwater sleep, tornado,
+  persistent contact, and solver paths still need real physics-owned views
+  before deletion. K004 and K005 require larger force-authority and
+  handle-allocation work before they can be removed without adding another
+  migration artifact.
 - Guardrail follow-up added `tools/check_runtime_boundaries.py` checks for
   deleted migration artifacts (`GameModelRuntimePhysicsTuning`,
   `legacyModelIndex`, `RuntimeConfigSnapshot`, and the no-factory
