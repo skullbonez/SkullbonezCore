@@ -15,6 +15,11 @@ Glossary:
   such as meshes, shaders, textures, and reflection targets.
   UV (Texture Coordinates): Two-dimensional texture/sample coordinates used by
   water shaders when perturbing reflection lookup.
+  Water render style: Values that feed water shader uniforms, including ordinary
+  and cinematic fallback style.
+  Water mesh build settings: Values used only when regenerating calm/ocean mesh
+  geometry.
+  Fluid force settings: Values that affect buoyancy and drag force integration.
   Buoyancy: Upward force from displaced fluid volume; depends on gravity, fluid
   density, and submerged volume.
   Drag coefficient: Shape factor used by viscous drag to scale velocity-based
@@ -179,14 +184,22 @@ class WorldEnvironment
                          float changeInTime );                             // Adds world forces to the referenced game model
 
   private:
-    struct RuntimeConfigSnapshot
+    struct WaterRenderStyleSettings
     {
-        Basics::OrdinaryRenderConfig ordinaryRender;                       // Water style values copied from the current runtime config.
-        Basics::CinematicRenderConfig cinematicRender;                     // Fallback cinematic water style when no per-frame override is supplied.
+        Basics::OrdinaryRenderConfig ordinary;                             // Ordinary water shader style from current runtime config.
+        Basics::CinematicRenderConfig cinematicFallback;                   // Used when cinematic render has no per-frame override.
+        float oceanWaveHeight = 4.0f;                                      // Visual wave amplitude, not physics height.
+        float oceanPerturbStrength = 0.002f;                               // Reflection perturbation scale for water shaders.
+    };
+
+    struct WaterMeshBuildSettings
+    {
         float frustumFar = 5500.0f;                                        // Far plane used to size generated ocean water mesh.
-        float oceanWaveHeight = 4.0f;                                      // Visual wave amplitude copied from config.
-        float oceanPerturbStrength = 0.002f;                               // Reflection perturbation scale copied from config.
-        float fluidAngularDragMultiplier = 2.0f;                           // Physics damping multiplier copied from config.
+    };
+
+    struct FluidForceSettings
+    {
+        float angularDragMultiplier = 2.0f;                                // Physics damping multiplier for submerged spin/drag.
     };
 
     float m_fluidSurfaceHeight;                                            // World-space Y of the fluid surface (m).  Objects below this are submerged
@@ -201,14 +214,15 @@ class WorldEnvironment
     std::unique_ptr<Rendering::IShader> m_calmShader;
     std::unique_ptr<Rendering::IMesh> m_oceanMesh;                         // Outer water: waves + perturbation
     std::unique_ptr<Rendering::IShader> m_oceanShader;
-    RuntimeConfigSnapshot m_config;                                        // Owned config subset; standalone worlds use defaults until rebound.
+    WaterRenderStyleSettings m_waterStyle;                                 // Owned water shader style subset; defaults support standalone worlds.
+    WaterMeshBuildSettings m_waterMeshBuild;                               // Owned water mesh rebuild subset.
+    FluidForceSettings m_fluidForces;                                      // Owned fluid-force subset used by deterministic physics.
     Assets::AssetSystem* m_assets = nullptr;                               // Borrowed asset registry for water shaders.
     Rendering::IRenderResourceFactory* m_resources = nullptr;              // Borrowed active backend resource factory for water meshes.
 
     void BuildFluidMesh();                                                 // Builds calm and ocean meshes from current terrain bounds.
-    void ApplyRuntimeConfigSnapshot(
-        const Basics::EngineConfig& config );                              // Copies the water/drag fields this type consumes.
-    const RuntimeConfigSnapshot& Config() const;                           // Safe owned config snapshot for water work.
+    void ApplyWaterAndFluidSettings(
+        const Basics::EngineConfig& config );                              // Copies only the water and fluid fields this type consumes.
     WaterStyleParams BuildCalmWaterStyle( bool cinematic, const Basics::CinematicRenderConfig& cinematicConfig ) const;
     WaterStyleParams BuildOceanWaterStyle( bool cinematic, const Basics::CinematicRenderConfig& cinematicConfig ) const;
     void BindCommonWaterStyle( Rendering::IShader& shader,
