@@ -1897,6 +1897,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
     const int modelCount = bodyStream.count;
     std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
+    const std::vector<ColliderRecord>& colliderRecords = colliderStore.Records();
 
     // Sleep thresholds are config-backed because they directly trade CPU cost
     // against visible settling behavior. Higher thresholds keep bodies awake
@@ -2293,6 +2294,15 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         }
     };
 
+    auto contactBodyViewAtTime = [&]( int index, float time ) -> ObjectContactBodyView
+    {
+        const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
+        ObjectContactBodyView body;
+        body.position = record.position + record.linearVelocity * time;
+        body.orientation = record.orientation;
+        return body;
+    };
+
     auto hasPersistentWakeContact = [&]( int awakeIndex, int sleepingIndex ) -> bool
     {
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/WakePersistentContact" );
@@ -2301,9 +2311,17 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         // awake body's correction step. This fresh manifold test catches that
         // persistent contact so the sleeper cannot remain frozen inside the
         // awake body until a later frame happens to generate a swept hit.
+        if ( awakeIndex < 0 || sleepingIndex < 0 || awakeIndex >= static_cast<int>( colliderRecords.size() ) ||
+             sleepingIndex >= static_cast<int>( colliderRecords.size() ) )
+        {
+            return false;
+        }
+
         ObjectContactManifold manifold;
-        return BuildObjectContactManifold( m_gameModels[awakeIndex],
-                                           m_gameModels[sleepingIndex],
+        return BuildObjectContactManifold( contactBodyViewAtTime( awakeIndex, 0.0f ),
+                                           colliderRecords[static_cast<size_t>( awakeIndex )].shape,
+                                           contactBodyViewAtTime( sleepingIndex, 0.0f ),
+                                           colliderRecords[static_cast<size_t>( sleepingIndex )].shape,
                                            awakeIndex,
                                            sleepingIndex,
                                            config.contactEpsilon,
@@ -2314,27 +2332,24 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     {
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/ExactContactAtTime" );
 
-        // Temporarily place both bodies at a candidate time, ask the exact
-        // narrowphase whether they touch there, then restore positions. This is
-        // a query only; it must leave the world exactly as it found it.
-        const Vector3 startA = bodyRecords[static_cast<size_t>( a )].position;
-        const Vector3 startB = bodyRecords[static_cast<size_t>( b )].position;
-        bodyRecords[static_cast<size_t>( a )].position =
-            startA + bodyRecords[static_cast<size_t>( a )].linearVelocity * time;
-        bodyRecords[static_cast<size_t>( b )].position =
-            startB + bodyRecords[static_cast<size_t>( b )].linearVelocity * time;
-        bodyStore.WriteBackToModelAt( m_gameModels, a );
-        bodyStore.WriteBackToModelAt( m_gameModels, b );
+        if ( a < 0 || b < 0 || a >= static_cast<int>( colliderRecords.size() ) ||
+             b >= static_cast<int>( colliderRecords.size() ) )
+        {
+            return false;
+        }
 
+        // Query at a candidate time without mutating PhysicsBodyStore or the
+        // compatibility GameModel mirror. CCD refinement only needs temporary
+        // pose views plus the collider shape snapshots.
         ObjectContactManifold manifold;
-        const bool hit =
-            BuildObjectContactManifold( m_gameModels[a], m_gameModels[b], a, b, config.contactEpsilon, manifold );
-
-        bodyRecords[static_cast<size_t>( a )].position = startA;
-        bodyRecords[static_cast<size_t>( b )].position = startB;
-        bodyStore.WriteBackToModelAt( m_gameModels, a );
-        bodyStore.WriteBackToModelAt( m_gameModels, b );
-        return hit;
+        return BuildObjectContactManifold( contactBodyViewAtTime( a, time ),
+                                           colliderRecords[static_cast<size_t>( a )].shape,
+                                           contactBodyViewAtTime( b, time ),
+                                           colliderRecords[static_cast<size_t>( b )].shape,
+                                           a,
+                                           b,
+                                           config.contactEpsilon,
+                                           manifold );
     };
 
     auto refineObjectSweepContactTime = [&]( int a, int b, float coarseTime, float availableTime ) -> float
@@ -2390,10 +2405,26 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         return hi;
     };
 
-    auto sweepObjectPair = [&]( int a, int b, float availableTime ) -> GameModel::ObjectSweepResult
+    auto sweepObjectPair = [&]( int a, int b, float availableTime ) -> ObjectContactSweepResult
     {
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/SweepPairs" );
-        return m_gameModels[a].SweepGameModel( m_gameModels[b], availableTime );
+        ObjectContactSweepResult result;
+        result.collisionTime = availableTime;
+        if ( a < 0 || b < 0 || a >= static_cast<int>( colliderRecords.size() ) ||
+             b >= static_cast<int>( colliderRecords.size() ) )
+        {
+            return result;
+        }
+
+        const PhysicsBodyRecord& recordA = bodyRecords[static_cast<size_t>( a )];
+        const PhysicsBodyRecord& recordB = bodyRecords[static_cast<size_t>( b )];
+        return SweepObjectContact( contactBodyViewAtTime( a, 0.0f ),
+                                   colliderRecords[static_cast<size_t>( a )].shape,
+                                   recordA.linearVelocity,
+                                   contactBodyViewAtTime( b, 0.0f ),
+                                   colliderRecords[static_cast<size_t>( b )].shape,
+                                   recordB.linearVelocity,
+                                   availableTime );
     };
 
     auto objectPairHasPersistentContactCache = [&]( int a, int b ) -> bool
@@ -2548,7 +2579,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
                 bool wokeBySweptImpact = false;
                 if ( m_timeRemaining[y] > 0.0f && objectPairNeedsSweptCcd( y, x, m_timeRemaining[y] ) )
                 {
-                    GameModel::ObjectSweepResult sweep = sweepObjectPair( y, x, m_timeRemaining[y] );
+                    ObjectContactSweepResult sweep = sweepObjectPair( y, x, m_timeRemaining[y] );
                     if ( sweep.hit )
                     {
                         const float availableTime = m_timeRemaining[y];
@@ -2610,7 +2641,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
                 bool wokeBySweptImpact = false;
                 if ( m_timeRemaining[x] > 0.0f && objectPairNeedsSweptCcd( x, y, m_timeRemaining[x] ) )
                 {
-                    GameModel::ObjectSweepResult sweep = sweepObjectPair( x, y, m_timeRemaining[x] );
+                    ObjectContactSweepResult sweep = sweepObjectPair( x, y, m_timeRemaining[x] );
                     if ( sweep.hit )
                     {
                         const float availableTime = m_timeRemaining[x];
@@ -2689,7 +2720,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
             return;
         }
 
-        GameModel::ObjectSweepResult sweep = sweepObjectPair( x, y, availableTime );
+        ObjectContactSweepResult sweep = sweepObjectPair( x, y, availableTime );
 
         if ( sweep.hit )
         {

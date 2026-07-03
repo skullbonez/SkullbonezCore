@@ -18,6 +18,8 @@ Glossary:
   Manifold: Set of contact points and normals describing one colliding pair.
   Contact body view: Pose-only body input used by narrowphase so the manifold
   builder does not need to borrow whole GameModel storage.
+  Contact sweep: Conservative object/object time-of-impact query used before
+  exact manifold generation and solver response.
   Feature ID: Deterministic contact key used to match rows across frames for
   warm starting.
   Baumgarte bias: Positional correction term that turns penetration depth into
@@ -89,6 +91,21 @@ struct ObjectContactManifold
     uint8_t pointCount = 0;
 };
 
+struct ObjectContactSweepResult
+{
+    bool hit = false;           // Candidate object/object hit occurred in the tested substep.
+    float collisionTime = 0.0f; // Seconds from the start of the tested substep.
+};
+
+// Runs the object/object CCD front-end from body/collider inputs. The result is
+// only a time candidate; exact contact rows still come from BuildObjectContactManifold.
+ObjectContactSweepResult SweepObjectContact( const ObjectContactBodyView& a,
+                                             const Math::CollisionDetection::CollisionShape& shapeA,
+                                             const Math::Vector::Vector3& linearVelocityA,
+                                             const ObjectContactBodyView& b,
+                                             const Math::CollisionDetection::CollisionShape& shapeB,
+                                             const Math::Vector::Vector3& linearVelocityB,
+                                             float changeInTime );
 bool BuildObjectContactManifold( const GameObjects::GameModel& a,
                                  const GameObjects::GameModel& b,
                                  int bodyA,

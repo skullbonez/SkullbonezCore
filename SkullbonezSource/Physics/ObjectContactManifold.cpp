@@ -20,6 +20,8 @@ Glossary:
   Manifold: Set of contact points and normals describing one colliding pair.
   Contact body view: Pose-only body input used by narrowphase so contact
   geometry can be built from PhysicsBodyRecord state instead of GameModel.
+  Contact sweep: Conservative object/object time-of-impact query that advances
+  fast bodies to a candidate contact before exact manifolds solve the response.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -39,9 +41,11 @@ Related:
 #include "ConvexHullShape.h"
 #include "../Core/Profiler.h"
 #include "../GameObjects/GameModel.h"
+#include "../Maths/GeometricStructures.h"
 #include "../Maths/Quaternion.h"
 
 using namespace SkullbonezCore::GameObjects;
+using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
@@ -1878,6 +1882,36 @@ bool BuildHullHull( const ObjectContactBodyView& aBody,
     return BuildPolyPoly( aBody, polyA, bBody, polyB, contactSkin, out );
 }
 } // namespace
+
+ObjectContactSweepResult SkullbonezCore::Physics::SweepObjectContact( const ObjectContactBodyView& a,
+                                                                      const CollisionShape& shapeA,
+                                                                      const Vector3& linearVelocityA,
+                                                                      const ObjectContactBodyView& b,
+                                                                      const CollisionShape& shapeB,
+                                                                      const Vector3& linearVelocityB,
+                                                                      float changeInTime )
+{
+    // Concept: CCD sweep is only a conservative front-end. It uses each body's
+    // current position plus linear displacement to find the first candidate
+    // overlap; precise contact geometry and velocity response remain with the
+    // manifold builder and persistent solver.
+    ObjectContactSweepResult result;
+    result.collisionTime = changeInTime;
+
+    const Ray targetRay( b.position, linearVelocityB * changeInTime );
+    const Ray focusRay( a.position, linearVelocityA * changeInTime );
+    const float collisionTime = TestShapeCollision( shapeA, shapeB, focusRay, targetRay );
+
+    if ( collisionTime > 1.0f || collisionTime < ZERO_TAKE_TOLERANCE )
+    {
+        return result;
+    }
+
+    result.hit = true;
+    result.collisionTime = collisionTime * changeInTime;
+    return result;
+}
+
 
 // CATTO REF:
 //   Public entry point that returns the contact rows Catto's iterative solver

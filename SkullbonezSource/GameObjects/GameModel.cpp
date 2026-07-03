@@ -34,7 +34,7 @@ Glossary:
 
 Invariants:
   - GameModel owns per-object physics/render data, but multi-body response is
-    finalized by GameModelCollection and the physics solver.
+    finalized by PhysicsWorld and the persistent contact solver.
   - Collision-shape scalar caches must be refreshed whenever the authoritative
     shape changes.
 
@@ -119,11 +119,11 @@ SkullbonezCore::Physics::ContactPolicy::FromConfig( const SkullbonezCore::Basics
 //   - RigidBody stores motion state such as position, velocity, spin, and mass.
 //   - CollisionShape stores the local sphere/box used for collision geometry.
 //   - Terrain detection records a hit in m_responseInformation.
-//   - GameModelCollection later consumes that hit, builds contact rows, and
-//     applies the actual shared solver response.
+//   - PhysicsWorld later consumes that hit, builds terrain contact rows, and
+//     lets the persistent solver apply the shared response.
 //
-// In short: GameModel can detect and describe contacts, but the collection owns
-// the final multi-body response because contacts often involve several objects.
+// In short: GameModel can still detect terrain contact geometry, but PhysicsWorld
+// owns the final multi-body response because contacts often involve several objects.
 
 GameModel::GameModel( WorldEnvironment* pWorldEnv,
                       const Vector3& vPosition,
@@ -792,20 +792,6 @@ void GameModel::UpdateModelInfo()
 }
 
 
-float GameModel::GetModelCollisionTime( GameModel& collisionTarget, float changeInTime )
-{
-    // Swept tests use the path each body would travel during this substep if
-    // unobstructed.  The solver only needs the simple kinematic ray: current
-    // position plus velocity scaled by the candidate timestep.
-    Ray targetRay( collisionTarget.m_physicsInfo.GetPosition(),
-                   collisionTarget.m_physicsInfo.GetVelocity() * changeInTime );
-    Ray focusRay( m_physicsInfo.GetPosition(), m_physicsInfo.GetVelocity() * changeInTime );
-
-    // Dispatch collision test via the variant visitor (handles sphere-sphere, sphere-box, box-box)
-    return TestShapeCollision( m_boundingVolume, collisionTarget.m_boundingVolume, focusRay, targetRay );
-}
-
-
 bool GameModel::IsResponseRequired()
 {
     return m_isResponseRequired;
@@ -1296,7 +1282,7 @@ bool GameModel::BuildTerrainContactManifold( int bodyIndex,
     // swept terrain hit cached by CollisionDetectTerrain into contact points,
     // feature ids, tangent axes, and support-policy metadata. It must not apply
     // impulses, write warm-start caches, or decide final sleep state; those jobs
-    // belong to GameModelCollection's shared row solver.
+    // belong to PhysicsWorld's persistent contact solver.
     if ( !m_terrain || m_isFixed )
     {
         return false;
@@ -1473,33 +1459,6 @@ bool GameModel::BuildTerrainContactManifold( int bodyIndex,
     out.allowsTangentFriction = !terrainSupport.isConvexHull || out.supportsRestingPolicy;
     out.inhibitsSleep = !out.supportsRestingPolicy;
     return true;
-}
-
-
-GameModel::ObjectSweepResult GameModel::SweepGameModel( GameModel& collisionTarget, float changeInTime )
-{
-    // Object/object sweep is the continuous-collision-detection front door. It
-    // returns a hit time so callers can move bodies up to first contact. The
-    // actual bounce/friction response is still handled by persistent rows.
-    ObjectSweepResult result;
-    result.collisionTime = changeInTime;
-
-    float collisionTime = GetModelCollisionTime( collisionTarget, changeInTime );
-
-    // if no collision in this time frame
-    if ( collisionTime > 1.0f || collisionTime < ZERO_TAKE_TOLERANCE )
-    {
-        // allow full time to be applied as no collision will occur
-        collisionTime = changeInTime;
-    }
-    else
-    {
-        // perform the cap - cap time to be applied by converting collision from time ratio to actual seconds
-        result.hit = true;
-        result.collisionTime = collisionTime * changeInTime;
-    }
-
-    return result;
 }
 
 

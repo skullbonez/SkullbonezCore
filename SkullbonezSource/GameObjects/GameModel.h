@@ -78,8 +78,8 @@ struct TerrainContactPoint
 // A TerrainContactManifold is the full "touching terrain" report for one body
 // during one physics tick. Spheres usually have one point; boxes can have
 // several corners touching at once. This struct is only geometry and policy
-// metadata. The actual velocity response happens later in GameModelCollection's
-// shared contact-row solver.
+// metadata. The actual velocity response happens later in PhysicsWorld's shared
+// persistent contact solver.
 struct TerrainContactManifold
 {
     int bodyA = -1;
@@ -185,8 +185,6 @@ class GameModel
     void ApplyWorldForces( float changeInTime );
     void UpdateModelInfo();                                                 // Refreshes derived physics/render scalars after object-list mutations.
     float GetTerrainCollisionTime( float changeInTime );                    // Swept terrain time-of-impact over changeInTime seconds.
-    float GetModelCollisionTime( GameModel& collisionTarget,
-                                 float changeInTime );                      // Swept object/object time-of-impact over changeInTime seconds.
 
     // Box/terrain contact must be measured from the actual oriented box vertices,
     // not from the model center plus a vertical support extent. On uneven terrain,
@@ -220,12 +218,6 @@ class GameModel
         float wetWeights[MAX_WET_POINTS] = {};
         float wetWeightTotal = 0.0f;
         uint8_t wetPointCount = 0;
-    };
-
-    struct ObjectSweepResult
-    {
-        bool hit = false;
-        float collisionTime = 0.0f;
     };
 
     GameModel( Environment::WorldEnvironment* pWorldEnv,
@@ -337,8 +329,6 @@ class GameModel
     float GetFixedContactHighlightSeconds() const;                          // Raw highlight timer for replay/prediction state restore.
     void SetFixedContactHighlightSeconds(
         float seconds );                                                    // Restores the raw contact-highlight timer after speculative physics.
-    ObjectSweepResult SweepGameModel( GameModel& collisionTarget,
-                                      float changeInTime );                 // Swept object/object query with explicit hit state.
     float GetBoundingRadius();                                              // Conservative broadphase radius; convex hulls and boxes are not sphere geometry.
     Math::Vector::Vector3 GetOrientationUp();                               // Local +Y axis rotated into world space by the visual orientation.
     const Math::Orientation::Quaternion& GetOrientation() const;

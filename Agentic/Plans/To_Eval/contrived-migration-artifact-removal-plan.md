@@ -11,7 +11,7 @@ Implementation status:
   `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-plan.csv`.
 - Current implementation tracker:
   `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-implementation-status.csv`.
-- As of `87df4b77` after `78533f94` and
+- As of `pending-object-sweep-view` after `87df4b77`, `78533f94`, and
   `d5571316`, rows K001, K002, K004, K005, K006, K007, K008, K009, K010, K011,
   and K012 have source-side deletion/split work recorded in the tracker. K003 is
   still partial: diagnostics, render/collider/sleep/body stores, ragdoll,
@@ -31,10 +31,12 @@ Implementation status:
   `PersistentContactSolver::Solve` no longer receives `PhysicsModelAccess`,
   opens `modelAccess.Models()`, or writes through raw model ranges; object
   manifold building now consumes an `ObjectContactBodyView` built from
-  `PhysicsBodyRecord` pose plus `ColliderStore` shapes. Terrain/manifold,
-  object wake/sweep, final solver writeback, and scene-boundary paths still need
-  real physics-owned views before K003 can delete the remaining compatibility
-  model ranges.
+  `PhysicsBodyRecord` pose plus `ColliderStore` shapes. Object/object CCD and
+  wake-persistent contact checks now use `SweepObjectContact` plus
+  `ObjectContactBodyView` inputs, and `GameModel::SweepGameModel`/
+  `GameModel::GetModelCollisionTime` are deleted. Terrain/manifold, final
+  solver writeback, and scene-boundary paths still need real physics-owned
+  views before K003 can delete the remaining compatibility model ranges.
 - Guardrail follow-up added `tools/check_runtime_boundaries.py` checks for
   deleted migration artifacts (`GameModelRuntimePhysicsTuning`,
   `legacyModelIndex`, `RuntimeConfigSnapshot`, and the no-factory
