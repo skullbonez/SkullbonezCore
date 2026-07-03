@@ -4,25 +4,29 @@ Purpose:
   Captures frame output to screenshots for scenes, validation, and look-dev.
 
 Mental model:
-  Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  Runtime code owns screenshot trigger state, while renderer code owns pixel
+  readback. This header keeps the trigger, write hook, and readback capability
+  narrow enough to test without a full renderer.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
-  resource.
+    resource.
   Back buffer: Swap-chain image that will be presented to the window.
+  Capture sink: Value hook that performs the screenshot write side effect.
 
 Invariants:
   - Screenshot state is per-run state; interval counters and one-shot flags are
     consumed by TickScreenshots rather than by render backends.
-  - RuntimeCaptureSink owns the actual write side effect so capture policy can
-    be tested without a renderer.
+  - RuntimeCaptureSink carries the actual write side effect so capture policy
+    can be tested without a renderer or a virtual callback object.
 
 Related:
   - SkullbonezSource/Runtime/CaptureSystem.cpp
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
+
+#include <cassert>
 
 namespace SkullbonezCore
 {
@@ -77,11 +81,20 @@ struct RuntimeCaptureResult
     RuntimeCaptureAutomation automation = RuntimeCaptureAutomation::None;
 };
 
-class RuntimeCaptureSink
+struct RuntimeCaptureSink
 {
-  public:
-    virtual ~RuntimeCaptureSink() = default;
-    virtual void SaveScreenshot( const char* path ) = 0;
+    using SaveScreenshotFn = void ( * )( void* context, const char* path );
+
+    void* context = nullptr;
+    SaveScreenshotFn saveScreenshot = nullptr;
+
+    void SaveScreenshot( const char* path ) const
+    {
+        // Concept: capture automation needs one explicit side-effect hook, not
+        // an inherited service object on the frame path.
+        assert( saveScreenshot != nullptr );
+        saveScreenshot( context, path );
+    }
 };
 
 class CaptureSystem
@@ -90,7 +103,7 @@ class CaptureSystem
     static void SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path );
     static RuntimeCaptureResult TickScreenshots( RunScreenshotState& screenshot,
                                                  const RuntimeCaptureSceneContext& context,
-                                                 RuntimeCaptureSink& sink );
+                                                 const RuntimeCaptureSink& sink );
     static RuntimeCaptureResult TickAutoCycle( bool isSceneMode,
                                                bool isInteractiveRun,
                                                int ballCount,
@@ -98,7 +111,7 @@ class CaptureSystem
                                                float& autoCycleAccum,
                                                int& autoCycleShotsTaken,
                                                int& trackBallIndex,
-                                               RuntimeCaptureSink& sink );
+                                               const RuntimeCaptureSink& sink );
 };
 } // namespace Basics
 } // namespace SkullbonezCore

@@ -2492,21 +2492,9 @@ bool Run::TickScreenshots()
         return false;
     };
 
-    struct ScreenshotSink final : RuntimeCaptureSink
-    {
-        explicit ScreenshotSink( Run& owner ) : run( owner )
-        {
-        }
-
-        void SaveScreenshot( const char* path ) override
-        {
-            run.SaveScreenshot( path );
-        }
-
-        Run& run;
-    };
-
-    ScreenshotSink sink( *this );
+    const RuntimeCaptureSink sink{ this,
+                                   []( void* context, const char* path )
+                                   { static_cast<Run*>( context )->SaveScreenshot( path ); } };
     const std::string* scenePath = m_sceneController.CurrentPath();
     const RuntimeCaptureResult result = m_diagnosticsRuntime.Capture().TickScreenshots(
         RuntimeCaptureSceneContext{ SceneState().isSceneMode,
@@ -2581,21 +2569,9 @@ void Run::TickAutoCycle()
         return;
     }
 
-    struct ScreenshotSink final : RuntimeCaptureSink
-    {
-        explicit ScreenshotSink( Run& owner ) : run( owner )
-        {
-        }
-
-        void SaveScreenshot( const char* path ) override
-        {
-            run.SaveScreenshot( path );
-        }
-
-        Run& run;
-    };
-
-    ScreenshotSink sink( *this );
+    const RuntimeCaptureSink sink{ this,
+                                   []( void* context, const char* path )
+                                   { static_cast<Run*>( context )->SaveScreenshot( path ); } };
     const RuntimeCaptureResult result =
         m_diagnosticsRuntime.Capture().TickAutoCycle( SceneState().isSceneMode,
                                                       SceneState().isInteractiveRun,

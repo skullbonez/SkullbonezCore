@@ -9,7 +9,7 @@ Mental model:
   trigger state and per-frame automation decisions.
 
 Glossary:
-  Capture sink: Callback surface that performs the actual screenshot write.
+  Capture sink: Value hook that performs the actual screenshot write.
   Auto-cycle: Screenshot automation that advances capture targets over time.
   Screenshot request: Runtime state describing when and where to capture pixels.
   Frame gate: Per-frame decision that says whether a capture is due now.
@@ -37,7 +37,7 @@ class CaptureController
     const RunScreenshotState& Screenshot() const;
 
     void ResetScreenshot();
-    RuntimeCaptureResult TickScreenshots( const RuntimeCaptureSceneContext& context, RuntimeCaptureSink& sink );
+    RuntimeCaptureResult TickScreenshots( const RuntimeCaptureSceneContext& context, const RuntimeCaptureSink& sink );
     RuntimeCaptureResult TickAutoCycle( bool isSceneMode,
                                         bool isInteractiveRun,
                                         int ballCount,
@@ -45,7 +45,7 @@ class CaptureController
                                         float& autoCycleAccum,
                                         int& autoCycleShotsTaken,
                                         int& trackBallIndex,
-                                        RuntimeCaptureSink& sink );
+                                        const RuntimeCaptureSink& sink );
 
     static void SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend, const char* path );
 

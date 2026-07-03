@@ -149,6 +149,9 @@ polymorphic service objects, callback chains, handle lookups, scattered
   runtime polymorphism. The owning plan, source comment, and commit body must
   name the owner, why value/data composition is insufficient, the expected
   call frequency, and the validation or perf evidence required.
+- `tools/check_runtime_boundaries.py` enforces the current source inheritance
+  budget. New inheritance should fail there until an approved stable-boundary
+  row is deliberately added with the evidence above.
 - Migration cleanup must not introduce `*Sink`, `*Bridge`, `*Adapter`,
   `*Compatibility`, or callback-style interfaces on hot paths as a way to hide
   old ownership. Prefer a plain output buffer that the owner applies after the

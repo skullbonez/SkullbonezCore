@@ -3,7 +3,8 @@
 # File: tools/check_runtime_boundaries.py
 # Purpose:
 #   Check that Run.h stays a runtime composition root instead of regrowing
-#   extracted subsystem ownership, and prevent new physics dependencies on the
+#   extracted subsystem ownership, prevent new source inheritance outside the
+#   approved stable-boundary budget, and prevent new physics dependencies on the
 #   legacy GameModelCollection world container, new game-object types on public
 #   physics facades, or raytracing calls on the wide render backend facade. It
 #   also blocks direct scheduling or manual-barrier regressions for passes that
@@ -25,8 +26,8 @@
 # Glossary:
 #   Composition root: Top-level owner that wires subsystems together.
 #   Boundary guardrail: Static check that blocks architecture drift.
-#   Inheritance guardrail: Static check that blocks migration interfaces from
-#     reappearing as base classes on hot or model-owner paths.
+#   Inheritance guardrail: Static check that blocks source base classes unless
+#     they are in the approved stable-boundary budget.
 #   Allowlist: Explicit set of legacy references accepted during migration.
 #   Migration artifact: Temporary adapter, DTO, or compatibility name that must
 #     disappear once its real owner or API replaces it.
@@ -49,6 +50,8 @@
 #   - Existing global service calls are counted debt; adding new ones requires
 #     migrating the caller or lowering another allowlist entry first. Direct
 #     renderer service calls also need an approved debt-location classification.
+#   - Source inheritance is deny-by-default; only rows in
+#     APPROVED_INHERITANCE_DECLARATIONS are accepted.
 #
 # Related:
 #   - Agentic/Plans/runtime-run-decomposition-plan.md
@@ -129,6 +132,39 @@ PHYSICS_MODEL_ACCESS_INHERITANCE_PATTERN = re.compile(
     r"(?:public|protected|private)\s+(?:Physics::)?(?:PhysicsModelAccess|PhysicsBodyEventSink)\b",
     re.M,
 )
+INHERITANCE_DECLARATION_PATTERN = re.compile(
+    r"^\s*(?:class|struct)\s+"
+    r"(?P<name>(?:[A-Za-z_]\w*::)*[A-Za-z_]\w*)"
+    r"(?:\s+(?:final|[A-Z_][A-Z0-9_]*))*"
+    r"\s*:(?!:)\s*(?P<bases>[^{};]+?)\s*\{",
+    re.M | re.S,
+)
+SOURCE_BEARING_SUFFIXES = { ".cpp", ".h", ".hpp", ".inl" }
+# Intentional runtime-polymorphism budget. Adding a row means the owning plan
+# has accepted a stable boundary, real runtime dispatch need, call frequency,
+# and validation/perf evidence. Everything else should be composition or values.
+APPROVED_INHERITANCE_DECLARATIONS: dict[tuple[Path, str], str] = {
+    (
+        Path("SkullbonezSource/Rendering/IRenderBackend.h"),
+        "IRenderBackend",
+    ): "public IRenderDeviceLifecycle, public IRenderResourceFactory, public IRenderCommandContext, public IRenderDiagnostics, public IRenderCaptureBackend",
+    (
+        Path("SkullbonezSource/Rendering/DX12/FramebufferDX12.h"),
+        "FramebufferDX12",
+    ): "public IFramebuffer",
+    (
+        Path("SkullbonezSource/Rendering/DX12/MeshDX12.h"),
+        "MeshDX12",
+    ): "public IMesh",
+    (
+        Path("SkullbonezSource/Rendering/DX12/RenderBackendDX12.h"),
+        "RenderBackendDX12",
+    ): "public IRenderBackend, public IRenderRayTracing",
+    (
+        Path("SkullbonezSource/Rendering/DX12/ShaderDX12.h"),
+        "ShaderDX12",
+    ): "public IShader",
+}
 DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
     (
         "GameModelRuntimePhysicsTuning",
@@ -1758,9 +1794,53 @@ def check_physics_model_access_inheritance_guardrails_text(path: Path, text: str
 def check_physics_model_access_inheritance_guardrails(repo: Path) -> list[BoundaryError]:
     errors: list[BoundaryError] = []
     for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
-        if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+        if path.suffix not in SOURCE_BEARING_SUFFIXES:
             continue
         errors.extend(check_physics_model_access_inheritance_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def normalize_inheritance_bases(bases: str) -> str:
+    return re.sub(r"\s+", " ", bases).strip()
+
+
+def check_approved_inheritance_guardrails_text(
+    path: Path,
+    text: str,
+    relative_path: Path | None = None,
+) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    allowed_path = relative_path or path
+    errors: list[BoundaryError] = []
+    for match in INHERITANCE_DECLARATION_PATTERN.finditer(stripped):
+        name = match.group("name").split("::")[-1]
+        bases = normalize_inheritance_bases(match.group("bases"))
+        if APPROVED_INHERITANCE_DECLARATIONS.get((allowed_path, name)) == bases:
+            continue
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "unapproved inheritance is blocked",
+                "Use composition/value data, or add an explicit approved stable-boundary row with owner, reason, call frequency, and validation evidence.",
+            )
+        )
+    return errors
+
+
+def check_approved_inheritance_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
+        if path.suffix not in SOURCE_BEARING_SUFFIXES:
+            continue
+        relative_path = path.relative_to(repo)
+        errors.extend(
+            check_approved_inheritance_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+                relative_path,
+            )
+        )
     return errors
 
 
@@ -6207,6 +6287,64 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only PhysicsModelAccess inheritance synthetic text was rejected")
 
+    allowed_renderer_inheritance = """
+    class IRenderBackend : public IRenderDeviceLifecycle,
+                           public IRenderResourceFactory,
+                           public IRenderCommandContext,
+                           public IRenderDiagnostics,
+                           public IRenderCaptureBackend
+    {
+    };
+    """
+    if check_approved_inheritance_guardrails_text(
+        Path("SkullbonezSource/Rendering/IRenderBackend.h"),
+        allowed_renderer_inheritance,
+        Path("SkullbonezSource/Rendering/IRenderBackend.h"),
+    ):
+        failures.append("approved renderer inheritance synthetic surface was rejected")
+
+    unapproved_runtime_inheritance = """
+    struct RuntimeCaptureSink : public IScreenshotSink
+    {
+    };
+    """
+    if not any(
+        error.message == "unapproved inheritance is blocked"
+        for error in check_approved_inheritance_guardrails_text(
+            Path("SkullbonezSource/Runtime/CaptureSystem.h"),
+            unapproved_runtime_inheritance,
+            Path("SkullbonezSource/Runtime/CaptureSystem.h"),
+        )
+    ):
+        failures.append("unapproved runtime inheritance synthetic surface was not rejected")
+
+    qualified_pimpl_definition = """
+    struct ContactAudioService::Impl
+    {
+        int sampleCount = 0;
+    };
+    """
+    if check_approved_inheritance_guardrails_text(
+        Path("SkullbonezSource/Runtime/Audio/ContactAudioService.cpp"),
+        qualified_pimpl_definition,
+        Path("SkullbonezSource/Runtime/Audio/ContactAudioService.cpp"),
+    ):
+        failures.append("qualified PIMPL definition synthetic text was rejected as inheritance")
+
+    commented_general_inheritance = """
+    // class RuntimeCaptureSink : public IScreenshotSink is deleted migration debt.
+    struct RuntimeCaptureSink
+    {
+        void* context = nullptr;
+    };
+    """
+    if check_approved_inheritance_guardrails_text(
+        Path("SkullbonezSource/Runtime/CaptureSystem.h"),
+        commented_general_inheritance,
+        Path("SkullbonezSource/Runtime/CaptureSystem.h"),
+    ):
+        failures.append("comment-only general inheritance synthetic text was rejected")
+
     compatibility_physics_models_text = (
         "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = "
         "m_cGameModelCollection.MutablePhysicsModelsForCompatibility();"
@@ -6480,6 +6618,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_persistent_solver_context_model_access_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))
+    errors.extend(check_approved_inheritance_guardrails(repo))
     errors.extend(check_physics_models_access_guardrails(repo))
     errors.extend(check_named_physics_models_compat_access_guardrails(repo))
     errors.extend(check_direct_gfx_raytracing_guardrails(repo))
