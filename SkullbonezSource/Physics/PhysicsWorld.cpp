@@ -601,12 +601,6 @@ void PhysicsWorld::MarkCollisionVisualContact( int index )
 }
 
 
-void PhysicsWorld::MarkFixedContact( PhysicsModelAccess& modelAccess, int index )
-{
-    modelAccess.BodyEvents().NotifyFixedContact( index, 0.5f );
-}
-
-
 void PhysicsWorld::RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record )
 {
     if ( m_physicsPipelineTrace.size() < MAX_PIPELINE_TRACE_RECORDS )
@@ -623,7 +617,9 @@ bool PhysicsWorld::CanRecordPhysicsPipelineStage() const
 
 
 PersistentContactSolverContext
-PhysicsWorld::CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
+PhysicsWorld::CreatePersistentContactSolverContext( PhysicsModelAccess& modelAccess,
+                                                    const GameModelBodyStream& bodyStream,
+                                                    PhysicsBodyStore& bodyStore,
                                                     const ColliderStore& colliderStore,
                                                     const PhysicsWorldForces& worldForces,
                                                     const Basics::EngineConfig& config )
@@ -641,6 +637,8 @@ PhysicsWorld::CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
                                            m_terrainContactManifolds,
                                            m_terrainRestApplied,
                                            m_sleepSupportedThisFrame,
+                                           modelAccess,
+                                           bodyStream,
                                            bodyStore.MutableRecords(),
                                            colliderStore.Records(),
                                            bodyStore,
@@ -675,15 +673,27 @@ void PersistentContactSolverContext::MarkCollisionVisualContact( int index ) con
 }
 
 
-void PersistentContactSolverContext::MarkFixedContact( PhysicsModelAccess& modelAccess, int index ) const
+void PersistentContactSolverContext::MarkFixedContact( int index ) const
 {
-    world.MarkSolverFixedContact( modelAccess, index );
+    modelAccess.BodyEvents().NotifyFixedContact( index, 0.5f );
 }
 
 
-void PersistentContactSolverContext::WakeModel( PhysicsModelAccess& modelAccess, int index ) const
+void PersistentContactSolverContext::WriteBackCompatibilityBody( int index ) const
+{
+    modelAccess.WriteBackPhysicsBody( bodyStore, index );
+}
+
+
+void PersistentContactSolverContext::WakeReleasedBody( int index ) const
 {
     world.WakeModel( modelAccess, bodyStore, colliderStore, worldForces, index );
+}
+
+
+void PersistentContactSolverContext::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event ) const
+{
+    modelAccess.BodyEvents().ReleaseAttachedFixedTreeParts( event );
 }
 
 
@@ -2987,8 +2997,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     PROFILE_END( "Frame/Physics/Terrain" );
 
     PersistentContactSolverContext solverContext =
-        CreatePersistentContactSolverContext( bodyStore, colliderStore, worldForces, config );
-    m_contactSolver.Solve( solverContext, modelAccess, dt );
+        CreatePersistentContactSolverContext( modelAccess, bodyStream, bodyStore, colliderStore, worldForces, config );
+    m_contactSolver.Solve( solverContext, dt );
     WakePointJointConnectedBodies( modelAccess, bodyStore, colliderStore, worldForces, dt );
     if ( Ragdoll::SolvePointJoints( bodyStore, m_pointJointConstraints, m_sleepState, dt ) )
     {

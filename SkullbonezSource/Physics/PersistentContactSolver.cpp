@@ -43,7 +43,6 @@ Related:
 #include "../Core/Config.h"
 #include "ContactSolverCommon.h"
 #include "ColliderStore.h"
-#include "PhysicsModelAccess.h"
 #include "ObjectContactManifold.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsWorld.h"
@@ -54,7 +53,6 @@ Related:
 #include <cmath>
 #include <type_traits>
 
-using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Math::Orientation::Quaternion;
@@ -69,15 +67,12 @@ namespace
 constexpr int TERRAIN_BODY_INDEX = -1;
 } // namespace
 
-void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
-                                     PhysicsModelAccess& modelAccess,
-                                     float dt )
+void PersistentContactSolver::Solve( PersistentContactSolverContext& context, float dt )
 {
     using PersistentContact = PhysicsWorld::PersistentContact;
     using PersistentContactSolverStats = PhysicsWorld::PersistentContactSolverStats;
 
-    auto m_gameModels = modelAccess.Models();
-    const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
+    const auto& bodyStream = context.bodyStream;
     const uint8_t* m_soaIsFixed = bodyStream.isFixed;
     auto& m_candidatePairs = context.candidatePairs;
     auto& m_sleepState = context.sleepState;
@@ -105,7 +100,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
         pipelineTraceCanRecord = context.CanRecordPhysicsPipelineStage();
     };
     auto MarkCollisionVisualContact = [&]( int index ) { context.MarkCollisionVisualContact( index ); };
-    auto MarkFixedContact = [&]( int index ) { context.MarkFixedContact( modelAccess, index ); };
+    auto MarkFixedContact = [&]( int index ) { context.MarkFixedContact( index ); };
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts" );
 
     // Concept: persistent contact rows solve the quiet resting case.
@@ -130,7 +125,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
     //   Object-object narrowphase uses Skullbonez shape-pair manifold builders
     //   for the row geometry. The cache and PGS row shape are Catto; the exact
     //   sphere/box/OBB feature encodings are local engine policy.
-    const int modelCount = static_cast<int>( m_gameModels.size() );
+    const int modelCount =
+        (std::min)( { bodyStream.count, context.bodyStore.Count(), static_cast<int>( m_colliderRecords.size() ) } );
     const auto& config = context.config;
     m_persistentContactSolverStats = PersistentContactSolverStats();
     m_persistentContactSolverStats.cachePreviousRows = static_cast<int>( m_persistentContactCache.size() );
@@ -240,8 +236,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
         //   work vector "a".
         // ENGINE-SPECIFIC:
         //   We keep compact per-body solver state here and write back once after PGS.
-        //   That preserves Catto's sparse-row shape while avoiding repeated GameModel
-        //   getter/setter churn inside the row loop.
+        //   That preserves Catto's sparse-row shape while avoiding repeated
+        //   body-store writes inside the row loop.
         for ( int i = 0; i < modelCount; ++i )
         {
             const PhysicsBodyRecord& record = m_bodyRecords[static_cast<size_t>( i )];
@@ -348,6 +344,18 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             radius += sqrtf( offsetSq );
         }
         return radius;
+    };
+
+    auto contactBodyViewForIndex = [&]( int index ) -> ObjectContactBodyView
+    {
+        // Why: object manifolds need only pose plus shape. Pose now comes from
+        // PhysicsBodyRecord, while ColliderStore owns the shape snapshot; the
+        // solver no longer has to borrow a mutable scene object just to build rows.
+        const PhysicsBodyRecord& record = m_bodyRecords[static_cast<size_t>( index )];
+        ObjectContactBodyView view;
+        view.position = record.position;
+        view.orientation = record.orientation;
+        return view;
     };
 
     auto appendSleepSupportEdge = [&]( int aIndex, int bIndex, const Vector3& normal, bool canSeedSupport )
@@ -681,10 +689,10 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                 std::swap( aIndex, bIndex );
             }
 
-            GameModel& a = m_gameModels[aIndex];
-            GameModel& b = m_gameModels[bIndex];
             const ColliderRecord& colliderA = m_colliderRecords[static_cast<size_t>( aIndex )];
             const ColliderRecord& colliderB = m_colliderRecords[static_cast<size_t>( bIndex )];
+            const ObjectContactBodyView bodyA = contactBodyViewForIndex( aIndex );
+            const ObjectContactBodyView bodyB = contactBodyViewForIndex( bIndex );
 
             Vector3 centerDelta = m_bodyRecords[static_cast<size_t>( bIndex )].position -
                                   m_bodyRecords[static_cast<size_t>( aIndex )].position;
@@ -702,9 +710,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             bool manifoldBuilt = false;
             {
                 PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds/ExactObjectManifold" );
-                manifoldBuilt = BuildObjectContactManifold( a,
+                manifoldBuilt = BuildObjectContactManifold( bodyA,
                                                             colliderA.shape,
-                                                            b,
+                                                            bodyB,
                                                             colliderB.shape,
                                                             aIndex,
                                                             bIndex,
@@ -1365,7 +1373,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
 
             m_bodyRecords[static_cast<size_t>( i )].linearVelocity = m_solverBodies[i].linearVelocity;
             m_bodyRecords[static_cast<size_t>( i )].angularVelocity = m_solverBodies[i].angularVelocity;
-            context.bodyStore.WriteBackToModelAt( m_gameModels, i );
+            context.WriteBackCompatibilityBody( i );
         }
     }
 
@@ -1462,11 +1470,11 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
                 RecordPhysicsPipelineStage( record );
             }
             m_bodyRecords[static_cast<size_t>( c.bodyA )].position -= correction * invMassA;
-            context.bodyStore.WriteBackToModelAt( m_gameModels, c.bodyA );
+            context.WriteBackCompatibilityBody( c.bodyA );
             if ( hasBodyB )
             {
                 m_bodyRecords[static_cast<size_t>( c.bodyB )].position += correction * invMassB;
-                context.bodyStore.WriteBackToModelAt( m_gameModels, c.bodyB );
+                context.WriteBackCompatibilityBody( c.bodyB );
             }
         }
     }
@@ -1577,9 +1585,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context,
             fixedRecord.isFixed = false;
             fixedRecord.linearVelocity = releaseDir * releaseSpeed + tangentVelocity;
             fixedRecord.angularVelocity = angularVelocity;
-            context.bodyStore.WriteBackToModelAt( m_gameModels, fixedIndex );
-            context.WakeModel( modelAccess, fixedIndex );
-            modelAccess.BodyEvents().ReleaseAttachedFixedTreeParts(
+            context.WriteBackCompatibilityBody( fixedIndex );
+            context.WakeReleasedBody( fixedIndex );
+            context.ReleaseAttachedFixedTreeParts(
                 PhysicsFixedTreeReleaseEvent{ fixedIndex,
                                               m_bodyRecords[static_cast<size_t>( fixedIndex )].linearVelocity,
                                               m_bodyRecords[static_cast<size_t>( fixedIndex )].angularVelocity } );

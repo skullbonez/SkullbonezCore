@@ -287,7 +287,9 @@ class PhysicsWorld
                                    int bodyB,
                                    float collisionTime,
                                    float availableTime );
-    PersistentContactSolverContext CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
+    PersistentContactSolverContext CreatePersistentContactSolverContext( PhysicsModelAccess& modelAccess,
+                                                                         const GameObjects::GameModelBodyStream& bodyStream,
+                                                                         PhysicsBodyStore& bodyStore,
                                                                          const ColliderStore& colliderStore,
                                                                          const PhysicsWorldForces& worldForces,
                                                                          const Basics::EngineConfig& config );
@@ -313,7 +315,6 @@ class PhysicsWorld
                                   const GameObjects::GameModelBodyStream& bodyStream,
                                   int index );
     void MarkCollisionVisualContact( int index );
-    void MarkFixedContact( PhysicsModelAccess& modelAccess, int index );
     void ApplyTornadoField( PhysicsModelAccess& modelAccess,
                             PhysicsBodyStore& bodyStore,
                             const ColliderStore& colliderStore,
@@ -426,10 +427,6 @@ class PhysicsWorld
     {
         MarkCollisionVisualContact( index );
     }
-    void MarkSolverFixedContact( PhysicsModelAccess& modelAccess, int index )
-    {
-        MarkFixedContact( modelAccess, index );
-    }
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     const std::vector<int64_t>& GetCollisionCellKeys() const;
@@ -485,6 +482,12 @@ struct PersistentContactSolverContext
     std::vector<TerrainContactManifold>& terrainContactManifolds;
     std::array<uint8_t, MAX_GAME_MODELS>& terrainRestApplied;
     std::vector<uint8_t>& sleepSupportedThisFrame;
+    // Compatibility command sink for legacy model-side events and writeback.
+    // The solver calls named operations on this context instead of borrowing a
+    // mutable GameModel range; deleting this reference belongs to the final K003
+    // writeback/scene-boundary slice.
+    PhysicsModelAccess& modelAccess;
+    const GameObjects::GameModelBodyStream& bodyStream;
     std::vector<PhysicsBodyRecord>& bodyRecords;
     const std::vector<ColliderRecord>& colliderRecords;
     PhysicsBodyStore& bodyStore;
@@ -496,8 +499,10 @@ struct PersistentContactSolverContext
     void RecordPhysicsPipelineStage( const PhysicsPipelineRecord& record ) const;
     bool CanRecordPhysicsPipelineStage() const;
     void MarkCollisionVisualContact( int index ) const;
-    void MarkFixedContact( PhysicsModelAccess& modelAccess, int index ) const;
-    void WakeModel( PhysicsModelAccess& modelAccess, int index ) const;
+    void MarkFixedContact( int index ) const;
+    void WriteBackCompatibilityBody( int index ) const;
+    void WakeReleasedBody( int index ) const;
+    void ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event ) const;
 };
 
 struct SleepSupportPropagationContext
