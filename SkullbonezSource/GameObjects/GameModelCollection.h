@@ -179,6 +179,16 @@ class GameModelCollection : public Rendering::IRenderSceneView,
                                     const Math::Orientation::Quaternion& orientation,
                                     const Math::Vector::Vector3& linearVelocity,
                                     const Math::Vector::Vector3& angularVelocity );
+    // Replay prediction temporarily simulates from copied body state, then
+    // restores the live scene through this owner-checked command.
+    bool TryRestoreReplayPredictionBodyState( int index,
+                                              uint32_t replayBodyId,
+                                              bool fixed,
+                                              const Math::Vector::Vector3& position,
+                                              const Math::Orientation::Quaternion& orientation,
+                                              const Math::Vector::Vector3& linearVelocity,
+                                              const Math::Vector::Vector3& angularVelocity,
+                                              float fixedContactHighlightSeconds );
     // Replay scrub rendering may override only the draw pose for a frame. The
     // replay id check prevents stale sample indices from moving the wrong body.
     bool TrySetReplayRenderPose( int index,
@@ -189,10 +199,6 @@ class GameModelCollection : public Rendering::IRenderSceneView,
     // cannot keep a stale copy.
     bool TrySetModelAngularVelocity( int index, const Math::Vector::Vector3& angularVelocity );
     Basics::MainMemoryGameObjectStats CollectMemoryStats() const;
-    // Compatibility: legacy replay/editor paths still borrow the model vector
-    // while body, collider, and render stores become authoritative.
-    std::vector<GameModel>& MutablePhysicsModelsForCompatibility();
-    const std::vector<GameModel>& PhysicsModelsForCompatibility() const;
     bool TrimModelsForReplayRestore( int modelCount );
     void CaptureReplaySolverWorldSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot ) const;
     bool RestoreReplaySolverWorldSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot );

@@ -342,7 +342,8 @@ class GameModel
     Math::Vector::Vector3 GetOrientationUp();                               // Local +Y axis rotated into world space by the visual orientation.
     const Math::Orientation::Quaternion& GetOrientation() const;
     const Math::Vector::Vector3& GetRotationalInertia() const;
-    const Math::Vector::Vector3& GetInvertedRotationalInertia();            // Component-wise inverse inertia cache for solver rows.
+    const Math::Vector::Vector3&
+    GetInvertedRotationalInertia() const;                                   // Component-wise inverse inertia cache for solver rows.
     float GetCoefficientRestitution() const;
     const Math::CollisionDetection::CollisionShape&
     GetCollisionShape() const;                                              // Authoritative shape variant for narrowphase manifold dispatch.

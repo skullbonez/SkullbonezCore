@@ -1995,7 +1995,7 @@ const Vector3& GameModel::GetRotationalInertia() const
 }
 
 
-const Vector3& GameModel::GetInvertedRotationalInertia()
+const Vector3& GameModel::GetInvertedRotationalInertia() const
 {
     if ( m_isFixed )
     {

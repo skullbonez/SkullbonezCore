@@ -74,9 +74,9 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
 
     if ( replayRuntime.PathVisualizer().hasTarget && replayRuntime.PathVisualizer().targetId.value != 0 )
     {
-        std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();
         int targetIndex = -1;
-        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        const int modelCount = modelCollection.GetModelCount();
+        for ( int i = 0; i < modelCount; ++i )
         {
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
@@ -84,8 +84,8 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
                 return false;
             }
 
-            if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() ==
-                 replayRuntime.PathVisualizer().targetId.value )
+            const GameModel* model = modelCollection.TryGetModel( i );
+            if ( model && model->GetReplayBodyId() == replayRuntime.PathVisualizer().targetId.value )
             {
                 targetIndex = i;
                 break;
@@ -164,7 +164,9 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
     // Hazard: everything after liveRestoreBodies/liveRestoreWorld succeeds may
     // swap live state for prediction state. All early exits before RestoreLive
     // must happen before the swap, or after the restore block below.
-    if ( !CaptureReplayPredictionBodyState( modelCollection, workerPool, replayRuntime.Prediction().liveRestoreBodies ) )
+    if ( !CaptureReplayPredictionBodyState( modelCollection,
+                                            workerPool,
+                                            replayRuntime.Prediction().liveRestoreBodies ) )
     {
         replayRuntime.CancelPredictionJob( true );
         replayRuntime.Prediction().dirty = true;
@@ -207,11 +209,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 
                 {
                     PROFILE_SCOPED( "Frame/Replay/Prediction/StepPhysics" );
-                    SimulationPhysicsStep{
-                        &modelCollection.GetPhysicsEngine(),
-                        &modelCollection,
-                        &config,
-                        &workerPool }
+                    SimulationPhysicsStep{ &modelCollection.GetPhysicsEngine(), &modelCollection, &config, &workerPool }
                         .Run( PHYSICS_FIXED_DT );
                 }
                 CaptureReplayPredictionFrame( replayRuntime,
@@ -230,8 +228,9 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 
         {
             PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureJobState" );
-            jobStateCaptured =
-                CaptureReplayPredictionBodyState( modelCollection, workerPool, replayRuntime.Prediction().predictionBodies );
+            jobStateCaptured = CaptureReplayPredictionBodyState( modelCollection,
+                                                                 workerPool,
+                                                                 replayRuntime.Prediction().predictionBodies );
             if ( jobStateCaptured )
             {
                 modelCollection.GetPhysicsEngine().CaptureReplaySolverSnapshot(

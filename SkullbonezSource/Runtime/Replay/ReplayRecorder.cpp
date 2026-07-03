@@ -700,14 +700,14 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     }
 
     GameModelCollection& models = *input.models;
-    std::vector<GameModel>& physicsModels = models.MutablePhysicsModelsForCompatibility();
-    const std::size_t modelCount = physicsModels.size();
+    const int modelCount = models.GetModelCount();
+    const std::size_t modelCountSize = static_cast<std::size_t>( modelCount );
     sample.bodies.clear();
-    sample.bodies.reserve( modelCount );
+    sample.bodies.reserve( modelCountSize );
 
-    m_contactCountScratch.assign( modelCount, 0 );
-    m_maxPenetrationScratch.assign( modelCount, 0.0f );
-    m_normalImpulseSumScratch.assign( modelCount, 0.0f );
+    m_contactCountScratch.assign( modelCountSize, 0 );
+    m_maxPenetrationScratch.assign( modelCountSize, 0.0f );
+    m_normalImpulseSumScratch.assign( modelCountSize, 0.0f );
 
     const std::vector<PhysicsDebugContact>& contacts = models.GetPhysicsDebugContacts();
     sample.contactCount = SaturatingUint16( contacts.size() );
@@ -744,33 +744,40 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     hash = HashInt( hash, static_cast<int>( sample.contactCount ) );
     hash = HashInt( hash, static_cast<int>( sample.pipelineRecordCount ) );
 
-    for ( std::size_t i = 0; i < modelCount; ++i )
+    for ( int i = 0; i < modelCount; ++i )
     {
-        GameModel& model = physicsModels[i];
+        const std::size_t bodyIndex = static_cast<std::size_t>( i );
+        const GameModel* model = models.TryGetModel( i );
+        if ( !model )
+        {
+            continue;
+        }
+
         ReplayBodyPresentationSample body;
-        body.id.value = model.GetReplayBodyId();
-        body.modelIndex = static_cast<int>( i );
-        const char* modelName = model.GetName();
+        body.id.value = model->GetReplayBodyId();
+        body.modelIndex = i;
+        const char* modelName = model->GetName();
         if ( modelName && modelName[0] != '\0' )
         {
             strncpy_s( body.name, sizeof( body.name ), modelName, _TRUNCATE );
         }
-        body.shapeKind = ShapeKindForModel( model );
-        body.position = model.GetPosition();
-        body.linearVelocity = model.GetVelocity();
-        body.angularVelocity = model.GetAngularVelocity();
-        const Quaternion& orientation = model.GetOrientation();
+        body.shapeKind = ShapeKindForModel( *model );
+        body.position = model->GetPosition();
+        body.linearVelocity = model->GetVelocity();
+        body.angularVelocity = model->GetAngularVelocity();
+        const Quaternion& orientation = model->GetOrientation();
         orientation.GetComponents( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
-        body.mass = model.GetMass();
-        body.fixed = model.IsFixed();
-        body.sleeping = i < sleepStates.size() && sleepStates[i] != 0;
-        body.sleepSupported = i < sleepSupportedStates.size() && sleepSupportedStates[i] != 0;
-        body.sleepInhibited = i < sleepInhibitedStates.size() && sleepInhibitedStates[i] != 0;
-        body.collisionContact = i < collisionContacts.size() && collisionContacts[i] != 0;
-        body.sleepIslandVisualId = i < sleepIslandIds.size() ? sleepIslandIds[i] : 0;
-        body.contactCount = i < m_contactCountScratch.size() ? m_contactCountScratch[i] : 0;
-        body.maxPenetration = i < m_maxPenetrationScratch.size() ? m_maxPenetrationScratch[i] : 0.0f;
-        body.normalImpulseSum = i < m_normalImpulseSumScratch.size() ? m_normalImpulseSumScratch[i] : 0.0f;
+        body.mass = model->GetMass();
+        body.fixed = model->IsFixed();
+        body.sleeping = bodyIndex < sleepStates.size() && sleepStates[bodyIndex] != 0;
+        body.sleepSupported = bodyIndex < sleepSupportedStates.size() && sleepSupportedStates[bodyIndex] != 0;
+        body.sleepInhibited = bodyIndex < sleepInhibitedStates.size() && sleepInhibitedStates[bodyIndex] != 0;
+        body.collisionContact = bodyIndex < collisionContacts.size() && collisionContacts[bodyIndex] != 0;
+        body.sleepIslandVisualId = bodyIndex < sleepIslandIds.size() ? sleepIslandIds[bodyIndex] : 0;
+        body.contactCount = bodyIndex < m_contactCountScratch.size() ? m_contactCountScratch[bodyIndex] : 0;
+        body.maxPenetration = bodyIndex < m_maxPenetrationScratch.size() ? m_maxPenetrationScratch[bodyIndex] : 0.0f;
+        body.normalImpulseSum =
+            bodyIndex < m_normalImpulseSumScratch.size() ? m_normalImpulseSumScratch[bodyIndex] : 0.0f;
 
         hash = HashBodySample( hash, body );
         sample.bodies.push_back( body );
@@ -1142,14 +1149,14 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     }
 
     GameModelCollection& models = *input.models;
-    std::vector<GameModel>& physicsModels = models.MutablePhysicsModelsForCompatibility();
-    const std::size_t modelCount = physicsModels.size();
+    const int modelCount = models.GetModelCount();
+    const std::size_t modelCountSize = static_cast<std::size_t>( modelCount );
     sample.bodies.clear();
-    sample.bodies.reserve( modelCount );
+    sample.bodies.reserve( modelCountSize );
 
-    m_contactCountScratch.assign( modelCount, 0 );
-    m_maxPenetrationScratch.assign( modelCount, 0.0f );
-    m_normalImpulseSumScratch.assign( modelCount, 0.0f );
+    m_contactCountScratch.assign( modelCountSize, 0 );
+    m_maxPenetrationScratch.assign( modelCountSize, 0.0f );
+    m_normalImpulseSumScratch.assign( modelCountSize, 0.0f );
 
     const std::vector<PhysicsDebugContact>& contacts = models.GetPhysicsDebugContacts();
     sample.contactCount = SaturatingUint16( contacts.size() );
@@ -1192,36 +1199,43 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     solverHash = HashLauncherControlState( solverHash, sample.launcherVisual );
     solverHash = HashSolverWorldSnapshot( solverHash, sample.worldSnapshot );
 
-    for ( std::size_t i = 0; i < modelCount; ++i )
+    for ( int i = 0; i < modelCount; ++i )
     {
-        GameModel& model = physicsModels[i];
+        const std::size_t bodyIndex = static_cast<std::size_t>( i );
+        const GameModel* model = models.TryGetModel( i );
+        if ( !model )
+        {
+            continue;
+        }
+
         ReplaySolverBodySample body;
-        body.id.value = model.GetReplayBodyId();
-        body.modelIndex = static_cast<int>( i );
-        const char* modelName = model.GetName();
+        body.id.value = model->GetReplayBodyId();
+        body.modelIndex = i;
+        const char* modelName = model->GetName();
         if ( modelName && modelName[0] != '\0' )
         {
             strncpy_s( body.name, sizeof( body.name ), modelName, _TRUNCATE );
         }
-        body.shapeKind = ShapeKindForModel( model );
-        body.position = model.GetPosition();
-        body.linearVelocity = model.GetVelocity();
-        body.angularVelocity = model.GetAngularVelocity();
-        const Quaternion& orientation = model.GetOrientation();
+        body.shapeKind = ShapeKindForModel( *model );
+        body.position = model->GetPosition();
+        body.linearVelocity = model->GetVelocity();
+        body.angularVelocity = model->GetAngularVelocity();
+        const Quaternion& orientation = model->GetOrientation();
         orientation.GetComponents( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
-        body.mass = model.GetMass();
-        body.inverseMass = model.GetInvertedMass();
-        body.rotationalInertia = model.GetRotationalInertia();
-        body.inverseRotationalInertia = model.GetInvertedRotationalInertia();
-        body.fixed = model.IsFixed();
-        body.sleeping = i < sleepStates.size() && sleepStates[i] != 0;
-        body.sleepSupported = i < sleepSupportedStates.size() && sleepSupportedStates[i] != 0;
-        body.sleepInhibited = i < sleepInhibitedStates.size() && sleepInhibitedStates[i] != 0;
-        body.collisionContact = i < collisionContacts.size() && collisionContacts[i] != 0;
-        body.sleepIslandVisualId = i < sleepIslandIds.size() ? sleepIslandIds[i] : 0;
-        body.contactCount = i < m_contactCountScratch.size() ? m_contactCountScratch[i] : 0;
-        body.maxPenetration = i < m_maxPenetrationScratch.size() ? m_maxPenetrationScratch[i] : 0.0f;
-        body.normalImpulseSum = i < m_normalImpulseSumScratch.size() ? m_normalImpulseSumScratch[i] : 0.0f;
+        body.mass = model->GetMass();
+        body.inverseMass = model->GetInvertedMass();
+        body.rotationalInertia = model->GetRotationalInertia();
+        body.inverseRotationalInertia = model->GetInvertedRotationalInertia();
+        body.fixed = model->IsFixed();
+        body.sleeping = bodyIndex < sleepStates.size() && sleepStates[bodyIndex] != 0;
+        body.sleepSupported = bodyIndex < sleepSupportedStates.size() && sleepSupportedStates[bodyIndex] != 0;
+        body.sleepInhibited = bodyIndex < sleepInhibitedStates.size() && sleepInhibitedStates[bodyIndex] != 0;
+        body.collisionContact = bodyIndex < collisionContacts.size() && collisionContacts[bodyIndex] != 0;
+        body.sleepIslandVisualId = bodyIndex < sleepIslandIds.size() ? sleepIslandIds[bodyIndex] : 0;
+        body.contactCount = bodyIndex < m_contactCountScratch.size() ? m_contactCountScratch[bodyIndex] : 0;
+        body.maxPenetration = bodyIndex < m_maxPenetrationScratch.size() ? m_maxPenetrationScratch[bodyIndex] : 0.0f;
+        body.normalImpulseSum =
+            bodyIndex < m_normalImpulseSumScratch.size() ? m_normalImpulseSumScratch[bodyIndex] : 0.0f;
 
         presentationHash = HashSolverBodyPresentationFields( presentationHash, body );
         solverHash = HashSolverBodySample( solverHash, body );

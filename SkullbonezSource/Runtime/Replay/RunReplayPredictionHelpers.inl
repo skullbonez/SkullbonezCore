@@ -993,9 +993,8 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
                                             const std::chrono::steady_clock::time_point& budgetStart,
                                             double budgetMilliseconds )
 {
-    const bool completingBuildFrames =
-        !usingBuildFrames && prediction.futureNodesBuiltFromBuildFrames &&
-        prediction.futureNodesBuiltFrameCount <= frames.size();
+    const bool completingBuildFrames = !usingBuildFrames && prediction.futureNodesBuiltFromBuildFrames &&
+                                       prediction.futureNodesBuiltFrameCount <= frames.size();
     const bool sourceMismatch =
         prediction.futureNodesBuiltFromBuildFrames != usingBuildFrames && !completingBuildFrames;
     // Invariant: these inputs define the meaning of the cached tree. Any change
@@ -1086,23 +1085,27 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
                                        std::vector<RunReplayPredictionBodyBackup>& outBodies )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureBodyState" );
-    std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();
-    const int modelCount = static_cast<int>( models.size() );
+    const int modelCount = modelCollection.GetModelCount();
     outBodies.clear();
     outBodies.resize( static_cast<std::size_t>( modelCount ) );
 
     const auto captureBody = [&]( int i )
     {
-        const GameModel& model = models[static_cast<std::size_t>( i )];
+        const GameModel* model = modelCollection.TryGetModel( i );
+        if ( !model )
+        {
+            return;
+        }
+
         RunReplayPredictionBodyBackup backup;
-        backup.id.value = model.GetReplayBodyId();
+        backup.id.value = model->GetReplayBodyId();
         backup.modelIndex = i;
-        backup.position = model.GetPosition();
-        backup.orientation = model.GetOrientation();
-        backup.linearVelocity = model.GetVelocity();
-        backup.angularVelocity = model.GetAngularVelocity();
-        backup.fixedContactHighlightSeconds = model.GetFixedContactHighlightSeconds();
-        backup.fixed = model.IsFixed();
+        backup.position = model->GetPosition();
+        backup.orientation = model->GetOrientation();
+        backup.linearVelocity = model->GetVelocity();
+        backup.angularVelocity = model->GetAngularVelocity();
+        backup.fixedContactHighlightSeconds = model->GetFixedContactHighlightSeconds();
+        backup.fixed = model->IsFixed();
         outBodies[static_cast<std::size_t>( i )] = backup;
     };
 
@@ -1111,13 +1114,12 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
     // because it mutates live GameModel state.
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
-        workerPool.ParallelFor(
-            0,
-            modelCount,
-            captureBody,
-            REPLAY_PREDICTION_PARALLEL_BODY_MIN,
-            "Frame/Replay/Prediction/CaptureBodyState/WorkerBodies",
-            REPLAY_PREDICTION_CAPTURE_BODY_WORKER_HASH );
+        workerPool.ParallelFor( 0,
+                                modelCount,
+                                captureBody,
+                                REPLAY_PREDICTION_PARALLEL_BODY_MIN,
+                                "Frame/Replay/Prediction/CaptureBodyState/WorkerBodies",
+                                REPLAY_PREDICTION_CAPTURE_BODY_WORKER_HASH );
     }
     else
     {
@@ -1134,31 +1136,24 @@ bool ApplyReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelColle
                                      const std::vector<RunReplayPredictionBodyBackup>& bodies )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/ApplyBodyState" );
-    std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();
-    if ( bodies.size() != models.size() )
+    if ( bodies.size() != static_cast<std::size_t>( modelCollection.GetModelCount() ) )
     {
         return false;
     }
 
     for ( const RunReplayPredictionBodyBackup& backup : bodies )
     {
-        if ( backup.modelIndex < 0 || backup.modelIndex >= static_cast<int>( models.size() ) )
+        if ( !modelCollection.TryRestoreReplayPredictionBodyState( backup.modelIndex,
+                                                                   backup.id.value,
+                                                                   backup.fixed,
+                                                                   backup.position,
+                                                                   backup.orientation,
+                                                                   backup.linearVelocity,
+                                                                   backup.angularVelocity,
+                                                                   backup.fixedContactHighlightSeconds ) )
         {
             return false;
         }
-
-        GameModel& model = models[static_cast<std::size_t>( backup.modelIndex )];
-        if ( model.GetReplayBodyId() != backup.id.value )
-        {
-            return false;
-        }
-
-        model.SetFixed( backup.fixed );
-        model.SetPosition( backup.position );
-        model.SetOrientation( backup.orientation );
-        model.SetLinearVelocity( backup.linearVelocity );
-        model.SetAngularVelocity( backup.angularVelocity );
-        model.SetFixedContactHighlightSeconds( backup.fixedContactHighlightSeconds );
     }
     return true;
 }
@@ -1170,8 +1165,7 @@ void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
                                    ReplayFrameIndex frameIndex )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
-    std::vector<GameModel>& models = modelCollection.MutablePhysicsModelsForCompatibility();
-    const int modelCount = static_cast<int>( models.size() );
+    const int modelCount = modelCollection.GetModelCount();
     RunReplayPredictionFrame frame;
     frame.frameIndex = frameIndex;
     frame.simulationSeconds = replayRuntime.Prediction().sourceSimulationSeconds +
@@ -1181,12 +1175,17 @@ void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
 
     const auto captureBody = [&]( int i )
     {
-        const GameModel& model = models[static_cast<std::size_t>( i )];
+        const GameModel* model = modelCollection.TryGetModel( i );
+        if ( !model )
+        {
+            return;
+        }
+
         RunReplayPredictionBodySample body;
-        body.id.value = model.GetReplayBodyId();
+        body.id.value = model->GetReplayBodyId();
         body.modelIndex = i;
-        body.position = model.GetPosition();
-        body.orientation = model.GetOrientation();
+        body.position = model->GetPosition();
+        body.orientation = model->GetOrientation();
         frame.bodies[static_cast<std::size_t>( i )] = body;
     };
 
@@ -1194,13 +1193,12 @@ void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
     // Parallel capture pays off there, but small scenes stay serial by threshold.
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
-        workerPool.ParallelFor(
-            0,
-            modelCount,
-            captureBody,
-            REPLAY_PREDICTION_PARALLEL_BODY_MIN,
-            "Frame/Replay/Prediction/CaptureSample/WorkerBodies",
-            REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH );
+        workerPool.ParallelFor( 0,
+                                modelCount,
+                                captureBody,
+                                REPLAY_PREDICTION_PARALLEL_BODY_MIN,
+                                "Frame/Replay/Prediction/CaptureSample/WorkerBodies",
+                                REPLAY_PREDICTION_CAPTURE_SAMPLE_WORKER_HASH );
     }
     else
     {

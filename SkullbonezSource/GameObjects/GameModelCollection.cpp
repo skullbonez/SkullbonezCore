@@ -514,6 +514,37 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
 }
 
 
+bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
+                                                               uint32_t replayBodyId,
+                                                               bool fixed,
+                                                               const Vector3& position,
+                                                               const Quaternion& orientation,
+                                                               const Vector3& linearVelocity,
+                                                               const Vector3& angularVelocity,
+                                                               float fixedContactHighlightSeconds )
+{
+    if ( index < 0 || index >= GetModelCount() )
+    {
+        return false;
+    }
+
+    GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+    if ( model.GetReplayBodyId() != replayBodyId )
+    {
+        return false;
+    }
+
+    model.SetFixed( fixed );
+    model.SetPosition( position );
+    model.SetOrientation( orientation );
+    model.SetLinearVelocity( linearVelocity );
+    model.SetAngularVelocity( angularVelocity );
+    model.SetFixedContactHighlightSeconds( fixedContactHighlightSeconds );
+    InvalidateSoA();
+    return true;
+}
+
+
 bool GameModelCollection::TrySetReplayRenderPose( int index,
                                                   uint32_t replayBodyId,
                                                   const Vector3& position,
@@ -572,18 +603,6 @@ MainMemoryGameObjectStats GameModelCollection::CollectMemoryStats() const
     stats.totalBytes = stats.modelVectorBytes + stats.soaCacheBytes + stats.physicsStoreBytes +
                        stats.colliderStoreBytes + stats.renderStoreBytes + stats.physicsWorldBytes;
     return stats;
-}
-
-
-std::vector<GameModel>& GameModelCollection::MutablePhysicsModelsForCompatibility()
-{
-    return m_gameModels;
-}
-
-
-const std::vector<GameModel>& GameModelCollection::PhysicsModelsForCompatibility() const
-{
-    return m_gameModels;
 }
 
 
