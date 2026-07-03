@@ -935,23 +935,24 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         return false;
     }
 
-    std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
-    if ( sample.bodies.size() > models.size() )
+    const int liveModelCount = m_cGameModelCollection.GetModelCount();
+    if ( sample.bodies.size() > static_cast<std::size_t>( liveModelCount ) )
     {
         writeReason( "selected frame needs unavailable bodies" );
         return false;
     }
 
+    const int restoreModelCount = static_cast<int>( sample.bodies.size() );
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
-        if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
+        if ( body.modelIndex < 0 || body.modelIndex >= liveModelCount || body.modelIndex >= restoreModelCount )
         {
             writeReason( "selected frame has invalid body index" );
             return false;
         }
 
-        const GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
-        if ( model.GetReplayBodyId() != body.id.value )
+        const GameObjects::GameModel* model = m_cGameModelCollection.TryGetModel( body.modelIndex );
+        if ( !model || model->GetReplayBodyId() != body.id.value )
         {
             writeReason( "selected frame body ids no longer match" );
             return false;
@@ -959,7 +960,6 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
     }
 
     m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
-    const int restoreModelCount = static_cast<int>( sample.bodies.size() );
     if ( !m_cGameModelCollection.TrimModelsForReplayRestore( restoreModelCount ) )
     {
         writeReason( "failed to trim live model list" );
@@ -968,17 +968,21 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
 
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
-        GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
         Math::Orientation::Quaternion orientation( body.orientation[0],
                                                    body.orientation[1],
                                                    body.orientation[2],
                                                    body.orientation[3] );
-        model.SetFixed( body.fixed );
-        model.SetPosition( body.position );
-        model.SetOrientation( orientation );
-        model.SetLinearVelocity( body.linearVelocity );
-        model.SetAngularVelocity( body.angularVelocity );
-        model.ClearImpulseForce();
+        if ( !m_cGameModelCollection.TryRestoreReplayBodyState( body.modelIndex,
+                                                                body.id.value,
+                                                                body.fixed,
+                                                                body.position,
+                                                                orientation,
+                                                                body.linearVelocity,
+                                                                body.angularVelocity ) )
+        {
+            writeReason( "failed to restore replay body state" );
+            return false;
+        }
     }
     (void)m_cGameModelCollection.GetPhysicsBodyStore();
     m_cGameModelCollection.GetPhysicsEngine().ClearPendingBodyImpulses();

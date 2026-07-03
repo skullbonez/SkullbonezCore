@@ -19,6 +19,8 @@ Glossary:
     velocity state to RigidBody integration.
   Contact policy: Terrain and contact thresholds cached by the collection so
     existing and newly added models receive the same physics policy.
+  Replay body id: Per-collection identity saved in replay samples so restore
+    paths can reject stale model slots.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -168,6 +170,15 @@ class GameModelCollection : public Rendering::IRenderSceneView,
     // Lifetime: returned model pointers are stable only until collection
     // mutation. Null means the caller held a stale model index.
     const GameModel* TryGetModel( int index ) const;
+    // Replays restore saved body state through the collection so cache
+    // invalidation and replay-id validation stay with the model owner.
+    bool TryRestoreReplayBodyState( int index,
+                                    uint32_t replayBodyId,
+                                    bool fixed,
+                                    const Math::Vector::Vector3& position,
+                                    const Math::Orientation::Quaternion& orientation,
+                                    const Math::Vector::Vector3& linearVelocity,
+                                    const Math::Vector::Vector3& angularVelocity );
     // Mutates angular velocity through the collection so derived body streams
     // cannot keep a stale copy.
     bool TrySetModelAngularVelocity( int index, const Math::Vector::Vector3& angularVelocity );

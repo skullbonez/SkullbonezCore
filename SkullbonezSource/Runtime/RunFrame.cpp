@@ -825,16 +825,14 @@ void Run::TickReplayScrubProbe()
         throw std::runtime_error( "replay scrub probe did not find a moved body in the selected replay window" );
     }
 
-    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels =
-        m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
-    if ( liveBody->modelIndex < 0 || liveBody->modelIndex >= static_cast<int>( physicsModels.size() ) )
+    const int probedModelIndex = liveBody->modelIndex;
+    const SkullbonezCore::GameObjects::GameModel* probedModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !probedModel )
     {
         throw std::runtime_error( "replay scrub probe selected an invalid live model index" );
     }
 
-    SkullbonezCore::GameObjects::GameModel& probedModel =
-        physicsModels[static_cast<std::size_t>( liveBody->modelIndex )];
-    const Math::Vector::Vector3 preApplyPosition = probedModel.GetPosition();
+    const Math::Vector::Vector3 preApplyPosition = probedModel->GetPosition();
     const float preLiveDeltaSquared = distanceSquared( preApplyPosition, liveBody->position );
     if ( preLiveDeltaSquared > m_replayScrubProbe.minDistanceSquared )
     {
@@ -847,7 +845,13 @@ void Run::TickReplayScrubProbe()
     {
         throw std::runtime_error( "replay scrub probe failed to apply the selected presentation sample" );
     }
-    const Math::Vector::Vector3 appliedPosition = probedModel.GetPosition();
+    const SkullbonezCore::GameObjects::GameModel* appliedModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !appliedModel )
+    {
+        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+        throw std::runtime_error( "replay scrub probe lost the selected live model after applying scrub state" );
+    }
+    const Math::Vector::Vector3 appliedPosition = appliedModel->GetPosition();
     const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
     if ( appliedDeltaSquared > m_replayScrubProbe.minDistanceSquared )
     {
@@ -856,7 +860,13 @@ void Run::TickReplayScrubProbe()
     }
 
     m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
-    const Math::Vector::Vector3 restoredPosition = probedModel.GetPosition();
+    const SkullbonezCore::GameObjects::GameModel* restoredModel =
+        m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !restoredModel )
+    {
+        throw std::runtime_error( "replay scrub probe lost the selected live model after restoring scrub state" );
+    }
+    const Math::Vector::Vector3 restoredPosition = restoredModel->GetPosition();
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     const bool restored = restoredDeltaSquared <= m_replayScrubProbe.minDistanceSquared;
     if ( !restored )
@@ -1122,16 +1132,14 @@ void Run::TickReplaySaveProbe()
         throw std::runtime_error( "replay save probe did not find a moved body in the loaded v2 artifact" );
     }
 
-    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels =
-        m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
-    if ( liveBody->modelIndex < 0 || liveBody->modelIndex >= static_cast<int>( physicsModels.size() ) )
+    const int probedModelIndex = liveBody->modelIndex;
+    const SkullbonezCore::GameObjects::GameModel* probedModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !probedModel )
     {
         throw std::runtime_error( "replay save probe loaded an invalid live model index" );
     }
 
-    SkullbonezCore::GameObjects::GameModel& probedModel =
-        physicsModels[static_cast<std::size_t>( liveBody->modelIndex )];
-    const Math::Vector::Vector3 preApplyPosition = probedModel.GetPosition();
+    const Math::Vector::Vector3 preApplyPosition = probedModel->GetPosition();
     const float preLiveDeltaSquared = distanceSquared( preApplyPosition, liveBody->position );
     if ( preLiveDeltaSquared > 0.0001f )
     {
@@ -1143,7 +1151,13 @@ void Run::TickReplaySaveProbe()
     {
         throw std::runtime_error( "replay save probe failed to apply the loaded v2 presentation sample" );
     }
-    const Math::Vector::Vector3 appliedPosition = probedModel.GetPosition();
+    const SkullbonezCore::GameObjects::GameModel* appliedModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !appliedModel )
+    {
+        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+        throw std::runtime_error( "replay save probe lost the selected live model after applying the v2 sample" );
+    }
+    const Math::Vector::Vector3 appliedPosition = appliedModel->GetPosition();
     const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
     if ( appliedDeltaSquared > 0.0001f )
     {
@@ -1152,7 +1166,13 @@ void Run::TickReplaySaveProbe()
     }
 
     m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
-    const Math::Vector::Vector3 restoredPosition = probedModel.GetPosition();
+    const SkullbonezCore::GameObjects::GameModel* restoredModel =
+        m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !restoredModel )
+    {
+        throw std::runtime_error( "replay save probe lost the selected live model after restoring the v2 sample" );
+    }
+    const Math::Vector::Vector3 restoredPosition = restoredModel->GetPosition();
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     if ( restoredDeltaSquared > 0.0001f )
     {
@@ -1257,23 +1277,27 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
         throw std::runtime_error( "replay load probe did not find a moved body in the loaded v2 artifact" );
     }
 
-    std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels =
-        m_cGameModelCollection.MutablePhysicsModelsForCompatibility();
-    if ( selectedBody->modelIndex < 0 || selectedBody->modelIndex >= static_cast<int>( physicsModels.size() ) )
+    const int probedModelIndex = selectedBody->modelIndex;
+    const SkullbonezCore::GameObjects::GameModel* probedModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !probedModel )
     {
         throw std::runtime_error( "replay load probe loaded an invalid model index" );
     }
 
-    SkullbonezCore::GameObjects::GameModel& probedModel =
-        physicsModels[static_cast<std::size_t>( selectedBody->modelIndex )];
-    const Math::Vector::Vector3 preApplyPosition = probedModel.GetPosition();
+    const Math::Vector::Vector3 preApplyPosition = probedModel->GetPosition();
     const bool applied = m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, *selected );
     if ( !applied )
     {
         throw std::runtime_error( "replay load probe failed to apply the selected loaded v2 sample" );
     }
 
-    const Math::Vector::Vector3 appliedPosition = probedModel.GetPosition();
+    const SkullbonezCore::GameObjects::GameModel* appliedModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !appliedModel )
+    {
+        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+        throw std::runtime_error( "replay load probe lost the selected model after applying the v2 sample" );
+    }
+    const Math::Vector::Vector3 appliedPosition = appliedModel->GetPosition();
     const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
     if ( appliedDeltaSquared > 0.0001f )
     {
@@ -1282,7 +1306,13 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
     }
 
     m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
-    const Math::Vector::Vector3 restoredPosition = probedModel.GetPosition();
+    const SkullbonezCore::GameObjects::GameModel* restoredModel =
+        m_cGameModelCollection.TryGetModel( probedModelIndex );
+    if ( !restoredModel )
+    {
+        throw std::runtime_error( "replay load probe lost the selected model after restoring the v2 sample" );
+    }
+    const Math::Vector::Vector3 restoredPosition = restoredModel->GetPosition();
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     if ( restoredDeltaSquared > 0.0001f )
     {
@@ -1784,18 +1814,19 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
 
     auto checkpointTopologyMatchesLive = [&]() -> bool
     {
-        const std::vector<GameModel>& models = m_cGameModelCollection.PhysicsModelsForCompatibility();
-        if ( checkpoint->bodies.size() > models.size() )
+        const int liveModelCount = m_cGameModelCollection.GetModelCount();
+        if ( checkpoint->bodies.size() > static_cast<std::size_t>( liveModelCount ) )
         {
             return false;
         }
         for ( const ReplaySolverBodySample& body : checkpoint->bodies )
         {
-            if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
+            if ( body.modelIndex < 0 || body.modelIndex >= liveModelCount )
             {
                 return false;
             }
-            if ( models[static_cast<std::size_t>( body.modelIndex )].GetReplayBodyId() != body.id.value )
+            const GameModel* model = m_cGameModelCollection.TryGetModel( body.modelIndex );
+            if ( !model || model->GetReplayBodyId() != body.id.value )
             {
                 return false;
             }
@@ -2056,18 +2087,17 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 char message[1024] = {};
                 const ReplayPresentationSample* expectedPresentation =
                     FindReplayPresentationForFrame( presentationSamples, currentFrame );
-                const std::vector<GameModel>& restoredModels = m_cGameModelCollection.PhysicsModelsForCompatibility();
-                if ( expectedPresentation && !expectedPresentation->bodies.empty() && !restoredModels.empty() )
+                const GameModel* restoredModel = m_cGameModelCollection.TryGetModel( 0 );
+                if ( expectedPresentation && !expectedPresentation->bodies.empty() && restoredModel )
                 {
                     const ReplayBodyPresentationSample& expectedBody = expectedPresentation->bodies[0];
-                    const GameModel& restoredModel = restoredModels[0];
-                    const Vector3& restoredPosition = restoredModel.GetPosition();
-                    const Vector3& restoredVelocity = restoredModel.GetVelocity();
+                    const Vector3& restoredPosition = restoredModel->GetPosition();
+                    const Vector3& restoredVelocity = restoredModel->GetVelocity();
                     float restoredQx = 0.0f;
                     float restoredQy = 0.0f;
                     float restoredQz = 0.0f;
                     float restoredQw = 1.0f;
-                    restoredModel.GetOrientation().GetComponents( restoredQx, restoredQy, restoredQz, restoredQw );
+                    restoredModel->GetOrientation().GetComponents( restoredQx, restoredQy, restoredQz, restoredQw );
 
                     sprintf_s( message,
                                sizeof( message ),
@@ -2099,7 +2129,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                expectedBody.orientation[1],
                                expectedBody.orientation[2],
                                expectedBody.orientation[3],
-                               restoredModel.GetReplayBodyId(),
+                               restoredModel->GetReplayBodyId(),
                                expectedBody.id.value,
                                static_cast<unsigned long long>( eventsApplied ) );
                 }

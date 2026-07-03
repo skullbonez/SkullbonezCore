@@ -17,6 +17,8 @@ Glossary:
     velocity state to RigidBody integration.
   Contact policy: Terrain and contact thresholds cached by the collection so
     existing and newly added models receive the same physics policy.
+  Replay body id: Per-collection identity saved in replay samples so restore
+    paths can reject stale model slots.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -51,6 +53,7 @@ Related:
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::GameObjects;
+using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Rendering::ShadowFrameData;
@@ -478,6 +481,36 @@ const GameModel* GameModelCollection::TryGetModel( int index ) const
     }
 
     return &m_gameModels[static_cast<std::size_t>( index )];
+}
+
+
+bool GameModelCollection::TryRestoreReplayBodyState( int index,
+                                                     uint32_t replayBodyId,
+                                                     bool fixed,
+                                                     const Vector3& position,
+                                                     const Quaternion& orientation,
+                                                     const Vector3& linearVelocity,
+                                                     const Vector3& angularVelocity )
+{
+    if ( index < 0 || index >= GetModelCount() )
+    {
+        return false;
+    }
+
+    GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+    if ( model.GetReplayBodyId() != replayBodyId )
+    {
+        return false;
+    }
+
+    model.SetFixed( fixed );
+    model.SetPosition( position );
+    model.SetOrientation( orientation );
+    model.SetLinearVelocity( linearVelocity );
+    model.SetAngularVelocity( angularVelocity );
+    model.ClearImpulseForce();
+    InvalidateSoA();
+    return true;
 }
 
 
