@@ -165,6 +165,12 @@ float ContactAudioDistance( const Vector3& a, const Vector3& b )
     return sqrtf( d.x * d.x + d.y * d.y + d.z * d.z );
 }
 
+
+float ContactRearmGapSeconds( const ContactAudioEvent& event )
+{
+    return event.isTerrain ? CONTACT_AUDIO_TERRAIN_REARM_GAP_SECONDS : CONTACT_AUDIO_REARM_GAP_SECONDS;
+}
+
 float ClampPitchRatio( float value )
 {
     return std::clamp( value, 0.25f, 4.0f );
@@ -220,6 +226,11 @@ struct ContactAudioService::Impl
     {
         uint64_t key = 0;
         ContactAudioEvent event;
+        float contactAgeSeconds = 0.0f;
+        float rearmGapSeconds = 0.0f;
+        float previousStrongestImpulse = 0.0f;
+        bool ongoingContact = false;
+        bool impulseSpike = true;
     };
 
     struct CooldownEntry
@@ -844,9 +855,32 @@ struct ContactAudioService::Impl
                 return;
             }
         }
+
+        StepCandidate next;
+        next.key = key;
+        next.event = event;
+        next.rearmGapSeconds = ContactRearmGapSeconds( event );
+        if ( CooldownEntry* cooldown = FindCooldown( key ) )
+        {
+            next.contactAgeSeconds = timeSeconds - cooldown->lastContactTimeSeconds;
+            next.ongoingContact = cooldown->hasRecentContact && next.contactAgeSeconds <= next.rearmGapSeconds;
+            next.previousStrongestImpulse = next.ongoingContact ? cooldown->strongestRecentImpulse : 0.0f;
+            next.impulseSpike = next.previousStrongestImpulse <= 0.0f ||
+                                ( event.normalImpulse >= next.previousStrongestImpulse * CONTACT_AUDIO_SPIKE_RATIO &&
+                                  event.normalImpulse >= next.previousStrongestImpulse + CONTACT_AUDIO_SPIKE_DELTA );
+
+            // Why: contact history must track every observed pair, not only pairs
+            // that win the burst selector. Otherwise burst-skipped wall contacts
+            // can look "new" later and emit from propagated support impulses.
+            cooldown->lastContactTimeSeconds = timeSeconds;
+            cooldown->hasRecentContact = true;
+            cooldown->strongestRecentImpulse = next.ongoingContact
+                                                   ? (std::max)( cooldown->strongestRecentImpulse, event.normalImpulse )
+                                                   : event.normalImpulse;
+        }
         if ( stepCandidates.size() < MAX_STEP_CANDIDATES )
         {
-            stepCandidates.push_back( StepCandidate{ key, event } );
+            stepCandidates.push_back( next );
         }
         else
         {
@@ -897,38 +931,33 @@ struct ContactAudioService::Impl
         }
 
         CooldownEntry* cooldown = FindCooldown( candidate.key );
-        bool ongoingContact = false;
-        bool impulseSpike = true;
-        float contactAge = 0.0f;
-        float previousStrongest = 0.0f;
-        if ( cooldown )
-        {
-            contactAge = timeSeconds - cooldown->lastContactTimeSeconds;
-            const float rearmGapSeconds =
-                event.isTerrain ? CONTACT_AUDIO_TERRAIN_REARM_GAP_SECONDS : CONTACT_AUDIO_REARM_GAP_SECONDS;
-            ongoingContact = cooldown->hasRecentContact && contactAge <= rearmGapSeconds;
-            previousStrongest = ongoingContact ? cooldown->strongestRecentImpulse : 0.0f;
-            impulseSpike =
-                previousStrongest <= 0.0f || ( event.normalImpulse >= previousStrongest * CONTACT_AUDIO_SPIKE_RATIO &&
-                                               event.normalImpulse >= previousStrongest + CONTACT_AUDIO_SPIKE_DELTA );
-            decision.contactAgeSeconds = contactAge;
-            decision.rearmGapSeconds = rearmGapSeconds;
-            decision.previousStrongestImpulse = previousStrongest;
-            decision.ongoingContact = ongoingContact;
-            decision.impulseSpike = impulseSpike;
+        const bool ongoingContact = candidate.ongoingContact;
+        const bool impulseSpike = candidate.impulseSpike;
+        const float contactAge = candidate.contactAgeSeconds;
+        const float rearmGapSeconds = candidate.rearmGapSeconds;
+        const float previousStrongest = candidate.previousStrongestImpulse;
+        decision.contactAgeSeconds = contactAge;
+        decision.rearmGapSeconds = rearmGapSeconds;
+        decision.previousStrongestImpulse = previousStrongest;
+        decision.ongoingContact = ongoingContact;
+        decision.impulseSpike = impulseSpike;
 
-            // Invariant: a body pair that remains in contact is treated as a
-            // support/rolling contact, not as a new impact each cooldown window.
-            cooldown->lastContactTimeSeconds = timeSeconds;
-            cooldown->hasRecentContact = true;
-            if ( !ongoingContact )
+        if ( ongoingContact && !event.isTerrain )
+        {
+            // Why: object/object contacts that were already touching are usually
+            // force-transfer/support rows. A propagated spike may be real physics
+            // but it is not a new audible contact patch.
+            decision.reason = "ongoing_object_contact";
+            RecordDecision( decision );
+            ++stats.rejectedByCooldown;
+            return;
+        }
+
+        if ( cooldown && timeSeconds < cooldown->nextTimeSeconds )
+        {
+            if ( !ongoingContact || !impulseSpike )
             {
-                cooldown->strongestRecentImpulse = 0.0f;
-            }
-            else if ( !impulseSpike )
-            {
-                cooldown->strongestRecentImpulse = (std::max)( cooldown->strongestRecentImpulse, event.normalImpulse );
-                decision.reason = "cooldown_ongoing";
+                decision.reason = ongoingContact ? "cooldown_ongoing" : "cooldown";
                 RecordDecision( decision );
                 ++stats.rejectedByCooldown;
                 return;
@@ -1020,7 +1049,7 @@ struct ContactAudioService::Impl
                 const float cooldownSeconds =
                     ongoingContact && impulseSpike ? set->overrideCooldownSeconds : set->cooldownSeconds;
                 cooldown->nextTimeSeconds = timeSeconds + cooldownSeconds;
-                cooldown->strongestRecentImpulse = event.normalImpulse;
+                cooldown->strongestRecentImpulse = (std::max)( cooldown->strongestRecentImpulse, event.normalImpulse );
                 cooldown->lastContactTimeSeconds = timeSeconds;
                 cooldown->hasRecentContact = true;
             }

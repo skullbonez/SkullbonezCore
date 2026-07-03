@@ -123,9 +123,9 @@ struct UIProfilerMarkerOption
     const char* leafName = "";
     uint32_t hash = UI_PROFILER_FRAME_TOTAL_HASH;
     float cpuMs = 0.0f;
-    float cpuAverageMs = 0.0f;      // Same 500 ms moving average used by the profiler table.
+    float cpuAverageMs = 0.0f;                     // Same 500 ms moving average used by the profiler table.
     float gpuMs = 0.0f;
-    float colorR = 0.0f;            // RGB borrowed from the profiler row palette for chart overlays.
+    float colorR = 0.0f;                           // RGB borrowed from the profiler row palette for chart overlays.
     float colorG = 0.0f;
     float colorB = 0.0f;
     bool hasGpu = false;
@@ -183,7 +183,7 @@ struct InGameUIFrameData
     float physicsMs = 0.0f;
     float cpuFrameMs = 0.0f;
     float gpuFrameMs = 0.0f;
-    float workerCoreTotalMs = 0.0f; // Sum of worker-pool CPU chunk time from the last committed frame, in ms.
+    float workerCoreTotalMs = 0.0f;                // Sum of worker-pool CPU chunk time from the last committed frame, in ms.
     UIProfilerMarkerOption profilerMarkerOptions[UI_PROFILER_MARKER_OPTION_MAX];
     int profilerMarkerOptionCount = 0;
     UISoundSetFrameData soundSets[UI_SOUND_SET_MAX];
@@ -389,7 +389,7 @@ class InGameUI
     CinematicTab::UICinematicTabState m_cinematicTab;
     float m_scrollY = 0.0f;
     double m_scrollbarVisibleUntil = 0.0;
-    int m_activeSlider = 0;         // 0=none; other values map to Controls/Options sliders in UI.cpp
+    int m_activeSlider = 0;                        // 0=none; other values map to Controls/Options sliders in UI.cpp
     bool m_hitboxOverlayEnabled = false;
     bool m_editorMiniPalettePressActive = false;
     bool m_editorMiniPaletteFlyoutOpen = false;

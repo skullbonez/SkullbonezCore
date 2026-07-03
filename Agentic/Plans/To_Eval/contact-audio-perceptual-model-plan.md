@@ -481,6 +481,18 @@ Validation:
 
 - [x] 2026-07-03: Created this plan from the current contact-audio failure cases,
   the completed first contact-audio plan, and external game-audio references.
+- [x] 2026-07-03: Implemented the first perceptual reducer slice on
+  `codex/contact-audio-perceptual-model`: contact history now updates for every
+  observed body pair during `SubmitContact`, including burst-skipped frames, and
+  playback rejects ongoing object/object contacts as `ongoing_object_contact`
+  instead of letting propagated impulse spikes sound or flash the whole wall.
+  Existing pre-solve closing/slip speed remains the local impact evidence for
+  new contacts. Focused checks: Profile and Debug builds passed with 0 warnings,
+  `--contact-audio-smoke` submitted one sound, and `physics_roll.scene.json` ran
+  600 Debug/SkullScope frames with exactly one submitted contact-audio event.
+  The specific `prediction_ragdoll_wall_200.scene.json` probe did not complete
+  on this machine: both a 1200-frame diagnostic run and scene-load-only run were
+  stopped by PID after producing no trace/startup output.
 - [ ] Phase 0 baseline trace and counts.
 - [ ] Phase 1 contact fact upgrade.
 - [ ] Phase 2 classifier and rejection reasons.
