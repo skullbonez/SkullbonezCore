@@ -58,6 +58,7 @@ Related:
 #include <cstring>
 #include <cstdarg>
 #include <cstdint>
+#include <exception>
 #include <fstream>
 #include <stdexcept>
 #include <vector>
@@ -251,6 +252,35 @@ LONG WINAPI DebugUnhandledExceptionFilter( EXCEPTION_POINTERS* exceptionInfo )
 void InstallDebugCrashLogger()
 {
     SetUnhandledExceptionFilter( DebugUnhandledExceptionFilter );
+    // Hazard: unhandled C++ failures often become std::terminate -> abort(),
+    // which bypasses the SEH filter above and otherwise leaves only a CRT
+    // dialog. Log the current exception, if any, before preserving termination.
+    std::set_terminate(
+        []()
+        {
+            char message[512] = "unknown";
+            std::exception_ptr current = std::current_exception();
+            if ( current )
+            {
+                try
+                {
+                    std::rethrow_exception( current );
+                }
+                catch ( const std::exception& e )
+                {
+                    strcpy_s( message, sizeof( message ), e.what() );
+                }
+                catch ( ... )
+                {
+                    strcpy_s( message, sizeof( message ), "non-std exception" );
+                }
+            }
+            Log().WriteEventf( "terminate_abort message=\"%s\"", message );
+            fprintf( stderr, "FATAL: terminate_abort %s\n", message );
+            fflush( stderr );
+            Log().FlushAll();
+            std::abort();
+        } );
 }
 #endif
 
