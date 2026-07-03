@@ -234,6 +234,7 @@ void Run::RefreshRuntimeViewModel()
     audio.minClosingSpeed = m_contactAudio.MinClosingSpeed();
     audio.minImpactScore = m_contactAudio.MinImpactScore();
     audio.impactScoreRangeSeconds = m_contactAudio.ImpactScoreRangeSeconds();
+    audio.burstVoicesPerWindow = m_contactAudio.BurstVoicesPerWindow();
     audio.stats = m_contactAudio.Stats();
     audio.soundSetCount = (std::min)( m_contactAudio.SoundSetCount(), RUNTIME_CONTACT_AUDIO_SET_MAX );
     audio.soundSampleCount = (std::min)( m_contactAudio.SoundSampleCount(), RUNTIME_CONTACT_AUDIO_SAMPLE_MAX );

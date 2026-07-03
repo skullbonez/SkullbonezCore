@@ -2800,6 +2800,9 @@ void Run::TakeInput()
             case UISoundParam::ImpactScoreRangeSeconds:
                 m_contactAudio.SetImpactScoreRangeSeconds( uiCommands.sound.requestedValue );
                 break;
+            case UISoundParam::BurstVoicesPerWindow:
+                m_contactAudio.SetBurstVoicesPerWindow( static_cast<uint32_t>( uiCommands.sound.requestedValue ) );
+                break;
             case UISoundParam::SetMinImpulse:
                 m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
                                                  SkullbonezCore::Runtime::Audio::ContactAudioSetParam::MinImpulse,

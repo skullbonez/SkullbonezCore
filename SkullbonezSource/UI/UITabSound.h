@@ -14,6 +14,7 @@ Glossary:
   Sample library: Decoded candidate sounds exposed for preview and assignment.
   Sound-emitter flash: Optional white marker on bodies whose contact sound
     actually submitted after rejection policy.
+  Burst voices: Cap on submitted impact sounds in each 100 ms audio burst window.
   Cooldown: Per-body-pair timeout that keeps persistent contacts from replaying
     every physics tick.
 
@@ -45,7 +46,7 @@ namespace SoundTab
 {
 
 constexpr int SOUND_UI_BAND_MAX = 4;
-constexpr int SOUND_GLOBAL_SLIDER_COUNT = 5;
+constexpr int SOUND_GLOBAL_SLIDER_COUNT = 6;
 constexpr int SOUND_SET_SLIDER_COUNT = 9;
 constexpr int SOUND_BAND_SLIDER_COUNT = 5;
 

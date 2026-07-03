@@ -186,6 +186,9 @@ class ContactAudioService
     float MinImpactScore() const;
     void SetImpactScoreRangeSeconds( float seconds );
     float ImpactScoreRangeSeconds() const;
+    // Caps ranked contact sounds submitted in each 100 ms burst window.
+    void SetBurstVoicesPerWindow( uint32_t voices );
+    uint32_t BurstVoicesPerWindow() const;
     int SoundSetCount() const;
     int SoundSampleCount() const;
     // Sample paths are borrowed from decoded audio buffers and are valid until

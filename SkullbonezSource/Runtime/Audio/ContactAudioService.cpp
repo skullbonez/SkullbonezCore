@@ -70,7 +70,8 @@ constexpr uint32_t CONTACT_AUDIO_DEFAULT = HashStr( "default" );
 constexpr std::size_t MAX_STEP_CANDIDATES = 512;
 constexpr std::size_t MAX_STEP_DECISIONS = 2048;
 constexpr std::size_t MAX_COOLDOWN_ENTRIES = 4096;
-constexpr std::size_t CONTACT_AUDIO_MAX_BURST_VOICES = 3;
+constexpr uint32_t CONTACT_AUDIO_DEFAULT_BURST_VOICES = 20;
+constexpr uint32_t CONTACT_AUDIO_MAX_BURST_VOICES = 40;
 constexpr float CONTACT_AUDIO_REARM_GAP_SECONDS = 0.18f;
 constexpr float CONTACT_AUDIO_TERRAIN_REARM_GAP_SECONDS = 0.90f;
 constexpr float CONTACT_AUDIO_BURST_GAP_SECONDS = 0.10f;
@@ -246,6 +247,7 @@ struct ContactAudioService::Impl
     float minClosingSpeed = CONTACT_AUDIO_DEFAULT_MIN_CLOSING_SPEED;
     float minImpactScore = CONTACT_AUDIO_DEFAULT_MIN_IMPACT_SCORE;
     float impactScoreRangeSeconds = CONTACT_AUDIO_DEFAULT_IMPACT_SCORE_RANGE_SECONDS;
+    uint32_t burstVoicesPerWindow = CONTACT_AUDIO_DEFAULT_BURST_VOICES; // Max submitted sounds per 100 ms burst.
     float nextBurstTimeSeconds = 0.0f;
     uint32_t sampleCursor = 0;
     bool initialized = false;
@@ -1144,6 +1146,18 @@ float ContactAudioService::ImpactScoreRangeSeconds() const
 }
 
 
+void ContactAudioService::SetBurstVoicesPerWindow( uint32_t voices )
+{
+    m_impl->burstVoicesPerWindow = std::clamp( voices, 1u, CONTACT_AUDIO_MAX_BURST_VOICES );
+}
+
+
+uint32_t ContactAudioService::BurstVoicesPerWindow() const
+{
+    return m_impl->burstVoicesPerWindow;
+}
+
+
 int ContactAudioService::SoundSetCount() const
 {
     return static_cast<int>( m_impl->sets.size() );
@@ -1237,10 +1251,10 @@ void ContactAudioService::EndPhysicsStep()
                []( const Impl::StepCandidate& lhs, const Impl::StepCandidate& rhs )
                { return ContactCandidateRank( lhs.event ) > ContactCandidateRank( rhs.event ); } );
 
-    std::size_t submittedThisBurst = 0;
+    uint32_t submittedThisBurst = 0;
     for ( const Impl::StepCandidate& candidate : m_impl->stepCandidates )
     {
-        if ( submittedThisBurst >= CONTACT_AUDIO_MAX_BURST_VOICES )
+        if ( submittedThisBurst >= m_impl->burstVoicesPerWindow )
         {
             break;
         }

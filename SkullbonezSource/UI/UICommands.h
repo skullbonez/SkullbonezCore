@@ -164,6 +164,7 @@ enum class UISoundParam
     MinClosingSpeed,
     MinImpactScore,
     ImpactScoreRangeSeconds,
+    BurstVoicesPerWindow,
     SetMinImpulse,
     SetImpulseRange,
     SetCooldownMs,

@@ -51,6 +51,7 @@ struct RuntimeContactAudioSnapshot
     float minClosingSpeed = 0.0f;
     float minImpactScore = 0.0f;
     float impactScoreRangeSeconds = 1.0f;
+    uint32_t burstVoicesPerWindow = 0; // Max submitted contact sounds per 100 ms burst.
     Runtime::Audio::ContactAudioStats stats;
     int soundSetCount = 0;
     int soundSampleCount = 0;
