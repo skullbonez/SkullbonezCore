@@ -16,6 +16,8 @@ Glossary:
   Future node tree: Contact-derived graph of bodies that the selected replay path is predicted
     to affect after the root body hits something.
   Mutation window: Period where live physics stores temporarily contain prediction state.
+  PhysicsModelAccess: Stack-owned owner facade used during prediction steps so
+    temporary physics mutation does not depend on GameModelCollection inheritance.
   Stable overlay pass: Short pre-step draw that keeps current world-space lines visible while
     heavy prediction jobs continue building fresher samples.
   Visualizer budget: Millisecond cap applied to each bounded prediction or overlay work slice.
@@ -210,8 +212,9 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 
                 {
                     PROFILE_SCOPED( "Frame/Replay/Prediction/StepPhysics" );
+                    PhysicsModelAccess physicsModelAccess( modelCollection );
                     SimulationPhysicsStep{ &modelCollection.GetPhysicsEngine(),
-                                           &modelCollection,
+                                           &physicsModelAccess,
                                            &config,
                                            &workerPool,
                                            &worldForces }

@@ -3,10 +3,9 @@
 Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
-Validation for latest source slice: `tools\validate_build.bat Profile`,
-`tools\check_runtime_boundaries.py --repo .`, and `tools\validate_physics.bat`
-passed on 2026-07-03 after replacing the persistent solver sink split with
-compact side-effect queues.
+Validation for latest source slice: `tools\validate_full.bat` passed on
+2026-07-03 after deleting the physics inheritance/event-sink surface and
+turning `PhysicsModelAccess` into a concrete stack-owned facade.
 
 ## Completed Slices
 
@@ -39,6 +38,11 @@ compact side-effect queues.
   `PersistentContactSolverContext`. Validation: `tools\validate_build.bat
   Profile`, `tools\check_runtime_boundaries.py --repo .`, and
   `tools\validate_physics.bat` passed.
+- [x] 2026-07-03: Removed `GameModelCollection` inheritance from
+  `PhysicsModelAccess` and the deleted `PhysicsBodyEventSink`. Runtime and
+  replay stepping now construct a stack-owned `PhysicsModelAccess` facade, and
+  `PhysicsWorld` calls explicit owner commands for fixed-contact highlights and
+  fixed-tree release instead of virtual event callbacks.
 
 ## Goal
 
@@ -216,6 +220,11 @@ Move one body-state group at a time. Keep compatibility writeback narrow and tem
 - [ ] Make `PhysicsBodyStore` the authoritative owner of sleep and wake state.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of accumulated forces and impulses.
 - [ ] Change physics stepping to consume body handles/store views rather than `GameModelCollection&`.
+  - [x] 2026-07-03 production stepping signatures no longer accept
+    `GameModelCollection&` or rely on `GameModelCollection` inheriting physics
+    interfaces. The remaining bridge is the concrete `PhysicsModelAccess`
+    facade, which still forwards to the collection until body/render/replay
+    readers migrate to store-owned state.
 - [ ] Route body creation through a single registration path that creates the entity/body mapping.
 - [ ] Route body deletion through a single path that invalidates handles and removes store rows deterministically.
 - [ ] Keep any required `GameModel` writeback behind an explicitly named compatibility function.
@@ -328,6 +337,9 @@ Only remove compatibility after callers have moved and validation has covered th
   - [x] 2026-07-03 added a guardrail that rejects model/event/world callback
     references inside `PersistentContactSolverContext` and blocks the deleted
     `PhysicsBodyWritebackSink` type from source.
+  - [x] 2026-07-03 added guardrails that block the deleted
+    `PhysicsBodyEventSink` type and reject classes deriving from
+    `PhysicsModelAccess`/`PhysicsBodyEventSink`.
 - [ ] Update comments and learning headers in every touched source-bearing file.
 - [ ] Run `Agentic/Skills/comment-style-audit/skill.md` over every touched source-bearing file before reporting done.
 

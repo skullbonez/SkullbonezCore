@@ -23,6 +23,8 @@ Glossary:
   Sleep island: Connected body group that may deactivate only as a unit.
   Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
     so buoyancy jitter does not repeatedly wake them.
+  PhysicsModelAccess: Stack-owned owner facade used for model-order writeback,
+    diagnostics, and post-solver events after compact physics work finishes.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -667,8 +669,8 @@ void PhysicsWorld::PreparePersistentContactSideEffects( int modelCount )
     effects.releaseWakeBodies.reserve( 8 );
     effects.fixedTreeReleases.reserve( 8 );
     const int pipelineCapacity = (std::max)( 0,
-                                            static_cast<int>( MAX_PIPELINE_TRACE_RECORDS ) -
-                                                static_cast<int>( m_physicsPipelineTrace.size() ) );
+                                             static_cast<int>( MAX_PIPELINE_TRACE_RECORDS ) -
+                                                 static_cast<int>( m_physicsPipelineTrace.size() ) );
     effects.pipelineRecords.reserve( static_cast<std::size_t>( pipelineCapacity ) );
 }
 
@@ -688,10 +690,9 @@ void PhysicsWorld::ApplyPersistentContactSideEffects( PhysicsModelAccess& modelA
         MarkCollisionVisualContact( index );
     }
 
-    PhysicsBodyEventSink& bodyEvents = modelAccess.BodyEvents();
     for ( int index : effects.fixedContactBodies )
     {
-        bodyEvents.NotifyFixedContact( index, 0.5f );
+        modelAccess.NotifyFixedContact( index, 0.5f );
     }
     for ( int index : effects.bodyMirrorWritebacks )
     {
@@ -703,7 +704,7 @@ void PhysicsWorld::ApplyPersistentContactSideEffects( PhysicsModelAccess& modelA
     }
     for ( const PhysicsFixedTreeReleaseEvent& event : effects.fixedTreeReleases )
     {
-        bodyEvents.ReleaseAttachedFixedTreeParts( event );
+        modelAccess.ReleaseAttachedFixedTreeParts( event );
     }
 }
 
@@ -788,7 +789,7 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
     m_terrainContactManifolds.clear();
     m_sleepSupportEdges.clear();
 
-    modelAccess.BodyEvents().TickContactHighlights( modelCount, fChangeInTime );
+    modelAccess.TickContactHighlights( modelCount, fChangeInTime );
 
     if ( static_cast<int>( m_sleepState.size() ) != modelCount )
     {
@@ -1106,7 +1107,7 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
             record.angularVelocity = Vector3( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f );
             modelAccess.WriteBackPhysicsBody( bodyStore, i );
             WakeModel( modelAccess, bodyStore, colliderStore, worldForces, i );
-            modelAccess.BodyEvents().ReleaseAttachedFixedTreeParts( PhysicsFixedTreeReleaseEvent{
+            modelAccess.ReleaseAttachedFixedTreeParts( PhysicsFixedTreeReleaseEvent{
                 i,
                 seedLinearVelocity,
                 Vector3( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f ) } );

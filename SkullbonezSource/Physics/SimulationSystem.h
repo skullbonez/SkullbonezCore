@@ -12,15 +12,15 @@ Glossary:
   Fixed-step: Deterministic mode that advances physics by one fixed delta per
   requested tick instead of wall-clock time.
   Accumulator: Stored fractional tick state that carries time across frames.
-  PhysicsModelAccess: Temporary compatibility interface that lets the physics
-    world step legacy model-backed storage without naming GameModelCollection.
+  PhysicsModelAccess: Stack-owned owner facade that lets the physics world step
+    model-backed storage without making GameModelCollection inherit physics APIs.
   World-force snapshot: Tick-local gravity/fluid values handed to physics so
     solver work does not reach back into WorldEnvironment.
 
 Invariants:
   - SimulationTickInput borrows physics step context only for the duration of Tick.
   - SimulationSystem must not know which runtime object owns the concrete
-    physics world; Run supplies that adapter through PhysicsModelAccess.
+    physics world; Run supplies that owner facade through PhysicsModelAccess.
   - Result deltas report what was committed this call; accumulator state remains
     private to SimulationSystem.
 

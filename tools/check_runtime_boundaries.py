@@ -25,6 +25,8 @@
 # Glossary:
 #   Composition root: Top-level owner that wires subsystems together.
 #   Boundary guardrail: Static check that blocks architecture drift.
+#   Inheritance guardrail: Static check that blocks migration interfaces from
+#     reappearing as base classes on hot or model-owner paths.
 #   Allowlist: Explicit set of legacy references accepted during migration.
 #   Migration artifact: Temporary adapter, DTO, or compatibility name that must
 #     disappear once its real owner or API replaces it.
@@ -122,6 +124,11 @@ HOT_PATH_INHERITANCE_PATTERN = re.compile(
     r"^\s*(?:class|struct)\s+[A-Za-z_]\w*[^{;\n]*:\s*(?:public|protected|private)\b",
     re.M,
 )
+PHYSICS_MODEL_ACCESS_INHERITANCE_PATTERN = re.compile(
+    r"^\s*(?:class|struct)\s+[A-Za-z_]\w*[^{;]*:\s*[^;{]*"
+    r"(?:public|protected|private)\s+(?:Physics::)?(?:PhysicsModelAccess|PhysicsBodyEventSink)\b",
+    re.M,
+)
 DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
     (
         "GameModelRuntimePhysicsTuning",
@@ -151,6 +158,11 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "PhysicsBodyWritebackSink",
         re.compile(r"\bPhysicsBodyWritebackSink\b"),
         "Queue solver body writeback as plain side-effect data and apply it from PhysicsWorld after the solve.",
+    ),
+    (
+        "PhysicsBodyEventSink",
+        re.compile(r"\bPhysicsBodyEventSink\b"),
+        "Apply solver-triggered model-owner events through PhysicsModelAccess commands after hot-path work completes.",
     ),
     (
         "AssetSystem::CreateShader(const char*)",
@@ -415,6 +427,14 @@ PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
         ( "SkullbonezSource/Physics/Ragdoll.cpp", "void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection," ),
         ( "SkullbonezSource/Physics/Ragdoll.h", "class GameModelCollection;" ),
         ( "SkullbonezSource/Physics/Ragdoll.h", "static void AddSimpleHumanoid( GameObjects::GameModelCollection& collection," ),
+        # PhysicsModelAccess is the named owner facade. It may hold the owner;
+        # physics code must not add unrelated GameModelCollection dependencies.
+        ( "SkullbonezSource/Physics/PhysicsModelAccess.h", "class GameModelCollection;" ),
+        (
+            "SkullbonezSource/Physics/PhysicsModelAccess.h",
+            "explicit PhysicsModelAccess( GameObjects::GameModelCollection& collection );",
+        ),
+        ( "SkullbonezSource/Physics/PhysicsModelAccess.h", "GameObjects::GameModelCollection& m_collection;" ),
     )
 )
 
@@ -1712,6 +1732,30 @@ def check_physics_hot_path_inheritance_guardrails(repo: Path) -> list[BoundaryEr
     for relative_path in PHYSICS_HOT_PATH_INHERITANCE_SOURCES:
         path = repo / relative_path
         errors.extend(check_physics_hot_path_inheritance_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_physics_model_access_inheritance_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_MODEL_ACCESS_INHERITANCE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "PhysicsModelAccess inheritance is blocked",
+                "Use a local PhysicsModelAccess facade value instead of deriving model owners from physics interfaces.",
+            )
+        )
+    return errors
+
+
+def check_physics_model_access_inheritance_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
+        if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+            continue
+        errors.extend(check_physics_model_access_inheritance_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -5990,6 +6034,7 @@ def run_self_tests() -> list[str]:
     auto rawRange = modelAccess.Models();
     auto borrowedRange = BorrowMutableModels( modelAccess );
     PhysicsBodyWritebackSink* writebackSink = nullptr;
+    PhysicsBodyEventSink* eventSink = nullptr;
     std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logicalNameOrBaseName ) const;
     """
     if not any(
@@ -6004,7 +6049,7 @@ def run_self_tests() -> list[str]:
     commented_deleted_migration_artifact_text = """
     // GameModelRuntimePhysicsTuning, legacyModelIndex, and RuntimeConfigSnapshot are migration notes only.
     // PhysicsModelMutableRange, MutableModelData(), and modelAccess.Models() are notes only.
-    // PhysicsBodyWritebackSink is a deleted migration note only.
+    // PhysicsBodyWritebackSink and PhysicsBodyEventSink are deleted migration notes only.
     /*
        AssetSystem::CreateShader( const char* name ) is mentioned in the plan but must not be code.
        BorrowMutableModels(modelAccess) appears in the audit notes, not compiled source.
@@ -6104,6 +6149,45 @@ def run_self_tests() -> list[str]:
         commented_physics_hot_path_inheritance,
     ):
         failures.append("comment-only physics hot-path inheritance synthetic text was rejected")
+
+    allowed_physics_model_access_facade = """
+    class PhysicsModelAccess
+    {
+      public:
+        explicit PhysicsModelAccess( GameObjects::GameModelCollection& collection );
+    };
+    """
+    if check_physics_model_access_inheritance_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsModelAccess.h"),
+        allowed_physics_model_access_facade,
+    ):
+        failures.append("allowed PhysicsModelAccess facade synthetic surface was rejected")
+
+    old_physics_model_access_inheritance = """
+    class GameModelCollection : public Rendering::IRenderSceneView,
+                                public Physics::PhysicsModelAccess,
+                                public Physics::PhysicsBodyEventSink
+    {
+    };
+    """
+    if not any(
+        error.message == "PhysicsModelAccess inheritance is blocked"
+        for error in check_physics_model_access_inheritance_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
+            old_physics_model_access_inheritance,
+        )
+    ):
+        failures.append("old PhysicsModelAccess inheritance synthetic surface was not rejected")
+
+    commented_physics_model_access_inheritance = """
+    // class GameModelCollection : public Physics::PhysicsModelAccess is a deleted migration note only.
+    class GameModelCollection;
+    """
+    if check_physics_model_access_inheritance_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
+        commented_physics_model_access_inheritance,
+    ):
+        failures.append("comment-only PhysicsModelAccess inheritance synthetic text was rejected")
 
     compatibility_physics_models_text = (
         "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = "
@@ -6377,6 +6461,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_deleted_physics_model_view_guardrails(repo))
     errors.extend(check_persistent_solver_context_model_access_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
+    errors.extend(check_physics_model_access_inheritance_guardrails(repo))
     errors.extend(check_physics_models_access_guardrails(repo))
     errors.extend(check_named_physics_models_compat_access_guardrails(repo))
     errors.extend(check_direct_gfx_raytracing_guardrails(repo))

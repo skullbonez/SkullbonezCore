@@ -19,6 +19,8 @@ Glossary:
     velocity state to RigidBody integration.
   Contact policy: Terrain and contact thresholds cached by the collection so
     existing and newly added models receive the same physics policy.
+  PhysicsModelAccess: Stack-owned facade that forwards allowed physics sync
+    commands to this collection without making it inherit physics interfaces.
   Replay body id: Per-collection identity saved in replay samples so restore
     paths can reject stale model slots.
   Validation gate: Repository script that proves a class of changes before
@@ -80,9 +82,7 @@ class GameModelCollectionPhysicsAdapter;
     dedicated collaborators. Some runtime tools still use model-indexed calls
     because scene files, replay streams, and editor picks preserve model order.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class GameModelCollection : public Rendering::IRenderSceneView,
-                            public Physics::PhysicsModelAccess,
-                            public Physics::PhysicsBodyEventSink
+class GameModelCollection : public Rendering::IRenderSceneView
 {
     // Why: the adapter is the named model-order boundary while old callers
     // migrate from model indices to durable physics handles.
@@ -164,7 +164,7 @@ class GameModelCollection : public Rendering::IRenderSceneView,
                             float flatSlopeZ = 0.0f );
     Math::Vector::Vector3 GetModelPosition( int index );
     int GetModelCount() const;
-    int ModelCount() const override;
+    int ModelCount() const;
     const std::vector<GameModel>& Models() const;
     // Lifetime: returned model pointers are stable only until collection
     // mutation. Null means the caller held a stale model index.
@@ -172,7 +172,7 @@ class GameModelCollection : public Rendering::IRenderSceneView,
 #ifdef _DEBUG
     // Returns only the model facts diagnostics serialize, without handing debug
     // sinks a mutable or indexable GameModel range.
-    bool TryGetPhysicsDiagnosticsModel( int index, Physics::PhysicsDiagnosticsModelRecord& outRecord ) const override;
+    bool TryGetPhysicsDiagnosticsModel( int index, Physics::PhysicsDiagnosticsModelRecord& outRecord ) const;
 #endif
     // Replays restore saved body state through the collection so cache
     // invalidation and replay-id validation stay with the model owner.
@@ -215,20 +215,18 @@ class GameModelCollection : public Rendering::IRenderSceneView,
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();
     GameModel& GetModelAtIndex( int index );
     double GetSceneKineticEnergy();
-    GameModelBodyStream GetPhysicsBodyStream() override;
-    void InvalidatePhysicsStreams() override;
-    void WriteBackPhysicsBodies( const Physics::PhysicsBodyStore& bodyStore ) override;
-    void WriteBackPhysicsBody( const Physics::PhysicsBodyStore& bodyStore, int modelIndex ) override;
-    void ReloadPhysicsBodies( Physics::PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates ) override;
-    void RefreshPhysicsColliders( Physics::ColliderStore& colliderStore,
-                                  const Physics::PhysicsBodyStore& bodyStore ) override;
-    void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore ) override;
-    Physics::PhysicsBodyEventSink& BodyEvents() override;
-    Physics::PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const override;
-    void NotifyFixedContact( int modelIndex, float highlightSeconds ) override;
-    void TickContactHighlights( int modelCount, float deltaSeconds ) override;
+    GameModelBodyStream GetPhysicsBodyStream();
+    void InvalidatePhysicsStreams();
+    void WriteBackPhysicsBodies( const Physics::PhysicsBodyStore& bodyStore );
+    void WriteBackPhysicsBody( const Physics::PhysicsBodyStore& bodyStore, int modelIndex );
+    void ReloadPhysicsBodies( Physics::PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
+    void RefreshPhysicsColliders( Physics::ColliderStore& colliderStore, const Physics::PhysicsBodyStore& bodyStore );
+    void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore );
+    Physics::PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const;
+    void NotifyFixedContact( int modelIndex, float highlightSeconds );
+    void TickContactHighlights( int modelCount, float deltaSeconds );
     void NotifyAudioContact( int modelIndex, float highlightSeconds );
-    void ReleaseAttachedFixedTreeParts( const Physics::PhysicsFixedTreeReleaseEvent& event ) override;
+    void ReleaseAttachedFixedTreeParts( const Physics::PhysicsFixedTreeReleaseEvent& event );
     void ReleaseAttachedFixedTreeParts( int sourceIndex,
                                         const Math::Vector::Vector3& seedLinearVelocity,
                                         const Math::Vector::Vector3& seedAngularVelocity );

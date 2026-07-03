@@ -9,6 +9,12 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Simulation tick: One runtime decision about whether to advance logic, camera,
+    and zero or more fixed physics steps this frame.
+  PhysicsModelAccess: Stack-owned owner facade used while simulation steps
+    model-backed physics state without making GameModelCollection a physics base.
+  Replay event payload: Saved event data that must be decoded exactly so replay
+    restore and validation compare the same floating-point bits.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -29,6 +35,7 @@ Related:
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeStyle.h"
+#include "../Physics/PhysicsModelAccess.h"
 
 #include <cmath>
 #include <cstdint>
@@ -587,6 +594,7 @@ void Run::TickPhysics( double secondsPerFrame )
     const bool manipulatorPhysics = policy.manipulatorActive;
     const bool contactAudioStep = m_contactAudio.IsEnabled();
     const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
+    PhysicsModelAccess physicsModelAccess( m_cGameModelCollection );
     const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{
         secondsPerFrame,
         policy.physicsTimeScale,
@@ -596,7 +604,7 @@ void Run::TickPhysics( double secondsPerFrame )
         policy.physicsAdvance,
         stepRequested,
         SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(),
-                               &m_cGameModelCollection,
+                               &physicsModelAccess,
                                m_systems.config,
                                m_systems.workerPool,
                                &physicsWorldForces },
@@ -2056,8 +2064,9 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             m_cGameModelCollection.BeginCollisionVisualFrame();
 
             const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
+            PhysicsModelAccess physicsModelAccess( m_cGameModelCollection );
             SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(),
-                                   &m_cGameModelCollection,
+                                   &physicsModelAccess,
                                    m_systems.config,
                                    m_systems.workerPool,
                                    &physicsWorldForces }

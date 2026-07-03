@@ -17,6 +17,8 @@ Glossary:
     velocity state to RigidBody integration.
   Contact policy: Terrain and contact thresholds cached by the collection so
     existing and newly added models receive the same physics policy.
+  PhysicsModelAccess: Stack-owned facade that forwards allowed physics sync
+    commands to this collection without making it inherit physics interfaces.
   Replay body id: Per-collection identity saved in replay samples so restore
     paths can reject stale model slots.
   Validation gate: Repository script that proves a class of changes before
@@ -62,7 +64,98 @@ using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Rendering::ShadowFrameData;
+
+namespace SkullbonezCore
+{
+namespace Physics
+{
+PhysicsModelAccess::PhysicsModelAccess( GameObjects::GameModelCollection& collection ) : m_collection( collection )
+{
+}
+
+
+int PhysicsModelAccess::ModelCount() const
+{
+    return m_collection.ModelCount();
+}
+
+
+GameObjects::GameModelBodyStream PhysicsModelAccess::GetPhysicsBodyStream()
+{
+    return m_collection.GetPhysicsBodyStream();
+}
+
+
+void PhysicsModelAccess::InvalidatePhysicsStreams()
+{
+    m_collection.InvalidatePhysicsStreams();
+}
+
+
+void PhysicsModelAccess::WriteBackPhysicsBodies( const PhysicsBodyStore& bodyStore )
+{
+    m_collection.WriteBackPhysicsBodies( bodyStore );
+}
+
+
+void PhysicsModelAccess::WriteBackPhysicsBody( const PhysicsBodyStore& bodyStore, int modelIndex )
+{
+    m_collection.WriteBackPhysicsBody( bodyStore, modelIndex );
+}
+
+
+void PhysicsModelAccess::ReloadPhysicsBodies( PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates )
+{
+    m_collection.ReloadPhysicsBodies( bodyStore, sleepStates );
+}
+
+
+void PhysicsModelAccess::RefreshPhysicsColliders( ColliderStore& colliderStore, const PhysicsBodyStore& bodyStore )
+{
+    m_collection.RefreshPhysicsColliders( colliderStore, bodyStore );
+}
+
+
+void PhysicsModelAccess::RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore )
+{
+    m_collection.RefreshRenderInstances( renderInstanceStore );
+}
+
+
+void PhysicsModelAccess::NotifyFixedContact( int modelIndex, float highlightSeconds )
+{
+    m_collection.NotifyFixedContact( modelIndex, highlightSeconds );
+}
+
+
+void PhysicsModelAccess::TickContactHighlights( int modelCount, float deltaSeconds )
+{
+    m_collection.TickContactHighlights( modelCount, deltaSeconds );
+}
+
+
+void PhysicsModelAccess::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event )
+{
+    m_collection.ReleaseAttachedFixedTreeParts( event );
+}
+
+
+PhysicsDiagnosticsView PhysicsModelAccess::GetPhysicsDiagnosticsView() const
+{
+    return m_collection.GetPhysicsDiagnosticsView();
+}
+
+
+#ifdef _DEBUG
+bool PhysicsModelAccess::TryGetPhysicsDiagnosticsModel( int index, PhysicsDiagnosticsModelRecord& outRecord ) const
+{
+    return m_collection.TryGetPhysicsDiagnosticsModel( index, outRecord );
+}
+#endif
+} // namespace Physics
+} // namespace SkullbonezCore
 
 namespace
 {
@@ -714,21 +807,24 @@ const SkullbonezCore::Physics::PhysicsEngine& GameModelCollection::GetPhysicsEng
 
 const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysicsBodyStore()
 {
-    m_physicsEngine.RefreshBodyStore( *this );
+    PhysicsModelAccess modelAccess( *this );
+    m_physicsEngine.RefreshBodyStore( modelAccess );
     return m_physicsEngine.BodyStore();
 }
 
 
 const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
 {
-    m_physicsEngine.RefreshColliderStore( *this );
+    PhysicsModelAccess modelAccess( *this );
+    m_physicsEngine.RefreshColliderStore( modelAccess );
     return m_physicsEngine.Colliders();
 }
 
 
 const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::GetRenderInstanceStore()
 {
-    m_physicsEngine.RefreshRenderStore( *this );
+    PhysicsModelAccess modelAccess( *this );
+    m_physicsEngine.RefreshRenderStore( modelAccess );
     return m_physicsEngine.RenderInstances();
 }
 
@@ -809,12 +905,6 @@ void GameModelCollection::RefreshPhysicsColliders( SkullbonezCore::Physics::Coll
 void GameModelCollection::RefreshRenderInstances( SkullbonezCore::Rendering::RenderInstanceStore& renderInstanceStore )
 {
     renderInstanceStore.Refresh( m_gameModels );
-}
-
-
-SkullbonezCore::Physics::PhysicsBodyEventSink& GameModelCollection::BodyEvents()
-{
-    return *this;
 }
 
 
@@ -927,7 +1017,8 @@ void GameModelCollection::RunPhysics( float fChangeInTime,
                                       const Physics::PhysicsWorldForces& worldForces,
                                       Threading::WorkerPool& workerPool )
 {
-    m_physicsEngine.Step( *this, fChangeInTime, config, worldForces, workerPool );
+    PhysicsModelAccess modelAccess( *this );
+    m_physicsEngine.Step( modelAccess, fChangeInTime, config, worldForces, workerPool );
 }
 
 

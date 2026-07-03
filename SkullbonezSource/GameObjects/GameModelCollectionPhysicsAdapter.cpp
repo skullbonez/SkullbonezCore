@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   Handle conversion: Translation from a legacy scene/model identity into the
     public PhysicsBodyHandle accepted by the physics facade.
+  PhysicsModelAccess: Stack-owned owner facade used after handle conversion so
+    physics commands do not require GameModelCollection inheritance.
   No-op rejection: Invalid legacy identity resolves to an invalid handle and
     does not call into PhysicsEngine.
 
@@ -38,6 +40,7 @@ Related:
 using SkullbonezCore::GameObjects::GameModel;
 using SkullbonezCore::GameObjects::GameModelCollectionPhysicsAdapter;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
 
 
@@ -54,7 +57,8 @@ PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForModelIndex( in
         return PhysicsBodyHandle{};
     }
 
-    m_collection.m_physicsEngine.RefreshBodyStore( m_collection );
+    PhysicsModelAccess modelAccess( m_collection );
+    m_collection.m_physicsEngine.RefreshBodyStore( modelAccess );
     return m_collection.m_physicsEngine.BodyStore().HandleForModelIndex( modelIndex );
 }
 
@@ -100,7 +104,8 @@ void GameModelCollectionPhysicsAdapter::WakeBodyForModelIndex( int modelIndex ) 
         return;
     }
 
-    m_collection.m_physicsEngine.WakeBody( m_collection, body );
+    PhysicsModelAccess modelAccess( m_collection );
+    m_collection.m_physicsEngine.WakeBody( modelAccess, body );
 }
 
 
@@ -112,7 +117,8 @@ void GameModelCollectionPhysicsAdapter::SeedBodyAsleepForModelIndex( int modelIn
         return;
     }
 
-    m_collection.m_physicsEngine.SeedBodyAsleep( m_collection, body );
+    PhysicsModelAccess modelAccess( m_collection );
+    m_collection.m_physicsEngine.SeedBodyAsleep( modelAccess, body );
 }
 
 
@@ -127,7 +133,8 @@ void GameModelCollectionPhysicsAdapter::ApplyBodyImpulseForModelIndex(
         return;
     }
 
-    m_collection.m_physicsEngine.ApplyBodyImpulse( m_collection, body, impulse, localApplicationPoint );
+    PhysicsModelAccess modelAccess( m_collection );
+    m_collection.m_physicsEngine.ApplyBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
 }
 
 
@@ -142,5 +149,6 @@ void GameModelCollectionPhysicsAdapter::SetPendingBodyImpulseForModelIndex(
         return;
     }
 
-    m_collection.m_physicsEngine.SetPendingBodyImpulse( m_collection, body, impulse, localApplicationPoint );
+    PhysicsModelAccess modelAccess( m_collection );
+    m_collection.m_physicsEngine.SetPendingBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
 }
