@@ -11,7 +11,7 @@ Implementation status:
   `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-plan.csv`.
 - Current implementation tracker:
   `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-implementation-status.csv`.
-- As of the uncommitted store-force/wake/ragdoll/allocator-handle slice after
+- As of `abe3f4bf` after
   `d5571316`, rows K001, K002, K004, K005, K006, K007, K008, K009, K010, K011,
   and K012 have source-side deletion/split work recorded in the tracker. K003 is
   still partial: diagnostics, render/collider/sleep/body stores, ragdoll,
