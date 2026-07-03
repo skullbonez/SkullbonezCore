@@ -20,6 +20,8 @@ Glossary:
   the run loop.
   Sound sample request: One-frame Sound-tab command to preview a decoded impact
     candidate or assign it to the selected material set.
+  Flash mode request: One-frame Sound-tab command to cycle emitted, candidate,
+    rejected, or hidden contact-audio body flashes.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -330,7 +332,7 @@ struct UISoundCommands
     // the current UI snapshot; Run validates them before touching audio data.
     bool toggleEnabled = false;
     bool toggleDebugCounters = false;
-    bool toggleFlashOnSubmit = false;
+    bool cycleFlashMode = false;
     int requestedSetIndex = -1;
     int requestedBandIndex = -1;
     UISoundParam requestedParam = UISoundParam::None;

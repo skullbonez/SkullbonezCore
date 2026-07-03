@@ -13,8 +13,8 @@ Glossary:
   Contact-audio decision: Presentation-side verdict explaining whether a copied
     contact became a sound, flash feedback, or a specific rejection.
   Contact material: Gameplay/audio material token such as metal, stone, or wood.
-  Cooldown key: Stable body-pair key that prevents persistent contact rows from
-    replaying the same impact every fixed tick.
+  Cooldown key: Stable contact-patch key that prevents persistent contact rows
+    from replaying the same impact every fixed tick.
   Impact band: Light, medium, or heavy impulse tier that can select different
     gain/pitch/sample tuning inside one material sound set.
   Pre-solve closing speed: Contact normal velocity before the solver applies

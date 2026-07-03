@@ -493,10 +493,33 @@ Validation:
   The specific `prediction_ragdoll_wall_200.scene.json` probe did not complete
   on this machine: both a 1200-frame diagnostic run and scene-load-only run were
   stopped by PID after producing no trace/startup output.
+- [x] 2026-07-03: Added the second contact-audio classifier/reducer slice:
+  contact candidates now collapse by body pair, feature id, and material pair;
+  the ranked burst selector breaks ties by listener distance and stable key; a
+  bounded per-body burst budget rejects monopolizing candidates as `body_budget`;
+  the global burst cap records skipped candidates as `burst_budget`; and
+  low-attack/slip or support-transfer rows now report `roll_or_slide`, `settle`,
+  `propagated_impulse`, or `below_min_impact_score` instead of a single generic
+  threshold reason. The Sound tab now cycles a render-only flash mode across
+  Off, Emitted, Candidates, and Rejected. Validation: `git diff --check`;
+  `python tools\check_runtime_boundaries.py --repo .`; `tools\validate_build.bat Profile`
+  with log `TestOutput\agent_build_profile_contact_audio_classifier_flash_mode.log`
+  passed with 0 warnings and 0 errors; `Profile\SKULLBONEZ_CORE.exe --contact-audio-smoke`
+  with log `TestOutput\agent_contact_audio_smoke_classifier_flash_mode.log`
+  submitted one voice from one event; and `tools\validate_full.bat` with log
+  `TestOutput\agent_validate_full_contact_audio_classifier_flash_mode.log` passed
+  with DX12 InfoQueue 0 errors, screenshots matching committed baselines, and
+  `physics_regression_solver.csv` matching byte-exactly.
 - [ ] Phase 0 baseline trace and counts.
 - [ ] Phase 1 contact fact upgrade.
-- [ ] Phase 2 classifier and rejection reasons.
-- [ ] Phase 3 reducer and perceptual budget.
+- [ ] Phase 2 classifier and rejection reasons. Partial: local classifier reasons
+  above are implemented; remaining work is explicit heavy-landing/support-kind
+  reporting, rejection counters by reason, and acceptance-scene proof.
+- [ ] Phase 3 reducer and perceptual budget. Partial: patch merge, deterministic
+  ranking, global burst cap, and per-body budget are implemented; remaining work
+  is cluster budgeting and 200-box emitted-count proof.
 - [ ] Phase 4 SkullScope contact-audio queries.
 - [ ] Phase 5 material layers and better samples.
-- [ ] Phase 6 Sound-tab tuning polish.
+- [ ] Phase 6 Sound-tab tuning polish. Partial: flash diagnostics mode is
+  implemented; remaining work is any new stable sliders and screenshot evidence
+  if the layout changes materially.

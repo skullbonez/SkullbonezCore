@@ -16,6 +16,8 @@ Glossary:
   Band parameter: Impulse-tier override inside a selected set.
   Sample library: Decoded contact-audio candidate sounds that can be previewed
     or assigned to the selected material set.
+  Flash mode toggle: Sound-tab control that cycles emitted, candidate,
+    rejected, or hidden body flashes for contact-audio decision review.
   Fitted picker text: One-line selector label clipped before the right-aligned
     previous/next buttons.
 
@@ -417,7 +419,7 @@ void SetContentBounds( SkullbonezCore::UI::SoundTab::UISoundTabState& state,
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
     state.enabledToggle.SetBounds( contentX, scrolledY + SOUND_TOGGLE_Y, colW, 24.0f );
     state.debugCountersToggle.SetBounds( contentX + colW + 18.0f, scrolledY + SOUND_TOGGLE_Y, colW, 24.0f );
-    state.flashOnSubmitToggle.SetBounds( contentX, scrolledY + SOUND_TOGGLE_ROW2_Y, colW, 24.0f );
+    state.flashModeToggle.SetBounds( contentX, scrolledY + SOUND_TOGGLE_ROW2_Y, colW, 24.0f );
     for ( int i = 0; i < SkullbonezCore::UI::SoundTab::SOUND_GLOBAL_SLIDER_COUNT; ++i )
     {
         state.globalSliders[i].SetBounds(
@@ -539,7 +541,7 @@ void DrawHitboxes( const UISoundTabState& state,
 {
     DrawHitboxRect( draw, state.enabledToggle.Bounds(), r, g, b );
     DrawHitboxRect( draw, state.debugCountersToggle.Bounds(), r, g, b );
-    DrawHitboxRect( draw, state.flashOnSubmitToggle.Bounds(), r, g, b );
+    DrawHitboxRect( draw, state.flashModeToggle.Bounds(), r, g, b );
     for ( const UISlider& slider : state.globalSliders )
     {
         DrawHitboxRect( draw, slider.Bounds(), r, g, b );
@@ -608,9 +610,9 @@ bool HandleContentClick( UISoundTabState& state,
         result.commands.sound.toggleDebugCounters = true;
         return false;
     }
-    if ( state.flashOnSubmitToggle.HitTest( mouseX, mouseY ) )
+    if ( state.flashModeToggle.HitTest( mouseX, mouseY ) )
     {
-        result.commands.sound.toggleFlashOnSubmit = true;
+        result.commands.sound.cycleFlashMode = true;
         return false;
     }
     for ( int i = 0; i < SOUND_GLOBAL_SLIDER_COUNT; ++i )
@@ -783,12 +785,12 @@ void Draw( UISoundTabState& state,
     DrawContentToggle( draw,
                        contentY,
                        contentH,
-                       state.flashOnSubmitToggle,
+                       state.flashModeToggle,
                        col1,
                        scrolledY + SOUND_TOGGLE_ROW2_Y,
                        colW,
-                       "Flash emitters",
-                       data.contactAudioFlashOnSubmit );
+                       data.contactAudioFlashModeLabel,
+                       data.contactAudioFlashMode != 0 );
 
     snprintf( buf,
               sizeof( buf ),

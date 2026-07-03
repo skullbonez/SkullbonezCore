@@ -14,6 +14,8 @@ Glossary:
   widget.
   Sound sample path: Borrowed contact-audio asset path displayed by the Sound
     tab for immediate-frame preview and selection.
+  Contact-audio flash mode: Frame-data label and value for the Sound tab's
+    render-only decision flash selector.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -215,7 +217,8 @@ struct InGameUIFrameData
     bool contactAudioEnabled = false;
     bool contactAudioAvailable = false;
     bool contactAudioDebugCounters = false;
-    bool contactAudioFlashOnSubmit = false;
+    int contactAudioFlashMode = 1;
+    const char* contactAudioFlashModeLabel = "Flash: Emitted";
     float contactAudioMasterGain = 0.0f;
     float contactAudioMaxDistanceScale = 1.0f;
     float contactAudioMinClosingSpeed = 0.0f;

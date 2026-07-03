@@ -553,7 +553,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.contactAudioEnabled = contactAudio.enabled;
         UIData.contactAudioAvailable = contactAudio.available;
         UIData.contactAudioDebugCounters = contactAudio.debugCounters;
-        UIData.contactAudioFlashOnSubmit = contactAudio.flashOnSubmit;
+        UIData.contactAudioFlashMode = contactAudio.flashMode;
+        UIData.contactAudioFlashModeLabel = contactAudio.flashModeLabel;
         UIData.contactAudioMasterGain = contactAudio.masterGain;
         UIData.contactAudioMaxDistanceScale = contactAudio.maxDistanceScale;
         UIData.contactAudioMinClosingSpeed = contactAudio.minClosingSpeed;

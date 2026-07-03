@@ -216,6 +216,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.contactAudioEnabled );
     hash = HashBool( hash, data.contactAudioAvailable );
     hash = HashBool( hash, data.contactAudioDebugCounters );
+    hash = HashInt( hash, data.contactAudioFlashMode );
     hash = HashFloat( hash, data.contactAudioMasterGain, 1000.0f );
     hash = HashFloat( hash, data.contactAudioMaxDistanceScale, 1000.0f );
     hash = HashFloat( hash, data.contactAudioMinClosingSpeed, 1000.0f );

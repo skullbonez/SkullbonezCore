@@ -13,6 +13,8 @@ Glossary:
     and zero or more fixed physics steps this frame.
   PhysicsModelAccess: Stack-owned owner facade used while simulation steps
     model-backed physics state without making GameModelCollection a physics base.
+  Contact-audio flash mode: Render-only diagnostic selector that decides which
+    completed audio decisions paint body flashes after a fixed physics step.
   Replay event payload: Saved event data that must be decoded exactly so replay
     restore and validation compare the same floating-point bits.
   Validation gate: Repository script that proves a class of changes before
@@ -61,6 +63,24 @@ void PrintRuntimeExitReason( const char* reason )
 {
     printf( "[runtime-exit] %s\n", reason );
     fflush( stdout );
+}
+
+bool ShouldFlashContactAudioDecision( ContactAudioFlashMode mode,
+                                      const SkullbonezCore::Runtime::Audio::ContactAudioDecision& decision )
+{
+    switch ( mode )
+    {
+    case ContactAudioFlashMode::Off:
+        return false;
+    case ContactAudioFlashMode::Emitted:
+        return decision.submitted;
+    case ContactAudioFlashMode::Candidates:
+        return true;
+    case ContactAudioFlashMode::Rejected:
+        return !decision.submitted;
+    default:
+        return decision.submitted;
+    }
 }
 
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
@@ -708,16 +728,17 @@ void Run::AfterPhysicsStep()
             }
         }
 #endif
-        if ( m_runtimeSettings.contactAudioFlashOnSubmit )
+        if ( m_runtimeSettings.contactAudioFlashMode != ContactAudioFlashMode::Off )
         {
-            // Why: the white flash marks actual sound emitters. Rejected,
-            // rate-limited, or voice-capped contacts stay visual-noise-free.
+            // Why: Sound-tab diagnostics can visualize emitted sounds, all
+            // candidates, or rejected candidates without touching physics state.
             constexpr float CONTACT_AUDIO_FLASH_SECONDS = 0.1f;
             const int decisionCount = m_contactAudio.DecisionCount();
             for ( int i = 0; i < decisionCount; ++i )
             {
                 Runtime::Audio::ContactAudioDecision decision;
-                if ( !m_contactAudio.GetDecision( i, decision ) || !decision.submitted )
+                if ( !m_contactAudio.GetDecision( i, decision ) ||
+                     !ShouldFlashContactAudioDecision( m_runtimeSettings.contactAudioFlashMode, decision ) )
                 {
                     continue;
                 }

@@ -57,6 +57,23 @@ constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED
 constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
 
+const char* ContactAudioFlashModeLabel( ContactAudioFlashMode mode )
+{
+    switch ( mode )
+    {
+    case ContactAudioFlashMode::Off:
+        return "Flash: Off";
+    case ContactAudioFlashMode::Emitted:
+        return "Flash: Emitted";
+    case ContactAudioFlashMode::Candidates:
+        return "Flash: Candidates";
+    case ContactAudioFlashMode::Rejected:
+        return "Flash: Rejected";
+    default:
+        return "Flash: Emitted";
+    }
+}
+
 void HashReplayInt( uint64_t& hash, int32_t value )
 {
     const uint32_t bits = static_cast<uint32_t>( value );
@@ -228,7 +245,8 @@ void Run::RefreshRuntimeViewModel()
     audio.enabled = m_contactAudio.IsEnabled();
     audio.available = m_contactAudio.IsAvailable();
     audio.debugCounters = m_runtimeSettings.contactAudioDebugCounters;
-    audio.flashOnSubmit = m_runtimeSettings.contactAudioFlashOnSubmit;
+    audio.flashMode = static_cast<int>( m_runtimeSettings.contactAudioFlashMode );
+    audio.flashModeLabel = ContactAudioFlashModeLabel( m_runtimeSettings.contactAudioFlashMode );
     audio.masterGain = m_contactAudio.MasterGain();
     audio.maxDistanceScale = m_contactAudio.MaxDistanceScale();
     audio.minClosingSpeed = m_contactAudio.MinClosingSpeed();
