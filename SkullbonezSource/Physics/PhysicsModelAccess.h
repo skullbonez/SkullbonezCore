@@ -173,16 +173,6 @@ class PhysicsModelAccess
         return static_cast<std::size_t>( ModelCount() );
     }
 
-    GameObjects::GameModel& operator[]( std::size_t index )
-    {
-        return MutableModelData()[index];
-    }
-
-    const GameObjects::GameModel& operator[]( std::size_t index ) const
-    {
-        return ModelData()[index];
-    }
-
     int Count() const
     {
         return ModelCount();
