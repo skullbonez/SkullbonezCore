@@ -84,7 +84,6 @@ inline bool operator!=( const RenderInstanceHandle& lhs, const RenderInstanceHan
 struct RenderInstanceRecord
 {
     RenderInstanceHandle handle;                              // Stable render handle paired with the legacy model slot.
-    int legacyModelIndex = -1;                                // Compatibility lookup back to GameModelCollection order.
     uint32_t replayBodyId = 0;                                // Stable replay-facing body id paired with this instance.
     Math::Transformation::Matrix4 modelMatrix;                // World transform used by object rendering.
     RenderMaterial material;                                  // Backend-neutral material intent.

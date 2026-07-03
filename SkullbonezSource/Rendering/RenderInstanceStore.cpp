@@ -66,7 +66,6 @@ void RenderInstanceStore::Refresh( std::vector<GameModel>& models )
         RenderInstanceRecord& record = m_instances[i];
         const uint32_t modelIndex = static_cast<uint32_t>( i );
         record.handle = MakeCompatibilityRenderInstanceHandle( modelIndex );
-        record.legacyModelIndex = static_cast<int>( i );
         record.replayBodyId = model.GetReplayBodyId();
         record.modelMatrix = model.GetModelMatrix();
         record.material = model.GetRenderMaterial();
@@ -92,7 +91,6 @@ void RenderInstanceStore::Refresh( SkullbonezCore::Physics::PhysicsModelAccess& 
         RenderInstanceRecord& record = m_instances[static_cast<std::size_t>( i )];
         const uint32_t modelIndex = static_cast<uint32_t>( i );
         record.handle = MakeCompatibilityRenderInstanceHandle( modelIndex );
-        record.legacyModelIndex = i;
         record.replayBodyId = model.GetReplayBodyId();
         record.modelMatrix = model.GetModelMatrix();
         record.material = model.GetRenderMaterial();
@@ -140,7 +138,7 @@ int RenderInstanceStore::ModelIndexForHandle( RenderInstanceHandle handle ) cons
         return -1;
     }
 
-    return m_instances[static_cast<std::size_t>( handle.index )].legacyModelIndex;
+    return static_cast<int>( handle.index );
 }
 
 

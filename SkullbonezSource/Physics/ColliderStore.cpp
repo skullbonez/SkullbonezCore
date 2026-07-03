@@ -65,7 +65,6 @@ void ColliderStore::Refresh( std::vector<GameModel>& models )
         const uint32_t modelIndex = static_cast<uint32_t>( i );
         record.handle = MakeCompatibilityPhysicsColliderHandle( modelIndex );
         record.body = MakeCompatibilityPhysicsBodyHandle( modelIndex );
-        record.legacyModelIndex = static_cast<int>( i );
         record.replayBodyId = model.GetReplayBodyId();
         record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
         record.shape = model.GetCollisionShape();
@@ -106,7 +105,6 @@ void ColliderStore::Refresh( PhysicsModelAccess& modelAccess )
         const uint32_t modelIndex = static_cast<uint32_t>( i );
         record.handle = MakeCompatibilityPhysicsColliderHandle( modelIndex );
         record.body = MakeCompatibilityPhysicsBodyHandle( modelIndex );
-        record.legacyModelIndex = i;
         record.replayBodyId = model.GetReplayBodyId();
         record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
         record.shape = model.GetCollisionShape();
@@ -168,7 +166,7 @@ int ColliderStore::ModelIndexForHandle( PhysicsColliderHandle handle ) const
         return -1;
     }
 
-    return m_colliders[static_cast<std::size_t>( handle.index )].legacyModelIndex;
+    return static_cast<int>( handle.index );
 }
 
 

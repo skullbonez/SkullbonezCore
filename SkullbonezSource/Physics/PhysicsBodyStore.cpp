@@ -122,7 +122,6 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std
         const Vector3 pendingImpulse = record.pendingImpulse;
         const Vector3 pendingImpulseApplicationPoint = record.pendingImpulseApplicationPoint;
         record.handle = MakeCompatibilityPhysicsBodyHandle( modelIndex );
-        record.legacyModelIndex = static_cast<int>( i );
         record.replayBodyId = model.GetReplayBodyId();
         record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
         CaptureMutableBodyState( model, record );
@@ -160,7 +159,6 @@ void PhysicsBodyStore::LoadFromModels( PhysicsModelMutableRange models, const st
         const Vector3 pendingImpulse = record.pendingImpulse;
         const Vector3 pendingImpulseApplicationPoint = record.pendingImpulseApplicationPoint;
         record.handle = handle;
-        record.legacyModelIndex = i;
         record.replayBodyId = model.GetReplayBodyId();
         record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
         CaptureMutableBodyState( model, record );
@@ -368,7 +366,7 @@ int PhysicsBodyStore::ModelIndexForHandle( PhysicsBodyHandle handle ) const
         return -1;
     }
 
-    return m_bodies[static_cast<std::size_t>( handle.index )].legacyModelIndex;
+    return static_cast<int>( handle.index );
 }
 
 

@@ -53,7 +53,6 @@ struct PhysicsBodyRecord
 {
     PhysicsBodyHandle handle;                          // Stable body handle paired with the legacy model slot.
     PhysicsSceneObjectId sceneObjectId;                // Scene-local id currently mirrored from replay body id.
-    int legacyModelIndex = -1;                         // Compatibility lookup back to GameModelCollection order.
     uint32_t replayBodyId = 0;                         // Stable replay-facing body id for this scene.
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;

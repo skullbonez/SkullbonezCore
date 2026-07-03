@@ -121,8 +121,6 @@ void PhysicsScene::ValidatePhysicsStoreMappings( int modelCount ) const
         assert( collider.body == bodyHandle );
         assert( m_bodyStore.ModelIndexForHandle( bodyHandle ) == i );
         assert( m_colliderStore.ModelIndexForHandle( colliderHandle ) == i );
-        assert( body.legacyModelIndex == i );
-        assert( collider.legacyModelIndex == i );
         assert( body.replayBodyId == collider.replayBodyId );
         assert( body.sceneObjectId == collider.sceneObjectId );
     }
@@ -144,7 +142,6 @@ void PhysicsScene::ValidateRenderStoreMappings( int modelCount ) const
         assert( renderHandle.IsValid() );
         assert( instance.handle == renderHandle );
         assert( m_renderInstanceStore.ModelIndexForHandle( renderHandle ) == i );
-        assert( instance.legacyModelIndex == i );
     }
 }
 #endif

@@ -53,7 +53,6 @@ struct ColliderRecord
     PhysicsColliderHandle handle;                              // Stable collider handle paired with the legacy model slot.
     PhysicsBodyHandle body;                                    // Body handle for the same compatibility slot.
     PhysicsSceneObjectId sceneObjectId;                        // Scene-local id currently mirrored from replay body id.
-    int legacyModelIndex = -1;                                 // Compatibility lookup back to GameModelCollection order.
     uint32_t replayBodyId = 0;                                 // Stable replay-facing body id paired with this collider.
     Math::CollisionDetection::CollisionShape shape;            // Exact shape variant used by narrowphase.
     ColliderShapeKind shapeKind = ColliderShapeKind::Sphere;   // Cheap typed discriminator for tools and migration checks.
