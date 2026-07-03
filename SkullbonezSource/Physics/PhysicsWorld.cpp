@@ -673,8 +673,7 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
     //
     // Determinism note: changing this ordering can change byte-exact physics
     // baselines even when the final scene "looks" similar.
-    auto m_gameModels = modelAccess.Models();
-    const int modelCount = static_cast<int>( m_gameModels.size() );
+    const int modelCount = bodyStore.Count();
     const std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.Records();
     EnsureCollisionVisualBuffers( modelCount );
     if ( !m_collisionVisualFrameActive )
@@ -689,10 +688,7 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
     m_terrainContactManifolds.clear();
     m_sleepSupportEdges.clear();
 
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        m_gameModels[i].TickFixedContactHighlight( fChangeInTime );
-    }
+    modelAccess.BodyEvents().TickContactHighlights( modelCount, fChangeInTime );
 
     if ( static_cast<int>( m_sleepState.size() ) != modelCount )
     {

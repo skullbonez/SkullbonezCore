@@ -824,6 +824,19 @@ void GameModelCollection::NotifyFixedContact( int modelIndex, float highlightSec
 }
 
 
+void GameModelCollection::TickContactHighlights( int modelCount, float deltaSeconds )
+{
+    // Why: contact highlights are presentation state on GameModel. Physics owns
+    // when contact events happen, but the model collection owns the timers that
+    // render/debug/audio views later sample.
+    const int tickCount = (std::min)( modelCount, static_cast<int>( m_gameModels.size() ) );
+    for ( int i = 0; i < tickCount; ++i )
+    {
+        m_gameModels[static_cast<size_t>( i )].TickFixedContactHighlight( deltaSeconds );
+    }
+}
+
+
 void GameModelCollection::NotifyAudioContact( int modelIndex, float highlightSeconds )
 {
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_gameModels.size() ) )

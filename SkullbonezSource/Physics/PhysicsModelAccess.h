@@ -71,6 +71,9 @@ class PhysicsBodyEventSink
     virtual ~PhysicsBodyEventSink() = default;
 
     virtual void NotifyFixedContact( int modelIndex, float highlightSeconds ) = 0;
+    // Ticks presentation timers for contact feedback in model order. Physics
+    // supplies the active body count; the model owner clamps to live storage.
+    virtual void TickContactHighlights( int modelCount, float deltaSeconds ) = 0;
     virtual void ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event ) = 0;
 };
 
