@@ -185,10 +185,10 @@ RENDER_INSTANCE_MODEL_REFRESH_PATTERN = re.compile(
 PHYSICS_DIAGNOSTICS_MODEL_RECORD_COMPAT_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*TryGetPhysicsDiagnosticsModel\s*\(\s*[^,()]+\s*,\s*[^,()]+\s*\)"
 )
-# Why: PhysicsDiagnosticsSink now receives a store-owned frame input plus a
-# cold name view. Letting it call back for full model records would recreate the
-# deleted diagnostics bridge inside the sink.
-PHYSICS_DIAGNOSTICS_SINK_MODEL_RECORD_ACCESS_PATTERN = re.compile(
+# Why: diagnostics emitters now receive a store-owned frame input plus a cold
+# name view. Letting them call back for full model records would recreate the
+# deleted diagnostics bridge inside the sink/query path.
+PHYSICS_DIAGNOSTICS_MODEL_RECORD_ACCESS_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*TryGetPhysicsDiagnosticsModel\s*\("
 )
 PHYSICS_DIAGNOSTICS_MODEL_RECORD_SOURCES = (
@@ -2356,20 +2356,21 @@ def check_render_instance_store_authority_guardrails(repo: Path) -> list[Boundar
 def check_physics_diagnostics_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments_and_string_literals(text)
     errors: list[BoundaryError] = []
-    if path == PHYSICS_DIAGNOSTICS_SINK_SOURCE or path.name == PHYSICS_DIAGNOSTICS_SINK_SOURCE.name:
-        for match in PHYSICS_DIAGNOSTICS_SINK_MODEL_RECORD_ACCESS_PATTERN.finditer(stripped):
+    if path.name in {PHYSICS_DIAGNOSTICS_SINK_SOURCE.name, SKULL_SCOPE_SOURCE.name}:
+        for match in PHYSICS_DIAGNOSTICS_MODEL_RECORD_ACCESS_PATTERN.finditer(stripped):
             errors.append(
                 BoundaryError(
                     path,
                     line_for_offset(stripped, match.start()),
-                    "physics diagnostics sink model-record access is deleted",
+                    "physics diagnostics model-record access is deleted",
                     (
-                        "PhysicsDiagnosticsSink should consume PhysicsDiagnosticsFrameInput, "
-                        "PhysicsBodyStore, ColliderStore, and the name view instead of "
-                        "requesting model-access diagnostics records."
+                        "Physics diagnostics emitters should consume PhysicsDiagnosticsFrameInput, "
+                        "PhysicsBodyStore, ColliderStore, and the name view instead of requesting "
+                        "model-access diagnostics records."
                     ),
                 )
             )
+        return errors
     for match in PHYSICS_DIAGNOSTICS_MODEL_RECORD_COMPAT_PATTERN.finditer(stripped):
         errors.append(
             BoundaryError(
@@ -7999,7 +8000,7 @@ def run_self_tests() -> list[str]:
     }
     """
     if not any(
-        error.message == "physics diagnostics model-state mirror read is blocked"
+        error.message == "physics diagnostics model-record access is deleted"
         for error in check_physics_diagnostics_store_authority_guardrails_text(
             Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
             old_diagnostics_model_record_read,
@@ -8015,7 +8016,7 @@ def run_self_tests() -> list[str]:
     }
     """
     if not any(
-        error.message == "physics diagnostics sink model-record access is deleted"
+        error.message == "physics diagnostics model-record access is deleted"
         for error in check_physics_diagnostics_store_authority_guardrails_text(
             Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
             deleted_sink_diagnostics_model_record_read,
@@ -8023,18 +8024,34 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("deleted diagnostics sink record synthetic surface was not rejected")
 
-    allowed_skullscope_diagnostics_model_record_read = """
+    deleted_skullscope_diagnostics_model_record_read = """
     void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess )
     {
         PhysicsDiagnosticsModelRecord model;
         modelAccess.TryGetPhysicsDiagnosticsModel( i, bodyStore, colliderStore, model );
     }
     """
+    if not any(
+        error.message == "physics diagnostics model-record access is deleted"
+        for error in check_physics_diagnostics_store_authority_guardrails_text(
+            Path("SkullbonezSource/Core/SkullScope.cpp"),
+            deleted_skullscope_diagnostics_model_record_read,
+        )
+    ):
+        failures.append("deleted SkullScope diagnostics record synthetic surface was not rejected")
+
+    allowed_skullscope_frame_input = """
+    void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frame )
+    {
+        PhysicsDiagnosticsModelRecord model;
+        TryBuildPhysicsDiagnosticsModelRecord( i, frame.bodyStore, frame.colliderStore, frame.names, model );
+    }
+    """
     if check_physics_diagnostics_store_authority_guardrails_text(
         Path("SkullbonezSource/Core/SkullScope.cpp"),
-        allowed_skullscope_diagnostics_model_record_read,
+        allowed_skullscope_frame_input,
     ):
-        failures.append("current SkullScope diagnostics record synthetic surface was rejected")
+        failures.append("SkullScope frame-input synthetic surface was rejected")
 
     diagnostics_name_only_read = """
     void PhysicsDiagnosticsSink::EmitCollisionTime( PhysicsModelAccess& modelAccess )

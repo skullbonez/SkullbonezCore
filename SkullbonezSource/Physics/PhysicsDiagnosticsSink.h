@@ -30,6 +30,10 @@ Related:
 
 #include "../Core/SkullScope.h"
 
+#ifdef _DEBUG
+#include "PhysicsDiagnosticsModel.h"
+#endif
+
 namespace SkullbonezCore
 {
 namespace Physics
@@ -39,20 +43,7 @@ class PhysicsBodyStore;
 class PhysicsModelAccess;
 struct PhysicsDiagnosticsView;
 
-// Cold presentation names for diagnostics rows. The table is supplied by the
-// scene/model edge; the sink treats missing names as empty and never indexes a
-// GameModel range.
-struct PhysicsDiagnosticsNameView
-{
-    const char* const* names = nullptr;
-    int count = 0;
-
-    const char* NameFor( int index ) const
-    {
-        return ( names && index >= 0 && index < count && names[index] ) ? names[index] : "";
-    }
-};
-
+#ifdef _DEBUG
 // Immutable inputs for one diagnostics emission pass. Body/collider/world facts
 // are already owned by physics; only names remain a presentation overlay.
 struct PhysicsDiagnosticsFrameInput
@@ -63,6 +54,7 @@ struct PhysicsDiagnosticsFrameInput
     PhysicsDiagnosticsNameView names;
     float deltaSeconds = 0.0f;
 };
+#endif
 
 class PhysicsDiagnosticsSink
 {
@@ -75,10 +67,8 @@ class PhysicsDiagnosticsSink
     bool IsRegressionLogEnabled() const;
     void EmitRegressionLog( const PhysicsDiagnosticsFrameInput& frame );
     void IncrementCollisionTimeFrameIfEnabled();
-    void EmitFrame( PhysicsModelAccess& modelAccess,
-                    const PhysicsBodyStore& bodyStore,
-                    const ColliderStore& colliderStore,
-                    float dt );
+    bool IsFrameLogEnabled() const;
+    void EmitFrame( const PhysicsDiagnosticsFrameInput& frame );
 #endif
     void EmitCollisionTime( PhysicsModelAccess& modelAccess,
                             const char* type,

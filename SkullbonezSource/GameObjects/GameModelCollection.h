@@ -190,13 +190,6 @@ class GameModelCollection
 #ifdef _DEBUG
     bool TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const;
     void FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const;
-    // Builds one diagnostics record from model-owned display names plus
-    // physics-owned body/collider stores, without handing debug sinks a mutable
-    // or indexable GameModel range.
-    bool TryGetPhysicsDiagnosticsModel( int index,
-                                        const Physics::PhysicsBodyStore& bodyStore,
-                                        const Physics::ColliderStore& colliderStore,
-                                        Physics::PhysicsDiagnosticsModelRecord& outRecord ) const;
 #endif
     // Replays restore saved body state through the collection so cache
     // invalidation and replay-id validation stay with the model owner. The
@@ -259,7 +252,6 @@ class GameModelCollection
                                  const Physics::PhysicsBodyStore& bodyStore,
                                  const Physics::ColliderStore& colliderStore );
     void CommitEditedModelPhysicsState( int modelIndex, bool colliderChanged );
-    Physics::PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const;
     void NotifyFixedContact( int modelIndex, float highlightSeconds );
     void TickContactHighlights( int modelCount, float deltaSeconds );
     void NotifyAudioContact( int modelIndex, float highlightSeconds );

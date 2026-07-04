@@ -64,8 +64,6 @@ namespace Physics
 {
 class ColliderStore;
 class PhysicsBodyStore;
-struct PhysicsDiagnosticsModelRecord;
-struct PhysicsDiagnosticsView;
 
 struct PhysicsFixedTreeReleaseEvent
 {
@@ -114,7 +112,6 @@ class PhysicsModelAccess
     void ReleaseAttachedFixedTreeParts( PhysicsBodyStore& bodyStore,
                                         const PhysicsFixedTreeReleaseEvent& event,
                                         std::vector<int>& outReleasedBodyIndices );
-    PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const;
 #ifdef _DEBUG
     bool TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const;
     // Compatibility owner: GameModelCollection presentation names.
@@ -124,14 +121,6 @@ class PhysicsModelAccess
     // or a presentation-name table owned outside GameModel. Checker budget:
     // Phase 8 diagnostics guardrails keep state reads out of this edge.
     void FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const;
-    // Lifetime: string pointers in the returned record are borrowed from the
-    // model owner and must not be cached after the current diagnostics write.
-    // Pose, motion, mass, and shape fields come from physics-owned stores.
-    // False means the requested index is outside the dense model/store order.
-    bool TryGetPhysicsDiagnosticsModel( int index,
-                                        const PhysicsBodyStore& bodyStore,
-                                        const ColliderStore& colliderStore,
-                                        PhysicsDiagnosticsModelRecord& outRecord ) const;
 #endif
 
     std::size_t size() const

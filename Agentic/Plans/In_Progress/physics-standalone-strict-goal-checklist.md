@@ -644,14 +644,15 @@ model-backed ownership.
   collider facts come from physics stores, world facts come from
   `PhysicsDiagnosticsView`, point-joint constraints are named in that view, and
   presentation names are a cold pointer table supplied at the model/scene edge.
-- [ ] Move `PhysicsDiagnosticsSink` and SkullScope frame emission away from
+- [x] Move `PhysicsDiagnosticsSink` and SkullScope frame emission away from
   direct model vector reads one view at a time.
   - [x] Regression CSV emission builds rows from `PhysicsBodyStore`,
     `ColliderStore`, `PhysicsDiagnosticsView`, and the name view instead of
     calling `PhysicsModelAccess::TryGetPhysicsDiagnosticsModel`.
-  - [ ] SkullScope frame emission still calls
-    `PhysicsModelAccess::TryGetPhysicsDiagnosticsModel`; migrate it in
-    `PHY-0803`.
+  - [x] SkullScope frame emission consumes `PhysicsDiagnosticsFrameInput` and
+    uses the shared store-owned diagnostics row builder. The full
+    `PhysicsModelAccess`/`GameModelCollection` diagnostics-record/view bridge
+    is deleted.
 - [ ] Keep raw NDJSON/SQLite out of model context; use `tools\physics_query.bat`
   queries for investigation.
 - [ ] If output schema changes, update query baselines only from final Debug
@@ -660,25 +661,37 @@ model-backed ownership.
   trace bytes, SQLite bytes, query commands, per-query output size, total
   GPT-read size.
 - [ ] Validation for this phase:
-  - [ ] `tools\validate_physics_deep.bat`
-  - [ ] `tools\validate_physics.bat` if core deterministic CSV behavior is
+  - [x] `tools\validate_physics_deep.bat`
+  - [x] `tools\validate_physics.bat` if core deterministic CSV behavior is
     touched.
 
 Current Phase 8 progress: `PHY-0801` defined the immutable diagnostics frame
-input and `PHY-0802` moved the regression CSV row builder off the full
-model-access diagnostics record. `PhysicsWorld` now reuses a Debug-only vector
-of borrowed name pointers only when the regression CSV path is enabled; the CSV
-writer samples pose, velocity, mass, orientation, and shape payload directly
-from `PhysicsBodyStore` and `ColliderStore`. The boundary checker now rejects
-`modelAccess.TryGetPhysicsDiagnosticsModel(...)` inside
-`PhysicsDiagnosticsSink.cpp`, while allowing the current SkullScope borrower for
-`PHY-0803`. `SkullScope::EmitFrame` still owns the next borrower to migrate.
+input, `PHY-0802` moved the regression CSV row builder off the full
+model-access diagnostics record, and `PHY-0803` moved `SkullScope::EmitFrame`
+to the same store-owned frame input. `PhysicsWorld` now gathers the cold
+presentation name table only when a Debug diagnostics output is enabled, holds a
+local `PhysicsDiagnosticsView` for the emission call, and sends both regression
+CSV and SkullScope through `PhysicsDiagnosticsFrameInput`. The deleted
+`PhysicsModelAccess::TryGetPhysicsDiagnosticsModel`,
+`PhysicsModelAccess::GetPhysicsDiagnosticsView`, and matching
+`GameModelCollection` accessors cannot return in `PhysicsDiagnosticsSink.cpp`
+or `SkullScope.cpp` because the boundary checker rejects
+`modelAccess.TryGetPhysicsDiagnosticsModel(...)` there.
+
 Validation evidence: diff check, py_compile, runtime-boundary checks, focused
 Debug build, and `tools\validate_fast.bat` passed; `tools\validate_physics.bat`
-passed with byte-exact `physics_regression_solver.csv`; the first
-`tools\validate_physics_deep.bat` run exposed a stale contact-audio
-`physics_query_varied.json` baseline, which was refreshed from the final Debug
-SkullScope trace and then passed the rerun with exact query match.
+passed with byte-exact `physics_regression_solver.csv`; `tools\validate_physics_deep.bat`
+passed with exact `physics_query_varied.json` match. SkullScope accounting for
+the deep gate: trace command is `Debug\SKULLBONEZ_CORE.exe --renderer dx12
+--vsync off --shadows off --scene
+SkullbonezData/scenes/physics_bench_varied.scene.json --physics-diag
+Debug\physics_query_varied.physicsdiag.ndjson`; query packet is
+`python tools\check_physics_query_regression.py`, which runs 21 bounded
+`tools\physics_query.py Debug\physics_query_varied.physicsdiag.ndjson ...`
+queries. Raw artifacts: NDJSON 104,766,944 bytes, SQLite cache 51,146,752
+bytes. Bounded packet size: `TestOutput\baselines\physics_query_varied.json`
+180,019 bytes; summed per-query JSON payload sizes 113,637 characters. Raw
+NDJSON/SQLite were not loaded into model context.
 
 ## Phase 9 - Guardrails
 

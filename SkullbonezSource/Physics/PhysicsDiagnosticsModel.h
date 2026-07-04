@@ -35,6 +35,23 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
+class ColliderStore;
+class PhysicsBodyStore;
+
+// Cold presentation names for diagnostics rows. The table is supplied by the
+// scene/model edge; diagnostics treats missing names as empty and never indexes
+// a GameModel range.
+struct PhysicsDiagnosticsNameView
+{
+    const char* const* names = nullptr;
+    int count = 0;
+
+    const char* NameFor( int index ) const
+    {
+        return ( names && index >= 0 && index < count && names[index] ) ? names[index] : "";
+    }
+};
+
 struct PhysicsDiagnosticsModelRecord
 {
     const char* name = "";
@@ -56,6 +73,14 @@ struct PhysicsDiagnosticsModelRecord
     uint16_t hullFaces = 0;
     uint16_t hullEdges = 0;
 };
+
+// Builds one serializable diagnostics row from store-owned physics state plus
+// an optional name overlay. The caller owns row ordering and baseline emission.
+bool TryBuildPhysicsDiagnosticsModelRecord( int index,
+                                            const PhysicsBodyStore& bodyStore,
+                                            const ColliderStore& colliderStore,
+                                            const PhysicsDiagnosticsNameView& names,
+                                            PhysicsDiagnosticsModelRecord& outRecord );
 } // namespace Physics
 } // namespace SkullbonezCore
 

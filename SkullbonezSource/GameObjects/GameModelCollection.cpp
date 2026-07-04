@@ -44,21 +44,15 @@ Related:
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
-#ifdef _DEBUG
-#include "../Physics/PhysicsDiagnosticsModel.h"
-#endif
 #include "../Rendering/GameModelRenderer.h"
 #include "../Scene/SceneSnapshotWriter.h"
 
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
-#include <cstring>
 #include <cmath>
+#include <cstring>
 #include <stdexcept>
-#ifdef _DEBUG
-#include <type_traits>
-#endif
 #include <utility>
 
 using namespace SkullbonezCore::Basics;
@@ -160,12 +154,6 @@ void PhysicsModelAccess::ReleaseAttachedFixedTreeParts( PhysicsBodyStore& bodySt
 }
 
 
-PhysicsDiagnosticsView PhysicsModelAccess::GetPhysicsDiagnosticsView() const
-{
-    return m_collection.GetPhysicsDiagnosticsView();
-}
-
-
 #ifdef _DEBUG
 bool PhysicsModelAccess::TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const
 {
@@ -176,15 +164,6 @@ bool PhysicsModelAccess::TryGetPhysicsDiagnosticsModelName( int index, const cha
 void PhysicsModelAccess::FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const
 {
     m_collection.FillPhysicsDiagnosticsNames( bodyCount, outNames );
-}
-
-
-bool PhysicsModelAccess::TryGetPhysicsDiagnosticsModel( int index,
-                                                        const PhysicsBodyStore& bodyStore,
-                                                        const ColliderStore& colliderStore,
-                                                        PhysicsDiagnosticsModelRecord& outRecord ) const
-{
-    return m_collection.TryGetPhysicsDiagnosticsModel( index, bodyStore, colliderStore, outRecord );
 }
 #endif
 } // namespace Physics
@@ -620,58 +599,6 @@ void GameModelCollection::FillPhysicsDiagnosticsNames( int bodyCount, std::vecto
 }
 
 
-bool GameModelCollection::TryGetPhysicsDiagnosticsModel( int index,
-                                                         const Physics::PhysicsBodyStore& bodyStore,
-                                                         const Physics::ColliderStore& colliderStore,
-                                                         Physics::PhysicsDiagnosticsModelRecord& outRecord ) const
-{
-    if ( index < 0 || index >= GetModelCount() || index >= bodyStore.Count() || index >= colliderStore.Count() )
-    {
-        return false;
-    }
-
-    const GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
-    const Physics::PhysicsBodyRecord& bodyRecord = bodyStore.Records()[static_cast<std::size_t>( index )];
-    const Physics::ColliderRecord& colliderRecord = colliderStore.Records()[static_cast<std::size_t>( index )];
-    outRecord = Physics::PhysicsDiagnosticsModelRecord{};
-    outRecord.name = model.GetName();
-    outRecord.position = bodyRecord.position;
-    outRecord.velocity = bodyRecord.linearVelocity;
-    outRecord.angularVelocity = bodyRecord.angularVelocity;
-    outRecord.rotationalInertia = bodyRecord.rotationalInertia;
-    bodyRecord.orientation.GetComponents( outRecord.qx, outRecord.qy, outRecord.qz, outRecord.qw );
-    outRecord.mass = bodyRecord.mass;
-    outRecord.inverseMass = bodyRecord.invMass;
-
-    // Why: Debug diagnostics may borrow presentation names, but state sampled
-    // after the solver must come from the stores that the solver just wrote.
-    std::visit(
-        [&]( const auto& shape )
-        {
-            using ShapeT = std::decay_t<decltype( shape )>;
-            if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingSphere> )
-            {
-                outRecord.shapeName = "sphere";
-                outRecord.radius = shape.GetRadius();
-            }
-            else if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingBox> )
-            {
-                outRecord.shapeName = "box";
-                outRecord.halfExtents = shape.GetHalfExtents();
-            }
-            else
-            {
-                outRecord.shapeName = "convex_hull";
-                outRecord.radius = shape.GetBoundingRadius();
-                outRecord.hullName = shape.GetName();
-                outRecord.hullVertices = shape.GetVertexCount();
-                outRecord.hullFaces = shape.GetFaceCount();
-                outRecord.hullEdges = shape.GetEdgeCount();
-            }
-        },
-        colliderRecord.shape );
-    return true;
-}
 #endif
 
 
@@ -1039,12 +966,6 @@ void GameModelCollection::CommitEditedModelPhysicsState( int modelIndex, bool co
     {
         m_physicsEngine.RefreshBodyFromModel( modelAccess, modelIndex );
     }
-}
-
-
-SkullbonezCore::Physics::PhysicsDiagnosticsView GameModelCollection::GetPhysicsDiagnosticsView() const
-{
-    return m_physicsEngine.GetDiagnosticsView();
 }
 
 

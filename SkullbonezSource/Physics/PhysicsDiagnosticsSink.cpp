@@ -45,13 +45,11 @@ namespace Math = SkullbonezCore::Math;
 
 
 #ifdef _DEBUG
-namespace
-{
-bool BuildDiagnosticsModelRecord( int index,
-                                  const PhysicsBodyStore& bodyStore,
-                                  const ColliderStore& colliderStore,
-                                  const PhysicsDiagnosticsNameView& names,
-                                  PhysicsDiagnosticsModelRecord& outRecord )
+bool SkullbonezCore::Physics::TryBuildPhysicsDiagnosticsModelRecord( int index,
+                                                                     const PhysicsBodyStore& bodyStore,
+                                                                     const ColliderStore& colliderStore,
+                                                                     const PhysicsDiagnosticsNameView& names,
+                                                                     PhysicsDiagnosticsModelRecord& outRecord )
 {
     if ( index < 0 || index >= bodyStore.Count() || index >= colliderStore.Count() )
     {
@@ -100,7 +98,6 @@ bool BuildDiagnosticsModelRecord( int index,
         colliderRecord.shape );
     return true;
 }
-} // namespace
 
 
 void PhysicsDiagnosticsSink::SetPhysicsRegressionLogPath( const char* path )
@@ -158,7 +155,7 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInp
     for ( int i = 0; i < modelCount; ++i )
     {
         PhysicsDiagnosticsModelRecord model;
-        if ( !BuildDiagnosticsModelRecord( i, frame.bodyStore, frame.colliderStore, frame.names, model ) )
+        if ( !TryBuildPhysicsDiagnosticsModelRecord( i, frame.bodyStore, frame.colliderStore, frame.names, model ) )
         {
             continue;
         }
@@ -209,12 +206,15 @@ void PhysicsDiagnosticsSink::IncrementCollisionTimeFrameIfEnabled()
 }
 
 
-void PhysicsDiagnosticsSink::EmitFrame( PhysicsModelAccess& modelAccess,
-                                        const PhysicsBodyStore& bodyStore,
-                                        const ColliderStore& colliderStore,
-                                        float dt )
+bool PhysicsDiagnosticsSink::IsFrameLogEnabled() const
 {
-    m_skullScope.EmitFrame( modelAccess, bodyStore, colliderStore, dt );
+    return m_skullScope.IsFrameEnabled();
+}
+
+
+void PhysicsDiagnosticsSink::EmitFrame( const PhysicsDiagnosticsFrameInput& frame )
+{
+    m_skullScope.EmitFrame( frame );
 }
 #endif
 
