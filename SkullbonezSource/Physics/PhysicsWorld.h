@@ -312,8 +312,7 @@ class PhysicsWorld
                                                                          const ColliderStore& colliderStore,
                                                                          const Basics::EngineConfig& config );
     void PreparePersistentContactSideEffects( int modelCount );
-    void ApplyPersistentContactSideEffects( PhysicsModelAccess& modelAccess,
-                                            PhysicsBodyStore& bodyStore,
+    void ApplyPersistentContactSideEffects( PhysicsBodyStore& bodyStore,
                                             const ColliderStore& colliderStore,
                                             const PhysicsWorldForces& worldForces );
     SleepSupportPropagationContext CreateSleepSupportPropagationContext();
@@ -349,8 +348,7 @@ class PhysicsWorld
                     const ColliderStore* colliderStore,
                     const PhysicsWorldForces* worldForces,
                     int index );
-    void WakeModel( PhysicsModelAccess& modelAccess,
-                    int bodyCount,
+    void WakeModel( int bodyCount,
                     const std::vector<PhysicsBodyRecord>& bodyRecords,
                     PhysicsBodyStore* bodyStore,
                     const ColliderStore* colliderStore,
@@ -384,8 +382,7 @@ class PhysicsWorld
                                 bool applyForces,
                                 const PhysicsWorldForces* worldForces = nullptr,
                                 const ColliderStore* colliderStore = nullptr );
-    void WakeSleepVisualIsland( PhysicsModelAccess& modelAccess,
-                                int bodyCount,
+    void WakeSleepVisualIsland( int bodyCount,
                                 const std::vector<PhysicsBodyRecord>& bodyRecords,
                                 PhysicsBodyStore* bodyStore,
                                 int index,
@@ -401,8 +398,7 @@ class PhysicsWorld
                                bool applyForces,
                                const PhysicsWorldForces* worldForces = nullptr,
                                const ColliderStore* colliderStore = nullptr );
-    void WakePointJointIsland( PhysicsModelAccess& modelAccess,
-                               int bodyCount,
+    void WakePointJointIsland( int bodyCount,
                                const std::vector<PhysicsBodyRecord>& bodyRecords,
                                PhysicsBodyStore* bodyStore,
                                int index,
@@ -418,8 +414,7 @@ class PhysicsWorld
                                    bool applyForces,
                                    const PhysicsWorldForces* worldForces = nullptr,
                                    const ColliderStore* colliderStore = nullptr );
-    void WakeRestingContactIsland( PhysicsModelAccess& modelAccess,
-                                   int bodyCount,
+    void WakeRestingContactIsland( int bodyCount,
                                    const std::vector<PhysicsBodyRecord>& bodyRecords,
                                    PhysicsBodyStore* bodyStore,
                                    int index,
@@ -428,8 +423,7 @@ class PhysicsWorld
                                    const PhysicsWorldForces* worldForces = nullptr,
                                    const ColliderStore* colliderStore = nullptr );
     bool IsPointJointPair( const PhysicsBodyStore& bodyStore, int bodyA, int bodyB ) const;
-    void WakePointJointConnectedBodies( PhysicsModelAccess& modelAccess,
-                                        PhysicsBodyStore& bodyStore,
+    void WakePointJointConnectedBodies( PhysicsBodyStore& bodyStore,
                                         const ColliderStore& colliderStore,
                                         const PhysicsWorldForces& worldForces,
                                         float dt );
@@ -453,13 +447,12 @@ class PhysicsWorld
                               const PhysicsBodyStore& bodyStore,
                               const ColliderStore& colliderStore,
                               float fChangeInTime );
-    // Callers with a refreshed body store should use the overload so wake and
-    // seed decisions read physics-owned fixed/sleep state before compatibility
-    // writeback.
+    // Callers with a refreshed body store should use the store overloads so
+    // wake and seed decisions read physics-owned fixed/sleep state before the
+    // scene edge performs any compatibility writeback/cache invalidation.
     void WakeModel( PhysicsModelAccess& modelAccess, int index );
-    void WakeModel( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, int index );
-    void WakeModel( PhysicsModelAccess& modelAccess,
-                    PhysicsBodyStore& bodyStore,
+    void WakeModel( PhysicsBodyStore& bodyStore, int index );
+    void WakeModel( PhysicsBodyStore& bodyStore,
                     const ColliderStore& colliderStore,
                     const PhysicsWorldForces& worldForces,
                     int index );

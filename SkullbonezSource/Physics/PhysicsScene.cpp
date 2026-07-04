@@ -265,7 +265,7 @@ void PhysicsScene::ApplyFixedTreeReleaseEvents( PhysicsModelAccess& modelAccess,
         modelAccess.ReleaseAttachedFixedTreeParts( m_bodyStore, event, m_fixedTreeReleaseWakeBodies );
         for ( int index : m_fixedTreeReleaseWakeBodies )
         {
-            m_world.WakeModel( modelAccess, m_bodyStore, m_colliderStore, worldForces, index );
+            m_world.WakeModel( m_bodyStore, m_colliderStore, worldForces, index );
         }
     }
 }
@@ -291,14 +291,21 @@ void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle 
     }
     if ( m_hasLastWorldForces )
     {
-        m_world.WakeModel( modelAccess, m_bodyStore, m_colliderStore, m_lastWorldForces, index );
+        m_world.WakeModel( m_bodyStore, m_colliderStore, m_lastWorldForces, index );
     }
     else
     {
-        m_world.WakeModel( modelAccess, m_bodyStore, index );
+        m_world.WakeModel( m_bodyStore, index );
     }
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+    // Compatibility owner: PhysicsScene explicit command edge.
+    // Reason: wake propagation mutates PhysicsWorld and PhysicsBodyStore state;
+    // GameModel is only the remaining presentation mirror.
+    // Deletion condition: editor/ragdoll callers consume store views directly.
+    // Checker budget: store-owned PhysicsWorld wake must not invalidate model
+    // caches itself.
     modelAccess.WriteBackPhysicsBody( m_bodyStore, index );
+    modelAccess.InvalidatePhysicsStreams();
 }
 
 
@@ -328,11 +335,11 @@ bool PhysicsScene::SetBodyVelocity( PhysicsModelAccess& modelAccess,
         }
         if ( m_hasLastWorldForces )
         {
-            m_world.WakeModel( modelAccess, m_bodyStore, m_colliderStore, m_lastWorldForces, index );
+            m_world.WakeModel( m_bodyStore, m_colliderStore, m_lastWorldForces, index );
         }
         else
         {
-            m_world.WakeModel( modelAccess, m_bodyStore, index );
+            m_world.WakeModel( m_bodyStore, index );
         }
         m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
     }

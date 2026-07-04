@@ -163,6 +163,10 @@ PHYSICS_WORLD_TORNADO_RELEASE_MODEL_ACCESS_PATTERN = re.compile(
 PHYSICS_WORLD_STORE_SEED_MODEL_ACCESS_PATTERN = re.compile(
     r"\b(?:GameModelBodyStream|GetBodyStream)\b|\bmodelAccess\s*\.\s*InvalidatePhysicsStreams\s*\("
 )
+PHYSICS_WORLD_STORE_WAKE_MODEL_ACCESS_PATTERN = re.compile(
+    r"\b(?:GameModelBodyStream|GetBodyStream)\b|\bmodelAccess\s*\.\s*InvalidatePhysicsStreams\s*\("
+)
+PHYSICS_WORLD_STORE_WAKE_MODEL_ACCESS_SIGNATURE_PATTERN = re.compile(r"\bPhysicsModelAccess\s*&")
 PHYSICS_WORLD_RUN_PHYSICS_WRITEBACK_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*WriteBackPhysicsBodies\s*\(")
 PHYSICS_WORLD_RUN_PHYSICS_INVALIDATION_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*InvalidatePhysicsStreams\s*\(")
 PHYSICS_WORLD_RUN_PHYSICS_DIAGNOSTICS_PATTERN = re.compile(
@@ -2138,6 +2142,56 @@ def check_physics_world_store_seed_model_access_guardrails_text(path: Path, text
 def check_physics_world_store_seed_model_access_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / PHYSICS_WORLD_SOURCE
     return check_physics_world_store_seed_model_access_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_physics_world_store_wake_model_access_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != "PhysicsWorld.cpp":
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    function_pattern = re.compile(
+        r"\bvoid\s+PhysicsWorld::"
+        r"(?:WakeModel|WakeSleepVisualIsland|WakePointJointIsland|WakeRestingContactIsland|WakePointJointConnectedBodies)"
+        r"\s*\([^{}]*(?:PhysicsBodyStore&|std::vector<PhysicsBodyRecord>|int\s+bodyCount)[^{}]*\)\s*\{",
+        re.S,
+    )
+    for function_match in function_pattern.finditer(stripped):
+        open_brace = stripped.find("{", function_match.start(), function_match.end())
+        if open_brace < 0:
+            continue
+        close_brace = find_matching_close_brace(stripped, open_brace)
+        for match in PHYSICS_WORLD_STORE_WAKE_MODEL_ACCESS_SIGNATURE_PATTERN.finditer(
+            stripped, function_match.start(), function_match.end()
+        ):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "physics world store wake model access is blocked",
+                    (
+                        "Store-owned wake propagation must operate on PhysicsBodyStore/body records and leave "
+                        "GameModel stream invalidation to PhysicsScene."
+                    ),
+                )
+            )
+        for match in PHYSICS_WORLD_STORE_WAKE_MODEL_ACCESS_PATTERN.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "physics world store wake model access is blocked",
+                    (
+                        "Store-owned wake propagation must operate on PhysicsBodyStore/body records and leave "
+                        "GameModel stream invalidation to PhysicsScene."
+                    ),
+                )
+            )
+    return errors
+
+
+def check_physics_world_store_wake_model_access_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / PHYSICS_WORLD_SOURCE
+    return check_physics_world_store_wake_model_access_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_physics_world_run_invalidation_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -7664,6 +7718,86 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only PhysicsWorld store seed synthetic text was rejected")
 
+    old_store_wake_model_access = """
+    void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, int index )
+    {
+        modelAccess.InvalidatePhysicsStreams();
+    }
+    """
+    if not any(
+        error.message == "physics world store wake model access is blocked"
+        for error in check_physics_world_store_wake_model_access_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+            old_store_wake_model_access,
+        )
+    ):
+        failures.append("old PhysicsWorld store wake model-access synthetic surface was not rejected")
+
+    old_store_wake_connected_invalidation = """
+    void PhysicsWorld::WakePointJointConnectedBodies( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore )
+    {
+        modelAccess.InvalidatePhysicsStreams();
+    }
+    """
+    if not any(
+        error.message == "physics world store wake model access is blocked"
+        for error in check_physics_world_store_wake_model_access_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+            old_store_wake_connected_invalidation,
+        )
+    ):
+        failures.append("old PhysicsWorld store point-joint wake invalidation synthetic surface was not rejected")
+
+    allowed_store_wake_body_records = """
+    void PhysicsWorld::WakeModel( int bodyCount, const std::vector<PhysicsBodyRecord>& bodyRecords, int index )
+    {
+        WakeSleepVisualIsland( bodyCount, bodyRecords, nullptr, index, 0.0f, false );
+    }
+    """
+    if check_physics_world_store_wake_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        allowed_store_wake_body_records,
+    ):
+        failures.append("store-owned PhysicsWorld wake synthetic surface was rejected")
+
+    allowed_legacy_wake_body_stream = """
+    void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, const GameModelBodyStream& bodyStream, int index )
+    {
+        modelAccess.InvalidatePhysicsStreams();
+    }
+    """
+    if check_physics_world_store_wake_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        allowed_legacy_wake_body_stream,
+    ):
+        failures.append("legacy PhysicsWorld wake model-stream synthetic surface was rejected")
+
+    allowed_scene_wake_invalidation = """
+    void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        modelAccess.WriteBackPhysicsBody( bodyStore, index );
+        modelAccess.InvalidatePhysicsStreams();
+    }
+    """
+    if check_physics_world_store_wake_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        allowed_scene_wake_invalidation,
+    ):
+        failures.append("PhysicsScene wake invalidation synthetic surface was rejected")
+
+    commented_store_wake_model_access = """
+    void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore, int index )
+    {
+        // modelAccess.InvalidatePhysicsStreams() used to live here.
+        WakeBodyRecord();
+    }
+    """
+    if check_physics_world_store_wake_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        commented_store_wake_model_access,
+    ):
+        failures.append("comment-only PhysicsWorld store wake synthetic text was rejected")
+
     old_world_run_diagnostics = """
     void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
     {
@@ -8980,6 +9114,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_world_persistent_contact_tree_release_guardrails(repo))
     errors.extend(check_physics_world_tornado_release_model_access_guardrails(repo))
     errors.extend(check_physics_world_store_seed_model_access_guardrails(repo))
+    errors.extend(check_physics_world_store_wake_model_access_guardrails(repo))
     errors.extend(check_physics_world_run_invalidation_guardrails(repo))
     errors.extend(check_physics_world_run_writeback_guardrails(repo))
     errors.extend(check_physics_world_run_diagnostics_guardrails(repo))
