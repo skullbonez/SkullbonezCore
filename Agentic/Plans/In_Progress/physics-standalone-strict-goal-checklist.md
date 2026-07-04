@@ -361,7 +361,7 @@ model indices stop entering physics commands directly.
 - [ ] For each legacy model-index physics command, migrate one caller group:
   - [x] scene setup,
   - [x] editor tools,
-  - [ ] mouse pickup tools,
+  - [x] mouse pickup tools,
   - [ ] launcher tools,
   - [ ] replay velocity edit,
   - [ ] replay restore/prediction,
@@ -399,6 +399,17 @@ slice: `python -m py_compile tools\check_runtime_boundaries.py`,
 `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
 `tools\validate_format.bat`, `tools\validate_fast.bat`, and
 `tools\validate_full.bat` all passed.
+
+Mouse pickup now keeps its model index as interaction identity only. The
+physics step revalidates the picked model, resolves a `PhysicsBodyHandle`
+through the runtime tool boundary, and applies the impulse through
+`PhysicsEngine::ApplyBodyImpulse`. The boundary checker now rejects
+`m_cGameModelCollection` model-index physics wrappers from returning in
+`RunMousePickupTools.inl`. Evidence for this slice:
+`python -m py_compile tools\check_runtime_boundaries.py`,
+`python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+`tools\validate_format.bat`, `tools\validate_fast.bat`, and
+`tools\validate_physics.bat` all passed.
 
 ## Phase 8 - Diagnostics And SkullScope
 

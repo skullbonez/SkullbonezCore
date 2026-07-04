@@ -593,10 +593,10 @@ int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, i
 }
 
 
-// Why: editor selection and placement still speak model indices, but physics
-// mutation should enter PhysicsEngine as a validated body handle. Keep the
-// model-index bridge local to editor commands instead of hiding it inside
-// GameModelCollection's compatibility wrappers.
+// Why: editor/runtime tools still speak model indices for selection and replay
+// gesture identity, but physics mutation should enter PhysicsEngine as a
+// validated body handle. Keep the model-index bridge local to tool commands
+// instead of hiding it inside GameModelCollection's compatibility wrappers.
 void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& collection,
                             SkullbonezCore::Physics::PhysicsEngine& physics,
                             int modelIndex )
@@ -626,6 +626,24 @@ void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollecti
 
     PhysicsModelAccess modelAccess( collection );
     physics.SeedBodyAsleep( modelAccess, body );
+}
+
+
+void ApplyRuntimeToolPhysicsImpulse( SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                     SkullbonezCore::Physics::PhysicsEngine& physics,
+                                     int modelIndex,
+                                     const Vector3& impulse,
+                                     const Vector3& localApplicationPoint )
+{
+    GameModelCollectionPhysicsAdapter physicsBodies( collection );
+    const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+    if ( !body.IsValid() )
+    {
+        return;
+    }
+
+    PhysicsModelAccess modelAccess( collection );
+    physics.ApplyBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
 }
 
 

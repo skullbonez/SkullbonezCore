@@ -13,7 +13,8 @@ Glossary:
 
 Invariants:
   - Pointer capture and interaction gesture state must end whenever pickup is canceled.
-  - Body indices are revalidated through GameModelCollection before applying impulses.
+  - Body indices are revalidated through GameModelCollection, then resolved to
+    physics handles before applying impulses.
   - This file must only be included from RunEditorTools.cpp after terrain-placement helpers.
 
 Related:
@@ -218,7 +219,11 @@ void Run::ApplyMousePickupPhysicsStep()
         impulse *= MOUSE_PICKUP_MAX_IMPULSE / sqrtf( impulseLenSq );
     }
 
-    m_cGameModelCollection.ApplyBodyImpulse( modelIndex, impulse, SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    ApplyRuntimeToolPhysicsImpulse( m_cGameModelCollection,
+                                    m_cGameModelCollection.GetPhysicsEngine(),
+                                    modelIndex,
+                                    impulse,
+                                    SkullbonezCore::Math::Vector::ZERO_VECTOR );
     m_runtimeTools.MousePickup().lastImpulse = impulse;
 }
 
