@@ -663,12 +663,13 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     SkullbonezCore::GameObjects::GameModel& editedModel = collection->GetModelAtIndex( 0 );
     editedModel.AddBoundingBox( SkullbonezCore::Math::Vector::Vector3( 0.25f, 1.25f, 0.5f ) );
     editedModel.SetCoefficientRestitution( 0.42f );
+    collection->CommitEditedModelPhysicsState( 0, true );
     const ColliderStore& refreshedColliderStore = collection->GetColliderStore();
     const ColliderRecord& refreshedCollider = refreshedColliderStore.Records()[0];
     const float expectedBoxRadius = sqrtf( 0.25f * 0.25f + 1.25f * 1.25f + 0.5f * 0.5f );
     // Invariant: same-count authoring edits must be visible through the explicit
-    // collider-store refresh boundary. The physics hot step only auto-refreshes
-    // topology changes, so tools and scene edits need this accessor to be fresh.
+    // collider edit commit. Store reads only auto-repair topology changes, so
+    // tools and scene edits must commit before asking for collider records.
     const bool colliderRefreshMatches =
         initialCollider.shapeKind == ColliderShapeKind::Sphere &&
         refreshedCollider.shapeKind == ColliderShapeKind::Box &&

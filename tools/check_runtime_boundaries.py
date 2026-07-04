@@ -305,6 +305,15 @@ RUNTIME_PICK_SERVICE_MODEL_STATE_PATTERN = re.compile(
 GAME_MODEL_COLLECTION_COLLIDER_STORE_REFRESH_PATTERN = re.compile(
     r"\bm_physicsEngine\s*\.\s*RefreshColliderStore\s*\(\s*modelAccess\s*\)"
 )
+# Why: GetColliderStore is used by picking, saving, and setup paths. A same-count
+# snapshot refresh copies model-owned collider metadata on read, so only topology
+# drift may reopen the model-owner import path here.
+GAME_MODEL_COLLECTION_COLLIDER_SNAPSHOT_REFRESH_PATTERN = re.compile(
+    r"\bm_physicsEngine\s*\.\s*RefreshColliderSnapshot\s*\(\s*modelAccess\s*\)"
+)
+GAME_MODEL_COLLECTION_COLLIDER_STORE_COUNT_GATE_PATTERN = re.compile(
+    r"\bm_physicsEngine\s*\.\s*Colliders\s*\(\s*\)\s*\.\s*Count\s*\(\s*\)\s*!=\s*ModelCount\s*\(\s*\)"
+)
 # Why: scene saves are live simulation snapshots. If the writer reads body facts
 # from GameModel, bulk post-step writeback remains required just to make saving
 # correct. Cold metadata such as names and render materials may still come from
@@ -3137,6 +3146,7 @@ def check_game_model_collection_body_store_read_authority_guardrails_text(path: 
         if open_brace < 0:
             continue
         close_brace = find_matching_close_brace(stripped, open_brace)
+        function_body = stripped[open_brace:close_brace]
         for match in GAME_MODEL_COLLECTION_COLLIDER_STORE_REFRESH_PATTERN.finditer(stripped, open_brace, close_brace):
             errors.append(
                 BoundaryError(
@@ -3146,6 +3156,42 @@ def check_game_model_collection_body_store_read_authority_guardrails_text(path: 
                     (
                         "GetColliderStore may refresh collider shape/material snapshots, but it must not call "
                         "RefreshColliderStore because that path reloads same-count body rows from GameModel."
+                    ),
+                )
+            )
+        if GAME_MODEL_COLLECTION_COLLIDER_SNAPSHOT_REFRESH_PATTERN.search(function_body) and not (
+            GAME_MODEL_COLLECTION_COLLIDER_STORE_COUNT_GATE_PATTERN.search(function_body)
+        ):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, function_match.start()),
+                    "collider-store read accessor must not unconditionally refresh from GameModel",
+                    (
+                        "GetColliderStore may repair collider topology drift, but same-count reads must preserve "
+                        "the ColliderStore snapshot instead of re-importing GameModel shape/material metadata."
+                    ),
+                )
+            )
+
+    commit_function_pattern = re.compile(
+        r"\bvoid\s+GameModelCollection::CommitEditedModelPhysicsState\s*\([^{}]*\)\s*\{",
+        re.S,
+    )
+    for function_match in commit_function_pattern.finditer(stripped):
+        open_brace = stripped.find("{", function_match.start(), function_match.end())
+        if open_brace < 0:
+            continue
+        close_brace = find_matching_close_brace(stripped, open_brace)
+        for match in GAME_MODEL_COLLECTION_COLLIDER_STORE_REFRESH_PATTERN.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "collider edit commit must not reload same-count body rows",
+                    (
+                        "CommitEditedModelPhysicsState(..., true) should repair body topology only when counts drift, "
+                        "then refresh collider metadata without calling the full body+collider reload path."
                     ),
                 )
             )
@@ -10344,7 +10390,7 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old full collider-store refresh synthetic surface was not rejected")
 
-    allowed_collider_snapshot_refresh = """
+    old_unconditional_collider_snapshot_refresh = """
     const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
     {
         GetPhysicsBodyStore();
@@ -10353,11 +10399,32 @@ def run_self_tests() -> list[str]:
         return m_physicsEngine.Colliders();
     }
     """
+    if not any(
+        error.message == "collider-store read accessor must not unconditionally refresh from GameModel"
+        for error in check_game_model_collection_body_store_read_authority_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_unconditional_collider_snapshot_refresh,
+        )
+    ):
+        failures.append("old unconditional collider snapshot refresh synthetic surface was not rejected")
+
+    allowed_count_gated_collider_snapshot_refresh = """
+    const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
+    {
+        GetPhysicsBodyStore();
+        if ( m_physicsEngine.Colliders().Count() != ModelCount() )
+        {
+            PhysicsModelAccess modelAccess( *this );
+            m_physicsEngine.RefreshColliderSnapshot( modelAccess );
+        }
+        return m_physicsEngine.Colliders();
+    }
+    """
     if check_game_model_collection_body_store_read_authority_guardrails_text(
         Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_collider_snapshot_refresh,
+        allowed_count_gated_collider_snapshot_refresh,
     ):
-        failures.append("collider snapshot refresh synthetic surface was rejected")
+        failures.append("count-gated collider snapshot refresh synthetic surface was rejected")
 
     commented_collider_store_refresh = """
     const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
@@ -10372,6 +10439,53 @@ def run_self_tests() -> list[str]:
         commented_collider_store_refresh,
     ):
         failures.append("comment-only collider-store refresh synthetic text was rejected")
+
+    old_full_collider_edit_commit = """
+    void GameModelCollection::CommitEditedModelPhysicsState( int modelIndex, bool colliderChanged )
+    {
+        PhysicsModelAccess modelAccess( *this );
+        if ( colliderChanged )
+        {
+            m_physicsEngine.RefreshColliderStore( modelAccess );
+        }
+        else
+        {
+            m_physicsEngine.RefreshBodyFromModel( modelAccess, modelIndex );
+        }
+    }
+    """
+    if not any(
+        error.message == "collider edit commit must not reload same-count body rows"
+        for error in check_game_model_collection_body_store_read_authority_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_full_collider_edit_commit,
+        )
+    ):
+        failures.append("old full collider edit commit synthetic surface was not rejected")
+
+    allowed_narrow_collider_edit_commit = """
+    void GameModelCollection::CommitEditedModelPhysicsState( int modelIndex, bool colliderChanged )
+    {
+        PhysicsModelAccess modelAccess( *this );
+        if ( colliderChanged )
+        {
+            if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
+            {
+                m_physicsEngine.RefreshBodyStore( modelAccess );
+            }
+            m_physicsEngine.RefreshColliderSnapshot( modelAccess );
+        }
+        else
+        {
+            m_physicsEngine.RefreshBodyFromModel( modelAccess, modelIndex );
+        }
+    }
+    """
+    if check_game_model_collection_body_store_read_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_narrow_collider_edit_commit,
+    ):
+        failures.append("narrow collider edit commit synthetic surface was rejected")
 
     old_run_physics_steady_model_access = """
     void GameModelCollection::RunPhysics( float dt )

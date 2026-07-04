@@ -1643,6 +1643,46 @@ passed formatting, project filters, runtime boundaries, and Profile/Debug
 builds with 0 warnings/errors; `tools\validate_physics.bat` passed
 standalone/runtime handle smoke and byte-exact `physics_regression_solver.csv`.
 
+Slice `PHY-1036`: stop collider convenience reads and same-count collider edit
+commits from reloading model-owned body data. Owner: `GameModelCollection`
+compatibility readers/edit commits; reason: `GetColliderStore()` is used by
+picks, saves, setup, and smoke checks, so rebuilding collider metadata on every
+read creates cache-hostile GameModel import work, while collider edits should
+commit explicitly at the owner edge; deletion condition: `GetColliderStore()`
+only repairs collider topology drift and `CommitEditedModelPhysicsState(...,
+true)` refreshes collider metadata without calling the full
+`RefreshColliderStore()` body+collider reload path; checker budget:
+`tools/check_runtime_boundaries.py` blocks the deleted unconditional reader
+refresh and full collider edit commit shapes.
+
+- [x] Make `GetColliderStore()` count-gate collider snapshot refreshes.
+- [x] Make `CommitEditedModelPhysicsState(..., true)` repair body topology only
+  when body count drift exists, then call `RefreshColliderSnapshot()`.
+- [x] Update runtime handle smoke so same-count collider authoring edits call
+  the explicit collider edit commit before reading collider records.
+- [x] Add runtime-boundary guardrails and self-tests for unconditional
+  read-side collider snapshot refresh and full collider edit commit regression.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation run for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] touched-file comment audit
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence: CodeGraph traced `GetColliderStore()` through
+`RefreshColliderSnapshot()` into `ColliderStore::Refresh()`, showing the old
+read path copied shape/material metadata from `GameModel`; the first physics
+checkpoint caught the old smoke assumption, then the smoke was moved to the
+explicit commit contract; runtime-boundary summary reported 0 errors; touched
+file comment audit passed for `GameModelCollection.cpp`, `Init.cpp`, and
+`tools/check_runtime_boundaries.py`; `tools\validate_fast.bat` passed
+formatting, project filters, runtime boundaries, and Profile/Debug builds with
+0 warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle
+smoke including `collider_refresh=pass` and byte-exact
+`physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

@@ -4,8 +4,8 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_physics.bat` passed on 2026-07-05 after deleting
-`GameModelCollectionPhysicsAdapter`.
+`tools\validate_physics.bat` passed on 2026-07-05 after gating collider store
+refreshes and narrowing explicit collider edit commits.
 
 ## Completed Slices
 
@@ -191,6 +191,24 @@ Validation for latest source slice: `tools\validate_fast.bat` and
   `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
   passed on 2026-07-05; physics regression reported standalone/runtime handle
   smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Gated collider-store read refreshes on topology drift and
+  narrowed explicit collider edit commits. Owner: `GameModelCollection`
+  convenience readers and edit commits. Reason: `GetColliderStore()` was
+  rebuilding collider metadata from `GameModel` on every read, and
+  `CommitEditedModelPhysicsState(..., true)` still used the full body+collider
+  refresh path for same-count collider edits. Deletion condition:
+  `GetColliderStore()` has no unconditional `PhysicsModelAccess` construction
+  or `RefreshColliderSnapshot()` call, and collider edit commits do not call
+  `RefreshColliderStore()`. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks unconditional read-side collider
+  snapshot refreshes and full collider edit commits, with rejecting/allowing
+  self-tests. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass including `collider_refresh=pass` and byte-exact
+  `physics_regression_solver.csv`.
 
 ## Goal
 

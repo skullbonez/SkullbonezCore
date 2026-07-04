@@ -826,11 +826,15 @@ const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysics
 
 const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
 {
-    // Invariant: shape/material snapshots may refresh from GameModel, but body
-    // rows keep PhysicsBodyStore authority unless topology count drift needs repair.
+    // Invariant: convenience reads repair topology only. Shape/material edits
+    // commit through CommitEditedModelPhysicsState(..., true) so picks, saves,
+    // and queries do not rebuild collider metadata just to inspect it.
     GetPhysicsBodyStore();
-    PhysicsModelAccess modelAccess( *this );
-    m_physicsEngine.RefreshColliderSnapshot( modelAccess );
+    if ( m_physicsEngine.Colliders().Count() != ModelCount() )
+    {
+        PhysicsModelAccess modelAccess( *this );
+        m_physicsEngine.RefreshColliderSnapshot( modelAccess );
+    }
     return m_physicsEngine.Colliders();
 }
 
@@ -950,7 +954,13 @@ void GameModelCollection::CommitEditedModelPhysicsState( int modelIndex, bool co
     PhysicsModelAccess modelAccess( *this );
     if ( colliderChanged )
     {
-        m_physicsEngine.RefreshColliderStore( modelAccess );
+        // Why: collider edits need shape/material metadata imported, but
+        // same-count body rows stay PhysicsBodyStore authority.
+        if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
+        {
+            m_physicsEngine.RefreshBodyStore( modelAccess );
+        }
+        m_physicsEngine.RefreshColliderSnapshot( modelAccess );
     }
     else
     {
