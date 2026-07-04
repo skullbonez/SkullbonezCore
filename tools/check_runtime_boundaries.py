@@ -149,6 +149,7 @@ SCENE_AUTHORED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneAuthored
 SCENE_GENERATED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp")
 EDITOR_OBJECT_PLACEMENT_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl")
 EDITOR_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp")
+LAUNCHER_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/LauncherTools.cpp")
 MOUSE_PICKUP_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl")
 RUNTIME_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp")
 RUNTIME_TOOLS_HEADER = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h")
@@ -636,6 +637,18 @@ LAUNCHER_RAYCAST_MODEL_VECTOR_PATTERN = re.compile(
 LAUNCHER_RAYCAST_GAME_MODEL_BODY_PATTERN = re.compile(
     r"\b(?:LauncherModelRadius\s*\(|[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*"
     r"(?:GetPosition|GetCollisionShape)\s*\()"
+)
+LAUNCHER_REPRO_TARGET_FUNCTION_PATTERN = re.compile(
+    r"\bbool\s+RuntimeTools::PickLauncherReproTarget\s*\("
+)
+LAUNCHER_REPRO_SNAPSHOT_FUNCTION_PATTERN = re.compile(
+    r"\bLauncherReproSnapshotStatus\s+RuntimeTools::WriteLauncherReproSnapshot\s*\("
+)
+LAUNCHER_REPRO_GAME_MODEL_BODY_PATTERN = re.compile(
+    r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*"
+    r"(?:GetPosition|GetVelocity|GetAngularVelocity|GetRotationalInertia|"
+    r"GetInvertedRotationalInertia|GetOrientation|GetMass|GetCoefficientRestitution|"
+    r"GetCollisionShape|GetShapeName)\s*\("
 )
 LAUNCHER_GAME_MODEL_BODY_READ_PATTERN = re.compile(
     r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*"
@@ -4602,12 +4615,30 @@ def check_launcher_model_index_physics_command_guardrails_text(path: Path, text:
                     ),
                 )
             )
+    for function_pattern in (LAUNCHER_REPRO_TARGET_FUNCTION_PATTERN, LAUNCHER_REPRO_SNAPSHOT_FUNCTION_PATTERN):
+        bounds = _function_body_bounds(stripped, function_pattern)
+        if not bounds:
+            continue
+        open_brace, close_brace = bounds
+        for match in LAUNCHER_REPRO_GAME_MODEL_BODY_PATTERN.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "launcher repro GameModel body read is blocked",
+                    (
+                        "Launcher repro picking and snapshots should read live position, velocity, orientation, "
+                        "mass, and shape from PhysicsBodyStore/ColliderStore records; GameModel may remain only "
+                        "for cold identity metadata such as the display name."
+                    ),
+                )
+            )
     return errors
 
 
 def check_launcher_model_index_physics_command_guardrails(repo: Path) -> list[BoundaryError]:
     errors: list[BoundaryError] = []
-    for relative_path in (RUNTIME_TOOLS_SOURCE, RUNTIME_TOOLS_HEADER):
+    for relative_path in (RUNTIME_TOOLS_SOURCE, RUNTIME_TOOLS_HEADER, LAUNCHER_TOOLS_SOURCE):
         path = repo / relative_path
         errors.extend(check_launcher_model_index_physics_command_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
@@ -13413,6 +13444,76 @@ def run_self_tests() -> list[str]:
         commented_launcher_model_vector_raycast,
     ):
         failures.append("comment-only launcher GameModel raycast synthetic text was rejected")
+
+    old_launcher_repro_model_body_reads = """
+    bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection )
+    {
+        GameModel& model = collection.GetModelAtIndex( i );
+        Vector3 toModel = model.GetPosition() - camPos;
+        float radius = GetShapeBoundingRadius( model.GetCollisionShape() );
+        return radius > 0.0f;
+    }
+
+    LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& context ) const
+    {
+        GameModel& model = context.collection.GetModelAtIndex( targetIndex );
+        const Vector3& pos = model.GetPosition();
+        const Vector3& vel = model.GetVelocity();
+        const CollisionShape& shape = model.GetCollisionShape();
+        fprintf( f, "mass,%.6f\\n", model.GetMass() );
+        return LauncherReproSnapshotStatus::Wrote;
+    }
+    """
+    if not any(
+        error.message == "launcher repro GameModel body read is blocked"
+        for error in check_launcher_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/LauncherTools.cpp"),
+            old_launcher_repro_model_body_reads,
+        )
+    ):
+        failures.append("old launcher repro GameModel body reads synthetic surface was not rejected")
+
+    allowed_launcher_repro_store_reads = """
+    bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection )
+    {
+        const ColliderStore& colliderStore = collection.GetColliderStore();
+        const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
+        const PhysicsBodyRecord* body = bodyStore.RecordForHandle( collider.body );
+        Vector3 toModel = body->position - camPos;
+        float radius = collider.boundingRadius;
+        return radius > 0.0f;
+    }
+
+    LauncherReproSnapshotStatus RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& context ) const
+    {
+        const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+        const PhysicsBodyRecord* body = bodyStore.RecordForHandle( collider->body );
+        const Vector3& pos = body->position;
+        const Vector3& vel = body->linearVelocity;
+        const CollisionShape& shape = collider->shape;
+        float mass = body->mass;
+        const char* name = model.GetName();
+        return LauncherReproSnapshotStatus::Wrote;
+    }
+    """
+    if check_launcher_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/LauncherTools.cpp"),
+        allowed_launcher_repro_store_reads,
+    ):
+        failures.append("store-backed launcher repro synthetic surface was rejected")
+
+    commented_launcher_repro_model_reads = """
+    void DocumentOldLauncherRepro()
+    {
+        // PickLauncherReproTarget used to read model.GetPosition() and model.GetCollisionShape().
+        // WriteLauncherReproSnapshot used model.GetVelocity() and model.GetMass().
+    }
+    """
+    if check_launcher_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/LauncherTools.cpp"),
+        commented_launcher_repro_model_reads,
+    ):
+        failures.append("comment-only launcher repro model body reads synthetic text was rejected")
 
     old_launcher_adapter_lookup = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
