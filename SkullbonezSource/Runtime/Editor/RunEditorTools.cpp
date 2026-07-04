@@ -12,8 +12,12 @@ Glossary:
     models.
   Placement preflight: Capacity and asset-availability check shared by the
     "can place" query and the actual placement commit.
+  Body-store row: Physics-owned record that receives editor wake/sleep commands
+    after a model-index selection has been validated.
+  Topology drift: Temporary mismatch between editor model count and physics
+    store rows after scene/editor construction or deletion.
   Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+    commit or PR.
 
 Invariants:
   - Preview, preflight, and placement commit must use the same object-type,
@@ -35,7 +39,6 @@ Related:
 #include "../InputController.h"
 #include "../RuntimeInteractionCommands.h"
 #include "../RuntimePickService.h"
-#include "../../GameObjects/GameModelCollectionPhysicsAdapter.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsMass.h"
@@ -74,7 +77,6 @@ using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
-using SkullbonezCore::GameObjects::GameModelCollectionPhysicsAdapter;
 using Json = nlohmann::ordered_json;
 
 namespace
@@ -595,19 +597,34 @@ int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, i
 
 
 // Why: editor/runtime tools still speak model indices for selection and replay
-// gesture identity, but physics mutation should enter PhysicsEngine as a
-// validated body handle. Keep the model-index bridge local to tool commands
-// instead of hiding it inside GameModelCollection's compatibility wrappers.
+// gesture identity, but command mutation can enter PhysicsEngine through the
+// current body-store row once topology drift is repaired at this boundary.
 void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& collection, int modelIndex )
 {
-    GameModelCollectionPhysicsAdapter physicsBodies( collection );
-    const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelIndex, true );
+    const int modelCount = collection.GetModelCount();
+    if ( modelIndex < 0 || modelIndex >= modelCount )
+    {
+        return;
+    }
+
+    PhysicsEngine& physics = collection.GetPhysicsEngine();
+    PhysicsModelAccess modelAccess( collection );
+    if ( physics.Colliders().Count() != modelCount )
+    {
+        physics.RefreshColliderStore( modelAccess );
+    }
+    else if ( physics.BodyStore().Count() != modelCount )
+    {
+        physics.RefreshBodyStore( modelAccess );
+    }
+
+    const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelIndex );
     if ( !body.IsValid() )
     {
         return;
     }
 
-    collection.GetPhysicsEngine().WakeBody( body );
+    physics.WakeBody( body );
 }
 
 
@@ -615,8 +632,19 @@ void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollecti
                                   SkullbonezCore::Physics::PhysicsEngine& physics,
                                   int modelIndex )
 {
-    GameModelCollectionPhysicsAdapter physicsBodies( collection );
-    const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+    const int modelCount = collection.GetModelCount();
+    if ( modelIndex < 0 || modelIndex >= modelCount )
+    {
+        return;
+    }
+
+    PhysicsModelAccess modelAccess( collection );
+    if ( physics.BodyStore().Count() != modelCount )
+    {
+        physics.RefreshBodyStore( modelAccess );
+    }
+
+    const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelIndex );
     if ( !body.IsValid() )
     {
         return;

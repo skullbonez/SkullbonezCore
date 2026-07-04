@@ -13,9 +13,9 @@
 #   have an extra file-classification fence, object rendering has a
 #   render-instance authority fence, runtime picking has a store-authority
 #   fence, runtime handle smoke has a handle-authority fence, and fixed-tree,
-#   replay-restore wake, replay velocity-edit, or launcher ray-hit commands have
-#   store-handle fences, so count allowances do not silently approve a new
-#   compatibility location.
+#   replay-restore wake, replay velocity-edit, launcher ray-hit, or editor
+#   wake/sleep commands have store-handle fences, so count allowances do not
+#   silently approve a new compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -516,6 +516,9 @@ EDITOR_ADAPTER_COMMAND_WRAPPER_PATTERN = re.compile(
     r"\b[A-Za-z_]\w*\s*\.\s*"
     r"(?:ApplyBodyImpulseForModelIndex|WakeBodyForModelIndex|SeedBodyAsleepForModelIndex|"
     r"SetPendingBodyImpulseForModelIndex)\s*\("
+)
+EDITOR_ADAPTER_LOOKUP_PATTERN = re.compile(
+    r"\b(?:GameModelCollectionPhysicsAdapter|BodyHandleForVelocityCommand|BodyHandleForModelIndex)\b"
 )
 EDITOR_PHYSICS_COMMAND_SOURCES = (
     EDITOR_OBJECT_PLACEMENT_SOURCE,
@@ -4012,6 +4015,19 @@ def check_editor_model_index_physics_command_guardrails_text(path: Path, text: s
                 (
                     "Editor commands should resolve PhysicsBodyHandle at the editor boundary, then call "
                     "PhysicsEngine directly instead of hiding mutation behind adapter model-index command wrappers."
+                ),
+            )
+        )
+    for match in EDITOR_ADAPTER_LOOKUP_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "editor adapter lookup is blocked",
+                (
+                    "Editor commands already validate model-index selection at their boundary; refresh topology "
+                    "there, resolve the current PhysicsBodyHandle from PhysicsBodyStore, and call PhysicsEngine "
+                    "handle commands directly."
                 ),
             )
         )
@@ -11839,9 +11855,15 @@ def run_self_tests() -> list[str]:
     allowed_editor_handle_command = """
     void WakeEditorPhysicsBody( GameModelCollection& collection, int modelIndex )
     {
-        GameModelCollectionPhysicsAdapter physicsBodies( collection );
-        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelIndex, true );
-        collection.GetPhysicsEngine().WakeBody( body );
+        const int modelCount = collection.GetModelCount();
+        PhysicsEngine& physics = collection.GetPhysicsEngine();
+        PhysicsModelAccess modelAccess( collection );
+        if ( physics.Colliders().Count() != modelCount )
+        {
+            physics.RefreshColliderStore( modelAccess );
+        }
+        const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelIndex );
+        physics.WakeBody( body );
     }
     """
     if check_editor_model_index_physics_command_guardrails_text(
@@ -11879,11 +11901,29 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old editor adapter command synthetic surface was not rejected")
 
+    old_editor_adapter_lookup = """
+    void WakeEditorPhysicsBody( GameModelCollection& collection, int modelIndex )
+    {
+        GameModelCollectionPhysicsAdapter physicsBodies( collection );
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelIndex, true );
+        collection.GetPhysicsEngine().WakeBody( body );
+    }
+    """
+    if not any(
+        error.message == "editor adapter lookup is blocked"
+        for error in check_editor_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+            old_editor_adapter_lookup,
+        )
+    ):
+        failures.append("old editor adapter lookup synthetic surface was not rejected")
+
     commented_editor_adapter_command = """
     void DocumentOldEditorAdapterCommand()
     {
         // physicsBodies.WakeBodyForModelIndex(modelIndex) used to run here.
-        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelIndex, true );
+        // GameModelCollectionPhysicsAdapter physicsBodies(collection) used to run here.
+        const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelIndex );
         collection.GetPhysicsEngine().WakeBody( body );
     }
     """
