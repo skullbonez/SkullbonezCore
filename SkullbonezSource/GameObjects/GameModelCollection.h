@@ -110,6 +110,16 @@ class GameModelRenderer;
 class GameModelCollection
 {
   private:
+    // Queued replay draw pose, keyed by the model slot plus stable replay id so
+    // stale samples cannot paint over a different live body.
+    struct ReplayRenderPoseOverride
+    {
+        int modelIndex = -1;
+        uint32_t replayBodyId = 0;
+        Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+        Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
+    };
+
     std::vector<GameModel> m_gameModels;
     Physics::PhysicsEngine m_physicsEngine;
     // Cached physics policy applied to existing and newly added models whenever
@@ -117,14 +127,14 @@ class GameModelCollection
     Physics::PhysicsMaterial m_physicsMaterial;
     Physics::BodySimulationLimits m_bodySimulationLimits;
     Physics::ContactPolicy m_contactPolicy;
-    Threading::WorkerPool* m_workerPool = nullptr;      // Borrowed startup worker pool for render/physics parallel helpers.
-    bool m_renderCollisionVolumes = false;              // Cached render debug toggle copied from EngineConfig.
-    bool m_shadowParallelPrep = false;                  // Cached worker-prep toggle copied from EngineConfig.
+    Threading::WorkerPool* m_workerPool = nullptr;                     // Borrowed startup worker pool for render/physics parallel helpers.
+    bool m_renderCollisionVolumes = false;                             // Cached render debug toggle copied from EngineConfig.
+    bool m_shadowParallelPrep = false;                                 // Cached worker-prep toggle copied from EngineConfig.
     uint32_t m_nextReplayBodyId = 1;
-    std::vector<int> m_replayRenderPoseOverrideIndices; // Pending one-frame render-only replay pose rows.
+    std::vector<ReplayRenderPoseOverride> m_replayRenderPoseOverrides; // Single-frame replay draw-pose requests.
 
-    void RememberReplayRenderPoseOverride( int modelIndex );
-    void ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore );
+    void ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore,
+                                         const Physics::ColliderStore& colliderStore );
 
   public:
     GameModelCollection();
@@ -221,11 +231,12 @@ class GameModelCollection
                                               const Math::Vector::Vector3& inverseRotationalInertia,
                                               float fixedContactHighlightSeconds );
     // Replay scrub rendering may override only the draw pose for a frame. The
-    // replay id check prevents stale sample indices from moving the wrong body.
-    bool TrySetReplayRenderPose( int index,
-                                 uint32_t replayBodyId,
-                                 const Math::Vector::Vector3& position,
-                                 const Math::Orientation::Quaternion& orientation );
+    // replay id check prevents stale sample indices from drawing the wrong body.
+    bool TryQueueReplayRenderPoseOverride( int index,
+                                           uint32_t replayBodyId,
+                                           const Math::Vector::Vector3& position,
+                                           const Math::Orientation::Quaternion& orientation );
+    void ClearReplayRenderPoseOverrides();
     // Mutates angular velocity through the collection so PhysicsBodyStore is
     // refreshed through the same owner-checked path as replay/editor edits.
     bool TrySetModelAngularVelocity( int index, const Math::Vector::Vector3& angularVelocity );

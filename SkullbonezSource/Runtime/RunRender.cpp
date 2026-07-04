@@ -1461,7 +1461,7 @@ void Run::Render()
 
     const auto restoreReplayRenderStateForFrame = [&]()
     {
-        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
         restoreReplayLauncherVisualForRender();
     };
 

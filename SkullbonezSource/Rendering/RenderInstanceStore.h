@@ -40,6 +40,18 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Math
+{
+namespace Orientation
+{
+class Quaternion;
+}
+namespace Vector
+{
+class Vector3;
+}
+} // namespace Math
+
 namespace GameObjects
 {
 class GameModel;
@@ -119,8 +131,12 @@ class RenderInstanceStore
                   const Physics::PhysicsBodyStore& bodyStore,
                   const Physics::ColliderStore& colliderStore );
     // Applies a one-frame presentation pose, such as replay scrub/prediction,
-    // without writing that pose into PhysicsBodyStore.
-    void OverridePoseFromModel( int modelIndex, GameObjects::GameModel& model );
+    // without writing that pose into PhysicsBodyStore or GameModel.
+    bool OverridePose( int modelIndex,
+                       uint32_t replayBodyId,
+                       const Math::Vector::Vector3& position,
+                       const Math::Orientation::Quaternion& orientation,
+                       const Physics::ColliderStore& colliderStore );
 
     const RenderInstanceRecord* Data() const;
     int Count() const;

@@ -17,7 +17,8 @@
 #   body-store motion fence, and fixed-tree, replay-restore wake, replay
 #   velocity-edit, launcher ray-hit, or editor wake/sleep commands have
 #   store-handle fences. The deleted collection step wrapper has its own fence,
-#   and per-body model writeback has its own fence, so count allowances do not
+#   replay render-pose overrides have their own value-override fence, and
+#   per-body model writeback has its own fence, so count allowances do not
 #   silently approve a new compatibility location.
 #
 # Mental model:
@@ -63,6 +64,9 @@
 #     one PhysicsBodyStore row back into GameModel as a convenience mirror.
 #   Replay prediction writeback fence: Static rule that keeps temporary future
 #     preview steps from copying every store row back into GameModel.
+#   Replay render-pose value-override fence: Static rule that keeps scrub and
+#     prediction draw poses as queued RenderInstanceStore values instead of
+#     backing up or mutating GameModel transforms.
 #
 # Invariants:
 #   - Run.h may own subsystem objects, but not their extracted transient state.
@@ -85,6 +89,8 @@
 #     PhysicsBodyStore/ColliderStore instead of the post-step GameModel mirror.
 #   - Fixed-tree release wakes store-owned rows inside PhysicsScene and must not
 #     return model-order rows to GameModelCollection for per-body projection.
+#   - Replay scrub and prediction draw poses must not backup, restore, or write
+#     GameModel pose; they are single-frame render-instance value overrides.
 #   - Object contact manifolds and required scene-contact gates read body pose
 #     and exact shapes from PhysicsBodyStore/ColliderStore snapshots.
 #   - Unknown render graph resource states remain explicitly counted handoffs
@@ -151,6 +157,8 @@ REPLAY_VELOCITY_EDIT_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayVel
 REPLAY_PREDICTION_HELPERS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl")
 REPLAY_PREDICTION_VISUALIZER_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl")
 REPLAY_RECORDER_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp")
+REPLAY_RUNTIME_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp")
+REPLAY_RUNTIME_HEADER = Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.h")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
 RUNTIME_RENDER_PASS_CAPABILITY_SOURCES = (
     RUN_PASSES_SOURCE,
@@ -277,6 +285,9 @@ RENDER_INSTANCE_STORE_MODEL_ONLY_REFRESH_SIGNATURE_PATTERN = re.compile(
 )
 RENDER_INSTANCE_STORE_MODEL_REFRESH_FALLBACK_PATTERN = re.compile(
     r"\bRefresh\s*\(\s*models\s*,\s*modelCount\s*\)"
+)
+RENDER_INSTANCE_STORE_MODEL_POSE_OVERRIDE_PATTERN = re.compile(
+    r"\bOverridePoseFromModel\b|\bmodel\s*(?:->|\.)\s*(?:GetModelMatrix|GetPosition|GetOrientation)\s*\("
 )
 GAME_MODEL_RENDERER_MODEL_POSE_STREAM_PATTERN = re.compile(
     r"\b(?:GameModelRenderStream|GameModelBodyStream)\b"
@@ -459,10 +470,20 @@ GAME_MODEL_COLLECTION_REPLAY_RESTORE_MODEL_REFRESH_PATTERN = re.compile(
     r"\b(?:CommitEditedModelPhysicsState|RefreshBodyFromModel|GetPhysicsBodyStore)\s*\("
 )
 GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_FUNCTION_PATTERN = re.compile(
-    r"\bbool\s+GameModelCollection::TrySetReplayRenderPose\s*\("
+    r"\bbool\s+GameModelCollection::TryQueueReplayRenderPoseOverride\s*\("
 )
-GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_PHYSICS_COMMIT_PATTERN = re.compile(
-    r"\b(?:CommitEditedModelPhysicsState|RefreshBodyFromModel|GetPhysicsBodyStore)\s*\("
+GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_MODEL_MUTATION_PATTERN = re.compile(
+    r"\b(?:CommitEditedModelPhysicsState|RefreshBodyFromModel|GetPhysicsBodyStore|SetPosition|SetOrientation)\s*\("
+)
+REPLAY_RENDER_POSE_DELETED_SYMBOL_PATTERN = re.compile(
+    r"\b(?:TrySetReplayRenderPose|RestoreRenderPose|OverridePoseFromModel|RenderPoseBackup|m_renderPoseBackups)\b"
+)
+REPLAY_RUNTIME_RENDER_APPLY_FUNCTION_PATTERN = re.compile(
+    r"\bbool\s+ReplayRuntime::(?:ApplyPresentationSampleForRender|ApplySolverSampleForRender|"
+    r"ApplyPredictionFrameForRender)\s*\("
+)
+REPLAY_RUNTIME_RENDER_MODEL_POSE_PATTERN = re.compile(
+    r"\bmodel\s*(?:->|\.)\s*(?:GetPosition|GetOrientation|SetPosition|SetOrientation)\s*\("
 )
 PHYSICS_SCENE_RUN_PHYSICS_FUNCTION_PATTERN = re.compile(r"\bvoid\s+PhysicsScene::RunPhysics\s*\(")
 PHYSICS_SCENE_STEP_BODY_RELOAD_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*ReloadPhysicsBodies\s*\(")
@@ -3084,6 +3105,18 @@ def check_render_instance_store_authority_guardrails_text(path: Path, text: str)
                     ),
                 )
             )
+        for match in RENDER_INSTANCE_STORE_MODEL_POSE_OVERRIDE_PATTERN.finditer(stripped):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "RenderInstanceStore model-pose override is blocked",
+                    (
+                        "Replay render overrides must rebuild matrices from queued pose values and ColliderStore rows; "
+                        "do not restore GameModel pose reads in RenderInstanceStore."
+                    ),
+                )
+            )
     return errors
 
 
@@ -3856,7 +3889,7 @@ def check_game_model_collection_replay_render_pose_guardrails_text(path: Path, t
         return errors
 
     open_brace, close_brace = bounds
-    for match in GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_PHYSICS_COMMIT_PATTERN.finditer(
+    for match in GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_MODEL_MUTATION_PATTERN.finditer(
         stripped,
         open_brace,
         close_brace,
@@ -3865,13 +3898,65 @@ def check_game_model_collection_replay_render_pose_guardrails_text(path: Path, t
             BoundaryError(
                 path,
                 line_for_offset(stripped, match.start()),
-                "replay render-pose physics commit is blocked",
+                "replay render-pose model mutation is blocked",
                 (
-                    "TrySetReplayRenderPose is a presentation-only override; do not recapture GameModel "
-                    "state into PhysicsBodyStore from this path."
+                    "TryQueueReplayRenderPoseOverride may validate the replay id, but presentation poses "
+                    "must stay as values queued for RenderInstanceStore instead of mutating GameModel."
                 ),
             )
         )
+    return errors
+
+
+def check_replay_render_pose_value_override_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in REPLAY_RENDER_POSE_DELETED_SYMBOL_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "deleted replay render-pose model override is blocked",
+                (
+                    "Replay scrub/prediction render poses are queued value overrides; do not reintroduce "
+                    "GameModel pose backup/restore APIs or model-derived RenderInstanceStore overrides."
+                ),
+            )
+        )
+
+    if path.name == "ReplayRuntime.cpp":
+        for bounds in _function_body_bounds_all(stripped, REPLAY_RUNTIME_RENDER_APPLY_FUNCTION_PATTERN):
+            open_brace, close_brace = bounds
+            for match in REPLAY_RUNTIME_RENDER_MODEL_POSE_PATTERN.finditer(stripped, open_brace, close_brace):
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, match.start()),
+                        "replay render apply model-pose access is blocked",
+                        (
+                            "Replay render apply functions may validate body ids, but must not backup, "
+                            "restore, or write GameModel pose while preparing presentation-only scrub state."
+                        ),
+                    )
+                )
+    return errors
+
+
+def check_replay_render_pose_value_override_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in (
+        REPLAY_RUNTIME_SOURCE,
+        REPLAY_RUNTIME_HEADER,
+        RUN_SOURCE,
+        RUN_FRAME_SOURCE,
+        RUN_RENDER_SOURCE,
+        GAME_MODEL_COLLECTION_SOURCE,
+        GAME_MODEL_COLLECTION_HEADER,
+        Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"),
+        Path("SkullbonezSource/Rendering/RenderInstanceStore.h"),
+    ):
+        path = repo / relative_path
+        errors.extend(check_replay_render_pose_value_override_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -3943,6 +4028,16 @@ def _function_body_bounds(stripped: str, function_pattern: re.Pattern[str]) -> t
         return None
 
     return open_brace, find_matching_close_brace(stripped, open_brace)
+
+
+def _function_body_bounds_all(stripped: str, function_pattern: re.Pattern[str]) -> list[tuple[int, int]]:
+    bounds: list[tuple[int, int]] = []
+    for function_match in function_pattern.finditer(stripped):
+        open_brace = stripped.find("{", function_match.end())
+        if open_brace < 0:
+            continue
+        bounds.append((open_brace, find_matching_close_brace(stripped, open_brace)))
+    return bounds
 
 
 def _allowed_match_spans(function_body: str, body_offset: int, allowed_pattern: re.Pattern[str]) -> list[tuple[int, int]]:
@@ -10814,6 +10909,21 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old RenderInstanceStore fallback refresh synthetic surface was not rejected")
 
+    old_render_instance_store_model_pose_override = """
+    void RenderInstanceStore::OverridePoseFromModel( int modelIndex, GameModel& model )
+    {
+        record.modelMatrix = model.GetModelMatrix();
+    }
+    """
+    if not any(
+        error.message == "RenderInstanceStore model-pose override is blocked"
+        for error in check_render_instance_store_authority_guardrails_text(
+            Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"),
+            old_render_instance_store_model_pose_override,
+        )
+    ):
+        failures.append("old RenderInstanceStore model-pose override synthetic surface was not rejected")
+
     allowed_render_instance_store_fail_closed = """
     void RenderInstanceStore::Refresh( GameModel* models,
                                        int modelCount,
@@ -10828,10 +10938,6 @@ def run_self_tests() -> list[str]:
             return;
         }
         record.modelMatrix = BuildPhysicsModelMatrix( body, collider );
-    }
-    void RenderInstanceStore::OverridePoseFromModel( int modelIndex, GameModel& model )
-    {
-        record.modelMatrix = model.GetModelMatrix();
     }
     """
     if check_render_instance_store_authority_guardrails_text(
@@ -11949,61 +12055,114 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("store-owned replay prediction restore synthetic surface was rejected")
 
-    old_replay_render_pose_physics_commit = """
-    bool GameModelCollection::TrySetReplayRenderPose( int index,
-                                                      uint32_t replayBodyId,
-                                                      const Vector3& position,
-                                                      const Quaternion& orientation )
+    deleted_replay_render_pose_symbol = """
+    void ReplayRuntime::RestoreRenderPose( GameModelCollection& collection )
+    {
+        collection.TrySetReplayRenderPose( 0, 1u, position, orientation );
+    }
+    """
+    if not any(
+        error.message == "deleted replay render-pose model override is blocked"
+        for error in check_replay_render_pose_value_override_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
+            deleted_replay_render_pose_symbol,
+        )
+    ):
+        failures.append("deleted replay render-pose symbol synthetic surface was not rejected")
+
+    old_replay_render_pose_model_mutation = """
+    bool GameModelCollection::TryQueueReplayRenderPoseOverride( int index,
+                                                                uint32_t replayBodyId,
+                                                                const Vector3& position,
+                                                                const Quaternion& orientation )
     {
         model.SetPosition( position );
         model.SetOrientation( orientation );
-        CommitEditedModelPhysicsState( index, false );
         return true;
     }
     """
     if not any(
-        error.message == "replay render-pose physics commit is blocked"
+        error.message == "replay render-pose model mutation is blocked"
         for error in check_game_model_collection_replay_render_pose_guardrails_text(
             Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_replay_render_pose_physics_commit,
+            old_replay_render_pose_model_mutation,
         )
     ):
-        failures.append("old replay render-pose physics commit synthetic surface was not rejected")
+        failures.append("old replay render-pose model mutation synthetic surface was not rejected")
 
-    allowed_replay_render_pose_override = """
-    bool GameModelCollection::TrySetReplayRenderPose( int index,
-                                                      uint32_t replayBodyId,
-                                                      const Vector3& position,
-                                                      const Quaternion& orientation )
+    allowed_replay_render_pose_override_queue = """
+    bool GameModelCollection::TryQueueReplayRenderPoseOverride( int index,
+                                                                uint32_t replayBodyId,
+                                                                const Vector3& position,
+                                                                const Quaternion& orientation )
     {
-        model.SetPosition( position );
-        model.SetOrientation( orientation );
-        InvalidateSoA();
+        ReplayRenderPoseOverride overridePose;
+        overridePose.modelIndex = index;
+        overridePose.replayBodyId = replayBodyId;
+        overridePose.position = position;
+        overridePose.orientation = orientation;
+        m_replayRenderPoseOverrides.push_back( overridePose );
         return true;
     }
     """
     if check_game_model_collection_replay_render_pose_guardrails_text(
         Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_replay_render_pose_override,
+        allowed_replay_render_pose_override_queue,
     ):
-        failures.append("presentation-only replay render-pose synthetic surface was rejected")
+        failures.append("queued replay render-pose synthetic surface was rejected")
 
-    commented_replay_render_pose_physics_commit = """
-    bool GameModelCollection::TrySetReplayRenderPose( int index,
-                                                      uint32_t replayBodyId,
-                                                      const Vector3& position,
-                                                      const Quaternion& orientation )
+    commented_replay_render_pose_model_mutation = """
+    bool GameModelCollection::TryQueueReplayRenderPoseOverride( int index,
+                                                                uint32_t replayBodyId,
+                                                                const Vector3& position,
+                                                                const Quaternion& orientation )
     {
-        // CommitEditedModelPhysicsState( index, false ) used to run here.
-        InvalidateSoA();
+        // model.SetPosition( position ) used to run here.
+        m_replayRenderPoseOverrides.push_back( overridePose );
         return true;
     }
     """
     if check_game_model_collection_replay_render_pose_guardrails_text(
         Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        commented_replay_render_pose_physics_commit,
+        commented_replay_render_pose_model_mutation,
     ):
-        failures.append("comment-only replay render-pose physics commit synthetic text was rejected")
+        failures.append("comment-only replay render-pose model mutation synthetic text was rejected")
+
+    old_replay_runtime_render_apply_model_pose = """
+    bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
+                                                          const ReplayPresentationSample& sample )
+    {
+        const GameObjects::GameModel* model = collection.TryGetModel( body.modelIndex );
+        const Vector3 backupPosition = model->GetPosition();
+        return collection.TryQueueReplayRenderPoseOverride( body.modelIndex, body.id.value, body.position, orientation );
+    }
+    """
+    if not any(
+        error.message == "replay render apply model-pose access is blocked"
+        for error in check_replay_render_pose_value_override_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
+            old_replay_runtime_render_apply_model_pose,
+        )
+    ):
+        failures.append("old replay runtime render-apply model-pose synthetic surface was not rejected")
+
+    allowed_replay_runtime_render_apply_queue = """
+    bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
+                                                          const ReplayPresentationSample& sample )
+    {
+        const GameObjects::GameModel* model = collection.TryGetModel( body.modelIndex );
+        if ( !model || model->GetReplayBodyId() != body.id.value )
+        {
+            return false;
+        }
+        return collection.TryQueueReplayRenderPoseOverride( body.modelIndex, body.id.value, body.position, orientation );
+    }
+    """
+    if check_replay_render_pose_value_override_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
+        allowed_replay_runtime_render_apply_queue,
+    ):
+        failures.append("queued replay runtime render-apply synthetic surface was rejected")
 
     old_physics_scene_step_body_reload = """
     void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -14210,6 +14369,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_replay_prediction_body_capture_store_authority_guardrails(repo))
     errors.extend(check_replay_prediction_step_writeback_guardrails(repo))
     errors.extend(check_replay_restore_store_authority_guardrails(repo))
+    errors.extend(check_replay_render_pose_value_override_guardrails(repo))
     errors.extend(check_physics_scene_step_body_reload_guardrails(repo))
     errors.extend(check_physics_scene_pending_impulse_model_mirror_guardrails(repo))
     errors.extend(check_physics_scene_velocity_model_mirror_guardrails(repo))

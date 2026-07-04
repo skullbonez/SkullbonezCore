@@ -976,18 +976,18 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
     m_presentation.CaptureFrame( input );
 }
 
-// Concept: render replay poses are temporary model overrides.
+// Concept: render replay poses are temporary render-instance overrides.
 //
 // Scrubbing should affect only the pixels drawn for this frame. The helpers
-// below back up live model transforms, apply replay or prediction poses, then
-// RestoreRenderPose puts the live scene back before simulation continues.
+// below queue replay or prediction poses for the next render-instance refresh;
+// live GameModel body mirrors are not mutated and therefore need no restore.
 bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
                                                       const ReplayPresentationSample& sample )
 {
     const int modelCount = collection.GetModelCount();
-    m_renderPoseBackups.clear();
-    m_renderPoseBackups.reserve( static_cast<std::size_t>( modelCount ) );
+    collection.ClearReplayRenderPoseOverrides();
     std::vector<uint8_t> bodyMatched( static_cast<std::size_t>( modelCount ), 0 );
+    bool queuedAny = false;
 
     for ( const ReplayBodyPresentationSample& body : sample.bodies )
     {
@@ -1002,21 +1002,15 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
             continue;
         }
 
-        RenderPoseBackup backup;
-        backup.modelIndex = body.modelIndex;
-        backup.replayBodyId = body.id.value;
-        backup.position = model->GetPosition();
-        backup.orientation = model->GetOrientation();
-
         Math::Orientation::Quaternion orientation( body.orientation[0],
                                                    body.orientation[1],
                                                    body.orientation[2],
                                                    body.orientation[3] );
         orientation.Normalise();
-        if ( collection.TrySetReplayRenderPose( body.modelIndex, body.id.value, body.position, orientation ) )
+        if ( collection.TryQueueReplayRenderPoseOverride( body.modelIndex, body.id.value, body.position, orientation ) )
         {
-            m_renderPoseBackups.push_back( backup );
             bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
+            queuedAny = true;
         }
     }
 
@@ -1035,29 +1029,27 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
             continue;
         }
 
-        RenderPoseBackup backup;
-        backup.modelIndex = i;
-        backup.replayBodyId = model->GetReplayBodyId();
-        backup.position = model->GetPosition();
-        backup.orientation = model->GetOrientation();
         // Why: loaded artifacts may not contain every live body. Move unmatched
         // bodies out of view instead of letting unrelated live geometry appear
         // inside the scrubbed replay frame.
-        if ( collection.TrySetReplayRenderPose( i, backup.replayBodyId, hiddenReplayPosition, backup.orientation ) )
+        if ( collection.TryQueueReplayRenderPoseOverride( i,
+                                                          model->GetReplayBodyId(),
+                                                          hiddenReplayPosition,
+                                                          Math::Orientation::IDENTITY_QUATERNION ) )
         {
-            m_renderPoseBackups.push_back( backup );
+            queuedAny = true;
         }
     }
-    return !m_renderPoseBackups.empty();
+    return queuedAny;
 }
 
 bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection& collection,
                                                 const ReplaySolverFrameSample& sample )
 {
     const int modelCount = collection.GetModelCount();
-    m_renderPoseBackups.clear();
-    m_renderPoseBackups.reserve( static_cast<std::size_t>( modelCount ) );
+    collection.ClearReplayRenderPoseOverrides();
     std::vector<uint8_t> bodyMatched( static_cast<std::size_t>( modelCount ), 0 );
+    bool queuedAny = false;
 
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
@@ -1072,21 +1064,15 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
             continue;
         }
 
-        RenderPoseBackup backup;
-        backup.modelIndex = body.modelIndex;
-        backup.replayBodyId = body.id.value;
-        backup.position = model->GetPosition();
-        backup.orientation = model->GetOrientation();
-
         Math::Orientation::Quaternion orientation( body.orientation[0],
                                                    body.orientation[1],
                                                    body.orientation[2],
                                                    body.orientation[3] );
         orientation.Normalise();
-        if ( collection.TrySetReplayRenderPose( body.modelIndex, body.id.value, body.position, orientation ) )
+        if ( collection.TryQueueReplayRenderPoseOverride( body.modelIndex, body.id.value, body.position, orientation ) )
         {
-            m_renderPoseBackups.push_back( backup );
             bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
+            queuedAny = true;
         }
     }
 
@@ -1105,26 +1091,24 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
             continue;
         }
 
-        RenderPoseBackup backup;
-        backup.modelIndex = i;
-        backup.replayBodyId = model->GetReplayBodyId();
-        backup.position = model->GetPosition();
-        backup.orientation = model->GetOrientation();
-        if ( collection.TrySetReplayRenderPose( i, backup.replayBodyId, hiddenReplayPosition, backup.orientation ) )
+        if ( collection.TryQueueReplayRenderPoseOverride( i,
+                                                          model->GetReplayBodyId(),
+                                                          hiddenReplayPosition,
+                                                          Math::Orientation::IDENTITY_QUATERNION ) )
         {
-            m_renderPoseBackups.push_back( backup );
+            queuedAny = true;
         }
     }
-    return !m_renderPoseBackups.empty();
+    return queuedAny;
 }
 
 bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollection& collection,
                                                    const RunReplayPredictionFrame& frame )
 {
     const int modelCount = collection.GetModelCount();
-    m_renderPoseBackups.clear();
-    m_renderPoseBackups.reserve( static_cast<std::size_t>( modelCount ) );
+    collection.ClearReplayRenderPoseOverrides();
     std::vector<uint8_t> bodyMatched( static_cast<std::size_t>( modelCount ), 0 );
+    bool queuedAny = false;
 
     for ( const RunReplayPredictionBodySample& body : frame.bodies )
     {
@@ -1139,18 +1123,12 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollect
             continue;
         }
 
-        RenderPoseBackup backup;
-        backup.modelIndex = body.modelIndex;
-        backup.replayBodyId = body.id.value;
-        backup.position = model->GetPosition();
-        backup.orientation = model->GetOrientation();
-
         Math::Orientation::Quaternion orientation = body.orientation;
         orientation.Normalise();
-        if ( collection.TrySetReplayRenderPose( body.modelIndex, body.id.value, body.position, orientation ) )
+        if ( collection.TryQueueReplayRenderPoseOverride( body.modelIndex, body.id.value, body.position, orientation ) )
         {
-            m_renderPoseBackups.push_back( backup );
             bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
+            queuedAny = true;
         }
     }
 
@@ -1169,42 +1147,23 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollect
             continue;
         }
 
-        RenderPoseBackup backup;
-        backup.modelIndex = i;
-        backup.replayBodyId = model->GetReplayBodyId();
-        backup.position = model->GetPosition();
-        backup.orientation = model->GetOrientation();
-        if ( collection.TrySetReplayRenderPose( i, backup.replayBodyId, hiddenReplayPosition, backup.orientation ) )
+        if ( collection.TryQueueReplayRenderPoseOverride( i,
+                                                          model->GetReplayBodyId(),
+                                                          hiddenReplayPosition,
+                                                          Math::Orientation::IDENTITY_QUATERNION ) )
         {
-            m_renderPoseBackups.push_back( backup );
+            queuedAny = true;
         }
     }
-    return !m_renderPoseBackups.empty();
+    return queuedAny;
 }
 
-void ReplayRuntime::RestoreRenderPose( GameObjects::GameModelCollection& collection )
+void ReplayRuntime::ClearRenderPoseOverrides( GameObjects::GameModelCollection& collection )
 {
-    if ( m_renderPoseBackups.empty() )
-    {
-        return;
-    }
-
-    for ( const RenderPoseBackup& backup : m_renderPoseBackups )
-    {
-        if ( backup.modelIndex < 0 )
-        {
-            continue;
-        }
-
-        collection.TrySetReplayRenderPose( backup.modelIndex,
-                                           backup.replayBodyId,
-                                           backup.position,
-                                           backup.orientation );
-    }
-    // Lifetime: backups are single-frame state. Leaving them populated after a
-    // restore would let a later overlay restore stale transforms over live
-    // simulation state.
-    m_renderPoseBackups.clear();
+    // Lifetime: queued overrides are single-frame render state. They are usually
+    // consumed by GameModelCollection::PrepareRenderInstances(); early render
+    // exits clear them here so stale replay poses cannot leak into a later frame.
+    collection.ClearReplayRenderPoseOverrides();
 }
 
 
@@ -2077,8 +2036,7 @@ MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() const
     stats.pathNodes = m_pathVisualizer.futureNodes.size() + m_prediction.futureNodes.size();
     stats.causeRows = m_causeTree.rows.size();
 
-    stats.renderScratchBytes = VectorCapacityBytes( m_renderPoseBackups );
-    stats.renderScratchBytes += VectorCapacityBytes( m_predictionGhostDrawRequests );
+    stats.renderScratchBytes = VectorCapacityBytes( m_predictionGhostDrawRequests );
     stats.renderScratchBytes += VectorCapacityBytes( m_focusModelMask );
     stats.renderScratchBytes += static_cast<uint64_t>( sizeof( m_launcherVisualBackup ) );
     stats.renderScratchBytes += LauncherVisualMemoryBytes( m_launcherVisualBackup );

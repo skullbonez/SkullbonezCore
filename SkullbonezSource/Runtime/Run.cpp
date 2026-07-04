@@ -986,7 +986,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         }
     }
 
-    m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+    m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
     if ( !m_cGameModelCollection.TrimModelsForReplayRestore( restoreModelCount ) )
     {
         writeReason( "failed to trim live model list" );

@@ -580,15 +580,17 @@ slice: `python -m py_compile tools\check_runtime_boundaries.py`,
 `tools\validate_format.bat`, `tools\validate_fast.bat`, and
 `tools\validate_full.bat` all passed.
 
-Replay render-pose restore/prediction overlays now stay presentation-only:
-`TrySetReplayRenderPose` updates the model transform for drawing and no longer
-recaptures that pose into `PhysicsBodyStore`. The boundary checker blocks
-`TrySetReplayRenderPose` from calling `CommitEditedModelPhysicsState`,
-`RefreshBodyFromModel`, or `GetPhysicsBodyStore`. Evidence for this slice:
+Replay render-pose restore/prediction overlays now stay presentation-only as
+queued render-instance value overrides. Replay apply paths validate
+`ReplayBodyId`, queue pose values, and leave live `GameModel` pose untouched;
+`RenderInstanceStore` rebuilds the one-frame draw matrix from the queued pose
+and `ColliderStore`. The boundary checker blocks deleted backup/restore API
+names, render-apply `GameModel` pose reads/writes, and RenderInstanceStore
+model-pose overrides from returning. Evidence for this slice:
 `python -m py_compile tools\check_runtime_boundaries.py`,
 `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
-`tools\validate_format.bat`, `tools\validate_fast.bat`, and
-`tools\validate_full.bat` all passed.
+`tools\validate_fast.bat`, intermittent `tools\validate_physics.bat`, and
+`tools\validate_dx12_renderer.bat` all passed.
 
 Replay prediction body restore now backs up mass and inertia with pose,
 velocity, and fixed state, then restores through
@@ -1333,8 +1335,9 @@ returning.
 - [x] Make store-backed refresh assert on body/collider/model count mismatch in
   Debug and clear the render snapshot in release rather than rebuilding from
   `GameModel`.
-- [x] Preserve `OverridePoseFromModel()` as a replay/prediction presentation
-  override only.
+- [x] Delete `OverridePoseFromModel()` and replay render-pose model
+  backup/restore; replay/prediction presentation overrides queue pose values
+  that are consumed by `RenderInstanceStore`.
 - [x] Add runtime-boundary guardrails and self-tests blocking the deleted
   overloads, declarations, and fallback call from returning.
 - [x] Reset profiler pass state when a scene perf log opens so appended perf

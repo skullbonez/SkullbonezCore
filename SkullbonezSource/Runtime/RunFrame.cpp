@@ -40,6 +40,8 @@ Related:
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeStyle.h"
 
+#include "../Rendering/RenderInstanceStore.h"
+
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -82,6 +84,29 @@ bool ShouldFlashContactAudioDecision( ContactAudioFlashMode mode,
     default:
         return decision.submitted && decision.flashEligible;
     }
+}
+
+Vector3 RenderProbeMatrixTranslation( const Matrix4& matrix )
+{
+    return Vector3( matrix.m[12], matrix.m[13], matrix.m[14] );
+}
+
+bool TryPrepareReplayProbeRenderPosition( SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                          int modelIndex,
+                                          Vector3& outPosition )
+{
+    // Why: replay scrub now queues render-instance poses without mutating the
+    // live GameModel mirror. Probes consume the queued pose exactly where the
+    // renderer will consume it, then compare the prepared draw transform.
+    collection.PrepareRenderInstances();
+    const auto& instances = collection.RenderInstances().Records();
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( instances.size() ) )
+    {
+        return false;
+    }
+
+    outPosition = RenderProbeMatrixTranslation( instances[static_cast<std::size_t>( modelIndex )].modelMatrix );
+    return true;
 }
 
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
@@ -963,18 +988,31 @@ void Run::TickReplayScrubProbe()
     const SkullbonezCore::GameObjects::GameModel* appliedModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
     if ( !appliedModel )
     {
-        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
         throw std::runtime_error( "replay scrub probe lost the selected live model after applying scrub state" );
     }
-    const Math::Vector::Vector3 appliedPosition = appliedModel->GetPosition();
-    const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
-    if ( appliedDeltaSquared > m_replayScrubProbe.minDistanceSquared )
+    const Math::Vector::Vector3 liveAfterApplyPosition = appliedModel->GetPosition();
+    const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
+    if ( livePreservedDeltaSquared > m_replayScrubProbe.minDistanceSquared )
     {
-        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
-        throw std::runtime_error( "replay scrub probe did not move the live model to the selected replay sample" );
+        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        throw std::runtime_error( "replay scrub probe mutated the live model while applying scrub state" );
     }
 
-    m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+    Math::Vector::Vector3 appliedRenderPosition;
+    if ( !TryPrepareReplayProbeRenderPosition( m_cGameModelCollection, probedModelIndex, appliedRenderPosition ) )
+    {
+        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        throw std::runtime_error( "replay scrub probe lost the selected render instance after applying scrub state" );
+    }
+    const float appliedDeltaSquared = distanceSquared( appliedRenderPosition, selectedBody->position );
+    if ( appliedDeltaSquared > m_replayScrubProbe.minDistanceSquared )
+    {
+        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        throw std::runtime_error( "replay scrub probe did not move the render instance to the selected replay sample" );
+    }
+
+    m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
     const SkullbonezCore::GameObjects::GameModel* restoredModel =
         m_cGameModelCollection.TryGetModel( probedModelIndex );
     if ( !restoredModel )
@@ -1269,18 +1307,31 @@ void Run::TickReplaySaveProbe()
     const SkullbonezCore::GameObjects::GameModel* appliedModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
     if ( !appliedModel )
     {
-        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
         throw std::runtime_error( "replay save probe lost the selected live model after applying the v2 sample" );
     }
-    const Math::Vector::Vector3 appliedPosition = appliedModel->GetPosition();
-    const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
-    if ( appliedDeltaSquared > 0.0001f )
+    const Math::Vector::Vector3 liveAfterApplyPosition = appliedModel->GetPosition();
+    const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
+    if ( livePreservedDeltaSquared > 0.0001f )
     {
-        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
-        throw std::runtime_error( "replay save probe did not move the live model to the loaded v2 sample" );
+        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        throw std::runtime_error( "replay save probe mutated the live model while applying the v2 sample" );
     }
 
-    m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+    Math::Vector::Vector3 appliedRenderPosition;
+    if ( !TryPrepareReplayProbeRenderPosition( m_cGameModelCollection, probedModelIndex, appliedRenderPosition ) )
+    {
+        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        throw std::runtime_error( "replay save probe lost the selected render instance after applying the v2 sample" );
+    }
+    const float appliedDeltaSquared = distanceSquared( appliedRenderPosition, selectedBody->position );
+    if ( appliedDeltaSquared > 0.0001f )
+    {
+        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        throw std::runtime_error( "replay save probe did not move the render instance to the loaded v2 sample" );
+    }
+
+    m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
     const SkullbonezCore::GameObjects::GameModel* restoredModel =
         m_cGameModelCollection.TryGetModel( probedModelIndex );
     if ( !restoredModel )
@@ -1291,7 +1342,7 @@ void Run::TickReplaySaveProbe()
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     if ( restoredDeltaSquared > 0.0001f )
     {
-        throw std::runtime_error( "replay save probe did not restore after applying the loaded v2 sample" );
+        throw std::runtime_error( "replay save probe live model changed after applying the loaded v2 sample" );
     }
 
     m_replaySaveProbe.completed = true;
@@ -1409,18 +1460,32 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
     const SkullbonezCore::GameObjects::GameModel* appliedModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
     if ( !appliedModel )
     {
-        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
         throw std::runtime_error( "replay load probe lost the selected model after applying the v2 sample" );
     }
-    const Math::Vector::Vector3 appliedPosition = appliedModel->GetPosition();
-    const float appliedDeltaSquared = distanceSquared( appliedPosition, selectedBody->position );
-    if ( appliedDeltaSquared > 0.0001f )
+    const Math::Vector::Vector3 liveAfterApplyPosition = appliedModel->GetPosition();
+    const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
+    if ( livePreservedDeltaSquared > 0.0001f )
     {
-        m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
-        throw std::runtime_error( "replay load probe did not move the model to the selected loaded v2 sample" );
+        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        throw std::runtime_error( "replay load probe mutated the live model while applying the v2 sample" );
     }
 
-    m_replayRuntime.RestoreRenderPose( m_cGameModelCollection );
+    Math::Vector::Vector3 appliedRenderPosition;
+    if ( !TryPrepareReplayProbeRenderPosition( m_cGameModelCollection, probedModelIndex, appliedRenderPosition ) )
+    {
+        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        throw std::runtime_error( "replay load probe lost the selected render instance after applying the v2 sample" );
+    }
+    const float appliedDeltaSquared = distanceSquared( appliedRenderPosition, selectedBody->position );
+    if ( appliedDeltaSquared > 0.0001f )
+    {
+        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        throw std::runtime_error(
+            "replay load probe did not move the render instance to the selected loaded v2 sample" );
+    }
+
+    m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
     const SkullbonezCore::GameObjects::GameModel* restoredModel =
         m_cGameModelCollection.TryGetModel( probedModelIndex );
     if ( !restoredModel )
@@ -1431,7 +1496,7 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
     const float restoredDeltaSquared = distanceSquared( restoredPosition, preApplyPosition );
     if ( restoredDeltaSquared > 0.0001f )
     {
-        throw std::runtime_error( "replay load probe did not restore after applying the selected loaded v2 sample" );
+        throw std::runtime_error( "replay load probe live model changed after applying the selected loaded v2 sample" );
     }
 
     printf( "[replay] Load probe passed: path=%s samples=%llu bodies=%llu first_frame=%llu selected_frame=%llu "

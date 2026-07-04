@@ -18,6 +18,8 @@ Glossary:
     to the player or debugging workflow.
   Velocity edit: Replay tool that displays and edits linear/angular velocity on
     the current path target.
+  Render pose override: One-frame draw-pose request consumed by
+    RenderInstanceStore during replay scrub or prediction preview.
   Runtime state: UI and tool state that belongs to replay but is still consumed
     by Run while the subsystem is being separated.
   Prediction cache: Incremental future-path data built from predicted solver
@@ -25,6 +27,8 @@ Glossary:
 
 Invariants:
   - Stored indices are hints; ReplayBodyId remains the identity check.
+  - Scrub/prediction draw poses are presentation-only value overrides; replay
+    must not backup or mutate live GameModel pose for rendering.
   - Prediction cache cursors must be reset whenever target, ragdoll mode, or
     sample storage changes.
 
@@ -445,7 +449,7 @@ class ReplayRuntime
     bool ApplySolverSampleForRender( GameObjects::GameModelCollection& models, const ReplaySolverFrameSample& sample );
     bool ApplyPredictionFrameForRender( GameObjects::GameModelCollection& models,
                                         const RunReplayPredictionFrame& frame );
-    void RestoreRenderPose( GameObjects::GameModelCollection& models );
+    void ClearRenderPoseOverrides( GameObjects::GameModelCollection& models );
     bool HasLoadedPresentation() const;
     const ReplayPresentationSample* LoadedPresentationSampleAtNormalized( float normalized ) const;
     const ReplayPresentationSample* LoadedPresentationLatestSample() const;
@@ -509,14 +513,6 @@ class ReplayRuntime
     bool SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result = nullptr ) const;
 
   private:
-    struct RenderPoseBackup
-    {
-        int modelIndex = -1;
-        uint32_t replayBodyId = 0;
-        Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
-        Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
-    };
-
     ReplayRecorder m_presentation; // Bounded replay presentation recorder for recent-frame inspection.
     ReplaySolverRecorder m_solver; // Same-tick solver-state recorder kept in tandem with presentation replay.
     ReplayEventRecorder m_events;  // Bounded intent/event stream kept beside v2 replay tracks.
@@ -528,7 +524,6 @@ class ReplayRuntime
     RunReplayPredictionState m_prediction;
     RunReplayCauseTreeState m_causeTree;
     RunReplayVelocityEditState m_velocityEdit;
-    std::vector<RenderPoseBackup> m_renderPoseBackups;
     std::vector<ReplayPredictionGhostDrawRequest> m_predictionGhostDrawRequests;
     std::vector<uint8_t> m_focusModelMask;
     ReplayLauncherVisualSample m_launcherVisualBackup;

@@ -323,45 +323,37 @@ void GameModelCollection::Clear()
 {
     m_gameModels.clear();
     m_physicsEngine.Clear();
+    m_replayRenderPoseOverrides.clear();
     m_nextReplayBodyId = 1;
 }
 
 
-void GameModelCollection::RememberReplayRenderPoseOverride( int modelIndex )
+void GameModelCollection::ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore,
+                                                          const Physics::ColliderStore& colliderStore )
 {
-    if ( modelIndex < 0 || modelIndex >= GetModelCount() )
-    {
-        return;
-    }
-    if ( std::find( m_replayRenderPoseOverrideIndices.begin(), m_replayRenderPoseOverrideIndices.end(), modelIndex ) !=
-         m_replayRenderPoseOverrideIndices.end() )
-    {
-        return;
-    }
-    m_replayRenderPoseOverrideIndices.push_back( modelIndex );
-}
-
-
-void GameModelCollection::ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore )
-{
-    if ( m_replayRenderPoseOverrideIndices.empty() )
+    if ( m_replayRenderPoseOverrides.empty() )
     {
         return;
     }
 
-    for ( int modelIndex : m_replayRenderPoseOverrideIndices )
+    for ( const ReplayRenderPoseOverride& overridePose : m_replayRenderPoseOverrides )
     {
+        const int modelIndex = overridePose.modelIndex;
         if ( modelIndex < 0 || modelIndex >= GetModelCount() )
         {
             continue;
         }
 
         // Why: replay scrub and prediction poses are presentation-only. Physics
-        // remains store-owned; the override is applied only to the CPU render
-        // snapshot after the normal physics-backed refresh has completed.
-        renderInstanceStore.OverridePoseFromModel( modelIndex, m_gameModels[static_cast<std::size_t>( modelIndex )] );
+        // and GameModel body mirrors stay live; only the CPU render snapshot
+        // receives the historical/future pose after normal refresh completes.
+        renderInstanceStore.OverridePose( modelIndex,
+                                          overridePose.replayBodyId,
+                                          overridePose.position,
+                                          overridePose.orientation,
+                                          colliderStore );
     }
-    m_replayRenderPoseOverrideIndices.clear();
+    m_replayRenderPoseOverrides.clear();
 }
 
 
@@ -695,10 +687,10 @@ bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
 }
 
 
-bool GameModelCollection::TrySetReplayRenderPose( int index,
-                                                  uint32_t replayBodyId,
-                                                  const Vector3& position,
-                                                  const Quaternion& orientation )
+bool GameModelCollection::TryQueueReplayRenderPoseOverride( int index,
+                                                            uint32_t replayBodyId,
+                                                            const Vector3& position,
+                                                            const Quaternion& orientation )
 {
     if ( index < 0 || index >= GetModelCount() )
     {
@@ -711,12 +703,33 @@ bool GameModelCollection::TrySetReplayRenderPose( int index,
         return false;
     }
 
-    model.SetPosition( position );
-    model.SetOrientation( orientation );
-    RememberReplayRenderPoseOverride( index );
-    // Why: replay render poses are one-frame presentation overrides. Physics
-    // body state must stay owned by explicit restore/prediction commands.
+    for ( ReplayRenderPoseOverride& overridePose : m_replayRenderPoseOverrides )
+    {
+        if ( overridePose.modelIndex == index )
+        {
+            overridePose.replayBodyId = replayBodyId;
+            overridePose.position = position;
+            overridePose.orientation = orientation;
+            return true;
+        }
+    }
+
+    ReplayRenderPoseOverride overridePose;
+    overridePose.modelIndex = index;
+    overridePose.replayBodyId = replayBodyId;
+    overridePose.position = position;
+    overridePose.orientation = orientation;
+    m_replayRenderPoseOverrides.push_back( overridePose );
+    // Why: replay render poses are one-frame presentation overrides. They are
+    // queued for RenderInstanceStore so neither PhysicsBodyStore nor GameModel
+    // receives historical/future scrub poses.
     return true;
+}
+
+
+void GameModelCollection::ClearReplayRenderPoseOverrides()
+{
+    m_replayRenderPoseOverrides.clear();
 }
 
 
@@ -947,7 +960,7 @@ void GameModelCollection::RefreshRenderInstances( SkullbonezCore::Rendering::Ren
                                                   const SkullbonezCore::Physics::ColliderStore& colliderStore )
 {
     renderInstanceStore.Refresh( m_gameModels, bodyStore, colliderStore );
-    ApplyReplayRenderPoseOverrides( renderInstanceStore );
+    ApplyReplayRenderPoseOverrides( renderInstanceStore, colliderStore );
 }
 
 
