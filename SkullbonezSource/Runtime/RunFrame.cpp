@@ -73,13 +73,13 @@ bool ShouldFlashContactAudioDecision( ContactAudioFlashMode mode,
     case ContactAudioFlashMode::Off:
         return false;
     case ContactAudioFlashMode::Emitted:
-        return decision.submitted;
+        return decision.submitted && decision.flashEligible;
     case ContactAudioFlashMode::Candidates:
         return true;
     case ContactAudioFlashMode::Rejected:
         return !decision.submitted;
     default:
-        return decision.submitted;
+        return decision.submitted && decision.flashEligible;
     }
 }
 
@@ -757,13 +757,15 @@ void Run::AfterPhysicsStep()
             {
                 const Runtime::Audio::ContactAudioStats& stats = m_contactAudio.Stats();
                 printf( "[audio] contact stats facts=%u patches=%u merged=%u threshold=%u cooldown=%u "
-                        "submitted=%u budget=%u dropped=%u\n",
+                        "submitted=%u rolling=%u/%u budget=%u dropped=%u\n",
                         stats.eventsSeen,
                         stats.patchCandidates,
                         stats.mergedCandidates,
                         stats.rejectedByThreshold,
                         stats.rejectedByCooldown,
                         stats.submittedVoices,
+                        stats.rollingSubmittedVoices,
+                        stats.rollingCandidates,
                         stats.candidateOverflows + stats.burstWindowSkippedCandidates + stats.budgetRejectedCandidates,
                         stats.droppedVoices );
                 m_contactAudio.ResetFrameStats();

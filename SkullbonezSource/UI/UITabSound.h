@@ -46,7 +46,7 @@ namespace SoundTab
 {
 
 constexpr int SOUND_UI_BAND_MAX = 4;
-constexpr int SOUND_GLOBAL_SLIDER_COUNT = 6;
+constexpr int SOUND_GLOBAL_SLIDER_COUNT = 10;
 constexpr int SOUND_SET_SLIDER_COUNT = 9;
 constexpr int SOUND_BAND_SLIDER_COUNT = 5;
 

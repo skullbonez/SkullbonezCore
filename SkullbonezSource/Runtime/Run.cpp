@@ -253,6 +253,10 @@ void Run::RefreshRuntimeViewModel()
     audio.minImpactScore = m_contactAudio.MinImpactScore();
     audio.impactScoreRangeSeconds = m_contactAudio.ImpactScoreRangeSeconds();
     audio.burstVoicesPerWindow = m_contactAudio.BurstVoicesPerWindow();
+    audio.rollingLevelDb = m_contactAudio.RollingLevelDb();
+    audio.rollingMaxDistance = m_contactAudio.RollingMaxDistance();
+    audio.rollingMinSlipSpeed = m_contactAudio.RollingMinSlipSpeed();
+    audio.rollingVoicesPerWindow = m_contactAudio.RollingVoicesPerWindow();
     audio.stats = m_contactAudio.Stats();
     audio.soundSetCount = (std::min)( m_contactAudio.SoundSetCount(), RUNTIME_CONTACT_AUDIO_SET_MAX );
     audio.soundSampleCount = (std::min)( m_contactAudio.SoundSampleCount(), RUNTIME_CONTACT_AUDIO_SAMPLE_MAX );
@@ -1327,6 +1331,10 @@ void Run::Initialise()
 
     m_contactAudio.SetMasterGain( cfg.contactAudio.masterGain );
     m_contactAudio.SetMaxDistanceScale( cfg.contactAudio.maxDistanceScale );
+    m_contactAudio.SetRollingLevelDb( cfg.contactAudio.rollingLevelDb );
+    m_contactAudio.SetRollingMaxDistance( cfg.contactAudio.rollingMaxDistance );
+    m_contactAudio.SetRollingMinSlipSpeed( cfg.contactAudio.rollingMinSlipSpeed );
+    m_contactAudio.SetRollingVoicesPerWindow( static_cast<uint32_t>( cfg.contactAudio.rollingVoicesPerWindow ) );
     if ( !m_launchOptions.noContactAudio && cfg.contactAudio.enabled )
     {
         const bool audioReady =

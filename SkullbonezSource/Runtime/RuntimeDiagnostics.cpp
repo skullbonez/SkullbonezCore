@@ -708,7 +708,8 @@ void RuntimeDiagnostics::LogContactAudioStepStats( RunPhysicsDiagnosticsState& d
     if ( stats.eventsSeen == 0 && stats.patchCandidates == 0 && stats.mergedCandidates == 0 &&
          stats.candidateOverflows == 0 && stats.burstWindowSkippedCandidates == 0 &&
          stats.budgetRejectedCandidates == 0 && stats.rejectedByThreshold == 0 && stats.rejectedByCooldown == 0 &&
-         stats.submittedVoices == 0 && stats.droppedVoices == 0 )
+         stats.submittedVoices == 0 && stats.droppedVoices == 0 && stats.rollingCandidates == 0 &&
+         stats.rollingSubmittedVoices == 0 )
     {
         return;
     }
@@ -722,17 +723,19 @@ void RuntimeDiagnostics::LogContactAudioStepStats( RunPhysicsDiagnosticsState& d
     Log().Writef( diagnostics.path,
                   "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"%s\",\"frame\":%d,"
                   "\"type\":\"contact_audio_frame\",\"severity\":\"low\",\"body_a\":-1,\"body_b\":-1,"
-                  "\"island_id\":null,\"summary\":\"contact audio frame facts %u patches %u played %u\","
+                  "\"island_id\":null,\"summary\":\"contact audio frame facts %u patches %u played %u rolling %u\","
                   "\"data\":{\"facts_seen\":%u,\"patch_candidates\":%u,\"merged_candidates\":%u,"
                   "\"candidate_overflows\":%u,\"burst_window_skipped_candidates\":%u,"
                   "\"budget_rejected_candidates\":%u,\"rejected_by_threshold\":%u,"
-                  "\"rejected_by_cooldown\":%u,\"submitted_voices\":%u,\"dropped_voices\":%u}}\n",
+                  "\"rejected_by_cooldown\":%u,\"submitted_voices\":%u,\"dropped_voices\":%u,"
+                  "\"rolling_candidates\":%u,\"rolling_submitted_voices\":%u}}\n",
                   diagnostics.currentRunId,
                   eventId,
                   scene.currentFrame,
                   stats.eventsSeen,
                   stats.patchCandidates,
                   stats.submittedVoices,
+                  stats.rollingSubmittedVoices,
                   stats.eventsSeen,
                   stats.patchCandidates,
                   stats.mergedCandidates,
@@ -742,7 +745,9 @@ void RuntimeDiagnostics::LogContactAudioStepStats( RunPhysicsDiagnosticsState& d
                   stats.rejectedByThreshold,
                   stats.rejectedByCooldown,
                   stats.submittedVoices,
-                  stats.droppedVoices );
+                  stats.droppedVoices,
+                  stats.rollingCandidates,
+                  stats.rollingSubmittedVoices );
 }
 
 void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,

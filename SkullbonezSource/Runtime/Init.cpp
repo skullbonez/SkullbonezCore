@@ -2322,6 +2322,10 @@ bool HandleContactAudioSmoke( const ParsedArgs& args, const EngineConfig& cfg, i
     SkullbonezCore::Runtime::Audio::ContactAudioService audio;
     audio.SetMasterGain( cfg.contactAudio.masterGain );
     audio.SetMaxDistanceScale( cfg.contactAudio.maxDistanceScale );
+    audio.SetRollingLevelDb( cfg.contactAudio.rollingLevelDb );
+    audio.SetRollingMaxDistance( cfg.contactAudio.rollingMaxDistance );
+    audio.SetRollingMinSlipSpeed( cfg.contactAudio.rollingMinSlipSpeed );
+    audio.SetRollingVoicesPerWindow( static_cast<uint32_t>( cfg.contactAudio.rollingVoicesPerWindow ) );
     const bool initialized = audio.Initialize();
     const bool loaded = audio.LoadContactAudioMap( "SkullbonezData/audio/contact_audio.materials.json" );
     const bool submitted = initialized && loaded && audio.PlaySmokeImpact( HashStr( "earth" ), 6.0f );

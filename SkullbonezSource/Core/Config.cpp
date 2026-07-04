@@ -503,6 +503,10 @@ const ConfigSetting* ConfigSettings( size_t& outCount )
         CONFIG_BOOL( "contact_audio_enabled", contactAudio.enabled ),
         CONFIG_FLOAT( "contact_audio_master_gain", contactAudio.masterGain, 0.0, 4.0 ),
         CONFIG_FLOAT( "contact_audio_max_distance_scale", contactAudio.maxDistanceScale, 0.01, 16.0 ),
+        CONFIG_FLOAT( "contact_audio_rolling_level_db", contactAudio.rollingLevelDb, -60.0, 0.0 ),
+        CONFIG_FLOAT( "contact_audio_rolling_max_distance", contactAudio.rollingMaxDistance, 1.0, 200.0 ),
+        CONFIG_FLOAT( "contact_audio_rolling_min_slip_speed", contactAudio.rollingMinSlipSpeed, 0.1, 20.0 ),
+        CONFIG_INT( "contact_audio_rolling_voices_per_window", contactAudio.rollingVoicesPerWindow, 0, 12 ),
         CONFIG_BOOL( "contact_audio_debug_counters", contactAudio.debugCounters ),
     };
     outCount = sizeof( kSettings ) / sizeof( kSettings[0] );

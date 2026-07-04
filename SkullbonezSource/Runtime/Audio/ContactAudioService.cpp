@@ -18,6 +18,8 @@ Glossary:
   Impulse range: Tuning span that maps solved normal impulse to gain.
   Impact score: Normal impulse multiplied by pre-solve closing speed; this
     approximates contact work better than solver force alone.
+  Rolling lane: A quiet close-range playback path for roll/slide contacts. It
+    has its own dB level, distance, and burst cap so it cannot widen thud audio.
   Contact patch key: Body-pair, feature, and material-pair key used to collapse
     duplicate solver rows without merging different audible patches.
   Body burst budget: Per-burst cap on submitted sounds that mention the same
@@ -86,6 +88,16 @@ constexpr float CONTACT_AUDIO_SPIKE_RATIO = 1.65f;
 constexpr float CONTACT_AUDIO_SPIKE_DELTA = 1.0f;
 constexpr float CONTACT_AUDIO_ROLL_SLIDE_CLOSING_SPEED = 0.35f;
 constexpr float CONTACT_AUDIO_ROLL_SLIDE_MIN_SLIP_SPEED = 0.65f;
+constexpr float CONTACT_AUDIO_DEFAULT_ROLLING_LEVEL_DB = -24.0f;
+constexpr float CONTACT_AUDIO_MIN_ROLLING_LEVEL_DB = -60.0f;
+constexpr float CONTACT_AUDIO_MAX_ROLLING_LEVEL_DB = 0.0f;
+constexpr float CONTACT_AUDIO_DEFAULT_ROLLING_MAX_DISTANCE = 24.0f;
+constexpr float CONTACT_AUDIO_MAX_ROLLING_DISTANCE = 200.0f;
+constexpr uint32_t CONTACT_AUDIO_DEFAULT_ROLLING_BURST_VOICES = 4;
+constexpr uint32_t CONTACT_AUDIO_MAX_ROLLING_BURST_VOICES = 12;
+constexpr float CONTACT_AUDIO_ROLLING_BURST_GAP_SECONDS = 0.10f;
+constexpr float CONTACT_AUDIO_ROLLING_REARM_SECONDS = 0.22f;
+constexpr float CONTACT_AUDIO_ROLLING_SLIP_GAIN_RANGE = 8.0f;
 constexpr float CONTACT_AUDIO_VOICE_STEAL_GAIN_RATIO = 1.20f;
 constexpr float CONTACT_AUDIO_VOICE_STEAL_GAIN_DELTA = 0.03f;
 constexpr float CONTACT_AUDIO_DEFAULT_MIN_CLOSING_SPEED = 2.0f;
@@ -97,6 +109,11 @@ constexpr float CONTACT_AUDIO_HEAVY_LANDING_SCORE_MULTIPLIER = 4.0f;
 float Clamp01( float value )
 {
     return std::clamp( value, 0.0f, 1.0f );
+}
+
+float DbToGain( float db )
+{
+    return powf( 10.0f, db / 20.0f );
 }
 
 float ContactClosingSpeed( const ContactAudioEvent& event )
@@ -263,6 +280,7 @@ struct ContactAudioService::Impl
     {
         uint64_t key = 0;
         float nextTimeSeconds = 0.0f;
+        float nextRollingTimeSeconds = 0.0f;
         float strongestRecentImpulse = 0.0f;
         float lastContactTimeSeconds = -1000.0f;
         bool hasRecentContact = false;
@@ -294,6 +312,12 @@ struct ContactAudioService::Impl
     float impactScoreRangeSeconds = CONTACT_AUDIO_DEFAULT_IMPACT_SCORE_RANGE_SECONDS;
     uint32_t burstVoicesPerWindow = CONTACT_AUDIO_DEFAULT_BURST_VOICES; // Max submitted sounds per 100 ms burst.
     float nextBurstTimeSeconds = 0.0f;
+    float rollingLevelDb = CONTACT_AUDIO_DEFAULT_ROLLING_LEVEL_DB;
+    float rollingMaxDistance = CONTACT_AUDIO_DEFAULT_ROLLING_MAX_DISTANCE;
+    float rollingMinSlipSpeed = CONTACT_AUDIO_ROLL_SLIDE_MIN_SLIP_SPEED;
+    uint32_t rollingVoicesPerWindow = CONTACT_AUDIO_DEFAULT_ROLLING_BURST_VOICES;
+    uint32_t rollingSubmittedThisWindow = 0;
+    float nextRollingBurstTimeSeconds = 0.0f;
     uint32_t sampleCursor = 0;
     bool initialized = false;
     bool enabled = true;
@@ -818,6 +842,12 @@ struct ContactAudioService::Impl
         return selected;
     }
 
+    bool IsRollingEvent( const ContactAudioEvent& event, float closingSpeed ) const
+    {
+        return event.hasMotionData && closingSpeed <= CONTACT_AUDIO_ROLL_SLIDE_CLOSING_SPEED &&
+               event.tangentSlipSpeed >= rollingMinSlipSpeed;
+    }
+
     const char* ClassifyEvent( const ContactAudioEvent& event,
                                bool ongoingContact,
                                bool impulseSpike,
@@ -825,14 +855,13 @@ struct ContactAudioService::Impl
                                float minImpactScoreForKind ) const
     {
         const float closingSpeed = ContactClosingSpeed( event );
+        if ( IsRollingEvent( event, closingSpeed ) )
+        {
+            return "roll_slide";
+        }
         if ( ongoingContact && !event.isTerrain )
         {
             return "support";
-        }
-        if ( event.hasMotionData && closingSpeed <= CONTACT_AUDIO_ROLL_SLIDE_CLOSING_SPEED &&
-             event.tangentSlipSpeed >= CONTACT_AUDIO_ROLL_SLIDE_MIN_SLIP_SPEED )
-        {
-            return "roll_slide";
         }
         if ( ongoingContact && event.isTerrain && !impulseSpike && event.hasMotionData &&
              closingSpeed < minClosingSpeed )
@@ -925,6 +954,18 @@ struct ContactAudioService::Impl
     {
         ++stats.droppedVoices;
         ++stepStats.droppedVoices;
+    }
+
+    void CountRollingCandidate()
+    {
+        ++stats.rollingCandidates;
+        ++stepStats.rollingCandidates;
+    }
+
+    void CountRollingSubmittedVoice()
+    {
+        ++stats.rollingSubmittedVoices;
+        ++stepStats.rollingSubmittedVoices;
     }
 
     void RecordDecision( const ContactAudioDecision& decision )
@@ -1087,6 +1128,124 @@ struct ContactAudioService::Impl
         }
     }
 
+    void PlayRollingCandidate( const StepCandidate& candidate,
+                               const SoundSet& set,
+                               const SoundBand* band,
+                               const std::vector<int>& soundIndices,
+                               ContactAudioDecision& decision,
+                               CooldownEntry* cooldown )
+    {
+        const ContactAudioEvent& event = candidate.event;
+        CountRollingCandidate();
+        if ( rollingVoicesPerWindow == 0 )
+        {
+            decision.reason = "rolling_disabled";
+            RecordDecision( decision );
+            CountThresholdRejection();
+            return;
+        }
+        if ( timeSeconds < nextRollingBurstTimeSeconds )
+        {
+            decision.reason = "rolling_burst_window";
+            RecordDecision( decision );
+            CountCooldownRejection();
+            return;
+        }
+        if ( rollingSubmittedThisWindow >= rollingVoicesPerWindow )
+        {
+            decision.reason = "rolling_budget";
+            RecordDecision( decision );
+            CountBudgetRejection();
+            return;
+        }
+        if ( cooldown && timeSeconds < cooldown->nextRollingTimeSeconds )
+        {
+            decision.reason = "rolling_rearm";
+            RecordDecision( decision );
+            CountCooldownRejection();
+            return;
+        }
+
+        const float distance = ContactAudioDistance( event.point, listenerPosition );
+        const float maxDistance = (std::max)( 1.0f, rollingMaxDistance );
+        decision.distance = distance;
+        decision.maxDistance = maxDistance;
+        if ( distance >= maxDistance )
+        {
+            decision.reason = "rolling_distance";
+            RecordDecision( decision );
+            CountThresholdRejection();
+            return;
+        }
+
+        const float distanceT = Clamp01( 1.0f - distance / maxDistance );
+        const float distanceGain = distanceT * distanceT;
+        const float slipGain =
+            Clamp01( ( event.tangentSlipSpeed - rollingMinSlipSpeed ) / CONTACT_AUDIO_ROLLING_SLIP_GAIN_RANGE );
+        const float supportGain =
+            Clamp01( event.normalImpulse / ( (std::max)( decision.minImpulse + decision.impulseRange, 0.001f ) ) );
+        const float rollGain =
+            DbToGain( rollingLevelDb ) * ( 0.35f + 0.65f * slipGain ) * ( 0.45f + 0.55f * supportGain );
+        const float gain = Clamp01( masterGain * rollGain * distanceGain );
+        decision.distanceGain = distanceGain;
+        decision.impactGain = supportGain;
+        decision.motionGain = slipGain;
+        decision.gain = gain;
+        if ( gain <= 0.001f )
+        {
+            decision.reason = "rolling_gain_floor";
+            RecordDecision( decision );
+            CountThresholdRejection();
+            return;
+        }
+        if ( !initialized )
+        {
+            decision.reason = "backend_unavailable";
+            RecordDecision( decision );
+            CountDroppedVoice();
+            return;
+        }
+
+        const uint32_t sampleOrdinal = sampleCursor++ % static_cast<uint32_t>( soundIndices.size() );
+        const int soundIndex = soundIndices[static_cast<std::size_t>( sampleOrdinal )];
+        decision.sampleIndex = soundIndex;
+        if ( soundIndex >= 0 && soundIndex < static_cast<int>( sounds.size() ) )
+        {
+            decision.samplePath = sounds[static_cast<std::size_t>( soundIndex )].path.c_str();
+        }
+
+        // Why: rolling reuses the material sample library at low level instead
+        // of creating persistent loop voices. That keeps lifetime and cache
+        // behavior identical to impacts while the separate cap prevents chatter.
+        const float pitchMin = band ? band->pitchMin : set.pitchMin;
+        const float pitchMax = band ? band->pitchMax : set.pitchMax;
+        const float authoredPitch = ( pitchMin + pitchMax ) * 0.5f;
+        const float pitch = ClampPitchRatio( authoredPitch * ( 0.72f + 0.18f * slipGain ) );
+        const uint32_t rollingVoiceCap = (std::min)( rollingVoicesPerWindow, CONTACT_AUDIO_MAX_ROLLING_BURST_VOICES );
+        const uint32_t maxVoices = (std::max)( 1u, (std::min)( set.maxVoices, rollingVoiceCap ) );
+        decision.maxVoices = maxVoices;
+        bool stoleVoice = false;
+        if ( SubmitDecodedSound( soundIndex, gain, pitch, maxVoices, stoleVoice ) )
+        {
+            ++rollingSubmittedThisWindow;
+            CountSubmittedVoice();
+            CountRollingSubmittedVoice();
+            decision.reason = stoleVoice ? "rolling_voice_stolen" : "rolling_submitted";
+            decision.submitted = true;
+            decision.flashEligible = false;
+            if ( cooldown )
+            {
+                cooldown->nextRollingTimeSeconds = timeSeconds + CONTACT_AUDIO_ROLLING_REARM_SECONDS;
+            }
+        }
+        else
+        {
+            decision.reason = "rolling_voice_cap";
+            CountDroppedVoice();
+        }
+        RecordDecision( decision );
+    }
+
     void PlayCandidate( const StepCandidate& candidate )
     {
         const ContactAudioEvent& event = candidate.event;
@@ -1144,6 +1303,12 @@ struct ContactAudioService::Impl
         decision.kind = ClassifyEvent( event, ongoingContact, impulseSpike, impactScore, minImpactScoreForSet );
         decision.impactScore = impactScore;
 
+        if ( IsRollingEvent( event, closingSpeed ) )
+        {
+            PlayRollingCandidate( candidate, *set, band, soundIndices, decision, cooldown );
+            return;
+        }
+
         if ( ongoingContact && !event.isTerrain )
         {
             // Why: object/object contacts that were already touching are usually
@@ -1152,15 +1317,6 @@ struct ContactAudioService::Impl
             decision.reason = "ongoing_object_contact";
             RecordDecision( decision );
             CountCooldownRejection();
-            return;
-        }
-
-        if ( event.hasMotionData && closingSpeed <= CONTACT_AUDIO_ROLL_SLIDE_CLOSING_SPEED &&
-             event.tangentSlipSpeed >= CONTACT_AUDIO_ROLL_SLIDE_MIN_SLIP_SPEED )
-        {
-            decision.reason = "roll_or_slide";
-            RecordDecision( decision );
-            CountThresholdRejection();
             return;
         }
 
@@ -1410,6 +1566,55 @@ uint32_t ContactAudioService::BurstVoicesPerWindow() const
 }
 
 
+void ContactAudioService::SetRollingLevelDb( float levelDb )
+{
+    m_impl->rollingLevelDb =
+        std::clamp( levelDb, CONTACT_AUDIO_MIN_ROLLING_LEVEL_DB, CONTACT_AUDIO_MAX_ROLLING_LEVEL_DB );
+}
+
+
+float ContactAudioService::RollingLevelDb() const
+{
+    return m_impl->rollingLevelDb;
+}
+
+
+void ContactAudioService::SetRollingMaxDistance( float distance )
+{
+    m_impl->rollingMaxDistance = std::clamp( distance, 1.0f, CONTACT_AUDIO_MAX_ROLLING_DISTANCE );
+}
+
+
+float ContactAudioService::RollingMaxDistance() const
+{
+    return m_impl->rollingMaxDistance;
+}
+
+
+void ContactAudioService::SetRollingMinSlipSpeed( float speed )
+{
+    m_impl->rollingMinSlipSpeed = std::clamp( speed, 0.1f, 20.0f );
+}
+
+
+float ContactAudioService::RollingMinSlipSpeed() const
+{
+    return m_impl->rollingMinSlipSpeed;
+}
+
+
+void ContactAudioService::SetRollingVoicesPerWindow( uint32_t voices )
+{
+    m_impl->rollingVoicesPerWindow = std::clamp( voices, 0u, CONTACT_AUDIO_MAX_ROLLING_BURST_VOICES );
+}
+
+
+uint32_t ContactAudioService::RollingVoicesPerWindow() const
+{
+    return m_impl->rollingVoicesPerWindow;
+}
+
+
 int ContactAudioService::SoundSetCount() const
 {
     return static_cast<int>( m_impl->sets.size() );
@@ -1493,16 +1698,9 @@ void ContactAudioService::EndPhysicsStep()
         m_impl->bodySubmissionCounts.clear();
         return;
     }
-    if ( m_impl->timeSeconds < m_impl->nextBurstTimeSeconds )
-    {
-        // Why: piles can generate hundreds of real contact rows per second. The
-        // sound model is intentionally a burst selector, not a contact counter.
-        m_impl->CountBurstWindowSkip( static_cast<uint32_t>( m_impl->stepCandidates.size() ) );
-        m_impl->stepCandidates.clear();
-        m_impl->bodySubmissionCounts.clear();
-        return;
-    }
     m_impl->bodySubmissionCounts.clear();
+    m_impl->rollingSubmittedThisWindow = 0;
+    const bool impactBurstWindowOpen = m_impl->timeSeconds >= m_impl->nextBurstTimeSeconds;
     const Vector3 listenerPosition = m_impl->listenerPosition;
     std::sort( m_impl->stepCandidates.begin(),
                m_impl->stepCandidates.end(),
@@ -1526,7 +1724,22 @@ void ContactAudioService::EndPhysicsStep()
     uint32_t submittedThisBurst = 0;
     for ( const Impl::StepCandidate& candidate : m_impl->stepCandidates )
     {
-        if ( submittedThisBurst >= m_impl->burstVoicesPerWindow )
+        const bool rollingCandidate = m_impl->IsRollingEvent( candidate.event, ContactClosingSpeed( candidate.event ) );
+        if ( !rollingCandidate && !impactBurstWindowOpen )
+        {
+            // Why: impact throttling must not suppress the separate quiet rolling
+            // lane, but real thuds still share one 100 ms burst selector.
+            ContactAudioDecision decision = m_impl->BaseDecision( candidate.event, candidate.key, "burst_window" );
+            decision.kind = m_impl->ClassifyEvent( candidate.event,
+                                                   candidate.ongoingContact,
+                                                   candidate.impulseSpike,
+                                                   ContactImpactScore( candidate.event ),
+                                                   (std::max)( m_impl->minImpactScore, 0.001f ) );
+            m_impl->RecordDecision( decision );
+            m_impl->CountBurstWindowSkip( 1 );
+            continue;
+        }
+        if ( !rollingCandidate && submittedThisBurst >= m_impl->burstVoicesPerWindow )
         {
             ContactAudioDecision decision = m_impl->BaseDecision( candidate.event, candidate.key, "burst_budget" );
             decision.kind = m_impl->ClassifyEvent( candidate.event,
@@ -1561,6 +1774,10 @@ void ContactAudioService::EndPhysicsStep()
     if ( submittedThisBurst > 0 )
     {
         m_impl->nextBurstTimeSeconds = m_impl->timeSeconds + CONTACT_AUDIO_BURST_GAP_SECONDS;
+    }
+    if ( m_impl->rollingSubmittedThisWindow > 0 )
+    {
+        m_impl->nextRollingBurstTimeSeconds = m_impl->timeSeconds + CONTACT_AUDIO_ROLLING_BURST_GAP_SECONDS;
     }
     m_impl->stepCandidates.clear();
 }

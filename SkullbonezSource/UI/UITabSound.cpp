@@ -60,16 +60,17 @@ constexpr float SOUND_TOGGLE_ROW2_Y = 72.0f;
 constexpr float SOUND_STATS_Y = 112.0f;
 constexpr float SOUND_GLOBAL_TITLE_Y = 160.0f;
 constexpr float SOUND_GLOBAL_SLIDER_Y = 186.0f;
-constexpr float SOUND_SAMPLE_TITLE_Y = 442.0f;
-constexpr float SOUND_SAMPLE_PICKER_Y = 468.0f;
-constexpr float SOUND_SAMPLE_ACTION_Y = 502.0f;
+constexpr float SOUND_ROLLING_EXTRA_Y = 160.0f;
+constexpr float SOUND_SAMPLE_TITLE_Y = 442.0f + SOUND_ROLLING_EXTRA_Y;
+constexpr float SOUND_SAMPLE_PICKER_Y = 468.0f + SOUND_ROLLING_EXTRA_Y;
+constexpr float SOUND_SAMPLE_ACTION_Y = 502.0f + SOUND_ROLLING_EXTRA_Y;
 constexpr float SOUND_SAMPLE_BUTTON_W = 72.0f;
 constexpr float SOUND_SAMPLE_BUTTON_H = 26.0f;
-constexpr float SOUND_SET_TITLE_Y = 552.0f;
-constexpr float SOUND_SET_PICKER_Y = 578.0f;
-constexpr float SOUND_SET_META_Y = 612.0f;
-constexpr float SOUND_SET_SLIDER_Y = 654.0f;
-constexpr float SOUND_BAND_TITLE_Y = 1044.0f;
+constexpr float SOUND_SET_TITLE_Y = 552.0f + SOUND_ROLLING_EXTRA_Y;
+constexpr float SOUND_SET_PICKER_Y = 578.0f + SOUND_ROLLING_EXTRA_Y;
+constexpr float SOUND_SET_META_Y = 612.0f + SOUND_ROLLING_EXTRA_Y;
+constexpr float SOUND_SET_SLIDER_Y = 654.0f + SOUND_ROLLING_EXTRA_Y;
+constexpr float SOUND_BAND_TITLE_Y = 1044.0f + SOUND_ROLLING_EXTRA_Y;
 constexpr float SOUND_BAND_BLOCK_H = 238.0f;
 constexpr float SOUND_SLIDER_H = 34.0f;
 constexpr float SOUND_SLIDER_STEP_Y = 40.0f;
@@ -101,6 +102,10 @@ constexpr SoundSliderSpec kGlobalSliders[] = {
     { UISoundParam::MinImpactScore, "Min impact score", "%.1f", 0.0f, 5000.0f, 1.0f },
     { UISoundParam::ImpactScoreRangeSeconds, "Score gain range", "%.2fs", 0.001f, 10.0f, 0.05f },
     { UISoundParam::BurstVoicesPerWindow, "Voices / 100ms", "%.0f", 1.0f, 40.0f, 1.0f },
+    { UISoundParam::RollingLevelDb, "Rolling level", "%.0f dB", -60.0f, 0.0f, 1.0f },
+    { UISoundParam::RollingMaxDistance, "Rolling distance", "%.0f", 1.0f, 200.0f, 1.0f },
+    { UISoundParam::RollingMinSlipSpeed, "Rolling slip speed", "%.2f", 0.1f, 20.0f, 0.05f },
+    { UISoundParam::RollingVoicesPerWindow, "Rolling voices / 100ms", "%.0f", 0.0f, 12.0f, 1.0f },
 };
 
 constexpr SoundSliderSpec kSetSliders[] = {
@@ -337,6 +342,14 @@ float GlobalDisplayValue( const SkullbonezCore::UI::SoundTab::UISoundTabState& s
         return data.contactAudioImpactScoreRangeSeconds;
     case UISoundParam::BurstVoicesPerWindow:
         return static_cast<float>( data.contactAudioBurstVoicesPerWindow );
+    case UISoundParam::RollingLevelDb:
+        return data.contactAudioRollingLevelDb;
+    case UISoundParam::RollingMaxDistance:
+        return data.contactAudioRollingMaxDistance;
+    case UISoundParam::RollingMinSlipSpeed:
+        return data.contactAudioRollingMinSlipSpeed;
+    case UISoundParam::RollingVoicesPerWindow:
+        return static_cast<float>( data.contactAudioRollingVoicesPerWindow );
     default:
         return 0.0f;
     }
@@ -800,11 +813,12 @@ void Draw( UISoundTabState& state,
                                     data.contactAudioBudgetRejectedCandidates + data.contactAudioDroppedVoices;
     snprintf( buf,
               sizeof( buf ),
-              "%u facts  %u patches  %u merged  %u played  %u quiet  %u budget",
+              "%u facts  %u patches  %u played  roll %u/%u  %u quiet  %u budget",
               data.contactAudioEventsSeen,
               data.contactAudioPatchCandidates,
-              data.contactAudioMergedCandidates,
               data.contactAudioSubmittedVoices,
+              data.contactAudioRollingSubmittedVoices,
+              data.contactAudioRollingCandidates,
               quietContacts,
               budgetContacts );
     DrawLabelValueAt( draw,

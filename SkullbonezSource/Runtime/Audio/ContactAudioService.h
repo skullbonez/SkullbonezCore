@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Runtime/Audio/ContactAudioService.h
 Purpose:
-  Plays material-aware physics contact impact sounds.
+  Plays material-aware physics contact impact and rolling sounds.
 
 Mental model:
   Physics produces deterministic contact facts. This service consumes copied
@@ -25,6 +25,8 @@ Glossary:
     warm-start or corrective impulses; this is the impact-motion gate for thuds.
   Impact score: Solved normal impulse multiplied by pre-solve closing speed,
     used to keep force-transfer rows quieter than real contact work.
+  Rolling lane: Low-gain roll/slide playback with its own level, distance, and
+    burst budget so persistent motion does not use the thud falloff.
   Sound set: Material-pair tuning plus one or more decoded sample buffers.
   Sample library: Decoded candidate sounds that the Sound tab can preview and
     assign to a sound set at runtime.
@@ -82,6 +84,8 @@ struct ContactAudioStats
     uint32_t rejectedByCooldown = 0;
     uint32_t submittedVoices = 0;
     uint32_t droppedVoices = 0;
+    uint32_t rollingCandidates = 0;
+    uint32_t rollingSubmittedVoices = 0;
 };
 
 struct ContactAudioDecision
@@ -199,6 +203,16 @@ class ContactAudioService
     // Caps ranked contact sounds submitted in each 100 ms burst window.
     void SetBurstVoicesPerWindow( uint32_t voices );
     uint32_t BurstVoicesPerWindow() const;
+    // Rolling sounds have their own close-range gain and voice budget so they
+    // can be enabled without widening the impact/thud mix.
+    void SetRollingLevelDb( float levelDb );
+    float RollingLevelDb() const;
+    void SetRollingMaxDistance( float distance );
+    float RollingMaxDistance() const;
+    void SetRollingMinSlipSpeed( float speed );
+    float RollingMinSlipSpeed() const;
+    void SetRollingVoicesPerWindow( uint32_t voices );
+    uint32_t RollingVoicesPerWindow() const;
     int SoundSetCount() const;
     int SoundSampleCount() const;
     // Sample paths are borrowed from decoded audio buffers and are valid until

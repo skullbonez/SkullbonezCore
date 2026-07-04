@@ -223,6 +223,10 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashFloat( hash, data.contactAudioMinImpactScore, 1000.0f );
     hash = HashFloat( hash, data.contactAudioImpactScoreRangeSeconds, 1000.0f );
     hash = HashInt( hash, static_cast<int>( data.contactAudioBurstVoicesPerWindow ) );
+    hash = HashFloat( hash, data.contactAudioRollingLevelDb, 1000.0f );
+    hash = HashFloat( hash, data.contactAudioRollingMaxDistance, 1000.0f );
+    hash = HashFloat( hash, data.contactAudioRollingMinSlipSpeed, 1000.0f );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioRollingVoicesPerWindow ) );
     hash = HashInt( hash, static_cast<int>( data.contactAudioEventsSeen ) );
     hash = HashInt( hash, static_cast<int>( data.contactAudioPatchCandidates ) );
     hash = HashInt( hash, static_cast<int>( data.contactAudioMergedCandidates ) );
@@ -233,6 +237,8 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashInt( hash, static_cast<int>( data.contactAudioRejectedByCooldown ) );
     hash = HashInt( hash, static_cast<int>( data.contactAudioSubmittedVoices ) );
     hash = HashInt( hash, static_cast<int>( data.contactAudioDroppedVoices ) );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioRollingCandidates ) );
+    hash = HashInt( hash, static_cast<int>( data.contactAudioRollingSubmittedVoices ) );
     const int soundSetCount = std::clamp( data.soundSetCount, 0, UI_SOUND_SET_MAX );
     hash = HashInt( hash, soundSetCount );
     for ( int setIndex = 0; setIndex < soundSetCount; ++setIndex )

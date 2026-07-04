@@ -2817,6 +2817,18 @@ void Run::TakeInput()
             case UISoundParam::BurstVoicesPerWindow:
                 m_contactAudio.SetBurstVoicesPerWindow( static_cast<uint32_t>( uiCommands.sound.requestedValue ) );
                 break;
+            case UISoundParam::RollingLevelDb:
+                m_contactAudio.SetRollingLevelDb( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::RollingMaxDistance:
+                m_contactAudio.SetRollingMaxDistance( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::RollingMinSlipSpeed:
+                m_contactAudio.SetRollingMinSlipSpeed( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::RollingVoicesPerWindow:
+                m_contactAudio.SetRollingVoicesPerWindow( static_cast<uint32_t>( uiCommands.sound.requestedValue ) );
+                break;
             case UISoundParam::SetMinImpulse:
                 m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,
                                                  SkullbonezCore::Runtime::Audio::ContactAudioSetParam::MinImpulse,

@@ -561,6 +561,10 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.contactAudioMinImpactScore = contactAudio.minImpactScore;
         UIData.contactAudioImpactScoreRangeSeconds = contactAudio.impactScoreRangeSeconds;
         UIData.contactAudioBurstVoicesPerWindow = contactAudio.burstVoicesPerWindow;
+        UIData.contactAudioRollingLevelDb = contactAudio.rollingLevelDb;
+        UIData.contactAudioRollingMaxDistance = contactAudio.rollingMaxDistance;
+        UIData.contactAudioRollingMinSlipSpeed = contactAudio.rollingMinSlipSpeed;
+        UIData.contactAudioRollingVoicesPerWindow = contactAudio.rollingVoicesPerWindow;
         UIData.contactAudioEventsSeen = contactAudio.stats.eventsSeen;
         UIData.contactAudioPatchCandidates = contactAudio.stats.patchCandidates;
         UIData.contactAudioMergedCandidates = contactAudio.stats.mergedCandidates;
@@ -571,6 +575,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.contactAudioRejectedByCooldown = contactAudio.stats.rejectedByCooldown;
         UIData.contactAudioSubmittedVoices = contactAudio.stats.submittedVoices;
         UIData.contactAudioDroppedVoices = contactAudio.stats.droppedVoices;
+        UIData.contactAudioRollingCandidates = contactAudio.stats.rollingCandidates;
+        UIData.contactAudioRollingSubmittedVoices = contactAudio.stats.rollingSubmittedVoices;
         // Lifetime: names copied into UIData are borrowed from ContactAudioService
         // through the runtime view model for this immediate draw pass.
         UIData.soundSetCount = (std::min)( contactAudio.soundSetCount, SkullbonezCore::UI::UI_SOUND_SET_MAX );

@@ -227,6 +227,10 @@ struct InGameUIFrameData
     float contactAudioMinImpactScore = 0.0f;
     float contactAudioImpactScoreRangeSeconds = 1.0f;
     uint32_t contactAudioBurstVoicesPerWindow = 0; // Max submitted sounds per 100 ms burst.
+    float contactAudioRollingLevelDb = -24.0f;
+    float contactAudioRollingMaxDistance = 24.0f;
+    float contactAudioRollingMinSlipSpeed = 0.65f;
+    uint32_t contactAudioRollingVoicesPerWindow = 4;
     uint32_t contactAudioEventsSeen = 0;
     uint32_t contactAudioPatchCandidates = 0;
     uint32_t contactAudioMergedCandidates = 0;
@@ -237,6 +241,8 @@ struct InGameUIFrameData
     uint32_t contactAudioRejectedByCooldown = 0;
     uint32_t contactAudioSubmittedVoices = 0;
     uint32_t contactAudioDroppedVoices = 0;
+    uint32_t contactAudioRollingCandidates = 0;
+    uint32_t contactAudioRollingSubmittedVoices = 0;
     float sceneEnergy = 0.0f;
     float timeScale = 1.0f;
     float trackHeight = 0.0f;
