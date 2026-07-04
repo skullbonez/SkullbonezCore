@@ -798,8 +798,6 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
     m_terrainContactManifolds.clear();
     m_sleepSupportEdges.clear();
 
-    modelAccess.TickContactHighlights( modelCount, fChangeInTime );
-
     if ( static_cast<int>( m_sleepState.size() ) != modelCount )
     {
         m_sleepState.assign( modelCount, 0 );

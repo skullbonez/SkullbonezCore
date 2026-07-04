@@ -213,6 +213,10 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
     {
         modelAccess.RefreshPhysicsColliders( m_colliderStore, m_bodyStore );
     }
+    // Why: contact highlight timers are model-owned presentation state, not
+    // solver input. Tick them at the compatibility edge so PhysicsWorld keeps
+    // its fixed step closer to store-owned data.
+    modelAccess.TickContactHighlights( modelCount, fChangeInTime );
     m_lastWorldForces = worldForces;
     m_hasLastWorldForces = true;
     m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime, config, worldForces, workerPool );

@@ -151,6 +151,7 @@ PHYSICS_WORLD_SOLVER_MODEL_STREAM_FUNCTIONS = (
     "WakePointJointConnectedBodies",
 )
 PHYSICS_WORLD_SOLVER_MODEL_STREAM_PATTERN = re.compile(r"\b(?:GameModelBodyStream|GetBodyStream)\b")
+PHYSICS_WORLD_CONTACT_HIGHLIGHT_TICK_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*TickContactHighlights\s*\(")
 RENDER_INSTANCE_MODEL_REFRESH_PATTERN = re.compile(
     r"\brenderInstanceStore\s*\.\s*Refresh\s*\(\s*m_gameModels\s*\)"
 )
@@ -1971,6 +1972,31 @@ def check_physics_world_solver_model_stream_guardrails_text(path: Path, text: st
 def check_physics_world_solver_model_stream_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / PHYSICS_WORLD_SOURCE
     return check_physics_world_solver_model_stream_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_physics_world_contact_highlight_tick_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != "PhysicsWorld.cpp":
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_WORLD_CONTACT_HIGHLIGHT_TICK_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "physics world model contact-highlight tick is blocked",
+                (
+                    "Contact-highlight timers are model-owned presentation state; tick them at the PhysicsScene "
+                    "compatibility edge instead of inside PhysicsWorld::RunPhysics."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_world_contact_highlight_tick_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / PHYSICS_WORLD_SOURCE
+    return check_physics_world_contact_highlight_tick_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_render_instance_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -7045,6 +7071,47 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only solver body stream synthetic text was rejected")
 
+    old_world_contact_highlight_tick = """
+    void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
+    {
+        modelAccess.TickContactHighlights( modelCount, dt );
+    }
+    """
+    if not any(
+        error.message == "physics world model contact-highlight tick is blocked"
+        for error in check_physics_world_contact_highlight_tick_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+            old_world_contact_highlight_tick,
+        )
+    ):
+        failures.append("old PhysicsWorld contact-highlight tick synthetic surface was not rejected")
+
+    allowed_scene_contact_highlight_tick = """
+    void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
+    {
+        modelAccess.TickContactHighlights( modelCount, dt );
+        m_world.RunPhysics( modelAccess, bodyStore, colliderStore, dt, config, forces, workerPool );
+    }
+    """
+    if check_physics_world_contact_highlight_tick_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        allowed_scene_contact_highlight_tick,
+    ):
+        failures.append("PhysicsScene contact-highlight tick synthetic surface was rejected")
+
+    commented_world_contact_highlight_tick = """
+    void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
+    {
+        // modelAccess.TickContactHighlights(modelCount, dt) used to live here.
+        StepBodyStores();
+    }
+    """
+    if check_physics_world_contact_highlight_tick_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        commented_world_contact_highlight_tick,
+    ):
+        failures.append("comment-only PhysicsWorld contact-highlight tick synthetic text was rejected")
+
     old_render_instance_model_refresh = """
     void GameModelCollection::RefreshRenderInstances( RenderInstanceStore& renderInstanceStore )
     {
@@ -8314,6 +8381,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_persistent_solver_context_model_access_guardrails(repo))
     errors.extend(check_physics_world_solver_body_writeback_guardrails(repo))
     errors.extend(check_physics_world_solver_model_stream_guardrails(repo))
+    errors.extend(check_physics_world_contact_highlight_tick_guardrails(repo))
     errors.extend(check_render_instance_store_authority_guardrails(repo))
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))
