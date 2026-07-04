@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Physics/RigidBody.h
 Purpose:
-  Stores physical body state and integrates forces, impulses, velocity, and sleep hints.
+  Stores compatibility body state for pose, velocity, mass, inertia, and sleep hints.
 
 Mental model:
   Physics is deterministic fixed-step state update. Units, contact ownership,
@@ -42,8 +42,9 @@ namespace Physics
 /* -- Rigid Body
 -------------------------------------------------------------------------------------------------------------------------------------------------
 
-    A representation for a physical objects velocity, acceleration and position acted upon by an externally applied
-force. Takes orientation, angular velocity, angular acceleration, rotational intertia and torque into account.
+    Compatibility storage for a physical object's position, orientation,
+    velocity, mass, inertia, friction, and restitution. Active force and impulse
+    integration lives in PhysicsBodyStore.
 
     Layman map:
       - Position and linear velocity say where the body is and how fast it is
@@ -51,14 +52,13 @@ force. Takes orientation, angular velocity, angular acceleration, rotational int
       - Orientation and angular velocity say how it is rotated and how fast it
         is spinning.
       - Mass resists sliding changes; rotational inertia resists spin changes.
-      - Forces are accumulated by the world/collision code, then integrated into
-        velocity and position by the fixed-step physics loop.
+      - Active force and impulse integration lives in PhysicsBodyStore records;
+        this type remains the legacy value holder inside GameModel.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class RigidBody
 {
 
   private:
-    bool m_isForceApplied;                            // True once the one-shot impulse has been consumed.
     float m_mass;                                     // Units: kg.
     float m_invertedMass;                             // 1 / mass; zero for immovable bodies.
     float m_coefficientRestitution;                   // Bounce response; solver reads it during contact setup.
@@ -67,15 +67,8 @@ class RigidBody
 
     Math::Vector::Vector3 m_position;                 // Units: world point.
     Math::Vector::Vector3 m_linearVelocity;           // Units: m/s.
-    Math::Vector::Vector3 m_linearAcceleration;       // Units: m/s^2.
-    Math::Vector::Vector3 m_appliedForce;             // Units: N.
-    Math::Vector::Vector3 m_worldForce;               // Units: N.
-    Math::Vector::Vector3 m_worldTorque;              // Units: Nm.
-    Math::Vector::Vector3 m_forceApplicationPoint;    // Units: world point.
     Math::Vector::Vector3 m_angularVelocity;          // Units: radians/s.
-    Math::Vector::Vector3 m_angularAcceleration;      // Units: radians/s^2.
     Math::Vector::Vector3 m_rotationalInertia;        // Diagonal inertia tensor, units: kg*m^2.
-    Math::Vector::Vector3 m_torque;                   // Units: Nm.
     /* m_changeInAngularVelocity / m_changeInLinearVelocity are DEFERRED IMPULSE BUFFERS.
        During collision resolution, both objects' velocity changes are computed first and
        stored here, then applied simultaneously via ApplyChange*Velocity(). This prevents
@@ -88,22 +81,13 @@ class RigidBody
     Math::Orientation::Quaternion m_orientation;
     float m_angularVelocityLimit;                     // Runtime tuning cap, radians/s, borrowed from EngineConfig at composition time.
 
-    void ApplyWorldForce();                           // Continuous world forces, such as gravity, update velocity through a = F/m.
-    /* NOTE: Despite being named "Force", both of the following apply ONE-SHOT IMPULSES
-       (instantaneous velocity changes) rather than continuous forces. The impulse is
-       consumed on the first call and ignored on subsequent calls (m_isForceApplied flag). */
-    void ApplyLinearForce();                          // Consumes the one-shot linear impulse as an immediate velocity delta.
-    void ApplyAngularForce();                         // One-shot off-center impulse changes angular velocity through its torque arm.
     // Rolling contribution derived from angular velocity around the contact normal.
     Math::Vector::Vector3 GetRollVelocity();
 
   public:
     RigidBody();
     ~RigidBody();
-    void ApplyForces();                               // Integrates accumulated world forces and one-shot impulses for one physics tick.
     void UpdatePosition( float changeInTime );        // changeInTime is seconds; advances pose from the current velocities.
-    void ApplyImpulseForce();
-    void ZeroForce();                                 // End-of-tick cleanup after world forces and solver impulses are consumed.
     const Math::Orientation::Quaternion& GetOrientation() const;
     void SetMass( float fMass );
     void SetFrictionCoefficient( float fFriction );
@@ -135,10 +119,6 @@ class RigidBody
     void SetAngularVelocity( const Math::Vector::Vector3& vAngular );
     void SetAngularVelocityLimit( float velocityLimit );
     void SetOrientation( const Math::Orientation::Quaternion& q );
-    void SetImpulseForce( const Math::Vector::Vector3& vImpulseForce, const Math::Vector::Vector3& vApplicationPoint );
-    void ClearImpulseForce();                         // Clears any pending one-shot impulse and marks it consumed.
-    // Continuous environment force/torque consumed by ApplyWorldForce().
-    void SetWorldForce( const Math::Vector::Vector3& vWorldForce, const Math::Vector::Vector3& vWorldTorque );
     // fTime=0 reads current pose; nonzero extrapolates from angular velocity.
     Math::Transformation::RotationMatrix GetOrientationMatrix( float fTime = 0.0f );
 };

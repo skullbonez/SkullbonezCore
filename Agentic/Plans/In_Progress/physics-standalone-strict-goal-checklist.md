@@ -1228,6 +1228,42 @@ Evidence logs: `TestOutput\agent_build_debug_scene_snapshot_store_authority.log`
 `TestOutput\agent_validate_physics_scene_snapshot_store_authority.log`, and
 `TestOutput\agent_validate_full_scene_snapshot_store_authority.log`.
 
+Slice `PHY-1018`: delete the dead model-side force integration bridge. Owner:
+`PhysicsBodyStore`; reason: active world-force and pending-impulse integration is
+store-owned, so keeping `GameModel`/`RigidBody` force accumulators and
+`WorldEnvironment::AddWorldForces(GameModel&)` only preserves an unused path full
+of scattered model physics reads/copies; deletion condition: `GameModel` exposes
+no model-side apply/world/impulse force integration surface and bulk
+compatibility writeback no longer mirrors pending impulses into `GameModel`;
+checker budget: `tools/check_runtime_boundaries.py` blocks the deleted
+model-side force bridge from returning.
+
+- [x] Delete `GameModel::ApplyForces`, `ApplyWorldForces`, `SetWorldForce`,
+  `SetImpulseForce`, and `ClearImpulseForce` declarations/definitions.
+- [x] Delete `WorldEnvironment::AddWorldForces(GameModel&)` plus private helper
+  declarations/definitions used only by that path, leaving scalar
+  `PhysicsWorldForces` as the water/drag force export.
+- [x] Remove dead `RigidBody` world/impulse-force accumulators and integration
+  methods while preserving pose, velocity, inertia, mass, friction, and
+  restitution state still used by compatibility storage.
+- [x] Stop `PhysicsBodyStore::WriteRecordToCompatibilityModel` from copying
+  pending impulse state into `GameModel`; pending impulses remain in
+  `PhysicsBodyStore`.
+- [x] Add runtime-boundary guardrails and self-tests blocking the deleted
+  model-side force bridge from returning.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence logs: `TestOutput\agent_build_debug_model_force_bridge_deletion.log`,
+`TestOutput\agent_validate_fast_model_force_bridge_deletion.log`, and
+`TestOutput\agent_validate_physics_model_force_bridge_deletion.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

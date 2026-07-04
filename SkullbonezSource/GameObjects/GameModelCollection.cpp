@@ -636,7 +636,6 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
     model.SetOrientation( orientation );
     model.SetLinearVelocity( linearVelocity );
     model.SetAngularVelocity( angularVelocity );
-    model.ClearImpulseForce();
     InvalidateSoA();
     return m_physicsEngine.RestoreReplayBodyState( index,
                                                    replayBodyId,

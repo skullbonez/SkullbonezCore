@@ -249,8 +249,6 @@ void GameModel::SetFixed( bool isFixed )
         // shown in debug visuals, but they do not accumulate forces or velocity.
         m_physicsInfo.SetLinearVelocity( Vector::ZERO_VECTOR );
         m_physicsInfo.SetAngularVelocity( Vector::ZERO_VECTOR );
-        m_physicsInfo.SetWorldForce( Vector::ZERO_VECTOR, Vector::ZERO_VECTOR );
-        m_physicsInfo.ZeroForce();
     }
 }
 
@@ -328,33 +326,6 @@ float GameModel::GetFixedContactHighlightSeconds() const
 void GameModel::SetFixedContactHighlightSeconds( float seconds )
 {
     m_fixedContactHighlightSeconds = (std::max)( 0.0f, seconds );
-}
-
-
-void GameModel::SetImpulseForce( const Vector3& vForce, const Vector3& vApplicationPoint )
-{
-    if ( m_isFixed )
-    {
-        return;
-    }
-    m_physicsInfo.SetImpulseForce( vForce, vApplicationPoint );
-}
-
-
-void GameModel::ClearImpulseForce()
-{
-    m_physicsInfo.ClearImpulseForce();
-}
-
-
-void GameModel::SetWorldForce( const Vector3& vWorldForce, const Vector3& vWorldTorque )
-{
-    if ( m_isFixed )
-    {
-        m_physicsInfo.SetWorldForce( Vector::ZERO_VECTOR, Vector::ZERO_VECTOR );
-        return;
-    }
-    m_physicsInfo.SetWorldForce( vWorldForce, vWorldTorque );
 }
 
 
@@ -784,30 +755,6 @@ Matrix4 GameModel::GetModelMatrix()
     Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() );
     Vector3 pos = m_physicsInfo.GetPosition();
     return std::visit( [&]( auto& shape ) { return shape.GetModelMatrix( pos, rotation ); }, m_boundingVolume );
-}
-
-
-void GameModel::ApplyForces( float changeInTime )
-{
-    if ( m_isFixed )
-    {
-        m_physicsInfo.SetLinearVelocity( Vector::ZERO_VECTOR );
-        m_physicsInfo.SetAngularVelocity( Vector::ZERO_VECTOR );
-        return;
-    }
-
-    // throttle the angular velocity
-    m_physicsInfo.ThrottleAngularVelocity();
-
-    ApplyWorldForces( changeInTime );
-
-    m_physicsInfo.ApplyForces();
-}
-
-
-void GameModel::ApplyWorldForces( float changeInTime )
-{
-    m_worldEnvironment->AddWorldForces( *this, changeInTime );
 }
 
 

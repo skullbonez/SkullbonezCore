@@ -106,7 +106,7 @@ class GameModel
     Math::CollisionDetection::CollisionShape
         m_boundingVolume;                                                   // Inline shape variant; narrowphase dispatch owns exact geometry here.
     BallPhysicsCache m_ballPhysics;                                         // Immutable scalar cache read by broadphase, buoyancy, and drag loops.
-    Physics::RigidBody m_physicsInfo;                                       // Integrator state: position, velocity, orientation, forces, and impulses.
+    Physics::RigidBody m_physicsInfo;                                       // Compatibility pose/velocity state mirrored from PhysicsBodyStore.
     Environment::WorldEnvironment* m_worldEnvironment;                      // Borrowed world force/fluid settings; owning scene keeps it alive.
     Geometry::Terrain* m_terrain;                                           // Borrowed terrain used for height samples and terrain contacts.
     float m_projectedSurfaceArea;                                           // Drag area in square meters after collision-shape updates.
@@ -141,7 +141,6 @@ class GameModel
     Math::CollisionDetection::BoundingSphere&
     GetBoundingSphere();                                                    // Mutable sphere fast path; caller owns the shape-kind precondition.
     void CalculateVolume();                                                 // Refreshes cached collision volume after shape changes.
-    void ApplyWorldForces( float changeInTime );
     void UpdateModelInfo();                                                 // Refreshes derived physics/render scalars after object-list mutations.
 
   public:
@@ -192,16 +191,8 @@ class GameModel
     const Math::Vector::Vector3& GetVelocity() const;
     const Math::Vector::Vector3& GetAngularVelocity();
     const Math::Vector::Vector3& GetAngularVelocity() const;
-    void ApplyForces( float changeInTime );
     void SetTerrain( Geometry::Terrain* pTerrain );                         // Borrowed scene terrain; caller keeps it alive for this model.
-    void SetImpulseForce( const Math::Vector::Vector3& vForce,
-                          const Math::Vector::Vector3&
-                              vApplicationPoint );                          // Stages a one-shot impulse at a world-space application point.
-    void ClearImpulseForce();                                               // Clears consumed one-shot impulse state during replay restore.
     void SetCoefficientRestitution( float fCoefficientRestitution );
-    void SetWorldForce(
-        const Math::Vector::Vector3& vWorldForce,
-        const Math::Vector::Vector3& vWorldTorque );                        // Continuous environment force/torque consumed during integration.
     void SetInitialOrientation( float fEulerXDeg,
                                 float fEulerYDeg,
                                 float fEulerZDeg );                         // Input angles are degrees in the engine's Euler order.

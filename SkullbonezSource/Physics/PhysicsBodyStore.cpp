@@ -928,14 +928,6 @@ void WriteRecordToCompatibilityModel( const PhysicsBodyRecord& record, GameModel
     model.SetOrientation( record.orientation );
     model.SetLinearVelocity( record.linearVelocity );
     model.SetAngularVelocity( record.angularVelocity );
-    if ( record.hasPendingImpulse )
-    {
-        model.SetImpulseForce( record.pendingImpulse, record.pendingImpulseApplicationPoint );
-    }
-    else
-    {
-        model.ClearImpulseForce();
-    }
 }
 
 } // namespace

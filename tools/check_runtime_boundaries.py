@@ -284,6 +284,27 @@ SCENE_SNAPSHOT_GAME_MODEL_PHYSICS_READ_PATTERN = re.compile(
     r"GetContactReleaseImpulseThreshold)\s*\("
     r"|\bOrientationJson\s*\(\s*(?:m_gameModels|models)\s*\["
 )
+# Why: model-side force integration was dead after PhysicsBodyStore became the
+# active force/impulse owner. Reintroducing these names restores cache-hostile
+# GameModel force copies without making the solver more standalone.
+GAME_MODEL_DELETED_FORCE_BRIDGE_PATTERN = re.compile(
+    r"\b(?:ApplyForces|ApplyWorldForces|SetWorldForce|SetImpulseForce|ClearImpulseForce)\s*\("
+)
+WORLD_ENVIRONMENT_DELETED_MODEL_FORCE_BRIDGE_PATTERN = re.compile(
+    r"\bAddWorldForces\s*\("
+    r"|\bGameObjects\s*::\s*GameModel\b"
+    r"|\bclass\s+GameModel\s*;"
+    r'|#\s*include\s+"(?:\.\./)?GameObjects/GameModel\.h"'
+)
+RIGID_BODY_DELETED_FORCE_BRIDGE_PATTERN = re.compile(
+    r"\b(?:ApplyWorldForce|ApplyLinearForce|ApplyAngularForce|ApplyForces|ApplyImpulseForce|"
+    r"SetWorldForce|SetImpulseForce|ClearImpulseForce|ZeroForce)\s*\("
+    r"|\bm_(?:isForceApplied|appliedForce|forceApplicationPoint|worldForce|worldTorque|"
+    r"linearAcceleration|angularAcceleration|torque)\b"
+)
+PHYSICS_BODY_STORE_PENDING_IMPULSE_MODEL_MIRROR_PATTERN = re.compile(
+    r"\bmodel\s*\.\s*(?:SetImpulseForce|ClearImpulseForce)\s*\("
+)
 PHYSICS_DIAGNOSTICS_MODEL_RECORD_COMPAT_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*TryGetPhysicsDiagnosticsModel\s*\(\s*[^,()]+\s*,\s*[^,()]+\s*\)"
 )
@@ -3013,6 +3034,88 @@ def check_scene_snapshot_store_authority_guardrails_text(path: Path, text: str) 
 def check_scene_snapshot_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / Path("SkullbonezSource/Scene/SceneSnapshotWriter.cpp")
     return check_scene_snapshot_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_deleted_model_force_bridge_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    code_without_comments = strip_cpp_comments(text)
+    errors: list[BoundaryError] = []
+
+    if path.name in { "GameModel.cpp", "GameModel.h" }:
+        for match in GAME_MODEL_DELETED_FORCE_BRIDGE_PATTERN.finditer(stripped):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "deleted GameModel force bridge is blocked",
+                    (
+                        "GameModel must not expose model-side force integration; PhysicsBodyStore owns "
+                        "world-force and pending-impulse integration."
+                    ),
+                )
+            )
+        return errors
+
+    if path.name in { "WorldEnvironment.cpp", "WorldEnvironment.h" }:
+        for match in WORLD_ENVIRONMENT_DELETED_MODEL_FORCE_BRIDGE_PATTERN.finditer(code_without_comments):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(code_without_comments, match.start()),
+                    "deleted WorldEnvironment model force bridge is blocked",
+                    (
+                        "WorldEnvironment should expose scalar PhysicsWorldForces only; model-specific water/drag "
+                        "integration belongs in PhysicsBodyStore records."
+                    ),
+                )
+            )
+        return errors
+
+    if path.name in { "RigidBody.cpp", "RigidBody.h" }:
+        for match in RIGID_BODY_DELETED_FORCE_BRIDGE_PATTERN.finditer(stripped):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "deleted RigidBody force bridge is blocked",
+                    (
+                        "RigidBody is legacy GameModel storage now; force accumulators and integration wrappers "
+                        "belong in PhysicsBodyStore."
+                    ),
+                )
+            )
+        return errors
+
+    if path.name == "PhysicsBodyStore.cpp":
+        for match in PHYSICS_BODY_STORE_PENDING_IMPULSE_MODEL_MIRROR_PATTERN.finditer(stripped):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "pending impulses must not mirror into GameModel",
+                    (
+                        "PhysicsBodyStore owns pending impulses; bulk compatibility writeback should not copy "
+                        "them into GameModel."
+                    ),
+                )
+            )
+    return errors
+
+
+def check_deleted_model_force_bridge_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in (
+        Path("SkullbonezSource/GameObjects/GameModel.cpp"),
+        Path("SkullbonezSource/GameObjects/GameModel.h"),
+        Path("SkullbonezSource/World/WorldEnvironment.cpp"),
+        Path("SkullbonezSource/World/WorldEnvironment.h"),
+        Path("SkullbonezSource/Physics/RigidBody.cpp"),
+        Path("SkullbonezSource/Physics/RigidBody.h"),
+        Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"),
+    ):
+        path = repo / relative_path
+        errors.extend(check_deleted_model_force_bridge_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_physics_diagnostics_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -9820,6 +9923,113 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only SceneSnapshotWriter model physics-read synthetic text was rejected")
 
+    old_game_model_force_bridge = """
+    class GameModel
+    {
+        void ApplyForces( float changeInTime );
+        void ApplyWorldForces( float changeInTime );
+        void SetWorldForce( const Vector3& force, const Vector3& torque );
+        void SetImpulseForce( const Vector3& impulse, const Vector3& point );
+        void ClearImpulseForce();
+    };
+    """
+    if not any(
+        error.message == "deleted GameModel force bridge is blocked"
+        for error in check_deleted_model_force_bridge_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModel.h"),
+            old_game_model_force_bridge,
+        )
+    ):
+        failures.append("old GameModel force bridge synthetic surface was not rejected")
+
+    old_world_environment_model_force_bridge = """
+    #include "../GameObjects/GameModel.h"
+    void WorldEnvironment::AddWorldForces( GameObjects::GameModel& target, float changeInTime )
+    {
+        target.SetWorldForce( force, torque );
+    }
+    """
+    if not any(
+        error.message == "deleted WorldEnvironment model force bridge is blocked"
+        for error in check_deleted_model_force_bridge_guardrails_text(
+            Path("SkullbonezSource/World/WorldEnvironment.cpp"),
+            old_world_environment_model_force_bridge,
+        )
+    ):
+        failures.append("old WorldEnvironment model force bridge synthetic surface was not rejected")
+
+    old_rigid_body_force_bridge = """
+    class RigidBody
+    {
+        bool m_isForceApplied;
+        Vector3 m_appliedForce;
+        Vector3 m_worldForce;
+        void ApplyWorldForce();
+        void ApplyImpulseForce();
+        void SetImpulseForce( const Vector3& impulse, const Vector3& point );
+    };
+    """
+    if not any(
+        error.message == "deleted RigidBody force bridge is blocked"
+        for error in check_deleted_model_force_bridge_guardrails_text(
+            Path("SkullbonezSource/Physics/RigidBody.h"),
+            old_rigid_body_force_bridge,
+        )
+    ):
+        failures.append("old RigidBody force bridge synthetic surface was not rejected")
+
+    old_pending_impulse_model_mirror = """
+    void WriteRecordToCompatibilityModel( const PhysicsBodyRecord& record, GameModel& model )
+    {
+        if ( record.hasPendingImpulse )
+        {
+            model.SetImpulseForce( record.pendingImpulse, record.pendingImpulseApplicationPoint );
+        }
+        else
+        {
+            model.ClearImpulseForce();
+        }
+    }
+    """
+    if not any(
+        error.message == "pending impulses must not mirror into GameModel"
+        for error in check_deleted_model_force_bridge_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"),
+            old_pending_impulse_model_mirror,
+        )
+    ):
+        failures.append("old pending-impulse model mirror synthetic surface was not rejected")
+
+    allowed_store_force_owner = """
+    bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
+                                        const ColliderStore& colliderStore,
+                                        int modelIndex,
+                                        float deltaSeconds )
+    {
+        ApplyWorldForces( *record, *collider, worldForces, deltaSeconds );
+        ConsumePendingBodyImpulse( *record );
+        return true;
+    }
+    """
+    if check_deleted_model_force_bridge_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"),
+        allowed_store_force_owner,
+    ):
+        failures.append("store-owned force integration synthetic surface was rejected")
+
+    commented_model_force_bridge = """
+    class RigidBody
+    {
+        // ApplyWorldForce(), SetImpulseForce(), m_worldForce, and m_appliedForce were deleted.
+        void SetLinearVelocity( const Vector3& velocity );
+    };
+    """
+    if check_deleted_model_force_bridge_guardrails_text(
+        Path("SkullbonezSource/Physics/RigidBody.h"),
+        commented_model_force_bridge,
+    ):
+        failures.append("comment-only deleted model force bridge synthetic text was rejected")
+
     old_diagnostics_model_record_read = """
     void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess )
     {
@@ -11706,6 +11916,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_game_model_collection_body_store_read_authority_guardrails(repo))
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
     errors.extend(check_physics_collision_time_name_guardrails(repo))
+    errors.extend(check_deleted_model_force_bridge_guardrails(repo))
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))
     errors.extend(check_replay_prediction_body_capture_store_authority_guardrails(repo))
     errors.extend(check_replay_restore_store_authority_guardrails(repo))
