@@ -151,6 +151,7 @@ PhysicsWorld::PhysicsWorld()
     m_sleepIslandPointJointsRelaxed.reserve( MAX_GAME_MODELS );
     m_sleepVisualIslandIds.reserve( MAX_GAME_MODELS );
     m_sleepVisualIslandBodies.reserve( MAX_GAME_MODELS );
+    m_tornadoFixedTreeReleaseWakeBodies.reserve( MAX_GAME_MODELS );
     m_persistentContacts.reserve( MAX_GAME_MODELS * 4 );
     m_persistentContactCache.reserve( MAX_GAME_MODELS * 4 );
     m_persistentContactCounts.reserve( MAX_GAME_MODELS );
@@ -188,6 +189,7 @@ void PhysicsWorld::Clear()
     m_underwaterSleepLocked.clear();
     m_tornadoCaptureSeconds.clear();
     m_tornadoEjectCooldownSeconds.clear();
+    m_tornadoFixedTreeReleaseWakeBodies.clear();
     m_tornadoSystem.SetConfig( TornadoSystemConfig() );
     m_tornadoSystem.ResetElapsedSeconds();
     m_collisionVisualContacts.clear();
@@ -1165,7 +1167,6 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
         return acceleration;
     };
 
-    bool releasedFixedParts = false;
     if ( useSystem )
     {
         for ( int i = 0; i < bodyStore.Count(); ++i )
@@ -1188,22 +1189,21 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
 
             const Vector3 seedLinearVelocity =
                 ClampVectorMagnitude( acceleration * 0.08f, (std::max)( 10.0f, bestConfig.maxDeltaVelocity * 1.5f ) );
-            record.isFixed = false;
-            record.linearVelocity = seedLinearVelocity;
-            record.angularVelocity = Vector3( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f );
-            modelAccess.WriteBackPhysicsBody( bodyStore, i );
+            const Vector3 seedAngularVelocity( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f );
+            // Why: tornado release runs before broadphase and the parallel
+            // tornado pass. Mutate the body store directly so later fixed checks
+            // see dynamic bodies without bouncing through GameModel caches.
+            PhysicsBodyStore::ReleaseFixedRecord( record, seedLinearVelocity, seedAngularVelocity );
             WakeModel( modelAccess, bodyStore, colliderStore, worldForces, i );
-            modelAccess.ReleaseAttachedFixedTreeParts( PhysicsFixedTreeReleaseEvent{
-                i,
-                seedLinearVelocity,
-                Vector3( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f ) } );
-            releasedFixedParts = true;
+            modelAccess.ReleaseAttachedFixedTreeParts(
+                bodyStore,
+                PhysicsFixedTreeReleaseEvent{ i, seedLinearVelocity, seedAngularVelocity },
+                m_tornadoFixedTreeReleaseWakeBodies );
+            for ( int releasedIndex : m_tornadoFixedTreeReleaseWakeBodies )
+            {
+                WakeModel( modelAccess, bodyStore, colliderStore, worldForces, releasedIndex );
+            }
         }
-    }
-    if ( releasedFixedParts )
-    {
-        modelAccess.ReloadPhysicsBodies( bodyStore, m_sleepState );
-        modelAccess.InvalidatePhysicsStreams();
     }
 
     const int modelCount =
@@ -3903,6 +3903,7 @@ uint64_t PhysicsWorld::CollectMemoryBytes() const
     bytes += VectorCapacityBytes( m_underwaterSleepLocked );
     bytes += VectorCapacityBytes( m_tornadoCaptureSeconds );
     bytes += VectorCapacityBytes( m_tornadoEjectCooldownSeconds );
+    bytes += VectorCapacityBytes( m_tornadoFixedTreeReleaseWakeBodies );
     bytes += VectorCapacityBytes( m_collisionVisualContacts );
     bytes += VectorCapacityBytes( m_sleepIslandVisualId );
     bytes += VectorCapacityBytes( m_sleepIslandAssignedVisualId );

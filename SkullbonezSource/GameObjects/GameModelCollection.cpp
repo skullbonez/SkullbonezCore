@@ -191,16 +191,6 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
 }
 
-float InversePositive( float value )
-{
-    return value > 0.000001f ? 1.0f / value : 0.0f;
-}
-
-Vector3 InvertNonZeroComponents( const Vector3& value )
-{
-    return Vector3( InversePositive( value.x ), InversePositive( value.y ), InversePositive( value.z ) );
-}
-
 bool IsDecimalDigit( char c )
 {
     return c >= '0' && c <= '9';
@@ -1142,12 +1132,9 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts(
             // Deletion condition: releasable-structure grouping metadata moves to
             // a physics-owned store or asset record. Checker budget: PhysicsWorld
             // cannot apply these events through modelAccess directly.
-            record->isFixed = false;
-            record->isSleeping = false;
-            record->invMass = InversePositive( record->mass );
-            record->invRotationalInertia = InvertNonZeroComponents( record->rotationalInertia );
-            record->linearVelocity = event.seedLinearVelocity;
-            record->angularVelocity = event.seedAngularVelocity;
+            Physics::PhysicsBodyStore::ReleaseFixedRecord( *record,
+                                                           event.seedLinearVelocity,
+                                                           event.seedAngularVelocity );
         }
 
         outReleasedBodyIndices.push_back( i );

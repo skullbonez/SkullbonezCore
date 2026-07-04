@@ -128,6 +128,12 @@ class PhysicsBodyStore
     void CaptureMutableStateFromModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex );
     void CopySleepStatesFrom( const std::vector<uint8_t>& sleepStates );
     void CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) const;
+    // Converts an authored fixed body record into a dynamic body without
+    // reloading through GameModel. Release-on-impact paths call this while they
+    // already own the live store row.
+    static void ReleaseFixedRecord( PhysicsBodyRecord& record,
+                                    const Math::Vector::Vector3& seedLinearVelocity,
+                                    const Math::Vector::Vector3& seedAngularVelocity );
 
     const PhysicsBodyRecord* Data() const;
     int Count() const;

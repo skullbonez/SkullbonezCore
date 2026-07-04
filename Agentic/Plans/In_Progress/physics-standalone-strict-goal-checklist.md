@@ -243,7 +243,7 @@ passed in 8.4s with 0 warnings/errors; `tools\validate_fast.bat` passed in
 `physics_regression_solver.csv`; `tools\validate_perf.bat` passed in 22.5s with
 no DX12 or PHYSICS_BENCH regressions.
 
-Latest strict-step authority slice `PHY-0207L`: persistent-contact fixed-tree
+Strict-step authority slice `PHY-0207L`: persistent-contact fixed-tree
 release moved from `PhysicsWorld` model-owner side effects to the
 `PhysicsScene` store edge. `GameModelCollection` still supplies tree grouping
 metadata, but the release now writes live motion state to `PhysicsBodyStore`
@@ -257,6 +257,26 @@ passed in 8.6s with 0 warnings/errors; `tools\validate_fast.bat` passed on rerun
 in 34.6s after targeted header alignment; `tools\validate_physics.bat` passed in
 13.9s with byte-exact `physics_regression_solver.csv`; `tools\validate_perf.bat`
 passed in 22.1s with no DX12 or PHYSICS_BENCH regressions.
+
+Latest strict-step authority slice `PHY-0207M`: tornado fixed-tree release no
+longer mirrors a source body into `GameModel`, calls the legacy model-owned tree
+release, then reloads the full `PhysicsBodyStore`. `PhysicsBodyStore` now owns a
+shared `ReleaseFixedRecord()` transition that restores inverse mass/inertia,
+clears sleep, and seeds velocities directly on the live record. The persistent
+contact solver, store-owned tree release, and tornado release all use that
+transition. `PhysicsWorld::ApplyTornadoField` applies attached-tree release
+through the store overload with a reused wake list and relies on the scene-edge
+compatibility writeback. The checker blocks
+`WriteBackPhysicsBody`, legacy `ReleaseAttachedFixedTreeParts`,
+`ReloadPhysicsBodies`, and `InvalidatePhysicsStreams` from returning to the
+tornado release path while allowing the store overload. Evidence: diff check,
+py_compile, runtime-boundary checks, and `tools\validate_format.bat` passed;
+focused Debug build passed in 8.7s with 0 warnings/errors;
+`tools\validate_physics.bat` passed in 20.9s with byte-exact
+`physics_regression_solver.csv`; `tools\validate_fast.bat` passed in 22.0s;
+`tools\validate_perf.bat` first failed on PHYSICS_BENCH memory at +5.34 MB
+against a +5.0 MB threshold, then rerun passed in 21.3s with no DX12 or
+PHYSICS_BENCH regressions.
 
 ## Phase 3 - Collider Store Authority
 

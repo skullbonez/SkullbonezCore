@@ -120,6 +120,8 @@ class PhysicsWorld
     std::vector<uint8_t> m_underwaterSleepLocked;
     std::vector<float> m_tornadoCaptureSeconds;
     std::vector<float> m_tornadoEjectCooldownSeconds;
+    std::vector<int>
+        m_tornadoFixedTreeReleaseWakeBodies; // Reused tornado release wake list; avoids reload/allocation churn.
 
     // Debug visualization state. These arrays intentionally mirror model index
     // order so render/debug code can look up one byte/id per GameModel without

@@ -1588,9 +1588,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 angularVelocity = spinAxis * ( std::clamp( releaseSpeed / radius, 0.0f, 8.0f ) / spinAxisMag );
             }
 
-            fixedRecord.isFixed = false;
-            fixedRecord.linearVelocity = releaseDir * releaseSpeed + tangentVelocity;
-            fixedRecord.angularVelocity = angularVelocity;
+            PhysicsBodyStore::ReleaseFixedRecord( fixedRecord,
+                                                  releaseDir * releaseSpeed + tangentVelocity,
+                                                  angularVelocity );
             QueueReleaseWake( fixedIndex );
             QueueFixedTreeRelease(
                 PhysicsFixedTreeReleaseEvent{ fixedIndex,

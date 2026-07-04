@@ -93,6 +93,18 @@ struct PreservedRefreshState
     bool hasState = false;
 };
 
+float PositiveInverseOrZero( float value )
+{
+    return value > 0.000001f ? 1.0f / value : 0.0f;
+}
+
+Vector3 PositiveComponentInverseOrZero( const Vector3& value )
+{
+    return Vector3( PositiveInverseOrZero( value.x ),
+                    PositiveInverseOrZero( value.y ),
+                    PositiveInverseOrZero( value.z ) );
+}
+
 const ColliderRecord* ColliderRecordForModelIndex( const ColliderStore& colliderStore, int modelIndex )
 {
     const std::vector<ColliderRecord>& colliders = colliderStore.Records();
@@ -1324,6 +1336,22 @@ void PhysicsBodyStore::CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) co
     {
         sleepStates[i] = m_bodies[i].isSleeping ? 1 : 0;
     }
+}
+
+
+// Why: fixed records keep their authored mass and inertia even while solver
+// reciprocals are zero. Release paths must restore those reciprocals in-place
+// so they do not need a GameModel writeback plus full body-store reload.
+void PhysicsBodyStore::ReleaseFixedRecord( PhysicsBodyRecord& record,
+                                           const Vector3& seedLinearVelocity,
+                                           const Vector3& seedAngularVelocity )
+{
+    record.isFixed = false;
+    record.isSleeping = false;
+    record.invMass = PositiveInverseOrZero( record.mass );
+    record.invRotationalInertia = PositiveComponentInverseOrZero( record.rotationalInertia );
+    record.linearVelocity = seedLinearVelocity;
+    record.angularVelocity = seedAngularVelocity;
 }
 
 
