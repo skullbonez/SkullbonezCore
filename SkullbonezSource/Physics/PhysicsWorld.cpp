@@ -778,8 +778,8 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
     //    persistent Catto-style contact solver.
     // 4. Mirror the finished store once for remaining GameModel-owned replay
     //    and editor consumers.
-    // 5. Emit bounded Debug diagnostics, then invalidate cached render/physics
-    //    SoA data because solver writeback may have changed body state.
+    // 5. Emit bounded Debug diagnostics before PhysicsScene invalidates cached
+    //    model SoA data at the compatibility boundary.
     //
     // Determinism note: changing this ordering can change byte-exact physics
     // baselines even when the final scene "looks" similar.
@@ -849,8 +849,6 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
         m_diagnostics.EmitFrame( modelAccess, bodyStore, colliderStore, fChangeInTime );
     }
 #endif
-
-    modelAccess.InvalidatePhysicsStreams();
 }
 
 

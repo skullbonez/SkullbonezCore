@@ -152,6 +152,7 @@ PHYSICS_WORLD_SOLVER_MODEL_STREAM_FUNCTIONS = (
 )
 PHYSICS_WORLD_SOLVER_MODEL_STREAM_PATTERN = re.compile(r"\b(?:GameModelBodyStream|GetBodyStream)\b")
 PHYSICS_WORLD_CONTACT_HIGHLIGHT_TICK_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*TickContactHighlights\s*\(")
+PHYSICS_WORLD_RUN_PHYSICS_INVALIDATION_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*InvalidatePhysicsStreams\s*\(")
 RENDER_INSTANCE_MODEL_REFRESH_PATTERN = re.compile(
     r"\brenderInstanceStore\s*\.\s*Refresh\s*\(\s*m_gameModels\s*\)"
 )
@@ -1997,6 +1998,37 @@ def check_physics_world_contact_highlight_tick_guardrails_text(path: Path, text:
 def check_physics_world_contact_highlight_tick_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / PHYSICS_WORLD_SOURCE
     return check_physics_world_contact_highlight_tick_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_physics_world_run_invalidation_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != "PhysicsWorld.cpp":
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    function_pattern = re.compile(r"\bvoid\s+PhysicsWorld::RunPhysics\s*\([^{}]*\)\s*\{", re.S)
+    for function_match in function_pattern.finditer(stripped):
+        open_brace = stripped.find("{", function_match.start(), function_match.end())
+        if open_brace < 0:
+            continue
+        close_brace = find_matching_close_brace(stripped, open_brace)
+        for match in PHYSICS_WORLD_RUN_PHYSICS_INVALIDATION_PATTERN.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "physics world model stream invalidation is blocked",
+                    (
+                        "Invalidate GameModel SoA streams at the PhysicsScene compatibility edge after "
+                        "PhysicsWorld::RunPhysics returns."
+                    ),
+                )
+            )
+    return errors
+
+
+def check_physics_world_run_invalidation_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / PHYSICS_WORLD_SOURCE
+    return check_physics_world_run_invalidation_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_render_instance_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -7112,6 +7144,60 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only PhysicsWorld contact-highlight tick synthetic text was rejected")
 
+    old_world_run_invalidation = """
+    void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
+    {
+        StepBodyStores();
+        modelAccess.InvalidatePhysicsStreams();
+    }
+    """
+    if not any(
+        error.message == "physics world model stream invalidation is blocked"
+        for error in check_physics_world_run_invalidation_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+            old_world_run_invalidation,
+        )
+    ):
+        failures.append("old PhysicsWorld RunPhysics stream invalidation synthetic surface was not rejected")
+
+    allowed_world_wake_invalidation = """
+    void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess )
+    {
+        modelAccess.InvalidatePhysicsStreams();
+    }
+    """
+    if check_physics_world_run_invalidation_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        allowed_world_wake_invalidation,
+    ):
+        failures.append("non-RunPhysics PhysicsWorld stream invalidation synthetic surface was rejected")
+
+    allowed_scene_run_invalidation = """
+    void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
+    {
+        m_world.RunPhysics( modelAccess, bodyStore, colliderStore, dt, config, forces, workerPool );
+        modelAccess.InvalidatePhysicsStreams();
+    }
+    """
+    if check_physics_world_run_invalidation_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        allowed_scene_run_invalidation,
+    ):
+        failures.append("PhysicsScene stream invalidation synthetic surface was rejected")
+
+    commented_world_run_invalidation = """
+    void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
+    {
+        // modelAccess.InvalidatePhysicsStreams() used to live here.
+        StepBodyStores();
+    }
+    """
+    if check_physics_world_run_invalidation_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        commented_world_run_invalidation,
+    ):
+        failures.append("comment-only PhysicsWorld RunPhysics stream invalidation synthetic text was rejected")
+
     old_render_instance_model_refresh = """
     void GameModelCollection::RefreshRenderInstances( RenderInstanceStore& renderInstanceStore )
     {
@@ -8382,6 +8468,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_world_solver_body_writeback_guardrails(repo))
     errors.extend(check_physics_world_solver_model_stream_guardrails(repo))
     errors.extend(check_physics_world_contact_highlight_tick_guardrails(repo))
+    errors.extend(check_physics_world_run_invalidation_guardrails(repo))
     errors.extend(check_render_instance_store_authority_guardrails(repo))
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))

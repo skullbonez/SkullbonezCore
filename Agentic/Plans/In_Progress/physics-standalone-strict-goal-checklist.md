@@ -196,7 +196,7 @@ path, then compatibility writeback shrinks behind explicit adapters.
   - [ ] `tools\validate_perf.bat` if hot-loop layout, reserve behavior, or
     iteration order changes.
 
-Latest strict-step authority slice: contact-highlight ticking moved out of
+Strict-step authority slice `PHY-0207H`: contact-highlight ticking moved out of
 `PhysicsWorld::RunPhysics` and into `PhysicsScene::RunPhysics`. The tick is
 model-owned presentation state, so `PhysicsWorld` no longer reaches through
 `PhysicsModelAccess` for that timer while stepping body/collider stores. The
@@ -206,6 +206,18 @@ boundary checker now rejects `modelAccess.TickContactHighlights(...)` in
 `tools\validate_fast.bat` passed in 24.9s; `tools\validate_physics.bat` passed in
 14.3s with byte-exact `physics_regression_solver.csv`; `tools\validate_perf.bat`
 passed on rerun in 21.5s after an initial +0.06 MB memory-threshold miss.
+
+Latest strict-step authority slice `PHY-0207I`: post-step model stream
+invalidation moved out of `PhysicsWorld::RunPhysics` and into
+`PhysicsScene::RunPhysics` immediately after the world step returns. Other
+explicit `PhysicsWorld` wake/release paths may still invalidate after their
+side effects; the new checker blocks only `InvalidatePhysicsStreams()` inside
+`PhysicsWorld::RunPhysics`. Evidence: py_compile and runtime-boundary checks
+passed with 0 errors; focused Debug build passed in 4.8s with 0 warnings/errors;
+`tools\validate_fast.bat` passed on rerun in 27.3s after targeted formatting;
+`tools\validate_physics.bat` passed in 14.3s with byte-exact
+`physics_regression_solver.csv`; `tools\validate_perf.bat` passed in 22.6s with
+no DX12 or PHYSICS_BENCH regressions.
 
 ## Phase 3 - Collider Store Authority
 

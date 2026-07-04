@@ -220,6 +220,10 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
     m_lastWorldForces = worldForces;
     m_hasLastWorldForces = true;
     m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime, config, worldForces, workerPool );
+    // Why: model stream caches belong to the compatibility model view. The
+    // world step may mirror body state back to GameModel, but PhysicsScene owns
+    // the boundary where those cached SoA streams become stale.
+    modelAccess.InvalidatePhysicsStreams();
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
 }
 
