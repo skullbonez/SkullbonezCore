@@ -42,6 +42,7 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "../RuntimePickService.h"
 #include "../../GameObjects/GameModelCollectionPhysicsAdapter.h"
+#include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/PhysicsModelAccess.h"
 #include "../RuntimeFileWriter.h"

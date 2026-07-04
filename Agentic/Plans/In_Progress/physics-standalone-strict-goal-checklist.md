@@ -743,6 +743,13 @@ lookup followed by targeted source reads, comment-style audit of
   pending-impulse `WriteBackPhysicsBody`/`InvalidatePhysicsStreams` shape while
   allowing store-only pending impulses and the remaining wake compatibility
   path.
+- [x] Move replay prediction body-state backup off `GameModel` physics getters:
+  pose, orientation, velocity, mass, inertia, fixed state, and replay id now
+  come from `PhysicsBodyStore` records; `GameModel` remains only for the
+  fixed-contact presentation timer.
+- [x] Add runtime-boundary self-tests that reject `GameModel` physics getters
+  and the model-refreshing `GetPhysicsBodyStore()` accessor inside prediction
+  body capture, while allowing direct `PhysicsEngine::BodyStore()` reads.
 - [x] Comment-audit the touched source files.
 - [x] Validation for this slice:
   - [x] `git diff --check`
@@ -759,6 +766,19 @@ pending-only command path without changing the explicit `ApplyBodyImpulse`
 wake/presentation edge. Evidence logs: `TestOutput\agent_validate_fast_pending_impulse_mirror.log`
 and `TestOutput\agent_validate_physics_pending_impulse_mirror.log`; the physics
 gate passed with byte-exact `physics_regression_solver.csv`.
+
+Follow-up slice `PHY-1002`: replay prediction backup now reads simulation state
+from the current `PhysicsEngine::BodyStore()` rather than from `GameModel`
+physics getters or the model-refreshing `GetPhysicsBodyStore()` helper. This
+removes the immediate prediction dependency that made
+`PhysicsScene::SetBodyVelocity` keep a one-body compatibility writeback after
+velocity edits. Evidence logs:
+`TestOutput\agent_validate_fast_prediction_body_capture.log` and
+`TestOutput\agent_validate_physics_prediction_body_capture.log`; the physics
+gate passed with byte-exact `physics_regression_solver.csv`. The next narrow
+store-authority deletion should remove the velocity command's compatibility
+writeback/invalidation if caller review still shows no model-state reader left
+on that path.
 
 ## Required Evidence For Each Source Slice
 

@@ -101,6 +101,7 @@ EDITOR_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp")
 MOUSE_PICKUP_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl")
 RUNTIME_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp")
 REPLAY_VELOCITY_EDIT_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl")
+REPLAY_PREDICTION_HELPERS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl")
 REPLAY_RECORDER_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
 RUNTIME_RENDER_PASS_CAPABILITY_SOURCES = (
@@ -204,6 +205,13 @@ REPLAY_RECORDER_MODEL_STATE_CAPTURE_PATTERN = re.compile(
     r"\b(?:ShapeKindForModel\s*\(|[A-Za-z_]\w*\s*(?:->|\.)\s*"
     r"(?:GetReplayBodyId|GetCollisionShape|GetPosition|GetVelocity|GetAngularVelocity|GetOrientation|GetMass|"
     r"GetInvertedMass|GetRotationalInertia|GetInvertedRotationalInertia|IsFixed)\s*\()"
+)
+REPLAY_PREDICTION_CAPTURE_BODY_FUNCTION_PATTERN = re.compile(r"\bbool\s+CaptureReplayPredictionBodyState\s*\(")
+REPLAY_PREDICTION_MODEL_STATE_CAPTURE_PATTERN = re.compile(
+    r"\bmodel\s*(?:->|\.)\s*"
+    r"(?:GetReplayBodyId|GetPosition|GetVelocity|GetAngularVelocity|GetOrientation|GetMass|"
+    r"GetInvertedMass|GetRotationalInertia|GetInvertedRotationalInertia|IsFixed)\s*\("
+    r"|\bmodelCollection\s*\.\s*GetPhysicsBodyStore\s*\("
 )
 RUN_REPLAY_RESTORE_BODY_STORE_REFRESH_PATTERN = re.compile(
     r"\bm_cGameModelCollection\s*\.\s*GetPhysicsBodyStore\s*\("
@@ -2492,6 +2500,38 @@ def check_replay_recorder_store_authority_guardrails_text(path: Path, text: str)
 def check_replay_recorder_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / REPLAY_RECORDER_SOURCE
     return check_replay_recorder_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_replay_prediction_body_capture_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    bounds = _function_body_bounds(stripped, REPLAY_PREDICTION_CAPTURE_BODY_FUNCTION_PATTERN)
+    if not bounds:
+        return errors
+
+    open_brace, close_brace = bounds
+    for match in REPLAY_PREDICTION_MODEL_STATE_CAPTURE_PATTERN.finditer(stripped, open_brace, close_brace):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay prediction model-state capture is blocked",
+                (
+                    "Replay prediction backup must read physics state from PhysicsBodyStore records. GameModel may "
+                    "supply presentation-only timers, but not pose, velocity, mass, inertia, fixed state, replay id, "
+                    "or a model-refreshing body-store accessor."
+                ),
+            )
+        )
+    return errors
+
+
+def check_replay_prediction_body_capture_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / REPLAY_PREDICTION_HELPERS_SOURCE
+    return check_replay_prediction_body_capture_store_authority_guardrails_text(
+        path,
+        path.read_text(encoding="utf-8"),
+    )
 
 
 def check_run_replay_restore_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -8361,6 +8401,80 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only replay recorder model-state synthetic text was rejected")
 
+    old_prediction_model_state_capture = """
+    bool CaptureReplayPredictionBodyState( GameModelCollection& modelCollection )
+    {
+        const GameModel* model = modelCollection.TryGetModel( i );
+        backup.id.value = model->GetReplayBodyId();
+        backup.position = model->GetPosition();
+        backup.linearVelocity = model->GetVelocity();
+        backup.mass = model->GetMass();
+        backup.fixed = model->IsFixed();
+        return true;
+    }
+    """
+    if not any(
+        error.message == "replay prediction model-state capture is blocked"
+        for error in check_replay_prediction_body_capture_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"),
+            old_prediction_model_state_capture,
+        )
+    ):
+        failures.append("old replay prediction model-state capture synthetic surface was not rejected")
+
+    old_prediction_refreshing_body_store_capture = """
+    bool CaptureReplayPredictionBodyState( GameModelCollection& modelCollection )
+    {
+        const PhysicsBodyStore& bodyStore = modelCollection.GetPhysicsBodyStore();
+        Use( bodyStore );
+        return true;
+    }
+    """
+    if not any(
+        error.message == "replay prediction model-state capture is blocked"
+        for error in check_replay_prediction_body_capture_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"),
+            old_prediction_refreshing_body_store_capture,
+        )
+    ):
+        failures.append("old replay prediction refreshing body-store synthetic surface was not rejected")
+
+    store_owned_prediction_capture = """
+    bool CaptureReplayPredictionBodyState( GameModelCollection& modelCollection )
+    {
+        const std::vector<PhysicsBodyRecord>& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
+        const GameModel* model = modelCollection.TryGetModel( i );
+        const PhysicsBodyRecord& body = bodyRecords[i];
+        backup.id.value = body.replayBodyId;
+        backup.position = body.position;
+        backup.linearVelocity = body.linearVelocity;
+        backup.mass = body.mass;
+        backup.fixed = body.isFixed;
+        backup.fixedContactHighlightSeconds = model->GetFixedContactHighlightSeconds();
+        return true;
+    }
+    """
+    if check_replay_prediction_body_capture_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"),
+        store_owned_prediction_capture,
+    ):
+        failures.append("store-owned replay prediction capture synthetic surface was rejected")
+
+    commented_prediction_model_state_capture = """
+    bool CaptureReplayPredictionBodyState( GameModelCollection& modelCollection )
+    {
+        // model->GetVelocity() and modelCollection.GetPhysicsBodyStore() used to live here.
+        const PhysicsBodyRecord& body = bodyRecords[i];
+        backup.linearVelocity = body.linearVelocity;
+        return true;
+    }
+    """
+    if check_replay_prediction_body_capture_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"),
+        commented_prediction_model_state_capture,
+    ):
+        failures.append("comment-only replay prediction model-state synthetic text was rejected")
+
     old_run_replay_restore_body_store_reload = """
     bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample )
     {
@@ -9553,6 +9667,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_render_instance_store_authority_guardrails(repo))
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))
+    errors.extend(check_replay_prediction_body_capture_store_authority_guardrails(repo))
     errors.extend(check_replay_restore_store_authority_guardrails(repo))
     errors.extend(check_physics_scene_step_body_reload_guardrails(repo))
     errors.extend(check_physics_scene_pending_impulse_model_mirror_guardrails(repo))

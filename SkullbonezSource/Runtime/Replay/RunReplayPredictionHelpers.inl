@@ -10,10 +10,14 @@ Mental model:
 Glossary:
   Future node: Body discovered by following retained or predicted contacts away from a target.
   Prediction frame: Temporary replay frame captured while fast-forwarding live physics.
+  Body record: Physics-owned row holding pose, velocity, mass, inertia, and
+    fixed/dynamic state for one replay body.
 
 Invariants:
   - Prediction helpers must honor the shared replay visualizer time budget.
   - This file must only be included from RunReplayTools.cpp inside the anonymous namespace.
+  - Prediction backups sample simulation state from body records; GameModel
+    remains only for presentation-owned timers.
 
 Related:
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
@@ -1086,6 +1090,12 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureBodyState" );
     const int modelCount = modelCollection.GetModelCount();
+    const std::vector<PhysicsBodyRecord>& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
+    if ( static_cast<int>( bodyRecords.size() ) < modelCount )
+    {
+        return false;
+    }
+
     outBodies.clear();
     outBodies.resize( static_cast<std::size_t>( modelCount ) );
 
@@ -1097,25 +1107,26 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
             return;
         }
 
+        const PhysicsBodyRecord& body = bodyRecords[static_cast<std::size_t>( i )];
         RunReplayPredictionBodyBackup backup;
-        backup.id.value = model->GetReplayBodyId();
+        backup.id.value = body.replayBodyId;
         backup.modelIndex = i;
-        backup.position = model->GetPosition();
-        backup.orientation = model->GetOrientation();
-        backup.linearVelocity = model->GetVelocity();
-        backup.angularVelocity = model->GetAngularVelocity();
-        backup.mass = model->GetMass();
-        backup.inverseMass = model->GetInvertedMass();
-        backup.rotationalInertia = model->GetRotationalInertia();
-        backup.inverseRotationalInertia = model->GetInvertedRotationalInertia();
+        backup.position = body.position;
+        backup.orientation = body.orientation;
+        backup.linearVelocity = body.linearVelocity;
+        backup.angularVelocity = body.angularVelocity;
+        backup.mass = body.mass;
+        backup.inverseMass = body.invMass;
+        backup.rotationalInertia = body.rotationalInertia;
+        backup.inverseRotationalInertia = body.invRotationalInertia;
         backup.fixedContactHighlightSeconds = model->GetFixedContactHighlightSeconds();
-        backup.fixed = model->IsFixed();
+        backup.fixed = body.isFixed;
         outBodies[static_cast<std::size_t>( i )] = backup;
     };
 
-    // Invariant: this loop is read-only and writes one output slot per body, so
-    // it is deterministic under fork-join. Applying backups remains serial
-    // because it mutates live GameModel state.
+    // Invariant: this loop reads authoritative body records and one
+    // presentation timer, then writes one output slot per body. Applying
+    // backups remains serial because it mutates live GameModel state.
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
         workerPool.ParallelFor( 0,
