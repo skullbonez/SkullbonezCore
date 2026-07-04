@@ -166,9 +166,6 @@ PhysicsWorld::PhysicsWorld()
     m_objectNarrowphaseRank.reserve( MAX_GAME_MODELS );
     m_objectNarrowphaseRootToIsland.reserve( MAX_GAME_MODELS );
     m_pointJointConstraints.reserve( MAX_GAME_MODELS );
-#ifdef _DEBUG
-    m_physicsDiagnosticsModelNames.reserve( MAX_GAME_MODELS );
-#endif
 }
 
 
@@ -829,10 +826,21 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
 }
 
 
-void PhysicsWorld::EmitStepDiagnostics( PhysicsModelAccess& modelAccess,
-                                        const PhysicsBodyStore& bodyStore,
+bool PhysicsWorld::ShouldEmitStepDiagnostics() const
+{
+#ifdef _DEBUG
+    return !m_diagnosticsSuppressed && ( m_diagnostics.IsRegressionLogEnabled() || m_diagnostics.IsFrameLogEnabled() );
+#else
+    return false;
+#endif
+}
+
+
+void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
                                         const ColliderStore& colliderStore,
-                                        float fChangeInTime )
+                                        float fChangeInTime,
+                                        const char* const* diagnosticNames,
+                                        int diagnosticNameCount )
 {
 #ifdef _DEBUG
     if ( !m_diagnosticsSuppressed )
@@ -841,9 +849,7 @@ void PhysicsWorld::EmitStepDiagnostics( PhysicsModelAccess& modelAccess,
         const bool frameLogEnabled = m_diagnostics.IsFrameLogEnabled();
         if ( regressionLogEnabled || frameLogEnabled )
         {
-            modelAccess.FillPhysicsDiagnosticsNames( bodyStore.Count(), m_physicsDiagnosticsModelNames );
-            const PhysicsDiagnosticsNameView names{ m_physicsDiagnosticsModelNames.data(),
-                                                    static_cast<int>( m_physicsDiagnosticsModelNames.size() ) };
+            const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
             const PhysicsDiagnosticsView diagnosticsView = GetDiagnosticsView();
             const PhysicsDiagnosticsFrameInput frame{ diagnosticsView, bodyStore, colliderStore, names, fChangeInTime };
             if ( regressionLogEnabled )
@@ -858,10 +864,11 @@ void PhysicsWorld::EmitStepDiagnostics( PhysicsModelAccess& modelAccess,
         m_diagnostics.IncrementCollisionTimeFrameIfEnabled();
     }
 #else
-    (void)modelAccess;
     (void)bodyStore;
     (void)colliderStore;
     (void)fChangeInTime;
+    (void)diagnosticNames;
+    (void)diagnosticNameCount;
 #endif
 }
 
@@ -1314,22 +1321,6 @@ bool PhysicsWorld::SetDiagnosticsSuppressed( bool suppressed )
 }
 
 
-void PhysicsWorld::EmitPhysicsDiagnosticsFrame( PhysicsModelAccess& modelAccess,
-                                                const PhysicsBodyStore& bodyStore,
-                                                const ColliderStore& colliderStore,
-                                                float dt )
-{
-    if ( m_diagnosticsSuppressed || !m_diagnostics.IsFrameLogEnabled() )
-    {
-        return;
-    }
-    modelAccess.FillPhysicsDiagnosticsNames( bodyStore.Count(), m_physicsDiagnosticsModelNames );
-    const PhysicsDiagnosticsNameView names{ m_physicsDiagnosticsModelNames.data(),
-                                            static_cast<int>( m_physicsDiagnosticsModelNames.size() ) };
-    const PhysicsDiagnosticsView diagnosticsView = GetDiagnosticsView();
-    const PhysicsDiagnosticsFrameInput frame{ diagnosticsView, bodyStore, colliderStore, names, dt };
-    m_diagnostics.EmitFrame( frame );
-}
 #endif
 
 

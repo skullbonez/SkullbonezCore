@@ -280,7 +280,6 @@ class PhysicsWorld
     SleepIslandSystem m_sleepIslandSystem;
     PhysicsDiagnosticsSink m_diagnostics;
 #ifdef _DEBUG
-    std::vector<const char*> m_physicsDiagnosticsModelNames;
     bool m_diagnosticsSuppressed = false;
 #endif
 
@@ -292,12 +291,6 @@ class PhysicsWorld
                            const PhysicsWorldForces& worldForces,
                            Threading::WorkerPool& workerPool );
     void SolvePersistentObjectContacts( PhysicsModelAccess& modelAccess, float dt );
-#ifdef _DEBUG
-    void EmitPhysicsDiagnosticsFrame( PhysicsModelAccess& modelAccess,
-                                      const PhysicsBodyStore& bodyStore,
-                                      const ColliderStore& colliderStore,
-                                      float dt );
-#endif
     void EmitPhysicsCollisionTime( PhysicsModelAccess& modelAccess,
                                    const char* type,
                                    int bodyA,
@@ -396,12 +389,14 @@ class PhysicsWorld
                      const PhysicsWorldForces& worldForces,
                      Threading::WorkerPool& workerPool );
     // Emits Debug-only regression and SkullScope records from the stores the
-    // caller passes in. PhysicsScene controls the call order so diagnostics see
-    // scene-edge store side effects before the model compatibility mirror.
-    void EmitStepDiagnostics( PhysicsModelAccess& modelAccess,
-                              const PhysicsBodyStore& bodyStore,
+    // caller passes in. PhysicsScene owns the cold presentation-name overlay so
+    // diagnostics do not borrow the model owner from inside PhysicsWorld.
+    bool ShouldEmitStepDiagnostics() const;
+    void EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
                               const ColliderStore& colliderStore,
-                              float fChangeInTime );
+                              float fChangeInTime,
+                              const char* const* diagnosticNames,
+                              int diagnosticNameCount );
     // Wake and seed decisions read physics-owned fixed/sleep state before the
     // scene edge performs any compatibility writeback/cache invalidation.
     void WakeModel( PhysicsBodyStore& bodyStore, int index );

@@ -53,7 +53,7 @@ namespace Physics
 class PhysicsScene
 {
   public:
-    PhysicsScene() = default;
+    PhysicsScene();
 
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
     void Clear();
@@ -147,6 +147,8 @@ class PhysicsScene
 #ifdef _DEBUG
     void ValidatePhysicsStoreMappings( int modelCount ) const;
     void ValidateRenderStoreMappings( int modelCount ) const;
+    // Debug-only cold name overlay for diagnostics emission.
+    std::vector<const char*> m_physicsDiagnosticsModelNames;
 #endif
 
     PhysicsWorld m_world;                                 // Deterministic solver and debug state over body-store records.

@@ -39,6 +39,8 @@ Related:
 #include "PhysicsScene.h"
 #include "PhysicsApi.h"
 
+#include "../Core/Common.h"
+
 #include <cassert>
 #include <cstddef>
 
@@ -52,6 +54,14 @@ using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Physics::PhysicsScene;
+
+
+PhysicsScene::PhysicsScene()
+{
+#ifdef _DEBUG
+    m_physicsDiagnosticsModelNames.reserve( MAX_GAME_MODELS );
+#endif
+}
 
 
 void PhysicsScene::ApplyRuntimeConfig( const Basics::EngineConfig& config )
@@ -244,7 +254,19 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
     }
     ApplyFixedTreeReleaseEvents( modelAccess, worldForces );
 
-    m_world.EmitStepDiagnostics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime );
+    const char* const* diagnosticsNames = nullptr;
+    int diagnosticsNameCount = 0;
+#ifdef _DEBUG
+    if ( m_world.ShouldEmitStepDiagnostics() )
+    {
+        // Why: Debug rows still need presentation names, but PhysicsWorld should
+        // not borrow the model owner just to format diagnostics after the solve.
+        modelAccess.FillPhysicsDiagnosticsNames( m_bodyStore.Count(), m_physicsDiagnosticsModelNames );
+        diagnosticsNames = m_physicsDiagnosticsModelNames.empty() ? nullptr : m_physicsDiagnosticsModelNames.data();
+        diagnosticsNameCount = static_cast<int>( m_physicsDiagnosticsModelNames.size() );
+    }
+#endif
+    m_world.EmitStepDiagnostics( m_bodyStore, m_colliderStore, fChangeInTime, diagnosticsNames, diagnosticsNameCount );
 
     // Compatibility owner: PhysicsScene step boundary.
     // Reason: editor and replay compatibility consumers still read GameModel

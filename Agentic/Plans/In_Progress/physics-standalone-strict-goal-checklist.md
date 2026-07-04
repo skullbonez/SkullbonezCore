@@ -919,6 +919,42 @@ body/collider topology refresh before entering the command. Evidence logs:
 `TestOutput\agent_validate_physics_velocity_signatures.log`; the physics gate
 passed with byte-exact `physics_regression_solver.csv`.
 
+Slice `PHY-1009`: move Debug step-diagnostics presentation-name collection out
+of `PhysicsWorld` and into the `PhysicsScene` compatibility edge. `PhysicsWorld`
+now emits regression/SkullScope step diagnostics from store views plus an
+optional cold names pointer/count, without borrowing `PhysicsModelAccess` or
+owning name scratch.
+
+- [x] Move the Debug diagnostics name scratch vector from `PhysicsWorld` to
+  `PhysicsScene`.
+- [x] Add `PhysicsWorld::ShouldEmitStepDiagnostics()` so `PhysicsScene` only
+  fills names when Debug diagnostics are actually enabled.
+- [x] Change `PhysicsWorld::EmitStepDiagnostics` to accept store views plus
+  diagnostic names, not `PhysicsModelAccess`.
+- [x] Delete the unused
+  `EmitPhysicsDiagnosticsFrame(PhysicsModelAccess&, ...)` helper.
+- [x] Add runtime-boundary self-tests that reject the old step-diagnostics
+  model-access signature, helper, and `FillPhysicsDiagnosticsNames` call inside
+  `PhysicsWorld`.
+- [x] Comment-audit the touched source files.
+- [x] Validation for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Follow-up slice `PHY-1009`: step diagnostics no longer borrow
+`PhysicsModelAccess` from inside `PhysicsWorld`. `PhysicsScene` owns the
+Debug-only presentation-name scratch and only fills it when
+`PhysicsWorld::ShouldEmitStepDiagnostics()` says regression or SkullScope frame
+logs are enabled; `PhysicsWorld::EmitStepDiagnostics` receives body/collider
+stores plus a names pointer/count. Evidence logs:
+`TestOutput\agent_validate_fast_step_diagnostics_names.log` and
+`TestOutput\agent_validate_physics_step_diagnostics_names.log`; the physics gate
+passed with byte-exact `physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

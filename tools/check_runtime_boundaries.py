@@ -188,6 +188,12 @@ PHYSICS_WORLD_RUN_PHYSICS_INVALIDATION_PATTERN = re.compile(r"\bmodelAccess\s*\.
 PHYSICS_WORLD_RUN_PHYSICS_DIAGNOSTICS_PATTERN = re.compile(
     r"\bm_diagnostics\s*\.\s*(?:EmitRegressionLog|IncrementCollisionTimeFrameIfEnabled|EmitFrame)\s*\("
 )
+# Why: step diagnostics may carry cold presentation names, but PhysicsWorld
+# should consume them as a value view instead of borrowing PhysicsModelAccess.
+PHYSICS_WORLD_STEP_DIAGNOSTICS_MODEL_ACCESS_PATTERN = re.compile(
+    r"\bvoid\s+PhysicsWorld::Emit(?:StepDiagnostics|PhysicsDiagnosticsFrame)\s*\(\s*PhysicsModelAccess\s*&"
+    r"|\bmodelAccess\s*\.\s*FillPhysicsDiagnosticsNames\s*\("
+)
 RENDER_INSTANCE_MODEL_REFRESH_PATTERN = re.compile(
     r"\brenderInstanceStore\s*\.\s*Refresh\s*\(\s*m_gameModels\s*\)"
 )
@@ -2484,6 +2490,34 @@ def check_physics_world_run_diagnostics_guardrails_text(path: Path, text: str) -
 def check_physics_world_run_diagnostics_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / PHYSICS_WORLD_SOURCE
     return check_physics_world_run_diagnostics_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_physics_world_step_diagnostics_model_access_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name not in { "PhysicsWorld.cpp", "PhysicsWorld.h" }:
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_WORLD_STEP_DIAGNOSTICS_MODEL_ACCESS_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "physics world step diagnostics model access is blocked",
+                (
+                    "PhysicsScene owns the cold diagnostics name overlay; PhysicsWorld step diagnostics "
+                    "must consume store-owned views plus names, not borrow PhysicsModelAccess."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_world_step_diagnostics_model_access_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in ( PHYSICS_WORLD_SOURCE, PHYSICS_WORLD_HEADER ):
+        path = repo / relative_path
+        errors.extend(check_physics_world_step_diagnostics_model_access_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_render_instance_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -8472,10 +8506,12 @@ def run_self_tests() -> list[str]:
         failures.append("old PhysicsWorld RunPhysics diagnostics synthetic surface was not rejected")
 
     allowed_world_step_diagnostics = """
-    void PhysicsWorld::EmitStepDiagnostics( PhysicsModelAccess& modelAccess )
+    void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore )
     {
-        m_diagnostics.EmitRegressionLog( *this, modelAccess, bodyStore, colliderStore );
-        m_diagnostics.EmitFrame( modelAccess, bodyStore, colliderStore, dt );
+        const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
+        const PhysicsDiagnosticsFrameInput frame{ GetDiagnosticsView(), bodyStore, colliderStore, names, dt };
+        m_diagnostics.EmitRegressionLog( frame );
+        m_diagnostics.EmitFrame( frame );
     }
     """
     if check_physics_world_run_diagnostics_guardrails_text(
@@ -8496,6 +8532,67 @@ def run_self_tests() -> list[str]:
         commented_world_run_diagnostics,
     ):
         failures.append("comment-only PhysicsWorld RunPhysics diagnostics synthetic text was rejected")
+
+    old_world_step_diagnostics_model_access = """
+    void PhysicsWorld::EmitStepDiagnostics( PhysicsModelAccess& modelAccess,
+                                            const PhysicsBodyStore& bodyStore,
+                                            const ColliderStore& colliderStore,
+                                            float dt )
+    {
+        modelAccess.FillPhysicsDiagnosticsNames( bodyStore.Count(), m_physicsDiagnosticsModelNames );
+        m_diagnostics.EmitFrame( frame );
+    }
+    void PhysicsWorld::EmitPhysicsDiagnosticsFrame( PhysicsModelAccess& modelAccess,
+                                                    const PhysicsBodyStore& bodyStore )
+    {
+        modelAccess.FillPhysicsDiagnosticsNames( bodyStore.Count(), m_physicsDiagnosticsModelNames );
+    }
+    """
+    if not any(
+        error.message == "physics world step diagnostics model access is blocked"
+        for error in check_physics_world_step_diagnostics_model_access_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+            old_world_step_diagnostics_model_access,
+        )
+    ):
+        failures.append("old PhysicsWorld step diagnostics model-access synthetic surface was not rejected")
+
+    allowed_world_step_diagnostics_names = """
+    bool PhysicsWorld::ShouldEmitStepDiagnostics() const
+    {
+        return !m_diagnosticsSuppressed && m_diagnostics.IsFrameLogEnabled();
+    }
+    void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
+                                            const ColliderStore& colliderStore,
+                                            float dt,
+                                            const char* const* diagnosticNames,
+                                            int diagnosticNameCount )
+    {
+        const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
+        const PhysicsDiagnosticsFrameInput frame{ GetDiagnosticsView(), bodyStore, colliderStore, names, dt };
+        m_diagnostics.EmitFrame( frame );
+    }
+    """
+    if check_physics_world_step_diagnostics_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        allowed_world_step_diagnostics_names,
+    ):
+        failures.append("model-free PhysicsWorld step diagnostics synthetic surface was rejected")
+
+    commented_world_step_diagnostics_model_access = """
+    void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore )
+    {
+        // EmitStepDiagnostics(PhysicsModelAccess& modelAccess, ...) used to format names here.
+        // modelAccess.FillPhysicsDiagnosticsNames(bodyStore.Count(), names) used to run here.
+        const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
+        m_diagnostics.EmitFrame( frame );
+    }
+    """
+    if check_physics_world_step_diagnostics_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        commented_world_step_diagnostics_model_access,
+    ):
+        failures.append("comment-only PhysicsWorld step diagnostics model-access synthetic text was rejected")
 
     old_render_instance_model_refresh = """
     void GameModelCollection::RefreshRenderInstances( RenderInstanceStore& renderInstanceStore )
@@ -10376,6 +10473,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_world_run_invalidation_guardrails(repo))
     errors.extend(check_physics_world_run_writeback_guardrails(repo))
     errors.extend(check_physics_world_run_diagnostics_guardrails(repo))
+    errors.extend(check_physics_world_step_diagnostics_model_access_guardrails(repo))
     errors.extend(check_render_instance_store_authority_guardrails(repo))
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))
