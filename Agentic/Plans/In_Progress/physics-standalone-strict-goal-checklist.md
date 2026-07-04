@@ -362,7 +362,7 @@ model indices stop entering physics commands directly.
   - [x] scene setup,
   - [x] editor tools,
   - [x] mouse pickup tools,
-  - [ ] launcher tools,
+  - [x] launcher tools,
   - [ ] replay velocity edit,
   - [ ] replay restore/prediction,
   - [ ] diagnostics and debug overlays.
@@ -410,6 +410,16 @@ through the runtime tool boundary, and applies the impulse through
 `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
 `tools\validate_format.bat`, `tools\validate_fast.bat`, and
 `tools\validate_physics.bat` all passed.
+
+Launcher laser impact and projectile spawn/wake now keep model indices as
+launcher hit/spawn identity only. The launcher boundary resolves
+`PhysicsBodyHandle` and calls `PhysicsEngine::ApplyBodyImpulse` or
+`PhysicsEngine::WakeBody`. The boundary checker now rejects `collection`
+model-index physics wrappers from returning in `RuntimeTools.cpp`. Evidence for
+this slice: `python -m py_compile tools\check_runtime_boundaries.py`,
+`python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+`tools\validate_format.bat`, `tools\validate_fast.bat`, and
+`tools\validate_full.bat` all passed.
 
 ## Phase 8 - Diagnostics And SkullScope
 

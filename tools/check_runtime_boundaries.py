@@ -95,6 +95,7 @@ SCENE_GENERATED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneGenerat
 EDITOR_OBJECT_PLACEMENT_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl")
 EDITOR_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp")
 MOUSE_PICKUP_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl")
+RUNTIME_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp")
 REPLAY_RECORDER_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
 RUNTIME_RENDER_PASS_CAPABILITY_SOURCES = (
@@ -220,6 +221,10 @@ EDITOR_PHYSICS_COMMAND_SOURCES = (
 )
 MOUSE_PICKUP_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\bm_cGameModelCollection\s*\.\s*"
+    r"(?:SetPendingBodyImpulse|SeedModelAsleep|WakeModel|ApplyBodyImpulse)\s*\("
+)
+LAUNCHER_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
+    r"\bcollection\s*\.\s*"
     r"(?:SetPendingBodyImpulse|SeedModelAsleep|WakeModel|ApplyBodyImpulse)\s*\("
 )
 HOT_PATH_INHERITANCE_PATTERN = re.compile(
@@ -2273,6 +2278,29 @@ def check_mouse_pickup_model_index_physics_command_guardrails_text(path: Path, t
 def check_mouse_pickup_model_index_physics_command_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / MOUSE_PICKUP_TOOLS_SOURCE
     return check_mouse_pickup_model_index_physics_command_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_launcher_model_index_physics_command_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in LAUNCHER_MODEL_INDEX_PHYSICS_COMMAND_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "launcher model-index physics command is blocked",
+                (
+                    "Launcher tools may identify hits and spawned projectiles by model index, but physics mutation "
+                    "should resolve PhysicsBodyHandle at the launcher boundary and call PhysicsEngine handle commands."
+                ),
+            )
+        )
+    return errors
+
+
+def check_launcher_model_index_physics_command_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / RUNTIME_TOOLS_SOURCE
+    return check_launcher_model_index_physics_command_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_physics_hot_path_inheritance_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -7370,6 +7398,48 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only mouse pickup model-index command synthetic text was rejected")
 
+    old_launcher_model_index_command = """
+    void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
+    {
+        collection.ApplyBodyImpulse( modelHitIndex, impulse, localPoint );
+        collection.WakeModel( projectileIndex );
+    }
+    """
+    if not any(
+        error.message == "launcher model-index physics command is blocked"
+        for error in check_launcher_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
+            old_launcher_model_index_command,
+        )
+    ):
+        failures.append("old launcher model-index command synthetic surface was not rejected")
+
+    allowed_launcher_handle_command = """
+    void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
+    {
+        ApplyLauncherPhysicsImpulse( collection, modelHitIndex, impulse, localPoint );
+        WakeLauncherPhysicsBody( collection, projectileIndex );
+    }
+    """
+    if check_launcher_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
+        allowed_launcher_handle_command,
+    ):
+        failures.append("handle-keyed launcher command synthetic surface was rejected")
+
+    commented_launcher_model_index_command = """
+    void DocumentOldLauncherCommand()
+    {
+        // collection.ApplyBodyImpulse(modelHitIndex, impulse, localPoint) used to run here.
+        ApplyLauncherPhysicsImpulse( collection, modelHitIndex, impulse, localPoint );
+    }
+    """
+    if check_launcher_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
+        commented_launcher_model_index_command,
+    ):
+        failures.append("comment-only launcher model-index command synthetic text was rejected")
+
     allowed_physics_hot_path_values = """
     struct SolverBodyState
     {
@@ -7793,6 +7863,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_scene_setup_model_index_physics_command_guardrails(repo))
     errors.extend(check_editor_model_index_physics_command_guardrails(repo))
     errors.extend(check_mouse_pickup_model_index_physics_command_guardrails(repo))
+    errors.extend(check_launcher_model_index_physics_command_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))
     errors.extend(check_approved_inheritance_guardrails(repo))

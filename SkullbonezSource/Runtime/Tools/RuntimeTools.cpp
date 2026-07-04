@@ -33,7 +33,10 @@ Related:
 
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../GameObjects/GameModelCollectionPhysicsAdapter.h"
 #include "../../Physics/CollisionShape.h"
+#include "../../Physics/PhysicsEngine.h"
+#include "../../Physics/PhysicsModelAccess.h"
 #include "../CameraCollection.h"
 #include "../Replay/ReplayRecorder.h"
 #include "../../World/Terrain.h"
@@ -54,6 +57,40 @@ constexpr float LAUNCHER_PROJECTILE_MASS = 6.0f;
 constexpr float LAUNCHER_PROJECTILE_RESTITUTION = 0.42f;
 constexpr float LAUNCHER_PROJECTILE_SPAWN_LEAD = 3.2f;
 constexpr float LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
+
+// Why: launcher hits and spawned projectiles are still identified by model
+// index, but physics mutation should enter PhysicsEngine as a validated body
+// handle. Keep this conversion local until tool state stores handles directly.
+void ApplyLauncherPhysicsImpulse( GameObjects::GameModelCollection& collection,
+                                  int modelIndex,
+                                  const Math::Vector::Vector3& impulse,
+                                  const Math::Vector::Vector3& localApplicationPoint )
+{
+    GameObjects::GameModelCollectionPhysicsAdapter physicsBodies( collection );
+    const Physics::PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+    if ( !body.IsValid() )
+    {
+        return;
+    }
+
+    Physics::PhysicsModelAccess modelAccess( collection );
+    collection.GetPhysicsEngine().ApplyBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
+}
+
+
+void WakeLauncherPhysicsBody( GameObjects::GameModelCollection& collection, int modelIndex )
+{
+    GameObjects::GameModelCollectionPhysicsAdapter physicsBodies( collection );
+    const Physics::PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+    if ( !body.IsValid() )
+    {
+        return;
+    }
+
+    Physics::PhysicsModelAccess modelAccess( collection );
+    collection.GetPhysicsEngine().WakeBody( modelAccess, body );
+}
+
 
 float LauncherModelRadius( const GameObjects::GameModel& model )
 {
@@ -435,7 +472,8 @@ void RuntimeTools::FireLauncherLaser( GameObjects::GameModelCollection& collecti
     }
 
     const Math::Vector::Vector3 hitPoint = rayOrigin + rayDirection * hitT;
-    collection.ApplyBodyImpulse( modelHitIndex,
+    ApplyLauncherPhysicsImpulse( collection,
+                                 modelHitIndex,
                                  rayDirection * m_rayCastTest.impulseStrength,
                                  hitPoint - model.GetPosition() );
     const float mass = (std::max)( 0.001f, model.GetMass() );
@@ -506,7 +544,7 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
 
     const int projectileIndex = collection.GetModelCount();
     collection.AddGameModel( std::move( projectile ) );
-    collection.WakeModel( projectileIndex );
+    WakeLauncherPhysicsBody( collection, projectileIndex );
     return true;
 }
 
