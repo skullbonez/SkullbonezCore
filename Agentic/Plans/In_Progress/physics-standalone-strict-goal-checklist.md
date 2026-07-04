@@ -1486,6 +1486,41 @@ smoke, runtime handle smoke, and byte-exact `physics_regression_solver.csv`;
 `tools\validate_fast.bat` passed formatting, project filters, runtime
 boundaries, and Profile/Debug builds with 0 warnings/errors.
 
+Slice `PHY-1025`: remove replay editor-transform restore wake use of
+`GameModelCollectionPhysicsAdapter` model-index command wrappers while keeping
+the wake-aware, count-gated handle resolver. Owner: `RunFrame` replay restore;
+reason: replay events store model identity for deterministic event validation,
+but physics wake mutation should call `PhysicsEngine` with a validated
+`PhysicsBodyHandle`; deletion condition: the `ReplayEventKind::EditorTransform`
+restore path resolves a wake-ready `PhysicsBodyHandle` with
+`BodyHandleForVelocityCommand(event.value0, true)` and calls
+`PhysicsEngine::WakeBody`; checker budget: `tools/check_runtime_boundaries.py`
+blocks RunFrame replay adapter wake wrappers from returning.
+
+- [x] Resolve replay editor-transform wake targets to `PhysicsBodyHandle`
+  before calling `PhysicsEngine::WakeBody`.
+- [x] Preserve wake-aware count-gated body/collider topology refresh through
+  the existing adapter handle resolver.
+- [x] Add runtime-boundary guardrails and self-tests for the deleted RunFrame
+  replay adapter wake-wrapper shape.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation run for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] touched-file comment audit
+  - [x] `tools\validate_physics.bat`
+  - [x] `tools\validate_full.bat`
+
+Evidence: runtime-boundary summary reported 0 errors; touched-file comment
+audit confirmed `RunFrame.cpp` and `tools/check_runtime_boundaries.py` meet the
+guide for this slice; narrow `RunFrame.cpp` clang-format fixed the only
+formatting issue found by the first `tools\validate_full.bat` attempt;
+`tools\validate_physics.bat` passed standalone smoke, runtime handle smoke, and
+byte-exact `physics_regression_solver.csv`; rerun `tools\validate_full.bat`
+passed DX12 InfoQueue with 0 errors, DX12 screenshots matching committed
+baselines, and byte-exact `physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

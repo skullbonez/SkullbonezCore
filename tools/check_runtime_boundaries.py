@@ -534,6 +534,11 @@ REPLAY_VELOCITY_MODEL_STATE_PHYSICS_COMMAND_PATTERN = re.compile(
 RUN_FRAME_REPLAY_EDITOR_TRANSFORM_WAKE_PATTERN = re.compile(
     r"\bm_cGameModelCollection\s*\.\s*WakeModel\s*\("
 )
+RUN_FRAME_REPLAY_EDITOR_TRANSFORM_ADAPTER_WAKE_PATTERN = re.compile(
+    r"\bGameModelCollectionPhysicsAdapter\s*\(\s*m_cGameModelCollection\s*\)\s*"
+    r"\.\s*WakeBodyForModelIndex\s*\(",
+    re.S,
+)
 RAGDOLL_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\bcollection\s*\.\s*(?:SeedModelAsleep|WakeModel|ApplyBodyImpulse|SetPendingBodyImpulse)\s*\("
 )
@@ -4049,6 +4054,19 @@ def check_run_frame_replay_editor_transform_wake_guardrails_text(path: Path, tex
                 (
                     "Replay editor-transform restore may keep model index as saved event identity, but wake commands "
                     "must resolve PhysicsBodyHandle and call PhysicsEngine directly."
+                ),
+            )
+        )
+    for match in RUN_FRAME_REPLAY_EDITOR_TRANSFORM_ADAPTER_WAKE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "RunFrame replay editor transform adapter wake wrapper is blocked",
+                (
+                    "Replay editor-transform restore should resolve a wake-ready PhysicsBodyHandle at the replay "
+                    "boundary, then call PhysicsEngine directly instead of hiding mutation behind the adapter "
+                    "model-index wake command wrapper."
                 ),
             )
         )
@@ -11882,12 +11900,11 @@ def run_self_tests() -> list[str]:
     allowed_run_frame_replay_editor_transform_wake = """
     bool ApplyReplayEditorTransformEvent()
     {
-        PhysicsEngine& physics = m_cGameModelCollection.GetPhysicsEngine();
-        PhysicsModelAccess modelAccess( m_cGameModelCollection );
-        const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( event.value0 );
+        GameModelCollectionPhysicsAdapter physicsBodies( m_cGameModelCollection );
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( event.value0, true );
         if ( body.IsValid() )
         {
-            physics.WakeBody( modelAccess, body );
+            m_cGameModelCollection.GetPhysicsEngine().WakeBody( body );
         }
         return true;
     }
@@ -11902,7 +11919,7 @@ def run_self_tests() -> list[str]:
     void DocumentOldReplayEditorTransformWake()
     {
         // m_cGameModelCollection.WakeModel(event.value0) used to run here.
-        physics.WakeBody( modelAccess, body );
+        m_cGameModelCollection.GetPhysicsEngine().WakeBody( body );
     }
     """
     if check_run_frame_replay_editor_transform_wake_guardrails_text(
@@ -11910,6 +11927,41 @@ def run_self_tests() -> list[str]:
         commented_run_frame_replay_editor_transform_wake,
     ):
         failures.append("comment-only RunFrame replay editor transform wake synthetic text was rejected")
+
+    old_run_frame_replay_editor_transform_adapter_wake = """
+    bool ApplyReplayEditorTransformEvent()
+    {
+        if ( !model.IsFixed() )
+        {
+            GameModelCollectionPhysicsAdapter( m_cGameModelCollection ).WakeBodyForModelIndex( event.value0 );
+        }
+        return true;
+    }
+    """
+    if not any(
+        error.message == "RunFrame replay editor transform adapter wake wrapper is blocked"
+        for error in check_run_frame_replay_editor_transform_wake_guardrails_text(
+            Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+            old_run_frame_replay_editor_transform_adapter_wake,
+        )
+    ):
+        failures.append("old RunFrame replay editor transform adapter wake synthetic surface was not rejected")
+
+    commented_run_frame_replay_editor_transform_adapter_wake = """
+    void DocumentOldReplayEditorTransformAdapterWake()
+    {
+        // GameModelCollectionPhysicsAdapter( m_cGameModelCollection ).WakeBodyForModelIndex(event.value0) used to run here.
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( event.value0, true );
+        m_cGameModelCollection.GetPhysicsEngine().WakeBody( body );
+    }
+    """
+    if check_run_frame_replay_editor_transform_wake_guardrails_text(
+        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+        commented_run_frame_replay_editor_transform_adapter_wake,
+    ):
+        failures.append(
+            "comment-only RunFrame replay editor transform adapter wake synthetic text was rejected"
+        )
 
     old_ragdoll_model_index_command = """
     void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection )

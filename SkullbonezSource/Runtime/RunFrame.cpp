@@ -1760,9 +1760,13 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             {
                 // Why: the replay event still records model identity, but the
                 // wake command should cross the physics boundary as a body
-                // handle through the count-gated model-index adapter.
-                SkullbonezCore::GameObjects::GameModelCollectionPhysicsAdapter( m_cGameModelCollection )
-                    .WakeBodyForModelIndex( event.value0 );
+                // handle through the count-gated adapter resolver.
+                SkullbonezCore::GameObjects::GameModelCollectionPhysicsAdapter physicsBodies( m_cGameModelCollection );
+                const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( event.value0, true );
+                if ( body.IsValid() )
+                {
+                    m_cGameModelCollection.GetPhysicsEngine().WakeBody( body );
+                }
             }
             WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied editor transform" );
             return true;
