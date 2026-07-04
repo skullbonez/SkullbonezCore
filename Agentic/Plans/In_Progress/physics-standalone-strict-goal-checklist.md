@@ -1381,6 +1381,42 @@ boundaries, and Profile/Debug builds with 0 warnings/errors;
 `tools\validate_physics.bat` passed standalone smoke, runtime handle smoke, and
 byte-exact `physics_regression_solver.csv` comparison.
 
+Slice `PHY-1022`: remove the remaining mouse-pickup `GameModel` body-state
+read/write path after runtime picking already moved onto store-backed records.
+Owner: runtime mouse pickup plus `RuntimePickService`; reason: manipulator drag
+is a per-frame physics command path and should not depend on post-step
+compatibility mirrors or model-index impulse bridges; deletion condition:
+pickup capture, step, and restore use `PhysicsBodyHandle` plus
+`PhysicsBodyStore` records for simulation state, with `modelIndex` retained only
+for interaction identity/stale-slot validation; checker budget:
+`tools/check_runtime_boundaries.py` blocks mouse-pickup `GameModel` body reads
+and model-index physics commands from returning.
+
+- [x] Return the picked `PhysicsBodyHandle` from `RuntimePickService`.
+- [x] Store the picked handle in `RunMousePickupState`.
+- [x] Read pickup position, fixed state, linear velocity, and preserved angular
+  velocity from `PhysicsBodyStore` records.
+- [x] Restore angular velocity and apply drag impulses through
+  `PhysicsEngine` handle commands.
+- [x] Delete the now-unused mouse-pickup model-index impulse helper.
+- [x] Add runtime-boundary guardrails and self-tests for the deleted body-read
+  and model-index command shapes.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation run for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] touched-file comment audit
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence: runtime-boundary summary reported 0 errors; touched-file comment
+audit confirmed all touched source-bearing files have learning headers and the
+new handle/model-index contract is explained; `tools\validate_fast.bat` passed
+formatting, project filters, runtime boundaries, and Profile/Debug builds with
+0 warnings/errors; intermittent `tools\validate_physics.bat` passed standalone
+smoke, runtime handle smoke, and byte-exact `physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

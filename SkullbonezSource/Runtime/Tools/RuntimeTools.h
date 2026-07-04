@@ -4,9 +4,8 @@ Purpose:
   Owns transient runtime tool state while tool behavior moves out of Run.
 
 Mental model:
-  RuntimeTools is the Phase 6 compatibility boundary. Existing Run methods can
-  still execute launcher/tool behavior, but launcher state and render feedback
-  ownership live here instead of directly on Run.
+  RuntimeTools owns short-lived interaction state for launcher/tool behavior and
+  render feedback instead of storing that state directly on Run.
 
 Glossary:
   Asset system: Runtime-owned registry borrowed by editor ghost tracing when a
@@ -17,6 +16,10 @@ Glossary:
     scrubbing so debug feedback follows recorded frames.
   Gizmo drag group: Bounded set of selected model indices transformed as one
     editor gesture.
+  Physics body handle: Generational id for a live simulation body row; runtime
+    tools store it when they need to issue physics commands.
+  Model index: Dense model-order row used for UI and replay identity, validated
+    before use because collection edits can change it.
   Ring buffer: Fixed-size history where new launcher/raycast entries overwrite
     the oldest slots.
 
@@ -26,6 +29,8 @@ Invariants:
   - Fixed-capacity arrays must stay bounded and replay-restorable.
   - Stored model indices are frame-local references and must be validated before
     use after model collection edits.
+  - Mouse pickup stores a physics body handle for command paths; its model index
+    is interaction identity only.
 
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
@@ -41,6 +46,7 @@ Related:
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/CollisionShape.h"
+#include "../../Physics/PhysicsHandles.h"
 #include "../../UI/UITabEditor.h"
 
 #include <array>
@@ -136,6 +142,7 @@ struct RunMousePickupState
     bool active = false;
     bool mouseCaptured = false;
     int modelIndex = -1;
+    Physics::PhysicsBodyHandle body;
     Math::Vector::Vector3 planePoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 planeNormal = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
     float cameraPlaneDistance = 0.0f;                                       // World units from camera eye to the camera-facing pickup plane.

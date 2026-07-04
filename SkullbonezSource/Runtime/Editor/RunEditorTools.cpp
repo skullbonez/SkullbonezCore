@@ -36,6 +36,7 @@ Related:
 #include "../RuntimeInteractionCommands.h"
 #include "../RuntimePickService.h"
 #include "../../GameObjects/GameModelCollectionPhysicsAdapter.h"
+#include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
@@ -616,16 +617,6 @@ void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollecti
     }
 
     physics.SeedBodyAsleep( body );
-}
-
-
-void ApplyRuntimeToolPhysicsImpulse( SkullbonezCore::GameObjects::GameModelCollection& collection,
-                                     int modelIndex,
-                                     const Vector3& impulse,
-                                     const Vector3& localApplicationPoint )
-{
-    GameModelCollectionPhysicsAdapter physicsBodies( collection );
-    physicsBodies.ApplyBodyImpulseForModelIndex( modelIndex, impulse, localApplicationPoint );
 }
 
 

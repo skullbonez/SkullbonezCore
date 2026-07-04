@@ -508,7 +508,10 @@ EDITOR_PHYSICS_COMMAND_SOURCES = (
 )
 MOUSE_PICKUP_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\bm_cGameModelCollection\s*\.\s*"
-    r"(?:SetPendingBodyImpulse|SeedModelAsleep|WakeModel|ApplyBodyImpulse)\s*\("
+    r"(?:SetPendingBodyImpulse|SeedModelAsleep|WakeModel|ApplyBodyImpulse|TrySetModelAngularVelocity)\s*\("
+)
+MOUSE_PICKUP_GAME_MODEL_BODY_READ_PATTERN = re.compile(
+    r"\b[A-Za-z_]\w*\s*(?:->|\.)\s*(?:GetPosition|GetVelocity|GetAngularVelocity|IsFixed)\s*\("
 )
 LAUNCHER_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\bcollection\s*\.\s*"
@@ -3931,6 +3934,19 @@ def check_mouse_pickup_model_index_physics_command_guardrails_text(path: Path, t
                 (
                     "Mouse pickup may store a model index for interaction identity, but physics impulses should "
                     "resolve PhysicsBodyHandle at the tool boundary and call PhysicsEngine handle commands."
+                ),
+            )
+        )
+    for match in MOUSE_PICKUP_GAME_MODEL_BODY_READ_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "mouse pickup GameModel body read is blocked",
+                (
+                    "Mouse pickup should read body position, velocity, and fixed state through "
+                    "PhysicsBodyStore using the picked PhysicsBodyHandle; keep modelIndex only for "
+                    "interaction identity and stale-slot validation."
                 ),
             )
         )
@@ -11565,6 +11581,7 @@ def run_self_tests() -> list[str]:
     void Run::ApplyMousePickupPhysicsStep()
     {
         m_cGameModelCollection.ApplyBodyImpulse( modelIndex, impulse, ZERO_VECTOR );
+        m_cGameModelCollection.TrySetModelAngularVelocity( modelIndex, angularVelocity );
     }
     """
     if not any(
@@ -11579,11 +11596,12 @@ def run_self_tests() -> list[str]:
     allowed_mouse_pickup_handle_command = """
     void Run::ApplyMousePickupPhysicsStep()
     {
-        ApplyRuntimeToolPhysicsImpulse( m_cGameModelCollection,
-                                        m_cGameModelCollection.GetPhysicsEngine(),
-                                        modelIndex,
-                                        impulse,
-                                        ZERO_VECTOR );
+        const PhysicsBodyRecord* body = bodyStore.RecordForHandle( pickup.body );
+        m_cGameModelCollection.GetPhysicsEngine().SetBodyVelocity( pickup.body,
+                                                                   body->linearVelocity,
+                                                                   pickup.preservedAngularVelocity,
+                                                                   false );
+        m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse( pickup.body, impulse, ZERO_VECTOR );
     }
     """
     if check_mouse_pickup_model_index_physics_command_guardrails_text(
@@ -11596,7 +11614,8 @@ def run_self_tests() -> list[str]:
     void DocumentOldMousePickupCommand()
     {
         // m_cGameModelCollection.ApplyBodyImpulse(modelIndex, impulse, ZERO_VECTOR) used to run here.
-        ApplyRuntimeToolPhysicsImpulse( m_cGameModelCollection, physics, modelIndex, impulse, ZERO_VECTOR );
+        // m_cGameModelCollection.TrySetModelAngularVelocity(modelIndex, angularVelocity) used to run here.
+        m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse( pickup.body, impulse, ZERO_VECTOR );
     }
     """
     if check_mouse_pickup_model_index_physics_command_guardrails_text(
@@ -11604,6 +11623,59 @@ def run_self_tests() -> list[str]:
         commented_mouse_pickup_model_index_command,
     ):
         failures.append("comment-only mouse pickup model-index command synthetic text was rejected")
+
+    old_mouse_pickup_game_model_body_read = """
+    void Run::ApplyMousePickupPhysicsStep()
+    {
+        const GameModel* picked = m_cGameModelCollection.TryGetModel( pickedIndex );
+        grabOffset = grabPoint - picked->GetPosition();
+        preservedAngularVelocity = picked->GetAngularVelocity();
+        if ( model->IsFixed() )
+        {
+            return;
+        }
+        Vector3 impulse = pull - model->GetVelocity();
+    }
+    """
+    if not any(
+        error.message == "mouse pickup GameModel body read is blocked"
+        for error in check_mouse_pickup_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"),
+            old_mouse_pickup_game_model_body_read,
+        )
+    ):
+        failures.append("old mouse pickup GameModel body read synthetic surface was not rejected")
+
+    allowed_mouse_pickup_body_store_read = """
+    void Run::ApplyMousePickupPhysicsStep()
+    {
+        const PhysicsBodyRecord* body = bodyStore.RecordForHandle( pickup.body );
+        const Vector3 grabPoint = body->position + pickup.grabOffset;
+        const Vector3 impulse = pull - body->linearVelocity;
+        if ( body->isFixed )
+        {
+            return;
+        }
+    }
+    """
+    if check_mouse_pickup_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"),
+        allowed_mouse_pickup_body_store_read,
+    ):
+        failures.append("store-owned mouse pickup body read synthetic surface was rejected")
+
+    commented_mouse_pickup_game_model_body_read = """
+    void DocumentOldMousePickupBodyRead()
+    {
+        // picked->GetPosition() and model->GetVelocity() used to run here.
+        const Vector3 grabPoint = body->position + pickup.grabOffset;
+    }
+    """
+    if check_mouse_pickup_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"),
+        commented_mouse_pickup_game_model_body_read,
+    ):
+        failures.append("comment-only mouse pickup GameModel body read synthetic text was rejected")
 
     old_launcher_model_index_command = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )

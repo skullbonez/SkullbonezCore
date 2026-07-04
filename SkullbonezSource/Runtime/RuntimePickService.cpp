@@ -12,11 +12,13 @@ Mental model:
 Glossary:
   Pick ray: World-space ray projected from the current screen-space pointer.
   Pick purpose: Tool-specific policy for interpreting candidate hits.
+  Physics body handle: Generational id for the body-store row selected by the
+    pick ray.
   RayT: Distance along the pick ray to the candidate hit.
 
 Invariants:
   - The service never stores physics-store references; results are frame-local
-    indices that callers must revalidate before use.
+    handles/indices that callers must revalidate before use.
   - Manipulator pickup ignores fixed bodies, while selection-style purposes may
     return any closest model.
   - Exact shape picking does not expand collision geometry; broadphase padding
@@ -80,12 +82,13 @@ bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, Runtim
         if ( TryIntersectRuntimePickShape( collider.shape, transform, request.rayOrigin, request.rayDirection, rayT ) &&
              rayT + PICK_TIE_EPSILON < outResult.rayT )
         {
+            outResult.body = body.handle;
             outResult.rayT = rayT;
             outResult.modelIndex = i;
         }
     }
 
-    return outResult.modelIndex >= 0;
+    return outResult.modelIndex >= 0 && outResult.body.IsValid();
 }
 } // namespace Basics
 } // namespace SkullbonezCore

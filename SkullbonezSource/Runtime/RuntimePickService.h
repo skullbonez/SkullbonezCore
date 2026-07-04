@@ -9,14 +9,18 @@ Mental model:
 
 Glossary:
   Pick purpose: The tool-specific policy for interpreting a mouse ray.
+  Physics body handle: Generational id for a live row in `PhysicsBodyStore`.
+  Model index: Dense model-order row used by UI/replay identity; it is not
+    authority for physics commands once a body handle is available.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
 Invariants:
   - RuntimePickRequest borrows physics stores for one call; the service does
     not retain them.
-  - RuntimePickResult.modelIndex is the dense compatibility row/model index for
-    the same store snapshot and frame that produced the result.
+  - RuntimePickResult.body is the physics-store handle for command paths.
+  - RuntimePickResult.modelIndex is the dense row/model index for UI identity
+    in the same store snapshot and frame that produced the result.
 
 Related:
   - Agentic/Plans/runtime-interaction-state-machine-hardening-plan.md
@@ -27,6 +31,7 @@ Related:
 #include <cfloat>
 
 #include "../Maths/Vector3.h"
+#include "../Physics/PhysicsHandles.h"
 
 namespace SkullbonezCore
 {
@@ -57,6 +62,7 @@ struct RuntimePickRequest
 
 struct RuntimePickResult
 {
+    Physics::PhysicsBodyHandle body;
     int modelIndex = -1;
     float rayT = FLT_MAX;
 };
