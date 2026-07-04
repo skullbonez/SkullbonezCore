@@ -11,9 +11,11 @@ Glossary:
   Attach return pose: The visible camera pose captured before Attach takes over
     so the operator can return to the same view later.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
-  reflection dispatch.
+    reflection dispatch.
+  Contact-audio flash command: One-frame UI request that cycles a render-only
+    diagnostic selector; it does not change audio classification policy.
   Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+    commit or PR.
 
 Invariants:
   - This file arbitrates ownership before mutating world state; UI, editor,
@@ -62,6 +64,17 @@ constexpr float ATTACHED_CAMERA_ORBIT_MOUSE_PITCH_MAX = 1.35f;
 constexpr float ATTACHED_CAMERA_ORBIT_MIN_DISTANCE_RADIUS = 1.25f;
 constexpr float ATTACHED_CAMERA_ORBIT_MAX_DISTANCE_RADIUS = 40.0f;
 constexpr float ATTACHED_CAMERA_ORBIT_WHEEL_FACTOR = 0.88f;
+
+ContactAudioFlashMode NextContactAudioFlashMode( ContactAudioFlashMode mode )
+{
+    constexpr int MODE_COUNT = static_cast<int>( ContactAudioFlashMode::Count );
+    const int rawMode = static_cast<int>( mode );
+    if ( rawMode < 0 || rawMode >= MODE_COUNT )
+    {
+        return ContactAudioFlashMode::Emitted;
+    }
+    return static_cast<ContactAudioFlashMode>( ( rawMode + 1 ) % MODE_COUNT );
+}
 
 bool CameraModeUsesFlyControls( RunCameraMode mode, bool attachActiveFollow )
 {
@@ -2776,9 +2789,10 @@ void Run::TakeInput()
             m_runtimeSettings.contactAudioDebugCounters = !m_runtimeSettings.contactAudioDebugCounters;
             soundTuningChanged = true;
         }
-        if ( uiCommands.sound.toggleFlashOnSubmit )
+        if ( uiCommands.sound.cycleFlashMode )
         {
-            m_runtimeSettings.contactAudioFlashOnSubmit = !m_runtimeSettings.contactAudioFlashOnSubmit;
+            m_runtimeSettings.contactAudioFlashMode =
+                NextContactAudioFlashMode( m_runtimeSettings.contactAudioFlashMode );
             soundTuningChanged = true;
         }
         if ( uiCommands.sound.requestedParam != UISoundParam::None )
@@ -2802,6 +2816,18 @@ void Run::TakeInput()
                 break;
             case UISoundParam::BurstVoicesPerWindow:
                 m_contactAudio.SetBurstVoicesPerWindow( static_cast<uint32_t>( uiCommands.sound.requestedValue ) );
+                break;
+            case UISoundParam::RollingLevelDb:
+                m_contactAudio.SetRollingLevelDb( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::RollingMaxDistance:
+                m_contactAudio.SetRollingMaxDistance( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::RollingMinSlipSpeed:
+                m_contactAudio.SetRollingMinSlipSpeed( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::RollingVoicesPerWindow:
+                m_contactAudio.SetRollingVoicesPerWindow( static_cast<uint32_t>( uiCommands.sound.requestedValue ) );
                 break;
             case UISoundParam::SetMinImpulse:
                 m_contactAudio.SetSoundSetParam( uiCommands.sound.requestedSetIndex,

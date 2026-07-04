@@ -629,11 +629,13 @@ void RuntimeDiagnostics::LogContactAudioDecision( RunPhysicsDiagnosticsState& di
     }
 
     const char* reason = decision.reason && decision.reason[0] != '\0' ? decision.reason : "unknown";
+    const char* kind = decision.kind && decision.kind[0] != '\0' ? decision.kind : "unknown";
     const char* severity = ( decision.submitted || decision.flashEligible ) ? "medium" : "low";
     char eventId[32];
     sprintf_s( eventId, sizeof( eventId ), "CA%08u", diagnostics.contactAudioEventSequence++ );
 
     std::string escapedReason = JsonEscape( reason );
+    std::string escapedKind = JsonEscape( kind );
     std::string escapedSet = JsonEscape( decision.soundSetName );
     std::string escapedBand = JsonEscape( decision.bandName );
     std::string escapedSample = JsonEscape( decision.samplePath );
@@ -644,7 +646,7 @@ void RuntimeDiagnostics::LogContactAudioDecision( RunPhysicsDiagnosticsState& di
     Log().Writef( diagnostics.path,
                   "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"%s\",\"frame\":%d,\"type\":\"contact_audio\","
                   "\"severity\":\"%s\",\"body_a\":%d,\"body_b\":%d,\"island_id\":null,\"summary\":\"contact audio %s\","
-                  "\"data\":{\"decision\":\"%s\",\"pair_key\":%llu,\"feature_id\":%u,\"is_terrain\":%d,"
+                  "\"data\":{\"decision\":\"%s\",\"kind\":\"%s\",\"pair_key\":%llu,\"feature_id\":%u,\"is_terrain\":%d,"
                   "\"material_a\":%u,\"material_b\":%u,\"normal_impulse\":%.6f,"
                   "\"normal_closing_speed\":%.6f,\"tangent_slip_speed\":%.6f,\"has_motion_data\":%d,"
                   "\"min_impulse\":%.6f,\"impulse_range\":%.6f,\"distance\":%.6f,\"max_distance\":%.6f,"
@@ -662,6 +664,7 @@ void RuntimeDiagnostics::LogContactAudioDecision( RunPhysicsDiagnosticsState& di
                   decision.event.bodyB,
                   escapedReason.c_str(),
                   escapedReason.c_str(),
+                  escapedKind.c_str(),
                   static_cast<unsigned long long>( decision.pairKey ),
                   decision.event.featureId,
                   decision.event.isTerrain ? 1 : 0,
@@ -692,6 +695,59 @@ void RuntimeDiagnostics::LogContactAudioDecision( RunPhysicsDiagnosticsState& di
                   escapedSet.c_str(),
                   escapedBand.c_str(),
                   escapedSample.c_str() );
+}
+
+void RuntimeDiagnostics::LogContactAudioStepStats( RunPhysicsDiagnosticsState& diagnostics,
+                                                   const RunSceneState& scene,
+                                                   const Runtime::Audio::ContactAudioStats& stats )
+{
+    if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
+    {
+        return;
+    }
+    if ( stats.eventsSeen == 0 && stats.patchCandidates == 0 && stats.mergedCandidates == 0 &&
+         stats.candidateOverflows == 0 && stats.burstWindowSkippedCandidates == 0 &&
+         stats.budgetRejectedCandidates == 0 && stats.rejectedByThreshold == 0 && stats.rejectedByCooldown == 0 &&
+         stats.submittedVoices == 0 && stats.droppedVoices == 0 && stats.rollingCandidates == 0 &&
+         stats.rollingSubmittedVoices == 0 )
+    {
+        return;
+    }
+
+    char eventId[32];
+    sprintf_s( eventId, sizeof( eventId ), "CAS%08u", diagnostics.contactAudioEventSequence++ );
+
+    // Concept: this row is the reducer summary for one physics step. Verdict
+    // rows explain individual examples; this row preserves the raw fact and
+    // patch-merge counts even when per-candidate diagnostics are capped.
+    Log().Writef( diagnostics.path,
+                  "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"%s\",\"frame\":%d,"
+                  "\"type\":\"contact_audio_frame\",\"severity\":\"low\",\"body_a\":-1,\"body_b\":-1,"
+                  "\"island_id\":null,\"summary\":\"contact audio frame facts %u patches %u played %u rolling %u\","
+                  "\"data\":{\"facts_seen\":%u,\"patch_candidates\":%u,\"merged_candidates\":%u,"
+                  "\"candidate_overflows\":%u,\"burst_window_skipped_candidates\":%u,"
+                  "\"budget_rejected_candidates\":%u,\"rejected_by_threshold\":%u,"
+                  "\"rejected_by_cooldown\":%u,\"submitted_voices\":%u,\"dropped_voices\":%u,"
+                  "\"rolling_candidates\":%u,\"rolling_submitted_voices\":%u}}\n",
+                  diagnostics.currentRunId,
+                  eventId,
+                  scene.currentFrame,
+                  stats.eventsSeen,
+                  stats.patchCandidates,
+                  stats.submittedVoices,
+                  stats.rollingSubmittedVoices,
+                  stats.eventsSeen,
+                  stats.patchCandidates,
+                  stats.mergedCandidates,
+                  stats.candidateOverflows,
+                  stats.burstWindowSkippedCandidates,
+                  stats.budgetRejectedCandidates,
+                  stats.rejectedByThreshold,
+                  stats.rejectedByCooldown,
+                  stats.submittedVoices,
+                  stats.droppedVoices,
+                  stats.rollingCandidates,
+                  stats.rollingSubmittedVoices );
 }
 
 void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,

@@ -4,9 +4,10 @@ Purpose:
   Builds simple humanoid ragdolls and solves their first point-joint constraints.
 
 Mental model:
-  The body layout is prefab code; the joint rows are intentionally generic
-  point-to-point constraint data. This keeps the hacky ragdoll feature isolated
-  and leaves a clear migration path to a full constraint solver.
+  The body layout is prefab code; joint creation goes through handle-keyed
+  point-joint descriptors, while PhysicsWorld owns the solver rows. This keeps
+  the hacky ragdoll feature isolated and leaves a clear migration path to a full
+  constraint solver.
 
 Glossary:
   Point joint: Constraint that keeps two local anchors near each other.
@@ -31,6 +32,7 @@ Related:
 #include "../GameObjects/GameModel.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "ContactSolverCommon.h"
+#include "PhysicsApi.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsEngine.h"
 #include "PhysicsMass.h"
@@ -459,17 +461,17 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
     const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
     for ( int i = 0; i < jointCount; ++i )
     {
-        PointJointConstraint constraint;
-        constraint.SetBodies( bodyStore.HandleForModelIndex( firstBody + joints[i].bodyA ),
-                              bodyStore.HandleForModelIndex( firstBody + joints[i].bodyB ) );
-        constraint.localAnchorA = ScaleVector( joints[i].localAnchorA, scale );
-        constraint.localAnchorB = ScaleVector( joints[i].localAnchorB, scale );
-        constraint.slack = joints[i].slack * scale;
-        constraint.stiffness = 0.22f;
-        constraint.damping = 0.35f;
-        constraint.groupId = groupId;
-        constraint.flags = joints[i].flags;
-        physics.AddPointJointConstraint( constraint );
+        PhysicsPointJointCreateDesc desc;
+        desc.bodyA = bodyStore.HandleForModelIndex( firstBody + joints[i].bodyA );
+        desc.bodyB = bodyStore.HandleForModelIndex( firstBody + joints[i].bodyB );
+        desc.localAnchorA = ScaleVector( joints[i].localAnchorA, scale );
+        desc.localAnchorB = ScaleVector( joints[i].localAnchorB, scale );
+        desc.slack = joints[i].slack * scale;
+        desc.stiffness = 0.22f;
+        desc.damping = 0.35f;
+        desc.groupId = groupId;
+        desc.flags = joints[i].flags;
+        physics.CreatePointJoint( desc );
     }
 
     if ( options.startsAsleep && !options.fixed )

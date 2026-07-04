@@ -283,8 +283,9 @@ Tasks:
 
 1. Make `RenderInstanceStore` the source for renderer-facing transforms,
    material intent, visibility, fixed-state feedback, and shadow participation.
-2. Move `IRenderSceneView` implementation away from `GameModelCollection` where
-   practical:
+2. Delete the now-removed `IRenderSceneView` compatibility interface and move
+   the remaining concrete `GameModelCollection` render projection toward
+   `RenderInstanceStore`:
    - model draw batches,
    - shadow caster batches,
    - DXR instance matrices,

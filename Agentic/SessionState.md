@@ -7,14 +7,14 @@ audits when it is still useful.
 
 | Field | Value |
 |-------|-------|
-| Branch | `nightrunner-3rd-july` in worktree `C:\SkullbonezCore`. |
-| Active objective | Continue `Agentic/Plans/To_Eval/physics-game-model-authority-plan.md` in narrow, validated slices. |
-| Last documentation milestone | Updated `Agentic/Plans/To_Eval/physics-game-model-authority-plan.md` with the 2026-07-03 persistent solver sink split and guardrail status. |
-| Last source milestone | `PersistentContactSolverContext` no longer reaches through broad `PhysicsModelAccess` for fixed-contact events or single-body compatibility writeback. Those now use `PhysicsBodyEventSink` and `PhysicsBodyWritebackSink`; `wakeModelAccess` remains only for release wake-up. |
-| Pending work | Move wake-island/release wake paths to durable handles, then delete compatibility body writeback after render, replay, and diagnostics consume physics-owned body rows directly. The old `game-model-data-boundary-plan.md` path named in prior handoff is not present in this worktree; use the active physics authority plan unless a replacement appears. |
+| Branch | `nightrunner-4th-july` in worktree `C:\SkullbonezCore`. |
+| Active objective | Finish the physics/GameModel authority migration with store-owned physics state, handle-keyed commands, deterministic standalone views, and guardrails against contrived migration artifacts. |
+| Last documentation milestone | Completed and moved the contact-audio perceptual model plan to `Agentic/Plans/Done/contact-audio-perceptual-model-plan.md`. |
+| Last source/data milestone | Moved runtime point-joint creation to handle-keyed descriptors: ragdoll construction, authored scene point joints, and runtime handle smoke now call `PhysicsEngine::CreatePointJoint(PhysicsPointJointCreateDesc)`, and the old raw-row `AddPointJointConstraint` facade/scene/world/collection wrapper is deleted. |
+| Pending work | Physics standalone still needs later shape-pair contact coverage if required, full support propagation, remaining update-desc/state cleanup, compatibility assertion/guardrail shrink decisions, and runtime adapter migration. Contact-audio one-shot impact work remains complete; separate roll/slide loops are future work. |
 | Concurrent work warning | No concurrent dirty source work observed at the last status check. Still run `git status --short --branch` before editing. |
-| Blockers | `tools\validate_fast.bat` currently stops at the formatting gate on untouched `SkullbonezSource\Runtime\RuntimeViewModel.h` and `SkullbonezSource\UI\UI.h`; do not attribute that to the persistent solver sink split. `tools\validate_physics_deep.bat` had a prior known stacking signature mismatch on this branch. |
-| Validation | 2026-07-03 persistent solver sink split: touched-source comment audit inspected `PhysicsModelAccess.h`, `PhysicsWorld.h`, `PhysicsWorld.cpp`, and `tools\check_runtime_boundaries.py` with 0 deferred files. `git diff --check` passed. `tools\validate_project_filters.bat` passed with log `TestOutput\agent_validate_project_filters_persistent_solver_sinks.log`. `python tools\check_runtime_boundaries.py --repo .` passed with log `TestOutput\agent_runtime_boundaries_persistent_solver_sinks.log` and 0 errors. `tools\validate_physics.bat` passed with log `TestOutput\agent_validate_physics_persistent_solver_sinks.log`; Debug/Profile builds had 0 warnings and 0 errors, and `physics_regression_solver.csv` matched byte-exactly. `tools\validate_fast.bat` failed before build on unrelated header formatting drift; log `TestOutput\agent_validate_fast_persistent_solver_sinks.log`. |
+| Blockers | No active blocker for the default `aaa_ragdoll_sunset_showcase` cinematic/water render path or the contact-audio perceptual model plan. |
+| Validation | 2026-07-04 point-joint descriptor slice: focused Debug build passed with 0 warnings / 0 errors (`TestOutput\agent_build_debug_point_joint_desc.log`); standalone/runtime handle smoke passed with `point_joints=1`, `joint_handles=pass`, `contacts=2`, `contact_hash=0x5DBDF5257E90EA9B`, and hash `0xB3B6CEEFB6CCAFFA` (`TestOutput\agent_physics_standalone_smoke_point_joint_desc_report.txt`); ragdoll scene load-only passed for `ragdoll_playground.scene.json` (`TestOutput\agent_ragdoll_scene_load_point_joint_desc.log`); `python tools\check_runtime_boundaries.py --repo .` passed with 0 errors (`TestOutput\agent_runtime_boundaries_point_joint_desc.log`); `tools\validate_format.bat` passed (`TestOutput\agent_validate_format_point_joint_desc.log`); `tools\validate_full.bat` passed with project filters, runtime boundaries, Profile/Debug builds at 0 warnings / 0 errors, DX12 InfoQueue 0 errors, DX12 screenshots matching baselines, and byte-exact `physics_regression_solver.csv` (`TestOutput\agent_validate_full_point_joint_desc.log`). |
 
 ## Active Notes
 
@@ -26,6 +26,8 @@ audits when it is still useful.
   commands.
 - Implementing work from `Agentic/Plans` defaults to
   `Agentic/Skills/orchestrator/SKILL.md` unless the user asks to bypass it.
+- Rubber-duck review is for major completed plans/checkpoints, explicit user
+  requests, or repeated failure loops. Do not run one per small source slice.
 - The retired `Agentic/Orchestrator` JSON/Python path should not be revived
   unless explicitly requested. Use the orchestrator skill for plan work.
 - Do not kill `SKULLBONEZ_CORE.exe` by name. Kill only by PID from a process you
@@ -37,6 +39,7 @@ audits when it is still useful.
 
 | Item | Status | Notes |
 |------|--------|-------|
+| Contact-audio perceptual model | Complete | Plan moved to `Agentic/Plans/Done/contact-audio-perceptual-model-plan.md`; final acceptance evidence covers material lab, rolling quietness, 200-brick/showcase reducer counts, tail quietness, and `validate_full`. |
 | Contrived migration artifact cleanup | Complete; final review passed | Plan: `Agentic/Plans/To_Eval/contrived-migration-artifact-removal-plan.md`; kill list: `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-plan.csv`; implementation status: `Agentic/Reports/2026-07-03/contrived-migration-artifacts/contrived-migration-artifact-implementation-status.csv`. |
 | Missed plan items index | Active reference | `Agentic/Plans/missed_plan_items.md` summarizes actionable leftovers from mostly completed Done plans. |
 | Runtime interaction state-machine hardening | Active plan | `Agentic/Plans/runtime-interaction-state-machine-hardening-plan.md`; avoid while another agent is editing UI/replay/camera/input code. |

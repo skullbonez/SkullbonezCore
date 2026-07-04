@@ -1029,7 +1029,7 @@ RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRender
     RenderFrameContext frame;
     frame.cinematicEnabled = cinematicRender;
     frame.cinematic = cinematicRender ? &renderConfig : nullptr;
-    frame.scene = &services.models;
+    frame.models = &services.models;
     frame.assets = &services.assets;
     frame.renderResources = &services.renderResources;
     frame.renderCommands = &services.renderCommands;

@@ -137,6 +137,33 @@ body: owner, reason, deletion condition, and checker budget.
 - Use a single independent rubber-duck review at the end of a whole cleanup
   plan, not one review per tiny slice, unless the user explicitly asks for more.
 
+## Hot-Path Data and Inheritance Gate
+
+Physics, collision, solver, audio classification, render submission, and other
+per-frame hot paths must operate on compact store arrays, value records,
+bounded scratch buffers, and explicit post-pass side-effect queues. Do not put
+polymorphic service objects, callback chains, handle lookups, scattered
+`GameModel` access, or owner-side compatibility commands inside hot loops.
+
+- New inheritance is banned unless it is a stable boundary with a real need for
+  runtime polymorphism. The owning plan, source comment, and commit body must
+  name the owner, why value/data composition is insufficient, the expected
+  call frequency, and the validation or perf evidence required.
+- `tools/check_runtime_boundaries.py` enforces the current source inheritance
+  budget. New inheritance should fail there until an approved stable-boundary
+  row is deliberately added with the evidence above.
+- Migration cleanup must not introduce `*Sink`, `*Bridge`, `*Adapter`,
+  `*Compatibility`, or callback-style interfaces on hot paths as a way to hide
+  old ownership. Prefer a plain output buffer that the owner applies after the
+  pass.
+- Physics hot paths should read/write `PhysicsBodyStore`, `ColliderStore`,
+  solver scratch arrays, and bounded side-effect arrays. Any required
+  `PhysicsModelAccess`, `PhysicsBodyEventSink`, UI, audio service, or runtime
+  owner work belongs outside the solver/broadphase/narrowphase loop.
+- When deleting a hot-path inheritance or callback artifact, add or tighten a
+  guardrail in `tools/check_runtime_boundaries.py` whenever the regression can
+  be detected textually. Include a self-test and rerun the boundary checker.
+
 ## After Editing
 
 Do not run validation scripts automatically after every edit. Formal repository

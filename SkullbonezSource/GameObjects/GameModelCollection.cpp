@@ -17,6 +17,8 @@ Glossary:
     velocity state to RigidBody integration.
   Contact policy: Terrain and contact thresholds cached by the collection so
     existing and newly added models receive the same physics policy.
+  PhysicsModelAccess: Stack-owned facade that forwards allowed physics sync
+    commands to this collection without making it inherit physics interfaces.
   Replay body id: Per-collection identity saved in replay samples so restore
     paths can reject stale model slots.
   Validation gate: Repository script that proves a class of changes before
@@ -40,6 +42,8 @@ Related:
 #include "../Core/SkullScope.h"
 #include "../Physics/Debug/CollisionVisualizer.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../Physics/ColliderStore.h"
+#include "../Physics/PhysicsBodyStore.h"
 #ifdef _DEBUG
 #include "../Physics/PhysicsDiagnosticsModel.h"
 #endif
@@ -62,7 +66,115 @@ using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Rendering::ShadowFrameData;
+
+namespace SkullbonezCore
+{
+namespace Physics
+{
+PhysicsModelAccess::PhysicsModelAccess( GameObjects::GameModelCollection& collection ) : m_collection( collection )
+{
+}
+
+
+int PhysicsModelAccess::ModelCount() const
+{
+    return m_collection.ModelCount();
+}
+
+
+GameObjects::GameModelBodyStream PhysicsModelAccess::GetPhysicsBodyStream()
+{
+    return m_collection.GetPhysicsBodyStream();
+}
+
+
+void PhysicsModelAccess::InvalidatePhysicsStreams()
+{
+    m_collection.InvalidatePhysicsStreams();
+}
+
+
+void PhysicsModelAccess::WriteBackPhysicsBodies( const PhysicsBodyStore& bodyStore )
+{
+    m_collection.WriteBackPhysicsBodies( bodyStore );
+}
+
+
+void PhysicsModelAccess::WriteBackPhysicsBody( const PhysicsBodyStore& bodyStore, int modelIndex )
+{
+    m_collection.WriteBackPhysicsBody( bodyStore, modelIndex );
+}
+
+
+void PhysicsModelAccess::ReloadPhysicsBodies( PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates )
+{
+    m_collection.ReloadPhysicsBodies( bodyStore, sleepStates );
+}
+
+
+void PhysicsModelAccess::RefreshPhysicsBodyFromModel( PhysicsBodyStore& bodyStore, int modelIndex )
+{
+    m_collection.RefreshPhysicsBodyFromModel( bodyStore, modelIndex );
+}
+
+
+void PhysicsModelAccess::RefreshPhysicsColliders( ColliderStore& colliderStore, const PhysicsBodyStore& bodyStore )
+{
+    m_collection.RefreshPhysicsColliders( colliderStore, bodyStore );
+}
+
+
+void PhysicsModelAccess::RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
+                                                 const PhysicsBodyStore& bodyStore,
+                                                 const ColliderStore& colliderStore )
+{
+    m_collection.RefreshRenderInstances( renderInstanceStore, bodyStore, colliderStore );
+}
+
+
+void PhysicsModelAccess::NotifyFixedContact( int modelIndex, float highlightSeconds )
+{
+    m_collection.NotifyFixedContact( modelIndex, highlightSeconds );
+}
+
+
+void PhysicsModelAccess::TickContactHighlights( int modelCount, float deltaSeconds )
+{
+    m_collection.TickContactHighlights( modelCount, deltaSeconds );
+}
+
+
+void PhysicsModelAccess::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event )
+{
+    m_collection.ReleaseAttachedFixedTreeParts( event );
+}
+
+
+PhysicsDiagnosticsView PhysicsModelAccess::GetPhysicsDiagnosticsView() const
+{
+    return m_collection.GetPhysicsDiagnosticsView();
+}
+
+
+#ifdef _DEBUG
+bool PhysicsModelAccess::TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const
+{
+    return m_collection.TryGetPhysicsDiagnosticsModelName( index, outName );
+}
+
+
+bool PhysicsModelAccess::TryGetPhysicsDiagnosticsModel( int index,
+                                                        const PhysicsBodyStore& bodyStore,
+                                                        const ColliderStore& colliderStore,
+                                                        PhysicsDiagnosticsModelRecord& outRecord ) const
+{
+    return m_collection.TryGetPhysicsDiagnosticsModel( index, bodyStore, colliderStore, outRecord );
+}
+#endif
+} // namespace Physics
+} // namespace SkullbonezCore
 
 namespace
 {
@@ -287,12 +399,6 @@ void GameModelCollection::PrepareRenderStreams()
 }
 
 
-int GameModelCollection::GetRenderModelCount() const
-{
-    return GetModelCount();
-}
-
-
 int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount )
 {
     if ( !outMatrixFloats || maxModelCount <= 0 )
@@ -473,8 +579,7 @@ const GameModel* GameModelCollection::TryGetModel( int index ) const
 
 
 #ifdef _DEBUG
-bool GameModelCollection::TryGetPhysicsDiagnosticsModel( int index,
-                                                         Physics::PhysicsDiagnosticsModelRecord& outRecord ) const
+bool GameModelCollection::TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const
 {
     if ( index < 0 || index >= GetModelCount() )
     {
@@ -482,31 +587,53 @@ bool GameModelCollection::TryGetPhysicsDiagnosticsModel( int index,
     }
 
     const GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+    outName = model.GetName();
+    return true;
+}
+
+
+bool GameModelCollection::TryGetPhysicsDiagnosticsModel( int index,
+                                                         const Physics::PhysicsBodyStore& bodyStore,
+                                                         const Physics::ColliderStore& colliderStore,
+                                                         Physics::PhysicsDiagnosticsModelRecord& outRecord ) const
+{
+    if ( index < 0 || index >= GetModelCount() || index >= bodyStore.Count() || index >= colliderStore.Count() )
+    {
+        return false;
+    }
+
+    const GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+    const Physics::PhysicsBodyRecord& bodyRecord = bodyStore.Records()[static_cast<std::size_t>( index )];
+    const Physics::ColliderRecord& colliderRecord = colliderStore.Records()[static_cast<std::size_t>( index )];
     outRecord = Physics::PhysicsDiagnosticsModelRecord{};
     outRecord.name = model.GetName();
-    outRecord.shapeName = model.GetShapeName();
-    outRecord.position = model.GetPosition();
-    outRecord.velocity = model.GetVelocity();
-    outRecord.angularVelocity = model.GetAngularVelocity();
-    outRecord.rotationalInertia = model.GetRotationalInertia();
-    model.GetOrientation().GetComponents( outRecord.qx, outRecord.qy, outRecord.qz, outRecord.qw );
-    outRecord.mass = model.GetMass();
-    outRecord.inverseMass = model.GetInvertedMass();
+    outRecord.position = bodyRecord.position;
+    outRecord.velocity = bodyRecord.linearVelocity;
+    outRecord.angularVelocity = bodyRecord.angularVelocity;
+    outRecord.rotationalInertia = bodyRecord.rotationalInertia;
+    bodyRecord.orientation.GetComponents( outRecord.qx, outRecord.qy, outRecord.qz, outRecord.qw );
+    outRecord.mass = bodyRecord.mass;
+    outRecord.inverseMass = bodyRecord.invMass;
 
+    // Why: Debug diagnostics may borrow presentation names, but state sampled
+    // after the solver must come from the stores that the solver just wrote.
     std::visit(
         [&]( const auto& shape )
         {
             using ShapeT = std::decay_t<decltype( shape )>;
             if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingSphere> )
             {
+                outRecord.shapeName = "sphere";
                 outRecord.radius = shape.GetRadius();
             }
             else if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingBox> )
             {
+                outRecord.shapeName = "box";
                 outRecord.halfExtents = shape.GetHalfExtents();
             }
             else
             {
+                outRecord.shapeName = "convex_hull";
                 outRecord.radius = shape.GetBoundingRadius();
                 outRecord.hullName = shape.GetName();
                 outRecord.hullVertices = shape.GetVertexCount();
@@ -514,7 +641,7 @@ bool GameModelCollection::TryGetPhysicsDiagnosticsModel( int index,
                 outRecord.hullEdges = shape.GetEdgeCount();
             }
         },
-        model.GetCollisionShape() );
+        colliderRecord.shape );
     return true;
 }
 #endif
@@ -526,7 +653,11 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
                                                      const Vector3& position,
                                                      const Quaternion& orientation,
                                                      const Vector3& linearVelocity,
-                                                     const Vector3& angularVelocity )
+                                                     const Vector3& angularVelocity,
+                                                     float mass,
+                                                     float inverseMass,
+                                                     const Vector3& rotationalInertia,
+                                                     const Vector3& inverseRotationalInertia )
 {
     if ( index < 0 || index >= GetModelCount() )
     {
@@ -546,7 +677,17 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
     model.SetAngularVelocity( angularVelocity );
     model.ClearImpulseForce();
     InvalidateSoA();
-    return true;
+    return m_physicsEngine.RestoreReplayBodyState( index,
+                                                   replayBodyId,
+                                                   fixed,
+                                                   position,
+                                                   orientation,
+                                                   linearVelocity,
+                                                   angularVelocity,
+                                                   mass,
+                                                   inverseMass,
+                                                   rotationalInertia,
+                                                   inverseRotationalInertia );
 }
 
 
@@ -577,6 +718,7 @@ bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
     model.SetAngularVelocity( angularVelocity );
     model.SetFixedContactHighlightSeconds( fixedContactHighlightSeconds );
     InvalidateSoA();
+    CommitEditedModelPhysicsState( index, false );
     return true;
 }
 
@@ -600,6 +742,7 @@ bool GameModelCollection::TrySetReplayRenderPose( int index,
     model.SetPosition( position );
     model.SetOrientation( orientation );
     InvalidateSoA();
+    CommitEditedModelPhysicsState( index, false );
     return true;
 }
 
@@ -613,6 +756,7 @@ bool GameModelCollection::TrySetModelAngularVelocity( int index, const Vector3& 
 
     m_gameModels[static_cast<std::size_t>( index )].SetAngularVelocity( angularVelocity );
     InvalidateSoA();
+    CommitEditedModelPhysicsState( index, false );
     return true;
 }
 
@@ -650,6 +794,10 @@ bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
     }
 
     const std::size_t targetCount = static_cast<std::size_t>( modelCount );
+    if ( !m_physicsEngine.TrimBodyStoreToCount( modelCount ) )
+    {
+        return false;
+    }
     if ( targetCount < m_gameModels.size() )
     {
         m_gameModels.erase( m_gameModels.begin() + static_cast<std::ptrdiff_t>( targetCount ), m_gameModels.end() );
@@ -714,21 +862,24 @@ const SkullbonezCore::Physics::PhysicsEngine& GameModelCollection::GetPhysicsEng
 
 const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysicsBodyStore()
 {
-    m_physicsEngine.RefreshBodyStore( *this );
+    PhysicsModelAccess modelAccess( *this );
+    m_physicsEngine.RefreshBodyStore( modelAccess );
     return m_physicsEngine.BodyStore();
 }
 
 
 const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
 {
-    m_physicsEngine.RefreshColliderStore( *this );
+    PhysicsModelAccess modelAccess( *this );
+    m_physicsEngine.RefreshColliderStore( modelAccess );
     return m_physicsEngine.Colliders();
 }
 
 
 const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::GetRenderInstanceStore()
 {
-    m_physicsEngine.RefreshRenderStore( *this );
+    PhysicsModelAccess modelAccess( *this );
+    m_physicsEngine.RefreshRenderStore( modelAccess );
     return m_physicsEngine.RenderInstances();
 }
 
@@ -799,6 +950,13 @@ void GameModelCollection::ReloadPhysicsBodies( SkullbonezCore::Physics::PhysicsB
 }
 
 
+void GameModelCollection::RefreshPhysicsBodyFromModel( SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
+                                                       int modelIndex )
+{
+    bodyStore.CaptureMutableStateFromModelAt( m_gameModels, modelIndex );
+}
+
+
 void GameModelCollection::RefreshPhysicsColliders( SkullbonezCore::Physics::ColliderStore& colliderStore,
                                                    const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
 {
@@ -806,15 +964,37 @@ void GameModelCollection::RefreshPhysicsColliders( SkullbonezCore::Physics::Coll
 }
 
 
-void GameModelCollection::RefreshRenderInstances( SkullbonezCore::Rendering::RenderInstanceStore& renderInstanceStore )
+void GameModelCollection::RefreshRenderInstances( SkullbonezCore::Rendering::RenderInstanceStore& renderInstanceStore,
+                                                  const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
+                                                  const SkullbonezCore::Physics::ColliderStore& colliderStore )
 {
-    renderInstanceStore.Refresh( m_gameModels );
+    renderInstanceStore.Refresh( m_gameModels, bodyStore, colliderStore );
 }
 
 
-SkullbonezCore::Physics::PhysicsBodyEventSink& GameModelCollection::BodyEvents()
+void GameModelCollection::CommitEditedModelPhysicsState( int modelIndex, bool colliderChanged )
 {
-    return *this;
+    // Owner: GameModelCollection still owns editor/replay model mutations.
+    // Reason: render records now read physics stores for pose/shape, so direct
+    // edits must commit changed body data before the next draw snapshot.
+    // Deletion: remove this when editor/replay writes PhysicsBodyHandle-backed
+    // body and collider commands directly instead of mutating GameModel first.
+    // Checker: tools/check_runtime_boundaries.py blocks the old render refresh
+    // path from depending on GameModel::GetModelMatrix again.
+    if ( modelIndex < 0 || modelIndex >= GetModelCount() )
+    {
+        return;
+    }
+
+    PhysicsModelAccess modelAccess( *this );
+    if ( colliderChanged )
+    {
+        m_physicsEngine.RefreshColliderStore( modelAccess );
+    }
+    else
+    {
+        m_physicsEngine.RefreshBodyFromModel( modelAccess, modelIndex );
+    }
 }
 
 
@@ -927,7 +1107,8 @@ void GameModelCollection::RunPhysics( float fChangeInTime,
                                       const Physics::PhysicsWorldForces& worldForces,
                                       Threading::WorkerPool& workerPool )
 {
-    m_physicsEngine.Step( *this, fChangeInTime, config, worldForces, workerPool );
+    PhysicsModelAccess modelAccess( *this );
+    m_physicsEngine.Step( modelAccess, fChangeInTime, config, worldForces, workerPool );
 }
 
 
@@ -970,12 +1151,6 @@ void GameModelCollection::SetPhysicsSleepEnabled( bool enabled )
 void GameModelCollection::ClearPointJointConstraints()
 {
     m_physicsEngine.ClearPointJointConstraints();
-}
-
-
-void GameModelCollection::AddPointJointConstraint( const Physics::PointJointConstraint& constraint )
-{
-    m_physicsEngine.AddPointJointConstraint( constraint );
 }
 
 

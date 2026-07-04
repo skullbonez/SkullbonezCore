@@ -13,8 +13,10 @@ Glossary:
   State shelf: Run-owned aggregate that groups related fields while split
   implementation files are being decomposed.
   Runtime setting: Live toggle or tuning value applied while a scene is running.
+  Contact-audio flash mode: Render-only selector for which audio decisions get
+    a body flash after physics, independent of deterministic simulation.
   Borrowed subsystem pointer: Non-owning pointer to state owned elsewhere in
-  the Run composition root.
+    the Run composition root.
 
 Invariants:
   - Owning state should use value members or smart pointers; raw pointers here
@@ -88,6 +90,15 @@ struct TornadoVisualSettings
     float rotationSpeed = 1.25f;
 };
 
+enum class ContactAudioFlashMode
+{
+    Off = 0,
+    Emitted = 1,
+    Candidates = 2,
+    Rejected = 3,
+    Count
+};
+
 struct RunRuntimeSettings
 {
     bool isVsyncEnabled = true;                                // Swap-chain sync interval (true = vsync)
@@ -95,7 +106,8 @@ struct RunRuntimeSettings
     bool isPhysicsSleepEnabled =
         true;                                                  // Live Catto sleep policy; false keeps bodies awake while leaving collision/solving active
     bool contactAudioDebugCounters = false;                    // Live optional contact-audio counter logging toggle.
-    bool contactAudioFlashOnSubmit = false;                    // Render-only white flash for contacts that actually submitted audio.
+    ContactAudioFlashMode contactAudioFlashMode =
+        ContactAudioFlashMode::Emitted;                        // Render-only contact-audio diagnostic flash mode.
     Physics::TornadoFieldConfig tornadoField;                  // Live vortex force/debug vector field controlled by CLI/UI
     Physics::TornadoSystemConfig tornadoSystem;                // Scene-authored multi-vortex schedule and motion.
     TornadoVisualSettings tornadoVisual;                       // Render-only tornado art tuning outside deterministic physics state.

@@ -594,13 +594,15 @@ int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, i
 void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollection& collection,
                                     SkullbonezCore::Physics::PhysicsEngine&,
                                     int index,
-                                    GameModel& model )
+                                    GameModel& model,
+                                    bool colliderChanged = false )
 {
     // Why: Direct editor transforms teleport the body. Clearing velocities and
     // waking dynamic bodies prevents stale solver momentum from immediately
     // dragging the authored pose away.
     model.SetLinearVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
     model.SetAngularVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    collection.CommitEditedModelPhysicsState( index, colliderChanged );
     if ( !model.IsFixed() )
     {
         collection.WakeModel( index );

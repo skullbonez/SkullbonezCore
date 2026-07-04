@@ -28,6 +28,7 @@ using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsModelAccess;
 
@@ -50,9 +51,47 @@ void PhysicsEngine::RefreshBodyStore( PhysicsModelAccess& modelAccess )
 }
 
 
+void PhysicsEngine::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex )
+{
+    m_scene.RefreshBodyFromModel( modelAccess, modelIndex );
+}
+
+
 void PhysicsEngine::ClearPendingBodyImpulses()
 {
     m_scene.ClearPendingBodyImpulses();
+}
+
+
+bool PhysicsEngine::TrimBodyStoreToCount( int bodyCount )
+{
+    return m_scene.TrimBodyStoreToCount( bodyCount );
+}
+
+
+bool PhysicsEngine::RestoreReplayBodyState( int modelIndex,
+                                            uint32_t replayBodyId,
+                                            bool fixed,
+                                            const Math::Vector::Vector3& position,
+                                            const Math::Orientation::Quaternion& orientation,
+                                            const Math::Vector::Vector3& linearVelocity,
+                                            const Math::Vector::Vector3& angularVelocity,
+                                            float mass,
+                                            float inverseMass,
+                                            const Math::Vector::Vector3& rotationalInertia,
+                                            const Math::Vector::Vector3& inverseRotationalInertia )
+{
+    return m_scene.RestoreReplayBodyState( modelIndex,
+                                           replayBodyId,
+                                           fixed,
+                                           position,
+                                           orientation,
+                                           linearVelocity,
+                                           angularVelocity,
+                                           mass,
+                                           inverseMass,
+                                           rotationalInertia,
+                                           inverseRotationalInertia );
 }
 
 
@@ -74,6 +113,9 @@ void PhysicsEngine::Step( PhysicsModelAccess& modelAccess,
                           const PhysicsWorldForces& worldForces,
                           Threading::WorkerPool& workerPool )
 {
+    // Compatibility: runtime stepping still borrows model-backed access until
+    // scene creation and runtime commands migrate to store-owned physics handles.
+    // Delete this path when PhysicsScene steps owned stores directly.
     m_scene.RunPhysics( modelAccess, deltaSeconds, config, worldForces, workerPool );
 }
 
@@ -132,9 +174,9 @@ void PhysicsEngine::ClearPointJointConstraints()
 }
 
 
-void PhysicsEngine::AddPointJointConstraint( const PointJointConstraint& constraint )
+PhysicsConstraintHandle PhysicsEngine::CreatePointJoint( const PhysicsPointJointCreateDesc& desc )
 {
-    m_scene.AddPointJointConstraint( constraint );
+    return m_scene.CreatePointJoint( desc );
 }
 
 

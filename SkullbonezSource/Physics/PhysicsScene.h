@@ -56,7 +56,24 @@ class PhysicsScene
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
     void Clear();
     void RefreshBodyStore( PhysicsModelAccess& modelAccess );
+    void RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex );
     void ClearPendingBodyImpulses();
+    // Replay restore trims the authoritative body store directly; callers must
+    // not force a model-to-store refresh after this succeeds.
+    bool TrimBodyStoreToCount( int bodyCount );
+    // Store-owned replay restore facade used by runtime replay without
+    // treating GameModel as the source of truth for simulation state.
+    bool RestoreReplayBodyState( int modelIndex,
+                                 uint32_t replayBodyId,
+                                 bool fixed,
+                                 const Math::Vector::Vector3& position,
+                                 const Math::Orientation::Quaternion& orientation,
+                                 const Math::Vector::Vector3& linearVelocity,
+                                 const Math::Vector::Vector3& angularVelocity,
+                                 float mass,
+                                 float inverseMass,
+                                 const Math::Vector::Vector3& rotationalInertia,
+                                 const Math::Vector::Vector3& inverseRotationalInertia );
     void RefreshColliderStore( PhysicsModelAccess& modelAccess );
     void RefreshRenderStore( PhysicsModelAccess& modelAccess );
     void RunPhysics( PhysicsModelAccess& modelAccess,
@@ -78,7 +95,7 @@ class PhysicsScene
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
     void ClearPointJointConstraints();
-    void AddPointJointConstraint( const PointJointConstraint& constraint );
+    PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
     void SetTornadoFieldConfig( const TornadoFieldConfig& config );
     const TornadoFieldConfig& GetTornadoFieldConfig() const;
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );

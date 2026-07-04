@@ -29,6 +29,8 @@ Related:
 #ifdef _DEBUG
 #include "PhysicsDiagnosticsModel.h"
 #endif
+#include "ColliderStore.h"
+#include "PhysicsBodyStore.h"
 #include "PhysicsModelAccess.h"
 #include "PhysicsWorld.h"
 
@@ -68,7 +70,10 @@ void PhysicsDiagnosticsSink::SetPhysicsDiagnosticsRunId( const char* runId )
 }
 
 
-void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess )
+void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world,
+                                                PhysicsModelAccess& modelAccess,
+                                                const PhysicsBodyStore& bodyStore,
+                                                const ColliderStore& colliderStore )
 {
     const PhysicsDiagnosticsView diagnosticsView = world.GetDiagnosticsView();
     const auto& m_sleepSupportedThisFrame = diagnosticsView.sleepSupportedThisFrame;
@@ -80,7 +85,7 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsMode
         return;
     }
 
-    const int modelCount = modelAccess.ModelCount();
+    const int modelCount = bodyStore.Count();
     if ( m_physicsRegressionLogFrame == 0 )
     {
         Log().Writef( m_physicsRegressionLogPath,
@@ -90,7 +95,7 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsMode
     for ( int i = 0; i < modelCount; ++i )
     {
         PhysicsDiagnosticsModelRecord model;
-        if ( !modelAccess.TryGetPhysicsDiagnosticsModel( i, model ) )
+        if ( !modelAccess.TryGetPhysicsDiagnosticsModel( i, bodyStore, colliderStore, model ) )
         {
             continue;
         }
@@ -141,9 +146,12 @@ void PhysicsDiagnosticsSink::IncrementCollisionTimeFrameIfEnabled()
 }
 
 
-void PhysicsDiagnosticsSink::EmitFrame( PhysicsModelAccess& modelAccess, float dt )
+void PhysicsDiagnosticsSink::EmitFrame( PhysicsModelAccess& modelAccess,
+                                        const PhysicsBodyStore& bodyStore,
+                                        const ColliderStore& colliderStore,
+                                        float dt )
 {
-    m_skullScope.EmitFrame( modelAccess, dt );
+    m_skullScope.EmitFrame( modelAccess, bodyStore, colliderStore, dt );
 }
 #endif
 
@@ -166,10 +174,10 @@ void PhysicsDiagnosticsSink::EmitCollisionTime( PhysicsModelAccess& modelAccess,
                       "frame,type,bodyA,bodyB,nameA,nameB,collisionTime,availableTime\n" );
         m_physicsCollisionTimeHeaderWritten = true;
     }
-    PhysicsDiagnosticsModelRecord modelA;
-    PhysicsDiagnosticsModelRecord modelB;
-    const char* nameA = modelAccess.TryGetPhysicsDiagnosticsModel( bodyA, modelA ) ? modelA.name : "terrain";
-    const char* nameB = modelAccess.TryGetPhysicsDiagnosticsModel( bodyB, modelB ) ? modelB.name : "terrain";
+    const char* modelNameA = "";
+    const char* modelNameB = "";
+    const char* nameA = modelAccess.TryGetPhysicsDiagnosticsModelName( bodyA, modelNameA ) ? modelNameA : "terrain";
+    const char* nameB = modelAccess.TryGetPhysicsDiagnosticsModelName( bodyB, modelNameB ) ? modelNameB : "terrain";
     Log().Writef( m_physicsCollisionTimeLogPath,
                   "%d,%s,%d,%d,%s,%s,%.6f,%.6f\n",
                   m_physicsCollisionTimeLogFrame,

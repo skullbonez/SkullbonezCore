@@ -10,8 +10,8 @@ Mental model:
 
 Glossary:
   Pass: Ordered unit of frame rendering owned by RuntimeRenderer.
-  Frame context: Per-frame camera, projection, lighting, water, and scene view
-  bundle shared by passes.
+  Frame context: Per-frame camera, projection, lighting, water, and model
+  render inputs shared by passes.
   Resource context: Creation/rebuild-only render factory bundle used by
   EnsureGpuResources methods, not by draw methods.
   Pass resources: Backend-owned objects such as framebuffers, shaders, and
@@ -36,7 +36,6 @@ Related:
 #include "../../Maths/Vector3.h"
 #include "../../Physics/TornadoField.h"
 #include "../../Rendering/IFramebuffer.h"
-#include "../../Rendering/RenderSceneView.h"
 #include "../../Rendering/Shadow.h"
 
 #include <cstdint>
@@ -44,6 +43,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace GameObjects
+{
+class GameModelCollection;
+}
+
 namespace Rendering
 {
 class IRenderCommandContext;
@@ -66,6 +70,7 @@ struct UIRenderContext;
 namespace Basics
 {
 class RuntimeRenderHost;
+struct RenderHelperContext;
 
 // Concept: these private pass contracts are the extraction boundary.
 //
@@ -112,10 +117,10 @@ struct RenderFrameContext
     bool cinematicEnabled = false;
     const CinematicRenderConfig* cinematic = nullptr;
 
-    // Renderer-facing scene adapter for model draws, shadow casters, DXR
-    // transforms, and debug scene overlays. The adapter is owned by Run;
-    // passes borrow it only for this frame.
-    Rendering::IRenderSceneView* scene = nullptr;
+    // Runtime model collection still owns the legacy render projection. Passes
+    // borrow it for this frame only while RenderInstanceStore becomes the
+    // production renderer input.
+    GameObjects::GameModelCollection* models = nullptr;
 
     // Lifetime: borrowed from RuntimeRenderInputs for this frame only. It is
     // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
@@ -367,7 +372,7 @@ class ShadowPass
     Rendering::ShadowFrameData BuildObjectFrameData( const CinematicRenderConfig& cinematic,
                                                      const Math::Vector::Vector3& lightDirectionWorld,
                                                      const Math::Vector::Vector3& focusHint,
-                                                     Rendering::IRenderSceneView& scene );
+                                                     GameObjects::GameModelCollection& models );
     void RenderShadowMap( Rendering::IFramebuffer& target,
                           const RenderHelperContext& helperContext,
                           const Rendering::ShadowFrameData& shadowFrame,
@@ -375,7 +380,7 @@ class ShadowPass
                           Rendering::IRenderCommandContext& renderCommands,
                           bool renderTerrain,
                           bool renderObjects,
-                          Rendering::IRenderSceneView& scene,
+                          GameObjects::GameModelCollection& models,
                           const Rendering::ShadowCasterBatches* objectCasters );
 
     RuntimeRenderHost& m_host;

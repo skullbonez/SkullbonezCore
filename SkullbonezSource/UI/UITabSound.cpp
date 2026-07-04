@@ -16,6 +16,10 @@ Glossary:
   Band parameter: Impulse-tier override inside a selected set.
   Sample library: Decoded contact-audio candidate sounds that can be previewed
     or assigned to the selected material set.
+  Patch candidate: One reduced contact patch kept after duplicate solver facts
+    for the same body/material/feature key have been merged.
+  Flash mode toggle: Sound-tab control that cycles emitted, candidate,
+    rejected, or hidden body flashes for contact-audio decision review.
   Fitted picker text: One-line selector label clipped before the right-aligned
     previous/next buttons.
 
@@ -56,16 +60,17 @@ constexpr float SOUND_TOGGLE_ROW2_Y = 72.0f;
 constexpr float SOUND_STATS_Y = 112.0f;
 constexpr float SOUND_GLOBAL_TITLE_Y = 160.0f;
 constexpr float SOUND_GLOBAL_SLIDER_Y = 186.0f;
-constexpr float SOUND_SAMPLE_TITLE_Y = 442.0f;
-constexpr float SOUND_SAMPLE_PICKER_Y = 468.0f;
-constexpr float SOUND_SAMPLE_ACTION_Y = 502.0f;
+constexpr float SOUND_ROLLING_EXTRA_Y = 160.0f;
+constexpr float SOUND_SAMPLE_TITLE_Y = 442.0f + SOUND_ROLLING_EXTRA_Y;
+constexpr float SOUND_SAMPLE_PICKER_Y = 468.0f + SOUND_ROLLING_EXTRA_Y;
+constexpr float SOUND_SAMPLE_ACTION_Y = 502.0f + SOUND_ROLLING_EXTRA_Y;
 constexpr float SOUND_SAMPLE_BUTTON_W = 72.0f;
 constexpr float SOUND_SAMPLE_BUTTON_H = 26.0f;
-constexpr float SOUND_SET_TITLE_Y = 552.0f;
-constexpr float SOUND_SET_PICKER_Y = 578.0f;
-constexpr float SOUND_SET_META_Y = 612.0f;
-constexpr float SOUND_SET_SLIDER_Y = 654.0f;
-constexpr float SOUND_BAND_TITLE_Y = 1044.0f;
+constexpr float SOUND_SET_TITLE_Y = 552.0f + SOUND_ROLLING_EXTRA_Y;
+constexpr float SOUND_SET_PICKER_Y = 578.0f + SOUND_ROLLING_EXTRA_Y;
+constexpr float SOUND_SET_META_Y = 612.0f + SOUND_ROLLING_EXTRA_Y;
+constexpr float SOUND_SET_SLIDER_Y = 654.0f + SOUND_ROLLING_EXTRA_Y;
+constexpr float SOUND_BAND_TITLE_Y = 1044.0f + SOUND_ROLLING_EXTRA_Y;
 constexpr float SOUND_BAND_BLOCK_H = 238.0f;
 constexpr float SOUND_SLIDER_H = 34.0f;
 constexpr float SOUND_SLIDER_STEP_Y = 40.0f;
@@ -95,20 +100,24 @@ constexpr SoundSliderSpec kGlobalSliders[] = {
     { UISoundParam::MaxDistanceScale, "Distance scale", "%.2fx", 0.01f, 16.0f, 0.05f },
     { UISoundParam::MinClosingSpeed, "Min closing speed", "%.2f", 0.0f, 20.0f, 0.05f },
     { UISoundParam::MinImpactScore, "Min impact score", "%.1f", 0.0f, 5000.0f, 1.0f },
-    { UISoundParam::ImpactScoreRangeSeconds, "Impact score range", "%.2fs", 0.001f, 10.0f, 0.05f },
-    { UISoundParam::BurstVoicesPerWindow, "Burst voices / 100ms", "%.0f", 1.0f, 40.0f, 1.0f },
+    { UISoundParam::ImpactScoreRangeSeconds, "Score gain range", "%.2fs", 0.001f, 10.0f, 0.05f },
+    { UISoundParam::BurstVoicesPerWindow, "Voices / 100ms", "%.0f", 1.0f, 40.0f, 1.0f },
+    { UISoundParam::RollingLevelDb, "Rolling level", "%.0f dB", -60.0f, 0.0f, 1.0f },
+    { UISoundParam::RollingMaxDistance, "Rolling distance", "%.0f", 1.0f, 200.0f, 1.0f },
+    { UISoundParam::RollingMinSlipSpeed, "Rolling slip speed", "%.2f", 0.1f, 20.0f, 0.05f },
+    { UISoundParam::RollingVoicesPerWindow, "Rolling voices / 100ms", "%.0f", 0.0f, 12.0f, 1.0f },
 };
 
 constexpr SoundSliderSpec kSetSliders[] = {
     { UISoundParam::SetMinImpulse, "Min impulse", "%.2f", 0.0f, 100.0f, 0.05f },
     { UISoundParam::SetImpulseRange, "Impulse range", "%.2f", 0.05f, 100.0f, 0.05f },
-    { UISoundParam::SetCooldownMs, "Cooldown / sleep ms", "%.0f ms", 0.0f, 1000.0f, 5.0f },
-    { UISoundParam::SetOverrideCooldownMs, "Override sleep ms", "%.0f ms", 0.0f, 1000.0f, 5.0f },
-    { UISoundParam::SetMaxDistance, "Max distance", "%.0f", 1.0f, 500.0f, 1.0f },
-    { UISoundParam::SetBaseGain, "Base gain", "%.2f", 0.0f, 4.0f, 0.05f },
+    { UISoundParam::SetCooldownMs, "Pair cooldown", "%.0f ms", 0.0f, 1000.0f, 5.0f },
+    { UISoundParam::SetOverrideCooldownMs, "Spike rearm", "%.0f ms", 0.0f, 1000.0f, 5.0f },
+    { UISoundParam::SetMaxDistance, "Patch distance", "%.0f", 1.0f, 500.0f, 1.0f },
+    { UISoundParam::SetBaseGain, "Set gain", "%.2f", 0.0f, 4.0f, 0.05f },
     { UISoundParam::SetPitchMin, "Pitch min", "%.2f", 0.25f, 4.0f, 0.01f },
     { UISoundParam::SetPitchMax, "Pitch max", "%.2f", 0.25f, 4.0f, 0.01f },
-    { UISoundParam::SetMaxVoices, "Max voices", "%.0f", 1.0f, 32.0f, 1.0f },
+    { UISoundParam::SetMaxVoices, "Voice cap", "%.0f", 1.0f, 32.0f, 1.0f },
 };
 
 constexpr SoundBandSliderSpec kBandSliders[] = {
@@ -333,6 +342,14 @@ float GlobalDisplayValue( const SkullbonezCore::UI::SoundTab::UISoundTabState& s
         return data.contactAudioImpactScoreRangeSeconds;
     case UISoundParam::BurstVoicesPerWindow:
         return static_cast<float>( data.contactAudioBurstVoicesPerWindow );
+    case UISoundParam::RollingLevelDb:
+        return data.contactAudioRollingLevelDb;
+    case UISoundParam::RollingMaxDistance:
+        return data.contactAudioRollingMaxDistance;
+    case UISoundParam::RollingMinSlipSpeed:
+        return data.contactAudioRollingMinSlipSpeed;
+    case UISoundParam::RollingVoicesPerWindow:
+        return static_cast<float>( data.contactAudioRollingVoicesPerWindow );
     default:
         return 0.0f;
     }
@@ -417,7 +434,7 @@ void SetContentBounds( SkullbonezCore::UI::SoundTab::UISoundTabState& state,
     const float colW = (std::max)( 148.0f, contentW * 0.46f );
     state.enabledToggle.SetBounds( contentX, scrolledY + SOUND_TOGGLE_Y, colW, 24.0f );
     state.debugCountersToggle.SetBounds( contentX + colW + 18.0f, scrolledY + SOUND_TOGGLE_Y, colW, 24.0f );
-    state.flashOnSubmitToggle.SetBounds( contentX, scrolledY + SOUND_TOGGLE_ROW2_Y, colW, 24.0f );
+    state.flashModeToggle.SetBounds( contentX, scrolledY + SOUND_TOGGLE_ROW2_Y, colW, 24.0f );
     for ( int i = 0; i < SkullbonezCore::UI::SoundTab::SOUND_GLOBAL_SLIDER_COUNT; ++i )
     {
         state.globalSliders[i].SetBounds(
@@ -539,7 +556,7 @@ void DrawHitboxes( const UISoundTabState& state,
 {
     DrawHitboxRect( draw, state.enabledToggle.Bounds(), r, g, b );
     DrawHitboxRect( draw, state.debugCountersToggle.Bounds(), r, g, b );
-    DrawHitboxRect( draw, state.flashOnSubmitToggle.Bounds(), r, g, b );
+    DrawHitboxRect( draw, state.flashModeToggle.Bounds(), r, g, b );
     for ( const UISlider& slider : state.globalSliders )
     {
         DrawHitboxRect( draw, slider.Bounds(), r, g, b );
@@ -608,9 +625,9 @@ bool HandleContentClick( UISoundTabState& state,
         result.commands.sound.toggleDebugCounters = true;
         return false;
     }
-    if ( state.flashOnSubmitToggle.HitTest( mouseX, mouseY ) )
+    if ( state.flashModeToggle.HitTest( mouseX, mouseY ) )
     {
-        result.commands.sound.toggleFlashOnSubmit = true;
+        result.commands.sound.cycleFlashMode = true;
         return false;
     }
     for ( int i = 0; i < SOUND_GLOBAL_SLIDER_COUNT; ++i )
@@ -783,33 +800,39 @@ void Draw( UISoundTabState& state,
     DrawContentToggle( draw,
                        contentY,
                        contentH,
-                       state.flashOnSubmitToggle,
+                       state.flashModeToggle,
                        col1,
                        scrolledY + SOUND_TOGGLE_ROW2_Y,
                        colW,
-                       "Flash emitters",
-                       data.contactAudioFlashOnSubmit );
+                       data.contactAudioFlashModeLabel,
+                       data.contactAudioFlashMode != 0 );
 
+    const uint32_t quietContacts = data.contactAudioRejectedByThreshold + data.contactAudioRejectedByCooldown;
+    const uint32_t budgetContacts = data.contactAudioCandidateOverflows +
+                                    data.contactAudioBurstWindowSkippedCandidates +
+                                    data.contactAudioBudgetRejectedCandidates + data.contactAudioDroppedVoices;
     snprintf( buf,
               sizeof( buf ),
-              "%u seen  %u played  %u quiet  %u cooldown  %u dropped",
+              "%u facts  %u patches  %u played  roll %u/%u  %u quiet  %u budget",
               data.contactAudioEventsSeen,
+              data.contactAudioPatchCandidates,
               data.contactAudioSubmittedVoices,
-              data.contactAudioRejectedByThreshold,
-              data.contactAudioRejectedByCooldown,
-              data.contactAudioDroppedVoices );
+              data.contactAudioRollingSubmittedVoices,
+              data.contactAudioRollingCandidates,
+              quietContacts,
+              budgetContacts );
     DrawLabelValueAt( draw,
                       contentY,
                       contentH,
                       contentX,
                       scrolledY + SOUND_STATS_Y,
-                      data.contactAudioAvailable ? "Runtime" : "Runtime",
+                      data.contactAudioAvailable ? "Reducer" : "Reducer",
                       data.contactAudioAvailable ? buf : "Not available",
                       data.contactAudioAvailable ? 0.78f : 0.95f,
                       data.contactAudioAvailable ? 0.88f : 0.55f,
                       data.contactAudioAvailable ? 0.91f : 0.32f );
 
-    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_GLOBAL_TITLE_Y, 12.0f, "Global" );
+    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_GLOBAL_TITLE_Y, 12.0f, "Classifier" );
     for ( int i = 0; i < static_cast<int>( sizeof( kGlobalSliders ) / sizeof( kGlobalSliders[0] ) ); ++i )
     {
         const float sliderY = scrolledY + SOUND_GLOBAL_SLIDER_Y + static_cast<float>( i ) * SOUND_SLIDER_STEP_Y;
@@ -866,7 +889,7 @@ void Draw( UISoundTabState& state,
         state.selectSampleButton.Draw( draw, "Use", mouseX, mouseY );
     }
 
-    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_SET_TITLE_Y, 12.0f, "Material Set" );
+    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_SET_TITLE_Y, 12.0f, "Material Recipe" );
     if ( IsRowVisible( contentY, contentH, scrolledY + SOUND_SET_PICKER_Y, UI_PIPELINE_STEP_BUTTON_H ) )
     {
         DrawPipelineStepButton( draw,

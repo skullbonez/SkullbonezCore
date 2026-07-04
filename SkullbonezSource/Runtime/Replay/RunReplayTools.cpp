@@ -42,6 +42,7 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "../RuntimePickService.h"
 #include "../../Physics/PhysicsMass.h"
+#include "../../Physics/PhysicsModelAccess.h"
 #include "../RuntimeFileWriter.h"
 #include "../../Core/WorkerPool.h"
 #include "../../UI/UIInput.h"

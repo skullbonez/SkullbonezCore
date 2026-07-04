@@ -175,7 +175,7 @@ void CaptureSystem::SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend
 
 RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screenshot,
                                                      const RuntimeCaptureSceneContext& context,
-                                                     RuntimeCaptureSink& sink )
+                                                     const RuntimeCaptureSink& sink )
 {
     if ( context.isSceneMode && screenshot.isScreenshotAndExit && context.currentFrame == 0 )
     {
@@ -240,7 +240,7 @@ RuntimeCaptureResult CaptureSystem::TickAutoCycle( bool isSceneMode,
                                                    float& autoCycleAccum,
                                                    int& autoCycleShotsTaken,
                                                    int& trackBallIndex,
-                                                   RuntimeCaptureSink& sink )
+                                                   const RuntimeCaptureSink& sink )
 {
     if ( !isSceneMode || autoCycleInterval <= 0.0f || autoCycleAccum < autoCycleInterval )
     {

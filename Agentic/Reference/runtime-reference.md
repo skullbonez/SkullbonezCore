@@ -77,6 +77,10 @@ Contact impact audio is configured from `SkullbonezData\audio\contact_audio.mate
 | `contact_audio_enabled` | Master startup switch for contact impact playback. |
 | `contact_audio_master_gain` | Global gain multiplier applied after material and impulse-band gain. |
 | `contact_audio_max_distance_scale` | Multiplier applied to each sound set's authored max distance. |
+| `contact_audio_rolling_level_db` | Separate roll/slide playback level in dB. Defaults quiet so rolling is local texture, not a room-scale scrape. |
+| `contact_audio_rolling_max_distance` | Separate max distance for rolling sounds; impact distance scaling does not affect it. |
+| `contact_audio_rolling_min_slip_speed` | Tangential pre-solve speed required before roll/slide playback can emit. |
+| `contact_audio_rolling_voices_per_window` | Separate rolling voice cap per 100 ms window; set to `0` to disable rolling sounds. |
 | `contact_audio_debug_counters` | Print copied presentation counters once per simulated second: events seen, threshold rejects, cooldown rejects, submitted voices, and dropped voices. |
 
 ## Cinematic Rendering

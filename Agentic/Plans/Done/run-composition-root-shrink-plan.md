@@ -4890,6 +4890,12 @@ Validation:
 Problem: production rendering still treats `GameModelCollection` as the render
 scene view.
 
+2026-07-04 update: `Rendering::IRenderSceneView` and
+`GameModelCollection : Rendering::IRenderSceneView` were deleted as a
+one-implementation migration artifact. The remaining problem is direct concrete
+`GameModelCollection` render projection use until `RenderInstanceStore` owns the
+production render records.
+
 Actions:
 
 - Make `RenderInstanceStore` the render-facing source for transforms, material

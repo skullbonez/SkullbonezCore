@@ -61,10 +61,14 @@ struct RuntimeRenderFlags
 
 struct ContactAudioConfig
 {
-    bool enabled = true;           // Master startup switch; CLI mute can still force the service off.
-    float masterGain = 1.0f;       // Multiplier applied after material/band gain, clamped by the audio service.
-    float maxDistanceScale = 1.0f; // Multiplier for each sound set's authored maxDistance.
-    bool debugCounters = false;    // Prints copied presentation counters once per simulated second.
+    bool enabled = true;               // Master startup switch; CLI mute can still force the service off.
+    float masterGain = 1.0f;           // Multiplier applied after material/band gain, clamped by the audio service.
+    float maxDistanceScale = 1.0f;     // Multiplier for each sound set's authored maxDistance.
+    float rollingLevelDb = -24.0f;     // dB; separate quiet roll/slide level.
+    float rollingMaxDistance = 24.0f;  // World units; independent of impact distance.
+    float rollingMinSlipSpeed = 0.65f; // Pre-solve tangential speed threshold.
+    int rollingVoicesPerWindow = 4;    // Per 100 ms; zero disables rolling.
+    bool debugCounters = false;        // Prints copied presentation counters once per simulated second.
 };
 
 struct SceneLightConfig
@@ -214,10 +218,10 @@ struct CinematicRenderConfig
     // Art-direction presets used by the concept scene pack. These extend the
     // original golden-hour cinematic controls without turning the renderer into a
     // full material graph. Modes are consumed by reusable shaders.
-    int skyMode = 11;              // 0=sun sky, 1=industrial, 2=studio, 3=neon, 4=alien, ...
-    int terrainMode = 7;           // 0=warm terrain, 1=industrial, 2=studio, 3=grid, ...
-    int objectStyle = 6;           // 0=beach ball, 1=matte, 2=metal, 3=emissive, ...
-    int waterMode = 4;             // 0=off/none, 1=basin pool, 2=ocean, 3=wet floor
+    int skyMode = 11;                  // 0=sun sky, 1=industrial, 2=studio, 3=neon, 4=alien, ...
+    int terrainMode = 7;               // 0=warm terrain, 1=industrial, 2=studio, 3=grid, ...
+    int objectStyle = 6;               // 0=beach ball, 1=matte, 2=metal, 3=emissive, ...
+    int waterMode = 4;                 // 0=off/none, 1=basin pool, 2=ocean, 3=wet floor
 
     float styleSaturation = 1.44f;
     float styleContrast = 1.34f;

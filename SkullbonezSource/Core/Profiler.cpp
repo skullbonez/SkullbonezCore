@@ -33,6 +33,7 @@ Related:
 #include <cfloat>
 #include <cstring>
 #include <cstdlib>
+#include <cstdio>
 #include <mutex>
 #include "PlatformProfiler.h"
 #include "../Rendering/Text.h"
@@ -117,6 +118,13 @@ void Profiler::AbortMismatch( const char* msg, const char* details ) const
         _snprintf_s( buf, sizeof( buf ), _TRUNCATE, "PROFILER: %s\n", msg );
     }
     OutputDebugStringA( buf );
+    // Hazard: CRT abort dialogs do not preserve OutputDebugString text for a
+    // later morning read. Flush the same reason into the debug event log before
+    // intentionally handing control to the debugger/CRT.
+    fprintf( stderr, "%s", buf );
+    fflush( stderr );
+    Log().WriteEventf( "profiler_abort message=\"%s\" details=\"%s\"", msg ? msg : "", details ? details : "" );
+    Log().FlushAll();
     if ( IsDebuggerPresent() )
     {
         __debugbreak();

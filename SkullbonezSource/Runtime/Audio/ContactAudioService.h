@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Runtime/Audio/ContactAudioService.h
 Purpose:
-  Plays material-aware physics contact impact sounds.
+  Plays material-aware physics contact impact and rolling sounds.
 
 Mental model:
   Physics produces deterministic contact facts. This service consumes copied
@@ -12,15 +12,21 @@ Mental model:
 Glossary:
   Contact-audio decision: Presentation-side verdict explaining whether a copied
     contact became a sound, flash feedback, or a specific rejection.
+  Contact-audio kind: Perceptual class such as impact, heavy_landing, support,
+    settle, roll_slide, or propagated_impulse.
   Contact material: Gameplay/audio material token such as metal, stone, or wood.
-  Cooldown key: Stable body-pair key that prevents persistent contact rows from
-    replaying the same impact every fixed tick.
+  Cooldown key: Stable contact-patch key that prevents persistent contact rows
+    from replaying the same impact every fixed tick.
+  Patch candidate: One reduced contact patch kept after duplicate solver facts
+    for the same body/material/feature key have been merged.
   Impact band: Light, medium, or heavy impulse tier that can select different
     gain/pitch/sample tuning inside one material sound set.
   Pre-solve closing speed: Contact normal velocity before the solver applies
     warm-start or corrective impulses; this is the impact-motion gate for thuds.
   Impact score: Solved normal impulse multiplied by pre-solve closing speed,
     used to keep force-transfer rows quieter than real contact work.
+  Rolling lane: Low-gain roll/slide playback with its own level, distance, and
+    burst budget so persistent motion does not use the thud falloff.
   Sound set: Material-pair tuning plus one or more decoded sample buffers.
   Sample library: Decoded candidate sounds that the Sound tab can preview and
     assign to a sound set at runtime.
@@ -69,10 +75,17 @@ struct ContactAudioEvent
 struct ContactAudioStats
 {
     uint32_t eventsSeen = 0;
+    uint32_t patchCandidates = 0;
+    uint32_t mergedCandidates = 0;
+    uint32_t candidateOverflows = 0;
+    uint32_t burstWindowSkippedCandidates = 0;
+    uint32_t budgetRejectedCandidates = 0;
     uint32_t rejectedByThreshold = 0;
     uint32_t rejectedByCooldown = 0;
     uint32_t submittedVoices = 0;
     uint32_t droppedVoices = 0;
+    uint32_t rollingCandidates = 0;
+    uint32_t rollingSubmittedVoices = 0;
 };
 
 struct ContactAudioDecision
@@ -80,6 +93,7 @@ struct ContactAudioDecision
     ContactAudioEvent event;
     uint64_t pairKey = 0;
     const char* reason = "";       // String literal or borrowed map/sample text for immediate frame use.
+    const char* kind = "";         // String literal classification used by SkullScope summaries.
     const char* soundSetName = ""; // Borrowed from the loaded material map.
     const char* bandName = "";     // Borrowed from the loaded material map.
     const char* samplePath = "";   // Borrowed from decoded sample storage.
@@ -189,6 +203,16 @@ class ContactAudioService
     // Caps ranked contact sounds submitted in each 100 ms burst window.
     void SetBurstVoicesPerWindow( uint32_t voices );
     uint32_t BurstVoicesPerWindow() const;
+    // Rolling sounds have their own close-range gain and voice budget so they
+    // can be enabled without widening the impact/thud mix.
+    void SetRollingLevelDb( float levelDb );
+    float RollingLevelDb() const;
+    void SetRollingMaxDistance( float distance );
+    float RollingMaxDistance() const;
+    void SetRollingMinSlipSpeed( float speed );
+    float RollingMinSlipSpeed() const;
+    void SetRollingVoicesPerWindow( uint32_t voices );
+    uint32_t RollingVoicesPerWindow() const;
     int SoundSetCount() const;
     int SoundSampleCount() const;
     // Sample paths are borrowed from decoded audio buffers and are valid until
@@ -219,6 +243,7 @@ class ContactAudioService
     bool PlaySmokeImpact( uint32_t materialId, float normalImpulse );
 
     const ContactAudioStats& Stats() const;
+    const ContactAudioStats& StepStats() const;
     void ResetFrameStats();
 
   private:

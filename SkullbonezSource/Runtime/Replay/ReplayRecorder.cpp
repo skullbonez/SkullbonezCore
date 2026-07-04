@@ -28,6 +28,8 @@ Related:
 
 #include "../CameraCollection.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../Physics/ColliderStore.h"
+#include "../../Physics/PhysicsBodyStore.h"
 #include "../../World/WorldEnvironment.h"
 
 #include <algorithm>
@@ -40,8 +42,8 @@ using SkullbonezCore::Environment::CameraCollection;
 using SkullbonezCore::Environment::WorldEnvironment;
 using SkullbonezCore::GameObjects::GameModel;
 using SkullbonezCore::GameObjects::GameModelCollection;
-using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::PhysicsDebugContact;
 namespace Physics = SkullbonezCore::Physics;
 
@@ -337,19 +339,18 @@ uint64_t HashLauncherControlState( uint64_t hash, const ReplayLauncherVisualSamp
     return hash;
 }
 
-ReplayBodyShapeKind ShapeKindForModel( const GameModel& model )
+ReplayBodyShapeKind ShapeKindForCollider( const ColliderRecord& collider )
 {
-    if ( model.IsSphere() )
+    switch ( collider.shapeKind )
     {
+    case Physics::ColliderShapeKind::Sphere:
         return ReplayBodyShapeKind::Sphere;
-    }
-    if ( model.IsBox() )
-    {
+    case Physics::ColliderShapeKind::Box:
         return ReplayBodyShapeKind::Box;
-    }
-    if ( model.IsConvexHull() )
-    {
+    case Physics::ColliderShapeKind::ConvexHull:
         return ReplayBodyShapeKind::ConvexHull;
+    default:
+        break;
     }
     return ReplayBodyShapeKind::Unknown;
 }
@@ -473,6 +474,85 @@ uint64_t HashPersistentContact( uint64_t hash, const ReplaySolverPersistentConta
     hash = HashVector( hash, contact.terrainNormal );
     hash = HashFloat( hash, contact.terrainWarmStart );
     return hash;
+}
+
+// Concept: replay body samples borrow GameModel only for the stable display
+// name. Physics values come from dense stores so capture does not require
+// post-step model mirrors.
+bool BuildReplayPresentationBodySample( int modelIndex,
+                                        const GameModelCollection& models,
+                                        const Physics::PhysicsBodyStore& bodyStore,
+                                        const Physics::ColliderStore& colliderStore,
+                                        ReplayBodyPresentationSample& outBody )
+{
+    if ( modelIndex < 0 || modelIndex >= bodyStore.Count() || modelIndex >= colliderStore.Count() )
+    {
+        return false;
+    }
+
+    const GameModel* model = models.TryGetModel( modelIndex );
+    if ( !model )
+    {
+        return false;
+    }
+
+    const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+    const Physics::PhysicsBodyRecord& bodyRecord = bodyStore.Records()[bodyIndex];
+    const ColliderRecord& colliderRecord = colliderStore.Records()[bodyIndex];
+
+    outBody = ReplayBodyPresentationSample{};
+    outBody.id.value = bodyRecord.replayBodyId;
+    outBody.modelIndex = modelIndex;
+    const char* modelName = model->GetName();
+    if ( modelName && modelName[0] != '\0' )
+    {
+        strncpy_s( outBody.name, sizeof( outBody.name ), modelName, _TRUNCATE );
+    }
+    outBody.shapeKind = ShapeKindForCollider( colliderRecord );
+    outBody.position = bodyRecord.position;
+    outBody.linearVelocity = bodyRecord.linearVelocity;
+    outBody.angularVelocity = bodyRecord.angularVelocity;
+    bodyRecord.orientation.GetComponents( outBody.orientation[0],
+                                          outBody.orientation[1],
+                                          outBody.orientation[2],
+                                          outBody.orientation[3] );
+    outBody.mass = bodyRecord.mass;
+    outBody.fixed = bodyRecord.isFixed;
+    return true;
+}
+
+bool BuildReplaySolverBodySample( int modelIndex,
+                                  const GameModelCollection& models,
+                                  const Physics::PhysicsBodyStore& bodyStore,
+                                  const Physics::ColliderStore& colliderStore,
+                                  ReplaySolverBodySample& outBody )
+{
+    ReplayBodyPresentationSample presentationBody;
+    if ( !BuildReplayPresentationBodySample( modelIndex, models, bodyStore, colliderStore, presentationBody ) )
+    {
+        return false;
+    }
+
+    const Physics::PhysicsBodyRecord& bodyRecord = bodyStore.Records()[static_cast<std::size_t>( modelIndex )];
+
+    outBody = ReplaySolverBodySample{};
+    outBody.id = presentationBody.id;
+    outBody.modelIndex = presentationBody.modelIndex;
+    strncpy_s( outBody.name, sizeof( outBody.name ), presentationBody.name, _TRUNCATE );
+    outBody.shapeKind = presentationBody.shapeKind;
+    outBody.position = presentationBody.position;
+    outBody.linearVelocity = presentationBody.linearVelocity;
+    outBody.angularVelocity = presentationBody.angularVelocity;
+    outBody.orientation[0] = presentationBody.orientation[0];
+    outBody.orientation[1] = presentationBody.orientation[1];
+    outBody.orientation[2] = presentationBody.orientation[2];
+    outBody.orientation[3] = presentationBody.orientation[3];
+    outBody.mass = presentationBody.mass;
+    outBody.inverseMass = bodyRecord.invMass;
+    outBody.rotationalInertia = bodyRecord.rotationalInertia;
+    outBody.inverseRotationalInertia = bodyRecord.invRotationalInertia;
+    outBody.fixed = presentationBody.fixed;
+    return true;
 }
 
 uint64_t HashContactCache( uint64_t hash, const ReplaySolverContactCacheSample& cache )
@@ -657,7 +737,7 @@ void ReplayRecorder::ResetTimeline( const char* sceneLabel )
 
 void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
 {
-    if ( !m_config.enabled || !input.models )
+    if ( !m_config.enabled || !input.models || !input.bodyStore || !input.colliderStore )
     {
         return;
     }
@@ -700,7 +780,9 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     }
 
     GameModelCollection& models = *input.models;
-    const int modelCount = models.GetModelCount();
+    const Physics::PhysicsBodyStore& bodyStore = *input.bodyStore;
+    const Physics::ColliderStore& colliderStore = *input.colliderStore;
+    const int modelCount = bodyStore.Count();
     const std::size_t modelCountSize = static_cast<std::size_t>( modelCount );
     sample.bodies.clear();
     sample.bodies.reserve( modelCountSize );
@@ -747,28 +829,11 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     for ( int i = 0; i < modelCount; ++i )
     {
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
-        const GameModel* model = models.TryGetModel( i );
-        if ( !model )
+        ReplayBodyPresentationSample body;
+        if ( !BuildReplayPresentationBodySample( i, models, bodyStore, colliderStore, body ) )
         {
             continue;
         }
-
-        ReplayBodyPresentationSample body;
-        body.id.value = model->GetReplayBodyId();
-        body.modelIndex = i;
-        const char* modelName = model->GetName();
-        if ( modelName && modelName[0] != '\0' )
-        {
-            strncpy_s( body.name, sizeof( body.name ), modelName, _TRUNCATE );
-        }
-        body.shapeKind = ShapeKindForModel( *model );
-        body.position = model->GetPosition();
-        body.linearVelocity = model->GetVelocity();
-        body.angularVelocity = model->GetAngularVelocity();
-        const Quaternion& orientation = model->GetOrientation();
-        orientation.GetComponents( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
-        body.mass = model->GetMass();
-        body.fixed = model->IsFixed();
         body.sleeping = bodyIndex < sleepStates.size() && sleepStates[bodyIndex] != 0;
         body.sleepSupported = bodyIndex < sleepSupportedStates.size() && sleepSupportedStates[bodyIndex] != 0;
         body.sleepInhibited = bodyIndex < sleepInhibitedStates.size() && sleepInhibitedStates[bodyIndex] != 0;
@@ -1108,7 +1173,7 @@ void ReplaySolverRecorder::ResetTimeline( const char* sceneLabel )
 
 void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
 {
-    if ( !m_config.enabled || !input.models )
+    if ( !m_config.enabled || !input.models || !input.bodyStore || !input.colliderStore )
     {
         return;
     }
@@ -1149,7 +1214,9 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     }
 
     GameModelCollection& models = *input.models;
-    const int modelCount = models.GetModelCount();
+    const Physics::PhysicsBodyStore& bodyStore = *input.bodyStore;
+    const Physics::ColliderStore& colliderStore = *input.colliderStore;
+    const int modelCount = bodyStore.Count();
     const std::size_t modelCountSize = static_cast<std::size_t>( modelCount );
     sample.bodies.clear();
     sample.bodies.reserve( modelCountSize );
@@ -1202,31 +1269,11 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     for ( int i = 0; i < modelCount; ++i )
     {
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
-        const GameModel* model = models.TryGetModel( i );
-        if ( !model )
+        ReplaySolverBodySample body;
+        if ( !BuildReplaySolverBodySample( i, models, bodyStore, colliderStore, body ) )
         {
             continue;
         }
-
-        ReplaySolverBodySample body;
-        body.id.value = model->GetReplayBodyId();
-        body.modelIndex = i;
-        const char* modelName = model->GetName();
-        if ( modelName && modelName[0] != '\0' )
-        {
-            strncpy_s( body.name, sizeof( body.name ), modelName, _TRUNCATE );
-        }
-        body.shapeKind = ShapeKindForModel( *model );
-        body.position = model->GetPosition();
-        body.linearVelocity = model->GetVelocity();
-        body.angularVelocity = model->GetAngularVelocity();
-        const Quaternion& orientation = model->GetOrientation();
-        orientation.GetComponents( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
-        body.mass = model->GetMass();
-        body.inverseMass = model->GetInvertedMass();
-        body.rotationalInertia = model->GetRotationalInertia();
-        body.inverseRotationalInertia = model->GetInvertedRotationalInertia();
-        body.fixed = model->IsFixed();
         body.sleeping = bodyIndex < sleepStates.size() && sleepStates[bodyIndex] != 0;
         body.sleepSupported = bodyIndex < sleepSupportedStates.size() && sleepSupportedStates[bodyIndex] != 0;
         body.sleepInhibited = bodyIndex < sleepInhibitedStates.size() && sleepInhibitedStates[bodyIndex] != 0;

@@ -29,6 +29,18 @@ Follow the Agent Startup Contract in `../AGENTS.md`. Load a skill from
 - `Skills/comment-style-audit/skill.md` is the repeatable pass for checking
   touched files, or the full repository when explicitly requested.
 
+## Hot Paths
+
+- `../AGENTS.md` is the source of truth for hot-path data and inheritance rules:
+  physics, collision, audio classification, render submission, and similar
+  per-frame code should stay on compact arrays/value records and explicit
+  side-effect buffers.
+- New inheritance is banned unless an owning plan proves a stable
+  runtime-polymorphic boundary is necessary and records the validation or perf
+  evidence.
+- `tools/check_runtime_boundaries.py` is the ratchet for the approved source
+  inheritance budget; do not add a base class without updating that evidence.
+
 ## Pre-Commit/PR Validation
 
 Validation scripts are pre-commit/PR gates, not normal iteration steps. Choose

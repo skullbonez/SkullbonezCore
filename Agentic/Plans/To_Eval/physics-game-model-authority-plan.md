@@ -3,11 +3,9 @@
 Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
-Validation for latest source slice: `tools\validate_project_filters.bat`,
-`tools\check_runtime_boundaries.py --repo .`, and `tools\validate_physics.bat`
-passed on 2026-07-03. The broader `tools\validate_fast.bat` gate currently
-stops at unrelated formatting drift in untouched
-`SkullbonezSource\Runtime\RuntimeViewModel.h` and `SkullbonezSource\UI\UI.h`.
+Validation for latest source slice: `tools\validate_full.bat` passed on
+2026-07-03 after deleting the physics inheritance/event-sink surface and
+turning `PhysicsModelAccess` into a concrete stack-owned facade.
 
 ## Completed Slices
 
@@ -30,17 +28,21 @@ stops at unrelated formatting drift in untouched
   runtime callers still need durable handle storage in later slices. Validation
   evidence is recorded in
   `Agentic/Plans/IN PROGRESS/carmack-physics-standalone-boundary-plan.md`.
-- [x] 2026-07-03: Split `PersistentContactSolverContext` fixed-contact events
-  and single-body compatibility writeback onto explicit
-  `PhysicsBodyEventSink` and `PhysicsBodyWritebackSink` dependencies. The
-  solver context still carries a named `wakeModelAccess` boundary only for
-  release wake-up; deleting that requires wake-island handle ownership work.
-  `tools\check_runtime_boundaries.py` now blocks reintroducing a broad
-  `PhysicsModelAccess& modelAccess` member in that context. Validation:
-  `tools\validate_project_filters.bat`,
-  `tools\check_runtime_boundaries.py --repo .`, and
-  `tools\validate_physics.bat` passed; `tools\validate_fast.bat` is blocked by
-  unrelated formatting drift in untouched UI/runtime headers.
+- [x] 2026-07-03: Replaced the temporary `PersistentContactSolverContext`
+  event/writeback sink split with compact solver side-effect queues. Persistent
+  contact solving now appends plain pipeline records, visual body indices, fixed
+  contact body indices, model-mirror writebacks, release wake bodies, and fixed
+  tree release events into `PersistentContactSolverSideEffects`; `PhysicsWorld`
+  applies those owner-side consequences after `Solve()`. The checker now blocks
+  `PhysicsBodyWritebackSink` and any model/event/world callback reference inside
+  `PersistentContactSolverContext`. Validation: `tools\validate_build.bat
+  Profile`, `tools\check_runtime_boundaries.py --repo .`, and
+  `tools\validate_physics.bat` passed.
+- [x] 2026-07-03: Removed `GameModelCollection` inheritance from
+  `PhysicsModelAccess` and the deleted `PhysicsBodyEventSink`. Runtime and
+  replay stepping now construct a stack-owned `PhysicsModelAccess` facade, and
+  `PhysicsWorld` calls explicit owner commands for fixed-contact highlights and
+  fixed-tree release instead of virtual event callbacks.
 
 ## Goal
 
@@ -91,7 +93,11 @@ Inventory checklist:
 - [ ] List all places that read or mutate physics body pose, velocity, mass, inertia, sleep, force, and impulse state.
 - [ ] List all places that read or mutate collider shape, material, filtering, and bounds state.
 - [ ] List all places that use model indices for physics commands, replay, editor selection, scene persistence, or diagnostics.
-- [ ] List all rendering callers that still read renderable state through `GameModelCollection` or `IRenderSceneView`.
+- [x] 2026-07-04: Listed all remaining runtime render callers that went through
+  `IRenderSceneView`; they were confined to `RenderFrameContext`,
+  `ShadowPass`, `ReflectionPass`, `ObjectPass`, and `DebugOverlayPass`.
+  `GameModelCollection` is still the concrete legacy render projection until
+  `RenderInstanceStore` becomes authoritative.
 - [ ] Record the inventory in a short handoff note under `Agentic/Reports/` if the slice is not completed in one sitting.
 
 ## Required First Track - Bootstrap Handles, Then Delete `MakePhysicsModelView()`
@@ -129,9 +135,7 @@ Deleted-view parameter surface:
 | `PhysicsEngine` refresh, step, wake, seed-asleep, impulse, and pending-impulse methods | `PhysicsModelAccess&`; command targets use `PhysicsBodyHandle` |
 | `PhysicsScene` refresh, run, wake, seed-asleep, impulse, and pending-impulse methods | `PhysicsModelAccess&`; command targets resolve through `PhysicsBodyStore` |
 | `PhysicsWorld` solver, contact, diagnostics, underwater sleep, fixed-contact, tornado, wake-island, and step methods | `PhysicsModelAccess&` plus explicit `PhysicsBodyStore&` where body rows are required |
-| `PersistentContactSolverContext` fixed-contact callback | `PhysicsBodyEventSink&` |
-| `PersistentContactSolverContext` single-body compatibility writeback | `PhysicsBodyWritebackSink&` |
-| `PersistentContactSolverContext` release wake callback | remaining `PhysicsModelAccess&` wake boundary until wake islands move to durable handles |
+| `PersistentContactSolverContext` fixed-contact/writeback/release callbacks | `PersistentContactSolverSideEffects&` output queues applied by `PhysicsWorld` after `Solve()` |
 | `Ragdoll::SolvePointJoints()` | `PhysicsModelAccess&` plus `PhysicsBodyStore&` |
 | `SleepIslandSystem::PropagateSupport()` | `PhysicsModelAccess&` plus sleep support context |
 | `PhysicsDiagnosticsSink` frame/collision-time emission | `PhysicsModelAccess&` |
@@ -220,13 +224,20 @@ Move one body-state group at a time. Keep compatibility writeback narrow and tem
 - [ ] Make `PhysicsBodyStore` the authoritative owner of sleep and wake state.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of accumulated forces and impulses.
 - [ ] Change physics stepping to consume body handles/store views rather than `GameModelCollection&`.
+  - [x] 2026-07-03 production stepping signatures no longer accept
+    `GameModelCollection&` or rely on `GameModelCollection` inheriting physics
+    interfaces. The remaining bridge is the concrete `PhysicsModelAccess`
+    facade, which still forwards to the collection until body/render/replay
+    readers migrate to store-owned state.
 - [ ] Route body creation through a single registration path that creates the entity/body mapping.
 - [ ] Route body deletion through a single path that invalidates handles and removes store rows deterministically.
 - [ ] Keep any required `GameModel` writeback behind an explicitly named compatibility function.
   - [x] 2026-07-03 persistent contact solving no longer reaches through broad
-    `PhysicsModelAccess` for its single-body compatibility writeback. It still
-    writes through `PhysicsBodyWritebackSink` until render, replay, and
-    diagnostics consume physics-owned body rows directly.
+    `PhysicsModelAccess` or a virtual writeback sink from inside the solver.
+    It queues body mirror writebacks as plain side-effect body indices, then
+    `PhysicsWorld` applies the existing model-owner writeback after the solve
+    until render, replay, and diagnostics consume physics-owned body rows
+    directly.
 - [ ] Add a temporary comparison/assertion path if old and new state coexist during the slice.
 - [ ] Remove old writes as soon as the final reader migrates.
 
@@ -270,14 +281,19 @@ Do-not-miss checklist:
 
 Rendering should consume render projection stores, not production physics/game-object containers.
 
-- [ ] Identify all production render paths that consume `GameModelCollection` or `IRenderSceneView`.
+- [x] 2026-07-04: Identified the production render paths that consumed
+  `IRenderSceneView`; the inheritance/interface was deleted and the remaining
+  production debt is direct `GameModelCollection` render projection use.
 - [ ] Make `RenderInstanceStore` the authoritative owner of visible render instance records.
 - [ ] Add or reuse an update path that projects final body/entity transforms into render instances after simulation.
 - [ ] Route render material, mesh, visibility, and transform updates through render instance handles.
 - [ ] Migrate the main runtime renderer to consume `RenderInstanceStore` directly.
 - [ ] Migrate shadow, reflection, debug, terrain/object, and DXR paths only when their dependencies are understood.
 - [ ] Keep editor-only wrappers separate from production render submission.
-- [ ] Remove `GameModelCollection : Rendering::IRenderSceneView` only after all production render callers migrate.
+- [x] 2026-07-04: Removed `GameModelCollection : Rendering::IRenderSceneView`
+  and deleted the one-implementation migration interface. Production rendering
+  still reads the concrete collection, so full `RenderInstanceStore` migration
+  remains open above.
 
 Do-not-miss checklist:
 
@@ -319,17 +335,21 @@ Only remove compatibility after callers have moved and validation has covered th
 - [x] Verify `PhysicsModelView` was already deleted by the required first slice.
 - [x] Delete `GameModelCollection::PhysicsModels()` after production physics no longer uses it. The vector compatibility seam remains under explicit `*PhysicsModelsForCompatibility()` accessors.
 - [ ] Delete compatibility writeback from body store to `GameModel` after final reader migrates.
-  - [x] 2026-07-03 persistent contact solver writeback was narrowed from
-    broad `PhysicsModelAccess` to `PhysicsBodyWritebackSink`; full deletion is
-    still pending final reader migration.
+  - [x] 2026-07-03 persistent contact solver writeback is no longer a solver
+    callback or virtual sink; the remaining model mirror update is an owner-side
+    post-solve application step. Full deletion is still pending final reader
+    migration.
 - [ ] Delete compatibility collider fields from `GameModel` after final reader migrates.
-- [ ] Delete production render reliance on `GameModelCollection` after render callers migrate.
+- [ ] Delete production render reliance on concrete `GameModelCollection` after
+  render callers migrate to `RenderInstanceStore`.
 - [ ] Remove temporary allowlists that permitted compatibility reads or writes.
 - [x] Add search guardrails for banned production calls, including `MakePhysicsModelView`, `PhysicsModelView`, and any remaining direct production `GameModelCollection::PhysicsModels()` usage.
-  - [x] 2026-07-03 added a guardrail that rejects a broad
-    `PhysicsModelAccess& modelAccess` member inside
-    `PersistentContactSolverContext`, while allowing the named wake-only
-    `wakeModelAccess` boundary.
+  - [x] 2026-07-03 added a guardrail that rejects model/event/world callback
+    references inside `PersistentContactSolverContext` and blocks the deleted
+    `PhysicsBodyWritebackSink` type from source.
+  - [x] 2026-07-03 added guardrails that block the deleted
+    `PhysicsBodyEventSink` type and reject classes deriving from
+    `PhysicsModelAccess`/`PhysicsBodyEventSink`.
 - [ ] Update comments and learning headers in every touched source-bearing file.
 - [ ] Run `Agentic/Skills/comment-style-audit/skill.md` over every touched source-bearing file before reporting done.
 
@@ -338,7 +358,7 @@ Searches to run before declaring compatibility gone:
 - [x] `rg "MakePhysicsModelView" SkullbonezSource`
 - [x] `rg "PhysicsModels\(" SkullbonezSource`
 - [x] `rg "PhysicsModelView" SkullbonezSource`
-- [ ] `rg "GameModelCollection.*IRenderSceneView|IRenderSceneView" SkullbonezSource`
+- [x] `rg "GameModelCollection.*IRenderSceneView|IRenderSceneView" SkullbonezSource`
 - [ ] `rg "GetModelAtIndex|model index|modelIndex|ModelIndex" SkullbonezSource`
 - [ ] `rg "GameModel" SkullbonezSource/Physics SkullbonezSource/Runtime SkullbonezSource/Rendering`
 
@@ -349,10 +369,17 @@ Repository validation scripts are PR/commit gates. Do not run them repeatedly wh
 - [ ] Documentation-only changes: no repository validation required.
 - [x] Body, collider, solver, command buffer, or physics determinism changes: run `tools\validate_physics.bat` before PR-bound commit.
 - [ ] Broad physics diagnostics, SkullScope baselines, query baselines, or deep fixture changes: run `tools\validate_physics_deep.bat`.
-- [ ] Render projection or render instance behavior changes: run `tools\validate_dx12_renderer.bat`.
+- [x] Render projection or render instance behavior changes: run `tools\validate_dx12_renderer.bat`.
+  - [x] 2026-07-04 `tools\validate_dx12_renderer.bat` passed; log mirrored to
+    `TestOutput\agent_validate_dx12_renderer_render_scene_view.log`, DX12
+    InfoQueue errors were 0, and screenshots matched committed baselines.
 - [x] Storage/hot-loop changes that may affect per-frame allocations or broadphase cost: run `tools\validate_perf.bat`.
 - [ ] Runtime lifecycle, scene/replay, or mixed broad-scope changes: run `tools\validate_full.bat`.
 - [x] Tooling script changes: run `tools\validate_fast.bat`, then run the changed script.
+  - [x] 2026-07-04 `tools\validate_fast.bat` passed; log mirrored to
+    `TestOutput\agent_validate_fast_render_scene_view.log`. The changed
+    `tools\check_runtime_boundaries.py --repo .` checker also passed with 0
+    errors in `TestOutput\agent_runtime_boundaries_render_scene_view.log`.
 - [ ] If unsure at PR gate: run `tools\agent_validate.bat`.
 
 Validation evidence checklist:
@@ -362,7 +389,7 @@ Validation evidence checklist:
 - [x] Capture the log path if output is mirrored to a file.
 - [x] Confirm zero warnings for builds.
 - [x] Confirm physics CSV byte-exact match when physics validation is required.
-- [ ] Confirm zero DX12 validation errors when renderer validation is required.
+- [x] Confirm zero DX12 validation errors when renderer validation is required.
 - [ ] Report any skipped required validation as an explicit blocker, not as success.
 
 ## Final Acceptance Checklist

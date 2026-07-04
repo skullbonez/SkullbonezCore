@@ -1323,6 +1323,12 @@ float GameModel::GetCoefficientRestitution() const
 }
 
 
+float GameModel::GetFrictionCoefficient() const
+{
+    return m_physicsInfo.GetFrictionCoefficient();
+}
+
+
 void GameModel::SetLinearVelocity( const Vector3& v )
 {
     if ( m_isFixed )

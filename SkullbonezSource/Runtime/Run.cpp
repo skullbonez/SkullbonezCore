@@ -57,6 +57,23 @@ constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED
 constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
 
+const char* ContactAudioFlashModeLabel( ContactAudioFlashMode mode )
+{
+    switch ( mode )
+    {
+    case ContactAudioFlashMode::Off:
+        return "Flash: Off";
+    case ContactAudioFlashMode::Emitted:
+        return "Flash: Emitted";
+    case ContactAudioFlashMode::Candidates:
+        return "Flash: Candidates";
+    case ContactAudioFlashMode::Rejected:
+        return "Flash: Rejected";
+    default:
+        return "Flash: Emitted";
+    }
+}
+
 void HashReplayInt( uint64_t& hash, int32_t value )
 {
     const uint32_t bits = static_cast<uint32_t>( value );
@@ -228,13 +245,18 @@ void Run::RefreshRuntimeViewModel()
     audio.enabled = m_contactAudio.IsEnabled();
     audio.available = m_contactAudio.IsAvailable();
     audio.debugCounters = m_runtimeSettings.contactAudioDebugCounters;
-    audio.flashOnSubmit = m_runtimeSettings.contactAudioFlashOnSubmit;
+    audio.flashMode = static_cast<int>( m_runtimeSettings.contactAudioFlashMode );
+    audio.flashModeLabel = ContactAudioFlashModeLabel( m_runtimeSettings.contactAudioFlashMode );
     audio.masterGain = m_contactAudio.MasterGain();
     audio.maxDistanceScale = m_contactAudio.MaxDistanceScale();
     audio.minClosingSpeed = m_contactAudio.MinClosingSpeed();
     audio.minImpactScore = m_contactAudio.MinImpactScore();
     audio.impactScoreRangeSeconds = m_contactAudio.ImpactScoreRangeSeconds();
     audio.burstVoicesPerWindow = m_contactAudio.BurstVoicesPerWindow();
+    audio.rollingLevelDb = m_contactAudio.RollingLevelDb();
+    audio.rollingMaxDistance = m_contactAudio.RollingMaxDistance();
+    audio.rollingMinSlipSpeed = m_contactAudio.RollingMinSlipSpeed();
+    audio.rollingVoicesPerWindow = m_contactAudio.RollingVoicesPerWindow();
     audio.stats = m_contactAudio.Stats();
     audio.soundSetCount = (std::min)( m_contactAudio.SoundSetCount(), RUNTIME_CONTACT_AUDIO_SET_MAX );
     audio.soundSampleCount = (std::min)( m_contactAudio.SoundSampleCount(), RUNTIME_CONTACT_AUDIO_SAMPLE_MAX );
@@ -979,13 +1001,16 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
                                                                 body.position,
                                                                 orientation,
                                                                 body.linearVelocity,
-                                                                body.angularVelocity ) )
+                                                                body.angularVelocity,
+                                                                body.mass,
+                                                                body.inverseMass,
+                                                                body.rotationalInertia,
+                                                                body.inverseRotationalInertia ) )
         {
             writeReason( "failed to restore replay body state" );
             return false;
         }
     }
-    (void)m_cGameModelCollection.GetPhysicsBodyStore();
     m_cGameModelCollection.GetPhysicsEngine().ClearPendingBodyImpulses();
 
     if ( !m_cGameModelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot(
@@ -1060,6 +1085,8 @@ bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& referen
     input.cameras = m_systems.cameras;
     input.world = &m_cWorldEnvironment;
     input.models = &m_cGameModelCollection;
+    input.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+    input.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
     input.launcherVisual = &launcherVisual;
     verifier.CaptureFrame( input );
 
@@ -1309,6 +1336,10 @@ void Run::Initialise()
 
     m_contactAudio.SetMasterGain( cfg.contactAudio.masterGain );
     m_contactAudio.SetMaxDistanceScale( cfg.contactAudio.maxDistanceScale );
+    m_contactAudio.SetRollingLevelDb( cfg.contactAudio.rollingLevelDb );
+    m_contactAudio.SetRollingMaxDistance( cfg.contactAudio.rollingMaxDistance );
+    m_contactAudio.SetRollingMinSlipSpeed( cfg.contactAudio.rollingMinSlipSpeed );
+    m_contactAudio.SetRollingVoicesPerWindow( static_cast<uint32_t>( cfg.contactAudio.rollingVoicesPerWindow ) );
     if ( !m_launchOptions.noContactAudio && cfg.contactAudio.enabled )
     {
         const bool audioReady =

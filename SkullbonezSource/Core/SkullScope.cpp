@@ -28,6 +28,8 @@ Related:
 
 #ifdef _DEBUG
 
+#include "../Physics/ColliderStore.h"
+#include "../Physics/PhysicsBodyStore.h"
 #include "../Physics/PhysicsDiagnosticsModel.h"
 #include "../Physics/PhysicsModelAccess.h"
 #include "../Physics/PhysicsWorld.h"
@@ -127,24 +129,30 @@ void SkullScope::ResetPenetrationState()
 }
 
 
-void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess, float dt )
+void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess,
+                            const Physics::PhysicsBodyStore& bodyStore,
+                            const Physics::ColliderStore& colliderStore,
+                            float dt )
 {
     if ( m_physicsDiagnosticsPath[0] == '\0' || m_physicsDiagnosticsRunId[0] == '\0' )
     {
         return;
     }
 
-    const int modelCount = modelAccess.ModelCount();
+    const int modelCount = bodyStore.Count();
     std::vector<Physics::PhysicsDiagnosticsModelRecord> modelDiagnostics( static_cast<std::size_t>( modelCount ) );
     // Lifetime: records may borrow name strings from the collection; keeping
     // them inside this frame emission avoids caching diagnostics-owned aliases.
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( !modelAccess.TryGetPhysicsDiagnosticsModel( i, modelDiagnostics[static_cast<std::size_t>( i )] ) )
+        if ( !modelAccess.TryGetPhysicsDiagnosticsModel( i,
+                                                         bodyStore,
+                                                         colliderStore,
+                                                         modelDiagnostics[static_cast<std::size_t>( i )] ) )
         {
-            // Invariant: ModelCount() defines dense diagnostics row count. A
-            // rejected index keeps its default record so later arrays retain the
-            // same body id mapping instead of silently truncating the frame.
+            // Invariant: PhysicsBodyStore defines dense diagnostics row count.
+            // A rejected index keeps its default record so later arrays retain
+            // the same body id mapping instead of silently truncating the frame.
             continue;
         }
     }

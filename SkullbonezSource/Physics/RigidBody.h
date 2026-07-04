@@ -119,7 +119,7 @@ class RigidBody
     void ThrottleAngularVelocity();                   // Caps spin to avoid destabilizing collision rows.
     void ApplyChangeInLinearVelocity();               // Consumes the staged linear delta after all pair rows solve.
     float GetCoefficientRestitution() const;
-    float GetFrictionCoefficient();
+    float GetFrictionCoefficient() const;
     float GetMass();
     float GetInvertedMass();
     float GetVolume();

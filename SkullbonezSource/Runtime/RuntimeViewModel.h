@@ -16,8 +16,8 @@ Glossary:
   Presentation layer: UI or diagnostics code that reads state without owning it.
   Borrowed sample path: Contact-audio asset path owned by the audio service and
     valid only for the current presentation snapshot.
-  Contact-audio flash: Optional render-only marker for bodies that actually
-    emitted a contact sound after audio rejection policy.
+  Contact-audio flash mode: Render-only diagnostic selector for emitted,
+    candidate, rejected, or hidden contact-audio decisions.
 
 Invariants:
   - View models are copies; consumers must not infer ownership from them.
@@ -45,13 +45,18 @@ struct RuntimeContactAudioSnapshot
     bool enabled = false;
     bool available = false;
     bool debugCounters = false;
-    bool flashOnSubmit = false;
+    int flashMode = 1;
+    const char* flashModeLabel = "Flash: Emitted";
     float masterGain = 0.0f;
     float maxDistanceScale = 1.0f;
     float minClosingSpeed = 0.0f;
     float minImpactScore = 0.0f;
     float impactScoreRangeSeconds = 1.0f;
     uint32_t burstVoicesPerWindow = 0; // Max submitted contact sounds per 100 ms burst.
+    float rollingLevelDb = -24.0f;
+    float rollingMaxDistance = 24.0f;
+    float rollingMinSlipSpeed = 0.65f;
+    uint32_t rollingVoicesPerWindow = 4;
     Runtime::Audio::ContactAudioStats stats;
     int soundSetCount = 0;
     int soundSampleCount = 0;
@@ -61,17 +66,17 @@ struct RuntimeContactAudioSnapshot
 
 struct RuntimeViewModel
 {
-    bool sceneMode = false;         // True when an authored scene is active
-    bool scenePhysics = false;      // Active scene physics toggle
-    bool sceneText = false;         // Active scene text overlay toggle
-    bool fixedStep = false;         // Active fixed-step toggle
-    bool screenshotPending = false; // True when scene capture has not completed
-    int sceneIndex = -1;            // Current scene queue index
-    int sceneCount = 0;             // Number of queued scene entries
-    int frame = 0;                  // Current per-load frame
-    int targetFrameCount = -1;      // Completion frame target (-1 = unlimited)
-    int modelCount = 0;             // Current runtime model count
-    float timeScale = 1.0f;         // Active simulation time scale
+    bool sceneMode = false;            // True when an authored scene is active
+    bool scenePhysics = false;         // Active scene physics toggle
+    bool sceneText = false;            // Active scene text overlay toggle
+    bool fixedStep = false;            // Active fixed-step toggle
+    bool screenshotPending = false;    // True when scene capture has not completed
+    int sceneIndex = -1;               // Current scene queue index
+    int sceneCount = 0;                // Number of queued scene entries
+    int frame = 0;                     // Current per-load frame
+    int targetFrameCount = -1;         // Completion frame target (-1 = unlimited)
+    int modelCount = 0;                // Current runtime model count
+    float timeScale = 1.0f;            // Active simulation time scale
     RuntimeContactAudioSnapshot contactAudio;
 };
 

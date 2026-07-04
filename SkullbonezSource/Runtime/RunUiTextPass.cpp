@@ -553,18 +553,30 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.contactAudioEnabled = contactAudio.enabled;
         UIData.contactAudioAvailable = contactAudio.available;
         UIData.contactAudioDebugCounters = contactAudio.debugCounters;
-        UIData.contactAudioFlashOnSubmit = contactAudio.flashOnSubmit;
+        UIData.contactAudioFlashMode = contactAudio.flashMode;
+        UIData.contactAudioFlashModeLabel = contactAudio.flashModeLabel;
         UIData.contactAudioMasterGain = contactAudio.masterGain;
         UIData.contactAudioMaxDistanceScale = contactAudio.maxDistanceScale;
         UIData.contactAudioMinClosingSpeed = contactAudio.minClosingSpeed;
         UIData.contactAudioMinImpactScore = contactAudio.minImpactScore;
         UIData.contactAudioImpactScoreRangeSeconds = contactAudio.impactScoreRangeSeconds;
         UIData.contactAudioBurstVoicesPerWindow = contactAudio.burstVoicesPerWindow;
+        UIData.contactAudioRollingLevelDb = contactAudio.rollingLevelDb;
+        UIData.contactAudioRollingMaxDistance = contactAudio.rollingMaxDistance;
+        UIData.contactAudioRollingMinSlipSpeed = contactAudio.rollingMinSlipSpeed;
+        UIData.contactAudioRollingVoicesPerWindow = contactAudio.rollingVoicesPerWindow;
         UIData.contactAudioEventsSeen = contactAudio.stats.eventsSeen;
+        UIData.contactAudioPatchCandidates = contactAudio.stats.patchCandidates;
+        UIData.contactAudioMergedCandidates = contactAudio.stats.mergedCandidates;
+        UIData.contactAudioCandidateOverflows = contactAudio.stats.candidateOverflows;
+        UIData.contactAudioBurstWindowSkippedCandidates = contactAudio.stats.burstWindowSkippedCandidates;
+        UIData.contactAudioBudgetRejectedCandidates = contactAudio.stats.budgetRejectedCandidates;
         UIData.contactAudioRejectedByThreshold = contactAudio.stats.rejectedByThreshold;
         UIData.contactAudioRejectedByCooldown = contactAudio.stats.rejectedByCooldown;
         UIData.contactAudioSubmittedVoices = contactAudio.stats.submittedVoices;
         UIData.contactAudioDroppedVoices = contactAudio.stats.droppedVoices;
+        UIData.contactAudioRollingCandidates = contactAudio.stats.rollingCandidates;
+        UIData.contactAudioRollingSubmittedVoices = contactAudio.stats.rollingSubmittedVoices;
         // Lifetime: names copied into UIData are borrowed from ContactAudioService
         // through the runtime view model for this immediate draw pass.
         UIData.soundSetCount = (std::min)( contactAudio.soundSetCount, SkullbonezCore::UI::UI_SOUND_SET_MAX );

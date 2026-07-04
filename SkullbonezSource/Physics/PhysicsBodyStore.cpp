@@ -1,11 +1,13 @@
 /*
 File: SkullbonezSource/Physics/PhysicsBodyStore.cpp
 Purpose:
-  Owns deterministic body-order mutable physics state loaded from GameModel.
+  Owns deterministic body-order mutable physics state for compatibility scenes
+  and standalone physics worlds.
 
 Mental model:
-  LoadFromModels copies legacy construction/runtime state into the store.
-  PhysicsWorld mutates records during the step, then WriteBackToModels keeps
+  LoadFromModels copies legacy construction/runtime state into compatibility
+  rows. Standalone creation appends dense rows directly. PhysicsWorld or the
+  standalone step mutates records, then named compatibility writeback keeps
   older render, replay, tool, terrain, and shape callers working until they move
   to store-backed views.
 
@@ -19,8 +21,11 @@ Glossary:
   Replay body id: Stable per-scene id used by replay and SkullScope traces.
 
 Invariants:
-  - Body records stay in GameModelCollection physics model order for current
-    solver traversal, but public body handles are allocator-owned slots.
+  - Compatibility body records stay in GameModelCollection physics model order
+    for current solver traversal, but public body handles are allocator-owned
+    slots.
+  - Standalone body records are dense and handle-addressed; deletion may move
+    the last row to close a hole without changing live handles.
   - Pending impulses and sleep state are preserved across compatibility refresh
     by handle identity, even if a compatible model refresh reorders slots.
 
@@ -1042,9 +1047,13 @@ void PhysicsBodyStore::Clear()
         m_handleReplayBodyIds[slot] = 0;
     }
     m_freeHandleSlots.clear();
-    for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleGenerations.size() ); ++slot )
+    // Invariant: CreateBodyRecord pops from the back of the free list. Push in
+    // reverse so a full Clear() reuses low handle indices first, matching the
+    // standalone world's pre-store public handle order while still advancing
+    // generations for stale-handle rejection.
+    for ( uint32_t remaining = static_cast<uint32_t>( m_handleGenerations.size() ); remaining > 0; --remaining )
     {
-        m_freeHandleSlots.push_back( slot );
+        m_freeHandleSlots.push_back( remaining - 1u );
     }
 }
 
@@ -1098,6 +1107,85 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std
 }
 
 
+PhysicsBodyHandle PhysicsBodyStore::CreateBodyRecord( const PhysicsBodyRecord& initialRecord )
+{
+    uint32_t slot = 0;
+    if ( !m_freeHandleSlots.empty() )
+    {
+        slot = m_freeHandleSlots.back();
+        m_freeHandleSlots.pop_back();
+    }
+    else
+    {
+        slot = static_cast<uint32_t>( m_handleGenerations.size() );
+        m_handleGenerations.push_back( PHYSICS_HANDLE_INITIAL_GENERATION );
+        m_handleAlive.push_back( 0 );
+        m_handleModelIndices.push_back( -1 );
+        m_handleReplayBodyIds.push_back( 0 );
+    }
+
+    const int recordIndex = static_cast<int>( m_bodies.size() );
+    PhysicsBodyHandle handle;
+    handle.index = slot;
+    handle.generation = m_handleGenerations[static_cast<std::size_t>( slot )];
+
+    PhysicsBodyRecord record = initialRecord;
+    record.handle = handle;
+    if ( !record.sceneObjectId.IsValid() )
+    {
+        record.sceneObjectId = PhysicsSceneObjectId{ handle.index + 1u };
+    }
+
+    m_handleAlive[static_cast<std::size_t>( slot )] = 1;
+    m_handleModelIndices[static_cast<std::size_t>( slot )] = recordIndex;
+    m_handleReplayBodyIds[static_cast<std::size_t>( slot )] = record.replayBodyId;
+    m_bodies.push_back( record );
+    m_modelBodyHandles.push_back( handle );
+    return handle;
+}
+
+
+bool PhysicsBodyStore::DestroyBodyRecord( PhysicsBodyHandle handle )
+{
+    if ( !Contains( handle ) )
+    {
+        return false;
+    }
+
+    const std::size_t handleSlot = static_cast<std::size_t>( handle.index );
+    const int recordIndex = m_handleModelIndices[handleSlot];
+    const int lastRecordIndex = Count() - 1;
+    if ( recordIndex < 0 || recordIndex > lastRecordIndex )
+    {
+        return false;
+    }
+
+    // Invariant: rows are dense for simulation scans, while handles remain
+    // allocator identities. Removing a row updates only the moved handle's row
+    // map; no live handle encodes the previous vector position.
+    if ( recordIndex != lastRecordIndex )
+    {
+        PhysicsBodyRecord& destination = m_bodies[static_cast<std::size_t>( recordIndex )];
+        PhysicsBodyRecord& moved = m_bodies[static_cast<std::size_t>( lastRecordIndex )];
+        destination = moved;
+        m_modelBodyHandles[static_cast<std::size_t>( recordIndex )] = destination.handle;
+        if ( destination.handle.IsValid() && destination.handle.index < m_handleModelIndices.size() )
+        {
+            m_handleModelIndices[static_cast<std::size_t>( destination.handle.index )] = recordIndex;
+        }
+    }
+
+    m_bodies.pop_back();
+    m_modelBodyHandles.pop_back();
+    m_handleAlive[handleSlot] = 0;
+    m_handleModelIndices[handleSlot] = -1;
+    m_handleReplayBodyIds[handleSlot] = 0;
+    m_handleGenerations[handleSlot] = NextHandleGeneration( m_handleGenerations[handleSlot] );
+    m_freeHandleSlots.push_back( handle.index );
+    return true;
+}
+
+
 void PhysicsBodyStore::ClearPendingImpulses()
 {
     for ( PhysicsBodyRecord& record : m_bodies )
@@ -1106,6 +1194,80 @@ void PhysicsBodyStore::ClearPendingImpulses()
         record.pendingImpulseApplicationPoint = ZERO_VECTOR;
         record.hasPendingImpulse = false;
     }
+}
+
+
+// Invariant: shrinking model-order bodies must retire handle slots for removed
+// records. A stale handle surviving replay restore could target a different
+// body after allocator reuse.
+bool PhysicsBodyStore::TrimToCount( int bodyCount )
+{
+    if ( bodyCount < 0 || bodyCount > Count() )
+    {
+        return false;
+    }
+
+    std::vector<uint8_t> assignedHandleSlots( m_handleGenerations.size(), 0 );
+    for ( int i = 0; i < bodyCount; ++i )
+    {
+        const PhysicsBodyRecord& record = m_bodies[static_cast<std::size_t>( i )];
+        const PhysicsBodyHandle handle = record.handle;
+        if ( handle.IsValid() && handle.index < m_handleGenerations.size() )
+        {
+            const std::size_t handleIndex = static_cast<std::size_t>( handle.index );
+            if ( m_handleAlive[handleIndex] != 0 && m_handleGenerations[handleIndex] == handle.generation )
+            {
+                assignedHandleSlots[handleIndex] = 1;
+            }
+        }
+    }
+
+    m_bodies.resize( static_cast<std::size_t>( bodyCount ) );
+    m_modelBodyHandles.resize( static_cast<std::size_t>( bodyCount ) );
+    for ( int i = 0; i < bodyCount; ++i )
+    {
+        m_modelBodyHandles[static_cast<std::size_t>( i )] = m_bodies[static_cast<std::size_t>( i )].handle;
+    }
+    RetireUnassignedHandles( assignedHandleSlots );
+    return true;
+}
+
+
+// Concept: replay restore writes recorded physics values into the store.
+//
+// GameModel may still be updated for presentation compatibility, but the body
+// record must not reload pose, velocity, mass, or inertia from that mirror.
+bool PhysicsBodyStore::RestoreReplayBodyState( int modelIndex,
+                                               uint32_t replayBodyId,
+                                               bool fixed,
+                                               const Vector3& position,
+                                               const Math::Orientation::Quaternion& orientation,
+                                               const Vector3& linearVelocity,
+                                               const Vector3& angularVelocity,
+                                               float mass,
+                                               float inverseMass,
+                                               const Vector3& rotationalInertia,
+                                               const Vector3& inverseRotationalInertia )
+{
+    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
+    if ( !record || record->replayBodyId != replayBodyId )
+    {
+        return false;
+    }
+
+    record->position = position;
+    record->orientation = orientation;
+    record->linearVelocity = linearVelocity;
+    record->angularVelocity = angularVelocity;
+    record->mass = mass;
+    record->invMass = fixed ? 0.0f : inverseMass;
+    record->rotationalInertia = rotationalInertia;
+    record->invRotationalInertia = fixed ? ZERO_VECTOR : inverseRotationalInertia;
+    record->isFixed = fixed;
+    record->pendingImpulse = ZERO_VECTOR;
+    record->pendingImpulseApplicationPoint = ZERO_VECTOR;
+    record->hasPendingImpulse = false;
+    return true;
 }
 
 
@@ -1235,6 +1397,28 @@ std::vector<PhysicsBodyRecord>& PhysicsBodyStore::MutableRecords()
 }
 
 
+PhysicsBodyRecord* PhysicsBodyStore::MutableRecordForHandle( PhysicsBodyHandle handle )
+{
+    if ( !Contains( handle ) )
+    {
+        return nullptr;
+    }
+
+    return MutableRecordForModelIndex( m_handleModelIndices[static_cast<std::size_t>( handle.index )] );
+}
+
+
+const PhysicsBodyRecord* PhysicsBodyStore::RecordForHandle( PhysicsBodyHandle handle ) const
+{
+    if ( !Contains( handle ) )
+    {
+        return nullptr;
+    }
+
+    return RecordForModelIndex( m_handleModelIndices[static_cast<std::size_t>( handle.index )] );
+}
+
+
 PhysicsBodyRecord* PhysicsBodyStore::MutableRecordForModelIndex( int modelIndex )
 {
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_bodies.size() ) )
@@ -1257,9 +1441,9 @@ const PhysicsBodyRecord* PhysicsBodyStore::RecordForModelIndex( int modelIndex )
 }
 
 
-bool PhysicsBodyStore::WakeBody( int modelIndex )
+bool PhysicsBodyStore::WakeBody( PhysicsBodyHandle body )
 {
-    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
+    PhysicsBodyRecord* record = MutableRecordForHandle( body );
     if ( !record || record->isFixed )
     {
         return false;
@@ -1267,6 +1451,12 @@ bool PhysicsBodyStore::WakeBody( int modelIndex )
 
     record->isSleeping = false;
     return true;
+}
+
+
+bool PhysicsBodyStore::WakeBody( int modelIndex )
+{
+    return WakeBody( HandleForModelIndex( modelIndex ) );
 }
 
 
@@ -1285,11 +1475,11 @@ bool PhysicsBodyStore::SeedBodyAsleep( int modelIndex )
 }
 
 
-bool PhysicsBodyStore::SetPendingBodyImpulse( int modelIndex,
+bool PhysicsBodyStore::SetPendingBodyImpulse( PhysicsBodyHandle body,
                                               const Vector3& impulse,
                                               const Vector3& localApplicationPoint )
 {
-    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
+    PhysicsBodyRecord* record = MutableRecordForHandle( body );
     if ( !record )
     {
         return false;
@@ -1302,11 +1492,43 @@ bool PhysicsBodyStore::SetPendingBodyImpulse( int modelIndex,
 }
 
 
+bool PhysicsBodyStore::SetPendingBodyImpulse( int modelIndex,
+                                              const Vector3& impulse,
+                                              const Vector3& localApplicationPoint )
+{
+    return SetPendingBodyImpulse( HandleForModelIndex( modelIndex ), impulse, localApplicationPoint );
+}
+
+
+bool PhysicsBodyStore::ApplyBodyImpulse( PhysicsBodyHandle body,
+                                         const Vector3& impulse,
+                                         const Vector3& localApplicationPoint )
+{
+    const bool pending = SetPendingBodyImpulse( body, impulse, localApplicationPoint );
+    WakeBody( body );
+    return pending;
+}
+
+
 bool PhysicsBodyStore::ApplyBodyImpulse( int modelIndex, const Vector3& impulse, const Vector3& localApplicationPoint )
 {
-    const bool pending = SetPendingBodyImpulse( modelIndex, impulse, localApplicationPoint );
-    WakeBody( modelIndex );
-    return pending;
+    return ApplyBodyImpulse( HandleForModelIndex( modelIndex ), impulse, localApplicationPoint );
+}
+
+
+// Concept: pending impulses are one-shot velocity edits owned by body records.
+//
+// Compatibility force integration and standalone stepping both consume them
+// through this store hook so impulse math stays in one cache-local body path.
+bool PhysicsBodyStore::ConsumePendingBodyImpulse( PhysicsBodyRecord& record )
+{
+    if ( !record.hasPendingImpulse )
+    {
+        return false;
+    }
+
+    ApplyPendingImpulse( record );
+    return true;
 }
 
 
@@ -1348,6 +1570,6 @@ bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
 
     ThrottleAngularVelocity( *record );
     ApplyWorldForces( *record, *collider, worldForces, deltaSeconds );
-    ApplyPendingImpulse( *record );
+    ConsumePendingBodyImpulse( *record );
     return true;
 }

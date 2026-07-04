@@ -8,7 +8,7 @@ Mental model:
   screenshot request state and delegates pixel writing to CaptureSystem.
 
 Glossary:
-  Capture sink: Callback surface that performs the actual screenshot write.
+  Capture sink: Value hook that performs the actual screenshot write.
   Auto-cycle: Screenshot automation that steps through tracked balls/scenes.
   Screenshot request: Runtime state describing when and where to capture pixels.
 
@@ -45,7 +45,7 @@ void CaptureController::ResetScreenshot()
 
 
 RuntimeCaptureResult CaptureController::TickScreenshots( const RuntimeCaptureSceneContext& context,
-                                                         RuntimeCaptureSink& sink )
+                                                         const RuntimeCaptureSink& sink )
 {
     return CaptureSystem::TickScreenshots( m_screenshot, context, sink );
 }
@@ -58,7 +58,7 @@ RuntimeCaptureResult CaptureController::TickAutoCycle( bool isSceneMode,
                                                        float& autoCycleAccum,
                                                        int& autoCycleShotsTaken,
                                                        int& trackBallIndex,
-                                                       RuntimeCaptureSink& sink )
+                                                       const RuntimeCaptureSink& sink )
 {
     return CaptureSystem::TickAutoCycle( isSceneMode,
                                          isInteractiveRun,

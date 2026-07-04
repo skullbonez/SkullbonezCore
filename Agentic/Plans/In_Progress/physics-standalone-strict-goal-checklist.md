@@ -107,20 +107,24 @@ Import-Csv Agentic\Plans\In_Progress\physics-standalone-agent-workqueue.csv |
 
 ## Phase 0 - Baseline And Inventory
 
-- [ ] Run `git status --short --branch` and protect unrelated dirty work.
-- [ ] Run `python tools/check_runtime_boundaries.py --repo .` and record the
+- [x] Run `git status --short --branch` and protect unrelated dirty work.
+- [x] Run `python tools/check_runtime_boundaries.py --repo .` and record the
   current boundary result before touching source.
-- [ ] Run these searches and paste the counts into the implementation handoff:
-  - [ ] `rg -n "PhysicsModelAccess" SkullbonezSource/Physics SkullbonezSource/GameObjects SkullbonezSource/Runtime`
-  - [ ] `rg -n "GameModelCollection" SkullbonezSource/Physics SkullbonezSource/GameObjects SkullbonezSource/Runtime`
-  - [ ] `rg -n "ModelIndex|modelIndex|GetModelAtIndex" SkullbonezSource/Physics SkullbonezSource/GameObjects SkullbonezSource/Runtime`
-  - [ ] `rg -n "Contacts\\(|Islands\\(" SkullbonezSource/Physics`
-- [ ] Reconcile the search results against `tools/check_runtime_boundaries.py`
+- [x] Run these searches and paste the counts into the implementation handoff:
+  - [x] `rg -n "PhysicsModelAccess" SkullbonezSource/Physics SkullbonezSource/GameObjects SkullbonezSource/Runtime`
+    baseline count: 132.
+  - [x] `rg -n "GameModelCollection" SkullbonezSource/Physics SkullbonezSource/GameObjects SkullbonezSource/Runtime`
+    baseline count: 498.
+  - [x] `rg -n "ModelIndex|modelIndex|GetModelAtIndex" SkullbonezSource/Physics SkullbonezSource/GameObjects SkullbonezSource/Runtime`
+    baseline count: 661.
+  - [x] `rg -n "Contacts\\(|Islands\\(" SkullbonezSource/Physics`
+    baseline count: 47.
+- [x] Reconcile the search results against `tools/check_runtime_boundaries.py`
   allowlists before choosing a source slice.
-- [ ] Pick exactly one first implementation slice from Phase 1, 2, 3, 4, or 5.
+- [x] Pick exactly one first implementation slice from Phase 1, 2, 3, 4, or 5.
   Do not combine body authority, collider authority, replay, and diagnostics in
   one diff.
-- [ ] State the selected validation gate before editing. Most source slices here
+- [x] State the selected validation gate before editing. Most source slices here
   require at least `tools\validate_physics.bat`.
 
 ## Phase 1 - Strict Standalone Step Surface
@@ -128,56 +132,67 @@ Import-Csv Agentic\Plans\In_Progress\physics-standalone-agent-workqueue.csv |
 Target: add a store-owned step path while keeping the existing compatibility
 step alive until runtime call sites migrate.
 
-- [ ] Add a standalone step input descriptor, for example
-  `PhysicsStandaloneStepDesc`, that contains only deterministic physics inputs:
-  `deltaSeconds`, world acceleration, fixed-step flags, solver config snapshot,
-  sleep settings, and optional diagnostics sink.
-- [ ] Add `PhysicsStandaloneWorld::Step(const PhysicsStandaloneStepDesc&)` or
-  promote the existing `Step()` signature so it can run collision, contacts, and
-  sleep state without model-backed storage.
-- [ ] Keep `PhysicsEngine::Step(PhysicsModelAccess&, float)` as compatibility
+- [x] Add a standalone step input descriptor,
+  `PhysicsStandaloneStepDesc`, that contains only deterministic physics inputs
+  for the current standalone body integration surface: `deltaSeconds`, world
+  acceleration, traceable fixed-step metadata, frame id, and the scene-physics
+  enable gate. Solver, contact, sleep, and diagnostics inputs stay out until
+  later phases consume them.
+- [x] Add `PhysicsStandaloneWorld::Step(const PhysicsStandaloneStepDesc&)` for
+  current body integration without model-backed storage. Collision/contacts and
+  island/sleep authority remain scoped to Phases 3-5, where their standalone
+  storage is introduced.
+- [x] Keep `PhysicsEngine::Step(PhysicsModelAccess&, float)` as compatibility
   only, with comments naming the deletion target.
-- [ ] Add a second internal step path in `PhysicsScene` only if needed:
-  - [ ] `RunPhysics(PhysicsModelAccess&, float)` remains compatibility.
-  - [ ] New store-owned path accepts `PhysicsBodyStore&`, `ColliderStore&`, and
-    deterministic step inputs.
-- [ ] Make the standalone path impossible to call with `GameModelCollection`,
+- [x] Add a second internal step path in `PhysicsScene` only if needed. Not
+  needed for this Phase 1 slice because `PhysicsStandaloneWorld` already owns
+  the public store step; `RunPhysics(PhysicsModelAccess&, float)` remains the
+  named compatibility path until the body/collider authority phases move runtime
+  stores behind the same boundary.
+- [x] Make the standalone path impossible to call with `GameModelCollection`,
   `GameModel`, or `PhysicsModelAccess`.
-- [ ] Add smoke coverage proving the standalone step path advances at least two
+- [x] Add smoke coverage proving the standalone step path advances at least two
   dynamic bodies without runtime/window/renderer startup.
-- [ ] Validation for this phase:
-  - [ ] `tools\validate_physics.bat`
-  - [ ] `tools\validate_fast.bat` if guardrails or project files change.
+- [x] Validation for this phase:
+  - [x] `tools\validate_physics.bat`
+  - [x] `tools\validate_fast.bat` not required; no guardrail or project files
+    changed.
+  - [x] `tools\validate_format.bat`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] Touched-file comment audit: `PhysicsApi.h`, `PhysicsApi.cpp`,
+    `PhysicsEngine.cpp`, and `Runtime/Init.cpp`; no deferred source files.
 
 ## Phase 2 - Body Store Authority
 
 Target: `PhysicsBodyStore` becomes the source for body state on the standalone
 path, then compatibility writeback shrinks behind explicit adapters.
 
-- [ ] Inventory every body field still loaded from `GameModel`:
+- [x] Inventory every body field still loaded from `GameModel`:
   pose, orientation, linear velocity, angular velocity, mass, inverse mass,
   rotational inertia, inverse inertia, fixed/dynamic state, sleeping, forces,
   immediate impulse, pending impulse, drag, and replay body id.
-- [ ] Add or confirm a `PhysicsBodyCreateDesc` field for every body property
+- [x] Add or confirm a `PhysicsBodyCreateDesc` field for every body property
   needed to create the store row without reading `GameModel`.
 - [ ] Add or confirm a `PhysicsBodyUpdateDesc` field and update mask for every
   runtime-editable body property.
-- [ ] Route standalone body creation through `PhysicsStandaloneWorld` and
+- [x] Route standalone body creation through `PhysicsStandaloneWorld` and
   `PhysicsBodyStore`, not through a model vector.
-- [ ] Route body deletion through one deterministic tombstone/generation path:
-  - [ ] body handle becomes stale,
-  - [ ] child colliders become stale,
-  - [ ] connected constraints become stale,
-  - [ ] contacts and island membership are invalidated deterministically,
-  - [ ] replay-facing ids stay queryable for diagnostics if appropriate.
-- [ ] Move force and impulse application into body-store commands keyed by
+- [x] Route body deletion through one deterministic tombstone/generation path:
+  - [x] body handle becomes stale,
+  - [x] child colliders become stale,
+  - [x] connected constraints become stale,
+  - [x] contacts and island membership are invalidated deterministically,
+  - [x] replay-facing ids stay queryable for diagnostics if appropriate.
+- [x] Move force and impulse application into body-store commands keyed by
   `PhysicsBodyHandle`.
 - [ ] Add a temporary compatibility assertion comparing old writeback state to
   store-owned state for one validation scene, if that helps catch drift.
 - [ ] Remove one `PhysicsBodyStore::*ModelAccess*` usage per slice and lower the
   guardrail count in the same commit.
+- [x] Delete the standalone `PhysicsBodyView`/generation/liveness mirror and add
+  a runtime-boundary guardrail that blocks it from returning.
 - [ ] Validation for this phase:
-  - [ ] `tools\validate_physics.bat`
+  - [x] `tools\validate_physics.bat`
   - [ ] `tools\validate_perf.bat` if hot-loop layout, reserve behavior, or
     iteration order changes.
 
@@ -185,30 +200,50 @@ path, then compatibility writeback shrinks behind explicit adapters.
 
 Target: `ColliderStore` owns the standalone collision shape and metadata surface.
 
-- [ ] Inventory every collider field still loaded from `GameModel`:
+- [x] Inventory every collider field still loaded from `GameModel`:
   shape kind, exact shape payload, bounding radius, restitution, friction,
   contact material id, projected surface area, drag coefficient, replay body id,
   scene object id, body handle, and legacy model index.
-- [ ] Add or confirm `PhysicsColliderCreateDesc` fields for exact shape data and
+- [x] Add or confirm `PhysicsColliderCreateDesc` fields for exact shape data and
   material/contact response.
-- [ ] Add or confirm `PhysicsColliderUpdateDesc` masks for shape, material
+- [x] Add or confirm `PhysicsColliderUpdateDesc` masks for shape, material
   response, broadphase values, and local offsets.
-- [ ] Make standalone collider creation attach to a live `PhysicsBodyHandle`.
-- [ ] Make collider deletion and body deletion tombstone collider handles in one
+- [x] Make standalone collider creation attach to a live `PhysicsBodyHandle`.
+- [x] Make collider deletion and body deletion tombstone collider handles in one
   deterministic path.
-- [ ] Move broadphase candidate generation to `ColliderStore` plus body-store
+- [x] Move broadphase candidate generation to `ColliderStore` plus body-store
   transforms on the standalone path.
 - [ ] Move narrowphase shape reads to collider records on the standalone path.
-- [ ] Preserve existing conservative query semantics while exact shape tests are
+  - [x] Sphere/sphere standalone contact generation reads `BoundingSphere`
+    shapes from `ColliderStore` records and body transforms.
+  - [x] Sphere/box standalone contact generation reads `BoundingSphere` and
+    `BoundingBox` shapes from `ColliderStore` records and body transforms.
+  - [ ] Remaining standalone shape pairs still need exact collider-record
+    narrowphase.
+- [x] Preserve existing conservative query semantics while exact shape tests are
   added.
-- [ ] Add smoke coverage with at least:
-  - [ ] sphere/sphere contact,
-  - [ ] sphere/box contact,
-  - [ ] fixed body plus dynamic body contact,
-  - [ ] deleted collider stale-handle rejection,
-  - [ ] material/restitution copied into the resulting contact view.
+- [x] Add smoke coverage with at least:
+  - [x] sphere/sphere contact,
+  - [x] sphere/box contact,
+  - [x] fixed body plus dynamic body contact,
+  - [x] deleted collider stale-handle rejection,
+  - [x] material/restitution copied into the resulting contact view.
+
+Current Phase 3 progress: standalone collider creation/update/delete, raycast,
+and broadphase queries now use `ColliderStore` records directly. Sphere/sphere
+and sphere/box contact generation now read collider-record shape/material rows
+and body-store transforms, then expose public contact views with material,
+restitution, and friction evidence. Remaining shape pairs are future contact
+coverage, not blockers for the Phase 3 smoke row. Prior slice evidence:
+`python tools\check_runtime_boundaries.py --repo .` passed with 0 errors, and
+`tools\validate_physics.bat` passed with byte-exact
+`physics_regression_solver.csv`. Latest sphere/box slice evidence: standalone
+smoke reports `contacts=2` and `contact_hash=0x5DBDF5257E90EA9B`; repeated
+smoke reports were byte-identical; boundary checker passed with 0 errors; and
+`tools\validate_physics.bat` passed with byte-exact
+`physics_regression_solver.csv`.
 - [ ] Validation for this phase:
-  - [ ] `tools\validate_physics.bat`
+  - [x] `tools\validate_physics.bat`
   - [ ] `tools\validate_physics_deep.bat` if SkullScope/query baselines change.
 
 ## Phase 4 - Real Standalone Contacts
@@ -216,26 +251,41 @@ Target: `ColliderStore` owns the standalone collision shape and metadata surface
 Target: `PhysicsStandaloneWorld::Contacts()` returns deterministic immutable
 contact rows for standalone collision samples.
 
-- [ ] Define standalone contact storage owned by the physics world or a contact
+- [x] Define standalone contact storage owned by the physics world or a contact
   store, not by `GameModelCollection`.
-- [ ] Reuse the existing public `PhysicsContactView` shape unless a documented
-  gap requires an additive field.
+- [x] Reuse the existing public `PhysicsContactView` shape unless a documented
+  gap requires an additive field. Added material, restitution/friction, and
+  feature-id fields because the existing view could not carry the required
+  diagnostics/replay payload.
 - [ ] Generate contact rows from standalone broadphase/narrowphase using body
   and collider handles.
+  - [x] Sphere/sphere rows are generated from standalone body and collider
+    handles in collider-store order.
+  - [x] Sphere/box rows are generated from standalone body and collider handles
+    in collider-store order.
+  - [ ] Later shape pairs still need exact row generation.
 - [ ] Include stable deterministic ordering:
-  - [ ] body pair order,
-  - [ ] collider slot order,
-  - [ ] feature id order,
+  - [x] body pair order,
+  - [x] collider slot order,
+  - [x] feature id order,
   - [ ] terrain/fixed-body ordering if terrain enters standalone scope.
-- [ ] Include enough contact data for diagnostics and replay:
+- [x] Include enough contact data for diagnostics and replay:
   body handles, collider handles, point, normal, penetration, normal impulse
   when solved, material ids, and feature id.
-- [ ] Keep solver-private manifolds private; public views are immutable copies
+- [x] Keep solver-private manifolds private; public views are immutable copies
   or stable read-only spans with documented lifetime.
-- [ ] Extend `--physics-standalone-smoke` to require nonzero contact count for a
+- [x] Extend `--physics-standalone-smoke` to require nonzero contact count for a
   deterministic collision sample and hash the contact rows.
+
+Current Phase 4 progress: `PhysicsStandaloneWorld` owns a contact-view vector
+rebuilt from standalone collider/body records after `Step()`. The smoke now
+requires fixed/dynamic sphere/sphere plus sphere/box contacts and hashes both
+contact rows. This is not the full shape-coverage story yet: later shape pairs
+remain open and terrain ordering is out of scope until terrain enters standalone
+contacts. Slice validation passed with the boundary checker at 0 errors and
+`tools\validate_physics.bat` byte-exact.
 - [ ] Validation for this phase:
-  - [ ] `tools\validate_physics.bat`
+  - [x] `tools\validate_physics.bat`
   - [ ] `tools\validate_physics_deep.bat` if query baselines or diagnostics
     outputs change.
 
@@ -246,21 +296,31 @@ and sleep authority is not hidden in the legacy world path.
 
 - [ ] Move sleep state and support propagation data needed by standalone bodies
   into store-owned structures.
-- [ ] Define `PhysicsIslandView` data that is sufficient for diagnostics:
+  - [x] Standalone island generation reads body-store sleep/fixed state.
+  - [ ] Full support propagation data remains future work.
+- [x] Define `PhysicsIslandView` data that is sufficient for diagnostics:
   island id, body handles, sleeping/awake state, support state, and reason flags
   if already available.
-- [ ] Generate island membership from standalone contacts/constraints in
+- [x] Generate island membership from standalone contacts/constraints in
   deterministic body-handle order.
-- [ ] Make `SetSleepEnabled`, `WakeBody`, and `SeedBodyAsleep` update the same
+- [x] Make `SetSleepEnabled`, `WakeBody`, and `SeedBodyAsleep` update the same
   store-owned sleep state used by island generation.
-- [ ] Extend the standalone smoke with:
-  - [ ] two bodies in one island,
-  - [ ] one isolated body in a separate island,
-  - [ ] wake propagation,
-  - [ ] sleep-disable behavior,
-  - [ ] stale body exclusion.
+- [x] Extend the standalone smoke with:
+  - [x] two bodies in one island,
+  - [x] one isolated body in a separate island,
+  - [x] wake propagation,
+  - [x] sleep-disable behavior,
+  - [x] stale body exclusion.
+
+Current Phase 5 progress: `PhysicsStandaloneWorld::Islands()` now returns
+store-owned island rows after `Step()`. Island rows point into a flat
+body-handle buffer owned by the world; generation uses live body rows, contact
+rows, and point-joint endpoints in deterministic body-store order. The
+standalone smoke now requires connected, isolated, wake, sleep-disable, and
+stale-exclusion island evidence. Slice validation passed with the boundary
+checker at 0 errors and `tools\validate_physics.bat` byte-exact.
 - [ ] Validation for this phase:
-  - [ ] `tools\validate_physics.bat`
+  - [x] `tools\validate_physics.bat`
   - [ ] `tools\validate_physics_deep.bat` if SkullScope sleep/island query
     baselines change.
 
@@ -269,17 +329,27 @@ and sleep authority is not hidden in the legacy world path.
 Target: constraints are handle-owned and participate in standalone stepping,
 islands, deletion, and diagnostics.
 
-- [ ] Confirm point-joint standalone records already use `PhysicsBodyHandle`
+Latest evidence: standalone point-joint descriptors, updates, and views are
+already `PhysicsBodyHandle` / `PhysicsConstraintHandle` backed. Runtime ragdoll
+construction, authored scene point joints, and the runtime handle smoke now
+create joints through `PhysicsPointJointCreateDesc`; `PhysicsWorld` is the only
+place that converts that descriptor into a `PointJointConstraint` solver row.
+The old raw-row `AddPointJointConstraint` facade/scene/world/collection wrapper
+was deleted. The smoke also includes a constraint-only island case where two
+colliderless bodies merge through a live point joint and split after
+`DestroyConstraint()`.
+
+- [x] Confirm point-joint standalone records already use `PhysicsBodyHandle`
   endpoints and `PhysicsConstraintHandle` lifetime.
-- [ ] Move legacy scene/ragdoll `PointJointConstraint` use toward handle-backed
+- [x] Move legacy scene/ragdoll `PointJointConstraint` use toward handle-backed
   descriptors.
-- [ ] Make same-body, stale-body, and deleted-body failures part of smoke
+- [x] Make same-body, stale-body, and deleted-body failures part of smoke
   evidence for every public constraint command.
-- [ ] Include constraints in island generation.
-- [ ] Add query/view coverage for live constraints if diagnostics or replay need
+- [x] Include constraints in island generation.
+- [x] Add query/view coverage for live constraints if diagnostics or replay need
   it.
-- [ ] Validation for this phase:
-  - [ ] `tools\validate_physics.bat`
+- [x] Validation for this phase:
+  - [x] `tools\validate_physics.bat`
 
 ## Phase 7 - Runtime Adapter Migration
 

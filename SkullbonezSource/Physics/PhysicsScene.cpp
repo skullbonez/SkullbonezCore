@@ -35,6 +35,7 @@ using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
+using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Physics::PhysicsScene;
 
@@ -60,9 +61,58 @@ void PhysicsScene::RefreshBodyStore( PhysicsModelAccess& modelAccess )
 }
 
 
+void PhysicsScene::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex )
+{
+    const int modelCount = modelAccess.ModelCount();
+    if ( modelIndex < 0 || modelIndex >= modelCount )
+    {
+        return;
+    }
+    if ( m_bodyStore.Count() != modelCount )
+    {
+        RefreshBodyStore( modelAccess );
+        return;
+    }
+
+    modelAccess.RefreshPhysicsBodyFromModel( m_bodyStore, modelIndex );
+}
+
+
 void PhysicsScene::ClearPendingBodyImpulses()
 {
     m_bodyStore.ClearPendingImpulses();
+}
+
+
+bool PhysicsScene::TrimBodyStoreToCount( int bodyCount )
+{
+    return m_bodyStore.TrimToCount( bodyCount );
+}
+
+
+bool PhysicsScene::RestoreReplayBodyState( int modelIndex,
+                                           uint32_t replayBodyId,
+                                           bool fixed,
+                                           const Math::Vector::Vector3& position,
+                                           const Math::Orientation::Quaternion& orientation,
+                                           const Math::Vector::Vector3& linearVelocity,
+                                           const Math::Vector::Vector3& angularVelocity,
+                                           float mass,
+                                           float inverseMass,
+                                           const Math::Vector::Vector3& rotationalInertia,
+                                           const Math::Vector::Vector3& inverseRotationalInertia )
+{
+    return m_bodyStore.RestoreReplayBodyState( modelIndex,
+                                               replayBodyId,
+                                               fixed,
+                                               position,
+                                               orientation,
+                                               linearVelocity,
+                                               angularVelocity,
+                                               mass,
+                                               inverseMass,
+                                               rotationalInertia,
+                                               inverseRotationalInertia );
 }
 
 
@@ -75,9 +125,19 @@ void PhysicsScene::RefreshColliderStore( PhysicsModelAccess& modelAccess )
 
 void PhysicsScene::RefreshRenderStore( PhysicsModelAccess& modelAccess )
 {
-    modelAccess.RefreshRenderInstances( m_renderInstanceStore );
+    const int modelCount = modelAccess.ModelCount();
+    if ( m_bodyStore.Count() != modelCount )
+    {
+        RefreshBodyStore( modelAccess );
+    }
+    if ( m_colliderStore.Count() != modelCount )
+    {
+        modelAccess.RefreshPhysicsColliders( m_colliderStore, m_bodyStore );
+    }
+    modelAccess.RefreshRenderInstances( m_renderInstanceStore, m_bodyStore, m_colliderStore );
 #ifdef _DEBUG
-    ValidateRenderStoreMappings( modelAccess.ModelCount() );
+    ValidatePhysicsStoreMappings( modelCount );
+    ValidateRenderStoreMappings( modelCount );
 #endif
 }
 
@@ -137,15 +197,19 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
                                const PhysicsWorldForces& worldForces,
                                Threading::WorkerPool& workerPool )
 {
-    // Invariant: PhysicsModelAccess is the model-owner sync boundary for legacy
-    // GameModel pose/state. The step reloads body records through that boundary,
-    // solves through PhysicsBodyStore/ColliderStore, then writes back once for
-    // render, replay, editor, and diagnostics consumers that still read models.
-    modelAccess.ReloadPhysicsBodies( m_bodyStore, m_world.GetSleepStates() );
+    const int modelCount = modelAccess.ModelCount();
+
+    // Invariant: PhysicsBodyStore is the per-tick body authority. GameModel is
+    // imported only when model/body topology changes; same-count editor or replay
+    // mutations must use explicit commit paths before the step reads the store.
+    if ( m_bodyStore.Count() != modelCount )
+    {
+        modelAccess.ReloadPhysicsBodies( m_bodyStore, m_world.GetSleepStates() );
+    }
     // Why: collider metadata is construction/authoring state, not per-tick
     // solver state. Scene setup and explicit refresh calls rebuild the snapshot;
     // the hot step only needs to catch topology changes.
-    if ( m_colliderStore.Count() != modelAccess.ModelCount() )
+    if ( m_colliderStore.Count() != modelCount )
     {
         modelAccess.RefreshPhysicsColliders( m_colliderStore, m_bodyStore );
     }
@@ -153,14 +217,19 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
     m_hasLastWorldForces = true;
     m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime, config, worldForces, workerPool );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    modelAccess.WriteBackPhysicsBodies( m_bodyStore );
 }
 
 
+// Invariant: steady-state commands mutate PhysicsBodyStore records selected by
+// handles. GameModel body data is imported here only when topology/count changed.
 void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
 {
-    RefreshBodyStore( modelAccess );
-    if ( m_colliderStore.Count() != modelAccess.ModelCount() )
+    const int modelCount = modelAccess.ModelCount();
+    if ( m_bodyStore.Count() != modelCount )
+    {
+        RefreshBodyStore( modelAccess );
+    }
+    if ( m_colliderStore.Count() != modelCount )
     {
         RefreshColliderStore( modelAccess );
     }
@@ -184,7 +253,11 @@ void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle 
 
 void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
 {
-    RefreshBodyStore( modelAccess );
+    const int modelCount = modelAccess.ModelCount();
+    if ( m_bodyStore.Count() != modelCount )
+    {
+        RefreshBodyStore( modelAccess );
+    }
     const int index = m_bodyStore.ModelIndexForHandle( body );
     if ( index < 0 )
     {
@@ -211,13 +284,20 @@ void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
                                           const Math::Vector::Vector3& impulse,
                                           const Math::Vector::Vector3& localApplicationPoint )
 {
-    RefreshBodyStore( modelAccess );
-    const int bodyIndex = m_bodyStore.ModelIndexForHandle( body );
-    if ( bodyIndex < 0 )
+    const int modelCount = modelAccess.ModelCount();
+    if ( m_bodyStore.Count() != modelCount )
+    {
+        RefreshBodyStore( modelAccess );
+    }
+    if ( !m_bodyStore.SetPendingBodyImpulse( body, impulse, localApplicationPoint ) )
     {
         return;
     }
-    if ( m_bodyStore.SetPendingBodyImpulse( bodyIndex, impulse, localApplicationPoint ) )
+
+    // Why: the mutation above is handle-keyed store authority; this model index
+    // is only the remaining legacy projection for model-backed presentation.
+    const int bodyIndex = m_bodyStore.ModelIndexForHandle( body );
+    if ( bodyIndex >= 0 )
     {
         modelAccess.WriteBackPhysicsBody( m_bodyStore, bodyIndex );
         modelAccess.InvalidatePhysicsStreams();
@@ -250,9 +330,16 @@ void PhysicsScene::ClearPointJointConstraints()
 }
 
 
-void PhysicsScene::AddPointJointConstraint( const PointJointConstraint& constraint )
+PhysicsConstraintHandle PhysicsScene::CreatePointJoint( const PhysicsPointJointCreateDesc& desc )
 {
-    m_world.AddPointJointConstraint( constraint );
+    // Why: stale body handles should fail at the scene/store boundary before
+    // the solver receives an append-only point-joint row.
+    if ( !m_bodyStore.Contains( desc.bodyA ) || !m_bodyStore.Contains( desc.bodyB ) || desc.bodyA == desc.bodyB )
+    {
+        return PhysicsConstraintHandle{};
+    }
+
+    return m_world.CreatePointJoint( desc );
 }
 
 

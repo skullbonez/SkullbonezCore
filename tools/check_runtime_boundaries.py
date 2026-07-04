@@ -3,7 +3,8 @@
 # File: tools/check_runtime_boundaries.py
 # Purpose:
 #   Check that Run.h stays a runtime composition root instead of regrowing
-#   extracted subsystem ownership, and prevent new physics dependencies on the
+#   extracted subsystem ownership, prevent new source inheritance outside the
+#   approved stable-boundary budget, and prevent new physics dependencies on the
 #   legacy GameModelCollection world container, new game-object types on public
 #   physics facades, or raytracing calls on the wide render backend facade. It
 #   also blocks direct scheduling or manual-barrier regressions for passes that
@@ -25,9 +26,12 @@
 # Glossary:
 #   Composition root: Top-level owner that wires subsystems together.
 #   Boundary guardrail: Static check that blocks architecture drift.
+#   Inheritance guardrail: Static check that blocks source base classes unless
+#     they are in the approved stable-boundary budget.
 #   Allowlist: Explicit set of legacy references accepted during migration.
-#   Migration artifact: Temporary adapter, DTO, or compatibility name that must
-#     disappear once its real owner or API replaces it.
+#   Migration artifact: Temporary adapter, data-transfer object, or
+#     compatibility name that must disappear once its real owner or API replaces
+#     it.
 #
 # Invariants:
 #   - Run.h may own subsystem objects, but not their extracted transient state.
@@ -47,6 +51,8 @@
 #   - Existing global service calls are counted debt; adding new ones requires
 #     migrating the caller or lowering another allowlist entry first. Direct
 #     renderer service calls also need an approved debt-location classification.
+#   - Source inheritance is deny-by-default; only rows in
+#     APPROVED_INHERITANCE_DECLARATIONS are accepted.
 #
 # Related:
 #   - Agentic/Plans/runtime-run-decomposition-plan.md
@@ -67,9 +73,16 @@ from pathlib import Path
 
 
 RUN_HEADER = Path("SkullbonezSource/Runtime/Run.h")
+RUN_SOURCE = Path("SkullbonezSource/Runtime/Run.cpp")
 RUN_INTERNAL_HEADER = Path("SkullbonezSource/Runtime/RunInternal.h")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
+SKULL_SCOPE_SOURCE = Path("SkullbonezSource/Core/SkullScope.cpp")
+PHYSICS_WORLD_SOURCE = PHYSICS_ROOT / "PhysicsWorld.cpp"
+PHYSICS_SCENE_SOURCE = PHYSICS_ROOT / "PhysicsScene.cpp"
+PHYSICS_DIAGNOSTICS_SINK_SOURCE = PHYSICS_ROOT / "PhysicsDiagnosticsSink.cpp"
+GAME_MODEL_COLLECTION_SOURCE = Path("SkullbonezSource/GameObjects/GameModelCollection.cpp")
+GAME_MODEL_COLLECTION_PHYSICS_ADAPTER_SOURCE = Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp")
 IRENDER_BACKEND_HEADER = Path("SkullbonezSource/Rendering/IRenderBackend.h")
 RUN_RENDER_SOURCE = Path("SkullbonezSource/Runtime/RunRender.cpp")
 RENDER_PIPELINE_SOURCE = Path("SkullbonezSource/Rendering/RenderPipeline.cpp")
@@ -77,12 +90,29 @@ RUN_INPUT_SOURCE = Path("SkullbonezSource/Runtime/RunInput.cpp")
 RUN_PASSES_SOURCE = Path("SkullbonezSource/Runtime/RunPasses.cpp")
 RUN_UI_TEXT_PASS_SOURCE = Path("SkullbonezSource/Runtime/RunUiTextPass.cpp")
 RUN_SCENE_SOURCE = Path("SkullbonezSource/Runtime/Scene/RunScene.cpp")
+REPLAY_RECORDER_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
 RUNTIME_RENDER_PASS_CAPABILITY_SOURCES = (
     RUN_PASSES_SOURCE,
     RUN_UI_TEXT_PASS_SOURCE,
     Path("SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h"),
     Path("SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h"),
+)
+PHYSICS_HOT_PATH_INHERITANCE_SOURCES = (
+    PHYSICS_ROOT / "PhysicsWorld.h",
+    PHYSICS_ROOT / "PhysicsWorld.cpp",
+    PHYSICS_ROOT / "PersistentContactSolver.h",
+    PHYSICS_ROOT / "PersistentContactSolver.cpp",
+    PHYSICS_ROOT / "PhysicsBodyStore.h",
+    PHYSICS_ROOT / "PhysicsBodyStore.cpp",
+    PHYSICS_ROOT / "ColliderStore.h",
+    PHYSICS_ROOT / "ColliderStore.cpp",
+    PHYSICS_ROOT / "SimulationSystem.h",
+    PHYSICS_ROOT / "SimulationSystem.cpp",
+    PHYSICS_ROOT / "SleepIslandSystem.h",
+    PHYSICS_ROOT / "SleepIslandSystem.cpp",
+    PHYSICS_ROOT / "Ragdoll.h",
+    PHYSICS_ROOT / "Ragdoll.cpp",
 )
 FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
@@ -97,9 +127,118 @@ PERSISTENT_CONTACT_SOLVER_CONTEXT_PATTERN = re.compile(
     r"\bstruct\s+PersistentContactSolverContext\b(?P<body>.*?)\n\s*\};",
     re.S,
 )
-# Invariant: fixed-contact events and compatibility writeback stay on narrow
-# sinks; only wake release may keep the named wake-only model boundary.
-PERSISTENT_SOLVER_BROAD_MODEL_ACCESS_PATTERN = re.compile(r"\bPhysicsModelAccess\s*&\s*modelAccess\s*;")
+# Invariant: persistent contact solving emits compact side-effect arrays. The
+# context must not regain model/event/world callback references.
+PERSISTENT_SOLVER_CALLBACK_BOUNDARY_PATTERN = re.compile(
+    r"\b(?:PhysicsModelAccess|PhysicsBodyEventSink|PhysicsBodyWritebackSink|PhysicsWorld)\s*&\s*[A-Za-z_]\w*\s*;"
+)
+PERSISTENT_SOLVER_CONTEXT_MODEL_STREAM_PATTERN = re.compile(
+    r"\b(?:GameObjects\s*::\s*)?GameModelBodyStream\b"
+)
+PHYSICS_WORLD_SOLVER_MODEL_STREAM_FUNCTIONS = (
+    "RunSolverPhysics",
+    "ApplyTornadoField",
+    "WakePointJointConnectedBodies",
+)
+PHYSICS_WORLD_SOLVER_MODEL_STREAM_PATTERN = re.compile(r"\b(?:GameModelBodyStream|GetBodyStream)\b")
+RENDER_INSTANCE_MODEL_REFRESH_PATTERN = re.compile(
+    r"\brenderInstanceStore\s*\.\s*Refresh\s*\(\s*m_gameModels\s*\)"
+)
+PHYSICS_DIAGNOSTICS_MODEL_RECORD_COMPAT_PATTERN = re.compile(
+    r"\bmodelAccess\s*\.\s*TryGetPhysicsDiagnosticsModel\s*\(\s*[^,()]+\s*,\s*[^,()]+\s*\)"
+)
+PHYSICS_DIAGNOSTICS_MODEL_RECORD_SOURCES = (
+    PHYSICS_DIAGNOSTICS_SINK_SOURCE,
+    SKULL_SCOPE_SOURCE,
+)
+REPLAY_RECORDER_MODEL_STATE_CAPTURE_PATTERN = re.compile(
+    r"\b(?:ShapeKindForModel\s*\(|[A-Za-z_]\w*\s*(?:->|\.)\s*"
+    r"(?:GetReplayBodyId|GetCollisionShape|GetPosition|GetVelocity|GetAngularVelocity|GetOrientation|GetMass|"
+    r"GetInvertedMass|GetRotationalInertia|GetInvertedRotationalInertia|IsFixed)\s*\()"
+)
+RUN_REPLAY_RESTORE_BODY_STORE_REFRESH_PATTERN = re.compile(
+    r"\bm_cGameModelCollection\s*\.\s*GetPhysicsBodyStore\s*\("
+)
+GAME_MODEL_COLLECTION_REPLAY_RESTORE_FUNCTION_PATTERN = re.compile(
+    r"\bbool\s+GameModelCollection::TryRestoreReplayBodyState\s*\("
+)
+GAME_MODEL_COLLECTION_REPLAY_RESTORE_MODEL_REFRESH_PATTERN = re.compile(
+    r"\b(?:CommitEditedModelPhysicsState|RefreshBodyFromModel|GetPhysicsBodyStore)\s*\("
+)
+PHYSICS_SCENE_RUN_PHYSICS_FUNCTION_PATTERN = re.compile(r"\bvoid\s+PhysicsScene::RunPhysics\s*\(")
+PHYSICS_SCENE_STEP_BODY_RELOAD_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*ReloadPhysicsBodies\s*\(")
+PHYSICS_SCENE_TOPOLOGY_BODY_RELOAD_PATTERN = re.compile(
+    r"if\s*\(\s*m_bodyStore\s*\.\s*Count\s*\(\s*\)\s*!=\s*"
+    r"(?:modelCount|modelAccess\s*\.\s*ModelCount\s*\(\s*\))\s*\)\s*\{\s*"
+    r"modelAccess\s*\.\s*ReloadPhysicsBodies\s*\(",
+    re.S,
+)
+PHYSICS_SCENE_COMMAND_BODY_REFRESH_FUNCTIONS = (
+    "WakeBody",
+    "SeedBodyAsleep",
+    "SetPendingBodyImpulse",
+)
+PHYSICS_SCENE_COMMAND_BODY_REFRESH_PATTERN = re.compile(r"\bRefreshBodyStore\s*\(\s*modelAccess\s*\)")
+PHYSICS_SCENE_COMMAND_TOPOLOGY_BODY_REFRESH_PATTERN = re.compile(
+    r"if\s*\(\s*m_bodyStore\s*\.\s*Count\s*\(\s*\)\s*!=\s*"
+    r"(?:modelCount|modelAccess\s*\.\s*ModelCount\s*\(\s*\))\s*\)\s*\{\s*"
+    r"RefreshBodyStore\s*\(\s*modelAccess\s*\)",
+    re.S,
+)
+GAME_MODEL_COLLECTION_ADAPTER_BODY_HANDLE_FUNCTION_PATTERN = re.compile(
+    r"\bPhysicsBodyHandle\s+GameModelCollectionPhysicsAdapter::BodyHandleForModelIndex\s*\("
+)
+GAME_MODEL_COLLECTION_ADAPTER_BODY_REFRESH_PATTERN = re.compile(
+    r"\bm_collection\s*\.\s*m_physicsEngine\s*\.\s*RefreshBodyStore\s*\(\s*modelAccess\s*\)"
+)
+GAME_MODEL_COLLECTION_ADAPTER_TOPOLOGY_BODY_REFRESH_PATTERN = re.compile(
+    r"if\s*\(\s*m_collection\s*\.\s*m_physicsEngine\s*\.\s*BodyStore\s*\(\s*\)\s*\.\s*Count\s*\(\s*\)\s*!=\s*"
+    r"m_collection\s*\.\s*GetModelCount\s*\(\s*\)\s*\)\s*\{\s*"
+    r"m_collection\s*\.\s*m_physicsEngine\s*\.\s*RefreshBodyStore\s*\(\s*modelAccess\s*\)",
+    re.S,
+)
+HOT_PATH_INHERITANCE_PATTERN = re.compile(
+    r"^\s*(?:class|struct)\s+[A-Za-z_]\w*[^{;\n]*:\s*(?:public|protected|private)\b",
+    re.M,
+)
+PHYSICS_MODEL_ACCESS_INHERITANCE_PATTERN = re.compile(
+    r"^\s*(?:class|struct)\s+[A-Za-z_]\w*[^{;]*:\s*[^;{]*"
+    r"(?:public|protected|private)\s+(?:Physics::)?(?:PhysicsModelAccess|PhysicsBodyEventSink)\b",
+    re.M,
+)
+INHERITANCE_DECLARATION_PATTERN = re.compile(
+    r"^\s*(?:class|struct)\s+"
+    r"(?P<name>(?:[A-Za-z_]\w*::)*[A-Za-z_]\w*)"
+    r"(?:\s+(?:final|[A-Z_][A-Z0-9_]*))*"
+    r"\s*:(?!:)\s*(?P<bases>[^{};]+?)\s*\{",
+    re.M | re.S,
+)
+SOURCE_BEARING_SUFFIXES = { ".cpp", ".h", ".hpp", ".inl" }
+# Intentional runtime-polymorphism budget. Adding a row means the owning plan
+# has accepted a stable boundary, real runtime dispatch need, call frequency,
+# and validation/perf evidence. Everything else should be composition or values.
+APPROVED_INHERITANCE_DECLARATIONS: dict[tuple[Path, str], str] = {
+    (
+        Path("SkullbonezSource/Rendering/IRenderBackend.h"),
+        "IRenderBackend",
+    ): "public IRenderDeviceLifecycle, public IRenderResourceFactory, public IRenderCommandContext, public IRenderDiagnostics, public IRenderCaptureBackend",
+    (
+        Path("SkullbonezSource/Rendering/DX12/FramebufferDX12.h"),
+        "FramebufferDX12",
+    ): "public IFramebuffer",
+    (
+        Path("SkullbonezSource/Rendering/DX12/MeshDX12.h"),
+        "MeshDX12",
+    ): "public IMesh",
+    (
+        Path("SkullbonezSource/Rendering/DX12/RenderBackendDX12.h"),
+        "RenderBackendDX12",
+    ): "public IRenderBackend, public IRenderRayTracing",
+    (
+        Path("SkullbonezSource/Rendering/DX12/ShaderDX12.h"),
+        "ShaderDX12",
+    ): "public IShader",
+}
 DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
     (
         "GameModelRuntimePhysicsTuning",
@@ -117,6 +256,11 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "Pass WorldEnvironmentSettings and other owner-specific settings instead of a catch-all runtime snapshot.",
     ),
     (
+        "IRenderSceneView",
+        re.compile(r"\bIRenderSceneView\b"),
+        "Render passes should consume concrete render/model data paths, not a one-implementation migration interface.",
+    ),
+    (
         "PhysicsModelAccess raw model range facade",
         re.compile(
             r"\b(?:PhysicsModelMutableRange|PhysicsModelConstRange|BorrowMutableModels)\b"
@@ -126,6 +270,21 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "Use PhysicsModelAccess command/query methods and store-backed views instead of raw GameModel ranges.",
     ),
     (
+        "PhysicsBodyWritebackSink",
+        re.compile(r"\bPhysicsBodyWritebackSink\b"),
+        "Queue solver body writeback as plain side-effect data and apply it from PhysicsWorld after the solve.",
+    ),
+    (
+        "PhysicsBodyEventSink",
+        re.compile(r"\bPhysicsBodyEventSink\b"),
+        "Apply solver-triggered model-owner events through PhysicsModelAccess commands after hot-path work completes.",
+    ),
+    (
+        "PersistentContactSolver body mirror writeback queue",
+        re.compile(r"\b(?:bodyMirrorWritebacks|QueueBodyMirrorWriteback)\b"),
+        "Solver mutation belongs in PhysicsBodyStore; keep model mirroring as one named step-boundary sync.",
+    ),
+    (
         "AssetSystem::CreateShader(const char*)",
         re.compile(
             r"\bAssetSystem\s*::\s*CreateShader\s*\(\s*const\s+char\s*\*\s*[A-Za-z_]\w*\s*\)"
@@ -133,6 +292,14 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
             re.S,
         ),
         "Create shaders through AssetSystem::CreateShader(renderResources, name) so render resource authority is explicit.",
+    ),
+    (
+        "PhysicsStandaloneWorld body mirror arrays",
+        re.compile(
+            r"\bstd\s*::\s*vector\s*<\s*PhysicsBodyView\s*>\s*m_bodies\b"
+            r"|\bm_(?:generations|alive|freeIndices)\b"
+        ),
+        "Standalone bodies must live in PhysicsBodyStore; do not recreate a parallel view/liveness/generation mirror.",
     ),
 )
 PUBLIC_PHYSICS_FACADE_HEADERS = (
@@ -388,6 +555,14 @@ PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
         ( "SkullbonezSource/Physics/Ragdoll.cpp", "void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection," ),
         ( "SkullbonezSource/Physics/Ragdoll.h", "class GameModelCollection;" ),
         ( "SkullbonezSource/Physics/Ragdoll.h", "static void AddSimpleHumanoid( GameObjects::GameModelCollection& collection," ),
+        # PhysicsModelAccess is the named owner facade. It may hold the owner;
+        # physics code must not add unrelated GameModelCollection dependencies.
+        ( "SkullbonezSource/Physics/PhysicsModelAccess.h", "class GameModelCollection;" ),
+        (
+            "SkullbonezSource/Physics/PhysicsModelAccess.h",
+            "explicit PhysicsModelAccess( GameObjects::GameModelCollection& collection );",
+        ),
+        ( "SkullbonezSource/Physics/PhysicsModelAccess.h", "GameObjects::GameModelCollection& m_collection;" ),
     )
 )
 
@@ -1648,13 +1823,22 @@ def check_persistent_solver_context_model_access_guardrails_text(path: Path, tex
     errors: list[BoundaryError] = []
     for context_match in PERSISTENT_CONTACT_SOLVER_CONTEXT_PATTERN.finditer(stripped):
         context_body = context_match.group("body")
-        for member_match in PERSISTENT_SOLVER_BROAD_MODEL_ACCESS_PATTERN.finditer(context_body):
+        for member_match in PERSISTENT_SOLVER_CALLBACK_BOUNDARY_PATTERN.finditer(context_body):
             errors.append(
                 BoundaryError(
                     path,
                     line_for_offset(stripped, context_match.start("body") + member_match.start()),
-                    "persistent contact solver broad model access is blocked",
-                    "Use PhysicsBodyEventSink, PhysicsBodyWritebackSink, or a named wake-only boundary instead.",
+                    "persistent contact solver callback boundary is blocked",
+                    "Emit PersistentContactSolverSideEffects arrays and apply owner-side consequences after Solve().",
+                )
+            )
+        for stream_match in PERSISTENT_SOLVER_CONTEXT_MODEL_STREAM_PATTERN.finditer(context_body):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, context_match.start("body") + stream_match.start()),
+                    "persistent contact solver model stream boundary is blocked",
+                    "Persistent contact solving should read PhysicsBodyStore and ColliderStore records, not GameModelBodyStream.",
                 )
             )
     return errors
@@ -1663,6 +1847,423 @@ def check_persistent_solver_context_model_access_guardrails_text(path: Path, tex
 def check_persistent_solver_context_model_access_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / PHYSICS_ROOT / "PhysicsWorld.h"
     return check_persistent_solver_context_model_access_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+# Invariant: RunSolverPhysics is the hot step. Per-body model mirror writes here
+# recreate cache churn and make PhysicsBodyStore less authoritative.
+# Invariant: the same hot-step helpers must not refresh GameModelBodyStream; the
+# solver should read PhysicsBodyStore/ColliderStore records already in memory.
+def check_physics_world_solver_body_writeback_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    solver_pattern = re.compile(r"\bvoid\s+PhysicsWorld::RunSolverPhysics\s*\([^{}]*\)\s*\{", re.S)
+    writeback_pattern = re.compile(r"\bmodelAccess\s*\.\s*WriteBackPhysicsBody\s*\(")
+    for solver_match in solver_pattern.finditer(stripped):
+        open_brace = stripped.find("{", solver_match.start(), solver_match.end())
+        if open_brace < 0:
+            continue
+        close_brace = find_matching_close_brace(stripped, open_brace)
+        for writeback_match in writeback_pattern.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, writeback_match.start()),
+                    "physics solver hot path per-body model writeback is blocked",
+                    "Write solver results into PhysicsBodyStore and mirror models once at the PhysicsWorld step boundary.",
+                )
+            )
+    return errors
+
+
+def check_physics_world_solver_body_writeback_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / PHYSICS_WORLD_SOURCE
+    return check_physics_world_solver_body_writeback_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_physics_world_solver_model_stream_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for function_name in PHYSICS_WORLD_SOLVER_MODEL_STREAM_FUNCTIONS:
+        function_pattern = re.compile(
+            rf"\bvoid\s+PhysicsWorld::{re.escape(function_name)}\s*\([^{{}}]*\)\s*\{{",
+            re.S,
+        )
+        for function_match in function_pattern.finditer(stripped):
+            open_brace = stripped.find("{", function_match.start(), function_match.end())
+            if open_brace < 0:
+                continue
+            close_brace = find_matching_close_brace(stripped, open_brace)
+            for stream_match in PHYSICS_WORLD_SOLVER_MODEL_STREAM_PATTERN.finditer(stripped, open_brace, close_brace):
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, stream_match.start()),
+                        "physics solver hot path model body stream is blocked",
+                        (
+                            f"PhysicsWorld::{function_name} should read PhysicsBodyStore/ColliderStore records "
+                            "instead of refreshing GameModelBodyStream."
+                        ),
+                    )
+                )
+    return errors
+
+
+def check_physics_world_solver_model_stream_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / PHYSICS_WORLD_SOURCE
+    return check_physics_world_solver_model_stream_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_render_instance_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in RENDER_INSTANCE_MODEL_REFRESH_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "render instance model-transform refresh is blocked",
+                "Refresh render instances from PhysicsBodyStore and ColliderStore so draw poses do not depend on the post-solve GameModel mirror.",
+            )
+        )
+    return errors
+
+
+def check_render_instance_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / GAME_MODEL_COLLECTION_SOURCE
+    return check_render_instance_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_physics_diagnostics_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_DIAGNOSTICS_MODEL_RECORD_COMPAT_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "physics diagnostics model-state mirror read is blocked",
+                (
+                    "Pass PhysicsBodyStore and ColliderStore to TryGetPhysicsDiagnosticsModel; "
+                    "use TryGetPhysicsDiagnosticsModelName only for name-only logs."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_diagnostics_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in PHYSICS_DIAGNOSTICS_MODEL_RECORD_SOURCES:
+        path = repo / relative_path
+        errors.extend(check_physics_diagnostics_store_authority_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_replay_recorder_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in REPLAY_RECORDER_MODEL_STATE_CAPTURE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay recorder model-state capture is blocked",
+                (
+                    "Replay capture should read PhysicsBodyStore and ColliderStore for body physics state; "
+                    "GameModel is name metadata only."
+                ),
+            )
+        )
+    return errors
+
+
+def check_replay_recorder_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / REPLAY_RECORDER_SOURCE
+    return check_replay_recorder_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_run_replay_restore_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in RUN_REPLAY_RESTORE_BODY_STORE_REFRESH_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay restore body-store reload is blocked",
+                (
+                    "Replay restore should write sampled body state into PhysicsBodyStore directly; "
+                    "do not reload the store from GameModel after restore."
+                ),
+            )
+        )
+    return errors
+
+
+def check_game_model_collection_replay_restore_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    function_match = GAME_MODEL_COLLECTION_REPLAY_RESTORE_FUNCTION_PATTERN.search(stripped)
+    if not function_match:
+        return errors
+
+    open_brace = stripped.find("{", function_match.end())
+    if open_brace < 0:
+        return errors
+
+    close_brace = find_matching_close_brace(stripped, open_brace)
+    for match in GAME_MODEL_COLLECTION_REPLAY_RESTORE_MODEL_REFRESH_PATTERN.finditer(stripped, open_brace, close_brace):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay restore model-to-store refresh is blocked",
+                (
+                    "TryRestoreReplayBodyState should call the store-owned replay restore command; "
+                    "do not refresh PhysicsBodyStore from GameModel for restored body state."
+                ),
+            )
+        )
+    return errors
+
+
+def check_replay_restore_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    run_path = repo / RUN_SOURCE
+    errors.extend(check_run_replay_restore_store_authority_guardrails_text(run_path, run_path.read_text(encoding="utf-8")))
+    collection_path = repo / GAME_MODEL_COLLECTION_SOURCE
+    errors.extend(
+        check_game_model_collection_replay_restore_store_authority_guardrails_text(
+            collection_path,
+            collection_path.read_text(encoding="utf-8"),
+        )
+    )
+    return errors
+
+
+def check_physics_scene_step_body_reload_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    function_match = PHYSICS_SCENE_RUN_PHYSICS_FUNCTION_PATTERN.search(stripped)
+    if not function_match:
+        return errors
+
+    open_brace = stripped.find("{", function_match.end())
+    if open_brace < 0:
+        return errors
+
+    close_brace = find_matching_close_brace(stripped, open_brace)
+    allowed_spans = [
+        (open_brace + match.start(), open_brace + match.end())
+        for match in PHYSICS_SCENE_TOPOLOGY_BODY_RELOAD_PATTERN.finditer(stripped[open_brace:close_brace])
+    ]
+    for match in PHYSICS_SCENE_STEP_BODY_RELOAD_PATTERN.finditer(stripped, open_brace, close_brace):
+        if any(start <= match.start() < end for start, end in allowed_spans):
+            continue
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "per-step model-to-body-store reload is blocked",
+                (
+                    "PhysicsScene::RunPhysics should keep PhysicsBodyStore authoritative during steady-state "
+                    "steps; only topology/count mismatch may reload bodies from GameModel."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_scene_step_body_reload_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / PHYSICS_SCENE_SOURCE
+    return check_physics_scene_step_body_reload_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def _function_body_bounds(stripped: str, function_pattern: re.Pattern[str]) -> tuple[int, int] | None:
+    function_match = function_pattern.search(stripped)
+    if not function_match:
+        return None
+
+    open_brace = stripped.find("{", function_match.end())
+    if open_brace < 0:
+        return None
+
+    return open_brace, find_matching_close_brace(stripped, open_brace)
+
+
+def _allowed_match_spans(function_body: str, body_offset: int, allowed_pattern: re.Pattern[str]) -> list[tuple[int, int]]:
+    return [(body_offset + match.start(), body_offset + match.end()) for match in allowed_pattern.finditer(function_body)]
+
+
+def check_physics_scene_command_body_refresh_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for function_name in PHYSICS_SCENE_COMMAND_BODY_REFRESH_FUNCTIONS:
+        bounds = _function_body_bounds(
+            stripped,
+            re.compile(rf"\bvoid\s+PhysicsScene::{function_name}\s*\("),
+        )
+        if not bounds:
+            continue
+
+        open_brace, close_brace = bounds
+        function_body = stripped[open_brace:close_brace]
+        allowed_spans = _allowed_match_spans(
+            function_body,
+            open_brace,
+            PHYSICS_SCENE_COMMAND_TOPOLOGY_BODY_REFRESH_PATTERN,
+        )
+        for match in PHYSICS_SCENE_COMMAND_BODY_REFRESH_PATTERN.finditer(stripped, open_brace, close_brace):
+            if any(start <= match.start() < end for start, end in allowed_spans):
+                continue
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "command-side model-to-body-store refresh is blocked",
+                    (
+                        f"PhysicsScene::{function_name} should keep PhysicsBodyStore authoritative during "
+                        "steady-state commands; only topology/count mismatch may import bodies from GameModel."
+                    ),
+                )
+            )
+    return errors
+
+
+def check_game_model_collection_adapter_body_refresh_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    bounds = _function_body_bounds(stripped, GAME_MODEL_COLLECTION_ADAPTER_BODY_HANDLE_FUNCTION_PATTERN)
+    if not bounds:
+        return errors
+
+    open_brace, close_brace = bounds
+    function_body = stripped[open_brace:close_brace]
+    allowed_spans = _allowed_match_spans(
+        function_body,
+        open_brace,
+        GAME_MODEL_COLLECTION_ADAPTER_TOPOLOGY_BODY_REFRESH_PATTERN,
+    )
+    for match in GAME_MODEL_COLLECTION_ADAPTER_BODY_REFRESH_PATTERN.finditer(stripped, open_brace, close_brace):
+        if any(start <= match.start() < end for start, end in allowed_spans):
+            continue
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "adapter body-handle model-to-store refresh is blocked",
+                (
+                    "BodyHandleForModelIndex should refresh body records only on model/body count mismatch; "
+                    "steady-state handle resolution must not reload PhysicsBodyStore from GameModel."
+                ),
+            )
+        )
+    return errors
+
+
+def check_command_side_body_refresh_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    scene_path = repo / PHYSICS_SCENE_SOURCE
+    errors.extend(check_physics_scene_command_body_refresh_guardrails_text(scene_path, scene_path.read_text(encoding="utf-8")))
+    adapter_path = repo / GAME_MODEL_COLLECTION_PHYSICS_ADAPTER_SOURCE
+    errors.extend(
+        check_game_model_collection_adapter_body_refresh_guardrails_text(
+            adapter_path,
+            adapter_path.read_text(encoding="utf-8"),
+        )
+    )
+    return errors
+
+
+def check_physics_hot_path_inheritance_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in HOT_PATH_INHERITANCE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "physics hot-path inheritance is blocked",
+                "Use compact store arrays, value structs, and explicit post-pass side-effect buffers unless a plan approves a stable runtime-polymorphic boundary.",
+            )
+        )
+    return errors
+
+
+def check_physics_hot_path_inheritance_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in PHYSICS_HOT_PATH_INHERITANCE_SOURCES:
+        path = repo / relative_path
+        errors.extend(check_physics_hot_path_inheritance_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_physics_model_access_inheritance_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_MODEL_ACCESS_INHERITANCE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "PhysicsModelAccess inheritance is blocked",
+                "Use a local PhysicsModelAccess facade value instead of deriving model owners from physics interfaces.",
+            )
+        )
+    return errors
+
+
+def check_physics_model_access_inheritance_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
+        if path.suffix not in SOURCE_BEARING_SUFFIXES:
+            continue
+        errors.extend(check_physics_model_access_inheritance_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def normalize_inheritance_bases(bases: str) -> str:
+    return re.sub(r"\s+", " ", bases).strip()
+
+
+def check_approved_inheritance_guardrails_text(
+    path: Path,
+    text: str,
+    relative_path: Path | None = None,
+) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    allowed_path = relative_path or path
+    errors: list[BoundaryError] = []
+    for match in INHERITANCE_DECLARATION_PATTERN.finditer(stripped):
+        name = match.group("name").split("::")[-1]
+        bases = normalize_inheritance_bases(match.group("bases"))
+        if APPROVED_INHERITANCE_DECLARATIONS.get((allowed_path, name)) == bases:
+            continue
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "unapproved inheritance is blocked",
+                "Use composition/value data, or add an explicit approved stable-boundary row with owner, reason, call frequency, and validation evidence.",
+            )
+        )
+    return errors
+
+
+def check_approved_inheritance_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
+        if path.suffix not in SOURCE_BEARING_SUFFIXES:
+            continue
+        relative_path = path.relative_to(repo)
+        errors.extend(
+            check_approved_inheritance_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+                relative_path,
+            )
+        )
+    return errors
 
 
 def check_physics_models_access_guardrails_text(
@@ -5933,12 +6534,17 @@ def run_self_tests() -> list[str]:
     struct GameModelRuntimePhysicsTuning {};
     int legacyModelIndex = 0;
     RuntimeConfigSnapshot snapshot;
+    class GameModelCollection : public Rendering::IRenderSceneView {};
     PhysicsModelMutableRange mutableRange;
     PhysicsModelConstRange constRange;
     auto* mutableModels = modelAccess.MutableModelData();
     auto* constModels = modelAccess.ModelData();
     auto rawRange = modelAccess.Models();
     auto borrowedRange = BorrowMutableModels( modelAccess );
+    auto mirror = sideEffects.bodyMirrorWritebacks;
+    QueueBodyMirrorWriteback( index );
+    PhysicsBodyWritebackSink* writebackSink = nullptr;
+    PhysicsBodyEventSink* eventSink = nullptr;
     std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logicalNameOrBaseName ) const;
     """
     if not any(
@@ -5950,9 +6556,41 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("deleted migration artifact synthetic surface was not rejected")
 
+    standalone_body_mirror_text = """
+    class PhysicsStandaloneWorld
+    {
+        std::vector<PhysicsBodyView> m_bodies;
+        std::vector<uint32_t> m_generations;
+        std::vector<uint8_t> m_alive;
+        std::vector<uint32_t> m_freeIndices;
+    };
+    """
+    if not any(
+        error.message == "deleted migration artifact is blocked: PhysicsStandaloneWorld body mirror arrays"
+        for error in check_deleted_migration_artifact_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsApi.h"),
+            standalone_body_mirror_text,
+        )
+    ):
+        failures.append("standalone body mirror synthetic surface was not rejected")
+
+    deleted_render_scene_view_text = """
+    class GameModelCollection : public Rendering::IRenderSceneView {};
+    """
+    if not any(
+        error.message == "deleted migration artifact is blocked: IRenderSceneView"
+        for error in check_deleted_migration_artifact_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
+            deleted_render_scene_view_text,
+        )
+    ):
+        failures.append("deleted IRenderSceneView synthetic surface was not rejected")
+
     commented_deleted_migration_artifact_text = """
-    // GameModelRuntimePhysicsTuning, legacyModelIndex, and RuntimeConfigSnapshot are migration notes only.
+    // GameModelRuntimePhysicsTuning, legacyModelIndex, RuntimeConfigSnapshot, and IRenderSceneView are migration notes only.
     // PhysicsModelMutableRange, MutableModelData(), and modelAccess.Models() are notes only.
+    // PhysicsBodyWritebackSink, QueueBodyMirrorWriteback, bodyMirrorWritebacks, and PhysicsBodyEventSink are deleted migration notes only.
+    // PhysicsStandaloneWorld used to store std::vector<PhysicsBodyView> m_bodies plus m_alive/m_generations/m_freeIndices.
     /*
        AssetSystem::CreateShader( const char* name ) is mentioned in the plan but must not be code.
        BorrowMutableModels(modelAccess) appears in the audit notes, not compiled source.
@@ -5968,9 +6606,9 @@ def run_self_tests() -> list[str]:
     allowed_persistent_solver_context = """
     struct PersistentContactSolverContext
     {
-        PhysicsBodyEventSink& bodyEvents;
-        PhysicsBodyWritebackSink& bodyWritebacks;
-        PhysicsModelAccess& wakeModelAccess;
+        PersistentContactSolverSideEffects& sideEffects;
+        int bodyStoreCount = 0;
+        int pipelineRecordCapacity = 0;
     };
     """
     if check_persistent_solver_context_model_access_guardrails_text(
@@ -5983,10 +6621,12 @@ def run_self_tests() -> list[str]:
     struct PersistentContactSolverContext
     {
         PhysicsModelAccess& modelAccess;
+        PhysicsBodyEventSink& bodyEvents;
+        PhysicsWorld& world;
     };
     """
     if not any(
-        error.message == "persistent contact solver broad model access is blocked"
+        error.message == "persistent contact solver callback boundary is blocked"
         for error in check_persistent_solver_context_model_access_guardrails_text(
             Path("SkullbonezSource/Physics/PhysicsWorld.h"),
             old_persistent_solver_context,
@@ -5994,11 +6634,28 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old persistent solver broad model access synthetic surface was not rejected")
 
+    old_persistent_solver_body_stream_context = """
+    struct PersistentContactSolverContext
+    {
+        const GameObjects::GameModelBodyStream& bodyStream;
+        PersistentContactSolverSideEffects& sideEffects;
+    };
+    """
+    if not any(
+        error.message == "persistent contact solver model stream boundary is blocked"
+        for error in check_persistent_solver_context_model_access_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.h"),
+            old_persistent_solver_body_stream_context,
+        )
+    ):
+        failures.append("old persistent solver body stream synthetic surface was not rejected")
+
     commented_persistent_solver_context = """
     struct PersistentContactSolverContext
     {
-        // PhysicsModelAccess& modelAccess; is a deleted migration note only.
-        PhysicsModelAccess& wakeModelAccess;
+        // PhysicsModelAccess& modelAccess; and PhysicsBodyEventSink& bodyEvents are deleted migration notes only.
+        // const GameObjects::GameModelBodyStream& bodyStream is a deleted migration note only.
+        PersistentContactSolverSideEffects& sideEffects;
     };
     """
     if check_persistent_solver_context_model_access_guardrails_text(
@@ -6006,6 +6663,599 @@ def run_self_tests() -> list[str]:
         commented_persistent_solver_context,
     ):
         failures.append("comment-only persistent solver broad model access synthetic text was rejected")
+
+    old_solver_writeback_text = """
+    void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess )
+    {
+        modelAccess.WriteBackPhysicsBody( bodyStore, x );
+    }
+    """
+    if not any(
+        error.message == "physics solver hot path per-body model writeback is blocked"
+        for error in check_physics_world_solver_body_writeback_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+            old_solver_writeback_text,
+        )
+    ):
+        failures.append("old solver per-body model writeback synthetic surface was not rejected")
+
+    allowed_step_boundary_writeback_text = """
+    void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
+    {
+        modelAccess.WriteBackPhysicsBodies( bodyStore );
+    }
+    void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess )
+    {
+        modelAccess.WriteBackPhysicsBody( bodyStore, fixedIndex );
+    }
+    """
+    if check_physics_world_solver_body_writeback_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        allowed_step_boundary_writeback_text,
+    ):
+        failures.append("allowed non-solver physics writeback synthetic surface was rejected")
+
+    commented_solver_writeback_text = """
+    void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess )
+    {
+        // modelAccess.WriteBackPhysicsBody(bodyStore, x) is a deleted hot-path note.
+        KeepBodyStoreAuthoritative();
+    }
+    """
+    if check_physics_world_solver_body_writeback_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        commented_solver_writeback_text,
+    ):
+        failures.append("comment-only solver writeback synthetic text was rejected")
+
+    old_solver_body_stream_text = """
+    void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess )
+    {
+        const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
+    }
+    void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess )
+    {
+        auto stream = modelAccess.GetBodyStream();
+    }
+    """
+    if not any(
+        error.message == "physics solver hot path model body stream is blocked"
+        for error in check_physics_world_solver_model_stream_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+            old_solver_body_stream_text,
+        )
+    ):
+        failures.append("old solver model body stream synthetic surface was not rejected")
+
+    allowed_explicit_wake_body_stream_text = """
+    void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, int index )
+    {
+        const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
+        WakeModel( modelAccess, bodyStream, nullptr, nullptr, nullptr, index );
+    }
+    """
+    if check_physics_world_solver_model_stream_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        allowed_explicit_wake_body_stream_text,
+    ):
+        failures.append("explicit non-solver wake body stream synthetic surface was rejected")
+
+    commented_solver_body_stream_text = """
+    void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess )
+    {
+        // const GameModelBodyStream bodyStream = modelAccess.GetBodyStream(); is a deleted hot-path note.
+        UseStoreRecords();
+    }
+    """
+    if check_physics_world_solver_model_stream_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        commented_solver_body_stream_text,
+    ):
+        failures.append("comment-only solver body stream synthetic text was rejected")
+
+    old_render_instance_model_refresh = """
+    void GameModelCollection::RefreshRenderInstances( RenderInstanceStore& renderInstanceStore )
+    {
+        renderInstanceStore.Refresh( m_gameModels );
+    }
+    """
+    if not any(
+        error.message == "render instance model-transform refresh is blocked"
+        for error in check_render_instance_store_authority_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_render_instance_model_refresh,
+        )
+    ):
+        failures.append("old render instance model refresh synthetic surface was not rejected")
+
+    allowed_render_instance_store_refresh = """
+    void GameModelCollection::RefreshRenderInstances( RenderInstanceStore& renderInstanceStore,
+                                                      const PhysicsBodyStore& bodyStore,
+                                                      const ColliderStore& colliderStore )
+    {
+        renderInstanceStore.Refresh( m_gameModels, bodyStore, colliderStore );
+    }
+    """
+    if check_render_instance_store_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_render_instance_store_refresh,
+    ):
+        failures.append("store-owned render instance refresh synthetic surface was rejected")
+
+    commented_render_instance_model_refresh = """
+    void GameModelCollection::RefreshRenderInstances( RenderInstanceStore& renderInstanceStore )
+    {
+        // renderInstanceStore.Refresh( m_gameModels ) is deleted render-transform debt.
+        renderInstanceStore.Refresh( m_gameModels, bodyStore, colliderStore );
+    }
+    """
+    if check_render_instance_store_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        commented_render_instance_model_refresh,
+    ):
+        failures.append("comment-only render instance model refresh synthetic text was rejected")
+
+    old_diagnostics_model_record_read = """
+    void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess )
+    {
+        PhysicsDiagnosticsModelRecord model;
+        modelAccess.TryGetPhysicsDiagnosticsModel( i, model );
+    }
+    """
+    if not any(
+        error.message == "physics diagnostics model-state mirror read is blocked"
+        for error in check_physics_diagnostics_store_authority_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
+            old_diagnostics_model_record_read,
+        )
+    ):
+        failures.append("old diagnostics GameModel-sourced record synthetic surface was not rejected")
+
+    store_owned_diagnostics_model_record_read = """
+    void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess )
+    {
+        PhysicsDiagnosticsModelRecord model;
+        modelAccess.TryGetPhysicsDiagnosticsModel( i, bodyStore, colliderStore, model );
+    }
+    """
+    if check_physics_diagnostics_store_authority_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
+        store_owned_diagnostics_model_record_read,
+    ):
+        failures.append("store-owned diagnostics record synthetic surface was rejected")
+
+    diagnostics_name_only_read = """
+    void PhysicsDiagnosticsSink::EmitCollisionTime( PhysicsModelAccess& modelAccess )
+    {
+        const char* name = "";
+        modelAccess.TryGetPhysicsDiagnosticsModelName( bodyA, name );
+    }
+    """
+    if check_physics_diagnostics_store_authority_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
+        diagnostics_name_only_read,
+    ):
+        failures.append("diagnostics name-only synthetic surface was rejected")
+
+    commented_diagnostics_model_record_read = """
+    void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess )
+    {
+        // modelAccess.TryGetPhysicsDiagnosticsModel( i, model ) is old mirror debt.
+        UseBodyAndColliderStores();
+    }
+    """
+    if check_physics_diagnostics_store_authority_guardrails_text(
+        Path("SkullbonezSource/Core/SkullScope.cpp"),
+        commented_diagnostics_model_record_read,
+    ):
+        failures.append("comment-only diagnostics model record synthetic text was rejected")
+
+    old_replay_recorder_model_state_read = """
+    void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
+    {
+        const GameModel* model = models.TryGetModel( i );
+        body.position = model->GetPosition();
+        body.mass = model->GetMass();
+    }
+    """
+    if not any(
+        error.message == "replay recorder model-state capture is blocked"
+        for error in check_replay_recorder_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"),
+            old_replay_recorder_model_state_read,
+        )
+    ):
+        failures.append("old replay recorder GameModel-sourced body state synthetic surface was not rejected")
+
+    store_owned_replay_recorder_body_read = """
+    bool BuildReplayPresentationBodySample( int bodyIndex,
+                                            const PhysicsBodyStore& bodyStore,
+                                            const ColliderStore& colliderStore )
+    {
+        const PhysicsBodyRecord& bodyRecord = bodyStore.Records()[bodyIndex];
+        const ColliderRecord& colliderRecord = colliderStore.Records()[bodyIndex];
+        body.position = bodyRecord.position;
+        body.mass = bodyRecord.mass;
+        body.shapeKind = ShapeKindForCollider( colliderRecord );
+    }
+    """
+    if check_replay_recorder_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"),
+        store_owned_replay_recorder_body_read,
+    ):
+        failures.append("store-owned replay recorder body read synthetic surface was rejected")
+
+    replay_name_only_model_read = """
+    void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
+    {
+        const GameModel* model = models.TryGetModel( i );
+        const char* modelName = model->GetName();
+    }
+    """
+    if check_replay_recorder_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"),
+        replay_name_only_model_read,
+    ):
+        failures.append("replay name-only GameModel read synthetic surface was rejected")
+
+    commented_replay_recorder_model_state_read = """
+    void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
+    {
+        // model->GetPosition() and model->GetMass() are deleted replay mirror debt.
+        UseBodyAndColliderStores();
+    }
+    """
+    if check_replay_recorder_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"),
+        commented_replay_recorder_model_state_read,
+    ):
+        failures.append("comment-only replay recorder model-state synthetic text was rejected")
+
+    old_run_replay_restore_body_store_reload = """
+    bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample )
+    {
+        m_cGameModelCollection.TryRestoreReplayBodyState( body.modelIndex, body.id.value, body.fixed, position, orientation, linearVelocity, angularVelocity );
+        (void)m_cGameModelCollection.GetPhysicsBodyStore();
+    }
+    """
+    if not any(
+        error.message == "replay restore body-store reload is blocked"
+        for error in check_run_replay_restore_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/Run.cpp"),
+            old_run_replay_restore_body_store_reload,
+        )
+    ):
+        failures.append("old replay restore full body-store reload synthetic surface was not rejected")
+
+    store_owned_run_replay_restore = """
+    bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample )
+    {
+        m_cGameModelCollection.TryRestoreReplayBodyState( body.modelIndex,
+                                                          body.id.value,
+                                                          body.fixed,
+                                                          body.position,
+                                                          orientation,
+                                                          body.linearVelocity,
+                                                          body.angularVelocity,
+                                                          body.mass,
+                                                          body.inverseMass,
+                                                          body.rotationalInertia,
+                                                          body.inverseRotationalInertia );
+    }
+    """
+    if check_run_replay_restore_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Run.cpp"),
+        store_owned_run_replay_restore,
+    ):
+        failures.append("store-owned replay restore synthetic surface was rejected")
+
+    old_collection_replay_restore_model_refresh = """
+    bool GameModelCollection::TryRestoreReplayBodyState( int index,
+                                                         uint32_t replayBodyId,
+                                                         bool fixed,
+                                                         const Vector3& position,
+                                                         const Quaternion& orientation,
+                                                         const Vector3& linearVelocity,
+                                                         const Vector3& angularVelocity )
+    {
+        CommitEditedModelPhysicsState( index, false );
+        return true;
+    }
+    """
+    if not any(
+        error.message == "replay restore model-to-store refresh is blocked"
+        for error in check_game_model_collection_replay_restore_store_authority_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_collection_replay_restore_model_refresh,
+        )
+    ):
+        failures.append("old replay restore model-refresh synthetic surface was not rejected")
+
+    commented_collection_replay_restore_model_refresh = """
+    bool GameModelCollection::TryRestoreReplayBodyState( int index,
+                                                         uint32_t replayBodyId,
+                                                         bool fixed,
+                                                         const Vector3& position,
+                                                         const Quaternion& orientation,
+                                                         const Vector3& linearVelocity,
+                                                         const Vector3& angularVelocity )
+    {
+        // CommitEditedModelPhysicsState( index, false ) is deleted restore debt.
+        return m_physicsEngine.RestoreReplayBodyState( index, replayBodyId, fixed, position, orientation, linearVelocity, angularVelocity, mass, inverseMass, rotationalInertia, inverseRotationalInertia );
+    }
+    """
+    if check_game_model_collection_replay_restore_store_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        commented_collection_replay_restore_model_refresh,
+    ):
+        failures.append("comment-only replay restore model-refresh synthetic text was rejected")
+
+    old_physics_scene_step_body_reload = """
+    void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
+    {
+        modelAccess.ReloadPhysicsBodies( m_bodyStore, m_world.GetSleepStates() );
+        m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, 0.016f, config, forces, workerPool );
+    }
+    """
+    if not any(
+        error.message == "per-step model-to-body-store reload is blocked"
+        for error in check_physics_scene_step_body_reload_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+            old_physics_scene_step_body_reload,
+        )
+    ):
+        failures.append("old unconditional step-start body reload synthetic surface was not rejected")
+
+    topology_guarded_physics_scene_step_body_reload = """
+    void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
+    {
+        const int modelCount = modelAccess.ModelCount();
+        if ( m_bodyStore.Count() != modelCount )
+        {
+            modelAccess.ReloadPhysicsBodies( m_bodyStore, m_world.GetSleepStates() );
+        }
+        m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, 0.016f, config, forces, workerPool );
+    }
+    """
+    if check_physics_scene_step_body_reload_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        topology_guarded_physics_scene_step_body_reload,
+    ):
+        failures.append("topology-guarded step-start body reload synthetic surface was rejected")
+
+    commented_physics_scene_step_body_reload = """
+    void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
+    {
+        // modelAccess.ReloadPhysicsBodies(...) used to run every tick.
+        RunStoreOwnedStep();
+    }
+    """
+    if check_physics_scene_step_body_reload_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        commented_physics_scene_step_body_reload,
+    ):
+        failures.append("comment-only step-start body reload synthetic text was rejected")
+
+    old_physics_scene_command_body_refresh = """
+    void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        RefreshBodyStore( modelAccess );
+        ApplyCommand();
+    }
+    """
+    if not any(
+        error.message == "command-side model-to-body-store refresh is blocked"
+        for error in check_physics_scene_command_body_refresh_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+            old_physics_scene_command_body_refresh,
+        )
+    ):
+        failures.append("old unconditional command-side body refresh synthetic surface was not rejected")
+
+    topology_guarded_physics_scene_command_body_refresh = """
+    void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        const int modelCount = modelAccess.ModelCount();
+        if ( m_bodyStore.Count() != modelCount )
+        {
+            RefreshBodyStore( modelAccess );
+        }
+        ApplyCommand();
+    }
+    """
+    if check_physics_scene_command_body_refresh_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        topology_guarded_physics_scene_command_body_refresh,
+    ):
+        failures.append("topology-guarded command-side body refresh synthetic surface was rejected")
+
+    old_adapter_body_handle_refresh = """
+    PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForModelIndex( int modelIndex ) const
+    {
+        PhysicsModelAccess modelAccess( m_collection );
+        m_collection.m_physicsEngine.RefreshBodyStore( modelAccess );
+        return m_collection.m_physicsEngine.BodyStore().HandleForModelIndex( modelIndex );
+    }
+    """
+    if not any(
+        error.message == "adapter body-handle model-to-store refresh is blocked"
+        for error in check_game_model_collection_adapter_body_refresh_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp"),
+            old_adapter_body_handle_refresh,
+        )
+    ):
+        failures.append("old unconditional adapter body refresh synthetic surface was not rejected")
+
+    topology_guarded_adapter_body_handle_refresh = """
+    PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForModelIndex( int modelIndex ) const
+    {
+        PhysicsModelAccess modelAccess( m_collection );
+        if ( m_collection.m_physicsEngine.BodyStore().Count() != m_collection.GetModelCount() )
+        {
+            m_collection.m_physicsEngine.RefreshBodyStore( modelAccess );
+        }
+        return m_collection.m_physicsEngine.BodyStore().HandleForModelIndex( modelIndex );
+    }
+    """
+    if check_game_model_collection_adapter_body_refresh_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp"),
+        topology_guarded_adapter_body_handle_refresh,
+    ):
+        failures.append("topology-guarded adapter body refresh synthetic surface was rejected")
+
+    commented_command_body_refresh = """
+    void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        // RefreshBodyStore( modelAccess ) used to run every command.
+        ApplyCommand();
+    }
+    """
+    if check_physics_scene_command_body_refresh_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        commented_command_body_refresh,
+    ):
+        failures.append("comment-only command-side body refresh synthetic text was rejected")
+
+    allowed_physics_hot_path_values = """
+    struct SolverBodyState
+    {
+        float invMass = 0.0f;
+    };
+    class PersistentContactSolver
+    {
+      public:
+        void Solve();
+    };
+    """
+    if check_physics_hot_path_inheritance_guardrails_text(
+        Path("SkullbonezSource/Physics/PersistentContactSolver.h"),
+        allowed_physics_hot_path_values,
+    ):
+        failures.append("allowed physics hot-path value types synthetic surface was rejected")
+
+    old_physics_hot_path_inheritance = """
+    class SolverSideEffectSink : public PhysicsBodyEventSink
+    {
+    };
+    """
+    if not any(
+        error.message == "physics hot-path inheritance is blocked"
+        for error in check_physics_hot_path_inheritance_guardrails_text(
+            Path("SkullbonezSource/Physics/PersistentContactSolver.h"),
+            old_physics_hot_path_inheritance,
+        )
+    ):
+        failures.append("physics hot-path inheritance synthetic surface was not rejected")
+
+    commented_physics_hot_path_inheritance = """
+    // class SolverSideEffectSink : public PhysicsBodyEventSink is a deleted migration note only.
+    struct PersistentContactSolverSideEffects
+    {
+        int count = 0;
+    };
+    """
+    if check_physics_hot_path_inheritance_guardrails_text(
+        Path("SkullbonezSource/Physics/PersistentContactSolver.h"),
+        commented_physics_hot_path_inheritance,
+    ):
+        failures.append("comment-only physics hot-path inheritance synthetic text was rejected")
+
+    allowed_physics_model_access_facade = """
+    class PhysicsModelAccess
+    {
+      public:
+        explicit PhysicsModelAccess( GameObjects::GameModelCollection& collection );
+    };
+    """
+    if check_physics_model_access_inheritance_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsModelAccess.h"),
+        allowed_physics_model_access_facade,
+    ):
+        failures.append("allowed PhysicsModelAccess facade synthetic surface was rejected")
+
+    old_physics_model_access_inheritance = """
+    class GameModelCollection : public Rendering::IRenderSceneView,
+                                public Physics::PhysicsModelAccess,
+                                public Physics::PhysicsBodyEventSink
+    {
+    };
+    """
+    if not any(
+        error.message == "PhysicsModelAccess inheritance is blocked"
+        for error in check_physics_model_access_inheritance_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
+            old_physics_model_access_inheritance,
+        )
+    ):
+        failures.append("old PhysicsModelAccess inheritance synthetic surface was not rejected")
+
+    commented_physics_model_access_inheritance = """
+    // class GameModelCollection : public Physics::PhysicsModelAccess is a deleted migration note only.
+    class GameModelCollection;
+    """
+    if check_physics_model_access_inheritance_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
+        commented_physics_model_access_inheritance,
+    ):
+        failures.append("comment-only PhysicsModelAccess inheritance synthetic text was rejected")
+
+    allowed_renderer_inheritance = """
+    class IRenderBackend : public IRenderDeviceLifecycle,
+                           public IRenderResourceFactory,
+                           public IRenderCommandContext,
+                           public IRenderDiagnostics,
+                           public IRenderCaptureBackend
+    {
+    };
+    """
+    if check_approved_inheritance_guardrails_text(
+        Path("SkullbonezSource/Rendering/IRenderBackend.h"),
+        allowed_renderer_inheritance,
+        Path("SkullbonezSource/Rendering/IRenderBackend.h"),
+    ):
+        failures.append("approved renderer inheritance synthetic surface was rejected")
+
+    unapproved_runtime_inheritance = """
+    struct RuntimeCaptureSink : public IScreenshotSink
+    {
+    };
+    """
+    if not any(
+        error.message == "unapproved inheritance is blocked"
+        for error in check_approved_inheritance_guardrails_text(
+            Path("SkullbonezSource/Runtime/CaptureSystem.h"),
+            unapproved_runtime_inheritance,
+            Path("SkullbonezSource/Runtime/CaptureSystem.h"),
+        )
+    ):
+        failures.append("unapproved runtime inheritance synthetic surface was not rejected")
+
+    qualified_pimpl_definition = """
+    struct ContactAudioService::Impl
+    {
+        int sampleCount = 0;
+    };
+    """
+    if check_approved_inheritance_guardrails_text(
+        Path("SkullbonezSource/Runtime/Audio/ContactAudioService.cpp"),
+        qualified_pimpl_definition,
+        Path("SkullbonezSource/Runtime/Audio/ContactAudioService.cpp"),
+    ):
+        failures.append("qualified PIMPL definition synthetic text was rejected as inheritance")
+
+    commented_general_inheritance = """
+    // class RuntimeCaptureSink : public IScreenshotSink is deleted migration debt.
+    struct RuntimeCaptureSink
+    {
+        void* context = nullptr;
+    };
+    """
+    if check_approved_inheritance_guardrails_text(
+        Path("SkullbonezSource/Runtime/CaptureSystem.h"),
+        commented_general_inheritance,
+        Path("SkullbonezSource/Runtime/CaptureSystem.h"),
+    ):
+        failures.append("comment-only general inheritance synthetic text was rejected")
 
     compatibility_physics_models_text = (
         "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = "
@@ -6278,6 +7528,17 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_deleted_migration_artifact_guardrails(repo))
     errors.extend(check_deleted_physics_model_view_guardrails(repo))
     errors.extend(check_persistent_solver_context_model_access_guardrails(repo))
+    errors.extend(check_physics_world_solver_body_writeback_guardrails(repo))
+    errors.extend(check_physics_world_solver_model_stream_guardrails(repo))
+    errors.extend(check_render_instance_store_authority_guardrails(repo))
+    errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
+    errors.extend(check_replay_recorder_store_authority_guardrails(repo))
+    errors.extend(check_replay_restore_store_authority_guardrails(repo))
+    errors.extend(check_physics_scene_step_body_reload_guardrails(repo))
+    errors.extend(check_command_side_body_refresh_guardrails(repo))
+    errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
+    errors.extend(check_physics_model_access_inheritance_guardrails(repo))
+    errors.extend(check_approved_inheritance_guardrails(repo))
     errors.extend(check_physics_models_access_guardrails(repo))
     errors.extend(check_named_physics_models_compat_access_guardrails(repo))
     errors.extend(check_direct_gfx_raytracing_guardrails(repo))

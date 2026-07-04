@@ -29,6 +29,8 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
+class ColliderStore;
+class PhysicsBodyStore;
 class PhysicsModelAccess;
 } // namespace Physics
 
@@ -40,7 +42,10 @@ class SkullScope final
 #ifdef _DEBUG
     void SetPath( const char* path );
     void SetRunId( const char* runId );
-    void EmitFrame( Physics::PhysicsModelAccess& modelAccess, float dt );
+    void EmitFrame( Physics::PhysicsModelAccess& modelAccess,
+                    const Physics::PhysicsBodyStore& bodyStore,
+                    const Physics::ColliderStore& colliderStore,
+                    float dt );
 #endif
 
   private:

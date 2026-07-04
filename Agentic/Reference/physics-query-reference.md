@@ -107,9 +107,23 @@ tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson rolling --frames 300:70
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson broadphase --frames 0:1000
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson solver --frames 0:1000
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson pipeline --frames 0:1000
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson contact-audio-summary
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson contact-audio-events --frames 300:360 --limit 40
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson contact-audio-rejections --reason propagated_impulse --limit 40
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson contact-audio-body --body 17 --limit 40
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson contact-audio-timeline --window-ms 100
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions why_not_resting
 ```
+
+`contact-audio-summary` includes per-verdict counts from `contact_audio` rows.
+On traces written by newer builds it also reports `frameAggregateTotals` and
+`frameAggregateHotspots` from `contact_audio_frame` rows: raw facts seen, reduced
+patch candidates, merged patch facts, queue overflows, burst-window skips,
+budget rejections, quiet rejections, and played voices. Verdict rows also carry
+`kind`, and summaries/timeline buckets expose `kindCounts` for perceptual classes
+such as `impact`, `heavy_landing`, `support`, `settle`, `roll_slide`, and
+`propagated_impulse`.
 
 ## Output Controls
 
@@ -123,6 +137,9 @@ tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions why_not_resti
 --body box_03
 --severity high
 --type penetration_sustained,penetration_growing
+--reason propagated_impulse,body_budget
+--submitted yes|no|any
+--window-ms 100
 ```
 
 Default output should be compact JSON. Use `--pretty` only when a human needs to read the result.

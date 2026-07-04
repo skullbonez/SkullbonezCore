@@ -14,7 +14,9 @@ Glossary:
   NDJSON (Newline-Delimited JSON): One JSON object per line, used by SkullScope
   traces so tools can stream bounded queries.
   SkullScope: Queryable physics diagnostics trace workflow used instead of
-  loading raw traces into model context.
+    loading raw traces into model context.
+  Contact-audio frame aggregate: One diagnostic row summarizing how many raw
+    contact facts became reduced patch candidates and submitted voices.
 
 Invariants:
   - Diagnostic artifacts are side-channel output; enabling them must not change
@@ -44,7 +46,8 @@ namespace Runtime
 namespace Audio
 {
 struct ContactAudioDecision;
-}
+struct ContactAudioStats;
+} // namespace Audio
 } // namespace Runtime
 
 namespace Basics
@@ -165,6 +168,9 @@ class RuntimeDiagnostics
     static void LogContactAudioDecision( RunPhysicsDiagnosticsState& diagnostics,
                                          const RunSceneState& scene,
                                          const Runtime::Audio::ContactAudioDecision& decision );
+    static void LogContactAudioStepStats( RunPhysicsDiagnosticsState& diagnostics,
+                                          const RunSceneState& scene,
+                                          const Runtime::Audio::ContactAudioStats& stats );
     static void
     EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const RunSceneState& scene, const char* status );
 #endif

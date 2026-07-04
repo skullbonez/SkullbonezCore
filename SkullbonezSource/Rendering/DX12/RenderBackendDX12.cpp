@@ -541,6 +541,15 @@ void RenderBackendDX12::ExecuteGraphTransition( const char* passName,
     {
         return;
     }
+
+    if ( !m_commandListOpen )
+    {
+        // Hazard: a graph-owned barrier can be the first command after Present()
+        // or a mid-frame drain closed the list. Reopen before handing the raw
+        // list to the DX12 executor; ResourceBarrier is still a recorded command.
+        EnsureCommandListOpen();
+    }
+
     Dx12RenderGraphSingleTransitionDesc desc;
     desc.commandList = m_commandList;
     desc.resource = resource;
@@ -578,6 +587,12 @@ void RenderBackendDX12::ExecuteGraphUavBarrier( const char* passName,
     {
         return;
     }
+
+    if ( !m_commandListOpen )
+    {
+        EnsureCommandListOpen();
+    }
+
     Dx12RenderGraphUavBarrierDesc desc;
     desc.commandList = m_commandList;
     desc.resource = resource;

@@ -31,7 +31,7 @@ Glossary:
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
 
 Related:
   - SkullbonezSource/Physics/PersistentContactSolver.h
@@ -72,8 +72,6 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     using PersistentContact = PhysicsWorld::PersistentContact;
     using PersistentContactSolverStats = PhysicsWorld::PersistentContactSolverStats;
 
-    const auto& bodyStream = context.bodyStream;
-    const uint8_t* m_soaIsFixed = bodyStream.isFixed;
     auto& m_candidatePairs = context.candidatePairs;
     auto& m_sleepState = context.sleepState;
     auto& m_sleepSupportEdges = context.sleepSupportEdges;
@@ -89,18 +87,26 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     auto& m_sleepSupportedThisFrame = context.sleepSupportedThisFrame;
     auto& m_bodyRecords = context.bodyRecords;
     const auto& m_colliderRecords = context.colliderRecords;
+    auto& sideEffects = context.sideEffects;
     // Why: pipeline tracing is capped. Once full, later record calls are no-ops,
     // so the contact hot path should stop building detailed records that would
     // be discarded. Simulation state still follows the same deterministic path.
-    bool pipelineTraceCanRecord = context.CanRecordPhysicsPipelineStage();
+    const std::size_t pipelineRecordCapacity = static_cast<std::size_t>( context.pipelineRecordCapacity );
+    bool pipelineTraceCanRecord = sideEffects.pipelineRecords.size() < pipelineRecordCapacity;
     auto CanRecordPhysicsPipelineStage = [&]() { return pipelineTraceCanRecord; };
     auto RecordPhysicsPipelineStage = [&]( const PhysicsPipelineRecord& record )
     {
-        context.RecordPhysicsPipelineStage( record );
-        pipelineTraceCanRecord = context.CanRecordPhysicsPipelineStage();
+        if ( sideEffects.pipelineRecords.size() < pipelineRecordCapacity )
+        {
+            sideEffects.pipelineRecords.push_back( record );
+        }
+        pipelineTraceCanRecord = sideEffects.pipelineRecords.size() < pipelineRecordCapacity;
     };
-    auto MarkCollisionVisualContact = [&]( int index ) { context.MarkCollisionVisualContact( index ); };
-    auto MarkFixedContact = [&]( int index ) { context.MarkFixedContact( index ); };
+    auto MarkCollisionVisualContact = [&]( int index ) { sideEffects.collisionVisualBodies.push_back( index ); };
+    auto MarkFixedContact = [&]( int index ) { sideEffects.fixedContactBodies.push_back( index ); };
+    auto QueueReleaseWake = [&]( int index ) { sideEffects.releaseWakeBodies.push_back( index ); };
+    auto QueueFixedTreeRelease = [&]( const PhysicsFixedTreeReleaseEvent& event )
+    { sideEffects.fixedTreeReleases.push_back( event ); };
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts" );
 
     // Concept: persistent contact rows solve the quiet resting case.
@@ -125,8 +131,10 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     //   Object-object narrowphase uses Skullbonez shape-pair manifold builders
     //   for the row geometry. The cache and PGS row shape are Catto; the exact
     //   sphere/box/OBB feature encodings are local engine policy.
-    const int modelCount =
-        (std::min)( { bodyStream.count, context.bodyStore.Count(), static_cast<int>( m_colliderRecords.size() ) } );
+    const int modelCount = (std::min)( { context.bodyStoreCount,
+                                         static_cast<int>( m_bodyRecords.size() ),
+                                         static_cast<int>( m_colliderRecords.size() ) } );
+    auto isFixedBody = [&]( int index ) -> bool { return m_bodyRecords[static_cast<size_t>( index )].isFixed; };
     const auto& config = context.config;
     m_persistentContactSolverStats = PersistentContactSolverStats();
     m_persistentContactSolverStats.cachePreviousRows = static_cast<int>( m_persistentContactCache.size() );
@@ -242,7 +250,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
         {
             const PhysicsBodyRecord& record = m_bodyRecords[static_cast<size_t>( i )];
             SolverBodyState& body = m_solverBodies[i];
-            if ( m_sleepState[i] || m_soaIsFixed[i] )
+            if ( m_sleepState[i] || isFixedBody( i ) )
             {
                 // Sleeping bodies still provide persistent support to awake bodies,
                 // but they behave as static anchors until deliberately woken.
@@ -448,7 +456,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
 
         const int supportedIndex = ( c.normal.y > 0.0f ) ? c.bodyB : c.bodyA;
         if ( supportedIndex < 0 || supportedIndex >= modelCount ||
-             supportedIndex >= static_cast<int>( m_solverBodies.size() ) || m_soaIsFixed[supportedIndex] ||
+             supportedIndex >= static_cast<int>( m_solverBodies.size() ) || isFixedBody( supportedIndex ) ||
              m_sleepState[supportedIndex] )
         {
             return;
@@ -679,7 +687,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             int aIndex = cp.first;
             int bIndex = cp.second;
             if ( aIndex == bIndex || aIndex < 0 || bIndex < 0 || aIndex >= modelCount || bIndex >= modelCount ||
-                 ( m_sleepState[aIndex] && m_sleepState[bIndex] ) || ( m_soaIsFixed[aIndex] && m_soaIsFixed[bIndex] ) )
+                 ( m_sleepState[aIndex] && m_sleepState[bIndex] ) ||
+                 ( isFixedBody( aIndex ) && isFixedBody( bIndex ) ) )
             {
                 continue;
             }
@@ -1280,7 +1289,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
         {
             const int bodyIndex = manifold.bodyA;
             if ( bodyIndex < 0 || bodyIndex >= modelCount || m_terrainRestApplied[bodyIndex] ||
-                 !manifold.supportsRestingPolicy || m_sleepState[bodyIndex] || m_soaIsFixed[bodyIndex] )
+                 !manifold.supportsRestingPolicy || m_sleepState[bodyIndex] || isFixedBody( bodyIndex ) )
             {
                 continue;
             }
@@ -1355,7 +1364,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/WriteBack" );
         for ( int i = 0; i < modelCount; ++i )
         {
-            if ( m_sleepState[i] || m_soaIsFixed[i] )
+            if ( m_sleepState[i] || isFixedBody( i ) )
             {
                 continue;
             }
@@ -1373,7 +1382,6 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
 
             m_bodyRecords[static_cast<size_t>( i )].linearVelocity = m_solverBodies[i].linearVelocity;
             m_bodyRecords[static_cast<size_t>( i )].angularVelocity = m_solverBodies[i].angularVelocity;
-            context.WriteBackCompatibilityBody( i );
         }
     }
 
@@ -1470,11 +1478,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 RecordPhysicsPipelineStage( record );
             }
             m_bodyRecords[static_cast<size_t>( c.bodyA )].position -= correction * invMassA;
-            context.WriteBackCompatibilityBody( c.bodyA );
             if ( hasBodyB )
             {
                 m_bodyRecords[static_cast<size_t>( c.bodyB )].position += correction * invMassB;
-                context.WriteBackCompatibilityBody( c.bodyB );
             }
         }
     }
@@ -1585,9 +1591,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             fixedRecord.isFixed = false;
             fixedRecord.linearVelocity = releaseDir * releaseSpeed + tangentVelocity;
             fixedRecord.angularVelocity = angularVelocity;
-            context.WriteBackCompatibilityBody( fixedIndex );
-            context.WakeReleasedBody( fixedIndex );
-            context.ReleaseAttachedFixedTreeParts(
+            QueueReleaseWake( fixedIndex );
+            QueueFixedTreeRelease(
                 PhysicsFixedTreeReleaseEvent{ fixedIndex,
                                               m_bodyRecords[static_cast<size_t>( fixedIndex )].linearVelocity,
                                               m_bodyRecords[static_cast<size_t>( fixedIndex )].angularVelocity } );

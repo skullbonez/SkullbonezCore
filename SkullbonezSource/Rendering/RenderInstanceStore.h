@@ -1,13 +1,13 @@
 /*
 File: SkullbonezSource/Rendering/RenderInstanceStore.h
 Purpose:
-  Owns a render-facing snapshot of model transforms and material intent.
+  Owns a render-facing snapshot of physics transforms and material intent.
 
 Mental model:
-  Rendering still consumes GameModelCollection through the existing renderer,
-  but render instance data now has a named store boundary. The snapshot keeps
-  model index order so future RenderSceneSnapshot work can compare output
-  without changing pass order.
+  Rendering still consumes model-order draw records through the existing
+  renderer, but transform authority is physics-owned. The snapshot keeps model
+  index order so future RenderSceneSnapshot work can compare output without
+  changing pass order.
 
 Glossary:
   Render instance: CPU-side record describing one model's draw transform and
@@ -41,6 +41,12 @@ namespace GameObjects
 {
 class GameModel;
 }
+
+namespace Physics
+{
+class ColliderStore;
+class PhysicsBodyStore;
+} // namespace Physics
 
 namespace Rendering
 {
@@ -95,6 +101,13 @@ class RenderInstanceStore
     void Clear();
     void Refresh( std::vector<GameObjects::GameModel>& models );
     void Refresh( GameObjects::GameModel* models, int modelCount );
+    void Refresh( std::vector<GameObjects::GameModel>& models,
+                  const Physics::PhysicsBodyStore& bodyStore,
+                  const Physics::ColliderStore& colliderStore );
+    void Refresh( GameObjects::GameModel* models,
+                  int modelCount,
+                  const Physics::PhysicsBodyStore& bodyStore,
+                  const Physics::ColliderStore& colliderStore );
 
     const RenderInstanceRecord* Data() const;
     int Count() const;

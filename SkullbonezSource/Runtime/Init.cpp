@@ -58,6 +58,7 @@ Related:
 #include <cstring>
 #include <cstdarg>
 #include <cstdint>
+#include <exception>
 #include <fstream>
 #include <stdexcept>
 #include <vector>
@@ -251,6 +252,35 @@ LONG WINAPI DebugUnhandledExceptionFilter( EXCEPTION_POINTERS* exceptionInfo )
 void InstallDebugCrashLogger()
 {
     SetUnhandledExceptionFilter( DebugUnhandledExceptionFilter );
+    // Hazard: unhandled C++ failures often become std::terminate -> abort(),
+    // which bypasses the SEH filter above and otherwise leaves only a CRT
+    // dialog. Log the current exception, if any, before preserving termination.
+    std::set_terminate(
+        []()
+        {
+            char message[512] = "unknown";
+            std::exception_ptr current = std::current_exception();
+            if ( current )
+            {
+                try
+                {
+                    std::rethrow_exception( current );
+                }
+                catch ( const std::exception& e )
+                {
+                    strcpy_s( message, sizeof( message ), e.what() );
+                }
+                catch ( ... )
+                {
+                    strcpy_s( message, sizeof( message ), "non-std exception" );
+                }
+            }
+            Log().WriteEventf( "terminate_abort message=\"%s\"", message );
+            fprintf( stderr, "FATAL: terminate_abort %s\n", message );
+            fflush( stderr );
+            Log().FlushAll();
+            std::abort();
+        } );
 }
 #endif
 
@@ -614,12 +644,12 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const PhysicsBodyHandle bodyA = adapter.BodyHandleForModelIndex( 0 );
     const PhysicsBodyHandle bodyB = adapter.BodyHandleForModelIndex( 1 );
 
-    PointJointConstraint joint;
-    joint.bodyA = bodyA;
-    joint.bodyB = bodyB;
-    joint.localAnchorA = SkullbonezCore::Math::Vector::Vector3( 0.25f, 0.0f, 0.0f );
-    joint.localAnchorB = SkullbonezCore::Math::Vector::Vector3( -0.25f, 0.0f, 0.0f );
-    collection->AddPointJointConstraint( joint );
+    PhysicsPointJointCreateDesc jointDesc;
+    jointDesc.bodyA = bodyA;
+    jointDesc.bodyB = bodyB;
+    jointDesc.localAnchorA = SkullbonezCore::Math::Vector::Vector3( 0.25f, 0.0f, 0.0f );
+    jointDesc.localAnchorB = SkullbonezCore::Math::Vector::Vector3( -0.25f, 0.0f, 0.0f );
+    const PhysicsConstraintHandle jointHandle = collection->GetPhysicsEngine().CreatePointJoint( jointDesc );
 
     const PhysicsBodyStore& bodyStore = collection->GetPhysicsBodyStore();
     const ColliderStore& colliderStore = collection->GetColliderStore();
@@ -658,7 +688,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                      renderStore.ModelIndexForHandle( renderHandleA ) == 0 &&
                                      !renderStore.Records().empty() &&
                                      renderStore.Records()[0].replayBodyId == bodyARecord->replayBodyId;
-    const bool jointUsesHandles = pointJoints.size() == 1 && pointJoints[0].bodyA == bodyA &&
+    const bool jointUsesHandles = jointHandle.IsValid() && pointJoints.size() == 1 && pointJoints[0].bodyA == bodyA &&
                                   pointJoints[0].bodyB == bodyB && pointJoints[0].BodyAIndex( bodyStore ) == 0 &&
                                   pointJoints[0].BodyBIndex( bodyStore ) == 1;
 
@@ -744,7 +774,9 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
         }
         fprintf( stream,
                  "[physics-standalone-smoke] bodies=%u steps=%u final_position=(%.6f,%.6f,%.6f) "
-                 "final_velocity=(%.6f,%.6f,%.6f) lifecycle_checks=%s runtime_mirror_checks=%s hash=0x%016llX\n",
+                 "final_velocity=(%.6f,%.6f,%.6f) secondary_position=(%.6f,%.6f,%.6f) "
+                 "secondary_velocity=(%.6f,%.6f,%.6f) secondary_step=%s lifecycle_checks=%s "
+                 "contacts=%u contact_hash=0x%016llX runtime_mirror_checks=%s hash=0x%016llX\n",
                  result.bodyCount,
                  result.stepCount,
                  result.finalPosition.x,
@@ -753,7 +785,16 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
                  result.finalLinearVelocity.x,
                  result.finalLinearVelocity.y,
                  result.finalLinearVelocity.z,
+                 result.secondaryFinalPosition.x,
+                 result.secondaryFinalPosition.y,
+                 result.secondaryFinalPosition.z,
+                 result.secondaryFinalLinearVelocity.x,
+                 result.secondaryFinalLinearVelocity.y,
+                 result.secondaryFinalLinearVelocity.z,
+                 result.secondaryBodyAdvanced ? "pass" : "fail",
                  result.lifecycleChecksPassed ? "pass" : "fail",
+                 result.contactCount,
+                 static_cast<unsigned long long>( result.contactHash ),
                  runtimeMirror.passed ? "pass" : "fail",
                  static_cast<unsigned long long>( result.deterministicHash ) );
         fprintf( stream,
@@ -2292,6 +2333,10 @@ bool HandleContactAudioSmoke( const ParsedArgs& args, const EngineConfig& cfg, i
     SkullbonezCore::Runtime::Audio::ContactAudioService audio;
     audio.SetMasterGain( cfg.contactAudio.masterGain );
     audio.SetMaxDistanceScale( cfg.contactAudio.maxDistanceScale );
+    audio.SetRollingLevelDb( cfg.contactAudio.rollingLevelDb );
+    audio.SetRollingMaxDistance( cfg.contactAudio.rollingMaxDistance );
+    audio.SetRollingMinSlipSpeed( cfg.contactAudio.rollingMinSlipSpeed );
+    audio.SetRollingVoicesPerWindow( static_cast<uint32_t>( cfg.contactAudio.rollingVoicesPerWindow ) );
     const bool initialized = audio.Initialize();
     const bool loaded = audio.LoadContactAudioMap( "SkullbonezData/audio/contact_audio.materials.json" );
     const bool submitted = initialized && loaded && audio.PlaySmokeImpact( HashStr( "earth" ), 6.0f );

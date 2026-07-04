@@ -34,6 +34,8 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
+class ColliderStore;
+class PhysicsBodyStore;
 class PhysicsModelAccess;
 class PhysicsWorld;
 
@@ -45,9 +47,15 @@ class PhysicsDiagnosticsSink
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
     void SetPhysicsDiagnosticsRunId( const char* runId );
-    void EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess );
+    void EmitRegressionLog( PhysicsWorld& world,
+                            PhysicsModelAccess& modelAccess,
+                            const PhysicsBodyStore& bodyStore,
+                            const ColliderStore& colliderStore );
     void IncrementCollisionTimeFrameIfEnabled();
-    void EmitFrame( PhysicsModelAccess& modelAccess, float dt );
+    void EmitFrame( PhysicsModelAccess& modelAccess,
+                    const PhysicsBodyStore& bodyStore,
+                    const ColliderStore& colliderStore,
+                    float dt );
 #endif
     void EmitCollisionTime( PhysicsModelAccess& modelAccess,
                             const char* type,

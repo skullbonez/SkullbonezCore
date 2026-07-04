@@ -9,6 +9,14 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Simulation tick: One runtime decision about whether to advance logic, camera,
+    and zero or more fixed physics steps this frame.
+  PhysicsModelAccess: Stack-owned owner facade used while simulation steps
+    model-backed physics state without making GameModelCollection a physics base.
+  Contact-audio flash mode: Render-only diagnostic selector that decides which
+    completed audio decisions paint body flashes after a fixed physics step.
+  Replay event payload: Saved event data that must be decoded exactly so replay
+    restore and validation compare the same floating-point bits.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -29,6 +37,7 @@ Related:
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeStyle.h"
+#include "../Physics/PhysicsModelAccess.h"
 
 #include <cmath>
 #include <cstdint>
@@ -54,6 +63,24 @@ void PrintRuntimeExitReason( const char* reason )
 {
     printf( "[runtime-exit] %s\n", reason );
     fflush( stdout );
+}
+
+bool ShouldFlashContactAudioDecision( ContactAudioFlashMode mode,
+                                      const SkullbonezCore::Runtime::Audio::ContactAudioDecision& decision )
+{
+    switch ( mode )
+    {
+    case ContactAudioFlashMode::Off:
+        return false;
+    case ContactAudioFlashMode::Emitted:
+        return decision.submitted && decision.flashEligible;
+    case ContactAudioFlashMode::Candidates:
+        return true;
+    case ContactAudioFlashMode::Rejected:
+        return !decision.submitted;
+    default:
+        return decision.submitted && decision.flashEligible;
+    }
 }
 
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
@@ -587,6 +614,7 @@ void Run::TickPhysics( double secondsPerFrame )
     const bool manipulatorPhysics = policy.manipulatorActive;
     const bool contactAudioStep = m_contactAudio.IsEnabled();
     const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
+    PhysicsModelAccess physicsModelAccess( m_cGameModelCollection );
     const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{
         secondsPerFrame,
         policy.physicsTimeScale,
@@ -596,7 +624,7 @@ void Run::TickPhysics( double secondsPerFrame )
         policy.physicsAdvance,
         stepRequested,
         SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(),
-                               &m_cGameModelCollection,
+                               &physicsModelAccess,
                                m_systems.config,
                                m_systems.workerPool,
                                &physicsWorldForces },
@@ -687,6 +715,9 @@ void Run::AfterPhysicsStep()
 #ifdef _DEBUG
         if ( m_diagnosticsRuntime.PhysicsDiagnosticsEnabled() )
         {
+            RuntimeDiagnostics::LogContactAudioStepStats( m_diagnosticsRuntime.PhysicsDiagnostics(),
+                                                          SceneState(),
+                                                          m_contactAudio.StepStats() );
             const int decisionCount = m_contactAudio.DecisionCount();
             for ( int i = 0; i < decisionCount; ++i )
             {
@@ -700,16 +731,17 @@ void Run::AfterPhysicsStep()
             }
         }
 #endif
-        if ( m_runtimeSettings.contactAudioFlashOnSubmit )
+        if ( m_runtimeSettings.contactAudioFlashMode != ContactAudioFlashMode::Off )
         {
-            // Why: the white flash marks actual sound emitters. Rejected,
-            // rate-limited, or voice-capped contacts stay visual-noise-free.
+            // Why: Sound-tab diagnostics can visualize emitted sounds, all
+            // candidates, or rejected candidates without touching physics state.
             constexpr float CONTACT_AUDIO_FLASH_SECONDS = 0.1f;
             const int decisionCount = m_contactAudio.DecisionCount();
             for ( int i = 0; i < decisionCount; ++i )
             {
                 Runtime::Audio::ContactAudioDecision decision;
-                if ( !m_contactAudio.GetDecision( i, decision ) || !decision.submitted )
+                if ( !m_contactAudio.GetDecision( i, decision ) ||
+                     !ShouldFlashContactAudioDecision( m_runtimeSettings.contactAudioFlashMode, decision ) )
                 {
                     continue;
                 }
@@ -724,11 +756,17 @@ void Run::AfterPhysicsStep()
             if ( m_timers.contactAudioStatsLogTime >= 1.0f )
             {
                 const Runtime::Audio::ContactAudioStats& stats = m_contactAudio.Stats();
-                printf( "[audio] contact stats events=%u threshold=%u cooldown=%u submitted=%u dropped=%u\n",
+                printf( "[audio] contact stats facts=%u patches=%u merged=%u threshold=%u cooldown=%u "
+                        "submitted=%u rolling=%u/%u budget=%u dropped=%u\n",
                         stats.eventsSeen,
+                        stats.patchCandidates,
+                        stats.mergedCandidates,
                         stats.rejectedByThreshold,
                         stats.rejectedByCooldown,
                         stats.submittedVoices,
+                        stats.rollingSubmittedVoices,
+                        stats.rollingCandidates,
+                        stats.candidateOverflows + stats.burstWindowSkippedCandidates + stats.budgetRejectedCandidates,
                         stats.droppedVoices );
                 m_contactAudio.ResetFrameStats();
                 m_timers.contactAudioStatsLogTime = 0.0f;
@@ -753,6 +791,8 @@ void Run::AfterPhysicsStep()
         input.cameras = m_systems.cameras;
         input.world = &m_cWorldEnvironment;
         input.models = &m_cGameModelCollection;
+        input.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+        input.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
         input.launcherVisual = &launcherVisual;
         m_replayRuntime.CaptureFrame( input );
         CompareLatestReplaySamples( m_replayRuntime, m_solverReplayMismatch );
@@ -1023,6 +1063,7 @@ void Run::TickReplaySaveProbe()
             placedModel.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             placedModel.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             m_cGameModelCollection.InvalidatePhysicsStreams();
+            m_cGameModelCollection.CommitEditedModelPhysicsState( modelCountBeforePlace, true );
             m_replayRuntime.RecordEditorTransformEvent(
                 modelCountBeforePlace,
                 REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE,
@@ -1695,6 +1736,9 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             }
             model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+            m_cGameModelCollection.CommitEditedModelPhysicsState(
+                event.value0,
+                ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE ) != 0 );
             if ( !model.IsFixed() )
             {
                 m_cGameModelCollection.WakeModel( event.value0 );
@@ -2056,8 +2100,9 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             m_cGameModelCollection.BeginCollisionVisualFrame();
 
             const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
+            PhysicsModelAccess physicsModelAccess( m_cGameModelCollection );
             SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(),
-                                   &m_cGameModelCollection,
+                                   &physicsModelAccess,
                                    m_systems.config,
                                    m_systems.workerPool,
                                    &physicsWorldForces }
@@ -2455,21 +2500,9 @@ bool Run::TickScreenshots()
         return false;
     };
 
-    struct ScreenshotSink final : RuntimeCaptureSink
-    {
-        explicit ScreenshotSink( Run& owner ) : run( owner )
-        {
-        }
-
-        void SaveScreenshot( const char* path ) override
-        {
-            run.SaveScreenshot( path );
-        }
-
-        Run& run;
-    };
-
-    ScreenshotSink sink( *this );
+    const RuntimeCaptureSink sink{ this,
+                                   []( void* context, const char* path )
+                                   { static_cast<Run*>( context )->SaveScreenshot( path ); } };
     const std::string* scenePath = m_sceneController.CurrentPath();
     const RuntimeCaptureResult result = m_diagnosticsRuntime.Capture().TickScreenshots(
         RuntimeCaptureSceneContext{ SceneState().isSceneMode,
@@ -2544,21 +2577,9 @@ void Run::TickAutoCycle()
         return;
     }
 
-    struct ScreenshotSink final : RuntimeCaptureSink
-    {
-        explicit ScreenshotSink( Run& owner ) : run( owner )
-        {
-        }
-
-        void SaveScreenshot( const char* path ) override
-        {
-            run.SaveScreenshot( path );
-        }
-
-        Run& run;
-    };
-
-    ScreenshotSink sink( *this );
+    const RuntimeCaptureSink sink{ this,
+                                   []( void* context, const char* path )
+                                   { static_cast<Run*>( context )->SaveScreenshot( path ); } };
     const RuntimeCaptureResult result =
         m_diagnosticsRuntime.Capture().TickAutoCycle( SceneState().isSceneMode,
                                                       SceneState().isInteractiveRun,
