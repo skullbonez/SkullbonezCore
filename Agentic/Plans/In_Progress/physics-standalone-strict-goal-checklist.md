@@ -171,7 +171,7 @@ path, then compatibility writeback shrinks behind explicit adapters.
   pose, orientation, linear velocity, angular velocity, mass, inverse mass,
   rotational inertia, inverse inertia, fixed/dynamic state, sleeping, forces,
   immediate impulse, pending impulse, drag, and replay body id.
-- [ ] Add or confirm a `PhysicsBodyCreateDesc` field for every body property
+- [x] Add or confirm a `PhysicsBodyCreateDesc` field for every body property
   needed to create the store row without reading `GameModel`.
 - [ ] Add or confirm a `PhysicsBodyUpdateDesc` field and update mask for every
   runtime-editable body property.

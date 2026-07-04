@@ -306,7 +306,7 @@ bool PhysicsStandaloneWorld::UpdateBody( const PhysicsBodyUpdateDesc& desc )
         body.linearVelocity = desc.linearVelocity;
         body.angularVelocity = desc.angularVelocity;
     }
-    const bool updatesMotionKind = ( desc.updateMask & PHYSICS_BODY_UPDATE_MATERIAL_RESPONSE ) != 0;
+    const bool updatesMotionKind = ( desc.updateMask & PHYSICS_BODY_UPDATE_MOTION_KIND ) != 0;
     const bool updatesMass = ( desc.updateMask & PHYSICS_BODY_UPDATE_MASS ) != 0;
     if ( updatesMotionKind )
     {
@@ -968,6 +968,12 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     activationDesc.mass = 6.0f;
     const PhysicsBodyHandle activationBody = world.CreateBody( activationDesc );
 
+    PhysicsBodyCreateDesc editableDesc;
+    editableDesc.sceneObjectId = PhysicsSceneObjectId{ 13u };
+    editableDesc.position = Vector3( 7.0f, 8.0f, 9.0f );
+    editableDesc.mass = 1.5f;
+    const PhysicsBodyHandle editableBody = world.CreateBody( editableDesc );
+
     const bool invalidBodyColliderRejected = !world.CreateCollider( PhysicsColliderCreateDesc{} ).IsValid();
     const bool invalidPointJointRejected = !world.CreatePointJoint( PhysicsPointJointCreateDesc{} ).IsValid();
     PhysicsPointJointCreateDesc selfPointJointDesc;
@@ -977,9 +983,23 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
 
     PhysicsBodyUpdateDesc transientUpdate;
     transientUpdate.body = transientBody;
-    transientUpdate.updateMask = PHYSICS_BODY_UPDATE_MASS | PHYSICS_BODY_UPDATE_MATERIAL_RESPONSE;
+    transientUpdate.updateMask = PHYSICS_BODY_UPDATE_MASS | PHYSICS_BODY_UPDATE_MOTION_KIND;
     transientUpdate.mass = 4.0f;
     transientUpdate.motionKind = PhysicsBodyMotionKind::Fixed;
+
+    PhysicsBodyUpdateDesc editableUpdate;
+    editableUpdate.body = editableBody;
+    editableUpdate.updateMask = PHYSICS_BODY_UPDATE_POSE | PHYSICS_BODY_UPDATE_VELOCITY;
+    editableUpdate.position = Vector3( -7.0f, 3.0f, 2.0f );
+    editableUpdate.linearVelocity = Vector3( 0.5f, 1.5f, -0.5f );
+    editableUpdate.angularVelocity = Vector3( 0.25f, 0.5f, 0.75f );
+    const bool updatedEditableBody = world.UpdateBody( editableUpdate );
+    const PhysicsBodyView* updatedEditableBodyView = world.Body( editableBody );
+    const bool poseVelocityUpdateConsistent =
+        updatedEditableBody && updatedEditableBodyView &&
+        updatedEditableBodyView->position == editableUpdate.position &&
+        updatedEditableBodyView->linearVelocity == editableUpdate.linearVelocity &&
+        updatedEditableBodyView->angularVelocity == editableUpdate.angularVelocity;
 
     PhysicsColliderCreateDesc colliderDesc;
     colliderDesc.body = body;
@@ -1167,6 +1187,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     const bool wokeActivationConsistent = wokeActivationBody && wokeActivationView && !wokeActivationView->sleeping;
     const bool destroyedActivationBody = world.DestroyBody( activationBody );
     const bool staleActivationRejected = !world.ApplyActivationCommand( wakeActivationCommand );
+    const bool destroyedEditableBody = world.DestroyBody( editableBody );
+    const bool staleEditableBodyRejected = world.Body( editableBody ) == nullptr && !world.UpdateBody( editableUpdate );
 
     PhysicsStandaloneWorld sleepGateWorld;
     PhysicsActivationCommand disableSleepGateCommand;
@@ -1301,6 +1323,7 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         destroyedTransient && staleHandleRejected && childColliderStaleAfterBodyDestroy &&
         movedConstraintSurvivedOldEndpointDestroy && destroyedEndpoint && connectedConstraintStaleAfterBodyDestroy &&
         staleEndpointHandleRejected && staleBodyColliderCreationRejected && staleBodyPointJointCreationRejected &&
+        poseVelocityUpdateConsistent && destroyedEditableBody && staleEditableBodyRejected &&
         activationCommandsConsistent && rayCastConsistent && broadphaseQueryConsistent;
 
     result.deterministicHash = HashSmokeResult( result );
