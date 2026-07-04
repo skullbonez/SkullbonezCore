@@ -13,9 +13,9 @@
 #   have an extra file-classification fence, object rendering has a
 #   render-instance authority fence, runtime picking has a store-authority
 #   fence, runtime handle smoke has a handle-authority fence, and fixed-tree,
-#   replay-restore wake, or replay velocity-edit commands have store-handle
-#   fences, so count allowances do not silently approve a new compatibility
-#   location.
+#   replay-restore wake, replay velocity-edit, or launcher ray-hit commands have
+#   store-handle fences, so count allowances do not silently approve a new
+#   compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -534,6 +534,9 @@ LAUNCHER_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
 )
 LAUNCHER_ADAPTER_COMMAND_WRAPPER_PATTERN = re.compile(
     r"\b[A-Za-z_]\w*\s*\.\s*(?:ApplyBodyImpulseForModelIndex|WakeBodyForModelIndex)\s*\("
+)
+LAUNCHER_ADAPTER_LOOKUP_PATTERN = re.compile(
+    r"\b(?:GameModelCollectionPhysicsAdapter|BodyHandleForVelocityCommand|BodyHandleForModelIndex)\b"
 )
 LAUNCHER_PROJECTILE_ADAPTER_WAKE_PATTERN = re.compile(
     r"\bcollection\s*\.\s*AddGameModel\s*\([^;]*\)\s*;\s*[\s\S]{0,800}?"
@@ -4083,6 +4086,19 @@ def check_launcher_model_index_physics_command_guardrails_text(path: Path, text:
                 (
                     "Launcher tools should resolve a wake-ready PhysicsBodyHandle at the tool boundary, then call "
                     "PhysicsEngine directly instead of hiding mutation behind adapter model-index command wrappers."
+                ),
+            )
+        )
+    for match in LAUNCHER_ADAPTER_LOOKUP_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "launcher adapter lookup is blocked",
+                (
+                    "Launcher ray hits already have a validated model-index target; refresh topology at the "
+                    "tool boundary, resolve the current PhysicsBodyHandle from PhysicsBodyStore, and call "
+                    "PhysicsEngine handle commands directly."
                 ),
             )
         )
@@ -11996,10 +12012,16 @@ def run_self_tests() -> list[str]:
     allowed_launcher_handle_command = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
     {
-        GameModelCollectionPhysicsAdapter physicsBodies( collection );
-        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelHitIndex, true );
-        collection.GetPhysicsEngine().ApplyBodyImpulse( body, impulse, localPoint );
-        collection.GetPhysicsEngine().WakeBody( body );
+        const int modelCount = collection.GetModelCount();
+        PhysicsEngine& physics = collection.GetPhysicsEngine();
+        PhysicsModelAccess modelAccess( collection );
+        if ( physics.Colliders().Count() != modelCount )
+        {
+            physics.RefreshColliderStore( modelAccess );
+        }
+        const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelHitIndex );
+        physics.ApplyBodyImpulse( body, impulse, localPoint );
+        physics.WakeBody( body );
     }
     """
     if check_launcher_model_index_physics_command_guardrails_text(
@@ -12007,6 +12029,23 @@ def run_self_tests() -> list[str]:
         allowed_launcher_handle_command,
     ):
         failures.append("handle-keyed launcher command synthetic surface was rejected")
+
+    old_launcher_adapter_lookup = """
+    void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
+    {
+        GameModelCollectionPhysicsAdapter physicsBodies( collection );
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelHitIndex, true );
+        collection.GetPhysicsEngine().ApplyBodyImpulse( body, impulse, localPoint );
+    }
+    """
+    if not any(
+        error.message == "launcher adapter lookup is blocked"
+        for error in check_launcher_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
+            old_launcher_adapter_lookup,
+        )
+    ):
+        failures.append("old launcher adapter lookup synthetic surface was not rejected")
 
     commented_launcher_model_index_command = """
     void DocumentOldLauncherCommand()
@@ -12042,7 +12081,8 @@ def run_self_tests() -> list[str]:
     void DocumentOldLauncherAdapterCommand()
     {
         // physicsBodies.ApplyBodyImpulseForModelIndex(modelHitIndex, impulse, localPoint) used to run here.
-        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelHitIndex, true );
+        // GameModelCollectionPhysicsAdapter physicsBodies(collection) used to run here.
+        const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelHitIndex );
         collection.GetPhysicsEngine().ApplyBodyImpulse( body, impulse, localPoint );
     }
     """

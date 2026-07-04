@@ -38,8 +38,8 @@ Related:
 
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
-#include "../../GameObjects/GameModelCollectionPhysicsAdapter.h"
 #include "../../Physics/CollisionShape.h"
+#include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../CameraCollection.h"
 #include "../Replay/ReplayRecorder.h"
@@ -62,22 +62,38 @@ constexpr float LAUNCHER_PROJECTILE_RESTITUTION = 0.42f;
 constexpr float LAUNCHER_PROJECTILE_SPAWN_LEAD = 3.2f;
 constexpr float LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
 
-// Why: launcher ray hits still identify existing bodies by model index, but
-// physics mutation should enter PhysicsEngine as a validated body handle. Keep
-// the wake-aware handle conversion local to the hit-test boundary.
+// Why: launcher ray hits still identify existing bodies by model index, but the
+// impulse can use the authoritative store row directly once topology drift has
+// been repaired at this tool boundary.
 void ApplyLauncherPhysicsImpulse( GameObjects::GameModelCollection& collection,
                                   int modelIndex,
                                   const Math::Vector::Vector3& impulse,
                                   const Math::Vector::Vector3& localApplicationPoint )
 {
-    GameObjects::GameModelCollectionPhysicsAdapter physicsBodies( collection );
-    const Physics::PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelIndex, true );
+    const int modelCount = collection.GetModelCount();
+    if ( modelIndex < 0 || modelIndex >= modelCount )
+    {
+        return;
+    }
+
+    Physics::PhysicsEngine& physics = collection.GetPhysicsEngine();
+    Physics::PhysicsModelAccess modelAccess( collection );
+    if ( physics.Colliders().Count() != modelCount )
+    {
+        physics.RefreshColliderStore( modelAccess );
+    }
+    else if ( physics.BodyStore().Count() != modelCount )
+    {
+        physics.RefreshBodyStore( modelAccess );
+    }
+
+    const Physics::PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelIndex );
     if ( !body.IsValid() )
     {
         return;
     }
 
-    collection.GetPhysicsEngine().ApplyBodyImpulse( body, impulse, localApplicationPoint );
+    physics.ApplyBodyImpulse( body, impulse, localApplicationPoint );
 }
 
 
