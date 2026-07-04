@@ -36,13 +36,73 @@ Related:
 
 #include <cmath>
 #include <cstring>
+#include <type_traits>
+#include <variant>
 
-using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Math::Vector::Vector3;
+namespace Math = SkullbonezCore::Math;
 
 
 #ifdef _DEBUG
+namespace
+{
+bool BuildDiagnosticsModelRecord( int index,
+                                  const PhysicsBodyStore& bodyStore,
+                                  const ColliderStore& colliderStore,
+                                  const PhysicsDiagnosticsNameView& names,
+                                  PhysicsDiagnosticsModelRecord& outRecord )
+{
+    if ( index < 0 || index >= bodyStore.Count() || index >= colliderStore.Count() )
+    {
+        return false;
+    }
+
+    const PhysicsBodyRecord& bodyRecord = bodyStore.Records()[static_cast<std::size_t>( index )];
+    const ColliderRecord& colliderRecord = colliderStore.Records()[static_cast<std::size_t>( index )];
+    outRecord = PhysicsDiagnosticsModelRecord{};
+    outRecord.name = names.NameFor( index );
+    outRecord.position = bodyRecord.position;
+    outRecord.velocity = bodyRecord.linearVelocity;
+    outRecord.angularVelocity = bodyRecord.angularVelocity;
+    outRecord.rotationalInertia = bodyRecord.rotationalInertia;
+    bodyRecord.orientation.GetComponents( outRecord.qx, outRecord.qy, outRecord.qz, outRecord.qw );
+    outRecord.mass = bodyRecord.mass;
+    outRecord.inverseMass = bodyRecord.invMass;
+
+    // Why: regression CSV diagnostics are emitted after the solver, so body and
+    // shape state must come from the stores just written by the step. GameModel
+    // is allowed to contribute only the cold presentation name.
+    std::visit(
+        [&]( const auto& shape )
+        {
+            using ShapeT = std::decay_t<decltype( shape )>;
+            if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingSphere> )
+            {
+                outRecord.shapeName = "sphere";
+                outRecord.radius = shape.GetRadius();
+            }
+            else if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingBox> )
+            {
+                outRecord.shapeName = "box";
+                outRecord.halfExtents = shape.GetHalfExtents();
+            }
+            else
+            {
+                outRecord.shapeName = "convex_hull";
+                outRecord.radius = shape.GetBoundingRadius();
+                outRecord.hullName = shape.GetName();
+                outRecord.hullVertices = shape.GetVertexCount();
+                outRecord.hullFaces = shape.GetFaceCount();
+                outRecord.hullEdges = shape.GetEdgeCount();
+            }
+        },
+        colliderRecord.shape );
+    return true;
+}
+} // namespace
+
+
 void PhysicsDiagnosticsSink::SetPhysicsRegressionLogPath( const char* path )
 {
     strcpy_s( m_physicsRegressionLogPath, sizeof( m_physicsRegressionLogPath ), path );
@@ -70,22 +130,25 @@ void PhysicsDiagnosticsSink::SetPhysicsDiagnosticsRunId( const char* runId )
 }
 
 
-void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world,
-                                                PhysicsModelAccess& modelAccess,
-                                                const PhysicsBodyStore& bodyStore,
-                                                const ColliderStore& colliderStore )
+bool PhysicsDiagnosticsSink::IsRegressionLogEnabled() const
 {
-    const PhysicsDiagnosticsView diagnosticsView = world.GetDiagnosticsView();
-    const auto& m_sleepSupportedThisFrame = diagnosticsView.sleepSupportedThisFrame;
-    const auto& m_sleepState = diagnosticsView.sleepState;
-    const auto& m_sleepInhibitedThisFrame = diagnosticsView.sleepInhibitedThisFrame;
+    return m_physicsRegressionLogPath[0] != '\0';
+}
 
-    if ( m_physicsRegressionLogPath[0] == '\0' )
+
+void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInput& frame )
+{
+    if ( !IsRegressionLogEnabled() )
     {
         return;
     }
 
-    const int modelCount = bodyStore.Count();
+    const PhysicsDiagnosticsView& diagnosticsView = frame.world;
+    const auto& m_sleepSupportedThisFrame = diagnosticsView.sleepSupportedThisFrame;
+    const auto& m_sleepState = diagnosticsView.sleepState;
+    const auto& m_sleepInhibitedThisFrame = diagnosticsView.sleepInhibitedThisFrame;
+
+    const int modelCount = frame.bodyStore.Count();
     if ( m_physicsRegressionLogFrame == 0 )
     {
         Log().Writef( m_physicsRegressionLogPath,
@@ -95,7 +158,7 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world,
     for ( int i = 0; i < modelCount; ++i )
     {
         PhysicsDiagnosticsModelRecord model;
-        if ( !modelAccess.TryGetPhysicsDiagnosticsModel( i, bodyStore, colliderStore, model ) )
+        if ( !BuildDiagnosticsModelRecord( i, frame.bodyStore, frame.colliderStore, frame.names, model ) )
         {
             continue;
         }

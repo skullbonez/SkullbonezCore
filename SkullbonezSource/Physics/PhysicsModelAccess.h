@@ -117,6 +117,13 @@ class PhysicsModelAccess
     PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const;
 #ifdef _DEBUG
     bool TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const;
+    // Compatibility owner: GameModelCollection presentation names.
+    // Reason: Debug diagnostics still print scene names while pose, motion,
+    // mass, and shape facts are sampled from physics-owned stores.
+    // Deletion condition: diagnostics rows identify bodies by scene object id
+    // or a presentation-name table owned outside GameModel. Checker budget:
+    // Phase 8 diagnostics guardrails keep state reads out of this edge.
+    void FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const;
     // Lifetime: string pointers in the returned record are borrowed from the
     // model owner and must not be cached after the current diagnostics write.
     // Pose, motion, mass, and shape fields come from physics-owned stores.

@@ -37,7 +37,32 @@ namespace Physics
 class ColliderStore;
 class PhysicsBodyStore;
 class PhysicsModelAccess;
-class PhysicsWorld;
+struct PhysicsDiagnosticsView;
+
+// Cold presentation names for diagnostics rows. The table is supplied by the
+// scene/model edge; the sink treats missing names as empty and never indexes a
+// GameModel range.
+struct PhysicsDiagnosticsNameView
+{
+    const char* const* names = nullptr;
+    int count = 0;
+
+    const char* NameFor( int index ) const
+    {
+        return ( names && index >= 0 && index < count && names[index] ) ? names[index] : "";
+    }
+};
+
+// Immutable inputs for one diagnostics emission pass. Body/collider/world facts
+// are already owned by physics; only names remain a presentation overlay.
+struct PhysicsDiagnosticsFrameInput
+{
+    const PhysicsDiagnosticsView& world;
+    const PhysicsBodyStore& bodyStore;
+    const ColliderStore& colliderStore;
+    PhysicsDiagnosticsNameView names;
+    float deltaSeconds = 0.0f;
+};
 
 class PhysicsDiagnosticsSink
 {
@@ -47,10 +72,8 @@ class PhysicsDiagnosticsSink
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
     void SetPhysicsDiagnosticsRunId( const char* runId );
-    void EmitRegressionLog( PhysicsWorld& world,
-                            PhysicsModelAccess& modelAccess,
-                            const PhysicsBodyStore& bodyStore,
-                            const ColliderStore& colliderStore );
+    bool IsRegressionLogEnabled() const;
+    void EmitRegressionLog( const PhysicsDiagnosticsFrameInput& frame );
     void IncrementCollisionTimeFrameIfEnabled();
     void EmitFrame( PhysicsModelAccess& modelAccess,
                     const PhysicsBodyStore& bodyStore,

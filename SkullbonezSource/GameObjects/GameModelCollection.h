@@ -189,6 +189,7 @@ class GameModelCollection
     const GameModel* TryGetModel( int index ) const;
 #ifdef _DEBUG
     bool TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const;
+    void FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const;
     // Builds one diagnostics record from model-owned display names plus
     // physics-owned body/collider stores, without handing debug sinks a mutable
     // or indexable GameModel range.

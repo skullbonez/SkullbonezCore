@@ -173,6 +173,12 @@ bool PhysicsModelAccess::TryGetPhysicsDiagnosticsModelName( int index, const cha
 }
 
 
+void PhysicsModelAccess::FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const
+{
+    m_collection.FillPhysicsDiagnosticsNames( bodyCount, outNames );
+}
+
+
 bool PhysicsModelAccess::TryGetPhysicsDiagnosticsModel( int index,
                                                         const PhysicsBodyStore& bodyStore,
                                                         const ColliderStore& colliderStore,
@@ -597,6 +603,20 @@ bool GameModelCollection::TryGetPhysicsDiagnosticsModelName( int index, const ch
     const GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
     outName = model.GetName();
     return true;
+}
+
+
+void GameModelCollection::FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const
+{
+    const int clampedBodyCount = (std::max)( 0, bodyCount );
+    outNames.assign( static_cast<std::size_t>( clampedBodyCount ), "" );
+    const int copyCount = (std::min)( clampedBodyCount, GetModelCount() );
+    for ( int i = 0; i < copyCount; ++i )
+    {
+        // Lifetime: these are borrowed display-name pointers for the current
+        // Debug diagnostics write; the caller owns only the pointer table.
+        outNames[static_cast<std::size_t>( i )] = m_gameModels[static_cast<std::size_t>( i )].GetName();
+    }
 }
 
 

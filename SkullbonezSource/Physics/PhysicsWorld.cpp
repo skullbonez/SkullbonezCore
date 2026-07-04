@@ -166,6 +166,9 @@ PhysicsWorld::PhysicsWorld()
     m_objectNarrowphaseRank.reserve( MAX_GAME_MODELS );
     m_objectNarrowphaseRootToIsland.reserve( MAX_GAME_MODELS );
     m_pointJointConstraints.reserve( MAX_GAME_MODELS );
+#ifdef _DEBUG
+    m_physicsDiagnosticsModelNames.reserve( MAX_GAME_MODELS );
+#endif
 }
 
 
@@ -834,7 +837,18 @@ void PhysicsWorld::EmitStepDiagnostics( PhysicsModelAccess& modelAccess,
 #ifdef _DEBUG
     if ( !m_diagnosticsSuppressed )
     {
-        m_diagnostics.EmitRegressionLog( *this, modelAccess, bodyStore, colliderStore );
+        if ( m_diagnostics.IsRegressionLogEnabled() )
+        {
+            modelAccess.FillPhysicsDiagnosticsNames( bodyStore.Count(), m_physicsDiagnosticsModelNames );
+            const PhysicsDiagnosticsNameView names{ m_physicsDiagnosticsModelNames.data(),
+                                                    static_cast<int>( m_physicsDiagnosticsModelNames.size() ) };
+            const PhysicsDiagnosticsFrameInput frame{ GetDiagnosticsView(),
+                                                      bodyStore,
+                                                      colliderStore,
+                                                      names,
+                                                      fChangeInTime };
+            m_diagnostics.EmitRegressionLog( frame );
+        }
         m_diagnostics.IncrementCollisionTimeFrameIfEnabled();
         m_diagnostics.EmitFrame( modelAccess, bodyStore, colliderStore, fChangeInTime );
     }
@@ -3416,6 +3430,7 @@ PhysicsDiagnosticsView PhysicsWorld::GetDiagnosticsView() const
                                    m_sleepCounter,
                                    m_sleepIslandEligible,
                                    m_sleepIslandCanSleep,
+                                   m_pointJointConstraints,
                                    m_spatialGrid,
                                    m_candidatePairs,
                                    m_collisionCellKeys,

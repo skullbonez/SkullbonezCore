@@ -637,11 +637,21 @@ and `tools\validate_full.bat` all passed; the full gate reported DX12 InfoQueue
 Target: diagnostics consume physics views and bounded query output, not raw
 model-backed ownership.
 
-- [ ] Define a diagnostics sink input made of immutable physics views:
+- [x] Define a diagnostics sink input made of immutable physics views:
   bodies, colliders, contacts, islands, constraints, broadphase stats, solver
-  stats, and deterministic frame ids.
+  stats, and deterministic frame ids. Current design uses
+  `PhysicsDiagnosticsFrameInput` plus `PhysicsDiagnosticsNameView`: body and
+  collider facts come from physics stores, world facts come from
+  `PhysicsDiagnosticsView`, point-joint constraints are named in that view, and
+  presentation names are a cold pointer table supplied at the model/scene edge.
 - [ ] Move `PhysicsDiagnosticsSink` and SkullScope frame emission away from
   direct model vector reads one view at a time.
+  - [x] Regression CSV emission builds rows from `PhysicsBodyStore`,
+    `ColliderStore`, `PhysicsDiagnosticsView`, and the name view instead of
+    calling `PhysicsModelAccess::TryGetPhysicsDiagnosticsModel`.
+  - [ ] SkullScope frame emission still calls
+    `PhysicsModelAccess::TryGetPhysicsDiagnosticsModel`; migrate it in
+    `PHY-0803`.
 - [ ] Keep raw NDJSON/SQLite out of model context; use `tools\physics_query.bat`
   queries for investigation.
 - [ ] If output schema changes, update query baselines only from final Debug
@@ -653,6 +663,22 @@ model-backed ownership.
   - [ ] `tools\validate_physics_deep.bat`
   - [ ] `tools\validate_physics.bat` if core deterministic CSV behavior is
     touched.
+
+Current Phase 8 progress: `PHY-0801` defined the immutable diagnostics frame
+input and `PHY-0802` moved the regression CSV row builder off the full
+model-access diagnostics record. `PhysicsWorld` now reuses a Debug-only vector
+of borrowed name pointers only when the regression CSV path is enabled; the CSV
+writer samples pose, velocity, mass, orientation, and shape payload directly
+from `PhysicsBodyStore` and `ColliderStore`. The boundary checker now rejects
+`modelAccess.TryGetPhysicsDiagnosticsModel(...)` inside
+`PhysicsDiagnosticsSink.cpp`, while allowing the current SkullScope borrower for
+`PHY-0803`. `SkullScope::EmitFrame` still owns the next borrower to migrate.
+Validation evidence: diff check, py_compile, runtime-boundary checks, focused
+Debug build, and `tools\validate_fast.bat` passed; `tools\validate_physics.bat`
+passed with byte-exact `physics_regression_solver.csv`; the first
+`tools\validate_physics_deep.bat` run exposed a stale contact-audio
+`physics_query_varied.json` baseline, which was refreshed from the final Debug
+SkullScope trace and then passed the rerun with exact query match.
 
 ## Phase 9 - Guardrails
 

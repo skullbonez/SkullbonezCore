@@ -280,6 +280,7 @@ class PhysicsWorld
     SleepIslandSystem m_sleepIslandSystem;
     PhysicsDiagnosticsSink m_diagnostics;
 #ifdef _DEBUG
+    std::vector<const char*> m_physicsDiagnosticsModelNames;
     bool m_diagnosticsSuppressed = false;
 #endif
 
@@ -461,6 +462,7 @@ struct PhysicsDiagnosticsView
     const std::vector<uint8_t>& sleepCounter;
     const std::vector<uint8_t>& sleepIslandEligible;
     const std::vector<uint8_t>& sleepIslandCanSleep;
+    const std::vector<PointJointConstraint>& pointJointConstraints;
     const Math::CollisionDetection::SpatialGrid& spatialGrid;
     const std::vector<std::pair<int, int>>& candidatePairs;
     const std::vector<int64_t>& collisionCellKeys;
