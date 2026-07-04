@@ -1665,6 +1665,20 @@ RUN_REPLAY_CAUSE_TREE_LOOKUP_SOURCE_RULE = (
     r"\bRun::TryResolveReplayCauseTreeBodyPosition\s*\(",
     "Resolve replay cause-tree body positions through ReplayRuntime instead of Run.",
 )
+REPLAY_CAUSE_TREE_MODEL_PARAM_PATTERN = re.compile(
+    r"\bResolveCauseTreeBodyPosition\s*\([^;{}]*\bstd\s*::\s*vector\s*<\s*"
+    r"(?:GameObjects\s*::\s*)?GameModel\s*>\s*&",
+    re.S,
+)
+REPLAY_CAUSE_TREE_LOOKUP_FUNCTION_PATTERN = re.compile(
+    r"\bbool\s+ReplayRuntime::ResolveCauseTreeBodyPosition\s*\([^{}]*\)\s*(?:const\s*)?\{",
+    re.S,
+)
+REPLAY_CAUSE_TREE_MODEL_BODY_READ_PATTERN = re.compile(
+    r"\b(?:model|models\s*\[[^\]]+\])\s*\.\s*(?:GetPosition|GetCollisionShape)\s*\("
+    r"|\bReplayRuntimeModelRadius\s*\(",
+    re.S,
+)
 
 RUN_REPLAY_CAUSE_TREE_FOCUS_SOURCE_RULE = (
     "Run replay cause-tree focus wrappers are blocked",
@@ -5667,12 +5681,34 @@ def check_run_replay_path_state_source_guardrails(repo: Path) -> list[BoundaryEr
 
 
 def check_run_replay_cause_tree_lookup_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
-    stripped = strip_cpp_comments(text)
+    stripped = strip_cpp_comments_and_string_literals(text)
     message, pattern, detail = RUN_REPLAY_CAUSE_TREE_LOOKUP_SOURCE_RULE
-    return [
+    errors = [
         BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
         for match in re.finditer(pattern, stripped)
     ]
+    errors.extend(
+        BoundaryError(
+            path,
+            line_for_offset(stripped, match.start()),
+            "replay cause-tree GameModel body lookup parameter is blocked",
+            "Pass PhysicsBodyStore and ColliderStore into ResolveCauseTreeBodyPosition instead of reopening GameModel body mirrors.",
+        )
+        for match in REPLAY_CAUSE_TREE_MODEL_PARAM_PATTERN.finditer(stripped)
+    )
+    bounds = _function_body_bounds(stripped, REPLAY_CAUSE_TREE_LOOKUP_FUNCTION_PATTERN)
+    if bounds:
+        open_brace, close_brace = bounds
+        errors.extend(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay cause-tree GameModel body read is blocked",
+                "Resolve cause-tree camera focus from PhysicsBodyStore/ColliderStore records, not GameModel pose or shape mirrors.",
+            )
+            for match in REPLAY_CAUSE_TREE_MODEL_BODY_READ_PATTERN.finditer(stripped, open_brace, close_brace)
+        )
+    return errors
 
 
 def check_run_replay_cause_tree_lookup_source_guardrails(repo: Path) -> list[BoundaryError]:
@@ -8575,6 +8611,80 @@ def run_self_tests() -> list[str]:
         )
     ):
         failures.append("replay cause-tree body lookup source helper synthetic surface was not rejected")
+
+    old_replay_cause_tree_model_param = """
+    bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
+                                                      const std::vector<GameObjects::GameModel>& models,
+                                                      Vector3& outPosition,
+                                                      float* outRadius ) const
+    {
+        return true;
+    }
+    """
+    if not any(
+        error.message == "replay cause-tree GameModel body lookup parameter is blocked"
+        for error in check_run_replay_cause_tree_lookup_source_guardrails_text(
+            Path("synthetic/ReplayRuntime.cpp"),
+            old_replay_cause_tree_model_param,
+        )
+    ):
+        failures.append("replay cause-tree GameModel parameter synthetic surface was not rejected")
+
+    old_replay_cause_tree_model_body_read = """
+    bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
+                                                      const PhysicsBodyStore& bodyStore,
+                                                      const ColliderStore& colliderStore,
+                                                      Vector3& outPosition,
+                                                      float* outRadius ) const
+    {
+        for ( const GameModel& model : models )
+        {
+            outPosition = model.GetPosition();
+            *outRadius = ReplayRuntimeModelRadius( model );
+        }
+        return true;
+    }
+    """
+    if not any(
+        error.message == "replay cause-tree GameModel body read is blocked"
+        for error in check_run_replay_cause_tree_lookup_source_guardrails_text(
+            Path("synthetic/ReplayRuntime.cpp"),
+            old_replay_cause_tree_model_body_read,
+        )
+    ):
+        failures.append("replay cause-tree GameModel body read synthetic surface was not rejected")
+
+    allowed_replay_cause_tree_store_lookup = """
+    bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
+                                                      const PhysicsBodyStore& bodyStore,
+                                                      const ColliderStore& colliderStore,
+                                                      Vector3& outPosition,
+                                                      float* outRadius ) const
+    {
+        const std::vector<PhysicsBodyRecord>& bodies = bodyStore.Records();
+        outPosition = bodies[0].position;
+        *outRadius = colliderStore.Records()[0].boundingRadius;
+        return true;
+    }
+    """
+    if check_run_replay_cause_tree_lookup_source_guardrails_text(
+        Path("synthetic/ReplayRuntime.cpp"),
+        allowed_replay_cause_tree_store_lookup,
+    ):
+        failures.append("store-backed replay cause-tree lookup synthetic surface was rejected")
+
+    commented_replay_cause_tree_model_body_read = """
+    void DocumentOldCauseTreeLookup()
+    {
+        // ResolveCauseTreeBodyPosition used to read model.GetPosition() here.
+        outPosition = body.position;
+    }
+    """
+    if check_run_replay_cause_tree_lookup_source_guardrails_text(
+        Path("synthetic/ReplayRuntime.cpp"),
+        commented_replay_cause_tree_model_body_read,
+    ):
+        failures.append("comment-only replay cause-tree model body read synthetic text was rejected")
 
     old_replay_cause_tree_focus_source_helper = "bool Run::FocusReplayCauseTreeBody( ReplayBodyId id ) { return true; }"
     if not any(

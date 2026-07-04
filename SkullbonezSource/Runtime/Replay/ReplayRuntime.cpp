@@ -10,8 +10,12 @@ Mental model:
 
 Glossary:
   Branch: Child replay timeline created from a restored source frame.
+  Body store: Physics-owned live body records used for pose and velocity
+    authority while legacy GameModel mirrors are retired.
   Cause tree row: UI row derived from retained solver contacts or prediction
     future nodes.
+  Collider store: Physics-owned shape, material, and radius records paired with
+    body handles.
   Hash log: Deterministic text stream that lets saved replay output be compared.
   Loaded presentation: Replay artifact data loaded from disk for scrub preview.
   Ragdoll part: One body inside a multi-body SimpleRagdoll collection.
@@ -36,7 +40,8 @@ Related:
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Core/Profiler.h"
-#include "../../Physics/CollisionShape.h"
+#include "../../Physics/ColliderStore.h"
+#include "../../Physics/PhysicsBodyStore.h"
 
 #include <algorithm>
 #include <cmath>
@@ -62,9 +67,12 @@ constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
 
 using GameObjects::GameModel;
-using Math::CollisionDetection::GetShapeBoundingRadius;
 using Math::Vector::Vector3;
 using Math::Vector::VectorMagSquared;
+using Physics::ColliderRecord;
+using Physics::ColliderStore;
+using Physics::PhysicsBodyRecord;
+using Physics::PhysicsBodyStore;
 using Physics::PhysicsPipelineRecord;
 using Physics::PhysicsPipelineStageName;
 
@@ -285,9 +293,42 @@ const RunReplayPredictionBodySample* FindReplayPredictionBodyById( const RunRepl
     return nullptr;
 }
 
-float ReplayRuntimeModelRadius( const GameModel& model )
+// Concept: cause-tree focus needs a display radius, not exact shape math.
+// Replay samples carry model indices, while live fallback can use body-handle
+// pairing to stay off GameModel pose and shape mirrors.
+float ReplayRuntimeColliderRadius( const ColliderRecord& collider )
 {
-    return (std::max)( GetShapeBoundingRadius( model.GetCollisionShape() ), 1.0f );
+    return (std::max)( collider.boundingRadius, 1.0f );
+}
+
+float ReplayRuntimeColliderRadiusForModelIndex( const ColliderStore& colliderStore, int modelIndex )
+{
+    const Physics::PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
+    if ( const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle ) )
+    {
+        return ReplayRuntimeColliderRadius( *collider );
+    }
+
+    const std::vector<ColliderRecord>& colliders = colliderStore.Records();
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( colliders.size() ) )
+    {
+        return 1.0f;
+    }
+    return ReplayRuntimeColliderRadius( colliders[static_cast<std::size_t>( modelIndex )] );
+}
+
+float ReplayRuntimeColliderRadiusForBody( const ColliderStore& colliderStore,
+                                          const PhysicsBodyRecord& body,
+                                          int fallbackModelIndex )
+{
+    for ( const ColliderRecord& collider : colliderStore.Records() )
+    {
+        if ( collider.body == body.handle )
+        {
+            return ReplayRuntimeColliderRadius( collider );
+        }
+    }
+    return ReplayRuntimeColliderRadiusForModelIndex( colliderStore, fallbackModelIndex );
 }
 
 ReplayBodyId ReplayBodyIdForModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
@@ -1297,7 +1338,8 @@ const RunReplayPredictionFrame* ReplayRuntime::CurrentPredictionScrubFrame() con
 
 
 bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
-                                                  const std::vector<GameObjects::GameModel>& models,
+                                                  const PhysicsBodyStore& bodyStore,
+                                                  const ColliderStore& colliderStore,
                                                   Vector3& outPosition,
                                                   float* outRadius ) const
 {
@@ -1319,9 +1361,9 @@ bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
                  FindReplayPredictionBodyById( activePredictionFrames.front(), id ) )
         {
             outPosition = body->position;
-            if ( outRadius && body->modelIndex >= 0 && body->modelIndex < static_cast<int>( models.size() ) )
+            if ( outRadius )
             {
-                *outRadius = ReplayRuntimeModelRadius( models[static_cast<std::size_t>( body->modelIndex )] );
+                *outRadius = ReplayRuntimeColliderRadiusForModelIndex( colliderStore, body->modelIndex );
             }
             return true;
         }
@@ -1332,22 +1374,25 @@ bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
         if ( const ReplaySolverBodySample* body = FindReplayBodyById( *sample, id ) )
         {
             outPosition = body->position;
-            if ( outRadius && body->modelIndex >= 0 && body->modelIndex < static_cast<int>( models.size() ) )
+            if ( outRadius )
             {
-                *outRadius = ReplayRuntimeModelRadius( models[static_cast<std::size_t>( body->modelIndex )] );
+                *outRadius = ReplayRuntimeColliderRadiusForModelIndex( colliderStore, body->modelIndex );
             }
             return true;
         }
     }
 
-    for ( const GameModel& model : models )
+    const std::vector<PhysicsBodyRecord>& bodies = bodyStore.Records();
+    for ( int i = 0; i < static_cast<int>( bodies.size() ); ++i )
     {
-        if ( model.GetReplayBodyId() == id.value )
+        const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( i )];
+        if ( body.replayBodyId == id.value )
         {
-            outPosition = model.GetPosition();
+            outPosition = body.position;
             if ( outRadius )
             {
-                *outRadius = ReplayRuntimeModelRadius( model );
+                const int fallbackModelIndex = bodyStore.ModelIndexForHandle( body.handle );
+                *outRadius = ReplayRuntimeColliderRadiusForBody( colliderStore, body, fallbackModelIndex );
             }
             return true;
         }

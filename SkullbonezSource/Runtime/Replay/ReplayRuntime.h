@@ -14,6 +14,10 @@ Glossary:
     inspection and rollback.
   Cause tree: Replay contact graph used by the tool UI to explain which body or
     contact caused another replay body to matter.
+  Body store: Physics-owned live body records used for pose and velocity
+    authority while legacy GameModel mirrors are retired.
+  Collider store: Physics-owned shape, material, and radius records paired with
+    body handles.
   UI (User Interface): Runtime controls and overlays that expose replay state
     to the player or debugging workflow.
   Velocity edit: Replay tool that displays and edits linear/angular velocity on
@@ -51,6 +55,12 @@ namespace GameObjects
 class GameModel;
 class GameModelCollection;
 } // namespace GameObjects
+
+namespace Physics
+{
+class ColliderStore;
+class PhysicsBodyStore;
+} // namespace Physics
 
 namespace Basics
 {
@@ -457,8 +467,11 @@ class ReplayRuntime
     const ReplayPresentationSample* CurrentScrubSample() const;
     const ReplaySolverFrameSample* CurrentSolverScrubSample() const;
     const RunReplayPredictionFrame* CurrentPredictionScrubFrame() const;
+    // Resolves camera-focus pose/radius from replay samples or live physics
+    // stores; GameModel metadata remains outside this body-authority query.
     bool ResolveCauseTreeBodyPosition( ReplayBodyId id,
-                                       const std::vector<GameObjects::GameModel>& models,
+                                       const Physics::PhysicsBodyStore& bodyStore,
+                                       const Physics::ColliderStore& colliderStore,
                                        Math::Vector::Vector3& outPosition,
                                        float* outRadius ) const;
     int ResolveVelocityEditModelIndex( const std::vector<GameObjects::GameModel>& models ) const;
