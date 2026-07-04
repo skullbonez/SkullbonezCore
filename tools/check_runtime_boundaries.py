@@ -79,6 +79,7 @@ RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
 SKULL_SCOPE_SOURCE = Path("SkullbonezSource/Core/SkullScope.cpp")
 PHYSICS_WORLD_SOURCE = PHYSICS_ROOT / "PhysicsWorld.cpp"
+PHYSICS_SCENE_SOURCE = PHYSICS_ROOT / "PhysicsScene.cpp"
 PHYSICS_DIAGNOSTICS_SINK_SOURCE = PHYSICS_ROOT / "PhysicsDiagnosticsSink.cpp"
 GAME_MODEL_COLLECTION_SOURCE = Path("SkullbonezSource/GameObjects/GameModelCollection.cpp")
 IRENDER_BACKEND_HEADER = Path("SkullbonezSource/Rendering/IRenderBackend.h")
@@ -162,6 +163,14 @@ GAME_MODEL_COLLECTION_REPLAY_RESTORE_FUNCTION_PATTERN = re.compile(
 )
 GAME_MODEL_COLLECTION_REPLAY_RESTORE_MODEL_REFRESH_PATTERN = re.compile(
     r"\b(?:CommitEditedModelPhysicsState|RefreshBodyFromModel|GetPhysicsBodyStore)\s*\("
+)
+PHYSICS_SCENE_RUN_PHYSICS_FUNCTION_PATTERN = re.compile(r"\bvoid\s+PhysicsScene::RunPhysics\s*\(")
+PHYSICS_SCENE_STEP_BODY_RELOAD_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*ReloadPhysicsBodies\s*\(")
+PHYSICS_SCENE_TOPOLOGY_BODY_RELOAD_PATTERN = re.compile(
+    r"if\s*\(\s*m_bodyStore\s*\.\s*Count\s*\(\s*\)\s*!=\s*"
+    r"(?:modelCount|modelAccess\s*\.\s*ModelCount\s*\(\s*\))\s*\)\s*\{\s*"
+    r"modelAccess\s*\.\s*ReloadPhysicsBodies\s*\(",
+    re.S,
 )
 HOT_PATH_INHERITANCE_PATTERN = re.compile(
     r"^\s*(?:class|struct)\s+[A-Za-z_]\w*[^{;\n]*:\s*(?:public|protected|private)\b",
@@ -1997,6 +2006,44 @@ def check_replay_restore_store_authority_guardrails(repo: Path) -> list[Boundary
         )
     )
     return errors
+
+
+def check_physics_scene_step_body_reload_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    function_match = PHYSICS_SCENE_RUN_PHYSICS_FUNCTION_PATTERN.search(stripped)
+    if not function_match:
+        return errors
+
+    open_brace = stripped.find("{", function_match.end())
+    if open_brace < 0:
+        return errors
+
+    close_brace = find_matching_close_brace(stripped, open_brace)
+    allowed_spans = [
+        (open_brace + match.start(), open_brace + match.end())
+        for match in PHYSICS_SCENE_TOPOLOGY_BODY_RELOAD_PATTERN.finditer(stripped[open_brace:close_brace])
+    ]
+    for match in PHYSICS_SCENE_STEP_BODY_RELOAD_PATTERN.finditer(stripped, open_brace, close_brace):
+        if any(start <= match.start() < end for start, end in allowed_spans):
+            continue
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "per-step model-to-body-store reload is blocked",
+                (
+                    "PhysicsScene::RunPhysics should keep PhysicsBodyStore authoritative during steady-state "
+                    "steps; only topology/count mismatch may reload bodies from GameModel."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_scene_step_body_reload_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / PHYSICS_SCENE_SOURCE
+    return check_physics_scene_step_body_reload_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_physics_hot_path_inheritance_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -6795,6 +6842,52 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only replay restore model-refresh synthetic text was rejected")
 
+    old_physics_scene_step_body_reload = """
+    void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
+    {
+        modelAccess.ReloadPhysicsBodies( m_bodyStore, m_world.GetSleepStates() );
+        m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, 0.016f, config, forces, workerPool );
+    }
+    """
+    if not any(
+        error.message == "per-step model-to-body-store reload is blocked"
+        for error in check_physics_scene_step_body_reload_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+            old_physics_scene_step_body_reload,
+        )
+    ):
+        failures.append("old unconditional step-start body reload synthetic surface was not rejected")
+
+    topology_guarded_physics_scene_step_body_reload = """
+    void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
+    {
+        const int modelCount = modelAccess.ModelCount();
+        if ( m_bodyStore.Count() != modelCount )
+        {
+            modelAccess.ReloadPhysicsBodies( m_bodyStore, m_world.GetSleepStates() );
+        }
+        m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, 0.016f, config, forces, workerPool );
+    }
+    """
+    if check_physics_scene_step_body_reload_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        topology_guarded_physics_scene_step_body_reload,
+    ):
+        failures.append("topology-guarded step-start body reload synthetic surface was rejected")
+
+    commented_physics_scene_step_body_reload = """
+    void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
+    {
+        // modelAccess.ReloadPhysicsBodies(...) used to run every tick.
+        RunStoreOwnedStep();
+    }
+    """
+    if check_physics_scene_step_body_reload_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        commented_physics_scene_step_body_reload,
+    ):
+        failures.append("comment-only step-start body reload synthetic text was rejected")
+
     allowed_physics_hot_path_values = """
     struct SolverBodyState
     {
@@ -7213,6 +7306,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))
     errors.extend(check_replay_restore_store_authority_guardrails(repo))
+    errors.extend(check_physics_scene_step_body_reload_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))
     errors.extend(check_approved_inheritance_guardrails(repo))
