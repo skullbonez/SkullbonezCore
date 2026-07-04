@@ -64,6 +64,8 @@ using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::PhysicsBodyRecord;
+using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Rendering::ShadowFrameData;
 
@@ -531,7 +533,18 @@ Vector3 GameModelCollection::GetModelPosition( int index )
             "No game model exists at the specified index.  (GameModelCollection::GetModelPosition)" );
     }
 
-    return m_gameModels[index].GetPosition();
+    // Why: object-follow cameras should read the same store-owned pose that
+    // physics, diagnostics, replay capture, and render snapshots consume. A
+    // topology mismatch is repaired by GetPhysicsBodyStore(); same-count edits
+    // must already have entered the store through explicit command/commit paths.
+    const PhysicsBodyStore& bodyStore = GetPhysicsBodyStore();
+    const PhysicsBodyRecord* record = bodyStore.RecordForModelIndex( index );
+    if ( !record )
+    {
+        throw std::runtime_error(
+            "No physics body exists at the specified index.  (GameModelCollection::GetModelPosition)" );
+    }
+    return record->position;
 }
 
 
@@ -827,8 +840,14 @@ const SkullbonezCore::Physics::PhysicsEngine& GameModelCollection::GetPhysicsEng
 
 const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysicsBodyStore()
 {
-    PhysicsModelAccess modelAccess( *this );
-    m_physicsEngine.RefreshBodyStore( modelAccess );
+    if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
+    {
+        // Invariant: this accessor repairs topology only. Same-count body edits
+        // are physics-store authority and must not be overwritten by a
+        // convenience read that reloads the GameModel compatibility mirror.
+        PhysicsModelAccess modelAccess( *this );
+        m_physicsEngine.RefreshBodyStore( modelAccess );
+    }
     return m_physicsEngine.BodyStore();
 }
 
@@ -867,15 +886,17 @@ double GameModelCollection::GetSceneKineticEnergy()
     constexpr double REST_LINEAR_SPEED_SQ = 0.5 * 0.5;
     constexpr double REST_ANGULAR_SPEED_SQ = 0.3 * 0.3;
     double totalEnergy = 0.0;
-    for ( GameModel& model : m_gameModels )
+    const PhysicsBodyStore& bodyStore = GetPhysicsBodyStore();
+    const std::vector<PhysicsBodyRecord>& bodies = bodyStore.Records();
+    for ( const PhysicsBodyRecord& body : bodies )
     {
-        if ( model.IsFixed() )
+        if ( body.isFixed )
         {
             continue;
         }
 
-        const Vector3& vel = model.GetVelocity();
-        const Vector3& omega = model.GetAngularVelocity();
+        const Vector3& vel = body.linearVelocity;
+        const Vector3& omega = body.angularVelocity;
         const double speedSq = static_cast<double>( vel.x ) * vel.x + static_cast<double>( vel.y ) * vel.y +
                                static_cast<double>( vel.z ) * vel.z;
         const double omegaSq = static_cast<double>( omega.x ) * omega.x + static_cast<double>( omega.y ) * omega.y +
@@ -885,11 +906,11 @@ double GameModelCollection::GetSceneKineticEnergy()
             continue;
         }
 
-        const Vector3& inertia = model.GetRotationalInertia();
+        const Vector3& inertia = body.rotationalInertia;
         const double angularEnergy = 0.5 * ( static_cast<double>( inertia.x ) * omega.x * omega.x +
                                              static_cast<double>( inertia.y ) * omega.y * omega.y +
                                              static_cast<double>( inertia.z ) * omega.z * omega.z );
-        totalEnergy += 0.5 * static_cast<double>( model.GetMass() ) * speedSq + angularEnergy;
+        totalEnergy += 0.5 * static_cast<double>( body.mass ) * speedSq + angularEnergy;
     }
     return totalEnergy;
 }

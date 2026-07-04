@@ -1139,6 +1139,32 @@ Evidence logs: `TestOutput\agent_validate_fast_render_instance_store_shape_kind_
 `TestOutput\agent_validate_perf_render_instance_store_shape_kind.log`, and
 `TestOutput\agent_validate_perf_render_instance_store_shape_kind_rerun.log`.
 
+Slice `PHY-1015`: stop read-only runtime presentation helpers from depending on
+post-step `GameModel` body mirrors. `GetPhysicsBodyStore()` now repairs topology
+only when body count drift is detected; same-count reads preserve
+`PhysicsBodyStore` authority. Object-follow camera focus and UI scene-energy
+sampling read body records directly, so those presentation paths no longer need
+the bulk compatibility writeback to keep `GameModel` physics fields fresh.
+
+- [x] Make `GetPhysicsBodyStore()` count-gated instead of unconditionally
+  reloading body rows from `GameModel`.
+- [x] Make `GetModelPosition()` return the store-owned body position.
+- [x] Make `GetSceneKineticEnergy()` compute from `PhysicsBodyStore` records.
+- [x] Add runtime-boundary guardrails and self-tests blocking unconditional
+  body-store reloads and model-field reads from returning to those helpers.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence logs: `TestOutput\agent_build_debug_body_store_read_authority.log`,
+`TestOutput\agent_validate_fast_body_store_read_authority.log`, and
+`TestOutput\agent_validate_physics_body_store_read_authority.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

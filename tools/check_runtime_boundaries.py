@@ -236,6 +236,19 @@ GAME_MODEL_RENDERER_MODEL_POSE_STREAM_PATTERN = re.compile(
 DXR_MODEL_MATRIX_RENDER_INSTANCE_PATTERN = re.compile(
     r"\bm_gameModels\s*\[[^\]]+\]\s*\.\s*GetModelMatrix\s*\("
 )
+# Why: read-only presentation helpers should not rebuild body stores from the
+# GameModel mirror. Count drift is topology repair; same-count state belongs to
+# PhysicsBodyStore until a compatibility writeback explicitly projects it.
+GAME_MODEL_COLLECTION_BODY_STORE_REFRESH_PATTERN = re.compile(
+    r"\bm_physicsEngine\s*\.\s*RefreshBodyStore\s*\(\s*modelAccess\s*\)"
+)
+GAME_MODEL_COLLECTION_BODY_STORE_COUNT_GATE_PATTERN = re.compile(
+    r"\bm_physicsEngine\s*\.\s*BodyStore\s*\(\s*\)\s*\.\s*Count\s*\(\s*\)\s*!=\s*ModelCount\s*\(\s*\)"
+)
+GAME_MODEL_COLLECTION_BODY_READ_MODEL_FIELD_PATTERN = re.compile(
+    r"\bm_gameModels\s*\[[^\]]+\]\s*\.\s*GetPosition\s*\("
+    r"|\bmodel\s*\.\s*(?:IsFixed|GetVelocity|GetAngularVelocity|GetRotationalInertia|GetMass)\s*\("
+)
 PHYSICS_DIAGNOSTICS_MODEL_RECORD_COMPAT_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*TryGetPhysicsDiagnosticsModel\s*\(\s*[^,()]+\s*,\s*[^,()]+\s*\)"
 )
@@ -2810,6 +2823,65 @@ def check_dxr_render_instance_matrix_authority_guardrails_text(path: Path, text:
 def check_dxr_render_instance_matrix_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / GAME_MODEL_COLLECTION_SOURCE
     return check_dxr_render_instance_matrix_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_game_model_collection_body_store_read_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != "GameModelCollection.cpp":
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+
+    refresh_function_pattern = re.compile(
+        r"\bconst\s+SkullbonezCore::Physics::PhysicsBodyStore&\s+"
+        r"GameModelCollection::GetPhysicsBodyStore\s*\(\s*\)\s*\{",
+        re.S,
+    )
+    for function_match in refresh_function_pattern.finditer(stripped):
+        open_brace = stripped.find("{", function_match.start(), function_match.end())
+        if open_brace < 0:
+            continue
+        close_brace = find_matching_close_brace(stripped, open_brace)
+        function_body = stripped[open_brace:close_brace]
+        if GAME_MODEL_COLLECTION_BODY_STORE_REFRESH_PATTERN.search(function_body) and not (
+            GAME_MODEL_COLLECTION_BODY_STORE_COUNT_GATE_PATTERN.search(function_body)
+        ):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, function_match.start()),
+                    "body-store read accessor must not unconditionally refresh from GameModel",
+                    (
+                        "GetPhysicsBodyStore may repair topology drift, but same-count reads must preserve "
+                        "PhysicsBodyStore authority instead of reloading the GameModel compatibility mirror."
+                    ),
+                )
+            )
+
+    for function_name in ( "GetModelPosition", "GetSceneKineticEnergy" ):
+        function_pattern = re.compile(rf"\b(?:Vector3|double)\s+GameModelCollection::{function_name}\s*\([^{{}}]*\)\s*\{{", re.S)
+        for function_match in function_pattern.finditer(stripped):
+            open_brace = stripped.find("{", function_match.start(), function_match.end())
+            if open_brace < 0:
+                continue
+            close_brace = find_matching_close_brace(stripped, open_brace)
+            for match in GAME_MODEL_COLLECTION_BODY_READ_MODEL_FIELD_PATTERN.finditer(stripped, open_brace, close_brace):
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, match.start()),
+                        "GameModelCollection body read should use PhysicsBodyStore",
+                        (
+                            "Read camera-follow pose and scene energy from PhysicsBodyStore records so the "
+                            "post-step GameModel mirror is not required for runtime presentation statistics."
+                        ),
+                    )
+                )
+    return errors
+
+
+def check_game_model_collection_body_store_read_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / GAME_MODEL_COLLECTION_SOURCE
+    return check_game_model_collection_body_store_read_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_physics_diagnostics_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -9346,6 +9418,108 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only DXR model matrix copy synthetic text was rejected")
 
+    old_unconditional_body_store_refresh = """
+    const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysicsBodyStore()
+    {
+        PhysicsModelAccess modelAccess( *this );
+        m_physicsEngine.RefreshBodyStore( modelAccess );
+        return m_physicsEngine.BodyStore();
+    }
+    """
+    if not any(
+        error.message == "body-store read accessor must not unconditionally refresh from GameModel"
+        for error in check_game_model_collection_body_store_read_authority_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_unconditional_body_store_refresh,
+        )
+    ):
+        failures.append("old unconditional body-store refresh synthetic surface was not rejected")
+
+    allowed_count_gated_body_store_refresh = """
+    const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysicsBodyStore()
+    {
+        if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
+        {
+            PhysicsModelAccess modelAccess( *this );
+            m_physicsEngine.RefreshBodyStore( modelAccess );
+        }
+        return m_physicsEngine.BodyStore();
+    }
+    """
+    if check_game_model_collection_body_store_read_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_count_gated_body_store_refresh,
+    ):
+        failures.append("count-gated body-store refresh synthetic surface was rejected")
+
+    old_collection_body_model_reads = """
+    Vector3 GameModelCollection::GetModelPosition( int index )
+    {
+        return m_gameModels[index].GetPosition();
+    }
+
+    double GameModelCollection::GetSceneKineticEnergy()
+    {
+        double totalEnergy = 0.0;
+        for ( GameModel& model : m_gameModels )
+        {
+            if ( model.IsFixed() ) continue;
+            const Vector3& vel = model.GetVelocity();
+            const Vector3& omega = model.GetAngularVelocity();
+            const Vector3& inertia = model.GetRotationalInertia();
+            totalEnergy += 0.5 * static_cast<double>( model.GetMass() );
+        }
+        return totalEnergy;
+    }
+    """
+    if not any(
+        error.message == "GameModelCollection body read should use PhysicsBodyStore"
+        for error in check_game_model_collection_body_store_read_authority_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_collection_body_model_reads,
+        )
+    ):
+        failures.append("old collection body model-read synthetic surface was not rejected")
+
+    allowed_collection_body_store_reads = """
+    Vector3 GameModelCollection::GetModelPosition( int index )
+    {
+        const PhysicsBodyStore& bodyStore = GetPhysicsBodyStore();
+        const PhysicsBodyRecord* record = bodyStore.RecordForModelIndex( index );
+        return record->position;
+    }
+
+    double GameModelCollection::GetSceneKineticEnergy()
+    {
+        double totalEnergy = 0.0;
+        const PhysicsBodyStore& bodyStore = GetPhysicsBodyStore();
+        for ( const PhysicsBodyRecord& body : bodyStore.Records() )
+        {
+            totalEnergy += static_cast<double>( body.mass );
+        }
+        return totalEnergy;
+    }
+    """
+    if check_game_model_collection_body_store_read_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_collection_body_store_reads,
+    ):
+        failures.append("PhysicsBodyStore-backed collection body-read synthetic surface was rejected")
+
+    commented_collection_body_model_reads = """
+    double GameModelCollection::GetSceneKineticEnergy()
+    {
+        // model.GetVelocity() and m_gameModels[index].GetPosition() used to read the compatibility mirror.
+        const PhysicsBodyStore& bodyStore = GetPhysicsBodyStore();
+        return static_cast<double>( bodyStore.Count() );
+    }
+    """
+    if check_game_model_collection_body_store_read_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        commented_collection_body_model_reads,
+    ):
+        failures.append("comment-only collection body model-read synthetic text was rejected")
+
     old_diagnostics_model_record_read = """
     void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess )
     {
@@ -11227,6 +11401,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_render_instance_store_authority_guardrails(repo))
     errors.extend(check_game_model_renderer_render_instance_authority_guardrails(repo))
     errors.extend(check_dxr_render_instance_matrix_authority_guardrails(repo))
+    errors.extend(check_game_model_collection_body_store_read_authority_guardrails(repo))
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
     errors.extend(check_physics_collision_time_name_guardrails(repo))
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))
