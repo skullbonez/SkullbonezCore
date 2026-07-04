@@ -296,21 +296,31 @@ and sleep authority is not hidden in the legacy world path.
 
 - [ ] Move sleep state and support propagation data needed by standalone bodies
   into store-owned structures.
-- [ ] Define `PhysicsIslandView` data that is sufficient for diagnostics:
+  - [x] Standalone island generation reads body-store sleep/fixed state.
+  - [ ] Full support propagation data remains future work.
+- [x] Define `PhysicsIslandView` data that is sufficient for diagnostics:
   island id, body handles, sleeping/awake state, support state, and reason flags
   if already available.
-- [ ] Generate island membership from standalone contacts/constraints in
+- [x] Generate island membership from standalone contacts/constraints in
   deterministic body-handle order.
-- [ ] Make `SetSleepEnabled`, `WakeBody`, and `SeedBodyAsleep` update the same
+- [x] Make `SetSleepEnabled`, `WakeBody`, and `SeedBodyAsleep` update the same
   store-owned sleep state used by island generation.
-- [ ] Extend the standalone smoke with:
-  - [ ] two bodies in one island,
-  - [ ] one isolated body in a separate island,
-  - [ ] wake propagation,
-  - [ ] sleep-disable behavior,
-  - [ ] stale body exclusion.
+- [x] Extend the standalone smoke with:
+  - [x] two bodies in one island,
+  - [x] one isolated body in a separate island,
+  - [x] wake propagation,
+  - [x] sleep-disable behavior,
+  - [x] stale body exclusion.
+
+Current Phase 5 progress: `PhysicsStandaloneWorld::Islands()` now returns
+store-owned island rows after `Step()`. Island rows point into a flat
+body-handle buffer owned by the world; generation uses live body rows, contact
+rows, and point-joint endpoints in deterministic body-store order. The
+standalone smoke now requires connected, isolated, wake, sleep-disable, and
+stale-exclusion island evidence. Slice validation passed with the boundary
+checker at 0 errors and `tools\validate_physics.bat` byte-exact.
 - [ ] Validation for this phase:
-  - [ ] `tools\validate_physics.bat`
+  - [x] `tools\validate_physics.bat`
   - [ ] `tools\validate_physics_deep.bat` if SkullScope sleep/island query
     baselines change.
 

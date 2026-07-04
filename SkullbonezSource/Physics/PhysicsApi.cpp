@@ -21,6 +21,8 @@ Glossary:
     without exposing legacy model indices.
   Contact row: Immutable public collision record produced after Step(); it is
     diagnostic/replay data, not the future hot solver manifold.
+  Island: Deterministic group of bodies connected by contacts or constraints;
+    island rows feed sleep/support diagnostics without exposing solver storage.
   Narrowphase: Shape-specific overlap test that turns broadphase candidates into
     concrete contact points, normals, and penetration depths.
   Ray cast: Query that reports the closest collider candidate along a directed
@@ -30,6 +32,10 @@ Glossary:
   Friction: Sliding resistance copied from collider material data.
   Sleep gate: World policy deciding whether sleeping body flags are honored by
     steps and queries.
+  Supported island: Island containing a fixed body, used as the first standalone
+    public support-state signal before full support propagation migrates.
+  Union-find: Compact parent/rank arrays used to merge connected body rows into
+    deterministic islands without heap-allocated graph nodes.
   Determinism: Same fixed-step inputs produce the same final state and hash.
 
 Invariants:
@@ -37,6 +43,8 @@ Invariants:
   - Step mutates only alive, dynamic, awake body records.
   - Contact rows are rebuilt from body/collider stores after Step() and cleared
     on geometry mutations, so public views never point into model storage.
+  - Island rows are rebuilt after contact rows and borrow body-handle spans from
+    a flat buffer owned by PhysicsStandaloneWorld.
   - The smoke sample uses binary-exact fixed-step values so validation can check
     exact final state without tolerance drift.
 
@@ -80,6 +88,8 @@ using SkullbonezCore::Physics::PhysicsColliderView;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsContactCollectionView;
 using SkullbonezCore::Physics::PhysicsContactView;
+using SkullbonezCore::Physics::PhysicsIslandCollectionView;
+using SkullbonezCore::Physics::PhysicsIslandView;
 using SkullbonezCore::Physics::PhysicsPointJointCreateDesc;
 using SkullbonezCore::Physics::PhysicsPointJointUpdateDesc;
 using SkullbonezCore::Physics::PhysicsPointJointView;
@@ -94,6 +104,7 @@ namespace
 {
 constexpr uint64_t FNV_OFFSET_BASIS = 14695981039346656037ull;
 constexpr uint64_t FNV_PRIME = 1099511628211ull;
+constexpr uint32_t INVALID_ISLAND_ROW = ( std::numeric_limits<uint32_t>::max )();
 
 uint64_t HashBytes( uint64_t hash, const void* bytes, std::size_t byteCount )
 {
@@ -175,6 +186,30 @@ uint64_t HashContactCollection( PhysicsContactCollectionView view )
     return hash;
 }
 
+uint64_t HashIslandView( uint64_t hash, const SkullbonezCore::Physics::PhysicsIslandView& island )
+{
+    hash = HashU32( hash, island.islandId );
+    hash = HashU32( hash, island.bodyCount );
+    for ( uint32_t i = 0; i < island.bodyCount; ++i )
+    {
+        hash = HashU32( hash, island.bodies[i].index );
+        hash = HashU32( hash, island.bodies[i].generation );
+    }
+    hash = HashU32( hash, island.sleeping ? 1u : 0u );
+    return HashU32( hash, island.supported ? 1u : 0u );
+}
+
+uint64_t HashIslandCollection( SkullbonezCore::Physics::PhysicsIslandCollectionView view )
+{
+    uint64_t hash = FNV_OFFSET_BASIS;
+    hash = HashU32( hash, view.islandCount );
+    for ( uint32_t i = 0; i < view.islandCount; ++i )
+    {
+        hash = HashIslandView( hash, view.islands[i] );
+    }
+    return hash;
+}
+
 float ClampFloat( float value, float minValue, float maxValue )
 {
     return value < minValue ? minValue : ( value > maxValue ? maxValue : value );
@@ -191,6 +226,43 @@ void CopyContactMaterialPayload( PhysicsContactView& contact,
     contact.contactMaterialAId = colliderA.contactMaterialId;
     contact.contactMaterialBId = colliderB.contactMaterialId;
     contact.featureId = ContactFeatureId( colliderA.handle, colliderB.handle );
+}
+
+uint32_t FindIslandRoot( std::vector<uint32_t>& parents, uint32_t row )
+{
+    uint32_t root = row;
+    while ( parents[root] != root )
+    {
+        root = parents[root];
+    }
+    while ( parents[row] != row )
+    {
+        const uint32_t parent = parents[row];
+        parents[row] = root;
+        row = parent;
+    }
+    return root;
+}
+
+void UnionIslandRows( std::vector<uint32_t>& parents, std::vector<uint32_t>& ranks, uint32_t rowA, uint32_t rowB )
+{
+    uint32_t rootA = FindIslandRoot( parents, rowA );
+    uint32_t rootB = FindIslandRoot( parents, rowB );
+    if ( rootA == rootB )
+    {
+        return;
+    }
+    if ( ranks[rootA] < ranks[rootB] || ( ranks[rootA] == ranks[rootB] && rootB < rootA ) )
+    {
+        const uint32_t swap = rootA;
+        rootA = rootB;
+        rootB = swap;
+    }
+    parents[rootB] = rootA;
+    if ( ranks[rootA] == ranks[rootB] )
+    {
+        ++ranks[rootA];
+    }
 }
 
 uint64_t HashSmokeResult( const PhysicsStandaloneSmokeResult& result )
@@ -210,6 +282,7 @@ uint64_t HashSmokeResult( const PhysicsStandaloneSmokeResult& result )
     hash = HashU32( hash, result.contactCount );
     hash = HashU64( hash, result.contactHash );
     hash = HashU32( hash, result.islandCount );
+    hash = HashU64( hash, result.islandHash );
     hash = HashU32( hash, result.broadphaseQueryCount );
     hash = HashU32( hash, result.stepCount );
     hash = HashU32( hash, result.activationCommandsPassed ? 1u : 0u );
@@ -344,6 +417,13 @@ void PhysicsStandaloneWorld::Clear()
     m_colliderStore.Clear();
     m_colliderViewScratch.clear();
     m_contacts.clear();
+    m_islands.clear();
+    m_islandBodyScratch.clear();
+    m_islandParentScratch.clear();
+    m_islandRankScratch.clear();
+    m_islandHandleRowScratch.clear();
+    m_islandRootSlotScratch.clear();
+    m_islandBodyOffsetScratch.clear();
     m_pointJoints.clear();
     m_constraintGenerations.clear();
     m_constraintAlive.clear();
@@ -467,6 +547,7 @@ bool PhysicsStandaloneWorld::SetPendingBodyImpulse( PhysicsBodyHandle body,
     }
 
     InvalidateBodyViews();
+    ClearIslands();
     return true;
 }
 
@@ -481,6 +562,7 @@ bool PhysicsStandaloneWorld::ApplyBodyImpulse( PhysicsBodyHandle body,
     }
 
     InvalidateBodyViews();
+    ClearIslands();
     return true;
 }
 
@@ -578,6 +660,7 @@ PhysicsConstraintHandle PhysicsStandaloneWorld::CreatePointJoint( const PhysicsP
 
     m_pointJoints[index] = MakePointJointView( desc, handle );
     m_constraintAlive[index] = 1;
+    ClearIslands();
     return handle;
 }
 
@@ -616,6 +699,7 @@ bool PhysicsStandaloneWorld::UpdatePointJoint( const PhysicsPointJointUpdateDesc
         joint.groupId = desc.groupId;
         joint.flags = desc.flags;
     }
+    ClearIslands();
     return true;
 }
 
@@ -628,6 +712,7 @@ bool PhysicsStandaloneWorld::DestroyConstraint( PhysicsConstraintHandle constrai
     }
 
     TombstoneConstraintSlot( constraint.index );
+    ClearIslands();
     return true;
 }
 
@@ -668,6 +753,7 @@ bool PhysicsStandaloneWorld::Step( const PhysicsStandaloneStepDesc& desc )
         InvalidateBodyViews();
     }
     GenerateStandaloneContacts();
+    GenerateStandaloneIslands();
     return true;
 }
 
@@ -675,6 +761,14 @@ bool PhysicsStandaloneWorld::Step( const PhysicsStandaloneStepDesc& desc )
 void PhysicsStandaloneWorld::ClearContacts()
 {
     m_contacts.clear();
+    ClearIslands();
+}
+
+
+void PhysicsStandaloneWorld::ClearIslands()
+{
+    m_islands.clear();
+    m_islandBodyScratch.clear();
 }
 
 
@@ -853,6 +947,129 @@ bool PhysicsStandaloneWorld::TryAppendSphereBoxContact( const ColliderRecord& co
 }
 
 
+void PhysicsStandaloneWorld::GenerateStandaloneIslands()
+{
+    ClearIslands();
+
+    const std::vector<PhysicsBodyRecord>& bodies = m_bodyStore.Records();
+    if ( bodies.empty() )
+    {
+        return;
+    }
+
+    uint32_t maxBodyHandleIndex = 0;
+    for ( const PhysicsBodyRecord& body : bodies )
+    {
+        if ( body.handle.index > maxBodyHandleIndex )
+        {
+            maxBodyHandleIndex = body.handle.index;
+        }
+    }
+
+    const uint32_t bodyCount = static_cast<uint32_t>( bodies.size() );
+    m_islandParentScratch.resize( bodyCount );
+    m_islandRankScratch.assign( bodyCount, 0u );
+    m_islandHandleRowScratch.assign( static_cast<std::size_t>( maxBodyHandleIndex ) + 1u, INVALID_ISLAND_ROW );
+    for ( uint32_t row = 0; row < bodyCount; ++row )
+    {
+        m_islandParentScratch[row] = row;
+        m_islandHandleRowScratch[bodies[row].handle.index] = row;
+    }
+
+    auto rowForBody = [&]( PhysicsBodyHandle body ) -> uint32_t
+    {
+        if ( body.index >= m_islandHandleRowScratch.size() )
+        {
+            return INVALID_ISLAND_ROW;
+        }
+        const uint32_t row = m_islandHandleRowScratch[body.index];
+        return row != INVALID_ISLAND_ROW && bodies[row].handle == body ? row : INVALID_ISLAND_ROW;
+    };
+
+    for ( const PhysicsContactView& contact : m_contacts )
+    {
+        if ( !contact.touching )
+        {
+            continue;
+        }
+        const uint32_t rowA = rowForBody( contact.bodyA );
+        const uint32_t rowB = rowForBody( contact.bodyB );
+        if ( rowA != INVALID_ISLAND_ROW && rowB != INVALID_ISLAND_ROW )
+        {
+            UnionIslandRows( m_islandParentScratch, m_islandRankScratch, rowA, rowB );
+        }
+    }
+
+    for ( std::size_t i = 0; i < m_pointJoints.size(); ++i )
+    {
+        if ( !m_constraintAlive[i] )
+        {
+            continue;
+        }
+        const PhysicsPointJointView& joint = m_pointJoints[i];
+        const uint32_t rowA = rowForBody( joint.bodyA );
+        const uint32_t rowB = rowForBody( joint.bodyB );
+        if ( rowA != INVALID_ISLAND_ROW && rowB != INVALID_ISLAND_ROW )
+        {
+            UnionIslandRows( m_islandParentScratch, m_islandRankScratch, rowA, rowB );
+        }
+    }
+
+    m_islandRootSlotScratch.assign( bodyCount, INVALID_ISLAND_ROW );
+    for ( uint32_t row = 0; row < bodyCount; ++row )
+    {
+        const uint32_t root = FindIslandRoot( m_islandParentScratch, row );
+        uint32_t islandSlot = m_islandRootSlotScratch[root];
+        if ( islandSlot == INVALID_ISLAND_ROW )
+        {
+            islandSlot = static_cast<uint32_t>( m_islands.size() );
+            m_islandRootSlotScratch[root] = islandSlot;
+
+            PhysicsIslandView island;
+            island.islandId = islandSlot + 1u;
+            island.sleeping = true;
+            m_islands.push_back( island );
+        }
+
+        PhysicsIslandView& island = m_islands[islandSlot];
+        ++island.bodyCount;
+        island.supported = island.supported || bodies[row].isFixed;
+        if ( !bodies[row].isFixed )
+        {
+            island.sleeping = island.sleeping && m_sleepEnabled && bodies[row].isSleeping;
+        }
+    }
+
+    m_islandBodyOffsetScratch.resize( m_islands.size() );
+    uint32_t bodyOffset = 0;
+    for ( uint32_t islandSlot = 0; islandSlot < static_cast<uint32_t>( m_islands.size() ); ++islandSlot )
+    {
+        m_islandBodyOffsetScratch[islandSlot] = bodyOffset;
+        bodyOffset += m_islands[islandSlot].bodyCount;
+        m_islands[islandSlot].bodyCount = 0;
+    }
+
+    m_islandBodyScratch.resize( bodyOffset );
+    for ( uint32_t row = 0; row < bodyCount; ++row )
+    {
+        const uint32_t root = FindIslandRoot( m_islandParentScratch, row );
+        const uint32_t islandSlot = m_islandRootSlotScratch[root];
+        PhysicsIslandView& island = m_islands[islandSlot];
+        const uint32_t writeIndex = m_islandBodyOffsetScratch[islandSlot] + island.bodyCount;
+        m_islandBodyScratch[writeIndex] = bodies[row].handle;
+        ++island.bodyCount;
+    }
+
+    // Lifetime: island rows borrow from one flat body-handle buffer. Assign the
+    // pointers after the buffer is fully resized so callers never see stale spans.
+    for ( uint32_t islandSlot = 0; islandSlot < static_cast<uint32_t>( m_islands.size() ); ++islandSlot )
+    {
+        PhysicsIslandView& island = m_islands[islandSlot];
+        island.bodies = island.bodyCount == 0u ? nullptr : &m_islandBodyScratch[m_islandBodyOffsetScratch[islandSlot]];
+    }
+}
+
+
 bool PhysicsStandaloneWorld::ApplyActivationCommand( const PhysicsActivationCommand& command )
 {
     if ( command.kind == PhysicsActivationCommandKind::SetSleepEnabled )
@@ -867,6 +1084,7 @@ bool PhysicsStandaloneWorld::ApplyActivationCommand( const PhysicsActivationComm
                 body.isSleeping = false;
             }
             InvalidateBodyViews();
+            ClearIslands();
         }
         return true;
     }
@@ -887,6 +1105,7 @@ bool PhysicsStandaloneWorld::ApplyActivationCommand( const PhysicsActivationComm
     case PhysicsActivationCommandKind::WakeBody:
         body->isSleeping = false;
         InvalidateBodyViews();
+        ClearIslands();
         return true;
     case PhysicsActivationCommandKind::SeedBodyAsleep:
         if ( !m_sleepEnabled )
@@ -897,6 +1116,7 @@ bool PhysicsStandaloneWorld::ApplyActivationCommand( const PhysicsActivationComm
         body->angularVelocity = Vector3( 0.0f, 0.0f, 0.0f );
         body->isSleeping = true;
         InvalidateBodyViews();
+        ClearIslands();
         return true;
     case PhysicsActivationCommandKind::SetSleepEnabled:
         break;
@@ -1099,10 +1319,10 @@ SkullbonezCore::Physics::PhysicsContactCollectionView PhysicsStandaloneWorld::Co
 
 SkullbonezCore::Physics::PhysicsIslandCollectionView PhysicsStandaloneWorld::Islands() const
 {
-    // Concept: sleep island authority still lives in the legacy step path. The
-    // standalone API publishes a stable empty view now so future store-owned
-    // islands can fill it without changing callers again.
-    return SkullbonezCore::Physics::PhysicsIslandCollectionView{};
+    PhysicsIslandCollectionView view;
+    view.islands = m_islands.empty() ? nullptr : m_islands.data();
+    view.islandCount = static_cast<uint32_t>( m_islands.size() );
+    return view;
 }
 
 
@@ -1592,6 +1812,11 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     const PhysicsBroadphaseQueryResultView sleepGateQueryView = sleepGateWorld.QueryBroadphaseCells( sleepGateQuery );
     const bool sleepDisabledQueryIncludesBody = sleepGateQueryView.bodyCount == 1u && sleepGateQueryView.bodies &&
                                                 sleepGateQueryView.bodies[0] == sleepGateBody;
+    const PhysicsIslandCollectionView sleepGateIslands = sleepGateWorld.Islands();
+    const bool sleepDisabledIslandAwake =
+        sleepGateIslands.islandCount == 1u && sleepGateIslands.islands && sleepGateIslands.islands[0].bodyCount == 1u &&
+        sleepGateIslands.islands[0].bodies && sleepGateIslands.islands[0].bodies[0] == sleepGateBody &&
+        !sleepGateIslands.islands[0].sleeping;
 
     PhysicsStandaloneWorld impulseWorld;
     PhysicsBodyCreateDesc impulseBodyDesc;
@@ -1632,7 +1857,7 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         disableSleepWokeBodies && seedRejectedWhileSleepDisabled && enabledSleep && reseededActivationConsistent &&
         wokeActivationConsistent && destroyedActivationBody && staleActivationRejected && sleepGateDisabled &&
         sleepDisabledCreateAwake && sleepDisabledUpdateStayedAwake && sleepDisabledStepIntegrated &&
-        sleepDisabledQueryIncludesBody && clearReusesLowSlotWithNewGeneration;
+        sleepDisabledQueryIncludesBody && sleepDisabledIslandAwake && clearReusesLowSlotWithNewGeneration;
 
     PhysicsStandaloneStepDesc stepDesc;
     stepDesc.deltaSeconds = 0.25f;
@@ -1736,6 +1961,87 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         sphereBoxContact->contactMaterialAId == 303u && sphereBoxContact->contactMaterialBId == 304u &&
         sphereBoxContact->featureId != 0u && sphereBoxContact->touching;
 
+    PhysicsStandaloneWorld islandWorld;
+    PhysicsBodyCreateDesc islandBodyADesc;
+    islandBodyADesc.sceneObjectId = PhysicsSceneObjectId{ 41u };
+    const PhysicsBodyHandle islandBodyA = islandWorld.CreateBody( islandBodyADesc );
+
+    PhysicsBodyCreateDesc islandBodyBDesc;
+    islandBodyBDesc.sceneObjectId = PhysicsSceneObjectId{ 42u };
+    islandBodyBDesc.position = Vector3( 1.5f, 0.0f, 0.0f );
+    const PhysicsBodyHandle islandBodyB = islandWorld.CreateBody( islandBodyBDesc );
+
+    PhysicsBodyCreateDesc isolatedIslandBodyDesc;
+    isolatedIslandBodyDesc.sceneObjectId = PhysicsSceneObjectId{ 43u };
+    isolatedIslandBodyDesc.position = Vector3( 8.0f, 0.0f, 0.0f );
+    const PhysicsBodyHandle isolatedIslandBody = islandWorld.CreateBody( isolatedIslandBodyDesc );
+
+    PhysicsColliderCreateDesc islandColliderADesc;
+    islandColliderADesc.body = islandBodyA;
+    islandColliderADesc.shape = BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
+    const PhysicsColliderHandle islandColliderA = islandWorld.CreateCollider( islandColliderADesc );
+
+    PhysicsColliderCreateDesc islandColliderBDesc;
+    islandColliderBDesc.body = islandBodyB;
+    islandColliderBDesc.shape = BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
+    const PhysicsColliderHandle islandColliderB = islandWorld.CreateCollider( islandColliderBDesc );
+
+    PhysicsStandaloneStepDesc islandStepDesc;
+    islandStepDesc.deltaSeconds = 0.125f;
+    islandStepDesc.fixedStep = true;
+    const bool islandStepSucceeded = islandWorld.Step( islandStepDesc );
+    const PhysicsContactCollectionView islandContacts = islandWorld.Contacts();
+    const PhysicsIslandCollectionView islandView = islandWorld.Islands();
+    const bool islandSmokeConsistent =
+        islandStepSucceeded && islandContacts.contactCount == 1u && islandContacts.contacts &&
+        islandContacts.contacts[0].colliderA == islandColliderA && islandContacts.contacts[0].colliderB == islandColliderB &&
+        islandView.islandCount == 2u && islandView.islands && islandView.islands[0].bodyCount == 2u &&
+        islandView.islands[0].bodies && islandView.islands[0].bodies[0] == islandBodyA &&
+        islandView.islands[0].bodies[1] == islandBodyB && !islandView.islands[0].sleeping &&
+        !islandView.islands[0].supported && islandView.islands[1].bodyCount == 1u && islandView.islands[1].bodies &&
+        islandView.islands[1].bodies[0] == isolatedIslandBody && !islandView.islands[1].sleeping &&
+        !islandView.islands[1].supported;
+
+    PhysicsStandaloneWorld wakeIslandWorld;
+    const PhysicsBodyHandle wakeIslandBodyA = wakeIslandWorld.CreateBody( islandBodyADesc );
+    const PhysicsBodyHandle wakeIslandBodyB = wakeIslandWorld.CreateBody( islandBodyBDesc );
+    PhysicsColliderCreateDesc wakeIslandColliderADesc = islandColliderADesc;
+    wakeIslandColliderADesc.body = wakeIslandBodyA;
+    (void)wakeIslandWorld.CreateCollider( wakeIslandColliderADesc );
+    PhysicsColliderCreateDesc wakeIslandColliderBDesc = islandColliderBDesc;
+    wakeIslandColliderBDesc.body = wakeIslandBodyB;
+    (void)wakeIslandWorld.CreateCollider( wakeIslandColliderBDesc );
+
+    PhysicsActivationCommand seedWakeIslandA;
+    seedWakeIslandA.kind = PhysicsActivationCommandKind::SeedBodyAsleep;
+    seedWakeIslandA.body = wakeIslandBodyA;
+    PhysicsActivationCommand seedWakeIslandB = seedWakeIslandA;
+    seedWakeIslandB.body = wakeIslandBodyB;
+    PhysicsActivationCommand wakeIslandA;
+    wakeIslandA.kind = PhysicsActivationCommandKind::WakeBody;
+    wakeIslandA.body = wakeIslandBodyA;
+    const bool wakeIslandCommands =
+        wakeIslandWorld.ApplyActivationCommand( seedWakeIslandA ) &&
+        wakeIslandWorld.ApplyActivationCommand( seedWakeIslandB ) && wakeIslandWorld.ApplyActivationCommand( wakeIslandA );
+    const bool wakeIslandStepSucceeded = wakeIslandWorld.Step( islandStepDesc );
+    const PhysicsIslandCollectionView wakeIslandView = wakeIslandWorld.Islands();
+    const bool wakeIslandConsistent =
+        wakeIslandCommands && wakeIslandStepSucceeded && wakeIslandView.islandCount == 1u && wakeIslandView.islands &&
+        wakeIslandView.islands[0].bodyCount == 2u && wakeIslandView.islands[0].bodies &&
+        wakeIslandView.islands[0].bodies[0] == wakeIslandBodyA &&
+        wakeIslandView.islands[0].bodies[1] == wakeIslandBodyB && !wakeIslandView.islands[0].sleeping;
+
+    PhysicsStandaloneWorld staleIslandWorld;
+    const PhysicsBodyHandle liveIslandBody = staleIslandWorld.CreateBody( islandBodyADesc );
+    const PhysicsBodyHandle staleIslandBody = staleIslandWorld.CreateBody( islandBodyBDesc );
+    const bool destroyedStaleIslandBody = staleIslandWorld.DestroyBody( staleIslandBody );
+    const bool staleIslandStepSucceeded = staleIslandWorld.Step( islandStepDesc );
+    const PhysicsIslandCollectionView staleIslandView = staleIslandWorld.Islands();
+    const bool staleIslandExcluded =
+        destroyedStaleIslandBody && staleIslandStepSucceeded && staleIslandView.islandCount == 1u &&
+        staleIslandView.islands && staleIslandView.islands[0].bodyCount == 1u && staleIslandView.islands[0].bodies &&
+        staleIslandView.islands[0].bodies[0] == liveIslandBody;
+
     PhysicsStandaloneSmokeResult result;
     result.body = body;
     result.secondaryBody = secondaryBody;
@@ -1746,7 +2052,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     result.pointJointCount = world.PointJoints().pointJointCount;
     result.contactCount = contactView.contactCount;
     result.contactHash = HashContactCollection( contactView );
-    result.islandCount = world.Islands().islandCount;
+    result.islandCount = islandView.islandCount;
+    result.islandHash = HashIslandCollection( islandView );
     result.stepCount = STEP_COUNT;
     result.activationCommandsPassed = activationCommandsConsistent;
 
@@ -1811,12 +2118,13 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         staleEndpointHandleRejected && staleBodyColliderCreationRejected && staleBodyPointJointCreationRejected &&
         poseVelocityUpdateConsistent && destroyedEditableBody && staleEditableBodyRejected &&
         impulseCommandConsistent && staleImpulseRejected && activationCommandsConsistent && rayCastConsistent &&
-        broadphaseQueryConsistent && contactSmokeConsistent;
+        broadphaseQueryConsistent && contactSmokeConsistent && islandSmokeConsistent && wakeIslandConsistent &&
+        staleIslandExcluded;
 
     result.deterministicHash = HashSmokeResult( result );
     result.passed = stepped && result.lifecycleChecksPassed && finalBody && result.secondaryBodyAdvanced &&
                     result.bodyCount == 2u && result.colliderCount == 1u && result.pointJointCount == 0u &&
-                    result.contactCount == 2u && result.islandCount == 0u && result.broadphaseQueryCount == 1u &&
+                    result.contactCount == 2u && result.islandCount == 2u && result.broadphaseQueryCount == 1u &&
                     result.activationCommandsPassed && result.rayCastHit &&
                     result.finalPosition == Vector3( 3.0f, 9.0f, -2.0f ) &&
                     result.finalLinearVelocity == Vector3( 2.0f, -4.0f, 0.0f );

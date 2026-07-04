@@ -368,6 +368,7 @@ struct PhysicsContactCollectionView
 struct PhysicsIslandView
 {
     uint32_t islandId = 0;
+    const PhysicsBodyHandle* bodies = nullptr;
     uint32_t bodyCount = 0;
     bool sleeping = false;
     bool supported = false;
@@ -435,6 +436,7 @@ struct PhysicsStandaloneSmokeResult
     uint32_t islandCount = 0;
     uint32_t broadphaseQueryCount = 0;
     uint32_t stepCount = 0;
+    uint64_t islandHash = 0;
     bool activationCommandsPassed = false;
     bool rayCastHit = false;
     Math::Vector::Vector3 finalPosition = Math::Vector::ZERO_VECTOR;
@@ -582,7 +584,9 @@ class PhysicsStandaloneWorld
                                               PhysicsConstraintHandle constraint ) const;
     void TombstoneConstraintSlot( uint32_t index );
     void ClearContacts();
+    void ClearIslands();
     void GenerateStandaloneContacts();
+    void GenerateStandaloneIslands();
     bool TryAppendSphereSphereContact( const ColliderRecord& colliderA,
                                        const PhysicsBodyRecord& bodyA,
                                        const ColliderRecord& colliderB,
@@ -599,6 +603,13 @@ class PhysicsStandaloneWorld
     mutable PhysicsColliderView m_singleColliderViewScratch;                    // Cold single-collider projection returned by Collider().
     mutable std::vector<PhysicsColliderView> m_colliderViewScratch;             // Filtered collider view returned by Colliders().
     std::vector<PhysicsContactView> m_contacts;                                 // Rebuilt contact rows from standalone collider/body records.
+    std::vector<PhysicsIslandView> m_islands;                                   // Rebuilt island rows from standalone contacts/constraints.
+    std::vector<PhysicsBodyHandle> m_islandBodyScratch;                         // Flat immutable body spans referenced by island rows.
+    std::vector<uint32_t> m_islandParentScratch;                                // Union-find parent rows for island generation.
+    std::vector<uint32_t> m_islandRankScratch;                                  // Union-find rank rows for deterministic merges.
+    std::vector<uint32_t> m_islandHandleRowScratch;                             // Handle-index to body-row lookup during island generation.
+    std::vector<uint32_t> m_islandRootSlotScratch;                              // Root-row to public island-row lookup.
+    std::vector<uint32_t> m_islandBodyOffsetScratch;                            // Per-island offset into m_islandBodyScratch.
     std::vector<PhysicsPointJointView> m_pointJoints;                           // Slot-indexed public constraint records.
     std::vector<uint32_t> m_constraintGenerations;                              // Per-constraint stale-handle counter.
     std::vector<uint8_t> m_constraintAlive;                                     // 0/1 constraint liveness for deterministic scans.
