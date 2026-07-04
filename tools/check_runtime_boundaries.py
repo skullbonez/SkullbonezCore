@@ -1798,6 +1798,9 @@ RUN_REPLAY_EDITOR_TRANSFORM_EVENT_SOURCE_RULE = (
     r"\bRun::RecordReplayEditorTransformEvent\s*\(",
     "Record editor transform replay events through ReplayRuntime.",
 )
+REPLAY_EDITOR_TRANSFORM_EVENT_MODEL_PARAM_PATTERN = re.compile(
+    r"\bRecordEditorTransformEvent\s*\([^;{}]*?\b(?:GameObjects\s*::\s*)?GameModel\s*&"
+)
 
 RUN_REPLAY_LOADED_PRESENTATION_SCRUBBER_SOURCE_RULE = (
     "Run loaded-presentation scrubber arming wrapper is blocked",
@@ -6073,10 +6076,20 @@ def check_run_replay_editor_place_event_source_guardrails(repo: Path) -> list[Bo
 def check_run_replay_editor_transform_event_source_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments(text)
     message, pattern, detail = RUN_REPLAY_EDITOR_TRANSFORM_EVENT_SOURCE_RULE
-    return [
+    errors = [
         BoundaryError(path, line_for_offset(stripped, match.start()), message, detail)
         for match in re.finditer(pattern, stripped)
     ]
+    errors.extend(
+        BoundaryError(
+            path,
+            line_for_offset(stripped, match.start()),
+            "ReplayRuntime editor transform event GameModel parameter is blocked",
+            "Pass replayBodyId plus PhysicsBodyStore position/orientation values instead of reopening the compatibility model mirror.",
+        )
+        for match in REPLAY_EDITOR_TRANSFORM_EVENT_MODEL_PARAM_PATTERN.finditer(stripped)
+    )
+    return errors
 
 
 def check_run_replay_editor_transform_event_source_guardrails(repo: Path) -> list[BoundaryError]:
@@ -8801,6 +8814,54 @@ def run_self_tests() -> list[str]:
         )
     ):
         failures.append("replay editor transform event source helper synthetic surface was not rejected")
+
+    old_replay_editor_transform_model_param = """
+    void ReplayRuntime::RecordEditorTransformEvent( int modelIndex,
+                                                    uint32_t changedFlags,
+                                                    const GameModel& model,
+                                                    int modelCount )
+    {
+        RecordEvent();
+    }
+    """
+    if not any(
+        error.message == "ReplayRuntime editor transform event GameModel parameter is blocked"
+        for error in check_run_replay_editor_transform_event_source_guardrails_text(
+            Path("synthetic/ReplayRuntime.cpp"),
+            old_replay_editor_transform_model_param,
+        )
+    ):
+        failures.append("replay editor transform GameModel parameter synthetic surface was not rejected")
+
+    allowed_replay_editor_transform_body_values = """
+    void ReplayRuntime::RecordEditorTransformEvent( int modelIndex,
+                                                    uint32_t changedFlags,
+                                                    uint32_t replayBodyId,
+                                                    const Vector3& position,
+                                                    const Quaternion& orientation,
+                                                    int modelCount )
+    {
+        RecordEvent();
+    }
+    """
+    if check_run_replay_editor_transform_event_source_guardrails_text(
+        Path("synthetic/ReplayRuntime.cpp"),
+        allowed_replay_editor_transform_body_values,
+    ):
+        failures.append("store-backed replay editor transform event synthetic surface was rejected")
+
+    commented_replay_editor_transform_model_param = """
+    void DocumentOldReplayTransformRecorder()
+    {
+        // RecordEditorTransformEvent used to accept const GameModel& model here.
+        RecordEditorTransformEvent( modelIndex, flags, replayBodyId, position, orientation, modelCount );
+    }
+    """
+    if check_run_replay_editor_transform_event_source_guardrails_text(
+        Path("synthetic/ReplayRuntime.cpp"),
+        commented_replay_editor_transform_model_param,
+    ):
+        failures.append("comment-only replay editor transform model parameter synthetic text was rejected")
 
     old_replay_loaded_presentation_scrubber_source_helper = (
         "void Run::ArmLoadedReplayPresentationScrubber( float normalized ) { }"

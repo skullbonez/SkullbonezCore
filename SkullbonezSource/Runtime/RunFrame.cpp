@@ -1175,10 +1175,18 @@ void Run::TickReplaySaveProbe()
             placedModel.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             placedModel.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             m_cGameModelCollection.CommitEditedModelPhysicsState( modelCountBeforePlace, true );
+            const PhysicsBodyRecord* placedBody =
+                m_cGameModelCollection.GetPhysicsBodyStore().RecordForModelIndex( modelCountBeforePlace );
+            if ( !placedBody || placedBody->replayBodyId == 0 )
+            {
+                throw std::runtime_error( "replay save probe failed to capture edited body record" );
+            }
             m_replayRuntime.RecordEditorTransformEvent(
                 modelCountBeforePlace,
                 REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE,
-                placedModel,
+                placedBody->replayBodyId,
+                placedBody->position,
+                placedBody->orientation,
                 m_cGameModelCollection.GetModelCount(),
                 PROBE_SCALE_AXIS,
                 PROBE_SCALE_FACTOR );

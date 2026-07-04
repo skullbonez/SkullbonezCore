@@ -503,9 +503,13 @@ class ReplayRuntime
                                  const Math::Vector::Vector3& terrainPoint,
                                  const Math::Vector::Vector3& placementScale,
                                  float placementYawRadians );
+    // Records exact transform payload values supplied by the caller; replay must
+    // not reread GameModel pose after physics store authority has the body row.
     void RecordEditorTransformEvent( int modelIndex,
                                      uint32_t changedFlags,
-                                     const GameObjects::GameModel& model,
+                                     uint32_t replayBodyId,
+                                     const Math::Vector::Vector3& position,
+                                     const Math::Orientation::Quaternion& orientation,
                                      int modelCount,
                                      int scaleAxis,
                                      float scaleFactor );

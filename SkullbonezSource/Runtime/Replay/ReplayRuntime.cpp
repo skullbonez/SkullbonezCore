@@ -2229,7 +2229,9 @@ void ReplayRuntime::RecordEditorPlaceEvent( int objectType,
 
 void ReplayRuntime::RecordEditorTransformEvent( int modelIndex,
                                                 uint32_t changedFlags,
-                                                const GameModel& model,
+                                                uint32_t replayBodyId,
+                                                const Vector3& position,
+                                                const Math::Orientation::Quaternion& orientation,
                                                 int modelCount,
                                                 int scaleAxis,
                                                 float scaleFactor )
@@ -2261,8 +2263,8 @@ void ReplayRuntime::RecordEditorTransformEvent( int modelIndex,
         cursor += consumed;
         remaining -= consumed;
     }
-    ReplayRuntimeAppendVectorHex( cursor, remaining, model.GetPosition() );
-    ReplayRuntimeAppendQuaternionHex( cursor, remaining, model.GetOrientation() );
+    ReplayRuntimeAppendVectorHex( cursor, remaining, position );
+    ReplayRuntimeAppendQuaternionHex( cursor, remaining, orientation );
     if ( changedFlags & REPLAY_EDITOR_TRANSFORM_SCALE )
     {
         ReplayRuntimeAppendFloatHex( cursor, remaining, scaleFactor );
@@ -2272,17 +2274,17 @@ void ReplayRuntime::RecordEditorTransformEvent( int modelIndex,
     float qy = 0.0f;
     float qz = 0.0f;
     float qw = 1.0f;
-    model.GetOrientation().GetComponents( qx, qy, qz, qw );
+    orientation.GetComponents( qx, qy, qz, qw );
 
     uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
     ReplayRuntimeHashInt( hash, modelIndex );
-    ReplayRuntimeHashInt( hash, static_cast<int32_t>( model.GetReplayBodyId() ) );
+    ReplayRuntimeHashInt( hash, static_cast<int32_t>( replayBodyId ) );
     ReplayRuntimeHashInt( hash, modelCount );
     ReplayRuntimeHashInt( hash, static_cast<int32_t>( changedFlags ) );
     ReplayRuntimeHashInt( hash, scaleAxis );
-    ReplayRuntimeHashFloat( hash, model.GetPosition().x );
-    ReplayRuntimeHashFloat( hash, model.GetPosition().y );
-    ReplayRuntimeHashFloat( hash, model.GetPosition().z );
+    ReplayRuntimeHashFloat( hash, position.x );
+    ReplayRuntimeHashFloat( hash, position.y );
+    ReplayRuntimeHashFloat( hash, position.z );
     ReplayRuntimeHashFloat( hash, qx );
     ReplayRuntimeHashFloat( hash, qy );
     ReplayRuntimeHashFloat( hash, qz );
@@ -2293,7 +2295,7 @@ void ReplayRuntime::RecordEditorTransformEvent( int modelIndex,
                  NextEventFrameIndex(),
                  changedFlags,
                  modelIndex,
-                 static_cast<int32_t>( model.GetReplayBodyId() ),
+                 static_cast<int32_t>( replayBodyId ),
                  modelCount,
                  scaleAxis,
                  hash,

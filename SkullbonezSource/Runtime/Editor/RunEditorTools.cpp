@@ -84,6 +84,8 @@ namespace
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SUPPORTED =
+    REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
 constexpr float EDITOR_PLACEMENT_YAW_STEP_RADIANS = _PI / 12.0f;
 
 // Concept: Clip-space mouse coordinates become editor rays by unprojecting two
@@ -108,6 +110,41 @@ bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, f
     outWorld = Vector3( worldX * invW, worldY * invW, worldZ * invW );
     return true;
 }
+
+
+bool RecordEditorTransformEventFromBodyStore( ReplayRuntime& replayRuntime,
+                                              SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                              int modelIndex,
+                                              uint32_t changedFlags,
+                                              int scaleAxis,
+                                              float scaleFactor )
+{
+    // Why: editor gizmos still mutate the model-owned authoring edge, then commit
+    // into PhysicsBodyStore. Replay event bytes must come from that authoritative
+    // body row so model-mirror writeback is not required before recording.
+    changedFlags &= REPLAY_EDITOR_TRANSFORM_SUPPORTED;
+    if ( changedFlags == 0 )
+    {
+        return false;
+    }
+
+    const PhysicsBodyRecord* body = collection.GetPhysicsBodyStore().RecordForModelIndex( modelIndex );
+    if ( !body || body->replayBodyId == 0 )
+    {
+        return false;
+    }
+
+    replayRuntime.RecordEditorTransformEvent( modelIndex,
+                                              changedFlags,
+                                              body->replayBodyId,
+                                              body->position,
+                                              body->orientation,
+                                              collection.GetModelCount(),
+                                              scaleAxis,
+                                              scaleFactor );
+    return true;
+}
+
 
 Vector3 HullAuthoredLocalOffset( const ConvexHullShape& hull )
 {
@@ -1121,12 +1158,12 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                                         scaleFactor )
                             ? REPLAY_EDITOR_TRANSFORM_SCALE
                             : 0u;
-                    m_replayRuntime.RecordEditorTransformEvent( m_runtimeTools.Editor().selectedModelIndex,
-                                                                changedFlags,
-                                                                model,
-                                                                m_cGameModelCollection.GetModelCount(),
-                                                                scaleAxis,
-                                                                scaleFactor );
+                    RecordEditorTransformEventFromBodyStore( m_replayRuntime,
+                                                             m_cGameModelCollection,
+                                                             m_runtimeTools.Editor().selectedModelIndex,
+                                                             changedFlags,
+                                                             scaleAxis,
+                                                             scaleFactor );
                 }
                 else
                 {
@@ -1154,12 +1191,12 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                         .gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )] )
                                     ? REPLAY_EDITOR_TRANSFORM_ROTATE
                                     : 0u;
-                            m_replayRuntime.RecordEditorTransformEvent( modelIndex,
-                                                                        changedFlags,
-                                                                        groupModel,
-                                                                        m_cGameModelCollection.GetModelCount(),
-                                                                        -1,
-                                                                        1.0f );
+                            RecordEditorTransformEventFromBodyStore( m_replayRuntime,
+                                                                     m_cGameModelCollection,
+                                                                     modelIndex,
+                                                                     changedFlags,
+                                                                     -1,
+                                                                     1.0f );
                         }
                     }
                     else
@@ -1173,12 +1210,12 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                                                   m_runtimeTools.Editor().gizmoDragStartOrientation )
                                             ? REPLAY_EDITOR_TRANSFORM_ROTATE
                                             : 0u;
-                        m_replayRuntime.RecordEditorTransformEvent( m_runtimeTools.Editor().selectedModelIndex,
-                                                                    changedFlags,
-                                                                    model,
-                                                                    m_cGameModelCollection.GetModelCount(),
-                                                                    -1,
-                                                                    1.0f );
+                        RecordEditorTransformEventFromBodyStore( m_replayRuntime,
+                                                                 m_cGameModelCollection,
+                                                                 m_runtimeTools.Editor().selectedModelIndex,
+                                                                 changedFlags,
+                                                                 -1,
+                                                                 1.0f );
                     }
                 }
             }
