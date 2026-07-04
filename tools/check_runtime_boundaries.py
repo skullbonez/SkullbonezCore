@@ -12,9 +12,10 @@
 #   service access while explicit service contexts are built. Renderer globals
 #   have an extra file-classification fence, object rendering has a
 #   render-instance authority fence, runtime picking has a store-authority
-#   fence, runtime handle smoke has a handle-authority fence, and fixed-tree or
-#   replay-restore wakes have owner-side store-handle fences, so count allowances
-#   do not silently approve a new compatibility location.
+#   fence, runtime handle smoke has a handle-authority fence, and fixed-tree,
+#   replay-restore wake, or replay velocity-edit commands have store-handle
+#   fences, so count allowances do not silently approve a new compatibility
+#   location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -543,6 +544,9 @@ REPLAY_VELOCITY_MODEL_STATE_PHYSICS_COMMAND_PATTERN = re.compile(
     r"model\s*\.\s*(?:SetLinearVelocity|SetAngularVelocity)|"
     r"(?:modelCollection|m_cGameModelCollection)\s*\.\s*(?:CommitEditedModelPhysicsState|WakeModel)"
     r")\s*\("
+)
+REPLAY_VELOCITY_ADAPTER_LOOKUP_PATTERN = re.compile(
+    r"\b(?:GameModelCollectionPhysicsAdapter|BodyHandleForVelocityCommand|BodyHandleForModelIndex)\b"
 )
 RUN_FRAME_REPLAY_EDITOR_TRANSFORM_WAKE_PATTERN = re.compile(
     r"\bm_cGameModelCollection\s*\.\s*WakeModel\s*\("
@@ -4115,6 +4119,18 @@ def check_replay_velocity_model_state_physics_command_guardrails_text(path: Path
                     "Replay velocity edit must resolve PhysicsBodyHandle at the replay boundary and call "
                     "PhysicsEngine handle commands instead of mutating GameModel velocity or collection "
                     "model-index wrappers."
+                ),
+            )
+        )
+    for match in REPLAY_VELOCITY_ADAPTER_LOOKUP_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay velocity adapter lookup is blocked",
+                (
+                    "Replay velocity edit already owns a validated model-index target; resolve the current "
+                    "PhysicsBodyHandle from PhysicsBodyStore and call PhysicsEngine handle commands directly."
                 ),
             )
         )
@@ -12092,7 +12108,7 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old replay velocity model-state command synthetic surface was not rejected")
 
-    allowed_replay_velocity_handle_command = """
+    old_replay_velocity_adapter_command = """
     void ApplyReplayVelocityEditToModel( GameModelCollection& modelCollection )
     {
         GameModelCollectionPhysicsAdapter physicsBodies( modelCollection );
@@ -12100,17 +12116,34 @@ def run_self_tests() -> list[str]:
         modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
     }
     """
+    if not any(
+        error.message == "replay velocity adapter lookup is blocked"
+        for error in check_replay_velocity_model_state_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
+            old_replay_velocity_adapter_command,
+        )
+    ):
+        failures.append("old replay velocity adapter lookup synthetic surface was not rejected")
+
+    allowed_replay_velocity_handle_command = """
+    void ApplyReplayVelocityEditToModel( GameModelCollection& modelCollection )
+    {
+        const PhysicsBodyHandle body = modelCollection.GetPhysicsEngine().BodyStore().HandleForModelIndex( modelIndex );
+        modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
+    }
+    """
     if check_replay_velocity_model_state_physics_command_guardrails_text(
         Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
         allowed_replay_velocity_handle_command,
     ):
-        failures.append("handle-keyed replay velocity command synthetic surface was rejected")
+        failures.append("store-handle replay velocity command synthetic surface was rejected")
 
     commented_replay_velocity_model_state_command = """
     void DocumentOldReplayVelocityCommand()
     {
         // model.SetLinearVelocity(linearVelocity) used to run here.
         // modelCollection.CommitEditedModelPhysicsState(modelIndex, false) used to run here.
+        // GameModelCollectionPhysicsAdapter physicsBodies(modelCollection) used to run here.
         modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
     }
     """

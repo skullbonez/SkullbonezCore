@@ -216,10 +216,10 @@ static void ApplyReplayVelocityEditToModel( ReplayRuntime& replayRuntime,
     clampedAngular.z =
         std::clamp( clampedAngular.z, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
 
-    // Why: replay selection still resolves from model order, but the velocity
-    // mutation below must enter physics as a body-handle command.
-    GameModelCollectionPhysicsAdapter physicsBodies( modelCollection );
-    const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelIndex, true );
+    // Why: replay selection still resolves from model order, but velocity edits
+    // can target the authoritative store row directly instead of constructing
+    // the legacy model-index adapter.
+    const PhysicsBodyHandle body = modelCollection.GetPhysicsEngine().BodyStore().HandleForModelIndex( modelIndex );
     if ( !body.IsValid() )
     {
         return;

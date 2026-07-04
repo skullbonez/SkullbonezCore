@@ -5,7 +5,7 @@ Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
 `tools\validate_physics.bat` passed on 2026-07-05 after removing the replay
-editor-transform adapter wake lookup.
+velocity-edit adapter lookup.
 
 ## Completed Slices
 
@@ -109,6 +109,24 @@ editor-transform adapter wake lookup.
   `tools/check_runtime_boundaries.py` blocks those names in `RunFrame.cpp` and
   self-tests the old variable-form adapter resolver against the allowed
   body-store handle lookup. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Removed the replay velocity-edit adapter lookup.
+  `ApplyReplayVelocityEditToModel()` now resolves the selected live body with
+  `PhysicsBodyStore::HandleForModelIndex(modelIndex)` and then calls the
+  handle-keyed `PhysicsEngine::SetBodyVelocity()` command. Owner: replay
+  velocity-edit tool. Reason: replay selection still persists model-order
+  identity, but the edit already targets a validated live row and does not need
+  to construct `GameModelCollectionPhysicsAdapter` before issuing a store-owned
+  velocity command. Deletion condition: replay velocity-edit source contains no
+  `GameModelCollectionPhysicsAdapter`, `BodyHandleForVelocityCommand`, or
+  `BodyHandleForModelIndex` use. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks those names in
+  `RunReplayVelocityEdit.inl` and self-tests the old adapter resolver against
+  the allowed direct body-store handle lookup. Validation: `git diff --check`,
   `python -m py_compile tools\check_runtime_boundaries.py`,
   `python tools\check_runtime_boundaries.py --repo .`,
   `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
@@ -284,6 +302,8 @@ Create durable handles before moving ownership. The stores cannot be authoritati
 - [x] 2026-07-05 replay editor-transform restore wakes the committed body row
   directly from `PhysicsBodyStore` instead of rediscovering the edited model
   through `GameModelCollectionPhysicsAdapter`.
+- [x] 2026-07-05 replay velocity edit resolves the selected body directly from
+  `PhysicsBodyStore` before calling the handle-keyed velocity command.
 - [ ] Keep temporary model-index adapters only at old call boundaries.
   - [x] 2026-06-28 adapter slice keeps the temporary model-index command bridge
     at the old `GameModelCollection` entry points instead of adding another
