@@ -43,12 +43,16 @@ Related:
 #include <limits>
 #include <variant>
 
+using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
+using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius;
 using SkullbonezCore::Math::CollisionDetection::GetShapePosition;
 using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::VectorMag;
+using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::PHYSICS_HANDLE_INITIAL_GENERATION;
 using SkullbonezCore::Physics::PhysicsActivationCommand;
 using SkullbonezCore::Physics::PhysicsActivationCommandKind;
@@ -176,12 +180,25 @@ float ConservativeBroadphaseRadius( float requestedRadius,
     return requestedRadius > minimumRadius ? requestedRadius : minimumRadius;
 }
 
-float EffectiveColliderRadius( const PhysicsColliderView& collider )
+ColliderShapeKind ColliderShapeKindForShape( const SkullbonezCore::Math::CollisionDetection::CollisionShape& shape )
+{
+    if ( std::holds_alternative<BoundingBox>( shape ) )
+    {
+        return ColliderShapeKind::Box;
+    }
+    if ( std::holds_alternative<ConvexHullShape>( shape ) )
+    {
+        return ColliderShapeKind::ConvexHull;
+    }
+    return ColliderShapeKind::Sphere;
+}
+
+float EffectiveColliderRadius( const ColliderRecord& collider )
 {
     return ConservativeBroadphaseRadius( collider.boundingRadius, collider.shape );
 }
 
-Vector3 ColliderWorldCenter( const PhysicsBodyRecord& body, const PhysicsColliderView& collider )
+Vector3 ColliderWorldCenter( const PhysicsBodyRecord& body, const ColliderRecord& collider )
 {
     // Why: local collider offsets live in body space. Rotate them through the
     // body orientation before doing any world-space query math so conservative
@@ -244,10 +261,7 @@ void PhysicsStandaloneWorld::Clear()
 {
     m_bodyStore.Clear();
     InvalidateBodyViews();
-    m_colliders.clear();
-    m_colliderGenerations.clear();
-    m_colliderAlive.clear();
-    m_freeColliderIndices.clear();
+    m_colliderStore.Clear();
     m_colliderViewScratch.clear();
     m_pointJoints.clear();
     m_constraintGenerations.clear();
@@ -331,12 +345,17 @@ bool PhysicsStandaloneWorld::DestroyBody( PhysicsBodyHandle body )
     // Invariant: body lifetime owns child collider and connected constraint
     // validity. Standalone callers should see dependent handles fail
     // immediately after their body is deleted.
-    for ( std::size_t i = 0; i < m_colliders.size(); ++i )
+    std::vector<PhysicsColliderHandle> childColliders;
+    for ( const ColliderRecord& collider : m_colliderStore.Records() )
     {
-        if ( m_colliderAlive[i] && m_colliders[i].body == body )
+        if ( collider.body == body )
         {
-            TombstoneColliderSlot( static_cast<uint32_t>( i ) );
+            childColliders.push_back( collider.handle );
         }
+    }
+    for ( PhysicsColliderHandle collider : childColliders )
+    {
+        m_colliderStore.DestroyColliderRecord( collider );
     }
     for ( std::size_t i = 0; i < m_pointJoints.size(); ++i )
     {
@@ -390,58 +409,40 @@ PhysicsColliderHandle PhysicsStandaloneWorld::CreateCollider( const PhysicsColli
         return PhysicsColliderHandle{};
     }
 
-    uint32_t index = 0;
-    if ( !m_freeColliderIndices.empty() )
-    {
-        index = m_freeColliderIndices.back();
-        m_freeColliderIndices.pop_back();
-    }
-    else
-    {
-        index = static_cast<uint32_t>( m_colliders.size() );
-        m_colliders.push_back( PhysicsColliderView{} );
-        m_colliderGenerations.push_back( m_nextInitialGeneration );
-        m_colliderAlive.push_back( 0 );
-    }
-
-    PhysicsColliderHandle handle;
-    handle.index = index;
-    handle.generation = m_colliderGenerations[index];
-
-    m_colliders[index] = MakeColliderView( desc, handle );
-    m_colliderAlive[index] = 1;
-    return handle;
+    return m_colliderStore.CreateColliderRecord( MakeColliderRecord( desc ) );
 }
 
 
 bool PhysicsStandaloneWorld::UpdateCollider( const PhysicsColliderUpdateDesc& desc )
 {
-    if ( !IsAlive( desc.collider ) )
+    ColliderRecord* collider = m_colliderStore.MutableRecordForHandle( desc.collider );
+    if ( !collider || !IsAlive( collider->body ) )
     {
         return false;
     }
 
-    PhysicsColliderView& collider = m_colliders[desc.collider.index];
     const bool updatesShape = ( desc.updateMask & PHYSICS_COLLIDER_UPDATE_SHAPE ) != 0;
     const bool updatesBroadphase = ( desc.updateMask & PHYSICS_COLLIDER_UPDATE_BROADPHASE ) != 0;
     if ( updatesShape )
     {
-        collider.shape = desc.shape;
+        collider->shape = desc.shape;
+        collider->shapeKind = ColliderShapeKindForShape( desc.shape );
     }
     if ( desc.updateMask & PHYSICS_COLLIDER_UPDATE_RESPONSE )
     {
-        collider.restitution = desc.restitution;
-        collider.friction = desc.friction;
+        collider->restitution = desc.restitution;
+        collider->friction = desc.friction;
+        collider->contactMaterialId = desc.contactMaterialId;
     }
     if ( updatesBroadphase )
     {
-        collider.boundingRadius = desc.boundingRadius;
-        collider.projectedSurfaceArea = desc.projectedSurfaceArea;
-        collider.dragCoefficient = desc.dragCoefficient;
+        collider->boundingRadius = desc.boundingRadius;
+        collider->projectedSurfaceArea = desc.projectedSurfaceArea;
+        collider->dragCoefficient = desc.dragCoefficient;
     }
     if ( updatesShape || updatesBroadphase )
     {
-        collider.boundingRadius = ConservativeBroadphaseRadius( collider.boundingRadius, collider.shape );
+        collider->boundingRadius = ConservativeBroadphaseRadius( collider->boundingRadius, collider->shape );
     }
     return true;
 }
@@ -454,8 +455,7 @@ bool PhysicsStandaloneWorld::DestroyCollider( PhysicsColliderHandle collider )
         return false;
     }
 
-    TombstoneColliderSlot( collider.index );
-    return true;
+    return m_colliderStore.DestroyColliderRecord( collider );
 }
 
 
@@ -653,14 +653,8 @@ PhysicsRayCastHit PhysicsStandaloneWorld::RayCast( const PhysicsRayCastDesc& des
     // Concept: standalone ray casts use the same conservative broadphase
     // envelope as runtime tool rays. Exact shape-specific picks can replace
     // this later without changing the public handle-based query contract.
-    for ( std::size_t i = 0; i < m_colliders.size(); ++i )
+    for ( const ColliderRecord& collider : m_colliderStore.Records() )
     {
-        if ( !m_colliderAlive[i] )
-        {
-            continue;
-        }
-
-        const PhysicsColliderView& collider = m_colliders[i];
         const PhysicsBodyRecord* body = BodyRecord( collider.body );
         if ( !body ||
              !BodyPassesQueryFilters( *body, desc.includeFixedBodies, desc.includeSleepingBodies, m_sleepEnabled ) )
@@ -679,7 +673,7 @@ PhysicsRayCastHit PhysicsStandaloneWorld::RayCast( const PhysicsRayCastDesc& des
 
         closestDistance = distance;
         closestHit.body = body->handle;
-        closestHit.collider = collider.collider;
+        closestHit.collider = collider.handle;
         closestHit.sceneObjectId = collider.sceneObjectId.IsValid() ? collider.sceneObjectId : body->sceneObjectId;
         closestHit.distance = distance;
         closestHit.point = desc.origin + direction * distance;
@@ -708,10 +702,13 @@ PhysicsStandaloneWorld::QueryBroadphaseCells( const PhysicsBroadphaseCellQueryDe
 
         bool overlaps =
             body.boundingRadius > 0.0f && SphereOverlapsAabb( body.position, body.boundingRadius, desc.min, desc.max );
-        for ( std::size_t colliderIndex = 0; !overlaps && colliderIndex < m_colliders.size(); ++colliderIndex )
+        for ( const ColliderRecord& collider : m_colliderStore.Records() )
         {
-            const PhysicsColliderView& collider = m_colliders[colliderIndex];
-            if ( m_colliderAlive[colliderIndex] && collider.body == body.handle )
+            if ( overlaps )
+            {
+                break;
+            }
+            if ( collider.body == body.handle )
             {
                 overlaps = SphereOverlapsAabb( ColliderWorldCenter( body, collider ),
                                                EffectiveColliderRadius( collider ),
@@ -760,18 +757,25 @@ SkullbonezCore::Physics::PhysicsBodyCollectionView PhysicsStandaloneWorld::Bodie
 
 const PhysicsColliderView* PhysicsStandaloneWorld::Collider( PhysicsColliderHandle collider ) const
 {
-    return IsAlive( collider ) ? &m_colliders[collider.index] : nullptr;
+    const ColliderRecord* record = m_colliderStore.RecordForHandle( collider );
+    if ( !record || !IsAlive( record->body ) )
+    {
+        return nullptr;
+    }
+
+    m_singleColliderViewScratch = MakeColliderView( *record );
+    return &m_singleColliderViewScratch;
 }
 
 
 SkullbonezCore::Physics::PhysicsColliderCollectionView PhysicsStandaloneWorld::Colliders() const
 {
     m_colliderViewScratch.clear();
-    for ( std::size_t i = 0; i < m_colliders.size(); ++i )
+    for ( const ColliderRecord& collider : m_colliderStore.Records() )
     {
-        if ( m_colliderAlive[i] )
+        if ( IsAlive( collider.body ) )
         {
-            m_colliderViewScratch.push_back( m_colliders[i] );
+            m_colliderViewScratch.push_back( MakeColliderView( collider ) );
         }
     }
 
@@ -833,8 +837,8 @@ bool PhysicsStandaloneWorld::IsAlive( PhysicsBodyHandle body ) const
 
 bool PhysicsStandaloneWorld::IsAlive( PhysicsColliderHandle collider ) const
 {
-    return collider.IsValid() && collider.index < m_colliders.size() && m_colliderAlive[collider.index] != 0 &&
-           m_colliderGenerations[collider.index] == collider.generation && IsAlive( m_colliders[collider.index].body );
+    const ColliderRecord* record = m_colliderStore.RecordForHandle( collider );
+    return record && IsAlive( record->body );
 }
 
 
@@ -931,22 +935,39 @@ const std::vector<PhysicsBodyView>& PhysicsStandaloneWorld::BodyViewCache() cons
 }
 
 
-PhysicsColliderView PhysicsStandaloneWorld::MakeColliderView( const PhysicsColliderCreateDesc& desc,
-                                                              PhysicsColliderHandle collider ) const
+ColliderRecord PhysicsStandaloneWorld::MakeColliderRecord( const PhysicsColliderCreateDesc& desc ) const
 {
     const PhysicsBodyRecord* body = BodyRecord( desc.body );
 
-    PhysicsColliderView view;
-    view.collider = collider;
-    view.body = desc.body;
-    view.sceneObjectId =
+    ColliderRecord record;
+    record.body = desc.body;
+    record.sceneObjectId =
         desc.sceneObjectId.IsValid() ? desc.sceneObjectId : ( body ? body->sceneObjectId : PhysicsSceneObjectId{} );
-    view.shape = desc.shape;
-    view.boundingRadius = ConservativeBroadphaseRadius( desc.boundingRadius, desc.shape );
-    view.restitution = desc.restitution;
-    view.friction = desc.friction;
-    view.projectedSurfaceArea = desc.projectedSurfaceArea;
-    view.dragCoefficient = desc.dragCoefficient;
+    record.shape = desc.shape;
+    record.shapeKind = ColliderShapeKindForShape( desc.shape );
+    record.boundingRadius = ConservativeBroadphaseRadius( desc.boundingRadius, desc.shape );
+    record.restitution = desc.restitution;
+    record.friction = desc.friction;
+    record.contactMaterialId = desc.contactMaterialId;
+    record.projectedSurfaceArea = desc.projectedSurfaceArea;
+    record.dragCoefficient = desc.dragCoefficient;
+    return record;
+}
+
+
+PhysicsColliderView PhysicsStandaloneWorld::MakeColliderView( const ColliderRecord& record ) const
+{
+    PhysicsColliderView view;
+    view.collider = record.handle;
+    view.body = record.body;
+    view.sceneObjectId = record.sceneObjectId;
+    view.shape = record.shape;
+    view.boundingRadius = record.boundingRadius;
+    view.restitution = record.restitution;
+    view.friction = record.friction;
+    view.contactMaterialId = record.contactMaterialId;
+    view.projectedSurfaceArea = record.projectedSurfaceArea;
+    view.dragCoefficient = record.dragCoefficient;
     return view;
 }
 
@@ -966,23 +987,6 @@ PhysicsPointJointView PhysicsStandaloneWorld::MakePointJointView( const PhysicsP
     view.groupId = desc.groupId;
     view.flags = desc.flags;
     return view;
-}
-
-
-void PhysicsStandaloneWorld::TombstoneColliderSlot( uint32_t index )
-{
-    if ( index >= m_colliders.size() || !m_colliderAlive[index] )
-    {
-        return;
-    }
-
-    m_colliderAlive[index] = 0;
-    ++m_colliderGenerations[index];
-    if ( m_colliderGenerations[index] == 0 )
-    {
-        m_colliderGenerations[index] = m_nextInitialGeneration;
-    }
-    m_freeColliderIndices.push_back( index );
 }
 
 
@@ -1085,6 +1089,7 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     colliderDesc.boundingRadius = 1.5f;
     colliderDesc.restitution = 0.1f;
     colliderDesc.friction = 0.2f;
+    colliderDesc.contactMaterialId = 101u;
     colliderDesc.projectedSurfaceArea = 3.0f;
     colliderDesc.dragCoefficient = 0.4f;
     const PhysicsColliderHandle collider = world.CreateCollider( colliderDesc );
@@ -1101,6 +1106,7 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     colliderUpdate.boundingRadius = 0.5f;
     colliderUpdate.restitution = 0.25f;
     colliderUpdate.friction = 0.35f;
+    colliderUpdate.contactMaterialId = 202u;
     colliderUpdate.projectedSurfaceArea = 4.0f;
     colliderUpdate.dragCoefficient = 0.55f;
     const bool updatedCollider = world.UpdateCollider( colliderUpdate );
@@ -1114,7 +1120,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         updatedColliderSphere->GetPosition() == localColliderOffset &&
         updatedColliderView->boundingRadius == CONSERVATIVE_COLLIDER_RADIUS &&
         updatedColliderView->restitution == 0.25f && updatedColliderView->friction == 0.35f &&
-        updatedColliderView->projectedSurfaceArea == 4.0f && updatedColliderView->dragCoefficient == 0.55f;
+        updatedColliderView->contactMaterialId == 202u && updatedColliderView->projectedSurfaceArea == 4.0f &&
+        updatedColliderView->dragCoefficient == 0.55f;
 
     PhysicsColliderCreateDesc directDestroyColliderDesc;
     directDestroyColliderDesc.body = transientBody;

@@ -270,6 +270,7 @@ class GameModel
     const Math::Vector::Vector3&
     GetInvertedRotationalInertia() const;                                   // Component-wise inverse inertia cache for solver rows.
     float GetCoefficientRestitution() const;
+    float GetFrictionCoefficient() const;
     const Math::CollisionDetection::CollisionShape&
     GetCollisionShape() const;                                              // Authoritative shape variant for narrowphase manifold dispatch.
     void SetLinearVelocity( const Math::Vector::Vector3& v );

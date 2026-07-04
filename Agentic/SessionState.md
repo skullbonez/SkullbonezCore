@@ -10,11 +10,11 @@ audits when it is still useful.
 | Branch | `nightrunner-4th-july` in worktree `C:\SkullbonezCore`. |
 | Active objective | Finish the physics/GameModel authority migration with store-owned physics state, handle-keyed commands, deterministic standalone views, and guardrails against contrived migration artifacts. |
 | Last documentation milestone | Completed and moved the contact-audio perceptual model plan to `Agentic/Plans/Done/contact-audio-perceptual-model-plan.md`. |
-| Last source/data milestone | Moved pending/apply impulse mutation onto `PhysicsBodyStore` commands keyed by `PhysicsBodyHandle`; standalone stepping consumes pending impulses while walking dense body records. |
-| Pending work | Physics standalone Phase 2 still needs the remaining update-desc/state cleanup, compatibility assertion/guardrail shrink decisions, and Phase 3 collider store authority. Contact-audio one-shot impact work remains complete; separate roll/slide loops are future work. |
+| Last source/data milestone | Removed the standalone collider vector/generation mirror; standalone collider creation/update/delete, raycast, and broadphase queries now use `ColliderStore` records keyed by `PhysicsColliderHandle`. |
+| Pending work | Physics standalone Phase 2 still needs the remaining update-desc/state cleanup, compatibility assertion/guardrail shrink decisions, and Phase 3 real standalone narrowphase/contact generation from collider records. Contact-audio one-shot impact work remains complete; separate roll/slide loops are future work. |
 | Concurrent work warning | No concurrent dirty source work observed at the last status check. Still run `git status --short --branch` before editing. |
 | Blockers | No active blocker for the default `aaa_ragdoll_sunset_showcase` cinematic/water render path or the contact-audio perceptual model plan. |
-| Validation | 2026-07-04 handle-keyed impulse slice: `python tools\check_runtime_boundaries.py --repo .` passed with 0 errors; Debug build passed with 0 warnings / 0 errors (`TestOutput\agent_build_debug_impulse_handle.log`); `Debug\SKULLBONEZ_CORE.exe --physics-standalone-smoke` passed with `lifecycle_checks=pass`, runtime mirror pass, and hash `0xB3F035309D67140A` (`TestOutput\agent_physics_standalone_smoke_impulse_handle.log`); `tools\validate_physics.bat` passed in 23.8s with byte-exact `physics_regression_solver.csv` (`TestOutput\agent_validate_physics_impulse_handle.log`). |
+| Validation | 2026-07-04 collider-store authority slice: Debug build passed with 0 warnings / 0 errors in 9.5s (`TestOutput\agent_build_debug_collider_store.log`); `Debug\SKULLBONEZ_CORE.exe --physics-standalone-smoke` passed with `lifecycle_checks=pass`, runtime mirror pass, and hash `0xB3F035309D67140A` (`TestOutput\agent_physics_standalone_smoke_collider_store.log`); `python tools\check_runtime_boundaries.py --repo .` passed with 0 errors in 7.0s (`TestOutput\agent_runtime_boundaries_collider_store.log`); `tools\validate_physics.bat` passed in 21.0s with byte-exact `physics_regression_solver.csv` (`TestOutput\agent_validate_physics_collider_store.log`). |
 
 ## Active Notes
 
@@ -26,6 +26,8 @@ audits when it is still useful.
   commands.
 - Implementing work from `Agentic/Plans` defaults to
   `Agentic/Skills/orchestrator/SKILL.md` unless the user asks to bypass it.
+- Rubber-duck review is for major completed plans/checkpoints, explicit user
+  requests, or repeated failure loops. Do not run one per small source slice.
 - The retired `Agentic/Orchestrator` JSON/Python path should not be revived
   unless explicitly requested. Use the orchestrator skill for plan work.
 - Do not kill `SKULLBONEZ_CORE.exe` by name. Kill only by PID from a process you

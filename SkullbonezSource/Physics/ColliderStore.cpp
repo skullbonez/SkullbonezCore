@@ -1,12 +1,13 @@
 /*
 File: SkullbonezSource/Physics/ColliderStore.cpp
 Purpose:
-  Builds deterministic collider-order snapshots from GameModel collision state.
+  Builds deterministic collider records from either compatibility models or
+  standalone descriptors.
 
 Mental model:
-  Refresh copies the live compatibility models into a compact collider view.
-  The order is intentionally the model order so solver, replay, and diagnostics
-  can compare store data without remapping body ids.
+  Refresh copies live compatibility models in model order for the legacy solver
+  boundary. Standalone creation appends dense live records directly, with
+  handles mapped to rows so queries scan compact data and stale handles fail.
 
 Glossary:
   Collider: Shape metadata used to decide what precise collision test applies.
@@ -15,8 +16,10 @@ Glossary:
     physics body across frames.
 
 Invariants:
-  - Collider records stay in GameModelCollection model order for current solver
+  - Compatibility records stay in GameModelCollection order for current solver
     traversal, but public collider handles are allocator-owned slots.
+  - Standalone records stay dense; deleting a collider may move the final row
+    and updates only the moved handle's row map.
   - Refresh snapshots collision metadata only; model pose and solver state
     remain owned elsewhere.
 
@@ -170,9 +173,12 @@ void ColliderStore::Clear()
         m_handleReplayBodyIds[slot] = 0;
     }
     m_freeHandleSlots.clear();
-    for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleGenerations.size() ); ++slot )
+    // Invariant: CreateColliderRecord pops from the back of the free list.
+    // Push in reverse so a full Clear() reuses low handle indices first while
+    // still advancing generations for stale-handle rejection.
+    for ( uint32_t remaining = static_cast<uint32_t>( m_handleGenerations.size() ); remaining > 0; --remaining )
     {
-        m_freeHandleSlots.push_back( slot );
+        m_freeHandleSlots.push_back( remaining - 1u );
     }
 }
 
@@ -199,6 +205,7 @@ void ColliderStore::Refresh( GameModel* models, int modelCount, const PhysicsBod
         record.shape = model.GetCollisionShape();
         record.boundingRadius = model.GetBoundingRadius();
         record.restitution = model.GetCoefficientRestitution();
+        record.friction = model.GetFrictionCoefficient();
         record.contactMaterialId = model.GetContactMaterialId();
         record.projectedSurfaceArea = model.GetProjectedSurfaceArea();
         record.dragCoefficient = model.GetDragCoefficient();
@@ -217,6 +224,85 @@ void ColliderStore::Refresh( GameModel* models, int modelCount, const PhysicsBod
         m_modelColliderHandles[static_cast<std::size_t>( i )] = record.handle;
     }
     RetireUnassignedHandles( assignedHandleSlots );
+}
+
+
+PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord& initialRecord )
+{
+    uint32_t slot = 0;
+    if ( !m_freeHandleSlots.empty() )
+    {
+        slot = m_freeHandleSlots.back();
+        m_freeHandleSlots.pop_back();
+    }
+    else
+    {
+        slot = static_cast<uint32_t>( m_handleGenerations.size() );
+        m_handleGenerations.push_back( PHYSICS_HANDLE_INITIAL_GENERATION );
+        m_handleAlive.push_back( 0 );
+        m_handleModelIndices.push_back( -1 );
+        m_handleReplayBodyIds.push_back( 0 );
+    }
+
+    const int recordIndex = static_cast<int>( m_colliders.size() );
+    PhysicsColliderHandle handle;
+    handle.index = slot;
+    handle.generation = m_handleGenerations[static_cast<std::size_t>( slot )];
+
+    ColliderRecord record = initialRecord;
+    record.handle = handle;
+    if ( !record.sceneObjectId.IsValid() )
+    {
+        record.sceneObjectId = PhysicsSceneObjectId{ handle.index + 1u };
+    }
+
+    m_handleAlive[static_cast<std::size_t>( slot )] = 1;
+    m_handleModelIndices[static_cast<std::size_t>( slot )] = recordIndex;
+    m_handleReplayBodyIds[static_cast<std::size_t>( slot )] = record.replayBodyId;
+    m_colliders.push_back( record );
+    m_modelColliderHandles.push_back( handle );
+    return handle;
+}
+
+
+bool ColliderStore::DestroyColliderRecord( PhysicsColliderHandle handle )
+{
+    if ( !Contains( handle ) )
+    {
+        return false;
+    }
+
+    const std::size_t handleSlot = static_cast<std::size_t>( handle.index );
+    const int recordIndex = m_handleModelIndices[handleSlot];
+    const int lastRecordIndex = Count() - 1;
+    if ( recordIndex < 0 || recordIndex > lastRecordIndex )
+    {
+        return false;
+    }
+
+    // Invariant: collider scans stay dense while handles remain allocator
+    // identities. Moving the final row updates that row's handle map; callers
+    // never infer storage position from a handle index.
+    if ( recordIndex != lastRecordIndex )
+    {
+        ColliderRecord& destination = m_colliders[static_cast<std::size_t>( recordIndex )];
+        ColliderRecord& moved = m_colliders[static_cast<std::size_t>( lastRecordIndex )];
+        destination = moved;
+        m_modelColliderHandles[static_cast<std::size_t>( recordIndex )] = destination.handle;
+        if ( destination.handle.IsValid() && destination.handle.index < m_handleModelIndices.size() )
+        {
+            m_handleModelIndices[static_cast<std::size_t>( destination.handle.index )] = recordIndex;
+        }
+    }
+
+    m_colliders.pop_back();
+    m_modelColliderHandles.pop_back();
+    m_handleAlive[handleSlot] = 0;
+    m_handleModelIndices[handleSlot] = -1;
+    m_handleReplayBodyIds[handleSlot] = 0;
+    m_handleGenerations[handleSlot] = NextHandleGeneration( m_handleGenerations[handleSlot] );
+    m_freeHandleSlots.push_back( handle.index );
+    return true;
 }
 
 
@@ -272,13 +358,41 @@ bool ColliderStore::Contains( PhysicsColliderHandle handle ) const
         return false;
     }
 
-    const int modelIndex = m_handleModelIndices[slot];
-    return modelIndex >= 0 && modelIndex < static_cast<int>( m_colliders.size() ) &&
-           m_colliders[static_cast<std::size_t>( modelIndex )].handle == handle;
+    const int recordIndex = m_handleModelIndices[slot];
+    return recordIndex >= 0 && recordIndex < static_cast<int>( m_colliders.size() ) &&
+           m_colliders[static_cast<std::size_t>( recordIndex )].handle == handle;
 }
 
 
 const std::vector<ColliderRecord>& ColliderStore::Records() const
 {
     return m_colliders;
+}
+
+
+std::vector<ColliderRecord>& ColliderStore::MutableRecords()
+{
+    return m_colliders;
+}
+
+
+ColliderRecord* ColliderStore::MutableRecordForHandle( PhysicsColliderHandle handle )
+{
+    if ( !Contains( handle ) )
+    {
+        return nullptr;
+    }
+
+    return &m_colliders[static_cast<std::size_t>( m_handleModelIndices[static_cast<std::size_t>( handle.index )] )];
+}
+
+
+const ColliderRecord* ColliderStore::RecordForHandle( PhysicsColliderHandle handle ) const
+{
+    if ( !Contains( handle ) )
+    {
+        return nullptr;
+    }
+
+    return &m_colliders[static_cast<std::size_t>( m_handleModelIndices[static_cast<std::size_t>( handle.index )] )];
 }

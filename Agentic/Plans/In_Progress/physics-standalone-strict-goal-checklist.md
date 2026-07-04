@@ -200,28 +200,36 @@ path, then compatibility writeback shrinks behind explicit adapters.
 
 Target: `ColliderStore` owns the standalone collision shape and metadata surface.
 
-- [ ] Inventory every collider field still loaded from `GameModel`:
+- [x] Inventory every collider field still loaded from `GameModel`:
   shape kind, exact shape payload, bounding radius, restitution, friction,
   contact material id, projected surface area, drag coefficient, replay body id,
   scene object id, body handle, and legacy model index.
-- [ ] Add or confirm `PhysicsColliderCreateDesc` fields for exact shape data and
+- [x] Add or confirm `PhysicsColliderCreateDesc` fields for exact shape data and
   material/contact response.
-- [ ] Add or confirm `PhysicsColliderUpdateDesc` masks for shape, material
+- [x] Add or confirm `PhysicsColliderUpdateDesc` masks for shape, material
   response, broadphase values, and local offsets.
-- [ ] Make standalone collider creation attach to a live `PhysicsBodyHandle`.
-- [ ] Make collider deletion and body deletion tombstone collider handles in one
+- [x] Make standalone collider creation attach to a live `PhysicsBodyHandle`.
+- [x] Make collider deletion and body deletion tombstone collider handles in one
   deterministic path.
-- [ ] Move broadphase candidate generation to `ColliderStore` plus body-store
+- [x] Move broadphase candidate generation to `ColliderStore` plus body-store
   transforms on the standalone path.
 - [ ] Move narrowphase shape reads to collider records on the standalone path.
-- [ ] Preserve existing conservative query semantics while exact shape tests are
+- [x] Preserve existing conservative query semantics while exact shape tests are
   added.
 - [ ] Add smoke coverage with at least:
   - [ ] sphere/sphere contact,
   - [ ] sphere/box contact,
   - [ ] fixed body plus dynamic body contact,
-  - [ ] deleted collider stale-handle rejection,
+  - [x] deleted collider stale-handle rejection,
   - [ ] material/restitution copied into the resulting contact view.
+
+Current Phase 3 progress: standalone collider creation/update/delete, raycast,
+and broadphase queries now use `ColliderStore` records directly. Material id and
+friction propagate through collider records/views, but contact-view material
+evidence remains open until standalone narrowphase/contact rows exist. Slice
+evidence: `python tools\check_runtime_boundaries.py --repo .` passed with 0
+errors, and `tools\validate_physics.bat` passed with byte-exact
+`physics_regression_solver.csv`.
 - [ ] Validation for this phase:
   - [ ] `tools\validate_physics.bat`
   - [ ] `tools\validate_physics_deep.bat` if SkullScope/query baselines change.

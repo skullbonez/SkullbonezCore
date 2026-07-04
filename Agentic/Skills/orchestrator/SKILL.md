@@ -7,9 +7,10 @@ description: Coordinate SkullbonezCore plan implementation in the main Codex age
 
 Coordinate a SkullbonezCore plan queue without the retired repository-owned
 JSON/Python state machine. This skill is coordinator-only: it resolves plan
-scope and branch policy, implements each plan in the main agent, asks a
-separate `$rubber-duck` review sub-agent to critique the work, runs the required
-final validation gate, and commits/pushes one accepted plan at a time.
+scope and branch policy, implements each plan in the main agent, saves the
+independent `$rubber-duck` critique for the end of a major completed plan or
+checkpoint, runs the required final validation gate, and commits/pushes one
+accepted slice at a time.
 
 ## Inputs
 
@@ -44,11 +45,12 @@ Do not force-push, rebase, rewrite history, merge PRs, or commit/push on
 
 ## Sub-Agent Tools
 
-Use sub-agents or Codex thread tools only for independent `$rubber-duck` review.
-Do not dispatch plan implementation, cleanup, validation, staging, committing,
-or pushing to a sub-agent. If the tools are not already loaded, search for them
-with `tool_search` using names such as `create_thread`, `send_message_to_thread`,
-`read_thread`, `handoff_thread`, and `list_threads`.
+Use sub-agents or Codex thread tools only for independent `$rubber-duck` review
+at the end of a major plan/checkpoint, or earlier only when the user explicitly
+asks for one. Do not dispatch plan implementation, cleanup, validation, staging,
+committing, or pushing to a sub-agent. If the tools are not already loaded,
+search for them with `tool_search` using names such as `create_thread`,
+`send_message_to_thread`, `read_thread`, `handoff_thread`, and `list_threads`.
 
 If a review tool creates a separate worktree, keep it read-only. Keep one active
 implementation plan at a time unless the user explicitly asks for a different
@@ -77,7 +79,7 @@ usage, not repository artifacts or validation logs.
 
 ## Plan Loop
 
-For each plan, in order:
+For each plan or source slice, in order:
 
 1. Read the plan enough to understand scope, required validation, and
    archival/report expectations.
@@ -85,7 +87,10 @@ For each plan, in order:
    worker or ask a sub-agent to edit files.
 3. Inspect the result with `git status --short` and targeted file reads or
    diffs.
-4. Launch a separate read-only rubber-duck review sub-agent:
+4. For ordinary incremental slices, skip rubber-duck review and keep moving.
+   Launch a separate read-only rubber-duck review sub-agent only when the slice
+   completes a major plan/checkpoint, when the user explicitly asks for review,
+   or when repeated failures show that independent critique is needed:
 
 ```text
 Use $rubber-duck to review the completed work for <plan-path> on branch <branch>.
@@ -94,10 +99,11 @@ baseline mistakes, determinism risks, DX12 validation risks, and hot-path alloca
 Return findings with file/line references and a clear verdict.
 ```
 
-5. Address blocking rubber-duck findings in the main agent before committing.
-6. Repeat the rubber-duck pass if the fix changed meaningful behavior or
-   touched the reviewed risk area. Record every repeat as its own accounting
-   row.
+5. Address blocking rubber-duck findings in the main agent before committing
+   when a review was actually run.
+6. Repeat the rubber-duck pass only if the fix changed meaningful behavior in
+   the reviewed risk area or the reviewer requested a follow-up. Record every
+   repeat as its own accounting row.
 7. Run the smallest required pre-commit validation from `AGENTS.md` for that
    plan's final changed-file set. Documentation-only changes require no
    validation.

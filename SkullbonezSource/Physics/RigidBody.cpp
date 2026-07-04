@@ -545,7 +545,7 @@ float RigidBody::GetVolume()
 }
 
 
-float RigidBody::GetFrictionCoefficient()
+float RigidBody::GetFrictionCoefficient() const
 {
     return m_frictionCoefficient;
 }

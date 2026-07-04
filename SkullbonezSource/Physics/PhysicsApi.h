@@ -43,8 +43,8 @@ Invariants:
     scene object ids are descriptive identity metadata, not storage offsets.
   - Descriptors describe intent; later facade code owns allocation order and
     deterministic solver mutation.
-  - Standalone body views are deterministic dense-store views; collider and
-    constraint views remain slot-order until their stores migrate.
+  - Standalone body and collider views are deterministic dense-store views;
+    constraint views remain slot-order until their store migrates.
   - Deletion retires body handle generations and tombstones dependent
     collider/constraint slots so stale handles fail before reuse.
   - Views are immutable spans over API records, not mutable storage leaks.
@@ -59,6 +59,7 @@ Related:
 #include <cstdint>
 #include <vector>
 
+#include "ColliderStore.h"
 #include "CollisionShape.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsHandles.h"
@@ -170,6 +171,7 @@ struct PhysicsColliderCreateDesc
     float boundingRadius = 0.0f;
     float restitution = 0.0f;
     float friction = 0.0f;
+    uint32_t contactMaterialId = 0;
     float projectedSurfaceArea = 0.0f;
     float dragCoefficient = 0.0f;
 };
@@ -182,6 +184,7 @@ struct PhysicsColliderUpdateDesc
     float boundingRadius = 0.0f;
     float restitution = 0.0f;
     float friction = 0.0f;
+    uint32_t contactMaterialId = 0;
     float projectedSurfaceArea = 0.0f;
     float dragCoefficient = 0.0f;
 };
@@ -299,6 +302,7 @@ struct PhysicsColliderView
     float boundingRadius = 0.0f;
     float restitution = 0.0f;
     float friction = 0.0f;
+    uint32_t contactMaterialId = 0;
     float projectedSurfaceArea = 0.0f;
     float dragCoefficient = 0.0f;
 };
@@ -461,9 +465,9 @@ class PhysicsStandaloneWorld
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
 
-    // Creates a collider for a live body. Invalid or stale body handles return
-    // an invalid collider handle without mutating storage; valid creation uses
-    // deterministic collider slot order for later query and view output.
+    // Creates a collider record for a live body. Invalid or stale body handles
+    // return an invalid collider handle without mutating storage; valid creation
+    // appends to the dense collider store used by later query and view output.
     PhysicsColliderHandle CreateCollider( const PhysicsColliderCreateDesc& desc );
 
     // Applies masked public fields to a live collider. Stale handles fail
@@ -499,8 +503,8 @@ class PhysicsStandaloneWorld
     bool SleepEnabled() const;
 
     // Conservatively ray-casts live collider bounding spheres in deterministic
-    // collider slot order and returns the closest hit. Equal-distance candidates
-    // keep the earlier collider slot, making replay/debug selection stable.
+    // collider-store order and returns the closest hit. Equal-distance
+    // candidates keep the earlier collider row, making replay/debug selection stable.
     PhysicsRayCastHit RayCast( const PhysicsRayCastDesc& desc ) const;
 
     // Conservatively returns live bodies whose body or collider bounding sphere
@@ -520,10 +524,11 @@ class PhysicsStandaloneWorld
     PhysicsBodyCollectionView Bodies() const;
 
     // Returns a live collider view, or null for stale/dead handles. The pointer
-    // is owned by this world and is invalidated by later mutation.
+    // is owned by this world and is invalidated by the next Collider() call,
+    // Colliders() call, or non-const world mutation.
     const PhysicsColliderView* Collider( PhysicsColliderHandle collider ) const;
 
-    // Returns alive colliders in deterministic slot order. The view points at
+    // Returns alive colliders in deterministic dense-store order. The view points at
     // internal scratch storage and is valid until the next Colliders() call or
     // non-const world mutation.
     PhysicsColliderCollectionView Colliders() const;
@@ -557,20 +562,18 @@ class PhysicsStandaloneWorld
     PhysicsBodyView MakeBodyView( const PhysicsBodyRecord& record ) const;
     void InvalidateBodyViews();
     const std::vector<PhysicsBodyView>& BodyViewCache() const;
-    PhysicsColliderView MakeColliderView( const PhysicsColliderCreateDesc& desc, PhysicsColliderHandle collider ) const;
+    ColliderRecord MakeColliderRecord( const PhysicsColliderCreateDesc& desc ) const;
+    PhysicsColliderView MakeColliderView( const ColliderRecord& record ) const;
     PhysicsPointJointView MakePointJointView( const PhysicsPointJointCreateDesc& desc,
                                               PhysicsConstraintHandle constraint ) const;
-    void TombstoneColliderSlot( uint32_t index );
     void TombstoneConstraintSlot( uint32_t index );
 
     PhysicsBodyStore m_bodyStore;                                               // Dense body records and handle generations for standalone stepping.
     mutable std::vector<PhysicsBodyView> m_bodyViewCache;                       // Cold public view cache rebuilt from bodyStore.
     mutable bool m_bodyViewCacheDirty = true;                                   // True when body records changed since the last view build.
-    std::vector<PhysicsColliderView> m_colliders;                               // Slot-indexed collider records paired with body handles.
-    std::vector<uint32_t> m_colliderGenerations;                                // Per-collider stale-handle counter.
-    std::vector<uint8_t> m_colliderAlive;                                       // 0/1 collider liveness for compact deterministic scans.
-    std::vector<uint32_t> m_freeColliderIndices;                                // Reusable tombstoned collider slots.
-    mutable std::vector<PhysicsColliderView> m_colliderViewScratch;             // Filtered alive-collider view returned by Colliders().
+    ColliderStore m_colliderStore;                                              // Dense collider records and handle generations for standalone queries.
+    mutable PhysicsColliderView m_singleColliderViewScratch;                    // Cold single-collider projection returned by Collider().
+    mutable std::vector<PhysicsColliderView> m_colliderViewScratch;             // Filtered collider view returned by Colliders().
     std::vector<PhysicsPointJointView> m_pointJoints;                           // Slot-indexed public constraint records.
     std::vector<uint32_t> m_constraintGenerations;                              // Per-constraint stale-handle counter.
     std::vector<uint8_t> m_constraintAlive;                                     // 0/1 constraint liveness for deterministic scans.
