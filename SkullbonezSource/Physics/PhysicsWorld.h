@@ -476,6 +476,7 @@ class PhysicsWorld
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
     const std::vector<int64_t>& GetCollisionCellKeys() const;
     const std::vector<uint8_t>& GetCollisionVisualContacts() const;
+    const std::vector<int>& GetFixedContactHighlightBodies() const;
     const std::vector<uint8_t>& GetSleepStates() const;
     const std::vector<int>& GetSleepIslandVisualIds() const;
     const std::vector<uint8_t>& GetSleepSupportedStates() const;

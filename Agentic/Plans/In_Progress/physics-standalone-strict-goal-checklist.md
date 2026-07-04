@@ -219,7 +219,7 @@ passed with 0 errors; focused Debug build passed in 4.8s with 0 warnings/errors;
 `physics_regression_solver.csv`; `tools\validate_perf.bat` passed in 22.6s with
 no DX12 or PHYSICS_BENCH regressions.
 
-Latest strict-step authority slice `PHY-0207J`: bulk compatibility writeback
+Strict-step authority slice `PHY-0207J`: bulk compatibility writeback
 moved out of `PhysicsWorld::RunPhysics` and into `PhysicsScene::RunPhysics`.
 `PhysicsWorld` now finishes solver state and emits Debug diagnostics from the
 stores; `PhysicsScene` then mirrors `PhysicsBodyStore` to GameModel for the
@@ -230,6 +230,18 @@ passed with 0 errors; focused Debug build passed in 4.4s with 0 warnings/errors;
 `tools\validate_fast.bat` passed in 24.9s; `tools\validate_physics.bat` passed in
 14.2s with byte-exact `physics_regression_solver.csv`; `tools\validate_perf.bat`
 passed in 22.6s with no DX12 or PHYSICS_BENCH regressions.
+
+Latest strict-step authority slice `PHY-0207K`: fixed-contact highlight
+notification moved out of `PhysicsWorld` side-effect application. The persistent
+solver already fills `fixedContactBodies`; `PhysicsWorld` now exposes that queue
+read-only and `PhysicsScene` applies `NotifyFixedContact()` at the compatibility
+edge without adding a per-frame copy. The new checker blocks
+`NotifyFixedContact()` from returning to `PhysicsWorld.cpp`. Evidence:
+py_compile and runtime-boundary checks passed with 0 errors; focused Debug build
+passed in 8.4s with 0 warnings/errors; `tools\validate_fast.bat` passed in
+28.0s; `tools\validate_physics.bat` passed in 13.8s with byte-exact
+`physics_regression_solver.csv`; `tools\validate_perf.bat` passed in 22.5s with
+no DX12 or PHYSICS_BENCH regressions.
 
 ## Phase 3 - Collider Store Authority
 

@@ -685,10 +685,6 @@ void PhysicsWorld::ApplyPersistentContactSideEffects( PhysicsModelAccess& modelA
         MarkCollisionVisualContact( index );
     }
 
-    for ( int index : effects.fixedContactBodies )
-    {
-        modelAccess.NotifyFixedContact( index, 0.5f );
-    }
     for ( int index : effects.releaseWakeBodies )
     {
         WakeModel( modelAccess, bodyStore, colliderStore, worldForces, index );
@@ -3968,6 +3964,12 @@ const std::vector<int64_t>& PhysicsWorld::GetCollisionCellKeys() const
 const std::vector<uint8_t>& PhysicsWorld::GetCollisionVisualContacts() const
 {
     return m_collisionVisualContacts;
+}
+
+
+const std::vector<int>& PhysicsWorld::GetFixedContactHighlightBodies() const
+{
+    return m_persistentContactSideEffects.fixedContactBodies;
 }
 
 

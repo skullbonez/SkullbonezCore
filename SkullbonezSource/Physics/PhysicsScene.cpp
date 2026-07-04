@@ -221,6 +221,14 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
     m_hasLastWorldForces = true;
     m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime, config, worldForces, workerPool );
 
+    // Why: fixed-contact highlights are GameModel presentation feedback. The
+    // solver records compact body indices; PhysicsScene applies them at the
+    // compatibility edge so PhysicsWorld does not mutate presentation state.
+    for ( int index : m_world.GetFixedContactHighlightBodies() )
+    {
+        modelAccess.NotifyFixedContact( index, 0.5f );
+    }
+
     // Compatibility owner: PhysicsScene step boundary.
     // Reason: editor and replay compatibility consumers still read GameModel
     // pose/state after the store-owned solver has finished.
