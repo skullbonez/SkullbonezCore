@@ -1197,6 +1197,37 @@ Evidence logs: `TestOutput\agent_build_debug_runtime_pick_store_authority.log`,
 `TestOutput\agent_validate_physics_runtime_pick_store_authority.log`, and
 `TestOutput\agent_validate_full_runtime_pick_store_authority.log`.
 
+Slice `PHY-1017`: move scene snapshot serialization of live physics state off
+post-step `GameModel` body mirrors. Owner: `SceneSnapshotWriter`; reason:
+saved scene state must serialize the authoritative simulation snapshot, not
+whatever compatibility writeback last copied into `GameModel`; deletion
+condition: when all remaining presentation/editor/save readers use stores or
+metadata, bulk post-step body writeback can be removed; checker budget:
+`tools/check_runtime_boundaries.py` blocks GameModel-backed snapshot physics
+reads from returning.
+
+- [x] Make `SceneSnapshotWriter` borrow `PhysicsBodyStore` and `ColliderStore`
+  records for pose, velocity, angular velocity, inertia, fixed/sleep state,
+  mass, restitution, and shape serialization.
+- [x] Keep `GameModel` reads only for names, contact material labels, render
+  materials, runtime collection metadata, and other cold scene metadata.
+- [x] Add runtime-boundary guardrails and self-tests blocking snapshot physics
+  fields from being read from `GameModel` again.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] `tools\validate_fast.bat`
+  - [x] `tools\validate_full.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence logs: `TestOutput\agent_build_debug_scene_snapshot_store_authority.log`,
+`TestOutput\agent_validate_fast_scene_snapshot_store_authority.log`,
+`TestOutput\agent_validate_physics_scene_snapshot_store_authority.log`, and
+`TestOutput\agent_validate_full_scene_snapshot_store_authority.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

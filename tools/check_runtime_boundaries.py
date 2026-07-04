@@ -269,6 +269,21 @@ RUNTIME_PICK_SERVICE_MODEL_STATE_PATTERN = re.compile(
 GAME_MODEL_COLLECTION_COLLIDER_STORE_REFRESH_PATTERN = re.compile(
     r"\bm_physicsEngine\s*\.\s*RefreshColliderStore\s*\(\s*modelAccess\s*\)"
 )
+# Why: scene saves are live simulation snapshots. If the writer reads body facts
+# from GameModel, bulk post-step writeback remains required just to make saving
+# correct. Cold metadata such as names and render materials may still come from
+# GameModel until scene/entity metadata owns them.
+SCENE_SNAPSHOT_GAME_MODEL_PHYSICS_READ_PATTERN = re.compile(
+    r"\b(?:m_gameModels|models)\s*\[[^\]]+\]\s*\.\s*"
+    r"(?:GetPosition|GetVelocity|GetAngularVelocity|GetRotationalInertia|GetCollisionShape|GetMass|"
+    r"GetCoefficientRestitution|GetOrientation|IsFixed|ReleasesFromFixedOnContact|"
+    r"GetContactReleaseImpulseThreshold)\s*\("
+    r"|\bmodel\s*\.\s*"
+    r"(?:GetPosition|GetVelocity|GetAngularVelocity|GetRotationalInertia|GetCollisionShape|GetMass|"
+    r"GetCoefficientRestitution|GetOrientation|IsFixed|ReleasesFromFixedOnContact|"
+    r"GetContactReleaseImpulseThreshold)\s*\("
+    r"|\bOrientationJson\s*\(\s*(?:m_gameModels|models)\s*\["
+)
 PHYSICS_DIAGNOSTICS_MODEL_RECORD_COMPAT_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*TryGetPhysicsDiagnosticsModel\s*\(\s*[^,()]+\s*,\s*[^,()]+\s*\)"
 )
@@ -2972,6 +2987,32 @@ def check_runtime_pick_service_store_authority_guardrails(repo: Path) -> list[Bo
         path = repo / relative_path
         errors.extend(check_runtime_pick_service_store_authority_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
+
+
+def check_scene_snapshot_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != "SceneSnapshotWriter.cpp":
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in SCENE_SNAPSHOT_GAME_MODEL_PHYSICS_READ_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "scene snapshot physics state must use stores",
+                (
+                    "SceneSnapshotWriter should serialize live body pose, velocity, fixed/sleep state, mass, "
+                    "inertia, restitution, and shapes from PhysicsBodyStore/ColliderStore instead of the "
+                    "post-step GameModel compatibility mirror."
+                ),
+            )
+        )
+    return errors
+
+
+def check_scene_snapshot_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / Path("SkullbonezSource/Scene/SceneSnapshotWriter.cpp")
+    return check_scene_snapshot_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_physics_diagnostics_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -9714,6 +9755,71 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only RuntimePickService model-read synthetic text was rejected")
 
+    old_scene_snapshot_model_physics_reads = """
+    bool SceneSnapshotWriter::Save( GameModelCollection& collection, const char* path )
+    {
+        const std::vector<GameModel>& m_gameModels = collection.Models();
+        const Vector3& pos = m_gameModels[i].GetPosition();
+        const Vector3& vel = m_gameModels[i].GetVelocity();
+        const Vector3& avel = m_gameModels[i].GetAngularVelocity();
+        const Vector3& ri = m_gameModels[i].GetRotationalInertia();
+        const auto& shape = m_gameModels[i].GetCollisionShape();
+        float mass = m_gameModels[i].GetMass();
+        float rest = m_gameModels[i].GetCoefficientRestitution();
+        bool fixed = m_gameModels[i].IsFixed();
+        auto orientation = OrientationJson( m_gameModels[i] );
+        return fixed || mass > 0.0f || rest > 0.0f || !shape.valueless_by_exception();
+    }
+    """
+    if not any(
+        error.message == "scene snapshot physics state must use stores"
+        for error in check_scene_snapshot_store_authority_guardrails_text(
+            Path("SkullbonezSource/Scene/SceneSnapshotWriter.cpp"),
+            old_scene_snapshot_model_physics_reads,
+        )
+    ):
+        failures.append("old SceneSnapshotWriter GameModel-backed physics reads were not rejected")
+
+    allowed_scene_snapshot_store_reads = """
+    bool SceneSnapshotWriter::Save( GameModelCollection& collection, const char* path )
+    {
+        const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
+        const ColliderStore& colliderStore = collection.GetColliderStore();
+        const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( i );
+        const ColliderRecord* collider = colliderStore.RecordForHandle( colliderStore.HandleForModelIndex( i ) );
+        const Vector3& pos = body->position;
+        const Vector3& vel = body->linearVelocity;
+        const Vector3& avel = body->angularVelocity;
+        const Vector3& ri = body->rotationalInertia;
+        const auto& shape = collider->shape;
+        float mass = body->mass;
+        float rest = collider->restitution;
+        bool fixed = body->isFixed;
+        auto orientation = OrientationJson( body->orientation );
+        return fixed || mass > 0.0f || rest > 0.0f || !shape.valueless_by_exception();
+    }
+    """
+    if check_scene_snapshot_store_authority_guardrails_text(
+        Path("SkullbonezSource/Scene/SceneSnapshotWriter.cpp"),
+        allowed_scene_snapshot_store_reads,
+    ):
+        failures.append("Physics-store SceneSnapshotWriter synthetic surface was rejected")
+
+    commented_scene_snapshot_model_physics_reads = """
+    bool SceneSnapshotWriter::Save( GameModelCollection& collection, const char* path )
+    {
+        // m_gameModels[i].GetPosition(), model.GetMass(), and OrientationJson( m_gameModels[i] ) used to live here.
+        const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
+        const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( i );
+        return body != nullptr;
+    }
+    """
+    if check_scene_snapshot_store_authority_guardrails_text(
+        Path("SkullbonezSource/Scene/SceneSnapshotWriter.cpp"),
+        commented_scene_snapshot_model_physics_reads,
+    ):
+        failures.append("comment-only SceneSnapshotWriter model physics-read synthetic text was rejected")
+
     old_diagnostics_model_record_read = """
     void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess )
     {
@@ -11508,6 +11614,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_runtime_render_host_guardrails(repo))
     errors.extend(check_pick_helper_guardrails(repo))
     errors.extend(check_runtime_pick_service_store_authority_guardrails(repo))
+    errors.extend(check_scene_snapshot_store_authority_guardrails(repo))
     errors.extend(check_run_replay_cause_tree_source_guardrails(repo))
     errors.extend(check_run_replay_prediction_job_source_guardrails(repo))
     errors.extend(check_run_replay_prediction_capture_source_guardrails(repo))
