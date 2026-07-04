@@ -1113,7 +1113,7 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
             model.SetLinearVelocity( seedLinearVelocity );
             model.SetAngularVelocity( seedAngularVelocity );
         }
-        WakeModel( i );
+        GameModelCollectionPhysicsAdapter( *this ).WakeBodyForModelIndex( i );
     }
 }
 
@@ -1125,36 +1125,6 @@ void GameModelCollection::RunPhysics( float fChangeInTime,
 {
     PhysicsModelAccess modelAccess( *this );
     m_physicsEngine.Step( modelAccess, fChangeInTime, config, worldForces, workerPool );
-}
-
-
-void GameModelCollection::WakeModel( int index )
-{
-    // Why: these legacy entry points still speak model indices, but physics
-    // commands should cross the boundary as validated body handles.
-    GameModelCollectionPhysicsAdapter( *this ).WakeBodyForModelIndex( index );
-}
-
-
-void GameModelCollection::SeedModelAsleep( int index )
-{
-    GameModelCollectionPhysicsAdapter( *this ).SeedBodyAsleepForModelIndex( index );
-}
-
-
-void GameModelCollection::ApplyBodyImpulse( int index, const Vector3& impulse, const Vector3& localApplicationPoint )
-{
-    GameModelCollectionPhysicsAdapter( *this ).ApplyBodyImpulseForModelIndex( index, impulse, localApplicationPoint );
-}
-
-
-void GameModelCollection::SetPendingBodyImpulse( int index,
-                                                 const Vector3& impulse,
-                                                 const Vector3& localApplicationPoint )
-{
-    GameModelCollectionPhysicsAdapter( *this ).SetPendingBodyImpulseForModelIndex( index,
-                                                                                   impulse,
-                                                                                   localApplicationPoint );
 }
 
 

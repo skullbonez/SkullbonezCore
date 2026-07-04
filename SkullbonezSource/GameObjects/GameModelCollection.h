@@ -267,14 +267,6 @@ class GameModelCollection
                                         const Math::Vector::Vector3& seedLinearVelocity,
                                         const Math::Vector::Vector3& seedAngularVelocity );
 
-    void WakeModel( int index );
-    void SeedModelAsleep( int index );
-    void ApplyBodyImpulse( int index,
-                           const Math::Vector::Vector3& impulse,
-                           const Math::Vector::Vector3& localApplicationPoint );
-    void SetPendingBodyImpulse( int index,
-                                const Math::Vector::Vector3& impulse,
-                                const Math::Vector::Vector3& localApplicationPoint );
     void SetPhysicsSleepEnabled( bool enabled );
     void ClearPointJointConstraints();
     void BeginCollisionVisualFrame();

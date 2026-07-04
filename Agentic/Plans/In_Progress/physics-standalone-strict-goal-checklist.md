@@ -374,12 +374,12 @@ model indices stop entering physics commands directly.
   those surfaces still use model order.
 - [ ] Add count guardrails for adapter call sites and lower the count after each
   migrated group.
-- [ ] Delete old `GameModelCollection` wrapper methods only after all callers in
+- [x] Delete old `GameModelCollection` wrapper methods only after all callers in
   that group migrate.
-- [ ] Validation for this phase:
-  - [ ] `tools\validate_fast.bat` for guardrail/project changes.
-  - [ ] `tools\validate_physics.bat` for physics command behavior.
-  - [ ] `tools\validate_full.bat` for replay/editor/scene lifecycle breadth.
+- [x] Validation for this phase:
+  - [x] `tools\validate_fast.bat` for guardrail/project changes.
+  - [x] `tools\validate_physics.bat` for physics command behavior.
+  - [x] `tools\validate_full.bat` for replay/editor/scene lifecycle breadth.
 
 Current Phase 7 progress: authored and generated scene setup now resolves
 `PhysicsBodyHandle` at construction time through the existing adapter, then
@@ -481,6 +481,19 @@ Evidence for this slice: py_compile, runtime-boundary, focused Debug build,
 `tools\validate_fast.bat`, `tools\validate_physics.bat`, and
 `tools\validate_full.bat` all passed; the full gate reported DX12 InfoQueue 0
 errors, screenshots matching committed baselines, and byte-exact
+`physics_regression_solver.csv`.
+
+Wrapper deletion is complete for the obsolete `GameModelCollection` model-index
+physics command wrappers: `WakeModel`, `SeedModelAsleep`, `ApplyBodyImpulse`,
+and `SetPendingBodyImpulse` were removed from `GameModelCollection.h/.cpp`.
+The only collection-internal self-call was fixed-tree release, which now calls
+`GameModelCollectionPhysicsAdapter` directly while that model-owned release
+path remains compatibility debt. CodeGraph and a source sweep found no external
+callers before deletion, and the checker now rejects reintroducing those
+collection wrappers. Evidence for this slice: py_compile, runtime-boundary,
+focused Debug build, `tools\validate_fast.bat`, `tools\validate_physics.bat`,
+and `tools\validate_full.bat` all passed; the full gate reported DX12 InfoQueue
+0 errors, screenshots matching committed baselines, and byte-exact
 `physics_regression_solver.csv`.
 
 ## Phase 8 - Diagnostics And SkullScope

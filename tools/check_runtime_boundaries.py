@@ -84,6 +84,7 @@ PHYSICS_SCENE_SOURCE = PHYSICS_ROOT / "PhysicsScene.cpp"
 PHYSICS_DIAGNOSTICS_SINK_SOURCE = PHYSICS_ROOT / "PhysicsDiagnosticsSink.cpp"
 RAGDOLL_SOURCE = PHYSICS_ROOT / "Ragdoll.cpp"
 GAME_MODEL_COLLECTION_SOURCE = Path("SkullbonezSource/GameObjects/GameModelCollection.cpp")
+GAME_MODEL_COLLECTION_HEADER = Path("SkullbonezSource/GameObjects/GameModelCollection.h")
 GAME_MODEL_COLLECTION_PHYSICS_ADAPTER_SOURCE = Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp")
 IRENDER_BACKEND_HEADER = Path("SkullbonezSource/Rendering/IRenderBackend.h")
 RUN_RENDER_SOURCE = Path("SkullbonezSource/Runtime/RunRender.cpp")
@@ -251,6 +252,10 @@ RUN_FRAME_REPLAY_EDITOR_TRANSFORM_WAKE_PATTERN = re.compile(
 )
 RAGDOLL_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\bcollection\s*\.\s*(?:SeedModelAsleep|WakeModel|ApplyBodyImpulse|SetPendingBodyImpulse)\s*\("
+)
+DELETED_GAME_MODEL_COLLECTION_PHYSICS_WRAPPER_PATTERN = re.compile(
+    r"\b(?:void\s+GameModelCollection\s*::\s*)?"
+    r"(?:WakeModel|SeedModelAsleep|ApplyBodyImpulse|SetPendingBodyImpulse)\s*\("
 )
 HOT_PATH_INHERITANCE_PATTERN = re.compile(
     r"^\s*(?:class|struct)\s+[A-Za-z_]\w*[^{;\n]*:\s*(?:public|protected|private)\b",
@@ -2433,6 +2438,33 @@ def check_ragdoll_model_index_physics_command_guardrails_text(path: Path, text: 
 def check_ragdoll_model_index_physics_command_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / RAGDOLL_SOURCE
     return check_ragdoll_model_index_physics_command_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_deleted_game_model_collection_physics_wrapper_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in DELETED_GAME_MODEL_COLLECTION_PHYSICS_WRAPPER_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "deleted GameModelCollection model-index physics wrapper is blocked",
+                (
+                    "GameModelCollection no longer exposes model-index physics command wrappers; callers should "
+                    "resolve PhysicsBodyHandle at their boundary or use GameModelCollectionPhysicsAdapter while "
+                    "legacy model identity is still being migrated."
+                ),
+            )
+        )
+    return errors
+
+
+def check_deleted_game_model_collection_physics_wrapper_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in (GAME_MODEL_COLLECTION_HEADER, GAME_MODEL_COLLECTION_SOURCE):
+        path = repo / relative_path
+        errors.extend(check_deleted_game_model_collection_physics_wrapper_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_physics_hot_path_inheritance_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -7812,6 +7844,62 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only ragdoll model-index command synthetic text was rejected")
 
+    old_game_model_collection_physics_wrapper_header = """
+    class GameModelCollection
+    {
+        void WakeModel( int index );
+        void SeedModelAsleep( int index );
+    };
+    """
+    if not any(
+        error.message == "deleted GameModelCollection model-index physics wrapper is blocked"
+        for error in check_deleted_game_model_collection_physics_wrapper_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
+            old_game_model_collection_physics_wrapper_header,
+        )
+    ):
+        failures.append("old GameModelCollection physics wrapper header synthetic surface was not rejected")
+
+    old_game_model_collection_physics_wrapper_definition = """
+    void GameModelCollection::ApplyBodyImpulse( int index, const Vector3& impulse, const Vector3& localPoint )
+    {
+        GameModelCollectionPhysicsAdapter( *this ).ApplyBodyImpulseForModelIndex( index, impulse, localPoint );
+    }
+    """
+    if not any(
+        error.message == "deleted GameModelCollection model-index physics wrapper is blocked"
+        for error in check_deleted_game_model_collection_physics_wrapper_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_game_model_collection_physics_wrapper_definition,
+        )
+    ):
+        failures.append("old GameModelCollection physics wrapper definition synthetic surface was not rejected")
+
+    allowed_game_model_collection_adapter_use = """
+    void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
+    {
+        GameModelCollectionPhysicsAdapter( *this ).WakeBodyForModelIndex( sourceIndex );
+    }
+    """
+    if check_deleted_game_model_collection_physics_wrapper_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_game_model_collection_adapter_use,
+    ):
+        failures.append("GameModelCollection adapter use synthetic surface was rejected")
+
+    commented_game_model_collection_physics_wrapper = """
+    void DocumentDeletedWrappers()
+    {
+        // void GameModelCollection::WakeModel( int index ) used to live here.
+        GameModelCollectionPhysicsAdapter( *this ).WakeBodyForModelIndex( index );
+    }
+    """
+    if check_deleted_game_model_collection_physics_wrapper_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        commented_game_model_collection_physics_wrapper,
+    ):
+        failures.append("comment-only GameModelCollection physics wrapper synthetic text was rejected")
+
     allowed_physics_hot_path_values = """
     struct SolverBodyState
     {
@@ -8239,6 +8327,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_replay_velocity_model_state_physics_command_guardrails(repo))
     errors.extend(check_run_frame_replay_editor_transform_wake_guardrails(repo))
     errors.extend(check_ragdoll_model_index_physics_command_guardrails(repo))
+    errors.extend(check_deleted_game_model_collection_physics_wrapper_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))
     errors.extend(check_approved_inheritance_guardrails(repo))
