@@ -172,6 +172,12 @@ GAME_MODEL_COLLECTION_REPLAY_RESTORE_FUNCTION_PATTERN = re.compile(
 GAME_MODEL_COLLECTION_REPLAY_RESTORE_MODEL_REFRESH_PATTERN = re.compile(
     r"\b(?:CommitEditedModelPhysicsState|RefreshBodyFromModel|GetPhysicsBodyStore)\s*\("
 )
+GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_FUNCTION_PATTERN = re.compile(
+    r"\bbool\s+GameModelCollection::TrySetReplayRenderPose\s*\("
+)
+GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_PHYSICS_COMMIT_PATTERN = re.compile(
+    r"\b(?:CommitEditedModelPhysicsState|RefreshBodyFromModel|GetPhysicsBodyStore)\s*\("
+)
 PHYSICS_SCENE_RUN_PHYSICS_FUNCTION_PATTERN = re.compile(r"\bvoid\s+PhysicsScene::RunPhysics\s*\(")
 PHYSICS_SCENE_STEP_BODY_RELOAD_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*ReloadPhysicsBodies\s*\(")
 PHYSICS_SCENE_TOPOLOGY_BODY_RELOAD_PATTERN = re.compile(
@@ -183,6 +189,7 @@ PHYSICS_SCENE_TOPOLOGY_BODY_RELOAD_PATTERN = re.compile(
 PHYSICS_SCENE_COMMAND_BODY_REFRESH_FUNCTIONS = (
     "WakeBody",
     "SeedBodyAsleep",
+    "SetBodyVelocity",
     "SetPendingBodyImpulse",
 )
 PHYSICS_SCENE_COMMAND_BODY_REFRESH_PATTERN = re.compile(r"\bRefreshBodyStore\s*\(\s*modelAccess\s*\)")
@@ -2064,6 +2071,33 @@ def check_game_model_collection_replay_restore_store_authority_guardrails_text(p
     return errors
 
 
+def check_game_model_collection_replay_render_pose_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    bounds = _function_body_bounds(stripped, GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_FUNCTION_PATTERN)
+    if not bounds:
+        return errors
+
+    open_brace, close_brace = bounds
+    for match in GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_PHYSICS_COMMIT_PATTERN.finditer(
+        stripped,
+        open_brace,
+        close_brace,
+    ):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay render-pose physics commit is blocked",
+                (
+                    "TrySetReplayRenderPose is a presentation-only override; do not recapture GameModel "
+                    "state into PhysicsBodyStore from this path."
+                ),
+            )
+        )
+    return errors
+
+
 def check_replay_restore_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
     errors: list[BoundaryError] = []
     run_path = repo / RUN_SOURCE
@@ -2071,6 +2105,12 @@ def check_replay_restore_store_authority_guardrails(repo: Path) -> list[Boundary
     collection_path = repo / GAME_MODEL_COLLECTION_SOURCE
     errors.extend(
         check_game_model_collection_replay_restore_store_authority_guardrails_text(
+            collection_path,
+            collection_path.read_text(encoding="utf-8"),
+        )
+    )
+    errors.extend(
+        check_game_model_collection_replay_render_pose_guardrails_text(
             collection_path,
             collection_path.read_text(encoding="utf-8"),
         )
@@ -2138,7 +2178,7 @@ def check_physics_scene_command_body_refresh_guardrails_text(path: Path, text: s
     for function_name in PHYSICS_SCENE_COMMAND_BODY_REFRESH_FUNCTIONS:
         bounds = _function_body_bounds(
             stripped,
-            re.compile(rf"\bvoid\s+PhysicsScene::{function_name}\s*\("),
+            re.compile(rf"\b(?:void|bool)\s+PhysicsScene::{function_name}\s*\("),
         )
         if not bounds:
             continue
@@ -7148,6 +7188,62 @@ def run_self_tests() -> list[str]:
         commented_collection_replay_restore_model_refresh,
     ):
         failures.append("comment-only replay restore model-refresh synthetic text was rejected")
+
+    old_replay_render_pose_physics_commit = """
+    bool GameModelCollection::TrySetReplayRenderPose( int index,
+                                                      uint32_t replayBodyId,
+                                                      const Vector3& position,
+                                                      const Quaternion& orientation )
+    {
+        model.SetPosition( position );
+        model.SetOrientation( orientation );
+        CommitEditedModelPhysicsState( index, false );
+        return true;
+    }
+    """
+    if not any(
+        error.message == "replay render-pose physics commit is blocked"
+        for error in check_game_model_collection_replay_render_pose_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_replay_render_pose_physics_commit,
+        )
+    ):
+        failures.append("old replay render-pose physics commit synthetic surface was not rejected")
+
+    allowed_replay_render_pose_override = """
+    bool GameModelCollection::TrySetReplayRenderPose( int index,
+                                                      uint32_t replayBodyId,
+                                                      const Vector3& position,
+                                                      const Quaternion& orientation )
+    {
+        model.SetPosition( position );
+        model.SetOrientation( orientation );
+        InvalidateSoA();
+        return true;
+    }
+    """
+    if check_game_model_collection_replay_render_pose_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_replay_render_pose_override,
+    ):
+        failures.append("presentation-only replay render-pose synthetic surface was rejected")
+
+    commented_replay_render_pose_physics_commit = """
+    bool GameModelCollection::TrySetReplayRenderPose( int index,
+                                                      uint32_t replayBodyId,
+                                                      const Vector3& position,
+                                                      const Quaternion& orientation )
+    {
+        // CommitEditedModelPhysicsState( index, false ) used to run here.
+        InvalidateSoA();
+        return true;
+    }
+    """
+    if check_game_model_collection_replay_render_pose_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        commented_replay_render_pose_physics_commit,
+    ):
+        failures.append("comment-only replay render-pose physics commit synthetic text was rejected")
 
     old_physics_scene_step_body_reload = """
     void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )

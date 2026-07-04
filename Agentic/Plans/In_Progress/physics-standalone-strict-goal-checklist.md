@@ -433,6 +433,18 @@ slice: `python -m py_compile tools\check_runtime_boundaries.py`,
 `tools\validate_format.bat`, `tools\validate_fast.bat`, and
 `tools\validate_full.bat` all passed.
 
+Replay render-pose restore/prediction overlays now stay presentation-only:
+`TrySetReplayRenderPose` updates the model transform for drawing and no longer
+recaptures that pose into `PhysicsBodyStore`. The boundary checker blocks
+`TrySetReplayRenderPose` from calling `CommitEditedModelPhysicsState`,
+`RefreshBodyFromModel`, or `GetPhysicsBodyStore`. Evidence for this slice:
+`python -m py_compile tools\check_runtime_boundaries.py`,
+`python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+`tools\validate_format.bat`, `tools\validate_fast.bat`, and
+`tools\validate_full.bat` all passed. The replay restore/prediction checkbox
+remains unchecked because `TryRestoreReplayPredictionBodyState` still uses
+`CommitEditedModelPhysicsState`.
+
 ## Phase 8 - Diagnostics And SkullScope
 
 Target: diagnostics consume physics views and bounded query output, not raw

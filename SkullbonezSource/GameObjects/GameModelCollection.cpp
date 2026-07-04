@@ -742,7 +742,8 @@ bool GameModelCollection::TrySetReplayRenderPose( int index,
     model.SetPosition( position );
     model.SetOrientation( orientation );
     InvalidateSoA();
-    CommitEditedModelPhysicsState( index, false );
+    // Why: replay render poses are one-frame presentation overrides. Physics
+    // body state must stay owned by explicit restore/prediction commands.
     return true;
 }
 
