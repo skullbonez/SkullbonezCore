@@ -17,8 +17,9 @@ Glossary:
     velocity state to RigidBody integration.
   Contact policy: Terrain and contact thresholds cached by the collection so
     existing and newly added models receive the same physics policy.
-  PhysicsModelAccess: Stack-owned facade that forwards allowed physics sync
-    commands to this collection without making it inherit physics interfaces.
+  PhysicsModelAccess: Stack-owned refresh facade that lets physics stores import
+    model-owned authoring without making this collection inherit physics
+    interfaces.
   Replay body id: Per-collection identity saved in replay samples so restore
     paths can reject stale model slots.
   Validation gate: Repository script that proves a class of changes before
@@ -78,30 +79,6 @@ int PhysicsModelAccess::ModelCount() const
 }
 
 
-GameObjects::GameModelBodyStream PhysicsModelAccess::GetPhysicsBodyStream()
-{
-    return m_collection.GetPhysicsBodyStream();
-}
-
-
-void PhysicsModelAccess::InvalidatePhysicsStreams()
-{
-    m_collection.InvalidatePhysicsStreams();
-}
-
-
-void PhysicsModelAccess::WriteBackPhysicsBodies( const PhysicsBodyStore& bodyStore )
-{
-    m_collection.WriteBackPhysicsBodies( bodyStore );
-}
-
-
-void PhysicsModelAccess::WriteBackPhysicsBody( const PhysicsBodyStore& bodyStore, int modelIndex )
-{
-    m_collection.WriteBackPhysicsBody( bodyStore, modelIndex );
-}
-
-
 void PhysicsModelAccess::ReloadPhysicsBodies( PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates )
 {
     m_collection.ReloadPhysicsBodies( bodyStore, sleepStates );
@@ -126,32 +103,6 @@ void PhysicsModelAccess::RefreshRenderInstances( Rendering::RenderInstanceStore&
 {
     m_collection.RefreshRenderInstances( renderInstanceStore, bodyStore, colliderStore );
 }
-
-
-void PhysicsModelAccess::NotifyFixedContact( int modelIndex, float highlightSeconds )
-{
-    m_collection.NotifyFixedContact( modelIndex, highlightSeconds );
-}
-
-
-void PhysicsModelAccess::TickContactHighlights( int modelCount, float deltaSeconds )
-{
-    m_collection.TickContactHighlights( modelCount, deltaSeconds );
-}
-
-
-#ifdef _DEBUG
-bool PhysicsModelAccess::TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const
-{
-    return m_collection.TryGetPhysicsDiagnosticsModelName( index, outName );
-}
-
-
-void PhysicsModelAccess::FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const
-{
-    m_collection.FillPhysicsDiagnosticsNames( bodyCount, outNames );
-}
-#endif
 } // namespace Physics
 } // namespace SkullbonezCore
 

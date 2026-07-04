@@ -1063,6 +1063,36 @@ Evidence logs: `TestOutput\agent_build_debug_step_store_boundary.log`,
 `TestOutput\agent_validate_fast_step_store_boundary.log`, and
 `TestOutput\agent_validate_physics_step_store_boundary.log`.
 
+Slice `PHY-1013`: trim the now-dead step-era surface from
+`PhysicsModelAccess`. After `PHY-1012`, the facade only exists for
+model-owned refresh/import work while `GameModelCollection` owns the remaining
+model-side step envelope. Body-stream access, post-step writeback, stream
+invalidation, presentation feedback, diagnostics-name lookup, `Count`, and
+`size` are no longer exposed through the physics facade.
+
+- [x] Delete unused `PhysicsModelAccess` declarations and definitions for body
+  stream, writeback, invalidation, presentation feedback, diagnostics names,
+  `Count`, and `size`.
+- [x] Keep `PhysicsModelAccess` restricted to `ModelCount`,
+  `ReloadPhysicsBodies`, `RefreshPhysicsBodyFromModel`,
+  `RefreshPhysicsColliders`, and `RefreshRenderInstances`.
+- [x] Document the remaining facade owner, reason, deletion condition, and
+  checker budget.
+- [x] Add runtime-boundary self-tests that reject the deleted facade surface but
+  allow the refresh-only facade and comment-only historical mentions.
+- [x] Comment-audit the touched source files.
+- [x] Validation for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence logs: `TestOutput\agent_build_debug_model_access_facade_trim.log`,
+`TestOutput\agent_validate_fast_model_access_facade_trim.log`, and
+`TestOutput\agent_validate_physics_model_access_facade_trim.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

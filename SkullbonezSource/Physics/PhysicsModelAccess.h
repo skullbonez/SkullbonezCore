@@ -1,37 +1,38 @@
 /*
 File: SkullbonezSource/Physics/PhysicsModelAccess.h
 Purpose:
-  Defines the model-owner access facade between physics stores and GameModel storage.
+  Defines the model-owner refresh facade between physics stores and GameModel storage.
 
 Mental model:
   Physics hot paths use body, collider, and render stores. GameModelCollection
-  still owns model-order authoring and presentation state. This concrete facade
-  names the commands and queries physics may ask of the model owner without
-  making the collection inherit a physics callback interface.
+  still owns model-order authoring data during migration. This concrete facade
+  is now restricted to importing model-owned authoring/topology facts into
+  stores; step writeback and presentation feedback stay with GameModelCollection.
 
 Glossary:
   Model-owner access: Narrow command/query facade over GameModelCollection
     state that physics stores still need for model-order sync.
-  Body stream: SoA-backed read-only body data used by hot physics loops.
-  SoA (Structure of Arrays): Cache layout that stores each field in a separate
-    contiguous array for faster iteration.
-  Model-order command: Owner-side operation that applies a body/collider/render
-    store update across the current deterministic model order.
-  Model-owner event command: Owner-applied side effect requested after physics
-    has finished writing compact solver results.
-  Physics diagnostics view: Borrowed read-only retained solver/debug state used
-    by SkullScope without giving diagnostics ownership of scene storage.
-  Diagnostics model record: Debug-only value record that SkullScope/CSV streams
-    serialize without borrowing a GameModel range.
+  Authoring refresh: Model-owner import that rebuilds body, collider, or render
+    store rows after scene/editor/replay code changes model-owned authoring data.
+  Model order: Deterministic vector order still used to align compatibility
+    rows until durable entity/body/collider handles own every caller.
 
 Invariants:
   - GameModelCollection owns the underlying model storage and SoA cache.
   - Callers must not cache model-owner references after the operation that
     requested them.
-  - Mutations performed through model-owner commands must explicitly call
-    InvalidatePhysicsStreams() before a later stream read can observe stale SoA data.
-  - Debug diagnostics records may contain borrowed string pointers that are
-    valid only for the current emission pass.
+  - This facade must not grow step writeback, presentation event, diagnostic
+    name, or body-stream methods again; those edges have moved to their owners.
+
+Boundary budget:
+  Owner: GameModelCollection.
+  Reason: scene, editor, and replay paths still mutate model-owned authoring
+    data before durable body/collider/render handles own those facts directly.
+  Deletion condition: remove this facade when physics and rendering stores can
+    refresh body, collider, material, and feedback rows without model-order
+    imports.
+  Checker budget: tools/check_runtime_boundaries.py rejects step writeback,
+    presentation feedback, diagnostic-name, and body-stream methods here.
 
 Related:
   - SkullbonezSource/GameObjects/GameModelCollection.h
@@ -41,16 +42,12 @@ Related:
 #pragma once
 
 #include <cstdint>
-#include <cstddef>
 #include <vector>
-
-#include "../GameObjects/GameModelSoACache.h"
 
 namespace SkullbonezCore
 {
 namespace GameObjects
 {
-class GameModel;
 class GameModelCollection;
 } // namespace GameObjects
 
@@ -70,13 +67,6 @@ class PhysicsModelAccess
     explicit PhysicsModelAccess( GameObjects::GameModelCollection& collection );
 
     int ModelCount() const;
-    GameObjects::GameModelBodyStream GetPhysicsBodyStream();
-    void InvalidatePhysicsStreams();
-    // Named sync commands for legacy GameModel readers that still sit downstream
-    // of store-owned physics mutations. This keeps model-order work with the
-    // model owner instead of reopening raw ranges in solver code.
-    void WriteBackPhysicsBodies( const PhysicsBodyStore& bodyStore );
-    void WriteBackPhysicsBody( const PhysicsBodyStore& bodyStore, int modelIndex );
     // Reloads body records after compatibility model-owned edits mutate model
     // state before the step can import them through a narrower command.
     void ReloadPhysicsBodies( PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
@@ -90,35 +80,6 @@ class PhysicsModelAccess
     void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
                                  const PhysicsBodyStore& bodyStore,
                                  const ColliderStore& colliderStore );
-    void NotifyFixedContact( int modelIndex, float highlightSeconds );
-    // Ticks presentation timers for contact feedback in model order. Physics
-    // supplies the active body count; the model owner clamps to live storage.
-    void TickContactHighlights( int modelCount, float deltaSeconds );
-#ifdef _DEBUG
-    bool TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const;
-    // Compatibility owner: GameModelCollection presentation names.
-    // Reason: Debug diagnostics still print scene names while pose, motion,
-    // mass, and shape facts are sampled from physics-owned stores.
-    // Deletion condition: diagnostics rows identify bodies by scene object id
-    // or a presentation-name table owned outside GameModel. Checker budget:
-    // Phase 8 diagnostics guardrails keep state reads out of this edge.
-    void FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const;
-#endif
-
-    std::size_t size() const
-    {
-        return static_cast<std::size_t>( ModelCount() );
-    }
-
-    int Count() const
-    {
-        return ModelCount();
-    }
-
-    GameObjects::GameModelBodyStream GetBodyStream()
-    {
-        return GetPhysicsBodyStream();
-    }
 
   private:
     GameObjects::GameModelCollection& m_collection;

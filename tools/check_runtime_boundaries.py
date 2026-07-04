@@ -184,6 +184,17 @@ PHYSICS_SCENE_STEP_MODEL_ACCESS_SIGNATURE_PATTERN = re.compile(
 SIMULATION_SYSTEM_OWNER_BORROW_PATTERN = re.compile(
     r"\b(?:SimulationPhysicsStep|PhysicsModelAccess|PhysicsEngine|PhysicsWorldForces|WorkerPool)\b"
 )
+PHYSICS_MODEL_ACCESS_DELETED_STEP_FACADE_PATTERN = re.compile(
+    r"\b(?:GetPhysicsBodyStream|GetBodyStream|InvalidatePhysicsStreams|WriteBackPhysicsBodies|WriteBackPhysicsBody|"
+    r"NotifyFixedContact|TickContactHighlights|TryGetPhysicsDiagnosticsModelName|FillPhysicsDiagnosticsNames|"
+    r"Count|size)\s*\("
+)
+PHYSICS_MODEL_ACCESS_DELETED_STEP_FACADE_DEFINITION_PATTERN = re.compile(
+    r"\bPhysicsModelAccess::"
+    r"(?:GetPhysicsBodyStream|GetBodyStream|InvalidatePhysicsStreams|WriteBackPhysicsBodies|WriteBackPhysicsBody|"
+    r"NotifyFixedContact|TickContactHighlights|TryGetPhysicsDiagnosticsModelName|FillPhysicsDiagnosticsNames|"
+    r"Count|size)\s*\("
+)
 PHYSICS_WORLD_STORE_SEED_MODEL_ACCESS_PATTERN = re.compile(
     r"\b(?:GameModelBodyStream|GetBodyStream)\b|\bmodelAccess\s*\.\s*InvalidatePhysicsStreams\s*\("
 )
@@ -2429,6 +2440,44 @@ def check_simulation_system_owner_borrow_guardrails(repo: Path) -> list[Boundary
     for relative_path in ( PHYSICS_ROOT / "SimulationSystem.cpp", PHYSICS_ROOT / "SimulationSystem.h" ):
         path = repo / relative_path
         errors.extend(check_simulation_system_owner_borrow_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_physics_model_access_deleted_step_facade_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name not in { "PhysicsModelAccess.h", "GameModelCollection.cpp" }:
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    pattern = (
+        PHYSICS_MODEL_ACCESS_DELETED_STEP_FACADE_DEFINITION_PATTERN
+        if path.name == "GameModelCollection.cpp"
+        else PHYSICS_MODEL_ACCESS_DELETED_STEP_FACADE_PATTERN
+    )
+    errors: list[BoundaryError] = []
+    for match in pattern.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "deleted PhysicsModelAccess step facade surface is blocked",
+                (
+                    "PhysicsModelAccess is now restricted to model-owned store refresh; step writeback, "
+                    "presentation events, diagnostics names, and body streams must stay with their real owners."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_model_access_deleted_step_facade_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in ( PHYSICS_ROOT / "PhysicsModelAccess.h", GAME_MODEL_COLLECTION_SOURCE ):
+        path = repo / relative_path
+        errors.extend(
+            check_physics_model_access_deleted_step_facade_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+            )
+        )
     return errors
 
 
@@ -8706,6 +8755,81 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only SimulationSystem owner-borrow synthetic text was rejected")
 
+    old_physics_model_access_step_facade_header = """
+    class PhysicsModelAccess
+    {
+        GameModelBodyStream GetBodyStream();
+        void InvalidatePhysicsStreams();
+        void WriteBackPhysicsBodies( const PhysicsBodyStore& bodyStore );
+        void WriteBackPhysicsBody( const PhysicsBodyStore& bodyStore, int modelIndex );
+        void NotifyFixedContact( int modelIndex, float seconds );
+        void TickContactHighlights( int modelCount, float deltaSeconds );
+        void FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& names ) const;
+    };
+    """
+    if not any(
+        error.message == "deleted PhysicsModelAccess step facade surface is blocked"
+        for error in check_physics_model_access_deleted_step_facade_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsModelAccess.h"),
+            old_physics_model_access_step_facade_header,
+        )
+    ):
+        failures.append("old PhysicsModelAccess step facade header synthetic surface was not rejected")
+
+    old_physics_model_access_step_facade_definitions = """
+    void PhysicsModelAccess::InvalidatePhysicsStreams()
+    {
+        m_collection.InvalidatePhysicsStreams();
+    }
+    void PhysicsModelAccess::WriteBackPhysicsBody( const PhysicsBodyStore& bodyStore, int index )
+    {
+        m_collection.WriteBackPhysicsBody( bodyStore, index );
+    }
+    void PhysicsModelAccess::NotifyFixedContact( int index, float seconds )
+    {
+        m_collection.NotifyFixedContact( index, seconds );
+    }
+    """
+    if not any(
+        error.message == "deleted PhysicsModelAccess step facade surface is blocked"
+        for error in check_physics_model_access_deleted_step_facade_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_physics_model_access_step_facade_definitions,
+        )
+    ):
+        failures.append("old PhysicsModelAccess step facade definitions synthetic surface was not rejected")
+
+    allowed_physics_model_access_refresh_facade = """
+    class PhysicsModelAccess
+    {
+        int ModelCount() const;
+        void ReloadPhysicsBodies( PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
+        void RefreshPhysicsBodyFromModel( PhysicsBodyStore& bodyStore, int modelIndex );
+        void RefreshPhysicsColliders( ColliderStore& colliderStore, const PhysicsBodyStore& bodyStore );
+        void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
+                                     const PhysicsBodyStore& bodyStore,
+                                     const ColliderStore& colliderStore );
+    };
+    """
+    if check_physics_model_access_deleted_step_facade_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsModelAccess.h"),
+        allowed_physics_model_access_refresh_facade,
+    ):
+        failures.append("refresh-only PhysicsModelAccess synthetic surface was rejected")
+
+    commented_physics_model_access_step_facade = """
+    class PhysicsModelAccess
+    {
+        int ModelCount() const;
+        // WriteBackPhysicsBodies and FillPhysicsDiagnosticsNames were deleted from this facade.
+    };
+    """
+    if check_physics_model_access_deleted_step_facade_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsModelAccess.h"),
+        commented_physics_model_access_step_facade,
+    ):
+        failures.append("comment-only PhysicsModelAccess step facade synthetic text was rejected")
+
     old_store_seed_model_access = """
     void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, const PhysicsBodyStore& bodyStore, int index )
     {
@@ -10922,6 +11046,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_engine_step_model_access_signature_guardrails(repo))
     errors.extend(check_physics_scene_step_model_access_signature_guardrails(repo))
     errors.extend(check_simulation_system_owner_borrow_guardrails(repo))
+    errors.extend(check_physics_model_access_deleted_step_facade_guardrails(repo))
     errors.extend(check_physics_world_store_seed_model_access_guardrails(repo))
     errors.extend(check_physics_world_store_wake_model_access_guardrails(repo))
     errors.extend(check_physics_world_deleted_model_stream_wake_seed_guardrails(repo))
