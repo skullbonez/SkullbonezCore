@@ -1453,6 +1453,39 @@ smoke, runtime handle smoke, and byte-exact `physics_regression_solver.csv`;
 `tools\validate_fast.bat` passed formatting, project filters, runtime
 boundaries, and Profile/Debug builds with 0 warnings/errors.
 
+Slice `PHY-1024`: remove editor wake use of
+`GameModelCollectionPhysicsAdapter` model-index command wrappers while keeping
+the wake-aware, count-gated handle resolver. Owner: runtime editor transform
+helpers; reason: editor transform reset is a physics command path and should
+call `PhysicsEngine` with a validated `PhysicsBodyHandle` instead of hiding
+mutation behind an adapter command wrapper; deletion condition:
+`WakeEditorPhysicsBody` resolves a wake-ready `PhysicsBodyHandle` with
+`BodyHandleForVelocityCommand(modelIndex, true)` and calls
+`PhysicsEngine::WakeBody`; checker budget: `tools/check_runtime_boundaries.py`
+blocks editor adapter command wrappers from returning.
+
+- [x] Resolve editor wake targets to `PhysicsBodyHandle` before calling
+  `PhysicsEngine::WakeBody`.
+- [x] Preserve wake-aware count-gated body/collider topology refresh through
+  the existing adapter handle resolver.
+- [x] Add runtime-boundary guardrails and self-tests for the deleted editor
+  adapter command-wrapper shape.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation run for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] touched-file comment audit
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence: runtime-boundary summary reported 0 errors; touched-file comment
+audit confirmed `RunEditorTools.cpp` and `tools/check_runtime_boundaries.py`
+meet the guide for this slice; `tools\validate_physics.bat` passed standalone
+smoke, runtime handle smoke, and byte-exact `physics_regression_solver.csv`;
+`tools\validate_fast.bat` passed formatting, project filters, runtime
+boundaries, and Profile/Debug builds with 0 warnings/errors.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

@@ -502,6 +502,11 @@ EDITOR_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\b(?:context\s*\.\s*models|collection)\s*\.\s*"
     r"(?:SetPendingBodyImpulse|SeedModelAsleep|WakeModel|ApplyBodyImpulse)\s*\("
 )
+EDITOR_ADAPTER_COMMAND_WRAPPER_PATTERN = re.compile(
+    r"\b[A-Za-z_]\w*\s*\.\s*"
+    r"(?:ApplyBodyImpulseForModelIndex|WakeBodyForModelIndex|SeedBodyAsleepForModelIndex|"
+    r"SetPendingBodyImpulseForModelIndex)\s*\("
+)
 EDITOR_PHYSICS_COMMAND_SOURCES = (
     EDITOR_OBJECT_PLACEMENT_SOURCE,
     EDITOR_TOOLS_SOURCE,
@@ -3911,6 +3916,18 @@ def check_editor_model_index_physics_command_guardrails_text(path: Path, text: s
                 (
                     "Editor commands may keep model indices for selection, but physics mutation should resolve "
                     "PhysicsBodyHandle at the editor command boundary and call PhysicsEngine handle commands."
+                ),
+            )
+        )
+    for match in EDITOR_ADAPTER_COMMAND_WRAPPER_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "editor adapter command wrapper is blocked",
+                (
+                    "Editor commands should resolve PhysicsBodyHandle at the editor boundary, then call "
+                    "PhysicsEngine directly instead of hiding mutation behind adapter model-index command wrappers."
                 ),
             )
         )
@@ -11565,12 +11582,11 @@ def run_self_tests() -> list[str]:
         failures.append("old editor reset model-index command synthetic surface was not rejected")
 
     allowed_editor_handle_command = """
-    void WakeEditorPhysicsBody( GameModelCollection& collection, PhysicsEngine& physics, int modelIndex )
+    void WakeEditorPhysicsBody( GameModelCollection& collection, int modelIndex )
     {
         GameModelCollectionPhysicsAdapter physicsBodies( collection );
-        const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
-        PhysicsModelAccess modelAccess( collection );
-        physics.WakeBody( modelAccess, body );
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelIndex, true );
+        collection.GetPhysicsEngine().WakeBody( body );
     }
     """
     if check_editor_model_index_physics_command_guardrails_text(
@@ -11591,6 +11607,36 @@ def run_self_tests() -> list[str]:
         commented_editor_model_index_command,
     ):
         failures.append("comment-only editor model-index command synthetic text was rejected")
+
+    old_editor_adapter_command = """
+    void WakeEditorPhysicsBody( GameModelCollection& collection, int modelIndex )
+    {
+        GameModelCollectionPhysicsAdapter physicsBodies( collection );
+        physicsBodies.WakeBodyForModelIndex( modelIndex );
+    }
+    """
+    if not any(
+        error.message == "editor adapter command wrapper is blocked"
+        for error in check_editor_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+            old_editor_adapter_command,
+        )
+    ):
+        failures.append("old editor adapter command synthetic surface was not rejected")
+
+    commented_editor_adapter_command = """
+    void DocumentOldEditorAdapterCommand()
+    {
+        // physicsBodies.WakeBodyForModelIndex(modelIndex) used to run here.
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelIndex, true );
+        collection.GetPhysicsEngine().WakeBody( body );
+    }
+    """
+    if check_editor_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+        commented_editor_adapter_command,
+    ):
+        failures.append("comment-only editor adapter command synthetic text was rejected")
 
     old_mouse_pickup_model_index_command = """
     void Run::ApplyMousePickupPhysicsStep()

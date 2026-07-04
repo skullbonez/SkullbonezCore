@@ -601,7 +601,13 @@ int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, i
 void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& collection, int modelIndex )
 {
     GameModelCollectionPhysicsAdapter physicsBodies( collection );
-    physicsBodies.WakeBodyForModelIndex( modelIndex );
+    const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelIndex, true );
+    if ( !body.IsValid() )
+    {
+        return;
+    }
+
+    collection.GetPhysicsEngine().WakeBody( body );
 }
 
 
