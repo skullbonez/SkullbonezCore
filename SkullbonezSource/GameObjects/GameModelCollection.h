@@ -136,7 +136,9 @@ class GameModelCollection
     bool ShouldRenderCollisionVolumes() const;
     bool ShouldUseShadowParallelPrep() const;
     Threading::WorkerPool* RenderWorkerPool() const;
-    void AddGameModel( GameModel gameModel );
+    // Appends scene-authored model storage and the matching body-store row in
+    // one owner step so construction commands can use the returned body handle.
+    Physics::PhysicsBodyHandle AddGameModel( GameModel gameModel );
     void Clear();
     void RunPhysics( float fChangeInTime,
                      const Basics::EngineConfig& config,

@@ -1114,6 +1114,16 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std
 }
 
 
+PhysicsBodyRecord SkullbonezCore::Physics::MakeBodyRecordFromAuthoredModel( GameModel& model )
+{
+    PhysicsBodyRecord record;
+    record.replayBodyId = model.GetReplayBodyId();
+    record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
+    CaptureMutableBodyState( model, record );
+    return record;
+}
+
+
 PhysicsBodyHandle PhysicsBodyStore::CreateBodyRecord( const PhysicsBodyRecord& initialRecord )
 {
     uint32_t slot = 0;

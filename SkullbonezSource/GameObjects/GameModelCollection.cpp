@@ -64,6 +64,7 @@ using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::MakeBodyRecordFromAuthoredModel;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
@@ -285,7 +286,7 @@ SkullbonezCore::Threading::WorkerPool* GameModelCollection::RenderWorkerPool() c
 }
 
 
-void GameModelCollection::AddGameModel( GameModel gameModel )
+PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel )
 {
     const int activeCapacity = ActiveGameModelCapacity();
     assert( static_cast<int>( m_gameModels.size() ) < activeCapacity && "Exceeded active game model capacity" );
@@ -306,7 +307,16 @@ void GameModelCollection::AddGameModel( GameModel gameModel )
     gameModel.ApplyPhysicsMaterial( m_physicsMaterial );
     gameModel.ApplyBodySimulationLimits( m_bodySimulationLimits );
     gameModel.ApplyContactPolicy( m_contactPolicy );
+    if ( m_physicsEngine.BodyStore().Count() != static_cast<int>( m_gameModels.size() ) )
+    {
+        // Hazard: append-time body registration assumes the existing model/body
+        // rows are aligned. Repair only pre-existing count drift; the newly
+        // pushed model then appends one body record instead of reloading all rows.
+        PhysicsModelAccess modelAccess( *this );
+        m_physicsEngine.RefreshBodyStore( modelAccess );
+    }
     m_gameModels.push_back( std::move( gameModel ) );
+    return m_physicsEngine.RegisterAuthoredBody( MakeBodyRecordFromAuthoredModel( m_gameModels.back() ) );
 }
 
 

@@ -102,6 +102,13 @@ struct PhysicsBodyRecord
     bool hasPendingImpulse = false;                    // One-shot impulse waiting for the next body integration pass.
 };
 
+// Construction edge: GameModelCollection still authors scene rows, but it
+// converts the just-appended model to this value record so PhysicsEngine receives
+// data, not a GameModel reference. Delete this when scene creation writes
+// PhysicsBodyCreateDesc records directly; the boundary checker blocks scene
+// setup from going back through adapter lookups.
+PhysicsBodyRecord MakeBodyRecordFromAuthoredModel( GameObjects::GameModel& model );
+
 class PhysicsBodyStore
 {
   public:

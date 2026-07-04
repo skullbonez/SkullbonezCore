@@ -494,6 +494,9 @@ SCENE_SETUP_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\bcontext\s*\.\s*models\s*\.\s*"
     r"(?:SetPendingBodyImpulse|SeedModelAsleep|WakeModel|ApplyBodyImpulse)\s*\("
 )
+SCENE_SETUP_ADAPTER_BODY_LOOKUP_PATTERN = re.compile(
+    r"\b(?:GameModelCollectionPhysicsAdapter\b|[A-Za-z_]\w*\s*\.\s*BodyHandleForModelIndex\s*\()"
+)
 SCENE_SETUP_PHYSICS_COMMAND_SOURCES = (
     SCENE_AUTHORED_SETUP_SOURCE,
     SCENE_GENERATED_SETUP_SOURCE,
@@ -3900,6 +3903,19 @@ def check_scene_setup_model_index_physics_command_guardrails_text(path: Path, te
                 (
                     "Scene setup should resolve PhysicsBodyHandle once at the construction boundary and call "
                     "PhysicsEngine handle commands instead of GameModelCollection model-index wrappers."
+                ),
+            )
+        )
+    for match in SCENE_SETUP_ADAPTER_BODY_LOOKUP_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "scene setup adapter body lookup is blocked",
+                (
+                    "Scene construction receives PhysicsBodyHandle from AddGameModel's append-time body registration; "
+                    "authored/generated setup must not re-resolve a just-created model through "
+                    "GameModelCollectionPhysicsAdapter."
                 ),
             )
         )
@@ -11576,12 +11592,29 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old scene setup model-index command synthetic surface was not rejected")
 
-    allowed_scene_setup_handle_command = """
-    void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
+    old_scene_setup_adapter_body_lookup = """
+    void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context )
     {
+        GameModelCollectionPhysicsAdapter physicsBodies( context.models );
         const int modelIndex = context.models.GetModelCount();
         context.models.AddGameModel( std::move( model ) );
         const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+        context.physics.SetPendingBodyImpulse( body, force, forcePos );
+    }
+    """
+    if not any(
+        error.message == "scene setup adapter body lookup is blocked"
+        for error in check_scene_setup_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp"),
+            old_scene_setup_adapter_body_lookup,
+        )
+    ):
+        failures.append("old scene setup adapter body lookup synthetic surface was not rejected")
+
+    allowed_scene_setup_handle_command = """
+    void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
+    {
+        const PhysicsBodyHandle body = context.models.AddGameModel( std::move( model ) );
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
         context.physics.SeedBodyAsleep( body );
     }

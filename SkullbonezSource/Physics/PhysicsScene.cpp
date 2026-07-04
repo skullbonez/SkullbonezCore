@@ -99,6 +99,12 @@ void PhysicsScene::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int mo
 }
 
 
+PhysicsBodyHandle PhysicsScene::RegisterAuthoredBody( const PhysicsBodyRecord& record )
+{
+    return m_bodyStore.CreateBodyRecord( record );
+}
+
+
 void PhysicsScene::ClearPendingBodyImpulses()
 {
     m_bodyStore.ClearPendingImpulses();

@@ -1560,6 +1560,48 @@ boundaries, and Profile/Debug builds with 0 warnings/errors;
 `tools\validate_physics.bat` passed standalone smoke, runtime handle smoke, and
 byte-exact `physics_regression_solver.csv`.
 
+Slice `PHY-1027`: remove authored/generated scene construction use of
+`GameModelCollectionPhysicsAdapter` handle lookup after model append. Owner:
+`GameModelCollection` append boundary plus `PhysicsBodyStore`; reason:
+post-insert adapter lookup can reload the whole body store for every created
+object and keeps model-index construction commands alive; deletion condition:
+`SceneAuthoredSetup.cpp` and `SceneGeneratedSetup.cpp` no longer instantiate
+`GameModelCollectionPhysicsAdapter` or call `BodyHandleForModelIndex`; checker
+budget: `tools/check_runtime_boundaries.py` blocks scene setup adapter lookups
+from returning.
+
+- [x] Make `GameModelCollection::AddGameModel` append the matching
+  `PhysicsBodyStore` body record once and return the new `PhysicsBodyHandle`.
+- [x] Keep `PhysicsEngine` free of raw `GameModel` public facade dependencies by
+  passing a `PhysicsBodyRecord` value into `RegisterAuthoredBody`.
+- [x] Move authored scene initial impulses and sleep seeding to the returned
+  append-time body handle.
+- [x] Move generated scene and solver-demo initial impulses to the returned
+  append-time body handle.
+- [x] Add runtime-boundary guardrails and self-tests blocking scene setup
+  adapter handle lookup regression.
+- [x] Confirm no scene setup adapter lookup names remain in authored/generated
+  setup.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation run for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] touched-file comment audit
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence: CodeGraph identified the authored/generated post-insert adapter
+lookup pattern; targeted residue scan found no `GameModelCollectionPhysicsAdapter`
+or `BodyHandleForModelIndex` in `SceneAuthoredSetup.cpp` or
+`SceneGeneratedSetup.cpp` after the edit; runtime-boundary summary reported 0
+errors; focused Debug build passed with 0 warnings/errors; touched-file comment
+audit passed for every source/tool file touched; `tools\validate_fast.bat`
+passed formatting, project filters, runtime boundaries, and Profile/Debug builds
+with 0 warnings/errors; `tools\validate_physics.bat` passed standalone/runtime
+handle smoke and byte-exact `physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

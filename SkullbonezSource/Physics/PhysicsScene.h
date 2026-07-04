@@ -61,6 +61,10 @@ class PhysicsScene
     void Clear();
     void RefreshBodyStore( PhysicsModelAccess& modelAccess );
     void RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex );
+    // Construction edge: registers one newly authored body value without a full
+    // model-order reload. Owner is GameModelCollection until scene creation
+    // writes body descriptors directly.
+    PhysicsBodyHandle RegisterAuthoredBody( const PhysicsBodyRecord& record );
     void ClearPendingBodyImpulses();
     // Replay restore trims the authoritative body store directly; callers must
     // not force a model-to-store refresh after this succeeds.

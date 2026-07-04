@@ -28,6 +28,7 @@ Related:
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsEngine;
@@ -55,6 +56,12 @@ void PhysicsEngine::RefreshBodyStore( PhysicsModelAccess& modelAccess )
 void PhysicsEngine::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex )
 {
     m_scene.RefreshBodyFromModel( modelAccess, modelIndex );
+}
+
+
+PhysicsBodyHandle PhysicsEngine::RegisterAuthoredBody( const PhysicsBodyRecord& record )
+{
+    return m_scene.RegisterAuthoredBody( record );
 }
 
 

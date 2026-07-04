@@ -31,7 +31,6 @@ Related:
 #include "../CameraCollection.h"
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
-#include "../../GameObjects/GameModelCollectionPhysicsAdapter.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../World/Terrain.h"
@@ -46,7 +45,6 @@ namespace Basics
 {
 namespace
 {
-using SkullbonezCore::GameObjects::GameModelCollectionPhysicsAdapter;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 
@@ -102,11 +100,6 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
         return ( NextSceneRand( context.scene.rngState ) % 2 == 0 ) ? mag : -mag;
     };
     auto randSign = [&]() -> float { return ( NextSceneRand( context.scene.rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
-    // Why: generated setup still appends GameModel rows, but initial physics
-    // commands should enter PhysicsEngine as handles rather than model-index
-    // wrappers. The adapter remains the migration bridge for identity only.
-    GameModelCollectionPhysicsAdapter physicsBodies( context.models );
-
     for ( int x = 0; x < context.scene.modelCount; ++x )
     {
         float posX = randFloat( cfg.spawnXBase, cfg.spawnXRange );
@@ -156,9 +149,7 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
             gameModel.SetTerrain( context.terrain );
             gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
 
-            const int modelIndex = context.models.GetModelCount();
-            context.models.AddGameModel( std::move( gameModel ) );
-            const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+            const PhysicsBodyHandle body = context.models.AddGameModel( std::move( gameModel ) );
             context.physics.SetPendingBodyImpulse( body, force, forcePos );
         }
         else
@@ -175,9 +166,7 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
             gameModel.SetTerrain( context.terrain );
             gameModel.AddBoundingSphere( radius );
 
-            const int modelIndex = context.models.GetModelCount();
-            context.models.AddGameModel( std::move( gameModel ) );
-            const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+            const PhysicsBodyHandle body = context.models.AddGameModel( std::move( gameModel ) );
             context.physics.SetPendingBodyImpulse( body, force, forcePos );
         }
     }
@@ -214,10 +203,6 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         return ( NextSceneRand( context.scene.rngState ) % 2 == 0 ) ? mag : -mag;
     };
     auto randSign = [&]() -> float { return ( NextSceneRand( context.scene.rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
-    // Why: solver-demo setup follows the same boundary as authored/generated
-    // scenes: resolve a handle at construction, then mutate PhysicsBodyStore.
-    GameModelCollectionPhysicsAdapter physicsBodies( context.models );
-
     // --- Sphere pass ---
     for ( int i = 0; i < balls; ++i )
     {
@@ -243,9 +228,7 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         gameModel.SetCoefficientRestitution( restitution );
         gameModel.SetTerrain( context.terrain );
         gameModel.AddBoundingSphere( radius );
-        const int modelIndex = context.models.GetModelCount();
-        context.models.AddGameModel( std::move( gameModel ) );
-        const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+        const PhysicsBodyHandle body = context.models.AddGameModel( std::move( gameModel ) );
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
     }
 
@@ -281,9 +264,7 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         gameModel.SetCoefficientRestitution( restitution );
         gameModel.SetTerrain( context.terrain );
         gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
-        const int modelIndex = context.models.GetModelCount();
-        context.models.AddGameModel( std::move( gameModel ) );
-        const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+        const PhysicsBodyHandle body = context.models.AddGameModel( std::move( gameModel ) );
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
     }
 

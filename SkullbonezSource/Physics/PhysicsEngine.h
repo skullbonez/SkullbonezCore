@@ -51,6 +51,9 @@ class PhysicsEngine
     void Clear();
     void RefreshBodyStore( PhysicsModelAccess& modelAccess );
     void RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex );
+    // Scene/model construction receives a body handle at append time instead of
+    // resolving a just-created model index through the compatibility adapter.
+    PhysicsBodyHandle RegisterAuthoredBody( const PhysicsBodyRecord& record );
     void ClearPendingBodyImpulses();
     // Replay restore trims the authoritative body store directly; callers must
     // not force a model-to-store refresh after this succeeds.
