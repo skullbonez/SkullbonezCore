@@ -5,8 +5,8 @@ Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
 intermittent `tools\validate_physics.bat` passed on 2026-07-05 after moving
-launcher fixed-tree release policy/source release and launcher hit mass/position
-reads to `PhysicsBodyStore`.
+launcher ray-hit broad picking from `GameModel` position/shape reads to
+`PhysicsBodyStore` positions and `ColliderStore` bounding radii.
 
 ## Completed Slices
 
@@ -264,6 +264,26 @@ reads to `PhysicsBodyStore`.
   `tools\validate_physics.bat` passed on 2026-07-05; physics regression
   reported standalone/runtime handle smoke pass and byte-exact
   `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved launcher ray-hit broad picking from the `GameModel`
+  compatibility mirror to `PhysicsBodyStore` and `ColliderStore`. Owner:
+  runtime launcher ray and projectile aim tools. Reason: the previous
+  `TryRayCastTestHit(collection.Models(), ...)` scan read `GameModel`
+  positions and collision shapes before the tool ever resolved a body handle,
+  preserving the mirror as a hidden input to launcher physics. The ray test now
+  repairs count drift once, scans dense body positions plus collider bounding
+  radii, and keeps `GameModel` out of the hit-selection path. Deletion
+  condition: `RuntimeTools::TryRayCastTestHit()` takes body/collider stores,
+  and launcher code contains no `TryRayCastTestHit(collection.Models(), ...)`,
+  `std::vector<GameModel>` raycast signature, `LauncherModelRadius()`, or
+  raycast `GameModel` position/shape read. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks those old shapes in
+  `RuntimeTools.cpp` and `RuntimeTools.h` with reject/allow/comment-only
+  self-tests. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
 
 ## Goal
 
@@ -471,6 +491,8 @@ Move one body-state group at a time. Keep compatibility writeback narrow and tem
 - [x] 2026-07-05 launcher fixed-release policy/source mutation and hit
   mass/position reads use `PhysicsBodyStore` records; `GameModelCollection`
   only performs bounded topology repair and touched-row compatibility writeback.
+- [x] 2026-07-05 launcher ray-hit broad picking uses `PhysicsBodyStore` body
+  positions instead of `GameModel::GetPosition()`.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of sleep and wake state.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of accumulated forces and impulses.
 - [ ] Change physics stepping to consume body handles/store views rather than `GameModelCollection&`.
@@ -508,6 +530,9 @@ Colliders should own exact collision data. `GameModel` must not remain the hidde
 - [ ] Make `ColliderStore` own collision shape handles or value records.
 - [ ] Make `ColliderStore` own material/contact parameters such as friction, restitution, density, and collision flags.
 - [ ] Make `ColliderStore` own broadphase bounds and dirty flags.
+- [x] 2026-07-05 launcher ray-hit broad picking uses `ColliderStore`
+  `boundingRadius` records instead of reading `GameModel` collision shapes for
+  tool hit radii.
 - [ ] Make `ColliderStore` own body-to-collider and collider-to-body mapping.
 - [ ] Move shape creation from `GameModel` construction into a collider registration path.
 - [ ] Move shape mutation into explicit collider update commands.

@@ -16,6 +16,10 @@ Glossary:
     scrubbing so debug feedback follows recorded frames.
   Gizmo drag group: Bounded set of selected model indices transformed as one
     editor gesture.
+  Body store: Physics-owned dense body rows borrowed by tool hit tests and
+    command paths without reading mirrored GameModel body state.
+  Collider store: Physics-owned dense collider rows borrowed for shape-derived
+    hit-test bounds.
   Physics body handle: Generational id for a live simulation body row; runtime
     tools store it when they need to issue physics commands.
   Model index: Dense model-order row used for UI and replay identity, validated
@@ -59,6 +63,12 @@ namespace SkullbonezCore::GameObjects
 class GameModel;
 class GameModelCollection;
 } // namespace SkullbonezCore::GameObjects
+
+namespace SkullbonezCore::Physics
+{
+class ColliderStore;
+class PhysicsBodyStore;
+} // namespace SkullbonezCore::Physics
 
 namespace SkullbonezCore::Assets
 {
@@ -282,7 +292,8 @@ class RuntimeTools
     const char* LauncherFireModeLabel() const;
     void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;
     void RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample );
-    bool TryRayCastTestHit( const std::vector<GameObjects::GameModel>& models,
+    bool TryRayCastTestHit( const Physics::PhysicsBodyStore& bodyStore,
+                            const Physics::ColliderStore& colliderStore,
                             const Math::Vector::Vector3& rayOrigin,
                             const Math::Vector::Vector3& rayDirection,
                             float maxDistance,

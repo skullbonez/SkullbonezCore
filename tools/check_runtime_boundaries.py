@@ -126,6 +126,7 @@ EDITOR_OBJECT_PLACEMENT_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditor
 EDITOR_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp")
 MOUSE_PICKUP_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl")
 RUNTIME_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp")
+RUNTIME_TOOLS_HEADER = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h")
 REPLAY_VELOCITY_EDIT_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl")
 REPLAY_PREDICTION_HELPERS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl")
 REPLAY_RECORDER_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp")
@@ -546,6 +547,18 @@ LAUNCHER_ADAPTER_LOOKUP_PATTERN = re.compile(
 )
 LAUNCHER_FIRE_LASER_FUNCTION_PATTERN = re.compile(
     r"\bvoid\s+RuntimeTools::FireLauncherLaser\s*\("
+)
+LAUNCHER_TRY_RAY_CAST_TEST_HIT_FUNCTION_PATTERN = re.compile(
+    r"\bbool\s+RuntimeTools::TryRayCastTestHit\s*\("
+)
+LAUNCHER_RAYCAST_MODEL_VECTOR_PATTERN = re.compile(
+    r"\bTryRayCastTestHit\s*\(\s*(?:"
+    r"const\s+std\s*::\s*vector\s*<\s*(?:GameObjects\s*::\s*)?GameModel\s*>\s*&|"
+    r"collection\s*\.\s*Models\s*\()"
+)
+LAUNCHER_RAYCAST_GAME_MODEL_BODY_PATTERN = re.compile(
+    r"\b(?:LauncherModelRadius\s*\(|[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*"
+    r"(?:GetPosition|GetCollisionShape)\s*\()"
 )
 LAUNCHER_GAME_MODEL_BODY_READ_PATTERN = re.compile(
     r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*"
@@ -4199,6 +4212,33 @@ def check_launcher_model_index_physics_command_guardrails_text(path: Path, text:
                 ),
             )
         )
+    for match in LAUNCHER_RAYCAST_MODEL_VECTOR_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "launcher GameModel raycast is blocked",
+                (
+                    "Launcher ray hits should scan PhysicsBodyStore and ColliderStore records for center/radius; "
+                    "collection.Models() and std::vector<GameModel> signatures reopen the compatibility mirror."
+                ),
+            )
+        )
+    bounds = _function_body_bounds(stripped, LAUNCHER_TRY_RAY_CAST_TEST_HIT_FUNCTION_PATTERN)
+    if bounds:
+        open_brace, close_brace = bounds
+        for match in LAUNCHER_RAYCAST_GAME_MODEL_BODY_PATTERN.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "launcher GameModel raycast is blocked",
+                    (
+                        "Launcher raycast broad hits should use body positions and collider bounding radii from "
+                        "the physics stores instead of GameModel position or shape reads."
+                    ),
+                )
+            )
     bounds = _function_body_bounds(stripped, LAUNCHER_FIRE_LASER_FUNCTION_PATTERN)
     if bounds:
         open_brace, close_brace = bounds
@@ -4219,8 +4259,11 @@ def check_launcher_model_index_physics_command_guardrails_text(path: Path, text:
 
 
 def check_launcher_model_index_physics_command_guardrails(repo: Path) -> list[BoundaryError]:
-    path = repo / RUNTIME_TOOLS_SOURCE
-    return check_launcher_model_index_physics_command_guardrails_text(path, path.read_text(encoding="utf-8"))
+    errors: list[BoundaryError] = []
+    for relative_path in (RUNTIME_TOOLS_SOURCE, RUNTIME_TOOLS_HEADER):
+        path = repo / relative_path
+        errors.extend(check_launcher_model_index_physics_command_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_replay_velocity_model_state_physics_command_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -12343,6 +12386,83 @@ def run_self_tests() -> list[str]:
         allowed_launcher_body_store_read,
     ):
         failures.append("launcher body-store read synthetic surface was rejected")
+
+    old_launcher_model_vector_raycast_header = """
+    class RuntimeTools
+    {
+        bool TryRayCastTestHit( const std::vector<GameObjects::GameModel>& models,
+                                const Vector3& rayOrigin,
+                                const Vector3& rayDirection,
+                                float maxDistance,
+                                int& outIndex,
+                                float& outT ) const;
+    };
+    """
+    if not any(
+        error.message == "launcher GameModel raycast is blocked"
+        for error in check_launcher_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h"),
+            old_launcher_model_vector_raycast_header,
+        )
+    ):
+        failures.append("old launcher GameModel raycast header synthetic surface was not rejected")
+
+    old_launcher_model_vector_raycast_body = """
+    bool RuntimeTools::TryRayCastTestHit( const std::vector<GameModel>& models )
+    {
+        const GameModel& model = models[i];
+        const float radius = LauncherModelRadius( model );
+        return IntersectRaySphere( origin, direction, model.GetPosition(), radius, rayT );
+    }
+
+    void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
+    {
+        TryRayCastTestHit( collection.Models(), origin, direction, maxDistance, index, rayT );
+    }
+    """
+    if not any(
+        error.message == "launcher GameModel raycast is blocked"
+        for error in check_launcher_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
+            old_launcher_model_vector_raycast_body,
+        )
+    ):
+        failures.append("old launcher GameModel raycast body synthetic surface was not rejected")
+
+    allowed_launcher_store_raycast = """
+    bool RuntimeTools::TryRayCastTestHit( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore )
+    {
+        const std::vector<PhysicsBodyRecord>& bodies = bodyStore.Records();
+        const std::vector<ColliderRecord>& colliders = colliderStore.Records();
+        const PhysicsBodyRecord& body = bodies[i];
+        const ColliderRecord& collider = colliders[i];
+        const float radius = collider.boundingRadius;
+        return IntersectRaySphere( origin, direction, body.position, radius, rayT );
+    }
+
+    void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
+    {
+        TryRayCastTestHit( physics.BodyStore(), physics.Colliders(), origin, direction, maxDistance, index, rayT );
+    }
+    """
+    if check_launcher_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
+        allowed_launcher_store_raycast,
+    ):
+        failures.append("launcher store raycast synthetic surface was rejected")
+
+    commented_launcher_model_vector_raycast = """
+    void DocumentOldLauncherRaycast()
+    {
+        // TryRayCastTestHit(collection.Models(), origin, direction, maxDistance, index, rayT) used to run here.
+        // model.GetPosition() and LauncherModelRadius(model) are historical notes.
+    }
+    """
+    if check_launcher_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
+        commented_launcher_model_vector_raycast,
+    ):
+        failures.append("comment-only launcher GameModel raycast synthetic text was rejected")
 
     old_launcher_adapter_lookup = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )

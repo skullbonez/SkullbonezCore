@@ -15,6 +15,10 @@ Glossary:
     replay scrubbing.
   Contact release: Rule that lets selected fixed authored props become dynamic
     after a strong enough launcher impulse.
+  Body store: Physics-owned dense body rows holding simulation position, mass,
+    fixed state, and handles for command targets.
+  Collider store: Physics-owned dense collider rows holding shape-derived bounds
+    used by launcher broad hit tests.
   Physics body handle: Generational id for the body-store row that receives
     launcher impulses or wake commands.
 
@@ -38,6 +42,7 @@ Related:
 
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../Physics/ColliderStore.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
@@ -103,11 +108,6 @@ void ApplyLauncherPhysicsImpulse( Physics::PhysicsEngine& physics,
     physics.ApplyBodyImpulse( body, impulse, localApplicationPoint );
 }
 
-
-float LauncherModelRadius( const GameObjects::GameModel& model )
-{
-    return (std::max)( Math::CollisionDetection::GetShapeBoundingRadius( model.GetCollisionShape() ), 1.0f );
-}
 
 bool IntersectRaySphere( const Math::Vector::Vector3& rayOrigin,
                          const Math::Vector::Vector3& rayDirection,
@@ -288,7 +288,8 @@ void RuntimeTools::RestoreReplayLauncherVisualSample( const ReplayLauncherVisual
     m_laser.RestoreShots( sample.laserShots, sample.nextLaserShot );
 }
 
-bool RuntimeTools::TryRayCastTestHit( const std::vector<GameObjects::GameModel>& models,
+bool RuntimeTools::TryRayCastTestHit( const Physics::PhysicsBodyStore& bodyStore,
+                                      const Physics::ColliderStore& colliderStore,
                                       const Math::Vector::Vector3& rayOrigin,
                                       const Math::Vector::Vector3& rayDirection,
                                       float maxDistance,
@@ -298,15 +299,20 @@ bool RuntimeTools::TryRayCastTestHit( const std::vector<GameObjects::GameModel>&
     outIndex = -1;
     outT = maxDistance;
 
-    // Concept: Launcher model picking uses bounding spheres, not exact mesh
-    // intersections. It is the broad, deterministic tool hit result used for
-    // impulses and visual feedback.
-    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+    // Concept: launcher body picking uses collider bounding spheres, not exact
+    // mesh intersections. The broad deterministic hit result is enough for
+    // impulse placement and visual feedback, and it stays on store records.
+    const int hitCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
+    const std::vector<Physics::PhysicsBodyRecord>& bodies = bodyStore.Records();
+    const std::vector<Physics::ColliderRecord>& colliders = colliderStore.Records();
+    for ( int i = 0; i < hitCount; ++i )
     {
-        const GameObjects::GameModel& model = models[static_cast<size_t>( i )];
-        const float radius = LauncherModelRadius( model );
+        const std::size_t index = static_cast<std::size_t>( i );
+        const Physics::PhysicsBodyRecord& body = bodies[index];
+        const Physics::ColliderRecord& collider = colliders[index];
+        const float radius = (std::max)( collider.boundingRadius, 1.0f );
         float rayT = 0.0f;
-        if ( IntersectRaySphere( rayOrigin, rayDirection, model.GetPosition(), radius, rayT ) && rayT <= maxDistance &&
+        if ( IntersectRaySphere( rayOrigin, rayDirection, body.position, radius, rayT ) && rayT <= maxDistance &&
              rayT < outT )
         {
             outIndex = i;
@@ -442,14 +448,19 @@ void RuntimeTools::FireLauncherLaser( GameObjects::GameModelCollection& collecti
                                       const Math::Vector::Vector3& rayDirection,
                                       const Math::Vector::Vector3& cameraUp )
 {
+    const int modelCount = collection.GetModelCount();
+    Physics::PhysicsEngine& physics = collection.GetPhysicsEngine();
+    const bool storesReady = RepairLauncherPhysicsStores( collection, physics, modelCount );
+
     int modelHitIndex = -1;
     float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool modelHit = TryRayCastTestHit( collection.Models(),
-                                             rayOrigin,
-                                             rayDirection,
-                                             RAY_CAST_TEST_MAX_DISTANCE,
-                                             modelHitIndex,
-                                             modelHitT );
+    const bool modelHit = storesReady && TryRayCastTestHit( physics.BodyStore(),
+                                                            physics.Colliders(),
+                                                            rayOrigin,
+                                                            rayDirection,
+                                                            RAY_CAST_TEST_MAX_DISTANCE,
+                                                            modelHitIndex,
+                                                            modelHitT );
 
     float terrainHitT = RAY_CAST_TEST_MAX_DISTANCE;
     const bool terrainHit =
@@ -464,14 +475,7 @@ void RuntimeTools::FireLauncherLaser( GameObjects::GameModelCollection& collecti
     m_laser.Fire( rayOrigin, rayDirection, cameraUp, hitT, hit );
     AddRayCastTestLine( rayOrigin, visualEnd, hit );
 
-    const int modelCount = collection.GetModelCount();
     if ( terrainIsClosest || !modelHit || modelHitIndex < 0 || modelHitIndex >= modelCount )
-    {
-        return;
-    }
-
-    Physics::PhysicsEngine& physics = collection.GetPhysicsEngine();
-    if ( !RepairLauncherPhysicsStores( collection, physics, modelCount ) )
     {
         return;
     }
@@ -505,19 +509,24 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
                                            const Math::Vector::Vector3& rayDirection,
                                            const Math::Vector::Vector3& cameraUp )
 {
-    if ( !terrain || collection.GetModelCount() >= activeModelCapacity )
+    const int modelCount = collection.GetModelCount();
+    if ( !terrain || modelCount >= activeModelCapacity )
     {
         return false;
     }
 
+    Physics::PhysicsEngine& physics = collection.GetPhysicsEngine();
+    const bool storesReady = RepairLauncherPhysicsStores( collection, physics, modelCount );
+
     int modelHitIndex = -1;
     float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool modelHit = TryRayCastTestHit( collection.Models(),
-                                             rayOrigin,
-                                             rayDirection,
-                                             RAY_CAST_TEST_MAX_DISTANCE,
-                                             modelHitIndex,
-                                             modelHitT );
+    const bool modelHit = storesReady && TryRayCastTestHit( physics.BodyStore(),
+                                                            physics.Colliders(),
+                                                            rayOrigin,
+                                                            rayDirection,
+                                                            RAY_CAST_TEST_MAX_DISTANCE,
+                                                            modelHitIndex,
+                                                            modelHitT );
 
     float terrainHitT = RAY_CAST_TEST_MAX_DISTANCE;
     const bool terrainHit =
