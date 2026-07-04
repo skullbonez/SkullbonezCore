@@ -12,10 +12,11 @@
 #   service access while explicit service contexts are built. Renderer globals
 #   have an extra file-classification fence, object rendering has a
 #   render-instance authority fence, runtime picking has a store-authority
-#   fence, runtime handle smoke has a handle-authority fence, and fixed-tree,
-#   replay-restore wake, replay velocity-edit, launcher ray-hit, or editor
-#   wake/sleep commands have store-handle fences, so count allowances do not
-#   silently approve a new compatibility location.
+#   fence, runtime handle smoke has a handle-authority fence, contact-audio
+#   simple mode has a body-store motion fence, and fixed-tree, replay-restore
+#   wake, replay velocity-edit, launcher ray-hit, or editor wake/sleep commands
+#   have store-handle fences, so count allowances do not silently approve a new
+#   compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -42,6 +43,9 @@
 #     render passes instead of rebuilding GameModel pose streams.
 #   Store-authority fence: Static rule that keeps a migrated reader on physics
 #     body/collider records instead of reopening a GameModel mirror path.
+#   Body-store motion fence: Static rule that keeps post-step motion
+#     classification on PhysicsBodyStore records instead of mirrored GameModel
+#     body fields.
 #   Handle-authority fence: Static rule that keeps a validation smoke on handles
 #     returned by creation instead of proving authority through adapter lookup.
 #   Store-handle fence: Static rule that keeps owner-side command edges on
@@ -558,6 +562,13 @@ RUN_FRAME_REPLAY_EDITOR_TRANSFORM_WAKE_PATTERN = re.compile(
 )
 RUN_FRAME_REPLAY_EDITOR_TRANSFORM_ADAPTER_WAKE_PATTERN = re.compile(
     r"\b(?:GameModelCollectionPhysicsAdapter|BodyHandleForVelocityCommand|BodyHandleForModelIndex)\b"
+)
+RUN_FRAME_CONTACT_AUDIO_SIMPLE_MODE_PATTERN = re.compile(
+    r"\bm_contactAudio\s*\.\s*SimpleModeEnabled\s*\(\s*\)\s*"
+)
+RUN_FRAME_CONTACT_AUDIO_SIMPLE_MODEL_MOTION_PATTERN = re.compile(
+    r"\b(?:[A-Za-z_]\w*|models\s*\[[^\]]+\])\s*(?:\.|->)\s*"
+    r"(?:IsFixed|GetPosition|GetVelocity|GetMass)\s*\("
 )
 RAGDOLL_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\bcollection\s*\.\s*(?:SeedModelAsleep|WakeModel|ApplyBodyImpulse|SetPendingBodyImpulse)\s*\("
@@ -4253,6 +4264,47 @@ def check_run_frame_replay_editor_transform_wake_guardrails_text(path: Path, tex
 def check_run_frame_replay_editor_transform_wake_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / RUN_FRAME_SOURCE
     return check_run_frame_replay_editor_transform_wake_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_run_frame_contact_audio_simple_store_authority_guardrails_text(path: Path,
+                                                                         text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    simple_mode_match = RUN_FRAME_CONTACT_AUDIO_SIMPLE_MODE_PATTERN.search(stripped)
+    if not simple_mode_match:
+        return errors
+
+    open_brace = stripped.find("{", simple_mode_match.end())
+    if open_brace < 0:
+        return errors
+    close_brace = find_matching_close_brace(stripped, open_brace)
+
+    for match in RUN_FRAME_CONTACT_AUDIO_SIMPLE_MODEL_MOTION_PATTERN.finditer(
+        stripped,
+        open_brace,
+        close_brace,
+    ):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "contact audio simple mode GameModel motion read is blocked",
+                (
+                    "Contact-audio Simple Mode should read fixed state, position, velocity, and mass from "
+                    "PhysicsBodyStore records; GameModel may still supply authored material until material "
+                    "ownership moves."
+                ),
+            )
+        )
+    return errors
+
+
+def check_run_frame_contact_audio_simple_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / RUN_FRAME_SOURCE
+    return check_run_frame_contact_audio_simple_store_authority_guardrails_text(
+        path,
+        path.read_text(encoding="utf-8"),
+    )
 
 
 def check_ragdoll_model_index_physics_command_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -12476,6 +12528,75 @@ def run_self_tests() -> list[str]:
             "comment-only RunFrame replay editor transform adapter wake synthetic text was rejected"
         )
 
+    old_run_frame_contact_audio_simple_model_motion = """
+    void Run::AfterPhysicsStep()
+    {
+        if ( m_contactAudio.SimpleModeEnabled() )
+        {
+            const GameModel& model = models[i];
+            if ( model.IsFixed() )
+            {
+                return;
+            }
+            m_contactAudio.SubmitLinearMotion( i,
+                                               model.GetContactMaterialId(),
+                                               model.GetPosition(),
+                                               model.GetVelocity(),
+                                               model.GetMass() );
+        }
+    }
+    """
+    if not any(
+        error.message == "contact audio simple mode GameModel motion read is blocked"
+        for error in check_run_frame_contact_audio_simple_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+            old_run_frame_contact_audio_simple_model_motion,
+        )
+    ):
+        failures.append("old RunFrame contact-audio simple model-motion synthetic surface was not rejected")
+
+    allowed_run_frame_contact_audio_simple_store_motion = """
+    void Run::AfterPhysicsStep()
+    {
+        if ( m_contactAudio.SimpleModeEnabled() )
+        {
+            const auto& bodyRecords = m_cGameModelCollection.GetPhysicsEngine().BodyStore().Records();
+            const PhysicsBodyRecord& body = bodyRecords[i];
+            const GameModel& model = models[i];
+            if ( body.isFixed )
+            {
+                return;
+            }
+            m_contactAudio.SubmitLinearMotion( i,
+                                               model.GetContactMaterialId(),
+                                               body.position,
+                                               body.linearVelocity,
+                                               body.mass );
+        }
+    }
+    """
+    if check_run_frame_contact_audio_simple_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+        allowed_run_frame_contact_audio_simple_store_motion,
+    ):
+        failures.append("store-owned RunFrame contact-audio simple synthetic surface was rejected")
+
+    commented_run_frame_contact_audio_simple_model_motion = """
+    void Run::AfterPhysicsStep()
+    {
+        if ( m_contactAudio.SimpleModeEnabled() )
+        {
+            // model.GetPosition(), model.GetVelocity(), model.GetMass(), and model.IsFixed() used to live here.
+            m_contactAudio.SubmitLinearMotion( i, material, body.position, body.linearVelocity, body.mass );
+        }
+    }
+    """
+    if check_run_frame_contact_audio_simple_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+        commented_run_frame_contact_audio_simple_model_motion,
+    ):
+        failures.append("comment-only RunFrame contact-audio simple synthetic text was rejected")
+
     old_ragdoll_model_index_command = """
     void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection )
     {
@@ -13141,6 +13262,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_launcher_model_index_physics_command_guardrails(repo))
     errors.extend(check_replay_velocity_model_state_physics_command_guardrails(repo))
     errors.extend(check_run_frame_replay_editor_transform_wake_guardrails(repo))
+    errors.extend(check_run_frame_contact_audio_simple_store_authority_guardrails(repo))
     errors.extend(check_ragdoll_model_index_physics_command_guardrails(repo))
     errors.extend(check_deleted_game_model_collection_physics_wrapper_guardrails(repo))
     errors.extend(check_game_model_collection_fixed_tree_release_adapter_guardrails(repo))

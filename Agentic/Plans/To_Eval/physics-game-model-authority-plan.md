@@ -4,8 +4,8 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_physics.bat` passed on 2026-07-05 after deleting the full
-collider refresh facade.
+intermittent `tools\validate_physics.bat` passed on 2026-07-05 after moving
+contact-audio Simple Mode motion reads to `PhysicsBodyStore`.
 
 ## Completed Slices
 
@@ -225,6 +225,23 @@ collider refresh facade.
   `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
   passed on 2026-07-05; physics regression reported standalone/runtime handle
   smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved contact-audio Simple Mode motion reads from the
+  compatibility `GameModel` mirror to `PhysicsBodyStore`. Owner:
+  `Run::AfterPhysicsStep()` contact-audio post-step scan. Reason: the simple
+  audio reducer runs after physics ticks and only needs fixed state, position,
+  linear velocity, and mass for motion classification; those values are already
+  authoritative in dense body records, while `GameModel` should remain a
+  material lookup only until material ownership moves. Deletion condition:
+  Simple Mode contains no `GameModel` `IsFixed()`, `GetPosition()`,
+  `GetVelocity()`, or `GetMass()` motion reads. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks those calls inside the
+  `m_contactAudio.SimpleModeEnabled()` branch and self-tests reject, allow, and
+  comment-only cases. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
 
 ## Goal
 
@@ -426,6 +443,9 @@ Move one body-state group at a time. Keep compatibility writeback narrow and tem
 - [ ] Make `PhysicsBodyStore` the authoritative owner of linear and angular velocity.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of mass, inverse mass, inertia, and inverse inertia.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of fixed/dynamic state.
+- [x] 2026-07-05 contact-audio Simple Mode reads post-step pose, linear
+  velocity, fixed state, and mass from `PhysicsBodyStore` records instead of
+  the `GameModel` compatibility mirror.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of sleep and wake state.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of accumulated forces and impulses.
 - [ ] Change physics stepping to consume body handles/store views rather than `GameModelCollection&`.

@@ -680,20 +680,25 @@ void Run::AfterPhysicsStep()
         {
             // Why: Simple Mode answers the practical sound question directly:
             // did a dynamic body experience enough mass-scaled linear velocity
-            // change to be heard? Passive constraint rows are ignored entirely.
-            m_contactAudio.BeginSimpleLinearStep( static_cast<int>( models.size() ) );
-            for ( int bodyIndex = 0; bodyIndex < static_cast<int>( models.size() ); ++bodyIndex )
+            // change to be heard? Motion comes from the authoritative body store;
+            // GameModel is still sampled only for authored audio material.
+            const auto& bodyRecords = m_cGameModelCollection.GetPhysicsEngine().BodyStore().Records();
+            const int simpleBodyCount =
+                static_cast<int>( bodyRecords.size() < models.size() ? bodyRecords.size() : models.size() );
+            m_contactAudio.BeginSimpleLinearStep( simpleBodyCount );
+            for ( int bodyIndex = 0; bodyIndex < simpleBodyCount; ++bodyIndex )
             {
-                const GameObjects::GameModel& model = models[static_cast<std::size_t>( bodyIndex )];
-                if ( model.IsFixed() )
+                const PhysicsBodyRecord& body = bodyRecords[static_cast<std::size_t>( bodyIndex )];
+                if ( body.isFixed )
                 {
                     continue;
                 }
+                const GameObjects::GameModel& model = models[static_cast<std::size_t>( bodyIndex )];
                 m_contactAudio.SubmitLinearMotion( bodyIndex,
                                                    model.GetContactMaterialId(),
-                                                   model.GetPosition(),
-                                                   model.GetVelocity(),
-                                                   model.GetMass() );
+                                                   body.position,
+                                                   body.linearVelocity,
+                                                   body.mass );
             }
         }
         else
