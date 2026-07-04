@@ -8,8 +8,7 @@ Mental model:
   LoadFromModels copies legacy construction/runtime state into compatibility
   rows. Standalone creation appends dense rows directly. PhysicsWorld or the
   standalone step mutates records, then named compatibility writeback keeps
-  older render, replay, tool, terrain, and shape callers working until they move
-  to store-backed views.
+  remaining model-side readers working until they move to store-backed views.
 
 Glossary:
   Body: Simulated object state such as position, orientation, velocity, mass,
@@ -1293,21 +1292,9 @@ void PhysicsBodyStore::WriteBackToModels( std::vector<GameModel>& models ) const
     const int modelCount = (std::min)( static_cast<int>( models.size() ), Count() );
     for ( int i = 0; i < modelCount; ++i )
     {
-        WriteBackToModelAt( models, i );
+        WriteRecordToCompatibilityModel( m_bodies[static_cast<std::size_t>( i )],
+                                         models[static_cast<std::size_t>( i )] );
     }
-}
-
-
-void PhysicsBodyStore::WriteBackToModelAt( std::vector<GameModel>& models, int modelIndex ) const
-{
-    if ( modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) ||
-         modelIndex >= static_cast<int>( m_bodies.size() ) )
-    {
-        return;
-    }
-
-    WriteRecordToCompatibilityModel( m_bodies[static_cast<std::size_t>( modelIndex )],
-                                     models[static_cast<std::size_t>( modelIndex )] );
 }
 
 

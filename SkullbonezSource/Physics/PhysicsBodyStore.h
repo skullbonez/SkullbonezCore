@@ -27,8 +27,8 @@ Invariants:
     explicit maps instead of encoding model index inside the handle.
   - Store refreshes load compatibility GameModel state into the physics-owned
     body records before a step.
-  - Store writeback is a named compatibility bridge for legacy render, replay,
-    tool, terrain, and shape code that still reads GameModel state.
+  - Store writeback is a named compatibility bridge for remaining legacy
+    model-side readers; per-command projection must not be reintroduced.
 
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.cpp
@@ -143,7 +143,6 @@ class PhysicsBodyStore
                                  const Math::Vector::Vector3& rotationalInertia,
                                  const Math::Vector::Vector3& inverseRotationalInertia );
     void WriteBackToModels( std::vector<GameObjects::GameModel>& models ) const;
-    void WriteBackToModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex ) const;
     void CaptureMutableStateFromModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex );
     void CopySleepStatesFrom( const std::vector<uint8_t>& sleepStates );
     void CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) const;

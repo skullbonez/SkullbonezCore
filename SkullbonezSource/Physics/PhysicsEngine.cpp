@@ -137,14 +137,12 @@ void PhysicsEngine::WakeBody( PhysicsBodyHandle body )
 bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,
                                                           float releaseImpulseStrength,
                                                           const Math::Vector::Vector3& seedLinearVelocity,
-                                                          const Math::Vector::Vector3& seedAngularVelocity,
-                                                          std::vector<int>& outReleasedBodyIndices )
+                                                          const Math::Vector::Vector3& seedAngularVelocity )
 {
     return m_scene.ReleaseFixedBodyAndAttachedTreeParts( sourceBody,
                                                          releaseImpulseStrength,
                                                          seedLinearVelocity,
-                                                         seedAngularVelocity,
-                                                         outReleasedBodyIndices );
+                                                         seedAngularVelocity );
 }
 
 

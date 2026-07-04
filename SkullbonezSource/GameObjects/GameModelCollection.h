@@ -122,8 +122,6 @@ class GameModelCollection
     bool m_shadowParallelPrep = false;                  // Cached worker-prep toggle copied from EngineConfig.
     uint32_t m_nextReplayBodyId = 1;
     std::vector<int> m_replayRenderPoseOverrideIndices; // Pending one-frame render-only replay pose rows.
-    std::vector<int>
-        m_fixedTreeReleaseWriteBackBodies;              // Reused release writeback list; avoids launcher-path allocation churn.
 
     void RememberReplayRenderPoseOverride( int modelIndex );
     void ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore );
@@ -253,7 +251,6 @@ class GameModelCollection
     GameModel& GetModelAtIndex( int index );
     double GetSceneKineticEnergy();
     void WriteBackPhysicsBodies( const Physics::PhysicsBodyStore& bodyStore );
-    void WriteBackPhysicsBody( const Physics::PhysicsBodyStore& bodyStore, int modelIndex );
     void ReloadPhysicsBodies( Physics::PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
     void RefreshPhysicsBodyFromModel( Physics::PhysicsBodyStore& bodyStore, int modelIndex );
     void RefreshPhysicsColliders( Physics::ColliderStore& colliderStore, const Physics::PhysicsBodyStore& bodyStore );
@@ -265,7 +262,8 @@ class GameModelCollection
     void TickContactHighlights( int modelCount, float deltaSeconds );
     void NotifyAudioContact( int modelIndex, float highlightSeconds );
     // Runtime-tool edge: ray tools release authored fixed tree props through
-    // PhysicsBodyStore, then mirror only touched rows for compatibility.
+    // PhysicsBodyStore; presentation reads the store/render snapshot instead of
+    // forcing a per-release GameModel mirror.
     bool ReleaseAttachedFixedTreeParts( int sourceIndex,
                                         float releaseImpulseStrength,
                                         const Math::Vector::Vector3& seedLinearVelocity,

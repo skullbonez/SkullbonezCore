@@ -17,7 +17,8 @@
 #   body-store motion fence, and fixed-tree, replay-restore wake, replay
 #   velocity-edit, launcher ray-hit, or editor wake/sleep commands have
 #   store-handle fences. The deleted collection step wrapper has its own fence,
-#   so count allowances do not silently approve a new compatibility location.
+#   and per-body model writeback has its own fence, so count allowances do not
+#   silently approve a new compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -58,6 +59,8 @@
 #     returned by creation instead of proving authority through adapter lookup.
 #   Store-handle fence: Static rule that keeps owner-side command edges on
 #     PhysicsBodyStore handle lookup instead of a legacy external adapter.
+#   Per-body writeback fence: Static rule that keeps command paths from copying
+#     one PhysicsBodyStore row back into GameModel as a convenience mirror.
 #
 # Invariants:
 #   - Run.h may own subsystem objects, but not their extracted transient state.
@@ -78,6 +81,8 @@
 #     requiring the GameModel compatibility mirror to be refreshed before input.
 #   - Attached-camera follow reads live body motion and radius from
 #     PhysicsBodyStore/ColliderStore instead of the post-step GameModel mirror.
+#   - Fixed-tree release wakes store-owned rows inside PhysicsScene and must not
+#     return model-order rows to GameModelCollection for per-body projection.
 #   - Object contact manifolds and required scene-contact gates read body pose
 #     and exact shapes from PhysicsBodyStore/ColliderStore snapshots.
 #   - Unknown render graph resource states remain explicitly counted handoffs
@@ -656,6 +661,15 @@ GAME_MODEL_COLLECTION_FIXED_TREE_RELEASE_MODEL_BODY_PATTERN = re.compile(
     r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*"
     r"(?:GetRuntimeCollectionKind|GetRuntimeCollectionRootModelIndex|GetPosition|IsFixed|"
     r"ReleasesFromFixedOnContact|SetFixed|SetLinearVelocity|SetAngularVelocity)\s*\("
+)
+DELETED_PER_BODY_MODEL_WRITEBACK_PATTERN = re.compile(
+    r"\b(?:(?:void|bool)\s+)?(?:(?:GameModelCollection|PhysicsBodyStore)\s*::\s*)?"
+    r"(?:WriteBackPhysicsBody|WriteBackToModelAt)\s*\("
+    r"|\bm_fixedTreeReleaseWriteBackBodies\b"
+)
+FIXED_TREE_RELEASE_OUTPUT_VECTOR_PATTERN = re.compile(
+    r"\bReleaseFixedBodyAndAttachedTreeParts\s*\([^;{}]*std\s*::\s*vector\s*<\s*int\s*>\s*&",
+    re.S,
 )
 DELETED_GAME_MODEL_COLLECTION_PHYSICS_ADAPTER_COMMAND_WRAPPER_PATTERN = re.compile(
     r"\b(?:void\s+)?(?:GameModelCollectionPhysicsAdapter\s*::\s*)?"
@@ -4665,6 +4679,53 @@ def check_game_model_collection_fixed_tree_release_adapter_guardrails_text(
 def check_game_model_collection_fixed_tree_release_adapter_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / GAME_MODEL_COLLECTION_SOURCE
     return check_game_model_collection_fixed_tree_release_adapter_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_deleted_per_body_model_writeback_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in DELETED_PER_BODY_MODEL_WRITEBACK_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "deleted per-body model writeback is blocked",
+                (
+                    "Per-body GameModel projection reintroduces copy-back churn. Keep only the explicit bulk "
+                    "compatibility writeback until remaining model-mirror readers move to store snapshots."
+                ),
+            )
+        )
+    for match in FIXED_TREE_RELEASE_OUTPUT_VECTOR_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "fixed-tree release output writeback vector is blocked",
+                (
+                    "Fixed-tree release should wake changed rows inside PhysicsScene instead of returning "
+                    "model-order rows to GameModelCollection for per-release projection."
+                ),
+            )
+        )
+    return errors
+
+
+def check_deleted_per_body_model_writeback_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in (
+        GAME_MODEL_COLLECTION_HEADER,
+        GAME_MODEL_COLLECTION_SOURCE,
+        PHYSICS_ROOT / "PhysicsBodyStore.h",
+        PHYSICS_ROOT / "PhysicsBodyStore.cpp",
+        PHYSICS_ENGINE_HEADER,
+        PHYSICS_ENGINE_SOURCE,
+        PHYSICS_SCENE_HEADER,
+        PHYSICS_SCENE_SOURCE,
+    ):
+        path = repo / relative_path
+        errors.extend(check_deleted_per_body_model_writeback_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_deleted_game_model_collection_physics_adapter_command_guardrails_text(
@@ -13422,7 +13483,7 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old fixed-tree release GameModel body read synthetic surface was not rejected")
 
-    allowed_game_model_collection_fixed_tree_store_release = """
+    old_game_model_collection_fixed_tree_per_release_writeback = """
     void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
     {
         const PhysicsBodyHandle sourceBody = m_physicsEngine.BodyStore().HandleForModelIndex( sourceIndex );
@@ -13430,11 +13491,63 @@ def run_self_tests() -> list[str]:
         WriteBackPhysicsBody( m_physicsEngine.BodyStore(), sourceIndex );
     }
     """
+    if not any(
+        error.message == "deleted per-body model writeback is blocked"
+        for error in check_deleted_per_body_model_writeback_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_game_model_collection_fixed_tree_per_release_writeback,
+        )
+    ):
+        failures.append("old fixed-tree per-release model writeback synthetic surface was not rejected")
+
+    old_fixed_tree_release_output_vector = """
+    bool PhysicsScene::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,
+                                                             float impulse,
+                                                             std::vector<int>& outReleasedBodyIndices )
+    {
+        outReleasedBodyIndices.push_back( sourceIndex );
+        return true;
+    }
+    """
+    if not any(
+        error.message == "fixed-tree release output writeback vector is blocked"
+        for error in check_deleted_per_body_model_writeback_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+            old_fixed_tree_release_output_vector,
+        )
+    ):
+        failures.append("old fixed-tree release output vector synthetic surface was not rejected")
+
+    allowed_game_model_collection_fixed_tree_store_release = """
+    void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
+    {
+        const PhysicsBodyHandle sourceBody = m_physicsEngine.BodyStore().HandleForModelIndex( sourceIndex );
+        m_physicsEngine.ReleaseFixedBodyAndAttachedTreeParts( sourceBody, impulse, velocity, angularVelocity );
+    }
+    """
     if check_game_model_collection_fixed_tree_release_adapter_guardrails_text(
         Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
         allowed_game_model_collection_fixed_tree_store_release,
     ):
         failures.append("fixed-tree release store-owned synthetic surface was rejected")
+    if check_deleted_per_body_model_writeback_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_game_model_collection_fixed_tree_store_release,
+    ):
+        failures.append("fixed-tree release no-writeback synthetic surface was rejected")
+
+    commented_per_body_model_writeback = """
+    void DocumentDeletedReleaseMirror()
+    {
+        // WriteBackPhysicsBody( m_physicsEngine.BodyStore(), sourceIndex ) used to mirror a released row.
+        // PhysicsBodyStore::WriteBackToModelAt(models, sourceIndex) is intentionally gone.
+    }
+    """
+    if check_deleted_per_body_model_writeback_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        commented_per_body_model_writeback,
+    ):
+        failures.append("comment-only per-body model writeback synthetic text was rejected")
 
     commented_game_model_collection_physics_wrapper = """
     void DocumentDeletedWrappers()
@@ -13990,6 +14103,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_ragdoll_model_index_physics_command_guardrails(repo))
     errors.extend(check_deleted_game_model_collection_physics_wrapper_guardrails(repo))
     errors.extend(check_game_model_collection_fixed_tree_release_adapter_guardrails(repo))
+    errors.extend(check_deleted_per_body_model_writeback_guardrails(repo))
     errors.extend(check_deleted_game_model_collection_physics_adapter_command_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))

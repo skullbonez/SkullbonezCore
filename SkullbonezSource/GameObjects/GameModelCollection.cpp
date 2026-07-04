@@ -921,13 +921,6 @@ void GameModelCollection::WriteBackPhysicsBodies( const SkullbonezCore::Physics:
 }
 
 
-void GameModelCollection::WriteBackPhysicsBody( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
-                                                int modelIndex )
-{
-    bodyStore.WriteBackToModelAt( m_gameModels, modelIndex );
-}
-
-
 void GameModelCollection::ReloadPhysicsBodies( SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
                                                const std::vector<uint8_t>& sleepStates )
 {
@@ -1039,13 +1032,13 @@ bool GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
         return false;
     }
 
-    const int modelCount = static_cast<int>( m_gameModels.size() );
     // Compatibility owner: GameModelCollection runtime-tool edge.
     // Reason: launcher hits still arrive as model indices, but fixed-state,
     // release policy, and same-tree propagation now belong to PhysicsBodyStore.
     // Deletion condition: runtime picking and scene identity use stable entity
     // ids or body handles directly. Checker budget: boundary grep blocks this
-    // function from reading GameModel fixed/position/tree body metadata again.
+    // function from reading GameModel fixed/position/tree body metadata or
+    // reintroducing a per-release model writeback.
     if ( !RepairPhysicsBodyAndColliderTopology() )
     {
         return false;
@@ -1057,23 +1050,14 @@ bool GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
         return false;
     }
 
-    m_fixedTreeReleaseWriteBackBodies.reserve( static_cast<std::size_t>( modelCount ) );
     if ( !m_physicsEngine.ReleaseFixedBodyAndAttachedTreeParts( sourceBody,
                                                                 releaseImpulseStrength,
                                                                 seedLinearVelocity,
-                                                                seedAngularVelocity,
-                                                                m_fixedTreeReleaseWriteBackBodies ) )
+                                                                seedAngularVelocity ) )
     {
         return false;
     }
 
-    for ( int index : m_fixedTreeReleaseWriteBackBodies )
-    {
-        if ( index >= 0 && index < modelCount )
-        {
-            WriteBackPhysicsBody( m_physicsEngine.BodyStore(), index );
-        }
-    }
     return true;
 }
 

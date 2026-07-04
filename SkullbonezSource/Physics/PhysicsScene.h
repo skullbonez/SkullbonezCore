@@ -98,12 +98,11 @@ class PhysicsScene
                      const char* const* diagnosticNames,
                      int diagnosticNameCount );
     // Releases an authored fixed body, then same-tree parts, using body-store
-    // policy and returning touched model-order rows for compatibility writeback.
+    // policy and waking touched rows without a per-release model mirror.
     bool ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,
                                                float releaseImpulseStrength,
                                                const Math::Vector::Vector3& seedLinearVelocity,
-                                               const Math::Vector::Vector3& seedAngularVelocity,
-                                               std::vector<int>& outReleasedBodyIndices );
+                                               const Math::Vector::Vector3& seedAngularVelocity );
     // Wakes solver sleep/island state by handle. Legacy model-index callers
     // must refresh topology before entering this command.
     void WakeBody( PhysicsBodyHandle body );

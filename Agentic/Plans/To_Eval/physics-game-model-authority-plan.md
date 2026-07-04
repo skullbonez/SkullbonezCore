@@ -718,6 +718,13 @@ Only remove compatibility after callers have moved and validation has covered th
     callback or virtual sink; the remaining model mirror update is an owner-side
     post-solve application step. Full deletion is still pending final reader
     migration.
+  - [x] 2026-07-05 launcher fixed-tree release no longer performs a per-release
+    `GameModel` row projection. `PhysicsScene` wakes released store rows
+    internally, `GameModelCollection::WriteBackPhysicsBody` and
+    `PhysicsBodyStore::WriteBackToModelAt` are deleted, and the checker rejects
+    those per-body writeback names plus the released-row output-vector shape.
+    The explicit bulk step compatibility writeback remains pending final reader
+    migration.
 - [ ] Delete compatibility collider fields from `GameModel` after final reader migrates.
 - [ ] Delete production render reliance on concrete `GameModelCollection` after
   render callers migrate to `RenderInstanceStore`.

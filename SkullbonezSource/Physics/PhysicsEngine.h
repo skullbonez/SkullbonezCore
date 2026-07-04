@@ -85,13 +85,12 @@ class PhysicsEngine
                Threading::WorkerPool& workerPool,
                const char* const* diagnosticNames,
                int diagnosticNameCount );
-    // Runtime fixed-tree commands enter physics by handle and return only the
-    // changed model-order rows that still need compatibility writeback.
+    // Runtime fixed-tree commands enter physics by handle; release, wake, and
+    // sleep propagation stay inside the owned stores.
     bool ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,
                                                float releaseImpulseStrength,
                                                const Math::Vector::Vector3& seedLinearVelocity,
-                                               const Math::Vector::Vector3& seedAngularVelocity,
-                                               std::vector<int>& outReleasedBodyIndices );
+                                               const Math::Vector::Vector3& seedAngularVelocity );
     // Wakes solver sleep/island state by handle. Legacy model-index callers
     // must refresh topology before entering this command.
     void WakeBody( PhysicsBodyHandle body );
