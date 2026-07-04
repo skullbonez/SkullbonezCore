@@ -75,7 +75,6 @@ ASSET_PREFIXES = (
 
 GAME_OBJECT_PREFIXES = (
     "GameModelCollection",
-    "GameModelCollectionPhysicsAdapter",
     "GameModelSoACache",
     "GameModelStreams",
     "GameModel",

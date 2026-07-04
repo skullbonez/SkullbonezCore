@@ -77,10 +77,12 @@ Import-Csv Agentic\Plans\In_Progress\physics-standalone-agent-workqueue.csv |
   island generation have not migrated yet.
   Evidence: `SkullbonezSource/Physics/PhysicsApi.cpp:793`,
   `SkullbonezSource/Physics/PhysicsApi.cpp:803`.
-- `GameModelCollectionPhysicsAdapter` is still the named compatibility bridge
-  from model index or scene object id to `PhysicsBodyHandle`.
-  Evidence: `SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp:48`,
-  `SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp:60`.
+- `GameModelCollectionPhysicsAdapter` is deleted; remaining model-index identity
+  debt lives at owner/tool/replay selection boundaries, not behind a reusable
+  adapter bridge.
+  Evidence: `PHY-1035` removed the adapter source/header/project entries and
+  `tools/check_runtime_boundaries.py` now blocks the adapter type, resolver
+  names, and project entries from returning.
 - Authored scene setup still receives both `GameModelCollection&` and
   `PhysicsEngine&`, so scene creation still builds through runtime/game-object
   storage rather than a standalone physics creation API.
@@ -493,8 +495,9 @@ colliderless bodies merge through a live point joint and split after
 Target: runtime/game-object code adapts to physics handles, and compatibility
 model indices stop entering physics commands directly.
 
-- [ ] Keep `GameModelCollectionPhysicsAdapter` as the only model-index to body
-  handle bridge while migration is underway.
+- [x] Delete `GameModelCollectionPhysicsAdapter` after all live model-index
+  physics command callers move to append-time handles or owner-side
+  `PhysicsBodyStore` lookup.
 - [ ] For each legacy model-index physics command, migrate one caller group:
   - [x] scene setup,
   - [x] editor tools,
@@ -1601,6 +1604,44 @@ audit passed for every source/tool file touched; `tools\validate_fast.bat`
 passed formatting, project filters, runtime boundaries, and Profile/Debug builds
 with 0 warnings/errors; `tools\validate_physics.bat` passed standalone/runtime
 handle smoke and byte-exact `physics_regression_solver.csv`.
+
+Slice `PHY-1035`: delete the
+`GameModelCollectionPhysicsAdapter` compatibility artifact after every live
+caller moved to append-time handles or direct `PhysicsBodyStore` lookup. Owner:
+physics/GameModel authority migration; reason: the adapter no longer had
+production callers and its existence preserved a reusable model-index bridge
+that could hide store refresh work; deletion condition: no adapter type,
+resolver name, source/header, project entry, or filter entry remains in live
+source/project files; checker budget: `tools/check_runtime_boundaries.py` blocks
+the deleted adapter type/resolver names from source and blocks stale Visual
+Studio project entries.
+
+- [x] Remove `GameModelCollectionPhysicsAdapter.h` and `.cpp`.
+- [x] Remove the `GameModelCollection` friend/forward declaration.
+- [x] Remove Visual Studio project and filter entries.
+- [x] Add runtime-boundary guardrails and self-tests for source/project
+  resurrection.
+- [x] Confirm no live source/project adapter residues remain.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation run for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] touched-file comment audit
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence: CodeGraph plus targeted residue scans showed only the adapter's own
+files, the collection friend/forward declaration, and project/filter entries
+remained before deletion; targeted live residue scan found no
+`GameModelCollectionPhysicsAdapter`, `BodyHandleForModelIndex`,
+`BodyHandleForSceneObjectId`, `BodyHandleForVelocityCommand`, or
+`BodyHandleForWakeCommand` in `SkullbonezSource`, `SKULLBONEZ_CORE.vcxproj`, or
+`SKULLBONEZ_CORE.vcxproj.filters` after the edit; runtime-boundary summary
+reported 0 errors; touched-file comment audit passed; `tools\validate_fast.bat`
+passed formatting, project filters, runtime boundaries, and Profile/Debug
+builds with 0 warnings/errors; `tools\validate_physics.bat` passed
+standalone/runtime handle smoke and byte-exact `physics_regression_solver.csv`.
 
 ## Required Evidence For Each Source Slice
 

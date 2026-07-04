@@ -94,7 +94,6 @@ class WorkerPool;
 namespace GameObjects
 {
 class GameModelRenderer;
-class GameModelCollectionPhysicsAdapter;
 
 /* -- Game Model Collection
 --------------------------------------------------------------------------------------------------------------------------------------
@@ -106,10 +105,6 @@ class GameModelCollectionPhysicsAdapter;
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class GameModelCollection
 {
-    // Why: the adapter is the named model-order boundary while old callers
-    // migrate from model indices to durable physics handles.
-    friend class GameModelCollectionPhysicsAdapter;
-
   private:
     std::vector<GameModel> m_gameModels;
     Physics::PhysicsEngine m_physicsEngine;

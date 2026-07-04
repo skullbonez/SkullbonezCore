@@ -159,7 +159,6 @@
     <ClCompile Include="SkullbonezSource\Core\AmortizedTask.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModel.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelCollection.cpp" />
-    <ClCompile Include="SkullbonezSource\GameObjects\GameModelCollectionPhysicsAdapter.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\GameModelRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsApi.cpp" />
@@ -330,7 +329,6 @@
     <ClInclude Include="SkullbonezSource\Core\Fence.h" />
     <ClInclude Include="SkullbonezSource\GameObjects\GameModel.h" />
     <ClInclude Include="SkullbonezSource\GameObjects\GameModelCollection.h" />
-    <ClInclude Include="SkullbonezSource\GameObjects\GameModelCollectionPhysicsAdapter.h" />
     <ClInclude Include="SkullbonezSource\Rendering\GameModelRenderer.h" />
     <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsApi.h" />

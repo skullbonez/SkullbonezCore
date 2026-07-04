@@ -4,8 +4,8 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_physics.bat` passed on 2026-07-05 after removing editor
-wake/sleep adapter lookups.
+`tools\validate_physics.bat` passed on 2026-07-05 after deleting
+`GameModelCollectionPhysicsAdapter`.
 
 ## Completed Slices
 
@@ -168,6 +168,24 @@ wake/sleep adapter lookups.
   budget: `tools/check_runtime_boundaries.py` blocks those names in editor
   command sources and self-tests the old adapter resolver against the allowed
   direct body-store handle lookup. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Deleted `GameModelCollectionPhysicsAdapter` after all live
+  callers moved to append-time handles or direct `PhysicsBodyStore` lookups.
+  Owner: physics/GameModel authority migration. Reason: the adapter no longer
+  had production callers, and keeping it preserved an attractive, cache-hostile
+  model-index bridge back into physics command code. Deletion condition:
+  `SkullbonezSource`, `SKULLBONEZ_CORE.vcxproj`, and
+  `SKULLBONEZ_CORE.vcxproj.filters` contain no
+  `GameModelCollectionPhysicsAdapter`, `BodyHandleForModelIndex`,
+  `BodyHandleForSceneObjectId`, `BodyHandleForVelocityCommand`, or
+  `BodyHandleForWakeCommand` live source/project references. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks the deleted adapter type/resolver
+  names from source and blocks stale Visual Studio project entries; self-tests
+  cover source, project, and comment-only cases. Validation: `git diff --check`,
   `python -m py_compile tools\check_runtime_boundaries.py`,
   `python tools\check_runtime_boundaries.py --repo .`,
   `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
@@ -349,10 +367,14 @@ Create durable handles before moving ownership. The stores cannot be authoritati
   from `PhysicsBodyStore` before calling the handle-keyed impulse command.
 - [x] 2026-07-05 editor wake/sleep commands resolve the selected body directly
   from `PhysicsBodyStore` before calling handle-keyed commands.
-- [ ] Keep temporary model-index adapters only at old call boundaries.
+- [x] Delete the temporary model-index adapter once old call boundaries move to
+  append-time handles or owner-side body-store lookup.
   - [x] 2026-06-28 adapter slice keeps the temporary model-index command bridge
     at the old `GameModelCollection` entry points instead of adding another
     physics-facing model-index API.
+  - [x] 2026-07-05 `GameModelCollectionPhysicsAdapter` was deleted after the
+    old editor, replay, launcher, scene setup, runtime smoke, and fixed-tree
+    callers stopped using it.
 - [ ] Add comments documenting handle lifetime, ownership, and invalidation rules.
 - [ ] Add focused tests or assertions for stale handle rejection if the codebase has a suitable local test path.
 
@@ -483,6 +505,8 @@ Only remove compatibility after callers have moved and validation has covered th
 - [x] Verify `MakePhysicsModelView()` was already deleted by the required first slice.
 - [x] Verify `PhysicsModelView` was already deleted by the required first slice.
 - [x] Delete `GameModelCollection::PhysicsModels()` after production physics no longer uses it. The vector compatibility seam remains under explicit `*PhysicsModelsForCompatibility()` accessors.
+- [x] Delete `GameModelCollectionPhysicsAdapter` after model-index command
+  callers moved to append-time handles or owner-side `PhysicsBodyStore` lookup.
 - [ ] Delete compatibility writeback from body store to `GameModel` after final reader migrates.
   - [x] 2026-07-03 persistent contact solver writeback is no longer a solver
     callback or virtual sink; the remaining model mirror update is an owner-side
@@ -508,6 +532,7 @@ Searches to run before declaring compatibility gone:
 - [x] `rg "PhysicsModels\(" SkullbonezSource`
 - [x] `rg "PhysicsModelView" SkullbonezSource`
 - [x] `rg "GameModelCollection.*IRenderSceneView|IRenderSceneView" SkullbonezSource`
+- [x] `rg "GameModelCollectionPhysicsAdapter|BodyHandleForModelIndex|BodyHandleForSceneObjectId|BodyHandleForVelocityCommand|BodyHandleForWakeCommand" SkullbonezSource SKULLBONEZ_CORE.vcxproj SKULLBONEZ_CORE.vcxproj.filters`
 - [ ] `rg "GetModelAtIndex|model index|modelIndex|ModelIndex" SkullbonezSource`
 - [ ] `rg "GameModel" SkullbonezSource/Physics SkullbonezSource/Runtime SkullbonezSource/Rendering`
 
