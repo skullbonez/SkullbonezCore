@@ -1766,7 +1766,20 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE ) != 0 );
             if ( !model.IsFixed() )
             {
-                m_cGameModelCollection.WakeModel( event.value0 );
+                PhysicsEngine& physics = m_cGameModelCollection.GetPhysicsEngine();
+                PhysicsModelAccess modelAccess( m_cGameModelCollection );
+                if ( physics.BodyStore().Count() != m_cGameModelCollection.GetModelCount() )
+                {
+                    physics.RefreshBodyStore( modelAccess );
+                }
+                const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( event.value0 );
+                // Why: the replay event still records model identity, but the
+                // wake command should cross the physics boundary as a body
+                // handle instead of reopening the collection wrapper.
+                if ( body.IsValid() )
+                {
+                    physics.WakeBody( modelAccess, body );
+                }
             }
             m_cGameModelCollection.InvalidatePhysicsStreams();
             WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied editor transform" );

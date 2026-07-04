@@ -365,6 +365,7 @@ model indices stop entering physics commands directly.
   - [x] launcher tools,
   - [x] replay velocity edit,
   - [x] replay restore/prediction,
+  - [x] replay/editor transform restore wake,
   - [x] ragdoll start-asleep seed,
   - [x] diagnostics and debug overlays.
 - [ ] Store `PhysicsBodyHandle` or stable scene object id at the caller where the
@@ -467,8 +468,20 @@ audited against the existing store-owned diagnostics path from `PHY-0207C`:
 model-state mirror read. Evidence for this slice: py_compile, runtime-boundary,
 focused Debug build, `tools\validate_format.bat`, `tools\validate_fast.bat`,
 and `tools\validate_physics.bat` all passed. Direct wrapper deletion remains
-open because `RunFrame.cpp` still routes the fixed-contact release wake through
-`GameModelCollection::WakeModel`.
+open until the final caller scan and compiler prove the old collection wrappers
+are dead.
+
+Replay/editor transform restore no longer calls `GameModelCollection::WakeModel`
+after applying the saved transform event. The restore path still uses the saved
+model index as replay event identity, commits the edited model state at the
+existing compatibility boundary, resolves the current `PhysicsBodyHandle` from
+the body store, and wakes through `PhysicsEngine::WakeBody`. The boundary
+checker now rejects `m_cGameModelCollection.WakeModel(...)` in `RunFrame.cpp`.
+Evidence for this slice: py_compile, runtime-boundary, focused Debug build,
+`tools\validate_fast.bat`, `tools\validate_physics.bat`, and
+`tools\validate_full.bat` all passed; the full gate reported DX12 InfoQueue 0
+errors, screenshots matching committed baselines, and byte-exact
+`physics_regression_solver.csv`.
 
 ## Phase 8 - Diagnostics And SkullScope
 

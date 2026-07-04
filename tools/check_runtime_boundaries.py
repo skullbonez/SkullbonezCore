@@ -74,6 +74,7 @@ from pathlib import Path
 
 RUN_HEADER = Path("SkullbonezSource/Runtime/Run.h")
 RUN_SOURCE = Path("SkullbonezSource/Runtime/Run.cpp")
+RUN_FRAME_SOURCE = Path("SkullbonezSource/Runtime/RunFrame.cpp")
 RUN_INTERNAL_HEADER = Path("SkullbonezSource/Runtime/RunInternal.h")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
@@ -244,6 +245,9 @@ REPLAY_VELOCITY_MODEL_STATE_PHYSICS_COMMAND_PATTERN = re.compile(
     r"model\s*\.\s*(?:SetLinearVelocity|SetAngularVelocity)|"
     r"(?:modelCollection|m_cGameModelCollection)\s*\.\s*(?:CommitEditedModelPhysicsState|WakeModel)"
     r")\s*\("
+)
+RUN_FRAME_REPLAY_EDITOR_TRANSFORM_WAKE_PATTERN = re.compile(
+    r"\bm_cGameModelCollection\s*\.\s*WakeModel\s*\("
 )
 RAGDOLL_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\bcollection\s*\.\s*(?:SeedModelAsleep|WakeModel|ApplyBodyImpulse|SetPendingBodyImpulse)\s*\("
@@ -2383,6 +2387,29 @@ def check_replay_velocity_model_state_physics_command_guardrails_text(path: Path
 def check_replay_velocity_model_state_physics_command_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / REPLAY_VELOCITY_EDIT_SOURCE
     return check_replay_velocity_model_state_physics_command_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_run_frame_replay_editor_transform_wake_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in RUN_FRAME_REPLAY_EDITOR_TRANSFORM_WAKE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "RunFrame replay editor transform wake wrapper is blocked",
+                (
+                    "Replay editor-transform restore may keep model index as saved event identity, but wake commands "
+                    "must resolve PhysicsBodyHandle and call PhysicsEngine directly."
+                ),
+            )
+        )
+    return errors
+
+
+def check_run_frame_replay_editor_transform_wake_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / RUN_FRAME_SOURCE
+    return check_run_frame_replay_editor_transform_wake_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_ragdoll_model_index_physics_command_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -7689,6 +7716,57 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only replay velocity model-state command synthetic text was rejected")
 
+    old_run_frame_replay_editor_transform_wake = """
+    bool ApplyReplayEditorTransformEvent()
+    {
+        if ( !model.IsFixed() )
+        {
+            m_cGameModelCollection.WakeModel( event.value0 );
+        }
+        return true;
+    }
+    """
+    if not any(
+        error.message == "RunFrame replay editor transform wake wrapper is blocked"
+        for error in check_run_frame_replay_editor_transform_wake_guardrails_text(
+            Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+            old_run_frame_replay_editor_transform_wake,
+        )
+    ):
+        failures.append("old RunFrame replay editor transform wake synthetic surface was not rejected")
+
+    allowed_run_frame_replay_editor_transform_wake = """
+    bool ApplyReplayEditorTransformEvent()
+    {
+        PhysicsEngine& physics = m_cGameModelCollection.GetPhysicsEngine();
+        PhysicsModelAccess modelAccess( m_cGameModelCollection );
+        const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( event.value0 );
+        if ( body.IsValid() )
+        {
+            physics.WakeBody( modelAccess, body );
+        }
+        return true;
+    }
+    """
+    if check_run_frame_replay_editor_transform_wake_guardrails_text(
+        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+        allowed_run_frame_replay_editor_transform_wake,
+    ):
+        failures.append("handle-keyed RunFrame replay editor transform wake synthetic surface was rejected")
+
+    commented_run_frame_replay_editor_transform_wake = """
+    void DocumentOldReplayEditorTransformWake()
+    {
+        // m_cGameModelCollection.WakeModel(event.value0) used to run here.
+        physics.WakeBody( modelAccess, body );
+    }
+    """
+    if check_run_frame_replay_editor_transform_wake_guardrails_text(
+        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+        commented_run_frame_replay_editor_transform_wake,
+    ):
+        failures.append("comment-only RunFrame replay editor transform wake synthetic text was rejected")
+
     old_ragdoll_model_index_command = """
     void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection )
     {
@@ -8159,6 +8237,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_mouse_pickup_model_index_physics_command_guardrails(repo))
     errors.extend(check_launcher_model_index_physics_command_guardrails(repo))
     errors.extend(check_replay_velocity_model_state_physics_command_guardrails(repo))
+    errors.extend(check_run_frame_replay_editor_transform_wake_guardrails(repo))
     errors.extend(check_ragdoll_model_index_physics_command_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))
