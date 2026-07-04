@@ -4,10 +4,9 @@ Purpose:
   Owns deterministic body-order mutable physics state during simulation.
 
 Mental model:
-  GameModelCollection is still the compatibility adapter, but physics-facing
-  body data now has an explicit owner. The store mirrors body index order and
-  replay ids so future migrations can keep solver ordering stable while moving
-  callers off GameModel.
+  GameModelCollection is still the compatibility adapter for legacy scenes, but
+  physics-facing body data now has an explicit owner. Compatibility refreshes
+  preserve model order; standalone creation owns dense body rows directly.
 
 Glossary:
   Body: Simulated object state consumed by the physics step.
@@ -19,7 +18,9 @@ Glossary:
   Replay body id: Stable per-scene id used by replay and diagnostics.
 
 Invariants:
-  - Body records stay in GameModelCollection physics model order.
+  - Compatibility body records stay in GameModelCollection physics model order.
+  - Standalone-created records stay dense; handles map allocator slots to the
+    current dense row.
   - Public body handles are allocator-owned identities; model-order arrays use
     explicit maps instead of encoding model index inside the handle.
   - Store refreshes load compatibility GameModel state into the physics-owned
@@ -97,6 +98,13 @@ class PhysicsBodyStore
     void Clear();
     void Refresh( std::vector<GameObjects::GameModel>& models, const std::vector<uint8_t>& sleepStates );
     void LoadFromModels( std::vector<GameObjects::GameModel>& models, const std::vector<uint8_t>& sleepStates );
+    // Creates a physics-owned body row without consulting GameModel. The store
+    // assigns the handle and keeps the row dense; callers supply authored state.
+    PhysicsBodyHandle CreateBodyRecord( const PhysicsBodyRecord& record );
+    // Retires a handle-owned body row and closes the dense record array by
+    // moving the last live row into the hole. Existing handles remain stable
+    // because handle slots map to current row indices.
+    bool DestroyBodyRecord( PhysicsBodyHandle handle );
     void ClearPendingImpulses();
     // Shrinks the model-order body array for replay restore without reloading
     // from GameModel. Returns false when the requested count is outside the
@@ -129,6 +137,8 @@ class PhysicsBodyStore
     bool Contains( PhysicsBodyHandle handle ) const;
     const std::vector<PhysicsBodyRecord>& Records() const;
     std::vector<PhysicsBodyRecord>& MutableRecords();
+    PhysicsBodyRecord* MutableRecordForHandle( PhysicsBodyHandle handle );
+    const PhysicsBodyRecord* RecordForHandle( PhysicsBodyHandle handle ) const;
     PhysicsBodyRecord* MutableRecordForModelIndex( int modelIndex );
     const PhysicsBodyRecord* RecordForModelIndex( int modelIndex ) const;
     bool WakeBody( int modelIndex );

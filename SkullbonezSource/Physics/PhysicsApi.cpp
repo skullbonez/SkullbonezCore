@@ -55,6 +55,7 @@ using SkullbonezCore::Physics::PhysicsActivationCommandKind;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
+using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyUpdateDesc;
 using SkullbonezCore::Physics::PhysicsBodyView;
 using SkullbonezCore::Physics::PhysicsBroadphaseCellQueryDesc;
@@ -148,16 +149,16 @@ float ComputeInverseMass( PhysicsBodyMotionKind motionKind, float mass )
     return motionKind == PhysicsBodyMotionKind::Fixed || mass <= 0.0f ? 0.0f : 1.0f / mass;
 }
 
-bool BodyPassesQueryFilters( const PhysicsBodyView& body,
+bool BodyPassesQueryFilters( const PhysicsBodyRecord& body,
                              bool includeFixedBodies,
                              bool includeSleepingBodies,
                              bool sleepEnabled )
 {
-    if ( !includeFixedBodies && body.motionKind == PhysicsBodyMotionKind::Fixed )
+    if ( !includeFixedBodies && body.isFixed )
     {
         return false;
     }
-    return includeSleepingBodies || !sleepEnabled || !body.sleeping;
+    return includeSleepingBodies || !sleepEnabled || !body.isSleeping;
 }
 
 float ConservativeShapeRadius( const SkullbonezCore::Math::CollisionDetection::CollisionShape& shape )
@@ -180,7 +181,7 @@ float EffectiveColliderRadius( const PhysicsColliderView& collider )
     return ConservativeBroadphaseRadius( collider.boundingRadius, collider.shape );
 }
 
-Vector3 ColliderWorldCenter( const PhysicsBodyView& body, const PhysicsColliderView& collider )
+Vector3 ColliderWorldCenter( const PhysicsBodyRecord& body, const PhysicsColliderView& collider )
 {
     // Why: local collider offsets live in body space. Rotate them through the
     // body orientation before doing any world-space query math so conservative
@@ -241,11 +242,8 @@ uint32_t NextStandaloneInitialGeneration( uint32_t current )
 
 void PhysicsStandaloneWorld::Clear()
 {
-    m_bodies.clear();
-    m_generations.clear();
-    m_alive.clear();
-    m_freeIndices.clear();
-    m_bodyViewScratch.clear();
+    m_bodyStore.Clear();
+    InvalidateBodyViews();
     m_colliders.clear();
     m_colliderGenerations.clear();
     m_colliderAlive.clear();
@@ -264,69 +262,61 @@ void PhysicsStandaloneWorld::Clear()
 
 PhysicsBodyHandle PhysicsStandaloneWorld::CreateBody( const PhysicsBodyCreateDesc& desc )
 {
-    uint32_t index = 0;
-    if ( !m_freeIndices.empty() )
-    {
-        index = m_freeIndices.back();
-        m_freeIndices.pop_back();
-    }
-    else
-    {
-        index = static_cast<uint32_t>( m_bodies.size() );
-        m_bodies.push_back( PhysicsBodyView{} );
-        m_generations.push_back( m_nextInitialGeneration );
-        m_alive.push_back( 0 );
-    }
-
-    PhysicsBodyHandle handle;
-    handle.index = index;
-    handle.generation = m_generations[index];
-
-    m_bodies[index] = MakeBodyView( desc, handle );
-    m_alive[index] = 1;
-    return handle;
+    const PhysicsBodyHandle body = m_bodyStore.CreateBodyRecord( MakeBodyRecord( desc ) );
+    InvalidateBodyViews();
+    return body;
 }
 
 
 bool PhysicsStandaloneWorld::UpdateBody( const PhysicsBodyUpdateDesc& desc )
 {
-    if ( !IsAlive( desc.body ) )
+    PhysicsBodyRecord* body = MutableBodyRecord( desc.body );
+    if ( !body )
     {
         return false;
     }
 
-    PhysicsBodyView& body = m_bodies[desc.body.index];
     if ( desc.updateMask & PHYSICS_BODY_UPDATE_POSE )
     {
-        body.position = desc.position;
-        body.orientation = desc.orientation;
+        body->position = desc.position;
+        body->orientation = desc.orientation;
     }
     if ( desc.updateMask & PHYSICS_BODY_UPDATE_VELOCITY )
     {
-        body.linearVelocity = desc.linearVelocity;
-        body.angularVelocity = desc.angularVelocity;
+        body->linearVelocity = desc.linearVelocity;
+        body->angularVelocity = desc.angularVelocity;
     }
     const bool updatesMotionKind = ( desc.updateMask & PHYSICS_BODY_UPDATE_MOTION_KIND ) != 0;
     const bool updatesMass = ( desc.updateMask & PHYSICS_BODY_UPDATE_MASS ) != 0;
     if ( updatesMotionKind )
     {
-        body.motionKind = desc.motionKind;
+        body->isFixed = desc.motionKind == PhysicsBodyMotionKind::Fixed;
     }
     if ( updatesMass )
     {
-        body.mass = desc.mass;
-        body.inverseMass = ComputeInverseMass( body.motionKind, body.mass );
-        body.rotationalInertia = desc.rotationalInertia;
-        body.inverseRotationalInertia = InvertNonZeroComponents( desc.rotationalInertia );
+        body->mass = desc.mass;
+        body->invMass =
+            ComputeInverseMass( body->isFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic,
+                                body->mass );
+        body->rotationalInertia = desc.rotationalInertia;
+        body->invRotationalInertia =
+            body->isFixed ? Vector3( 0.0f, 0.0f, 0.0f ) : InvertNonZeroComponents( desc.rotationalInertia );
     }
     else if ( updatesMotionKind )
     {
-        body.inverseMass = ComputeInverseMass( body.motionKind, body.mass );
+        body->invMass =
+            ComputeInverseMass( body->isFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic,
+                                body->mass );
+        if ( body->isFixed )
+        {
+            body->invRotationalInertia = Vector3( 0.0f, 0.0f, 0.0f );
+        }
     }
     if ( desc.updateMask & PHYSICS_BODY_UPDATE_SLEEP_STATE )
     {
-        body.sleeping = m_sleepEnabled && desc.sleeping;
+        body->isSleeping = m_sleepEnabled && desc.sleeping;
     }
+    InvalidateBodyViews();
     return true;
 }
 
@@ -337,14 +327,6 @@ bool PhysicsStandaloneWorld::DestroyBody( PhysicsBodyHandle body )
     {
         return false;
     }
-
-    m_alive[body.index] = 0;
-    ++m_generations[body.index];
-    if ( m_generations[body.index] == 0 )
-    {
-        m_generations[body.index] = m_nextInitialGeneration;
-    }
-    m_freeIndices.push_back( body.index );
 
     // Invariant: body lifetime owns child collider and connected constraint
     // validity. Standalone callers should see dependent handles fail
@@ -363,13 +345,18 @@ bool PhysicsStandaloneWorld::DestroyBody( PhysicsBodyHandle body )
             TombstoneConstraintSlot( static_cast<uint32_t>( i ) );
         }
     }
-    return true;
+    const bool destroyed = m_bodyStore.DestroyBodyRecord( body );
+    if ( destroyed )
+    {
+        InvalidateBodyViews();
+    }
+    return destroyed;
 }
 
 
 PhysicsColliderHandle PhysicsStandaloneWorld::CreateCollider( const PhysicsColliderCreateDesc& desc )
 {
-    const PhysicsBodyView* body = Body( desc.body );
+    const PhysicsBodyRecord* body = BodyRecord( desc.body );
     if ( !body )
     {
         return PhysicsColliderHandle{};
@@ -536,15 +523,10 @@ bool PhysicsStandaloneWorld::Step( const PhysicsStandaloneStepDesc& desc )
         return true;
     }
 
-    for ( std::size_t i = 0; i < m_bodies.size(); ++i )
+    bool mutated = false;
+    for ( PhysicsBodyRecord& body : m_bodyStore.MutableRecords() )
     {
-        if ( !m_alive[i] )
-        {
-            continue;
-        }
-
-        PhysicsBodyView& body = m_bodies[i];
-        if ( body.motionKind == PhysicsBodyMotionKind::Fixed || ( m_sleepEnabled && body.sleeping ) )
+        if ( body.isFixed || ( m_sleepEnabled && body.isSleeping ) )
         {
             continue;
         }
@@ -553,6 +535,11 @@ bool PhysicsStandaloneWorld::Step( const PhysicsStandaloneStepDesc& desc )
         // velocity/position integration changes the standalone smoke hash.
         body.linearVelocity += desc.worldLinearAcceleration * desc.deltaSeconds;
         body.position += body.linearVelocity * desc.deltaSeconds;
+        mutated = true;
+    }
+    if ( mutated )
+    {
+        InvalidateBodyViews();
     }
     return true;
 }
@@ -567,24 +554,22 @@ bool PhysicsStandaloneWorld::ApplyActivationCommand( const PhysicsActivationComm
         {
             // Invariant: disabling sleep makes Step() treat every live body as
             // awake, mirroring the legacy world path that clears sleep state.
-            for ( std::size_t i = 0; i < m_bodies.size(); ++i )
+            for ( PhysicsBodyRecord& body : m_bodyStore.MutableRecords() )
             {
-                if ( m_alive[i] )
-                {
-                    m_bodies[i].sleeping = false;
-                }
+                body.isSleeping = false;
             }
+            InvalidateBodyViews();
         }
         return true;
     }
 
-    if ( !IsAlive( command.body ) )
+    PhysicsBodyRecord* body = MutableBodyRecord( command.body );
+    if ( !body )
     {
         return false;
     }
 
-    PhysicsBodyView& body = m_bodies[command.body.index];
-    if ( body.motionKind == PhysicsBodyMotionKind::Fixed )
+    if ( body->isFixed )
     {
         return false;
     }
@@ -592,16 +577,18 @@ bool PhysicsStandaloneWorld::ApplyActivationCommand( const PhysicsActivationComm
     switch ( command.kind )
     {
     case PhysicsActivationCommandKind::WakeBody:
-        body.sleeping = false;
+        body->isSleeping = false;
+        InvalidateBodyViews();
         return true;
     case PhysicsActivationCommandKind::SeedBodyAsleep:
         if ( !m_sleepEnabled )
         {
             return false;
         }
-        body.linearVelocity = Vector3( 0.0f, 0.0f, 0.0f );
-        body.angularVelocity = Vector3( 0.0f, 0.0f, 0.0f );
-        body.sleeping = true;
+        body->linearVelocity = Vector3( 0.0f, 0.0f, 0.0f );
+        body->angularVelocity = Vector3( 0.0f, 0.0f, 0.0f );
+        body->isSleeping = true;
+        InvalidateBodyViews();
         return true;
     case PhysicsActivationCommandKind::SetSleepEnabled:
         break;
@@ -644,7 +631,7 @@ PhysicsRayCastHit PhysicsStandaloneWorld::RayCast( const PhysicsRayCastDesc& des
         }
 
         const PhysicsColliderView& collider = m_colliders[i];
-        const PhysicsBodyView* body = Body( collider.body );
+        const PhysicsBodyRecord* body = BodyRecord( collider.body );
         if ( !body ||
              !BodyPassesQueryFilters( *body, desc.includeFixedBodies, desc.includeSleepingBodies, m_sleepEnabled ) )
         {
@@ -661,7 +648,7 @@ PhysicsRayCastHit PhysicsStandaloneWorld::RayCast( const PhysicsRayCastDesc& des
         }
 
         closestDistance = distance;
-        closestHit.body = body->body;
+        closestHit.body = body->handle;
         closestHit.collider = collider.collider;
         closestHit.sceneObjectId = collider.sceneObjectId.IsValid() ? collider.sceneObjectId : body->sceneObjectId;
         closestHit.distance = distance;
@@ -681,23 +668,20 @@ PhysicsStandaloneWorld::QueryBroadphaseCells( const PhysicsBroadphaseCellQueryDe
 {
     m_broadphaseQueryScratch.clear();
 
-    for ( std::size_t bodyIndex = 0; bodyIndex < m_bodies.size(); ++bodyIndex )
+    const std::vector<PhysicsBodyRecord>& bodies = m_bodyStore.Records();
+    for ( const PhysicsBodyRecord& body : bodies )
     {
-        if ( !m_alive[bodyIndex] || !BodyPassesQueryFilters( m_bodies[bodyIndex],
-                                                             desc.includeFixedBodies,
-                                                             desc.includeSleepingBodies,
-                                                             m_sleepEnabled ) )
+        if ( !BodyPassesQueryFilters( body, desc.includeFixedBodies, desc.includeSleepingBodies, m_sleepEnabled ) )
         {
             continue;
         }
 
-        const PhysicsBodyView& body = m_bodies[bodyIndex];
         bool overlaps =
             body.boundingRadius > 0.0f && SphereOverlapsAabb( body.position, body.boundingRadius, desc.min, desc.max );
         for ( std::size_t colliderIndex = 0; !overlaps && colliderIndex < m_colliders.size(); ++colliderIndex )
         {
             const PhysicsColliderView& collider = m_colliders[colliderIndex];
-            if ( m_colliderAlive[colliderIndex] && collider.body == body.body )
+            if ( m_colliderAlive[colliderIndex] && collider.body == body.handle )
             {
                 overlaps = SphereOverlapsAabb( ColliderWorldCenter( body, collider ),
                                                EffectiveColliderRadius( collider ),
@@ -708,7 +692,7 @@ PhysicsStandaloneWorld::QueryBroadphaseCells( const PhysicsBroadphaseCellQueryDe
 
         if ( overlaps )
         {
-            m_broadphaseQueryScratch.push_back( body.body );
+            m_broadphaseQueryScratch.push_back( body.handle );
         }
     }
 
@@ -721,24 +705,25 @@ PhysicsStandaloneWorld::QueryBroadphaseCells( const PhysicsBroadphaseCellQueryDe
 
 const PhysicsBodyView* PhysicsStandaloneWorld::Body( PhysicsBodyHandle body ) const
 {
-    return IsAlive( body ) ? &m_bodies[body.index] : nullptr;
+    const std::vector<PhysicsBodyView>& bodyViews = BodyViewCache();
+    for ( const PhysicsBodyView& view : bodyViews )
+    {
+        if ( view.body == body )
+        {
+            return &view;
+        }
+    }
+    return nullptr;
 }
 
 
 SkullbonezCore::Physics::PhysicsBodyCollectionView PhysicsStandaloneWorld::Bodies() const
 {
-    m_bodyViewScratch.clear();
-    for ( std::size_t i = 0; i < m_bodies.size(); ++i )
-    {
-        if ( m_alive[i] )
-        {
-            m_bodyViewScratch.push_back( m_bodies[i] );
-        }
-    }
+    const std::vector<PhysicsBodyView>& bodyViews = BodyViewCache();
 
     SkullbonezCore::Physics::PhysicsBodyCollectionView view;
-    view.bodies = m_bodyViewScratch.empty() ? nullptr : m_bodyViewScratch.data();
-    view.bodyCount = static_cast<uint32_t>( m_bodyViewScratch.size() );
+    view.bodies = bodyViews.empty() ? nullptr : bodyViews.data();
+    view.bodyCount = static_cast<uint32_t>( bodyViews.size() );
     return view;
 }
 
@@ -812,8 +797,7 @@ SkullbonezCore::Physics::PhysicsIslandCollectionView PhysicsStandaloneWorld::Isl
 
 bool PhysicsStandaloneWorld::IsAlive( PhysicsBodyHandle body ) const
 {
-    return body.IsValid() && body.index < m_bodies.size() && m_alive[body.index] != 0 &&
-           m_generations[body.index] == body.generation;
+    return m_bodyStore.Contains( body );
 }
 
 
@@ -833,30 +817,94 @@ bool PhysicsStandaloneWorld::IsAlive( PhysicsConstraintHandle constraint ) const
 }
 
 
-PhysicsBodyView PhysicsStandaloneWorld::MakeBodyView( const PhysicsBodyCreateDesc& desc, PhysicsBodyHandle body ) const
+PhysicsBodyRecord PhysicsStandaloneWorld::MakeBodyRecord( const PhysicsBodyCreateDesc& desc ) const
+{
+    PhysicsBodyRecord record;
+    record.sceneObjectId = desc.sceneObjectId;
+    record.position = desc.position;
+    record.orientation = desc.orientation;
+    record.linearVelocity = desc.linearVelocity;
+    record.angularVelocity = desc.angularVelocity;
+    record.rotationalInertia = desc.rotationalInertia;
+    record.invRotationalInertia = desc.motionKind == PhysicsBodyMotionKind::Fixed
+                                      ? Vector3( 0.0f, 0.0f, 0.0f )
+                                      : InvertNonZeroComponents( desc.rotationalInertia );
+    record.mass = desc.mass;
+    record.invMass = ComputeInverseMass( desc.motionKind, desc.mass );
+    record.boundingRadius = ConservativeShapeRadius( desc.shape );
+    record.volume = desc.volume;
+    record.projectedSurfaceArea = desc.projectedSurfaceArea;
+    record.dragCoefficient = desc.dragCoefficient;
+    record.contactReleaseImpulseThreshold = desc.contactReleaseImpulseThreshold;
+    record.isFixed = desc.motionKind == PhysicsBodyMotionKind::Fixed;
+    record.isSleeping = m_sleepEnabled && desc.startsAsleep;
+    record.releasesFromFixedOnContact = desc.releasesFromFixedOnContact;
+    return record;
+}
+
+
+PhysicsBodyRecord* PhysicsStandaloneWorld::MutableBodyRecord( PhysicsBodyHandle body )
+{
+    return m_bodyStore.MutableRecordForHandle( body );
+}
+
+
+const PhysicsBodyRecord* PhysicsStandaloneWorld::BodyRecord( PhysicsBodyHandle body ) const
+{
+    return m_bodyStore.RecordForHandle( body );
+}
+
+
+PhysicsBodyView PhysicsStandaloneWorld::MakeBodyView( const PhysicsBodyRecord& record ) const
 {
     PhysicsBodyView view;
-    view.body = body;
-    view.sceneObjectId = desc.sceneObjectId.IsValid() ? desc.sceneObjectId : PhysicsSceneObjectId{ body.index + 1u };
-    view.position = desc.position;
-    view.orientation = desc.orientation;
-    view.linearVelocity = desc.linearVelocity;
-    view.angularVelocity = desc.angularVelocity;
-    view.rotationalInertia = desc.rotationalInertia;
-    view.inverseRotationalInertia = InvertNonZeroComponents( desc.rotationalInertia );
-    view.mass = desc.mass;
-    view.inverseMass = ComputeInverseMass( desc.motionKind, desc.mass );
-    view.boundingRadius = ConservativeShapeRadius( desc.shape );
-    view.motionKind = desc.motionKind;
-    view.sleeping = m_sleepEnabled && desc.startsAsleep;
+    view.body = record.handle;
+    view.sceneObjectId = record.sceneObjectId;
+    view.position = record.position;
+    view.orientation = record.orientation;
+    view.linearVelocity = record.linearVelocity;
+    view.angularVelocity = record.angularVelocity;
+    view.rotationalInertia = record.rotationalInertia;
+    view.inverseRotationalInertia = record.invRotationalInertia;
+    view.mass = record.mass;
+    view.inverseMass = record.invMass;
+    view.boundingRadius = record.boundingRadius;
+    view.motionKind = record.isFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
+    view.sleeping = record.isSleeping;
     return view;
+}
+
+
+void PhysicsStandaloneWorld::InvalidateBodyViews()
+{
+    m_bodyViewCacheDirty = true;
+}
+
+
+const std::vector<PhysicsBodyView>& PhysicsStandaloneWorld::BodyViewCache() const
+{
+    if ( !m_bodyViewCacheDirty )
+    {
+        return m_bodyViewCache;
+    }
+
+    // Why: public Body()/Bodies() return immutable view rows, not mutable store
+    // records. Rebuild this cold cache only after body mutations so the hot step
+    // keeps iterating PhysicsBodyStore without a parallel authoritative mirror.
+    m_bodyViewCache.clear();
+    for ( const PhysicsBodyRecord& record : m_bodyStore.Records() )
+    {
+        m_bodyViewCache.push_back( MakeBodyView( record ) );
+    }
+    m_bodyViewCacheDirty = false;
+    return m_bodyViewCache;
 }
 
 
 PhysicsColliderView PhysicsStandaloneWorld::MakeColliderView( const PhysicsColliderCreateDesc& desc,
                                                               PhysicsColliderHandle collider ) const
 {
-    const PhysicsBodyView* body = Body( desc.body );
+    const PhysicsBodyRecord* body = BodyRecord( desc.body );
 
     PhysicsColliderView view;
     view.collider = collider;
@@ -1231,12 +1279,23 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     const bool sleepDisabledQueryIncludesBody = sleepGateQueryView.bodyCount == 1u && sleepGateQueryView.bodies &&
                                                 sleepGateQueryView.bodies[0] == sleepGateBody;
 
+    PhysicsStandaloneWorld clearWorld;
+    PhysicsBodyCreateDesc clearBodyDesc;
+    const PhysicsBodyHandle clearBodyA = clearWorld.CreateBody( clearBodyDesc );
+    const PhysicsBodyHandle clearBodyB = clearWorld.CreateBody( clearBodyDesc );
+    clearWorld.Clear();
+    const PhysicsBodyHandle clearBodyAfterReset = clearWorld.CreateBody( clearBodyDesc );
+    const bool clearReusesLowSlotWithNewGeneration =
+        clearBodyA.index == 0u && clearBodyB.index == 1u && clearBodyAfterReset.index == 0u &&
+        clearBodyAfterReset.generation != clearBodyA.generation && clearWorld.Body( clearBodyA ) == nullptr &&
+        clearWorld.Body( clearBodyAfterReset ) != nullptr;
+
     const bool activationCommandsConsistent =
         invalidActivationRejected && fixedActivationRejected && seededActivationConsistent && disabledSleep &&
         disableSleepWokeBodies && seedRejectedWhileSleepDisabled && enabledSleep && reseededActivationConsistent &&
         wokeActivationConsistent && destroyedActivationBody && staleActivationRejected && sleepGateDisabled &&
         sleepDisabledCreateAwake && sleepDisabledUpdateStayedAwake && sleepDisabledStepIntegrated &&
-        sleepDisabledQueryIncludesBody;
+        sleepDisabledQueryIncludesBody && clearReusesLowSlotWithNewGeneration;
 
     PhysicsStandaloneStepDesc stepDesc;
     stepDesc.deltaSeconds = 0.25f;

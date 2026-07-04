@@ -167,7 +167,7 @@ step alive until runtime call sites migrate.
 Target: `PhysicsBodyStore` becomes the source for body state on the standalone
 path, then compatibility writeback shrinks behind explicit adapters.
 
-- [ ] Inventory every body field still loaded from `GameModel`:
+- [x] Inventory every body field still loaded from `GameModel`:
   pose, orientation, linear velocity, angular velocity, mass, inverse mass,
   rotational inertia, inverse inertia, fixed/dynamic state, sleeping, forces,
   immediate impulse, pending impulse, drag, and replay body id.
@@ -175,22 +175,24 @@ path, then compatibility writeback shrinks behind explicit adapters.
   needed to create the store row without reading `GameModel`.
 - [ ] Add or confirm a `PhysicsBodyUpdateDesc` field and update mask for every
   runtime-editable body property.
-- [ ] Route standalone body creation through `PhysicsStandaloneWorld` and
+- [x] Route standalone body creation through `PhysicsStandaloneWorld` and
   `PhysicsBodyStore`, not through a model vector.
-- [ ] Route body deletion through one deterministic tombstone/generation path:
-  - [ ] body handle becomes stale,
-  - [ ] child colliders become stale,
-  - [ ] connected constraints become stale,
-  - [ ] contacts and island membership are invalidated deterministically,
-  - [ ] replay-facing ids stay queryable for diagnostics if appropriate.
+- [x] Route body deletion through one deterministic tombstone/generation path:
+  - [x] body handle becomes stale,
+  - [x] child colliders become stale,
+  - [x] connected constraints become stale,
+  - [x] contacts and island membership are invalidated deterministically,
+  - [x] replay-facing ids stay queryable for diagnostics if appropriate.
 - [ ] Move force and impulse application into body-store commands keyed by
   `PhysicsBodyHandle`.
 - [ ] Add a temporary compatibility assertion comparing old writeback state to
   store-owned state for one validation scene, if that helps catch drift.
 - [ ] Remove one `PhysicsBodyStore::*ModelAccess*` usage per slice and lower the
   guardrail count in the same commit.
+- [x] Delete the standalone `PhysicsBodyView`/generation/liveness mirror and add
+  a runtime-boundary guardrail that blocks it from returning.
 - [ ] Validation for this phase:
-  - [ ] `tools\validate_physics.bat`
+  - [x] `tools\validate_physics.bat`
   - [ ] `tools\validate_perf.bat` if hot-loop layout, reserve behavior, or
     iteration order changes.
 

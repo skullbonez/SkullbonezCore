@@ -293,6 +293,14 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         ),
         "Create shaders through AssetSystem::CreateShader(renderResources, name) so render resource authority is explicit.",
     ),
+    (
+        "PhysicsStandaloneWorld body mirror arrays",
+        re.compile(
+            r"\bstd\s*::\s*vector\s*<\s*PhysicsBodyView\s*>\s*m_bodies\b"
+            r"|\bm_(?:generations|alive|freeIndices)\b"
+        ),
+        "Standalone bodies must live in PhysicsBodyStore; do not recreate a parallel view/liveness/generation mirror.",
+    ),
 )
 PUBLIC_PHYSICS_FACADE_HEADERS = (
     Path("SkullbonezSource/Physics/PhysicsApi.h"),
@@ -6548,6 +6556,24 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("deleted migration artifact synthetic surface was not rejected")
 
+    standalone_body_mirror_text = """
+    class PhysicsStandaloneWorld
+    {
+        std::vector<PhysicsBodyView> m_bodies;
+        std::vector<uint32_t> m_generations;
+        std::vector<uint8_t> m_alive;
+        std::vector<uint32_t> m_freeIndices;
+    };
+    """
+    if not any(
+        error.message == "deleted migration artifact is blocked: PhysicsStandaloneWorld body mirror arrays"
+        for error in check_deleted_migration_artifact_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsApi.h"),
+            standalone_body_mirror_text,
+        )
+    ):
+        failures.append("standalone body mirror synthetic surface was not rejected")
+
     deleted_render_scene_view_text = """
     class GameModelCollection : public Rendering::IRenderSceneView {};
     """
@@ -6564,6 +6590,7 @@ def run_self_tests() -> list[str]:
     // GameModelRuntimePhysicsTuning, legacyModelIndex, RuntimeConfigSnapshot, and IRenderSceneView are migration notes only.
     // PhysicsModelMutableRange, MutableModelData(), and modelAccess.Models() are notes only.
     // PhysicsBodyWritebackSink, QueueBodyMirrorWriteback, bodyMirrorWritebacks, and PhysicsBodyEventSink are deleted migration notes only.
+    // PhysicsStandaloneWorld used to store std::vector<PhysicsBodyView> m_bodies plus m_alive/m_generations/m_freeIndices.
     /*
        AssetSystem::CreateShader( const char* name ) is mentioned in the plan but must not be code.
        BorrowMutableModels(modelAccess) appears in the audit notes, not compiled source.

@@ -1,11 +1,13 @@
 /*
 File: SkullbonezSource/Physics/PhysicsBodyStore.cpp
 Purpose:
-  Owns deterministic body-order mutable physics state loaded from GameModel.
+  Owns deterministic body-order mutable physics state for compatibility scenes
+  and standalone physics worlds.
 
 Mental model:
-  LoadFromModels copies legacy construction/runtime state into the store.
-  PhysicsWorld mutates records during the step, then WriteBackToModels keeps
+  LoadFromModels copies legacy construction/runtime state into compatibility
+  rows. Standalone creation appends dense rows directly. PhysicsWorld or the
+  standalone step mutates records, then named compatibility writeback keeps
   older render, replay, tool, terrain, and shape callers working until they move
   to store-backed views.
 
@@ -19,8 +21,11 @@ Glossary:
   Replay body id: Stable per-scene id used by replay and SkullScope traces.
 
 Invariants:
-  - Body records stay in GameModelCollection physics model order for current
-    solver traversal, but public body handles are allocator-owned slots.
+  - Compatibility body records stay in GameModelCollection physics model order
+    for current solver traversal, but public body handles are allocator-owned
+    slots.
+  - Standalone body records are dense and handle-addressed; deletion may move
+    the last row to close a hole without changing live handles.
   - Pending impulses and sleep state are preserved across compatibility refresh
     by handle identity, even if a compatible model refresh reorders slots.
 
@@ -1042,9 +1047,13 @@ void PhysicsBodyStore::Clear()
         m_handleReplayBodyIds[slot] = 0;
     }
     m_freeHandleSlots.clear();
-    for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleGenerations.size() ); ++slot )
+    // Invariant: CreateBodyRecord pops from the back of the free list. Push in
+    // reverse so a full Clear() reuses low handle indices first, matching the
+    // standalone world's pre-store public handle order while still advancing
+    // generations for stale-handle rejection.
+    for ( uint32_t remaining = static_cast<uint32_t>( m_handleGenerations.size() ); remaining > 0; --remaining )
     {
-        m_freeHandleSlots.push_back( slot );
+        m_freeHandleSlots.push_back( remaining - 1u );
     }
 }
 
@@ -1095,6 +1104,85 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std
         m_modelBodyHandles[i] = record.handle;
     }
     RetireUnassignedHandles( assignedHandleSlots );
+}
+
+
+PhysicsBodyHandle PhysicsBodyStore::CreateBodyRecord( const PhysicsBodyRecord& initialRecord )
+{
+    uint32_t slot = 0;
+    if ( !m_freeHandleSlots.empty() )
+    {
+        slot = m_freeHandleSlots.back();
+        m_freeHandleSlots.pop_back();
+    }
+    else
+    {
+        slot = static_cast<uint32_t>( m_handleGenerations.size() );
+        m_handleGenerations.push_back( PHYSICS_HANDLE_INITIAL_GENERATION );
+        m_handleAlive.push_back( 0 );
+        m_handleModelIndices.push_back( -1 );
+        m_handleReplayBodyIds.push_back( 0 );
+    }
+
+    const int recordIndex = static_cast<int>( m_bodies.size() );
+    PhysicsBodyHandle handle;
+    handle.index = slot;
+    handle.generation = m_handleGenerations[static_cast<std::size_t>( slot )];
+
+    PhysicsBodyRecord record = initialRecord;
+    record.handle = handle;
+    if ( !record.sceneObjectId.IsValid() )
+    {
+        record.sceneObjectId = PhysicsSceneObjectId{ handle.index + 1u };
+    }
+
+    m_handleAlive[static_cast<std::size_t>( slot )] = 1;
+    m_handleModelIndices[static_cast<std::size_t>( slot )] = recordIndex;
+    m_handleReplayBodyIds[static_cast<std::size_t>( slot )] = record.replayBodyId;
+    m_bodies.push_back( record );
+    m_modelBodyHandles.push_back( handle );
+    return handle;
+}
+
+
+bool PhysicsBodyStore::DestroyBodyRecord( PhysicsBodyHandle handle )
+{
+    if ( !Contains( handle ) )
+    {
+        return false;
+    }
+
+    const std::size_t handleSlot = static_cast<std::size_t>( handle.index );
+    const int recordIndex = m_handleModelIndices[handleSlot];
+    const int lastRecordIndex = Count() - 1;
+    if ( recordIndex < 0 || recordIndex > lastRecordIndex )
+    {
+        return false;
+    }
+
+    // Invariant: rows are dense for simulation scans, while handles remain
+    // allocator identities. Removing a row updates only the moved handle's row
+    // map; no live handle encodes the previous vector position.
+    if ( recordIndex != lastRecordIndex )
+    {
+        PhysicsBodyRecord& destination = m_bodies[static_cast<std::size_t>( recordIndex )];
+        PhysicsBodyRecord& moved = m_bodies[static_cast<std::size_t>( lastRecordIndex )];
+        destination = moved;
+        m_modelBodyHandles[static_cast<std::size_t>( recordIndex )] = destination.handle;
+        if ( destination.handle.IsValid() && destination.handle.index < m_handleModelIndices.size() )
+        {
+            m_handleModelIndices[static_cast<std::size_t>( destination.handle.index )] = recordIndex;
+        }
+    }
+
+    m_bodies.pop_back();
+    m_modelBodyHandles.pop_back();
+    m_handleAlive[handleSlot] = 0;
+    m_handleModelIndices[handleSlot] = -1;
+    m_handleReplayBodyIds[handleSlot] = 0;
+    m_handleGenerations[handleSlot] = NextHandleGeneration( m_handleGenerations[handleSlot] );
+    m_freeHandleSlots.push_back( handle.index );
+    return true;
 }
 
 
@@ -1306,6 +1394,28 @@ const std::vector<PhysicsBodyRecord>& PhysicsBodyStore::Records() const
 std::vector<PhysicsBodyRecord>& PhysicsBodyStore::MutableRecords()
 {
     return m_bodies;
+}
+
+
+PhysicsBodyRecord* PhysicsBodyStore::MutableRecordForHandle( PhysicsBodyHandle handle )
+{
+    if ( !Contains( handle ) )
+    {
+        return nullptr;
+    }
+
+    return MutableRecordForModelIndex( m_handleModelIndices[static_cast<std::size_t>( handle.index )] );
+}
+
+
+const PhysicsBodyRecord* PhysicsBodyStore::RecordForHandle( PhysicsBodyHandle handle ) const
+{
+    if ( !Contains( handle ) )
+    {
+        return nullptr;
+    }
+
+    return RecordForModelIndex( m_handleModelIndices[static_cast<std::size_t>( handle.index )] );
 }
 
 
