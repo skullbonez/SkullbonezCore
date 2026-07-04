@@ -63,6 +63,10 @@ class GameModelCollectionPhysicsAdapter
                                              const Math::Vector::Vector3& localApplicationPoint ) const;
 
   private:
+    // Wakes may need collider-derived sleep locks. This helper performs the
+    // count-gated topology refresh before returning the handle used by wake/apply.
+    Physics::PhysicsBodyHandle BodyHandleForWakeCommand( int modelIndex ) const;
+
     GameModelCollection& m_collection;
 };
 } // namespace GameObjects

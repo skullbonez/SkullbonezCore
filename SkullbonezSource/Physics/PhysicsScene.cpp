@@ -285,19 +285,11 @@ void PhysicsScene::ApplyFixedTreeReleaseEvents( PhysicsModelAccess& modelAccess,
 }
 
 
-// Invariant: steady-state commands mutate PhysicsBodyStore records selected by
-// handles. GameModel body data is imported here only when topology/count changed.
-void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+// Invariant: steady-state wake commands mutate PhysicsBodyStore records
+// selected by handles. Legacy model-index callers must refresh topology before
+// they enter this handle-owned command.
+void PhysicsScene::WakeBody( PhysicsBodyHandle body )
 {
-    const int modelCount = modelAccess.ModelCount();
-    if ( m_bodyStore.Count() != modelCount )
-    {
-        RefreshBodyStore( modelAccess );
-    }
-    if ( m_colliderStore.Count() != modelCount )
-    {
-        RefreshColliderStore( modelAccess );
-    }
     const int index = m_bodyStore.ModelIndexForHandle( body );
     if ( index < 0 )
     {
@@ -390,13 +382,12 @@ void PhysicsScene::SetPendingBodyImpulse( PhysicsBodyHandle body,
 }
 
 
-void PhysicsScene::ApplyBodyImpulse( PhysicsModelAccess& modelAccess,
-                                     PhysicsBodyHandle body,
+void PhysicsScene::ApplyBodyImpulse( PhysicsBodyHandle body,
                                      const Math::Vector::Vector3& impulse,
                                      const Math::Vector::Vector3& localApplicationPoint )
 {
     SetPendingBodyImpulse( body, impulse, localApplicationPoint );
-    WakeBody( modelAccess, body );
+    WakeBody( body );
 }
 
 

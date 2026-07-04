@@ -220,7 +220,6 @@ void Run::ApplyMousePickupPhysicsStep()
     }
 
     ApplyRuntimeToolPhysicsImpulse( m_cGameModelCollection,
-                                    m_cGameModelCollection.GetPhysicsEngine(),
                                     modelIndex,
                                     impulse,
                                     SkullbonezCore::Math::Vector::ZERO_VECTOR );

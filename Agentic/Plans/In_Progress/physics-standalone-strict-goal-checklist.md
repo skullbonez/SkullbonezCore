@@ -854,6 +854,38 @@ Evidence logs: `TestOutput\agent_validate_fast_wake_command_mirror.log` and
 `TestOutput\agent_validate_physics_wake_command_mirror.log`; the physics gate
 passed with byte-exact `physics_regression_solver.csv`.
 
+Slice `PHY-1007`: delete the remaining
+`WakeBody(PhysicsModelAccess&, PhysicsBodyHandle)` and
+`ApplyBodyImpulse(PhysicsModelAccess&, PhysicsBodyHandle, ...)` command
+signatures. Legacy model-index callers may still use
+`GameModelCollectionPhysicsAdapter`, but only for count-gated body/collider
+topology refresh before entering the handle-owned physics commands.
+
+- [x] Add a count-gated adapter refresh path for body/collider topology before
+  legacy model-index wake/apply commands enter physics.
+- [x] Delete the model-access wake/apply overloads from `PhysicsEngine` and
+  `PhysicsScene`.
+- [x] Route runtime/editor/replay callers through body-handle wake/apply
+  commands or the existing model-index adapter.
+- [x] Add runtime-boundary self-tests that reject the deleted wake/apply
+  model-access overloads and caller spellings while allowing body-only commands.
+- [x] Comment-audit the touched source files.
+- [x] Validation for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] `tools\validate_fast.bat`
+  - [x] `tools\validate_physics.bat`
+
+Follow-up slice `PHY-1007`: wake and apply-impulse commands no longer borrow
+`PhysicsModelAccess`. `PhysicsEngine`/`PhysicsScene` now expose
+`WakeBody(body)` and `ApplyBodyImpulse(body, impulse, point)`, while legacy
+model-index callers use `GameModelCollectionPhysicsAdapter` for count-gated
+body/collider topology refresh before entering those commands. Evidence logs:
+`TestOutput\agent_validate_fast_wake_apply_signatures.log` and
+`TestOutput\agent_validate_physics_wake_apply_signatures.log`; the physics gate
+passed with byte-exact `physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

@@ -83,7 +83,9 @@ class PhysicsScene
                      const Basics::EngineConfig& config,
                      const PhysicsWorldForces& worldForces,
                      Threading::WorkerPool& workerPool );
-    void WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
+    // Wakes solver sleep/island state by handle. Legacy model-index callers
+    // must refresh topology before entering this command.
+    void WakeBody( PhysicsBodyHandle body );
     // Sets replay/editor-authored live velocities by body handle and optionally
     // wakes a moving body before the normal step projects presentation state.
     bool SetBodyVelocity( PhysicsModelAccess& modelAccess,
@@ -97,8 +99,9 @@ class PhysicsScene
     void SetPendingBodyImpulse( PhysicsBodyHandle body,
                                 const Math::Vector::Vector3& impulse,
                                 const Math::Vector::Vector3& localApplicationPoint );
-    void ApplyBodyImpulse( PhysicsModelAccess& modelAccess,
-                           PhysicsBodyHandle body,
+    // Queues a one-shot impulse and wakes by body handle without borrowing the
+    // model owner.
+    void ApplyBodyImpulse( PhysicsBodyHandle body,
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
     void SetPhysicsSleepEnabled( bool enabled );

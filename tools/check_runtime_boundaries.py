@@ -268,10 +268,26 @@ PHYSICS_SCENE_SET_BODY_VELOCITY_MODEL_MIRROR_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*(?:WriteBackPhysicsBody|InvalidatePhysicsStreams)\s*\("
 )
 PHYSICS_SCENE_WAKE_BODY_FUNCTION_PATTERN = re.compile(
-    r"\bvoid\s+PhysicsScene::WakeBody\s*\(\s*PhysicsModelAccess\s*&"
+    r"\bvoid\s+PhysicsScene::WakeBody\s*\("
 )
 PHYSICS_SCENE_WAKE_BODY_MODEL_MIRROR_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*(?:WriteBackPhysicsBody|InvalidatePhysicsStreams)\s*\("
+)
+PHYSICS_WAKE_APPLY_MODEL_ACCESS_SOURCES = (
+    PHYSICS_ENGINE_SOURCE,
+    PHYSICS_ENGINE_HEADER,
+    PHYSICS_SCENE_SOURCE,
+    PHYSICS_SCENE_HEADER,
+    GAME_MODEL_COLLECTION_PHYSICS_ADAPTER_SOURCE,
+    RUNTIME_TOOLS_SOURCE,
+    EDITOR_TOOLS_SOURCE,
+    RUN_FRAME_SOURCE,
+)
+PHYSICS_WAKE_APPLY_MODEL_ACCESS_OVERLOAD_PATTERN = re.compile(
+    r"\b(?:WakeBody|ApplyBodyImpulse)\s*\(\s*PhysicsModelAccess\s*&"
+)
+PHYSICS_WAKE_APPLY_MODEL_ACCESS_CALL_PATTERN = re.compile(
+    r"\b(?:(?:[A-Za-z_][A-Za-z0-9_\\.]*)\s*\.\s*)?(?:WakeBody|ApplyBodyImpulse)\s*\(\s*modelAccess\s*,"
 )
 PHYSICS_SEED_BODY_ASLEEP_MODEL_ACCESS_SOURCES = (
     PHYSICS_ENGINE_SOURCE,
@@ -2853,6 +2869,44 @@ def check_physics_scene_wake_body_model_mirror_guardrails(repo: Path) -> list[Bo
         path,
         path.read_text(encoding="utf-8"),
     )
+
+
+def check_physics_wake_apply_model_access_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_WAKE_APPLY_MODEL_ACCESS_OVERLOAD_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "wake/apply model-access overload is blocked",
+                (
+                    "WakeBody and ApplyBodyImpulse should be store-owned PhysicsBodyHandle commands; "
+                    "legacy model-index callers must refresh topology in GameModelCollectionPhysicsAdapter."
+                ),
+            )
+        )
+    for match in PHYSICS_WAKE_APPLY_MODEL_ACCESS_CALL_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "wake/apply model-access call is blocked",
+                (
+                    "Call WakeBody(body) or ApplyBodyImpulse(body, impulse, point) after resolving a "
+                    "PhysicsBodyHandle; do not borrow PhysicsModelAccess for wake/apply commands."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_wake_apply_model_access_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in PHYSICS_WAKE_APPLY_MODEL_ACCESS_SOURCES:
+        path = repo / relative_path
+        errors.extend(check_physics_wake_apply_model_access_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_physics_seed_body_asleep_model_access_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -9077,17 +9131,8 @@ def run_self_tests() -> list[str]:
         failures.append("old WakeBody model mirror synthetic surface was not rejected")
 
     allowed_wake_body_store_only = """
-    void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    void PhysicsScene::WakeBody( PhysicsBodyHandle body )
     {
-        const int modelCount = modelAccess.ModelCount();
-        if ( m_bodyStore.Count() != modelCount )
-        {
-            RefreshBodyStore( modelAccess );
-        }
-        if ( m_colliderStore.Count() != modelCount )
-        {
-            RefreshColliderStore( modelAccess );
-        }
         const int index = m_bodyStore.ModelIndexForHandle( body );
         if ( index < 0 )
         {
@@ -9096,10 +9141,10 @@ def run_self_tests() -> list[str]:
         m_world.WakeModel( m_bodyStore, index );
         m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
     }
-    void PhysicsScene::ApplyBodyImpulse( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    void PhysicsScene::ApplyBodyImpulse( PhysicsBodyHandle body )
     {
         SetPendingBodyImpulse( body, impulse, localPoint );
-        WakeBody( modelAccess, body );
+        WakeBody( body );
     }
     """
     if check_physics_scene_wake_body_model_mirror_guardrails_text(
@@ -9122,6 +9167,88 @@ def run_self_tests() -> list[str]:
         commented_wake_body_model_mirror,
     ):
         failures.append("comment-only WakeBody model mirror synthetic text was rejected")
+
+    old_wake_apply_model_access_overloads = """
+    void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        m_world.WakeModel( m_bodyStore, index );
+    }
+    void PhysicsScene::ApplyBodyImpulse( PhysicsModelAccess& modelAccess,
+                                         PhysicsBodyHandle body,
+                                         const Vector3& impulse,
+                                         const Vector3& localPoint )
+    {
+        SetPendingBodyImpulse( body, impulse, localPoint );
+        WakeBody( modelAccess, body );
+    }
+    """
+    if not any(
+        error.message == "wake/apply model-access overload is blocked"
+        for error in check_physics_wake_apply_model_access_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+            old_wake_apply_model_access_overloads,
+        )
+    ):
+        failures.append("old wake/apply model-access overload synthetic surface was not rejected")
+
+    old_wake_apply_model_access_calls = """
+    void ApplyLauncherPhysicsImpulse( PhysicsEngine& physics, PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        physics.ApplyBodyImpulse( modelAccess, body, impulse, localPoint );
+        physics.WakeBody( modelAccess, body );
+    }
+    """
+    if not any(
+        error.message == "wake/apply model-access call is blocked"
+        for error in check_physics_wake_apply_model_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
+            old_wake_apply_model_access_calls,
+        )
+    ):
+        failures.append("old wake/apply model-access call synthetic surface was not rejected")
+
+    allowed_wake_apply_body_commands = """
+    PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForWakeCommand( int modelIndex ) const
+    {
+        const int modelCount = m_collection.GetModelCount();
+        PhysicsModelAccess modelAccess( m_collection );
+        if ( m_collection.m_physicsEngine.Colliders().Count() != modelCount )
+        {
+            m_collection.m_physicsEngine.RefreshColliderStore( modelAccess );
+        }
+        return m_collection.m_physicsEngine.BodyStore().HandleForModelIndex( modelIndex );
+    }
+    void GameModelCollectionPhysicsAdapter::ApplyBodyImpulseForModelIndex( int modelIndex ) const
+    {
+        const PhysicsBodyHandle body = BodyHandleForWakeCommand( modelIndex );
+        m_collection.m_physicsEngine.ApplyBodyImpulse( body, impulse, localPoint );
+        m_collection.m_physicsEngine.WakeBody( body );
+    }
+    void PhysicsScene::ApplyBodyImpulse( PhysicsBodyHandle body )
+    {
+        SetPendingBodyImpulse( body, impulse, localPoint );
+        WakeBody( body );
+    }
+    """
+    if check_physics_wake_apply_model_access_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp"),
+        allowed_wake_apply_body_commands,
+    ):
+        failures.append("body-only wake/apply synthetic surface was rejected")
+
+    commented_wake_apply_model_access = """
+    void PhysicsScene::WakeBody( PhysicsBodyHandle body )
+    {
+        // physics.WakeBody(modelAccess, body) used to borrow the model owner here.
+        // void PhysicsScene::ApplyBodyImpulse(PhysicsModelAccess& modelAccess, PhysicsBodyHandle body) was deleted.
+        m_world.WakeModel( m_bodyStore, index );
+    }
+    """
+    if check_physics_wake_apply_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        commented_wake_apply_model_access,
+    ):
+        failures.append("comment-only wake/apply model-access synthetic text was rejected")
 
     old_seed_body_asleep_model_access_overload = """
     void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -10136,6 +10263,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_scene_pending_impulse_model_mirror_guardrails(repo))
     errors.extend(check_physics_scene_velocity_model_mirror_guardrails(repo))
     errors.extend(check_physics_scene_wake_body_model_mirror_guardrails(repo))
+    errors.extend(check_physics_wake_apply_model_access_guardrails(repo))
     errors.extend(check_physics_seed_body_asleep_model_access_guardrails(repo))
     errors.extend(check_physics_pending_impulse_model_access_guardrails(repo))
     errors.extend(check_command_side_body_refresh_guardrails(repo))

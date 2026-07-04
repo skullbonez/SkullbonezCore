@@ -294,14 +294,14 @@ void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
             GameModel& groupModel = context.models.GetModelAtIndex( modelIndex );
             groupModel.SetPosition(
                 context.editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] + delta );
-            ResetEditorModelMotionAndWake( context.models, context.models.GetPhysicsEngine(), modelIndex, groupModel );
+            ResetEditorModelMotionAndWake( context.models, modelIndex, groupModel );
         }
     }
     else
     {
         const Vector3 newPosition = context.editor.gizmoDragStartPosition + delta;
         model.SetPosition( newPosition );
-        ResetEditorModelMotionAndWake( context.models, context.models.GetPhysicsEngine(), index, model );
+        ResetEditorModelMotionAndWake( context.models, index, model );
     }
 }
 
@@ -338,7 +338,7 @@ void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
                                                 context.editor.activeGizmoAxis,
                                                 factor ) )
     {
-        ResetEditorModelMotionAndWake( context.models, context.models.GetPhysicsEngine(), index, model, true );
+        ResetEditorModelMotionAndWake( context.models, index, model, true );
     }
 }
 
@@ -385,7 +385,7 @@ void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
             groupModel.SetPosition( context.editor.gizmoDragStartPosition +
                                     RotatePointAboutArbitrary( angleDelta, axisVector, startOffset ) );
             groupModel.SetOrientation( orientation );
-            ResetEditorModelMotionAndWake( context.models, context.models.GetPhysicsEngine(), modelIndex, groupModel );
+            ResetEditorModelMotionAndWake( context.models, modelIndex, groupModel );
         }
     }
     else
@@ -394,7 +394,7 @@ void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
         orientation.RotateAboutAxis( axisVector, angleDelta );
         GameModel& model = context.models.GetModelAtIndex( index );
         model.SetOrientation( orientation );
-        ResetEditorModelMotionAndWake( context.models, context.models.GetPhysicsEngine(), index, model );
+        ResetEditorModelMotionAndWake( context.models, index, model );
     }
 }
 

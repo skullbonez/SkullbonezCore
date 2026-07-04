@@ -39,6 +39,7 @@ Related:
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeStyle.h"
+#include "../GameObjects/GameModelCollectionPhysicsAdapter.h"
 #include "../Physics/PhysicsModelAccess.h"
 
 #include <cmath>
@@ -1766,20 +1767,11 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE ) != 0 );
             if ( !model.IsFixed() )
             {
-                PhysicsEngine& physics = m_cGameModelCollection.GetPhysicsEngine();
-                PhysicsModelAccess modelAccess( m_cGameModelCollection );
-                if ( physics.BodyStore().Count() != m_cGameModelCollection.GetModelCount() )
-                {
-                    physics.RefreshBodyStore( modelAccess );
-                }
-                const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( event.value0 );
                 // Why: the replay event still records model identity, but the
                 // wake command should cross the physics boundary as a body
-                // handle instead of reopening the collection wrapper.
-                if ( body.IsValid() )
-                {
-                    physics.WakeBody( modelAccess, body );
-                }
+                // handle through the count-gated model-index adapter.
+                SkullbonezCore::GameObjects::GameModelCollectionPhysicsAdapter( m_cGameModelCollection )
+                    .WakeBodyForModelIndex( event.value0 );
             }
             m_cGameModelCollection.InvalidatePhysicsStreams();
             WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied editor transform" );

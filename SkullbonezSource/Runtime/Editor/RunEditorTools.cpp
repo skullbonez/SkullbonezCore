@@ -597,19 +597,10 @@ int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, i
 // gesture identity, but physics mutation should enter PhysicsEngine as a
 // validated body handle. Keep the model-index bridge local to tool commands
 // instead of hiding it inside GameModelCollection's compatibility wrappers.
-void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& collection,
-                            SkullbonezCore::Physics::PhysicsEngine& physics,
-                            int modelIndex )
+void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& collection, int modelIndex )
 {
     GameModelCollectionPhysicsAdapter physicsBodies( collection );
-    const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
-    if ( !body.IsValid() )
-    {
-        return;
-    }
-
-    PhysicsModelAccess modelAccess( collection );
-    physics.WakeBody( modelAccess, body );
+    physicsBodies.WakeBodyForModelIndex( modelIndex );
 }
 
 
@@ -629,25 +620,16 @@ void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollecti
 
 
 void ApplyRuntimeToolPhysicsImpulse( SkullbonezCore::GameObjects::GameModelCollection& collection,
-                                     SkullbonezCore::Physics::PhysicsEngine& physics,
                                      int modelIndex,
                                      const Vector3& impulse,
                                      const Vector3& localApplicationPoint )
 {
     GameModelCollectionPhysicsAdapter physicsBodies( collection );
-    const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
-    if ( !body.IsValid() )
-    {
-        return;
-    }
-
-    PhysicsModelAccess modelAccess( collection );
-    physics.ApplyBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
+    physicsBodies.ApplyBodyImpulseForModelIndex( modelIndex, impulse, localApplicationPoint );
 }
 
 
 void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollection& collection,
-                                    SkullbonezCore::Physics::PhysicsEngine& physics,
                                     int index,
                                     GameModel& model,
                                     bool colliderChanged = false )
@@ -660,7 +642,7 @@ void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollec
     collection.CommitEditedModelPhysicsState( index, colliderChanged );
     if ( !model.IsFixed() )
     {
-        WakeEditorPhysicsBody( collection, physics, index );
+        WakeEditorPhysicsBody( collection, index );
     }
 }
 

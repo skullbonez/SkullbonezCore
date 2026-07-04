@@ -36,7 +36,6 @@ Related:
 #include "../../GameObjects/GameModelCollectionPhysicsAdapter.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsEngine.h"
-#include "../../Physics/PhysicsModelAccess.h"
 #include "../CameraCollection.h"
 #include "../Replay/ReplayRecorder.h"
 #include "../../World/Terrain.h"
@@ -67,28 +66,14 @@ void ApplyLauncherPhysicsImpulse( GameObjects::GameModelCollection& collection,
                                   const Math::Vector::Vector3& localApplicationPoint )
 {
     GameObjects::GameModelCollectionPhysicsAdapter physicsBodies( collection );
-    const Physics::PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
-    if ( !body.IsValid() )
-    {
-        return;
-    }
-
-    Physics::PhysicsModelAccess modelAccess( collection );
-    collection.GetPhysicsEngine().ApplyBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
+    physicsBodies.ApplyBodyImpulseForModelIndex( modelIndex, impulse, localApplicationPoint );
 }
 
 
 void WakeLauncherPhysicsBody( GameObjects::GameModelCollection& collection, int modelIndex )
 {
     GameObjects::GameModelCollectionPhysicsAdapter physicsBodies( collection );
-    const Physics::PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
-    if ( !body.IsValid() )
-    {
-        return;
-    }
-
-    Physics::PhysicsModelAccess modelAccess( collection );
-    collection.GetPhysicsEngine().WakeBody( modelAccess, body );
+    physicsBodies.WakeBodyForModelIndex( modelIndex );
 }
 
 

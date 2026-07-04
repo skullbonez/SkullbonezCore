@@ -102,16 +102,39 @@ GameModelCollectionPhysicsAdapter::BodyHandleForSceneObjectId( PhysicsSceneObjec
 }
 
 
+PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForWakeCommand( int modelIndex ) const
+{
+    if ( modelIndex < 0 || modelIndex >= m_collection.GetModelCount() )
+    {
+        return PhysicsBodyHandle{};
+    }
+
+    const int modelCount = m_collection.GetModelCount();
+    PhysicsModelAccess modelAccess( m_collection );
+    if ( m_collection.m_physicsEngine.Colliders().Count() != modelCount )
+    {
+        // Why: wake propagation can inspect collider-derived underwater sleep
+        // locks. Refresh only on topology/count drift so handle commands do not
+        // reload model state during steady-state tool input.
+        m_collection.m_physicsEngine.RefreshColliderStore( modelAccess );
+    }
+    else if ( m_collection.m_physicsEngine.BodyStore().Count() != modelCount )
+    {
+        m_collection.m_physicsEngine.RefreshBodyStore( modelAccess );
+    }
+    return m_collection.m_physicsEngine.BodyStore().HandleForModelIndex( modelIndex );
+}
+
+
 void GameModelCollectionPhysicsAdapter::WakeBodyForModelIndex( int modelIndex ) const
 {
-    const PhysicsBodyHandle body = BodyHandleForModelIndex( modelIndex );
+    const PhysicsBodyHandle body = BodyHandleForWakeCommand( modelIndex );
     if ( !body.IsValid() )
     {
         return;
     }
 
-    PhysicsModelAccess modelAccess( m_collection );
-    m_collection.m_physicsEngine.WakeBody( modelAccess, body );
+    m_collection.m_physicsEngine.WakeBody( body );
 }
 
 
@@ -132,14 +155,13 @@ void GameModelCollectionPhysicsAdapter::ApplyBodyImpulseForModelIndex(
     const Math::Vector::Vector3& impulse,
     const Math::Vector::Vector3& localApplicationPoint ) const
 {
-    const PhysicsBodyHandle body = BodyHandleForModelIndex( modelIndex );
+    const PhysicsBodyHandle body = BodyHandleForWakeCommand( modelIndex );
     if ( !body.IsValid() )
     {
         return;
     }
 
-    PhysicsModelAccess modelAccess( m_collection );
-    m_collection.m_physicsEngine.ApplyBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
+    m_collection.m_physicsEngine.ApplyBodyImpulse( body, impulse, localApplicationPoint );
 }
 
 

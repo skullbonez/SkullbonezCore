@@ -133,7 +133,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             }
             else
             {
-                WakeEditorPhysicsBody( context.models, context.models.GetPhysicsEngine(), index );
+                WakeEditorPhysicsBody( context.models, index );
             }
         }
     };

@@ -120,9 +120,9 @@ void PhysicsEngine::Step( PhysicsModelAccess& modelAccess,
 }
 
 
-void PhysicsEngine::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+void PhysicsEngine::WakeBody( PhysicsBodyHandle body )
 {
-    m_scene.WakeBody( modelAccess, body );
+    m_scene.WakeBody( body );
 }
 
 
@@ -150,12 +150,11 @@ void PhysicsEngine::SetPendingBodyImpulse( PhysicsBodyHandle body,
 }
 
 
-void PhysicsEngine::ApplyBodyImpulse( PhysicsModelAccess& modelAccess,
-                                      PhysicsBodyHandle body,
+void PhysicsEngine::ApplyBodyImpulse( PhysicsBodyHandle body,
                                       const Math::Vector::Vector3& impulse,
                                       const Math::Vector::Vector3& localApplicationPoint )
 {
-    m_scene.ApplyBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
+    m_scene.ApplyBodyImpulse( body, impulse, localApplicationPoint );
 }
 
 
