@@ -169,6 +169,9 @@ RUN_REPLAY_RESTORE_BODY_STORE_REFRESH_PATTERN = re.compile(
 GAME_MODEL_COLLECTION_REPLAY_RESTORE_FUNCTION_PATTERN = re.compile(
     r"\bbool\s+GameModelCollection::TryRestoreReplayBodyState\s*\("
 )
+GAME_MODEL_COLLECTION_REPLAY_PREDICTION_RESTORE_FUNCTION_PATTERN = re.compile(
+    r"\bbool\s+GameModelCollection::TryRestoreReplayPredictionBodyState\s*\("
+)
 GAME_MODEL_COLLECTION_REPLAY_RESTORE_MODEL_REFRESH_PATTERN = re.compile(
     r"\b(?:CommitEditedModelPhysicsState|RefreshBodyFromModel|GetPhysicsBodyStore)\s*\("
 )
@@ -2047,27 +2050,31 @@ def check_run_replay_restore_store_authority_guardrails_text(path: Path, text: s
 def check_game_model_collection_replay_restore_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments_and_string_literals(text)
     errors: list[BoundaryError] = []
-    function_match = GAME_MODEL_COLLECTION_REPLAY_RESTORE_FUNCTION_PATTERN.search(stripped)
-    if not function_match:
-        return errors
+    for function_pattern, function_name in (
+        (GAME_MODEL_COLLECTION_REPLAY_RESTORE_FUNCTION_PATTERN, "TryRestoreReplayBodyState"),
+        (GAME_MODEL_COLLECTION_REPLAY_PREDICTION_RESTORE_FUNCTION_PATTERN, "TryRestoreReplayPredictionBodyState"),
+    ):
+        bounds = _function_body_bounds(stripped, function_pattern)
+        if not bounds:
+            continue
 
-    open_brace = stripped.find("{", function_match.end())
-    if open_brace < 0:
-        return errors
-
-    close_brace = find_matching_close_brace(stripped, open_brace)
-    for match in GAME_MODEL_COLLECTION_REPLAY_RESTORE_MODEL_REFRESH_PATTERN.finditer(stripped, open_brace, close_brace):
-        errors.append(
-            BoundaryError(
-                path,
-                line_for_offset(stripped, match.start()),
-                "replay restore model-to-store refresh is blocked",
-                (
-                    "TryRestoreReplayBodyState should call the store-owned replay restore command; "
-                    "do not refresh PhysicsBodyStore from GameModel for restored body state."
-                ),
+        open_brace, close_brace = bounds
+        for match in GAME_MODEL_COLLECTION_REPLAY_RESTORE_MODEL_REFRESH_PATTERN.finditer(
+            stripped,
+            open_brace,
+            close_brace,
+        ):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "replay restore model-to-store refresh is blocked",
+                    (
+                        f"{function_name} should call the store-owned replay restore command; "
+                        "do not refresh PhysicsBodyStore from GameModel for restored body state."
+                    ),
+                )
             )
-        )
     return errors
 
 
@@ -7188,6 +7195,46 @@ def run_self_tests() -> list[str]:
         commented_collection_replay_restore_model_refresh,
     ):
         failures.append("comment-only replay restore model-refresh synthetic text was rejected")
+
+    old_collection_replay_prediction_restore_model_refresh = """
+    bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
+                                                                   uint32_t replayBodyId,
+                                                                   bool fixed,
+                                                                   const Vector3& position,
+                                                                   const Quaternion& orientation,
+                                                                   const Vector3& linearVelocity,
+                                                                   const Vector3& angularVelocity )
+    {
+        CommitEditedModelPhysicsState( index, false );
+        return true;
+    }
+    """
+    if not any(
+        error.message == "replay restore model-to-store refresh is blocked"
+        for error in check_game_model_collection_replay_restore_store_authority_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_collection_replay_prediction_restore_model_refresh,
+        )
+    ):
+        failures.append("old replay prediction restore model-refresh synthetic surface was not rejected")
+
+    allowed_collection_replay_prediction_restore = """
+    bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
+                                                                   uint32_t replayBodyId,
+                                                                   bool fixed,
+                                                                   const Vector3& position,
+                                                                   const Quaternion& orientation,
+                                                                   const Vector3& linearVelocity,
+                                                                   const Vector3& angularVelocity )
+    {
+        return m_physicsEngine.RestoreReplayBodyState( index, replayBodyId, fixed, position, orientation, linearVelocity, angularVelocity, mass, inverseMass, rotationalInertia, inverseRotationalInertia );
+    }
+    """
+    if check_game_model_collection_replay_restore_store_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_collection_replay_prediction_restore,
+    ):
+        failures.append("store-owned replay prediction restore synthetic surface was rejected")
 
     old_replay_render_pose_physics_commit = """
     bool GameModelCollection::TrySetReplayRenderPose( int index,

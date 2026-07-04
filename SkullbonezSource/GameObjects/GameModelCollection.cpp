@@ -698,6 +698,10 @@ bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
                                                                const Quaternion& orientation,
                                                                const Vector3& linearVelocity,
                                                                const Vector3& angularVelocity,
+                                                               float mass,
+                                                               float inverseMass,
+                                                               const Vector3& rotationalInertia,
+                                                               const Vector3& inverseRotationalInertia,
                                                                float fixedContactHighlightSeconds )
 {
     if ( index < 0 || index >= GetModelCount() )
@@ -718,8 +722,19 @@ bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
     model.SetAngularVelocity( angularVelocity );
     model.SetFixedContactHighlightSeconds( fixedContactHighlightSeconds );
     InvalidateSoA();
-    CommitEditedModelPhysicsState( index, false );
-    return true;
+    // Why: prediction restore swaps live/job state repeatedly. Restore the
+    // physics record from the captured backup instead of recapturing GameModel.
+    return m_physicsEngine.RestoreReplayBodyState( index,
+                                                   replayBodyId,
+                                                   fixed,
+                                                   position,
+                                                   orientation,
+                                                   linearVelocity,
+                                                   angularVelocity,
+                                                   mass,
+                                                   inverseMass,
+                                                   rotationalInertia,
+                                                   inverseRotationalInertia );
 }
 
 

@@ -364,7 +364,7 @@ model indices stop entering physics commands directly.
   - [x] mouse pickup tools,
   - [x] launcher tools,
   - [x] replay velocity edit,
-  - [ ] replay restore/prediction,
+  - [x] replay restore/prediction,
   - [ ] diagnostics and debug overlays.
 - [ ] Store `PhysicsBodyHandle` or stable scene object id at the caller where the
   command is created, not at the last moment inside physics.
@@ -441,9 +441,18 @@ recaptures that pose into `PhysicsBodyStore`. The boundary checker blocks
 `python -m py_compile tools\check_runtime_boundaries.py`,
 `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
 `tools\validate_format.bat`, `tools\validate_fast.bat`, and
-`tools\validate_full.bat` all passed. The replay restore/prediction checkbox
-remains unchecked because `TryRestoreReplayPredictionBodyState` still uses
-`CommitEditedModelPhysicsState`.
+`tools\validate_full.bat` all passed.
+
+Replay prediction body restore now backs up mass and inertia with pose,
+velocity, and fixed state, then restores through
+`PhysicsEngine::RestoreReplayBodyState` instead of recapturing `GameModel`
+state with `CommitEditedModelPhysicsState`. Existing full replay solver restore
+already used the store-owned restore path, so replay restore/prediction no
+longer has a model-to-body-store refresh in the migrated functions. Evidence for
+this slice: `python -m py_compile tools\check_runtime_boundaries.py`,
+`python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+`tools\validate_format.bat`, `tools\validate_fast.bat`, and
+`tools\validate_full.bat` all passed.
 
 ## Phase 8 - Diagnostics And SkullScope
 

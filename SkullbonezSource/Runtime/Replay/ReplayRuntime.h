@@ -227,6 +227,10 @@ struct RunReplayPredictionBodyBackup
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+    float mass = 0.0f;
+    float inverseMass = 0.0f;
+    Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 inverseRotationalInertia = Math::Vector::ZERO_VECTOR;
     float fixedContactHighlightSeconds = 0.0f;
     bool fixed = false;
 };

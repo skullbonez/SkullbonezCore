@@ -1104,6 +1104,10 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
         backup.orientation = model->GetOrientation();
         backup.linearVelocity = model->GetVelocity();
         backup.angularVelocity = model->GetAngularVelocity();
+        backup.mass = model->GetMass();
+        backup.inverseMass = model->GetInvertedMass();
+        backup.rotationalInertia = model->GetRotationalInertia();
+        backup.inverseRotationalInertia = model->GetInvertedRotationalInertia();
         backup.fixedContactHighlightSeconds = model->GetFixedContactHighlightSeconds();
         backup.fixed = model->IsFixed();
         outBodies[static_cast<std::size_t>( i )] = backup;
@@ -1150,6 +1154,10 @@ bool ApplyReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelColle
                                                                    backup.orientation,
                                                                    backup.linearVelocity,
                                                                    backup.angularVelocity,
+                                                                   backup.mass,
+                                                                   backup.inverseMass,
+                                                                   backup.rotationalInertia,
+                                                                   backup.inverseRotationalInertia,
                                                                    backup.fixedContactHighlightSeconds ) )
         {
             return false;
