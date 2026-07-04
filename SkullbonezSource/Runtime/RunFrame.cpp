@@ -37,7 +37,6 @@ Related:
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeStyle.h"
-#include "../GameObjects/GameModelCollectionPhysicsAdapter.h"
 
 #include <cmath>
 #include <cstdint>
@@ -1758,11 +1757,11 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE ) != 0 );
             if ( !model.IsFixed() )
             {
-                // Why: the replay event still records model identity, but the
-                // wake command should cross the physics boundary as a body
-                // handle through the count-gated adapter resolver.
-                SkullbonezCore::GameObjects::GameModelCollectionPhysicsAdapter physicsBodies( m_cGameModelCollection );
-                const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( event.value0, true );
+                // Why: CommitEditedModelPhysicsState() has already refreshed the
+                // edited body row, so replay restore can wake the store handle
+                // directly instead of rediscovering it through the adapter.
+                const PhysicsBodyHandle body =
+                    m_cGameModelCollection.GetPhysicsEngine().BodyStore().HandleForModelIndex( event.value0 );
                 if ( body.IsValid() )
                 {
                     m_cGameModelCollection.GetPhysicsEngine().WakeBody( body );

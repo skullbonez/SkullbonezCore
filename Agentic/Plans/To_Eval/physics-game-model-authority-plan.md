@@ -3,9 +3,9 @@
 Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
-Validation for latest source slice: `tools\validate_full.bat` passed on
-2026-07-03 after deleting the physics inheritance/event-sink surface and
-turning `PhysicsModelAccess` into a concrete stack-owned facade.
+Validation for latest source slice: `tools\validate_fast.bat` and
+`tools\validate_physics.bat` passed on 2026-07-05 after removing the replay
+editor-transform adapter wake lookup.
 
 ## Completed Slices
 
@@ -91,6 +91,25 @@ turning `PhysicsModelAccess` into a concrete stack-owned facade.
   `GameModelCollection::ReleaseAttachedFixedTreeParts()` and self-tests the old
   adapter shape against direct body-store handle lookup. Validation:
   `git diff --check`, `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Removed the replay editor-transform adapter wake lookup.
+  `Run::RestoreReplayV2ArtifactTargetState()` now lets
+  `CommitEditedModelPhysicsState()` refresh the edited body/collider rows, then
+  wakes the body directly through
+  `PhysicsBodyStore::HandleForModelIndex(event.value0)`. Owner: replay v2
+  editor-transform restore. Reason: replay events still persist model identity,
+  but after the edited model has been committed there is no need to construct
+  `GameModelCollectionPhysicsAdapter` and redo wake-ready model-index
+  conversion. Deletion condition: `RunFrame.cpp` contains no
+  `GameModelCollectionPhysicsAdapter`, `BodyHandleForVelocityCommand`, or
+  `BodyHandleForModelIndex` use. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks those names in `RunFrame.cpp` and
+  self-tests the old variable-form adapter resolver against the allowed
+  body-store handle lookup. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
   `python tools\check_runtime_boundaries.py --repo .`,
   `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
   passed on 2026-07-05; physics regression reported standalone/runtime handle
@@ -262,6 +281,9 @@ Create durable handles before moving ownership. The stores cannot be authoritati
   resolves released body handles directly from `PhysicsBodyStore` after one
   local topology repair instead of calling the adapter from inside the model
   owner.
+- [x] 2026-07-05 replay editor-transform restore wakes the committed body row
+  directly from `PhysicsBodyStore` instead of rediscovering the edited model
+  through `GameModelCollectionPhysicsAdapter`.
 - [ ] Keep temporary model-index adapters only at old call boundaries.
   - [x] 2026-06-28 adapter slice keeps the temporary model-index command bridge
     at the old `GameModelCollection` entry points instead of adding another

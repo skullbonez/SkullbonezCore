@@ -12,9 +12,9 @@
 #   service access while explicit service contexts are built. Renderer globals
 #   have an extra file-classification fence, object rendering has a
 #   render-instance authority fence, runtime picking has a store-authority
-#   fence, runtime handle smoke has a handle-authority fence, and fixed-tree
-#   release has an owner-side store-handle fence, so count allowances do not
-#   silently approve a new compatibility location.
+#   fence, runtime handle smoke has a handle-authority fence, and fixed-tree or
+#   replay-restore wakes have owner-side store-handle fences, so count allowances
+#   do not silently approve a new compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -548,9 +548,7 @@ RUN_FRAME_REPLAY_EDITOR_TRANSFORM_WAKE_PATTERN = re.compile(
     r"\bm_cGameModelCollection\s*\.\s*WakeModel\s*\("
 )
 RUN_FRAME_REPLAY_EDITOR_TRANSFORM_ADAPTER_WAKE_PATTERN = re.compile(
-    r"\bGameModelCollectionPhysicsAdapter\s*\(\s*m_cGameModelCollection\s*\)\s*"
-    r"\.\s*WakeBodyForModelIndex\s*\(",
-    re.S,
+    r"\b(?:GameModelCollectionPhysicsAdapter|BodyHandleForVelocityCommand|BodyHandleForModelIndex)\b"
 )
 RAGDOLL_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\bcollection\s*\.\s*(?:SeedModelAsleep|WakeModel|ApplyBodyImpulse|SetPendingBodyImpulse)\s*\("
@@ -12141,7 +12139,7 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old RunFrame replay editor transform wake synthetic surface was not rejected")
 
-    allowed_run_frame_replay_editor_transform_wake = """
+    old_run_frame_replay_editor_transform_adapter_resolver = """
     bool ApplyReplayEditorTransformEvent()
     {
         GameModelCollectionPhysicsAdapter physicsBodies( m_cGameModelCollection );
@@ -12153,11 +12151,32 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
+    if not any(
+        error.message == "RunFrame replay editor transform adapter wake wrapper is blocked"
+        for error in check_run_frame_replay_editor_transform_wake_guardrails_text(
+            Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+            old_run_frame_replay_editor_transform_adapter_resolver,
+        )
+    ):
+        failures.append("old RunFrame replay editor transform adapter resolver synthetic surface was not rejected")
+
+    allowed_run_frame_replay_editor_transform_wake = """
+    bool ApplyReplayEditorTransformEvent()
+    {
+        const PhysicsBodyHandle body =
+            m_cGameModelCollection.GetPhysicsEngine().BodyStore().HandleForModelIndex( event.value0 );
+        if ( body.IsValid() )
+        {
+            m_cGameModelCollection.GetPhysicsEngine().WakeBody( body );
+        }
+        return true;
+    }
+    """
     if check_run_frame_replay_editor_transform_wake_guardrails_text(
         Path("SkullbonezSource/Runtime/RunFrame.cpp"),
         allowed_run_frame_replay_editor_transform_wake,
     ):
-        failures.append("handle-keyed RunFrame replay editor transform wake synthetic surface was rejected")
+        failures.append("store-handle RunFrame replay editor transform wake synthetic surface was rejected")
 
     commented_run_frame_replay_editor_transform_wake = """
     void DocumentOldReplayEditorTransformWake()
@@ -12195,7 +12214,9 @@ def run_self_tests() -> list[str]:
     void DocumentOldReplayEditorTransformAdapterWake()
     {
         // GameModelCollectionPhysicsAdapter( m_cGameModelCollection ).WakeBodyForModelIndex(event.value0) used to run here.
-        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( event.value0, true );
+        // const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand(event.value0, true);
+        const PhysicsBodyHandle body =
+            m_cGameModelCollection.GetPhysicsEngine().BodyStore().HandleForModelIndex( event.value0 );
         m_cGameModelCollection.GetPhysicsEngine().WakeBody( body );
     }
     """
