@@ -143,7 +143,7 @@ class PhysicsScene
 #endif
 
   private:
-    void ApplyFixedTreeReleaseEvents( PhysicsModelAccess& modelAccess, const PhysicsWorldForces& worldForces );
+    void ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& worldForces );
 #ifdef _DEBUG
     void ValidatePhysicsStoreMappings( int modelCount ) const;
     void ValidateRenderStoreMappings( int modelCount ) const;

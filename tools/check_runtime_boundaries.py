@@ -171,6 +171,10 @@ PHYSICS_WORLD_TORNADO_RELEASE_MODEL_ACCESS_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*(?:WriteBackPhysicsBody|ReloadPhysicsBodies|InvalidatePhysicsStreams)\s*\("
     r"|\bmodelAccess\s*\.\s*ReleaseAttachedFixedTreeParts\s*\((?!\s*bodyStore\s*,)"
 )
+PHYSICS_WORLD_STEP_MODEL_ACCESS_SIGNATURE_PATTERN = re.compile(
+    r"\b(?:PhysicsWorld::)?(?:RunPhysics|RunSolverPhysics|ApplyTornadoField)\s*\("
+    r"(?P<args>[^;{}]*?\bPhysicsModelAccess\s*&[^;{}]*?)\)"
+)
 PHYSICS_WORLD_STORE_SEED_MODEL_ACCESS_PATTERN = re.compile(
     r"\b(?:GameModelBodyStream|GetBodyStream)\b|\bmodelAccess\s*\.\s*InvalidatePhysicsStreams\s*\("
 )
@@ -2295,6 +2299,34 @@ def check_physics_world_tornado_release_model_access_guardrails_text(path: Path,
 def check_physics_world_tornado_release_model_access_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / PHYSICS_WORLD_SOURCE
     return check_physics_world_tornado_release_model_access_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_physics_world_step_model_access_signature_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name not in { "PhysicsWorld.cpp", "PhysicsWorld.h" }:
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_WORLD_STEP_MODEL_ACCESS_SIGNATURE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "physics world step model-access signature is blocked",
+                (
+                    "PhysicsWorld step helpers must take store-owned body/collider inputs directly; "
+                    "PhysicsModelAccess belongs at the PhysicsScene compatibility edge."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_world_step_model_access_signature_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in (PHYSICS_WORLD_SOURCE, Path("SkullbonezSource/Physics/PhysicsWorld.h")):
+        path = repo / relative_path
+        errors.extend(check_physics_world_step_model_access_signature_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_physics_world_store_seed_model_access_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -8295,10 +8327,10 @@ def run_self_tests() -> list[str]:
         failures.append("old PhysicsWorld tornado release model-access synthetic surface was not rejected")
 
     allowed_tornado_store_release = """
-    void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess )
+    void PhysicsWorld::ApplyTornadoField( PhysicsBodyStore& bodyStore )
     {
         PhysicsBodyStore::ReleaseFixedRecord( record, linearVelocity, angularVelocity );
-        modelAccess.ReleaseAttachedFixedTreeParts( bodyStore, event, wakeBodies );
+        bodyStore.ReleaseAttachedFixedTreeParts( event, wakeBodies );
     }
     """
     if check_physics_world_tornado_release_model_access_guardrails_text(
@@ -8332,6 +8364,61 @@ def run_self_tests() -> list[str]:
         commented_tornado_release_model_access,
     ):
         failures.append("comment-only PhysicsWorld tornado release synthetic text was rejected")
+
+    old_world_step_model_access_signature = """
+    void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore )
+    {
+        StepBodyStores();
+    }
+    """
+    if not any(
+        error.message == "physics world step model-access signature is blocked"
+        for error in check_physics_world_step_model_access_signature_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+            old_world_step_model_access_signature,
+        )
+    ):
+        failures.append("old PhysicsWorld step model-access signature synthetic surface was not rejected")
+
+    old_world_tornado_model_access_signature = """
+    void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess )
+    {
+        StepBodyStores();
+    }
+    """
+    if not any(
+        error.message == "physics world step model-access signature is blocked"
+        for error in check_physics_world_step_model_access_signature_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+            old_world_tornado_model_access_signature,
+        )
+    ):
+        failures.append("old PhysicsWorld tornado model-access signature synthetic surface was not rejected")
+
+    allowed_world_step_store_signature = """
+    void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore )
+    {
+        bodyStore.ReleaseAttachedFixedTreeParts( event, wakeBodies );
+    }
+    """
+    if check_physics_world_step_model_access_signature_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        allowed_world_step_store_signature,
+    ):
+        failures.append("store-owned PhysicsWorld step signature synthetic surface was rejected")
+
+    commented_world_step_model_access_signature = """
+    void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore )
+    {
+        // RunPhysics(PhysicsModelAccess& modelAccess, ...) used to live here.
+        StepBodyStores();
+    }
+    """
+    if check_physics_world_step_model_access_signature_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        commented_world_step_model_access_signature,
+    ):
+        failures.append("comment-only PhysicsWorld model-access signature synthetic text was rejected")
 
     old_store_seed_model_access = """
     void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, const PhysicsBodyStore& bodyStore, int index )
@@ -10545,6 +10632,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_world_fixed_contact_notify_guardrails(repo))
     errors.extend(check_physics_world_persistent_contact_tree_release_guardrails(repo))
     errors.extend(check_physics_world_tornado_release_model_access_guardrails(repo))
+    errors.extend(check_physics_world_step_model_access_signature_guardrails(repo))
     errors.extend(check_physics_world_store_seed_model_access_guardrails(repo))
     errors.extend(check_physics_world_store_wake_model_access_guardrails(repo))
     errors.extend(check_physics_world_deleted_model_stream_wake_seed_guardrails(repo))

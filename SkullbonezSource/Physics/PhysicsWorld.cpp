@@ -23,8 +23,8 @@ Glossary:
   Sleep island: Connected body group that may deactivate only as a unit.
   Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
     so buoyancy jitter does not repeatedly wake them.
-  PhysicsModelAccess: Stack-owned owner facade used for model-order writeback,
-    diagnostics, and post-solver events after compact physics work finishes.
+  PhysicsScene: Step owner that supplies stores and handles model-order
+    writeback after compact physics work finishes.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -39,7 +39,6 @@ Related:
 
 #include "../Core/Config.h"
 #include "PhysicsApi.h"
-#include "PhysicsModelAccess.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsWorldForces.h"
 #include "ColliderStore.h"
@@ -754,8 +753,7 @@ const std::vector<PointJointConstraint>& PhysicsWorld::GetPointJointConstraints(
 }
 
 
-void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
-                               PhysicsBodyStore& bodyStore,
+void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                float fChangeInTime,
                                const Basics::EngineConfig& config,
@@ -823,8 +821,7 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
         }
     }
 
-    RunSolverPhysics( modelAccess,
-                      bodyStore,
+    RunSolverPhysics( bodyStore,
                       colliderStore,
                       fChangeInTime,
                       config,
@@ -1058,8 +1055,7 @@ bool PhysicsWorld::IsPhysicsSleepEnabled() const
 }
 
 
-void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
-                                      PhysicsBodyStore& bodyStore,
+void PhysicsWorld::ApplyTornadoField( PhysicsBodyStore& bodyStore,
                                       const ColliderStore& colliderStore,
                                       const PhysicsWorldForces& worldForces,
                                       float dt,
@@ -1137,8 +1133,7 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
             // see dynamic bodies without bouncing through GameModel caches.
             PhysicsBodyStore::ReleaseFixedRecord( record, seedLinearVelocity, seedAngularVelocity );
             WakeModel( bodyStore, colliderStore, worldForces, i );
-            modelAccess.ReleaseAttachedFixedTreeParts(
-                bodyStore,
+            bodyStore.ReleaseAttachedFixedTreeParts(
                 PhysicsFixedTreeReleaseEvent{ i, seedLinearVelocity, seedAngularVelocity },
                 m_tornadoFixedTreeReleaseWakeBodies );
             for ( int releasedIndex : m_tornadoFixedTreeReleaseWakeBodies )
@@ -1858,8 +1853,7 @@ void PhysicsWorld::WakePointJointConnectedBodies( PhysicsBodyStore& bodyStore,
 }
 
 
-void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
-                                     PhysicsBodyStore& bodyStore,
+void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
                                      float dt,
                                      const Basics::EngineConfig& config,
@@ -1939,7 +1933,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     }
     PROFILE_END( "Frame/Physics/ApplyForces" );
 
-    ApplyTornadoField( modelAccess, bodyStore, colliderStore, worldForces, dt, config, workerPool );
+    ApplyTornadoField( bodyStore, colliderStore, worldForces, dt, config, workerPool );
 
     // Broadphase: build spatial grid from all object positions (include sleeping for wake detection)
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );

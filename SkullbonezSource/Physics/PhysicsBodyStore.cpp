@@ -34,7 +34,6 @@ Related:
 */
 #include "PhysicsBodyStore.h"
 #include "ColliderStore.h"
-#include "PhysicsModelAccess.h"
 #include "PhysicsWorldForces.h"
 
 #include <algorithm>
@@ -916,6 +915,10 @@ void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record )
     record.isFixed = model.IsFixed();
     record.usesWorldInertia = model.UsesWorldInertia();
     record.releasesFromFixedOnContact = model.ReleasesFromFixedOnContact();
+    record.fixedTreeReleaseRootIndex =
+        model.GetRuntimeCollectionKind() == SkullbonezCore::GameObjects::GameModelCollectionKind::ReleasableTree
+            ? model.GetRuntimeCollectionRootModelIndex()
+            : -1;
 }
 
 void WriteRecordToCompatibilityModel( const PhysicsBodyRecord& record, GameModel& model )
@@ -1352,6 +1355,59 @@ void PhysicsBodyStore::ReleaseFixedRecord( PhysicsBodyRecord& record,
     record.invRotationalInertia = PositiveComponentInverseOrZero( record.rotationalInertia );
     record.linearVelocity = seedLinearVelocity;
     record.angularVelocity = seedAngularVelocity;
+}
+
+
+void PhysicsBodyStore::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event,
+                                                      std::vector<int>& outReleasedBodyIndices )
+{
+    outReleasedBodyIndices.clear();
+    const int sourceIndex = event.sourceIndex;
+    if ( sourceIndex < 0 || sourceIndex >= Count() )
+    {
+        return;
+    }
+
+    const PhysicsBodyRecord& sourceRecord = m_bodies[static_cast<std::size_t>( sourceIndex )];
+    const int sourceRootModelIndex = sourceRecord.fixedTreeReleaseRootIndex;
+    if ( sourceRootModelIndex < 0 )
+    {
+        return;
+    }
+
+    // Why: fixed-tree grouping is copied into the body row during refresh, so
+    // same-frame releases do not borrow GameModelCollection while the solver is
+    // mutating live body state.
+    const float sourceY = sourceRecord.position.y;
+    const int bodyCount = Count();
+    for ( int i = 0; i < bodyCount; ++i )
+    {
+        if ( i == sourceIndex )
+        {
+            continue;
+        }
+
+        PhysicsBodyRecord& record = m_bodies[static_cast<std::size_t>( i )];
+        if ( record.fixedTreeReleaseRootIndex != sourceRootModelIndex )
+        {
+            continue;
+        }
+        if ( record.position.y + 0.05f < sourceY )
+        {
+            continue;
+        }
+
+        if ( record.isFixed )
+        {
+            if ( !record.releasesFromFixedOnContact )
+            {
+                continue;
+            }
+            ReleaseFixedRecord( record, event.seedLinearVelocity, event.seedAngularVelocity );
+        }
+
+        outReleasedBodyIndices.push_back( i );
+    }
 }
 
 

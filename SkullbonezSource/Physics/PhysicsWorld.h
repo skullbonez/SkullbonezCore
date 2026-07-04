@@ -39,7 +39,7 @@ Related:
 #include <vector>
 
 #include "PersistentContactSolver.h"
-#include "PhysicsModelAccess.h"
+#include "PhysicsBodyStore.h"
 #include "PhysicsDiagnosticsSink.h"
 #include "Debug/PhysicsDebugVisualizer.h"
 #include "Ragdoll.h"
@@ -283,8 +283,7 @@ class PhysicsWorld
     bool m_diagnosticsSuppressed = false;
 #endif
 
-    void RunSolverPhysics( PhysicsModelAccess& modelAccess,
-                           PhysicsBodyStore& bodyStore,
+    void RunSolverPhysics( PhysicsBodyStore& bodyStore,
                            const ColliderStore& colliderStore,
                            float dt,
                            const Basics::EngineConfig& config,
@@ -292,7 +291,6 @@ class PhysicsWorld
                            Threading::WorkerPool& workerPool,
                            const char* const* diagnosticNames,
                            int diagnosticNameCount );
-    void SolvePersistentObjectContacts( PhysicsModelAccess& modelAccess, float dt );
     void EmitPhysicsCollisionTime( const char* const* diagnosticNames,
                                    int diagnosticNameCount,
                                    const char* type,
@@ -324,8 +322,7 @@ class PhysicsWorld
                                        int index );
     bool IsUnderwaterSleepLocked( int bodyCount, int index );
     void MarkCollisionVisualContact( int index );
-    void ApplyTornadoField( PhysicsModelAccess& modelAccess,
-                            PhysicsBodyStore& bodyStore,
+    void ApplyTornadoField( PhysicsBodyStore& bodyStore,
                             const ColliderStore& colliderStore,
                             const PhysicsWorldForces& worldForces,
                             float dt,
@@ -387,8 +384,7 @@ class PhysicsWorld
     // Runs one fixed world step over the stores. diagnosticNames is a cold
     // Debug presentation overlay for collision-time rows; nullptr/zero means
     // unnamed bodies, not a model-owner borrow.
-    void RunPhysics( PhysicsModelAccess& modelAccess,
-                     PhysicsBodyStore& bodyStore,
+    void RunPhysics( PhysicsBodyStore& bodyStore,
                      const ColliderStore& colliderStore,
                      float fChangeInTime,
                      const Basics::EngineConfig& config,

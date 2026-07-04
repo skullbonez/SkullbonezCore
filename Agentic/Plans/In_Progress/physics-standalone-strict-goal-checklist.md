@@ -988,6 +988,45 @@ world/sink paths consume a names pointer/count. Evidence logs:
 `TestOutput\agent_validate_physics_collision_time_names.log`; the physics gate
 passed with byte-exact `physics_regression_solver.csv`.
 
+Slice `PHY-1011`: fixed-tree release now has a store-owned step path. The
+compatibility refresh copies releasable-tree grouping into `PhysicsBodyRecord`
+as `fixedTreeReleaseRootIndex`, and `PhysicsBodyStore::ReleaseAttachedFixedTreeParts`
+uses that metadata plus live store positions to release attached fixed parts.
+`PhysicsWorld::RunPhysics`, `RunSolverPhysics`, and `ApplyTornadoField` no
+longer take `PhysicsModelAccess`; tornado release remains immediate before the
+same-frame tornado force pass, while persistent-contact release is still applied
+at the `PhysicsScene` store edge. A bounded `GameModelCollection` model command
+remains for runtime ray tools that edit `GameModel` before the next store
+refresh. The checker blocks `PhysicsModelAccess&` from returning to those
+`PhysicsWorld` step signatures.
+
+- [x] Add fixed-tree release-group metadata to `PhysicsBodyRecord` during
+  `PhysicsBodyStore::LoadFromModels`.
+- [x] Move `PhysicsFixedTreeReleaseEvent` out of `PhysicsModelAccess.h` and into
+  the body-store domain.
+- [x] Move attached fixed-tree release application to
+  `PhysicsBodyStore::ReleaseAttachedFixedTreeParts`.
+- [x] Remove `PhysicsModelAccess` from `PhysicsWorld::RunPhysics`,
+  `RunSolverPhysics`, and `ApplyTornadoField`.
+- [x] Keep the runtime ray-tool model-owned release edge explicitly bounded.
+- [x] Add runtime-boundary self-tests that reject the old `PhysicsWorld`
+  model-access step signatures.
+- [x] Comment-audit the touched source files.
+- [x] Validation for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence logs: `TestOutput\agent_build_debug_store_fixed_tree.log`,
+`TestOutput\agent_validate_format_fixed_tree_store_release.log`,
+`TestOutput\agent_validate_fast_fixed_tree_store_release.log`, and
+`TestOutput\agent_validate_physics_fixed_tree_store_release.log`. The physics
+gate passed with `physics_regression_solver.csv` at 20,001 lines and a byte-exact
+match.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

@@ -257,8 +257,7 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
         diagnosticsNameCount = static_cast<int>( m_physicsDiagnosticsModelNames.size() );
     }
 #endif
-    m_world.RunPhysics( modelAccess,
-                        m_bodyStore,
+    m_world.RunPhysics( m_bodyStore,
                         m_colliderStore,
                         fChangeInTime,
                         config,
@@ -274,7 +273,7 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
     {
         modelAccess.NotifyFixedContact( index, 0.5f );
     }
-    ApplyFixedTreeReleaseEvents( modelAccess, worldForces );
+    ApplyFixedTreeReleaseEvents( worldForces );
 
     m_world.EmitStepDiagnostics( m_bodyStore, m_colliderStore, fChangeInTime, diagnosticsNames, diagnosticsNameCount );
 
@@ -294,7 +293,7 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
 }
 
 
-void PhysicsScene::ApplyFixedTreeReleaseEvents( PhysicsModelAccess& modelAccess, const PhysicsWorldForces& worldForces )
+void PhysicsScene::ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& worldForces )
 {
     const std::vector<PhysicsFixedTreeReleaseEvent>& releaseEvents = m_world.GetFixedTreeReleaseEvents();
     if ( releaseEvents.empty() )
@@ -308,7 +307,7 @@ void PhysicsScene::ApplyFixedTreeReleaseEvents( PhysicsModelAccess& modelAccess,
     m_fixedTreeReleaseWakeBodies.reserve( static_cast<std::size_t>( m_bodyStore.Count() ) );
     for ( const PhysicsFixedTreeReleaseEvent& event : releaseEvents )
     {
-        modelAccess.ReleaseAttachedFixedTreeParts( m_bodyStore, event, m_fixedTreeReleaseWakeBodies );
+        m_bodyStore.ReleaseAttachedFixedTreeParts( event, m_fixedTreeReleaseWakeBodies );
         for ( int index : m_fixedTreeReleaseWakeBodies )
         {
             m_world.WakeModel( m_bodyStore, m_colliderStore, worldForces, index );
