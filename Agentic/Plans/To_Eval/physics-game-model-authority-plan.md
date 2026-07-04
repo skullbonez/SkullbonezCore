@@ -43,6 +43,22 @@ turning `PhysicsModelAccess` into a concrete stack-owned facade.
   replay stepping now construct a stack-owned `PhysicsModelAccess` facade, and
   `PhysicsWorld` calls explicit owner commands for fixed-contact highlights and
   fixed-tree release instead of virtual event callbacks.
+- [x] 2026-07-05: Removed the launcher projectile wake adapter round-trip.
+  `RuntimeTools::FireLauncherProjectile()` now uses the `PhysicsBodyHandle`
+  returned by `GameModelCollection::AddGameModel()` and wakes that body directly
+  through `PhysicsEngine`. Owner: runtime launcher projectile spawn. Reason:
+  newly created bodies already have a store-owned handle, so converting the new
+  model index back through `GameModelCollectionPhysicsAdapter` was wasted
+  compatibility work. Deletion condition: no projectile path obtains a model
+  index solely to wake a just-created body. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks `AddGameModel()` followed by
+  projectile adapter wake conversion in `RuntimeTools.cpp` and includes
+  rejecting/allowing self-tests. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and `tools\validate_physics.bat` passed on
+  2026-07-05; physics regression reported standalone/runtime handle smoke pass
+  and byte-exact `physics_regression_solver.csv`.
 
 ## Goal
 
@@ -200,6 +216,9 @@ Create durable handles before moving ownership. The stores cannot be authoritati
 - [ ] Add generation or validity checks where handles can outlive removed objects.
 - [ ] Preserve deterministic iteration order for physics stepping and replay output.
 - [ ] Replace new or touched model-index APIs with stable handles.
+- [x] 2026-07-05 launcher projectile creation wakes the returned
+  `PhysicsBodyHandle` directly instead of deriving a model index, appending the
+  model, and resolving that index through `GameModelCollectionPhysicsAdapter`.
 - [ ] Keep temporary model-index adapters only at old call boundaries.
   - [x] 2026-06-28 adapter slice keeps the temporary model-index command bridge
     at the old `GameModelCollection` entry points instead of adding another

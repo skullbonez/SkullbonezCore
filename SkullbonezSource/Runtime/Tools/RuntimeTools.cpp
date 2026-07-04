@@ -25,8 +25,9 @@ Invariants:
     state.
   - Projectile creation must respect the active model capacity before adding to
     GameModelCollection.
-  - Launcher physics mutation resolves a body handle before entering
-    PhysicsEngine; model indices remain hit/spawn identity only.
+  - Launcher physics mutation enters PhysicsEngine through body handles: ray
+    hits resolve model indices at the tool boundary, while spawned projectiles
+    use the handle returned by creation.
 
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.h
@@ -61,9 +62,9 @@ constexpr float LAUNCHER_PROJECTILE_RESTITUTION = 0.42f;
 constexpr float LAUNCHER_PROJECTILE_SPAWN_LEAD = 3.2f;
 constexpr float LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
 
-// Why: launcher hits and spawned projectiles are still identified by model
-// index, but physics mutation should enter PhysicsEngine as a validated body
-// handle. Keep the wake-aware handle conversion local to the tool boundary.
+// Why: launcher ray hits still identify existing bodies by model index, but
+// physics mutation should enter PhysicsEngine as a validated body handle. Keep
+// the wake-aware handle conversion local to the hit-test boundary.
 void ApplyLauncherPhysicsImpulse( GameObjects::GameModelCollection& collection,
                                   int modelIndex,
                                   const Math::Vector::Vector3& impulse,
@@ -77,19 +78,6 @@ void ApplyLauncherPhysicsImpulse( GameObjects::GameModelCollection& collection,
     }
 
     collection.GetPhysicsEngine().ApplyBodyImpulse( body, impulse, localApplicationPoint );
-}
-
-
-void WakeLauncherPhysicsBody( GameObjects::GameModelCollection& collection, int modelIndex )
-{
-    GameObjects::GameModelCollectionPhysicsAdapter physicsBodies( collection );
-    const Physics::PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelIndex, true );
-    if ( !body.IsValid() )
-    {
-        return;
-    }
-
-    collection.GetPhysicsEngine().WakeBody( body );
 }
 
 
@@ -543,9 +531,11 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
     projectile.SetRenderTint( 0.72f, 0.88f, 1.0f, 1.0f );
     projectile.SetName( "launcher_projectile" );
 
-    const int projectileIndex = collection.GetModelCount();
-    collection.AddGameModel( std::move( projectile ) );
-    WakeLauncherPhysicsBody( collection, projectileIndex );
+    const Physics::PhysicsBodyHandle projectileBody = collection.AddGameModel( std::move( projectile ) );
+    if ( projectileBody.IsValid() )
+    {
+        collection.GetPhysicsEngine().WakeBody( projectileBody );
+    }
     return true;
 }
 

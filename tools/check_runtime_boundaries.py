@@ -528,6 +528,10 @@ LAUNCHER_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
 LAUNCHER_ADAPTER_COMMAND_WRAPPER_PATTERN = re.compile(
     r"\b[A-Za-z_]\w*\s*\.\s*(?:ApplyBodyImpulseForModelIndex|WakeBodyForModelIndex)\s*\("
 )
+LAUNCHER_PROJECTILE_ADAPTER_WAKE_PATTERN = re.compile(
+    r"\bcollection\s*\.\s*AddGameModel\s*\([^;]*\)\s*;\s*[\s\S]{0,800}?"
+    r"\b(?:WakeLauncherPhysicsBody\s*\(|BodyHandleForVelocityCommand\s*\()"
+)
 REPLAY_VELOCITY_MODEL_STATE_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\b(?:"
     r"model\s*\.\s*(?:SetLinearVelocity|SetAngularVelocity)|"
@@ -4028,6 +4032,18 @@ def check_launcher_model_index_physics_command_guardrails_text(path: Path, text:
                 (
                     "Launcher tools should resolve a wake-ready PhysicsBodyHandle at the tool boundary, then call "
                     "PhysicsEngine directly instead of hiding mutation behind adapter model-index command wrappers."
+                ),
+            )
+        )
+    for match in LAUNCHER_PROJECTILE_ADAPTER_WAKE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "launcher projectile adapter wake is blocked",
+                (
+                    "Projectile creation returns a PhysicsBodyHandle from AddGameModel; wake that handle directly "
+                    "instead of converting the just-created model index back through the adapter."
                 ),
             )
         )
@@ -11904,6 +11920,43 @@ def run_self_tests() -> list[str]:
         commented_launcher_adapter_command,
     ):
         failures.append("comment-only launcher adapter command synthetic text was rejected")
+
+    old_launcher_projectile_adapter_wake = """
+    bool RuntimeTools::FireLauncherProjectile( GameModelCollection& collection )
+    {
+        const int projectileIndex = collection.GetModelCount();
+        collection.AddGameModel( std::move( projectile ) );
+        GameModelCollectionPhysicsAdapter physicsBodies( collection );
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( projectileIndex, true );
+        collection.GetPhysicsEngine().WakeBody( body );
+        return true;
+    }
+    """
+    if not any(
+        error.message == "launcher projectile adapter wake is blocked"
+        for error in check_launcher_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
+            old_launcher_projectile_adapter_wake,
+        )
+    ):
+        failures.append("old launcher projectile adapter wake synthetic surface was not rejected")
+
+    allowed_launcher_projectile_handle_wake = """
+    bool RuntimeTools::FireLauncherProjectile( GameModelCollection& collection )
+    {
+        const PhysicsBodyHandle projectileBody = collection.AddGameModel( std::move( projectile ) );
+        if ( projectileBody.IsValid() )
+        {
+            collection.GetPhysicsEngine().WakeBody( projectileBody );
+        }
+        return true;
+    }
+    """
+    if check_launcher_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
+        allowed_launcher_projectile_handle_wake,
+    ):
+        failures.append("handle-owned launcher projectile wake synthetic surface was rejected")
 
     old_replay_velocity_model_state_command = """
     void ApplyReplayVelocityEditToModel( GameModelCollection& modelCollection )
