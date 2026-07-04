@@ -360,6 +360,7 @@ class PhysicsWorld
                           const GameObjects::GameModelBodyStream& bodyStream,
                           const PhysicsBodyStore* bodyStore,
                           int index );
+    void SeedModelAsleep( int bodyCount, const std::vector<PhysicsBodyRecord>& bodyRecords, int index );
     bool WakeDynamicBodyState( const GameObjects::GameModelBodyStream& bodyStream,
                                PhysicsBodyStore* bodyStore,
                                int index,
@@ -463,7 +464,7 @@ class PhysicsWorld
                     const PhysicsWorldForces& worldForces,
                     int index );
     void SeedModelAsleep( PhysicsModelAccess& modelAccess, int index );
-    void SeedModelAsleep( PhysicsModelAccess& modelAccess, const PhysicsBodyStore& bodyStore, int index );
+    void SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index );
     void SetPhysicsSleepEnabled( bool enabled );
     bool IsPhysicsSleepEnabled() const;
     void BeginCollisionVisualFrame( int modelCount );

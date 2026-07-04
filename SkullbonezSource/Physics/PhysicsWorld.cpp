@@ -1028,10 +1028,9 @@ void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, int index )
 }
 
 
-void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, const PhysicsBodyStore& bodyStore, int index )
+void PhysicsWorld::SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index )
 {
-    const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
-    SeedModelAsleep( modelAccess, bodyStream, &bodyStore, index );
+    SeedModelAsleep( bodyStore.Count(), bodyStore.Records(), index );
 }
 
 
@@ -1080,6 +1079,56 @@ void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess,
     EnsureUnderwaterSleepLockBuffer( modelCount );
 
     modelAccess.InvalidatePhysicsStreams();
+    m_sleepState[index] = 1;
+    m_sleepCounter[index] = m_seedSleepFrameCount;
+    m_underwaterSleepLocked[index] = 0;
+    if ( index < static_cast<int>( m_sleepIslandVisualId.size() ) )
+    {
+        m_sleepIslandVisualId[index] = m_nextSleepIslandVisualId++;
+        if ( m_nextSleepIslandVisualId <= 0 )
+        {
+            m_nextSleepIslandVisualId = 1;
+        }
+    }
+}
+
+
+// Why: store-owned seed commands already have dense body records. Avoid
+// rebuilding GameModelBodyStream or invalidating GameModel caches from inside
+// PhysicsWorld; compatibility projection belongs to PhysicsScene.
+void PhysicsWorld::SeedModelAsleep( int bodyCount, const std::vector<PhysicsBodyRecord>& bodyRecords, int index )
+{
+    if ( !m_sleepEnabled )
+    {
+        return;
+    }
+
+    const int modelCount = (std::min)( bodyCount, static_cast<int>( bodyRecords.size() ) );
+    if ( index < 0 || index >= modelCount || bodyRecords[static_cast<size_t>( index )].isFixed )
+    {
+        return;
+    }
+
+    if ( static_cast<int>( m_sleepState.size() ) < modelCount )
+    {
+        m_sleepState.resize( modelCount, 0 );
+        m_sleepCounter.resize( modelCount, 0 );
+    }
+    else if ( static_cast<int>( m_sleepState.size() ) > modelCount )
+    {
+        m_sleepState.assign( modelCount, 0 );
+        m_sleepCounter.assign( modelCount, 0 );
+    }
+    if ( static_cast<int>( m_sleepIslandVisualId.size() ) < modelCount )
+    {
+        m_sleepIslandVisualId.resize( modelCount, 0 );
+    }
+    else if ( static_cast<int>( m_sleepIslandVisualId.size() ) > modelCount )
+    {
+        m_sleepIslandVisualId.assign( modelCount, 0 );
+    }
+    EnsureUnderwaterSleepLockBuffer( modelCount );
+
     m_sleepState[index] = 1;
     m_sleepCounter[index] = m_seedSleepFrameCount;
     m_underwaterSleepLocked[index] = 0;

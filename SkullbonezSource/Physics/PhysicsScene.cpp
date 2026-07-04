@@ -371,9 +371,16 @@ void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyH
     {
         return;
     }
-    m_world.SeedModelAsleep( modelAccess, m_bodyStore, index );
+    m_world.SeedModelAsleep( m_bodyStore, index );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+    // Compatibility owner: PhysicsScene explicit command edge.
+    // Reason: seeding sleep mutates PhysicsWorld and PhysicsBodyStore state;
+    // GameModel is updated only as the remaining presentation mirror.
+    // Deletion condition: editor/ragdoll callers consume store views directly.
+    // Checker budget: store-owned PhysicsWorld seed must not rebuild model
+    // streams or invalidate model caches itself.
     modelAccess.WriteBackPhysicsBody( m_bodyStore, index );
+    modelAccess.InvalidatePhysicsStreams();
 }
 
 

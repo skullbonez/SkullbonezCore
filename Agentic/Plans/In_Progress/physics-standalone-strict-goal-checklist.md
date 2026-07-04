@@ -258,7 +258,7 @@ in 34.6s after targeted header alignment; `tools\validate_physics.bat` passed in
 13.9s with byte-exact `physics_regression_solver.csv`; `tools\validate_perf.bat`
 passed in 22.1s with no DX12 or PHYSICS_BENCH regressions.
 
-Latest strict-step authority slice `PHY-0207M`: tornado fixed-tree release no
+Strict-step authority slice `PHY-0207M`: tornado fixed-tree release no
 longer mirrors a source body into `GameModel`, calls the legacy model-owned tree
 release, then reloads the full `PhysicsBodyStore`. `PhysicsBodyStore` now owns a
 shared `ReleaseFixedRecord()` transition that restores inverse mass/inertia,
@@ -277,6 +277,23 @@ focused Debug build passed in 8.7s with 0 warnings/errors;
 `tools\validate_perf.bat` first failed on PHYSICS_BENCH memory at +5.34 MB
 against a +5.0 MB threshold, then rerun passed in 21.3s with no DX12 or
 PHYSICS_BENCH regressions.
+
+Latest strict-step authority slice `PHY-0207N`: store-owned sleep seeding no
+longer rebuilds `GameModelBodyStream` or invalidates GameModel stream caches
+inside `PhysicsWorld`. The public store overload now reads `PhysicsBodyStore`
+records directly and reuses the same sleep-state mutation locally, while
+`PhysicsScene::SeedBodyAsleep(PhysicsModelAccess&, PhysicsBodyHandle)` owns the
+remaining one-body compatibility writeback and explicit cache invalidation. The
+checker blocks store/body-record `PhysicsWorld::SeedModelAsleep` overloads from
+touching `GameModelBodyStream`, `GetBodyStream`, or
+`modelAccess.InvalidatePhysicsStreams()` while leaving the legacy model-stream
+overload visible as remaining debt. Evidence: diff check, py_compile,
+runtime-boundary checks, and `tools\validate_format.bat` passed; focused Debug
+build passed in 7.8s with 0 warnings/errors; `tools\validate_physics.bat` passed
+in 20.7s with byte-exact `physics_regression_solver.csv`;
+`tools\validate_fast.bat` passed in 21.9s; `tools\validate_perf.bat` first
+failed on DX12 memory at +5.02 MB against a +5.0 MB threshold, then rerun passed
+in 21.3s with no DX12 or PHYSICS_BENCH regressions.
 
 ## Phase 3 - Collider Store Authority
 

@@ -160,6 +160,9 @@ PHYSICS_WORLD_TORNADO_RELEASE_MODEL_ACCESS_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*(?:WriteBackPhysicsBody|ReloadPhysicsBodies|InvalidatePhysicsStreams)\s*\("
     r"|\bmodelAccess\s*\.\s*ReleaseAttachedFixedTreeParts\s*\((?!\s*bodyStore\s*,)"
 )
+PHYSICS_WORLD_STORE_SEED_MODEL_ACCESS_PATTERN = re.compile(
+    r"\b(?:GameModelBodyStream|GetBodyStream)\b|\bmodelAccess\s*\.\s*InvalidatePhysicsStreams\s*\("
+)
 PHYSICS_WORLD_RUN_PHYSICS_WRITEBACK_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*WriteBackPhysicsBodies\s*\(")
 PHYSICS_WORLD_RUN_PHYSICS_INVALIDATION_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*InvalidatePhysicsStreams\s*\(")
 PHYSICS_WORLD_RUN_PHYSICS_DIAGNOSTICS_PATTERN = re.compile(
@@ -2101,6 +2104,40 @@ def check_physics_world_tornado_release_model_access_guardrails_text(path: Path,
 def check_physics_world_tornado_release_model_access_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / PHYSICS_WORLD_SOURCE
     return check_physics_world_tornado_release_model_access_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_physics_world_store_seed_model_access_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != "PhysicsWorld.cpp":
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    function_pattern = re.compile(
+        r"\bvoid\s+PhysicsWorld::SeedModelAsleep\s*\([^{}]*(?:const\s+PhysicsBodyStore&|std::vector<PhysicsBodyRecord>)[^{}]*\)\s*\{",
+        re.S,
+    )
+    for function_match in function_pattern.finditer(stripped):
+        open_brace = stripped.find("{", function_match.start(), function_match.end())
+        if open_brace < 0:
+            continue
+        close_brace = find_matching_close_brace(stripped, open_brace)
+        for match in PHYSICS_WORLD_STORE_SEED_MODEL_ACCESS_PATTERN.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "physics world store seed model access is blocked",
+                    (
+                        "Store-owned sleep seeding must read PhysicsBodyStore/body records directly and leave "
+                        "GameModel stream invalidation to the PhysicsScene compatibility edge."
+                    ),
+                )
+            )
+    return errors
+
+
+def check_physics_world_store_seed_model_access_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / PHYSICS_WORLD_SOURCE
+    return check_physics_world_store_seed_model_access_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_physics_world_run_invalidation_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -7557,6 +7594,76 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only PhysicsWorld tornado release synthetic text was rejected")
 
+    old_store_seed_model_access = """
+    void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, const PhysicsBodyStore& bodyStore, int index )
+    {
+        const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
+        modelAccess.InvalidatePhysicsStreams();
+    }
+    """
+    if not any(
+        error.message == "physics world store seed model access is blocked"
+        for error in check_physics_world_store_seed_model_access_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+            old_store_seed_model_access,
+        )
+    ):
+        failures.append("old PhysicsWorld store seed model-access synthetic surface was not rejected")
+
+    allowed_store_seed_body_records = """
+    void PhysicsWorld::SeedModelAsleep( int bodyCount, const std::vector<PhysicsBodyRecord>& bodyRecords, int index )
+    {
+        const int modelCount = bodyCount;
+        if ( bodyRecords[index].isFixed )
+        {
+            return;
+        }
+    }
+    """
+    if check_physics_world_store_seed_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        allowed_store_seed_body_records,
+    ):
+        failures.append("store-owned PhysicsWorld seed synthetic surface was rejected")
+
+    allowed_legacy_seed_body_stream = """
+    void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, const GameModelBodyStream& bodyStream, int index )
+    {
+        modelAccess.InvalidatePhysicsStreams();
+    }
+    """
+    if check_physics_world_store_seed_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        allowed_legacy_seed_body_stream,
+    ):
+        failures.append("legacy PhysicsWorld seed model-stream synthetic surface was rejected")
+
+    allowed_scene_seed_invalidation = """
+    void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        modelAccess.WriteBackPhysicsBody( bodyStore, index );
+        modelAccess.InvalidatePhysicsStreams();
+    }
+    """
+    if check_physics_world_store_seed_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        allowed_scene_seed_invalidation,
+    ):
+        failures.append("PhysicsScene seed invalidation synthetic surface was rejected")
+
+    commented_store_seed_model_access = """
+    void PhysicsWorld::SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index )
+    {
+        // modelAccess.GetBodyStream() used to live here.
+        SeedBodyRecord();
+    }
+    """
+    if check_physics_world_store_seed_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        commented_store_seed_model_access,
+    ):
+        failures.append("comment-only PhysicsWorld store seed synthetic text was rejected")
+
     old_world_run_diagnostics = """
     void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
     {
@@ -8872,6 +8979,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_world_fixed_contact_notify_guardrails(repo))
     errors.extend(check_physics_world_persistent_contact_tree_release_guardrails(repo))
     errors.extend(check_physics_world_tornado_release_model_access_guardrails(repo))
+    errors.extend(check_physics_world_store_seed_model_access_guardrails(repo))
     errors.extend(check_physics_world_run_invalidation_guardrails(repo))
     errors.extend(check_physics_world_run_writeback_guardrails(repo))
     errors.extend(check_physics_world_run_diagnostics_guardrails(repo))
