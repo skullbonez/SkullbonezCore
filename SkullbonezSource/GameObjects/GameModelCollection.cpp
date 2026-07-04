@@ -22,16 +22,20 @@ Glossary:
     and model-owned material/presentation state before frame passes.
   Topology drift: A body/collider/model count mismatch that means compatibility
     stores must import model-owned construction data before stepping.
+  Fixed-tree release: Compatibility rule that lets authored tree parts become
+    dynamic when a related fixed part is hit strongly enough.
   Replay body id: Per-collection identity saved in replay samples so restore
     paths can reject stale model slots.
   Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+    commit or PR.
 
 Invariants:
   - Model vector order is stable subsystem identity for physics stores, render
     batches, replay ids, and scene snapshots.
   - Render prep imports store-backed snapshots once before frame passes; render
     code must not rebuild GameModel-derived pose streams.
+  - Owner-side compatibility release paths repair topology once before resolving
+    body handles from PhysicsBodyStore.
 
 Related:
   - SkullbonezSource/GameObjects/GameModelCollection.h
@@ -40,7 +44,6 @@ Related:
 */
 #include "GameModelCollection.h"
 
-#include "GameModelCollectionPhysicsAdapter.h"
 #include "../Core/MainMemoryStats.h"
 #include "../Core/SkullScope.h"
 #include "../Physics/Debug/CollisionVisualizer.h"
@@ -1014,9 +1017,24 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
         return;
     }
 
-    // Why: runtime ray tools edit GameModel directly before the next scene step
-    // reloads the body store. PhysicsWorld does not use this model-owned edge.
-    GameModelCollectionPhysicsAdapter physicsBodies( *this );
+    // Why: runtime ray tools edit this GameModel-owned compatibility edge
+    // directly. Repair topology once, then resolve body handles from the store
+    // instead of bouncing back through the legacy model-index adapter per part.
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+    const bool bodyTopologyChanged = m_physicsEngine.BodyStore().Count() != modelCount;
+    const bool colliderTopologyChanged = m_physicsEngine.Colliders().Count() != modelCount;
+    if ( bodyTopologyChanged || colliderTopologyChanged )
+    {
+        PhysicsModelAccess modelAccess( *this );
+        if ( bodyTopologyChanged )
+        {
+            m_physicsEngine.RefreshBodyStore( modelAccess );
+        }
+        if ( colliderTopologyChanged )
+        {
+            m_physicsEngine.RefreshColliderStore( modelAccess );
+        }
+    }
     for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
     {
         if ( i == sourceIndex )
@@ -1045,7 +1063,7 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
             model.SetLinearVelocity( seedLinearVelocity );
             model.SetAngularVelocity( seedAngularVelocity );
         }
-        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( i, true );
+        const PhysicsBodyHandle body = m_physicsEngine.BodyStore().HandleForModelIndex( i );
         if ( body.IsValid() )
         {
             m_physicsEngine.WakeBody( body );

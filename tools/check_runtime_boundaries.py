@@ -12,8 +12,9 @@
 #   service access while explicit service contexts are built. Renderer globals
 #   have an extra file-classification fence, object rendering has a
 #   render-instance authority fence, runtime picking has a store-authority
-#   fence, and the runtime handle smoke has a handle-authority fence, so count
-#   allowances do not silently approve a new compatibility location.
+#   fence, runtime handle smoke has a handle-authority fence, and fixed-tree
+#   release has an owner-side store-handle fence, so count allowances do not
+#   silently approve a new compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -42,6 +43,8 @@
 #     body/collider records instead of reopening a GameModel mirror path.
 #   Handle-authority fence: Static rule that keeps a validation smoke on handles
 #     returned by creation instead of proving authority through adapter lookup.
+#   Store-handle fence: Static rule that keeps owner-side command edges on
+#     PhysicsBodyStore handle lookup instead of a legacy external adapter.
 #
 # Invariants:
 #   - Run.h may own subsystem objects, but not their extracted transient state.
@@ -555,6 +558,12 @@ RAGDOLL_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
 DELETED_GAME_MODEL_COLLECTION_PHYSICS_WRAPPER_PATTERN = re.compile(
     r"\b(?:void\s+GameModelCollection\s*::\s*)?"
     r"(?:WakeModel|SeedModelAsleep|ApplyBodyImpulse|SetPendingBodyImpulse)\s*\("
+)
+GAME_MODEL_COLLECTION_FIXED_TREE_RELEASE_FUNCTION_PATTERN = re.compile(
+    r"\bvoid\s+GameModelCollection::ReleaseAttachedFixedTreeParts\s*\("
+)
+GAME_MODEL_COLLECTION_FIXED_TREE_RELEASE_ADAPTER_LOOKUP_PATTERN = re.compile(
+    r"\b(?:GameModelCollectionPhysicsAdapter|BodyHandleForVelocityCommand|BodyHandleForModelIndex)\b"
 )
 DELETED_GAME_MODEL_COLLECTION_PHYSICS_ADAPTER_COMMAND_WRAPPER_PATTERN = re.compile(
     r"\b(?:void\s+)?(?:GameModelCollectionPhysicsAdapter\s*::\s*)?"
@@ -4203,6 +4212,41 @@ def check_deleted_game_model_collection_physics_wrapper_guardrails(repo: Path) -
         path = repo / relative_path
         errors.extend(check_deleted_game_model_collection_physics_wrapper_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
+
+
+def check_game_model_collection_fixed_tree_release_adapter_guardrails_text(
+    path: Path,
+    text: str,
+) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    bounds = _function_body_bounds(stripped, GAME_MODEL_COLLECTION_FIXED_TREE_RELEASE_FUNCTION_PATTERN)
+    if not bounds:
+        return errors
+
+    open_brace, close_brace = bounds
+    for match in GAME_MODEL_COLLECTION_FIXED_TREE_RELEASE_ADAPTER_LOOKUP_PATTERN.finditer(
+        stripped,
+        open_brace,
+        close_brace,
+    ):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "fixed-tree release adapter lookup is blocked",
+                (
+                    "GameModelCollection owns this release edge; repair store topology once and resolve "
+                    "PhysicsBodyHandle values directly from PhysicsBodyStore instead of using the legacy adapter."
+                ),
+            )
+        )
+    return errors
+
+
+def check_game_model_collection_fixed_tree_release_adapter_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / GAME_MODEL_COLLECTION_SOURCE
+    return check_game_model_collection_fixed_tree_release_adapter_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_deleted_game_model_collection_physics_adapter_command_guardrails_text(
@@ -12253,6 +12297,30 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("GameModelCollection adapter handle resolver synthetic surface was rejected")
 
+    if not any(
+        error.message == "fixed-tree release adapter lookup is blocked"
+        for error in check_game_model_collection_fixed_tree_release_adapter_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            allowed_game_model_collection_adapter_use,
+        )
+    ):
+        failures.append("fixed-tree release adapter lookup synthetic surface was not rejected")
+
+    allowed_game_model_collection_fixed_tree_store_lookup = """
+    void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
+    {
+        PhysicsModelAccess modelAccess( *this );
+        m_physicsEngine.RefreshBodyStore( modelAccess );
+        const PhysicsBodyHandle body = m_physicsEngine.BodyStore().HandleForModelIndex( sourceIndex );
+        m_physicsEngine.WakeBody( body );
+    }
+    """
+    if check_game_model_collection_fixed_tree_release_adapter_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_game_model_collection_fixed_tree_store_lookup,
+    ):
+        failures.append("fixed-tree release direct body-store synthetic surface was rejected")
+
     commented_game_model_collection_physics_wrapper = """
     void DocumentDeletedWrappers()
     {
@@ -12803,6 +12871,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_frame_replay_editor_transform_wake_guardrails(repo))
     errors.extend(check_ragdoll_model_index_physics_command_guardrails(repo))
     errors.extend(check_deleted_game_model_collection_physics_wrapper_guardrails(repo))
+    errors.extend(check_game_model_collection_fixed_tree_release_adapter_guardrails(repo))
     errors.extend(check_deleted_game_model_collection_physics_adapter_command_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))

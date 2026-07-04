@@ -76,6 +76,25 @@ turning `PhysicsModelAccess` into a concrete stack-owned facade.
   `tools\validate_fast.bat`, and `tools\validate_physics.bat` passed on
   2026-07-05; physics regression reported standalone/runtime handle smoke pass
   and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Removed the fixed-tree release adapter lookup inside
+  `GameModelCollection`. `ReleaseAttachedFixedTreeParts()` now repairs
+  body/collider topology once at the model-owner edge and resolves
+  `PhysicsBodyHandle`s directly from `PhysicsBodyStore` instead of constructing
+  `GameModelCollectionPhysicsAdapter` and rerunning wake-ready handle conversion
+  per released part. Owner: `GameModelCollection` fixed-tree compatibility
+  release path. Reason: the collection already owns model order and the physics
+  engine, so using the legacy external identity adapter there added indirection
+  without improving authority. Deletion condition: the function contains no
+  `GameModelCollectionPhysicsAdapter`, `BodyHandleForVelocityCommand`, or
+  `BodyHandleForModelIndex` use. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks those names inside
+  `GameModelCollection::ReleaseAttachedFixedTreeParts()` and self-tests the old
+  adapter shape against direct body-store handle lookup. Validation:
+  `git diff --check`, `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
 
 ## Goal
 
@@ -239,6 +258,10 @@ Create durable handles before moving ownership. The stores cannot be authoritati
 - [x] 2026-07-05 runtime handle smoke retains the two `PhysicsBodyHandle`s
   returned by `AddGameModel()` instead of using `BodyHandleForModelIndex()` as a
   compatibility proof step.
+- [x] 2026-07-05 `GameModelCollection::ReleaseAttachedFixedTreeParts()`
+  resolves released body handles directly from `PhysicsBodyStore` after one
+  local topology repair instead of calling the adapter from inside the model
+  owner.
 - [ ] Keep temporary model-index adapters only at old call boundaries.
   - [x] 2026-06-28 adapter slice keeps the temporary model-index command bridge
     at the old `GameModelCollection` entry points instead of adding another

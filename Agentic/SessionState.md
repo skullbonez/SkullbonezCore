@@ -10,11 +10,11 @@ audits when it is still useful.
 | Branch | `codex/physics-store-authority` in worktree `C:\SkullbonezCore`. |
 | Active objective | Finish the physics/GameModel authority migration with store-owned physics state, handle-keyed commands, deterministic standalone views, and guardrails against contrived migration artifacts. |
 | Last documentation milestone | Completed and moved the contact-audio perceptual model plan to `Agentic/Plans/Done/contact-audio-perceptual-model-plan.md`. |
-| Last source/data milestone | `PHY-1029` is complete in this branch: the runtime handle smoke in `Init.cpp` now retains the `PhysicsBodyHandle`s returned by `GameModelCollection::AddGameModel()` and uses them for joint/body/collider/render mirror checks instead of rediscovering created bodies through `GameModelCollectionPhysicsAdapter`. Guardrails block adapter/model-index lookup inside `RunPhysicsRuntimeHandleSmokeSample()`. |
+| Last source/data milestone | `PHY-1030` is complete in this branch: `GameModelCollection::ReleaseAttachedFixedTreeParts()` no longer constructs `GameModelCollectionPhysicsAdapter`; the owner path repairs body/collider topology once and resolves released body handles directly from `PhysicsBodyStore`. Guardrails block adapter/model-index lookup inside the fixed-tree release function. |
 | Pending work | Continue reducing runtime stepping dependence on `PhysicsModelAccess` and `GameModelCollection`. Remaining strict authority work includes narrowing the model-owned topology refresh/writeback edge, moving callers toward direct store/handle ownership, and lowering allowlists as future deletion commits remove borrowers. |
 | Concurrent work warning | No concurrent dirty source work observed at the last status check. Still run `git status --short --branch` before editing. |
 | Blockers | No active blocker for the default `aaa_ragdoll_sunset_showcase` cinematic/water render path or the contact-audio perceptual model plan. |
-| Validation | 2026-07-05 `PHY-1029`: `git diff --check` passed; `python -m py_compile tools\check_runtime_boundaries.py` passed; `python tools\check_runtime_boundaries.py --repo .` passed with 0 errors; touched-file comment audit passed for `Init.cpp` and `tools/check_runtime_boundaries.py`; `tools\validate_fast.bat` passed formatting, project filters, runtime boundaries, and Profile/Debug builds with 0 warnings/errors (`TestOutput\agent_validate_fast_phy1029.log`); intermittent `tools\validate_physics.bat` passed standalone smoke, runtime handle smoke (`store_handles=pass`, `render_mirror=pass`, `collider_refresh=pass`), and byte-exact `physics_regression_solver.csv` (`TestOutput\agent_validate_physics_phy1029.log`). |
+| Validation | 2026-07-05 `PHY-1030`: `git diff --check` passed; `python -m py_compile tools\check_runtime_boundaries.py` passed; `python tools\check_runtime_boundaries.py --repo .` passed with 0 errors; touched-file comment audit passed for `GameModelCollection.cpp` and `tools/check_runtime_boundaries.py`; `tools\validate_fast.bat` passed formatting, project filters, runtime boundaries, and Profile/Debug builds with 0 warnings/errors (`TestOutput\agent_validate_fast_phy1030.log`); intermittent `tools\validate_physics.bat` passed standalone smoke, runtime handle smoke (`store_handles=pass`, `render_mirror=pass`, `collider_refresh=pass`), and byte-exact `physics_regression_solver.csv` (`TestOutput\agent_validate_physics_phy1030.log`). |
 
 ## Active Notes
 
@@ -24,6 +24,9 @@ audits when it is still useful.
   historical.
 - Repository validation scripts are pre-commit/PR gates, not routine iteration
   commands.
+- For the active physics/GameModel authority migration, the user requested
+  intermittent `tools\validate_physics.bat` checkpoints on completed source
+  slices so determinism regressions are caught before the final checkpoint.
 - Implementing work from `Agentic/Plans` defaults to
   `Agentic/Skills/orchestrator/SKILL.md` unless the user asks to bypass it.
 - Rubber-duck review is for major completed plans/checkpoints, explicit user
