@@ -216,28 +216,34 @@ Target: `ColliderStore` owns the standalone collision shape and metadata surface
 - [ ] Move narrowphase shape reads to collider records on the standalone path.
   - [x] Sphere/sphere standalone contact generation reads `BoundingSphere`
     shapes from `ColliderStore` records and body transforms.
-  - [ ] Sphere/box and remaining standalone shape pairs still need exact
-    collider-record narrowphase.
+  - [x] Sphere/box standalone contact generation reads `BoundingSphere` and
+    `BoundingBox` shapes from `ColliderStore` records and body transforms.
+  - [ ] Remaining standalone shape pairs still need exact collider-record
+    narrowphase.
 - [x] Preserve existing conservative query semantics while exact shape tests are
   added.
-- [ ] Add smoke coverage with at least:
+- [x] Add smoke coverage with at least:
   - [x] sphere/sphere contact,
-  - [ ] sphere/box contact,
+  - [x] sphere/box contact,
   - [x] fixed body plus dynamic body contact,
   - [x] deleted collider stale-handle rejection,
   - [x] material/restitution copied into the resulting contact view.
 
 Current Phase 3 progress: standalone collider creation/update/delete, raycast,
 and broadphase queries now use `ColliderStore` records directly. Sphere/sphere
-contact generation now reads collider-record shape/material rows and body-store
-transforms, then exposes a public contact view with material, restitution, and
-friction evidence. Sphere/box remains open before Phase 3 is complete. Prior
-slice evidence: `python tools\check_runtime_boundaries.py --repo .` passed with
-0 errors, and `tools\validate_physics.bat` passed with byte-exact
-`physics_regression_solver.csv`; standalone contact slice validation is tracked
-under Phase 4 before commit.
+and sphere/box contact generation now read collider-record shape/material rows
+and body-store transforms, then expose public contact views with material,
+restitution, and friction evidence. Remaining shape pairs are future contact
+coverage, not blockers for the Phase 3 smoke row. Prior slice evidence:
+`python tools\check_runtime_boundaries.py --repo .` passed with 0 errors, and
+`tools\validate_physics.bat` passed with byte-exact
+`physics_regression_solver.csv`. Latest sphere/box slice evidence: standalone
+smoke reports `contacts=2` and `contact_hash=0x5DBDF5257E90EA9B`; repeated
+smoke reports were byte-identical; boundary checker passed with 0 errors; and
+`tools\validate_physics.bat` passed with byte-exact
+`physics_regression_solver.csv`.
 - [ ] Validation for this phase:
-  - [ ] `tools\validate_physics.bat`
+  - [x] `tools\validate_physics.bat`
   - [ ] `tools\validate_physics_deep.bat` if SkullScope/query baselines change.
 
 ## Phase 4 - Real Standalone Contacts
@@ -255,7 +261,9 @@ contact rows for standalone collision samples.
   and collider handles.
   - [x] Sphere/sphere rows are generated from standalone body and collider
     handles in collider-store order.
-  - [ ] Sphere/box and later shape pairs still need exact row generation.
+  - [x] Sphere/box rows are generated from standalone body and collider handles
+    in collider-store order.
+  - [ ] Later shape pairs still need exact row generation.
 - [ ] Include stable deterministic ordering:
   - [x] body pair order,
   - [x] collider slot order,
@@ -271,10 +279,10 @@ contact rows for standalone collision samples.
 
 Current Phase 4 progress: `PhysicsStandaloneWorld` owns a contact-view vector
 rebuilt from standalone collider/body records after `Step()`. The smoke now
-requires one fixed/dynamic sphere/sphere contact and hashes the contact row.
-This is not the full shape-coverage story yet: sphere/box remains open in Phase
-3 and terrain ordering is out of scope until terrain enters standalone contacts.
-Slice validation passed with the boundary checker at 0 errors and
+requires fixed/dynamic sphere/sphere plus sphere/box contacts and hashes both
+contact rows. This is not the full shape-coverage story yet: later shape pairs
+remain open and terrain ordering is out of scope until terrain enters standalone
+contacts. Slice validation passed with the boundary checker at 0 errors and
 `tools\validate_physics.bat` byte-exact.
 - [ ] Validation for this phase:
   - [x] `tools\validate_physics.bat`

@@ -587,6 +587,10 @@ class PhysicsStandaloneWorld
                                        const PhysicsBodyRecord& bodyA,
                                        const ColliderRecord& colliderB,
                                        const PhysicsBodyRecord& bodyB );
+    bool TryAppendSphereBoxContact( const ColliderRecord& colliderA,
+                                    const PhysicsBodyRecord& bodyA,
+                                    const ColliderRecord& colliderB,
+                                    const PhysicsBodyRecord& bodyB );
 
     PhysicsBodyStore m_bodyStore;                                               // Dense body records and handle generations for standalone stepping.
     mutable std::vector<PhysicsBodyView> m_bodyViewCache;                       // Cold public view cache rebuilt from bodyStore.

@@ -59,6 +59,7 @@ using SkullbonezCore::Math::CollisionDetection::GetShapePosition;
 using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::VectorMag;
+using SkullbonezCore::Math::Vector::VectorMagSquared;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::PHYSICS_HANDLE_INITIAL_GENERATION;
@@ -172,6 +173,24 @@ uint64_t HashContactCollection( PhysicsContactCollectionView view )
         hash = HashContactView( hash, view.contacts[i] );
     }
     return hash;
+}
+
+float ClampFloat( float value, float minValue, float maxValue )
+{
+    return value < minValue ? minValue : ( value > maxValue ? maxValue : value );
+}
+
+void CopyContactMaterialPayload( PhysicsContactView& contact,
+                                 const ColliderRecord& colliderA,
+                                 const ColliderRecord& colliderB )
+{
+    contact.restitutionA = colliderA.restitution;
+    contact.restitutionB = colliderB.restitution;
+    contact.frictionA = colliderA.friction;
+    contact.frictionB = colliderB.friction;
+    contact.contactMaterialAId = colliderA.contactMaterialId;
+    contact.contactMaterialBId = colliderB.contactMaterialId;
+    contact.featureId = ContactFeatureId( colliderA.handle, colliderB.handle );
 }
 
 uint64_t HashSmokeResult( const PhysicsStandaloneSmokeResult& result )
@@ -685,7 +704,11 @@ void PhysicsStandaloneWorld::GenerateStandaloneContacts()
                 continue;
             }
 
-            (void)TryAppendSphereSphereContact( colliderA, *bodyA, colliderB, *bodyB );
+            if ( TryAppendSphereSphereContact( colliderA, *bodyA, colliderB, *bodyB ) )
+            {
+                continue;
+            }
+            (void)TryAppendSphereBoxContact( colliderA, *bodyA, colliderB, *bodyB );
         }
     }
 }
@@ -726,13 +749,104 @@ bool PhysicsStandaloneWorld::TryAppendSphereSphereContact( const ColliderRecord&
     contact.point = centerA + normal * ( radiusA - penetration * 0.5f );
     contact.normal = normal;
     contact.penetrationDepth = penetration;
-    contact.restitutionA = colliderA.restitution;
-    contact.restitutionB = colliderB.restitution;
-    contact.frictionA = colliderA.friction;
-    contact.frictionB = colliderB.friction;
-    contact.contactMaterialAId = colliderA.contactMaterialId;
-    contact.contactMaterialBId = colliderB.contactMaterialId;
-    contact.featureId = ContactFeatureId( colliderA.handle, colliderB.handle );
+    CopyContactMaterialPayload( contact, colliderA, colliderB );
+    contact.touching = true;
+    m_contacts.push_back( contact );
+    return true;
+}
+
+
+bool PhysicsStandaloneWorld::TryAppendSphereBoxContact( const ColliderRecord& colliderA,
+                                                       const PhysicsBodyRecord& bodyA,
+                                                       const ColliderRecord& colliderB,
+                                                       const PhysicsBodyRecord& bodyB )
+{
+    const BoundingSphere* sphere = std::get_if<BoundingSphere>( &colliderA.shape );
+    const BoundingBox* box = std::get_if<BoundingBox>( &colliderB.shape );
+    const ColliderRecord* sphereCollider = &colliderA;
+    const ColliderRecord* boxCollider = &colliderB;
+    const PhysicsBodyRecord* sphereBody = &bodyA;
+    const PhysicsBodyRecord* boxBody = &bodyB;
+    bool sphereIsColliderA = true;
+    if ( !sphere || !box )
+    {
+        sphere = std::get_if<BoundingSphere>( &colliderB.shape );
+        box = std::get_if<BoundingBox>( &colliderA.shape );
+        sphereCollider = &colliderB;
+        boxCollider = &colliderA;
+        sphereBody = &bodyB;
+        boxBody = &bodyA;
+        sphereIsColliderA = false;
+    }
+    if ( !sphere || !box )
+    {
+        return false;
+    }
+
+    auto boxOrientation = boxBody->orientation;
+    const RotationMatrix boxRotation = boxOrientation.GetOrientationMatrix();
+    const Vector3 boxCenter = ColliderWorldCenter( *boxBody, *boxCollider );
+    const Vector3 sphereCenter = ColliderWorldCenter( *sphereBody, *sphereCollider );
+    const Vector3 sphereCenterInBox = boxRotation.TransposeMultiply( sphereCenter - boxCenter );
+    const Vector3 halfExtents = box->GetHalfExtents();
+    Vector3 closestInBox( ClampFloat( sphereCenterInBox.x, -halfExtents.x, halfExtents.x ),
+                          ClampFloat( sphereCenterInBox.y, -halfExtents.y, halfExtents.y ),
+                          ClampFloat( sphereCenterInBox.z, -halfExtents.z, halfExtents.z ) );
+    Vector3 boxToSphereNormalInBox = sphereCenterInBox - closestInBox;
+    const float radius = sphere->GetRadius();
+    const float distanceSquared = VectorMagSquared( boxToSphereNormalInBox );
+    if ( distanceSquared > radius * radius )
+    {
+        return false;
+    }
+
+    float penetration = 0.0f;
+    if ( distanceSquared > 0.0f )
+    {
+        const float distance = sqrtf( distanceSquared );
+        boxToSphereNormalInBox /= distance;
+        penetration = radius - distance;
+    }
+    else
+    {
+        // Concept: when the sphere center is inside the box, the closest point
+        // clamp lands on the center. Pick the nearest face as the contact feature
+        // so the row still has a deterministic outward normal and penetration.
+        const float distanceToXFace = halfExtents.x - fabsf( sphereCenterInBox.x );
+        const float distanceToYFace = halfExtents.y - fabsf( sphereCenterInBox.y );
+        const float distanceToZFace = halfExtents.z - fabsf( sphereCenterInBox.z );
+        boxToSphereNormalInBox = Vector3( sphereCenterInBox.x >= 0.0f ? 1.0f : -1.0f, 0.0f, 0.0f );
+        closestInBox.x = boxToSphereNormalInBox.x * halfExtents.x;
+        penetration = radius + distanceToXFace;
+        if ( distanceToYFace < distanceToXFace && distanceToYFace <= distanceToZFace )
+        {
+            boxToSphereNormalInBox = Vector3( 0.0f, sphereCenterInBox.y >= 0.0f ? 1.0f : -1.0f, 0.0f );
+            closestInBox = sphereCenterInBox;
+            closestInBox.y = boxToSphereNormalInBox.y * halfExtents.y;
+            penetration = radius + distanceToYFace;
+        }
+        else if ( distanceToZFace < distanceToXFace && distanceToZFace < distanceToYFace )
+        {
+            boxToSphereNormalInBox = Vector3( 0.0f, 0.0f, sphereCenterInBox.z >= 0.0f ? 1.0f : -1.0f );
+            closestInBox = sphereCenterInBox;
+            closestInBox.z = boxToSphereNormalInBox.z * halfExtents.z;
+            penetration = radius + distanceToZFace;
+        }
+    }
+
+    const Vector3 boxToSphereNormal = boxRotation * boxToSphereNormalInBox;
+    const Vector3 closestWorld = boxCenter + boxRotation * closestInBox;
+    const Vector3 sphereSurface = sphereCenter - boxToSphereNormal * radius;
+
+    PhysicsContactView contact;
+    contact.bodyA = bodyA.handle;
+    contact.bodyB = bodyB.handle;
+    contact.colliderA = colliderA.handle;
+    contact.colliderB = colliderB.handle;
+    contact.point = ( closestWorld + sphereSurface ) * 0.5f;
+    contact.normal = sphereIsColliderA ? -boxToSphereNormal : boxToSphereNormal;
+    contact.penetrationDepth = penetration;
+    CopyContactMaterialPayload( contact, colliderA, colliderB );
     contact.touching = true;
     m_contacts.push_back( contact );
     return true;
@@ -1563,13 +1677,45 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     dynamicContactColliderDesc.contactMaterialId = 302u;
     const PhysicsColliderHandle dynamicContactCollider = contactWorld.CreateCollider( dynamicContactColliderDesc );
 
+    PhysicsBodyCreateDesc fixedBoxContactBodyDesc;
+    fixedBoxContactBodyDesc.sceneObjectId = PhysicsSceneObjectId{ 33u };
+    fixedBoxContactBodyDesc.position = Vector3( 10.0f, 0.0f, 0.0f );
+    fixedBoxContactBodyDesc.motionKind = PhysicsBodyMotionKind::Fixed;
+    const PhysicsBodyHandle fixedBoxContactBody = contactWorld.CreateBody( fixedBoxContactBodyDesc );
+
+    PhysicsColliderCreateDesc fixedBoxContactColliderDesc;
+    fixedBoxContactColliderDesc.body = fixedBoxContactBody;
+    fixedBoxContactColliderDesc.shape =
+        BoundingBox( Vector3( 1.0f, 1.0f, 1.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
+    fixedBoxContactColliderDesc.restitution = 0.4f;
+    fixedBoxContactColliderDesc.friction = 0.5f;
+    fixedBoxContactColliderDesc.contactMaterialId = 303u;
+    const PhysicsColliderHandle fixedBoxContactCollider = contactWorld.CreateCollider( fixedBoxContactColliderDesc );
+
+    PhysicsBodyCreateDesc dynamicSphereBoxContactBodyDesc;
+    dynamicSphereBoxContactBodyDesc.sceneObjectId = PhysicsSceneObjectId{ 34u };
+    dynamicSphereBoxContactBodyDesc.position = Vector3( 11.5f, 0.0f, 0.0f );
+    dynamicSphereBoxContactBodyDesc.motionKind = PhysicsBodyMotionKind::Dynamic;
+    const PhysicsBodyHandle dynamicSphereBoxContactBody = contactWorld.CreateBody( dynamicSphereBoxContactBodyDesc );
+
+    PhysicsColliderCreateDesc dynamicSphereBoxContactColliderDesc;
+    dynamicSphereBoxContactColliderDesc.body = dynamicSphereBoxContactBody;
+    dynamicSphereBoxContactColliderDesc.shape = BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
+    dynamicSphereBoxContactColliderDesc.restitution = 0.8f;
+    dynamicSphereBoxContactColliderDesc.friction = 0.9f;
+    dynamicSphereBoxContactColliderDesc.contactMaterialId = 304u;
+    const PhysicsColliderHandle dynamicSphereBoxContactCollider =
+        contactWorld.CreateCollider( dynamicSphereBoxContactColliderDesc );
+
     PhysicsStandaloneStepDesc contactStepDesc;
     contactStepDesc.deltaSeconds = 0.125f;
     contactStepDesc.fixedStep = true;
     const bool contactStepSucceeded = contactWorld.Step( contactStepDesc );
     const PhysicsContactCollectionView contactView = contactWorld.Contacts();
     const PhysicsContactView* contact =
-        contactView.contactCount == 1u && contactView.contacts ? &contactView.contacts[0] : nullptr;
+        contactView.contactCount == 2u && contactView.contacts ? &contactView.contacts[0] : nullptr;
+    const PhysicsContactView* sphereBoxContact =
+        contactView.contactCount == 2u && contactView.contacts ? &contactView.contacts[1] : nullptr;
     const bool contactSmokeConsistent =
         contactStepSucceeded && contact && contact->bodyA == fixedContactBody &&
         contact->bodyB == dynamicContactBody && contact->colliderA == fixedContactCollider &&
@@ -1577,7 +1723,18 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         contact->normal == Vector3( 1.0f, 0.0f, 0.0f ) && contact->penetrationDepth == 0.5f &&
         contact->normalImpulse == 0.0f && contact->restitutionA == 0.6f && contact->restitutionB == 0.2f &&
         contact->frictionA == 0.7f && contact->frictionB == 0.3f && contact->contactMaterialAId == 301u &&
-        contact->contactMaterialBId == 302u && contact->featureId != 0u && contact->touching;
+        contact->contactMaterialBId == 302u && contact->featureId != 0u && contact->touching &&
+        sphereBoxContact && sphereBoxContact->bodyA == fixedBoxContactBody &&
+        sphereBoxContact->bodyB == dynamicSphereBoxContactBody &&
+        sphereBoxContact->colliderA == fixedBoxContactCollider &&
+        sphereBoxContact->colliderB == dynamicSphereBoxContactCollider &&
+        sphereBoxContact->point == Vector3( 10.75f, 0.0f, 0.0f ) &&
+        sphereBoxContact->normal == Vector3( 1.0f, 0.0f, 0.0f ) &&
+        sphereBoxContact->penetrationDepth == 0.5f && sphereBoxContact->normalImpulse == 0.0f &&
+        sphereBoxContact->restitutionA == 0.4f && sphereBoxContact->restitutionB == 0.8f &&
+        sphereBoxContact->frictionA == 0.5f && sphereBoxContact->frictionB == 0.9f &&
+        sphereBoxContact->contactMaterialAId == 303u && sphereBoxContact->contactMaterialBId == 304u &&
+        sphereBoxContact->featureId != 0u && sphereBoxContact->touching;
 
     PhysicsStandaloneSmokeResult result;
     result.body = body;
@@ -1659,7 +1816,7 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     result.deterministicHash = HashSmokeResult( result );
     result.passed = stepped && result.lifecycleChecksPassed && finalBody && result.secondaryBodyAdvanced &&
                     result.bodyCount == 2u && result.colliderCount == 1u && result.pointJointCount == 0u &&
-                    result.contactCount == 1u && result.islandCount == 0u && result.broadphaseQueryCount == 1u &&
+                    result.contactCount == 2u && result.islandCount == 0u && result.broadphaseQueryCount == 1u &&
                     result.activationCommandsPassed && result.rayCastHit &&
                     result.finalPosition == Vector3( 3.0f, 9.0f, -2.0f ) &&
                     result.finalLinearVelocity == Vector3( 2.0f, -4.0f, 0.0f );
