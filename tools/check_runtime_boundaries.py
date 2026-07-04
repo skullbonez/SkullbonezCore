@@ -92,6 +92,8 @@ RUN_UI_TEXT_PASS_SOURCE = Path("SkullbonezSource/Runtime/RunUiTextPass.cpp")
 RUN_SCENE_SOURCE = Path("SkullbonezSource/Runtime/Scene/RunScene.cpp")
 SCENE_AUTHORED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp")
 SCENE_GENERATED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp")
+EDITOR_OBJECT_PLACEMENT_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl")
+EDITOR_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp")
 REPLAY_RECORDER_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
 RUNTIME_RENDER_PASS_CAPABILITY_SOURCES = (
@@ -206,6 +208,14 @@ SCENE_SETUP_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
 SCENE_SETUP_PHYSICS_COMMAND_SOURCES = (
     SCENE_AUTHORED_SETUP_SOURCE,
     SCENE_GENERATED_SETUP_SOURCE,
+)
+EDITOR_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
+    r"\b(?:context\s*\.\s*models|collection)\s*\.\s*"
+    r"(?:SetPendingBodyImpulse|SeedModelAsleep|WakeModel|ApplyBodyImpulse)\s*\("
+)
+EDITOR_PHYSICS_COMMAND_SOURCES = (
+    EDITOR_OBJECT_PLACEMENT_SOURCE,
+    EDITOR_TOOLS_SOURCE,
 )
 HOT_PATH_INHERITANCE_PATTERN = re.compile(
     r"^\s*(?:class|struct)\s+[A-Za-z_]\w*[^{;\n]*:\s*(?:public|protected|private)\b",
@@ -2208,6 +2218,32 @@ def check_scene_setup_model_index_physics_command_guardrails(repo: Path) -> list
     for relative_path in SCENE_SETUP_PHYSICS_COMMAND_SOURCES:
         path = repo / relative_path
         errors.extend(check_scene_setup_model_index_physics_command_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_editor_model_index_physics_command_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in EDITOR_MODEL_INDEX_PHYSICS_COMMAND_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "editor model-index physics command is blocked",
+                (
+                    "Editor commands may keep model indices for selection, but physics mutation should resolve "
+                    "PhysicsBodyHandle at the editor command boundary and call PhysicsEngine handle commands."
+                ),
+            )
+        )
+    return errors
+
+
+def check_editor_model_index_physics_command_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in EDITOR_PHYSICS_COMMAND_SOURCES:
+        path = repo / relative_path
+        errors.extend(check_editor_model_index_physics_command_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -7199,6 +7235,69 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only scene setup model-index command synthetic text was rejected")
 
+    old_editor_model_index_command = """
+    bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context )
+    {
+        const int modelIndex = context.models.GetModelCount();
+        context.models.AddGameModel( std::move( model ) );
+        context.models.SeedModelAsleep( modelIndex );
+        context.models.WakeModel( modelIndex );
+        return true;
+    }
+    """
+    if not any(
+        error.message == "editor model-index physics command is blocked"
+        for error in check_editor_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"),
+            old_editor_model_index_command,
+        )
+    ):
+        failures.append("old editor placement model-index command synthetic surface was not rejected")
+
+    old_editor_reset_model_index_command = """
+    void ResetEditorModelMotionAndWake( GameModelCollection& collection, PhysicsEngine&, int index )
+    {
+        collection.CommitEditedModelPhysicsState( index, false );
+        collection.WakeModel( index );
+    }
+    """
+    if not any(
+        error.message == "editor model-index physics command is blocked"
+        for error in check_editor_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+            old_editor_reset_model_index_command,
+        )
+    ):
+        failures.append("old editor reset model-index command synthetic surface was not rejected")
+
+    allowed_editor_handle_command = """
+    void WakeEditorPhysicsBody( GameModelCollection& collection, PhysicsEngine& physics, int modelIndex )
+    {
+        GameModelCollectionPhysicsAdapter physicsBodies( collection );
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+        PhysicsModelAccess modelAccess( collection );
+        physics.WakeBody( modelAccess, body );
+    }
+    """
+    if check_editor_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+        allowed_editor_handle_command,
+    ):
+        failures.append("handle-keyed editor command synthetic surface was rejected")
+
+    commented_editor_model_index_command = """
+    void DocumentOldEditorCommand()
+    {
+        // context.models.WakeModel(modelIndex) was the old editor command.
+        WakeEditorPhysicsBody( context.models, context.models.GetPhysicsEngine(), modelIndex );
+    }
+    """
+    if check_editor_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"),
+        commented_editor_model_index_command,
+    ):
+        failures.append("comment-only editor model-index command synthetic text was rejected")
+
     allowed_physics_hot_path_values = """
     struct SolverBodyState
     {
@@ -7620,6 +7719,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_scene_step_body_reload_guardrails(repo))
     errors.extend(check_command_side_body_refresh_guardrails(repo))
     errors.extend(check_scene_setup_model_index_physics_command_guardrails(repo))
+    errors.extend(check_editor_model_index_physics_command_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))
     errors.extend(check_approved_inheritance_guardrails(repo))

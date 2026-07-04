@@ -35,6 +35,7 @@ Related:
 #include "../InputController.h"
 #include "../RuntimeInteractionCommands.h"
 #include "../RuntimePickService.h"
+#include "../../GameObjects/GameModelCollectionPhysicsAdapter.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
@@ -72,6 +73,7 @@ using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
+using SkullbonezCore::GameObjects::GameModelCollectionPhysicsAdapter;
 using Json = nlohmann::ordered_json;
 
 namespace
@@ -591,8 +593,44 @@ int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, i
 }
 
 
+// Why: editor selection and placement still speak model indices, but physics
+// mutation should enter PhysicsEngine as a validated body handle. Keep the
+// model-index bridge local to editor commands instead of hiding it inside
+// GameModelCollection's compatibility wrappers.
+void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& collection,
+                            SkullbonezCore::Physics::PhysicsEngine& physics,
+                            int modelIndex )
+{
+    GameModelCollectionPhysicsAdapter physicsBodies( collection );
+    const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+    if ( !body.IsValid() )
+    {
+        return;
+    }
+
+    PhysicsModelAccess modelAccess( collection );
+    physics.WakeBody( modelAccess, body );
+}
+
+
+void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                  SkullbonezCore::Physics::PhysicsEngine& physics,
+                                  int modelIndex )
+{
+    GameModelCollectionPhysicsAdapter physicsBodies( collection );
+    const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+    if ( !body.IsValid() )
+    {
+        return;
+    }
+
+    PhysicsModelAccess modelAccess( collection );
+    physics.SeedBodyAsleep( modelAccess, body );
+}
+
+
 void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollection& collection,
-                                    SkullbonezCore::Physics::PhysicsEngine&,
+                                    SkullbonezCore::Physics::PhysicsEngine& physics,
                                     int index,
                                     GameModel& model,
                                     bool colliderChanged = false )
@@ -605,7 +643,7 @@ void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollec
     collection.CommitEditedModelPhysicsState( index, colliderChanged );
     if ( !model.IsFixed() )
     {
-        collection.WakeModel( index );
+        WakeEditorPhysicsBody( collection, physics, index );
     }
 }
 

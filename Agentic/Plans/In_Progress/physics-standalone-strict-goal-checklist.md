@@ -360,7 +360,7 @@ model indices stop entering physics commands directly.
   handle bridge while migration is underway.
 - [ ] For each legacy model-index physics command, migrate one caller group:
   - [x] scene setup,
-  - [ ] editor tools,
+  - [x] editor tools,
   - [ ] mouse pickup tools,
   - [ ] launcher tools,
   - [ ] replay velocity edit,
@@ -388,6 +388,17 @@ calls handle-keyed `PhysicsEngine` pending-impulse and sleep-seed commands.
 `python -m py_compile tools\check_runtime_boundaries.py`,
 `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
 `tools\validate_fast.bat`, and `tools\validate_full.bat` all passed.
+
+Editor placement and gizmo transform wake/sleep commands now keep model indices
+as editor selection identity only. The command boundary resolves a
+`PhysicsBodyHandle` through editor-local helpers, then calls
+`PhysicsEngine::WakeBody` or `PhysicsEngine::SeedBodyAsleep` with that handle.
+The boundary checker now rejects direct `context.models` or `collection`
+model-index physics wrappers in the migrated editor files. Evidence for this
+slice: `python -m py_compile tools\check_runtime_boundaries.py`,
+`python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+`tools\validate_format.bat`, `tools\validate_fast.bat`, and
+`tools\validate_full.bat` all passed.
 
 ## Phase 8 - Diagnostics And SkullScope
 

@@ -129,11 +129,11 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         {
             if ( modelStartsAsleep )
             {
-                context.models.SeedModelAsleep( index );
+                SeedEditorPhysicsBodyAsleep( context.models, context.models.GetPhysicsEngine(), index );
             }
             else
             {
-                context.models.WakeModel( index );
+                WakeEditorPhysicsBody( context.models, context.models.GetPhysicsEngine(), index );
             }
         }
     };
