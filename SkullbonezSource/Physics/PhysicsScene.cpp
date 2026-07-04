@@ -251,6 +251,49 @@ void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle 
 }
 
 
+bool PhysicsScene::SetBodyVelocity( PhysicsModelAccess& modelAccess,
+                                    PhysicsBodyHandle body,
+                                    const Math::Vector::Vector3& linearVelocity,
+                                    const Math::Vector::Vector3& angularVelocity,
+                                    bool wakeIfMoving )
+{
+    const int modelCount = modelAccess.ModelCount();
+    if ( m_bodyStore.Count() != modelCount )
+    {
+        RefreshBodyStore( modelAccess );
+    }
+    const int index = m_bodyStore.ModelIndexForHandle( body );
+    if ( index < 0 || !m_bodyStore.SetBodyVelocity( body, linearVelocity, angularVelocity ) )
+    {
+        return false;
+    }
+
+    const bool shouldWake = wakeIfMoving && ( !linearVelocity.IsCloseToZero() || !angularVelocity.IsCloseToZero() );
+    if ( shouldWake )
+    {
+        if ( m_colliderStore.Count() != modelCount )
+        {
+            RefreshColliderStore( modelAccess );
+        }
+        if ( m_hasLastWorldForces )
+        {
+            m_world.WakeModel( modelAccess, m_bodyStore, m_colliderStore, m_lastWorldForces, index );
+        }
+        else
+        {
+            m_world.WakeModel( modelAccess, m_bodyStore, index );
+        }
+        m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+    }
+
+    // Why: replay velocity edit is a handle-keyed body-store command. The
+    // model writeback below is only the remaining presentation projection.
+    modelAccess.WriteBackPhysicsBody( m_bodyStore, index );
+    modelAccess.InvalidatePhysicsStreams();
+    return true;
+}
+
+
 void PhysicsScene::SeedBodyAsleep( PhysicsBodyHandle body )
 {
     if ( !m_world.IsPhysicsSleepEnabled() )

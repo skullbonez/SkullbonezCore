@@ -82,6 +82,13 @@ class PhysicsScene
                      const PhysicsWorldForces& worldForces,
                      Threading::WorkerPool& workerPool );
     void WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
+    // Sets replay/editor-authored live velocities by body handle and optionally
+    // wakes a moving body before the single compatibility writeback.
+    bool SetBodyVelocity( PhysicsModelAccess& modelAccess,
+                          PhysicsBodyHandle body,
+                          const Math::Vector::Vector3& linearVelocity,
+                          const Math::Vector::Vector3& angularVelocity,
+                          bool wakeIfMoving );
     void SeedBodyAsleep( PhysicsBodyHandle body );
     void SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
     void SetPendingBodyImpulse( PhysicsBodyHandle body,

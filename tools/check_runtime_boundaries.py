@@ -96,6 +96,7 @@ EDITOR_OBJECT_PLACEMENT_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditor
 EDITOR_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp")
 MOUSE_PICKUP_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl")
 RUNTIME_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp")
+REPLAY_VELOCITY_EDIT_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl")
 REPLAY_RECORDER_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
 RUNTIME_RENDER_PASS_CAPABILITY_SOURCES = (
@@ -226,6 +227,12 @@ MOUSE_PICKUP_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
 LAUNCHER_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\bcollection\s*\.\s*"
     r"(?:SetPendingBodyImpulse|SeedModelAsleep|WakeModel|ApplyBodyImpulse)\s*\("
+)
+REPLAY_VELOCITY_MODEL_STATE_PHYSICS_COMMAND_PATTERN = re.compile(
+    r"\b(?:"
+    r"model\s*\.\s*(?:SetLinearVelocity|SetAngularVelocity)|"
+    r"(?:modelCollection|m_cGameModelCollection)\s*\.\s*(?:CommitEditedModelPhysicsState|WakeModel)"
+    r")\s*\("
 )
 HOT_PATH_INHERITANCE_PATTERN = re.compile(
     r"^\s*(?:class|struct)\s+[A-Za-z_]\w*[^{;\n]*:\s*(?:public|protected|private)\b",
@@ -2301,6 +2308,30 @@ def check_launcher_model_index_physics_command_guardrails_text(path: Path, text:
 def check_launcher_model_index_physics_command_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / RUNTIME_TOOLS_SOURCE
     return check_launcher_model_index_physics_command_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_replay_velocity_model_state_physics_command_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in REPLAY_VELOCITY_MODEL_STATE_PHYSICS_COMMAND_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay velocity model-state physics command is blocked",
+                (
+                    "Replay velocity edit must resolve PhysicsBodyHandle at the replay boundary and call "
+                    "PhysicsEngine handle commands instead of mutating GameModel velocity or collection "
+                    "model-index wrappers."
+                ),
+            )
+        )
+    return errors
+
+
+def check_replay_velocity_model_state_physics_command_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / REPLAY_VELOCITY_EDIT_SOURCE
+    return check_replay_velocity_model_state_physics_command_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_physics_hot_path_inheritance_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -7440,6 +7471,54 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only launcher model-index command synthetic text was rejected")
 
+    old_replay_velocity_model_state_command = """
+    void ApplyReplayVelocityEditToModel( GameModelCollection& modelCollection )
+    {
+        GameModel& model = modelCollection.GetModelAtIndex( modelIndex );
+        model.SetLinearVelocity( clampedLinear );
+        model.SetAngularVelocity( clampedAngular );
+        modelCollection.CommitEditedModelPhysicsState( modelIndex, false );
+        modelCollection.WakeModel( modelIndex );
+    }
+    """
+    if not any(
+        error.message == "replay velocity model-state physics command is blocked"
+        for error in check_replay_velocity_model_state_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
+            old_replay_velocity_model_state_command,
+        )
+    ):
+        failures.append("old replay velocity model-state command synthetic surface was not rejected")
+
+    allowed_replay_velocity_handle_command = """
+    void ApplyReplayVelocityEditToModel( GameModelCollection& modelCollection )
+    {
+        GameModelCollectionPhysicsAdapter physicsBodies( modelCollection );
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+        PhysicsModelAccess modelAccess( modelCollection );
+        modelCollection.GetPhysicsEngine().SetBodyVelocity( modelAccess, body, linearVelocity, angularVelocity, true );
+    }
+    """
+    if check_replay_velocity_model_state_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
+        allowed_replay_velocity_handle_command,
+    ):
+        failures.append("handle-keyed replay velocity command synthetic surface was rejected")
+
+    commented_replay_velocity_model_state_command = """
+    void DocumentOldReplayVelocityCommand()
+    {
+        // model.SetLinearVelocity(linearVelocity) used to run here.
+        // modelCollection.CommitEditedModelPhysicsState(modelIndex, false) used to run here.
+        modelCollection.GetPhysicsEngine().SetBodyVelocity( modelAccess, body, linearVelocity, angularVelocity, true );
+    }
+    """
+    if check_replay_velocity_model_state_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
+        commented_replay_velocity_model_state_command,
+    ):
+        failures.append("comment-only replay velocity model-state command synthetic text was rejected")
+
     allowed_physics_hot_path_values = """
     struct SolverBodyState
     {
@@ -7864,6 +7943,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_editor_model_index_physics_command_guardrails(repo))
     errors.extend(check_mouse_pickup_model_index_physics_command_guardrails(repo))
     errors.extend(check_launcher_model_index_physics_command_guardrails(repo))
+    errors.extend(check_replay_velocity_model_state_physics_command_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))
     errors.extend(check_approved_inheritance_guardrails(repo))

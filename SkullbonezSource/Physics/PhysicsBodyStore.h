@@ -147,6 +147,12 @@ class PhysicsBodyStore
     bool WakeBody( int modelIndex );
     bool SeedBodyAsleep( PhysicsBodyHandle body );
     bool SeedBodyAsleep( int modelIndex );
+    // Edits live velocity through the handle-owned body record. The command is
+    // intentionally handle-only so replay/editor tools do not regain model-index
+    // physics authority while dragging.
+    bool SetBodyVelocity( PhysicsBodyHandle body,
+                          const Math::Vector::Vector3& linearVelocity,
+                          const Math::Vector::Vector3& angularVelocity );
     bool SetPendingBodyImpulse( PhysicsBodyHandle body,
                                 const Math::Vector::Vector3& impulse,
                                 const Math::Vector::Vector3& localApplicationPoint );

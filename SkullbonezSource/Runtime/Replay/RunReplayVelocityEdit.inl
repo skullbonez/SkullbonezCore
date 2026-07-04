@@ -216,21 +216,20 @@ static void ApplyReplayVelocityEditToModel( ReplayRuntime& replayRuntime,
     clampedAngular.z =
         std::clamp( clampedAngular.z, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
 
-    GameModel& model = modelCollection.GetModelAtIndex( modelIndex );
-    if ( model.IsFixed() )
+    // Why: replay selection still resolves from model order, but the velocity
+    // mutation below must enter physics as a body-handle command.
+    GameModelCollectionPhysicsAdapter physicsBodies( modelCollection );
+    const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+    if ( !body.IsValid() )
     {
         return;
     }
 
-    model.SetLinearVelocity( clampedLinear );
-    model.SetAngularVelocity( clampedAngular );
-    modelCollection.CommitEditedModelPhysicsState( modelIndex, false );
-    if ( VectorMagSquared( clampedLinear ) > TOLERANCE * TOLERANCE ||
-         VectorMagSquared( clampedAngular ) > TOLERANCE * TOLERANCE )
+    PhysicsModelAccess modelAccess( modelCollection );
+    if ( !modelCollection.GetPhysicsEngine().SetBodyVelocity( modelAccess, body, clampedLinear, clampedAngular, true ) )
     {
-        modelCollection.WakeModel( modelIndex );
+        return;
     }
-    modelCollection.InvalidatePhysicsStreams();
     replayRuntime.MarkPredictionDirty();
     replayRuntime.Scrubber().visibleUntil = visibleUntil;
     replayRuntime.Scrubber().visible = true;

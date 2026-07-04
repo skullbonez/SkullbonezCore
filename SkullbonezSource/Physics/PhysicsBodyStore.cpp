@@ -1481,6 +1481,22 @@ bool PhysicsBodyStore::SeedBodyAsleep( int modelIndex )
 }
 
 
+bool PhysicsBodyStore::SetBodyVelocity( PhysicsBodyHandle body,
+                                        const Vector3& linearVelocity,
+                                        const Vector3& angularVelocity )
+{
+    PhysicsBodyRecord* record = MutableRecordForHandle( body );
+    if ( !record || record->isFixed )
+    {
+        return false;
+    }
+
+    record->linearVelocity = linearVelocity;
+    record->angularVelocity = angularVelocity;
+    return true;
+}
+
+
 bool PhysicsBodyStore::SetPendingBodyImpulse( PhysicsBodyHandle body,
                                               const Vector3& impulse,
                                               const Vector3& localApplicationPoint )

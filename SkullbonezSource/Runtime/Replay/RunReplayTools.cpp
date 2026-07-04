@@ -41,6 +41,7 @@ Related:
 #include "../InputController.h"
 #include "ReplayOverlayLayout.h"
 #include "../RuntimePickService.h"
+#include "../../GameObjects/GameModelCollectionPhysicsAdapter.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/PhysicsModelAccess.h"
 #include "../RuntimeFileWriter.h"
@@ -73,6 +74,7 @@ using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::GameObjects::GameModelCollectionKind;
+using SkullbonezCore::GameObjects::GameModelCollectionPhysicsAdapter;
 
 namespace
 {

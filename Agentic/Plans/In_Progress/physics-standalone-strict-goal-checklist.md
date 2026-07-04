@@ -363,7 +363,7 @@ model indices stop entering physics commands directly.
   - [x] editor tools,
   - [x] mouse pickup tools,
   - [x] launcher tools,
-  - [ ] replay velocity edit,
+  - [x] replay velocity edit,
   - [ ] replay restore/prediction,
   - [ ] diagnostics and debug overlays.
 - [ ] Store `PhysicsBodyHandle` or stable scene object id at the caller where the
@@ -417,6 +417,18 @@ launcher hit/spawn identity only. The launcher boundary resolves
 `PhysicsEngine::WakeBody`. The boundary checker now rejects `collection`
 model-index physics wrappers from returning in `RuntimeTools.cpp`. Evidence for
 this slice: `python -m py_compile tools\check_runtime_boundaries.py`,
+`python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+`tools\validate_format.bat`, `tools\validate_fast.bat`, and
+`tools\validate_full.bat` all passed.
+
+Replay velocity edit now keeps model indices as replay/UI selection identity
+only. The drag command resolves a `PhysicsBodyHandle`, then calls
+`PhysicsEngine::SetBodyVelocity`; `PhysicsBodyStore` owns the handle-only
+velocity mutation and `PhysicsScene` performs one compatibility row writeback
+for current presentation consumers. The boundary checker now rejects
+`GameModel` velocity writes and `GameModelCollection` model-index physics
+wrappers from returning in `RunReplayVelocityEdit.inl`. Evidence for this
+slice: `python -m py_compile tools\check_runtime_boundaries.py`,
 `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
 `tools\validate_format.bat`, `tools\validate_fast.bat`, and
 `tools\validate_full.bat` all passed.

@@ -77,6 +77,13 @@ class PhysicsEngine
                const PhysicsWorldForces& worldForces,
                Threading::WorkerPool& workerPool );
     void WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
+    // Live tool commands may edit body velocity by handle while the engine owns
+    // the single compatibility row writeback needed by current render/replay.
+    bool SetBodyVelocity( PhysicsModelAccess& modelAccess,
+                          PhysicsBodyHandle body,
+                          const Math::Vector::Vector3& linearVelocity,
+                          const Math::Vector::Vector3& angularVelocity,
+                          bool wakeIfMoving );
     // Scene construction commands can target the store by handle before legacy
     // presentation needs a model writeback.
     void SeedBodyAsleep( PhysicsBodyHandle body );
