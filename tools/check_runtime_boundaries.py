@@ -241,6 +241,12 @@ GAME_MODEL_RENDERER_MODEL_POSE_STREAM_PATTERN = re.compile(
 DXR_MODEL_MATRIX_RENDER_INSTANCE_PATTERN = re.compile(
     r"\bm_gameModels\s*\[[^\]]+\]\s*\.\s*GetModelMatrix\s*\("
 )
+# Why: the old GameModel SoA streams were deleted once render/physics consumers
+# moved to PhysicsBodyStore, ColliderStore, and RenderInstanceStore snapshots.
+# Reintroducing them would recreate GameModel-derived hot-path copies.
+DELETED_GAME_MODEL_STREAM_PROJECT_PATTERN = re.compile(
+    r"SkullbonezSource\\GameObjects\\GameModel(?:Streams|SoACache)\.(?:cpp|h)"
+)
 # Why: read-only presentation helpers should not rebuild body stores from the
 # GameModel mirror. Count drift is topology repair; same-count state belongs to
 # PhysicsBodyStore until a compatibility writeback explicitly projects it.
@@ -568,6 +574,21 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "IRenderSceneView",
         re.compile(r"\bIRenderSceneView\b"),
         "Render passes should consume concrete render/model data paths, not a one-implementation migration interface.",
+    ),
+    (
+        "GameModel SoA stream cache",
+        re.compile(r"\b(?:GameModelSoACache|GameModelStreamProvider|GameModelBodyStream|GameModelRenderStream)\b"),
+        "Use PhysicsBodyStore, ColliderStore, or RenderInstanceStore records instead of reintroducing GameModel-derived SoA streams.",
+    ),
+    (
+        "GameModel stream API",
+        re.compile(r"\b(?:GetPhysicsBodyStream|GetBodyStream|GetRenderStream|PrepareRenderStreams|InvalidatePhysicsStreams)\s*\("),
+        "Prepare or read authoritative stores directly; the deleted GameModel stream/cache API must not return.",
+    ),
+    (
+        "GameModel SoA memory stat",
+        re.compile(r"\bsoaCacheBytes\b"),
+        "The GameModel SoA cache was deleted, so memory reporting should not carry a live stat for it.",
     ),
     (
         "PhysicsModelAccess raw model range facade",
@@ -2879,6 +2900,31 @@ def check_dxr_render_instance_matrix_authority_guardrails_text(path: Path, text:
 def check_dxr_render_instance_matrix_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / GAME_MODEL_COLLECTION_SOURCE
     return check_dxr_render_instance_matrix_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_deleted_game_model_stream_project_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for match in DELETED_GAME_MODEL_STREAM_PROJECT_PATTERN.finditer(text):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(text, match.start()),
+                "deleted GameModel stream/cache file is blocked",
+                (
+                    "GameModelStreams and GameModelSoACache were deleted after render/physics consumers moved "
+                    "to store-backed snapshots; do not add them back to the project."
+                ),
+            )
+        )
+    return errors
+
+
+def check_deleted_game_model_stream_project_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in ( Path("SKULLBONEZ_CORE.vcxproj"), Path("SKULLBONEZ_CORE.vcxproj.filters") ):
+        path = repo / relative_path
+        errors.extend(check_deleted_game_model_stream_project_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_game_model_collection_body_store_read_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -8389,6 +8435,13 @@ def run_self_tests() -> list[str]:
     int legacyModelIndex = 0;
     RuntimeConfigSnapshot snapshot;
     class GameModelCollection : public Rendering::IRenderSceneView {};
+    GameModelSoACache soaCache;
+    GameModelStreamProvider::PrepareRenderStreams( soaCache, models );
+    GameModelBodyStream bodyStream = collection.GetBodyStream();
+    GameModelRenderStream renderStream = collection.GetRenderStream();
+    collection.GetPhysicsBodyStream();
+    collection.InvalidatePhysicsStreams();
+    stats.soaCacheBytes = 0;
     PhysicsModelMutableRange mutableRange;
     PhysicsModelConstRange constRange;
     auto* mutableModels = modelAccess.MutableModelData();
@@ -8440,8 +8493,65 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("deleted IRenderSceneView synthetic surface was not rejected")
 
+    deleted_game_model_stream_cache_text = """
+    class GameModelCollection
+    {
+        GameModelSoACache m_soaCache;
+        GameModelBodyStream GetBodyStream();
+        GameModelRenderStream GetRenderStream();
+        GameModelBodyStream GetPhysicsBodyStream();
+        void InvalidatePhysicsStreams();
+        void PrepareRenderStreams();
+    };
+    void UseStreamProvider( GameModelSoACache& cache )
+    {
+        GameModelStreamProvider::GetBodyStream( cache, models );
+    }
+    """
+    if not any(
+        error.message.startswith("deleted migration artifact is blocked: GameModel")
+        for error in check_deleted_migration_artifact_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
+            deleted_game_model_stream_cache_text,
+        )
+    ):
+        failures.append("deleted GameModel stream/cache synthetic surface was not rejected")
+
+    deleted_game_model_stream_project_text = """
+    <ClCompile Include="SkullbonezSource\\GameObjects\\GameModelStreams.cpp" />
+    <ClInclude Include="SkullbonezSource\\GameObjects\\GameModelSoACache.h" />
+    """
+    if not any(
+        error.message == "deleted GameModel stream/cache file is blocked"
+        for error in check_deleted_game_model_stream_project_guardrails_text(
+            Path("SKULLBONEZ_CORE.vcxproj"),
+            deleted_game_model_stream_project_text,
+        )
+    ):
+        failures.append("deleted GameModel stream/cache project entry synthetic surface was not rejected")
+
+    allowed_render_instance_prepare_text = """
+    class GameModelCollection
+    {
+        void PrepareRenderInstances();
+        const RenderInstanceStore& RenderInstances() const;
+    };
+    void RuntimeRenderer::RenderFrame()
+    {
+        collection.PrepareRenderInstances();
+        const RenderInstanceStore& instances = collection.RenderInstances();
+    }
+    """
+    if check_deleted_migration_artifact_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
+        allowed_render_instance_prepare_text,
+    ):
+        failures.append("render-instance preparation synthetic surface was rejected")
+
     commented_deleted_migration_artifact_text = """
     // GameModelRuntimePhysicsTuning, legacyModelIndex, RuntimeConfigSnapshot, and IRenderSceneView are migration notes only.
+    // GameModelSoACache, GameModelStreamProvider, GetBodyStream(), GetRenderStream(), PrepareRenderStreams(),
+    // InvalidatePhysicsStreams(), and soaCacheBytes were deleted.
     // PhysicsModelMutableRange, MutableModelData(), and modelAccess.Models() are notes only.
     // PhysicsBodyWritebackSink, QueueBodyMirrorWriteback, bodyMirrorWritebacks, and PhysicsBodyEventSink are deleted migration notes only.
     // PhysicsStandaloneWorld used to store std::vector<PhysicsBodyView> m_bodies plus m_alive/m_generations/m_freeIndices.
@@ -11913,6 +12023,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_render_instance_store_authority_guardrails(repo))
     errors.extend(check_game_model_renderer_render_instance_authority_guardrails(repo))
     errors.extend(check_dxr_render_instance_matrix_authority_guardrails(repo))
+    errors.extend(check_deleted_game_model_stream_project_guardrails(repo))
     errors.extend(check_game_model_collection_body_store_read_authority_guardrails(repo))
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
     errors.extend(check_physics_collision_time_name_guardrails(repo))

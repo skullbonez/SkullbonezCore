@@ -46,8 +46,9 @@ flowchart TB
         WorldEnvironment["WorldEnvironment\nwater, gravity, drag"]
         Terrain["Terrain\nrender mesh + collision surface"]
         SkyBox["SkyBox"]
-        GameModelCollection["GameModelCollection\nphysics traffic controller"]
-        GameModelStreamProvider["GameModelStreamProvider"]
+        GameModelCollection["GameModelCollection\nmodel-order facade"]
+        PhysicsBodyStore["PhysicsBodyStore"]
+        ColliderStore["ColliderStore"]
         GameModel["GameModel\nrenderable physical object"]
         RigidBody["RigidBody"]
         CollisionShape["CollisionShape\nvariant"]
@@ -99,7 +100,8 @@ flowchart TB
     App --> Config
     App --> AssetSystem
     App --> GameModelCollection
-    GameModelCollection -.-> GameModelStreamProvider
+    GameModelCollection -.-> PhysicsBodyStore
+    GameModelCollection -.-> ColliderStore
     App --> WorldEnvironment
     App --> InGameUI
     App -.-> TextureCollection
@@ -196,7 +198,8 @@ class TextureCollection
 class SkyBox
 class Window
 class GameModelCollection
-class GameModelStreamProvider
+class PhysicsBodyStore
+class ColliderStore
 class WorldEnvironment
 class InGameUI
 class BroadphaseVisualizer
@@ -227,7 +230,8 @@ RunSubsystemState o-- TextureCollection
 RunSubsystemState o-- SkyBox
 RunSubsystemState o-- Window
 Run *-- GameModelCollection
-GameModelCollection ..> GameModelStreamProvider
+GameModelCollection ..> PhysicsBodyStore
+GameModelCollection ..> ColliderStore
 Run *-- WorldEnvironment
 Run *-- InGameUI
 Run *-- BroadphaseVisualizer
@@ -246,10 +250,11 @@ advance, quit, or interactive hold, then coordinates the heavier load/reset side
 effects around that state, including object construction, terrain, cameras, UI
 defaults, diagnostics context, and renderer setup.
 
-`GameModelStreamProvider` builds cache-backed body/render streams for
-`GameModelCollection`. It does not own separate physics or render storage; the
-authoritative model storage remains the collection's `GameModel` vector plus the
-derived `GameModelSoACache`.
+The old `GameModelStreamProvider` / `GameModelSoACache` stream boundary has
+been deleted. `GameModelCollection` now prepares store-backed render snapshots
+through `RenderInstanceStore`, while physics-facing readers use
+`PhysicsBodyStore` and `ColliderStore` records instead of borrowed
+`GameModel`-derived SoA streams.
 
 ## Rendering Interfaces And Backend Family
 
@@ -425,7 +430,7 @@ class GameModelCollection {
   +AddGameModel(model)
   +RunPhysics(dt)
   +RenderModels(view, proj, lightPos)
-  +PrepareRenderStreams()
+  +PrepareRenderInstances()
 }
 
 class GameModel {
@@ -796,10 +801,8 @@ subsystem rather than by dependency edge.
 
 - `GameModel`
 - `GameModelCollection`
-- `GameModelStreamProvider`
-- `GameModelBodyStream`
-- `GameModelRenderStream`
-- `GameModelSoACache`
+- `PhysicsBodyStore`
+- `ColliderStore`
 - `RigidBody`
 - `CollisionShape`
 - `BoundingSphere`

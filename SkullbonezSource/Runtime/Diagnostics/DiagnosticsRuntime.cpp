@@ -335,7 +335,6 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const ReplayRuntime& replay,
              "    \"total_bytes\": %llu,\n"
              "    \"model_bytes\": %llu,\n"
              "    \"model_vector_bytes\": %llu,\n"
-             "    \"soa_cache_bytes\": %llu,\n"
              "    \"physics_store_bytes\": %llu,\n"
              "    \"collider_store_bytes\": %llu,\n"
              "    \"render_store_bytes\": %llu,\n"
@@ -388,7 +387,6 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const ReplayRuntime& replay,
              static_cast<unsigned long long>( stats.gameObjects.totalBytes ),
              static_cast<unsigned long long>( stats.gameObjects.modelVectorBytes ),
              static_cast<unsigned long long>( stats.gameObjects.modelVectorBytes ),
-             static_cast<unsigned long long>( stats.gameObjects.soaCacheBytes ),
              static_cast<unsigned long long>( stats.gameObjects.physicsStoreBytes ),
              static_cast<unsigned long long>( stats.gameObjects.colliderStoreBytes ),
              static_cast<unsigned long long>( stats.gameObjects.renderStoreBytes ),

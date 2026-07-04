@@ -9,8 +9,6 @@ Mental model:
   when that state changes.
 
 Glossary:
-  SoA (Structure of Arrays): Data layout that stores each field in a separate
-  contiguous array for cache-friendly iteration.
   Physics material: Per-object friction and drag coefficients cached by the
     collection before models are added or reconfigured.
   Body simulation limit: Scalar cap cached by the collection before models hand
@@ -30,8 +28,8 @@ Glossary:
 Invariants:
   - Model vector order is stable subsystem identity for physics stores, render
     batches, replay ids, and scene snapshots.
-  - Any mutation that changes model state visible to hot streams must invalidate
-    or refresh the SoA cache before clients read it.
+  - Render prep imports store-backed snapshots once before frame passes; render
+    code must not rebuild GameModel-derived pose streams.
 
 Related:
   - SkullbonezSource/GameObjects/GameModelCollection.h
@@ -306,25 +304,14 @@ void GameModelCollection::AddGameModel( GameModel gameModel )
     gameModel.ApplyBodySimulationLimits( m_bodySimulationLimits );
     gameModel.ApplyContactPolicy( m_contactPolicy );
     m_gameModels.push_back( std::move( gameModel ) );
-    InvalidateSoA();
 }
 
 
 void GameModelCollection::Clear()
 {
     m_gameModels.clear();
-    m_soaCache.Clear();
     m_physicsEngine.Clear();
     m_nextReplayBodyId = 1;
-}
-
-
-void GameModelCollection::InvalidateSoA()
-{
-    // SoA caches are derived data. Any direct access to a GameModel can mutate
-    // body/render state, so mark the cache dirty and let the next hot-path user
-    // rebuild it from the authoritative vector.
-    m_soaCache.Invalidate();
 }
 
 
@@ -366,11 +353,11 @@ void GameModelCollection::ApplyReplayRenderPoseOverrides( Rendering::RenderInsta
 }
 
 
-void GameModelCollection::PrepareRenderStreams()
+void GameModelCollection::PrepareRenderInstances()
 {
     // Why: object rendering now reads the render instance store for transforms.
-    // Preparing it once here prevents each render pass from rebuilding a
-    // GameModel SoA pose cache or re-importing the same physics pose repeatedly.
+    // Preparing it once here prevents each render pass from re-importing the
+    // same physics pose repeatedly.
     PhysicsModelAccess modelAccess( *this );
     m_physicsEngine.RefreshRenderStore( modelAccess );
 }
@@ -386,7 +373,7 @@ int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxMo
     const int collectionModelCount = GetModelCount();
     if ( m_physicsEngine.RenderInstances().Count() != collectionModelCount )
     {
-        // Hazard: normal render frames call PrepareRenderStreams() first. This
+        // Hazard: normal render frames call PrepareRenderInstances() first. This
         // cold path keeps standalone DXR callers on the render-instance
         // authority instead of falling back to GameModel pose recomputation.
         PhysicsModelAccess modelAccess( *this );
@@ -636,7 +623,6 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
     model.SetOrientation( orientation );
     model.SetLinearVelocity( linearVelocity );
     model.SetAngularVelocity( angularVelocity );
-    InvalidateSoA();
     return m_physicsEngine.RestoreReplayBodyState( index,
                                                    replayBodyId,
                                                    fixed,
@@ -681,7 +667,6 @@ bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
     model.SetLinearVelocity( linearVelocity );
     model.SetAngularVelocity( angularVelocity );
     model.SetFixedContactHighlightSeconds( fixedContactHighlightSeconds );
-    InvalidateSoA();
     // Why: prediction restore swaps live/job state repeatedly. Restore the
     // physics record from the captured backup instead of recapturing GameModel.
     return m_physicsEngine.RestoreReplayBodyState( index,
@@ -716,7 +701,6 @@ bool GameModelCollection::TrySetReplayRenderPose( int index,
 
     model.SetPosition( position );
     model.SetOrientation( orientation );
-    InvalidateSoA();
     RememberReplayRenderPoseOverride( index );
     // Why: replay render poses are one-frame presentation overrides. Physics
     // body state must stay owned by explicit restore/prediction commands.
@@ -732,7 +716,6 @@ bool GameModelCollection::TrySetModelAngularVelocity( int index, const Vector3& 
     }
 
     m_gameModels[static_cast<std::size_t>( index )].SetAngularVelocity( angularVelocity );
-    InvalidateSoA();
     CommitEditedModelPhysicsState( index, false );
     return true;
 }
@@ -751,14 +734,13 @@ MainMemoryGameObjectStats GameModelCollection::CollectMemoryStats() const
     stats.colliderStoreCapacity = colliderStore.Records().capacity();
     stats.renderStoreCapacity = renderStore.Records().capacity();
     stats.modelVectorBytes = VectorCapacityBytes( m_gameModels );
-    stats.soaCacheBytes = static_cast<uint64_t>( sizeof( m_soaCache ) );
     stats.physicsStoreBytes = VectorCapacityBytes( bodyStore.Records() );
     stats.colliderStoreBytes = VectorCapacityBytes( colliderStore.Records() );
     stats.renderStoreBytes = VectorCapacityBytes( renderStore.Records() );
     stats.physicsWorldBytes = m_physicsEngine.CollectPhysicsWorldMemoryBytes();
     stats.debugAndBroadphaseBytes = m_physicsEngine.CollectDebugAndBroadphaseMemoryBytes();
-    stats.totalBytes = stats.modelVectorBytes + stats.soaCacheBytes + stats.physicsStoreBytes +
-                       stats.colliderStoreBytes + stats.renderStoreBytes + stats.physicsWorldBytes;
+    stats.totalBytes = stats.modelVectorBytes + stats.physicsStoreBytes + stats.colliderStoreBytes +
+                       stats.renderStoreBytes + stats.physicsWorldBytes;
     return stats;
 }
 
@@ -784,7 +766,6 @@ bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
     {
         m_nextReplayBodyId = (std::max)( m_nextReplayBodyId, model.GetReplayBodyId() + 1u );
     }
-    InvalidateSoA();
     return true;
 }
 
@@ -797,31 +778,7 @@ void GameModelCollection::CaptureReplaySolverWorldSnapshot( ReplaySolverWorldSna
 
 bool GameModelCollection::RestoreReplaySolverWorldSnapshot( const ReplaySolverWorldSnapshot& snapshot )
 {
-    const bool restored =
-        m_physicsEngine.RestoreReplaySolverSnapshot( snapshot, static_cast<int>( m_gameModels.size() ) );
-    if ( restored )
-    {
-        InvalidateSoA();
-    }
-    return restored;
-}
-
-
-GameModelBodyStream GameModelCollection::GetBodyStream()
-{
-    return GameModelStreamProvider::GetBodyStream( m_soaCache, m_gameModels );
-}
-
-
-GameModelBodyStream GameModelCollection::GetPhysicsBodyStream()
-{
-    return GetBodyStream();
-}
-
-
-GameModelRenderStream GameModelCollection::GetRenderStream()
-{
-    return GameModelStreamProvider::GetRenderStream( m_soaCache, m_gameModels );
+    return m_physicsEngine.RestoreReplaySolverSnapshot( snapshot, static_cast<int>( m_gameModels.size() ) );
 }
 
 
@@ -878,7 +835,6 @@ const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::GetRe
 
 GameModel& GameModelCollection::GetModelAtIndex( int index )
 {
-    InvalidateSoA();
     return m_gameModels[index];
 }
 
@@ -915,12 +871,6 @@ double GameModelCollection::GetSceneKineticEnergy()
         totalEnergy += 0.5 * static_cast<double>( body.mass ) * speedSq + angularEnergy;
     }
     return totalEnergy;
-}
-
-
-void GameModelCollection::InvalidatePhysicsStreams()
-{
-    InvalidateSoA();
 }
 
 
@@ -1142,7 +1092,6 @@ void GameModelCollection::RunPhysics( float fChangeInTime,
     // handle-addressed physics commands directly. Checker budget: boundary grep
     // keeps bulk solver writeback out of PhysicsWorld and PhysicsScene stepping.
     WriteBackPhysicsBodies( m_physicsEngine.BodyStore() );
-    InvalidatePhysicsStreams();
 }
 
 

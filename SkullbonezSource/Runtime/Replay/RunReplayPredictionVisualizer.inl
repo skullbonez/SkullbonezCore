@@ -194,7 +194,6 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
             ApplyReplayPredictionBodyState( modelCollection, replayRuntime.Prediction().predictionBodies ) &&
             modelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld,
                                                                             modelCollection.GetModelCount() );
-        modelCollection.InvalidatePhysicsStreams();
     }
 
     if ( jobApplied )
@@ -251,7 +250,6 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
             ApplyReplayPredictionBodyState( modelCollection, replayRuntime.Prediction().liveRestoreBodies ) &&
             modelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot( replayRuntime.Prediction().liveRestoreWorld,
                                                                             modelCollection.GetModelCount() );
-        modelCollection.InvalidatePhysicsStreams();
     }
 
     if ( !jobApplied || !jobStateCaptured || !liveRestored )

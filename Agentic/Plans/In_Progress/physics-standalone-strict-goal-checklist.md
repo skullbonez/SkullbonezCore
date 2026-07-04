@@ -1264,6 +1264,50 @@ Evidence logs: `TestOutput\agent_build_debug_model_force_bridge_deletion.log`,
 `TestOutput\agent_validate_fast_model_force_bridge_deletion.log`, and
 `TestOutput\agent_validate_physics_model_force_bridge_deletion.log`.
 
+Slice `PHY-1019`: delete the dead `GameModel` SoA stream cache and stale
+render-stream prep boundary. Owner: `RenderInstanceStore`/`PhysicsBodyStore`
+for live draw/physics snapshots; reason: render and physics consumers no longer
+use `GameModelBodyStream` or `GameModelRenderStream`, so keeping
+`GameModelSoACache` preserves an unused model-derived copy path and stale
+hot-path vocabulary; deletion condition: source and project files expose no
+`GameModelSoACache`, `GameModelStreamProvider`, `GameModelBodyStream`,
+`GameModelRenderStream`, `GetBodyStream`, `GetRenderStream`,
+`GetPhysicsBodyStream`, `PrepareRenderStreams`, `InvalidatePhysicsStreams`, or
+`soaCacheBytes`; checker budget: `tools/check_runtime_boundaries.py` blocks the
+deleted source names and project-file entries from returning.
+
+- [x] Delete `SkullbonezSource/GameObjects/GameModelSoACache.cpp/.h` and
+  `SkullbonezSource/GameObjects/GameModelStreams.cpp/.h`.
+- [x] Remove the `GameModelCollection` SoA member and dead stream/invalidation
+  API surface.
+- [x] Rename render prep from `PrepareRenderStreams()` to
+  `PrepareRenderInstances()` so render frames name the store-backed snapshot
+  they actually refresh.
+- [x] Remove `soaCacheBytes` from memory stats, JSON dump output, and profiler
+  UI text.
+- [x] Remove the deleted source/header files from `SKULLBONEZ_CORE.vcxproj` and
+  `.filters`.
+- [x] Update current reference docs that still described the stream provider as
+  live.
+- [x] Add runtime-boundary guardrails and self-tests blocking the deleted stream
+  cache/API/project entries from returning.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+  - [x] `tools\validate_dx12_renderer.bat`
+  - [x] `tools\validate_perf.bat`
+
+Evidence logs: `TestOutput\agent_build_debug_delete_model_stream_cache.log`,
+`TestOutput\agent_validate_fast_delete_model_stream_cache.log`,
+`TestOutput\agent_validate_physics_delete_model_stream_cache.log`,
+`TestOutput\agent_validate_dx12_delete_model_stream_cache.log`, and
+`TestOutput\agent_validate_perf_delete_model_stream_cache.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

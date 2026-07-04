@@ -161,8 +161,6 @@
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelCollection.cpp" />
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelCollectionPhysicsAdapter.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\GameModelRenderer.cpp" />
-    <ClCompile Include="SkullbonezSource\GameObjects\GameModelStreams.cpp" />
-    <ClCompile Include="SkullbonezSource\GameObjects\GameModelSoACache.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsApi.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp" />
@@ -334,8 +332,6 @@
     <ClInclude Include="SkullbonezSource\GameObjects\GameModelCollection.h" />
     <ClInclude Include="SkullbonezSource\GameObjects\GameModelCollectionPhysicsAdapter.h" />
     <ClInclude Include="SkullbonezSource\Rendering\GameModelRenderer.h" />
-    <ClInclude Include="SkullbonezSource\GameObjects\GameModelStreams.h" />
-    <ClInclude Include="SkullbonezSource\GameObjects\GameModelSoACache.h" />
     <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsApi.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsBodyStore.h" />

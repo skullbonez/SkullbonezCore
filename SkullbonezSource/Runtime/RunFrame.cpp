@@ -1080,7 +1080,6 @@ void Run::TickReplaySaveProbe()
             }
             placedModel.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             placedModel.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
-            m_cGameModelCollection.InvalidatePhysicsStreams();
             m_cGameModelCollection.CommitEditedModelPhysicsState( modelCountBeforePlace, true );
             m_replayRuntime.RecordEditorTransformEvent(
                 modelCountBeforePlace,
@@ -1765,7 +1764,6 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 SkullbonezCore::GameObjects::GameModelCollectionPhysicsAdapter( m_cGameModelCollection )
                     .WakeBodyForModelIndex( event.value0 );
             }
-            m_cGameModelCollection.InvalidatePhysicsStreams();
             WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied editor transform" );
             return true;
         }
@@ -1996,8 +1994,6 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                                                  m_launchOptions.generatedObjectTypeOverride ),
                 event.value0 );
         }
-        m_cGameModelCollection.InvalidatePhysicsStreams();
-
         if ( !checkpointTopologyMatchesLive() )
         {
             WriteReplayProbeReason( rebuildReason,
@@ -2022,7 +2018,6 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         {
             char fallbackReason[128] = {};
             fallbackRestored = ApplyReplaySolverSampleState( liveBackup, fallbackReason, sizeof( fallbackReason ) );
-            m_cGameModelCollection.InvalidatePhysicsStreams();
         }
         return failWithDiagnostic( message,
                                    diagnosticTarget,
@@ -2071,7 +2066,6 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
         return failWithDiagnostic( message, target, checkpoint );
     }
     stateMutated = true;
-    m_cGameModelCollection.InvalidatePhysicsStreams();
 
     ReplayFrameIndex currentFrame = checkpoint->frameIndex;
     int currentSceneFrame = checkpoint->sceneFrame;

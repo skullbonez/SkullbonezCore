@@ -9,8 +9,6 @@ Mental model:
   when that state changes.
 
 Glossary:
-  SoA (Structure of Arrays): Cache layout that stores each field in its own
-  contiguous array for faster iteration.
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
   output and local queries.
   Physics material: Per-object friction and drag coefficients cached by the
@@ -48,7 +46,6 @@ Related:
 #include <vector>
 
 #include "GameModel.h"
-#include "GameModelStreams.h"
 #include "../Maths/Matrix4.h"
 #include "../Physics/PhysicsEngine.h"
 #include "../Physics/PhysicsModelAccess.h"
@@ -103,9 +100,9 @@ class GameModelCollectionPhysicsAdapter;
 --------------------------------------------------------------------------------------------------------------------------------------
 
     Owns the scene's GameModel storage and exposes stable model-facing calls.
-    Physics, rendering, hot SoA streams, and scene serialization sit behind
-    dedicated collaborators. Some runtime tools still use model-indexed calls
-    because scene files, replay streams, and editor picks preserve model order.
+    Physics, rendering, and scene serialization sit behind dedicated
+    collaborators. Some runtime tools still use model-indexed calls because
+    scene files, replay streams, and editor picks preserve model order.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class GameModelCollection
 {
@@ -115,7 +112,6 @@ class GameModelCollection
 
   private:
     std::vector<GameModel> m_gameModels;
-    GameModelSoACache m_soaCache;
     Physics::PhysicsEngine m_physicsEngine;
     // Cached physics policy applied to existing and newly added models whenever
     // runtime config changes.
@@ -128,7 +124,6 @@ class GameModelCollection
     uint32_t m_nextReplayBodyId = 1;
     std::vector<int> m_replayRenderPoseOverrideIndices; // Pending one-frame render-only replay pose rows.
 
-    void InvalidateSoA();
     void RememberReplayRenderPoseOverride( int modelIndex );
     void ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore );
 
@@ -167,7 +162,7 @@ class GameModelCollection
                               const Math::Transformation::Matrix4& view,
                               const Math::Transformation::Matrix4& proj,
                               const Basics::CinematicRenderConfig* cinematic = nullptr );
-    void PrepareRenderStreams();
+    void PrepareRenderInstances();
     bool GetObjectShadowBounds( const Math::Vector::Vector3& focus,
                                 float maxDistance,
                                 Math::Vector::Vector3& outCenter,
@@ -234,27 +229,23 @@ class GameModelCollection
                                  uint32_t replayBodyId,
                                  const Math::Vector::Vector3& position,
                                  const Math::Orientation::Quaternion& orientation );
-    // Mutates angular velocity through the collection so derived body streams
-    // cannot keep a stale copy.
+    // Mutates angular velocity through the collection so PhysicsBodyStore is
+    // refreshed through the same owner-checked path as replay/editor edits.
     bool TrySetModelAngularVelocity( int index, const Math::Vector::Vector3& angularVelocity );
     Basics::MainMemoryGameObjectStats CollectMemoryStats() const;
     bool TrimModelsForReplayRestore( int modelCount );
     void CaptureReplaySolverWorldSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot ) const;
     bool RestoreReplaySolverWorldSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot );
-    GameModelBodyStream GetBodyStream();
-    GameModelRenderStream GetRenderStream();
     Physics::PhysicsEngine& GetPhysicsEngine();
     const Physics::PhysicsEngine& GetPhysicsEngine() const;
     const Physics::PhysicsBodyStore& GetPhysicsBodyStore();
     const Physics::ColliderStore& GetColliderStore();
-    // Current prepared render snapshot. Call PrepareRenderStreams() before frame
+    // Current prepared render snapshot. Call PrepareRenderInstances() before frame
     // passes; cold callers that need an ensured snapshot use GetRenderInstanceStore().
     const Rendering::RenderInstanceStore& RenderInstances() const;
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();
     GameModel& GetModelAtIndex( int index );
     double GetSceneKineticEnergy();
-    GameModelBodyStream GetPhysicsBodyStream();
-    void InvalidatePhysicsStreams();
     void WriteBackPhysicsBodies( const Physics::PhysicsBodyStore& bodyStore );
     void WriteBackPhysicsBody( const Physics::PhysicsBodyStore& bodyStore, int modelIndex );
     void ReloadPhysicsBodies( Physics::PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
