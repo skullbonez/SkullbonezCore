@@ -141,10 +141,6 @@ class GameModelCollection
     // one owner step so construction commands can use the returned body handle.
     Physics::PhysicsBodyHandle AddGameModel( GameModel gameModel );
     void Clear();
-    void RunPhysics( float fChangeInTime,
-                     const Basics::EngineConfig& config,
-                     const Physics::PhysicsWorldForces& worldForces,
-                     Threading::WorkerPool& workerPool );
     int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount );
     void RenderModels( const Basics::RenderHelperContext& helperContext,
                        const Math::Transformation::Matrix4& view,

@@ -5,8 +5,9 @@ Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
 intermittent `tools\validate_physics.bat` passed on 2026-07-05 after moving
-replay velocity-edit input and gizmo drawing off `GameModel` body mirrors and
-onto `PhysicsBodyStore`/`ColliderStore` records.
+the normal runtime and replay prediction fixed-step edges off
+`GameModelCollection::RunPhysics()` and onto direct `PhysicsEngine::Step()`
+calls with explicit model-owner prep/writeback.
 
 ## Completed Slices
 
@@ -356,6 +357,23 @@ onto `PhysicsBodyStore`/`ColliderStore` records.
   `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
   passed on 2026-07-05; physics regression reported standalone/runtime handle
   smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Deleted the `GameModelCollection::RunPhysics()` fixed-step
+  wrapper. Owner: runtime frame stepping and replay prediction stepping. Reason:
+  the store-owned step should visibly enter `PhysicsEngine::Step()` after
+  explicit model-owner topology repair, contact-highlight ticking, Debug
+  diagnostic name-table setup, and temporary compatibility writeback, instead
+  of hiding those edges behind a collection method. Deletion condition:
+  `GameModelCollection` exposes no `RunPhysics` declaration/definition and
+  runtime/replay prediction code contains no collection `RunPhysics()` call.
+  Checker budget: `tools/check_runtime_boundaries.py` blocks wrapper
+  declarations, definitions, and call sites with reject/allow/comment-only
+  self-tests. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+  `tools\validate_fast.bat`, and intermittent
+  `tools\validate_physics.bat` passed on 2026-07-05; physics regression reported
+  standalone/runtime handle smoke pass and byte-exact
+  `physics_regression_solver.csv`.
 
 ## Goal
 

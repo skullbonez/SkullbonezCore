@@ -58,12 +58,17 @@ Import-Csv Agentic\Plans\In_Progress\physics-standalone-agent-workqueue.csv |
 
 ## Current Blocking Facts
 
-- `PhysicsEngine::Step()` still takes `PhysicsModelAccess&` and forwards it to
-  `PhysicsScene::RunPhysics()`.
-  Evidence: `SkullbonezSource/Physics/PhysicsEngine.cpp:77`.
-- `PhysicsScene::RunPhysics()` still loads from model-backed state, solves
-  through stores, then writes back to model-backed state every step.
-  Evidence: `SkullbonezSource/Physics/PhysicsScene.cpp:147`.
+- The normal runtime and replay prediction fixed-step edges now call
+  `PhysicsEngine::Step()` directly, but they still apply model-owner topology
+  repair, contact-highlight presentation, diagnostics name tables, and temporary
+  compatibility body writeback around that store-owned step.
+  Evidence: `SkullbonezSource/Runtime/RunFrame.cpp`,
+  `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp`.
+- `PhysicsScene::RunPhysics()` now steps `PhysicsBodyStore`/`ColliderStore`
+  directly and no longer owns model writeback, but `PhysicsModelAccess` remains
+  as the model-owner authoring/topology refresh facade.
+  Evidence: `SkullbonezSource/Physics/PhysicsScene.cpp`,
+  `SkullbonezSource/Physics/PhysicsModelAccess.h`.
 - `PhysicsBodyStore` still exposes compatibility load/writeback helpers through
   `PhysicsModelAccess`.
   Evidence: `SkullbonezSource/Physics/PhysicsBodyStore.cpp:192`,
@@ -73,10 +78,10 @@ Import-Csv Agentic\Plans\In_Progress\physics-standalone-agent-workqueue.csv |
   Evidence: `SkullbonezSource/Physics/ColliderStore.cpp:55`,
   `SkullbonezSource/Physics/ColliderStore.cpp:94`.
 - `PhysicsStandaloneWorld::Contacts()` and `PhysicsStandaloneWorld::Islands()`
-  still return stable empty public views because standalone collision and sleep
-  island generation have not migrated yet.
-  Evidence: `SkullbonezSource/Physics/PhysicsApi.cpp:793`,
-  `SkullbonezSource/Physics/PhysicsApi.cpp:803`.
+  return real public rows for the current standalone smoke coverage, but
+  remaining exact shape-pair contacts and full support propagation are still
+  future work.
+  Evidence: `SkullbonezSource/Physics/PhysicsApi.cpp`.
 - `GameModelCollectionPhysicsAdapter` is deleted; remaining model-index identity
   debt lives at owner/tool/replay selection boundaries, not behind a reusable
   adapter bridge.
@@ -1881,6 +1886,48 @@ Evidence: targeted residue scan found no live `GameModel` body reads or
 summary reported 0 errors; focused Debug build passed with 0 warnings/errors;
 touched-file comment audit passed for all touched source/tool files;
 `tools\validate_fast.bat` passed formatting, project filters, runtime
+boundaries, and Profile/Debug builds with 0 warnings/errors;
+`tools\validate_physics.bat` passed standalone/runtime handle smoke and
+byte-exact `physics_regression_solver.csv`.
+
+Slice `PHY-1040`: delete the `GameModelCollection::RunPhysics()` fixed-step
+wrapper. Owner: runtime and replay prediction fixed-step edges; reason: the
+normal step call should visibly enter `PhysicsEngine::Step()` after explicit
+model-owner prep instead of hiding store-owned stepping and model mirror
+writeback behind a collection method; deletion condition:
+`GameModelCollection` exposes no `RunPhysics` declaration/definition and runtime
+or replay prediction code contains no collection `RunPhysics()` call; checker
+budget: `tools/check_runtime_boundaries.py` blocks wrapper declarations,
+definitions, and call sites in `GameModelCollection`, `RunFrame`, and replay
+prediction.
+
+- [x] Delete the `GameModelCollection::RunPhysics()` declaration and
+  implementation.
+- [x] Move the normal runtime fixed-step edge to
+  `RunFrame.cpp::StepRuntimePhysicsTick()`: count-gated topology repair,
+  contact-highlight ticking, Debug name-table setup, direct
+  `PhysicsEngine::Step()`, fixed-contact presentation, and explicit temporary
+  body mirror writeback.
+- [x] Move replay prediction stepping to a local
+  `StepReplayPredictionPhysicsTick()` helper with the same explicit edge.
+- [x] Add runtime-boundary guardrails and self-tests blocking wrapper
+  resurrection and call sites.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation run for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] touched-file comment audit
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence: targeted residue scan found no `GameModelCollection::RunPhysics`,
+`void RunPhysics(` declaration, `m_cGameModelCollection.RunPhysics`, or
+`modelCollection.RunPhysics` in the touched runtime/replay sources; runtime
+boundary summary reported 0 errors; focused Debug build passed with 0
+warnings/errors; touched-file comment audit passed for all source/tool files
+touched; `tools\validate_fast.bat` passed formatting, project filters, runtime
 boundaries, and Profile/Debug builds with 0 warnings/errors;
 `tools\validate_physics.bat` passed standalone/runtime handle smoke and
 byte-exact `physics_regression_solver.csv`.

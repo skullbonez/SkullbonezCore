@@ -209,7 +209,11 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 
                 {
                     PROFILE_SCOPED( "Frame/Replay/Prediction/StepPhysics" );
-                    modelCollection.RunPhysics( PHYSICS_FIXED_DT, config, worldForces, workerPool );
+                    StepReplayPredictionPhysicsTick( modelCollection,
+                                                     PHYSICS_FIXED_DT,
+                                                     config,
+                                                     worldForces,
+                                                     workerPool );
                 }
                 CaptureReplayPredictionFrame( replayRuntime,
                                               modelCollection,

@@ -16,8 +16,8 @@
 #   smoke has a handle-authority fence, contact-audio simple mode has a
 #   body-store motion fence, and fixed-tree, replay-restore wake, replay
 #   velocity-edit, launcher ray-hit, or editor wake/sleep commands have
-#   store-handle fences, so count allowances do not silently approve a new
-#   compatibility location.
+#   store-handle fences. The deleted collection step wrapper has its own fence,
+#   so count allowances do not silently approve a new compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -141,6 +141,7 @@ RUNTIME_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp")
 RUNTIME_TOOLS_HEADER = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h")
 REPLAY_VELOCITY_EDIT_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl")
 REPLAY_PREDICTION_HELPERS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl")
+REPLAY_PREDICTION_VISUALIZER_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl")
 REPLAY_RECORDER_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
 RUNTIME_RENDER_PASS_CAPABILITY_SOURCES = (
@@ -299,9 +300,10 @@ GAME_MODEL_COLLECTION_BODY_STORE_REFRESH_PATTERN = re.compile(
 GAME_MODEL_COLLECTION_BODY_STORE_COUNT_GATE_PATTERN = re.compile(
     r"\bm_physicsEngine\s*\.\s*BodyStore\s*\(\s*\)\s*\.\s*Count\s*\(\s*\)\s*!=\s*ModelCount\s*\(\s*\)"
 )
-GAME_MODEL_COLLECTION_RUN_PHYSICS_FUNCTION_PATTERN = re.compile(r"\bvoid\s+GameModelCollection::RunPhysics\s*\(")
-GAME_MODEL_COLLECTION_RUN_PHYSICS_MODEL_ACCESS_DECL_PATTERN = re.compile(
-    r"\bPhysicsModelAccess\s+modelAccess\s*\(\s*\*\s*this\s*\)\s*;"
+GAME_MODEL_COLLECTION_RUN_PHYSICS_DEFINITION_PATTERN = re.compile(r"\bGameModelCollection::RunPhysics\s*\(")
+GAME_MODEL_COLLECTION_RUN_PHYSICS_DECLARATION_PATTERN = re.compile(r"\bvoid\s+RunPhysics\s*\(")
+GAME_MODEL_COLLECTION_RUN_PHYSICS_CALL_PATTERN = re.compile(
+    r"\b(?:m_cGameModelCollection|modelCollection)\s*\.\s*RunPhysics\s*\("
 )
 GAME_MODEL_COLLECTION_BODY_READ_MODEL_FIELD_PATTERN = re.compile(
     r"\bm_gameModels\s*\[[^\]]+\]\s*\.\s*GetPosition\s*\("
@@ -3315,48 +3317,49 @@ def check_game_model_collection_run_physics_model_access_guardrails_text(
     path: Path,
     text: str,
 ) -> list[BoundaryError]:
-    if path.name != "GameModelCollection.cpp":
+    if path.name not in { "GameModelCollection.cpp", "GameModelCollection.h", "RunFrame.cpp", "RunReplayPredictionVisualizer.inl" }:
         return []
     stripped = strip_cpp_comments_and_string_literals(text)
     errors: list[BoundaryError] = []
-    function_match = GAME_MODEL_COLLECTION_RUN_PHYSICS_FUNCTION_PATTERN.search(stripped)
-    if not function_match:
-        return errors
+    if path.name == "GameModelCollection.cpp":
+        matches = GAME_MODEL_COLLECTION_RUN_PHYSICS_DEFINITION_PATTERN.finditer(stripped)
+    elif path.name == "GameModelCollection.h":
+        matches = GAME_MODEL_COLLECTION_RUN_PHYSICS_DECLARATION_PATTERN.finditer(stripped)
+    else:
+        matches = GAME_MODEL_COLLECTION_RUN_PHYSICS_CALL_PATTERN.finditer(stripped)
 
-    open_brace = stripped.find("{", function_match.end())
-    if open_brace < 0:
-        return errors
-    close_brace = find_matching_close_brace(stripped, open_brace)
-
-    for match in GAME_MODEL_COLLECTION_RUN_PHYSICS_MODEL_ACCESS_DECL_PATTERN.finditer(
-        stripped,
-        open_brace,
-        close_brace,
-    ):
-        preceding_function_text = stripped[open_brace:match.start()]
-        brace_depth = preceding_function_text.count("{") - preceding_function_text.count("}")
-        if brace_depth <= 1:
-            errors.append(
-                BoundaryError(
-                    path,
-                    line_for_offset(stripped, match.start()),
-                    "steady physics step model-access facade is blocked",
-                    (
-                        "GameModelCollection::RunPhysics should create PhysicsModelAccess only inside topology "
-                        "repair branches, so steady frames step PhysicsBodyStore and ColliderStore without "
-                        "borrowing the GameModel owner."
-                    ),
-                )
+    for match in matches:
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "GameModelCollection physics step wrapper is blocked",
+                (
+                    "Run::TickPhysics should call PhysicsEngine::Step directly after explicit model-owner "
+                    "topology repair, contact-highlight ticking, diagnostics name-table setup, and compatibility "
+                    "writeback. Do not hide the store-owned step behind GameModelCollection::RunPhysics again."
+                ),
             )
+        )
     return errors
 
 
 def check_game_model_collection_run_physics_model_access_guardrails(repo: Path) -> list[BoundaryError]:
-    path = repo / GAME_MODEL_COLLECTION_SOURCE
-    return check_game_model_collection_run_physics_model_access_guardrails_text(
-        path,
-        path.read_text(encoding="utf-8"),
-    )
+    errors: list[BoundaryError] = []
+    for source in (
+        GAME_MODEL_COLLECTION_SOURCE,
+        GAME_MODEL_COLLECTION_HEADER,
+        RUN_FRAME_SOURCE,
+        REPLAY_PREDICTION_VISUALIZER_SOURCE,
+    ):
+        path = repo / source
+        errors.extend(
+            check_game_model_collection_run_physics_model_access_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+            )
+        )
+    return errors
 
 
 def check_runtime_pick_service_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -10990,66 +10993,101 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("narrow collider edit commit synthetic surface was rejected")
 
-    old_run_physics_steady_model_access = """
+    old_run_physics_wrapper_definition = """
     void GameModelCollection::RunPhysics( float dt )
     {
-        PhysicsModelAccess modelAccess( *this );
-        const int modelCount = ModelCount();
-        if ( m_physicsEngine.BodyStore().Count() != modelCount )
-        {
-            m_physicsEngine.RefreshBodyStore( modelAccess );
-        }
+        RepairPhysicsBodyAndColliderTopology();
         m_physicsEngine.Step( dt, config, worldForces, workerPool, nullptr, 0 );
+        WriteBackPhysicsBodies( m_physicsEngine.BodyStore() );
     }
     """
     if not any(
-        error.message == "steady physics step model-access facade is blocked"
+        error.message == "GameModelCollection physics step wrapper is blocked"
         for error in check_game_model_collection_run_physics_model_access_guardrails_text(
             Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_run_physics_steady_model_access,
+            old_run_physics_wrapper_definition,
         )
     ):
-        failures.append("old steady RunPhysics model-access facade synthetic surface was not rejected")
+        failures.append("old GameModelCollection::RunPhysics wrapper definition was not rejected")
 
-    allowed_run_physics_topology_model_access = """
-    void GameModelCollection::RunPhysics( float dt )
+    old_run_physics_wrapper_declaration = """
+    class GameModelCollection
     {
-        const int modelCount = ModelCount();
-        const bool bodyTopologyChanged = m_physicsEngine.BodyStore().Count() != modelCount;
-        const bool colliderTopologyChanged = m_physicsEngine.Colliders().Count() != modelCount;
-        if ( bodyTopologyChanged || colliderTopologyChanged )
+        void RunPhysics( float dt, const EngineConfig& config, const PhysicsWorldForces& forces );
+    };
+    """
+    if not any(
+        error.message == "GameModelCollection physics step wrapper is blocked"
+        for error in check_game_model_collection_run_physics_model_access_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
+            old_run_physics_wrapper_declaration,
+        )
+    ):
+        failures.append("old GameModelCollection::RunPhysics wrapper declaration was not rejected")
+
+    old_run_physics_wrapper_call = """
+    void Run::TickPhysics()
+    {
+        m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT, config, forces, workerPool );
+    }
+    """
+    if not any(
+        error.message == "GameModelCollection physics step wrapper is blocked"
+        for error in check_game_model_collection_run_physics_model_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+            old_run_physics_wrapper_call,
+        )
+    ):
+        failures.append("old GameModelCollection::RunPhysics call site was not rejected")
+
+    old_replay_prediction_run_physics_wrapper_call = """
+    void StepReplayPrediction()
+    {
+        modelCollection.RunPhysics( PHYSICS_FIXED_DT, config, worldForces, workerPool );
+    }
+    """
+    if not any(
+        error.message == "GameModelCollection physics step wrapper is blocked"
+        for error in check_game_model_collection_run_physics_model_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl"),
+            old_replay_prediction_run_physics_wrapper_call,
+        )
+    ):
+        failures.append("old replay prediction GameModelCollection::RunPhysics call site was not rejected")
+
+    allowed_runtime_explicit_physics_step = """
+    void Run::TickPhysics()
+    {
+        const int modelCount = m_cGameModelCollection.ModelCount();
+        m_cGameModelCollection.RepairPhysicsBodyAndColliderTopology();
+        m_cGameModelCollection.TickContactHighlights( modelCount, PHYSICS_FIXED_DT );
+        PhysicsEngine& physicsEngine = m_cGameModelCollection.GetPhysicsEngine();
+        physicsEngine.Step( PHYSICS_FIXED_DT, config, forces, workerPool, nullptr, 0 );
+        for ( int index : physicsEngine.GetFixedContactHighlightBodies() )
         {
-            PhysicsModelAccess modelAccess( *this );
-            if ( bodyTopologyChanged )
-            {
-                m_physicsEngine.RefreshBodyStore( modelAccess );
-            }
-            if ( colliderTopologyChanged )
-            {
-                m_physicsEngine.RefreshColliderSnapshot( modelAccess );
-            }
+            m_cGameModelCollection.NotifyFixedContact( index, 0.5f );
         }
-        m_physicsEngine.Step( dt, config, worldForces, workerPool, nullptr, 0 );
+        m_cGameModelCollection.WriteBackPhysicsBodies( physicsEngine.BodyStore() );
     }
     """
     if check_game_model_collection_run_physics_model_access_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_run_physics_topology_model_access,
+        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+        allowed_runtime_explicit_physics_step,
     ):
-        failures.append("topology-gated RunPhysics model-access synthetic surface was rejected")
+        failures.append("explicit runtime PhysicsEngine::Step synthetic surface was rejected")
 
-    commented_run_physics_model_access = """
-    void GameModelCollection::RunPhysics( float dt )
+    commented_run_physics_wrapper = """
+    void Run::TickPhysics()
     {
-        // PhysicsModelAccess modelAccess( *this ) used to be created before count checks.
-        m_physicsEngine.Step( dt, config, worldForces, workerPool, nullptr, 0 );
+        // m_cGameModelCollection.RunPhysics(...) used to hide step writeback here.
+        physicsEngine.Step( PHYSICS_FIXED_DT, config, forces, workerPool, nullptr, 0 );
     }
     """
     if check_game_model_collection_run_physics_model_access_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        commented_run_physics_model_access,
+        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+        commented_run_physics_wrapper,
     ):
-        failures.append("comment-only RunPhysics model-access synthetic text was rejected")
+        failures.append("comment-only RunPhysics wrapper synthetic text was rejected")
 
     old_collection_body_model_reads = """
     Vector3 GameModelCollection::GetModelPosition( int index )

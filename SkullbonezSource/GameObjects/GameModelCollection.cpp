@@ -1078,56 +1078,6 @@ bool GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
 }
 
 
-void GameModelCollection::RunPhysics( float fChangeInTime,
-                                      const Basics::EngineConfig& config,
-                                      const Physics::PhysicsWorldForces& worldForces,
-                                      Threading::WorkerPool& workerPool )
-{
-    const int modelCount = ModelCount();
-
-    // Invariant: PhysicsBodyStore is the per-tick body authority. GameModel is
-    // imported only when model/body topology changes; same-count editor or replay
-    // mutations must use explicit commit paths before the step reads the store.
-    // Collider metadata is construction/authoring state, not per-tick solver
-    // state, so steady frames keep GameModel out of the physics step.
-    RepairPhysicsBodyAndColliderTopology();
-
-    TickContactHighlights( modelCount, fChangeInTime );
-
-    const char* const* diagnosticNames = nullptr;
-    int diagnosticNameCount = 0;
-#ifdef _DEBUG
-    std::vector<const char*> physicsDiagnosticsModelNames;
-    if ( m_physicsEngine.ShouldEmitStepDiagnostics() || m_physicsEngine.ShouldEmitCollisionTimeDiagnostics() )
-    {
-        // Why: Debug rows still need presentation names, but the physics step
-        // receives them as a cold pointer table instead of borrowing the model owner.
-        FillPhysicsDiagnosticsNames( m_physicsEngine.BodyStore().Count(), physicsDiagnosticsModelNames );
-        diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
-        diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
-    }
-#endif
-
-    m_physicsEngine.Step( fChangeInTime, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
-
-    // Why: fixed-contact highlights are GameModel presentation feedback. The
-    // solver records compact body indices; the collection applies them before
-    // bulk writeback changes fixed flags in the compatibility model mirror.
-    for ( int index : m_physicsEngine.GetFixedContactHighlightBodies() )
-    {
-        NotifyFixedContact( index, 0.5f );
-    }
-
-    // Compatibility owner: GameModelCollection step boundary.
-    // Reason: editor and replay compatibility consumers still read GameModel
-    // pose/state after the store-owned solver has finished.
-    // Deletion condition: those consumers read PhysicsBodyStore or
-    // handle-addressed physics commands directly. Checker budget: boundary grep
-    // keeps bulk solver writeback out of PhysicsWorld and PhysicsScene stepping.
-    WriteBackPhysicsBodies( m_physicsEngine.BodyStore() );
-}
-
-
 void GameModelCollection::SetPhysicsSleepEnabled( bool enabled )
 {
     m_physicsEngine.SetSleepEnabled( enabled );

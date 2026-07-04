@@ -15,6 +15,8 @@ Glossary:
     completed audio decisions paint body flashes after a fixed physics step.
   Contact-audio simple mode: Presentation-only path that emits from body linear
     velocity changes rather than solver contact rows.
+  Fixed-step edge: Runtime-owned code that repairs model/body topology before
+    PhysicsEngine::Step and applies presentation-only mirror work after it.
   Replay event payload: Saved event data that must be decoded exactly so replay
     restore and validation compare the same floating-point bits.
   Validation gate: Repository script that proves a class of changes before
@@ -102,6 +104,53 @@ constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED
 // Concept: replay flags are compact wire-format fields. Keep these masks local
 // to decode logic so new replay payload versions do not inherit accidental UI
 // or runtime enum values.
+
+// Concept: fixed-step edge.
+//
+// PhysicsEngine::Step owns the store-backed solve. GameModelCollection still
+// owns topology repair, model highlight timers, Debug presentation names, and
+// the temporary compatibility body mirror, so the runtime frame applies those
+// owner-side edges explicitly around the engine step.
+void StepRuntimePhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                             float fixedDt,
+                             const EngineConfig& config,
+                             const PhysicsWorldForces& worldForces,
+                             SkullbonezCore::Threading::WorkerPool& workerPool )
+{
+    const int modelCount = modelCollection.ModelCount();
+    // Invariant: PhysicsBodyStore is the per-tick body authority. GameModel is
+    // imported only when model/body/collider topology changes; same-count
+    // editor or replay mutations must commit explicitly before this step reads
+    // store rows.
+    modelCollection.RepairPhysicsBodyAndColliderTopology();
+    modelCollection.TickContactHighlights( modelCount, fixedDt );
+
+    PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
+    const char* const* diagnosticNames = nullptr;
+    int diagnosticNameCount = 0;
+#ifdef _DEBUG
+    std::vector<const char*> physicsDiagnosticsModelNames;
+    if ( physicsEngine.ShouldEmitStepDiagnostics() || physicsEngine.ShouldEmitCollisionTimeDiagnostics() )
+    {
+        // Lifetime: Debug diagnostics borrow model name pointers only until
+        // Step returns; physics never retains this presentation table after
+        // emitting frame diagnostics.
+        modelCollection.FillPhysicsDiagnosticsNames( physicsEngine.BodyStore().Count(), physicsDiagnosticsModelNames );
+        diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
+        diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
+    }
+#endif
+    physicsEngine.Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
+
+    // Why: fixed-contact highlights and compatibility body mirrors are
+    // presentation edges. Keeping them here makes the normal step call visibly
+    // store-owned instead of buried in GameModelCollection.
+    for ( int index : physicsEngine.GetFixedContactHighlightBodies() )
+    {
+        modelCollection.NotifyFixedContact( index, 0.5f );
+    }
+    modelCollection.WriteBackPhysicsBodies( physicsEngine.BodyStore() );
+}
 
 void CompareLatestReplaySamples( ReplayRuntime& replayRuntime, RunReplayMismatchState& mismatchState )
 {
@@ -626,8 +675,8 @@ void Run::TickPhysics( double secondsPerFrame )
     {
         PROFILE_BEGIN( "Frame/Physics" );
         // Why: SimulationSystem now returns only a deterministic tick count.
-        // Runtime executes those ticks through the collection-owned boundary so
-        // model presentation sync stays outside PhysicsEngine/PhysicsScene.
+        // Runtime executes the store-owned physics step directly, then applies
+        // the remaining model-owned presentation sync as explicit edge work.
         for ( int tickIndex = 0; tickIndex < tick.committedPhysicsTicks; ++tickIndex )
         {
             PROFILE_SCOPED( "Frame/Physics/Step" );
@@ -635,10 +684,13 @@ void Run::TickPhysics( double secondsPerFrame )
             {
                 ApplyMousePickupPhysicsStep();
             }
-            m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT,
-                                               *m_systems.config,
-                                               physicsWorldForces,
-                                               *m_systems.workerPool );
+
+            StepRuntimePhysicsTick( m_cGameModelCollection,
+                                    PHYSICS_FIXED_DT,
+                                    *m_systems.config,
+                                    physicsWorldForces,
+                                    *m_systems.workerPool );
+
             if ( manipulatorPhysics || replayCapture || contactAudioStep )
             {
                 AfterPhysicsStep();
@@ -2124,10 +2176,11 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             m_cGameModelCollection.BeginCollisionVisualFrame();
 
             const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
-            m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT,
-                                               *m_systems.config,
-                                               physicsWorldForces,
-                                               *m_systems.workerPool );
+            StepRuntimePhysicsTick( m_cGameModelCollection,
+                                    PHYSICS_FIXED_DT,
+                                    *m_systems.config,
+                                    physicsWorldForces,
+                                    *m_systems.workerPool );
             currentFrame = nextFrame;
 
             const ReplayV2SolverHashSample* expectedHash = FindReplaySolverHashForFrame( hashes, currentFrame );

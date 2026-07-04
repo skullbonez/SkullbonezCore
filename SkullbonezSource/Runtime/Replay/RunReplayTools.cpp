@@ -16,6 +16,8 @@ Glossary:
     handoffs.
   Prediction slice: Time-budgeted replay preview work performed inside a render
     frame.
+  Prediction physics tick: Replay-owned fixed step that temporarily advances
+    PhysicsBodyStore and then restores the live store snapshot.
   Future node: Body discovered by following contacts outward from a selected
     root body.
   ReplayBodyId: Stable runtime id used across retained samples even when vector
@@ -168,6 +170,43 @@ void ReplayVelocitySetAxisComponent( Vector3& value, int axis, float component )
     {
         value.z = component;
     }
+}
+
+
+void StepReplayPredictionPhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                      float fixedDt,
+                                      const EngineConfig& config,
+                                      const PhysicsWorldForces& worldForces,
+                                      SkullbonezCore::Threading::WorkerPool& workerPool )
+{
+    const int modelCount = modelCollection.ModelCount();
+    // Invariant: prediction steps mutate PhysicsBodyStore, then restore live
+    // state from captured store records. Model topology repair remains the
+    // owner-side edge before the store-owned step reads body/collider rows.
+    modelCollection.RepairPhysicsBodyAndColliderTopology();
+    modelCollection.TickContactHighlights( modelCount, fixedDt );
+
+    PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
+    const char* const* diagnosticNames = nullptr;
+    int diagnosticNameCount = 0;
+#ifdef _DEBUG
+    std::vector<const char*> physicsDiagnosticsModelNames;
+    if ( physicsEngine.ShouldEmitStepDiagnostics() || physicsEngine.ShouldEmitCollisionTimeDiagnostics() )
+    {
+        // Lifetime: diagnostics names are borrowed only through the immediate
+        // Step call, matching the runtime fixed-step edge.
+        modelCollection.FillPhysicsDiagnosticsNames( physicsEngine.BodyStore().Count(), physicsDiagnosticsModelNames );
+        diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
+        diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
+    }
+#endif
+    physicsEngine.Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
+
+    for ( int index : physicsEngine.GetFixedContactHighlightBodies() )
+    {
+        modelCollection.NotifyFixedContact( index, 0.5f );
+    }
+    modelCollection.WriteBackPhysicsBodies( physicsEngine.BodyStore() );
 }
 
 
