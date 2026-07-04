@@ -7,10 +7,10 @@ description: Coordinate SkullbonezCore plan implementation in the main Codex age
 
 Coordinate a SkullbonezCore plan queue without the retired repository-owned
 JSON/Python state machine. This skill is coordinator-only: it resolves plan
-scope and branch policy, implements each plan in the main agent, saves the
+scope and branch policy, implements each plan in the main agent, saves any
 independent `$rubber-duck` critique for the end of a major completed plan or
-checkpoint, runs the required final validation gate, and commits/pushes one
-accepted slice at a time.
+whole-job checkpoint, runs the required final validation gate, and
+commits/pushes one accepted slice at a time.
 
 ## Inputs
 
@@ -46,8 +46,11 @@ Do not force-push, rebase, rewrite history, merge PRs, or commit/push on
 ## Sub-Agent Tools
 
 Use sub-agents or Codex thread tools only for independent `$rubber-duck` review
-at the end of a major plan/checkpoint, or earlier only when the user explicitly
-asks for one. Do not dispatch plan implementation, cleanup, validation, staging,
+at the end of a major plan/checkpoint or whole job. Earlier review is allowed
+only when the user explicitly asks for one, or when the same failure mode has
+repeated and independent critique is the cheapest way to get unstuck. Do not run
+a review per edit, per checklist row, per source file, per commit, or per small
+slice. Do not dispatch plan implementation, cleanup, validation, staging,
 committing, or pushing to a sub-agent. If the tools are not already loaded,
 search for them with `tool_search` using names such as `create_thread`,
 `send_message_to_thread`, `read_thread`, `handoff_thread`, and `list_threads`.
@@ -58,7 +61,9 @@ queue policy.
 
 ## Rubber-Duck Accounting
 
-Keep an in-memory row for every rubber-duck review pass. Assign each pass a
+Default to zero rubber-duck rows while ordinary implementation is in progress.
+Keep an in-memory row for every rubber-duck review pass that actually runs.
+Assign each pass a
 stable run id such as `<plan-stem>-duck-01`, `<plan-stem>-duck-02`, and so on.
 For each row, record:
 
@@ -89,8 +94,9 @@ For each plan or source slice, in order:
    diffs.
 4. For ordinary incremental slices, skip rubber-duck review and keep moving.
    Launch a separate read-only rubber-duck review sub-agent only when the slice
-   completes a major plan/checkpoint, when the user explicitly asks for review,
-   or when repeated failures show that independent critique is needed:
+   completes a major plan/checkpoint or whole job, when the user explicitly
+   asks for review, or when repeated failures show that independent critique is
+   needed:
 
 ```text
 Use $rubber-duck to review the completed work for <plan-path> on branch <branch>.
@@ -144,7 +150,8 @@ Report:
 - Any skipped plan, blocker, dirty user-owned file, or residual risk.
 - Total elapsed wall-clock time and timings for long builds, validations,
   launches, or investigations.
-- A final rubber-duck accounting table, one row per review pass:
+- A final rubber-duck accounting table, one row per review pass. If no review
+  was appropriate, say that no rubber-duck pass was run for the slice:
 
 ```markdown
 | Plan | Duck run | Reviewer/thread | Reason | Prompt chars | Response chars | Tokens | Elapsed | Verdict | Follow-up |

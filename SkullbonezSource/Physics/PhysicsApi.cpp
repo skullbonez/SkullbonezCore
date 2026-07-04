@@ -2042,6 +2042,49 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         staleIslandView.islands && staleIslandView.islands[0].bodyCount == 1u && staleIslandView.islands[0].bodies &&
         staleIslandView.islands[0].bodies[0] == liveIslandBody;
 
+    // Why: these bodies have no colliders, so a merged island can only come
+    // from the standalone point-joint endpoint path.
+    PhysicsStandaloneWorld constraintIslandWorld;
+    PhysicsBodyCreateDesc constraintIslandBodyADesc;
+    constraintIslandBodyADesc.sceneObjectId = PhysicsSceneObjectId{ 44u };
+    const PhysicsBodyHandle constraintIslandBodyA = constraintIslandWorld.CreateBody( constraintIslandBodyADesc );
+    PhysicsBodyCreateDesc constraintIslandBodyBDesc;
+    constraintIslandBodyBDesc.sceneObjectId = PhysicsSceneObjectId{ 45u };
+    constraintIslandBodyBDesc.position = Vector3( 5.0f, 0.0f, 0.0f );
+    const PhysicsBodyHandle constraintIslandBodyB = constraintIslandWorld.CreateBody( constraintIslandBodyBDesc );
+
+    PhysicsPointJointCreateDesc constraintIslandJointDesc;
+    constraintIslandJointDesc.bodyA = constraintIslandBodyA;
+    constraintIslandJointDesc.bodyB = constraintIslandBodyB;
+    const PhysicsConstraintHandle constraintIslandJoint = constraintIslandWorld.CreatePointJoint( constraintIslandJointDesc );
+    const PhysicsPointJointCollectionView constraintIslandJoints = constraintIslandWorld.PointJoints();
+    const bool constraintIslandJointViewConsistent =
+        constraintIslandJoint.IsValid() && constraintIslandJoints.pointJointCount == 1u &&
+        constraintIslandJoints.pointJoints && constraintIslandJoints.pointJoints[0].constraint == constraintIslandJoint;
+    const bool constraintIslandStepSucceeded = constraintIslandWorld.Step( islandStepDesc );
+    const PhysicsContactCollectionView constraintIslandContacts = constraintIslandWorld.Contacts();
+    const PhysicsIslandCollectionView constraintIslandView = constraintIslandWorld.Islands();
+    const bool constraintOnlyIslandBeforeDestroy =
+        constraintIslandJointViewConsistent && constraintIslandStepSucceeded && constraintIslandContacts.contactCount == 0u &&
+        constraintIslandView.islandCount == 1u && constraintIslandView.islands &&
+        constraintIslandView.islands[0].bodyCount == 2u && constraintIslandView.islands[0].bodies &&
+        constraintIslandView.islands[0].bodies[0] == constraintIslandBodyA &&
+        constraintIslandView.islands[0].bodies[1] == constraintIslandBodyB;
+
+    const bool destroyedConstraintIslandJoint = constraintIslandWorld.DestroyConstraint( constraintIslandJoint );
+    const bool constraintIslandAfterDestroyStepSucceeded = constraintIslandWorld.Step( islandStepDesc );
+    const PhysicsIslandCollectionView constraintIslandAfterDestroyView = constraintIslandWorld.Islands();
+    const bool constraintOnlyIslandAfterDestroy =
+        destroyedConstraintIslandJoint && constraintIslandAfterDestroyStepSucceeded &&
+        constraintIslandAfterDestroyView.islandCount == 2u && constraintIslandAfterDestroyView.islands &&
+        constraintIslandAfterDestroyView.islands[0].bodyCount == 1u &&
+        constraintIslandAfterDestroyView.islands[0].bodies &&
+        constraintIslandAfterDestroyView.islands[0].bodies[0] == constraintIslandBodyA &&
+        constraintIslandAfterDestroyView.islands[1].bodyCount == 1u &&
+        constraintIslandAfterDestroyView.islands[1].bodies &&
+        constraintIslandAfterDestroyView.islands[1].bodies[0] == constraintIslandBodyB;
+    const bool constraintOnlyIslandConsistent = constraintOnlyIslandBeforeDestroy && constraintOnlyIslandAfterDestroy;
+
     PhysicsStandaloneSmokeResult result;
     result.body = body;
     result.secondaryBody = secondaryBody;
@@ -2119,7 +2162,7 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         poseVelocityUpdateConsistent && destroyedEditableBody && staleEditableBodyRejected &&
         impulseCommandConsistent && staleImpulseRejected && activationCommandsConsistent && rayCastConsistent &&
         broadphaseQueryConsistent && contactSmokeConsistent && islandSmokeConsistent && wakeIslandConsistent &&
-        staleIslandExcluded;
+        staleIslandExcluded && constraintOnlyIslandConsistent;
 
     result.deterministicHash = HashSmokeResult( result );
     result.passed = stepped && result.lifecycleChecksPassed && finalBody && result.secondaryBodyAdvanced &&

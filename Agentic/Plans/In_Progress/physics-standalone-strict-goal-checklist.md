@@ -329,17 +329,23 @@ checker at 0 errors and `tools\validate_physics.bat` byte-exact.
 Target: constraints are handle-owned and participate in standalone stepping,
 islands, deletion, and diagnostics.
 
-- [ ] Confirm point-joint standalone records already use `PhysicsBodyHandle`
+Latest evidence: standalone point-joint descriptors, updates, and views are
+already `PhysicsBodyHandle` / `PhysicsConstraintHandle` backed. The smoke now
+includes a constraint-only island case where two colliderless bodies merge
+through a live point joint and split after `DestroyConstraint()`. Legacy
+scene/ragdoll `PointJointConstraint` callers still need a later migration.
+
+- [x] Confirm point-joint standalone records already use `PhysicsBodyHandle`
   endpoints and `PhysicsConstraintHandle` lifetime.
 - [ ] Move legacy scene/ragdoll `PointJointConstraint` use toward handle-backed
   descriptors.
-- [ ] Make same-body, stale-body, and deleted-body failures part of smoke
+- [x] Make same-body, stale-body, and deleted-body failures part of smoke
   evidence for every public constraint command.
-- [ ] Include constraints in island generation.
-- [ ] Add query/view coverage for live constraints if diagnostics or replay need
+- [x] Include constraints in island generation.
+- [x] Add query/view coverage for live constraints if diagnostics or replay need
   it.
-- [ ] Validation for this phase:
-  - [ ] `tools\validate_physics.bat`
+- [x] Validation for this phase:
+  - [x] `tools\validate_physics.bat`
 
 ## Phase 7 - Runtime Adapter Migration
 
