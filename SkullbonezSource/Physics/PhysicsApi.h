@@ -26,7 +26,13 @@ Glossary:
     assignment so replay/debug evidence does not depend on allocator addresses
     or STL traversal accidents.
   Facade: Narrow public boundary that hides solver implementation containers.
+  Feature id: Deterministic contact key for one shape-pair feature in a public
+    contact view; replay and smoke hashes use it as diagnostic identity.
+  Friction: Sliding resistance copied from collider material data into contact
+    views for diagnostics and future solver inputs.
   Island: Immutable solver-group summary for sleep/support diagnostics.
+  Restitution: Bounce response copied from collider material data into contact
+    views for diagnostics and future solver inputs.
   Ray cast: Query that shoots a line segment through physics space and returns
     the closest candidate hit.
   Sleep: Optional optimization that skips integration for quiet dynamic bodies
@@ -343,6 +349,13 @@ struct PhysicsContactView
     Math::Vector::Vector3 normal = Math::Vector::ZERO_VECTOR;
     float penetrationDepth = 0.0f;
     float normalImpulse = 0.0f;
+    float restitutionA = 0.0f;
+    float restitutionB = 0.0f;
+    float frictionA = 0.0f;
+    float frictionB = 0.0f;
+    uint32_t contactMaterialAId = 0;
+    uint32_t contactMaterialBId = 0;
+    uint32_t featureId = 0;
     bool touching = false;
 };
 
@@ -430,6 +443,7 @@ struct PhysicsStandaloneSmokeResult
     PhysicsBodyHandle secondaryBody;
     Math::Vector::Vector3 secondaryFinalPosition = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 secondaryFinalLinearVelocity = Math::Vector::ZERO_VECTOR;
+    uint64_t contactHash = 0;
     uint64_t deterministicHash = 0;
 };
 
@@ -542,9 +556,9 @@ class PhysicsStandaloneWorld
     // non-const world mutation.
     PhysicsPointJointCollectionView PointJoints() const;
 
-    // Returns immutable contact diagnostics in deterministic solver/contact
-    // order. The standalone world has no narrowphase solver yet, so this is an
-    // empty stable view rather than a GameModelCollection-backed leak.
+    // Returns immutable contact diagnostics from the most recent standalone
+    // Step() in deterministic collider-pair order. The view points at internal
+    // contact storage and is valid until the next non-const world mutation.
     PhysicsContactCollectionView Contacts() const;
 
     // Returns immutable sleep/support island summaries in deterministic island
@@ -567,6 +581,12 @@ class PhysicsStandaloneWorld
     PhysicsPointJointView MakePointJointView( const PhysicsPointJointCreateDesc& desc,
                                               PhysicsConstraintHandle constraint ) const;
     void TombstoneConstraintSlot( uint32_t index );
+    void ClearContacts();
+    void GenerateStandaloneContacts();
+    bool TryAppendSphereSphereContact( const ColliderRecord& colliderA,
+                                       const PhysicsBodyRecord& bodyA,
+                                       const ColliderRecord& colliderB,
+                                       const PhysicsBodyRecord& bodyB );
 
     PhysicsBodyStore m_bodyStore;                                               // Dense body records and handle generations for standalone stepping.
     mutable std::vector<PhysicsBodyView> m_bodyViewCache;                       // Cold public view cache rebuilt from bodyStore.
@@ -574,6 +594,7 @@ class PhysicsStandaloneWorld
     ColliderStore m_colliderStore;                                              // Dense collider records and handle generations for standalone queries.
     mutable PhysicsColliderView m_singleColliderViewScratch;                    // Cold single-collider projection returned by Collider().
     mutable std::vector<PhysicsColliderView> m_colliderViewScratch;             // Filtered collider view returned by Colliders().
+    std::vector<PhysicsContactView> m_contacts;                                 // Rebuilt contact rows from standalone collider/body records.
     std::vector<PhysicsPointJointView> m_pointJoints;                           // Slot-indexed public constraint records.
     std::vector<uint32_t> m_constraintGenerations;                              // Per-constraint stale-handle counter.
     std::vector<uint8_t> m_constraintAlive;                                     // 0/1 constraint liveness for deterministic scans.

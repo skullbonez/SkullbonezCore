@@ -7,8 +7,8 @@ Mental model:
   PhysicsStandaloneWorld is the first isolated owner for public physics handles.
   It does not route through Run, renderer setup, scene parsing, GameModel, or
   GameModelCollection. The world is intentionally small: it proves deterministic
-  create/update/delete/query/step ownership before collision and solver authority
-  migrate away from the compatibility path.
+  create/update/delete/query/step ownership while collision and solver authority
+  move away from the compatibility path.
 
 Glossary:
   Activation command: Handle-based request to wake a body, seed it asleep, or
@@ -19,9 +19,15 @@ Glossary:
     after deletion and reuse.
   Point joint: Constraint record that keeps two local body anchors associated
     without exposing legacy model indices.
+  Contact row: Immutable public collision record produced after Step(); it is
+    diagnostic/replay data, not the future hot solver manifold.
+  Narrowphase: Shape-specific overlap test that turns broadphase candidates into
+    concrete contact points, normals, and penetration depths.
   Ray cast: Query that reports the closest collider candidate along a directed
     segment.
   Broadphase query: Cheap AABB query that returns candidate bodies in slot order.
+  Restitution: Bounce response copied from collider material data.
+  Friction: Sliding resistance copied from collider material data.
   Sleep gate: World policy deciding whether sleeping body flags are honored by
     steps and queries.
   Determinism: Same fixed-step inputs produce the same final state and hash.
@@ -29,6 +35,8 @@ Glossary:
 Invariants:
   - Standalone handles pair a slot index with a nonzero generation value.
   - Step mutates only alive, dynamic, awake body records.
+  - Contact rows are rebuilt from body/collider stores after Step() and cleared
+    on geometry mutations, so public views never point into model storage.
   - The smoke sample uses binary-exact fixed-step values so validation can check
     exact final state without tolerance drift.
 
@@ -69,6 +77,8 @@ using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsColliderUpdateDesc;
 using SkullbonezCore::Physics::PhysicsColliderView;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
+using SkullbonezCore::Physics::PhysicsContactCollectionView;
+using SkullbonezCore::Physics::PhysicsContactView;
 using SkullbonezCore::Physics::PhysicsPointJointCreateDesc;
 using SkullbonezCore::Physics::PhysicsPointJointUpdateDesc;
 using SkullbonezCore::Physics::PhysicsPointJointView;
@@ -100,6 +110,11 @@ uint64_t HashU32( uint64_t hash, uint32_t value )
     return HashBytes( hash, &value, sizeof( value ) );
 }
 
+uint64_t HashU64( uint64_t hash, uint64_t value )
+{
+    return HashBytes( hash, &value, sizeof( value ) );
+}
+
 uint64_t HashFloat( uint64_t hash, float value )
 {
     uint32_t bits = 0;
@@ -112,6 +127,51 @@ uint64_t HashVector( uint64_t hash, const Vector3& value )
     hash = HashFloat( hash, value.x );
     hash = HashFloat( hash, value.y );
     return HashFloat( hash, value.z );
+}
+
+uint32_t ContactFeatureId( PhysicsColliderHandle colliderA, PhysicsColliderHandle colliderB )
+{
+    uint64_t hash = FNV_OFFSET_BASIS;
+    hash = HashU32( hash, colliderA.index );
+    hash = HashU32( hash, colliderA.generation );
+    hash = HashU32( hash, colliderB.index );
+    hash = HashU32( hash, colliderB.generation );
+    return static_cast<uint32_t>( hash ^ ( hash >> 32u ) );
+}
+
+uint64_t HashContactView( uint64_t hash, const PhysicsContactView& contact )
+{
+    hash = HashU32( hash, contact.bodyA.index );
+    hash = HashU32( hash, contact.bodyA.generation );
+    hash = HashU32( hash, contact.bodyB.index );
+    hash = HashU32( hash, contact.bodyB.generation );
+    hash = HashU32( hash, contact.colliderA.index );
+    hash = HashU32( hash, contact.colliderA.generation );
+    hash = HashU32( hash, contact.colliderB.index );
+    hash = HashU32( hash, contact.colliderB.generation );
+    hash = HashVector( hash, contact.point );
+    hash = HashVector( hash, contact.normal );
+    hash = HashFloat( hash, contact.penetrationDepth );
+    hash = HashFloat( hash, contact.normalImpulse );
+    hash = HashFloat( hash, contact.restitutionA );
+    hash = HashFloat( hash, contact.restitutionB );
+    hash = HashFloat( hash, contact.frictionA );
+    hash = HashFloat( hash, contact.frictionB );
+    hash = HashU32( hash, contact.contactMaterialAId );
+    hash = HashU32( hash, contact.contactMaterialBId );
+    hash = HashU32( hash, contact.featureId );
+    return HashU32( hash, contact.touching ? 1u : 0u );
+}
+
+uint64_t HashContactCollection( PhysicsContactCollectionView view )
+{
+    uint64_t hash = FNV_OFFSET_BASIS;
+    hash = HashU32( hash, view.contactCount );
+    for ( uint32_t i = 0; i < view.contactCount; ++i )
+    {
+        hash = HashContactView( hash, view.contacts[i] );
+    }
+    return hash;
 }
 
 uint64_t HashSmokeResult( const PhysicsStandaloneSmokeResult& result )
@@ -129,6 +189,7 @@ uint64_t HashSmokeResult( const PhysicsStandaloneSmokeResult& result )
     hash = HashU32( hash, result.colliderCount );
     hash = HashU32( hash, result.pointJointCount );
     hash = HashU32( hash, result.contactCount );
+    hash = HashU64( hash, result.contactHash );
     hash = HashU32( hash, result.islandCount );
     hash = HashU32( hash, result.broadphaseQueryCount );
     hash = HashU32( hash, result.stepCount );
@@ -263,6 +324,7 @@ void PhysicsStandaloneWorld::Clear()
     InvalidateBodyViews();
     m_colliderStore.Clear();
     m_colliderViewScratch.clear();
+    m_contacts.clear();
     m_pointJoints.clear();
     m_constraintGenerations.clear();
     m_constraintAlive.clear();
@@ -278,6 +340,7 @@ PhysicsBodyHandle PhysicsStandaloneWorld::CreateBody( const PhysicsBodyCreateDes
 {
     const PhysicsBodyHandle body = m_bodyStore.CreateBodyRecord( MakeBodyRecord( desc ) );
     InvalidateBodyViews();
+    ClearContacts();
     return body;
 }
 
@@ -331,6 +394,7 @@ bool PhysicsStandaloneWorld::UpdateBody( const PhysicsBodyUpdateDesc& desc )
         body->isSleeping = m_sleepEnabled && desc.sleeping;
     }
     InvalidateBodyViews();
+    ClearContacts();
     return true;
 }
 
@@ -368,6 +432,7 @@ bool PhysicsStandaloneWorld::DestroyBody( PhysicsBodyHandle body )
     if ( destroyed )
     {
         InvalidateBodyViews();
+        ClearContacts();
     }
     return destroyed;
 }
@@ -409,7 +474,9 @@ PhysicsColliderHandle PhysicsStandaloneWorld::CreateCollider( const PhysicsColli
         return PhysicsColliderHandle{};
     }
 
-    return m_colliderStore.CreateColliderRecord( MakeColliderRecord( desc ) );
+    const PhysicsColliderHandle collider = m_colliderStore.CreateColliderRecord( MakeColliderRecord( desc ) );
+    ClearContacts();
+    return collider;
 }
 
 
@@ -444,6 +511,7 @@ bool PhysicsStandaloneWorld::UpdateCollider( const PhysicsColliderUpdateDesc& de
     {
         collider->boundingRadius = ConservativeBroadphaseRadius( collider->boundingRadius, collider->shape );
     }
+    ClearContacts();
     return true;
 }
 
@@ -455,7 +523,12 @@ bool PhysicsStandaloneWorld::DestroyCollider( PhysicsColliderHandle collider )
         return false;
     }
 
-    return m_colliderStore.DestroyColliderRecord( collider );
+    const bool destroyed = m_colliderStore.DestroyColliderRecord( collider );
+    if ( destroyed )
+    {
+        ClearContacts();
+    }
+    return destroyed;
 }
 
 
@@ -546,31 +619,122 @@ bool PhysicsStandaloneWorld::Step( const PhysicsStandaloneStepDesc& desc )
     {
         return false;
     }
-    if ( !desc.scenePhysicsEnabled || desc.deltaSeconds == 0.0f )
+    ClearContacts();
+    if ( !desc.scenePhysicsEnabled )
     {
         return true;
     }
 
     bool mutated = false;
-    for ( PhysicsBodyRecord& body : m_bodyStore.MutableRecords() )
+    if ( desc.deltaSeconds > 0.0f )
     {
-        if ( body.isFixed || ( m_sleepEnabled && body.isSleeping ) )
+        for ( PhysicsBodyRecord& body : m_bodyStore.MutableRecords() )
         {
-            continue;
-        }
+            if ( body.isFixed || ( m_sleepEnabled && body.isSleeping ) )
+            {
+                continue;
+            }
 
-        // Invariant: consume one-shot impulses as velocity edits before the
-        // semi-implicit acceleration/position step. Reordering these operations
-        // changes deterministic smoke and future replay samples.
-        PhysicsBodyStore::ConsumePendingBodyImpulse( body );
-        body.linearVelocity += desc.worldLinearAcceleration * desc.deltaSeconds;
-        body.position += body.linearVelocity * desc.deltaSeconds;
-        mutated = true;
+            // Invariant: consume one-shot impulses as velocity edits before the
+            // semi-implicit acceleration/position step. Reordering these operations
+            // changes deterministic smoke and future replay samples.
+            PhysicsBodyStore::ConsumePendingBodyImpulse( body );
+            body.linearVelocity += desc.worldLinearAcceleration * desc.deltaSeconds;
+            body.position += body.linearVelocity * desc.deltaSeconds;
+            mutated = true;
+        }
     }
     if ( mutated )
     {
         InvalidateBodyViews();
     }
+    GenerateStandaloneContacts();
+    return true;
+}
+
+
+void PhysicsStandaloneWorld::ClearContacts()
+{
+    m_contacts.clear();
+}
+
+
+void PhysicsStandaloneWorld::GenerateStandaloneContacts()
+{
+    const std::vector<ColliderRecord>& colliders = m_colliderStore.Records();
+    for ( std::size_t a = 0; a < colliders.size(); ++a )
+    {
+        const ColliderRecord& colliderA = colliders[a];
+        const PhysicsBodyRecord* bodyA = BodyRecord( colliderA.body );
+        if ( !bodyA )
+        {
+            continue;
+        }
+
+        for ( std::size_t b = a + 1u; b < colliders.size(); ++b )
+        {
+            const ColliderRecord& colliderB = colliders[b];
+            if ( colliderA.body == colliderB.body )
+            {
+                continue;
+            }
+
+            const PhysicsBodyRecord* bodyB = BodyRecord( colliderB.body );
+            if ( !bodyB || ( bodyA->isFixed && bodyB->isFixed ) )
+            {
+                continue;
+            }
+
+            (void)TryAppendSphereSphereContact( colliderA, *bodyA, colliderB, *bodyB );
+        }
+    }
+}
+
+
+bool PhysicsStandaloneWorld::TryAppendSphereSphereContact( const ColliderRecord& colliderA,
+                                                          const PhysicsBodyRecord& bodyA,
+                                                          const ColliderRecord& colliderB,
+                                                          const PhysicsBodyRecord& bodyB )
+{
+    const BoundingSphere* sphereA = std::get_if<BoundingSphere>( &colliderA.shape );
+    const BoundingSphere* sphereB = std::get_if<BoundingSphere>( &colliderB.shape );
+    if ( !sphereA || !sphereB )
+    {
+        return false;
+    }
+
+    const float radiusA = sphereA->GetRadius();
+    const float radiusB = sphereB->GetRadius();
+    const float radiusSum = radiusA + radiusB;
+    const Vector3 centerA = ColliderWorldCenter( bodyA, colliderA );
+    const Vector3 centerB = ColliderWorldCenter( bodyB, colliderB );
+    const Vector3 delta = centerB - centerA;
+    const float distance = VectorMag( delta );
+    if ( distance > radiusSum )
+    {
+        return false;
+    }
+
+    const Vector3 normal = distance > 0.0f ? delta / distance : Vector3( 1.0f, 0.0f, 0.0f );
+    const float penetration = radiusSum - distance;
+
+    PhysicsContactView contact;
+    contact.bodyA = bodyA.handle;
+    contact.bodyB = bodyB.handle;
+    contact.colliderA = colliderA.handle;
+    contact.colliderB = colliderB.handle;
+    contact.point = centerA + normal * ( radiusA - penetration * 0.5f );
+    contact.normal = normal;
+    contact.penetrationDepth = penetration;
+    contact.restitutionA = colliderA.restitution;
+    contact.restitutionB = colliderB.restitution;
+    contact.frictionA = colliderA.friction;
+    contact.frictionB = colliderB.friction;
+    contact.contactMaterialAId = colliderA.contactMaterialId;
+    contact.contactMaterialBId = colliderB.contactMaterialId;
+    contact.featureId = ContactFeatureId( colliderA.handle, colliderB.handle );
+    contact.touching = true;
+    m_contacts.push_back( contact );
     return true;
 }
 
@@ -812,11 +976,10 @@ SkullbonezCore::Physics::PhysicsPointJointCollectionView PhysicsStandaloneWorld:
 
 SkullbonezCore::Physics::PhysicsContactCollectionView PhysicsStandaloneWorld::Contacts() const
 {
-    // Concept: standalone collision generation has not migrated behind
-    // PhysicsStandaloneWorld yet. Returning an empty immutable view gives
-    // diagnostics/replay callers the public shape without exposing legacy
-    // solver containers or GameModelCollection state.
-    return SkullbonezCore::Physics::PhysicsContactCollectionView{};
+    PhysicsContactCollectionView view;
+    view.contacts = m_contacts.empty() ? nullptr : m_contacts.data();
+    view.contactCount = static_cast<uint32_t>( m_contacts.size() );
+    return view;
 }
 
 
@@ -1370,6 +1533,52 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         stepped = world.Step( stepDesc ) && stepped;
     }
 
+    // Why: keep the existing lifecycle/raycast sample stable while proving that
+    // standalone contact rows come from collider records, not a staged model mirror.
+    PhysicsStandaloneWorld contactWorld;
+    PhysicsBodyCreateDesc fixedContactBodyDesc;
+    fixedContactBodyDesc.sceneObjectId = PhysicsSceneObjectId{ 31u };
+    fixedContactBodyDesc.motionKind = PhysicsBodyMotionKind::Fixed;
+    const PhysicsBodyHandle fixedContactBody = contactWorld.CreateBody( fixedContactBodyDesc );
+
+    PhysicsBodyCreateDesc dynamicContactBodyDesc;
+    dynamicContactBodyDesc.sceneObjectId = PhysicsSceneObjectId{ 32u };
+    dynamicContactBodyDesc.position = Vector3( 1.5f, 0.0f, 0.0f );
+    dynamicContactBodyDesc.motionKind = PhysicsBodyMotionKind::Dynamic;
+    const PhysicsBodyHandle dynamicContactBody = contactWorld.CreateBody( dynamicContactBodyDesc );
+
+    PhysicsColliderCreateDesc fixedContactColliderDesc;
+    fixedContactColliderDesc.body = fixedContactBody;
+    fixedContactColliderDesc.shape = BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
+    fixedContactColliderDesc.restitution = 0.6f;
+    fixedContactColliderDesc.friction = 0.7f;
+    fixedContactColliderDesc.contactMaterialId = 301u;
+    const PhysicsColliderHandle fixedContactCollider = contactWorld.CreateCollider( fixedContactColliderDesc );
+
+    PhysicsColliderCreateDesc dynamicContactColliderDesc;
+    dynamicContactColliderDesc.body = dynamicContactBody;
+    dynamicContactColliderDesc.shape = BoundingSphere( 1.0f, Vector3( 0.0f, 0.0f, 0.0f ) );
+    dynamicContactColliderDesc.restitution = 0.2f;
+    dynamicContactColliderDesc.friction = 0.3f;
+    dynamicContactColliderDesc.contactMaterialId = 302u;
+    const PhysicsColliderHandle dynamicContactCollider = contactWorld.CreateCollider( dynamicContactColliderDesc );
+
+    PhysicsStandaloneStepDesc contactStepDesc;
+    contactStepDesc.deltaSeconds = 0.125f;
+    contactStepDesc.fixedStep = true;
+    const bool contactStepSucceeded = contactWorld.Step( contactStepDesc );
+    const PhysicsContactCollectionView contactView = contactWorld.Contacts();
+    const PhysicsContactView* contact =
+        contactView.contactCount == 1u && contactView.contacts ? &contactView.contacts[0] : nullptr;
+    const bool contactSmokeConsistent =
+        contactStepSucceeded && contact && contact->bodyA == fixedContactBody &&
+        contact->bodyB == dynamicContactBody && contact->colliderA == fixedContactCollider &&
+        contact->colliderB == dynamicContactCollider && contact->point == Vector3( 0.75f, 0.0f, 0.0f ) &&
+        contact->normal == Vector3( 1.0f, 0.0f, 0.0f ) && contact->penetrationDepth == 0.5f &&
+        contact->normalImpulse == 0.0f && contact->restitutionA == 0.6f && contact->restitutionB == 0.2f &&
+        contact->frictionA == 0.7f && contact->frictionB == 0.3f && contact->contactMaterialAId == 301u &&
+        contact->contactMaterialBId == 302u && contact->featureId != 0u && contact->touching;
+
     PhysicsStandaloneSmokeResult result;
     result.body = body;
     result.secondaryBody = secondaryBody;
@@ -1378,7 +1587,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     result.bodyCount = world.Bodies().bodyCount;
     result.colliderCount = world.Colliders().colliderCount;
     result.pointJointCount = world.PointJoints().pointJointCount;
-    result.contactCount = world.Contacts().contactCount;
+    result.contactCount = contactView.contactCount;
+    result.contactHash = HashContactCollection( contactView );
     result.islandCount = world.Islands().islandCount;
     result.stepCount = STEP_COUNT;
     result.activationCommandsPassed = activationCommandsConsistent;
@@ -1444,12 +1654,12 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         staleEndpointHandleRejected && staleBodyColliderCreationRejected && staleBodyPointJointCreationRejected &&
         poseVelocityUpdateConsistent && destroyedEditableBody && staleEditableBodyRejected &&
         impulseCommandConsistent && staleImpulseRejected && activationCommandsConsistent && rayCastConsistent &&
-        broadphaseQueryConsistent;
+        broadphaseQueryConsistent && contactSmokeConsistent;
 
     result.deterministicHash = HashSmokeResult( result );
     result.passed = stepped && result.lifecycleChecksPassed && finalBody && result.secondaryBodyAdvanced &&
                     result.bodyCount == 2u && result.colliderCount == 1u && result.pointJointCount == 0u &&
-                    result.contactCount == 0u && result.islandCount == 0u && result.broadphaseQueryCount == 1u &&
+                    result.contactCount == 1u && result.islandCount == 0u && result.broadphaseQueryCount == 1u &&
                     result.activationCommandsPassed && result.rayCastHit &&
                     result.finalPosition == Vector3( 3.0f, 9.0f, -2.0f ) &&
                     result.finalLinearVelocity == Vector3( 2.0f, -4.0f, 0.0f );

@@ -214,22 +214,28 @@ Target: `ColliderStore` owns the standalone collision shape and metadata surface
 - [x] Move broadphase candidate generation to `ColliderStore` plus body-store
   transforms on the standalone path.
 - [ ] Move narrowphase shape reads to collider records on the standalone path.
+  - [x] Sphere/sphere standalone contact generation reads `BoundingSphere`
+    shapes from `ColliderStore` records and body transforms.
+  - [ ] Sphere/box and remaining standalone shape pairs still need exact
+    collider-record narrowphase.
 - [x] Preserve existing conservative query semantics while exact shape tests are
   added.
 - [ ] Add smoke coverage with at least:
-  - [ ] sphere/sphere contact,
+  - [x] sphere/sphere contact,
   - [ ] sphere/box contact,
-  - [ ] fixed body plus dynamic body contact,
+  - [x] fixed body plus dynamic body contact,
   - [x] deleted collider stale-handle rejection,
-  - [ ] material/restitution copied into the resulting contact view.
+  - [x] material/restitution copied into the resulting contact view.
 
 Current Phase 3 progress: standalone collider creation/update/delete, raycast,
-and broadphase queries now use `ColliderStore` records directly. Material id and
-friction propagate through collider records/views, but contact-view material
-evidence remains open until standalone narrowphase/contact rows exist. Slice
-evidence: `python tools\check_runtime_boundaries.py --repo .` passed with 0
-errors, and `tools\validate_physics.bat` passed with byte-exact
-`physics_regression_solver.csv`.
+and broadphase queries now use `ColliderStore` records directly. Sphere/sphere
+contact generation now reads collider-record shape/material rows and body-store
+transforms, then exposes a public contact view with material, restitution, and
+friction evidence. Sphere/box remains open before Phase 3 is complete. Prior
+slice evidence: `python tools\check_runtime_boundaries.py --repo .` passed with
+0 errors, and `tools\validate_physics.bat` passed with byte-exact
+`physics_regression_solver.csv`; standalone contact slice validation is tracked
+under Phase 4 before commit.
 - [ ] Validation for this phase:
   - [ ] `tools\validate_physics.bat`
   - [ ] `tools\validate_physics_deep.bat` if SkullScope/query baselines change.
@@ -239,26 +245,39 @@ errors, and `tools\validate_physics.bat` passed with byte-exact
 Target: `PhysicsStandaloneWorld::Contacts()` returns deterministic immutable
 contact rows for standalone collision samples.
 
-- [ ] Define standalone contact storage owned by the physics world or a contact
+- [x] Define standalone contact storage owned by the physics world or a contact
   store, not by `GameModelCollection`.
-- [ ] Reuse the existing public `PhysicsContactView` shape unless a documented
-  gap requires an additive field.
+- [x] Reuse the existing public `PhysicsContactView` shape unless a documented
+  gap requires an additive field. Added material, restitution/friction, and
+  feature-id fields because the existing view could not carry the required
+  diagnostics/replay payload.
 - [ ] Generate contact rows from standalone broadphase/narrowphase using body
   and collider handles.
+  - [x] Sphere/sphere rows are generated from standalone body and collider
+    handles in collider-store order.
+  - [ ] Sphere/box and later shape pairs still need exact row generation.
 - [ ] Include stable deterministic ordering:
-  - [ ] body pair order,
-  - [ ] collider slot order,
-  - [ ] feature id order,
+  - [x] body pair order,
+  - [x] collider slot order,
+  - [x] feature id order,
   - [ ] terrain/fixed-body ordering if terrain enters standalone scope.
-- [ ] Include enough contact data for diagnostics and replay:
+- [x] Include enough contact data for diagnostics and replay:
   body handles, collider handles, point, normal, penetration, normal impulse
   when solved, material ids, and feature id.
-- [ ] Keep solver-private manifolds private; public views are immutable copies
+- [x] Keep solver-private manifolds private; public views are immutable copies
   or stable read-only spans with documented lifetime.
-- [ ] Extend `--physics-standalone-smoke` to require nonzero contact count for a
+- [x] Extend `--physics-standalone-smoke` to require nonzero contact count for a
   deterministic collision sample and hash the contact rows.
+
+Current Phase 4 progress: `PhysicsStandaloneWorld` owns a contact-view vector
+rebuilt from standalone collider/body records after `Step()`. The smoke now
+requires one fixed/dynamic sphere/sphere contact and hashes the contact row.
+This is not the full shape-coverage story yet: sphere/box remains open in Phase
+3 and terrain ordering is out of scope until terrain enters standalone contacts.
+Slice validation passed with the boundary checker at 0 errors and
+`tools\validate_physics.bat` byte-exact.
 - [ ] Validation for this phase:
-  - [ ] `tools\validate_physics.bat`
+  - [x] `tools\validate_physics.bat`
   - [ ] `tools\validate_physics_deep.bat` if query baselines or diagnostics
     outputs change.
 
