@@ -258,6 +258,12 @@ PHYSICS_SCENE_PENDING_IMPULSE_FUNCTION_PATTERN = re.compile(
 PHYSICS_SCENE_PENDING_IMPULSE_MODEL_MIRROR_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*(?:WriteBackPhysicsBody|InvalidatePhysicsStreams)\s*\("
 )
+PHYSICS_SCENE_SET_BODY_VELOCITY_FUNCTION_PATTERN = re.compile(
+    r"\bbool\s+PhysicsScene::SetBodyVelocity\s*\(\s*PhysicsModelAccess\s*&"
+)
+PHYSICS_SCENE_SET_BODY_VELOCITY_MODEL_MIRROR_PATTERN = re.compile(
+    r"\bmodelAccess\s*\.\s*(?:WriteBackPhysicsBody|InvalidatePhysicsStreams)\s*\("
+)
 GAME_MODEL_COLLECTION_ADAPTER_BODY_HANDLE_FUNCTION_PATTERN = re.compile(
     r"\bPhysicsBodyHandle\s+GameModelCollectionPhysicsAdapter::BodyHandleForModelIndex\s*\("
 )
@@ -2745,6 +2751,37 @@ def check_physics_scene_pending_impulse_model_mirror_guardrails_text(path: Path,
 def check_physics_scene_pending_impulse_model_mirror_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / PHYSICS_SCENE_SOURCE
     return check_physics_scene_pending_impulse_model_mirror_guardrails_text(
+        path,
+        path.read_text(encoding="utf-8"),
+    )
+
+
+def check_physics_scene_velocity_model_mirror_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    bounds = _function_body_bounds(stripped, PHYSICS_SCENE_SET_BODY_VELOCITY_FUNCTION_PATTERN)
+    if not bounds:
+        return errors
+
+    open_brace, close_brace = bounds
+    for match in PHYSICS_SCENE_SET_BODY_VELOCITY_MODEL_MIRROR_PATTERN.finditer(stripped, open_brace, close_brace):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "velocity edit model mirror is blocked",
+                (
+                    "PhysicsScene::SetBodyVelocity should leave replay/editor velocity edits in "
+                    "PhysicsBodyStore; prediction and the next step own the remaining presentation projection."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_scene_velocity_model_mirror_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / PHYSICS_SCENE_SOURCE
+    return check_physics_scene_velocity_model_mirror_guardrails_text(
         path,
         path.read_text(encoding="utf-8"),
     )
@@ -8795,6 +8832,84 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only pending impulse model mirror synthetic text was rejected")
 
+    old_velocity_model_mirror = """
+    bool PhysicsScene::SetBodyVelocity( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        m_bodyStore.SetBodyVelocity( body, linearVelocity, angularVelocity );
+        modelAccess.WriteBackPhysicsBody( m_bodyStore, bodyIndex );
+        modelAccess.InvalidatePhysicsStreams();
+        return true;
+    }
+    """
+    if not any(
+        error.message == "velocity edit model mirror is blocked"
+        for error in check_physics_scene_velocity_model_mirror_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+            old_velocity_model_mirror,
+        )
+    ):
+        failures.append("old SetBodyVelocity model mirror synthetic surface was not rejected")
+
+    allowed_velocity_store_only = """
+    bool PhysicsScene::SetBodyVelocity( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        const int modelCount = modelAccess.ModelCount();
+        if ( m_bodyStore.Count() != modelCount )
+        {
+            RefreshBodyStore( modelAccess );
+        }
+        const int index = m_bodyStore.ModelIndexForHandle( body );
+        if ( index < 0 || !m_bodyStore.SetBodyVelocity( body, linearVelocity, angularVelocity ) )
+        {
+            return false;
+        }
+        if ( wakeIfMoving )
+        {
+            m_world.WakeModel( m_bodyStore, index );
+            m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+        }
+        return true;
+    }
+    """
+    if check_physics_scene_velocity_model_mirror_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        allowed_velocity_store_only,
+    ):
+        failures.append("store-only velocity edit synthetic surface was rejected")
+
+    allowed_wake_body_mirror_after_velocity = """
+    bool PhysicsScene::SetBodyVelocity( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        m_bodyStore.SetBodyVelocity( body, linearVelocity, angularVelocity );
+        return true;
+    }
+    void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        modelAccess.WriteBackPhysicsBody( m_bodyStore, index );
+        modelAccess.InvalidatePhysicsStreams();
+    }
+    """
+    if check_physics_scene_velocity_model_mirror_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        allowed_wake_body_mirror_after_velocity,
+    ):
+        failures.append("non-velocity wake compatibility mirror synthetic surface was rejected")
+
+    commented_velocity_model_mirror = """
+    bool PhysicsScene::SetBodyVelocity( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        // modelAccess.WriteBackPhysicsBody(m_bodyStore, bodyIndex) used to mirror velocity edits.
+        // modelAccess.InvalidatePhysicsStreams() used to rebuild model streams here.
+        m_bodyStore.SetBodyVelocity( body, linearVelocity, angularVelocity );
+        return true;
+    }
+    """
+    if check_physics_scene_velocity_model_mirror_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        commented_velocity_model_mirror,
+    ):
+        failures.append("comment-only velocity edit model mirror synthetic text was rejected")
+
     old_adapter_body_handle_refresh = """
     PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForModelIndex( int modelIndex ) const
     {
@@ -9671,6 +9786,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_replay_restore_store_authority_guardrails(repo))
     errors.extend(check_physics_scene_step_body_reload_guardrails(repo))
     errors.extend(check_physics_scene_pending_impulse_model_mirror_guardrails(repo))
+    errors.extend(check_physics_scene_velocity_model_mirror_guardrails(repo))
     errors.extend(check_command_side_body_refresh_guardrails(repo))
     errors.extend(check_scene_setup_model_index_physics_command_guardrails(repo))
     errors.extend(check_editor_model_index_physics_command_guardrails(repo))

@@ -15,6 +15,8 @@ Glossary:
     or render instances.
   Pending impulse: One-shot velocity edit queued on a body record and consumed
     by the next solver step.
+  Velocity edit: Replay-authored command that changes live body velocity before
+    prediction or the next step samples the body store.
   Determinism: Same inputs produce byte-exact validation artifacts.
 
 Invariants:
@@ -22,6 +24,8 @@ Invariants:
   - RunPhysics delegates to PhysicsWorld without changing floating-point order.
   - Pending impulses stay store-owned until consumed; model streams are
     invalidated only when presentation state changes.
+  - Velocity edits stay store-owned until the normal step boundary projects
+    body state for presentation.
 
 Related:
   - SkullbonezSource/Physics/PhysicsScene.h
@@ -348,10 +352,9 @@ bool PhysicsScene::SetBodyVelocity( PhysicsModelAccess& modelAccess,
         m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
     }
 
-    // Why: replay velocity edit is a handle-keyed body-store command. The
-    // model writeback below is only the remaining presentation projection.
-    modelAccess.WriteBackPhysicsBody( m_bodyStore, index );
-    modelAccess.InvalidatePhysicsStreams();
+    // Why: replay velocity edits are live simulation commands. Prediction now
+    // samples PhysicsBodyStore directly, and the next step owns the remaining
+    // presentation projection when GameModel state actually needs it.
     return true;
 }
 

@@ -750,6 +750,12 @@ lookup followed by targeted source reads, comment-style audit of
 - [x] Add runtime-boundary self-tests that reject `GameModel` physics getters
   and the model-refreshing `GetPhysicsBodyStore()` accessor inside prediction
   body capture, while allowing direct `PhysicsEngine::BodyStore()` reads.
+- [x] Remove the `PhysicsScene::SetBodyVelocity` one-body model mirror so
+  handle-keyed velocity edits mutate `PhysicsBodyStore` and optional wake state
+  without a per-command `GameModel` writeback or model-stream invalidation.
+- [x] Add runtime-boundary self-tests that reject the deleted velocity-edit
+  `WriteBackPhysicsBody`/`InvalidatePhysicsStreams` shape while allowing the
+  remaining explicit `WakeBody` compatibility mirror.
 - [x] Comment-audit the touched source files.
 - [x] Validation for this slice:
   - [x] `git diff --check`
@@ -775,10 +781,16 @@ removes the immediate prediction dependency that made
 velocity edits. Evidence logs:
 `TestOutput\agent_validate_fast_prediction_body_capture.log` and
 `TestOutput\agent_validate_physics_prediction_body_capture.log`; the physics
-gate passed with byte-exact `physics_regression_solver.csv`. The next narrow
-store-authority deletion should remove the velocity command's compatibility
-writeback/invalidation if caller review still shows no model-state reader left
-on that path.
+gate passed with byte-exact `physics_regression_solver.csv`.
+
+Follow-up slice `PHY-1003`: replay velocity edits now stop at the authoritative
+`PhysicsBodyStore` mutation plus optional wake state. `PhysicsScene::SetBodyVelocity`
+no longer performs a one-body `GameModel` writeback or model-stream invalidation;
+prediction reads the store directly, and the normal step boundary remains the
+presentation projection. Evidence logs:
+`TestOutput\agent_validate_fast_velocity_command_mirror.log` and
+`TestOutput\agent_validate_physics_velocity_command_mirror.log`; the physics
+gate passed with byte-exact `physics_regression_solver.csv`.
 
 ## Required Evidence For Each Source Slice
 
