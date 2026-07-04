@@ -16,6 +16,8 @@ Glossary:
   GPU timestamp: Backend query pair that measures elapsed GPU execution without
   blocking the CPU until the readback is ready.
   Ring buffer: Fixed-size rolling sample window used for p50/p99 statistics.
+  Warmup frame: Completed frame intentionally excluded from profiler stats and
+    perf CSV rows while a scene/pass settles.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -241,6 +243,7 @@ class Profiler
     void AbortMismatch( const char* msg, const char* details ) const;
     void ReadPendingGpuResults();
     void AdvanceGpuWriteCursors();
+    void RestartWarmup();
 
     struct WorkerCoreAccumulator
     {

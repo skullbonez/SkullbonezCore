@@ -1308,6 +1308,50 @@ Evidence logs: `TestOutput\agent_build_debug_delete_model_stream_cache.log`,
 `TestOutput\agent_validate_dx12_delete_model_stream_cache.log`, and
 `TestOutput\agent_validate_perf_delete_model_stream_cache.log`.
 
+Slice `PHY-1020`: delete the `RenderInstanceStore` model-only refresh overloads
+and stale topology fallback. Owner: `RenderInstanceStore` for render projection
+records derived from `PhysicsBodyStore` and `ColliderStore`; reason: the old
+fallback rebuilt render matrices, fixed flags, replay ids, bounds, and shape
+kind from `GameModel` when topology was wrong, which hid store-refresh bugs and
+kept a post-solve mirror path alive; deletion condition: source exposes no
+model-only `RenderInstanceStore::Refresh` overloads or
+`Refresh(models, modelCount)` fallback, while replay presentation overrides
+remain explicitly scoped; checker budget: `tools/check_runtime_boundaries.py`
+blocks deleted overload declarations/definitions and the fallback call from
+returning.
+
+- [x] Delete `RenderInstanceStore::Refresh(std::vector<GameModel>&)` and
+  `RenderInstanceStore::Refresh(GameModel*, int)`.
+- [x] Make store-backed refresh assert on body/collider/model count mismatch in
+  Debug and clear the render snapshot in release rather than rebuilding from
+  `GameModel`.
+- [x] Preserve `OverridePoseFromModel()` as a replay/prediction presentation
+  override only.
+- [x] Add runtime-boundary guardrails and self-tests blocking the deleted
+  overloads, declarations, and fallback call from returning.
+- [x] Reset profiler pass state when a scene perf log opens so appended perf
+  passes use the existing profiler warmup consistently and do not average
+  scene-restart upload noise into steady-state CSV stats.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation run for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] touched-file comment audit
+  - [x] `tools\validate_perf.bat`
+  - [x] `tools\validate_full.bat` including DX12 renderer validation and
+    intermittent `tools\validate_physics.bat`
+
+Evidence logs: `TestOutput\agent_build_debug_render_instance_fallback_deletion.log`,
+`TestOutput\agent_validate_fast_render_instance_fallback_deletion.log`,
+`TestOutput\agent_validate_physics_render_instance_fallback_deletion.log`,
+`TestOutput\agent_validate_dx12_render_instance_fallback_deletion.log`,
+`TestOutput\agent_validate_perf_render_instance_fallback_deletion.log`,
+`TestOutput\agent_validate_perf_render_instance_fallback_deletion_rerun.log`,
+`TestOutput\agent_validate_perf_clean_head_probe.log`,
+`TestOutput\agent_validate_perf_profiler_schedule_reset.log`, and
+`TestOutput\agent_validate_full_render_instance_fallback_deletion.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

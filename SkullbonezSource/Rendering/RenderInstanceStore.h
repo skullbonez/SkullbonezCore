@@ -111,8 +111,6 @@ class RenderInstanceStore
     RenderInstanceStore();
 
     void Clear();
-    void Refresh( std::vector<GameObjects::GameModel>& models );
-    void Refresh( GameObjects::GameModel* models, int modelCount );
     void Refresh( std::vector<GameObjects::GameModel>& models,
                   const Physics::PhysicsBodyStore& bodyStore,
                   const Physics::ColliderStore& colliderStore );

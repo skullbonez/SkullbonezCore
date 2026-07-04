@@ -30,6 +30,7 @@ Related:
 */
 #include "RenderInstanceStore.h"
 
+#include <cassert>
 #include <cstddef>
 
 #include "../Core/Common.h"
@@ -97,39 +98,6 @@ void RenderInstanceStore::Clear()
 }
 
 
-void RenderInstanceStore::Refresh( std::vector<GameModel>& models )
-{
-    Refresh( models.empty() ? nullptr : models.data(), static_cast<int>( models.size() ) );
-}
-
-
-void RenderInstanceStore::Refresh( GameModel* models, int modelCount )
-{
-    // Invariant: render instance handles intentionally mirror model slots until
-    // a future renderer-facing allocation owner replaces compatibility ids.
-    m_instances.resize( static_cast<std::size_t>( modelCount ) );
-    m_modelInstanceHandles.resize( static_cast<std::size_t>( modelCount ) );
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        GameModel& model = models[i];
-        RenderInstanceRecord& record = m_instances[static_cast<std::size_t>( i )];
-        const uint32_t modelIndex = static_cast<uint32_t>( i );
-        record.handle = MakeCompatibilityRenderInstanceHandle( modelIndex );
-        record.replayBodyId = model.GetReplayBodyId();
-        record.modelMatrix = model.GetModelMatrix();
-        record.material = model.GetRenderMaterial();
-        record.boundingRadius = model.GetBoundingRadius();
-        record.shapeKind = model.IsBox() ? RenderInstanceShapeKind::Box
-                                         : ( model.IsConvexHull() ? RenderInstanceShapeKind::ConvexHull
-                                                                  : RenderInstanceShapeKind::Sphere );
-        record.isFixed = model.IsFixed();
-        record.fixedContactAlpha = model.GetFixedContactHighlightAlpha();
-        record.audioContactAlpha = model.GetAudioContactHighlightAlpha();
-        m_modelInstanceHandles[static_cast<std::size_t>( i )] = record.handle;
-    }
-}
-
-
 void RenderInstanceStore::Refresh( std::vector<GameModel>& models,
                                    const PhysicsBodyStore& bodyStore,
                                    const ColliderStore& colliderStore )
@@ -145,12 +113,16 @@ void RenderInstanceStore::Refresh( GameModel* models,
 {
     if ( bodyStore.Count() != modelCount || colliderStore.Count() != modelCount )
     {
-        // Hazard: this is a defensive topology fallback only. PhysicsScene
-        // refreshes stores before reaching this overload so the normal render
-        // path reads physics-owned pose and shape state.
-        Refresh( models, modelCount );
+        assert( bodyStore.Count() == modelCount );
+        assert( colliderStore.Count() == modelCount );
+        // Hazard: rebuilding from GameModel here would hide a broken store
+        // refresh and resurrect the post-solve mirror as transform authority.
+        // Fail closed so Debug catches the topology bug and release builds do
+        // not draw stale model-owned poses.
+        Clear();
         return;
     }
+    assert( models != nullptr || modelCount == 0 );
 
     const std::vector<PhysicsBodyRecord>& bodies = bodyStore.Records();
     const std::vector<ColliderRecord>& colliders = colliderStore.Records();

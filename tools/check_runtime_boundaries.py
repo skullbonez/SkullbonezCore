@@ -232,6 +232,18 @@ PHYSICS_WORLD_STEP_DIAGNOSTICS_MODEL_ACCESS_PATTERN = re.compile(
 RENDER_INSTANCE_MODEL_REFRESH_PATTERN = re.compile(
     r"\brenderInstanceStore\s*\.\s*Refresh\s*\(\s*m_gameModels\s*\)"
 )
+RENDER_INSTANCE_STORE_MODEL_ONLY_REFRESH_SIGNATURE_PATTERN = re.compile(
+    r"\bvoid\s+RenderInstanceStore::Refresh\s*\(\s*"
+    r"(?:std::vector\s*<\s*GameModel\s*>\s*&\s*models|GameModel\s*\*\s*models\s*,\s*int\s+modelCount)"
+    r"\s*\)"
+    r"|\bvoid\s+Refresh\s*\(\s*"
+    r"(?:std::vector\s*<\s*GameObjects::GameModel\s*>\s*&\s*models|"
+    r"GameObjects::GameModel\s*\*\s*models\s*,\s*int\s+modelCount)"
+    r"\s*\)\s*;"
+)
+RENDER_INSTANCE_STORE_MODEL_REFRESH_FALLBACK_PATTERN = re.compile(
+    r"\bRefresh\s*\(\s*models\s*,\s*modelCount\s*\)"
+)
 GAME_MODEL_RENDERER_MODEL_POSE_STREAM_PATTERN = re.compile(
     r"\b(?:GameModelRenderStream|GameModelBodyStream)\b"
     r"|\bcollection\s*\.\s*(?:GetRenderStream|GetBodyStream)\s*\("
@@ -2826,21 +2838,55 @@ def check_physics_world_step_diagnostics_model_access_guardrails(repo: Path) -> 
 def check_render_instance_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments_and_string_literals(text)
     errors: list[BoundaryError] = []
-    for match in RENDER_INSTANCE_MODEL_REFRESH_PATTERN.finditer(stripped):
-        errors.append(
-            BoundaryError(
-                path,
-                line_for_offset(stripped, match.start()),
-                "render instance model-transform refresh is blocked",
-                "Refresh render instances from PhysicsBodyStore and ColliderStore so draw poses do not depend on the post-solve GameModel mirror.",
+    if path.name == "GameModelCollection.cpp":
+        for match in RENDER_INSTANCE_MODEL_REFRESH_PATTERN.finditer(stripped):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "render instance model-transform refresh is blocked",
+                    "Refresh render instances from PhysicsBodyStore and ColliderStore so draw poses do not depend on the post-solve GameModel mirror.",
+                )
             )
-        )
+    if path.name in { "RenderInstanceStore.cpp", "RenderInstanceStore.h" }:
+        for match in RENDER_INSTANCE_STORE_MODEL_ONLY_REFRESH_SIGNATURE_PATTERN.finditer(stripped):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "RenderInstanceStore model-only refresh overload is blocked",
+                    (
+                        "RenderInstanceStore refresh must be backed by PhysicsBodyStore and ColliderStore; "
+                        "do not restore GameModel-owned transform refresh overloads."
+                    ),
+                )
+            )
+    if path.name == "RenderInstanceStore.cpp":
+        for match in RENDER_INSTANCE_STORE_MODEL_REFRESH_FALLBACK_PATTERN.finditer(stripped):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "RenderInstanceStore GameModel fallback refresh is blocked",
+                    (
+                        "Topology mismatches should fail closed instead of rebuilding render transforms "
+                        "from GameModel and hiding store-authority regressions."
+                    ),
+                )
+            )
     return errors
 
 
 def check_render_instance_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
-    path = repo / GAME_MODEL_COLLECTION_SOURCE
-    return check_render_instance_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+    errors: list[BoundaryError] = []
+    for relative_path in (
+        GAME_MODEL_COLLECTION_SOURCE,
+        Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"),
+        Path("SkullbonezSource/Rendering/RenderInstanceStore.h"),
+    ):
+        path = repo / relative_path
+        errors.extend(check_render_instance_store_authority_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_game_model_renderer_render_instance_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -9664,6 +9710,105 @@ def run_self_tests() -> list[str]:
         commented_render_instance_model_refresh,
     ):
         failures.append("comment-only render instance model refresh synthetic text was rejected")
+
+    old_render_instance_store_model_only_refresh = """
+    void RenderInstanceStore::Refresh( std::vector<GameModel>& models )
+    {
+        Refresh( models.empty() ? nullptr : models.data(), static_cast<int>( models.size() ) );
+    }
+    void RenderInstanceStore::Refresh( GameModel* models, int modelCount )
+    {
+        record.modelMatrix = model.GetModelMatrix();
+    }
+    """
+    if not any(
+        error.message == "RenderInstanceStore model-only refresh overload is blocked"
+        for error in check_render_instance_store_authority_guardrails_text(
+            Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"),
+            old_render_instance_store_model_only_refresh,
+        )
+    ):
+        failures.append("old RenderInstanceStore model-only refresh synthetic surface was not rejected")
+
+    old_render_instance_store_model_only_declarations = """
+    class RenderInstanceStore
+    {
+        void Refresh( std::vector<GameObjects::GameModel>& models );
+        void Refresh( GameObjects::GameModel* models, int modelCount );
+    };
+    """
+    if not any(
+        error.message == "RenderInstanceStore model-only refresh overload is blocked"
+        for error in check_render_instance_store_authority_guardrails_text(
+            Path("SkullbonezSource/Rendering/RenderInstanceStore.h"),
+            old_render_instance_store_model_only_declarations,
+        )
+    ):
+        failures.append("old RenderInstanceStore model-only refresh declarations were not rejected")
+
+    old_render_instance_store_refresh_fallback = """
+    void RenderInstanceStore::Refresh( GameModel* models,
+                                       int modelCount,
+                                       const PhysicsBodyStore& bodyStore,
+                                       const ColliderStore& colliderStore )
+    {
+        if ( bodyStore.Count() != modelCount || colliderStore.Count() != modelCount )
+        {
+            Refresh( models, modelCount );
+            return;
+        }
+    }
+    """
+    if not any(
+        error.message == "RenderInstanceStore GameModel fallback refresh is blocked"
+        for error in check_render_instance_store_authority_guardrails_text(
+            Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"),
+            old_render_instance_store_refresh_fallback,
+        )
+    ):
+        failures.append("old RenderInstanceStore fallback refresh synthetic surface was not rejected")
+
+    allowed_render_instance_store_fail_closed = """
+    void RenderInstanceStore::Refresh( GameModel* models,
+                                       int modelCount,
+                                       const PhysicsBodyStore& bodyStore,
+                                       const ColliderStore& colliderStore )
+    {
+        if ( bodyStore.Count() != modelCount || colliderStore.Count() != modelCount )
+        {
+            assert( bodyStore.Count() == modelCount );
+            assert( colliderStore.Count() == modelCount );
+            Clear();
+            return;
+        }
+        record.modelMatrix = BuildPhysicsModelMatrix( body, collider );
+    }
+    void RenderInstanceStore::OverridePoseFromModel( int modelIndex, GameModel& model )
+    {
+        record.modelMatrix = model.GetModelMatrix();
+    }
+    """
+    if check_render_instance_store_authority_guardrails_text(
+        Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"),
+        allowed_render_instance_store_fail_closed,
+    ):
+        failures.append("store-backed RenderInstanceStore fail-closed synthetic surface was rejected")
+
+    commented_render_instance_store_refresh_fallback = """
+    void RenderInstanceStore::Refresh( GameModel* models,
+                                       int modelCount,
+                                       const PhysicsBodyStore& bodyStore,
+                                       const ColliderStore& colliderStore )
+    {
+        // Refresh( models, modelCount ) was the deleted GameModel fallback.
+        Clear();
+    }
+    """
+    if check_render_instance_store_authority_guardrails_text(
+        Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"),
+        commented_render_instance_store_refresh_fallback,
+    ):
+        failures.append("comment-only RenderInstanceStore fallback refresh synthetic text was rejected")
 
     old_game_model_renderer_stream_reads = """
     void GameModelRenderer::RenderModels( GameModelCollection& collection )
