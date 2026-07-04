@@ -219,14 +219,13 @@ static void ApplyReplayVelocityEditToModel( ReplayRuntime& replayRuntime,
     // Why: replay selection still resolves from model order, but the velocity
     // mutation below must enter physics as a body-handle command.
     GameModelCollectionPhysicsAdapter physicsBodies( modelCollection );
-    const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+    const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelIndex, true );
     if ( !body.IsValid() )
     {
         return;
     }
 
-    PhysicsModelAccess modelAccess( modelCollection );
-    if ( !modelCollection.GetPhysicsEngine().SetBodyVelocity( modelAccess, body, clampedLinear, clampedAngular, true ) )
+    if ( !modelCollection.GetPhysicsEngine().SetBodyVelocity( body, clampedLinear, clampedAngular, true ) )
     {
         return;
     }

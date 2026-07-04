@@ -261,12 +261,21 @@ PHYSICS_SCENE_PENDING_IMPULSE_FUNCTION_PATTERN = re.compile(
 PHYSICS_SCENE_PENDING_IMPULSE_MODEL_MIRROR_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*(?:WriteBackPhysicsBody|InvalidatePhysicsStreams)\s*\("
 )
-PHYSICS_SCENE_SET_BODY_VELOCITY_FUNCTION_PATTERN = re.compile(
-    r"\bbool\s+PhysicsScene::SetBodyVelocity\s*\(\s*PhysicsModelAccess\s*&"
-)
+PHYSICS_SCENE_SET_BODY_VELOCITY_FUNCTION_PATTERN = re.compile(r"\bbool\s+PhysicsScene::SetBodyVelocity\s*\(")
 PHYSICS_SCENE_SET_BODY_VELOCITY_MODEL_MIRROR_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*(?:WriteBackPhysicsBody|InvalidatePhysicsStreams)\s*\("
 )
+PHYSICS_VELOCITY_MODEL_ACCESS_SOURCES = (
+    PHYSICS_ENGINE_SOURCE,
+    PHYSICS_ENGINE_HEADER,
+    PHYSICS_SCENE_SOURCE,
+    PHYSICS_SCENE_HEADER,
+    REPLAY_VELOCITY_EDIT_SOURCE,
+)
+PHYSICS_VELOCITY_MODEL_ACCESS_OVERLOAD_PATTERN = re.compile(
+    r"\bSetBodyVelocity\s*\(\s*PhysicsModelAccess\s*&"
+)
+PHYSICS_VELOCITY_MODEL_ACCESS_CALL_PATTERN = re.compile(r"\bSetBodyVelocity\s*\(\s*modelAccess\s*,")
 PHYSICS_SCENE_WAKE_BODY_FUNCTION_PATTERN = re.compile(
     r"\bvoid\s+PhysicsScene::WakeBody\s*\("
 )
@@ -2838,6 +2847,44 @@ def check_physics_scene_velocity_model_mirror_guardrails(repo: Path) -> list[Bou
         path,
         path.read_text(encoding="utf-8"),
     )
+
+
+def check_physics_velocity_model_access_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_VELOCITY_MODEL_ACCESS_OVERLOAD_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "velocity model-access overload is blocked",
+                (
+                    "SetBodyVelocity should be a store-owned PhysicsBodyHandle command; "
+                    "legacy model-index callers must refresh topology before resolving the handle."
+                ),
+            )
+        )
+    for match in PHYSICS_VELOCITY_MODEL_ACCESS_CALL_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "velocity model-access call is blocked",
+                (
+                    "Call SetBodyVelocity(body, linearVelocity, angularVelocity, wakeIfMoving) after resolving a "
+                    "PhysicsBodyHandle; do not borrow PhysicsModelAccess for velocity edits."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_velocity_model_access_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in PHYSICS_VELOCITY_MODEL_ACCESS_SOURCES:
+        path = repo / relative_path
+        errors.extend(check_physics_velocity_model_access_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_physics_scene_wake_body_model_mirror_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -9112,6 +9159,82 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only velocity edit model mirror synthetic text was rejected")
 
+    old_velocity_model_access_overloads = """
+    bool PhysicsEngine::SetBodyVelocity( PhysicsModelAccess& modelAccess,
+                                         PhysicsBodyHandle body,
+                                         const Vector3& linearVelocity,
+                                         const Vector3& angularVelocity,
+                                         bool wakeIfMoving )
+    {
+        return m_scene.SetBodyVelocity( modelAccess, body, linearVelocity, angularVelocity, wakeIfMoving );
+    }
+    bool PhysicsScene::SetBodyVelocity( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        return m_bodyStore.SetBodyVelocity( body, linearVelocity, angularVelocity );
+    }
+    """
+    if not any(
+        error.message == "velocity model-access overload is blocked"
+        for error in check_physics_velocity_model_access_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsEngine.cpp"),
+            old_velocity_model_access_overloads,
+        )
+    ):
+        failures.append("old SetBodyVelocity model-access overload synthetic surface was not rejected")
+
+    old_velocity_model_access_call = """
+    void ApplyReplayVelocityEditToModel( GameModelCollection& modelCollection )
+    {
+        PhysicsModelAccess modelAccess( modelCollection );
+        modelCollection.GetPhysicsEngine().SetBodyVelocity( modelAccess, body, linearVelocity, angularVelocity, true );
+    }
+    """
+    if not any(
+        error.message == "velocity model-access call is blocked"
+        for error in check_physics_velocity_model_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
+            old_velocity_model_access_call,
+        )
+    ):
+        failures.append("old SetBodyVelocity model-access call synthetic surface was not rejected")
+
+    allowed_velocity_handle_command = """
+    PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForVelocityCommand( int modelIndex,
+                                                                                       bool wakeIfMoving ) const
+    {
+        return wakeIfMoving ? BodyHandleForWakeCommand( modelIndex ) : BodyHandleForModelIndex( modelIndex );
+    }
+    void ApplyReplayVelocityEditToModel( GameModelCollection& modelCollection )
+    {
+        GameModelCollectionPhysicsAdapter physicsBodies( modelCollection );
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelIndex, true );
+        modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
+    }
+    bool PhysicsScene::SetBodyVelocity( PhysicsBodyHandle body )
+    {
+        return m_bodyStore.SetBodyVelocity( body, linearVelocity, angularVelocity );
+    }
+    """
+    if check_physics_velocity_model_access_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
+        allowed_velocity_handle_command,
+    ):
+        failures.append("body-only velocity command synthetic surface was rejected")
+
+    commented_velocity_model_access = """
+    void DocumentOldVelocityCommand()
+    {
+        // modelCollection.GetPhysicsEngine().SetBodyVelocity(modelAccess, body, linearVelocity, angularVelocity, true) used to run here.
+        // bool PhysicsScene::SetBodyVelocity(PhysicsModelAccess& modelAccess, PhysicsBodyHandle body) was deleted.
+        modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
+    }
+    """
+    if check_physics_velocity_model_access_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
+        commented_velocity_model_access,
+    ):
+        failures.append("comment-only velocity model-access synthetic text was rejected")
+
     old_wake_body_model_mirror = """
     void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
     {
@@ -9651,9 +9774,8 @@ def run_self_tests() -> list[str]:
     void ApplyReplayVelocityEditToModel( GameModelCollection& modelCollection )
     {
         GameModelCollectionPhysicsAdapter physicsBodies( modelCollection );
-        const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
-        PhysicsModelAccess modelAccess( modelCollection );
-        modelCollection.GetPhysicsEngine().SetBodyVelocity( modelAccess, body, linearVelocity, angularVelocity, true );
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelIndex, true );
+        modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
     }
     """
     if check_replay_velocity_model_state_physics_command_guardrails_text(
@@ -9667,7 +9789,7 @@ def run_self_tests() -> list[str]:
     {
         // model.SetLinearVelocity(linearVelocity) used to run here.
         // modelCollection.CommitEditedModelPhysicsState(modelIndex, false) used to run here.
-        modelCollection.GetPhysicsEngine().SetBodyVelocity( modelAccess, body, linearVelocity, angularVelocity, true );
+        modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
     }
     """
     if check_replay_velocity_model_state_physics_command_guardrails_text(
@@ -10262,6 +10384,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_scene_step_body_reload_guardrails(repo))
     errors.extend(check_physics_scene_pending_impulse_model_mirror_guardrails(repo))
     errors.extend(check_physics_scene_velocity_model_mirror_guardrails(repo))
+    errors.extend(check_physics_velocity_model_access_guardrails(repo))
     errors.extend(check_physics_scene_wake_body_model_mirror_guardrails(repo))
     errors.extend(check_physics_wake_apply_model_access_guardrails(repo))
     errors.extend(check_physics_seed_body_asleep_model_access_guardrails(repo))

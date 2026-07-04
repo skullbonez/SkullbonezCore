@@ -310,17 +310,11 @@ void PhysicsScene::WakeBody( PhysicsBodyHandle body )
 }
 
 
-bool PhysicsScene::SetBodyVelocity( PhysicsModelAccess& modelAccess,
-                                    PhysicsBodyHandle body,
+bool PhysicsScene::SetBodyVelocity( PhysicsBodyHandle body,
                                     const Math::Vector::Vector3& linearVelocity,
                                     const Math::Vector::Vector3& angularVelocity,
                                     bool wakeIfMoving )
 {
-    const int modelCount = modelAccess.ModelCount();
-    if ( m_bodyStore.Count() != modelCount )
-    {
-        RefreshBodyStore( modelAccess );
-    }
     const int index = m_bodyStore.ModelIndexForHandle( body );
     if ( index < 0 || !m_bodyStore.SetBodyVelocity( body, linearVelocity, angularVelocity ) )
     {
@@ -330,10 +324,6 @@ bool PhysicsScene::SetBodyVelocity( PhysicsModelAccess& modelAccess,
     const bool shouldWake = wakeIfMoving && ( !linearVelocity.IsCloseToZero() || !angularVelocity.IsCloseToZero() );
     if ( shouldWake )
     {
-        if ( m_colliderStore.Count() != modelCount )
-        {
-            RefreshColliderStore( modelAccess );
-        }
         if ( m_hasLastWorldForces )
         {
             m_world.WakeModel( m_bodyStore, m_colliderStore, m_lastWorldForces, index );
@@ -345,9 +335,9 @@ bool PhysicsScene::SetBodyVelocity( PhysicsModelAccess& modelAccess,
         m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
     }
 
-    // Why: replay velocity edits are live simulation commands. Prediction now
-    // samples PhysicsBodyStore directly, and the next step owns the remaining
-    // presentation projection when GameModel state actually needs it.
+    // Invariant: callers that start from model indices perform any count-gated
+    // topology refresh before resolving the handle. This command does not borrow
+    // GameModel state or reload same-count body rows on the edit path.
     return true;
 }
 

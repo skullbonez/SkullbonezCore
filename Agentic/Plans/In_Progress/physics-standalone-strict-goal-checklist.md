@@ -886,6 +886,39 @@ body/collider topology refresh before entering those commands. Evidence logs:
 `TestOutput\agent_validate_physics_wake_apply_signatures.log`; the physics gate
 passed with byte-exact `physics_regression_solver.csv`.
 
+Slice `PHY-1008`: delete the remaining
+`SetBodyVelocity(PhysicsModelAccess&, PhysicsBodyHandle, ...)` command
+signature. Replay velocity edits may still resolve from model order, but they
+must request a wake-ready `PhysicsBodyHandle` from
+`GameModelCollectionPhysicsAdapter` before entering the handle-owned physics
+command.
+
+- [x] Add an adapter handle resolver for velocity commands so wake-sensitive
+  collider topology refresh stays count-gated at the model-index edge.
+- [x] Delete the model-access velocity overload from `PhysicsEngine` and
+  `PhysicsScene`.
+- [x] Route replay velocity edits through `SetBodyVelocity(body, linearVelocity,
+  angularVelocity, wakeIfMoving)` without constructing `PhysicsModelAccess`.
+- [x] Add runtime-boundary self-tests that reject the deleted velocity
+  model-access overload and caller spelling while allowing body-only commands.
+- [x] Comment-audit the touched source files.
+- [x] Validation for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] `tools\validate_fast.bat`
+  - [x] `tools\validate_physics.bat`
+
+Follow-up slice `PHY-1008`: velocity edit commands no longer borrow
+`PhysicsModelAccess`. `PhysicsEngine`/`PhysicsScene` now expose
+`SetBodyVelocity(body, linearVelocity, angularVelocity, wakeIfMoving)`, while
+replay velocity edits use `GameModelCollectionPhysicsAdapter` for count-gated
+body/collider topology refresh before entering the command. Evidence logs:
+`TestOutput\agent_validate_fast_velocity_signatures.log` and
+`TestOutput\agent_validate_physics_velocity_signatures.log`; the physics gate
+passed with byte-exact `physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

@@ -51,6 +51,10 @@ class GameModelCollectionPhysicsAdapter
     // the model vector. Unknown or duplicate ids return an invalid handle.
     Physics::PhysicsBodyHandle BodyHandleForSceneObjectId( Physics::PhysicsSceneObjectId sceneObjectId ) const;
 
+    // Velocity edits can wake bodies, which may consult collider-derived sleep
+    // locks. This keeps any required topology refresh at the model-index edge.
+    Physics::PhysicsBodyHandle BodyHandleForVelocityCommand( int modelIndex, bool wakeIfMoving ) const;
+
     // These methods preserve the old model-index command surface while forcing
     // physics mutation to target handles before it reaches PhysicsEngine.
     void WakeBodyForModelIndex( int modelIndex ) const;

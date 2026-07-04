@@ -79,10 +79,9 @@ class PhysicsEngine
     // Wakes solver sleep/island state by handle. Legacy model-index callers
     // must refresh topology before entering this command.
     void WakeBody( PhysicsBodyHandle body );
-    // Live tool commands edit body velocity by handle; PhysicsScene keeps the
-    // result in the body store until the normal step projects presentation.
-    bool SetBodyVelocity( PhysicsModelAccess& modelAccess,
-                          PhysicsBodyHandle body,
+    // Live tool commands edit body velocity by handle; legacy model-index
+    // callers refresh topology before entering this store-owned command.
+    bool SetBodyVelocity( PhysicsBodyHandle body,
                           const Math::Vector::Vector3& linearVelocity,
                           const Math::Vector::Vector3& angularVelocity,
                           bool wakeIfMoving );

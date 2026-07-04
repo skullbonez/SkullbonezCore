@@ -88,8 +88,7 @@ class PhysicsScene
     void WakeBody( PhysicsBodyHandle body );
     // Sets replay/editor-authored live velocities by body handle and optionally
     // wakes a moving body before the normal step projects presentation state.
-    bool SetBodyVelocity( PhysicsModelAccess& modelAccess,
-                          PhysicsBodyHandle body,
+    bool SetBodyVelocity( PhysicsBodyHandle body,
                           const Math::Vector::Vector3& linearVelocity,
                           const Math::Vector::Vector3& angularVelocity,
                           bool wakeIfMoving );

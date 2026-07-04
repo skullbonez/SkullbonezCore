@@ -102,6 +102,13 @@ GameModelCollectionPhysicsAdapter::BodyHandleForSceneObjectId( PhysicsSceneObjec
 }
 
 
+PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForVelocityCommand( int modelIndex,
+                                                                                   bool wakeIfMoving ) const
+{
+    return wakeIfMoving ? BodyHandleForWakeCommand( modelIndex ) : BodyHandleForModelIndex( modelIndex );
+}
+
+
 PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForWakeCommand( int modelIndex ) const
 {
     if ( modelIndex < 0 || modelIndex >= m_collection.GetModelCount() )

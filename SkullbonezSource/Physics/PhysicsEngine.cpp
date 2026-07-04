@@ -126,13 +126,12 @@ void PhysicsEngine::WakeBody( PhysicsBodyHandle body )
 }
 
 
-bool PhysicsEngine::SetBodyVelocity( PhysicsModelAccess& modelAccess,
-                                     PhysicsBodyHandle body,
+bool PhysicsEngine::SetBodyVelocity( PhysicsBodyHandle body,
                                      const Math::Vector::Vector3& linearVelocity,
                                      const Math::Vector::Vector3& angularVelocity,
                                      bool wakeIfMoving )
 {
-    return m_scene.SetBodyVelocity( modelAccess, body, linearVelocity, angularVelocity, wakeIfMoving );
+    return m_scene.SetBodyVelocity( body, linearVelocity, angularVelocity, wakeIfMoving );
 }
 
 
