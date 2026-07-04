@@ -1800,6 +1800,49 @@ formatting, project filters, runtime boundaries, and Profile/Debug builds with
 0 warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle
 smoke and byte-exact `physics_regression_solver.csv`.
 
+Slice `PHY-1038`: move runtime/editor topology repair off tool-side
+`PhysicsModelAccess` construction. Owner: `GameModelCollection` model-order
+topology repair methods plus launcher/editor command helpers; reason: launcher
+and editor tools only need count-gated body/collider topology repair before
+resolving a `PhysicsBodyHandle`, and constructing `PhysicsModelAccess` in tool
+code spread the model-owner import facade outside its owner; deletion condition:
+`RuntimeTools.cpp` and `RunEditorTools.cpp` contain no `PhysicsModelAccess`,
+`RefreshBodyStore(modelAccess)`, or `RefreshColliderSnapshot(modelAccess)`
+topology repair; checker budget: `tools/check_runtime_boundaries.py` blocks
+runtime/editor tool-side `PhysicsModelAccess` repair and keeps
+comment-only/owner-method allow cases.
+
+- [x] Add `GameModelCollection::RepairPhysicsBodyTopology()` and
+  `RepairPhysicsBodyAndColliderTopology()` owner methods.
+- [x] Move `AddGameModel()`, `GetPhysicsBodyStore()`, `GetColliderStore()`,
+  fixed-tree release, and `RunPhysics()` topology repair through the owner
+  methods.
+- [x] Move launcher and editor wake/sleep helpers off direct
+  `PhysicsModelAccess` construction and direct refresh calls.
+- [x] Remove the redundant editor sleep-helper `PhysicsEngine&` parameter so
+  placement code cannot repair one owner while commanding another engine.
+- [x] Add runtime-boundary guardrails and self-tests blocking runtime/editor
+  tool-side topology repair from rebuilding `PhysicsModelAccess`.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation run for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] touched-file comment audit
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence: targeted residue scan found no `PhysicsModelAccess`,
+`RefreshBodyStore(modelAccess)`, or `RefreshColliderSnapshot(modelAccess)` in
+`RuntimeTools.cpp` or `RunEditorTools.cpp`; editor placement now calls the
+collection-owned sleep helper without passing a separate engine; runtime-boundary summary reported 0
+errors; focused Debug build passed with 0 warnings/errors; touched-file comment
+audit passed for all touched source/tool files; `tools\validate_fast.bat`
+passed formatting, project filters, runtime boundaries, and Profile/Debug
+builds with 0 warnings/errors; `tools\validate_physics.bat` passed
+standalone/runtime handle smoke and byte-exact `physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

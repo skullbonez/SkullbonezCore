@@ -608,19 +608,9 @@ void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& co
     }
 
     PhysicsEngine& physics = collection.GetPhysicsEngine();
-    const bool bodyTopologyChanged = physics.BodyStore().Count() != modelCount;
-    const bool colliderTopologyChanged = physics.Colliders().Count() != modelCount;
-    if ( bodyTopologyChanged || colliderTopologyChanged )
+    if ( !collection.RepairPhysicsBodyAndColliderTopology() )
     {
-        PhysicsModelAccess modelAccess( collection );
-        if ( bodyTopologyChanged )
-        {
-            physics.RefreshBodyStore( modelAccess );
-        }
-        if ( colliderTopologyChanged )
-        {
-            physics.RefreshColliderSnapshot( modelAccess );
-        }
+        return;
     }
 
     const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelIndex );
@@ -633,9 +623,7 @@ void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& co
 }
 
 
-void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollection& collection,
-                                  SkullbonezCore::Physics::PhysicsEngine& physics,
-                                  int modelIndex )
+void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollection& collection, int modelIndex )
 {
     const int modelCount = collection.GetModelCount();
     if ( modelIndex < 0 || modelIndex >= modelCount )
@@ -643,10 +631,10 @@ void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollecti
         return;
     }
 
-    PhysicsModelAccess modelAccess( collection );
-    if ( physics.BodyStore().Count() != modelCount )
+    PhysicsEngine& physics = collection.GetPhysicsEngine();
+    if ( !collection.RepairPhysicsBodyTopology() )
     {
-        physics.RefreshBodyStore( modelAccess );
+        return;
     }
 
     const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelIndex );

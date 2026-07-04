@@ -559,6 +559,10 @@ EDITOR_ADAPTER_COMMAND_WRAPPER_PATTERN = re.compile(
 EDITOR_ADAPTER_LOOKUP_PATTERN = re.compile(
     r"\b(?:GameModelCollectionPhysicsAdapter|BodyHandleForVelocityCommand|BodyHandleForModelIndex)\b"
 )
+RUNTIME_TOOL_MODEL_ACCESS_TOPOLOGY_PATTERN = re.compile(
+    r"\b(?:Physics\s*::\s*)?PhysicsModelAccess\b"
+    r"|\bRefresh(?:BodyStore|ColliderSnapshot)\s*\(\s*modelAccess\s*\)"
+)
 EDITOR_PHYSICS_COMMAND_SOURCES = (
     EDITOR_OBJECT_PLACEMENT_SOURCE,
     EDITOR_TOOLS_SOURCE,
@@ -4245,6 +4249,20 @@ def check_editor_model_index_physics_command_guardrails_text(path: Path, text: s
                 ),
             )
         )
+    if path.name == EDITOR_TOOLS_SOURCE.name:
+        for match in RUNTIME_TOOL_MODEL_ACCESS_TOPOLOGY_PATTERN.finditer(stripped):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "runtime/editor PhysicsModelAccess topology repair is blocked",
+                    (
+                        "Runtime editor tools should call GameModelCollection topology-repair owner methods, then "
+                        "resolve PhysicsBodyHandle from PhysicsBodyStore; do not construct PhysicsModelAccess in "
+                        "tool code."
+                    ),
+                )
+            )
     return errors
 
 
@@ -4332,6 +4350,20 @@ def check_launcher_model_index_physics_command_guardrails_text(path: Path, text:
                 ),
             )
         )
+    if path.name == RUNTIME_TOOLS_SOURCE.name:
+        for match in RUNTIME_TOOL_MODEL_ACCESS_TOPOLOGY_PATTERN.finditer(stripped):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "runtime/editor PhysicsModelAccess topology repair is blocked",
+                    (
+                        "Runtime launcher tools should call GameModelCollection topology-repair owner methods, then "
+                        "resolve PhysicsBodyHandle from PhysicsBodyStore; do not construct PhysicsModelAccess in "
+                        "tool code."
+                    ),
+                )
+            )
     for match in LAUNCHER_PROJECTILE_ADAPTER_WAKE_PATTERN.finditer(stripped):
         errors.append(
             BoundaryError(
@@ -12413,7 +12445,7 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old editor reset model-index command synthetic surface was not rejected")
 
-    allowed_editor_handle_command = """
+    old_editor_tool_model_access = """
     void WakeEditorPhysicsBody( GameModelCollection& collection, int modelIndex )
     {
         const int modelCount = collection.GetModelCount();
@@ -12427,11 +12459,46 @@ def run_self_tests() -> list[str]:
         physics.WakeBody( body );
     }
     """
+    if not any(
+        error.message == "runtime/editor PhysicsModelAccess topology repair is blocked"
+        for error in check_editor_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+            old_editor_tool_model_access,
+        )
+    ):
+        failures.append("old editor PhysicsModelAccess topology repair synthetic surface was not rejected")
+
+    allowed_editor_handle_command = """
+    void WakeEditorPhysicsBody( GameModelCollection& collection, int modelIndex )
+    {
+        PhysicsEngine& physics = collection.GetPhysicsEngine();
+        if ( !collection.RepairPhysicsBodyAndColliderTopology() )
+        {
+            return;
+        }
+        const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelIndex );
+        physics.WakeBody( body );
+    }
+    """
     if check_editor_model_index_physics_command_guardrails_text(
         Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
         allowed_editor_handle_command,
     ):
         failures.append("handle-keyed editor command synthetic surface was rejected")
+
+    commented_editor_tool_model_access = """
+    void DocumentOldEditorRepair()
+    {
+        // PhysicsModelAccess modelAccess(collection) used to repair topology here.
+        // physics.RefreshBodyStore(modelAccess) is historical debt, not live code.
+        collection.RepairPhysicsBodyAndColliderTopology();
+    }
+    """
+    if check_editor_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+        commented_editor_tool_model_access,
+    ):
+        failures.append("comment-only editor PhysicsModelAccess topology synthetic text was rejected")
 
     commented_editor_model_index_command = """
     void DocumentOldEditorCommand()
@@ -12610,7 +12677,7 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old launcher model-index command synthetic surface was not rejected")
 
-    allowed_launcher_handle_command = """
+    old_launcher_tool_model_access = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
     {
         const int modelCount = collection.GetModelCount();
@@ -12619,6 +12686,29 @@ def run_self_tests() -> list[str]:
         if ( physics.Colliders().Count() != modelCount )
         {
             physics.RefreshColliderStore( modelAccess );
+        }
+        const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelHitIndex );
+        physics.ApplyBodyImpulse( body, impulse, localPoint );
+        physics.WakeBody( body );
+    }
+    """
+    if not any(
+        error.message == "runtime/editor PhysicsModelAccess topology repair is blocked"
+        for error in check_launcher_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
+            old_launcher_tool_model_access,
+        )
+    ):
+        failures.append("old launcher PhysicsModelAccess topology repair synthetic surface was not rejected")
+
+    allowed_launcher_handle_command = """
+    void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
+    {
+        const int modelCount = collection.GetModelCount();
+        PhysicsEngine& physics = collection.GetPhysicsEngine();
+        if ( !collection.RepairPhysicsBodyAndColliderTopology() )
+        {
+            return;
         }
         const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelHitIndex );
         physics.ApplyBodyImpulse( body, impulse, localPoint );

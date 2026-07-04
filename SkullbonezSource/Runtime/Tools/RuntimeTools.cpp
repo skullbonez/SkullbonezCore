@@ -71,24 +71,10 @@ constexpr float LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
 // state must remain PhysicsBodyStore authority. This imports only construction
 // topology drift before the tool resolves a handle.
 bool RepairLauncherPhysicsStores( GameObjects::GameModelCollection& collection,
-                                  Physics::PhysicsEngine& physics,
+                                  const Physics::PhysicsEngine& physics,
                                   int modelCount )
 {
-    const bool bodyTopologyChanged = physics.BodyStore().Count() != modelCount;
-    const bool colliderTopologyChanged = physics.Colliders().Count() != modelCount;
-    if ( bodyTopologyChanged || colliderTopologyChanged )
-    {
-        Physics::PhysicsModelAccess modelAccess( collection );
-        if ( bodyTopologyChanged )
-        {
-            physics.RefreshBodyStore( modelAccess );
-        }
-        if ( colliderTopologyChanged )
-        {
-            physics.RefreshColliderSnapshot( modelAccess );
-        }
-    }
-
+    collection.RepairPhysicsBodyAndColliderTopology();
     return physics.BodyStore().Count() == modelCount && physics.Colliders().Count() == modelCount;
 }
 

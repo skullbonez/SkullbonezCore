@@ -5,9 +5,8 @@ Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
 intermittent `tools\validate_physics.bat` passed on 2026-07-05 after moving
-required scene-contact exact manifold checks and the object manifold public API
-from `GameModel` pose/shape overloads to `PhysicsBodyStore` and `ColliderStore`
-snapshots.
+runtime/editor topology repair off tool-side `PhysicsModelAccess` construction
+and through `GameModelCollection` owner repair methods.
 
 ## Completed Slices
 
@@ -320,6 +319,23 @@ snapshots.
   deleted manifold overload/helper and blocks required scene-contact `GameModel`
   body/shape reads with reject/allow/comment-only self-tests. Validation:
   `git diff --check`, `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved runtime/editor topology repair off tool-side
+  `PhysicsModelAccess` construction. Owner: `GameModelCollection` model-order
+  topology repair boundary plus launcher/editor command helpers. Reason:
+  launcher and editor tools only need count-gated body/collider topology repair
+  before resolving a `PhysicsBodyHandle`; constructing `PhysicsModelAccess` in
+  tool code spread the model-owner import facade outside its owner and made the
+  old refresh path easier to re-grow. Deletion condition:
+  `RuntimeTools.cpp` and `RunEditorTools.cpp` contain no `PhysicsModelAccess`,
+  `RefreshBodyStore(modelAccess)`, or `RefreshColliderSnapshot(modelAccess)`
+  topology repair. Checker budget: `tools/check_runtime_boundaries.py` blocks
+  runtime/editor tool-side `PhysicsModelAccess` repair with
+  reject/allow/comment-only self-tests. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
   `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
   `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
   passed on 2026-07-05; physics regression reported standalone/runtime handle

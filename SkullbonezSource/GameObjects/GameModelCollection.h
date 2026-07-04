@@ -243,6 +243,13 @@ class GameModelCollection
     const Physics::PhysicsEngine& GetPhysicsEngine() const;
     const Physics::PhysicsBodyStore& GetPhysicsBodyStore();
     const Physics::ColliderStore& GetColliderStore();
+    // Repairs model/body count drift at the model-owner edge. Same-count body
+    // edits remain PhysicsBodyStore authority and must commit through explicit
+    // commands instead of reopening a model refresh.
+    bool RepairPhysicsBodyTopology();
+    // Repairs model/body/collider count drift before tool or picker code asks
+    // for body handles and collider bounds.
+    bool RepairPhysicsBodyAndColliderTopology();
     // Current prepared render snapshot. Call PrepareRenderInstances() before frame
     // passes; cold callers that need an ensured snapshot use GetRenderInstanceStore().
     const Rendering::RenderInstanceStore& RenderInstances() const;

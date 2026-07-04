@@ -310,14 +310,10 @@ PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel )
     gameModel.ApplyPhysicsMaterial( m_physicsMaterial );
     gameModel.ApplyBodySimulationLimits( m_bodySimulationLimits );
     gameModel.ApplyContactPolicy( m_contactPolicy );
-    if ( m_physicsEngine.BodyStore().Count() != static_cast<int>( m_gameModels.size() ) )
-    {
-        // Hazard: append-time body registration assumes the existing model/body
-        // rows are aligned. Repair only pre-existing count drift; the newly
-        // pushed model then appends one body record instead of reloading all rows.
-        PhysicsModelAccess modelAccess( *this );
-        m_physicsEngine.RefreshBodyStore( modelAccess );
-    }
+    // Hazard: append-time body registration assumes the existing model/body
+    // rows are aligned. Repair only pre-existing count drift; the newly
+    // pushed model then appends one body record instead of reloading all rows.
+    RepairPhysicsBodyTopology();
     m_gameModels.push_back( std::move( gameModel ) );
     return m_physicsEngine.RegisterAuthoredBody( MakeBodyRecordFromAuthoredModel( m_gameModels.back() ) );
 }
@@ -812,14 +808,7 @@ const SkullbonezCore::Physics::PhysicsEngine& GameModelCollection::GetPhysicsEng
 
 const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysicsBodyStore()
 {
-    if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
-    {
-        // Invariant: this accessor repairs topology only. Same-count body edits
-        // are physics-store authority and must not be overwritten by a
-        // convenience read that reloads the GameModel compatibility mirror.
-        PhysicsModelAccess modelAccess( *this );
-        m_physicsEngine.RefreshBodyStore( modelAccess );
-    }
+    RepairPhysicsBodyTopology();
     return m_physicsEngine.BodyStore();
 }
 
@@ -829,13 +818,45 @@ const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderSt
     // Invariant: convenience reads repair topology only. Shape/material edits
     // commit through CommitEditedModelPhysicsState(..., true) so picks, saves,
     // and queries do not rebuild collider metadata just to inspect it.
-    GetPhysicsBodyStore();
-    if ( m_physicsEngine.Colliders().Count() != ModelCount() )
-    {
-        PhysicsModelAccess modelAccess( *this );
-        m_physicsEngine.RefreshColliderSnapshot( modelAccess );
-    }
+    RepairPhysicsBodyAndColliderTopology();
     return m_physicsEngine.Colliders();
+}
+
+
+bool GameModelCollection::RepairPhysicsBodyTopology()
+{
+    if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
+    {
+        // Invariant: topology repair imports construction rows only. Same-count
+        // state edits are physics-store authority and must not be overwritten by
+        // a convenience read that reloads the GameModel compatibility mirror.
+        PhysicsModelAccess modelAccess( *this );
+        m_physicsEngine.RefreshBodyStore( modelAccess );
+    }
+    return m_physicsEngine.BodyStore().Count() == ModelCount();
+}
+
+
+bool GameModelCollection::RepairPhysicsBodyAndColliderTopology()
+{
+    const int modelCount = ModelCount();
+    const bool bodyTopologyChanged = m_physicsEngine.BodyStore().Count() != modelCount;
+    const bool colliderTopologyChanged = m_physicsEngine.Colliders().Count() != modelCount;
+    if ( bodyTopologyChanged || colliderTopologyChanged )
+    {
+        // Why: one owner-side facade handles construction drift for both stores.
+        // Equal-count body and collider state stays store-owned on steady frames.
+        PhysicsModelAccess modelAccess( *this );
+        if ( bodyTopologyChanged )
+        {
+            m_physicsEngine.RefreshBodyStore( modelAccess );
+        }
+        if ( colliderTopologyChanged )
+        {
+            m_physicsEngine.RefreshColliderSnapshot( modelAccess );
+        }
+    }
+    return m_physicsEngine.BodyStore().Count() == modelCount && m_physicsEngine.Colliders().Count() == modelCount;
 }
 
 
@@ -1025,19 +1046,9 @@ bool GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
     // Deletion condition: runtime picking and scene identity use stable entity
     // ids or body handles directly. Checker budget: boundary grep blocks this
     // function from reading GameModel fixed/position/tree body metadata again.
-    const bool bodyTopologyChanged = m_physicsEngine.BodyStore().Count() != modelCount;
-    const bool colliderTopologyChanged = m_physicsEngine.Colliders().Count() != modelCount;
-    if ( bodyTopologyChanged || colliderTopologyChanged )
+    if ( !RepairPhysicsBodyAndColliderTopology() )
     {
-        PhysicsModelAccess modelAccess( *this );
-        if ( bodyTopologyChanged )
-        {
-            m_physicsEngine.RefreshBodyStore( modelAccess );
-        }
-        if ( colliderTopologyChanged )
-        {
-            m_physicsEngine.RefreshColliderSnapshot( modelAccess );
-        }
+        return false;
     }
 
     const PhysicsBodyHandle sourceBody = m_physicsEngine.BodyStore().HandleForModelIndex( sourceIndex );
@@ -1077,23 +1088,9 @@ void GameModelCollection::RunPhysics( float fChangeInTime,
     // Invariant: PhysicsBodyStore is the per-tick body authority. GameModel is
     // imported only when model/body topology changes; same-count editor or replay
     // mutations must use explicit commit paths before the step reads the store.
-    const bool bodyTopologyChanged = m_physicsEngine.BodyStore().Count() != modelCount;
-    // Why: collider metadata is construction/authoring state, not per-tick solver
-    // state. The step repairs count drift without borrowing the GameModel owner
-    // during steady-state frames.
-    const bool colliderTopologyChanged = m_physicsEngine.Colliders().Count() != modelCount;
-    if ( bodyTopologyChanged || colliderTopologyChanged )
-    {
-        PhysicsModelAccess modelAccess( *this );
-        if ( bodyTopologyChanged )
-        {
-            m_physicsEngine.RefreshBodyStore( modelAccess );
-        }
-        if ( colliderTopologyChanged )
-        {
-            m_physicsEngine.RefreshColliderSnapshot( modelAccess );
-        }
-    }
+    // Collider metadata is construction/authoring state, not per-tick solver
+    // state, so steady frames keep GameModel out of the physics step.
+    RepairPhysicsBodyAndColliderTopology();
 
     TickContactHighlights( modelCount, fChangeInTime );
 
