@@ -36,6 +36,7 @@ Related:
 #include "PhysicsBodyStore.h"
 #include "PhysicsEngine.h"
 #include "PhysicsMass.h"
+#include "PhysicsModelAccess.h"
 
 #include <algorithm>
 #include <cmath>
@@ -476,9 +477,13 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
 
     if ( options.startsAsleep && !options.fixed )
     {
+        PhysicsModelAccess modelAccess( collection );
         for ( int i = 0; i < PART_COUNT; ++i )
         {
-            collection.SeedModelAsleep( firstBody + i );
+            // Why: ragdoll construction already resolves body handles for
+            // joints. Seed sleep through the same physics boundary instead of
+            // reopening the collection's model-index command wrapper.
+            physics.SeedBodyAsleep( modelAccess, bodyStore.HandleForModelIndex( firstBody + i ) );
         }
     }
 }

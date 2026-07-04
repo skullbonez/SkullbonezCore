@@ -81,6 +81,7 @@ SKULL_SCOPE_SOURCE = Path("SkullbonezSource/Core/SkullScope.cpp")
 PHYSICS_WORLD_SOURCE = PHYSICS_ROOT / "PhysicsWorld.cpp"
 PHYSICS_SCENE_SOURCE = PHYSICS_ROOT / "PhysicsScene.cpp"
 PHYSICS_DIAGNOSTICS_SINK_SOURCE = PHYSICS_ROOT / "PhysicsDiagnosticsSink.cpp"
+RAGDOLL_SOURCE = PHYSICS_ROOT / "Ragdoll.cpp"
 GAME_MODEL_COLLECTION_SOURCE = Path("SkullbonezSource/GameObjects/GameModelCollection.cpp")
 GAME_MODEL_COLLECTION_PHYSICS_ADAPTER_SOURCE = Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp")
 IRENDER_BACKEND_HEADER = Path("SkullbonezSource/Rendering/IRenderBackend.h")
@@ -243,6 +244,9 @@ REPLAY_VELOCITY_MODEL_STATE_PHYSICS_COMMAND_PATTERN = re.compile(
     r"model\s*\.\s*(?:SetLinearVelocity|SetAngularVelocity)|"
     r"(?:modelCollection|m_cGameModelCollection)\s*\.\s*(?:CommitEditedModelPhysicsState|WakeModel)"
     r")\s*\("
+)
+RAGDOLL_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
+    r"\bcollection\s*\.\s*(?:SeedModelAsleep|WakeModel|ApplyBodyImpulse|SetPendingBodyImpulse)\s*\("
 )
 HOT_PATH_INHERITANCE_PATTERN = re.compile(
     r"^\s*(?:class|struct)\s+[A-Za-z_]\w*[^{;\n]*:\s*(?:public|protected|private)\b",
@@ -2379,6 +2383,29 @@ def check_replay_velocity_model_state_physics_command_guardrails_text(path: Path
 def check_replay_velocity_model_state_physics_command_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / REPLAY_VELOCITY_EDIT_SOURCE
     return check_replay_velocity_model_state_physics_command_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_ragdoll_model_index_physics_command_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in RAGDOLL_MODEL_INDEX_PHYSICS_COMMAND_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "ragdoll model-index physics command is blocked",
+                (
+                    "Ragdoll construction already resolves PhysicsBodyHandle values for joints; sleep/impulse "
+                    "commands should enter PhysicsEngine by handle instead of GameModelCollection wrappers."
+                ),
+            )
+        )
+    return errors
+
+
+def check_ragdoll_model_index_physics_command_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / RAGDOLL_SOURCE
+    return check_ragdoll_model_index_physics_command_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_physics_hot_path_inheritance_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -7662,6 +7689,51 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only replay velocity model-state command synthetic text was rejected")
 
+    old_ragdoll_model_index_command = """
+    void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection )
+    {
+        for ( int i = 0; i < PART_COUNT; ++i )
+        {
+            collection.SeedModelAsleep( firstBody + i );
+        }
+    }
+    """
+    if not any(
+        error.message == "ragdoll model-index physics command is blocked"
+        for error in check_ragdoll_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Physics/Ragdoll.cpp"),
+            old_ragdoll_model_index_command,
+        )
+    ):
+        failures.append("old ragdoll model-index command synthetic surface was not rejected")
+
+    allowed_ragdoll_handle_command = """
+    void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection, PhysicsEngine& physics )
+    {
+        const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
+        PhysicsModelAccess modelAccess( collection );
+        physics.SeedBodyAsleep( modelAccess, bodyStore.HandleForModelIndex( firstBody + i ) );
+    }
+    """
+    if check_ragdoll_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Physics/Ragdoll.cpp"),
+        allowed_ragdoll_handle_command,
+    ):
+        failures.append("handle-keyed ragdoll command synthetic surface was rejected")
+
+    commented_ragdoll_model_index_command = """
+    void DocumentOldRagdollCommand()
+    {
+        // collection.SeedModelAsleep(firstBody + i) used to run here.
+        physics.SeedBodyAsleep( modelAccess, body );
+    }
+    """
+    if check_ragdoll_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Physics/Ragdoll.cpp"),
+        commented_ragdoll_model_index_command,
+    ):
+        failures.append("comment-only ragdoll model-index command synthetic text was rejected")
+
     allowed_physics_hot_path_values = """
     struct SolverBodyState
     {
@@ -8087,6 +8159,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_mouse_pickup_model_index_physics_command_guardrails(repo))
     errors.extend(check_launcher_model_index_physics_command_guardrails(repo))
     errors.extend(check_replay_velocity_model_state_physics_command_guardrails(repo))
+    errors.extend(check_ragdoll_model_index_physics_command_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))
     errors.extend(check_approved_inheritance_guardrails(repo))

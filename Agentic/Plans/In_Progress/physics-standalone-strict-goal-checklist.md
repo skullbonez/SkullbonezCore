@@ -365,7 +365,8 @@ model indices stop entering physics commands directly.
   - [x] launcher tools,
   - [x] replay velocity edit,
   - [x] replay restore/prediction,
-  - [ ] diagnostics and debug overlays.
+  - [x] ragdoll start-asleep seed,
+  - [x] diagnostics and debug overlays.
 - [ ] Store `PhysicsBodyHandle` or stable scene object id at the caller where the
   command is created, not at the last moment inside physics.
 - [ ] Keep model indices only for UI selection and render presentation while
@@ -453,6 +454,21 @@ this slice: `python -m py_compile tools\check_runtime_boundaries.py`,
 `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
 `tools\validate_format.bat`, `tools\validate_fast.bat`, and
 `tools\validate_full.bat` all passed.
+
+Ragdoll construction no longer calls the `GameModelCollection::SeedModelAsleep`
+model-index wrapper for start-asleep parts. It reuses the existing body handles
+already required for joint creation and enters physics through
+`PhysicsEngine::SeedBodyAsleep`. The boundary checker now rejects direct
+`collection.SeedModelAsleep`, `WakeModel`, `ApplyBodyImpulse`, or
+`SetPendingBodyImpulse` calls in `Ragdoll.cpp`. Diagnostics/debug overlays were
+audited against the existing store-owned diagnostics path from `PHY-0207C`:
+`PhysicsDiagnosticsSink` and SkullScope consume `PhysicsBodyStore` and
+`ColliderStore` data for body/collider state, while the checker rejects the old
+model-state mirror read. Evidence for this slice: py_compile, runtime-boundary,
+focused Debug build, `tools\validate_format.bat`, `tools\validate_fast.bat`,
+and `tools\validate_physics.bat` all passed. Direct wrapper deletion remains
+open because `RunFrame.cpp` still routes the fixed-contact release wake through
+`GameModelCollection::WakeModel`.
 
 ## Phase 8 - Diagnostics And SkullScope
 
