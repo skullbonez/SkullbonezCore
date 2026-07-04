@@ -653,11 +653,11 @@ model-backed ownership.
     uses the shared store-owned diagnostics row builder. The full
     `PhysicsModelAccess`/`GameModelCollection` diagnostics-record/view bridge
     is deleted.
-- [ ] Keep raw NDJSON/SQLite out of model context; use `tools\physics_query.bat`
+- [x] Keep raw NDJSON/SQLite out of model context; use `tools\physics_query.bat`
   queries for investigation.
-- [ ] If output schema changes, update query baselines only from final Debug
+- [x] If output schema changes, update query baselines only from final Debug
   artifacts.
-- [ ] Report SkullScope query cost in final handoff whenever SkullScope is used:
+- [x] Report SkullScope query cost in final handoff whenever SkullScope is used:
   trace bytes, SQLite bytes, query commands, per-query output size, total
   GPT-read size.
 - [ ] Validation for this phase:
@@ -691,7 +691,10 @@ Debug\physics_query_varied.physicsdiag.ndjson`; query packet is
 queries. Raw artifacts: NDJSON 104,766,944 bytes, SQLite cache 51,146,752
 bytes. Bounded packet size: `TestOutput\baselines\physics_query_varied.json`
 180,019 bytes; summed per-query JSON payload sizes 113,637 characters. Raw
-NDJSON/SQLite were not loaded into model context.
+NDJSON/SQLite were not loaded into model context. Detailed command accounting:
+`Agentic/Reports/2026-07-04/physics-skullscope-phase8-query-accounting.md`.
+Follow-up focused gate: `tools\validate_physics_query.bat` passed and rebuilt
+Debug with 0 warnings/0 errors.
 
 ## Phase 9 - Guardrails
 
