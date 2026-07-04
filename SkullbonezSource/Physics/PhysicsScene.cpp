@@ -58,9 +58,6 @@ using SkullbonezCore::Physics::PhysicsScene;
 
 PhysicsScene::PhysicsScene()
 {
-#ifdef _DEBUG
-    m_physicsDiagnosticsModelNames.reserve( MAX_GAME_MODELS );
-#endif
 }
 
 
@@ -143,6 +140,12 @@ bool PhysicsScene::RestoreReplayBodyState( int modelIndex,
 void PhysicsScene::RefreshColliderStore( PhysicsModelAccess& modelAccess )
 {
     RefreshBodyStore( modelAccess );
+    RefreshColliderSnapshot( modelAccess );
+}
+
+
+void PhysicsScene::RefreshColliderSnapshot( PhysicsModelAccess& modelAccess )
+{
     modelAccess.RefreshPhysicsColliders( m_colliderStore, m_bodyStore );
 }
 
@@ -215,80 +218,29 @@ void PhysicsScene::ValidateRenderStoreMappings( int modelCount ) const
 #endif
 
 
-void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
-                               float fChangeInTime,
+void PhysicsScene::RunPhysics( float fChangeInTime,
                                const Basics::EngineConfig& config,
                                const PhysicsWorldForces& worldForces,
-                               Threading::WorkerPool& workerPool )
+                               Threading::WorkerPool& workerPool,
+                               const char* const* diagnosticNames,
+                               int diagnosticNameCount )
 {
-    const int modelCount = modelAccess.ModelCount();
-
-    // Invariant: PhysicsBodyStore is the per-tick body authority. GameModel is
-    // imported only when model/body topology changes; same-count editor or replay
-    // mutations must use explicit commit paths before the step reads the store.
-    if ( m_bodyStore.Count() != modelCount )
-    {
-        modelAccess.ReloadPhysicsBodies( m_bodyStore, m_world.GetSleepStates() );
-    }
-    // Why: collider metadata is construction/authoring state, not per-tick
-    // solver state. Scene setup and explicit refresh calls rebuild the snapshot;
-    // the hot step only needs to catch topology changes.
-    if ( m_colliderStore.Count() != modelCount )
-    {
-        modelAccess.RefreshPhysicsColliders( m_colliderStore, m_bodyStore );
-    }
-    // Why: contact highlight timers are model-owned presentation state, not
-    // solver input. Tick them at the compatibility edge so PhysicsWorld keeps
-    // its fixed step closer to store-owned data.
-    modelAccess.TickContactHighlights( modelCount, fChangeInTime );
     m_lastWorldForces = worldForces;
     m_hasLastWorldForces = true;
 
-    const char* const* diagnosticsNames = nullptr;
-    int diagnosticsNameCount = 0;
-#ifdef _DEBUG
-    if ( m_world.ShouldEmitStepDiagnostics() || m_world.ShouldEmitCollisionTimeDiagnostics() )
-    {
-        // Why: Debug rows still need presentation names, but PhysicsWorld should
-        // not borrow the model owner just to format diagnostics during/after the
-        // solve.
-        modelAccess.FillPhysicsDiagnosticsNames( m_bodyStore.Count(), m_physicsDiagnosticsModelNames );
-        diagnosticsNames = m_physicsDiagnosticsModelNames.empty() ? nullptr : m_physicsDiagnosticsModelNames.data();
-        diagnosticsNameCount = static_cast<int>( m_physicsDiagnosticsModelNames.size() );
-    }
-#endif
     m_world.RunPhysics( m_bodyStore,
                         m_colliderStore,
                         fChangeInTime,
                         config,
                         worldForces,
                         workerPool,
-                        diagnosticsNames,
-                        diagnosticsNameCount );
+                        diagnosticNames,
+                        diagnosticNameCount );
 
-    // Why: fixed-contact highlights are GameModel presentation feedback. The
-    // solver records compact body indices; PhysicsScene applies them at the
-    // compatibility edge so PhysicsWorld does not mutate presentation state.
-    for ( int index : m_world.GetFixedContactHighlightBodies() )
-    {
-        modelAccess.NotifyFixedContact( index, 0.5f );
-    }
     ApplyFixedTreeReleaseEvents( worldForces );
 
-    m_world.EmitStepDiagnostics( m_bodyStore, m_colliderStore, fChangeInTime, diagnosticsNames, diagnosticsNameCount );
+    m_world.EmitStepDiagnostics( m_bodyStore, m_colliderStore, fChangeInTime, diagnosticNames, diagnosticNameCount );
 
-    // Compatibility owner: PhysicsScene step boundary.
-    // Reason: editor and replay compatibility consumers still read GameModel
-    // pose/state after the store-owned solver has finished.
-    // Deletion condition: those consumers read PhysicsBodyStore or
-    // handle-addressed physics commands directly. Checker budget: boundary grep
-    // keeps bulk solver writeback out of PhysicsWorld::RunPhysics.
-    modelAccess.WriteBackPhysicsBodies( m_bodyStore );
-
-    // Why: model stream caches belong to the compatibility model view. The
-    // world step may mirror body state back to GameModel, but PhysicsScene owns
-    // the boundary where those cached SoA streams become stale.
-    modelAccess.InvalidatePhysicsStreams();
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
 }
 
@@ -517,6 +469,24 @@ uint64_t PhysicsScene::CollectPhysicsWorldMemoryBytes() const
 uint64_t PhysicsScene::CollectDebugAndBroadphaseMemoryBytes() const
 {
     return m_world.CollectDebugAndBroadphaseMemoryBytes();
+}
+
+
+bool PhysicsScene::ShouldEmitStepDiagnostics() const
+{
+    return m_world.ShouldEmitStepDiagnostics();
+}
+
+
+bool PhysicsScene::ShouldEmitCollisionTimeDiagnostics() const
+{
+    return m_world.ShouldEmitCollisionTimeDiagnostics();
+}
+
+
+const std::vector<int>& PhysicsScene::GetFixedContactHighlightBodies() const
+{
+    return m_world.GetFixedContactHighlightBodies();
 }
 
 

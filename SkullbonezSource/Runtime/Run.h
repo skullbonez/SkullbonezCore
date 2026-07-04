@@ -290,10 +290,8 @@ class Run
     void ResetReplayTimelineForActiveScene(
         bool preserveBranchMetadata = false );                             // Scene/model rebuilds start a fresh in-memory replay branch.
     void AfterPhysicsStep();                                               // Post-step hooks that must see committed physics state.
-    static void AfterPhysicsStepThunk( void* userData );
     void ApplyMousePickupPhysicsStep();                                    // Manipulator spring impulse before one fixed physics step.
     void RestoreMousePickupAngularVelocity();                              // Holds grabbed body angular velocity stable during drag.
-    static void ApplyMousePickupPhysicsStepThunk( void* userData );
     bool TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss );
     // Prediction work shares the replay visualizer deadline. These calls may
     // leave prediction dirty/building so a later frame can resume without

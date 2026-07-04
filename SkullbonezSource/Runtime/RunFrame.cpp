@@ -11,8 +11,6 @@ Mental model:
 Glossary:
   Simulation tick: One runtime decision about whether to advance logic, camera,
     and zero or more fixed physics steps this frame.
-  PhysicsModelAccess: Stack-owned owner facade used while simulation steps
-    model-backed physics state without making GameModelCollection a physics base.
   Contact-audio flash mode: Render-only diagnostic selector that decides which
     completed audio decisions paint body flashes after a fixed physics step.
   Contact-audio simple mode: Presentation-only path that emits from body linear
@@ -40,7 +38,6 @@ Related:
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeStyle.h"
 #include "../GameObjects/GameModelCollectionPhysicsAdapter.h"
-#include "../Physics/PhysicsModelAccess.h"
 
 #include <cmath>
 #include <cstdint>
@@ -617,49 +614,44 @@ void Run::TickPhysics( double secondsPerFrame )
     const bool manipulatorPhysics = policy.manipulatorActive;
     const bool contactAudioStep = m_contactAudio.IsEnabled();
     const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
-    PhysicsModelAccess physicsModelAccess( m_cGameModelCollection );
-    const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{
-        secondsPerFrame,
-        policy.physicsTimeScale,
-        SceneState().isSceneMode,
-        SceneState().isScenePhysics,
-        SceneState().isFixedStep,
-        policy.physicsAdvance,
-        stepRequested,
-        SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(),
-                               &physicsModelAccess,
-                               m_systems.config,
-                               m_systems.workerPool,
-                               &physicsWorldForces },
-        manipulatorPhysics ? &Run::ApplyMousePickupPhysicsStepThunk : nullptr,
-        this,
-        ( manipulatorPhysics || replayCapture || contactAudioStep ) ? &Run::AfterPhysicsStepThunk : nullptr,
-        this } );
+    const bool canStepPhysics = m_systems.config != nullptr && m_systems.workerPool != nullptr;
+    const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{ secondsPerFrame,
+                                                                              policy.physicsTimeScale,
+                                                                              SceneState().isSceneMode,
+                                                                              SceneState().isScenePhysics,
+                                                                              SceneState().isFixedStep,
+                                                                              policy.physicsAdvance,
+                                                                              stepRequested,
+                                                                              canStepPhysics } );
+    if ( tick.committedPhysicsTicks > 0 && canStepPhysics )
+    {
+        PROFILE_BEGIN( "Frame/Physics" );
+        // Why: SimulationSystem now returns only a deterministic tick count.
+        // Runtime executes those ticks through the collection-owned boundary so
+        // model presentation sync stays outside PhysicsEngine/PhysicsScene.
+        for ( int tickIndex = 0; tickIndex < tick.committedPhysicsTicks; ++tickIndex )
+        {
+            PROFILE_SCOPED( "Frame/Physics/Step" );
+            if ( manipulatorPhysics )
+            {
+                ApplyMousePickupPhysicsStep();
+            }
+            m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT,
+                                               *m_systems.config,
+                                               physicsWorldForces,
+                                               *m_systems.workerPool );
+            if ( manipulatorPhysics || replayCapture || contactAudioStep )
+            {
+                AfterPhysicsStep();
+            }
+        }
+        PROFILE_END( "Frame/Physics" );
+    }
     m_runtimeTools.TickRayCastTestLines( static_cast<float>( secondsPerFrame ) );
     m_runtimeTools.Laser().Update( static_cast<float>( secondsPerFrame ) );
     if ( tick.shouldUpdateLogic )
     {
         UpdateLogic( tick.simulationDt, tick.cameraDt );
-    }
-}
-
-
-void Run::AfterPhysicsStepThunk( void* userData )
-{
-    Run* run = static_cast<Run*>( userData );
-    if ( run )
-    {
-        run->AfterPhysicsStep();
-    }
-}
-
-
-void Run::ApplyMousePickupPhysicsStepThunk( void* userData )
-{
-    Run* run = static_cast<Run*>( userData );
-    if ( run )
-    {
-        run->ApplyMousePickupPhysicsStep();
     }
 }
 
@@ -2130,13 +2122,10 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             m_cGameModelCollection.BeginCollisionVisualFrame();
 
             const auto physicsWorldForces = m_cWorldEnvironment.GetPhysicsWorldForces();
-            PhysicsModelAccess physicsModelAccess( m_cGameModelCollection );
-            SimulationPhysicsStep{ &m_cGameModelCollection.GetPhysicsEngine(),
-                                   &physicsModelAccess,
-                                   m_systems.config,
-                                   m_systems.workerPool,
-                                   &physicsWorldForces }
-                .Run( PHYSICS_FIXED_DT );
+            m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT,
+                                               *m_systems.config,
+                                               physicsWorldForces,
+                                               *m_systems.workerPool );
             currentFrame = nextFrame;
 
             const ReplayV2SolverHashSample* expectedHash = FindReplaySolverHashForFrame( hashes, currentFrame );

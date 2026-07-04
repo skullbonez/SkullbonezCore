@@ -1054,7 +1054,57 @@ void GameModelCollection::RunPhysics( float fChangeInTime,
                                       Threading::WorkerPool& workerPool )
 {
     PhysicsModelAccess modelAccess( *this );
-    m_physicsEngine.Step( modelAccess, fChangeInTime, config, worldForces, workerPool );
+    const int modelCount = ModelCount();
+
+    // Invariant: PhysicsBodyStore is the per-tick body authority. GameModel is
+    // imported only when model/body topology changes; same-count editor or replay
+    // mutations must use explicit commit paths before the step reads the store.
+    if ( m_physicsEngine.BodyStore().Count() != modelCount )
+    {
+        m_physicsEngine.RefreshBodyStore( modelAccess );
+    }
+    // Why: collider metadata is construction/authoring state, not per-tick
+    // solver state. The step repairs count drift without reloading body records
+    // that are already authoritative in PhysicsBodyStore.
+    if ( m_physicsEngine.Colliders().Count() != modelCount )
+    {
+        m_physicsEngine.RefreshColliderSnapshot( modelAccess );
+    }
+
+    TickContactHighlights( modelCount, fChangeInTime );
+
+    const char* const* diagnosticNames = nullptr;
+    int diagnosticNameCount = 0;
+#ifdef _DEBUG
+    std::vector<const char*> physicsDiagnosticsModelNames;
+    if ( m_physicsEngine.ShouldEmitStepDiagnostics() || m_physicsEngine.ShouldEmitCollisionTimeDiagnostics() )
+    {
+        // Why: Debug rows still need presentation names, but the physics step
+        // receives them as a cold pointer table instead of borrowing the model owner.
+        FillPhysicsDiagnosticsNames( m_physicsEngine.BodyStore().Count(), physicsDiagnosticsModelNames );
+        diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
+        diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
+    }
+#endif
+
+    m_physicsEngine.Step( fChangeInTime, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
+
+    // Why: fixed-contact highlights are GameModel presentation feedback. The
+    // solver records compact body indices; the collection applies them before
+    // bulk writeback changes fixed flags in the compatibility model mirror.
+    for ( int index : m_physicsEngine.GetFixedContactHighlightBodies() )
+    {
+        NotifyFixedContact( index, 0.5f );
+    }
+
+    // Compatibility owner: GameModelCollection step boundary.
+    // Reason: editor and replay compatibility consumers still read GameModel
+    // pose/state after the store-owned solver has finished.
+    // Deletion condition: those consumers read PhysicsBodyStore or
+    // handle-addressed physics commands directly. Checker budget: boundary grep
+    // keeps bulk solver writeback out of PhysicsWorld and PhysicsScene stepping.
+    WriteBackPhysicsBodies( m_physicsEngine.BodyStore() );
+    InvalidatePhysicsStreams();
 }
 
 

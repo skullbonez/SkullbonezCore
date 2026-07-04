@@ -175,6 +175,15 @@ PHYSICS_WORLD_STEP_MODEL_ACCESS_SIGNATURE_PATTERN = re.compile(
     r"\b(?:PhysicsWorld::)?(?:RunPhysics|RunSolverPhysics|ApplyTornadoField)\s*\("
     r"(?P<args>[^;{}]*?\bPhysicsModelAccess\s*&[^;{}]*?)\)"
 )
+PHYSICS_ENGINE_STEP_MODEL_ACCESS_SIGNATURE_PATTERN = re.compile(
+    r"\b(?:PhysicsEngine::)?Step\s*\(\s*PhysicsModelAccess\s*&"
+)
+PHYSICS_SCENE_STEP_MODEL_ACCESS_SIGNATURE_PATTERN = re.compile(
+    r"\b(?:PhysicsScene::)?RunPhysics\s*\(\s*PhysicsModelAccess\s*&"
+)
+SIMULATION_SYSTEM_OWNER_BORROW_PATTERN = re.compile(
+    r"\b(?:SimulationPhysicsStep|PhysicsModelAccess|PhysicsEngine|PhysicsWorldForces|WorkerPool)\b"
+)
 PHYSICS_WORLD_STORE_SEED_MODEL_ACCESS_PATTERN = re.compile(
     r"\b(?:GameModelBodyStream|GetBodyStream)\b|\bmodelAccess\s*\.\s*InvalidatePhysicsStreams\s*\("
 )
@@ -2326,6 +2335,100 @@ def check_physics_world_step_model_access_signature_guardrails(repo: Path) -> li
     for relative_path in (PHYSICS_WORLD_SOURCE, Path("SkullbonezSource/Physics/PhysicsWorld.h")):
         path = repo / relative_path
         errors.extend(check_physics_world_step_model_access_signature_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_physics_engine_step_model_access_signature_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name not in { "PhysicsEngine.cpp", "PhysicsEngine.h" }:
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_ENGINE_STEP_MODEL_ACCESS_SIGNATURE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "physics engine step model-access signature is blocked",
+                (
+                    "PhysicsEngine::Step must step owned stores directly; model import/export belongs at "
+                    "the GameModelCollection compatibility edge."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_engine_step_model_access_signature_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in ( PHYSICS_ENGINE_SOURCE, PHYSICS_ENGINE_HEADER ):
+        path = repo / relative_path
+        errors.extend(
+            check_physics_engine_step_model_access_signature_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+            )
+        )
+    return errors
+
+
+def check_physics_scene_step_model_access_signature_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name not in { "PhysicsScene.cpp", "PhysicsScene.h" }:
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_SCENE_STEP_MODEL_ACCESS_SIGNATURE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "physics scene step model-access signature is blocked",
+                (
+                    "PhysicsScene::RunPhysics must consume PhysicsBodyStore and ColliderStore ownership only; "
+                    "GameModel presentation sync belongs outside the scene step."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_scene_step_model_access_signature_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in ( PHYSICS_SCENE_SOURCE, PHYSICS_SCENE_HEADER ):
+        path = repo / relative_path
+        errors.extend(
+            check_physics_scene_step_model_access_signature_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+            )
+        )
+    return errors
+
+
+def check_simulation_system_owner_borrow_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name not in { "SimulationSystem.cpp", "SimulationSystem.h" }:
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in SIMULATION_SYSTEM_OWNER_BORROW_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "simulation scheduler physics-owner borrow is blocked",
+                (
+                    "SimulationSystem is a tick-count scheduler only; runtime owners must execute returned "
+                    "physics steps through their real model/store boundary."
+                ),
+            )
+        )
+    return errors
+
+
+def check_simulation_system_owner_borrow_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in ( PHYSICS_ROOT / "SimulationSystem.cpp", PHYSICS_ROOT / "SimulationSystem.h" ):
+        path = repo / relative_path
+        errors.extend(check_simulation_system_owner_borrow_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -8420,6 +8523,189 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only PhysicsWorld model-access signature synthetic text was rejected")
 
+    old_engine_step_model_access_signature = """
+    void PhysicsEngine::Step( PhysicsModelAccess& modelAccess, float deltaSeconds )
+    {
+        m_scene.RunPhysics( modelAccess, deltaSeconds, config, forces, workerPool );
+    }
+    """
+    if not any(
+        error.message == "physics engine step model-access signature is blocked"
+        for error in check_physics_engine_step_model_access_signature_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsEngine.cpp"),
+            old_engine_step_model_access_signature,
+        )
+    ):
+        failures.append("old PhysicsEngine step model-access signature synthetic surface was not rejected")
+
+    old_engine_step_model_access_declaration = """
+    class PhysicsEngine
+    {
+        void Step( PhysicsModelAccess& modelAccess, float deltaSeconds );
+    };
+    """
+    if not any(
+        error.message == "physics engine step model-access signature is blocked"
+        for error in check_physics_engine_step_model_access_signature_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+            old_engine_step_model_access_declaration,
+        )
+    ):
+        failures.append("old PhysicsEngine step header model-access synthetic surface was not rejected")
+
+    allowed_engine_step_store_signature = """
+    void PhysicsEngine::Step( float deltaSeconds,
+                              const Basics::EngineConfig& config,
+                              const PhysicsWorldForces& worldForces,
+                              Threading::WorkerPool& workerPool,
+                              const char* const* diagnosticNames,
+                              int diagnosticNameCount )
+    {
+        m_scene.RunPhysics( deltaSeconds, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
+    }
+    """
+    if check_physics_engine_step_model_access_signature_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsEngine.cpp"),
+        allowed_engine_step_store_signature,
+    ):
+        failures.append("model-free PhysicsEngine step synthetic surface was rejected")
+
+    commented_engine_step_model_access_signature = """
+    void PhysicsEngine::Step( float deltaSeconds )
+    {
+        // Step( PhysicsModelAccess& modelAccess, float deltaSeconds ) was deleted.
+        m_scene.RunPhysics( deltaSeconds, config, forces, workerPool, nullptr, 0 );
+    }
+    """
+    if check_physics_engine_step_model_access_signature_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsEngine.cpp"),
+        commented_engine_step_model_access_signature,
+    ):
+        failures.append("comment-only PhysicsEngine model-access signature synthetic text was rejected")
+
+    old_scene_step_model_access_signature = """
+    void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess, float deltaSeconds )
+    {
+        m_world.RunPhysics( m_bodyStore, m_colliderStore, deltaSeconds, config, forces, workerPool, nullptr, 0 );
+    }
+    """
+    if not any(
+        error.message == "physics scene step model-access signature is blocked"
+        for error in check_physics_scene_step_model_access_signature_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+            old_scene_step_model_access_signature,
+        )
+    ):
+        failures.append("old PhysicsScene step model-access signature synthetic surface was not rejected")
+
+    old_scene_step_model_access_declaration = """
+    class PhysicsScene
+    {
+        void RunPhysics( PhysicsModelAccess& modelAccess, float deltaSeconds );
+    };
+    """
+    if not any(
+        error.message == "physics scene step model-access signature is blocked"
+        for error in check_physics_scene_step_model_access_signature_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsScene.h"),
+            old_scene_step_model_access_declaration,
+        )
+    ):
+        failures.append("old PhysicsScene step header model-access synthetic surface was not rejected")
+
+    allowed_scene_step_store_signature = """
+    void PhysicsScene::RunPhysics( float deltaSeconds,
+                                   const Basics::EngineConfig& config,
+                                   const PhysicsWorldForces& worldForces,
+                                   Threading::WorkerPool& workerPool,
+                                   const char* const* diagnosticNames,
+                                   int diagnosticNameCount )
+    {
+        m_world.RunPhysics( m_bodyStore, m_colliderStore, deltaSeconds, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
+    }
+    """
+    if check_physics_scene_step_model_access_signature_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        allowed_scene_step_store_signature,
+    ):
+        failures.append("model-free PhysicsScene step synthetic surface was rejected")
+
+    commented_scene_step_model_access_signature = """
+    void PhysicsScene::RunPhysics( float deltaSeconds )
+    {
+        // RunPhysics( PhysicsModelAccess& modelAccess, float deltaSeconds ) was deleted.
+        RunStoreOwnedStep();
+    }
+    """
+    if check_physics_scene_step_model_access_signature_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        commented_scene_step_model_access_signature,
+    ):
+        failures.append("comment-only PhysicsScene model-access signature synthetic text was rejected")
+
+    old_simulation_step_owner_borrow = """
+    struct SimulationPhysicsStep
+    {
+        PhysicsEngine* engine = nullptr;
+        PhysicsModelAccess* modelAccess = nullptr;
+        WorkerPool* workerPool = nullptr;
+        PhysicsWorldForces* worldForces = nullptr;
+    };
+    """
+    if not any(
+        error.message == "simulation scheduler physics-owner borrow is blocked"
+        for error in check_simulation_system_owner_borrow_guardrails_text(
+            Path("SkullbonezSource/Physics/SimulationSystem.h"),
+            old_simulation_step_owner_borrow,
+        )
+    ):
+        failures.append("old SimulationSystem owner-borrow synthetic surface was not rejected")
+
+    old_simulation_system_direct_step = """
+    #include "PhysicsModelAccess.h"
+    #include "PhysicsEngine.h"
+    void SimulationPhysicsStep::Run( float deltaSeconds ) const
+    {
+        engine->Step( *modelAccess, deltaSeconds, *config, *worldForces, *workerPool );
+    }
+    """
+    if not any(
+        error.message == "simulation scheduler physics-owner borrow is blocked"
+        for error in check_simulation_system_owner_borrow_guardrails_text(
+            Path("SkullbonezSource/Physics/SimulationSystem.cpp"),
+            old_simulation_system_direct_step,
+        )
+    ):
+        failures.append("old SimulationSystem direct physics step synthetic surface was not rejected")
+
+    allowed_simulation_tick_count = """
+    SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
+    {
+        SimulationTickResult result;
+        const bool canStepPhysics = input.canStepPhysics;
+        result.committedPhysicsTicks = canStepPhysics ? 1 : 0;
+        return result;
+    }
+    """
+    if check_simulation_system_owner_borrow_guardrails_text(
+        Path("SkullbonezSource/Physics/SimulationSystem.cpp"),
+        allowed_simulation_tick_count,
+    ):
+        failures.append("owner-free SimulationSystem tick-count synthetic surface was rejected")
+
+    commented_simulation_owner_borrow = """
+    SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
+    {
+        // SimulationPhysicsStep used to borrow PhysicsModelAccess here.
+        return {};
+    }
+    """
+    if check_simulation_system_owner_borrow_guardrails_text(
+        Path("SkullbonezSource/Physics/SimulationSystem.cpp"),
+        commented_simulation_owner_borrow,
+    ):
+        failures.append("comment-only SimulationSystem owner-borrow synthetic text was rejected")
+
     old_store_seed_model_access = """
     void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, const PhysicsBodyStore& bodyStore, int index )
     {
@@ -10633,6 +10919,9 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_world_persistent_contact_tree_release_guardrails(repo))
     errors.extend(check_physics_world_tornado_release_model_access_guardrails(repo))
     errors.extend(check_physics_world_step_model_access_signature_guardrails(repo))
+    errors.extend(check_physics_engine_step_model_access_signature_guardrails(repo))
+    errors.extend(check_physics_scene_step_model_access_signature_guardrails(repo))
+    errors.extend(check_simulation_system_owner_borrow_guardrails(repo))
     errors.extend(check_physics_world_store_seed_model_access_guardrails(repo))
     errors.extend(check_physics_world_store_wake_model_access_guardrails(repo))
     errors.extend(check_physics_world_deleted_model_stream_wake_seed_guardrails(repo))

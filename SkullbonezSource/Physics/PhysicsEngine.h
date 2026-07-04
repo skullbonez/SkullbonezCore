@@ -4,10 +4,9 @@ Purpose:
   Exposes the public physics facade while preserving the existing PhysicsScene implementation.
 
 Mental model:
-  PhysicsEngine is the runtime-facing physics boundary. During migration it owns
-  PhysicsScene and forwards compatibility-view operations in the same order, so
-  later scene/tool/replay callers can move to named physics commands without
-  touching solver internals directly.
+  PhysicsEngine is the runtime-facing physics boundary. It owns PhysicsScene and
+  forwards store/compatibility operations in a fixed order so scene, tool, and
+  replay callers use named physics commands without touching solver internals.
 
 Glossary:
   Facade: Narrow public boundary that forwards commands while hiding solver
@@ -70,12 +69,18 @@ class PhysicsEngine
                                  const Math::Vector::Vector3& rotationalInertia,
                                  const Math::Vector::Vector3& inverseRotationalInertia );
     void RefreshColliderStore( PhysicsModelAccess& modelAccess );
+    // Refreshes collider records from model-owned authoring data while keeping
+    // the current PhysicsBodyStore authority intact.
+    void RefreshColliderSnapshot( PhysicsModelAccess& modelAccess );
     void RefreshRenderStore( PhysicsModelAccess& modelAccess );
-    void Step( PhysicsModelAccess& modelAccess,
-               float deltaSeconds,
+    // Steps the owned stores. Model-order import/export lives with
+    // GameModelCollection so the solver path does not borrow PhysicsModelAccess.
+    void Step( float deltaSeconds,
                const Basics::EngineConfig& config,
                const PhysicsWorldForces& worldForces,
-               Threading::WorkerPool& workerPool );
+               Threading::WorkerPool& workerPool,
+               const char* const* diagnosticNames,
+               int diagnosticNameCount );
     // Wakes solver sleep/island state by handle. Legacy model-index callers
     // must refresh topology before entering this command.
     void WakeBody( PhysicsBodyHandle body );
@@ -116,6 +121,9 @@ class PhysicsEngine
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectPhysicsWorldMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
+    bool ShouldEmitStepDiagnostics() const;
+    bool ShouldEmitCollisionTimeDiagnostics() const;
+    const std::vector<int>& GetFixedContactHighlightBodies() const;
 
     const PhysicsBodyStore& BodyStore() const;
     const ColliderStore& Colliders() const;

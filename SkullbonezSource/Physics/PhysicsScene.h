@@ -5,9 +5,10 @@ Purpose:
 
 Mental model:
   PhysicsScene is the boundary between the compatibility model view and the
-  authoritative physics/render stores. PhysicsBodyStore owns the
-  mutable body state passed through PhysicsWorld, while GameModel remains the
-  compatibility shape/presentation surface until later runtime migrations.
+  authoritative physics/render stores. PhysicsBodyStore owns mutable body
+  records, PhysicsWorld owns solver scratch and diagnostics, and GameModel
+  remains only the compatibility authoring/presentation surface until later
+  runtime migrations.
 
 Glossary:
   Solver: Physics step that integrates bodies and resolves contacts.
@@ -18,7 +19,8 @@ Glossary:
 
 Invariants:
   - Body, collider, render, replay, and diagnostics ordering stays aligned.
-  - PhysicsWorld remains authoritative until store migration has its own gate.
+  - RunPhysics must not borrow PhysicsModelAccess; model projection stays at
+    GameModelCollection after the store-owned step.
 
 Related:
   - SkullbonezSource/Physics/PhysicsScene.cpp
@@ -77,12 +79,17 @@ class PhysicsScene
                                  const Math::Vector::Vector3& rotationalInertia,
                                  const Math::Vector::Vector3& inverseRotationalInertia );
     void RefreshColliderStore( PhysicsModelAccess& modelAccess );
+    // Refreshes collider authoring data against the already-current body store.
+    // Step prep uses this after count-gated body refresh to avoid a second body
+    // reload during topology repair.
+    void RefreshColliderSnapshot( PhysicsModelAccess& modelAccess );
     void RefreshRenderStore( PhysicsModelAccess& modelAccess );
-    void RunPhysics( PhysicsModelAccess& modelAccess,
-                     float fChangeInTime,
+    void RunPhysics( float fChangeInTime,
                      const Basics::EngineConfig& config,
                      const PhysicsWorldForces& worldForces,
-                     Threading::WorkerPool& workerPool );
+                     Threading::WorkerPool& workerPool,
+                     const char* const* diagnosticNames,
+                     int diagnosticNameCount );
     // Wakes solver sleep/island state by handle. Legacy model-index callers
     // must refresh topology before entering this command.
     void WakeBody( PhysicsBodyHandle body );
@@ -119,6 +126,9 @@ class PhysicsScene
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectPhysicsWorldMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
+    bool ShouldEmitStepDiagnostics() const;
+    bool ShouldEmitCollisionTimeDiagnostics() const;
+    const std::vector<int>& GetFixedContactHighlightBodies() const;
 
     const PhysicsBodyStore& BodyStore() const;
     const ColliderStore& Colliders() const;
@@ -147,8 +157,6 @@ class PhysicsScene
 #ifdef _DEBUG
     void ValidatePhysicsStoreMappings( int modelCount ) const;
     void ValidateRenderStoreMappings( int modelCount ) const;
-    // Debug-only cold name overlay for diagnostics emission.
-    std::vector<const char*> m_physicsDiagnosticsModelNames;
 #endif
 
     PhysicsWorld m_world;                                 // Deterministic solver and debug state over body-store records.

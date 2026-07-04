@@ -1027,6 +1027,42 @@ Evidence logs: `TestOutput\agent_build_debug_store_fixed_tree.log`,
 gate passed with `physics_regression_solver.csv` at 20,001 lines and a byte-exact
 match.
 
+Slice `PHY-1012`: retire the step-time `PhysicsModelAccess` signatures from
+`PhysicsEngine::Step` and `PhysicsScene::RunPhysics`. `GameModelCollection` now
+owns the remaining model-side step work: count-gated body/collider topology
+repair, contact-highlight presentation timers, Debug diagnostics names, fixed
+contact presentation feedback, bulk post-step writeback, and model stream
+invalidation. `PhysicsEngine` and `PhysicsScene` step owned stores only.
+`SimulationSystem` is now a tick-count scheduler; `RunFrame`, replay prediction,
+and replay restore probes execute returned ticks through
+`GameModelCollection::RunPhysics` instead of constructing `SimulationPhysicsStep`
+or `PhysicsModelAccess`.
+
+- [x] Remove `PhysicsModelAccess&` from `PhysicsEngine::Step`.
+- [x] Remove `PhysicsModelAccess&` from `PhysicsScene::RunPhysics`.
+- [x] Move model-owner pre/post step work to `GameModelCollection::RunPhysics`.
+- [x] Make `SimulationSystem` return committed tick counts without borrowing
+  `PhysicsEngine`, `PhysicsModelAccess`, worker pools, or world forces.
+- [x] Route runtime frame stepping, replay prediction stepping, and replay
+  restore probe stepping through the collection-owned step.
+- [x] Add runtime-boundary self-tests that reject the deleted engine/scene step
+  signatures and any future `SimulationSystem` owner-borrow step context.
+- [x] Run an intermittent `tools\validate_physics.bat` checkpoint immediately
+  after the scheduler/step-owner change.
+- [x] Comment-audit the touched source files.
+- [x] Validation for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent and final `tools\validate_physics.bat`
+
+Evidence logs: `TestOutput\agent_build_debug_step_store_boundary.log`,
+`TestOutput\agent_validate_physics_step_store_boundary_intermediate.log`,
+`TestOutput\agent_validate_fast_step_store_boundary.log`, and
+`TestOutput\agent_validate_physics_step_store_boundary.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

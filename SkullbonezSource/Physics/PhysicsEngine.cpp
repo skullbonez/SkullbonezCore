@@ -4,8 +4,9 @@ Purpose:
   Forwards the public PhysicsEngine facade to the existing deterministic PhysicsScene.
 
 Mental model:
-  This file is intentionally boring migration glue. It gives runtime code one
-  physics owner without changing PhysicsScene or PhysicsWorld execution order.
+  This file is intentionally thin facade code. Runtime callers enter one physics
+  owner, while PhysicsScene keeps store coordination and PhysicsWorld keeps
+  solver execution order.
 
 Glossary:
   Facade: Narrow public boundary that forwards commands while hiding solver
@@ -101,22 +102,26 @@ void PhysicsEngine::RefreshColliderStore( PhysicsModelAccess& modelAccess )
 }
 
 
+void PhysicsEngine::RefreshColliderSnapshot( PhysicsModelAccess& modelAccess )
+{
+    m_scene.RefreshColliderSnapshot( modelAccess );
+}
+
+
 void PhysicsEngine::RefreshRenderStore( PhysicsModelAccess& modelAccess )
 {
     m_scene.RefreshRenderStore( modelAccess );
 }
 
 
-void PhysicsEngine::Step( PhysicsModelAccess& modelAccess,
-                          float deltaSeconds,
+void PhysicsEngine::Step( float deltaSeconds,
                           const Basics::EngineConfig& config,
                           const PhysicsWorldForces& worldForces,
-                          Threading::WorkerPool& workerPool )
+                          Threading::WorkerPool& workerPool,
+                          const char* const* diagnosticNames,
+                          int diagnosticNameCount )
 {
-    // Compatibility: runtime stepping still borrows model-backed access until
-    // scene creation and runtime commands migrate to store-owned physics handles.
-    // Delete this path when PhysicsScene steps owned stores directly.
-    m_scene.RunPhysics( modelAccess, deltaSeconds, config, worldForces, workerPool );
+    m_scene.RunPhysics( deltaSeconds, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
 }
 
 
@@ -249,6 +254,24 @@ uint64_t PhysicsEngine::CollectPhysicsWorldMemoryBytes() const
 uint64_t PhysicsEngine::CollectDebugAndBroadphaseMemoryBytes() const
 {
     return m_scene.CollectDebugAndBroadphaseMemoryBytes();
+}
+
+
+bool PhysicsEngine::ShouldEmitStepDiagnostics() const
+{
+    return m_scene.ShouldEmitStepDiagnostics();
+}
+
+
+bool PhysicsEngine::ShouldEmitCollisionTimeDiagnostics() const
+{
+    return m_scene.ShouldEmitCollisionTimeDiagnostics();
+}
+
+
+const std::vector<int>& PhysicsEngine::GetFixedContactHighlightBodies() const
+{
+    return m_scene.GetFixedContactHighlightBodies();
 }
 
 
