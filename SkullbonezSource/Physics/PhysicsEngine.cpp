@@ -74,6 +74,9 @@ void PhysicsEngine::Step( PhysicsModelAccess& modelAccess,
                           const PhysicsWorldForces& worldForces,
                           Threading::WorkerPool& workerPool )
 {
+    // Compatibility: runtime stepping still borrows model-backed access until
+    // scene creation and runtime commands migrate to store-owned physics handles.
+    // Delete this path when PhysicsScene steps owned stores directly.
     m_scene.RunPhysics( modelAccess, deltaSeconds, config, worldForces, workerPool );
 }
 

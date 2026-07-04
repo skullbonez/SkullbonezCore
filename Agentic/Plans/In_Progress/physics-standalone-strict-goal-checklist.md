@@ -107,20 +107,24 @@ Import-Csv Agentic\Plans\In_Progress\physics-standalone-agent-workqueue.csv |
 
 ## Phase 0 - Baseline And Inventory
 
-- [ ] Run `git status --short --branch` and protect unrelated dirty work.
-- [ ] Run `python tools/check_runtime_boundaries.py --repo .` and record the
+- [x] Run `git status --short --branch` and protect unrelated dirty work.
+- [x] Run `python tools/check_runtime_boundaries.py --repo .` and record the
   current boundary result before touching source.
-- [ ] Run these searches and paste the counts into the implementation handoff:
-  - [ ] `rg -n "PhysicsModelAccess" SkullbonezSource/Physics SkullbonezSource/GameObjects SkullbonezSource/Runtime`
-  - [ ] `rg -n "GameModelCollection" SkullbonezSource/Physics SkullbonezSource/GameObjects SkullbonezSource/Runtime`
-  - [ ] `rg -n "ModelIndex|modelIndex|GetModelAtIndex" SkullbonezSource/Physics SkullbonezSource/GameObjects SkullbonezSource/Runtime`
-  - [ ] `rg -n "Contacts\\(|Islands\\(" SkullbonezSource/Physics`
-- [ ] Reconcile the search results against `tools/check_runtime_boundaries.py`
+- [x] Run these searches and paste the counts into the implementation handoff:
+  - [x] `rg -n "PhysicsModelAccess" SkullbonezSource/Physics SkullbonezSource/GameObjects SkullbonezSource/Runtime`
+    baseline count: 132.
+  - [x] `rg -n "GameModelCollection" SkullbonezSource/Physics SkullbonezSource/GameObjects SkullbonezSource/Runtime`
+    baseline count: 498.
+  - [x] `rg -n "ModelIndex|modelIndex|GetModelAtIndex" SkullbonezSource/Physics SkullbonezSource/GameObjects SkullbonezSource/Runtime`
+    baseline count: 661.
+  - [x] `rg -n "Contacts\\(|Islands\\(" SkullbonezSource/Physics`
+    baseline count: 47.
+- [x] Reconcile the search results against `tools/check_runtime_boundaries.py`
   allowlists before choosing a source slice.
-- [ ] Pick exactly one first implementation slice from Phase 1, 2, 3, 4, or 5.
+- [x] Pick exactly one first implementation slice from Phase 1, 2, 3, 4, or 5.
   Do not combine body authority, collider authority, replay, and diagnostics in
   one diff.
-- [ ] State the selected validation gate before editing. Most source slices here
+- [x] State the selected validation gate before editing. Most source slices here
   require at least `tools\validate_physics.bat`.
 
 ## Phase 1 - Strict Standalone Step Surface
@@ -128,26 +132,35 @@ Import-Csv Agentic\Plans\In_Progress\physics-standalone-agent-workqueue.csv |
 Target: add a store-owned step path while keeping the existing compatibility
 step alive until runtime call sites migrate.
 
-- [ ] Add a standalone step input descriptor, for example
-  `PhysicsStandaloneStepDesc`, that contains only deterministic physics inputs:
-  `deltaSeconds`, world acceleration, fixed-step flags, solver config snapshot,
-  sleep settings, and optional diagnostics sink.
-- [ ] Add `PhysicsStandaloneWorld::Step(const PhysicsStandaloneStepDesc&)` or
-  promote the existing `Step()` signature so it can run collision, contacts, and
-  sleep state without model-backed storage.
-- [ ] Keep `PhysicsEngine::Step(PhysicsModelAccess&, float)` as compatibility
+- [x] Add a standalone step input descriptor,
+  `PhysicsStandaloneStepDesc`, that contains only deterministic physics inputs
+  for the current standalone body integration surface: `deltaSeconds`, world
+  acceleration, traceable fixed-step metadata, frame id, and the scene-physics
+  enable gate. Solver, contact, sleep, and diagnostics inputs stay out until
+  later phases consume them.
+- [x] Add `PhysicsStandaloneWorld::Step(const PhysicsStandaloneStepDesc&)` for
+  current body integration without model-backed storage. Collision/contacts and
+  island/sleep authority remain scoped to Phases 3-5, where their standalone
+  storage is introduced.
+- [x] Keep `PhysicsEngine::Step(PhysicsModelAccess&, float)` as compatibility
   only, with comments naming the deletion target.
-- [ ] Add a second internal step path in `PhysicsScene` only if needed:
-  - [ ] `RunPhysics(PhysicsModelAccess&, float)` remains compatibility.
-  - [ ] New store-owned path accepts `PhysicsBodyStore&`, `ColliderStore&`, and
-    deterministic step inputs.
-- [ ] Make the standalone path impossible to call with `GameModelCollection`,
+- [x] Add a second internal step path in `PhysicsScene` only if needed. Not
+  needed for this Phase 1 slice because `PhysicsStandaloneWorld` already owns
+  the public store step; `RunPhysics(PhysicsModelAccess&, float)` remains the
+  named compatibility path until the body/collider authority phases move runtime
+  stores behind the same boundary.
+- [x] Make the standalone path impossible to call with `GameModelCollection`,
   `GameModel`, or `PhysicsModelAccess`.
-- [ ] Add smoke coverage proving the standalone step path advances at least two
+- [x] Add smoke coverage proving the standalone step path advances at least two
   dynamic bodies without runtime/window/renderer startup.
-- [ ] Validation for this phase:
-  - [ ] `tools\validate_physics.bat`
-  - [ ] `tools\validate_fast.bat` if guardrails or project files change.
+- [x] Validation for this phase:
+  - [x] `tools\validate_physics.bat`
+  - [x] `tools\validate_fast.bat` not required; no guardrail or project files
+    changed.
+  - [x] `tools\validate_format.bat`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] Touched-file comment audit: `PhysicsApi.h`, `PhysicsApi.cpp`,
+    `PhysicsEngine.cpp`, and `Runtime/Init.cpp`; no deferred source files.
 
 ## Phase 2 - Body Store Authority
 

@@ -212,7 +212,7 @@ struct PhysicsPointJointUpdateDesc
     uint8_t flags = 0;
 };
 
-struct PhysicsStepDesc
+struct PhysicsStandaloneStepDesc
 {
     float deltaSeconds = 0.0f;                                                  // Seconds to integrate; negative values are invalid.
     uint64_t frameIndex = 0;                                                    // Deterministic caller frame id for traceable samples.
@@ -420,6 +420,10 @@ struct PhysicsStandaloneSmokeResult
     bool rayCastHit = false;
     Math::Vector::Vector3 finalPosition = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 finalLinearVelocity = Math::Vector::ZERO_VECTOR;
+    bool secondaryBodyAdvanced = false;
+    PhysicsBodyHandle secondaryBody;
+    Math::Vector::Vector3 secondaryFinalPosition = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 secondaryFinalLinearVelocity = Math::Vector::ZERO_VECTOR;
     uint64_t deterministicHash = 0;
 };
 
@@ -468,7 +472,7 @@ class PhysicsStandaloneWorld
     bool DestroyConstraint( PhysicsConstraintHandle constraint );
 
     // Advances awake dynamic bodies by one deterministic semi-implicit Euler step.
-    bool Step( const PhysicsStepDesc& desc );
+    bool Step( const PhysicsStandaloneStepDesc& desc );
 
     // Applies a handle-based wake/sleep command without model-index lookup.
     // Fixed, stale, or invalid body targets fail for body commands without

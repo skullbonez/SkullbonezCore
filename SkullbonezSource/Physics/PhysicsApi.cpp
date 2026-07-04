@@ -71,8 +71,8 @@ using SkullbonezCore::Physics::PhysicsRayCastDesc;
 using SkullbonezCore::Physics::PhysicsRayCastHit;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Physics::PhysicsStandaloneSmokeResult;
+using SkullbonezCore::Physics::PhysicsStandaloneStepDesc;
 using SkullbonezCore::Physics::PhysicsStandaloneWorld;
-using SkullbonezCore::Physics::PhysicsStepDesc;
 
 namespace
 {
@@ -114,6 +114,8 @@ uint64_t HashSmokeResult( const PhysicsStandaloneSmokeResult& result )
     uint64_t hash = FNV_OFFSET_BASIS;
     hash = HashU32( hash, result.body.index );
     hash = HashU32( hash, result.body.generation );
+    hash = HashU32( hash, result.secondaryBody.index );
+    hash = HashU32( hash, result.secondaryBody.generation );
     hash = HashU32( hash, result.collider.index );
     hash = HashU32( hash, result.collider.generation );
     hash = HashU32( hash, result.constraint.index );
@@ -127,8 +129,11 @@ uint64_t HashSmokeResult( const PhysicsStandaloneSmokeResult& result )
     hash = HashU32( hash, result.stepCount );
     hash = HashU32( hash, result.activationCommandsPassed ? 1u : 0u );
     hash = HashU32( hash, result.rayCastHit ? 1u : 0u );
+    hash = HashU32( hash, result.secondaryBodyAdvanced ? 1u : 0u );
     hash = HashVector( hash, result.finalPosition );
-    return HashVector( hash, result.finalLinearVelocity );
+    hash = HashVector( hash, result.finalLinearVelocity );
+    hash = HashVector( hash, result.secondaryFinalPosition );
+    return HashVector( hash, result.secondaryFinalLinearVelocity );
 }
 
 Vector3 InvertNonZeroComponents( const Vector3& value )
@@ -520,7 +525,7 @@ bool PhysicsStandaloneWorld::DestroyConstraint( PhysicsConstraintHandle constrai
 }
 
 
-bool PhysicsStandaloneWorld::Step( const PhysicsStepDesc& desc )
+bool PhysicsStandaloneWorld::Step( const PhysicsStandaloneStepDesc& desc )
 {
     if ( desc.deltaSeconds < 0.0f )
     {
@@ -934,6 +939,14 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
 
     const PhysicsBodyHandle body = world.CreateBody( bodyDesc );
 
+    PhysicsBodyCreateDesc secondaryDesc;
+    secondaryDesc.sceneObjectId = PhysicsSceneObjectId{ 12u };
+    secondaryDesc.position = Vector3( -3.0f, 12.0f, 1.0f );
+    secondaryDesc.linearVelocity = Vector3( -1.0f, 1.0f, 0.5f );
+    secondaryDesc.mass = 2.5f;
+    secondaryDesc.motionKind = PhysicsBodyMotionKind::Dynamic;
+    const PhysicsBodyHandle secondaryBody = world.CreateBody( secondaryDesc );
+
     PhysicsBodyCreateDesc transientDesc;
     transientDesc.sceneObjectId = PhysicsSceneObjectId{ 8u };
     transientDesc.position = Vector3( -1.0f, 2.0f, 0.0f );
@@ -1180,7 +1193,7 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     const bool sleepDisabledUpdateStayedAwake =
         sleepDisabledUpdateAccepted && sleepGateUpdatedView && !sleepGateUpdatedView->sleeping;
 
-    PhysicsStepDesc sleepGateStep;
+    PhysicsStandaloneStepDesc sleepGateStep;
     sleepGateStep.deltaSeconds = 0.5f;
     sleepGateStep.fixedStep = true;
     const bool sleepDisabledStepSucceeded = sleepGateWorld.Step( sleepGateStep );
@@ -1203,7 +1216,7 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         sleepDisabledCreateAwake && sleepDisabledUpdateStayedAwake && sleepDisabledStepIntegrated &&
         sleepDisabledQueryIncludesBody;
 
-    PhysicsStepDesc stepDesc;
+    PhysicsStandaloneStepDesc stepDesc;
     stepDesc.deltaSeconds = 0.25f;
     stepDesc.fixedStep = true;
     stepDesc.worldLinearAcceleration = Vector3( 0.0f, -8.0f, 0.0f );
@@ -1218,6 +1231,7 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
 
     PhysicsStandaloneSmokeResult result;
     result.body = body;
+    result.secondaryBody = secondaryBody;
     result.collider = collider;
     result.constraint = constraint;
     result.bodyCount = world.Bodies().bodyCount;
@@ -1234,6 +1248,16 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         result.finalPosition = finalBody->position;
         result.finalLinearVelocity = finalBody->linearVelocity;
     }
+
+    const PhysicsBodyView* finalSecondaryBody = world.Body( secondaryBody );
+    if ( finalSecondaryBody )
+    {
+        result.secondaryFinalPosition = finalSecondaryBody->position;
+        result.secondaryFinalLinearVelocity = finalSecondaryBody->linearVelocity;
+    }
+    result.secondaryBodyAdvanced = finalSecondaryBody &&
+                                   result.secondaryFinalPosition == Vector3( -4.0f, 8.0f, 1.5f ) &&
+                                   result.secondaryFinalLinearVelocity == Vector3( -1.0f, -7.0f, 0.5f );
 
     Vector3 expectedColliderCenter = Vector3( 0.0f, 0.0f, 0.0f );
     if ( finalBody )
@@ -1280,10 +1304,11 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         activationCommandsConsistent && rayCastConsistent && broadphaseQueryConsistent;
 
     result.deterministicHash = HashSmokeResult( result );
-    result.passed = stepped && result.lifecycleChecksPassed && finalBody && result.bodyCount == 1u &&
-                    result.colliderCount == 1u && result.pointJointCount == 0u && result.contactCount == 0u &&
-                    result.islandCount == 0u && result.broadphaseQueryCount == 1u && result.activationCommandsPassed &&
-                    result.rayCastHit && result.finalPosition == Vector3( 3.0f, 9.0f, -2.0f ) &&
+    result.passed = stepped && result.lifecycleChecksPassed && finalBody && result.secondaryBodyAdvanced &&
+                    result.bodyCount == 2u && result.colliderCount == 1u && result.pointJointCount == 0u &&
+                    result.contactCount == 0u && result.islandCount == 0u && result.broadphaseQueryCount == 1u &&
+                    result.activationCommandsPassed && result.rayCastHit &&
+                    result.finalPosition == Vector3( 3.0f, 9.0f, -2.0f ) &&
                     result.finalLinearVelocity == Vector3( 2.0f, -4.0f, 0.0f );
     return result;
 }

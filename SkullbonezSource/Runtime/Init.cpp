@@ -774,7 +774,9 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
         }
         fprintf( stream,
                  "[physics-standalone-smoke] bodies=%u steps=%u final_position=(%.6f,%.6f,%.6f) "
-                 "final_velocity=(%.6f,%.6f,%.6f) lifecycle_checks=%s runtime_mirror_checks=%s hash=0x%016llX\n",
+                 "final_velocity=(%.6f,%.6f,%.6f) secondary_position=(%.6f,%.6f,%.6f) "
+                 "secondary_velocity=(%.6f,%.6f,%.6f) secondary_step=%s lifecycle_checks=%s "
+                 "runtime_mirror_checks=%s hash=0x%016llX\n",
                  result.bodyCount,
                  result.stepCount,
                  result.finalPosition.x,
@@ -783,6 +785,13 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
                  result.finalLinearVelocity.x,
                  result.finalLinearVelocity.y,
                  result.finalLinearVelocity.z,
+                 result.secondaryFinalPosition.x,
+                 result.secondaryFinalPosition.y,
+                 result.secondaryFinalPosition.z,
+                 result.secondaryFinalLinearVelocity.x,
+                 result.secondaryFinalLinearVelocity.y,
+                 result.secondaryFinalLinearVelocity.z,
+                 result.secondaryBodyAdvanced ? "pass" : "fail",
                  result.lifecycleChecksPassed ? "pass" : "fail",
                  runtimeMirror.passed ? "pass" : "fail",
                  static_cast<unsigned long long>( result.deterministicHash ) );
