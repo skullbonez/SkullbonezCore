@@ -15,6 +15,8 @@ Glossary:
     replay scrubbing.
   Contact release: Rule that lets selected fixed authored props become dynamic
     after a strong enough launcher impulse.
+  Physics body handle: Generational id for the body-store row that receives
+    launcher impulses or wake commands.
 
 Invariants:
   - Raycast and laser histories are fixed-capacity replay state; preserve cursor
@@ -23,6 +25,8 @@ Invariants:
     state.
   - Projectile creation must respect the active model capacity before adding to
     GameModelCollection.
+  - Launcher physics mutation resolves a body handle before entering
+    PhysicsEngine; model indices remain hit/spawn identity only.
 
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.h
@@ -59,21 +63,33 @@ constexpr float LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
 
 // Why: launcher hits and spawned projectiles are still identified by model
 // index, but physics mutation should enter PhysicsEngine as a validated body
-// handle. Keep this conversion local until tool state stores handles directly.
+// handle. Keep the wake-aware handle conversion local to the tool boundary.
 void ApplyLauncherPhysicsImpulse( GameObjects::GameModelCollection& collection,
                                   int modelIndex,
                                   const Math::Vector::Vector3& impulse,
                                   const Math::Vector::Vector3& localApplicationPoint )
 {
     GameObjects::GameModelCollectionPhysicsAdapter physicsBodies( collection );
-    physicsBodies.ApplyBodyImpulseForModelIndex( modelIndex, impulse, localApplicationPoint );
+    const Physics::PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelIndex, true );
+    if ( !body.IsValid() )
+    {
+        return;
+    }
+
+    collection.GetPhysicsEngine().ApplyBodyImpulse( body, impulse, localApplicationPoint );
 }
 
 
 void WakeLauncherPhysicsBody( GameObjects::GameModelCollection& collection, int modelIndex )
 {
     GameObjects::GameModelCollectionPhysicsAdapter physicsBodies( collection );
-    physicsBodies.WakeBodyForModelIndex( modelIndex );
+    const Physics::PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelIndex, true );
+    if ( !body.IsValid() )
+    {
+        return;
+    }
+
+    collection.GetPhysicsEngine().WakeBody( body );
 }
 
 

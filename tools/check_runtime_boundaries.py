@@ -517,6 +517,9 @@ LAUNCHER_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\bcollection\s*\.\s*"
     r"(?:SetPendingBodyImpulse|SeedModelAsleep|WakeModel|ApplyBodyImpulse)\s*\("
 )
+LAUNCHER_ADAPTER_COMMAND_WRAPPER_PATTERN = re.compile(
+    r"\b[A-Za-z_]\w*\s*\.\s*(?:ApplyBodyImpulseForModelIndex|WakeBodyForModelIndex)\s*\("
+)
 REPLAY_VELOCITY_MODEL_STATE_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\b(?:"
     r"model\s*\.\s*(?:SetLinearVelocity|SetAngularVelocity)|"
@@ -3970,6 +3973,18 @@ def check_launcher_model_index_physics_command_guardrails_text(path: Path, text:
                 (
                     "Launcher tools may identify hits and spawned projectiles by model index, but physics mutation "
                     "should resolve PhysicsBodyHandle at the launcher boundary and call PhysicsEngine handle commands."
+                ),
+            )
+        )
+    for match in LAUNCHER_ADAPTER_COMMAND_WRAPPER_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "launcher adapter command wrapper is blocked",
+                (
+                    "Launcher tools should resolve a wake-ready PhysicsBodyHandle at the tool boundary, then call "
+                    "PhysicsEngine directly instead of hiding mutation behind adapter model-index command wrappers."
                 ),
             )
         )
@@ -11696,8 +11711,10 @@ def run_self_tests() -> list[str]:
     allowed_launcher_handle_command = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
     {
-        ApplyLauncherPhysicsImpulse( collection, modelHitIndex, impulse, localPoint );
-        WakeLauncherPhysicsBody( collection, projectileIndex );
+        GameModelCollectionPhysicsAdapter physicsBodies( collection );
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelHitIndex, true );
+        collection.GetPhysicsEngine().ApplyBodyImpulse( body, impulse, localPoint );
+        collection.GetPhysicsEngine().WakeBody( body );
     }
     """
     if check_launcher_model_index_physics_command_guardrails_text(
@@ -11718,6 +11735,37 @@ def run_self_tests() -> list[str]:
         commented_launcher_model_index_command,
     ):
         failures.append("comment-only launcher model-index command synthetic text was rejected")
+
+    old_launcher_adapter_command = """
+    void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
+    {
+        GameModelCollectionPhysicsAdapter physicsBodies( collection );
+        physicsBodies.ApplyBodyImpulseForModelIndex( modelHitIndex, impulse, localPoint );
+        physicsBodies.WakeBodyForModelIndex( projectileIndex );
+    }
+    """
+    if not any(
+        error.message == "launcher adapter command wrapper is blocked"
+        for error in check_launcher_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
+            old_launcher_adapter_command,
+        )
+    ):
+        failures.append("old launcher adapter command synthetic surface was not rejected")
+
+    commented_launcher_adapter_command = """
+    void DocumentOldLauncherAdapterCommand()
+    {
+        // physicsBodies.ApplyBodyImpulseForModelIndex(modelHitIndex, impulse, localPoint) used to run here.
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( modelHitIndex, true );
+        collection.GetPhysicsEngine().ApplyBodyImpulse( body, impulse, localPoint );
+    }
+    """
+    if check_launcher_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
+        commented_launcher_adapter_command,
+    ):
+        failures.append("comment-only launcher adapter command synthetic text was rejected")
 
     old_replay_velocity_model_state_command = """
     void ApplyReplayVelocityEditToModel( GameModelCollection& modelCollection )
