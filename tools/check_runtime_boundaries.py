@@ -11,12 +11,12 @@
 #   already moved to render graph callback ownership, and new normal-path global
 #   service access while explicit service contexts are built. Renderer globals
 #   have an extra file-classification fence, object rendering has a
-#   render-instance authority fence, runtime picking has a store-authority
-#   fence, runtime handle smoke has a handle-authority fence, contact-audio
-#   simple mode has a body-store motion fence, and fixed-tree, replay-restore
-#   wake, replay velocity-edit, launcher ray-hit, or editor wake/sleep commands
-#   have store-handle fences, so count allowances do not silently approve a new
-#   compatibility location.
+#   render-instance authority fence, runtime picking and attached-camera follow
+#   have store-authority fences, runtime handle smoke has a handle-authority
+#   fence, contact-audio simple mode has a body-store motion fence, and
+#   fixed-tree, replay-restore wake, replay velocity-edit, launcher ray-hit, or
+#   editor wake/sleep commands have store-handle fences, so count allowances do
+#   not silently approve a new compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -43,6 +43,9 @@
 #     render passes instead of rebuilding GameModel pose streams.
 #   Store-authority fence: Static rule that keeps a migrated reader on physics
 #     body/collider records instead of reopening a GameModel mirror path.
+#   Attached-camera follow: Runtime camera mode that tracks a selected body;
+#     GameModel identifies the selection while PhysicsBodyStore and
+#     ColliderStore own the live pose, velocity, orientation, and radius.
 #   Body-store motion fence: Static rule that keeps post-step motion
 #     classification on PhysicsBodyStore records instead of mirrored GameModel
 #     body fields.
@@ -68,6 +71,8 @@
 #     rather than recomputing GameModel model matrices or body streams.
 #   - Runtime picking reads PhysicsBodyStore/ColliderStore records instead of
 #     requiring the GameModel compatibility mirror to be refreshed before input.
+#   - Attached-camera follow reads live body motion and radius from
+#     PhysicsBodyStore/ColliderStore instead of the post-step GameModel mirror.
 #   - Unknown render graph resource states remain explicitly counted handoffs
 #     until the graph owns concrete initial access for migrated resources.
 #   - Existing global service calls are counted debt; adding new ones requires
@@ -306,6 +311,19 @@ RUNTIME_PICK_SERVICE_MODEL_STATE_PATTERN = re.compile(
     r"|\bstd::vector\s*<\s*GameObjects::GameModel\s*>"
     r"|\brequest\s*\.\s*models\b"
     r"|\bmodel\s*\.\s*(?:IsFixed|GetPosition|GetOrientation|GetCollisionShape)\s*\("
+)
+ATTACHED_CAMERA_DELETED_MODEL_HELPER_PATTERN = re.compile(
+    r"\b(?:ModelRotation|ModelToWorldVector|WorldToModelVector|AttachedCameraModelRadius)\s*\("
+)
+ATTACHED_CAMERA_STORE_AUTHORITY_FUNCTION_PATTERNS = (
+    re.compile(r"\bvoid\s+Run::CaptureAttachedCameraFixedOffset\s*\("),
+    re.compile(r"\bvoid\s+Run::CaptureAttachedCameraOrbit\s*\("),
+    re.compile(r"\bvoid\s+Run::TickAttachedCameraOrbitInput\s*\("),
+    re.compile(r"\bvoid\s+Run::TickAttachedCamera\s*\("),
+)
+ATTACHED_CAMERA_GAME_MODEL_BODY_READ_PATTERN = re.compile(
+    r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*"
+    r"(?:GetPosition|GetVelocity|GetOrientation|GetCollisionShape)\s*\("
 )
 GAME_MODEL_COLLECTION_COLLIDER_STORE_REFRESH_PATTERN = re.compile(
     r"\bm_physicsEngine\s*\.\s*RefreshColliderStore\s*\(\s*modelAccess\s*\)"
@@ -3358,6 +3376,51 @@ def check_runtime_pick_service_store_authority_guardrails(repo: Path) -> list[Bo
         path = repo / relative_path
         errors.extend(check_runtime_pick_service_store_authority_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
+
+
+def check_attached_camera_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != "RunInput.cpp":
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+
+    for match in ATTACHED_CAMERA_DELETED_MODEL_HELPER_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "attached camera physics follow must use stores",
+                (
+                    "Attach camera follow should sample PhysicsBodyStore and ColliderStore records for pose, "
+                    "velocity, orientation, and radius instead of routing those facts through GameModel helpers."
+                ),
+            )
+        )
+
+    for function_pattern in ATTACHED_CAMERA_STORE_AUTHORITY_FUNCTION_PATTERNS:
+        bounds = _function_body_bounds(stripped, function_pattern)
+        if not bounds:
+            continue
+        open_brace, close_brace = bounds
+        for match in ATTACHED_CAMERA_GAME_MODEL_BODY_READ_PATTERN.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "attached camera physics follow must use stores",
+                    (
+                        "Attach camera follow is a post-step presentation reader. Reading GameModel position, "
+                        "velocity, orientation, or collision shape keeps the bulk compatibility mirror alive."
+                    ),
+                )
+            )
+
+    return errors
+
+
+def check_attached_camera_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / RUN_INPUT_SOURCE
+    return check_attached_camera_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_scene_snapshot_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -7932,6 +7995,55 @@ def run_self_tests() -> list[str]:
     pick_service_call = "RuntimePickService::TryPickModel( request, result );"
     if check_pick_helper_guardrails_text(Path("synthetic/RunInput.cpp"), pick_service_call):
         failures.append("direct RuntimePickService synthetic call was rejected")
+
+    old_attached_camera_model_body_reads = """
+    void Run::TickAttachedCamera()
+    {
+        const GameModel& target = models[modelIndex];
+        const Vector3 targetPosition = target.GetPosition();
+        Vector3 direction = target.GetVelocity();
+        view = targetPosition + direction * AttachedCameraModelRadius( target );
+    }
+    """
+    if not any(
+        error.message == "attached camera physics follow must use stores"
+        for error in check_attached_camera_store_authority_guardrails_text(
+            Path("synthetic/RunInput.cpp"),
+            old_attached_camera_model_body_reads,
+        )
+    ):
+        failures.append("attached camera GameModel body read synthetic surface was not rejected")
+
+    allowed_attached_camera_store_reads = """
+    void Run::TickAttachedCamera()
+    {
+        AttachedCameraPhysicsTarget targetState;
+        if ( !TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, modelIndex, targetState ) )
+        {
+            return;
+        }
+        const Vector3 targetPosition = targetState.position;
+        Vector3 direction = targetState.linearVelocity;
+        view = targetPosition + direction * targetState.radius;
+    }
+    """
+    if check_attached_camera_store_authority_guardrails_text(
+        Path("synthetic/RunInput.cpp"),
+        allowed_attached_camera_store_reads,
+    ):
+        failures.append("attached camera store-read synthetic surface was rejected")
+
+    commented_attached_camera_model_reads = """
+    void DocumentAttachedCameraHistory()
+    {
+        // target.GetPosition(), target.GetVelocity(), and AttachedCameraModelRadius(target) used to live here.
+    }
+    """
+    if check_attached_camera_store_authority_guardrails_text(
+        Path("synthetic/RunInput.cpp"),
+        commented_attached_camera_model_reads,
+    ):
+        failures.append("comment-only attached camera GameModel body read synthetic text was rejected")
 
     duplicated_pick_helper = "bool Run::TryPickEditorModel( const Ray& ray ) { return false; }"
     if not any(
@@ -13489,6 +13601,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_deleted_game_model_collection_physics_adapter_project_guardrails(repo))
     errors.extend(check_game_model_collection_body_store_read_authority_guardrails(repo))
     errors.extend(check_game_model_collection_run_physics_model_access_guardrails(repo))
+    errors.extend(check_attached_camera_store_authority_guardrails(repo))
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
     errors.extend(check_physics_collision_time_name_guardrails(repo))
     errors.extend(check_deleted_model_force_bridge_guardrails(repo))

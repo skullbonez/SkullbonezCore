@@ -9,6 +9,8 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Attached camera target: Runtime follow selection where Run owns the selected
+    identity while physics stores own live target pose and motion.
   DX11/OpenGL: Retired runtime renderers. Their source backends have been
   removed; old command-line values now fail early.
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
@@ -19,6 +21,8 @@ Invariants:
   - Run is the composition root for process-lifetime runtime systems.
   - Public startup code should configure Run through the small launch surface
     below instead of reaching into runtime-owned state.
+  - Camera follow helpers should take store-sampled body state instead of
+    reopening GameModel as a live physics mirror.
 
 Related:
   - SkullbonezSource/Runtime/Run.cpp
@@ -244,9 +248,11 @@ class Run
     void ToggleAttachedCameraPin();                                        // Enter pins/unpins camera follow while in Attach.
     void TickAttachedCameraOrbitInput( int unhandledWheelDelta );          // Mouse wheel adjusts Attach orbit distance.
     void TickAttachedCamera();                                             // Applies the active follow solve to CameraCollection.
-    void CaptureAttachedCameraFixedOffset( const GameObjects::GameModel& model );
-    void CaptureAttachedCameraOrbit(
-        const GameObjects::GameModel& model );                             // Seeds upright Attach orbit from the current camera pose.
+    void CaptureAttachedCameraFixedOffset( const Math::Vector::Vector3& targetPosition,
+                                           const Math::Transformation::RotationMatrix& targetRotation,
+                                           float targetRadius );
+    void CaptureAttachedCameraOrbit( const Math::Vector::Vector3& targetPosition,
+                                     float targetRadius );                 // Seeds upright Attach orbit from the current camera pose.
     bool TryResolveAttachedCameraRagdollHead( int selectedModelIndex, int& outHeadModelIndex ) const;
     void UpdateRequiredSceneContacts();                                    // Scene automation waits for authored contact gates to appear in live physics
                                         // contacts.

@@ -5,8 +5,9 @@ Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
 intermittent `tools\validate_physics.bat` passed on 2026-07-05 after moving
-launcher ray-hit broad picking from `GameModel` position/shape reads to
-`PhysicsBodyStore` positions and `ColliderStore` bounding radii.
+attached-camera follow target pose, orientation, velocity, and broad radius
+from the post-step `GameModel` mirror to `PhysicsBodyStore` and
+`ColliderStore`.
 
 ## Completed Slices
 
@@ -284,6 +285,27 @@ launcher ray-hit broad picking from `GameModel` position/shape reads to
   `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
   passed on 2026-07-05; physics regression reported standalone/runtime handle
   smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved attached-camera follow target state from the
+  `GameModel` compatibility mirror to `PhysicsBodyStore` and `ColliderStore`.
+  Owner: runtime attached-camera input and follow solve. Reason: camera follow
+  runs after physics and previously read `GameModel` position, velocity,
+  orientation, and collision shape, preserving the post-step model mirror as a
+  hidden input to normal runtime camera motion. The follow solve now resolves an
+  `AttachedCameraPhysicsTarget` from dense body/collider records and leaves
+  `GameModel` as cold selection/name/replay/ragdoll metadata. Deletion
+  condition: attached-camera capture/orbit/tick code in `RunInput.cpp` contains
+  no `GameModel` `GetPosition()`, `GetVelocity()`, `GetOrientation()`, or
+  `GetCollisionShape()` body reads and no deleted helper names
+  `ModelRotation`, `ModelToWorldVector`, `WorldToModelVector`, or
+  `AttachedCameraModelRadius`. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks the deleted helper names and
+  `GameModel` body reads inside attached-camera follow functions with
+  reject/allow/comment-only self-tests. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
 
 ## Goal
 
@@ -493,6 +515,9 @@ Move one body-state group at a time. Keep compatibility writeback narrow and tem
   only performs bounded topology repair and touched-row compatibility writeback.
 - [x] 2026-07-05 launcher ray-hit broad picking uses `PhysicsBodyStore` body
   positions instead of `GameModel::GetPosition()`.
+- [x] 2026-07-05 attached-camera follow reads target pose, orientation, and
+  linear velocity from `PhysicsBodyStore` records instead of the post-step
+  `GameModel` compatibility mirror.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of sleep and wake state.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of accumulated forces and impulses.
 - [ ] Change physics stepping to consume body handles/store views rather than `GameModelCollection&`.
@@ -533,6 +558,9 @@ Colliders should own exact collision data. `GameModel` must not remain the hidde
 - [x] 2026-07-05 launcher ray-hit broad picking uses `ColliderStore`
   `boundingRadius` records instead of reading `GameModel` collision shapes for
   tool hit radii.
+- [x] 2026-07-05 attached-camera orbit and ragdoll-eyes distance/radius math
+  uses `ColliderStore` `boundingRadius` records instead of `GameModel`
+  collision shapes.
 - [ ] Make `ColliderStore` own body-to-collider and collider-to-body mapping.
 - [ ] Move shape creation from `GameModel` construction into a collider registration path.
 - [ ] Move shape mutation into explicit collider update commands.

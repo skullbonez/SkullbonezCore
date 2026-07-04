@@ -1605,6 +1605,41 @@ passed formatting, project filters, runtime boundaries, and Profile/Debug builds
 with 0 warnings/errors; `tools\validate_physics.bat` passed standalone/runtime
 handle smoke and byte-exact `physics_regression_solver.csv`.
 
+Slice `PHY-1028`: move attached-camera follow target state off post-step
+`GameModel` body mirrors. Owner: runtime attached-camera input/follow solve;
+reason: camera follow is a normal per-frame runtime reader of pose, orientation,
+velocity, and radius, so reading those facts through `GameModel` kept the bulk
+compatibility mirror on the hot path; deletion condition: attached-camera
+capture/orbit/tick code no longer calls `GameModel` body-state accessors or the
+deleted model-vector helper names; checker budget:
+`tools/check_runtime_boundaries.py` blocks those attached-camera regressions.
+
+- [x] Resolve attached-camera target state from `PhysicsBodyStore` and
+  `ColliderStore` with `GameModel` retained only for cold identity, name, replay
+  id, and ragdoll grouping.
+- [x] Move fixed-offset capture, orbit capture, orbit wheel clamp, regular
+  follow, velocity-forward follow, and ragdoll-eyes follow to store-sampled
+  position/orientation/velocity/radius.
+- [x] Add runtime-boundary guardrails and self-tests blocking deleted
+  attached-camera `GameModel` helper/body-read regressions.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation run for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] touched-file comment audit
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence: targeted residue scan found no deleted attached-camera model helper
+names or direct `target`/`head`/`model` `GetPosition()`/`GetVelocity()` body
+reads in `RunInput.cpp`; runtime-boundary summary reported 0 errors; touched
+source/tool comment audit passed for `RunInput.cpp`, `Run.h`, and
+`tools/check_runtime_boundaries.py`; `tools\validate_fast.bat` passed
+formatting, project filters, runtime boundaries, and Profile/Debug builds with
+0 warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle
+smoke and byte-exact `physics_regression_solver.csv`.
+
 Slice `PHY-1035`: delete the
 `GameModelCollectionPhysicsAdapter` compatibility artifact after every live
 caller moved to append-time handles or direct `PhysicsBodyStore` lookup. Owner:
