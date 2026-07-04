@@ -90,7 +90,9 @@ class PhysicsEngine
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
     void ClearPointJointConstraints();
-    void AddPointJointConstraint( const PointJointConstraint& constraint );
+    // Creates a point joint from physics body handles and rejects stale or
+    // same-body endpoints before the solver stores its internal row.
+    PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
     void SetTornadoFieldConfig( const TornadoFieldConfig& config );
     const TornadoFieldConfig& GetTornadoFieldConfig() const;
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );

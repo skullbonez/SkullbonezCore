@@ -38,6 +38,7 @@ Related:
 #include "PhysicsWorld.h"
 
 #include "../Core/Config.h"
+#include "PhysicsApi.h"
 #include "PhysicsModelAccess.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsWorldForces.h"
@@ -728,13 +729,30 @@ void PhysicsWorld::ClearPointJointConstraints()
 }
 
 
-void PhysicsWorld::AddPointJointConstraint( const PointJointConstraint& constraint )
+PhysicsConstraintHandle PhysicsWorld::CreatePointJoint( const PhysicsPointJointCreateDesc& desc )
 {
-    if ( !constraint.HasValidBodies() )
+    if ( !desc.bodyA.IsValid() || !desc.bodyB.IsValid() || desc.bodyA == desc.bodyB )
     {
-        return;
+        return PhysicsConstraintHandle{};
     }
+
+    // Why: callers create constraints with handle-keyed descriptors, while the
+    // solver still iterates dense PointJointConstraint rows without indirection.
+    PointJointConstraint constraint;
+    constraint.SetBodies( desc.bodyA, desc.bodyB );
+    constraint.localAnchorA = desc.localAnchorA;
+    constraint.localAnchorB = desc.localAnchorB;
+    constraint.slack = desc.slack;
+    constraint.stiffness = desc.stiffness;
+    constraint.damping = desc.damping;
+    constraint.groupId = desc.groupId;
+    constraint.flags = desc.flags;
+
+    PhysicsConstraintHandle handle;
+    handle.index = static_cast<uint32_t>( m_pointJointConstraints.size() );
+    handle.generation = PHYSICS_HANDLE_INITIAL_GENERATION;
     m_pointJointConstraints.push_back( constraint );
+    return handle;
 }
 
 

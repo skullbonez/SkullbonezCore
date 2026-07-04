@@ -35,6 +35,7 @@ using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
+using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Physics::PhysicsScene;
 
@@ -329,9 +330,16 @@ void PhysicsScene::ClearPointJointConstraints()
 }
 
 
-void PhysicsScene::AddPointJointConstraint( const PointJointConstraint& constraint )
+PhysicsConstraintHandle PhysicsScene::CreatePointJoint( const PhysicsPointJointCreateDesc& desc )
 {
-    m_world.AddPointJointConstraint( constraint );
+    // Why: stale body handles should fail at the scene/store boundary before
+    // the solver receives an append-only point-joint row.
+    if ( !m_bodyStore.Contains( desc.bodyA ) || !m_bodyStore.Contains( desc.bodyB ) || desc.bodyA == desc.bodyB )
+    {
+        return PhysicsConstraintHandle{};
+    }
+
+    return m_world.CreatePointJoint( desc );
 }
 
 

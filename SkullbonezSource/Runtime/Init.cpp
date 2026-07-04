@@ -644,12 +644,12 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const PhysicsBodyHandle bodyA = adapter.BodyHandleForModelIndex( 0 );
     const PhysicsBodyHandle bodyB = adapter.BodyHandleForModelIndex( 1 );
 
-    PointJointConstraint joint;
-    joint.bodyA = bodyA;
-    joint.bodyB = bodyB;
-    joint.localAnchorA = SkullbonezCore::Math::Vector::Vector3( 0.25f, 0.0f, 0.0f );
-    joint.localAnchorB = SkullbonezCore::Math::Vector::Vector3( -0.25f, 0.0f, 0.0f );
-    collection->AddPointJointConstraint( joint );
+    PhysicsPointJointCreateDesc jointDesc;
+    jointDesc.bodyA = bodyA;
+    jointDesc.bodyB = bodyB;
+    jointDesc.localAnchorA = SkullbonezCore::Math::Vector::Vector3( 0.25f, 0.0f, 0.0f );
+    jointDesc.localAnchorB = SkullbonezCore::Math::Vector::Vector3( -0.25f, 0.0f, 0.0f );
+    const PhysicsConstraintHandle jointHandle = collection->GetPhysicsEngine().CreatePointJoint( jointDesc );
 
     const PhysicsBodyStore& bodyStore = collection->GetPhysicsBodyStore();
     const ColliderStore& colliderStore = collection->GetColliderStore();
@@ -688,7 +688,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                      renderStore.ModelIndexForHandle( renderHandleA ) == 0 &&
                                      !renderStore.Records().empty() &&
                                      renderStore.Records()[0].replayBodyId == bodyARecord->replayBodyId;
-    const bool jointUsesHandles = pointJoints.size() == 1 && pointJoints[0].bodyA == bodyA &&
+    const bool jointUsesHandles = jointHandle.IsValid() && pointJoints.size() == 1 && pointJoints[0].bodyA == bodyA &&
                                   pointJoints[0].bodyB == bodyB && pointJoints[0].BodyAIndex( bodyStore ) == 0 &&
                                   pointJoints[0].BodyBIndex( bodyStore ) == 1;
 

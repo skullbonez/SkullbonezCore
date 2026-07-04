@@ -95,7 +95,7 @@ class PhysicsScene
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
     void ClearPointJointConstraints();
-    void AddPointJointConstraint( const PointJointConstraint& constraint );
+    PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
     void SetTornadoFieldConfig( const TornadoFieldConfig& config );
     const TornadoFieldConfig& GetTornadoFieldConfig() const;
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );

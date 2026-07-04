@@ -72,6 +72,7 @@ class ColliderStore;
 class PhysicsBodyStore;
 struct ColliderRecord;
 struct PhysicsBodyRecord;
+struct PhysicsPointJointCreateDesc;
 struct PhysicsDiagnosticsView;
 struct PhysicsWorldForces;
 struct PersistentContactSolverSideEffects;
@@ -458,7 +459,7 @@ class PhysicsWorld
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
     void ClearPointJointConstraints();
-    void AddPointJointConstraint( const PointJointConstraint& constraint );
+    PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
     const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
     void SetTornadoFieldConfig( const TornadoFieldConfig& config );
     const TornadoFieldConfig& GetTornadoFieldConfig() const;

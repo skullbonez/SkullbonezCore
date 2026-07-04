@@ -37,6 +37,7 @@ Related:
 #include "../../Maths/RotationMatrix.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/ConvexHullShape.h"
+#include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/Ragdoll.h"
@@ -62,6 +63,7 @@ using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsPointJointCreateDesc;
 using SkullbonezCore::Physics::PointJointConstraint;
 using SkullbonezCore::Physics::Ragdoll;
 using SkullbonezCore::Physics::RagdollBuildOptions;
@@ -492,7 +494,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
     for ( int i = 0; i < scene.GetPointJointConstraintCount(); ++i )
     {
         const ScenePointJointConstraint& sceneJoint = scene.GetPointJointConstraint( i );
-        PointJointConstraint joint;
+        PhysicsPointJointCreateDesc joint;
         const int bodyAIndex = FindModelByName( models, sceneJoint.bodyA );
         const int bodyBIndex = FindModelByName( models, sceneJoint.bodyB );
         if ( bodyAIndex < 0 || bodyBIndex < 0 )
@@ -503,7 +505,8 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
                      sceneJoint.bodyB );
             continue;
         }
-        joint.SetBodies( bodyStore.HandleForModelIndex( bodyAIndex ), bodyStore.HandleForModelIndex( bodyBIndex ) );
+        joint.bodyA = bodyStore.HandleForModelIndex( bodyAIndex );
+        joint.bodyB = bodyStore.HandleForModelIndex( bodyBIndex );
         joint.localAnchorA = sceneJoint.localAnchorA;
         joint.localAnchorB = sceneJoint.localAnchorB;
         joint.slack = sceneJoint.slack;
@@ -515,7 +518,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         {
             joint.flags |= PointJointConstraint::FLAG_LIMIT_NECK_SWING;
         }
-        context.physics.AddPointJointConstraint( joint );
+        context.physics.CreatePointJoint( joint );
     }
 
     for ( int materialIndex = 0; materialIndex < scene.GetObjectMaterialOverrideCount(); ++materialIndex )

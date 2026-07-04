@@ -330,14 +330,18 @@ Target: constraints are handle-owned and participate in standalone stepping,
 islands, deletion, and diagnostics.
 
 Latest evidence: standalone point-joint descriptors, updates, and views are
-already `PhysicsBodyHandle` / `PhysicsConstraintHandle` backed. The smoke now
-includes a constraint-only island case where two colliderless bodies merge
-through a live point joint and split after `DestroyConstraint()`. Legacy
-scene/ragdoll `PointJointConstraint` callers still need a later migration.
+already `PhysicsBodyHandle` / `PhysicsConstraintHandle` backed. Runtime ragdoll
+construction, authored scene point joints, and the runtime handle smoke now
+create joints through `PhysicsPointJointCreateDesc`; `PhysicsWorld` is the only
+place that converts that descriptor into a `PointJointConstraint` solver row.
+The old raw-row `AddPointJointConstraint` facade/scene/world/collection wrapper
+was deleted. The smoke also includes a constraint-only island case where two
+colliderless bodies merge through a live point joint and split after
+`DestroyConstraint()`.
 
 - [x] Confirm point-joint standalone records already use `PhysicsBodyHandle`
   endpoints and `PhysicsConstraintHandle` lifetime.
-- [ ] Move legacy scene/ragdoll `PointJointConstraint` use toward handle-backed
+- [x] Move legacy scene/ragdoll `PointJointConstraint` use toward handle-backed
   descriptors.
 - [x] Make same-body, stale-body, and deleted-body failures part of smoke
   evidence for every public constraint command.

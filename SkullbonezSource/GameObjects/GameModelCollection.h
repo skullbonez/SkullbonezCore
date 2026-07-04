@@ -273,7 +273,6 @@ class GameModelCollection
                                 const Math::Vector::Vector3& localApplicationPoint );
     void SetPhysicsSleepEnabled( bool enabled );
     void ClearPointJointConstraints();
-    void AddPointJointConstraint( const Physics::PointJointConstraint& constraint );
     void BeginCollisionVisualFrame();
     void EndCollisionVisualFrame();
     void SetTornadoFieldConfig( const Physics::TornadoFieldConfig& config );

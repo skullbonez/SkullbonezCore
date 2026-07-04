@@ -809,9 +809,9 @@ void PhysicsStandaloneWorld::GenerateStandaloneContacts()
 
 
 bool PhysicsStandaloneWorld::TryAppendSphereSphereContact( const ColliderRecord& colliderA,
-                                                          const PhysicsBodyRecord& bodyA,
-                                                          const ColliderRecord& colliderB,
-                                                          const PhysicsBodyRecord& bodyB )
+                                                           const PhysicsBodyRecord& bodyA,
+                                                           const ColliderRecord& colliderB,
+                                                           const PhysicsBodyRecord& bodyB )
 {
     const BoundingSphere* sphereA = std::get_if<BoundingSphere>( &colliderA.shape );
     const BoundingSphere* sphereB = std::get_if<BoundingSphere>( &colliderB.shape );
@@ -851,9 +851,9 @@ bool PhysicsStandaloneWorld::TryAppendSphereSphereContact( const ColliderRecord&
 
 
 bool PhysicsStandaloneWorld::TryAppendSphereBoxContact( const ColliderRecord& colliderA,
-                                                       const PhysicsBodyRecord& bodyA,
-                                                       const ColliderRecord& colliderB,
-                                                       const PhysicsBodyRecord& bodyB )
+                                                        const PhysicsBodyRecord& bodyA,
+                                                        const ColliderRecord& colliderB,
+                                                        const PhysicsBodyRecord& bodyB )
 {
     const BoundingSphere* sphere = std::get_if<BoundingSphere>( &colliderA.shape );
     const BoundingBox* box = std::get_if<BoundingBox>( &colliderB.shape );
@@ -1910,8 +1910,7 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
 
     PhysicsColliderCreateDesc fixedBoxContactColliderDesc;
     fixedBoxContactColliderDesc.body = fixedBoxContactBody;
-    fixedBoxContactColliderDesc.shape =
-        BoundingBox( Vector3( 1.0f, 1.0f, 1.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
+    fixedBoxContactColliderDesc.shape = BoundingBox( Vector3( 1.0f, 1.0f, 1.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
     fixedBoxContactColliderDesc.restitution = 0.4f;
     fixedBoxContactColliderDesc.friction = 0.5f;
     fixedBoxContactColliderDesc.contactMaterialId = 303u;
@@ -1942,24 +1941,22 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     const PhysicsContactView* sphereBoxContact =
         contactView.contactCount == 2u && contactView.contacts ? &contactView.contacts[1] : nullptr;
     const bool contactSmokeConsistent =
-        contactStepSucceeded && contact && contact->bodyA == fixedContactBody &&
-        contact->bodyB == dynamicContactBody && contact->colliderA == fixedContactCollider &&
-        contact->colliderB == dynamicContactCollider && contact->point == Vector3( 0.75f, 0.0f, 0.0f ) &&
-        contact->normal == Vector3( 1.0f, 0.0f, 0.0f ) && contact->penetrationDepth == 0.5f &&
-        contact->normalImpulse == 0.0f && contact->restitutionA == 0.6f && contact->restitutionB == 0.2f &&
-        contact->frictionA == 0.7f && contact->frictionB == 0.3f && contact->contactMaterialAId == 301u &&
-        contact->contactMaterialBId == 302u && contact->featureId != 0u && contact->touching &&
-        sphereBoxContact && sphereBoxContact->bodyA == fixedBoxContactBody &&
+        contactStepSucceeded && contact && contact->bodyA == fixedContactBody && contact->bodyB == dynamicContactBody &&
+        contact->colliderA == fixedContactCollider && contact->colliderB == dynamicContactCollider &&
+        contact->point == Vector3( 0.75f, 0.0f, 0.0f ) && contact->normal == Vector3( 1.0f, 0.0f, 0.0f ) &&
+        contact->penetrationDepth == 0.5f && contact->normalImpulse == 0.0f && contact->restitutionA == 0.6f &&
+        contact->restitutionB == 0.2f && contact->frictionA == 0.7f && contact->frictionB == 0.3f &&
+        contact->contactMaterialAId == 301u && contact->contactMaterialBId == 302u && contact->featureId != 0u &&
+        contact->touching && sphereBoxContact && sphereBoxContact->bodyA == fixedBoxContactBody &&
         sphereBoxContact->bodyB == dynamicSphereBoxContactBody &&
         sphereBoxContact->colliderA == fixedBoxContactCollider &&
         sphereBoxContact->colliderB == dynamicSphereBoxContactCollider &&
         sphereBoxContact->point == Vector3( 10.75f, 0.0f, 0.0f ) &&
-        sphereBoxContact->normal == Vector3( 1.0f, 0.0f, 0.0f ) &&
-        sphereBoxContact->penetrationDepth == 0.5f && sphereBoxContact->normalImpulse == 0.0f &&
-        sphereBoxContact->restitutionA == 0.4f && sphereBoxContact->restitutionB == 0.8f &&
-        sphereBoxContact->frictionA == 0.5f && sphereBoxContact->frictionB == 0.9f &&
-        sphereBoxContact->contactMaterialAId == 303u && sphereBoxContact->contactMaterialBId == 304u &&
-        sphereBoxContact->featureId != 0u && sphereBoxContact->touching;
+        sphereBoxContact->normal == Vector3( 1.0f, 0.0f, 0.0f ) && sphereBoxContact->penetrationDepth == 0.5f &&
+        sphereBoxContact->normalImpulse == 0.0f && sphereBoxContact->restitutionA == 0.4f &&
+        sphereBoxContact->restitutionB == 0.8f && sphereBoxContact->frictionA == 0.5f &&
+        sphereBoxContact->frictionB == 0.9f && sphereBoxContact->contactMaterialAId == 303u &&
+        sphereBoxContact->contactMaterialBId == 304u && sphereBoxContact->featureId != 0u && sphereBoxContact->touching;
 
     PhysicsStandaloneWorld islandWorld;
     PhysicsBodyCreateDesc islandBodyADesc;
@@ -1994,13 +1991,13 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     const PhysicsIslandCollectionView islandView = islandWorld.Islands();
     const bool islandSmokeConsistent =
         islandStepSucceeded && islandContacts.contactCount == 1u && islandContacts.contacts &&
-        islandContacts.contacts[0].colliderA == islandColliderA && islandContacts.contacts[0].colliderB == islandColliderB &&
-        islandView.islandCount == 2u && islandView.islands && islandView.islands[0].bodyCount == 2u &&
-        islandView.islands[0].bodies && islandView.islands[0].bodies[0] == islandBodyA &&
-        islandView.islands[0].bodies[1] == islandBodyB && !islandView.islands[0].sleeping &&
-        !islandView.islands[0].supported && islandView.islands[1].bodyCount == 1u && islandView.islands[1].bodies &&
-        islandView.islands[1].bodies[0] == isolatedIslandBody && !islandView.islands[1].sleeping &&
-        !islandView.islands[1].supported;
+        islandContacts.contacts[0].colliderA == islandColliderA &&
+        islandContacts.contacts[0].colliderB == islandColliderB && islandView.islandCount == 2u && islandView.islands &&
+        islandView.islands[0].bodyCount == 2u && islandView.islands[0].bodies &&
+        islandView.islands[0].bodies[0] == islandBodyA && islandView.islands[0].bodies[1] == islandBodyB &&
+        !islandView.islands[0].sleeping && !islandView.islands[0].supported && islandView.islands[1].bodyCount == 1u &&
+        islandView.islands[1].bodies && islandView.islands[1].bodies[0] == isolatedIslandBody &&
+        !islandView.islands[1].sleeping && !islandView.islands[1].supported;
 
     PhysicsStandaloneWorld wakeIslandWorld;
     const PhysicsBodyHandle wakeIslandBodyA = wakeIslandWorld.CreateBody( islandBodyADesc );
@@ -2020,9 +2017,9 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     PhysicsActivationCommand wakeIslandA;
     wakeIslandA.kind = PhysicsActivationCommandKind::WakeBody;
     wakeIslandA.body = wakeIslandBodyA;
-    const bool wakeIslandCommands =
-        wakeIslandWorld.ApplyActivationCommand( seedWakeIslandA ) &&
-        wakeIslandWorld.ApplyActivationCommand( seedWakeIslandB ) && wakeIslandWorld.ApplyActivationCommand( wakeIslandA );
+    const bool wakeIslandCommands = wakeIslandWorld.ApplyActivationCommand( seedWakeIslandA ) &&
+                                    wakeIslandWorld.ApplyActivationCommand( seedWakeIslandB ) &&
+                                    wakeIslandWorld.ApplyActivationCommand( wakeIslandA );
     const bool wakeIslandStepSucceeded = wakeIslandWorld.Step( islandStepDesc );
     const PhysicsIslandCollectionView wakeIslandView = wakeIslandWorld.Islands();
     const bool wakeIslandConsistent =
@@ -2037,10 +2034,10 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     const bool destroyedStaleIslandBody = staleIslandWorld.DestroyBody( staleIslandBody );
     const bool staleIslandStepSucceeded = staleIslandWorld.Step( islandStepDesc );
     const PhysicsIslandCollectionView staleIslandView = staleIslandWorld.Islands();
-    const bool staleIslandExcluded =
-        destroyedStaleIslandBody && staleIslandStepSucceeded && staleIslandView.islandCount == 1u &&
-        staleIslandView.islands && staleIslandView.islands[0].bodyCount == 1u && staleIslandView.islands[0].bodies &&
-        staleIslandView.islands[0].bodies[0] == liveIslandBody;
+    const bool staleIslandExcluded = destroyedStaleIslandBody && staleIslandStepSucceeded &&
+                                     staleIslandView.islandCount == 1u && staleIslandView.islands &&
+                                     staleIslandView.islands[0].bodyCount == 1u && staleIslandView.islands[0].bodies &&
+                                     staleIslandView.islands[0].bodies[0] == liveIslandBody;
 
     // Why: these bodies have no colliders, so a merged island can only come
     // from the standalone point-joint endpoint path.
@@ -2056,7 +2053,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     PhysicsPointJointCreateDesc constraintIslandJointDesc;
     constraintIslandJointDesc.bodyA = constraintIslandBodyA;
     constraintIslandJointDesc.bodyB = constraintIslandBodyB;
-    const PhysicsConstraintHandle constraintIslandJoint = constraintIslandWorld.CreatePointJoint( constraintIslandJointDesc );
+    const PhysicsConstraintHandle constraintIslandJoint =
+        constraintIslandWorld.CreatePointJoint( constraintIslandJointDesc );
     const PhysicsPointJointCollectionView constraintIslandJoints = constraintIslandWorld.PointJoints();
     const bool constraintIslandJointViewConsistent =
         constraintIslandJoint.IsValid() && constraintIslandJoints.pointJointCount == 1u &&
@@ -2065,10 +2063,10 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     const PhysicsContactCollectionView constraintIslandContacts = constraintIslandWorld.Contacts();
     const PhysicsIslandCollectionView constraintIslandView = constraintIslandWorld.Islands();
     const bool constraintOnlyIslandBeforeDestroy =
-        constraintIslandJointViewConsistent && constraintIslandStepSucceeded && constraintIslandContacts.contactCount == 0u &&
-        constraintIslandView.islandCount == 1u && constraintIslandView.islands &&
-        constraintIslandView.islands[0].bodyCount == 2u && constraintIslandView.islands[0].bodies &&
-        constraintIslandView.islands[0].bodies[0] == constraintIslandBodyA &&
+        constraintIslandJointViewConsistent && constraintIslandStepSucceeded &&
+        constraintIslandContacts.contactCount == 0u && constraintIslandView.islandCount == 1u &&
+        constraintIslandView.islands && constraintIslandView.islands[0].bodyCount == 2u &&
+        constraintIslandView.islands[0].bodies && constraintIslandView.islands[0].bodies[0] == constraintIslandBodyA &&
         constraintIslandView.islands[0].bodies[1] == constraintIslandBodyB;
 
     const bool destroyedConstraintIslandJoint = constraintIslandWorld.DestroyConstraint( constraintIslandJoint );

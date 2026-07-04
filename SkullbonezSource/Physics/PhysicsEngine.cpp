@@ -28,6 +28,7 @@ using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsModelAccess;
 
@@ -173,9 +174,9 @@ void PhysicsEngine::ClearPointJointConstraints()
 }
 
 
-void PhysicsEngine::AddPointJointConstraint( const PointJointConstraint& constraint )
+PhysicsConstraintHandle PhysicsEngine::CreatePointJoint( const PhysicsPointJointCreateDesc& desc )
 {
-    m_scene.AddPointJointConstraint( constraint );
+    return m_scene.CreatePointJoint( desc );
 }
 
 
