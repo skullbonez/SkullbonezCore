@@ -1441,9 +1441,9 @@ const PhysicsBodyRecord* PhysicsBodyStore::RecordForModelIndex( int modelIndex )
 }
 
 
-bool PhysicsBodyStore::WakeBody( int modelIndex )
+bool PhysicsBodyStore::WakeBody( PhysicsBodyHandle body )
 {
-    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
+    PhysicsBodyRecord* record = MutableRecordForHandle( body );
     if ( !record || record->isFixed )
     {
         return false;
@@ -1451,6 +1451,12 @@ bool PhysicsBodyStore::WakeBody( int modelIndex )
 
     record->isSleeping = false;
     return true;
+}
+
+
+bool PhysicsBodyStore::WakeBody( int modelIndex )
+{
+    return WakeBody( HandleForModelIndex( modelIndex ) );
 }
 
 
@@ -1469,11 +1475,11 @@ bool PhysicsBodyStore::SeedBodyAsleep( int modelIndex )
 }
 
 
-bool PhysicsBodyStore::SetPendingBodyImpulse( int modelIndex,
+bool PhysicsBodyStore::SetPendingBodyImpulse( PhysicsBodyHandle body,
                                               const Vector3& impulse,
                                               const Vector3& localApplicationPoint )
 {
-    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
+    PhysicsBodyRecord* record = MutableRecordForHandle( body );
     if ( !record )
     {
         return false;
@@ -1486,11 +1492,43 @@ bool PhysicsBodyStore::SetPendingBodyImpulse( int modelIndex,
 }
 
 
+bool PhysicsBodyStore::SetPendingBodyImpulse( int modelIndex,
+                                              const Vector3& impulse,
+                                              const Vector3& localApplicationPoint )
+{
+    return SetPendingBodyImpulse( HandleForModelIndex( modelIndex ), impulse, localApplicationPoint );
+}
+
+
+bool PhysicsBodyStore::ApplyBodyImpulse( PhysicsBodyHandle body,
+                                         const Vector3& impulse,
+                                         const Vector3& localApplicationPoint )
+{
+    const bool pending = SetPendingBodyImpulse( body, impulse, localApplicationPoint );
+    WakeBody( body );
+    return pending;
+}
+
+
 bool PhysicsBodyStore::ApplyBodyImpulse( int modelIndex, const Vector3& impulse, const Vector3& localApplicationPoint )
 {
-    const bool pending = SetPendingBodyImpulse( modelIndex, impulse, localApplicationPoint );
-    WakeBody( modelIndex );
-    return pending;
+    return ApplyBodyImpulse( HandleForModelIndex( modelIndex ), impulse, localApplicationPoint );
+}
+
+
+// Concept: pending impulses are one-shot velocity edits owned by body records.
+//
+// Compatibility force integration and standalone stepping both consume them
+// through this store hook so impulse math stays in one cache-local body path.
+bool PhysicsBodyStore::ConsumePendingBodyImpulse( PhysicsBodyRecord& record )
+{
+    if ( !record.hasPendingImpulse )
+    {
+        return false;
+    }
+
+    ApplyPendingImpulse( record );
+    return true;
 }
 
 
@@ -1532,6 +1570,6 @@ bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
 
     ThrottleAngularVelocity( *record );
     ApplyWorldForces( *record, *collider, worldForces, deltaSeconds );
-    ApplyPendingImpulse( *record );
+    ConsumePendingBodyImpulse( *record );
     return true;
 }

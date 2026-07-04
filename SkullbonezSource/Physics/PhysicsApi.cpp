@@ -354,6 +354,34 @@ bool PhysicsStandaloneWorld::DestroyBody( PhysicsBodyHandle body )
 }
 
 
+bool PhysicsStandaloneWorld::SetPendingBodyImpulse( PhysicsBodyHandle body,
+                                                    const Vector3& impulse,
+                                                    const Vector3& localApplicationPoint )
+{
+    if ( !m_bodyStore.SetPendingBodyImpulse( body, impulse, localApplicationPoint ) )
+    {
+        return false;
+    }
+
+    InvalidateBodyViews();
+    return true;
+}
+
+
+bool PhysicsStandaloneWorld::ApplyBodyImpulse( PhysicsBodyHandle body,
+                                               const Vector3& impulse,
+                                               const Vector3& localApplicationPoint )
+{
+    if ( !m_bodyStore.ApplyBodyImpulse( body, impulse, localApplicationPoint ) )
+    {
+        return false;
+    }
+
+    InvalidateBodyViews();
+    return true;
+}
+
+
 PhysicsColliderHandle PhysicsStandaloneWorld::CreateCollider( const PhysicsColliderCreateDesc& desc )
 {
     const PhysicsBodyRecord* body = BodyRecord( desc.body );
@@ -531,8 +559,10 @@ bool PhysicsStandaloneWorld::Step( const PhysicsStandaloneStepDesc& desc )
             continue;
         }
 
-        // Invariant: use the same semi-implicit Euler order every step. Swapping
-        // velocity/position integration changes the standalone smoke hash.
+        // Invariant: consume one-shot impulses as velocity edits before the
+        // semi-implicit acceleration/position step. Reordering these operations
+        // changes deterministic smoke and future replay samples.
+        PhysicsBodyStore::ConsumePendingBodyImpulse( body );
         body.linearVelocity += desc.worldLinearAcceleration * desc.deltaSeconds;
         body.position += body.linearVelocity * desc.deltaSeconds;
         mutated = true;
@@ -1279,6 +1309,29 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     const bool sleepDisabledQueryIncludesBody = sleepGateQueryView.bodyCount == 1u && sleepGateQueryView.bodies &&
                                                 sleepGateQueryView.bodies[0] == sleepGateBody;
 
+    PhysicsStandaloneWorld impulseWorld;
+    PhysicsBodyCreateDesc impulseBodyDesc;
+    impulseBodyDesc.sceneObjectId = PhysicsSceneObjectId{ 14u };
+    impulseBodyDesc.mass = 4.0f;
+    impulseBodyDesc.rotationalInertia = Vector3( 2.0f, 2.0f, 2.0f );
+    impulseBodyDesc.startsAsleep = true;
+    const PhysicsBodyHandle impulseBody = impulseWorld.CreateBody( impulseBodyDesc );
+    const bool impulseApplied =
+        impulseWorld.ApplyBodyImpulse( impulseBody, Vector3( 8.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
+    PhysicsStandaloneStepDesc impulseStep;
+    impulseStep.deltaSeconds = 0.5f;
+    const bool impulseStepSucceeded = impulseWorld.Step( impulseStep );
+    const PhysicsBodyView* impulseBodyView = impulseWorld.Body( impulseBody );
+    const bool impulseCommandConsistent = impulseApplied && impulseStepSucceeded && impulseBodyView &&
+                                          !impulseBodyView->sleeping &&
+                                          impulseBodyView->linearVelocity == Vector3( 2.0f, 0.0f, 0.0f ) &&
+                                          impulseBodyView->position == Vector3( 1.0f, 0.0f, 0.0f );
+    const bool destroyedImpulseBody = impulseWorld.DestroyBody( impulseBody );
+    const bool staleImpulseRejected =
+        destroyedImpulseBody &&
+        !impulseWorld.SetPendingBodyImpulse( impulseBody, Vector3( 1.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) ) &&
+        !impulseWorld.ApplyBodyImpulse( impulseBody, Vector3( 1.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
+
     PhysicsStandaloneWorld clearWorld;
     PhysicsBodyCreateDesc clearBodyDesc;
     const PhysicsBodyHandle clearBodyA = clearWorld.CreateBody( clearBodyDesc );
@@ -1383,7 +1436,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
         movedConstraintSurvivedOldEndpointDestroy && destroyedEndpoint && connectedConstraintStaleAfterBodyDestroy &&
         staleEndpointHandleRejected && staleBodyColliderCreationRejected && staleBodyPointJointCreationRejected &&
         poseVelocityUpdateConsistent && destroyedEditableBody && staleEditableBodyRejected &&
-        activationCommandsConsistent && rayCastConsistent && broadphaseQueryConsistent;
+        impulseCommandConsistent && staleImpulseRejected && activationCommandsConsistent && rayCastConsistent &&
+        broadphaseQueryConsistent;
 
     result.deterministicHash = HashSmokeResult( result );
     result.passed = stepped && result.lifecycleChecksPassed && finalBody && result.secondaryBodyAdvanced &&

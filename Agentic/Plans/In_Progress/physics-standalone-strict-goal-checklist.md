@@ -183,7 +183,7 @@ path, then compatibility writeback shrinks behind explicit adapters.
   - [x] connected constraints become stale,
   - [x] contacts and island membership are invalidated deterministically,
   - [x] replay-facing ids stay queryable for diagnostics if appropriate.
-- [ ] Move force and impulse application into body-store commands keyed by
+- [x] Move force and impulse application into body-store commands keyed by
   `PhysicsBodyHandle`.
 - [ ] Add a temporary compatibility assertion comparing old writeback state to
   store-owned state for one validation scene, if that helps catch drift.

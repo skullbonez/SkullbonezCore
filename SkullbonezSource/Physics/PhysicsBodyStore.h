@@ -87,7 +87,7 @@ struct PhysicsBodyRecord
     bool isSleeping = false;                           // Physics-owned sleep flag mirrored to diagnostics by model index.
     bool usesWorldInertia = false;                     // Non-sphere bodies rotate inertia through orientation.
     bool releasesFromFixedOnContact = false;           // Authored fixed prop can become dynamic after strong contact.
-    bool hasPendingImpulse = false;                    // One-shot impulse waiting for the next force integration pass.
+    bool hasPendingImpulse = false;                    // One-shot impulse waiting for the next body integration pass.
 };
 
 class PhysicsBodyStore
@@ -141,14 +141,24 @@ class PhysicsBodyStore
     const PhysicsBodyRecord* RecordForHandle( PhysicsBodyHandle handle ) const;
     PhysicsBodyRecord* MutableRecordForModelIndex( int modelIndex );
     const PhysicsBodyRecord* RecordForModelIndex( int modelIndex ) const;
+    // Handle-keyed commands are the store-owned path. Model-index overloads below
+    // are compatibility wrappers for callers not yet migrated to body handles.
+    bool WakeBody( PhysicsBodyHandle body );
     bool WakeBody( int modelIndex );
     bool SeedBodyAsleep( int modelIndex );
+    bool SetPendingBodyImpulse( PhysicsBodyHandle body,
+                                const Math::Vector::Vector3& impulse,
+                                const Math::Vector::Vector3& localApplicationPoint );
     bool SetPendingBodyImpulse( int modelIndex,
                                 const Math::Vector::Vector3& impulse,
                                 const Math::Vector::Vector3& localApplicationPoint );
+    bool ApplyBodyImpulse( PhysicsBodyHandle body,
+                           const Math::Vector::Vector3& impulse,
+                           const Math::Vector::Vector3& localApplicationPoint );
     bool ApplyBodyImpulse( int modelIndex,
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
+    static bool ConsumePendingBodyImpulse( PhysicsBodyRecord& record );
     // Advances one mutable body record from its current velocities and shape
     // snapshot. Returns false when the slot is fixed, sleeping, missing, or has
     // no positive time to integrate.

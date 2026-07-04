@@ -449,6 +449,18 @@ class PhysicsStandaloneWorld
     // stale handles fail.
     bool DestroyBody( PhysicsBodyHandle body );
 
+    // Records a one-shot impulse on a live body without waking it. The next
+    // standalone step consumes the impulse while walking dense body records.
+    bool SetPendingBodyImpulse( PhysicsBodyHandle body,
+                                const Math::Vector::Vector3& impulse,
+                                const Math::Vector::Vector3& localApplicationPoint );
+
+    // Records a one-shot impulse and wakes the body through the body store.
+    // Stale handles fail before mutating any row.
+    bool ApplyBodyImpulse( PhysicsBodyHandle body,
+                           const Math::Vector::Vector3& impulse,
+                           const Math::Vector::Vector3& localApplicationPoint );
+
     // Creates a collider for a live body. Invalid or stale body handles return
     // an invalid collider handle without mutating storage; valid creation uses
     // deterministic collider slot order for later query and view output.

@@ -288,12 +288,15 @@ void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
     {
         RefreshBodyStore( modelAccess );
     }
-    const int bodyIndex = m_bodyStore.ModelIndexForHandle( body );
-    if ( bodyIndex < 0 )
+    if ( !m_bodyStore.SetPendingBodyImpulse( body, impulse, localApplicationPoint ) )
     {
         return;
     }
-    if ( m_bodyStore.SetPendingBodyImpulse( bodyIndex, impulse, localApplicationPoint ) )
+
+    // Why: the mutation above is handle-keyed store authority; this model index
+    // is only the remaining legacy projection for model-backed presentation.
+    const int bodyIndex = m_bodyStore.ModelIndexForHandle( body );
+    if ( bodyIndex >= 0 )
     {
         modelAccess.WriteBackPhysicsBody( m_bodyStore, bodyIndex );
         modelAccess.InvalidatePhysicsStreams();
