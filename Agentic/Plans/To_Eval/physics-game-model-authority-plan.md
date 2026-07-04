@@ -59,6 +59,23 @@ turning `PhysicsModelAccess` into a concrete stack-owned facade.
   `tools\validate_fast.bat`, and `tools\validate_physics.bat` passed on
   2026-07-05; physics regression reported standalone/runtime handle smoke pass
   and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Removed the runtime handle smoke adapter lookup.
+  `RunPhysicsRuntimeHandleSmokeSample()` now keeps the
+  `PhysicsBodyHandle`s returned by `GameModelCollection::AddGameModel()` and
+  uses those handles for point-joint, body-store, collider-store, and render
+  mirror checks. Owner: runtime physics handle smoke in `Init.cpp`. Reason: a
+  handle-authority smoke should prove append-time handles stay authoritative,
+  not create bodies and rediscover them by model index through
+  `GameModelCollectionPhysicsAdapter`. Deletion condition: the smoke contains
+  no `GameModelCollectionPhysicsAdapter` or `BodyHandleForModelIndex` use.
+  Checker budget: `tools/check_runtime_boundaries.py` blocks adapter/model-index
+  lookup inside `RunPhysicsRuntimeHandleSmokeSample()` and self-tests the old
+  adapter lookup against the allowed returned-handle shape. Validation:
+  `git diff --check`, `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and `tools\validate_physics.bat` passed on
+  2026-07-05; physics regression reported standalone/runtime handle smoke pass
+  and byte-exact `physics_regression_solver.csv`.
 
 ## Goal
 
@@ -219,6 +236,9 @@ Create durable handles before moving ownership. The stores cannot be authoritati
 - [x] 2026-07-05 launcher projectile creation wakes the returned
   `PhysicsBodyHandle` directly instead of deriving a model index, appending the
   model, and resolving that index through `GameModelCollectionPhysicsAdapter`.
+- [x] 2026-07-05 runtime handle smoke retains the two `PhysicsBodyHandle`s
+  returned by `AddGameModel()` instead of using `BodyHandleForModelIndex()` as a
+  compatibility proof step.
 - [ ] Keep temporary model-index adapters only at old call boundaries.
   - [x] 2026-06-28 adapter slice keeps the temporary model-index command bridge
     at the old `GameModelCollection` entry points instead of adding another

@@ -11,9 +11,9 @@
 #   already moved to render graph callback ownership, and new normal-path global
 #   service access while explicit service contexts are built. Renderer globals
 #   have an extra file-classification fence, object rendering has a
-#   render-instance authority fence, and runtime picking has a store-authority
-#   fence, so count allowances do not silently approve a new compatibility
-#   location.
+#   render-instance authority fence, runtime picking has a store-authority
+#   fence, and the runtime handle smoke has a handle-authority fence, so count
+#   allowances do not silently approve a new compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -40,6 +40,8 @@
 #     render passes instead of rebuilding GameModel pose streams.
 #   Store-authority fence: Static rule that keeps a migrated reader on physics
 #     body/collider records instead of reopening a GameModel mirror path.
+#   Handle-authority fence: Static rule that keeps a validation smoke on handles
+#     returned by creation instead of proving authority through adapter lookup.
 #
 # Invariants:
 #   - Run.h may own subsystem objects, but not their extracted transient state.
@@ -88,6 +90,7 @@ RUN_HEADER = Path("SkullbonezSource/Runtime/Run.h")
 RUN_SOURCE = Path("SkullbonezSource/Runtime/Run.cpp")
 RUN_FRAME_SOURCE = Path("SkullbonezSource/Runtime/RunFrame.cpp")
 RUN_INTERNAL_HEADER = Path("SkullbonezSource/Runtime/RunInternal.h")
+INIT_SOURCE = Path("SkullbonezSource/Runtime/Init.cpp")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
 SKULL_SCOPE_SOURCE = Path("SkullbonezSource/Core/SkullScope.cpp")
@@ -702,6 +705,12 @@ STANDALONE_PHYSICS_GAME_OBJECT_PATTERN = re.compile(
     r"\b(?:GameObjects\s*::\s*)?GameModel\b|"
     r"\bstd\s*::\s*vector\s*<\s*(?:GameObjects\s*::\s*)?GameModel\b|"
     r"\b(?:modelAccess|physicsModelAccess)\s*\.\s*Models\s*\("
+)
+RUNTIME_HANDLE_SMOKE_FUNCTION_PATTERN = re.compile(
+    r"\bPhysicsRuntimeHandleSmokeResult\s+RunPhysicsRuntimeHandleSmokeSample\s*\("
+)
+RUNTIME_HANDLE_SMOKE_ADAPTER_LOOKUP_PATTERN = re.compile(
+    r"\b(?:GameModelCollectionPhysicsAdapter|BodyHandleForModelIndex)\b"
 )
 DIRECT_GFX_RAYTRACING_PATTERN = re.compile(
     r"\bGfx\s*\(\s*\)\s*\.\s*(?:InitDXR|DispatchReflectionRays|BuildTLAS|GetReflectionUAVTexture|"
@@ -2186,6 +2195,32 @@ def check_standalone_physics_implementation_game_object_guardrails_text(path: Pa
     return errors
 
 
+def check_runtime_handle_smoke_adapter_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != INIT_SOURCE.name:
+        return []
+
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    bounds = _function_body_bounds(stripped, RUNTIME_HANDLE_SMOKE_FUNCTION_PATTERN)
+    if not bounds:
+        return errors
+
+    open_brace, close_brace = bounds
+    for match in RUNTIME_HANDLE_SMOKE_ADAPTER_LOOKUP_PATTERN.finditer(stripped, open_brace, close_brace):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "runtime handle smoke adapter lookup is blocked",
+                (
+                    "RunPhysicsRuntimeHandleSmokeSample should retain handles returned by AddGameModel; "
+                    "do not prove runtime handle authority by converting model indices back through the adapter."
+                ),
+            )
+        )
+    return errors
+
+
 def check_public_physics_facade_game_object_guardrails(repo: Path) -> list[BoundaryError]:
     errors: list[BoundaryError] = []
     for relative_path in PUBLIC_PHYSICS_FACADE_HEADERS:
@@ -2208,6 +2243,11 @@ def check_standalone_physics_implementation_game_object_guardrails(repo: Path) -
         path = repo / relative_path
         errors.extend(check_standalone_physics_implementation_game_object_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
+
+
+def check_runtime_handle_smoke_adapter_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / INIT_SOURCE
+    return check_runtime_handle_smoke_adapter_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_deleted_migration_artifact_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -8656,6 +8696,39 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("test fixture GameModel synthetic surface was rejected")
 
+    old_runtime_handle_smoke_adapter_lookup = """
+    PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
+    {
+        collection->AddGameModel( std::move( model ) );
+        GameModelCollectionPhysicsAdapter adapter( *collection );
+        const PhysicsBodyHandle bodyA = adapter.BodyHandleForModelIndex( 0 );
+        return {};
+    }
+    """
+    if not any(
+        error.message == "runtime handle smoke adapter lookup is blocked"
+        for error in check_runtime_handle_smoke_adapter_guardrails_text(
+            Path("SkullbonezSource/Runtime/Init.cpp"),
+            old_runtime_handle_smoke_adapter_lookup,
+        )
+    ):
+        failures.append("runtime handle smoke adapter lookup synthetic surface was not rejected")
+
+    allowed_runtime_handle_smoke_creation_handles = """
+    PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
+    {
+        PhysicsBodyHandle createdBodies[2];
+        createdBodies[0] = collection->AddGameModel( std::move( model ) );
+        const PhysicsBodyHandle bodyA = createdBodies[0];
+        return {};
+    }
+    """
+    if check_runtime_handle_smoke_adapter_guardrails_text(
+        Path("SkullbonezSource/Runtime/Init.cpp"),
+        allowed_runtime_handle_smoke_creation_handles,
+    ):
+        failures.append("runtime handle smoke returned-handle synthetic surface was rejected")
+
     deleted_model_view_text = """
     void GameModelCollection::MakePhysicsModelView();
     class PhysicsModelView;
@@ -12679,6 +12752,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_public_physics_facade_game_object_guardrails(repo))
     errors.extend(check_public_physics_descriptor_model_index_guardrails(repo))
     errors.extend(check_standalone_physics_implementation_game_object_guardrails(repo))
+    errors.extend(check_runtime_handle_smoke_adapter_guardrails(repo))
     errors.extend(check_deleted_migration_artifact_guardrails(repo))
     errors.extend(check_deleted_physics_model_view_guardrails(repo))
     errors.extend(check_persistent_solver_context_model_access_guardrails(repo))

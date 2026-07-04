@@ -19,6 +19,9 @@ Glossary:
     commit or PR.
   Standalone physics smoke: Early-exit validation mode that exercises public
     physics API construction without runtime/window/renderer ownership.
+  Runtime handle smoke: Early-exit validation mode that uses runtime
+    GameModelCollection construction but proves returned physics handles stay
+    aligned with body, collider, constraint, and render mirrors.
 
 Invariants:
   - DX12 is the only runtime renderer; retired renderer flags are parsed only
@@ -43,7 +46,6 @@ Related:
 #include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../GameObjects/GameModel.h"
 #include "../GameObjects/GameModelCollection.h"
-#include "../GameObjects/GameModelCollectionPhysicsAdapter.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
 #include "../Physics/PhysicsApi.h"
@@ -618,13 +620,14 @@ struct PhysicsRuntimeHandleSmokeResult
 
 PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
 {
-    // Why: this smoke proves the runtime compatibility adapter can turn scene
-    // objects into physics handles and that body/collider/render mirrors stay
-    // aligned without opening the window or renderer. WinMain runs the normal
-    // command-line/config bootstrap before this helper so collection capacity
-    // uses the same config snapshot as a regular runtime launch.
+    // Why: this smoke proves runtime-created bodies keep their returned physics
+    // handles aligned with body/collider/render mirrors without opening the
+    // window or renderer. WinMain runs the normal command-line/config bootstrap
+    // before this helper so collection capacity uses the same config snapshot
+    // as a regular runtime launch.
     auto world = std::make_unique<SkullbonezCore::Environment::WorldEnvironment>();
     auto collection = std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>();
+    PhysicsBodyHandle createdBodies[2];
 
     for ( int i = 0; i < 2; ++i )
     {
@@ -637,12 +640,11 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         char name[32] = {};
         sprintf_s( name, sizeof( name ), "runtime_smoke_%d", i );
         model.SetName( name );
-        collection->AddGameModel( std::move( model ) );
+        createdBodies[i] = collection->AddGameModel( std::move( model ) );
     }
 
-    SkullbonezCore::GameObjects::GameModelCollectionPhysicsAdapter adapter( *collection );
-    const PhysicsBodyHandle bodyA = adapter.BodyHandleForModelIndex( 0 );
-    const PhysicsBodyHandle bodyB = adapter.BodyHandleForModelIndex( 1 );
+    const PhysicsBodyHandle bodyA = createdBodies[0];
+    const PhysicsBodyHandle bodyB = createdBodies[1];
 
     PhysicsPointJointCreateDesc jointDesc;
     jointDesc.bodyA = bodyA;
