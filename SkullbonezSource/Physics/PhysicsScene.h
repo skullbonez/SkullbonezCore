@@ -85,14 +85,13 @@ class PhysicsScene
                      Threading::WorkerPool& workerPool );
     void WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
     // Sets replay/editor-authored live velocities by body handle and optionally
-    // wakes a moving body before the single compatibility writeback.
+    // wakes a moving body before the normal step projects presentation state.
     bool SetBodyVelocity( PhysicsModelAccess& modelAccess,
                           PhysicsBodyHandle body,
                           const Math::Vector::Vector3& linearVelocity,
                           const Math::Vector::Vector3& angularVelocity,
                           bool wakeIfMoving );
     void SeedBodyAsleep( PhysicsBodyHandle body );
-    void SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
     void SetPendingBodyImpulse( PhysicsBodyHandle body,
                                 const Math::Vector::Vector3& impulse,
                                 const Math::Vector::Vector3& localApplicationPoint );

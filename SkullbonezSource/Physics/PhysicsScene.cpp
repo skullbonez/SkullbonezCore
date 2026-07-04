@@ -361,40 +361,20 @@ bool PhysicsScene::SetBodyVelocity( PhysicsModelAccess& modelAccess,
 
 void PhysicsScene::SeedBodyAsleep( PhysicsBodyHandle body )
 {
-    if ( !m_world.IsPhysicsSleepEnabled() )
-    {
-        return;
-    }
-
-    // Why: scene setup already owns the freshly created GameModel. The initial
-    // sleep seed belongs in PhysicsBodyStore and will be copied into PhysicsWorld
-    // when the first step begins, so no model-access writeback is needed here.
-    m_bodyStore.SeedBodyAsleep( body );
-}
-
-
-void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
-{
-    const int modelCount = modelAccess.ModelCount();
-    if ( m_bodyStore.Count() != modelCount )
-    {
-        RefreshBodyStore( modelAccess );
-    }
     const int index = m_bodyStore.ModelIndexForHandle( body );
-    if ( index < 0 )
+    if ( index < 0 || !m_world.IsPhysicsSleepEnabled() )
     {
         return;
     }
-    m_world.SeedModelAsleep( m_bodyStore, index );
-    m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    // Compatibility owner: PhysicsScene explicit command edge.
-    // Reason: seeding sleep mutates PhysicsWorld and PhysicsBodyStore state;
-    // GameModel is updated only as the remaining presentation mirror.
-    // Deletion condition: editor/ragdoll callers consume store views directly.
-    // Checker budget: store-owned PhysicsWorld seed must not rebuild model
-    // streams or invalidate model caches itself.
-    modelAccess.WriteBackPhysicsBody( m_bodyStore, index );
-    modelAccess.InvalidatePhysicsStreams();
+
+    // Why: sleep seeding is solver state, not presentation. Seed both the
+    // dense body store and PhysicsWorld's sleep counters, then leave GameModel
+    // projection to the next normal step boundary.
+    if ( m_bodyStore.SeedBodyAsleep( body ) )
+    {
+        m_world.SeedModelAsleep( m_bodyStore, index );
+        m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+    }
 }
 
 

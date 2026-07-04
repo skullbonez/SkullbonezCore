@@ -20,8 +20,8 @@ Glossary:
 Invariants:
   - Body and constraint creation order must stay deterministic.
   - Constraint solving must not allocate per row while physics is stepping.
-  - Joint inertia math reads body-record flags; GameModel is only the temporary
-    compatibility writeback target for this slice.
+  - Ragdoll sleep seeding targets PhysicsBodyStore/PhysicsWorld by handle;
+    GameModel remains only the construction/presentation owner for this path.
 
 Related:
   - SkullbonezSource/Physics/Ragdoll.h
@@ -36,7 +36,6 @@ Related:
 #include "PhysicsBodyStore.h"
 #include "PhysicsEngine.h"
 #include "PhysicsMass.h"
-#include "PhysicsModelAccess.h"
 
 #include <algorithm>
 #include <cmath>
@@ -477,13 +476,12 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
 
     if ( options.startsAsleep && !options.fixed )
     {
-        PhysicsModelAccess modelAccess( collection );
         for ( int i = 0; i < PART_COUNT; ++i )
         {
             // Why: ragdoll construction already resolves body handles for
             // joints. Seed sleep through the same physics boundary instead of
             // reopening the collection's model-index command wrapper.
-            physics.SeedBodyAsleep( modelAccess, bodyStore.HandleForModelIndex( firstBody + i ) );
+            physics.SeedBodyAsleep( bodyStore.HandleForModelIndex( firstBody + i ) );
         }
     }
 }

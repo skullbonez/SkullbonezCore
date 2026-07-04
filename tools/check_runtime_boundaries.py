@@ -79,9 +79,12 @@ RUN_INTERNAL_HEADER = Path("SkullbonezSource/Runtime/RunInternal.h")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
 SKULL_SCOPE_SOURCE = Path("SkullbonezSource/Core/SkullScope.cpp")
+PHYSICS_ENGINE_SOURCE = PHYSICS_ROOT / "PhysicsEngine.cpp"
+PHYSICS_ENGINE_HEADER = PHYSICS_ROOT / "PhysicsEngine.h"
 PHYSICS_WORLD_SOURCE = PHYSICS_ROOT / "PhysicsWorld.cpp"
 PHYSICS_WORLD_HEADER = PHYSICS_ROOT / "PhysicsWorld.h"
 PHYSICS_SCENE_SOURCE = PHYSICS_ROOT / "PhysicsScene.cpp"
+PHYSICS_SCENE_HEADER = PHYSICS_ROOT / "PhysicsScene.h"
 PHYSICS_DIAGNOSTICS_SINK_SOURCE = PHYSICS_ROOT / "PhysicsDiagnosticsSink.cpp"
 RAGDOLL_SOURCE = PHYSICS_ROOT / "Ragdoll.cpp"
 GAME_MODEL_COLLECTION_SOURCE = Path("SkullbonezSource/GameObjects/GameModelCollection.cpp")
@@ -263,6 +266,21 @@ PHYSICS_SCENE_SET_BODY_VELOCITY_FUNCTION_PATTERN = re.compile(
 )
 PHYSICS_SCENE_SET_BODY_VELOCITY_MODEL_MIRROR_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*(?:WriteBackPhysicsBody|InvalidatePhysicsStreams)\s*\("
+)
+PHYSICS_SEED_BODY_ASLEEP_MODEL_ACCESS_SOURCES = (
+    PHYSICS_ENGINE_SOURCE,
+    PHYSICS_ENGINE_HEADER,
+    PHYSICS_SCENE_SOURCE,
+    PHYSICS_SCENE_HEADER,
+    RAGDOLL_SOURCE,
+    EDITOR_TOOLS_SOURCE,
+    GAME_MODEL_COLLECTION_PHYSICS_ADAPTER_SOURCE,
+)
+PHYSICS_SEED_BODY_ASLEEP_MODEL_ACCESS_OVERLOAD_PATTERN = re.compile(
+    r"\bSeedBodyAsleep\s*\(\s*PhysicsModelAccess\s*&"
+)
+PHYSICS_SEED_BODY_ASLEEP_MODEL_ACCESS_CALL_PATTERN = re.compile(
+    r"\b[A-Za-z_][A-Za-z0-9_\\.]*\s*\.\s*SeedBodyAsleep\s*\(\s*modelAccess\s*,"
 )
 GAME_MODEL_COLLECTION_ADAPTER_BODY_HANDLE_FUNCTION_PATTERN = re.compile(
     r"\bPhysicsBodyHandle\s+GameModelCollectionPhysicsAdapter::BodyHandleForModelIndex\s*\("
@@ -2785,6 +2803,46 @@ def check_physics_scene_velocity_model_mirror_guardrails(repo: Path) -> list[Bou
         path,
         path.read_text(encoding="utf-8"),
     )
+
+
+def check_physics_seed_body_asleep_model_access_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_SEED_BODY_ASLEEP_MODEL_ACCESS_OVERLOAD_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "sleep seed model-access overload is blocked",
+                (
+                    "SeedBodyAsleep should be a store-owned PhysicsBodyHandle command; "
+                    "do not reintroduce the PhysicsModelAccess overload or synchronous GameModel mirror."
+                ),
+            )
+        )
+    for match in PHYSICS_SEED_BODY_ASLEEP_MODEL_ACCESS_CALL_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "sleep seed model-access call is blocked",
+                (
+                    "Call SeedBodyAsleep(body) so sleep seeding stays in PhysicsBodyStore/PhysicsWorld "
+                    "without per-command GameModel writeback or stream invalidation."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_seed_body_asleep_model_access_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in PHYSICS_SEED_BODY_ASLEEP_MODEL_ACCESS_SOURCES:
+        path = repo / relative_path
+        errors.extend(
+            check_physics_seed_body_asleep_model_access_guardrails_text(path, path.read_text(encoding="utf-8"))
+        )
+    return errors
 
 
 def check_game_model_collection_adapter_body_refresh_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -8910,6 +8968,72 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only velocity edit model mirror synthetic text was rejected")
 
+    old_seed_body_asleep_model_access_overload = """
+    void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        modelAccess.WriteBackPhysicsBody( m_bodyStore, index );
+        modelAccess.InvalidatePhysicsStreams();
+    }
+    """
+    if not any(
+        error.message == "sleep seed model-access overload is blocked"
+        for error in check_physics_seed_body_asleep_model_access_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+            old_seed_body_asleep_model_access_overload,
+        )
+    ):
+        failures.append("old sleep seed model-access overload synthetic surface was not rejected")
+
+    old_seed_body_asleep_model_access_call = """
+    void SeedEditorPhysicsBodyAsleep( PhysicsEngine& physics, PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        physics.SeedBodyAsleep( modelAccess, body );
+    }
+    """
+    if not any(
+        error.message == "sleep seed model-access call is blocked"
+        for error in check_physics_seed_body_asleep_model_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+            old_seed_body_asleep_model_access_call,
+        )
+    ):
+        failures.append("old sleep seed model-access call synthetic surface was not rejected")
+
+    allowed_seed_body_asleep_store_command = """
+    void PhysicsScene::SeedBodyAsleep( PhysicsBodyHandle body )
+    {
+        const int index = m_bodyStore.ModelIndexForHandle( body );
+        if ( m_bodyStore.SeedBodyAsleep( body ) )
+        {
+            m_world.SeedModelAsleep( m_bodyStore, index );
+            m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+        }
+    }
+    void SeedEditorPhysicsBodyAsleep( PhysicsEngine& physics, PhysicsBodyHandle body )
+    {
+        physics.SeedBodyAsleep( body );
+    }
+    """
+    if check_physics_seed_body_asleep_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        allowed_seed_body_asleep_store_command,
+    ):
+        failures.append("store-only sleep seed synthetic surface was rejected")
+
+    commented_seed_body_asleep_model_access = """
+    void PhysicsScene::SeedBodyAsleep( PhysicsBodyHandle body )
+    {
+        // physics.SeedBodyAsleep(modelAccess, body) used to mirror GameModel state here.
+        // void PhysicsScene::SeedBodyAsleep(PhysicsModelAccess& modelAccess, PhysicsBodyHandle body) was deleted.
+        m_bodyStore.SeedBodyAsleep( body );
+    }
+    """
+    if check_physics_seed_body_asleep_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        commented_seed_body_asleep_model_access,
+    ):
+        failures.append("comment-only sleep seed model-access synthetic text was rejected")
+
     old_adapter_body_handle_refresh = """
     PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForModelIndex( int modelIndex ) const
     {
@@ -9787,6 +9911,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_scene_step_body_reload_guardrails(repo))
     errors.extend(check_physics_scene_pending_impulse_model_mirror_guardrails(repo))
     errors.extend(check_physics_scene_velocity_model_mirror_guardrails(repo))
+    errors.extend(check_physics_seed_body_asleep_model_access_guardrails(repo))
     errors.extend(check_command_side_body_refresh_guardrails(repo))
     errors.extend(check_scene_setup_model_index_physics_command_guardrails(repo))
     errors.extend(check_editor_model_index_physics_command_guardrails(repo))

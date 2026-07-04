@@ -624,8 +624,7 @@ void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollecti
         return;
     }
 
-    PhysicsModelAccess modelAccess( collection );
-    physics.SeedBodyAsleep( modelAccess, body );
+    physics.SeedBodyAsleep( body );
 }
 
 

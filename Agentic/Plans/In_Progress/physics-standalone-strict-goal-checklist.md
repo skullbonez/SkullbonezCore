@@ -282,12 +282,13 @@ Strict-step authority slice `PHY-0207N`: store-owned sleep seeding no
 longer rebuilds `GameModelBodyStream` or invalidates GameModel stream caches
 inside `PhysicsWorld`. The public store overload now reads `PhysicsBodyStore`
 records directly and reuses the same sleep-state mutation locally, while
-`PhysicsScene::SeedBodyAsleep(PhysicsModelAccess&, PhysicsBodyHandle)` owns the
-remaining one-body compatibility writeback and explicit cache invalidation. The
-checker blocks store/body-record `PhysicsWorld::SeedModelAsleep` overloads from
-touching `GameModelBodyStream`, `GetBodyStream`, or
-`modelAccess.InvalidatePhysicsStreams()` while leaving the legacy model-stream
-overload visible as remaining debt. Evidence: diff check, py_compile,
+`PhysicsScene::SeedBodyAsleep(PhysicsModelAccess&, PhysicsBodyHandle)` still
+owned the remaining one-body compatibility writeback and explicit cache
+invalidation at this earlier checkpoint. That overload was later deleted in
+`PHY-1004`; sleep seeding now targets `PhysicsBodyStore` and `PhysicsWorld` by
+handle only. The checker blocks store/body-record
+`PhysicsWorld::SeedModelAsleep` overloads from touching `GameModelBodyStream`,
+`GetBodyStream`, or `modelAccess.InvalidatePhysicsStreams()`. Evidence: diff check, py_compile,
 runtime-boundary checks, and `tools\validate_format.bat` passed; focused Debug
 build passed in 7.8s with 0 warnings/errors; `tools\validate_physics.bat` passed
 in 20.7s with byte-exact `physics_regression_solver.csv`;
@@ -756,6 +757,14 @@ lookup followed by targeted source reads, comment-style audit of
 - [x] Add runtime-boundary self-tests that reject the deleted velocity-edit
   `WriteBackPhysicsBody`/`InvalidatePhysicsStreams` shape while allowing the
   remaining explicit `WakeBody` compatibility mirror.
+- [x] Delete the `SeedBodyAsleep(PhysicsModelAccess&, PhysicsBodyHandle)`
+  overload and route ragdoll/editor/adapter sleep seeding through the
+  store-owned handle command.
+- [x] Preserve solver-side sleep counters by having the store-owned sleep seed
+  command seed both `PhysicsBodyStore` and `PhysicsWorld`, without a
+  per-command `GameModel` writeback or model-stream invalidation.
+- [x] Add runtime-boundary self-tests that reject the deleted sleep-seed
+  model-access overload and caller spelling while allowing `SeedBodyAsleep(body)`.
 - [x] Comment-audit the touched source files.
 - [x] Validation for this slice:
   - [x] `git diff --check`
@@ -791,6 +800,15 @@ presentation projection. Evidence logs:
 `TestOutput\agent_validate_fast_velocity_command_mirror.log` and
 `TestOutput\agent_validate_physics_velocity_command_mirror.log`; the physics
 gate passed with byte-exact `physics_regression_solver.csv`.
+
+Follow-up slice `PHY-1004`: sleep seeding no longer has a model-access overload.
+Ragdoll construction, editor placement, and the model-index adapter now call
+`PhysicsEngine::SeedBodyAsleep(body)`. The store-owned command seeds
+`PhysicsBodyStore` and `PhysicsWorld` sleep counters directly, then leaves
+presentation projection to the normal step boundary. Evidence logs:
+`TestOutput\agent_validate_fast_sleep_seed_mirror.log` and
+`TestOutput\agent_validate_physics_sleep_seed_mirror.log`; the physics gate
+passed with byte-exact `physics_regression_solver.csv`.
 
 ## Required Evidence For Each Source Slice
 

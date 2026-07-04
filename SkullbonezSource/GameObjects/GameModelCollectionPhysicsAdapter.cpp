@@ -123,8 +123,7 @@ void GameModelCollectionPhysicsAdapter::SeedBodyAsleepForModelIndex( int modelIn
         return;
     }
 
-    PhysicsModelAccess modelAccess( m_collection );
-    m_collection.m_physicsEngine.SeedBodyAsleep( modelAccess, body );
+    m_collection.m_physicsEngine.SeedBodyAsleep( body );
 }
 
 
