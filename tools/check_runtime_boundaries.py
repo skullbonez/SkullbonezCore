@@ -34,6 +34,8 @@
 #   Migration artifact: Temporary adapter, data-transfer object, or
 #     compatibility name that must disappear once its real owner or API replaces
 #     it.
+#   Topology repair: Count-gated compatibility import that rebuilds store rows
+#     only after object counts change.
 #   Render instance store: Physics-backed, model-order snapshot consumed by
 #     render passes instead of rebuilding GameModel pose streams.
 #   Store-authority fence: Static rule that keeps a migrated reader on physics
@@ -267,6 +269,10 @@ GAME_MODEL_COLLECTION_BODY_STORE_REFRESH_PATTERN = re.compile(
 )
 GAME_MODEL_COLLECTION_BODY_STORE_COUNT_GATE_PATTERN = re.compile(
     r"\bm_physicsEngine\s*\.\s*BodyStore\s*\(\s*\)\s*\.\s*Count\s*\(\s*\)\s*!=\s*ModelCount\s*\(\s*\)"
+)
+GAME_MODEL_COLLECTION_RUN_PHYSICS_FUNCTION_PATTERN = re.compile(r"\bvoid\s+GameModelCollection::RunPhysics\s*\(")
+GAME_MODEL_COLLECTION_RUN_PHYSICS_MODEL_ACCESS_DECL_PATTERN = re.compile(
+    r"\bPhysicsModelAccess\s+modelAccess\s*\(\s*\*\s*this\s*\)\s*;"
 )
 GAME_MODEL_COLLECTION_BODY_READ_MODEL_FIELD_PATTERN = re.compile(
     r"\bm_gameModels\s*\[[^\]]+\]\s*\.\s*GetPosition\s*\("
@@ -3053,6 +3059,54 @@ def check_game_model_collection_body_store_read_authority_guardrails_text(path: 
 def check_game_model_collection_body_store_read_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / GAME_MODEL_COLLECTION_SOURCE
     return check_game_model_collection_body_store_read_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_game_model_collection_run_physics_model_access_guardrails_text(
+    path: Path,
+    text: str,
+) -> list[BoundaryError]:
+    if path.name != "GameModelCollection.cpp":
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    function_match = GAME_MODEL_COLLECTION_RUN_PHYSICS_FUNCTION_PATTERN.search(stripped)
+    if not function_match:
+        return errors
+
+    open_brace = stripped.find("{", function_match.end())
+    if open_brace < 0:
+        return errors
+    close_brace = find_matching_close_brace(stripped, open_brace)
+
+    for match in GAME_MODEL_COLLECTION_RUN_PHYSICS_MODEL_ACCESS_DECL_PATTERN.finditer(
+        stripped,
+        open_brace,
+        close_brace,
+    ):
+        preceding_function_text = stripped[open_brace:match.start()]
+        brace_depth = preceding_function_text.count("{") - preceding_function_text.count("}")
+        if brace_depth <= 1:
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "steady physics step model-access facade is blocked",
+                    (
+                        "GameModelCollection::RunPhysics should create PhysicsModelAccess only inside topology "
+                        "repair branches, so steady frames step PhysicsBodyStore and ColliderStore without "
+                        "borrowing the GameModel owner."
+                    ),
+                )
+            )
+    return errors
+
+
+def check_game_model_collection_run_physics_model_access_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / GAME_MODEL_COLLECTION_SOURCE
+    return check_game_model_collection_run_physics_model_access_guardrails_text(
+        path,
+        path.read_text(encoding="utf-8"),
+    )
 
 
 def check_runtime_pick_service_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -9987,6 +10041,67 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only collider-store refresh synthetic text was rejected")
 
+    old_run_physics_steady_model_access = """
+    void GameModelCollection::RunPhysics( float dt )
+    {
+        PhysicsModelAccess modelAccess( *this );
+        const int modelCount = ModelCount();
+        if ( m_physicsEngine.BodyStore().Count() != modelCount )
+        {
+            m_physicsEngine.RefreshBodyStore( modelAccess );
+        }
+        m_physicsEngine.Step( dt, config, worldForces, workerPool, nullptr, 0 );
+    }
+    """
+    if not any(
+        error.message == "steady physics step model-access facade is blocked"
+        for error in check_game_model_collection_run_physics_model_access_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_run_physics_steady_model_access,
+        )
+    ):
+        failures.append("old steady RunPhysics model-access facade synthetic surface was not rejected")
+
+    allowed_run_physics_topology_model_access = """
+    void GameModelCollection::RunPhysics( float dt )
+    {
+        const int modelCount = ModelCount();
+        const bool bodyTopologyChanged = m_physicsEngine.BodyStore().Count() != modelCount;
+        const bool colliderTopologyChanged = m_physicsEngine.Colliders().Count() != modelCount;
+        if ( bodyTopologyChanged || colliderTopologyChanged )
+        {
+            PhysicsModelAccess modelAccess( *this );
+            if ( bodyTopologyChanged )
+            {
+                m_physicsEngine.RefreshBodyStore( modelAccess );
+            }
+            if ( colliderTopologyChanged )
+            {
+                m_physicsEngine.RefreshColliderSnapshot( modelAccess );
+            }
+        }
+        m_physicsEngine.Step( dt, config, worldForces, workerPool, nullptr, 0 );
+    }
+    """
+    if check_game_model_collection_run_physics_model_access_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_run_physics_topology_model_access,
+    ):
+        failures.append("topology-gated RunPhysics model-access synthetic surface was rejected")
+
+    commented_run_physics_model_access = """
+    void GameModelCollection::RunPhysics( float dt )
+    {
+        // PhysicsModelAccess modelAccess( *this ) used to be created before count checks.
+        m_physicsEngine.Step( dt, config, worldForces, workerPool, nullptr, 0 );
+    }
+    """
+    if check_game_model_collection_run_physics_model_access_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        commented_run_physics_model_access,
+    ):
+        failures.append("comment-only RunPhysics model-access synthetic text was rejected")
+
     old_collection_body_model_reads = """
     Vector3 GameModelCollection::GetModelPosition( int index )
     {
@@ -12170,6 +12285,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_dxr_render_instance_matrix_authority_guardrails(repo))
     errors.extend(check_deleted_game_model_stream_project_guardrails(repo))
     errors.extend(check_game_model_collection_body_store_read_authority_guardrails(repo))
+    errors.extend(check_game_model_collection_run_physics_model_access_guardrails(repo))
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
     errors.extend(check_physics_collision_time_name_guardrails(repo))
     errors.extend(check_deleted_model_force_bridge_guardrails(repo))

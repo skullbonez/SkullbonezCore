@@ -1352,6 +1352,35 @@ Evidence logs: `TestOutput\agent_build_debug_render_instance_fallback_deletion.l
 `TestOutput\agent_validate_perf_profiler_schedule_reset.log`, and
 `TestOutput\agent_validate_full_render_instance_fallback_deletion.log`.
 
+Slice `PHY-1021`: keep `GameModelCollection::RunPhysics` from constructing
+`PhysicsModelAccess` during steady-state frames. Owner: `GameModelCollection`
+for the temporary compatibility topology-repair edge; reason: the store-owned
+step should not borrow the model owner unless body/collider counts actually
+drift; deletion condition: the top-level `RunPhysics` frame step has no
+steady-state `PhysicsModelAccess modelAccess(*this)` declaration, while
+topology-repair branches remain allowed until model-order compatibility is
+deleted; checker budget: `tools/check_runtime_boundaries.py` blocks top-level
+step facade construction from returning.
+
+- [x] Create `PhysicsModelAccess` only inside the body/collider topology-repair
+  branch in `GameModelCollection::RunPhysics`.
+- [x] Add runtime-boundary guardrails and self-tests blocking a top-level
+  steady-frame `PhysicsModelAccess` declaration in `RunPhysics`.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation run for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] touched-file comment audit
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence: runtime-boundary summary reported 0 errors;
+`tools\validate_fast.bat` passed formatting, project filters, runtime
+boundaries, and Profile/Debug builds with 0 warnings/errors;
+`tools\validate_physics.bat` passed standalone smoke, runtime handle smoke, and
+byte-exact `physics_regression_solver.csv` comparison.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

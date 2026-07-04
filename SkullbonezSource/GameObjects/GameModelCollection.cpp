@@ -20,6 +20,8 @@ Glossary:
     interfaces.
   Render instance store: Renderer-facing snapshot built from physics-owned pose
     and model-owned material/presentation state before frame passes.
+  Topology drift: A body/collider/model count mismatch that means compatibility
+    stores must import model-owned construction data before stepping.
   Replay body id: Per-collection identity saved in replay samples so restore
     paths can reject stale model slots.
   Validation gate: Repository script that proves a class of changes before
@@ -1041,22 +1043,27 @@ void GameModelCollection::RunPhysics( float fChangeInTime,
                                       const Physics::PhysicsWorldForces& worldForces,
                                       Threading::WorkerPool& workerPool )
 {
-    PhysicsModelAccess modelAccess( *this );
     const int modelCount = ModelCount();
 
     // Invariant: PhysicsBodyStore is the per-tick body authority. GameModel is
     // imported only when model/body topology changes; same-count editor or replay
     // mutations must use explicit commit paths before the step reads the store.
-    if ( m_physicsEngine.BodyStore().Count() != modelCount )
+    const bool bodyTopologyChanged = m_physicsEngine.BodyStore().Count() != modelCount;
+    // Why: collider metadata is construction/authoring state, not per-tick solver
+    // state. The step repairs count drift without borrowing the GameModel owner
+    // during steady-state frames.
+    const bool colliderTopologyChanged = m_physicsEngine.Colliders().Count() != modelCount;
+    if ( bodyTopologyChanged || colliderTopologyChanged )
     {
-        m_physicsEngine.RefreshBodyStore( modelAccess );
-    }
-    // Why: collider metadata is construction/authoring state, not per-tick
-    // solver state. The step repairs count drift without reloading body records
-    // that are already authoritative in PhysicsBodyStore.
-    if ( m_physicsEngine.Colliders().Count() != modelCount )
-    {
-        m_physicsEngine.RefreshColliderSnapshot( modelAccess );
+        PhysicsModelAccess modelAccess( *this );
+        if ( bodyTopologyChanged )
+        {
+            m_physicsEngine.RefreshBodyStore( modelAccess );
+        }
+        if ( colliderTopologyChanged )
+        {
+            m_physicsEngine.RefreshColliderSnapshot( modelAccess );
+        }
     }
 
     TickContactHighlights( modelCount, fChangeInTime );
