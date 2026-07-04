@@ -69,7 +69,8 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
     {
         RuntimePickRequest request;
         request.purpose = RuntimePickPurpose::ReplayPathTarget;
-        request.models = &models;
+        request.bodyStore = &m_cGameModelCollection.GetPhysicsBodyStore();
+        request.colliderStore = &m_cGameModelCollection.GetColliderStore();
         request.rayOrigin = rayOrigin;
         request.rayDirection = rayDirection;
 

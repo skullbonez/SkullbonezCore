@@ -1165,6 +1165,38 @@ Evidence logs: `TestOutput\agent_build_debug_body_store_read_authority.log`,
 `TestOutput\agent_validate_fast_body_store_read_authority.log`, and
 `TestOutput\agent_validate_physics_body_store_read_authority.log`.
 
+Slice `PHY-1016`: move centralized runtime picking off `GameModel` body-state
+reads. `RuntimePickService` should borrow `PhysicsBodyStore` and `ColliderStore`
+for exact-shape hit tests, while replay and editor callers may still use
+`GameModel` for cold presentation data such as names and ragdoll-root mapping.
+`GetColliderStore()` must refresh collider shape/material snapshots without
+calling the full collider refresh path that reloads same-count body rows.
+
+- [x] Replace `RuntimePickRequest::models` with borrowed physics body/collider
+  stores.
+- [x] Make `RuntimePickService::TryPickModel()` scan store records for fixed
+  state, transforms, and exact collision shapes.
+- [x] Update editor selection, interaction automation, attached camera,
+  manipulator pickup, and replay path picking to provide store snapshots.
+- [x] Make `GetColliderStore()` preserve body-store authority while refreshing
+  collider snapshots.
+- [x] Add runtime-boundary guardrails and self-tests blocking GameModel-backed
+  picking and full collider-store refresh from returning.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] `tools\validate_fast.bat`
+  - [x] `tools\validate_full.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence logs: `TestOutput\agent_build_debug_runtime_pick_store_authority.log`,
+`TestOutput\agent_validate_fast_runtime_pick_store_authority.log`,
+`TestOutput\agent_validate_physics_runtime_pick_store_authority.log`, and
+`TestOutput\agent_validate_full_runtime_pick_store_authority.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

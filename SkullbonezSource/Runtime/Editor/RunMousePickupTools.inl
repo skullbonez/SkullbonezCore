@@ -4,8 +4,9 @@ Purpose:
   Implements manipulator-mode mouse pickup capture, target tracking, and physics impulse application.
 
 Mental model:
-  Mouse pickup is a runtime tool owner distinct from editor placement. It borrows camera rays
-  and physics models, captures the pointer while active, and releases cleanly at mode changes.
+  Mouse pickup is a runtime tool owner distinct from editor placement. It
+  borrows camera rays, resolves store-backed pick rows to physics handles,
+  captures the pointer while active, and releases cleanly at mode changes.
 
 Glossary:
   Mouse pickup: Manipulator tool that drags a dynamic body toward a camera-facing target plane.
@@ -13,7 +14,7 @@ Glossary:
 
 Invariants:
   - Pointer capture and interaction gesture state must end whenever pickup is canceled.
-  - Body indices are revalidated through GameModelCollection, then resolved to
+  - Picked rows are revalidated through GameModelCollection, then resolved to
     physics handles before applying impulses.
   - This file must only be included from RunEditorTools.cpp after terrain-placement helpers.
 
@@ -115,7 +116,8 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
 
     RuntimePickRequest request;
     request.purpose = RuntimePickPurpose::ManipulatorPickup;
-    request.models = &m_cGameModelCollection.Models();
+    request.bodyStore = &m_cGameModelCollection.GetPhysicsBodyStore();
+    request.colliderStore = &m_cGameModelCollection.GetColliderStore();
     request.rayOrigin = rayOrigin;
     request.rayDirection = rayDirection;
 

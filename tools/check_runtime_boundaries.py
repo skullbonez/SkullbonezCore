@@ -10,9 +10,10 @@
 #   also blocks direct scheduling or manual-barrier regressions for passes that
 #   already moved to render graph callback ownership, and new normal-path global
 #   service access while explicit service contexts are built. Renderer globals
-#   have an extra file-classification fence, and object rendering has a
-#   render-instance authority fence, so count allowances do not silently approve
-#   a new compatibility location.
+#   have an extra file-classification fence, object rendering has a
+#   render-instance authority fence, and runtime picking has a store-authority
+#   fence, so count allowances do not silently approve a new compatibility
+#   location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -35,6 +36,8 @@
 #     it.
 #   Render instance store: Physics-backed, model-order snapshot consumed by
 #     render passes instead of rebuilding GameModel pose streams.
+#   Store-authority fence: Static rule that keeps a migrated reader on physics
+#     body/collider records instead of reopening a GameModel mirror path.
 #
 # Invariants:
 #   - Run.h may own subsystem objects, but not their extracted transient state.
@@ -51,6 +54,8 @@
 #     ResourceBarrier calls or backend transition helpers directly.
 #   - Object rendering and DXR matrix upload read prepared render instances
 #     rather than recomputing GameModel model matrices or body streams.
+#   - Runtime picking reads PhysicsBodyStore/ColliderStore records instead of
+#     requiring the GameModel compatibility mirror to be refreshed before input.
 #   - Unknown render graph resource states remain explicitly counted handoffs
 #     until the graph owns concrete initial access for migrated resources.
 #   - Existing global service calls are counted debt; adding new ones requires
@@ -248,6 +253,21 @@ GAME_MODEL_COLLECTION_BODY_STORE_COUNT_GATE_PATTERN = re.compile(
 GAME_MODEL_COLLECTION_BODY_READ_MODEL_FIELD_PATTERN = re.compile(
     r"\bm_gameModels\s*\[[^\]]+\]\s*\.\s*GetPosition\s*\("
     r"|\bmodel\s*\.\s*(?:IsFixed|GetVelocity|GetAngularVelocity|GetRotationalInertia|GetMass)\s*\("
+)
+# Why: runtime picking is a shared input/tool policy. If it reads GameModel body
+# fields again, every caller has to keep the compatibility mirror fresh before
+# simple mouse picks, which is exactly the cache-hostile edge this slice deletes.
+RUNTIME_PICK_SERVICE_GAME_MODEL_INCLUDE_PATTERN = re.compile(
+    r'#\s*include\s+"(?:\.\./)?GameObjects/GameModel\.h"'
+)
+RUNTIME_PICK_SERVICE_MODEL_STATE_PATTERN = re.compile(
+    r"\bGameObjects::GameModel\b"
+    r"|\bstd::vector\s*<\s*GameObjects::GameModel\s*>"
+    r"|\brequest\s*\.\s*models\b"
+    r"|\bmodel\s*\.\s*(?:IsFixed|GetPosition|GetOrientation|GetCollisionShape)\s*\("
+)
+GAME_MODEL_COLLECTION_COLLIDER_STORE_REFRESH_PATTERN = re.compile(
+    r"\bm_physicsEngine\s*\.\s*RefreshColliderStore\s*\(\s*modelAccess\s*\)"
 )
 PHYSICS_DIAGNOSTICS_MODEL_RECORD_COMPAT_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*TryGetPhysicsDiagnosticsModel\s*\(\s*[^,()]+\s*,\s*[^,()]+\s*\)"
@@ -2857,6 +2877,29 @@ def check_game_model_collection_body_store_read_authority_guardrails_text(path: 
                 )
             )
 
+    collider_function_pattern = re.compile(
+        r"\bconst\s+SkullbonezCore::Physics::ColliderStore&\s+"
+        r"GameModelCollection::GetColliderStore\s*\(\s*\)\s*\{",
+        re.S,
+    )
+    for function_match in collider_function_pattern.finditer(stripped):
+        open_brace = stripped.find("{", function_match.start(), function_match.end())
+        if open_brace < 0:
+            continue
+        close_brace = find_matching_close_brace(stripped, open_brace)
+        for match in GAME_MODEL_COLLECTION_COLLIDER_STORE_REFRESH_PATTERN.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "collider-store read accessor must preserve body-store authority",
+                    (
+                        "GetColliderStore may refresh collider shape/material snapshots, but it must not call "
+                        "RefreshColliderStore because that path reloads same-count body rows from GameModel."
+                    ),
+                )
+            )
+
     for function_name in ( "GetModelPosition", "GetSceneKineticEnergy" ):
         function_pattern = re.compile(rf"\b(?:Vector3|double)\s+GameModelCollection::{function_name}\s*\([^{{}}]*\)\s*\{{", re.S)
         for function_match in function_pattern.finditer(stripped):
@@ -2882,6 +2925,53 @@ def check_game_model_collection_body_store_read_authority_guardrails_text(path: 
 def check_game_model_collection_body_store_read_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / GAME_MODEL_COLLECTION_SOURCE
     return check_game_model_collection_body_store_read_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_runtime_pick_service_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name not in { "RuntimePickService.cpp", "RuntimePickService.h" }:
+        return []
+    code_without_comments = strip_cpp_comments(text)
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+
+    for match in RUNTIME_PICK_SERVICE_GAME_MODEL_INCLUDE_PATTERN.finditer(code_without_comments):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(code_without_comments, match.start()),
+                "RuntimePickService must use physics stores for body state",
+                (
+                    "The central pick service should scan PhysicsBodyStore and ColliderStore records, not "
+                    "include GameModel and require callers to refresh the compatibility mirror before picking."
+                ),
+            )
+        )
+
+    for match in RUNTIME_PICK_SERVICE_MODEL_STATE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "RuntimePickService must use physics stores for body state",
+                (
+                    "The central pick service should scan PhysicsBodyStore and ColliderStore records, not "
+                    "GameModel position/orientation/fixed/shape fields."
+                ),
+            )
+        )
+
+    return errors
+
+
+def check_runtime_pick_service_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in (
+        Path("SkullbonezSource/Runtime/RuntimePickService.cpp"),
+        Path("SkullbonezSource/Runtime/RuntimePickService.h"),
+    ):
+        path = repo / relative_path
+        errors.extend(check_runtime_pick_service_store_authority_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_physics_diagnostics_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -9452,6 +9542,52 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("count-gated body-store refresh synthetic surface was rejected")
 
+    old_unconditional_collider_store_refresh = """
+    const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
+    {
+        PhysicsModelAccess modelAccess( *this );
+        m_physicsEngine.RefreshColliderStore( modelAccess );
+        return m_physicsEngine.Colliders();
+    }
+    """
+    if not any(
+        error.message == "collider-store read accessor must preserve body-store authority"
+        for error in check_game_model_collection_body_store_read_authority_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_unconditional_collider_store_refresh,
+        )
+    ):
+        failures.append("old full collider-store refresh synthetic surface was not rejected")
+
+    allowed_collider_snapshot_refresh = """
+    const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
+    {
+        GetPhysicsBodyStore();
+        PhysicsModelAccess modelAccess( *this );
+        m_physicsEngine.RefreshColliderSnapshot( modelAccess );
+        return m_physicsEngine.Colliders();
+    }
+    """
+    if check_game_model_collection_body_store_read_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_collider_snapshot_refresh,
+    ):
+        failures.append("collider snapshot refresh synthetic surface was rejected")
+
+    commented_collider_store_refresh = """
+    const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
+    {
+        // m_physicsEngine.RefreshColliderStore( modelAccess ) used to reload body rows here.
+        GetPhysicsBodyStore();
+        return m_physicsEngine.Colliders();
+    }
+    """
+    if check_game_model_collection_body_store_read_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        commented_collider_store_refresh,
+    ):
+        failures.append("comment-only collider-store refresh synthetic text was rejected")
+
     old_collection_body_model_reads = """
     Vector3 GameModelCollection::GetModelPosition( int index )
     {
@@ -9519,6 +9655,64 @@ def run_self_tests() -> list[str]:
         commented_collection_body_model_reads,
     ):
         failures.append("comment-only collection body model-read synthetic text was rejected")
+
+    old_runtime_pick_service_model_reads = """
+    #include "../GameObjects/GameModel.h"
+    bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, RuntimePickResult& outResult )
+    {
+        const std::vector<GameObjects::GameModel>& models = *request.models;
+        const GameObjects::GameModel& model = models[0];
+        if ( model.IsFixed() )
+        {
+            return false;
+        }
+        RuntimePickShapeTransform transform;
+        transform.position = model.GetPosition();
+        transform.orientation = model.GetOrientation();
+        return TryIntersectRuntimePickShape( model.GetCollisionShape(), transform, request.rayOrigin, request.rayDirection, outResult.rayT );
+    }
+    """
+    if not any(
+        error.message == "RuntimePickService must use physics stores for body state"
+        for error in check_runtime_pick_service_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/RuntimePickService.cpp"),
+            old_runtime_pick_service_model_reads,
+        )
+    ):
+        failures.append("old RuntimePickService GameModel-backed synthetic surface was not rejected")
+
+    allowed_runtime_pick_service_store_reads = """
+    bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, RuntimePickResult& outResult )
+    {
+        const std::vector<Physics::PhysicsBodyRecord>& bodies = request.bodyStore->Records();
+        const std::vector<Physics::ColliderRecord>& colliders = request.colliderStore->Records();
+        const Physics::PhysicsBodyRecord& body = bodies[0];
+        const Physics::ColliderRecord& collider = colliders[0];
+        RuntimePickShapeTransform transform;
+        transform.position = body.position;
+        transform.orientation = body.orientation;
+        return TryIntersectRuntimePickShape( collider.shape, transform, request.rayOrigin, request.rayDirection, outResult.rayT );
+    }
+    """
+    if check_runtime_pick_service_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/RuntimePickService.cpp"),
+        allowed_runtime_pick_service_store_reads,
+    ):
+        failures.append("Physics-store RuntimePickService synthetic surface was rejected")
+
+    commented_runtime_pick_service_model_reads = """
+    bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, RuntimePickResult& outResult )
+    {
+        // request.models, GameObjects::GameModel, and model.GetCollisionShape() used to live here.
+        const std::vector<Physics::PhysicsBodyRecord>& bodies = request.bodyStore->Records();
+        return !bodies.empty();
+    }
+    """
+    if check_runtime_pick_service_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/RuntimePickService.cpp"),
+        commented_runtime_pick_service_model_reads,
+    ):
+        failures.append("comment-only RuntimePickService model-read synthetic text was rejected")
 
     old_diagnostics_model_record_read = """
     void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess )
@@ -11313,6 +11507,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_storage(repo))
     errors.extend(check_runtime_render_host_guardrails(repo))
     errors.extend(check_pick_helper_guardrails(repo))
+    errors.extend(check_runtime_pick_service_store_authority_guardrails(repo))
     errors.extend(check_run_replay_cause_tree_source_guardrails(repo))
     errors.extend(check_run_replay_prediction_job_source_guardrails(repo))
     errors.extend(check_run_replay_prediction_capture_source_guardrails(repo))

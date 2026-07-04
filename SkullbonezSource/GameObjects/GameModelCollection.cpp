@@ -854,8 +854,11 @@ const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysics
 
 const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
 {
+    // Invariant: shape/material snapshots may refresh from GameModel, but body
+    // rows keep PhysicsBodyStore authority unless topology count drift needs repair.
+    GetPhysicsBodyStore();
     PhysicsModelAccess modelAccess( *this );
-    m_physicsEngine.RefreshColliderStore( modelAccess );
+    m_physicsEngine.RefreshColliderSnapshot( modelAccess );
     return m_physicsEngine.Colliders();
 }
 

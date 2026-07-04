@@ -1348,7 +1348,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.models = &m_cGameModelCollection.Models();
+                    request.bodyStore = &m_cGameModelCollection.GetPhysicsBodyStore();
+                    request.colliderStore = &m_cGameModelCollection.GetColliderStore();
                     request.rayOrigin = rayOrigin;
                     request.rayDirection = rayDirection;
                     RuntimePickService::TryPickModel( request, result );

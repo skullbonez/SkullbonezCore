@@ -4,9 +4,8 @@ Purpose:
   Defines explicit runtime picking requests for editor, tool, and replay input.
 
 Mental model:
-  Input routing should choose a pick purpose, then ask one service for the
-  selection result. Early slices keep legacy Run helpers as wrappers while
-  callers move over one purpose at a time.
+  Input routing should choose a pick purpose, borrow the current physics body
+  and collider stores, then ask one service for the selection result.
 
 Glossary:
   Pick purpose: The tool-specific policy for interpreting a mouse ray.
@@ -14,10 +13,10 @@ Glossary:
   commit or PR.
 
 Invariants:
-  - RuntimePickRequest borrows the model vector for one call; the service does
-    not retain it.
-  - RuntimePickResult.modelIndex is only valid against the same model vector and
-    frame that produced the result.
+  - RuntimePickRequest borrows physics stores for one call; the service does
+    not retain them.
+  - RuntimePickResult.modelIndex is the dense compatibility row/model index for
+    the same store snapshot and frame that produced the result.
 
 Related:
   - Agentic/Plans/runtime-interaction-state-machine-hardening-plan.md
@@ -26,16 +25,16 @@ Related:
 #pragma once
 
 #include <cfloat>
-#include <vector>
 
 #include "../Maths/Vector3.h"
 
 namespace SkullbonezCore
 {
-namespace GameObjects
+namespace Physics
 {
-class GameModel;
-}
+class ColliderStore;
+class PhysicsBodyStore;
+} // namespace Physics
 
 namespace Basics
 {
@@ -50,10 +49,10 @@ enum class RuntimePickPurpose
 struct RuntimePickRequest
 {
     RuntimePickPurpose purpose = RuntimePickPurpose::EditorSelection;
-    const std::vector<GameObjects::GameModel>* models = nullptr;
+    const Physics::PhysicsBodyStore* bodyStore = nullptr;
+    const Physics::ColliderStore* colliderStore = nullptr;
     Math::Vector::Vector3 rayOrigin = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
-    float modelRadiusPadding = 1.0f;
 };
 
 struct RuntimePickResult

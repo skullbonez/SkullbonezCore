@@ -1290,7 +1290,8 @@ bool Run::TryPickAttachedCameraTargetFromMouse()
     {
         RuntimePickRequest request;
         request.purpose = RuntimePickPurpose::AttachCameraTarget;
-        request.models = &m_cGameModelCollection.Models();
+        request.bodyStore = &m_cGameModelCollection.GetPhysicsBodyStore();
+        request.colliderStore = &m_cGameModelCollection.GetColliderStore();
         request.rayOrigin = rayOrigin;
         request.rayDirection = rayDirection;
 
