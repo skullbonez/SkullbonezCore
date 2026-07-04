@@ -40,7 +40,6 @@ namespace Physics
 {
 class ColliderStore;
 class PhysicsBodyStore;
-class PhysicsModelAccess;
 struct PhysicsDiagnosticsView;
 
 #ifdef _DEBUG
@@ -64,13 +63,15 @@ class PhysicsDiagnosticsSink
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
     void SetPhysicsDiagnosticsRunId( const char* runId );
+    bool IsCollisionTimeLogEnabled() const;
     bool IsRegressionLogEnabled() const;
     void EmitRegressionLog( const PhysicsDiagnosticsFrameInput& frame );
     void IncrementCollisionTimeFrameIfEnabled();
     bool IsFrameLogEnabled() const;
     void EmitFrame( const PhysicsDiagnosticsFrameInput& frame );
 #endif
-    void EmitCollisionTime( PhysicsModelAccess& modelAccess,
+    void EmitCollisionTime( const char* const* diagnosticNames,
+                            int diagnosticNameCount,
                             const char* type,
                             int bodyA,
                             int bodyB,

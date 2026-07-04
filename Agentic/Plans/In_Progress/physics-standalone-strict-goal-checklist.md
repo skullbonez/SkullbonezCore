@@ -955,6 +955,39 @@ stores plus a names pointer/count. Evidence logs:
 `TestOutput\agent_validate_physics_step_diagnostics_names.log`; the physics gate
 passed with byte-exact `physics_regression_solver.csv`.
 
+Slice `PHY-1010`: move collision-time diagnostics name lookup out of
+`PhysicsWorld` and `PhysicsDiagnosticsSink` model-access paths. The scene edge
+now fills the existing Debug-only names table before the world step whenever
+collision-time or step diagnostics need presentation names.
+
+- [x] Fill `PhysicsScene` diagnostics names before `PhysicsWorld::RunPhysics`
+  when collision-time logging or step diagnostics are enabled.
+- [x] Thread the cold names pointer/count through `PhysicsWorld::RunPhysics`,
+  `RunSolverPhysics`, and `EmitPhysicsCollisionTime`.
+- [x] Change `PhysicsDiagnosticsSink::EmitCollisionTime` to consume names
+  pointer/count instead of `PhysicsModelAccess`.
+- [x] Remove the diagnostics sink's now-unused `PhysicsModelAccess.h` include.
+- [x] Add runtime-boundary self-tests that reject the old collision-time
+  model-access signatures and `TryGetPhysicsDiagnosticsModelName` call in the
+  world/sink paths.
+- [x] Comment-audit the touched source files.
+- [x] Validation for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Follow-up slice `PHY-1010`: collision-time diagnostics no longer borrow
+`PhysicsModelAccess` inside `PhysicsWorld` or `PhysicsDiagnosticsSink`.
+`PhysicsScene` fills the same cold Debug presentation-name table before the
+world step when collision-time logging or step diagnostics need it, and the
+world/sink paths consume a names pointer/count. Evidence logs:
+`TestOutput\agent_validate_fast_collision_time_names.log` and
+`TestOutput\agent_validate_physics_collision_time_names.log`; the physics gate
+passed with byte-exact `physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

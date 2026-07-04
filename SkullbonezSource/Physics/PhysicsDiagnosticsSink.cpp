@@ -31,7 +31,6 @@ Related:
 #endif
 #include "ColliderStore.h"
 #include "PhysicsBodyStore.h"
-#include "PhysicsModelAccess.h"
 #include "PhysicsWorld.h"
 
 #include <cmath>
@@ -127,6 +126,12 @@ void PhysicsDiagnosticsSink::SetPhysicsDiagnosticsRunId( const char* runId )
 }
 
 
+bool PhysicsDiagnosticsSink::IsCollisionTimeLogEnabled() const
+{
+    return m_physicsCollisionTimeLogPath[0] != '\0';
+}
+
+
 bool PhysicsDiagnosticsSink::IsRegressionLogEnabled() const
 {
     return m_physicsRegressionLogPath[0] != '\0';
@@ -219,7 +224,8 @@ void PhysicsDiagnosticsSink::EmitFrame( const PhysicsDiagnosticsFrameInput& fram
 #endif
 
 
-void PhysicsDiagnosticsSink::EmitCollisionTime( PhysicsModelAccess& modelAccess,
+void PhysicsDiagnosticsSink::EmitCollisionTime( const char* const* diagnosticNames,
+                                                int diagnosticNameCount,
                                                 const char* type,
                                                 int bodyA,
                                                 int bodyB,
@@ -237,10 +243,11 @@ void PhysicsDiagnosticsSink::EmitCollisionTime( PhysicsModelAccess& modelAccess,
                       "frame,type,bodyA,bodyB,nameA,nameB,collisionTime,availableTime\n" );
         m_physicsCollisionTimeHeaderWritten = true;
     }
-    const char* modelNameA = "";
-    const char* modelNameB = "";
-    const char* nameA = modelAccess.TryGetPhysicsDiagnosticsModelName( bodyA, modelNameA ) ? modelNameA : "terrain";
-    const char* nameB = modelAccess.TryGetPhysicsDiagnosticsModelName( bodyB, modelNameB ) ? modelNameB : "terrain";
+    const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
+    const auto collisionNameFor = [&]( int bodyIndex ) -> const char*
+    { return ( bodyIndex >= 0 && bodyIndex < names.count ) ? names.NameFor( bodyIndex ) : "terrain"; };
+    const char* nameA = collisionNameFor( bodyA );
+    const char* nameB = collisionNameFor( bodyB );
     Log().Writef( m_physicsCollisionTimeLogPath,
                   "%d,%s,%d,%d,%s,%s,%.6f,%.6f\n",
                   m_physicsCollisionTimeLogFrame,
@@ -252,7 +259,8 @@ void PhysicsDiagnosticsSink::EmitCollisionTime( PhysicsModelAccess& modelAccess,
                   collisionTime,
                   availableTime );
 #else
-    (void)modelAccess;
+    (void)diagnosticNames;
+    (void)diagnosticNameCount;
     (void)type;
     (void)bodyA;
     (void)bodyB;

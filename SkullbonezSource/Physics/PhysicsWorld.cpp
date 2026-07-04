@@ -760,7 +760,9 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
                                float fChangeInTime,
                                const Basics::EngineConfig& config,
                                const PhysicsWorldForces& worldForces,
-                               Threading::WorkerPool& workerPool )
+                               Threading::WorkerPool& workerPool,
+                               const char* const* diagnosticNames,
+                               int diagnosticNameCount )
 {
     // Concept: one fixed physics tick has a predictable data flow.
     //
@@ -821,7 +823,15 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
         }
     }
 
-    RunSolverPhysics( modelAccess, bodyStore, colliderStore, fChangeInTime, config, worldForces, workerPool );
+    RunSolverPhysics( modelAccess,
+                      bodyStore,
+                      colliderStore,
+                      fChangeInTime,
+                      config,
+                      worldForces,
+                      workerPool,
+                      diagnosticNames,
+                      diagnosticNameCount );
     bodyStore.CopySleepStatesFrom( m_sleepState );
 }
 
@@ -830,6 +840,16 @@ bool PhysicsWorld::ShouldEmitStepDiagnostics() const
 {
 #ifdef _DEBUG
     return !m_diagnosticsSuppressed && ( m_diagnostics.IsRegressionLogEnabled() || m_diagnostics.IsFrameLogEnabled() );
+#else
+    return false;
+#endif
+}
+
+
+bool PhysicsWorld::ShouldEmitCollisionTimeDiagnostics() const
+{
+#ifdef _DEBUG
+    return !m_diagnosticsSuppressed && m_diagnostics.IsCollisionTimeLogEnabled();
 #else
     return false;
 #endif
@@ -1324,7 +1344,8 @@ bool PhysicsWorld::SetDiagnosticsSuppressed( bool suppressed )
 #endif
 
 
-void PhysicsWorld::EmitPhysicsCollisionTime( PhysicsModelAccess& modelAccess,
+void PhysicsWorld::EmitPhysicsCollisionTime( const char* const* diagnosticNames,
+                                             int diagnosticNameCount,
                                              const char* type,
                                              int bodyA,
                                              int bodyB,
@@ -1337,7 +1358,8 @@ void PhysicsWorld::EmitPhysicsCollisionTime( PhysicsModelAccess& modelAccess,
         return;
     }
 #endif
-    m_diagnostics.EmitCollisionTime( modelAccess, type, bodyA, bodyB, collisionTime, availableTime );
+    m_diagnostics
+        .EmitCollisionTime( diagnosticNames, diagnosticNameCount, type, bodyA, bodyB, collisionTime, availableTime );
 }
 
 
@@ -1842,7 +1864,9 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
                                      float dt,
                                      const Basics::EngineConfig& config,
                                      const PhysicsWorldForces& worldForces,
-                                     Threading::WorkerPool& workerPool )
+                                     Threading::WorkerPool& workerPool,
+                                     const char* const* diagnosticNames,
+                                     int diagnosticNameCount )
 {
     std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
     const std::vector<ColliderRecord>& colliderRecords = colliderStore.Records();
@@ -2504,7 +2528,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         }
         if ( event.emitCollisionTime )
         {
-            EmitPhysicsCollisionTime( modelAccess,
+            EmitPhysicsCollisionTime( diagnosticNames,
+                                      diagnosticNameCount,
                                       "object",
                                       event.collisionTimeBodyA,
                                       event.collisionTimeBodyB,
@@ -2934,7 +2959,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
             record.scalarB = hasManifold && manifold.supportsRestingPolicy ? 1.0f : 0.0f;
             record.scalarC = hasManifold ? static_cast<float>( manifold.pointCount ) : 0.0f;
             RecordPhysicsPipelineStage( record );
-            EmitPhysicsCollisionTime( modelAccess, "terrain", x, -1, colTime, availableTime );
+            EmitPhysicsCollisionTime( diagnosticNames, diagnosticNameCount, "terrain", x, -1, colTime, availableTime );
 
             if ( hasManifold )
             {

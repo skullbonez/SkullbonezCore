@@ -86,6 +86,7 @@ PHYSICS_WORLD_HEADER = PHYSICS_ROOT / "PhysicsWorld.h"
 PHYSICS_SCENE_SOURCE = PHYSICS_ROOT / "PhysicsScene.cpp"
 PHYSICS_SCENE_HEADER = PHYSICS_ROOT / "PhysicsScene.h"
 PHYSICS_DIAGNOSTICS_SINK_SOURCE = PHYSICS_ROOT / "PhysicsDiagnosticsSink.cpp"
+PHYSICS_DIAGNOSTICS_SINK_HEADER = PHYSICS_ROOT / "PhysicsDiagnosticsSink.h"
 RAGDOLL_SOURCE = PHYSICS_ROOT / "Ragdoll.cpp"
 GAME_MODEL_COLLECTION_SOURCE = Path("SkullbonezSource/GameObjects/GameModelCollection.cpp")
 GAME_MODEL_COLLECTION_HEADER = Path("SkullbonezSource/GameObjects/GameModelCollection.h")
@@ -206,9 +207,23 @@ PHYSICS_DIAGNOSTICS_MODEL_RECORD_COMPAT_PATTERN = re.compile(
 PHYSICS_DIAGNOSTICS_MODEL_RECORD_ACCESS_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*TryGetPhysicsDiagnosticsModel\s*\("
 )
+# Why: collision-time CSV rows now receive the same cold name view as the
+# regression/SkullScope emitters. Reopening PhysicsModelAccess here would put a
+# model-owner lookup back inside the narrowphase diagnostics path.
+PHYSICS_COLLISION_TIME_NAME_MODEL_ACCESS_PATTERN = re.compile(
+    r"\b(?:PhysicsDiagnosticsSink::)?EmitCollisionTime\s*\(\s*PhysicsModelAccess\s*&"
+    r"|\bPhysicsWorld::EmitPhysicsCollisionTime\s*\(\s*PhysicsModelAccess\s*&"
+    r"|\bmodelAccess\s*\.\s*TryGetPhysicsDiagnosticsModelName\s*\("
+)
 PHYSICS_DIAGNOSTICS_MODEL_RECORD_SOURCES = (
     PHYSICS_DIAGNOSTICS_SINK_SOURCE,
     SKULL_SCOPE_SOURCE,
+)
+PHYSICS_COLLISION_TIME_NAME_MODEL_ACCESS_SOURCES = (
+    PHYSICS_DIAGNOSTICS_SINK_SOURCE,
+    PHYSICS_DIAGNOSTICS_SINK_HEADER,
+    PHYSICS_WORLD_SOURCE,
+    PHYSICS_WORLD_HEADER,
 )
 REPLAY_RECORDER_MODEL_STATE_CAPTURE_PATTERN = re.compile(
     r"\b(?:ShapeKindForModel\s*\(|[A-Za-z_]\w*\s*(?:->|\.)\s*"
@@ -2566,7 +2581,7 @@ def check_physics_diagnostics_store_authority_guardrails_text(path: Path, text: 
                 "physics diagnostics model-state mirror read is blocked",
                 (
                     "Pass PhysicsBodyStore and ColliderStore to TryGetPhysicsDiagnosticsModel; "
-                    "use TryGetPhysicsDiagnosticsModelName only for name-only logs."
+                    "use PhysicsDiagnosticsNameView for name-only logs."
                 ),
             )
         )
@@ -2578,6 +2593,34 @@ def check_physics_diagnostics_store_authority_guardrails(repo: Path) -> list[Bou
     for relative_path in PHYSICS_DIAGNOSTICS_MODEL_RECORD_SOURCES:
         path = repo / relative_path
         errors.extend(check_physics_diagnostics_store_authority_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_physics_collision_time_name_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name not in {source.name for source in PHYSICS_COLLISION_TIME_NAME_MODEL_ACCESS_SOURCES}:
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_COLLISION_TIME_NAME_MODEL_ACCESS_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "physics collision-time diagnostics model-name access is deleted",
+                (
+                    "Collision-time diagnostics must consume PhysicsDiagnosticsNameView-style name tables "
+                    "prepared by PhysicsScene, not borrow PhysicsModelAccess from PhysicsWorld or the sink."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_collision_time_name_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in PHYSICS_COLLISION_TIME_NAME_MODEL_ACCESS_SOURCES:
+        path = repo / relative_path
+        errors.extend(check_physics_collision_time_name_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -8697,18 +8740,53 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("SkullScope frame-input synthetic surface was rejected")
 
-    diagnostics_name_only_read = """
+    deleted_collision_time_model_name_read = """
     void PhysicsDiagnosticsSink::EmitCollisionTime( PhysicsModelAccess& modelAccess )
     {
         const char* name = "";
         modelAccess.TryGetPhysicsDiagnosticsModelName( bodyA, name );
     }
+    void PhysicsWorld::EmitPhysicsCollisionTime( PhysicsModelAccess& modelAccess )
+    {
+        m_diagnostics.EmitCollisionTime( modelAccess, type, bodyA, bodyB, collisionTime, availableTime );
+    }
     """
-    if check_physics_diagnostics_store_authority_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
-        diagnostics_name_only_read,
+    if not any(
+        error.message == "physics collision-time diagnostics model-name access is deleted"
+        for error in check_physics_collision_time_name_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
+            deleted_collision_time_model_name_read,
+        )
     ):
-        failures.append("diagnostics name-only synthetic surface was rejected")
+        failures.append("deleted collision-time diagnostics model-name synthetic surface was not rejected")
+
+    allowed_collision_time_name_view = """
+    void PhysicsDiagnosticsSink::EmitCollisionTime( const char* const* diagnosticNames,
+                                                    int diagnosticNameCount )
+    {
+        const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
+        const char* name = names.NameFor( bodyA );
+        Log().Writef( path, "%s", name );
+    }
+    """
+    if check_physics_collision_time_name_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
+        allowed_collision_time_name_view,
+    ):
+        failures.append("collision-time diagnostics name-view synthetic surface was rejected")
+
+    commented_collision_time_model_name_read = """
+    void PhysicsDiagnosticsSink::EmitCollisionTime( const char* const* diagnosticNames )
+    {
+        // modelAccess.TryGetPhysicsDiagnosticsModelName(bodyA, name) is deleted.
+        const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
+    }
+    """
+    if check_physics_collision_time_name_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
+        commented_collision_time_model_name_read,
+    ):
+        failures.append("comment-only collision-time diagnostics model-name synthetic text was rejected")
 
     commented_diagnostics_model_record_read = """
     void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess )
@@ -10476,6 +10554,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_world_step_diagnostics_model_access_guardrails(repo))
     errors.extend(check_render_instance_store_authority_guardrails(repo))
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
+    errors.extend(check_physics_collision_time_name_guardrails(repo))
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))
     errors.extend(check_replay_prediction_body_capture_store_authority_guardrails(repo))
     errors.extend(check_replay_restore_store_authority_guardrails(repo))

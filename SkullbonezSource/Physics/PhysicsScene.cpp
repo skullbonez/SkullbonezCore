@@ -243,7 +243,29 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
     modelAccess.TickContactHighlights( modelCount, fChangeInTime );
     m_lastWorldForces = worldForces;
     m_hasLastWorldForces = true;
-    m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime, config, worldForces, workerPool );
+
+    const char* const* diagnosticsNames = nullptr;
+    int diagnosticsNameCount = 0;
+#ifdef _DEBUG
+    if ( m_world.ShouldEmitStepDiagnostics() || m_world.ShouldEmitCollisionTimeDiagnostics() )
+    {
+        // Why: Debug rows still need presentation names, but PhysicsWorld should
+        // not borrow the model owner just to format diagnostics during/after the
+        // solve.
+        modelAccess.FillPhysicsDiagnosticsNames( m_bodyStore.Count(), m_physicsDiagnosticsModelNames );
+        diagnosticsNames = m_physicsDiagnosticsModelNames.empty() ? nullptr : m_physicsDiagnosticsModelNames.data();
+        diagnosticsNameCount = static_cast<int>( m_physicsDiagnosticsModelNames.size() );
+    }
+#endif
+    m_world.RunPhysics( modelAccess,
+                        m_bodyStore,
+                        m_colliderStore,
+                        fChangeInTime,
+                        config,
+                        worldForces,
+                        workerPool,
+                        diagnosticsNames,
+                        diagnosticsNameCount );
 
     // Why: fixed-contact highlights are GameModel presentation feedback. The
     // solver records compact body indices; PhysicsScene applies them at the
@@ -254,18 +276,6 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
     }
     ApplyFixedTreeReleaseEvents( modelAccess, worldForces );
 
-    const char* const* diagnosticsNames = nullptr;
-    int diagnosticsNameCount = 0;
-#ifdef _DEBUG
-    if ( m_world.ShouldEmitStepDiagnostics() )
-    {
-        // Why: Debug rows still need presentation names, but PhysicsWorld should
-        // not borrow the model owner just to format diagnostics after the solve.
-        modelAccess.FillPhysicsDiagnosticsNames( m_bodyStore.Count(), m_physicsDiagnosticsModelNames );
-        diagnosticsNames = m_physicsDiagnosticsModelNames.empty() ? nullptr : m_physicsDiagnosticsModelNames.data();
-        diagnosticsNameCount = static_cast<int>( m_physicsDiagnosticsModelNames.size() );
-    }
-#endif
     m_world.EmitStepDiagnostics( m_bodyStore, m_colliderStore, fChangeInTime, diagnosticsNames, diagnosticsNameCount );
 
     // Compatibility owner: PhysicsScene step boundary.
