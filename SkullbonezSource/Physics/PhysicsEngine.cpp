@@ -50,6 +50,12 @@ void PhysicsEngine::RefreshBodyStore( PhysicsModelAccess& modelAccess )
 }
 
 
+void PhysicsEngine::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex )
+{
+    m_scene.RefreshBodyFromModel( modelAccess, modelIndex );
+}
+
+
 void PhysicsEngine::ClearPendingBodyImpulses()
 {
     m_scene.ClearPendingBodyImpulses();

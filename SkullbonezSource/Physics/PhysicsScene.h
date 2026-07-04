@@ -56,6 +56,7 @@ class PhysicsScene
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
     void Clear();
     void RefreshBodyStore( PhysicsModelAccess& modelAccess );
+    void RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex );
     void ClearPendingBodyImpulses();
     void RefreshColliderStore( PhysicsModelAccess& modelAccess );
     void RefreshRenderStore( PhysicsModelAccess& modelAccess );

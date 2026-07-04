@@ -224,6 +224,7 @@ static void ApplyReplayVelocityEditToModel( ReplayRuntime& replayRuntime,
 
     model.SetLinearVelocity( clampedLinear );
     model.SetAngularVelocity( clampedAngular );
+    modelCollection.CommitEditedModelPhysicsState( modelIndex, false );
     if ( VectorMagSquared( clampedLinear ) > TOLERANCE * TOLERANCE ||
          VectorMagSquared( clampedAngular ) > TOLERANCE * TOLERANCE )
     {

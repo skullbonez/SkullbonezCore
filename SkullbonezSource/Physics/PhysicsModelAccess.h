@@ -91,11 +91,16 @@ class PhysicsModelAccess
     // such as fixed-tree release. Callers still own stream invalidation when a
     // later SoA read must observe those model writes.
     void ReloadPhysicsBodies( PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
-    // Store refreshes still read model-owned authoring/presentation state. Keep
-    // that access with the model owner until those stores have their own
-    // construction-time inputs.
+    // Store refreshes still read model-owned authoring/presentation state. Body
+    // and collider stores provide physics-owned pose/shape for render records;
+    // GameModel supplies material and feedback alpha until rendering owns them.
+    // Captures one editor/replay-edited body into PhysicsBodyStore without
+    // forcing every render refresh to reload the full model mirror.
+    void RefreshPhysicsBodyFromModel( PhysicsBodyStore& bodyStore, int modelIndex );
     void RefreshPhysicsColliders( ColliderStore& colliderStore, const PhysicsBodyStore& bodyStore );
-    void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore );
+    void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
+                                 const PhysicsBodyStore& bodyStore,
+                                 const ColliderStore& colliderStore );
     void NotifyFixedContact( int modelIndex, float highlightSeconds );
     // Ticks presentation timers for contact feedback in model order. Physics
     // supplies the active body count; the model owner clamps to live storage.

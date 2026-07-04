@@ -77,6 +77,7 @@ RUN_INTERNAL_HEADER = Path("SkullbonezSource/Runtime/RunInternal.h")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
 PHYSICS_WORLD_SOURCE = PHYSICS_ROOT / "PhysicsWorld.cpp"
+GAME_MODEL_COLLECTION_SOURCE = Path("SkullbonezSource/GameObjects/GameModelCollection.cpp")
 IRENDER_BACKEND_HEADER = Path("SkullbonezSource/Rendering/IRenderBackend.h")
 RUN_RENDER_SOURCE = Path("SkullbonezSource/Runtime/RunRender.cpp")
 RENDER_PIPELINE_SOURCE = Path("SkullbonezSource/Rendering/RenderPipeline.cpp")
@@ -134,6 +135,9 @@ PHYSICS_WORLD_SOLVER_MODEL_STREAM_FUNCTIONS = (
     "WakePointJointConnectedBodies",
 )
 PHYSICS_WORLD_SOLVER_MODEL_STREAM_PATTERN = re.compile(r"\b(?:GameModelBodyStream|GetBodyStream)\b")
+RENDER_INSTANCE_MODEL_REFRESH_PATTERN = re.compile(
+    r"\brenderInstanceStore\s*\.\s*Refresh\s*\(\s*m_gameModels\s*\)"
+)
 HOT_PATH_INHERITANCE_PATTERN = re.compile(
     r"^\s*(?:class|struct)\s+[A-Za-z_]\w*[^{;\n]*:\s*(?:public|protected|private)\b",
     re.M,
@@ -1840,6 +1844,26 @@ def check_physics_world_solver_model_stream_guardrails_text(path: Path, text: st
 def check_physics_world_solver_model_stream_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / PHYSICS_WORLD_SOURCE
     return check_physics_world_solver_model_stream_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_render_instance_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in RENDER_INSTANCE_MODEL_REFRESH_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "render instance model-transform refresh is blocked",
+                "Refresh render instances from PhysicsBodyStore and ColliderStore so draw poses do not depend on the post-solve GameModel mirror.",
+            )
+        )
+    return errors
+
+
+def check_render_instance_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / GAME_MODEL_COLLECTION_SOURCE
+    return check_render_instance_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_physics_hot_path_inheritance_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -6401,6 +6425,48 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only solver body stream synthetic text was rejected")
 
+    old_render_instance_model_refresh = """
+    void GameModelCollection::RefreshRenderInstances( RenderInstanceStore& renderInstanceStore )
+    {
+        renderInstanceStore.Refresh( m_gameModels );
+    }
+    """
+    if not any(
+        error.message == "render instance model-transform refresh is blocked"
+        for error in check_render_instance_store_authority_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_render_instance_model_refresh,
+        )
+    ):
+        failures.append("old render instance model refresh synthetic surface was not rejected")
+
+    allowed_render_instance_store_refresh = """
+    void GameModelCollection::RefreshRenderInstances( RenderInstanceStore& renderInstanceStore,
+                                                      const PhysicsBodyStore& bodyStore,
+                                                      const ColliderStore& colliderStore )
+    {
+        renderInstanceStore.Refresh( m_gameModels, bodyStore, colliderStore );
+    }
+    """
+    if check_render_instance_store_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_render_instance_store_refresh,
+    ):
+        failures.append("store-owned render instance refresh synthetic surface was rejected")
+
+    commented_render_instance_model_refresh = """
+    void GameModelCollection::RefreshRenderInstances( RenderInstanceStore& renderInstanceStore )
+    {
+        // renderInstanceStore.Refresh( m_gameModels ) is deleted render-transform debt.
+        renderInstanceStore.Refresh( m_gameModels, bodyStore, colliderStore );
+    }
+    """
+    if check_render_instance_store_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        commented_render_instance_model_refresh,
+    ):
+        failures.append("comment-only render instance model refresh synthetic text was rejected")
+
     allowed_physics_hot_path_values = """
     struct SolverBodyState
     {
@@ -6815,6 +6881,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_persistent_solver_context_model_access_guardrails(repo))
     errors.extend(check_physics_world_solver_body_writeback_guardrails(repo))
     errors.extend(check_physics_world_solver_model_stream_guardrails(repo))
+    errors.extend(check_render_instance_store_authority_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))
     errors.extend(check_approved_inheritance_guardrails(repo))

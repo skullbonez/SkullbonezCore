@@ -1,12 +1,14 @@
 /*
 File: SkullbonezSource/Rendering/RenderInstanceStore.cpp
 Purpose:
-  Builds model-order render instance snapshots from GameModel state.
+  Builds model-order render instance snapshots from physics and presentation state.
 
 Mental model:
   Refresh copies renderer-facing values after gameplay/physics have committed.
-  It does not allocate GPU resources; it records the CPU-side draw intent that a
-  future render snapshot can consume.
+  Body pose and shape come from physics stores; material and contact flash alpha
+  still come from GameModel presentation state. It does not allocate GPU
+  resources; it records the CPU-side draw intent that a future render snapshot
+  can consume.
 
 Glossary:
   Render instance: One draw-facing object record with transform and material
@@ -32,11 +34,30 @@ Related:
 
 #include "../Core/Common.h"
 #include "../GameObjects/GameModel.h"
+#include "../Maths/Matrix4.h"
+#include "../Physics/ColliderStore.h"
+#include "../Physics/PhysicsBodyStore.h"
 
 using SkullbonezCore::GameObjects::GameModel;
+using SkullbonezCore::Math::CollisionDetection::GetShapeModelMatrix;
+using SkullbonezCore::Math::Transformation::Matrix4;
+using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::PhysicsBodyRecord;
+using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Rendering::RenderInstanceHandle;
 using SkullbonezCore::Rendering::RenderInstanceRecord;
 using SkullbonezCore::Rendering::RenderInstanceStore;
+
+
+namespace
+{
+Matrix4 BuildPhysicsModelMatrix( const PhysicsBodyRecord& body, const ColliderRecord& collider )
+{
+    const Matrix4 rotation = Matrix4::FromQuaternion( body.orientation );
+    return GetShapeModelMatrix( collider.shape, body.position, rotation );
+}
+} // namespace
 
 
 RenderInstanceStore::RenderInstanceStore()
@@ -78,6 +99,55 @@ void RenderInstanceStore::Refresh( GameModel* models, int modelCount )
         record.fixedContactAlpha = model.GetFixedContactHighlightAlpha();
         record.audioContactAlpha = model.GetAudioContactHighlightAlpha();
         m_modelInstanceHandles[static_cast<std::size_t>( i )] = record.handle;
+    }
+}
+
+
+void RenderInstanceStore::Refresh( std::vector<GameModel>& models,
+                                   const PhysicsBodyStore& bodyStore,
+                                   const ColliderStore& colliderStore )
+{
+    Refresh( models.empty() ? nullptr : models.data(), static_cast<int>( models.size() ), bodyStore, colliderStore );
+}
+
+
+void RenderInstanceStore::Refresh( GameModel* models,
+                                   int modelCount,
+                                   const PhysicsBodyStore& bodyStore,
+                                   const ColliderStore& colliderStore )
+{
+    if ( bodyStore.Count() != modelCount || colliderStore.Count() != modelCount )
+    {
+        // Hazard: this is a defensive topology fallback only. PhysicsScene
+        // refreshes stores before reaching this overload so the normal render
+        // path reads physics-owned pose and shape state.
+        Refresh( models, modelCount );
+        return;
+    }
+
+    const std::vector<PhysicsBodyRecord>& bodies = bodyStore.Records();
+    const std::vector<ColliderRecord>& colliders = colliderStore.Records();
+
+    // Invariant: render instance handles intentionally mirror model slots until
+    // a future renderer-facing allocation owner replaces compatibility ids.
+    m_instances.resize( static_cast<std::size_t>( modelCount ) );
+    m_modelInstanceHandles.resize( static_cast<std::size_t>( modelCount ) );
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        GameModel& model = models[i];
+        const std::size_t index = static_cast<std::size_t>( i );
+        const PhysicsBodyRecord& body = bodies[index];
+        const ColliderRecord& collider = colliders[index];
+        RenderInstanceRecord& record = m_instances[index];
+        const uint32_t modelIndex = static_cast<uint32_t>( i );
+        record.handle = MakeCompatibilityRenderInstanceHandle( modelIndex );
+        record.replayBodyId = body.replayBodyId;
+        record.modelMatrix = BuildPhysicsModelMatrix( body, collider );
+        record.material = model.GetRenderMaterial();
+        record.isFixed = body.isFixed;
+        record.fixedContactAlpha = model.GetFixedContactHighlightAlpha();
+        record.audioContactAlpha = model.GetAudioContactHighlightAlpha();
+        m_modelInstanceHandles[index] = record.handle;
     }
 }
 

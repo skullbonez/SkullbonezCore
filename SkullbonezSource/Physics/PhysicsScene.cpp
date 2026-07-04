@@ -60,6 +60,23 @@ void PhysicsScene::RefreshBodyStore( PhysicsModelAccess& modelAccess )
 }
 
 
+void PhysicsScene::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex )
+{
+    const int modelCount = modelAccess.ModelCount();
+    if ( modelIndex < 0 || modelIndex >= modelCount )
+    {
+        return;
+    }
+    if ( m_bodyStore.Count() != modelCount )
+    {
+        RefreshBodyStore( modelAccess );
+        return;
+    }
+
+    modelAccess.RefreshPhysicsBodyFromModel( m_bodyStore, modelIndex );
+}
+
+
 void PhysicsScene::ClearPendingBodyImpulses()
 {
     m_bodyStore.ClearPendingImpulses();
@@ -75,9 +92,19 @@ void PhysicsScene::RefreshColliderStore( PhysicsModelAccess& modelAccess )
 
 void PhysicsScene::RefreshRenderStore( PhysicsModelAccess& modelAccess )
 {
-    modelAccess.RefreshRenderInstances( m_renderInstanceStore );
+    const int modelCount = modelAccess.ModelCount();
+    if ( m_bodyStore.Count() != modelCount )
+    {
+        RefreshBodyStore( modelAccess );
+    }
+    if ( m_colliderStore.Count() != modelCount )
+    {
+        modelAccess.RefreshPhysicsColliders( m_colliderStore, m_bodyStore );
+    }
+    modelAccess.RefreshRenderInstances( m_renderInstanceStore, m_bodyStore, m_colliderStore );
 #ifdef _DEBUG
-    ValidateRenderStoreMappings( modelAccess.ModelCount() );
+    ValidatePhysicsStoreMappings( modelCount );
+    ValidateRenderStoreMappings( modelCount );
 #endif
 }
 

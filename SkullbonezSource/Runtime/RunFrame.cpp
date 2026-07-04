@@ -1061,6 +1061,7 @@ void Run::TickReplaySaveProbe()
             placedModel.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             placedModel.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             m_cGameModelCollection.InvalidatePhysicsStreams();
+            m_cGameModelCollection.CommitEditedModelPhysicsState( modelCountBeforePlace, true );
             m_replayRuntime.RecordEditorTransformEvent(
                 modelCountBeforePlace,
                 REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE,
@@ -1733,6 +1734,9 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             }
             model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+            m_cGameModelCollection.CommitEditedModelPhysicsState(
+                event.value0,
+                ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE ) != 0 );
             if ( !model.IsFixed() )
             {
                 m_cGameModelCollection.WakeModel( event.value0 );

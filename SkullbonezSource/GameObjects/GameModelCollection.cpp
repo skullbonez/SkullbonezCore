@@ -112,15 +112,23 @@ void PhysicsModelAccess::ReloadPhysicsBodies( PhysicsBodyStore& bodyStore, const
 }
 
 
+void PhysicsModelAccess::RefreshPhysicsBodyFromModel( PhysicsBodyStore& bodyStore, int modelIndex )
+{
+    m_collection.RefreshPhysicsBodyFromModel( bodyStore, modelIndex );
+}
+
+
 void PhysicsModelAccess::RefreshPhysicsColliders( ColliderStore& colliderStore, const PhysicsBodyStore& bodyStore )
 {
     m_collection.RefreshPhysicsColliders( colliderStore, bodyStore );
 }
 
 
-void PhysicsModelAccess::RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore )
+void PhysicsModelAccess::RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
+                                                 const PhysicsBodyStore& bodyStore,
+                                                 const ColliderStore& colliderStore )
 {
-    m_collection.RefreshRenderInstances( renderInstanceStore );
+    m_collection.RefreshRenderInstances( renderInstanceStore, bodyStore, colliderStore );
 }
 
 
@@ -633,6 +641,7 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
     model.SetAngularVelocity( angularVelocity );
     model.ClearImpulseForce();
     InvalidateSoA();
+    CommitEditedModelPhysicsState( index, false );
     return true;
 }
 
@@ -664,6 +673,7 @@ bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
     model.SetAngularVelocity( angularVelocity );
     model.SetFixedContactHighlightSeconds( fixedContactHighlightSeconds );
     InvalidateSoA();
+    CommitEditedModelPhysicsState( index, false );
     return true;
 }
 
@@ -687,6 +697,7 @@ bool GameModelCollection::TrySetReplayRenderPose( int index,
     model.SetPosition( position );
     model.SetOrientation( orientation );
     InvalidateSoA();
+    CommitEditedModelPhysicsState( index, false );
     return true;
 }
 
@@ -700,6 +711,7 @@ bool GameModelCollection::TrySetModelAngularVelocity( int index, const Vector3& 
 
     m_gameModels[static_cast<std::size_t>( index )].SetAngularVelocity( angularVelocity );
     InvalidateSoA();
+    CommitEditedModelPhysicsState( index, false );
     return true;
 }
 
@@ -889,6 +901,13 @@ void GameModelCollection::ReloadPhysicsBodies( SkullbonezCore::Physics::PhysicsB
 }
 
 
+void GameModelCollection::RefreshPhysicsBodyFromModel( SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
+                                                       int modelIndex )
+{
+    bodyStore.CaptureMutableStateFromModelAt( m_gameModels, modelIndex );
+}
+
+
 void GameModelCollection::RefreshPhysicsColliders( SkullbonezCore::Physics::ColliderStore& colliderStore,
                                                    const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
 {
@@ -896,9 +915,37 @@ void GameModelCollection::RefreshPhysicsColliders( SkullbonezCore::Physics::Coll
 }
 
 
-void GameModelCollection::RefreshRenderInstances( SkullbonezCore::Rendering::RenderInstanceStore& renderInstanceStore )
+void GameModelCollection::RefreshRenderInstances( SkullbonezCore::Rendering::RenderInstanceStore& renderInstanceStore,
+                                                  const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
+                                                  const SkullbonezCore::Physics::ColliderStore& colliderStore )
 {
-    renderInstanceStore.Refresh( m_gameModels );
+    renderInstanceStore.Refresh( m_gameModels, bodyStore, colliderStore );
+}
+
+
+void GameModelCollection::CommitEditedModelPhysicsState( int modelIndex, bool colliderChanged )
+{
+    // Owner: GameModelCollection still owns editor/replay model mutations.
+    // Reason: render records now read physics stores for pose/shape, so direct
+    // edits must commit changed body data before the next draw snapshot.
+    // Deletion: remove this when editor/replay writes PhysicsBodyHandle-backed
+    // body and collider commands directly instead of mutating GameModel first.
+    // Checker: tools/check_runtime_boundaries.py blocks the old render refresh
+    // path from depending on GameModel::GetModelMatrix again.
+    if ( modelIndex < 0 || modelIndex >= GetModelCount() )
+    {
+        return;
+    }
+
+    PhysicsModelAccess modelAccess( *this );
+    if ( colliderChanged )
+    {
+        m_physicsEngine.RefreshColliderStore( modelAccess );
+    }
+    else
+    {
+        m_physicsEngine.RefreshBodyFromModel( modelAccess, modelIndex );
+    }
 }
 
 

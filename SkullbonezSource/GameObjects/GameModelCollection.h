@@ -236,8 +236,12 @@ class GameModelCollection
     void WriteBackPhysicsBodies( const Physics::PhysicsBodyStore& bodyStore );
     void WriteBackPhysicsBody( const Physics::PhysicsBodyStore& bodyStore, int modelIndex );
     void ReloadPhysicsBodies( Physics::PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
+    void RefreshPhysicsBodyFromModel( Physics::PhysicsBodyStore& bodyStore, int modelIndex );
     void RefreshPhysicsColliders( Physics::ColliderStore& colliderStore, const Physics::PhysicsBodyStore& bodyStore );
-    void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore );
+    void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
+                                 const Physics::PhysicsBodyStore& bodyStore,
+                                 const Physics::ColliderStore& colliderStore );
+    void CommitEditedModelPhysicsState( int modelIndex, bool colliderChanged );
     Physics::PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const;
     void NotifyFixedContact( int modelIndex, float highlightSeconds );
     void TickContactHighlights( int modelCount, float deltaSeconds );

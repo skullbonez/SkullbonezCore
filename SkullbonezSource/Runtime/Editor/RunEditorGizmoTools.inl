@@ -338,7 +338,7 @@ void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
                                                 context.editor.activeGizmoAxis,
                                                 factor ) )
     {
-        ResetEditorModelMotionAndWake( context.models, context.models.GetPhysicsEngine(), index, model );
+        ResetEditorModelMotionAndWake( context.models, context.models.GetPhysicsEngine(), index, model, true );
     }
 }
 
