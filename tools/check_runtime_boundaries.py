@@ -87,6 +87,7 @@ RUN_INPUT_SOURCE = Path("SkullbonezSource/Runtime/RunInput.cpp")
 RUN_PASSES_SOURCE = Path("SkullbonezSource/Runtime/RunPasses.cpp")
 RUN_UI_TEXT_PASS_SOURCE = Path("SkullbonezSource/Runtime/RunUiTextPass.cpp")
 RUN_SCENE_SOURCE = Path("SkullbonezSource/Runtime/Scene/RunScene.cpp")
+REPLAY_RECORDER_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
 RUNTIME_RENDER_PASS_CAPABILITY_SOURCES = (
     RUN_PASSES_SOURCE,
@@ -146,6 +147,11 @@ PHYSICS_DIAGNOSTICS_MODEL_RECORD_COMPAT_PATTERN = re.compile(
 PHYSICS_DIAGNOSTICS_MODEL_RECORD_SOURCES = (
     PHYSICS_DIAGNOSTICS_SINK_SOURCE,
     SKULL_SCOPE_SOURCE,
+)
+REPLAY_RECORDER_MODEL_STATE_CAPTURE_PATTERN = re.compile(
+    r"\b(?:ShapeKindForModel\s*\(|[A-Za-z_]\w*\s*(?:->|\.)\s*"
+    r"(?:GetReplayBodyId|GetCollisionShape|GetPosition|GetVelocity|GetAngularVelocity|GetOrientation|GetMass|"
+    r"GetInvertedMass|GetRotationalInertia|GetInvertedRotationalInertia|IsFixed)\s*\()"
 )
 HOT_PATH_INHERITANCE_PATTERN = re.compile(
     r"^\s*(?:class|struct)\s+[A-Za-z_]\w*[^{;\n]*:\s*(?:public|protected|private)\b",
@@ -1899,6 +1905,29 @@ def check_physics_diagnostics_store_authority_guardrails(repo: Path) -> list[Bou
         path = repo / relative_path
         errors.extend(check_physics_diagnostics_store_authority_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
+
+
+def check_replay_recorder_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in REPLAY_RECORDER_MODEL_STATE_CAPTURE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay recorder model-state capture is blocked",
+                (
+                    "Replay capture should read PhysicsBodyStore and ColliderStore for body physics state; "
+                    "GameModel is name metadata only."
+                ),
+            )
+        )
+    return errors
+
+
+def check_replay_recorder_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / REPLAY_RECORDER_SOURCE
+    return check_replay_recorder_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_physics_hot_path_inheritance_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -6557,6 +6586,67 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only diagnostics model record synthetic text was rejected")
 
+    old_replay_recorder_model_state_read = """
+    void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
+    {
+        const GameModel* model = models.TryGetModel( i );
+        body.position = model->GetPosition();
+        body.mass = model->GetMass();
+    }
+    """
+    if not any(
+        error.message == "replay recorder model-state capture is blocked"
+        for error in check_replay_recorder_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"),
+            old_replay_recorder_model_state_read,
+        )
+    ):
+        failures.append("old replay recorder GameModel-sourced body state synthetic surface was not rejected")
+
+    store_owned_replay_recorder_body_read = """
+    bool BuildReplayPresentationBodySample( int bodyIndex,
+                                            const PhysicsBodyStore& bodyStore,
+                                            const ColliderStore& colliderStore )
+    {
+        const PhysicsBodyRecord& bodyRecord = bodyStore.Records()[bodyIndex];
+        const ColliderRecord& colliderRecord = colliderStore.Records()[bodyIndex];
+        body.position = bodyRecord.position;
+        body.mass = bodyRecord.mass;
+        body.shapeKind = ShapeKindForCollider( colliderRecord );
+    }
+    """
+    if check_replay_recorder_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"),
+        store_owned_replay_recorder_body_read,
+    ):
+        failures.append("store-owned replay recorder body read synthetic surface was rejected")
+
+    replay_name_only_model_read = """
+    void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
+    {
+        const GameModel* model = models.TryGetModel( i );
+        const char* modelName = model->GetName();
+    }
+    """
+    if check_replay_recorder_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"),
+        replay_name_only_model_read,
+    ):
+        failures.append("replay name-only GameModel read synthetic surface was rejected")
+
+    commented_replay_recorder_model_state_read = """
+    void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
+    {
+        // model->GetPosition() and model->GetMass() are deleted replay mirror debt.
+        UseBodyAndColliderStores();
+    }
+    """
+    if check_replay_recorder_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"),
+        commented_replay_recorder_model_state_read,
+    ):
+        failures.append("comment-only replay recorder model-state synthetic text was rejected")
+
     allowed_physics_hot_path_values = """
     struct SolverBodyState
     {
@@ -6973,6 +7063,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_world_solver_model_stream_guardrails(repo))
     errors.extend(check_render_instance_store_authority_guardrails(repo))
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
+    errors.extend(check_replay_recorder_store_authority_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))
     errors.extend(check_approved_inheritance_guardrails(repo))

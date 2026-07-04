@@ -54,6 +54,12 @@ namespace GameObjects
 class GameModelCollection;
 } // namespace GameObjects
 
+namespace Physics
+{
+class ColliderStore;
+class PhysicsBodyStore;
+} // namespace Physics
+
 namespace Basics
 {
 inline constexpr int REPLAY_PAST_BUFFER_SECONDS = 60;
@@ -283,6 +289,10 @@ struct ReplayCaptureInput
     Environment::CameraCollection* cameras = nullptr;
     Environment::WorldEnvironment* world = nullptr;
     GameObjects::GameModelCollection* models = nullptr;
+    // Replay recorders borrow stores for physics state and borrow models only
+    // for presentation names, so capture does not depend on GameModel writeback.
+    const Physics::PhysicsBodyStore* bodyStore = nullptr;
+    const Physics::ColliderStore* colliderStore = nullptr;
     const ReplayLauncherVisualSample* launcherVisual = nullptr;
 };
 

@@ -791,6 +791,8 @@ void Run::AfterPhysicsStep()
         input.cameras = m_systems.cameras;
         input.world = &m_cWorldEnvironment;
         input.models = &m_cGameModelCollection;
+        input.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+        input.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
         input.launcherVisual = &launcherVisual;
         m_replayRuntime.CaptureFrame( input );
         CompareLatestReplaySamples( m_replayRuntime, m_solverReplayMismatch );
