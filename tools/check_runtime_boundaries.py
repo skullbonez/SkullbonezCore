@@ -125,6 +125,11 @@ PHYSICS_HOT_PATH_INHERITANCE_SOURCES = (
     PHYSICS_ROOT / "Ragdoll.h",
     PHYSICS_ROOT / "Ragdoll.cpp",
 )
+# Invariant: PhysicsApi.cpp is the standalone proof surface. It should never
+# import game-object ownership to make a smoke or helper pass.
+STANDALONE_PHYSICS_IMPLEMENTATION_SOURCES = (
+    PHYSICS_ROOT / "PhysicsApi.cpp",
+)
 FIELD_TAIL_PATTERN = r"(?=[^;{}]*\bm_[A-Za-z_]\w*)[^;{}]*;"
 RUN_NAME_PATTERN = r"(?:(?:[A-Za-z_]\w*::)*Run)\b"
 RUN_CV_PATTERN = rf"(?:const\s+{RUN_NAME_PATTERN}|{RUN_NAME_PATTERN}\s+const|{RUN_NAME_PATTERN})"
@@ -406,6 +411,20 @@ PUBLIC_PHYSICS_FACADE_HEADERS = (
 PUBLIC_PHYSICS_FACADE_GAME_OBJECT_PATTERN = re.compile(
     r"\b(?:GameObjects\s*::\s*)?(?:GameModelCollection|GameModel)\b|"
     r"\bstd\s*::\s*vector\s*<\s*(?:GameObjects\s*::\s*)?GameModel\b"
+)
+# Why: a descriptor field named around model indices quietly reintroduces the
+# old vector-order authority even when the surrounding type avoids GameModel.
+PUBLIC_PHYSICS_DESC_PATTERN = re.compile(r"\bstruct\s+[A-Za-z_]\w*Desc\b(?P<body>.*?)\n\s*\};", re.S)
+PUBLIC_PHYSICS_DESC_MODEL_INDEX_FIELD_PATTERN = re.compile(
+    r"\b(?:int|uint32_t|uint64_t|std\s*::\s*size_t|size_t)\s+\w*modelIndex\w*\b",
+    re.I,
+)
+# Why: standalone implementation files can regress through local helpers even
+# when the public facade stays clean.
+STANDALONE_PHYSICS_GAME_OBJECT_PATTERN = re.compile(
+    r"\b(?:GameObjects\s*::\s*)?GameModel\b|"
+    r"\bstd\s*::\s*vector\s*<\s*(?:GameObjects\s*::\s*)?GameModel\b|"
+    r"\b(?:modelAccess|physicsModelAccess)\s*\.\s*Models\s*\("
 )
 DIRECT_GFX_RAYTRACING_PATTERN = re.compile(
     r"\bGfx\s*\(\s*\)\s*\.\s*(?:InitDXR|DispatchReflectionRays|BuildTLAS|GetReflectionUAVTexture|"
@@ -1854,11 +1873,63 @@ def check_public_physics_facade_game_object_guardrails_text(path: Path, text: st
     return errors
 
 
+def check_public_physics_descriptor_model_index_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for desc_match in PUBLIC_PHYSICS_DESC_PATTERN.finditer(stripped):
+        body = desc_match.group("body")
+        body_start = desc_match.start("body")
+        for field_match in PUBLIC_PHYSICS_DESC_MODEL_INDEX_FIELD_PATTERN.finditer(body):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, body_start + field_match.start()),
+                    "public physics descriptor model-index field is blocked",
+                    "Public descriptors should name PhysicsBodyHandle, PhysicsColliderHandle, scene object ids, or replay ids instead of model indices.",
+                )
+            )
+    return errors
+
+
+def check_standalone_physics_implementation_game_object_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name not in {source.name for source in STANDALONE_PHYSICS_IMPLEMENTATION_SOURCES}:
+        return []
+
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in STANDALONE_PHYSICS_GAME_OBJECT_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "standalone physics implementation game-object dependency is blocked",
+                "PhysicsStandaloneWorld should stay on PhysicsBodyStore, ColliderStore, handles, descriptors, and value views.",
+            )
+        )
+    return errors
+
+
 def check_public_physics_facade_game_object_guardrails(repo: Path) -> list[BoundaryError]:
     errors: list[BoundaryError] = []
     for relative_path in PUBLIC_PHYSICS_FACADE_HEADERS:
         path = repo / relative_path
         errors.extend(check_public_physics_facade_game_object_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_public_physics_descriptor_model_index_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in PUBLIC_PHYSICS_FACADE_HEADERS:
+        path = repo / relative_path
+        errors.extend(check_public_physics_descriptor_model_index_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_standalone_physics_implementation_game_object_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in STANDALONE_PHYSICS_IMPLEMENTATION_SOURCES:
+        path = repo / relative_path
+        errors.extend(check_standalone_physics_implementation_game_object_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -7184,6 +7255,119 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("public physics facade comment-only synthetic surface was rejected")
 
+    old_public_descriptor_model_index = """
+    struct PhysicsBodyCreateDesc
+    {
+        int modelIndex = -1;
+        PhysicsBodyMotionKind motionKind = PhysicsBodyMotionKind::Dynamic;
+    };
+    """
+    if not any(
+        error.message == "public physics descriptor model-index field is blocked"
+        for error in check_public_physics_descriptor_model_index_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsApi.h"),
+            old_public_descriptor_model_index,
+        )
+    ):
+        failures.append("public physics descriptor model-index synthetic field was not rejected")
+
+    public_descriptor_handle_only = """
+    struct PhysicsBodyCreateDesc
+    {
+        PhysicsBodyHandle parentBody;
+        PhysicsSceneObjectId sceneObject;
+    };
+    """
+    if check_public_physics_descriptor_model_index_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsApi.h"),
+        public_descriptor_handle_only,
+    ):
+        failures.append("public physics descriptor handle-only synthetic surface was rejected")
+
+    old_standalone_model_access_models = """
+    void PhysicsStandaloneWorld::StepFromLegacyModelAccess( PhysicsModelAccess& modelAccess )
+    {
+        auto models = modelAccess.Models();
+        (void)models;
+    }
+    """
+    if not any(
+        error.message == "standalone physics implementation game-object dependency is blocked"
+        for error in check_standalone_physics_implementation_game_object_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsApi.cpp"),
+            old_standalone_model_access_models,
+        )
+    ):
+        failures.append("standalone modelAccess.Models synthetic surface was not rejected")
+
+    old_standalone_raw_game_model = """
+    void PhysicsStandaloneWorld::ImportForTests( std::vector<GameObjects::GameModel>& models )
+    {
+        GameObjects::GameModel& model = models.front();
+        (void)model;
+    }
+    """
+    if not any(
+        error.message == "standalone physics implementation game-object dependency is blocked"
+        for error in check_standalone_physics_implementation_game_object_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsApi.cpp"),
+            old_standalone_raw_game_model,
+        )
+    ):
+        failures.append("standalone raw GameModel synthetic surface was not rejected")
+
+    standalone_store_only = """
+    void PhysicsStandaloneWorld::StepStores( const PhysicsStandaloneStepDesc& desc )
+    {
+        m_bodyStore.StepStandalone( desc.deltaSeconds );
+        m_colliderStore.RefreshBroadphase();
+    }
+    """
+    if check_standalone_physics_implementation_game_object_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsApi.cpp"),
+        standalone_store_only,
+    ):
+        failures.append("standalone store-only synthetic surface was rejected")
+
+    explicit_runtime_adapter_use = """
+    void WakeEditorPhysicsBody( GameModelCollection& collection, PhysicsEngine& physics, int modelIndex )
+    {
+        GameModelCollectionPhysicsAdapter physicsBodies( collection );
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+        physics.WakeBody( body );
+    }
+    """
+    if check_standalone_physics_implementation_game_object_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+        explicit_runtime_adapter_use,
+    ):
+        failures.append("explicit runtime adapter synthetic surface was rejected")
+
+    diagnostics_view_only = """
+    struct PhysicsDiagnosticsFrameInput
+    {
+        const PhysicsDiagnosticsView& world;
+        const PhysicsBodyStore& bodyStore;
+    };
+    """
+    if check_standalone_physics_implementation_game_object_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.h"),
+        diagnostics_view_only,
+    ):
+        failures.append("diagnostics-only view synthetic surface was rejected")
+
+    test_fixture_game_model_text = """
+    void BuildLegacyFixture( GameObjects::GameModel& model )
+    {
+        (void)model;
+    }
+    """
+    if check_standalone_physics_implementation_game_object_guardrails_text(
+        Path("SkullbonezSource/Tests/PhysicsFixture.cpp"),
+        test_fixture_game_model_text,
+    ):
+        failures.append("test fixture GameModel synthetic surface was rejected")
+
     deleted_model_view_text = """
     void GameModelCollection::MakePhysicsModelView();
     class PhysicsModelView;
@@ -9246,6 +9430,8 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_interaction_guardrails(repo))
     errors.extend(check_physics_game_model_collection_guardrails(repo))
     errors.extend(check_public_physics_facade_game_object_guardrails(repo))
+    errors.extend(check_public_physics_descriptor_model_index_guardrails(repo))
+    errors.extend(check_standalone_physics_implementation_game_object_guardrails(repo))
     errors.extend(check_deleted_migration_artifact_guardrails(repo))
     errors.extend(check_deleted_physics_model_view_guardrails(repo))
     errors.extend(check_persistent_solver_context_model_access_guardrails(repo))

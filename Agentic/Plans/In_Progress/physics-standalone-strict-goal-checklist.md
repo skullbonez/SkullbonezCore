@@ -698,23 +698,37 @@ Debug with 0 warnings/0 errors.
 
 ## Phase 9 - Guardrails
 
-- [ ] Extend `tools/check_runtime_boundaries.py` to reject new
+- [x] Extend `tools/check_runtime_boundaries.py` to reject new
   `GameModelCollection`, raw `GameModel`, or mutable model-vector dependencies
   in public physics API and standalone physics implementation files.
-- [ ] Add negative synthetic tests for:
-  - [ ] public API header includes `GameModelCollection`,
-  - [ ] standalone physics source calls `modelAccess.Models()`,
-  - [ ] new model-index command field in a public physics descriptor,
-  - [ ] new compatibility accessor borrower without an allowlist update.
-- [ ] Add positive synthetic tests for:
-  - [ ] explicit runtime adapter use,
-  - [ ] diagnostics-only view consumption,
-  - [ ] test/tool-only fixture use.
-- [ ] Keep allowlists counted and exact by file/label/line group where possible.
+- [x] Add negative synthetic tests for:
+  - [x] public API header includes `GameModelCollection`,
+  - [x] standalone physics source calls `modelAccess.Models()`,
+  - [x] new model-index command field in a public physics descriptor,
+  - [x] new compatibility accessor borrower without an allowlist update.
+- [x] Add positive synthetic tests for:
+  - [x] explicit runtime adapter use,
+  - [x] diagnostics-only view consumption,
+  - [x] test/tool-only fixture use.
+- [x] Keep allowlists counted and exact by file/label/line group where possible.
 - [ ] Lower counts in the same commit that removes a compatibility borrower.
 - [ ] Validation for this phase:
-  - [ ] `tools\validate_fast.bat`
-  - [ ] direct changed-script run if the guardrail script changes.
+  - [x] `tools\validate_fast.bat`
+  - [x] direct changed-script run if the guardrail script changes.
+
+Current Phase 9 progress: public physics facade headers already rejected raw
+`GameModelCollection`/`GameModel` types; this slice added descriptor-level
+model-index field checks for public `*Desc` structs and scoped standalone
+implementation checks for `PhysicsApi.cpp` so raw `GameModel`,
+`std::vector<GameModel>`, or `modelAccess.Models()` cannot enter the standalone
+proof path. Positive tests keep runtime adapter code, diagnostics-only views,
+and test/tool fixtures out of that narrow standalone scan. No compatibility
+borrower was removed in this slice, so the allowlist-lowering item remains a
+future rule for deletion commits. Evidence: CodeGraph-first lookup followed by
+targeted source reads, comment-style audit of `tools/check_runtime_boundaries.py`,
+`git diff --check`, `python -m py_compile tools\check_runtime_boundaries.py`,
+`python tools\check_runtime_boundaries.py --repo .` with 0 errors,
+`tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`.
 
 ## Required Evidence For Each Source Slice
 
