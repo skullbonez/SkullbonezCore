@@ -19,19 +19,17 @@ Glossary:
     prediction or the next step samples the body store.
   Sleep: Solver optimization that stops integrating stable bodies until an
     explicit wake or contact event reactivates them.
-  SoA (Structure of Arrays): Cache layout used by GameModelCollection streams;
-    each body field is stored in a separate contiguous array.
   Determinism: Same inputs produce byte-exact validation artifacts.
 
 Invariants:
   - Store refresh order must preserve deterministic model-view order.
   - RunPhysics delegates to PhysicsWorld without changing floating-point order.
-  - Pending impulses stay store-owned until consumed; model streams are
-    invalidated only when presentation state changes.
+  - Pending impulses stay store-owned until consumed; render projection refresh
+    is separate from solver sleep/island mutation.
   - Velocity edits stay store-owned until the normal step boundary projects
     body state for presentation.
-  - Wake commands update solver sleep/island state without rebuilding model
-    streams.
+  - Wake commands update solver sleep/island state without rebuilding render
+    projection records.
 
 Related:
   - SkullbonezSource/Physics/PhysicsScene.h
@@ -140,13 +138,6 @@ bool PhysicsScene::RestoreReplayBodyState( int modelIndex,
                                                inverseMass,
                                                rotationalInertia,
                                                inverseRotationalInertia );
-}
-
-
-void PhysicsScene::RefreshColliderStore( PhysicsModelAccess& modelAccess )
-{
-    RefreshBodyStore( modelAccess );
-    RefreshColliderSnapshot( modelAccess );
 }
 
 
@@ -293,9 +284,9 @@ void PhysicsScene::WakeBody( PhysicsBodyHandle body )
         m_world.WakeModel( m_bodyStore, index );
     }
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    // Why: wake is solver sleep/island state. Copying the body back to
-    // GameModel here dirtied SoA streams for no presentation change; the normal
-    // step boundary owns any later model projection that actually changes pose.
+    // Why: wake is solver sleep/island state. Rebuilding render projection here
+    // would add work without changing pose; the normal step boundary owns later
+    // presentation updates that actually change body state.
 }
 
 

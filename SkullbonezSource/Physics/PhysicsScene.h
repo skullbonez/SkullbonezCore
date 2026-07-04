@@ -82,7 +82,6 @@ class PhysicsScene
                                  float inverseMass,
                                  const Math::Vector::Vector3& rotationalInertia,
                                  const Math::Vector::Vector3& inverseRotationalInertia );
-    void RefreshColliderStore( PhysicsModelAccess& modelAccess );
     // Refreshes collider authoring data against the already-current body store.
     // Step prep uses this after count-gated body refresh to avoid a second body
     // reload during topology repair.

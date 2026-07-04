@@ -1042,7 +1042,7 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
         }
         if ( colliderTopologyChanged )
         {
-            m_physicsEngine.RefreshColliderStore( modelAccess );
+            m_physicsEngine.RefreshColliderSnapshot( modelAccess );
         }
     }
     for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )

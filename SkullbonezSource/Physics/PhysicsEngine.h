@@ -71,7 +71,6 @@ class PhysicsEngine
                                  float inverseMass,
                                  const Math::Vector::Vector3& rotationalInertia,
                                  const Math::Vector::Vector3& inverseRotationalInertia );
-    void RefreshColliderStore( PhysicsModelAccess& modelAccess );
     // Refreshes collider records from model-owned authoring data while keeping
     // the current PhysicsBodyStore authority intact.
     void RefreshColliderSnapshot( PhysicsModelAccess& modelAccess );

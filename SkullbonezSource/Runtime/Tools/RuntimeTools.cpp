@@ -77,14 +77,19 @@ void ApplyLauncherPhysicsImpulse( GameObjects::GameModelCollection& collection,
     }
 
     Physics::PhysicsEngine& physics = collection.GetPhysicsEngine();
-    Physics::PhysicsModelAccess modelAccess( collection );
-    if ( physics.Colliders().Count() != modelCount )
+    const bool bodyTopologyChanged = physics.BodyStore().Count() != modelCount;
+    const bool colliderTopologyChanged = physics.Colliders().Count() != modelCount;
+    if ( bodyTopologyChanged || colliderTopologyChanged )
     {
-        physics.RefreshColliderStore( modelAccess );
-    }
-    else if ( physics.BodyStore().Count() != modelCount )
-    {
-        physics.RefreshBodyStore( modelAccess );
+        Physics::PhysicsModelAccess modelAccess( collection );
+        if ( bodyTopologyChanged )
+        {
+            physics.RefreshBodyStore( modelAccess );
+        }
+        if ( colliderTopologyChanged )
+        {
+            physics.RefreshColliderSnapshot( modelAccess );
+        }
     }
 
     const Physics::PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelIndex );

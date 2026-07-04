@@ -659,6 +659,11 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "Resolve legacy model identity at the owning caller boundary through PhysicsBodyStore or append-time handles; do not revive the deleted adapter.",
     ),
     (
+        "RefreshColliderStore full body reload facade",
+        re.compile(r"\bRefreshColliderStore\s*\("),
+        "Refresh body topology explicitly when counts drift, then call RefreshColliderSnapshot; do not revive a collider refresh facade that also reloads body rows.",
+    ),
+    (
         "GameModel SoA memory stat",
         re.compile(r"\bsoaCacheBytes\b"),
         "The GameModel SoA cache was deleted, so memory reporting should not carry a live stat for it.",
@@ -8893,6 +8898,7 @@ def run_self_tests() -> list[str]:
     auto* constModels = modelAccess.ModelData();
     auto rawRange = modelAccess.Models();
     auto borrowedRange = BorrowMutableModels( modelAccess );
+    physics.RefreshColliderStore( modelAccess );
     auto mirror = sideEffects.bodyMirrorWritebacks;
     QueueBodyMirrorWriteback( index );
     PhysicsBodyWritebackSink* writebackSink = nullptr;
@@ -8981,6 +8987,25 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("deleted GameModelCollectionPhysicsAdapter synthetic surface was not rejected")
 
+    deleted_full_collider_refresh_text = """
+    class PhysicsEngine
+    {
+        void RefreshColliderStore( PhysicsModelAccess& modelAccess );
+    };
+    void RepairColliderTopology( PhysicsEngine& physics, PhysicsModelAccess& modelAccess )
+    {
+        physics.RefreshColliderStore( modelAccess );
+    }
+    """
+    if not any(
+        error.message == "deleted migration artifact is blocked: RefreshColliderStore full body reload facade"
+        for error in check_deleted_migration_artifact_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+            deleted_full_collider_refresh_text,
+        )
+    ):
+        failures.append("deleted RefreshColliderStore synthetic surface was not rejected")
+
     deleted_game_model_stream_project_text = """
     <ClCompile Include="SkullbonezSource\\GameObjects\\GameModelStreams.cpp" />
     <ClInclude Include="SkullbonezSource\\GameObjects\\GameModelSoACache.h" />
@@ -9029,7 +9054,7 @@ def run_self_tests() -> list[str]:
     // GameModelRuntimePhysicsTuning, legacyModelIndex, RuntimeConfigSnapshot, and IRenderSceneView are migration notes only.
     // GameModelSoACache, GameModelStreamProvider, GetBodyStream(), GetRenderStream(), PrepareRenderStreams(),
     // InvalidatePhysicsStreams(), and soaCacheBytes were deleted.
-    // GameModelCollectionPhysicsAdapter and BodyHandleForVelocityCommand are deleted adapter notes only.
+    // GameModelCollectionPhysicsAdapter, BodyHandleForVelocityCommand, and RefreshColliderStore() are deleted adapter notes only.
     // PhysicsModelMutableRange, MutableModelData(), and modelAccess.Models() are notes only.
     // PhysicsBodyWritebackSink, QueueBodyMirrorWriteback, bodyMirrorWritebacks, and PhysicsBodyEventSink are deleted migration notes only.
     // PhysicsStandaloneWorld used to store std::vector<PhysicsBodyView> m_bodies plus m_alive/m_generations/m_freeIndices.

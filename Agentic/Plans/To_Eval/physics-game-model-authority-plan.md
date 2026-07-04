@@ -4,8 +4,8 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_physics.bat` passed on 2026-07-05 after gating collider store
-refreshes and narrowing explicit collider edit commits.
+`tools\validate_physics.bat` passed on 2026-07-05 after deleting the full
+collider refresh facade.
 
 ## Completed Slices
 
@@ -209,6 +209,22 @@ refreshes and narrowing explicit collider edit commits.
   passed on 2026-07-05; physics regression reported standalone/runtime handle
   smoke pass including `collider_refresh=pass` and byte-exact
   `physics_regression_solver.csv`.
+- [x] 2026-07-05: Deleted the full `RefreshColliderStore()` facade after the
+  final live callers moved to explicit body topology repair plus collider
+  snapshot refresh. Owner: `PhysicsEngine`/`PhysicsScene` public refresh
+  surface and the remaining runtime/editor topology-repair callers. Reason:
+  the facade always reloaded body rows before rebuilding collider records, so
+  callers that had already checked or refreshed body topology could still pay a
+  second model-owned body import. Deletion condition: `SkullbonezSource`
+  contains no live `RefreshColliderStore()` declaration, definition, or call.
+  Checker budget: `tools/check_runtime_boundaries.py` blocks the deleted name
+  as a migration artifact and self-tests source and comment-only cases.
+  Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
 
 ## Goal
 
@@ -275,7 +291,7 @@ Deleted-view call-site table from the completed first slice:
 | Deleted call site | Classification | Replacement |
 | --- | --- | --- |
 | `RefreshBodyStore()` | body store refresh | `PhysicsModelAccess` passed directly to `PhysicsEngine::RefreshBodyStore()` |
-| `RefreshColliderStore()` | collider store refresh | `PhysicsModelAccess` passed directly to `PhysicsEngine::RefreshColliderStore()` |
+| `RefreshColliderStore()` | collider store refresh | Deleted; callers now repair body topology explicitly and call `RefreshColliderSnapshot()` |
 | `RefreshRenderStore()` | render store refresh | `PhysicsModelAccess` passed directly to `PhysicsEngine::RefreshRenderStore()` |
 | `RunPhysics()` | physics step | `PhysicsEngine::Step(PhysicsModelAccess&, dt)` |
 | `WakeModel()` | wake command | `PhysicsBodyHandle` plus `PhysicsModelAccess` |

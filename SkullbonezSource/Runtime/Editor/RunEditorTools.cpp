@@ -608,14 +608,19 @@ void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& co
     }
 
     PhysicsEngine& physics = collection.GetPhysicsEngine();
-    PhysicsModelAccess modelAccess( collection );
-    if ( physics.Colliders().Count() != modelCount )
+    const bool bodyTopologyChanged = physics.BodyStore().Count() != modelCount;
+    const bool colliderTopologyChanged = physics.Colliders().Count() != modelCount;
+    if ( bodyTopologyChanged || colliderTopologyChanged )
     {
-        physics.RefreshColliderStore( modelAccess );
-    }
-    else if ( physics.BodyStore().Count() != modelCount )
-    {
-        physics.RefreshBodyStore( modelAccess );
+        PhysicsModelAccess modelAccess( collection );
+        if ( bodyTopologyChanged )
+        {
+            physics.RefreshBodyStore( modelAccess );
+        }
+        if ( colliderTopologyChanged )
+        {
+            physics.RefreshColliderSnapshot( modelAccess );
+        }
     }
 
     const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelIndex );

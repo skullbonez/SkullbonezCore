@@ -103,12 +103,6 @@ bool PhysicsEngine::RestoreReplayBodyState( int modelIndex,
 }
 
 
-void PhysicsEngine::RefreshColliderStore( PhysicsModelAccess& modelAccess )
-{
-    m_scene.RefreshColliderStore( modelAccess );
-}
-
-
 void PhysicsEngine::RefreshColliderSnapshot( PhysicsModelAccess& modelAccess )
 {
     m_scene.RefreshColliderSnapshot( modelAccess );

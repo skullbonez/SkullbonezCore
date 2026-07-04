@@ -1683,6 +1683,46 @@ formatting, project filters, runtime boundaries, and Profile/Debug builds with
 smoke including `collider_refresh=pass` and byte-exact
 `physics_regression_solver.csv`.
 
+Slice `PHY-1037`: delete the full collider refresh facade. Owner:
+`PhysicsEngine`/`PhysicsScene` refresh surface plus launcher/editor/fixed-tree
+topology repair callers; reason: `RefreshColliderStore()` always reloaded body
+rows before refreshing collider records, so a caller that only needed collider
+topology could duplicate model-owned body import work; deletion condition: no
+live `RefreshColliderStore()` declaration, definition, or call remains under
+`SkullbonezSource`; checker budget: `tools/check_runtime_boundaries.py` blocks
+the deleted name as a migration artifact and self-tests source/comment cases.
+
+- [x] Replace `GameModelCollection::ReleaseAttachedFixedTreeParts()` use of
+  `RefreshColliderStore()` with `RefreshColliderSnapshot()` after explicit body
+  topology repair.
+- [x] Replace launcher ray-hit topology repair with explicit body-count repair
+  followed by collider snapshot refresh.
+- [x] Replace editor wake topology repair with explicit body-count repair
+  followed by collider snapshot refresh.
+- [x] Delete `PhysicsEngine::RefreshColliderStore()` and
+  `PhysicsScene::RefreshColliderStore()` declarations/definitions.
+- [x] Add runtime-boundary guardrails and self-tests blocking the deleted full
+  collider refresh facade from returning.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation run for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] touched-file comment audit
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence: CodeGraph found three live `RefreshColliderStore()` callers before
+the edit: fixed-tree release, launcher impulse, and editor wake topology repair;
+targeted residue scan found no `RefreshColliderStore(` under
+`SkullbonezSource` after deletion; runtime-boundary summary reported 0 errors;
+focused Debug build passed with 0 warnings/errors; touched-file comment audit
+passed for all touched source/tool files; `tools\validate_fast.bat` passed
+formatting, project filters, runtime boundaries, and Profile/Debug builds with
+0 warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle
+smoke and byte-exact `physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.
