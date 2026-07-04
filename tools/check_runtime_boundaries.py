@@ -11,12 +11,13 @@
 #   already moved to render graph callback ownership, and new normal-path global
 #   service access while explicit service contexts are built. Renderer globals
 #   have an extra file-classification fence, object rendering has a
-#   render-instance authority fence, runtime picking and attached-camera follow
-#   have store-authority fences, runtime handle smoke has a handle-authority
-#   fence, contact-audio simple mode has a body-store motion fence, and
-#   fixed-tree, replay-restore wake, replay velocity-edit, launcher ray-hit, or
-#   editor wake/sleep commands have store-handle fences, so count allowances do
-#   not silently approve a new compatibility location.
+#   render-instance authority fence, runtime picking, attached-camera follow,
+#   and required scene contacts have store-authority fences, runtime handle
+#   smoke has a handle-authority fence, contact-audio simple mode has a
+#   body-store motion fence, and fixed-tree, replay-restore wake, replay
+#   velocity-edit, launcher ray-hit, or editor wake/sleep commands have
+#   store-handle fences, so count allowances do not silently approve a new
+#   compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -43,6 +44,8 @@
 #     render passes instead of rebuilding GameModel pose streams.
 #   Store-authority fence: Static rule that keeps a migrated reader on physics
 #     body/collider records instead of reopening a GameModel mirror path.
+#   Object contact manifold: Exact narrowphase contact report built from
+#     PhysicsBodyStore pose and ColliderStore shape snapshots.
 #   Attached-camera follow: Runtime camera mode that tracks a selected body;
 #     GameModel identifies the selection while PhysicsBodyStore and
 #     ColliderStore own the live pose, velocity, orientation, and radius.
@@ -73,6 +76,8 @@
 #     requiring the GameModel compatibility mirror to be refreshed before input.
 #   - Attached-camera follow reads live body motion and radius from
 #     PhysicsBodyStore/ColliderStore instead of the post-step GameModel mirror.
+#   - Object contact manifolds and required scene-contact gates read body pose
+#     and exact shapes from PhysicsBodyStore/ColliderStore snapshots.
 #   - Unknown render graph resource states remain explicitly counted handoffs
 #     until the graph owns concrete initial access for migrated resources.
 #   - Existing global service calls are counted debt; adding new ones requires
@@ -324,6 +329,18 @@ ATTACHED_CAMERA_STORE_AUTHORITY_FUNCTION_PATTERNS = (
 ATTACHED_CAMERA_GAME_MODEL_BODY_READ_PATTERN = re.compile(
     r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*"
     r"(?:GetPosition|GetVelocity|GetOrientation|GetCollisionShape)\s*\("
+)
+OBJECT_CONTACT_MANIFOLD_GAME_MODEL_PATTERN = re.compile(
+    r"\b(?:GameObjects\s*::\s*)?GameModel\b"
+    r"|\bMakeObjectContactBodyView\s*\("
+    r"|\.\s*GetCollisionShape\s*\("
+)
+REQUIRED_SCENE_CONTACT_FUNCTION_PATTERN = re.compile(r"\bvoid\s+Run::UpdateRequiredSceneContacts\s*\(")
+REQUIRED_SCENE_CONTACT_GAME_MODEL_PATTERN = re.compile(
+    r"\bm_cGameModelCollection\s*\.\s*Models\s*\("
+    r"|\bmodels\s*\[[^\]]+\]"
+    r"|\b(?:GameObjects\s*::\s*)?GameModel\b"
+    r"|\.\s*(?:GetPosition|GetOrientation|GetCollisionShape)\s*\("
 )
 GAME_MODEL_COLLECTION_COLLIDER_STORE_REFRESH_PATTERN = re.compile(
     r"\bm_physicsEngine\s*\.\s*RefreshColliderStore\s*\(\s*modelAccess\s*\)"
@@ -3421,6 +3438,58 @@ def check_attached_camera_store_authority_guardrails_text(path: Path, text: str)
 def check_attached_camera_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / RUN_INPUT_SOURCE
     return check_attached_camera_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_object_contact_manifold_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+
+    if path.name in { "ObjectContactManifold.cpp", "ObjectContactManifold.h" }:
+        for match in OBJECT_CONTACT_MANIFOLD_GAME_MODEL_PATTERN.finditer(stripped):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "object contact manifolds must use store snapshots",
+                    (
+                        "Object/object narrowphase should receive ObjectContactBodyView poses and ColliderStore "
+                        "shape snapshots instead of reopening GameModel shape or pose access."
+                    ),
+                )
+            )
+
+    if path.name == "RunScene.cpp":
+        bounds = _function_body_bounds(stripped, REQUIRED_SCENE_CONTACT_FUNCTION_PATTERN)
+        if bounds:
+            open_brace, close_brace = bounds
+            for match in REQUIRED_SCENE_CONTACT_GAME_MODEL_PATTERN.finditer(stripped, open_brace, close_brace):
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, match.start()),
+                        "required scene contacts must use physics stores",
+                        (
+                            "Required scene-contact checks build exact manifolds after physics; they should read "
+                            "PhysicsBodyStore and ColliderStore snapshots, not the post-step GameModel mirror."
+                        ),
+                    )
+                )
+
+    return errors
+
+
+def check_object_contact_manifold_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in (
+        PHYSICS_ROOT / "ObjectContactManifold.cpp",
+        PHYSICS_ROOT / "ObjectContactManifold.h",
+        RUN_SCENE_SOURCE,
+    ):
+        path = repo / relative_path
+        errors.extend(
+            check_object_contact_manifold_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+        )
+    return errors
 
 
 def check_scene_snapshot_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -8044,6 +8113,111 @@ def run_self_tests() -> list[str]:
         commented_attached_camera_model_reads,
     ):
         failures.append("comment-only attached camera GameModel body read synthetic text was rejected")
+
+    old_object_contact_model_overload = """
+    bool BuildObjectContactManifold( const GameModel& a,
+                                     const GameModel& b,
+                                     int bodyA,
+                                     int bodyB,
+                                     float contactSkin,
+                                     ObjectContactManifold& out )
+    {
+        return BuildObjectContactManifold( a,
+                                           a.GetCollisionShape(),
+                                           b,
+                                           b.GetCollisionShape(),
+                                           bodyA,
+                                           bodyB,
+                                           contactSkin,
+                                           out );
+    }
+    """
+    if not any(
+        error.message == "object contact manifolds must use store snapshots"
+        for error in check_object_contact_manifold_store_authority_guardrails_text(
+            Path("SkullbonezSource/Physics/ObjectContactManifold.cpp"),
+            old_object_contact_model_overload,
+        )
+    ):
+        failures.append("old GameModel object-contact manifold overload synthetic surface was not rejected")
+
+    allowed_object_contact_store_surface = """
+    bool BuildObjectContactManifold( const ObjectContactBodyView& a,
+                                     const CollisionShape& shapeA,
+                                     const ObjectContactBodyView& b,
+                                     const CollisionShape& shapeB,
+                                     int bodyA,
+                                     int bodyB,
+                                     float contactSkin,
+                                     ObjectContactManifold& out )
+    {
+        return DispatchShapePair( a, shapeA, b, shapeB, contactSkin, out );
+    }
+    """
+    if check_object_contact_manifold_store_authority_guardrails_text(
+        Path("SkullbonezSource/Physics/ObjectContactManifold.cpp"),
+        allowed_object_contact_store_surface,
+    ):
+        failures.append("store-backed object-contact manifold synthetic surface was rejected")
+
+    old_required_scene_contact_model_reads = """
+    void Run::UpdateRequiredSceneContacts()
+    {
+        const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+        ObjectContactManifold manifold;
+        BuildObjectContactManifold( models[required.bodyA],
+                                    models[required.bodyB],
+                                    required.bodyA,
+                                    required.bodyB,
+                                    m_config.contactEpsilon,
+                                    manifold );
+    }
+    """
+    if not any(
+        error.message == "required scene contacts must use physics stores"
+        for error in check_object_contact_manifold_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/Scene/RunScene.cpp"),
+            old_required_scene_contact_model_reads,
+        )
+    ):
+        failures.append("old required scene-contact GameModel manifold synthetic surface was not rejected")
+
+    allowed_required_scene_contact_store_reads = """
+    void Run::UpdateRequiredSceneContacts()
+    {
+        const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+        const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
+        const PhysicsBodyRecord& bodyA = bodyStore.Records()[required.bodyA];
+        const ColliderRecord& colliderA = colliderStore.Records()[required.bodyA];
+        ObjectContactManifold manifold;
+        BuildObjectContactManifold( SceneContactBodyView( bodyA ),
+                                    colliderA.shape,
+                                    SceneContactBodyView( bodyA ),
+                                    colliderA.shape,
+                                    required.bodyA,
+                                    required.bodyB,
+                                    m_config.contactEpsilon,
+                                    manifold );
+    }
+    """
+    if check_object_contact_manifold_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Scene/RunScene.cpp"),
+        allowed_required_scene_contact_store_reads,
+    ):
+        failures.append("store-backed required scene-contact synthetic surface was rejected")
+
+    commented_object_contact_model_reads = """
+    void DocumentOldContactPath()
+    {
+        // BuildObjectContactManifold( models[a], models[b] ) used to call a.GetCollisionShape().
+        UseBodyAndColliderStores();
+    }
+    """
+    if check_object_contact_manifold_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Scene/RunScene.cpp"),
+        commented_object_contact_model_reads,
+    ):
+        failures.append("comment-only object-contact GameModel synthetic text was rejected")
 
     duplicated_pick_helper = "bool Run::TryPickEditorModel( const Ray& ray ) { return false; }"
     if not any(
@@ -13602,6 +13776,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_game_model_collection_body_store_read_authority_guardrails(repo))
     errors.extend(check_game_model_collection_run_physics_model_access_guardrails(repo))
     errors.extend(check_attached_camera_store_authority_guardrails(repo))
+    errors.extend(check_object_contact_manifold_store_authority_guardrails(repo))
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
     errors.extend(check_physics_collision_time_name_guardrails(repo))
     errors.extend(check_deleted_model_force_bridge_guardrails(repo))

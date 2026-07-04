@@ -1640,6 +1640,48 @@ formatting, project filters, runtime boundaries, and Profile/Debug builds with
 0 warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle
 smoke and byte-exact `physics_regression_solver.csv`.
 
+Slice `PHY-1029`: delete object-contact `GameModel` manifold overloads and move
+required scene-contact exact checks to store snapshots. Owner: object/object
+narrowphase API plus runtime required contact gates; reason: production solver
+manifolds already use `ObjectContactBodyView` and `ColliderRecord::shape`, so
+the leftover `GameModel` overload kept a stale shape/pose path alive and made
+scene automation depend on the post-step model mirror; deletion condition:
+`ObjectContactManifold.h/.cpp` expose only pose-view/shape-value manifold
+entry points and `Run::UpdateRequiredSceneContacts()` reads
+`PhysicsBodyStore`/`ColliderStore`; checker budget:
+`tools/check_runtime_boundaries.py` blocks the old overload/helper and scene
+gate model reads.
+
+- [x] Remove `GameModel` forward declaration/include/using and both
+  `BuildObjectContactManifold(GameModel...)` overloads from the object manifold
+  API.
+- [x] Build required scene-contact body views from `PhysicsBodyRecord` pose and
+  pass exact `ColliderRecord::shape` snapshots into the manifold builder.
+- [x] Add runtime-boundary guardrails and self-tests blocking deleted
+  object-contact overload/helper and required scene-contact `GameModel` reads.
+- [x] Run a focused Debug build for the changed physics/scene files.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation run for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] touched-file comment audit
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence: CodeGraph found the remaining `GameModel::GetCollisionShape()` route
+inside the object-contact overload and the only live `GameModel` manifold caller
+in `Run::UpdateRequiredSceneContacts()`; targeted residue scan found no deleted
+manifold overload/helper or scoped scene-contact model path after the edit;
+runtime-boundary summary reported 0 errors; focused Debug build passed with 0
+warnings/errors; touched source/tool comment audit passed for
+`ObjectContactManifold.cpp`, `ObjectContactManifold.h`, `RunScene.cpp`, and
+`tools/check_runtime_boundaries.py`; `tools\validate_fast.bat` passed
+formatting, project filters, runtime boundaries, and Profile/Debug builds with
+0 warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle
+smoke and byte-exact `physics_regression_solver.csv`.
+
 Slice `PHY-1035`: delete the
 `GameModelCollectionPhysicsAdapter` compatibility artifact after every live
 caller moved to append-time handles or direct `PhysicsBodyStore` lookup. Owner:

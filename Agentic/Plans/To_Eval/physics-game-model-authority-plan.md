@@ -5,9 +5,9 @@ Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
 intermittent `tools\validate_physics.bat` passed on 2026-07-05 after moving
-attached-camera follow target pose, orientation, velocity, and broad radius
-from the post-step `GameModel` mirror to `PhysicsBodyStore` and
-`ColliderStore`.
+required scene-contact exact manifold checks and the object manifold public API
+from `GameModel` pose/shape overloads to `PhysicsBodyStore` and `ColliderStore`
+snapshots.
 
 ## Completed Slices
 
@@ -306,6 +306,24 @@ from the post-step `GameModel` mirror to `PhysicsBodyStore` and
   `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
   passed on 2026-07-05; physics regression reported standalone/runtime handle
   smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Deleted the `GameModel` object-contact manifold overloads and
+  moved required scene-contact exact checks to store snapshots. Owner:
+  object/object narrowphase API plus runtime required scene-contact gates.
+  Reason: the solver already builds manifolds from `ObjectContactBodyView` and
+  `ColliderRecord::shape`, but the public `BuildObjectContactManifold(GameModel
+  ...)` overload kept a stale shape/pose path alive and let scene automation
+  depend on the post-step model mirror. Deletion condition:
+  `ObjectContactManifold.h/.cpp` contain no `GameModel` manifold overload,
+  `MakeObjectContactBodyView`, or `GameModel::GetCollisionShape()` access, and
+  `Run::UpdateRequiredSceneContacts()` contains no `Models()`/`models[]`
+  manifold path. Checker budget: `tools/check_runtime_boundaries.py` blocks the
+  deleted manifold overload/helper and blocks required scene-contact `GameModel`
+  body/shape reads with reject/allow/comment-only self-tests. Validation:
+  `git diff --check`, `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
 
 ## Goal
 
@@ -518,6 +536,9 @@ Move one body-state group at a time. Keep compatibility writeback narrow and tem
 - [x] 2026-07-05 attached-camera follow reads target pose, orientation, and
   linear velocity from `PhysicsBodyStore` records instead of the post-step
   `GameModel` compatibility mirror.
+- [x] 2026-07-05 required scene-contact exact manifold checks build
+  `ObjectContactBodyView` values from `PhysicsBodyStore` records instead of
+  `GameModel` pose/orientation overloads.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of sleep and wake state.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of accumulated forces and impulses.
 - [ ] Change physics stepping to consume body handles/store views rather than `GameModelCollection&`.
@@ -560,6 +581,9 @@ Colliders should own exact collision data. `GameModel` must not remain the hidde
   tool hit radii.
 - [x] 2026-07-05 attached-camera orbit and ragdoll-eyes distance/radius math
   uses `ColliderStore` `boundingRadius` records instead of `GameModel`
+  collision shapes.
+- [x] 2026-07-05 object/object manifold public API and required scene-contact
+  gates consume `ColliderStore` shape snapshots instead of `GameModel`
   collision shapes.
 - [ ] Make `ColliderStore` own body-to-collider and collider-to-body mapping.
 - [ ] Move shape creation from `GameModel` construction into a collider registration path.
