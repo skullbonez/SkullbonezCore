@@ -29,8 +29,9 @@
 #   Inheritance guardrail: Static check that blocks source base classes unless
 #     they are in the approved stable-boundary budget.
 #   Allowlist: Explicit set of legacy references accepted during migration.
-#   Migration artifact: Temporary adapter, DTO, or compatibility name that must
-#     disappear once its real owner or API replaces it.
+#   Migration artifact: Temporary adapter, data-transfer object, or
+#     compatibility name that must disappear once its real owner or API replaces
+#     it.
 #
 # Invariants:
 #   - Run.h may own subsystem objects, but not their extracted transient state.
@@ -75,6 +76,7 @@ RUN_HEADER = Path("SkullbonezSource/Runtime/Run.h")
 RUN_INTERNAL_HEADER = Path("SkullbonezSource/Runtime/RunInternal.h")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
+PHYSICS_WORLD_SOURCE = PHYSICS_ROOT / "PhysicsWorld.cpp"
 IRENDER_BACKEND_HEADER = Path("SkullbonezSource/Rendering/IRenderBackend.h")
 RUN_RENDER_SOURCE = Path("SkullbonezSource/Runtime/RunRender.cpp")
 RENDER_PIPELINE_SOURCE = Path("SkullbonezSource/Rendering/RenderPipeline.cpp")
@@ -204,6 +206,11 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "PhysicsBodyEventSink",
         re.compile(r"\bPhysicsBodyEventSink\b"),
         "Apply solver-triggered model-owner events through PhysicsModelAccess commands after hot-path work completes.",
+    ),
+    (
+        "PersistentContactSolver body mirror writeback queue",
+        re.compile(r"\b(?:bodyMirrorWritebacks|QueueBodyMirrorWriteback)\b"),
+        "Solver mutation belongs in PhysicsBodyStore; keep model mirroring as one named step-boundary sync.",
     ),
     (
         "AssetSystem::CreateShader(const char*)",
@@ -1751,6 +1758,35 @@ def check_persistent_solver_context_model_access_guardrails_text(path: Path, tex
 def check_persistent_solver_context_model_access_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / PHYSICS_ROOT / "PhysicsWorld.h"
     return check_persistent_solver_context_model_access_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+# Invariant: RunSolverPhysics is the hot step. Per-body model mirror writes here
+# recreate cache churn and make PhysicsBodyStore less authoritative.
+def check_physics_world_solver_body_writeback_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    solver_pattern = re.compile(r"\bvoid\s+PhysicsWorld::RunSolverPhysics\s*\([^{}]*\)\s*\{", re.S)
+    writeback_pattern = re.compile(r"\bmodelAccess\s*\.\s*WriteBackPhysicsBody\s*\(")
+    for solver_match in solver_pattern.finditer(stripped):
+        open_brace = stripped.find("{", solver_match.start(), solver_match.end())
+        if open_brace < 0:
+            continue
+        close_brace = find_matching_close_brace(stripped, open_brace)
+        for writeback_match in writeback_pattern.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, writeback_match.start()),
+                    "physics solver hot path per-body model writeback is blocked",
+                    "Write solver results into PhysicsBodyStore and mirror models once at the PhysicsWorld step boundary.",
+                )
+            )
+    return errors
+
+
+def check_physics_world_solver_body_writeback_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / PHYSICS_WORLD_SOURCE
+    return check_physics_world_solver_body_writeback_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_physics_hot_path_inheritance_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -6119,6 +6155,8 @@ def run_self_tests() -> list[str]:
     auto* constModels = modelAccess.ModelData();
     auto rawRange = modelAccess.Models();
     auto borrowedRange = BorrowMutableModels( modelAccess );
+    auto mirror = sideEffects.bodyMirrorWritebacks;
+    QueueBodyMirrorWriteback( index );
     PhysicsBodyWritebackSink* writebackSink = nullptr;
     PhysicsBodyEventSink* eventSink = nullptr;
     std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logicalNameOrBaseName ) const;
@@ -6147,7 +6185,7 @@ def run_self_tests() -> list[str]:
     commented_deleted_migration_artifact_text = """
     // GameModelRuntimePhysicsTuning, legacyModelIndex, RuntimeConfigSnapshot, and IRenderSceneView are migration notes only.
     // PhysicsModelMutableRange, MutableModelData(), and modelAccess.Models() are notes only.
-    // PhysicsBodyWritebackSink and PhysicsBodyEventSink are deleted migration notes only.
+    // PhysicsBodyWritebackSink, QueueBodyMirrorWriteback, bodyMirrorWritebacks, and PhysicsBodyEventSink are deleted migration notes only.
     /*
        AssetSystem::CreateShader( const char* name ) is mentioned in the plan but must not be code.
        BorrowMutableModels(modelAccess) appears in the audit notes, not compiled source.
@@ -6203,6 +6241,50 @@ def run_self_tests() -> list[str]:
         commented_persistent_solver_context,
     ):
         failures.append("comment-only persistent solver broad model access synthetic text was rejected")
+
+    old_solver_writeback_text = """
+    void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess )
+    {
+        modelAccess.WriteBackPhysicsBody( bodyStore, x );
+    }
+    """
+    if not any(
+        error.message == "physics solver hot path per-body model writeback is blocked"
+        for error in check_physics_world_solver_body_writeback_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+            old_solver_writeback_text,
+        )
+    ):
+        failures.append("old solver per-body model writeback synthetic surface was not rejected")
+
+    allowed_step_boundary_writeback_text = """
+    void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
+    {
+        modelAccess.WriteBackPhysicsBodies( bodyStore );
+    }
+    void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess )
+    {
+        modelAccess.WriteBackPhysicsBody( bodyStore, fixedIndex );
+    }
+    """
+    if check_physics_world_solver_body_writeback_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        allowed_step_boundary_writeback_text,
+    ):
+        failures.append("allowed non-solver physics writeback synthetic surface was rejected")
+
+    commented_solver_writeback_text = """
+    void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess )
+    {
+        // modelAccess.WriteBackPhysicsBody(bodyStore, x) is a deleted hot-path note.
+        KeepBodyStoreAuthoritative();
+    }
+    """
+    if check_physics_world_solver_body_writeback_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        commented_solver_writeback_text,
+    ):
+        failures.append("comment-only solver writeback synthetic text was rejected")
 
     allowed_physics_hot_path_values = """
     struct SolverBodyState
@@ -6616,6 +6698,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_deleted_migration_artifact_guardrails(repo))
     errors.extend(check_deleted_physics_model_view_guardrails(repo))
     errors.extend(check_persistent_solver_context_model_access_guardrails(repo))
+    errors.extend(check_physics_world_solver_body_writeback_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))
     errors.extend(check_approved_inheritance_guardrails(repo))

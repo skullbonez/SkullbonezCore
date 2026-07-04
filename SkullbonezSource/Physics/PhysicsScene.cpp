@@ -137,10 +137,10 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
                                const PhysicsWorldForces& worldForces,
                                Threading::WorkerPool& workerPool )
 {
-    // Invariant: PhysicsModelAccess is the model-owner sync boundary for legacy
-    // GameModel pose/state. The step reloads body records through that boundary,
-    // solves through PhysicsBodyStore/ColliderStore, then writes back once for
-    // render, replay, editor, and diagnostics consumers that still read models.
+    // Invariant: PhysicsModelAccess is the model-owner sync boundary for
+    // GameModel pose/state. The step reloads body records through that boundary;
+    // PhysicsWorld owns the single post-solve store-to-model mirror so Debug
+    // diagnostics read the same state that render/replay/editor consumers see.
     modelAccess.ReloadPhysicsBodies( m_bodyStore, m_world.GetSleepStates() );
     // Why: collider metadata is construction/authoring state, not per-tick
     // solver state. Scene setup and explicit refresh calls rebuild the snapshot;
@@ -153,7 +153,6 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
     m_hasLastWorldForces = true;
     m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime, config, worldForces, workerPool );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    modelAccess.WriteBackPhysicsBodies( m_bodyStore );
 }
 
 

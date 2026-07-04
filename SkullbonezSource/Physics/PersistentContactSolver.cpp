@@ -31,7 +31,7 @@ Glossary:
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
 
 Related:
   - SkullbonezSource/Physics/PersistentContactSolver.h
@@ -106,7 +106,6 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     };
     auto MarkCollisionVisualContact = [&]( int index ) { sideEffects.collisionVisualBodies.push_back( index ); };
     auto MarkFixedContact = [&]( int index ) { sideEffects.fixedContactBodies.push_back( index ); };
-    auto QueueBodyMirrorWriteback = [&]( int index ) { sideEffects.bodyMirrorWritebacks.push_back( index ); };
     auto QueueReleaseWake = [&]( int index ) { sideEffects.releaseWakeBodies.push_back( index ); };
     auto QueueFixedTreeRelease = [&]( const PhysicsFixedTreeReleaseEvent& event )
     { sideEffects.fixedTreeReleases.push_back( event ); };
@@ -1382,7 +1381,6 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
 
             m_bodyRecords[static_cast<size_t>( i )].linearVelocity = m_solverBodies[i].linearVelocity;
             m_bodyRecords[static_cast<size_t>( i )].angularVelocity = m_solverBodies[i].angularVelocity;
-            QueueBodyMirrorWriteback( i );
         }
     }
 
@@ -1479,11 +1477,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 RecordPhysicsPipelineStage( record );
             }
             m_bodyRecords[static_cast<size_t>( c.bodyA )].position -= correction * invMassA;
-            QueueBodyMirrorWriteback( c.bodyA );
             if ( hasBodyB )
             {
                 m_bodyRecords[static_cast<size_t>( c.bodyB )].position += correction * invMassB;
-                QueueBodyMirrorWriteback( c.bodyB );
             }
         }
     }
@@ -1594,7 +1590,6 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             fixedRecord.isFixed = false;
             fixedRecord.linearVelocity = releaseDir * releaseSpeed + tangentVelocity;
             fixedRecord.angularVelocity = angularVelocity;
-            QueueBodyMirrorWriteback( fixedIndex );
             QueueReleaseWake( fixedIndex );
             QueueFixedTreeRelease(
                 PhysicsFixedTreeReleaseEvent{ fixedIndex,

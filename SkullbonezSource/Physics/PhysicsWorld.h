@@ -86,7 +86,6 @@ struct PersistentContactSolverSideEffects
     std::vector<PhysicsPipelineRecord> pipelineRecords;
     std::vector<int> collisionVisualBodies;
     std::vector<int> fixedContactBodies;
-    std::vector<int> bodyMirrorWritebacks;
     std::vector<int> releaseWakeBodies;
     std::vector<PhysicsFixedTreeReleaseEvent> fixedTreeReleases;
 };
@@ -355,8 +354,7 @@ class PhysicsWorld
                           const GameObjects::GameModelBodyStream& bodyStream,
                           const PhysicsBodyStore* bodyStore,
                           int index );
-    bool WakeDynamicBodyState( PhysicsModelAccess& modelAccess,
-                               const GameObjects::GameModelBodyStream& bodyStream,
+    bool WakeDynamicBodyState( const GameObjects::GameModelBodyStream& bodyStream,
                                PhysicsBodyStore* bodyStore,
                                int index,
                                float dt,
