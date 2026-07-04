@@ -765,6 +765,14 @@ lookup followed by targeted source reads, comment-style audit of
   per-command `GameModel` writeback or model-stream invalidation.
 - [x] Add runtime-boundary self-tests that reject the deleted sleep-seed
   model-access overload and caller spelling while allowing `SeedBodyAsleep(body)`.
+- [x] Delete the `SetPendingBodyImpulse(PhysicsModelAccess&, PhysicsBodyHandle, ...)`
+  overload and route adapter/`ApplyBodyImpulse` enqueue through the store-owned
+  handle command.
+- [x] Preserve the existing `ApplyBodyImpulse` wake edge in this row; the
+  `WakeBody` compatibility mirror remains a separate follow-up.
+- [x] Add runtime-boundary self-tests that reject the deleted pending-impulse
+  model-access overload and caller spelling while allowing
+  `SetPendingBodyImpulse(body, impulse, point)`.
 - [x] Comment-audit the touched source files.
 - [x] Validation for this slice:
   - [x] `git diff --check`
@@ -773,14 +781,14 @@ lookup followed by targeted source reads, comment-style audit of
   - [x] `tools\validate_fast.bat`
   - [x] `tools\validate_physics.bat`
 
-Current Phase 10 progress: pending impulses are still accepted through the
-legacy `PhysicsModelAccess` overload when runtime callers need that signature,
-but the command now stops after the authoritative store mutation. That deletes
-one full-body compatibility writeback and one stream invalidation from the
-pending-only command path without changing the explicit `ApplyBodyImpulse`
-wake/presentation edge. Evidence logs: `TestOutput\agent_validate_fast_pending_impulse_mirror.log`
-and `TestOutput\agent_validate_physics_pending_impulse_mirror.log`; the physics
-gate passed with byte-exact `physics_regression_solver.csv`.
+Current Phase 10 progress: pending impulses are now enqueued through the
+store-owned handle command without a `PhysicsModelAccess` overload. The earlier
+pending-only mirror slice deleted one full-body compatibility writeback and one
+stream invalidation from the pending-only command path without changing the
+explicit `ApplyBodyImpulse` wake/presentation edge. Evidence logs:
+`TestOutput\agent_validate_fast_pending_impulse_mirror.log` and
+`TestOutput\agent_validate_physics_pending_impulse_mirror.log`; the physics gate
+passed with byte-exact `physics_regression_solver.csv`.
 
 Follow-up slice `PHY-1002`: replay prediction backup now reads simulation state
 from the current `PhysicsEngine::BodyStore()` rather than from `GameModel`
@@ -809,6 +817,14 @@ presentation projection to the normal step boundary. Evidence logs:
 `TestOutput\agent_validate_fast_sleep_seed_mirror.log` and
 `TestOutput\agent_validate_physics_sleep_seed_mirror.log`; the physics gate
 passed with byte-exact `physics_regression_solver.csv`.
+
+Follow-up slice `PHY-1005`: pending impulse enqueue no longer has a model-access
+overload. The model-index adapter and `ApplyBodyImpulse` now call
+`SetPendingBodyImpulse(body, impulse, point)` directly, while `ApplyBodyImpulse`
+keeps the existing `WakeBody(modelAccess, body)` compatibility edge for a later
+row. Evidence logs: `TestOutput\agent_validate_fast_pending_impulse_overload.log`
+and `TestOutput\agent_validate_physics_pending_impulse_overload.log`; the
+physics gate passed with byte-exact `physics_regression_solver.csv`.
 
 ## Required Evidence For Each Source Slice
 

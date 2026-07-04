@@ -282,6 +282,19 @@ PHYSICS_SEED_BODY_ASLEEP_MODEL_ACCESS_OVERLOAD_PATTERN = re.compile(
 PHYSICS_SEED_BODY_ASLEEP_MODEL_ACCESS_CALL_PATTERN = re.compile(
     r"\b[A-Za-z_][A-Za-z0-9_\\.]*\s*\.\s*SeedBodyAsleep\s*\(\s*modelAccess\s*,"
 )
+PHYSICS_PENDING_IMPULSE_MODEL_ACCESS_SOURCES = (
+    PHYSICS_ENGINE_SOURCE,
+    PHYSICS_ENGINE_HEADER,
+    PHYSICS_SCENE_SOURCE,
+    PHYSICS_SCENE_HEADER,
+    GAME_MODEL_COLLECTION_PHYSICS_ADAPTER_SOURCE,
+)
+PHYSICS_PENDING_IMPULSE_MODEL_ACCESS_OVERLOAD_PATTERN = re.compile(
+    r"\bSetPendingBodyImpulse\s*\(\s*PhysicsModelAccess\s*&"
+)
+PHYSICS_PENDING_IMPULSE_MODEL_ACCESS_CALL_PATTERN = re.compile(
+    r"\b[A-Za-z_][A-Za-z0-9_\\.]*\s*\.\s*SetPendingBodyImpulse\s*\(\s*modelAccess\s*,"
+)
 GAME_MODEL_COLLECTION_ADAPTER_BODY_HANDLE_FUNCTION_PATTERN = re.compile(
     r"\bPhysicsBodyHandle\s+GameModelCollectionPhysicsAdapter::BodyHandleForModelIndex\s*\("
 )
@@ -2841,6 +2854,46 @@ def check_physics_seed_body_asleep_model_access_guardrails(repo: Path) -> list[B
         path = repo / relative_path
         errors.extend(
             check_physics_seed_body_asleep_model_access_guardrails_text(path, path.read_text(encoding="utf-8"))
+        )
+    return errors
+
+
+def check_physics_pending_impulse_model_access_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_PENDING_IMPULSE_MODEL_ACCESS_OVERLOAD_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "pending impulse model-access overload is blocked",
+                (
+                    "SetPendingBodyImpulse should be a store-owned PhysicsBodyHandle command; "
+                    "do not reintroduce the PhysicsModelAccess overload or model-refresh path."
+                ),
+            )
+        )
+    for match in PHYSICS_PENDING_IMPULSE_MODEL_ACCESS_CALL_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "pending impulse model-access call is blocked",
+                (
+                    "Call SetPendingBodyImpulse(body, impulse, point) so pending solver input stays in "
+                    "PhysicsBodyStore without borrowing the model owner."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_pending_impulse_model_access_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in PHYSICS_PENDING_IMPULSE_MODEL_ACCESS_SOURCES:
+        path = repo / relative_path
+        errors.extend(
+            check_physics_pending_impulse_model_access_guardrails_text(path, path.read_text(encoding="utf-8"))
         )
     return errors
 
@@ -9034,6 +9087,75 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only sleep seed model-access synthetic text was rejected")
 
+    old_pending_impulse_model_access_overload = """
+    void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
+                                              PhysicsBodyHandle body,
+                                              const Vector3& impulse,
+                                              const Vector3& localPoint )
+    {
+        RefreshBodyStore( modelAccess );
+        m_bodyStore.SetPendingBodyImpulse( body, impulse, localPoint );
+    }
+    """
+    if not any(
+        error.message == "pending impulse model-access overload is blocked"
+        for error in check_physics_pending_impulse_model_access_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+            old_pending_impulse_model_access_overload,
+        )
+    ):
+        failures.append("old pending impulse model-access overload synthetic surface was not rejected")
+
+    old_pending_impulse_model_access_call = """
+    void GameModelCollectionPhysicsAdapter::SetPendingBodyImpulseForModelIndex( int modelIndex ) const
+    {
+        PhysicsModelAccess modelAccess( m_collection );
+        m_collection.m_physicsEngine.SetPendingBodyImpulse( modelAccess, body, impulse, localPoint );
+    }
+    """
+    if not any(
+        error.message == "pending impulse model-access call is blocked"
+        for error in check_physics_pending_impulse_model_access_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp"),
+            old_pending_impulse_model_access_call,
+        )
+    ):
+        failures.append("old pending impulse model-access call synthetic surface was not rejected")
+
+    allowed_pending_impulse_store_command = """
+    void PhysicsScene::SetPendingBodyImpulse( PhysicsBodyHandle body, const Vector3& impulse, const Vector3& localPoint )
+    {
+        m_bodyStore.SetPendingBodyImpulse( body, impulse, localPoint );
+    }
+    void PhysicsScene::ApplyBodyImpulse( PhysicsModelAccess& modelAccess,
+                                         PhysicsBodyHandle body,
+                                         const Vector3& impulse,
+                                         const Vector3& localPoint )
+    {
+        SetPendingBodyImpulse( body, impulse, localPoint );
+        WakeBody( modelAccess, body );
+    }
+    """
+    if check_physics_pending_impulse_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        allowed_pending_impulse_store_command,
+    ):
+        failures.append("store-only pending impulse synthetic surface was rejected")
+
+    commented_pending_impulse_model_access = """
+    void PhysicsScene::SetPendingBodyImpulse( PhysicsBodyHandle body, const Vector3& impulse, const Vector3& localPoint )
+    {
+        // physics.SetPendingBodyImpulse(modelAccess, body, impulse, localPoint) used to refresh model state here.
+        // void PhysicsScene::SetPendingBodyImpulse(PhysicsModelAccess& modelAccess, PhysicsBodyHandle body) was deleted.
+        m_bodyStore.SetPendingBodyImpulse( body, impulse, localPoint );
+    }
+    """
+    if check_physics_pending_impulse_model_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        commented_pending_impulse_model_access,
+    ):
+        failures.append("comment-only pending impulse model-access synthetic text was rejected")
+
     old_adapter_body_handle_refresh = """
     PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForModelIndex( int modelIndex ) const
     {
@@ -9912,6 +10034,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_scene_pending_impulse_model_mirror_guardrails(repo))
     errors.extend(check_physics_scene_velocity_model_mirror_guardrails(repo))
     errors.extend(check_physics_seed_body_asleep_model_access_guardrails(repo))
+    errors.extend(check_physics_pending_impulse_model_access_guardrails(repo))
     errors.extend(check_command_side_body_refresh_guardrails(repo))
     errors.extend(check_scene_setup_model_index_physics_command_guardrails(repo))
     errors.extend(check_editor_model_index_physics_command_guardrails(repo))

@@ -92,6 +92,8 @@ class PhysicsScene
                           const Math::Vector::Vector3& angularVelocity,
                           bool wakeIfMoving );
     void SeedBodyAsleep( PhysicsBodyHandle body );
+    // Queues one-shot solver input by body handle. The command is store-owned;
+    // ApplyBodyImpulse owns the separate wake/presentation compatibility edge.
     void SetPendingBodyImpulse( PhysicsBodyHandle body,
                                 const Math::Vector::Vector3& impulse,
                                 const Math::Vector::Vector3& localApplicationPoint );
@@ -99,10 +101,6 @@ class PhysicsScene
                            PhysicsBodyHandle body,
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
-    void SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
-                                PhysicsBodyHandle body,
-                                const Math::Vector::Vector3& impulse,
-                                const Math::Vector::Vector3& localApplicationPoint );
     void SetPhysicsSleepEnabled( bool enabled );
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();

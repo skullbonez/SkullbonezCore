@@ -87,6 +87,8 @@ class PhysicsEngine
     // Scene/editor construction commands seed solver sleep state by handle
     // without a per-command GameModel projection.
     void SeedBodyAsleep( PhysicsBodyHandle body );
+    // Queues one-shot solver input by body handle. Callers that only need a
+    // pending impulse must not borrow PhysicsModelAccess for presentation wake.
     void SetPendingBodyImpulse( PhysicsBodyHandle body,
                                 const Math::Vector::Vector3& impulse,
                                 const Math::Vector::Vector3& localApplicationPoint );
@@ -94,10 +96,6 @@ class PhysicsEngine
                            PhysicsBodyHandle body,
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
-    void SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
-                                PhysicsBodyHandle body,
-                                const Math::Vector::Vector3& impulse,
-                                const Math::Vector::Vector3& localApplicationPoint );
     void SetSleepEnabled( bool enabled );
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();

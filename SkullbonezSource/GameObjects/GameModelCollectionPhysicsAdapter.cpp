@@ -154,6 +154,5 @@ void GameModelCollectionPhysicsAdapter::SetPendingBodyImpulseForModelIndex(
         return;
     }
 
-    PhysicsModelAccess modelAccess( m_collection );
-    m_collection.m_physicsEngine.SetPendingBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
+    m_collection.m_physicsEngine.SetPendingBodyImpulse( body, impulse, localApplicationPoint );
 }

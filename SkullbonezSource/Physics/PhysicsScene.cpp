@@ -394,29 +394,8 @@ void PhysicsScene::ApplyBodyImpulse( PhysicsModelAccess& modelAccess,
                                      const Math::Vector::Vector3& impulse,
                                      const Math::Vector::Vector3& localApplicationPoint )
 {
-    SetPendingBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
+    SetPendingBodyImpulse( body, impulse, localApplicationPoint );
     WakeBody( modelAccess, body );
-}
-
-
-void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
-                                          PhysicsBodyHandle body,
-                                          const Math::Vector::Vector3& impulse,
-                                          const Math::Vector::Vector3& localApplicationPoint )
-{
-    const int modelCount = modelAccess.ModelCount();
-    if ( m_bodyStore.Count() != modelCount )
-    {
-        RefreshBodyStore( modelAccess );
-    }
-    if ( !m_bodyStore.SetPendingBodyImpulse( body, impulse, localApplicationPoint ) )
-    {
-        return;
-    }
-
-    // Why: pending impulses are one-shot solver input consumed from
-    // PhysicsBodyStore. Mirroring them through GameModel would copy a full
-    // body record and invalidate model streams without changing presentation.
 }
 
 

@@ -159,15 +159,6 @@ void PhysicsEngine::ApplyBodyImpulse( PhysicsModelAccess& modelAccess,
 }
 
 
-void PhysicsEngine::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
-                                           PhysicsBodyHandle body,
-                                           const Math::Vector::Vector3& impulse,
-                                           const Math::Vector::Vector3& localApplicationPoint )
-{
-    m_scene.SetPendingBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
-}
-
-
 void PhysicsEngine::SetSleepEnabled( bool enabled )
 {
     m_scene.SetPhysicsSleepEnabled( enabled );
