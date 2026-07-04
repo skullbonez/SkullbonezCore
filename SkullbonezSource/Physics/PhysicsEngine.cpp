@@ -126,9 +126,23 @@ void PhysicsEngine::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle
 }
 
 
+void PhysicsEngine::SeedBodyAsleep( PhysicsBodyHandle body )
+{
+    m_scene.SeedBodyAsleep( body );
+}
+
+
 void PhysicsEngine::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
 {
     m_scene.SeedBodyAsleep( modelAccess, body );
+}
+
+
+void PhysicsEngine::SetPendingBodyImpulse( PhysicsBodyHandle body,
+                                           const Math::Vector::Vector3& impulse,
+                                           const Math::Vector::Vector3& localApplicationPoint )
+{
+    m_scene.SetPendingBodyImpulse( body, impulse, localApplicationPoint );
 }
 
 

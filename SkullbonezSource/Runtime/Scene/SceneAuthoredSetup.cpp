@@ -33,6 +33,7 @@ Related:
 #include "../Editor/EditorHullAssets.h"
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../GameObjects/GameModelCollectionPhysicsAdapter.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/RotationMatrix.h"
 #include "../../Maths/Vector3.h"
@@ -58,10 +59,12 @@ namespace
 {
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
 using SkullbonezCore::GameObjects::GameModel;
+using SkullbonezCore::GameObjects::GameModelCollectionPhysicsAdapter;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsPointJointCreateDesc;
 using SkullbonezCore::Physics::PointJointConstraint;
@@ -264,6 +267,10 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
                                     scene.GetConvexHullStateCount() +
                                     scene.GetRagdollCount() * Ragdoll::SIMPLE_PART_COUNT;
     context.physics.ClearPointJointConstraints();
+    // Why: scene setup still builds GameModel rows, but physics commands should
+    // cross as handles immediately after construction instead of model-index
+    // wrappers. The adapter is the named bridge until scene objects store bodies.
+    GameModelCollectionPhysicsAdapter physicsBodies( context.models );
 
     for ( int i = 0; i < scene.GetBallCount(); ++i )
     {
@@ -295,9 +302,10 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         context.models.AddGameModel( std::move( gameModel ) );
         if ( hasInitialImpulse )
         {
-            context.models.SetPendingBodyImpulse( modelIndex,
-                                                  Vector3( ball.forceX, ball.forceY, ball.forceZ ),
-                                                  Vector3( ball.forcePosX, ball.forcePosY, ball.forcePosZ ) );
+            const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+            context.physics.SetPendingBodyImpulse( body,
+                                                   Vector3( ball.forceX, ball.forceY, ball.forceZ ),
+                                                   Vector3( ball.forcePosX, ball.forcePosY, ball.forcePosZ ) );
         }
     }
 
@@ -326,7 +334,8 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         context.models.AddGameModel( std::move( gameModel ) );
         if ( bs.isSleeping && !bs.isFixed )
         {
-            context.models.SeedModelAsleep( modelIndex );
+            const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+            context.physics.SeedBodyAsleep( body );
         }
     }
 
@@ -389,7 +398,8 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         context.models.AddGameModel( std::move( gameModel ) );
         if ( box.isSleeping && !box.isFixed )
         {
-            context.models.SeedModelAsleep( modelIndex );
+            const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+            context.physics.SeedBodyAsleep( body );
         }
     }
 
@@ -435,7 +445,8 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         context.models.AddGameModel( std::move( gameModel ) );
         if ( hullScene.isSleeping && !hullScene.isFixed )
         {
-            context.models.SeedModelAsleep( modelIndex );
+            const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+            context.physics.SeedBodyAsleep( body );
         }
     }
 
@@ -468,7 +479,8 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         context.models.AddGameModel( std::move( gameModel ) );
         if ( hullScene.isSleeping && !hullScene.isFixed )
         {
-            context.models.SeedModelAsleep( modelIndex );
+            const PhysicsBodyHandle body = physicsBodies.BodyHandleForModelIndex( modelIndex );
+            context.physics.SeedBodyAsleep( body );
         }
     }
 

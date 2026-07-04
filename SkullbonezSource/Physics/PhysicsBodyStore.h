@@ -145,6 +145,7 @@ class PhysicsBodyStore
     // are compatibility wrappers for callers not yet migrated to body handles.
     bool WakeBody( PhysicsBodyHandle body );
     bool WakeBody( int modelIndex );
+    bool SeedBodyAsleep( PhysicsBodyHandle body );
     bool SeedBodyAsleep( int modelIndex );
     bool SetPendingBodyImpulse( PhysicsBodyHandle body,
                                 const Math::Vector::Vector3& impulse,

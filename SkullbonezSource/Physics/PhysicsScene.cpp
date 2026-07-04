@@ -251,6 +251,20 @@ void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle 
 }
 
 
+void PhysicsScene::SeedBodyAsleep( PhysicsBodyHandle body )
+{
+    if ( !m_world.IsPhysicsSleepEnabled() )
+    {
+        return;
+    }
+
+    // Why: scene setup already owns the freshly created GameModel. The initial
+    // sleep seed belongs in PhysicsBodyStore and will be copied into PhysicsWorld
+    // when the first step begins, so no model-access writeback is needed here.
+    m_bodyStore.SeedBodyAsleep( body );
+}
+
+
 void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
 {
     const int modelCount = modelAccess.ModelCount();
@@ -266,6 +280,17 @@ void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyH
     m_world.SeedModelAsleep( modelAccess, m_bodyStore, index );
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
     modelAccess.WriteBackPhysicsBody( m_bodyStore, index );
+}
+
+
+void PhysicsScene::SetPendingBodyImpulse( PhysicsBodyHandle body,
+                                          const Math::Vector::Vector3& impulse,
+                                          const Math::Vector::Vector3& localApplicationPoint )
+{
+    // Why: initial authored/generated impulses are one-shot physics state.
+    // Writing them into the body store avoids routing setup through the
+    // GameModelCollection model-index command wrappers.
+    m_bodyStore.SetPendingBodyImpulse( body, impulse, localApplicationPoint );
 }
 
 

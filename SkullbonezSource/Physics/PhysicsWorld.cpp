@@ -1117,6 +1117,12 @@ void PhysicsWorld::SetPhysicsSleepEnabled( bool enabled )
 }
 
 
+bool PhysicsWorld::IsPhysicsSleepEnabled() const
+{
+    return m_sleepEnabled;
+}
+
+
 void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
                                       PhysicsBodyStore& bodyStore,
                                       const ColliderStore& colliderStore,

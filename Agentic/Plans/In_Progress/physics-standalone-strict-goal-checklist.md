@@ -359,7 +359,7 @@ model indices stop entering physics commands directly.
 - [ ] Keep `GameModelCollectionPhysicsAdapter` as the only model-index to body
   handle bridge while migration is underway.
 - [ ] For each legacy model-index physics command, migrate one caller group:
-  - [ ] scene setup,
+  - [x] scene setup,
   - [ ] editor tools,
   - [ ] mouse pickup tools,
   - [ ] launcher tools,
@@ -378,6 +378,16 @@ model indices stop entering physics commands directly.
   - [ ] `tools\validate_fast.bat` for guardrail/project changes.
   - [ ] `tools\validate_physics.bat` for physics command behavior.
   - [ ] `tools\validate_full.bat` for replay/editor/scene lifecycle breadth.
+
+Current Phase 7 progress: authored and generated scene setup now resolves
+`PhysicsBodyHandle` at construction time through the existing adapter, then
+calls handle-keyed `PhysicsEngine` pending-impulse and sleep-seed commands.
+`tools/check_runtime_boundaries.py` now rejects direct
+`context.models.SetPendingBodyImpulse`, `SeedModelAsleep`, `WakeModel`, or
+`ApplyBodyImpulse` calls in Runtime/Scene setup code. Evidence for this slice:
+`python -m py_compile tools\check_runtime_boundaries.py`,
+`python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+`tools\validate_fast.bat`, and `tools\validate_full.bat` all passed.
 
 ## Phase 8 - Diagnostics And SkullScope
 

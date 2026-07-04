@@ -77,7 +77,13 @@ class PhysicsEngine
                const PhysicsWorldForces& worldForces,
                Threading::WorkerPool& workerPool );
     void WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
+    // Scene construction commands can target the store by handle before legacy
+    // presentation needs a model writeback.
+    void SeedBodyAsleep( PhysicsBodyHandle body );
     void SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body );
+    void SetPendingBodyImpulse( PhysicsBodyHandle body,
+                                const Math::Vector::Vector3& impulse,
+                                const Math::Vector::Vector3& localApplicationPoint );
     void ApplyBodyImpulse( PhysicsModelAccess& modelAccess,
                            PhysicsBodyHandle body,
                            const Math::Vector::Vector3& impulse,

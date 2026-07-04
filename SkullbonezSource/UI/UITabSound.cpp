@@ -199,7 +199,8 @@ float GlobalSliderY( int sliderIndex )
     {
         return SOUND_SIMPLE_SLIDER_Y + static_cast<float>( sliderIndex ) * SOUND_SLIDER_STEP_Y;
     }
-    return SOUND_GLOBAL_SLIDER_Y + static_cast<float>( sliderIndex - SOUND_SIMPLE_GLOBAL_SLIDER_COUNT ) * SOUND_SLIDER_STEP_Y;
+    return SOUND_GLOBAL_SLIDER_Y +
+           static_cast<float>( sliderIndex - SOUND_SIMPLE_GLOBAL_SLIDER_COUNT ) * SOUND_SLIDER_STEP_Y;
 }
 
 float SetSliderValue( const SkullbonezCore::UI::UISoundSetFrameData& set, int sliderIndex )
@@ -883,7 +884,13 @@ void Draw( UISoundTabState& state,
         }
     }
 
-    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_GLOBAL_TITLE_Y, 12.0f, "Contact Classifier" );
+    DrawSectionTitle( draw,
+                      contentX,
+                      contentY,
+                      contentH,
+                      scrolledY + SOUND_GLOBAL_TITLE_Y,
+                      12.0f,
+                      "Contact Classifier" );
     for ( int i = 0; i < static_cast<int>( sizeof( kGlobalSliders ) / sizeof( kGlobalSliders[0] ) ); ++i )
     {
         if ( i < SOUND_SIMPLE_GLOBAL_SLIDER_COUNT )

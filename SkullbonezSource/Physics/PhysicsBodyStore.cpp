@@ -1460,9 +1460,9 @@ bool PhysicsBodyStore::WakeBody( int modelIndex )
 }
 
 
-bool PhysicsBodyStore::SeedBodyAsleep( int modelIndex )
+bool PhysicsBodyStore::SeedBodyAsleep( PhysicsBodyHandle body )
 {
-    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
+    PhysicsBodyRecord* record = MutableRecordForHandle( body );
     if ( !record || record->isFixed )
     {
         return false;
@@ -1472,6 +1472,12 @@ bool PhysicsBodyStore::SeedBodyAsleep( int modelIndex )
     record->angularVelocity = ZERO_VECTOR;
     record->isSleeping = true;
     return true;
+}
+
+
+bool PhysicsBodyStore::SeedBodyAsleep( int modelIndex )
+{
+    return SeedBodyAsleep( HandleForModelIndex( modelIndex ) );
 }
 
 
