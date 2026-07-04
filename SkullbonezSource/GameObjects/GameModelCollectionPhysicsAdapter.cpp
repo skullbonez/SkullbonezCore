@@ -58,7 +58,13 @@ PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForModelIndex( in
     }
 
     PhysicsModelAccess modelAccess( m_collection );
-    m_collection.m_physicsEngine.RefreshBodyStore( modelAccess );
+    // Invariant: handle lookup only imports GameModel body data when topology
+    // changed. Same-count body state belongs to PhysicsBodyStore after explicit
+    // editor/replay commits and should not be reloaded here.
+    if ( m_collection.m_physicsEngine.BodyStore().Count() != m_collection.GetModelCount() )
+    {
+        m_collection.m_physicsEngine.RefreshBodyStore( modelAccess );
+    }
     return m_collection.m_physicsEngine.BodyStore().HandleForModelIndex( modelIndex );
 }
 

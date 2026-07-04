@@ -82,6 +82,7 @@ PHYSICS_WORLD_SOURCE = PHYSICS_ROOT / "PhysicsWorld.cpp"
 PHYSICS_SCENE_SOURCE = PHYSICS_ROOT / "PhysicsScene.cpp"
 PHYSICS_DIAGNOSTICS_SINK_SOURCE = PHYSICS_ROOT / "PhysicsDiagnosticsSink.cpp"
 GAME_MODEL_COLLECTION_SOURCE = Path("SkullbonezSource/GameObjects/GameModelCollection.cpp")
+GAME_MODEL_COLLECTION_PHYSICS_ADAPTER_SOURCE = Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp")
 IRENDER_BACKEND_HEADER = Path("SkullbonezSource/Rendering/IRenderBackend.h")
 RUN_RENDER_SOURCE = Path("SkullbonezSource/Runtime/RunRender.cpp")
 RENDER_PIPELINE_SOURCE = Path("SkullbonezSource/Rendering/RenderPipeline.cpp")
@@ -170,6 +171,30 @@ PHYSICS_SCENE_TOPOLOGY_BODY_RELOAD_PATTERN = re.compile(
     r"if\s*\(\s*m_bodyStore\s*\.\s*Count\s*\(\s*\)\s*!=\s*"
     r"(?:modelCount|modelAccess\s*\.\s*ModelCount\s*\(\s*\))\s*\)\s*\{\s*"
     r"modelAccess\s*\.\s*ReloadPhysicsBodies\s*\(",
+    re.S,
+)
+PHYSICS_SCENE_COMMAND_BODY_REFRESH_FUNCTIONS = (
+    "WakeBody",
+    "SeedBodyAsleep",
+    "SetPendingBodyImpulse",
+)
+PHYSICS_SCENE_COMMAND_BODY_REFRESH_PATTERN = re.compile(r"\bRefreshBodyStore\s*\(\s*modelAccess\s*\)")
+PHYSICS_SCENE_COMMAND_TOPOLOGY_BODY_REFRESH_PATTERN = re.compile(
+    r"if\s*\(\s*m_bodyStore\s*\.\s*Count\s*\(\s*\)\s*!=\s*"
+    r"(?:modelCount|modelAccess\s*\.\s*ModelCount\s*\(\s*\))\s*\)\s*\{\s*"
+    r"RefreshBodyStore\s*\(\s*modelAccess\s*\)",
+    re.S,
+)
+GAME_MODEL_COLLECTION_ADAPTER_BODY_HANDLE_FUNCTION_PATTERN = re.compile(
+    r"\bPhysicsBodyHandle\s+GameModelCollectionPhysicsAdapter::BodyHandleForModelIndex\s*\("
+)
+GAME_MODEL_COLLECTION_ADAPTER_BODY_REFRESH_PATTERN = re.compile(
+    r"\bm_collection\s*\.\s*m_physicsEngine\s*\.\s*RefreshBodyStore\s*\(\s*modelAccess\s*\)"
+)
+GAME_MODEL_COLLECTION_ADAPTER_TOPOLOGY_BODY_REFRESH_PATTERN = re.compile(
+    r"if\s*\(\s*m_collection\s*\.\s*m_physicsEngine\s*\.\s*BodyStore\s*\(\s*\)\s*\.\s*Count\s*\(\s*\)\s*!=\s*"
+    r"m_collection\s*\.\s*GetModelCount\s*\(\s*\)\s*\)\s*\{\s*"
+    r"m_collection\s*\.\s*m_physicsEngine\s*\.\s*RefreshBodyStore\s*\(\s*modelAccess\s*\)",
     re.S,
 )
 HOT_PATH_INHERITANCE_PATTERN = re.compile(
@@ -2044,6 +2069,102 @@ def check_physics_scene_step_body_reload_guardrails_text(path: Path, text: str) 
 def check_physics_scene_step_body_reload_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / PHYSICS_SCENE_SOURCE
     return check_physics_scene_step_body_reload_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def _function_body_bounds(stripped: str, function_pattern: re.Pattern[str]) -> tuple[int, int] | None:
+    function_match = function_pattern.search(stripped)
+    if not function_match:
+        return None
+
+    open_brace = stripped.find("{", function_match.end())
+    if open_brace < 0:
+        return None
+
+    return open_brace, find_matching_close_brace(stripped, open_brace)
+
+
+def _allowed_match_spans(function_body: str, body_offset: int, allowed_pattern: re.Pattern[str]) -> list[tuple[int, int]]:
+    return [(body_offset + match.start(), body_offset + match.end()) for match in allowed_pattern.finditer(function_body)]
+
+
+def check_physics_scene_command_body_refresh_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for function_name in PHYSICS_SCENE_COMMAND_BODY_REFRESH_FUNCTIONS:
+        bounds = _function_body_bounds(
+            stripped,
+            re.compile(rf"\bvoid\s+PhysicsScene::{function_name}\s*\("),
+        )
+        if not bounds:
+            continue
+
+        open_brace, close_brace = bounds
+        function_body = stripped[open_brace:close_brace]
+        allowed_spans = _allowed_match_spans(
+            function_body,
+            open_brace,
+            PHYSICS_SCENE_COMMAND_TOPOLOGY_BODY_REFRESH_PATTERN,
+        )
+        for match in PHYSICS_SCENE_COMMAND_BODY_REFRESH_PATTERN.finditer(stripped, open_brace, close_brace):
+            if any(start <= match.start() < end for start, end in allowed_spans):
+                continue
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "command-side model-to-body-store refresh is blocked",
+                    (
+                        f"PhysicsScene::{function_name} should keep PhysicsBodyStore authoritative during "
+                        "steady-state commands; only topology/count mismatch may import bodies from GameModel."
+                    ),
+                )
+            )
+    return errors
+
+
+def check_game_model_collection_adapter_body_refresh_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    bounds = _function_body_bounds(stripped, GAME_MODEL_COLLECTION_ADAPTER_BODY_HANDLE_FUNCTION_PATTERN)
+    if not bounds:
+        return errors
+
+    open_brace, close_brace = bounds
+    function_body = stripped[open_brace:close_brace]
+    allowed_spans = _allowed_match_spans(
+        function_body,
+        open_brace,
+        GAME_MODEL_COLLECTION_ADAPTER_TOPOLOGY_BODY_REFRESH_PATTERN,
+    )
+    for match in GAME_MODEL_COLLECTION_ADAPTER_BODY_REFRESH_PATTERN.finditer(stripped, open_brace, close_brace):
+        if any(start <= match.start() < end for start, end in allowed_spans):
+            continue
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "adapter body-handle model-to-store refresh is blocked",
+                (
+                    "BodyHandleForModelIndex should refresh body records only on model/body count mismatch; "
+                    "steady-state handle resolution must not reload PhysicsBodyStore from GameModel."
+                ),
+            )
+        )
+    return errors
+
+
+def check_command_side_body_refresh_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    scene_path = repo / PHYSICS_SCENE_SOURCE
+    errors.extend(check_physics_scene_command_body_refresh_guardrails_text(scene_path, scene_path.read_text(encoding="utf-8")))
+    adapter_path = repo / GAME_MODEL_COLLECTION_PHYSICS_ADAPTER_SOURCE
+    errors.extend(
+        check_game_model_collection_adapter_body_refresh_guardrails_text(
+            adapter_path,
+            adapter_path.read_text(encoding="utf-8"),
+        )
+    )
+    return errors
 
 
 def check_physics_hot_path_inheritance_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -6888,6 +7009,86 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only step-start body reload synthetic text was rejected")
 
+    old_physics_scene_command_body_refresh = """
+    void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        RefreshBodyStore( modelAccess );
+        ApplyCommand();
+    }
+    """
+    if not any(
+        error.message == "command-side model-to-body-store refresh is blocked"
+        for error in check_physics_scene_command_body_refresh_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+            old_physics_scene_command_body_refresh,
+        )
+    ):
+        failures.append("old unconditional command-side body refresh synthetic surface was not rejected")
+
+    topology_guarded_physics_scene_command_body_refresh = """
+    void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        const int modelCount = modelAccess.ModelCount();
+        if ( m_bodyStore.Count() != modelCount )
+        {
+            RefreshBodyStore( modelAccess );
+        }
+        ApplyCommand();
+    }
+    """
+    if check_physics_scene_command_body_refresh_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        topology_guarded_physics_scene_command_body_refresh,
+    ):
+        failures.append("topology-guarded command-side body refresh synthetic surface was rejected")
+
+    old_adapter_body_handle_refresh = """
+    PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForModelIndex( int modelIndex ) const
+    {
+        PhysicsModelAccess modelAccess( m_collection );
+        m_collection.m_physicsEngine.RefreshBodyStore( modelAccess );
+        return m_collection.m_physicsEngine.BodyStore().HandleForModelIndex( modelIndex );
+    }
+    """
+    if not any(
+        error.message == "adapter body-handle model-to-store refresh is blocked"
+        for error in check_game_model_collection_adapter_body_refresh_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp"),
+            old_adapter_body_handle_refresh,
+        )
+    ):
+        failures.append("old unconditional adapter body refresh synthetic surface was not rejected")
+
+    topology_guarded_adapter_body_handle_refresh = """
+    PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForModelIndex( int modelIndex ) const
+    {
+        PhysicsModelAccess modelAccess( m_collection );
+        if ( m_collection.m_physicsEngine.BodyStore().Count() != m_collection.GetModelCount() )
+        {
+            m_collection.m_physicsEngine.RefreshBodyStore( modelAccess );
+        }
+        return m_collection.m_physicsEngine.BodyStore().HandleForModelIndex( modelIndex );
+    }
+    """
+    if check_game_model_collection_adapter_body_refresh_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp"),
+        topology_guarded_adapter_body_handle_refresh,
+    ):
+        failures.append("topology-guarded adapter body refresh synthetic surface was rejected")
+
+    commented_command_body_refresh = """
+    void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        // RefreshBodyStore( modelAccess ) used to run every command.
+        ApplyCommand();
+    }
+    """
+    if check_physics_scene_command_body_refresh_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        commented_command_body_refresh,
+    ):
+        failures.append("comment-only command-side body refresh synthetic text was rejected")
+
     allowed_physics_hot_path_values = """
     struct SolverBodyState
     {
@@ -7307,6 +7508,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))
     errors.extend(check_replay_restore_store_authority_guardrails(repo))
     errors.extend(check_physics_scene_step_body_reload_guardrails(repo))
+    errors.extend(check_command_side_body_refresh_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))
     errors.extend(check_approved_inheritance_guardrails(repo))

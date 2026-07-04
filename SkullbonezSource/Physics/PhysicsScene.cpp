@@ -219,10 +219,16 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
 }
 
 
+// Invariant: steady-state commands mutate PhysicsBodyStore records selected by
+// handles. GameModel body data is imported here only when topology/count changed.
 void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
 {
-    RefreshBodyStore( modelAccess );
-    if ( m_colliderStore.Count() != modelAccess.ModelCount() )
+    const int modelCount = modelAccess.ModelCount();
+    if ( m_bodyStore.Count() != modelCount )
+    {
+        RefreshBodyStore( modelAccess );
+    }
+    if ( m_colliderStore.Count() != modelCount )
     {
         RefreshColliderStore( modelAccess );
     }
@@ -246,7 +252,11 @@ void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle 
 
 void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
 {
-    RefreshBodyStore( modelAccess );
+    const int modelCount = modelAccess.ModelCount();
+    if ( m_bodyStore.Count() != modelCount )
+    {
+        RefreshBodyStore( modelAccess );
+    }
     const int index = m_bodyStore.ModelIndexForHandle( body );
     if ( index < 0 )
     {
@@ -273,7 +283,11 @@ void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
                                           const Math::Vector::Vector3& impulse,
                                           const Math::Vector::Vector3& localApplicationPoint )
 {
-    RefreshBodyStore( modelAccess );
+    const int modelCount = modelAccess.ModelCount();
+    if ( m_bodyStore.Count() != modelCount )
+    {
+        RefreshBodyStore( modelAccess );
+    }
     const int bodyIndex = m_bodyStore.ModelIndexForHandle( body );
     if ( bodyIndex < 0 )
     {
