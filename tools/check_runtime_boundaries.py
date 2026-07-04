@@ -61,6 +61,8 @@
 #     PhysicsBodyStore handle lookup instead of a legacy external adapter.
 #   Per-body writeback fence: Static rule that keeps command paths from copying
 #     one PhysicsBodyStore row back into GameModel as a convenience mirror.
+#   Replay prediction writeback fence: Static rule that keeps temporary future
+#     preview steps from copying every store row back into GameModel.
 #
 # Invariants:
 #   - Run.h may own subsystem objects, but not their extracted transient state.
@@ -144,6 +146,7 @@ EDITOR_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp")
 MOUSE_PICKUP_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl")
 RUNTIME_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp")
 RUNTIME_TOOLS_HEADER = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h")
+RUN_REPLAY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp")
 REPLAY_VELOCITY_EDIT_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl")
 REPLAY_PREDICTION_HELPERS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl")
 REPLAY_PREDICTION_VISUALIZER_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl")
@@ -432,11 +435,16 @@ REPLAY_RECORDER_MODEL_STATE_CAPTURE_PATTERN = re.compile(
     r"GetInvertedMass|GetRotationalInertia|GetInvertedRotationalInertia|IsFixed)\s*\()"
 )
 REPLAY_PREDICTION_CAPTURE_BODY_FUNCTION_PATTERN = re.compile(r"\bbool\s+CaptureReplayPredictionBodyState\s*\(")
+REPLAY_PREDICTION_CAPTURE_FRAME_FUNCTION_PATTERN = re.compile(r"\bvoid\s+CaptureReplayPredictionFrame\s*\(")
 REPLAY_PREDICTION_MODEL_STATE_CAPTURE_PATTERN = re.compile(
     r"\bmodel\s*(?:->|\.)\s*"
     r"(?:GetReplayBodyId|GetPosition|GetVelocity|GetAngularVelocity|GetOrientation|GetMass|"
     r"GetInvertedMass|GetRotationalInertia|GetInvertedRotationalInertia|IsFixed)\s*\("
     r"|\bmodelCollection\s*\.\s*GetPhysicsBodyStore\s*\("
+)
+REPLAY_PREDICTION_PHYSICS_TICK_FUNCTION_PATTERN = re.compile(r"\bvoid\s+StepReplayPredictionPhysicsTick\s*\(")
+REPLAY_PREDICTION_BULK_WRITEBACK_PATTERN = re.compile(
+    r"\bmodelCollection\s*\.\s*WriteBackPhysicsBodies\s*\("
 )
 RUN_REPLAY_RESTORE_BODY_STORE_REFRESH_PATTERN = re.compile(
     r"\bm_cGameModelCollection\s*\.\s*GetPhysicsBodyStore\s*\("
@@ -3331,7 +3339,13 @@ def check_game_model_collection_run_physics_model_access_guardrails_text(
     path: Path,
     text: str,
 ) -> list[BoundaryError]:
-    if path.name not in { "GameModelCollection.cpp", "GameModelCollection.h", "RunFrame.cpp", "RunReplayPredictionVisualizer.inl" }:
+    if path.name not in {
+        "GameModelCollection.cpp",
+        "GameModelCollection.h",
+        "RunFrame.cpp",
+        "RunReplayPredictionVisualizer.inl",
+        "RunReplayTools.cpp",
+    }:
         return []
     stripped = strip_cpp_comments_and_string_literals(text)
     errors: list[BoundaryError] = []
@@ -3364,6 +3378,7 @@ def check_game_model_collection_run_physics_model_access_guardrails(repo: Path) 
         GAME_MODEL_COLLECTION_SOURCE,
         GAME_MODEL_COLLECTION_HEADER,
         RUN_FRAME_SOURCE,
+        RUN_REPLAY_TOOLS_SOURCE,
         REPLAY_PREDICTION_VISUALIZER_SOURCE,
     ):
         path = repo / source
@@ -3723,24 +3738,28 @@ def check_replay_recorder_store_authority_guardrails(repo: Path) -> list[Boundar
 def check_replay_prediction_body_capture_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments_and_string_literals(text)
     errors: list[BoundaryError] = []
-    bounds = _function_body_bounds(stripped, REPLAY_PREDICTION_CAPTURE_BODY_FUNCTION_PATTERN)
-    if not bounds:
-        return errors
+    for function_pattern in (
+        REPLAY_PREDICTION_CAPTURE_BODY_FUNCTION_PATTERN,
+        REPLAY_PREDICTION_CAPTURE_FRAME_FUNCTION_PATTERN,
+    ):
+        bounds = _function_body_bounds(stripped, function_pattern)
+        if not bounds:
+            continue
 
-    open_brace, close_brace = bounds
-    for match in REPLAY_PREDICTION_MODEL_STATE_CAPTURE_PATTERN.finditer(stripped, open_brace, close_brace):
-        errors.append(
-            BoundaryError(
-                path,
-                line_for_offset(stripped, match.start()),
-                "replay prediction model-state capture is blocked",
-                (
-                    "Replay prediction backup must read physics state from PhysicsBodyStore records. GameModel may "
-                    "supply presentation-only timers, but not pose, velocity, mass, inertia, fixed state, replay id, "
-                    "or a model-refreshing body-store accessor."
-                ),
+        open_brace, close_brace = bounds
+        for match in REPLAY_PREDICTION_MODEL_STATE_CAPTURE_PATTERN.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "replay prediction model-state capture is blocked",
+                    (
+                        "Replay prediction backup and samples must read physics state from PhysicsBodyStore "
+                        "records. GameModel may supply presentation-only timers, but not pose, velocity, mass, "
+                        "inertia, fixed state, replay id, or a model-refreshing body-store accessor."
+                    ),
+                )
             )
-        )
     return errors
 
 
@@ -3750,6 +3769,34 @@ def check_replay_prediction_body_capture_store_authority_guardrails(repo: Path) 
         path,
         path.read_text(encoding="utf-8"),
     )
+
+
+def check_replay_prediction_step_writeback_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    bounds = _function_body_bounds(stripped, REPLAY_PREDICTION_PHYSICS_TICK_FUNCTION_PATTERN)
+    if not bounds:
+        return errors
+
+    open_brace, close_brace = bounds
+    for match in REPLAY_PREDICTION_BULK_WRITEBACK_PATTERN.finditer(stripped, open_brace, close_brace):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay prediction model writeback is blocked",
+                (
+                    "Prediction preview steps must leave temporary poses in PhysicsBodyStore and capture samples "
+                    "from those records instead of bulk-projecting every body through GameModel."
+                ),
+            )
+        )
+    return errors
+
+
+def check_replay_prediction_step_writeback_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / RUN_REPLAY_TOOLS_SOURCE
+    return check_replay_prediction_step_writeback_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_run_replay_restore_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -11110,7 +11157,7 @@ def run_self_tests() -> list[str]:
     if not any(
         error.message == "GameModelCollection physics step wrapper is blocked"
         for error in check_game_model_collection_run_physics_model_access_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl"),
+            Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"),
             old_replay_prediction_run_physics_wrapper_call,
         )
     ):
@@ -11690,6 +11737,40 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("store-owned replay prediction capture synthetic surface was rejected")
 
+    old_prediction_sample_model_state_capture = """
+    void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime, GameModelCollection& modelCollection )
+    {
+        const GameModel* model = modelCollection.TryGetModel( i );
+        body.id.value = model->GetReplayBodyId();
+        body.position = model->GetPosition();
+        body.orientation = model->GetOrientation();
+    }
+    """
+    if not any(
+        error.message == "replay prediction model-state capture is blocked"
+        for error in check_replay_prediction_body_capture_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"),
+            old_prediction_sample_model_state_capture,
+        )
+    ):
+        failures.append("old replay prediction sample model-state capture synthetic surface was not rejected")
+
+    store_owned_prediction_sample_capture = """
+    void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime, GameModelCollection& modelCollection )
+    {
+        const std::vector<PhysicsBodyRecord>& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
+        const PhysicsBodyRecord& source = bodyRecords[i];
+        body.id.value = source.replayBodyId;
+        body.position = source.position;
+        body.orientation = source.orientation;
+    }
+    """
+    if check_replay_prediction_body_capture_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"),
+        store_owned_prediction_sample_capture,
+    ):
+        failures.append("store-owned replay prediction sample capture synthetic surface was rejected")
+
     commented_prediction_model_state_capture = """
     bool CaptureReplayPredictionBodyState( GameModelCollection& modelCollection )
     {
@@ -11704,6 +11785,50 @@ def run_self_tests() -> list[str]:
         commented_prediction_model_state_capture,
     ):
         failures.append("comment-only replay prediction model-state synthetic text was rejected")
+
+    old_replay_prediction_model_writeback = """
+    void StepReplayPredictionPhysicsTick( GameModelCollection& modelCollection )
+    {
+        PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
+        physicsEngine.Step( PHYSICS_FIXED_DT, config, worldForces, workerPool, nullptr, 0 );
+        modelCollection.WriteBackPhysicsBodies( physicsEngine.BodyStore() );
+    }
+    """
+    if not any(
+        error.message == "replay prediction model writeback is blocked"
+        for error in check_replay_prediction_step_writeback_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"),
+            old_replay_prediction_model_writeback,
+        )
+    ):
+        failures.append("old replay prediction model writeback synthetic surface was not rejected")
+
+    allowed_replay_prediction_store_step = """
+    void StepReplayPredictionPhysicsTick( GameModelCollection& modelCollection )
+    {
+        PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
+        physicsEngine.Step( PHYSICS_FIXED_DT, config, worldForces, workerPool, nullptr, 0 );
+        NotifyFixedContactsOnly();
+    }
+    """
+    if check_replay_prediction_step_writeback_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"),
+        allowed_replay_prediction_store_step,
+    ):
+        failures.append("store-owned replay prediction step synthetic surface was rejected")
+
+    commented_replay_prediction_model_writeback = """
+    void StepReplayPredictionPhysicsTick( GameModelCollection& modelCollection )
+    {
+        // modelCollection.WriteBackPhysicsBodies(...) used to make sample capture read GameModel.
+        physicsEngine.Step( PHYSICS_FIXED_DT, config, worldForces, workerPool, nullptr, 0 );
+    }
+    """
+    if check_replay_prediction_step_writeback_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"),
+        commented_replay_prediction_model_writeback,
+    ):
+        failures.append("comment-only replay prediction writeback synthetic text was rejected")
 
     old_run_replay_restore_body_store_reload = """
     bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample )
@@ -14083,6 +14208,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_deleted_model_force_bridge_guardrails(repo))
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))
     errors.extend(check_replay_prediction_body_capture_store_authority_guardrails(repo))
+    errors.extend(check_replay_prediction_step_writeback_guardrails(repo))
     errors.extend(check_replay_restore_store_authority_guardrails(repo))
     errors.extend(check_physics_scene_step_body_reload_guardrails(repo))
     errors.extend(check_physics_scene_pending_impulse_model_mirror_guardrails(repo))

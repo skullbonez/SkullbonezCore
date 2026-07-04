@@ -206,7 +206,9 @@ void StepReplayPredictionPhysicsTick( SkullbonezCore::GameObjects::GameModelColl
     {
         modelCollection.NotifyFixedContact( index, 0.5f );
     }
-    modelCollection.WriteBackPhysicsBodies( physicsEngine.BodyStore() );
+    // Invariant: prediction samples read PhysicsBodyStore records directly.
+    // Do not project temporary preview poses into GameModel mirrors; the
+    // captured restore state owns the live model pose after prediction exits.
 }
 
 

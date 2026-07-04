@@ -16,8 +16,8 @@ Glossary:
 Invariants:
   - Prediction helpers must honor the shared replay visualizer time budget.
   - This file must only be included from RunReplayTools.cpp inside the anonymous namespace.
-  - Prediction backups sample simulation state from body records; GameModel
-    remains only for presentation-owned timers.
+  - Prediction backups and frame samples read simulation state from body
+    records; GameModel remains only for presentation-owned timers.
 
 Related:
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
@@ -1185,6 +1185,12 @@ void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
     const int modelCount = modelCollection.GetModelCount();
+    const std::vector<PhysicsBodyRecord>& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
+    if ( static_cast<int>( bodyRecords.size() ) < modelCount )
+    {
+        return;
+    }
+
     RunReplayPredictionFrame frame;
     frame.frameIndex = frameIndex;
     frame.simulationSeconds = replayRuntime.Prediction().sourceSimulationSeconds +
@@ -1194,22 +1200,18 @@ void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
 
     const auto captureBody = [&]( int i )
     {
-        const GameModel* model = modelCollection.TryGetModel( i );
-        if ( !model )
-        {
-            return;
-        }
-
+        const PhysicsBodyRecord& source = bodyRecords[static_cast<std::size_t>( i )];
         RunReplayPredictionBodySample body;
-        body.id.value = model->GetReplayBodyId();
+        body.id.value = source.replayBodyId;
         body.modelIndex = i;
-        body.position = model->GetPosition();
-        body.orientation = model->GetOrientation();
+        body.position = source.position;
+        body.orientation = source.orientation;
         frame.bodies[static_cast<std::size_t>( i )] = body;
     };
 
-    // Why: a 4000-body prediction frame is hundreds of kilobytes of pose copy.
-    // Parallel capture pays off there, but small scenes stay serial by threshold.
+    // Invariant: capture reads the store rows advanced by the prediction step.
+    // A replay-only GameModel writeback would copy every temporary pose just so
+    // this loop could read the same values back into prediction samples.
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
         workerPool.ParallelFor( 0,
