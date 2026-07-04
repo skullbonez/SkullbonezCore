@@ -13,11 +13,15 @@ Glossary:
     impulses.
   Store: Ordered snapshot of one ownership concern such as bodies, colliders,
     or render instances.
+  Pending impulse: One-shot velocity edit queued on a body record and consumed
+    by the next solver step.
   Determinism: Same inputs produce byte-exact validation artifacts.
 
 Invariants:
   - Store refresh order must preserve deterministic model-view order.
   - RunPhysics delegates to PhysicsWorld without changing floating-point order.
+  - Pending impulses stay store-owned until consumed; model streams are
+    invalidated only when presentation state changes.
 
 Related:
   - SkullbonezSource/Physics/PhysicsScene.h
@@ -427,14 +431,9 @@ void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
         return;
     }
 
-    // Why: the mutation above is handle-keyed store authority; this model index
-    // is only the remaining legacy projection for model-backed presentation.
-    const int bodyIndex = m_bodyStore.ModelIndexForHandle( body );
-    if ( bodyIndex >= 0 )
-    {
-        modelAccess.WriteBackPhysicsBody( m_bodyStore, bodyIndex );
-        modelAccess.InvalidatePhysicsStreams();
-    }
+    // Why: pending impulses are one-shot solver input consumed from
+    // PhysicsBodyStore. Mirroring them through GameModel would copy a full
+    // body record and invalidate model streams without changing presentation.
 }
 
 

@@ -711,7 +711,7 @@ Debug with 0 warnings/0 errors.
   - [x] diagnostics-only view consumption,
   - [x] test/tool-only fixture use.
 - [x] Keep allowlists counted and exact by file/label/line group where possible.
-- [ ] Lower counts in the same commit that removes a compatibility borrower.
+- [x] Lower counts in the same commit that removes a compatibility borrower.
 - [ ] Validation for this phase:
   - [x] `tools\validate_fast.bat`
   - [x] direct changed-script run if the guardrail script changes.
@@ -722,13 +722,43 @@ model-index field checks for public `*Desc` structs and scoped standalone
 implementation checks for `PhysicsApi.cpp` so raw `GameModel`,
 `std::vector<GameModel>`, or `modelAccess.Models()` cannot enter the standalone
 proof path. Positive tests keep runtime adapter code, diagnostics-only views,
-and test/tool fixtures out of that narrow standalone scan. No compatibility
-borrower was removed in this slice, so the allowlist-lowering item remains a
-future rule for deletion commits. Evidence: CodeGraph-first lookup followed by
-targeted source reads, comment-style audit of `tools/check_runtime_boundaries.py`,
-`git diff --check`, `python -m py_compile tools\check_runtime_boundaries.py`,
+and test/tool fixtures out of that narrow standalone scan. The phase also
+ratcheted deleted body-mirror names and added a solver hot-path per-body
+writeback fence; future deletion commits must keep lowering exact counts or add
+equivalent focused guardrails in the same slice. Evidence: CodeGraph-first
+lookup followed by targeted source reads, comment-style audit of
+`tools/check_runtime_boundaries.py`, `git diff --check`,
+`python -m py_compile tools\check_runtime_boundaries.py`,
 `python tools\check_runtime_boundaries.py --repo .` with 0 errors,
 `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`.
+
+## Phase 10 - Step Boundary / Store Authority Beachheads
+
+- [x] Remove the pending-only `PhysicsScene::SetPendingBodyImpulse` model
+  mirror so handle-keyed pending impulses mutate `PhysicsBodyStore` without a
+  per-command `GameModel` writeback or model-stream invalidation.
+- [x] Keep `ApplyBodyImpulse` scoped to the existing wake/presentation
+  compatibility edge; do not broaden this slice into wake writeback deletion.
+- [x] Add runtime-boundary self-tests that reject the deleted
+  pending-impulse `WriteBackPhysicsBody`/`InvalidatePhysicsStreams` shape while
+  allowing store-only pending impulses and the remaining wake compatibility
+  path.
+- [x] Comment-audit the touched source files.
+- [x] Validation for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] `tools\validate_fast.bat`
+  - [x] `tools\validate_physics.bat`
+
+Current Phase 10 progress: pending impulses are still accepted through the
+legacy `PhysicsModelAccess` overload when runtime callers need that signature,
+but the command now stops after the authoritative store mutation. That deletes
+one full-body compatibility writeback and one stream invalidation from the
+pending-only command path without changing the explicit `ApplyBodyImpulse`
+wake/presentation edge. Evidence logs: `TestOutput\agent_validate_fast_pending_impulse_mirror.log`
+and `TestOutput\agent_validate_physics_pending_impulse_mirror.log`; the physics
+gate passed with byte-exact `physics_regression_solver.csv`.
 
 ## Required Evidence For Each Source Slice
 
