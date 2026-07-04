@@ -1521,6 +1521,45 @@ byte-exact `physics_regression_solver.csv`; rerun `tools\validate_full.bat`
 passed DX12 InfoQueue with 0 errors, DX12 screenshots matching committed
 baselines, and byte-exact `physics_regression_solver.csv`.
 
+Slice `PHY-1026`: delete the
+`GameModelCollectionPhysicsAdapter` model-index command-wrapper API after all
+runtime/editor/replay callers moved to explicit handle-keyed
+`PhysicsEngine` commands. Owner: `GameModelCollectionPhysicsAdapter` as a
+temporary legacy identity resolver; reason: command wrappers hide mutation
+behind the migration adapter and keep an old model-index command surface alive;
+deletion condition: no `WakeBodyForModelIndex`,
+`SeedBodyAsleepForModelIndex`, `ApplyBodyImpulseForModelIndex`, or
+`SetPendingBodyImpulseForModelIndex` names remain under `SkullbonezSource`;
+checker budget: `tools/check_runtime_boundaries.py` blocks those adapter
+command-wrapper names from returning anywhere under source-bearing files.
+
+- [x] Move `ReleaseAttachedFixedTreeParts` off the final live
+  `WakeBodyForModelIndex` caller.
+- [x] Delete adapter command-wrapper declarations and definitions.
+- [x] Keep `GameModelCollectionPhysicsAdapter` only as a legacy
+  model-index/scene-object-id to `PhysicsBodyHandle` resolver.
+- [x] Add runtime-boundary guardrails and self-tests for deleted adapter command
+  declarations, definitions, and calls.
+- [x] Confirm no adapter command-wrapper names remain under `SkullbonezSource`.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation run for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] touched-file comment audit
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence: CodeGraph plus targeted residue scans confirmed the last live
+adapter command-wrapper caller before the edit and zero adapter command-wrapper
+names remaining under `SkullbonezSource` after the edit; runtime-boundary
+summary reported 0 errors; touched-file comment audit confirmed the adapter
+comments now describe handle resolution rather than a command bridge;
+`tools\validate_fast.bat` passed formatting, project filters, runtime
+boundaries, and Profile/Debug builds with 0 warnings/errors;
+`tools\validate_physics.bat` passed standalone smoke, runtime handle smoke, and
+byte-exact `physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

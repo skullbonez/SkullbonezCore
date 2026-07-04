@@ -64,6 +64,7 @@ using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsModelAccess;
@@ -1005,6 +1006,7 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
 
     // Why: runtime ray tools edit GameModel directly before the next scene step
     // reloads the body store. PhysicsWorld does not use this model-owned edge.
+    GameModelCollectionPhysicsAdapter physicsBodies( *this );
     for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
     {
         if ( i == sourceIndex )
@@ -1033,7 +1035,11 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
             model.SetLinearVelocity( seedLinearVelocity );
             model.SetAngularVelocity( seedAngularVelocity );
         }
-        GameModelCollectionPhysicsAdapter( *this ).WakeBodyForModelIndex( i );
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( i, true );
+        if ( body.IsValid() )
+        {
+            m_physicsEngine.WakeBody( body );
+        }
     }
 }
 

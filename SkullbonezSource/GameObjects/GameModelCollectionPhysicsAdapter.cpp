@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp
 Purpose:
-  Implements the legacy GameModel-to-physics-handle command bridge.
+  Implements legacy GameModel-identity to PhysicsBodyHandle resolution.
 
 Mental model:
   This file is deliberately small migration glue. Runtime, scene, editor, and
-  replay call sites can keep their current model-index inputs while the bridge
-  resolves those inputs to physics handles before entering PhysicsEngine.
+  replay call sites can keep their current model-index inputs while this
+  resolver returns physics handles that callers pass directly to PhysicsEngine.
 
 Glossary:
   Handle conversion: Translation from a legacy scene/model identity into the
@@ -21,7 +21,7 @@ Invariants:
     handle.
   - Scene-object lookup scans current model order only to find identity; it does
     not lend out the backing vector.
-  - PhysicsEngine remains the only object that mutates physics state.
+  - This adapter does not mutate physics state; PhysicsEngine owns commands.
 
 Related:
   - SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.h
@@ -130,58 +130,4 @@ PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForWakeCommand( i
         m_collection.m_physicsEngine.RefreshBodyStore( modelAccess );
     }
     return m_collection.m_physicsEngine.BodyStore().HandleForModelIndex( modelIndex );
-}
-
-
-void GameModelCollectionPhysicsAdapter::WakeBodyForModelIndex( int modelIndex ) const
-{
-    const PhysicsBodyHandle body = BodyHandleForWakeCommand( modelIndex );
-    if ( !body.IsValid() )
-    {
-        return;
-    }
-
-    m_collection.m_physicsEngine.WakeBody( body );
-}
-
-
-void GameModelCollectionPhysicsAdapter::SeedBodyAsleepForModelIndex( int modelIndex ) const
-{
-    const PhysicsBodyHandle body = BodyHandleForModelIndex( modelIndex );
-    if ( !body.IsValid() )
-    {
-        return;
-    }
-
-    m_collection.m_physicsEngine.SeedBodyAsleep( body );
-}
-
-
-void GameModelCollectionPhysicsAdapter::ApplyBodyImpulseForModelIndex(
-    int modelIndex,
-    const Math::Vector::Vector3& impulse,
-    const Math::Vector::Vector3& localApplicationPoint ) const
-{
-    const PhysicsBodyHandle body = BodyHandleForWakeCommand( modelIndex );
-    if ( !body.IsValid() )
-    {
-        return;
-    }
-
-    m_collection.m_physicsEngine.ApplyBodyImpulse( body, impulse, localApplicationPoint );
-}
-
-
-void GameModelCollectionPhysicsAdapter::SetPendingBodyImpulseForModelIndex(
-    int modelIndex,
-    const Math::Vector::Vector3& impulse,
-    const Math::Vector::Vector3& localApplicationPoint ) const
-{
-    const PhysicsBodyHandle body = BodyHandleForModelIndex( modelIndex );
-    if ( !body.IsValid() )
-    {
-        return;
-    }
-
-    m_collection.m_physicsEngine.SetPendingBodyImpulse( body, impulse, localApplicationPoint );
 }

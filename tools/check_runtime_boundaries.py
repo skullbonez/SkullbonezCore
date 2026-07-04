@@ -546,6 +546,11 @@ DELETED_GAME_MODEL_COLLECTION_PHYSICS_WRAPPER_PATTERN = re.compile(
     r"\b(?:void\s+GameModelCollection\s*::\s*)?"
     r"(?:WakeModel|SeedModelAsleep|ApplyBodyImpulse|SetPendingBodyImpulse)\s*\("
 )
+DELETED_GAME_MODEL_COLLECTION_PHYSICS_ADAPTER_COMMAND_WRAPPER_PATTERN = re.compile(
+    r"\b(?:void\s+)?(?:GameModelCollectionPhysicsAdapter\s*::\s*)?"
+    r"(?:WakeBodyForModelIndex|SeedBodyAsleepForModelIndex|ApplyBodyImpulseForModelIndex|"
+    r"SetPendingBodyImpulseForModelIndex)\s*\("
+)
 HOT_PATH_INHERITANCE_PATTERN = re.compile(
     r"^\s*(?:class|struct)\s+[A-Za-z_]\w*[^{;\n]*:\s*(?:public|protected|private)\b",
     re.M,
@@ -4112,8 +4117,8 @@ def check_deleted_game_model_collection_physics_wrapper_guardrails_text(path: Pa
                 "deleted GameModelCollection model-index physics wrapper is blocked",
                 (
                     "GameModelCollection no longer exposes model-index physics command wrappers; callers should "
-                    "resolve PhysicsBodyHandle at their boundary or use GameModelCollectionPhysicsAdapter while "
-                    "legacy model identity is still being migrated."
+                    "resolve PhysicsBodyHandle at their boundary, using GameModelCollectionPhysicsAdapter only as "
+                    "a legacy identity-to-handle resolver while model identity is still being migrated."
                 ),
             )
         )
@@ -4125,6 +4130,42 @@ def check_deleted_game_model_collection_physics_wrapper_guardrails(repo: Path) -
     for relative_path in (GAME_MODEL_COLLECTION_HEADER, GAME_MODEL_COLLECTION_SOURCE):
         path = repo / relative_path
         errors.extend(check_deleted_game_model_collection_physics_wrapper_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_deleted_game_model_collection_physics_adapter_command_guardrails_text(
+    path: Path,
+    text: str,
+) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in DELETED_GAME_MODEL_COLLECTION_PHYSICS_ADAPTER_COMMAND_WRAPPER_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "deleted GameModelCollectionPhysicsAdapter command wrapper is blocked",
+                (
+                    "The adapter should only resolve legacy model identity into PhysicsBodyHandle values. "
+                    "Callers must invoke PhysicsEngine handle commands directly instead of restoring "
+                    "model-index command wrappers on the adapter."
+                ),
+            )
+        )
+    return errors
+
+
+def check_deleted_game_model_collection_physics_adapter_command_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
+        if path.suffix not in SOURCE_BEARING_SUFFIXES:
+            continue
+        errors.extend(
+            check_deleted_game_model_collection_physics_adapter_command_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+            )
+        )
     return errors
 
 
@@ -12042,14 +12083,16 @@ def run_self_tests() -> list[str]:
     allowed_game_model_collection_adapter_use = """
     void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
     {
-        GameModelCollectionPhysicsAdapter( *this ).WakeBodyForModelIndex( sourceIndex );
+        GameModelCollectionPhysicsAdapter physicsBodies( *this );
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( sourceIndex, true );
+        m_physicsEngine.WakeBody( body );
     }
     """
     if check_deleted_game_model_collection_physics_wrapper_guardrails_text(
         Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
         allowed_game_model_collection_adapter_use,
     ):
-        failures.append("GameModelCollection adapter use synthetic surface was rejected")
+        failures.append("GameModelCollection adapter handle resolver synthetic surface was rejected")
 
     commented_game_model_collection_physics_wrapper = """
     void DocumentDeletedWrappers()
@@ -12063,6 +12106,79 @@ def run_self_tests() -> list[str]:
         commented_game_model_collection_physics_wrapper,
     ):
         failures.append("comment-only GameModelCollection physics wrapper synthetic text was rejected")
+
+    old_game_model_collection_adapter_command_declaration = """
+    class GameModelCollectionPhysicsAdapter
+    {
+        void WakeBodyForModelIndex( int modelIndex ) const;
+        void ApplyBodyImpulseForModelIndex( int modelIndex ) const;
+    };
+    """
+    if not any(
+        error.message == "deleted GameModelCollectionPhysicsAdapter command wrapper is blocked"
+        for error in check_deleted_game_model_collection_physics_adapter_command_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.h"),
+            old_game_model_collection_adapter_command_declaration,
+        )
+    ):
+        failures.append("old GameModelCollectionPhysicsAdapter command declaration synthetic surface was not rejected")
+
+    old_game_model_collection_adapter_command_definition = """
+    void GameModelCollectionPhysicsAdapter::SetPendingBodyImpulseForModelIndex( int index ) const
+    {
+        m_collection.GetPhysicsEngine().SetPendingBodyImpulse( BodyHandleForModelIndex( index ), impulse, point );
+    }
+    """
+    if not any(
+        error.message == "deleted GameModelCollectionPhysicsAdapter command wrapper is blocked"
+        for error in check_deleted_game_model_collection_physics_adapter_command_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp"),
+            old_game_model_collection_adapter_command_definition,
+        )
+    ):
+        failures.append("old GameModelCollectionPhysicsAdapter command definition synthetic surface was not rejected")
+
+    old_game_model_collection_adapter_command_call = """
+    void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
+    {
+        GameModelCollectionPhysicsAdapter( *this ).WakeBodyForModelIndex( sourceIndex );
+    }
+    """
+    if not any(
+        error.message == "deleted GameModelCollectionPhysicsAdapter command wrapper is blocked"
+        for error in check_deleted_game_model_collection_physics_adapter_command_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_game_model_collection_adapter_command_call,
+        )
+    ):
+        failures.append("old GameModelCollectionPhysicsAdapter command call synthetic surface was not rejected")
+
+    allowed_game_model_collection_adapter_handle_resolver = """
+    void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
+    {
+        GameModelCollectionPhysicsAdapter physicsBodies( *this );
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( sourceIndex, true );
+        m_physicsEngine.WakeBody( body );
+    }
+    """
+    if check_deleted_game_model_collection_physics_adapter_command_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_game_model_collection_adapter_handle_resolver,
+    ):
+        failures.append("GameModelCollectionPhysicsAdapter handle resolver synthetic surface was rejected")
+
+    commented_game_model_collection_adapter_command = """
+    void DocumentDeletedAdapterCommands()
+    {
+        // GameModelCollectionPhysicsAdapter( *this ).WakeBodyForModelIndex(index) used to live here.
+        const PhysicsBodyHandle body = physicsBodies.BodyHandleForVelocityCommand( index, true );
+    }
+    """
+    if check_deleted_game_model_collection_physics_adapter_command_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        commented_game_model_collection_adapter_command,
+    ):
+        failures.append("comment-only GameModelCollectionPhysicsAdapter command synthetic text was rejected")
 
     allowed_physics_hot_path_values = """
     struct SolverBodyState
@@ -12527,6 +12643,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_frame_replay_editor_transform_wake_guardrails(repo))
     errors.extend(check_ragdoll_model_index_physics_command_guardrails(repo))
     errors.extend(check_deleted_game_model_collection_physics_wrapper_guardrails(repo))
+    errors.extend(check_deleted_game_model_collection_physics_adapter_command_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))
     errors.extend(check_approved_inheritance_guardrails(repo))

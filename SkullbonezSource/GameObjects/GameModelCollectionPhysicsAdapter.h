@@ -5,9 +5,9 @@ Purpose:
 
 Mental model:
   GameModelCollection still owns legacy scene object storage, but physics
-  commands should cross that boundary as PhysicsBodyHandle operations. This
-  adapter is the named bridge for old model-index and scene-object-id callers
-  while runtime/editor/replay code migrates to storing handles directly.
+  commands cross that boundary as PhysicsBodyHandle operations. This adapter
+  resolves old model-index and scene-object-id callers while runtime, editor,
+  and replay code migrate to storing handles directly.
 
 Glossary:
   Compatibility adapter: Temporary boundary that translates legacy identities
@@ -21,8 +21,7 @@ Invariants:
   - The adapter never exposes mutable model storage.
   - Invalid model indices, unknown scene object ids, or ambiguous scene object
     ids resolve to invalid handles.
-  - Command methods preserve the old GameModelCollection command behavior while
-    centralizing handle conversion in one deletion target.
+  - Callers resolve handles here, then call PhysicsEngine commands directly.
 
 Related:
   - SkullbonezSource/GameObjects/GameModelCollection.h
@@ -31,7 +30,6 @@ Related:
 */
 #pragma once
 
-#include "../Maths/Vector3.h"
 #include "../Physics/PhysicsHandles.h"
 
 namespace SkullbonezCore
@@ -54,17 +52,6 @@ class GameModelCollectionPhysicsAdapter
     // Velocity edits can wake bodies, which may consult collider-derived sleep
     // locks. This keeps any required topology refresh at the model-index edge.
     Physics::PhysicsBodyHandle BodyHandleForVelocityCommand( int modelIndex, bool wakeIfMoving ) const;
-
-    // These methods preserve the old model-index command surface while forcing
-    // physics mutation to target handles before it reaches PhysicsEngine.
-    void WakeBodyForModelIndex( int modelIndex ) const;
-    void SeedBodyAsleepForModelIndex( int modelIndex ) const;
-    void ApplyBodyImpulseForModelIndex( int modelIndex,
-                                        const Math::Vector::Vector3& impulse,
-                                        const Math::Vector::Vector3& localApplicationPoint ) const;
-    void SetPendingBodyImpulseForModelIndex( int modelIndex,
-                                             const Math::Vector::Vector3& impulse,
-                                             const Math::Vector::Vector3& localApplicationPoint ) const;
 
   private:
     // Wakes may need collider-derived sleep locks. This helper performs the
