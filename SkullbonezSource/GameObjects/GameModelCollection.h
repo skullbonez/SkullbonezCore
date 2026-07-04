@@ -262,7 +262,14 @@ class GameModelCollection
     void NotifyFixedContact( int modelIndex, float highlightSeconds );
     void TickContactHighlights( int modelCount, float deltaSeconds );
     void NotifyAudioContact( int modelIndex, float highlightSeconds );
+    // Legacy model-owned release command retained for non-step callers that do
+    // not yet own a current PhysicsBodyStore.
     void ReleaseAttachedFixedTreeParts( const Physics::PhysicsFixedTreeReleaseEvent& event );
+    // Uses collection-owned tree grouping metadata, but writes released motion
+    // state into PhysicsBodyStore and fills a caller-reused wake list.
+    void ReleaseAttachedFixedTreeParts( Physics::PhysicsBodyStore& bodyStore,
+                                        const Physics::PhysicsFixedTreeReleaseEvent& event,
+                                        std::vector<int>& outReleasedBodyIndices );
     void ReleaseAttachedFixedTreeParts( int sourceIndex,
                                         const Math::Vector::Vector3& seedLinearVelocity,
                                         const Math::Vector::Vector3& seedAngularVelocity );

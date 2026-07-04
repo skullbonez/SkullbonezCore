@@ -228,6 +228,9 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
     {
         modelAccess.NotifyFixedContact( index, 0.5f );
     }
+    ApplyFixedTreeReleaseEvents( modelAccess, worldForces );
+
+    m_world.EmitStepDiagnostics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime );
 
     // Compatibility owner: PhysicsScene step boundary.
     // Reason: editor and replay compatibility consumers still read GameModel
@@ -242,6 +245,29 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
     // the boundary where those cached SoA streams become stale.
     modelAccess.InvalidatePhysicsStreams();
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+}
+
+
+void PhysicsScene::ApplyFixedTreeReleaseEvents( PhysicsModelAccess& modelAccess, const PhysicsWorldForces& worldForces )
+{
+    const std::vector<PhysicsFixedTreeReleaseEvent>& releaseEvents = m_world.GetFixedTreeReleaseEvents();
+    if ( releaseEvents.empty() )
+    {
+        return;
+    }
+
+    // Why: fixed-tree release changes live simulation state, then wake
+    // propagation may touch neighbouring bodies. Keep both operations on the
+    // body store before Debug diagnostics or compatibility writeback sample it.
+    m_fixedTreeReleaseWakeBodies.reserve( static_cast<std::size_t>( m_bodyStore.Count() ) );
+    for ( const PhysicsFixedTreeReleaseEvent& event : releaseEvents )
+    {
+        modelAccess.ReleaseAttachedFixedTreeParts( m_bodyStore, event, m_fixedTreeReleaseWakeBodies );
+        for ( int index : m_fixedTreeReleaseWakeBodies )
+        {
+            m_world.WakeModel( modelAccess, m_bodyStore, m_colliderStore, worldForces, index );
+        }
+    }
 }
 
 

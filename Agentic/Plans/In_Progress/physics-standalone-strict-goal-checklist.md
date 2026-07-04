@@ -231,7 +231,7 @@ passed with 0 errors; focused Debug build passed in 4.4s with 0 warnings/errors;
 14.2s with byte-exact `physics_regression_solver.csv`; `tools\validate_perf.bat`
 passed in 22.6s with no DX12 or PHYSICS_BENCH regressions.
 
-Latest strict-step authority slice `PHY-0207K`: fixed-contact highlight
+Strict-step authority slice `PHY-0207K`: fixed-contact highlight
 notification moved out of `PhysicsWorld` side-effect application. The persistent
 solver already fills `fixedContactBodies`; `PhysicsWorld` now exposes that queue
 read-only and `PhysicsScene` applies `NotifyFixedContact()` at the compatibility
@@ -242,6 +242,21 @@ passed in 8.4s with 0 warnings/errors; `tools\validate_fast.bat` passed in
 28.0s; `tools\validate_physics.bat` passed in 13.8s with byte-exact
 `physics_regression_solver.csv`; `tools\validate_perf.bat` passed in 22.5s with
 no DX12 or PHYSICS_BENCH regressions.
+
+Latest strict-step authority slice `PHY-0207L`: persistent-contact fixed-tree
+release moved from `PhysicsWorld` model-owner side effects to the
+`PhysicsScene` store edge. `GameModelCollection` still supplies tree grouping
+metadata, but the release now writes live motion state to `PhysicsBodyStore`
+directly, wakes released bodies from the scene edge, emits Debug diagnostics
+after scene-side store effects, then performs the single compatibility
+writeback. The checker blocks `modelAccess.ReleaseAttachedFixedTreeParts(...)`
+from returning to `PhysicsWorld::ApplyPersistentContactSideEffects` and blocks
+Debug diagnostics from returning to `PhysicsWorld::RunPhysics`. Evidence:
+py_compile and runtime-boundary checks passed with 0 errors; focused Debug build
+passed in 8.6s with 0 warnings/errors; `tools\validate_fast.bat` passed on rerun
+in 34.6s after targeted header alignment; `tools\validate_physics.bat` passed in
+13.9s with byte-exact `physics_regression_solver.csv`; `tools\validate_perf.bat`
+passed in 22.1s with no DX12 or PHYSICS_BENCH regressions.
 
 ## Phase 3 - Collider Store Authority
 

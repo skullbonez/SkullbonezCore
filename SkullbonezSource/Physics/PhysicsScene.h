@@ -27,6 +27,8 @@ Related:
 */
 #pragma once
 
+#include <vector>
+
 #include "ColliderStore.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsModelAccess.h"
@@ -142,6 +144,7 @@ class PhysicsScene
 #endif
 
   private:
+    void ApplyFixedTreeReleaseEvents( PhysicsModelAccess& modelAccess, const PhysicsWorldForces& worldForces );
 #ifdef _DEBUG
     void ValidatePhysicsStoreMappings( int modelCount ) const;
     void ValidateRenderStoreMappings( int modelCount ) const;
@@ -153,6 +156,7 @@ class PhysicsScene
     Rendering::RenderInstanceStore m_renderInstanceStore; // Render snapshot in model/replay order.
     PhysicsWorldForces m_lastWorldForces;                 // Last real step boundary forces used by explicit wake commands.
     bool m_hasLastWorldForces = false;                    // False until the first physics step supplies world forces.
+    std::vector<int> m_fixedTreeReleaseWakeBodies;        // Reused scene-edge wake list; avoids release-time allocation churn.
 };
 } // namespace Physics
 } // namespace SkullbonezCore

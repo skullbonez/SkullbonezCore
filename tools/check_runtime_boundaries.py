@@ -153,8 +153,14 @@ PHYSICS_WORLD_SOLVER_MODEL_STREAM_FUNCTIONS = (
 PHYSICS_WORLD_SOLVER_MODEL_STREAM_PATTERN = re.compile(r"\b(?:GameModelBodyStream|GetBodyStream)\b")
 PHYSICS_WORLD_CONTACT_HIGHLIGHT_TICK_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*TickContactHighlights\s*\(")
 PHYSICS_WORLD_FIXED_CONTACT_NOTIFY_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*NotifyFixedContact\s*\(")
+PHYSICS_WORLD_PERSISTENT_CONTACT_TREE_RELEASE_PATTERN = re.compile(
+    r"\bmodelAccess\s*\.\s*ReleaseAttachedFixedTreeParts\s*\("
+)
 PHYSICS_WORLD_RUN_PHYSICS_WRITEBACK_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*WriteBackPhysicsBodies\s*\(")
 PHYSICS_WORLD_RUN_PHYSICS_INVALIDATION_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*InvalidatePhysicsStreams\s*\(")
+PHYSICS_WORLD_RUN_PHYSICS_DIAGNOSTICS_PATTERN = re.compile(
+    r"\bm_diagnostics\s*\.\s*(?:EmitRegressionLog|IncrementCollisionTimeFrameIfEnabled|EmitFrame)\s*\("
+)
 RENDER_INSTANCE_MODEL_REFRESH_PATTERN = re.compile(
     r"\brenderInstanceStore\s*\.\s*Refresh\s*\(\s*m_gameModels\s*\)"
 )
@@ -2027,6 +2033,41 @@ def check_physics_world_fixed_contact_notify_guardrails(repo: Path) -> list[Boun
     return check_physics_world_fixed_contact_notify_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
+def check_physics_world_persistent_contact_tree_release_guardrails_text(
+    path: Path, text: str
+) -> list[BoundaryError]:
+    if path.name != "PhysicsWorld.cpp":
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    function_pattern = re.compile(r"\bvoid\s+PhysicsWorld::ApplyPersistentContactSideEffects\s*\([^{}]*\)\s*\{", re.S)
+    for function_match in function_pattern.finditer(stripped):
+        open_brace = stripped.find("{", function_match.start(), function_match.end())
+        if open_brace < 0:
+            continue
+        close_brace = find_matching_close_brace(stripped, open_brace)
+        for match in PHYSICS_WORLD_PERSISTENT_CONTACT_TREE_RELEASE_PATTERN.finditer(
+            stripped, open_brace, close_brace
+        ):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "physics world persistent-contact tree release is blocked",
+                    (
+                        "Persistent-contact fixed-tree release events must be applied at the PhysicsScene "
+                        "store-owned edge, not through modelAccess inside PhysicsWorld side effects."
+                    ),
+                )
+            )
+    return errors
+
+
+def check_physics_world_persistent_contact_tree_release_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / PHYSICS_WORLD_SOURCE
+    return check_physics_world_persistent_contact_tree_release_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
 def check_physics_world_run_invalidation_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
     if path.name != "PhysicsWorld.cpp":
         return []
@@ -2087,6 +2128,37 @@ def check_physics_world_run_writeback_guardrails_text(path: Path, text: str) -> 
 def check_physics_world_run_writeback_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / PHYSICS_WORLD_SOURCE
     return check_physics_world_run_writeback_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_physics_world_run_diagnostics_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != "PhysicsWorld.cpp":
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    function_pattern = re.compile(r"\bvoid\s+PhysicsWorld::RunPhysics\s*\([^{}]*\)\s*\{", re.S)
+    for function_match in function_pattern.finditer(stripped):
+        open_brace = stripped.find("{", function_match.start(), function_match.end())
+        if open_brace < 0:
+            continue
+        close_brace = find_matching_close_brace(stripped, open_brace)
+        for match in PHYSICS_WORLD_RUN_PHYSICS_DIAGNOSTICS_PATTERN.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "physics world run diagnostics emission is blocked",
+                    (
+                        "Emit step diagnostics from the PhysicsScene-owned step edge after scene-side store "
+                        "effects have been applied."
+                    ),
+                )
+            )
+    return errors
+
+
+def check_physics_world_run_diagnostics_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / PHYSICS_WORLD_SOURCE
+    return check_physics_world_run_diagnostics_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_render_instance_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -7341,6 +7413,100 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only PhysicsWorld fixed-contact notify synthetic text was rejected")
 
+    old_world_persistent_contact_tree_release = """
+    void PhysicsWorld::ApplyPersistentContactSideEffects( PhysicsModelAccess& modelAccess )
+    {
+        modelAccess.ReleaseAttachedFixedTreeParts( event );
+    }
+    """
+    if not any(
+        error.message == "physics world persistent-contact tree release is blocked"
+        for error in check_physics_world_persistent_contact_tree_release_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+            old_world_persistent_contact_tree_release,
+        )
+    ):
+        failures.append("old PhysicsWorld persistent-contact tree release synthetic surface was not rejected")
+
+    allowed_tornado_tree_release = """
+    void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess )
+    {
+        modelAccess.ReleaseAttachedFixedTreeParts( event );
+    }
+    """
+    if check_physics_world_persistent_contact_tree_release_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        allowed_tornado_tree_release,
+    ):
+        failures.append("non-persistent-contact PhysicsWorld tree release synthetic surface was rejected")
+
+    allowed_scene_tree_release = """
+    void PhysicsScene::ApplyFixedTreeReleaseEvents( PhysicsModelAccess& modelAccess )
+    {
+        modelAccess.ReleaseAttachedFixedTreeParts( bodyStore, event, wakeBodies );
+    }
+    """
+    if check_physics_world_persistent_contact_tree_release_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        allowed_scene_tree_release,
+    ):
+        failures.append("PhysicsScene fixed-tree release synthetic surface was rejected")
+
+    commented_world_persistent_contact_tree_release = """
+    void PhysicsWorld::ApplyPersistentContactSideEffects( PhysicsModelAccess& modelAccess )
+    {
+        // modelAccess.ReleaseAttachedFixedTreeParts(event) used to live here.
+        ApplyStoreSideEffects();
+    }
+    """
+    if check_physics_world_persistent_contact_tree_release_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        commented_world_persistent_contact_tree_release,
+    ):
+        failures.append("comment-only PhysicsWorld persistent-contact tree release synthetic text was rejected")
+
+    old_world_run_diagnostics = """
+    void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
+    {
+        m_diagnostics.EmitRegressionLog( *this, modelAccess, bodyStore, colliderStore );
+        m_diagnostics.EmitFrame( modelAccess, bodyStore, colliderStore, dt );
+    }
+    """
+    if not any(
+        error.message == "physics world run diagnostics emission is blocked"
+        for error in check_physics_world_run_diagnostics_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+            old_world_run_diagnostics,
+        )
+    ):
+        failures.append("old PhysicsWorld RunPhysics diagnostics synthetic surface was not rejected")
+
+    allowed_world_step_diagnostics = """
+    void PhysicsWorld::EmitStepDiagnostics( PhysicsModelAccess& modelAccess )
+    {
+        m_diagnostics.EmitRegressionLog( *this, modelAccess, bodyStore, colliderStore );
+        m_diagnostics.EmitFrame( modelAccess, bodyStore, colliderStore, dt );
+    }
+    """
+    if check_physics_world_run_diagnostics_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        allowed_world_step_diagnostics,
+    ):
+        failures.append("PhysicsWorld EmitStepDiagnostics synthetic surface was rejected")
+
+    commented_world_run_diagnostics = """
+    void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
+    {
+        // m_diagnostics.EmitFrame(modelAccess, bodyStore, colliderStore, dt) used to live here.
+        StepBodyStores();
+    }
+    """
+    if check_physics_world_run_diagnostics_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        commented_world_run_diagnostics,
+    ):
+        failures.append("comment-only PhysicsWorld RunPhysics diagnostics synthetic text was rejected")
+
     old_render_instance_model_refresh = """
     void GameModelCollection::RefreshRenderInstances( RenderInstanceStore& renderInstanceStore )
     {
@@ -8612,8 +8778,10 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_world_solver_model_stream_guardrails(repo))
     errors.extend(check_physics_world_contact_highlight_tick_guardrails(repo))
     errors.extend(check_physics_world_fixed_contact_notify_guardrails(repo))
+    errors.extend(check_physics_world_persistent_contact_tree_release_guardrails(repo))
     errors.extend(check_physics_world_run_invalidation_guardrails(repo))
     errors.extend(check_physics_world_run_writeback_guardrails(repo))
+    errors.extend(check_physics_world_run_diagnostics_guardrails(repo))
     errors.extend(check_render_instance_store_authority_guardrails(repo))
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))

@@ -689,10 +689,6 @@ void PhysicsWorld::ApplyPersistentContactSideEffects( PhysicsModelAccess& modelA
     {
         WakeModel( modelAccess, bodyStore, colliderStore, worldForces, index );
     }
-    for ( const PhysicsFixedTreeReleaseEvent& event : effects.fixedTreeReleases )
-    {
-        modelAccess.ReleaseAttachedFixedTreeParts( event );
-    }
 }
 
 
@@ -827,7 +823,14 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
 
     RunSolverPhysics( modelAccess, bodyStore, colliderStore, fChangeInTime, config, worldForces, workerPool );
     bodyStore.CopySleepStatesFrom( m_sleepState );
+}
 
+
+void PhysicsWorld::EmitStepDiagnostics( PhysicsModelAccess& modelAccess,
+                                        const PhysicsBodyStore& bodyStore,
+                                        const ColliderStore& colliderStore,
+                                        float fChangeInTime )
+{
 #ifdef _DEBUG
     if ( !m_diagnosticsSuppressed )
     {
@@ -835,6 +838,11 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
         m_diagnostics.IncrementCollisionTimeFrameIfEnabled();
         m_diagnostics.EmitFrame( modelAccess, bodyStore, colliderStore, fChangeInTime );
     }
+#else
+    (void)modelAccess;
+    (void)bodyStore;
+    (void)colliderStore;
+    (void)fChangeInTime;
 #endif
 }
 
@@ -3970,6 +3978,12 @@ const std::vector<uint8_t>& PhysicsWorld::GetCollisionVisualContacts() const
 const std::vector<int>& PhysicsWorld::GetFixedContactHighlightBodies() const
 {
     return m_persistentContactSideEffects.fixedContactBodies;
+}
+
+
+const std::vector<PhysicsFixedTreeReleaseEvent>& PhysicsWorld::GetFixedTreeReleaseEvents() const
+{
+    return m_persistentContactSideEffects.fixedTreeReleases;
 }
 
 

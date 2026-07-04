@@ -443,6 +443,13 @@ class PhysicsWorld
                      const Basics::EngineConfig& config,
                      const PhysicsWorldForces& worldForces,
                      Threading::WorkerPool& workerPool );
+    // Emits Debug-only regression and SkullScope records from the stores the
+    // caller passes in. PhysicsScene controls the call order so diagnostics see
+    // scene-edge store side effects before the model compatibility mirror.
+    void EmitStepDiagnostics( PhysicsModelAccess& modelAccess,
+                              const PhysicsBodyStore& bodyStore,
+                              const ColliderStore& colliderStore,
+                              float fChangeInTime );
     // Callers with a refreshed body store should use the overload so wake and
     // seed decisions read physics-owned fixed/sleep state before compatibility
     // writeback.
@@ -477,6 +484,9 @@ class PhysicsWorld
     const std::vector<int64_t>& GetCollisionCellKeys() const;
     const std::vector<uint8_t>& GetCollisionVisualContacts() const;
     const std::vector<int>& GetFixedContactHighlightBodies() const;
+    // Returns solver-emitted fixed-tree releases from the latest step. The
+    // scene edge applies them before diagnostics and compatibility writeback.
+    const std::vector<PhysicsFixedTreeReleaseEvent>& GetFixedTreeReleaseEvents() const;
     const std::vector<uint8_t>& GetSleepStates() const;
     const std::vector<int>& GetSleepIslandVisualIds() const;
     const std::vector<uint8_t>& GetSleepSupportedStates() const;

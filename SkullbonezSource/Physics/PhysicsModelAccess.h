@@ -87,9 +87,9 @@ class PhysicsModelAccess
     // model owner instead of reopening raw ranges in solver code.
     void WriteBackPhysicsBodies( const PhysicsBodyStore& bodyStore );
     void WriteBackPhysicsBody( const PhysicsBodyStore& bodyStore, int modelIndex );
-    // Reloads body records after model-owned event commands mutate model state,
-    // such as fixed-tree release. Callers still own stream invalidation when a
-    // later SoA read must observe those model writes.
+    // Reloads body records after legacy model-owned event commands mutate model
+    // state. Prefer store-owned commands, such as the fixed-tree release overload
+    // below, when the caller already owns PhysicsBodyStore.
     void ReloadPhysicsBodies( PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
     // Store refreshes still read model-owned authoring/presentation state. Body
     // and collider stores provide physics-owned pose/shape for render records;
@@ -105,7 +105,15 @@ class PhysicsModelAccess
     // Ticks presentation timers for contact feedback in model order. Physics
     // supplies the active body count; the model owner clamps to live storage.
     void TickContactHighlights( int modelCount, float deltaSeconds );
+    // Legacy model-owned release command retained for non-step callers that do
+    // not yet own a current PhysicsBodyStore.
     void ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event );
+    // Applies fixed-tree release to the caller-owned body store and returns the
+    // dense model indices that need wake propagation. The caller supplies the
+    // output vector so repeated release events do not allocate during the step.
+    void ReleaseAttachedFixedTreeParts( PhysicsBodyStore& bodyStore,
+                                        const PhysicsFixedTreeReleaseEvent& event,
+                                        std::vector<int>& outReleasedBodyIndices );
     PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const;
 #ifdef _DEBUG
     bool TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const;

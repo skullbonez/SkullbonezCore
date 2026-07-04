@@ -152,6 +152,14 @@ void PhysicsModelAccess::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeRe
 }
 
 
+void PhysicsModelAccess::ReleaseAttachedFixedTreeParts( PhysicsBodyStore& bodyStore,
+                                                        const PhysicsFixedTreeReleaseEvent& event,
+                                                        std::vector<int>& outReleasedBodyIndices )
+{
+    m_collection.ReleaseAttachedFixedTreeParts( bodyStore, event, outReleasedBodyIndices );
+}
+
+
 PhysicsDiagnosticsView PhysicsModelAccess::GetPhysicsDiagnosticsView() const
 {
     return m_collection.GetPhysicsDiagnosticsView();
@@ -181,6 +189,16 @@ namespace
 template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
 {
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+}
+
+float InversePositive( float value )
+{
+    return value > 0.000001f ? 1.0f / value : 0.0f;
+}
+
+Vector3 InvertNonZeroComponents( const Vector3& value )
+{
+    return Vector3( InversePositive( value.x ), InversePositive( value.y ), InversePositive( value.z ) );
 }
 
 bool IsDecimalDigit( char c )
@@ -1063,6 +1081,77 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts(
     const SkullbonezCore::Physics::PhysicsFixedTreeReleaseEvent& event )
 {
     ReleaseAttachedFixedTreeParts( event.sourceIndex, event.seedLinearVelocity, event.seedAngularVelocity );
+}
+
+
+void GameModelCollection::ReleaseAttachedFixedTreeParts(
+    SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
+    const SkullbonezCore::Physics::PhysicsFixedTreeReleaseEvent& event,
+    std::vector<int>& outReleasedBodyIndices )
+{
+    outReleasedBodyIndices.clear();
+    const int sourceIndex = event.sourceIndex;
+    if ( sourceIndex < 0 || sourceIndex >= static_cast<int>( m_gameModels.size() ) || sourceIndex >= bodyStore.Count() )
+    {
+        return;
+    }
+
+    const GameModel& sourceModel = m_gameModels[static_cast<size_t>( sourceIndex )];
+    const int sourceRootModelIndex = sourceModel.GetRuntimeCollectionRootModelIndex();
+    const Physics::PhysicsBodyRecord* sourceRecord = bodyStore.RecordForModelIndex( sourceIndex );
+    if ( sourceModel.GetRuntimeCollectionKind() != GameModelCollectionKind::ReleasableTree ||
+         sourceRootModelIndex < 0 || !sourceRecord )
+    {
+        return;
+    }
+
+    // Why: the source height is simulation state. Reading it from the body store
+    // keeps same-count releases independent from the stale model mirror.
+    const float sourceY = sourceRecord->position.y;
+    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ) && i < bodyStore.Count(); ++i )
+    {
+        if ( i == sourceIndex )
+        {
+            continue;
+        }
+
+        const GameModel& model = m_gameModels[static_cast<size_t>( i )];
+        if ( model.GetRuntimeCollectionKind() != GameModelCollectionKind::ReleasableTree ||
+             model.GetRuntimeCollectionRootModelIndex() != sourceRootModelIndex )
+        {
+            continue;
+        }
+
+        Physics::PhysicsBodyRecord* record = bodyStore.MutableRecordForModelIndex( i );
+        if ( !record || record->position.y + 0.05f < sourceY )
+        {
+            continue;
+        }
+
+        if ( record->isFixed )
+        {
+            if ( !record->releasesFromFixedOnContact )
+            {
+                continue;
+            }
+
+            // Compatibility owner: GameModelCollection still owns tree grouping
+            // metadata during the migration.
+            // Reason: fixed-tree release is a physics side effect, so live motion
+            // state must be written to PhysicsBodyStore instead of GameModel.
+            // Deletion condition: releasable-structure grouping metadata moves to
+            // a physics-owned store or asset record. Checker budget: PhysicsWorld
+            // cannot apply these events through modelAccess directly.
+            record->isFixed = false;
+            record->isSleeping = false;
+            record->invMass = InversePositive( record->mass );
+            record->invRotationalInertia = InvertNonZeroComponents( record->rotationalInertia );
+            record->linearVelocity = event.seedLinearVelocity;
+            record->angularVelocity = event.seedAngularVelocity;
+        }
+
+        outReleasedBodyIndices.push_back( i );
+    }
 }
 
 
