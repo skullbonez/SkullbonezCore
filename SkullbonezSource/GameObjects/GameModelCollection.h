@@ -198,14 +198,19 @@ class GameModelCollection
                                         Physics::PhysicsDiagnosticsModelRecord& outRecord ) const;
 #endif
     // Replays restore saved body state through the collection so cache
-    // invalidation and replay-id validation stay with the model owner.
+    // invalidation and replay-id validation stay with the model owner. The
+    // physics values still land in PhysicsBodyStore, not a model reload.
     bool TryRestoreReplayBodyState( int index,
                                     uint32_t replayBodyId,
                                     bool fixed,
                                     const Math::Vector::Vector3& position,
                                     const Math::Orientation::Quaternion& orientation,
                                     const Math::Vector::Vector3& linearVelocity,
-                                    const Math::Vector::Vector3& angularVelocity );
+                                    const Math::Vector::Vector3& angularVelocity,
+                                    float mass,
+                                    float inverseMass,
+                                    const Math::Vector::Vector3& rotationalInertia,
+                                    const Math::Vector::Vector3& inverseRotationalInertia );
     // Replay prediction temporarily simulates from copied body state, then
     // restores the live scene through this owner-checked command.
     bool TryRestoreReplayPredictionBodyState( int index,

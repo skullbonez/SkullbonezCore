@@ -73,6 +73,7 @@ from pathlib import Path
 
 
 RUN_HEADER = Path("SkullbonezSource/Runtime/Run.h")
+RUN_SOURCE = Path("SkullbonezSource/Runtime/Run.cpp")
 RUN_INTERNAL_HEADER = Path("SkullbonezSource/Runtime/RunInternal.h")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
@@ -152,6 +153,15 @@ REPLAY_RECORDER_MODEL_STATE_CAPTURE_PATTERN = re.compile(
     r"\b(?:ShapeKindForModel\s*\(|[A-Za-z_]\w*\s*(?:->|\.)\s*"
     r"(?:GetReplayBodyId|GetCollisionShape|GetPosition|GetVelocity|GetAngularVelocity|GetOrientation|GetMass|"
     r"GetInvertedMass|GetRotationalInertia|GetInvertedRotationalInertia|IsFixed)\s*\()"
+)
+RUN_REPLAY_RESTORE_BODY_STORE_REFRESH_PATTERN = re.compile(
+    r"\bm_cGameModelCollection\s*\.\s*GetPhysicsBodyStore\s*\("
+)
+GAME_MODEL_COLLECTION_REPLAY_RESTORE_FUNCTION_PATTERN = re.compile(
+    r"\bbool\s+GameModelCollection::TryRestoreReplayBodyState\s*\("
+)
+GAME_MODEL_COLLECTION_REPLAY_RESTORE_MODEL_REFRESH_PATTERN = re.compile(
+    r"\b(?:CommitEditedModelPhysicsState|RefreshBodyFromModel|GetPhysicsBodyStore)\s*\("
 )
 HOT_PATH_INHERITANCE_PATTERN = re.compile(
     r"^\s*(?:class|struct)\s+[A-Za-z_]\w*[^{;\n]*:\s*(?:public|protected|private)\b",
@@ -1928,6 +1938,65 @@ def check_replay_recorder_store_authority_guardrails_text(path: Path, text: str)
 def check_replay_recorder_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / REPLAY_RECORDER_SOURCE
     return check_replay_recorder_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_run_replay_restore_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in RUN_REPLAY_RESTORE_BODY_STORE_REFRESH_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay restore body-store reload is blocked",
+                (
+                    "Replay restore should write sampled body state into PhysicsBodyStore directly; "
+                    "do not reload the store from GameModel after restore."
+                ),
+            )
+        )
+    return errors
+
+
+def check_game_model_collection_replay_restore_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    function_match = GAME_MODEL_COLLECTION_REPLAY_RESTORE_FUNCTION_PATTERN.search(stripped)
+    if not function_match:
+        return errors
+
+    open_brace = stripped.find("{", function_match.end())
+    if open_brace < 0:
+        return errors
+
+    close_brace = find_matching_close_brace(stripped, open_brace)
+    for match in GAME_MODEL_COLLECTION_REPLAY_RESTORE_MODEL_REFRESH_PATTERN.finditer(stripped, open_brace, close_brace):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay restore model-to-store refresh is blocked",
+                (
+                    "TryRestoreReplayBodyState should call the store-owned replay restore command; "
+                    "do not refresh PhysicsBodyStore from GameModel for restored body state."
+                ),
+            )
+        )
+    return errors
+
+
+def check_replay_restore_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    run_path = repo / RUN_SOURCE
+    errors.extend(check_run_replay_restore_store_authority_guardrails_text(run_path, run_path.read_text(encoding="utf-8")))
+    collection_path = repo / GAME_MODEL_COLLECTION_SOURCE
+    errors.extend(
+        check_game_model_collection_replay_restore_store_authority_guardrails_text(
+            collection_path,
+            collection_path.read_text(encoding="utf-8"),
+        )
+    )
+    return errors
 
 
 def check_physics_hot_path_inheritance_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -6647,6 +6716,85 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only replay recorder model-state synthetic text was rejected")
 
+    old_run_replay_restore_body_store_reload = """
+    bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample )
+    {
+        m_cGameModelCollection.TryRestoreReplayBodyState( body.modelIndex, body.id.value, body.fixed, position, orientation, linearVelocity, angularVelocity );
+        (void)m_cGameModelCollection.GetPhysicsBodyStore();
+    }
+    """
+    if not any(
+        error.message == "replay restore body-store reload is blocked"
+        for error in check_run_replay_restore_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/Run.cpp"),
+            old_run_replay_restore_body_store_reload,
+        )
+    ):
+        failures.append("old replay restore full body-store reload synthetic surface was not rejected")
+
+    store_owned_run_replay_restore = """
+    bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample )
+    {
+        m_cGameModelCollection.TryRestoreReplayBodyState( body.modelIndex,
+                                                          body.id.value,
+                                                          body.fixed,
+                                                          body.position,
+                                                          orientation,
+                                                          body.linearVelocity,
+                                                          body.angularVelocity,
+                                                          body.mass,
+                                                          body.inverseMass,
+                                                          body.rotationalInertia,
+                                                          body.inverseRotationalInertia );
+    }
+    """
+    if check_run_replay_restore_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Run.cpp"),
+        store_owned_run_replay_restore,
+    ):
+        failures.append("store-owned replay restore synthetic surface was rejected")
+
+    old_collection_replay_restore_model_refresh = """
+    bool GameModelCollection::TryRestoreReplayBodyState( int index,
+                                                         uint32_t replayBodyId,
+                                                         bool fixed,
+                                                         const Vector3& position,
+                                                         const Quaternion& orientation,
+                                                         const Vector3& linearVelocity,
+                                                         const Vector3& angularVelocity )
+    {
+        CommitEditedModelPhysicsState( index, false );
+        return true;
+    }
+    """
+    if not any(
+        error.message == "replay restore model-to-store refresh is blocked"
+        for error in check_game_model_collection_replay_restore_store_authority_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_collection_replay_restore_model_refresh,
+        )
+    ):
+        failures.append("old replay restore model-refresh synthetic surface was not rejected")
+
+    commented_collection_replay_restore_model_refresh = """
+    bool GameModelCollection::TryRestoreReplayBodyState( int index,
+                                                         uint32_t replayBodyId,
+                                                         bool fixed,
+                                                         const Vector3& position,
+                                                         const Quaternion& orientation,
+                                                         const Vector3& linearVelocity,
+                                                         const Vector3& angularVelocity )
+    {
+        // CommitEditedModelPhysicsState( index, false ) is deleted restore debt.
+        return m_physicsEngine.RestoreReplayBodyState( index, replayBodyId, fixed, position, orientation, linearVelocity, angularVelocity, mass, inverseMass, rotationalInertia, inverseRotationalInertia );
+    }
+    """
+    if check_game_model_collection_replay_restore_store_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        commented_collection_replay_restore_model_refresh,
+    ):
+        failures.append("comment-only replay restore model-refresh synthetic text was rejected")
+
     allowed_physics_hot_path_values = """
     struct SolverBodyState
     {
@@ -7064,6 +7212,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_render_instance_store_authority_guardrails(repo))
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))
+    errors.extend(check_replay_restore_store_authority_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))
     errors.extend(check_approved_inheritance_guardrails(repo))

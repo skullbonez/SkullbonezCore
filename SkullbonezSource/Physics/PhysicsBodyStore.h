@@ -98,6 +98,23 @@ class PhysicsBodyStore
     void Refresh( std::vector<GameObjects::GameModel>& models, const std::vector<uint8_t>& sleepStates );
     void LoadFromModels( std::vector<GameObjects::GameModel>& models, const std::vector<uint8_t>& sleepStates );
     void ClearPendingImpulses();
+    // Shrinks the model-order body array for replay restore without reloading
+    // from GameModel. Returns false when the requested count is outside the
+    // current store range.
+    bool TrimToCount( int bodyCount );
+    // Restores sampled replay values into the authoritative body record. The
+    // replay id must match so stale samples cannot mutate a reused model slot.
+    bool RestoreReplayBodyState( int modelIndex,
+                                 uint32_t replayBodyId,
+                                 bool fixed,
+                                 const Math::Vector::Vector3& position,
+                                 const Math::Orientation::Quaternion& orientation,
+                                 const Math::Vector::Vector3& linearVelocity,
+                                 const Math::Vector::Vector3& angularVelocity,
+                                 float mass,
+                                 float inverseMass,
+                                 const Math::Vector::Vector3& rotationalInertia,
+                                 const Math::Vector::Vector3& inverseRotationalInertia );
     void WriteBackToModels( std::vector<GameObjects::GameModel>& models ) const;
     void WriteBackToModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex ) const;
     void CaptureMutableStateFromModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex );

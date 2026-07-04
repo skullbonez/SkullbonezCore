@@ -62,6 +62,38 @@ void PhysicsEngine::ClearPendingBodyImpulses()
 }
 
 
+bool PhysicsEngine::TrimBodyStoreToCount( int bodyCount )
+{
+    return m_scene.TrimBodyStoreToCount( bodyCount );
+}
+
+
+bool PhysicsEngine::RestoreReplayBodyState( int modelIndex,
+                                            uint32_t replayBodyId,
+                                            bool fixed,
+                                            const Math::Vector::Vector3& position,
+                                            const Math::Orientation::Quaternion& orientation,
+                                            const Math::Vector::Vector3& linearVelocity,
+                                            const Math::Vector::Vector3& angularVelocity,
+                                            float mass,
+                                            float inverseMass,
+                                            const Math::Vector::Vector3& rotationalInertia,
+                                            const Math::Vector::Vector3& inverseRotationalInertia )
+{
+    return m_scene.RestoreReplayBodyState( modelIndex,
+                                           replayBodyId,
+                                           fixed,
+                                           position,
+                                           orientation,
+                                           linearVelocity,
+                                           angularVelocity,
+                                           mass,
+                                           inverseMass,
+                                           rotationalInertia,
+                                           inverseRotationalInertia );
+}
+
+
 void PhysicsEngine::RefreshColliderStore( PhysicsModelAccess& modelAccess )
 {
     m_scene.RefreshColliderStore( modelAccess );

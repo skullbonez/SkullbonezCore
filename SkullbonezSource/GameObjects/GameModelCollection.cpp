@@ -653,7 +653,11 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
                                                      const Vector3& position,
                                                      const Quaternion& orientation,
                                                      const Vector3& linearVelocity,
-                                                     const Vector3& angularVelocity )
+                                                     const Vector3& angularVelocity,
+                                                     float mass,
+                                                     float inverseMass,
+                                                     const Vector3& rotationalInertia,
+                                                     const Vector3& inverseRotationalInertia )
 {
     if ( index < 0 || index >= GetModelCount() )
     {
@@ -673,8 +677,17 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
     model.SetAngularVelocity( angularVelocity );
     model.ClearImpulseForce();
     InvalidateSoA();
-    CommitEditedModelPhysicsState( index, false );
-    return true;
+    return m_physicsEngine.RestoreReplayBodyState( index,
+                                                   replayBodyId,
+                                                   fixed,
+                                                   position,
+                                                   orientation,
+                                                   linearVelocity,
+                                                   angularVelocity,
+                                                   mass,
+                                                   inverseMass,
+                                                   rotationalInertia,
+                                                   inverseRotationalInertia );
 }
 
 
@@ -781,6 +794,10 @@ bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
     }
 
     const std::size_t targetCount = static_cast<std::size_t>( modelCount );
+    if ( !m_physicsEngine.TrimBodyStoreToCount( modelCount ) )
+    {
+        return false;
+    }
     if ( targetCount < m_gameModels.size() )
     {
         m_gameModels.erase( m_gameModels.begin() + static_cast<std::ptrdiff_t>( targetCount ), m_gameModels.end() );

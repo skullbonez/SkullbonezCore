@@ -1109,6 +1109,80 @@ void PhysicsBodyStore::ClearPendingImpulses()
 }
 
 
+// Invariant: shrinking model-order bodies must retire handle slots for removed
+// records. A stale handle surviving replay restore could target a different
+// body after allocator reuse.
+bool PhysicsBodyStore::TrimToCount( int bodyCount )
+{
+    if ( bodyCount < 0 || bodyCount > Count() )
+    {
+        return false;
+    }
+
+    std::vector<uint8_t> assignedHandleSlots( m_handleGenerations.size(), 0 );
+    for ( int i = 0; i < bodyCount; ++i )
+    {
+        const PhysicsBodyRecord& record = m_bodies[static_cast<std::size_t>( i )];
+        const PhysicsBodyHandle handle = record.handle;
+        if ( handle.IsValid() && handle.index < m_handleGenerations.size() )
+        {
+            const std::size_t handleIndex = static_cast<std::size_t>( handle.index );
+            if ( m_handleAlive[handleIndex] != 0 && m_handleGenerations[handleIndex] == handle.generation )
+            {
+                assignedHandleSlots[handleIndex] = 1;
+            }
+        }
+    }
+
+    m_bodies.resize( static_cast<std::size_t>( bodyCount ) );
+    m_modelBodyHandles.resize( static_cast<std::size_t>( bodyCount ) );
+    for ( int i = 0; i < bodyCount; ++i )
+    {
+        m_modelBodyHandles[static_cast<std::size_t>( i )] = m_bodies[static_cast<std::size_t>( i )].handle;
+    }
+    RetireUnassignedHandles( assignedHandleSlots );
+    return true;
+}
+
+
+// Concept: replay restore writes recorded physics values into the store.
+//
+// GameModel may still be updated for presentation compatibility, but the body
+// record must not reload pose, velocity, mass, or inertia from that mirror.
+bool PhysicsBodyStore::RestoreReplayBodyState( int modelIndex,
+                                               uint32_t replayBodyId,
+                                               bool fixed,
+                                               const Vector3& position,
+                                               const Math::Orientation::Quaternion& orientation,
+                                               const Vector3& linearVelocity,
+                                               const Vector3& angularVelocity,
+                                               float mass,
+                                               float inverseMass,
+                                               const Vector3& rotationalInertia,
+                                               const Vector3& inverseRotationalInertia )
+{
+    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
+    if ( !record || record->replayBodyId != replayBodyId )
+    {
+        return false;
+    }
+
+    record->position = position;
+    record->orientation = orientation;
+    record->linearVelocity = linearVelocity;
+    record->angularVelocity = angularVelocity;
+    record->mass = mass;
+    record->invMass = fixed ? 0.0f : inverseMass;
+    record->rotationalInertia = rotationalInertia;
+    record->invRotationalInertia = fixed ? ZERO_VECTOR : inverseRotationalInertia;
+    record->isFixed = fixed;
+    record->pendingImpulse = ZERO_VECTOR;
+    record->pendingImpulseApplicationPoint = ZERO_VECTOR;
+    record->hasPendingImpulse = false;
+    return true;
+}
+
+
 void PhysicsBodyStore::WriteBackToModels( std::vector<GameModel>& models ) const
 {
     const int modelCount = (std::min)( static_cast<int>( models.size() ), Count() );

@@ -1001,13 +1001,16 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
                                                                 body.position,
                                                                 orientation,
                                                                 body.linearVelocity,
-                                                                body.angularVelocity ) )
+                                                                body.angularVelocity,
+                                                                body.mass,
+                                                                body.inverseMass,
+                                                                body.rotationalInertia,
+                                                                body.inverseRotationalInertia ) )
         {
             writeReason( "failed to restore replay body state" );
             return false;
         }
     }
-    (void)m_cGameModelCollection.GetPhysicsBodyStore();
     m_cGameModelCollection.GetPhysicsEngine().ClearPendingBodyImpulses();
 
     if ( !m_cGameModelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot(
