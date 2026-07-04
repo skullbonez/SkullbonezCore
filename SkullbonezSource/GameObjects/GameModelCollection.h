@@ -19,8 +19,13 @@ Glossary:
     velocity state to RigidBody integration.
   Contact policy: Terrain and contact thresholds cached by the collection so
     existing and newly added models receive the same physics policy.
-  PhysicsModelAccess: Stack-owned facade that forwards allowed physics sync
-    commands to this collection without making it inherit physics interfaces.
+  PhysicsModelAccess: Stack-owned refresh facade that lets physics stores import
+    model-owned authoring without making this collection inherit physics
+    interfaces.
+  Render instance store: Renderer-facing snapshot built once before frame passes
+    so draw code can read physics-owned transforms without GameModel pose copies.
+  Replay render pose override: One-frame presentation pose used when replay
+    scrubbing or prediction draws historical/future bodies without mutating physics.
   Replay body id: Per-collection identity saved in replay samples so restore
     paths can reject stale model slots.
   Validation gate: Repository script that proves a class of changes before
@@ -81,7 +86,8 @@ class PhysicsDebugVisualizer;
 namespace Rendering
 {
 class IRenderResourceFactory;
-}
+class RenderInstanceStore;
+} // namespace Rendering
 
 namespace Threading
 {
@@ -116,12 +122,15 @@ class GameModelCollection
     Physics::PhysicsMaterial m_physicsMaterial;
     Physics::BodySimulationLimits m_bodySimulationLimits;
     Physics::ContactPolicy m_contactPolicy;
-    Threading::WorkerPool* m_workerPool = nullptr; // Borrowed startup worker pool for render/physics parallel helpers.
-    bool m_renderCollisionVolumes = false;         // Cached render debug toggle copied from EngineConfig.
-    bool m_shadowParallelPrep = false;             // Cached worker-prep toggle copied from EngineConfig.
+    Threading::WorkerPool* m_workerPool = nullptr;      // Borrowed startup worker pool for render/physics parallel helpers.
+    bool m_renderCollisionVolumes = false;              // Cached render debug toggle copied from EngineConfig.
+    bool m_shadowParallelPrep = false;                  // Cached worker-prep toggle copied from EngineConfig.
     uint32_t m_nextReplayBodyId = 1;
+    std::vector<int> m_replayRenderPoseOverrideIndices; // Pending one-frame render-only replay pose rows.
 
     void InvalidateSoA();
+    void RememberReplayRenderPoseOverride( int modelIndex );
+    void ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore );
 
   public:
     GameModelCollection();
@@ -238,6 +247,9 @@ class GameModelCollection
     const Physics::PhysicsEngine& GetPhysicsEngine() const;
     const Physics::PhysicsBodyStore& GetPhysicsBodyStore();
     const Physics::ColliderStore& GetColliderStore();
+    // Current prepared render snapshot. Call PrepareRenderStreams() before frame
+    // passes; cold callers that need an ensured snapshot use GetRenderInstanceStore().
+    const Rendering::RenderInstanceStore& RenderInstances() const;
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();
     GameModel& GetModelAtIndex( int index );
     double GetSceneKineticEnergy();

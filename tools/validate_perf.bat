@@ -1,7 +1,8 @@
 @rem
 @rem File: tools/validate_perf.bat
 @rem Purpose:
-@rem   Documents and runs the validate_perf.bat developer/validation helper script.
+@rem   Runs the bounded performance regression gate and compares current runtime
+@rem   artifacts against committed baselines.
 @rem
 @rem Mental model:
 @rem   Tools are command-line guardrails around builds, validation, screenshots,
@@ -11,6 +12,8 @@
 @rem Glossary:
 @rem   Validation gate: Repository script that proves a class of changes before
 @rem   commit or PR.
+@rem   Headless perf args: Launch flags used to remove unrelated interactive or
+@rem     audio-side work from perf comparisons.
 @rem
 @rem Invariants:
 @rem   - Tool output should be bounded and readable because agents and humans use
@@ -29,6 +32,9 @@ REM  Use for: optimization work, hot-path changes, allocation changes.
 REM  Runtime: about 1 minute.
 REM  Exit 0 = build+run succeeded and perf budgets/comparisons passed.
 REM ===============================================================
+REM Keep contact audio out of perf scenes; audio has a separate smoke path, and
+REM decoded samples/XAudio startup would pollute render/physics measurements.
+set "PERF_HEADLESS_ARGS=--no-contact-audio"
 
 set "REPO=%~dp0.."
 pushd "%REPO%"
@@ -59,7 +65,7 @@ echo [3/4] Running DX12 perf tests...
 echo.
 echo Running dx12 perf test...
 del /q "%REPO%\Profile\perf_log.csv" 2>nul
-"%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene.json
+"%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step %PERF_HEADLESS_ARGS% --scene SkullbonezData/scenes/perf_test.scene.json
 if errorlevel 1 (
     echo FAIL: perf_test scene crashed for dx12.
     exit /b 4
@@ -77,7 +83,7 @@ if errorlevel 1 (
 echo.
 echo Running physics_bench physics perf test...
 del /q "%REPO%\Profile\varied_physics_perf_log.csv" 2>nul
-"%REPO%\Profile\SKULLBONEZ_CORE.exe" --vsync off --fixed-step --scene SkullbonezData/scenes/physics_bench_varied.scene.json
+"%REPO%\Profile\SKULLBONEZ_CORE.exe" --vsync off --fixed-step %PERF_HEADLESS_ARGS% --scene SkullbonezData/scenes/physics_bench_varied.scene.json
 if errorlevel 1 (
     echo FAIL: physics_bench_varied scene crashed for physics_bench.
     exit /b 6

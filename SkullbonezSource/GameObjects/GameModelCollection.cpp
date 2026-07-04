@@ -20,6 +20,8 @@ Glossary:
   PhysicsModelAccess: Stack-owned refresh facade that lets physics stores import
     model-owned authoring without making this collection inherit physics
     interfaces.
+  Render instance store: Renderer-facing snapshot built from physics-owned pose
+    and model-owned material/presentation state before frame passes.
   Replay body id: Per-collection identity saved in replay samples so restore
     paths can reject stale model slots.
   Validation gate: Repository script that proves a class of changes before
@@ -46,6 +48,7 @@ Related:
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
 #include "../Rendering/GameModelRenderer.h"
+#include "../Rendering/RenderInstanceStore.h"
 #include "../Scene/SceneSnapshotWriter.h"
 
 #include <algorithm>
@@ -323,9 +326,51 @@ void GameModelCollection::InvalidateSoA()
 }
 
 
+void GameModelCollection::RememberReplayRenderPoseOverride( int modelIndex )
+{
+    if ( modelIndex < 0 || modelIndex >= GetModelCount() )
+    {
+        return;
+    }
+    if ( std::find( m_replayRenderPoseOverrideIndices.begin(), m_replayRenderPoseOverrideIndices.end(), modelIndex ) !=
+         m_replayRenderPoseOverrideIndices.end() )
+    {
+        return;
+    }
+    m_replayRenderPoseOverrideIndices.push_back( modelIndex );
+}
+
+
+void GameModelCollection::ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore )
+{
+    if ( m_replayRenderPoseOverrideIndices.empty() )
+    {
+        return;
+    }
+
+    for ( int modelIndex : m_replayRenderPoseOverrideIndices )
+    {
+        if ( modelIndex < 0 || modelIndex >= GetModelCount() )
+        {
+            continue;
+        }
+
+        // Why: replay scrub and prediction poses are presentation-only. Physics
+        // remains store-owned; the override is applied only to the CPU render
+        // snapshot after the normal physics-backed refresh has completed.
+        renderInstanceStore.OverridePoseFromModel( modelIndex, m_gameModels[static_cast<std::size_t>( modelIndex )] );
+    }
+    m_replayRenderPoseOverrideIndices.clear();
+}
+
+
 void GameModelCollection::PrepareRenderStreams()
 {
-    GameModelStreamProvider::PrepareRenderStreams( m_soaCache, m_gameModels );
+    // Why: object rendering now reads the render instance store for transforms.
+    // Preparing it once here prevents each render pass from rebuilding a
+    // GameModel SoA pose cache or re-importing the same physics pose repeatedly.
+    PhysicsModelAccess modelAccess( *this );
+    m_physicsEngine.RefreshRenderStore( modelAccess );
 }
 
 
@@ -336,10 +381,21 @@ int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxMo
         return 0;
     }
 
-    const int modelCount = (std::min)( GetModelCount(), maxModelCount );
+    const int collectionModelCount = GetModelCount();
+    if ( m_physicsEngine.RenderInstances().Count() != collectionModelCount )
+    {
+        // Hazard: normal render frames call PrepareRenderStreams() first. This
+        // cold path keeps standalone DXR callers on the render-instance
+        // authority instead of falling back to GameModel pose recomputation.
+        PhysicsModelAccess modelAccess( *this );
+        m_physicsEngine.RefreshRenderStore( modelAccess );
+    }
+
+    const std::vector<Rendering::RenderInstanceRecord>& instances = m_physicsEngine.RenderInstances().Records();
+    const int modelCount = (std::min)( static_cast<int>( instances.size() ), maxModelCount );
     for ( int i = 0; i < modelCount; ++i )
     {
-        const Matrix4 modelMatrix = m_gameModels[static_cast<std::size_t>( i )].GetModelMatrix();
+        const Matrix4& modelMatrix = instances[static_cast<std::size_t>( i )].modelMatrix;
         memcpy( outMatrixFloats + static_cast<std::size_t>( i ) * 16u, modelMatrix.Data(), 16u * sizeof( float ) );
     }
     return modelCount;
@@ -649,6 +705,7 @@ bool GameModelCollection::TrySetReplayRenderPose( int index,
     model.SetPosition( position );
     model.SetOrientation( orientation );
     InvalidateSoA();
+    RememberReplayRenderPoseOverride( index );
     // Why: replay render poses are one-frame presentation overrides. Physics
     // body state must stay owned by explicit restore/prediction commands.
     return true;
@@ -784,6 +841,12 @@ const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderSt
 }
 
 
+const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::RenderInstances() const
+{
+    return m_physicsEngine.RenderInstances();
+}
+
+
 const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::GetRenderInstanceStore()
 {
     PhysicsModelAccess modelAccess( *this );
@@ -877,6 +940,7 @@ void GameModelCollection::RefreshRenderInstances( SkullbonezCore::Rendering::Ren
                                                   const SkullbonezCore::Physics::ColliderStore& colliderStore )
 {
     renderInstanceStore.Refresh( m_gameModels, bodyStore, colliderStore );
+    ApplyReplayRenderPoseOverrides( renderInstanceStore );
 }
 
 

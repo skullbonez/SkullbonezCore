@@ -10,8 +10,9 @@
 #   also blocks direct scheduling or manual-barrier regressions for passes that
 #   already moved to render graph callback ownership, and new normal-path global
 #   service access while explicit service contexts are built. Renderer globals
-#   have an extra file-classification fence so count allowances do not silently
-#   approve a new compatibility location.
+#   have an extra file-classification fence, and object rendering has a
+#   render-instance authority fence, so count allowances do not silently approve
+#   a new compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -32,6 +33,8 @@
 #   Migration artifact: Temporary adapter, data-transfer object, or
 #     compatibility name that must disappear once its real owner or API replaces
 #     it.
+#   Render instance store: Physics-backed, model-order snapshot consumed by
+#     render passes instead of rebuilding GameModel pose streams.
 #
 # Invariants:
 #   - Run.h may own subsystem objects, but not their extracted transient state.
@@ -46,6 +49,8 @@
 #   - Graph-owned render passes stay scheduled through render graph callback
 #     helpers after migration, and runtime pass code must not issue DX12
 #     ResourceBarrier calls or backend transition helpers directly.
+#   - Object rendering and DXR matrix upload read prepared render instances
+#     rather than recomputing GameModel model matrices or body streams.
 #   - Unknown render graph resource states remain explicitly counted handoffs
 #     until the graph owns concrete initial access for migrated resources.
 #   - Existing global service calls are counted debt; adding new ones requires
@@ -221,6 +226,15 @@ PHYSICS_WORLD_STEP_DIAGNOSTICS_MODEL_ACCESS_PATTERN = re.compile(
 )
 RENDER_INSTANCE_MODEL_REFRESH_PATTERN = re.compile(
     r"\brenderInstanceStore\s*\.\s*Refresh\s*\(\s*m_gameModels\s*\)"
+)
+GAME_MODEL_RENDERER_MODEL_POSE_STREAM_PATTERN = re.compile(
+    r"\b(?:GameModelRenderStream|GameModelBodyStream)\b"
+    r"|\bcollection\s*\.\s*(?:GetRenderStream|GetBodyStream)\s*\("
+    r"|\bmodels\s*\[[^\]]+\]\s*\.\s*(?:GetPosition|GetOrientation|GetRenderMaterial)\s*\("
+    r"|\bmodels\s*\[[^\]]+\]\s*\.\s*(?:IsSphere|IsBox|IsConvexHull)\s*\("
+)
+DXR_MODEL_MATRIX_RENDER_INSTANCE_PATTERN = re.compile(
+    r"\bm_gameModels\s*\[[^\]]+\]\s*\.\s*GetModelMatrix\s*\("
 )
 PHYSICS_DIAGNOSTICS_MODEL_RECORD_COMPAT_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*TryGetPhysicsDiagnosticsModel\s*\(\s*[^,()]+\s*,\s*[^,()]+\s*\)"
@@ -2737,6 +2751,65 @@ def check_render_instance_store_authority_guardrails_text(path: Path, text: str)
 def check_render_instance_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / GAME_MODEL_COLLECTION_SOURCE
     return check_render_instance_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_game_model_renderer_render_instance_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != "GameModelRenderer.cpp":
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in GAME_MODEL_RENDERER_MODEL_POSE_STREAM_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "GameModelRenderer model-pose stream read is blocked",
+                (
+                    "Object rendering should read RenderInstanceStore records for transforms, fixed flags, "
+                    "material highlights, shape kind, and bounds instead of rebuilding GameModel SoA pose streams."
+                ),
+            )
+        )
+    return errors
+
+
+def check_game_model_renderer_render_instance_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / Path("SkullbonezSource/Rendering/GameModelRenderer.cpp")
+    return check_game_model_renderer_render_instance_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_dxr_render_instance_matrix_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != "GameModelCollection.cpp":
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    function_pattern = re.compile(
+        r"\bint\s+GameModelCollection::CopyDxrModelMatrices\s*\([^{}]*\)\s*\{",
+        re.S,
+    )
+    for function_match in function_pattern.finditer(stripped):
+        open_brace = stripped.find("{", function_match.start(), function_match.end())
+        if open_brace < 0:
+            continue
+        close_brace = find_matching_close_brace(stripped, open_brace)
+        for match in DXR_MODEL_MATRIX_RENDER_INSTANCE_PATTERN.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "DXR model-matrix upload must use render instances",
+                    (
+                        "CopyDxrModelMatrices should copy RenderInstanceStore matrices from the prepared "
+                        "physics-backed snapshot instead of recomputing GameModel model matrices."
+                    ),
+                )
+            )
+    return errors
+
+
+def check_dxr_render_instance_matrix_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / GAME_MODEL_COLLECTION_SOURCE
+    return check_dxr_render_instance_matrix_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_physics_diagnostics_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -9176,6 +9249,103 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only render instance model refresh synthetic text was rejected")
 
+    old_game_model_renderer_stream_reads = """
+    void GameModelRenderer::RenderModels( GameModelCollection& collection )
+    {
+        const GameModelRenderStream renderStream = collection.GetRenderStream();
+        const GameModelBodyStream bodyStream = collection.GetBodyStream();
+        if ( models[x].IsSphere() || models[x].IsBox() || models[x].IsConvexHull() ) {}
+        const Matrix4 bodyModel = Matrix4::Translate( models[x].GetPosition() ) *
+                                  Matrix4::FromQuaternion( models[x].GetOrientation() );
+        const bool isPineVisual = IsPineVisualMaterial( models[x].GetRenderMaterial() );
+    }
+    """
+    if not any(
+        error.message == "GameModelRenderer model-pose stream read is blocked"
+        for error in check_game_model_renderer_render_instance_authority_guardrails_text(
+            Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"),
+            old_game_model_renderer_stream_reads,
+        )
+    ):
+        failures.append("old GameModelRenderer model-pose stream synthetic surface was not rejected")
+
+    allowed_game_model_renderer_render_instances = """
+    void GameModelRenderer::RenderModels( GameModelCollection& collection )
+    {
+        const RenderInstanceStore& renderStore = collection.RenderInstances();
+        const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
+        if ( instances[x].shapeKind == RenderInstanceShapeKind::Sphere ||
+             instances[x].shapeKind == RenderInstanceShapeKind::ConvexHull )
+        {
+            const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &models[x].GetCollisionShape() );
+            RenderHelper::DrawSphereBatchModel( instances[x].modelMatrix, instances[x].material );
+        }
+    }
+    """
+    if check_game_model_renderer_render_instance_authority_guardrails_text(
+        Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"),
+        allowed_game_model_renderer_render_instances,
+    ):
+        failures.append("RenderInstanceStore-backed GameModelRenderer synthetic surface was rejected")
+
+    commented_game_model_renderer_stream_reads = """
+    void GameModelRenderer::RenderModels( GameModelCollection& collection )
+    {
+        // collection.GetRenderStream() and models[x].GetPosition() used to drive object rendering.
+        const RenderInstanceStore& renderStore = collection.RenderInstances();
+    }
+    """
+    if check_game_model_renderer_render_instance_authority_guardrails_text(
+        Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"),
+        commented_game_model_renderer_stream_reads,
+    ):
+        failures.append("comment-only GameModelRenderer stream-read synthetic text was rejected")
+
+    old_dxr_model_matrix_copy = """
+    int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount )
+    {
+        const Matrix4 modelMatrix = m_gameModels[static_cast<std::size_t>( i )].GetModelMatrix();
+        memcpy( outMatrixFloats, modelMatrix.Data(), 16u * sizeof( float ) );
+        return 1;
+    }
+    """
+    if not any(
+        error.message == "DXR model-matrix upload must use render instances"
+        for error in check_dxr_render_instance_matrix_authority_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_dxr_model_matrix_copy,
+        )
+    ):
+        failures.append("old DXR GameModel matrix copy synthetic surface was not rejected")
+
+    allowed_dxr_render_instance_matrix_copy = """
+    int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount )
+    {
+        const std::vector<Rendering::RenderInstanceRecord>& instances = m_physicsEngine.RenderInstances().Records();
+        const Matrix4& modelMatrix = instances[static_cast<std::size_t>( i )].modelMatrix;
+        memcpy( outMatrixFloats, modelMatrix.Data(), 16u * sizeof( float ) );
+        return 1;
+    }
+    """
+    if check_dxr_render_instance_matrix_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_dxr_render_instance_matrix_copy,
+    ):
+        failures.append("RenderInstanceStore-backed DXR matrix copy synthetic surface was rejected")
+
+    commented_dxr_model_matrix_copy = """
+    int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount )
+    {
+        // m_gameModels[i].GetModelMatrix() used to feed DXR.
+        return 0;
+    }
+    """
+    if check_dxr_render_instance_matrix_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        commented_dxr_model_matrix_copy,
+    ):
+        failures.append("comment-only DXR model matrix copy synthetic text was rejected")
+
     old_diagnostics_model_record_read = """
     void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess )
     {
@@ -11055,6 +11225,8 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_world_run_diagnostics_guardrails(repo))
     errors.extend(check_physics_world_step_diagnostics_model_access_guardrails(repo))
     errors.extend(check_render_instance_store_authority_guardrails(repo))
+    errors.extend(check_game_model_renderer_render_instance_authority_guardrails(repo))
+    errors.extend(check_dxr_render_instance_matrix_authority_guardrails(repo))
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
     errors.extend(check_physics_collision_time_name_guardrails(repo))
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))

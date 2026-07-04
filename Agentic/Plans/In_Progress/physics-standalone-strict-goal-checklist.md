@@ -1093,6 +1093,52 @@ Evidence logs: `TestOutput\agent_build_debug_model_access_facade_trim.log`,
 `TestOutput\agent_validate_fast_model_access_facade_trim.log`, and
 `TestOutput\agent_validate_physics_model_access_facade_trim.log`.
 
+Slice `PHY-1014`: move renderer-facing object pose consumers onto the
+physics-backed `RenderInstanceStore` snapshot. Object drawing, shadow caster
+batching, object shadow bounds, and DXR matrix upload no longer read the
+GameModel render/body streams or recompute model matrices from `GameModel`
+pose. Replay scrub/prediction render poses stay presentation-only by applying a
+one-frame override to the prepared render snapshot after the physics-backed
+refresh.
+
+- [x] Make `GameModelRenderer` consume `RenderInstances()` for transforms,
+  material highlights, fixed flags, shape kind, and shadow bounds.
+- [x] Make `CopyDxrModelMatrices` copy prepared render-instance matrices, with a
+  cold-call refresh instead of falling back to `GameModel::GetModelMatrix`.
+- [x] Carry conservative bounds radius and render shape kind in
+  `RenderInstanceRecord`.
+- [x] Preserve convex-hull draw transform behavior while moving matrix authority
+  to the render snapshot.
+- [x] Queue replay render-pose overrides and apply them only to
+  `RenderInstanceStore`.
+- [x] Add runtime-boundary guardrails for renderer stream/model-pose/shape reads
+  and DXR GameModel matrix recomputation.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+  - [x] `tools\validate_dx12_renderer.bat`
+  - [ ] `tools\validate_perf.bat`
+
+Perf note: `tools\validate_perf.bat` was updated to use
+`--no-contact-audio` for deterministic headless perf runs, which removes the
+audio sample memory drift from this gate. The current tree still fails only
+`PHYSICS_BENCH` `Frame/Render.avg` against the old baseline, while p50, memory,
+DX12 perf, and absolute budgets pass. A clean detached HEAD no-audio isolation
+run also failed the same old baseline and was slower (`Frame/Render.avg`
+0.6540 ms at HEAD versus 0.5768-0.5813 ms after this slice), so the remaining
+red result is pre-existing perf-baseline/restart-frame drift rather than a
+regression from `PHY-1014`.
+
+Evidence logs: `TestOutput\agent_validate_fast_render_instance_store_shape_kind_fixed.log`,
+`TestOutput\agent_validate_physics_render_instance_store_shape_kind.log`,
+`TestOutput\agent_validate_dx12_render_instance_store_shape_kind.log`,
+`TestOutput\agent_validate_perf_render_instance_store_shape_kind.log`, and
+`TestOutput\agent_validate_perf_render_instance_store_shape_kind_rerun.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

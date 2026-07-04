@@ -42,11 +42,13 @@ using SkullbonezCore::GameObjects::GameModel;
 using SkullbonezCore::Math::CollisionDetection::GetShapeModelMatrix;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Rendering::RenderInstanceHandle;
 using SkullbonezCore::Rendering::RenderInstanceRecord;
+using SkullbonezCore::Rendering::RenderInstanceShapeKind;
 using SkullbonezCore::Rendering::RenderInstanceStore;
 
 
@@ -55,7 +57,28 @@ namespace
 Matrix4 BuildPhysicsModelMatrix( const PhysicsBodyRecord& body, const ColliderRecord& collider )
 {
     const Matrix4 rotation = Matrix4::FromQuaternion( body.orientation );
+    if ( collider.shapeKind == ColliderShapeKind::ConvexHull )
+    {
+        // Why: convex hull draw code transforms authored hull vertices directly.
+        // Keep the legacy T * R body matrix here so moving renderers to this
+        // snapshot does not add the collision-shape scale/offset a second time.
+        return Matrix4::Translate( body.position ) * rotation;
+    }
     return GetShapeModelMatrix( collider.shape, body.position, rotation );
+}
+
+RenderInstanceShapeKind ShapeKindFromCollider( ColliderShapeKind shapeKind )
+{
+    switch ( shapeKind )
+    {
+    case ColliderShapeKind::Sphere:
+        return RenderInstanceShapeKind::Sphere;
+    case ColliderShapeKind::Box:
+        return RenderInstanceShapeKind::Box;
+    case ColliderShapeKind::ConvexHull:
+        return RenderInstanceShapeKind::ConvexHull;
+    }
+    return RenderInstanceShapeKind::Sphere;
 }
 } // namespace
 
@@ -95,6 +118,10 @@ void RenderInstanceStore::Refresh( GameModel* models, int modelCount )
         record.replayBodyId = model.GetReplayBodyId();
         record.modelMatrix = model.GetModelMatrix();
         record.material = model.GetRenderMaterial();
+        record.boundingRadius = model.GetBoundingRadius();
+        record.shapeKind = model.IsBox() ? RenderInstanceShapeKind::Box
+                                         : ( model.IsConvexHull() ? RenderInstanceShapeKind::ConvexHull
+                                                                  : RenderInstanceShapeKind::Sphere );
         record.isFixed = model.IsFixed();
         record.fixedContactAlpha = model.GetFixedContactHighlightAlpha();
         record.audioContactAlpha = model.GetAudioContactHighlightAlpha();
@@ -144,11 +171,34 @@ void RenderInstanceStore::Refresh( GameModel* models,
         record.replayBodyId = body.replayBodyId;
         record.modelMatrix = BuildPhysicsModelMatrix( body, collider );
         record.material = model.GetRenderMaterial();
+        record.boundingRadius = collider.boundingRadius;
+        record.shapeKind = ShapeKindFromCollider( collider.shapeKind );
         record.isFixed = body.isFixed;
         record.fixedContactAlpha = model.GetFixedContactHighlightAlpha();
         record.audioContactAlpha = model.GetAudioContactHighlightAlpha();
         m_modelInstanceHandles[index] = record.handle;
     }
+}
+
+
+void RenderInstanceStore::OverridePoseFromModel( int modelIndex, GameModel& model )
+{
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_instances.size() ) )
+    {
+        return;
+    }
+
+    RenderInstanceRecord& record = m_instances[static_cast<std::size_t>( modelIndex )];
+    if ( record.shapeKind == RenderInstanceShapeKind::ConvexHull )
+    {
+        const Matrix4 rotation = Matrix4::FromQuaternion( model.GetOrientation() );
+        record.modelMatrix = Matrix4::Translate( model.GetPosition() ) * rotation;
+    }
+    else
+    {
+        record.modelMatrix = model.GetModelMatrix();
+    }
+    record.boundingRadius = model.GetBoundingRadius();
 }
 
 
