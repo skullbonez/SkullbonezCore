@@ -18,6 +18,8 @@ Glossary:
     valid only for the current presentation snapshot.
   Contact-audio flash mode: Render-only diagnostic selector for emitted,
     candidate, rejected, or hidden contact-audio decisions.
+  Simple linear mode: Contact-audio path that emits from mass-scaled linear
+    velocity changes rather than solver contact rows.
 
 Invariants:
   - View models are copies; consumers must not infer ownership from them.
@@ -52,6 +54,10 @@ struct RuntimeContactAudioSnapshot
     float minClosingSpeed = 0.0f;
     float minImpactScore = 0.0f;
     float impactScoreRangeSeconds = 1.0f;
+    bool simpleMode = true;
+    float simpleMinLinearEnergy = 270.0f;
+    float simpleMinLinearDeltaSpeed = 2.0f;
+    float simpleLinearEnergyRange = 320.0f;
     uint32_t burstVoicesPerWindow = 0; // Max submitted contact sounds per 100 ms burst.
     float rollingLevelDb = -24.0f;
     float rollingMaxDistance = 24.0f;

@@ -15,6 +15,8 @@ Glossary:
     model-backed physics state without making GameModelCollection a physics base.
   Contact-audio flash mode: Render-only diagnostic selector that decides which
     completed audio decisions paint body flashes after a fixed physics step.
+  Contact-audio simple mode: Presentation-only path that emits from body linear
+    velocity changes rather than solver contact rows.
   Replay event payload: Saved event data that must be decoded exactly so replay
     restore and validation compare the same floating-point bits.
   Validation gate: Repository script that proves a class of changes before
@@ -672,11 +674,7 @@ void Run::AfterPhysicsStep()
             m_systems.cameras ? m_systems.cameras->GetRenderCameraTranslation() : Math::Vector::ZERO_VECTOR;
         m_contactAudio.BeginPhysicsStep( PHYSICS_FIXED_DT, listenerPosition );
 
-        // Why: PhysicsDebugContact rows are emitted after accumulated normal
-        // impulses are known. Audio can consume those facts without entering
-        // solver math or changing deterministic physics state.
         const std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.Models();
-        const std::vector<PhysicsDebugContact>& contacts = m_cGameModelCollection.GetPhysicsDebugContacts();
         auto materialForBody = [&]( int bodyIndex ) -> uint32_t
         {
             if ( bodyIndex >= 0 && bodyIndex < static_cast<int>( models.size() ) )
@@ -686,29 +684,56 @@ void Run::AfterPhysicsStep()
             return HashStr( "default" );
         };
 
-        for ( const PhysicsDebugContact& contact : contacts )
+        if ( m_contactAudio.SimpleModeEnabled() )
         {
-            if ( contact.bodyA < 0 || contact.normalImpulse <= 0.0f )
+            // Why: Simple Mode answers the practical sound question directly:
+            // did a dynamic body experience enough mass-scaled linear velocity
+            // change to be heard? Passive constraint rows are ignored entirely.
+            m_contactAudio.BeginSimpleLinearStep( static_cast<int>( models.size() ) );
+            for ( int bodyIndex = 0; bodyIndex < static_cast<int>( models.size() ); ++bodyIndex )
             {
-                continue;
+                const GameObjects::GameModel& model = models[static_cast<std::size_t>( bodyIndex )];
+                if ( model.IsFixed() )
+                {
+                    continue;
+                }
+                m_contactAudio.SubmitLinearMotion( bodyIndex,
+                                                   model.GetContactMaterialId(),
+                                                   model.GetPosition(),
+                                                   model.GetVelocity(),
+                                                   model.GetMass() );
             }
+        }
+        else
+        {
+            // Why: PhysicsDebugContact rows are emitted after accumulated normal
+            // impulses are known. Audio can consume those facts without entering
+            // solver math or changing deterministic physics state.
+            const std::vector<PhysicsDebugContact>& contacts = m_cGameModelCollection.GetPhysicsDebugContacts();
+            for ( const PhysicsDebugContact& contact : contacts )
+            {
+                if ( contact.bodyA < 0 || contact.normalImpulse <= 0.0f )
+                {
+                    continue;
+                }
 
-            Runtime::Audio::ContactAudioEvent event;
-            event.bodyA = contact.bodyA;
-            event.bodyB = contact.bodyB;
-            event.featureId = contact.featureId;
-            event.materialA = materialForBody( contact.bodyA );
-            event.materialB = materialForBody( contact.bodyB );
-            event.point = contact.point;
-            event.normal = contact.normal;
-            event.normalImpulse = contact.normalImpulse;
-            // Why: sound uses pre-solve relative motion so stationary wall bricks
-            // receiving propagated constraint force do not all become emitters.
-            event.normalClosingSpeed = contact.preSolveClosingSpeed;
-            event.tangentSlipSpeed = contact.preSolveSlipSpeed;
-            event.isTerrain = contact.bodyB < 0;
-            event.hasMotionData = true;
-            m_contactAudio.SubmitContact( event );
+                Runtime::Audio::ContactAudioEvent event;
+                event.bodyA = contact.bodyA;
+                event.bodyB = contact.bodyB;
+                event.featureId = contact.featureId;
+                event.materialA = materialForBody( contact.bodyA );
+                event.materialB = materialForBody( contact.bodyB );
+                event.point = contact.point;
+                event.normal = contact.normal;
+                event.normalImpulse = contact.normalImpulse;
+                // Why: sound uses pre-solve relative motion so stationary wall bricks
+                // receiving propagated constraint force do not all become emitters.
+                event.normalClosingSpeed = contact.preSolveClosingSpeed;
+                event.tangentSlipSpeed = contact.preSolveSlipSpeed;
+                event.isTerrain = contact.bodyB < 0;
+                event.hasMotionData = true;
+                m_contactAudio.SubmitContact( event );
+            }
         }
 
         m_contactAudio.EndPhysicsStep();

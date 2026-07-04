@@ -560,6 +560,10 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.contactAudioMinClosingSpeed = contactAudio.minClosingSpeed;
         UIData.contactAudioMinImpactScore = contactAudio.minImpactScore;
         UIData.contactAudioImpactScoreRangeSeconds = contactAudio.impactScoreRangeSeconds;
+        UIData.contactAudioSimpleMode = contactAudio.simpleMode;
+        UIData.contactAudioSimpleMinLinearEnergy = contactAudio.simpleMinLinearEnergy;
+        UIData.contactAudioSimpleMinLinearDeltaSpeed = contactAudio.simpleMinLinearDeltaSpeed;
+        UIData.contactAudioSimpleLinearEnergyRange = contactAudio.simpleLinearEnergyRange;
         UIData.contactAudioBurstVoicesPerWindow = contactAudio.burstVoicesPerWindow;
         UIData.contactAudioRollingLevelDb = contactAudio.rollingLevelDb;
         UIData.contactAudioRollingMaxDistance = contactAudio.rollingMaxDistance;

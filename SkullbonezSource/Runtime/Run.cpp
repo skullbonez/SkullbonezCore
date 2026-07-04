@@ -252,6 +252,10 @@ void Run::RefreshRuntimeViewModel()
     audio.minClosingSpeed = m_contactAudio.MinClosingSpeed();
     audio.minImpactScore = m_contactAudio.MinImpactScore();
     audio.impactScoreRangeSeconds = m_contactAudio.ImpactScoreRangeSeconds();
+    audio.simpleMode = m_contactAudio.SimpleModeEnabled();
+    audio.simpleMinLinearEnergy = m_contactAudio.SimpleMinLinearEnergy();
+    audio.simpleMinLinearDeltaSpeed = m_contactAudio.SimpleMinLinearDeltaSpeed();
+    audio.simpleLinearEnergyRange = m_contactAudio.SimpleLinearEnergyRange();
     audio.burstVoicesPerWindow = m_contactAudio.BurstVoicesPerWindow();
     audio.rollingLevelDb = m_contactAudio.RollingLevelDb();
     audio.rollingMaxDistance = m_contactAudio.RollingMaxDistance();

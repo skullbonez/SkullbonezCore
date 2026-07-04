@@ -14,6 +14,8 @@ Glossary:
   Sample library: Decoded candidate sounds exposed for preview and assignment.
   Contact-audio flash mode: Optional white marker selector for submitted,
     candidate, or rejected contact-audio decisions.
+  Simple mode: Linear-energy contact-audio path that emits from body velocity
+    changes instead of solver contact rows.
   Burst voices: Cap on submitted impact sounds in each 100 ms audio burst window.
   Cooldown: Per-body-pair timeout that keeps persistent contacts from replaying
     every physics tick.
@@ -46,7 +48,7 @@ namespace SoundTab
 {
 
 constexpr int SOUND_UI_BAND_MAX = 4;
-constexpr int SOUND_GLOBAL_SLIDER_COUNT = 10;
+constexpr int SOUND_GLOBAL_SLIDER_COUNT = 13;
 constexpr int SOUND_SET_SLIDER_COUNT = 9;
 constexpr int SOUND_BAND_SLIDER_COUNT = 5;
 
@@ -55,6 +57,7 @@ struct UISoundTabState
     UICheckBox enabledToggle;
     UICheckBox debugCountersToggle;
     UICheckBox flashModeToggle;
+    UICheckBox simpleModeToggle;
     UIRect previousSetButton;
     UIRect nextSetButton;
     UIRect previousSampleButton;

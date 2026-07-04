@@ -649,6 +649,8 @@ void RuntimeDiagnostics::LogContactAudioDecision( RunPhysicsDiagnosticsState& di
                   "\"data\":{\"decision\":\"%s\",\"kind\":\"%s\",\"pair_key\":%llu,\"feature_id\":%u,\"is_terrain\":%d,"
                   "\"material_a\":%u,\"material_b\":%u,\"normal_impulse\":%.6f,"
                   "\"normal_closing_speed\":%.6f,\"tangent_slip_speed\":%.6f,\"has_motion_data\":%d,"
+                  "\"simple_linear\":%d,\"linear_energy\":%.6f,\"linear_delta_speed\":%.6f,"
+                  "\"linear_speed_before\":%.6f,\"linear_speed_after\":%.6f,"
                   "\"min_impulse\":%.6f,\"impulse_range\":%.6f,\"distance\":%.6f,\"max_distance\":%.6f,"
                   "\"distance_gain\":%.6f,\"impact_gain\":%.6f,\"motion_gain\":%.6f,\"impact_score\":%.6f,"
                   "\"gain\":%.6f,\"contact_age_seconds\":%.6f,"
@@ -674,6 +676,11 @@ void RuntimeDiagnostics::LogContactAudioDecision( RunPhysicsDiagnosticsState& di
                   decision.event.normalClosingSpeed,
                   decision.event.tangentSlipSpeed,
                   decision.event.hasMotionData ? 1 : 0,
+                  decision.event.simpleLinear ? 1 : 0,
+                  decision.event.linearEnergy,
+                  decision.event.linearDeltaSpeed,
+                  decision.event.linearSpeedBefore,
+                  decision.event.linearSpeedAfter,
                   decision.minImpulse,
                   decision.impulseRange,
                   decision.distance,

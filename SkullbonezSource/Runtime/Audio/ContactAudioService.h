@@ -14,6 +14,8 @@ Glossary:
     contact became a sound, flash feedback, or a specific rejection.
   Contact-audio kind: Perceptual class such as impact, heavy_landing, support,
     settle, roll_slide, or propagated_impulse.
+  Simple linear mode: Optional body-motion path that ignores solver contact rows
+    and emits from mass-scaled linear velocity changes.
   Contact material: Gameplay/audio material token such as metal, stone, or wood.
   Cooldown key: Stable contact-patch key that prevents persistent contact rows
     from replaying the same impact every fixed tick.
@@ -68,8 +70,13 @@ struct ContactAudioEvent
     float normalImpulse = 0.0f;
     float normalClosingSpeed = 0.0f;
     float tangentSlipSpeed = 0.0f;
+    float linearEnergy = 0.0f;
+    float linearDeltaSpeed = 0.0f;
+    float linearSpeedBefore = 0.0f;
+    float linearSpeedAfter = 0.0f;
     bool isTerrain = false;
     bool hasMotionData = false;
+    bool simpleLinear = false;
 };
 
 struct ContactAudioStats
@@ -200,6 +207,14 @@ class ContactAudioService
     float MinImpactScore() const;
     void SetImpactScoreRangeSeconds( float seconds );
     float ImpactScoreRangeSeconds() const;
+    void SetSimpleModeEnabled( bool enabled );
+    bool SimpleModeEnabled() const;
+    void SetSimpleMinLinearEnergy( float energy );
+    float SimpleMinLinearEnergy() const;
+    void SetSimpleMinLinearDeltaSpeed( float speed );
+    float SimpleMinLinearDeltaSpeed() const;
+    void SetSimpleLinearEnergyRange( float energy );
+    float SimpleLinearEnergyRange() const;
     // Caps ranked contact sounds submitted in each 100 ms burst window.
     void SetBurstVoicesPerWindow( uint32_t voices );
     uint32_t BurstVoicesPerWindow() const;
@@ -232,8 +247,15 @@ class ContactAudioService
     bool PreviewSoundSample( int sampleIndex, float gain );
 
     void BeginPhysicsStep( float deltaSeconds, const Math::Vector::Vector3& listenerPosition );
+    void BeginSimpleLinearStep( int bodyCount );
     void SubmitContact( const ContactAudioEvent& event );
+    void SubmitLinearMotion( int bodyIndex,
+                             uint32_t materialId,
+                             const Math::Vector::Vector3& position,
+                             const Math::Vector::Vector3& linearVelocity,
+                             float mass );
     void EndPhysicsStep();
+    void ResetSimpleLinearHistory();
     int SubmittedContactCount() const;
     bool GetSubmittedContact( int index, ContactAudioEvent& out ) const;
     // Returns bounded per-step verdicts for visual feedback and SkullScope. The

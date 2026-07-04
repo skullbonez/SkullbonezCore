@@ -14,6 +14,8 @@ Glossary:
     reflection dispatch.
   Contact-audio flash command: One-frame UI request that cycles a render-only
     diagnostic selector; it does not change audio classification policy.
+  Contact-audio simple command: One-frame UI request that switches audio to the
+    body-linear-energy path instead of the solver contact-row classifier.
   Validation gate: Repository script that proves a class of changes before
     commit or PR.
 
@@ -2795,10 +2797,24 @@ void Run::TakeInput()
                 NextContactAudioFlashMode( m_runtimeSettings.contactAudioFlashMode );
             soundTuningChanged = true;
         }
+        if ( uiCommands.sound.toggleSimpleMode )
+        {
+            m_contactAudio.SetSimpleModeEnabled( !m_contactAudio.SimpleModeEnabled() );
+            soundTuningChanged = true;
+        }
         if ( uiCommands.sound.requestedParam != UISoundParam::None )
         {
             switch ( uiCommands.sound.requestedParam )
             {
+            case UISoundParam::SimpleMinLinearEnergy:
+                m_contactAudio.SetSimpleMinLinearEnergy( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SimpleMinLinearDeltaSpeed:
+                m_contactAudio.SetSimpleMinLinearDeltaSpeed( uiCommands.sound.requestedValue );
+                break;
+            case UISoundParam::SimpleLinearEnergyRange:
+                m_contactAudio.SetSimpleLinearEnergyRange( uiCommands.sound.requestedValue );
+                break;
             case UISoundParam::MasterGain:
                 m_contactAudio.SetMasterGain( uiCommands.sound.requestedValue );
                 break;

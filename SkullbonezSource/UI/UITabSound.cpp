@@ -52,25 +52,29 @@ namespace
 {
 
 constexpr int UI_SOUND_GLOBAL_SLIDER_BASE = 8000;
-constexpr int UI_SOUND_SET_SLIDER_BASE = 8010;
+constexpr int UI_SOUND_SET_SLIDER_BASE = 8020;
 constexpr int UI_SOUND_BAND_SLIDER_BASE = 8100;
+constexpr int SOUND_SIMPLE_GLOBAL_SLIDER_COUNT = 3;
 constexpr float SOUND_HEADER_Y = 16.0f;
 constexpr float SOUND_TOGGLE_Y = 42.0f;
 constexpr float SOUND_TOGGLE_ROW2_Y = 72.0f;
 constexpr float SOUND_STATS_Y = 112.0f;
-constexpr float SOUND_GLOBAL_TITLE_Y = 160.0f;
-constexpr float SOUND_GLOBAL_SLIDER_Y = 186.0f;
+constexpr float SOUND_SIMPLE_TITLE_Y = 160.0f;
+constexpr float SOUND_SIMPLE_SLIDER_Y = 186.0f;
+constexpr float SOUND_SIMPLE_EXTRA_Y = 160.0f;
+constexpr float SOUND_GLOBAL_TITLE_Y = 160.0f + SOUND_SIMPLE_EXTRA_Y;
+constexpr float SOUND_GLOBAL_SLIDER_Y = 186.0f + SOUND_SIMPLE_EXTRA_Y;
 constexpr float SOUND_ROLLING_EXTRA_Y = 160.0f;
-constexpr float SOUND_SAMPLE_TITLE_Y = 442.0f + SOUND_ROLLING_EXTRA_Y;
-constexpr float SOUND_SAMPLE_PICKER_Y = 468.0f + SOUND_ROLLING_EXTRA_Y;
-constexpr float SOUND_SAMPLE_ACTION_Y = 502.0f + SOUND_ROLLING_EXTRA_Y;
+constexpr float SOUND_SAMPLE_TITLE_Y = 442.0f + SOUND_ROLLING_EXTRA_Y + SOUND_SIMPLE_EXTRA_Y;
+constexpr float SOUND_SAMPLE_PICKER_Y = 468.0f + SOUND_ROLLING_EXTRA_Y + SOUND_SIMPLE_EXTRA_Y;
+constexpr float SOUND_SAMPLE_ACTION_Y = 502.0f + SOUND_ROLLING_EXTRA_Y + SOUND_SIMPLE_EXTRA_Y;
 constexpr float SOUND_SAMPLE_BUTTON_W = 72.0f;
 constexpr float SOUND_SAMPLE_BUTTON_H = 26.0f;
-constexpr float SOUND_SET_TITLE_Y = 552.0f + SOUND_ROLLING_EXTRA_Y;
-constexpr float SOUND_SET_PICKER_Y = 578.0f + SOUND_ROLLING_EXTRA_Y;
-constexpr float SOUND_SET_META_Y = 612.0f + SOUND_ROLLING_EXTRA_Y;
-constexpr float SOUND_SET_SLIDER_Y = 654.0f + SOUND_ROLLING_EXTRA_Y;
-constexpr float SOUND_BAND_TITLE_Y = 1044.0f + SOUND_ROLLING_EXTRA_Y;
+constexpr float SOUND_SET_TITLE_Y = 552.0f + SOUND_ROLLING_EXTRA_Y + SOUND_SIMPLE_EXTRA_Y;
+constexpr float SOUND_SET_PICKER_Y = 578.0f + SOUND_ROLLING_EXTRA_Y + SOUND_SIMPLE_EXTRA_Y;
+constexpr float SOUND_SET_META_Y = 612.0f + SOUND_ROLLING_EXTRA_Y + SOUND_SIMPLE_EXTRA_Y;
+constexpr float SOUND_SET_SLIDER_Y = 654.0f + SOUND_ROLLING_EXTRA_Y + SOUND_SIMPLE_EXTRA_Y;
+constexpr float SOUND_BAND_TITLE_Y = 1044.0f + SOUND_ROLLING_EXTRA_Y + SOUND_SIMPLE_EXTRA_Y;
 constexpr float SOUND_BAND_BLOCK_H = 238.0f;
 constexpr float SOUND_SLIDER_H = 34.0f;
 constexpr float SOUND_SLIDER_STEP_Y = 40.0f;
@@ -96,6 +100,9 @@ struct SoundBandSliderSpec
 };
 
 constexpr SoundSliderSpec kGlobalSliders[] = {
+    { UISoundParam::SimpleMinLinearEnergy, "SIMPLE MODE min energy", "%.1f", 0.0f, 1000.0f, 2.5f },
+    { UISoundParam::SimpleMinLinearDeltaSpeed, "SIMPLE MODE delta speed", "%.2f", 0.0f, 20.0f, 0.05f },
+    { UISoundParam::SimpleLinearEnergyRange, "SIMPLE MODE energy range", "%.0f", 1.0f, 5000.0f, 10.0f },
     { UISoundParam::MasterGain, "Master gain", "%.2f", 0.0f, 4.0f, 0.05f },
     { UISoundParam::MaxDistanceScale, "Distance scale", "%.2fx", 0.01f, 16.0f, 0.05f },
     { UISoundParam::MinClosingSpeed, "Min closing speed", "%.2f", 0.0f, 20.0f, 0.05f },
@@ -184,6 +191,15 @@ int BandSliderIndexFromActiveSlider( int activeSlider, int& outBandIndex )
     }
     outBandIndex = bandIndex;
     return sliderIndex;
+}
+
+float GlobalSliderY( int sliderIndex )
+{
+    if ( sliderIndex < SOUND_SIMPLE_GLOBAL_SLIDER_COUNT )
+    {
+        return SOUND_SIMPLE_SLIDER_Y + static_cast<float>( sliderIndex ) * SOUND_SLIDER_STEP_Y;
+    }
+    return SOUND_GLOBAL_SLIDER_Y + static_cast<float>( sliderIndex - SOUND_SIMPLE_GLOBAL_SLIDER_COUNT ) * SOUND_SLIDER_STEP_Y;
 }
 
 float SetSliderValue( const SkullbonezCore::UI::UISoundSetFrameData& set, int sliderIndex )
@@ -330,6 +346,12 @@ float GlobalDisplayValue( const SkullbonezCore::UI::SoundTab::UISoundTabState& s
     }
     switch ( kGlobalSliders[index].param )
     {
+    case UISoundParam::SimpleMinLinearEnergy:
+        return data.contactAudioSimpleMinLinearEnergy;
+    case UISoundParam::SimpleMinLinearDeltaSpeed:
+        return data.contactAudioSimpleMinLinearDeltaSpeed;
+    case UISoundParam::SimpleLinearEnergyRange:
+        return data.contactAudioSimpleLinearEnergyRange;
     case UISoundParam::MasterGain:
         return data.contactAudioMasterGain;
     case UISoundParam::MaxDistanceScale:
@@ -435,13 +457,10 @@ void SetContentBounds( SkullbonezCore::UI::SoundTab::UISoundTabState& state,
     state.enabledToggle.SetBounds( contentX, scrolledY + SOUND_TOGGLE_Y, colW, 24.0f );
     state.debugCountersToggle.SetBounds( contentX + colW + 18.0f, scrolledY + SOUND_TOGGLE_Y, colW, 24.0f );
     state.flashModeToggle.SetBounds( contentX, scrolledY + SOUND_TOGGLE_ROW2_Y, colW, 24.0f );
+    state.simpleModeToggle.SetBounds( contentX + colW + 18.0f, scrolledY + SOUND_TOGGLE_ROW2_Y, colW, 24.0f );
     for ( int i = 0; i < SkullbonezCore::UI::SoundTab::SOUND_GLOBAL_SLIDER_COUNT; ++i )
     {
-        state.globalSliders[i].SetBounds(
-            contentX,
-            scrolledY + SOUND_GLOBAL_SLIDER_Y + static_cast<float>( i ) * SOUND_SLIDER_STEP_Y,
-            contentW,
-            SOUND_SLIDER_H );
+        state.globalSliders[i].SetBounds( contentX, scrolledY + GlobalSliderY( i ), contentW, SOUND_SLIDER_H );
     }
     SetPipelineStepButtonBounds( state.previousSampleButton,
                                  state.nextSampleButton,
@@ -557,6 +576,7 @@ void DrawHitboxes( const UISoundTabState& state,
     DrawHitboxRect( draw, state.enabledToggle.Bounds(), r, g, b );
     DrawHitboxRect( draw, state.debugCountersToggle.Bounds(), r, g, b );
     DrawHitboxRect( draw, state.flashModeToggle.Bounds(), r, g, b );
+    DrawHitboxRect( draw, state.simpleModeToggle.Bounds(), r, g, b );
     for ( const UISlider& slider : state.globalSliders )
     {
         DrawHitboxRect( draw, slider.Bounds(), r, g, b );
@@ -628,6 +648,11 @@ bool HandleContentClick( UISoundTabState& state,
     if ( state.flashModeToggle.HitTest( mouseX, mouseY ) )
     {
         result.commands.sound.cycleFlashMode = true;
+        return false;
+    }
+    if ( state.simpleModeToggle.HitTest( mouseX, mouseY ) )
+    {
+        result.commands.sound.toggleSimpleMode = true;
         return false;
     }
     for ( int i = 0; i < SOUND_GLOBAL_SLIDER_COUNT; ++i )
@@ -806,6 +831,15 @@ void Draw( UISoundTabState& state,
                        colW,
                        data.contactAudioFlashModeLabel,
                        data.contactAudioFlashMode != 0 );
+    DrawContentToggle( draw,
+                       contentY,
+                       contentH,
+                       state.simpleModeToggle,
+                       col2,
+                       scrolledY + SOUND_TOGGLE_ROW2_Y,
+                       colW,
+                       "SIMPLE mode",
+                       data.contactAudioSimpleMode );
 
     const uint32_t quietContacts = data.contactAudioRejectedByThreshold + data.contactAudioRejectedByCooldown;
     const uint32_t budgetContacts = data.contactAudioCandidateOverflows +
@@ -832,10 +866,31 @@ void Draw( UISoundTabState& state,
                       data.contactAudioAvailable ? 0.88f : 0.55f,
                       data.contactAudioAvailable ? 0.91f : 0.32f );
 
-    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_GLOBAL_TITLE_Y, 12.0f, "Classifier" );
+    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_SIMPLE_TITLE_Y, 12.0f, "SIMPLE MODE" );
+    for ( int i = 0; i < SOUND_SIMPLE_GLOBAL_SLIDER_COUNT; ++i )
+    {
+        const float sliderY = scrolledY + GlobalSliderY( i );
+        const float value = GlobalDisplayValue( state, data, activeSlider, i );
+        FormatSliderValue( buf, sizeof( buf ), kGlobalSliders[i].format, value );
+        if ( IsRowVisible( contentY, contentH, sliderY, SOUND_SLIDER_H ) )
+        {
+            state.globalSliders[i].Draw( draw,
+                                         kGlobalSliders[i].label,
+                                         buf,
+                                         value,
+                                         kGlobalSliders[i].minValue,
+                                         kGlobalSliders[i].maxValue );
+        }
+    }
+
+    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + SOUND_GLOBAL_TITLE_Y, 12.0f, "Contact Classifier" );
     for ( int i = 0; i < static_cast<int>( sizeof( kGlobalSliders ) / sizeof( kGlobalSliders[0] ) ); ++i )
     {
-        const float sliderY = scrolledY + SOUND_GLOBAL_SLIDER_Y + static_cast<float>( i ) * SOUND_SLIDER_STEP_Y;
+        if ( i < SOUND_SIMPLE_GLOBAL_SLIDER_COUNT )
+        {
+            continue;
+        }
+        const float sliderY = scrolledY + GlobalSliderY( i );
         const float value = GlobalDisplayValue( state, data, activeSlider, i );
         FormatSliderValue( buf, sizeof( buf ), kGlobalSliders[i].format, value );
         if ( IsRowVisible( contentY, contentH, sliderY, SOUND_SLIDER_H ) )

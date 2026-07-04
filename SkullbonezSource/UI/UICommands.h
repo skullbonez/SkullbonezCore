@@ -22,6 +22,8 @@ Glossary:
     candidate or assign it to the selected material set.
   Flash mode request: One-frame Sound-tab command to cycle emitted, candidate,
     rejected, or hidden contact-audio body flashes.
+  Simple mode request: One-frame Sound-tab command to use linear velocity energy
+    instead of solver contact rows for impact audio.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -161,6 +163,9 @@ enum class UIRenderParam
 enum class UISoundParam
 {
     None = -1,
+    SimpleMinLinearEnergy,
+    SimpleMinLinearDeltaSpeed,
+    SimpleLinearEnergyRange,
     MasterGain,
     MaxDistanceScale,
     MinClosingSpeed,
@@ -337,6 +342,7 @@ struct UISoundCommands
     bool toggleEnabled = false;
     bool toggleDebugCounters = false;
     bool cycleFlashMode = false;
+    bool toggleSimpleMode = false;
     int requestedSetIndex = -1;
     int requestedBandIndex = -1;
     UISoundParam requestedParam = UISoundParam::None;

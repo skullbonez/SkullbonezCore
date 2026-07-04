@@ -18,6 +18,8 @@ Glossary:
     render-only decision flash selector.
   Contact-audio reducer counter: Runtime count showing how raw contact facts
     were merged, silenced, budgeted, or submitted by the Sound tab model.
+  Simple contact audio: Optional linear-energy path for thuds, exposed as an
+    obvious Sound-tab section so the old contact-row classifier can be bypassed.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -226,6 +228,10 @@ struct InGameUIFrameData
     float contactAudioMinClosingSpeed = 0.0f;
     float contactAudioMinImpactScore = 0.0f;
     float contactAudioImpactScoreRangeSeconds = 1.0f;
+    bool contactAudioSimpleMode = true;
+    float contactAudioSimpleMinLinearEnergy = 270.0f;
+    float contactAudioSimpleMinLinearDeltaSpeed = 2.0f;
+    float contactAudioSimpleLinearEnergyRange = 320.0f;
     uint32_t contactAudioBurstVoicesPerWindow = 0; // Max submitted sounds per 100 ms burst.
     float contactAudioRollingLevelDb = -24.0f;
     float contactAudioRollingMaxDistance = 24.0f;

@@ -18,6 +18,8 @@ Glossary:
   Impulse range: Tuning span that maps solved normal impulse to gain.
   Impact score: Normal impulse multiplied by pre-solve closing speed; this
     approximates contact work better than solver force alone.
+  Simple linear mode: Optional body-motion path that uses 0.5 * mass * deltaV^2
+    from linear velocity changes instead of solver contact rows.
   Rolling lane: A quiet close-range playback path for roll/slide contacts. It
     has its own dB level, distance, and burst cap so it cannot widen thud audio.
   Contact patch key: Body-pair, feature, and material-pair key used to collapse
@@ -103,8 +105,12 @@ constexpr float CONTACT_AUDIO_VOICE_STEAL_GAIN_DELTA = 0.03f;
 constexpr float CONTACT_AUDIO_DEFAULT_MIN_CLOSING_SPEED = 2.0f;
 constexpr float CONTACT_AUDIO_DEFAULT_MIN_IMPACT_SCORE = 250.0f;
 constexpr float CONTACT_AUDIO_DEFAULT_IMPACT_SCORE_RANGE_SECONDS = 3.0f;
+constexpr float CONTACT_AUDIO_DEFAULT_SIMPLE_MIN_LINEAR_ENERGY = 270.0f;
+constexpr float CONTACT_AUDIO_DEFAULT_SIMPLE_MIN_LINEAR_DELTA_SPEED = 2.0f;
+constexpr float CONTACT_AUDIO_DEFAULT_SIMPLE_LINEAR_ENERGY_RANGE = 320.0f;
 constexpr float CONTACT_AUDIO_LEGACY_CLOSING_SPEED = 2.0f;
 constexpr float CONTACT_AUDIO_HEAVY_LANDING_SCORE_MULTIPLIER = 4.0f;
+constexpr uint32_t CONTACT_AUDIO_SIMPLE_LINEAR_FEATURE = 0x53494D50u; // "SIMP" (simple linear mode)
 
 float Clamp01( float value )
 {
@@ -123,12 +129,31 @@ float ContactClosingSpeed( const ContactAudioEvent& event )
 
 float ContactImpactScore( const ContactAudioEvent& event )
 {
+    if ( event.simpleLinear )
+    {
+        return event.linearEnergy;
+    }
     return event.normalImpulse * ContactClosingSpeed( event );
 }
 
 float ContactCandidateRank( const ContactAudioEvent& event )
 {
-    return event.hasMotionData ? ContactImpactScore( event ) : event.normalImpulse;
+    return event.simpleLinear ? event.linearEnergy : ( event.hasMotionData ? ContactImpactScore( event ) : event.normalImpulse );
+}
+
+float ContactStrength( const ContactAudioEvent& event )
+{
+    return event.simpleLinear ? event.linearDeltaSpeed : event.normalImpulse;
+}
+
+float VectorLengthSquared( const Vector3& value )
+{
+    return value.x * value.x + value.y * value.y + value.z * value.z;
+}
+
+bool IsFiniteVector( const Vector3& value )
+{
+    return std::isfinite( value.x ) && std::isfinite( value.y ) && std::isfinite( value.z );
 }
 
 uint32_t MaterialHashFromToken( const std::string& token )
@@ -292,6 +317,12 @@ struct ContactAudioService::Impl
         uint32_t count = 0;
     };
 
+    struct SimpleLinearBody
+    {
+        Vector3 previousVelocity = Math::Vector::ZERO_VECTOR;
+        bool hasPreviousVelocity = false;
+    };
+
     IXAudio2* xaudio = nullptr;
     IXAudio2MasteringVoice* masterVoice = nullptr;
     std::vector<DecodedSound> sounds;
@@ -301,6 +332,7 @@ struct ContactAudioService::Impl
     std::vector<ContactAudioDecision> decisions;
     std::vector<CooldownEntry> cooldowns;
     std::vector<BodySubmissionCount> bodySubmissionCounts;
+    std::vector<SimpleLinearBody> simpleLinearBodies;
     Vector3 listenerPosition = Math::Vector::ZERO_VECTOR;
     ContactAudioStats stats;
     ContactAudioStats stepStats;
@@ -310,6 +342,9 @@ struct ContactAudioService::Impl
     float minClosingSpeed = CONTACT_AUDIO_DEFAULT_MIN_CLOSING_SPEED;
     float minImpactScore = CONTACT_AUDIO_DEFAULT_MIN_IMPACT_SCORE;
     float impactScoreRangeSeconds = CONTACT_AUDIO_DEFAULT_IMPACT_SCORE_RANGE_SECONDS;
+    float simpleMinLinearEnergy = CONTACT_AUDIO_DEFAULT_SIMPLE_MIN_LINEAR_ENERGY;
+    float simpleMinLinearDeltaSpeed = CONTACT_AUDIO_DEFAULT_SIMPLE_MIN_LINEAR_DELTA_SPEED;
+    float simpleLinearEnergyRange = CONTACT_AUDIO_DEFAULT_SIMPLE_LINEAR_ENERGY_RANGE;
     uint32_t burstVoicesPerWindow = CONTACT_AUDIO_DEFAULT_BURST_VOICES; // Max submitted sounds per 100 ms burst.
     float nextBurstTimeSeconds = 0.0f;
     float rollingLevelDb = CONTACT_AUDIO_DEFAULT_ROLLING_LEVEL_DB;
@@ -321,6 +356,7 @@ struct ContactAudioService::Impl
     uint32_t sampleCursor = 0;
     bool initialized = false;
     bool enabled = true;
+    bool simpleModeEnabled = true;
 
     Impl()
     {
@@ -854,6 +890,10 @@ struct ContactAudioService::Impl
                                float impactScore,
                                float minImpactScoreForKind ) const
     {
+        if ( event.simpleLinear )
+        {
+            return "simple_linear";
+        }
         const float closingSpeed = ContactClosingSpeed( event );
         if ( IsRollingEvent( event, closingSpeed ) )
         {
@@ -1128,6 +1168,90 @@ struct ContactAudioService::Impl
         }
     }
 
+    void BeginSimpleLinearStep( int bodyCount )
+    {
+        const std::size_t desiredCount = static_cast<std::size_t>( (std::max)( bodyCount, 0 ) );
+        if ( simpleLinearBodies.size() != desiredCount )
+        {
+            // Why: body indices are scene-local array positions. A scene load or
+            // model-count change must reseed velocity history rather than letting
+            // a new body inherit an unrelated previous velocity.
+            simpleLinearBodies.clear();
+            simpleLinearBodies.resize( desiredCount );
+        }
+    }
+
+    void ResetSimpleLinearHistory()
+    {
+        simpleLinearBodies.clear();
+    }
+
+    void AddSimpleLinearMotion( int bodyIndex,
+                                uint32_t materialId,
+                                const Vector3& position,
+                                const Vector3& linearVelocity,
+                                float mass )
+    {
+        if ( bodyIndex < 0 || !IsFiniteVector( position ) || !IsFiniteVector( linearVelocity ) || !std::isfinite( mass ) ||
+             mass <= 0.0f )
+        {
+            return;
+        }
+        const std::size_t index = static_cast<std::size_t>( bodyIndex );
+        if ( index >= simpleLinearBodies.size() )
+        {
+            BeginSimpleLinearStep( bodyIndex + 1 );
+        }
+
+        SimpleLinearBody& body = simpleLinearBodies[index];
+        if ( !body.hasPreviousVelocity )
+        {
+            body.previousVelocity = linearVelocity;
+            body.hasPreviousVelocity = true;
+            return;
+        }
+
+        const Vector3 previousVelocity = body.previousVelocity;
+        body.previousVelocity = linearVelocity;
+
+        const Vector3 deltaVelocity = linearVelocity - previousVelocity;
+        const float deltaSpeedSquared = VectorLengthSquared( deltaVelocity );
+        const float minDeltaSpeed = (std::max)( simpleMinLinearDeltaSpeed, 0.0f );
+        if ( deltaSpeedSquared < minDeltaSpeed * minDeltaSpeed )
+        {
+            return;
+        }
+
+        const float linearEnergy = 0.5f * mass * deltaSpeedSquared;
+        if ( linearEnergy < simpleMinLinearEnergy )
+        {
+            return;
+        }
+
+        const float deltaSpeed = sqrtf( deltaSpeedSquared );
+        ContactAudioEvent event;
+        event.bodyA = bodyIndex;
+        event.bodyB = -1;
+        event.featureId = CONTACT_AUDIO_SIMPLE_LINEAR_FEATURE;
+        // Why: Simple Mode still carries the moving body's contact material so
+        // the existing material map can pick stone, metal, wood, or default samples.
+        event.materialA = materialId ? materialId : CONTACT_AUDIO_DEFAULT;
+        event.materialB = CONTACT_AUDIO_DEFAULT;
+        event.point = position;
+        event.normal = deltaSpeed > 0.0001f ? deltaVelocity * ( 1.0f / deltaSpeed ) : Math::Vector::ZERO_VECTOR;
+        event.normalImpulse = deltaSpeed;
+        event.normalClosingSpeed = deltaSpeed;
+        event.tangentSlipSpeed = 0.0f;
+        event.linearEnergy = linearEnergy;
+        event.linearDeltaSpeed = deltaSpeed;
+        event.linearSpeedBefore = sqrtf( VectorLengthSquared( previousVelocity ) );
+        event.linearSpeedAfter = sqrtf( VectorLengthSquared( linearVelocity ) );
+        event.isTerrain = false;
+        event.hasMotionData = true;
+        event.simpleLinear = true;
+        AddCandidate( event );
+    }
+
     void PlayRollingCandidate( const StepCandidate& candidate,
                                const SoundSet& set,
                                const SoundBand* band,
@@ -1256,7 +1380,8 @@ struct ContactAudioService::Impl
             CountThresholdRejection();
             return;
         }
-        const SoundBand* band = ResolveBand( *set, event.normalImpulse );
+        const float eventStrength = ContactStrength( event );
+        const SoundBand* band = ResolveBand( *set, eventStrength );
         const float minImpulse = band ? band->minImpulse : set->minImpulse;
         const float impulseRange = band ? band->impulseRange : set->impulseRange;
         const float baseGain = band ? band->baseGain : set->baseGain;
@@ -1270,7 +1395,7 @@ struct ContactAudioService::Impl
         decision.minImpulse = minImpulse;
         decision.impulseRange = impulseRange;
         decision.maxVoices = set->maxVoices;
-        if ( event.normalImpulse < minImpulse )
+        if ( eventStrength < minImpulse )
         {
             decision.reason = "below_min_impulse";
             RecordDecision( decision );
@@ -1299,7 +1424,8 @@ struct ContactAudioService::Impl
 
         const float closingSpeed = ContactClosingSpeed( event );
         const float impactScore = ContactImpactScore( event );
-        const float minImpactScoreForSet = (std::max)( minImpactScore, minImpulse * minClosingSpeed );
+        const float minImpactScoreForSet =
+            event.simpleLinear ? simpleMinLinearEnergy : (std::max)( minImpactScore, minImpulse * minClosingSpeed );
         decision.kind = ClassifyEvent( event, ongoingContact, impulseSpike, impactScore, minImpactScoreForSet );
         decision.impactScore = impactScore;
 
@@ -1309,7 +1435,7 @@ struct ContactAudioService::Impl
             return;
         }
 
-        if ( ongoingContact && !event.isTerrain )
+        if ( !event.simpleLinear && ongoingContact && !event.isTerrain )
         {
             // Why: object/object contacts that were already touching are usually
             // force-transfer/support rows. A propagated spike may be real physics
@@ -1340,7 +1466,7 @@ struct ContactAudioService::Impl
             }
         }
 
-        if ( event.hasMotionData && closingSpeed < minClosingSpeed )
+        if ( !event.simpleLinear && event.hasMotionData && closingSpeed < minClosingSpeed )
         {
             // Why: solver impulse can travel through an already-touching wall. A
             // thud needs contact work, not just constraint force.
@@ -1371,11 +1497,16 @@ struct ContactAudioService::Impl
 
         const float distanceT = Clamp01( 1.0f - distance / maxDistance );
         const float distanceGain = distanceT * distanceT;
-        const float impulseGain = Clamp01( ( event.normalImpulse - minImpulse ) / impulseRange );
-        const float scoreRange = (std::max)( 0.001f, impulseRange * impactScoreRangeSeconds );
-        const float motionGain =
-            event.hasMotionData ? Clamp01( ( impactScore - minImpactScoreForSet ) / scoreRange ) : impulseGain;
-        const float impactGain = event.hasMotionData ? (std::min)( impulseGain, motionGain ) : impulseGain;
+        const float impulseGain = Clamp01( ( eventStrength - minImpulse ) / impulseRange );
+        const float scoreRange = event.simpleLinear ? (std::max)( 0.001f, simpleLinearEnergyRange )
+                                                    : (std::max)( 0.001f, impulseRange * impactScoreRangeSeconds );
+        const float motionGain = event.hasMotionData
+                                     ? ( event.simpleLinear
+                                             ? 0.25f + 0.75f * Clamp01( ( impactScore - minImpactScoreForSet ) / scoreRange )
+                                             : Clamp01( ( impactScore - minImpactScoreForSet ) / scoreRange ) )
+                                     : impulseGain;
+        const float impactGain =
+            event.simpleLinear ? motionGain : ( event.hasMotionData ? (std::min)( impulseGain, motionGain ) : impulseGain );
         const float gain = Clamp01( masterGain * baseGain * distanceGain * impactGain );
         decision.distanceGain = distanceGain;
         decision.impactGain = impactGain;
@@ -1554,6 +1685,58 @@ float ContactAudioService::ImpactScoreRangeSeconds() const
 }
 
 
+void ContactAudioService::SetSimpleModeEnabled( bool enabled )
+{
+    if ( m_impl->simpleModeEnabled != enabled )
+    {
+        m_impl->ResetSimpleLinearHistory();
+    }
+    m_impl->simpleModeEnabled = enabled;
+}
+
+
+bool ContactAudioService::SimpleModeEnabled() const
+{
+    return m_impl->simpleModeEnabled;
+}
+
+
+void ContactAudioService::SetSimpleMinLinearEnergy( float energy )
+{
+    m_impl->simpleMinLinearEnergy = std::clamp( energy, 0.0f, 5000.0f );
+}
+
+
+float ContactAudioService::SimpleMinLinearEnergy() const
+{
+    return m_impl->simpleMinLinearEnergy;
+}
+
+
+void ContactAudioService::SetSimpleMinLinearDeltaSpeed( float speed )
+{
+    m_impl->simpleMinLinearDeltaSpeed = std::clamp( speed, 0.0f, 40.0f );
+}
+
+
+float ContactAudioService::SimpleMinLinearDeltaSpeed() const
+{
+    return m_impl->simpleMinLinearDeltaSpeed;
+}
+
+
+void ContactAudioService::SetSimpleLinearEnergyRange( float energy )
+{
+    m_impl->simpleLinearEnergyRange = std::clamp( energy, 1.0f, 10000.0f );
+}
+
+
+float ContactAudioService::SimpleLinearEnergyRange() const
+{
+    return m_impl->simpleLinearEnergyRange;
+}
+
+
 void ContactAudioService::SetBurstVoicesPerWindow( uint32_t voices )
 {
     m_impl->burstVoicesPerWindow = std::clamp( voices, 1u, CONTACT_AUDIO_MAX_BURST_VOICES );
@@ -1679,11 +1862,33 @@ void ContactAudioService::BeginPhysicsStep( float deltaSeconds, const Vector3& l
 }
 
 
+void ContactAudioService::BeginSimpleLinearStep( int bodyCount )
+{
+    if ( m_impl->enabled && m_impl->simpleModeEnabled )
+    {
+        m_impl->BeginSimpleLinearStep( bodyCount );
+    }
+}
+
+
 void ContactAudioService::SubmitContact( const ContactAudioEvent& event )
 {
     if ( m_impl->enabled )
     {
         m_impl->AddCandidate( event );
+    }
+}
+
+
+void ContactAudioService::SubmitLinearMotion( int bodyIndex,
+                                              uint32_t materialId,
+                                              const Vector3& position,
+                                              const Vector3& linearVelocity,
+                                              float mass )
+{
+    if ( m_impl->enabled && m_impl->simpleModeEnabled )
+    {
+        m_impl->AddSimpleLinearMotion( bodyIndex, materialId, position, linearVelocity, mass );
     }
 }
 
@@ -1780,6 +1985,12 @@ void ContactAudioService::EndPhysicsStep()
         m_impl->nextRollingBurstTimeSeconds = m_impl->timeSeconds + CONTACT_AUDIO_ROLLING_BURST_GAP_SECONDS;
     }
     m_impl->stepCandidates.clear();
+}
+
+
+void ContactAudioService::ResetSimpleLinearHistory()
+{
+    m_impl->ResetSimpleLinearHistory();
 }
 
 

@@ -595,6 +595,7 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     m_diagnosticsRuntime.ResetPerfLogForSceneLoad();
     m_simulation.Reset();
     m_diagnosticsRuntime.Capture().ResetScreenshot();
+    m_contactAudio.ResetSimpleLinearHistory();
     m_runtimeSettings.isVsyncEnabled = m_config.runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = m_config.runtimeRender.forcePipelineSync;
     m_diagnosticsRuntime.UIStress() = DiagnosticsRuntime::UIStressState{};

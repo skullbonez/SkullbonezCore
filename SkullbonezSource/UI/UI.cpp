@@ -222,6 +222,10 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashFloat( hash, data.contactAudioMinClosingSpeed, 1000.0f );
     hash = HashFloat( hash, data.contactAudioMinImpactScore, 1000.0f );
     hash = HashFloat( hash, data.contactAudioImpactScoreRangeSeconds, 1000.0f );
+    hash = HashBool( hash, data.contactAudioSimpleMode );
+    hash = HashFloat( hash, data.contactAudioSimpleMinLinearEnergy, 1000.0f );
+    hash = HashFloat( hash, data.contactAudioSimpleMinLinearDeltaSpeed, 1000.0f );
+    hash = HashFloat( hash, data.contactAudioSimpleLinearEnergyRange, 1000.0f );
     hash = HashInt( hash, static_cast<int>( data.contactAudioBurstVoicesPerWindow ) );
     hash = HashFloat( hash, data.contactAudioRollingLevelDb, 1000.0f );
     hash = HashFloat( hash, data.contactAudioRollingMaxDistance, 1000.0f );
