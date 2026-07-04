@@ -261,6 +261,12 @@ class RunEditorTracer
     void AddReplayTargetMarker( const GameObjects::GameModel& model );
     void AddAttachedCameraTargetMarker( const GameObjects::GameModel& model, bool activeFollow );
     void AddSelectionOutline( const GameObjects::GameModel& model );
+    // Draws a shape-accurate outline from explicit pose/shape values. Replay
+    // velocity edit uses this so overlay drawing does not need the post-step
+    // GameModel body mirror.
+    void AddSelectionOutline( const Math::Vector::Vector3& position,
+                              const Math::Orientation::Quaternion& orientation,
+                              const Math::CollisionDetection::CollisionShape& shape );
     void AddGizmo( const Math::Vector::Vector3& origin,
                    float radius,
                    int hotTranslateAxis,
@@ -269,7 +275,12 @@ class RunEditorTracer
                    bool activeRotation,
                    bool scaleMode,
                    bool activeScale );
-    void AddReplayVelocityGizmo( const GameObjects::GameModel& model,
+    void AddReplayVelocityGizmo( const Math::Vector::Vector3& origin,
+                                 const Math::Orientation::Quaternion& orientation,
+                                 const Math::CollisionDetection::CollisionShape& shape,
+                                 float radius,
+                                 const Math::Vector::Vector3& linearVelocity,
+                                 const Math::Vector::Vector3& angularVelocity,
                                  int hotLinearAxis,
                                  int hotAngularAxis,
                                  int activeAxis,

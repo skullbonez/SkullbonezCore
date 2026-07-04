@@ -10,6 +10,8 @@ Mental model:
 Glossary:
   Tracer: Per-frame line builder for placement rays, gizmos, replay paths, and selection outlines.
   Gizmo: World-space translate, rotate, or scale affordance drawn over selected models.
+  Selection outline: Shape-accurate wire outline drawn from explicit pose and
+    collision-shape values; model-backed callers are compatibility wrappers.
   Placement ghost: Preview outline drawn before an editor placement commit; it
     must match the primitive bodies that placement will actually spawn.
 
@@ -415,26 +417,29 @@ void RunEditorTracer::AddAttachedCameraTargetMarker( const GameModel& model, boo
 
 void RunEditorTracer::AddSelectionOutline( const GameModel& model )
 {
-    Quaternion orientation = model.GetOrientation();
-    const RotationMatrix rot = orientation.GetOrientationMatrix();
+    AddSelectionOutline( model.GetPosition(), model.GetOrientation(), model.GetCollisionShape() );
+}
+
+
+void RunEditorTracer::AddSelectionOutline( const Vector3& position,
+                                           const Quaternion& orientation,
+                                           const CollisionShape& shape )
+{
+    Quaternion outlineOrientation = orientation;
+    const RotationMatrix rot = outlineOrientation.GetOrientationMatrix();
     constexpr float outlineR = 1.0f;
     constexpr float outlineG = 1.0f;
     constexpr float outlineB = 0.55f;
 
-    const CollisionShape& shape = model.GetCollisionShape();
     if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
     {
-        EmitSphere( model.GetPosition() + rot * sphere->GetPosition(),
-                    sphere->GetBoundingRadius(),
-                    outlineR,
-                    outlineG,
-                    outlineB );
+        EmitSphere( position + rot * sphere->GetPosition(), sphere->GetBoundingRadius(), outlineR, outlineG, outlineB );
         return;
     }
     if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
     {
         const Vector3& he = box->GetHalfExtents();
-        const Vector3 center = model.GetPosition() + rot * box->GetPosition();
+        const Vector3 center = position + rot * box->GetPosition();
         EmitBox( center,
                  rot * Vector3( he.x, 0.0f, 0.0f ),
                  rot * Vector3( 0.0f, he.y, 0.0f ),
@@ -446,7 +451,7 @@ void RunEditorTracer::AddSelectionOutline( const GameModel& model )
     }
     if ( const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape ) )
     {
-        const Vector3 hullCenter = model.GetPosition() + rot * hull->GetPosition();
+        const Vector3 hullCenter = position + rot * hull->GetPosition();
         for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
         {
             const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
@@ -539,18 +544,19 @@ void RunEditorTracer::AddGizmo( const Vector3& origin,
 }
 
 
-void RunEditorTracer::AddReplayVelocityGizmo( const GameModel& model,
+void RunEditorTracer::AddReplayVelocityGizmo( const Vector3& origin,
+                                              const Quaternion& orientation,
+                                              const CollisionShape& shape,
+                                              float radius,
+                                              const Vector3& linearVelocity,
+                                              const Vector3& angularVelocity,
                                               int hotLinearAxis,
                                               int hotAngularAxis,
                                               int activeAxis,
                                               bool activeAngular )
 {
-    AddSelectionOutline( model );
+    AddSelectionOutline( origin, orientation, shape );
 
-    const Vector3 origin = model.GetPosition();
-    const float radius = EditorModelRadius( model );
-    const Vector3 linearVelocity = model.GetVelocity();
-    const Vector3 angularVelocity = model.GetAngularVelocity();
     const float baseLength = ReplayVelocityLinearBaseLength( radius );
 
     for ( int axis = 0; axis < 3; ++axis )

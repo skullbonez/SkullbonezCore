@@ -5,8 +5,8 @@ Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
 intermittent `tools\validate_physics.bat` passed on 2026-07-05 after moving
-runtime/editor topology repair off tool-side `PhysicsModelAccess` construction
-and through `GameModelCollection` owner repair methods.
+replay velocity-edit input and gizmo drawing off `GameModel` body mirrors and
+onto `PhysicsBodyStore`/`ColliderStore` records.
 
 ## Completed Slices
 
@@ -334,6 +334,22 @@ and through `GameModelCollection` owner repair methods.
   `RefreshBodyStore(modelAccess)`, or `RefreshColliderSnapshot(modelAccess)`
   topology repair. Checker budget: `tools/check_runtime_boundaries.py` blocks
   runtime/editor tool-side `PhysicsModelAccess` repair with
+  reject/allow/comment-only self-tests. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved replay velocity-edit body reads to store records.
+  Owner: replay velocity edit input and overlay drawing. Reason: replay
+  velocity edits already command `PhysicsEngine` by handle, but hit testing,
+  drag-start values, and gizmo drawing still read fixed state, pose, linear
+  velocity, angular velocity, shape, and radius from the post-step `GameModel`
+  mirror. Deletion condition: `RunReplayVelocityEdit.inl` contains no live
+  `GameModel` `IsFixed()`, `GetPosition()`, `GetVelocity()`, or
+  `GetAngularVelocity()` body reads and no `ApplyReplayVelocityEditToModel`
+  helper name. Checker budget: `tools/check_runtime_boundaries.py` blocks
+  replay velocity `GameModel` body reads and the stale helper name with
   reject/allow/comment-only self-tests. Validation: `git diff --check`,
   `python -m py_compile tools\check_runtime_boundaries.py`,
   `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,

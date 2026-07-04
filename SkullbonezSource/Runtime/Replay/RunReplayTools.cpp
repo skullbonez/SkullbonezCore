@@ -41,6 +41,7 @@ Related:
 #include "../InputController.h"
 #include "ReplayOverlayLayout.h"
 #include "../RuntimePickService.h"
+#include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../RuntimeFileWriter.h"

@@ -52,6 +52,8 @@
 #   Body-store motion fence: Static rule that keeps post-step motion
 #     classification on PhysicsBodyStore records instead of mirrored GameModel
 #     body fields.
+#   Replay velocity body-read fence: Static rule that keeps velocity-edit hit
+#     testing and gizmo drawing on PhysicsBodyStore/ColliderStore rows.
 #   Handle-authority fence: Static rule that keeps a validation smoke on handles
 #     returned by creation instead of proving authority through adapter lookup.
 #   Store-handle fence: Static rule that keeps owner-side command edges on
@@ -611,11 +613,16 @@ LAUNCHER_PROJECTILE_ADAPTER_WAKE_PATTERN = re.compile(
 REPLAY_VELOCITY_MODEL_STATE_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\b(?:"
     r"model\s*\.\s*(?:SetLinearVelocity|SetAngularVelocity)|"
-    r"(?:modelCollection|m_cGameModelCollection)\s*\.\s*(?:CommitEditedModelPhysicsState|WakeModel)"
+    r"(?:modelCollection|m_cGameModelCollection)\s*\.\s*(?:CommitEditedModelPhysicsState|WakeModel)|"
+    r"ApplyReplayVelocityEditToModel"
     r")\s*\("
 )
 REPLAY_VELOCITY_ADAPTER_LOOKUP_PATTERN = re.compile(
     r"\b(?:GameModelCollectionPhysicsAdapter|BodyHandleForVelocityCommand|BodyHandleForModelIndex)\b"
+)
+REPLAY_VELOCITY_MODEL_BODY_READ_PATTERN = re.compile(
+    r"\b(?:[A-Za-z_]\w*|[A-Za-z_]\w*\s*\[[^\]]+\])\s*(?:\.|->)\s*"
+    r"(?:IsFixed|GetPosition|GetVelocity|GetAngularVelocity)\s*\("
 )
 RUN_FRAME_REPLAY_EDITOR_TRANSFORM_WAKE_PATTERN = re.compile(
     r"\bm_cGameModelCollection\s*\.\s*WakeModel\s*\("
@@ -4455,6 +4462,19 @@ def check_replay_velocity_model_state_physics_command_guardrails_text(path: Path
                 (
                     "Replay velocity edit already owns a validated model-index target; resolve the current "
                     "PhysicsBodyHandle from PhysicsBodyStore and call PhysicsEngine handle commands directly."
+                ),
+            )
+        )
+    for match in REPLAY_VELOCITY_MODEL_BODY_READ_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay velocity GameModel body read is blocked",
+                (
+                    "Replay velocity edit may use model order for replay identity, but live fixed state, pose, "
+                    "velocity, angular velocity, shape, and radius should come from PhysicsBodyStore and "
+                    "ColliderStore records."
                 ),
             )
         )
@@ -12976,7 +12996,7 @@ def run_self_tests() -> list[str]:
         failures.append("old replay velocity adapter lookup synthetic surface was not rejected")
 
     allowed_replay_velocity_handle_command = """
-    void ApplyReplayVelocityEditToModel( GameModelCollection& modelCollection )
+    void ApplyReplayVelocityEditToBody( GameModelCollection& modelCollection )
     {
         const PhysicsBodyHandle body = modelCollection.GetPhysicsEngine().BodyStore().HandleForModelIndex( modelIndex );
         modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
@@ -12987,6 +13007,46 @@ def run_self_tests() -> list[str]:
         allowed_replay_velocity_handle_command,
     ):
         failures.append("store-handle replay velocity command synthetic surface was rejected")
+
+    old_replay_velocity_model_body_reads = """
+    void RenderReplayVelocityEditOverlay( const GameModel& model )
+    {
+        if ( model.IsFixed() )
+        {
+            return;
+        }
+        const Vector3 origin = model.GetPosition();
+        const Vector3 linear = model.GetVelocity();
+        const Vector3 angular = model.GetAngularVelocity();
+    }
+    """
+    if not any(
+        error.message == "replay velocity GameModel body read is blocked"
+        for error in check_replay_velocity_model_state_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
+            old_replay_velocity_model_body_reads,
+        )
+    ):
+        failures.append("old replay velocity GameModel body read synthetic surface was not rejected")
+
+    allowed_replay_velocity_store_body_reads = """
+    void RenderReplayVelocityEditOverlay( const PhysicsBodyRecord& body, const ColliderRecord& collider )
+    {
+        if ( body.isFixed )
+        {
+            return;
+        }
+        const Vector3 origin = body.position;
+        const Vector3 linear = body.linearVelocity;
+        const Vector3 angular = body.angularVelocity;
+        tracer.AddReplayVelocityGizmo( origin, body.orientation, collider.shape, collider.boundingRadius, linear, angular, -1, -1, -1, false );
+    }
+    """
+    if check_replay_velocity_model_state_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
+        allowed_replay_velocity_store_body_reads,
+    ):
+        failures.append("store-backed replay velocity body read synthetic surface was rejected")
 
     commented_replay_velocity_model_state_command = """
     void DocumentOldReplayVelocityCommand()

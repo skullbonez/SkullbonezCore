@@ -1843,6 +1843,48 @@ passed formatting, project filters, runtime boundaries, and Profile/Debug
 builds with 0 warnings/errors; `tools\validate_physics.bat` passed
 standalone/runtime handle smoke and byte-exact `physics_regression_solver.csv`.
 
+Slice `PHY-1039`: move replay velocity-edit body reads off the post-step
+`GameModel` mirror. Owner: replay velocity edit input and overlay drawing;
+reason: the tool already applies edited velocities through `PhysicsEngine`
+handle commands, but hit tests, drag-start velocities, and visible gizmo drawing
+still read fixed state, pose, linear velocity, angular velocity, shape, and
+radius from `GameModel`; deletion condition: `RunReplayVelocityEdit.inl`
+contains no live `GameModel` `IsFixed()`, `GetPosition()`, `GetVelocity()`, or
+`GetAngularVelocity()` body reads and no stale
+`ApplyReplayVelocityEditToModel` helper name; checker budget:
+`tools/check_runtime_boundaries.py` blocks replay velocity `GameModel` body
+reads and the stale helper name while allowing store-backed
+`PhysicsBodyRecord`/`ColliderRecord` reads.
+
+- [x] Add a local `ReplayVelocityBodyView` resolved from
+  `PhysicsBodyStore`/`ColliderStore` after collection-owned topology repair.
+- [x] Move replay velocity hit tests, drag ray math, drag-start velocities, and
+  overlay drawing to the store-backed view.
+- [x] Split `RunEditorTracer::AddSelectionOutline()` so replay velocity can draw
+  the same shape outline from explicit position/orientation/shape values.
+- [x] Rename `ApplyReplayVelocityEditToModel()` to
+  `ApplyReplayVelocityEditToBody()`.
+- [x] Add runtime-boundary guardrails and self-tests blocking replay velocity
+  `GameModel` body reads and the stale helper name.
+- [x] Run the intermittent physics regression checkpoint for the slice.
+- [x] Validation run for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] focused Debug build
+  - [x] touched-file comment audit
+  - [x] `tools\validate_fast.bat`
+  - [x] intermittent `tools\validate_physics.bat`
+
+Evidence: targeted residue scan found no live `GameModel` body reads or
+`ApplyReplayVelocityEditToModel` in `RunReplayVelocityEdit.inl`; runtime-boundary
+summary reported 0 errors; focused Debug build passed with 0 warnings/errors;
+touched-file comment audit passed for all touched source/tool files;
+`tools\validate_fast.bat` passed formatting, project filters, runtime
+boundaries, and Profile/Debug builds with 0 warnings/errors;
+`tools\validate_physics.bat` passed standalone/runtime handle smoke and
+byte-exact `physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.
