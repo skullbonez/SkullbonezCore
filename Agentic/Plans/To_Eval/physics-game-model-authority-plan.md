@@ -5,7 +5,8 @@ Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
 intermittent `tools\validate_physics.bat` passed on 2026-07-05 after moving
-contact-audio Simple Mode motion reads to `PhysicsBodyStore`.
+launcher fixed-tree release policy/source release and launcher hit mass/position
+reads to `PhysicsBodyStore`.
 
 ## Completed Slices
 
@@ -242,6 +243,27 @@ contact-audio Simple Mode motion reads to `PhysicsBodyStore`.
   `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
   passed on 2026-07-05; physics regression reported standalone/runtime handle
   smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved launcher fixed-tree release policy, source fixed-state
+  mutation, and launcher hit mass/position reads to `PhysicsBodyStore`. Owner:
+  runtime launcher ray-hit release path. Reason: the previous path could flip
+  the compatibility `GameModel` fixed flag, then apply an impulse through the
+  still-fixed body-store row; that split authority was both cache-hostile and
+  behaviorally suspect. `PhysicsScene::ReleaseFixedBodyAndAttachedTreeParts()`
+  now releases the source body and same-tree parts through dense body records,
+  wakes solver sleep state, and returns only touched rows for compatibility
+  writeback. Deletion condition: `RuntimeTools::FireLauncherLaser()` contains
+  no `GameModel` fixed/mass/position/release-policy reads, and
+  `GameModelCollection::ReleaseAttachedFixedTreeParts()` contains no
+  `GameModel` fixed/position/tree release rebuild. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks both old shapes and self-tests
+  reject `GameModel` body reads while allowing store-owned handle/record reads.
+  Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_format.bat`, `tools\validate_fast.bat`, and intermittent
+  `tools\validate_physics.bat` passed on 2026-07-05; physics regression
+  reported standalone/runtime handle smoke pass and byte-exact
+  `physics_regression_solver.csv`.
 
 ## Goal
 
@@ -446,6 +468,9 @@ Move one body-state group at a time. Keep compatibility writeback narrow and tem
 - [x] 2026-07-05 contact-audio Simple Mode reads post-step pose, linear
   velocity, fixed state, and mass from `PhysicsBodyStore` records instead of
   the `GameModel` compatibility mirror.
+- [x] 2026-07-05 launcher fixed-release policy/source mutation and hit
+  mass/position reads use `PhysicsBodyStore` records; `GameModelCollection`
+  only performs bounded topology repair and touched-row compatibility writeback.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of sleep and wake state.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of accumulated forces and impulses.
 - [ ] Change physics stepping to consume body handles/store views rather than `GameModelCollection&`.

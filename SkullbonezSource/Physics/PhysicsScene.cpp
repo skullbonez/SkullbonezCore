@@ -17,6 +17,8 @@ Glossary:
     by the next solver step.
   Velocity edit: Replay-authored command that changes live body velocity before
     prediction or the next step samples the body store.
+  Fixed-tree release: Store-owned command that turns authored fixed props into
+    dynamic bodies and wakes same-tree parts after an accepted impulse.
   Sleep: Solver optimization that stops integrating stable bodies until an
     explicit wake or contact event reactivates them.
   Determinism: Same inputs produce byte-exact validation artifacts.
@@ -262,6 +264,67 @@ void PhysicsScene::ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& worldF
             m_world.WakeModel( m_bodyStore, m_colliderStore, worldForces, index );
         }
     }
+}
+
+
+bool PhysicsScene::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,
+                                                         float releaseImpulseStrength,
+                                                         const Math::Vector::Vector3& seedLinearVelocity,
+                                                         const Math::Vector::Vector3& seedAngularVelocity,
+                                                         std::vector<int>& outReleasedBodyIndices )
+{
+    outReleasedBodyIndices.clear();
+
+    const int sourceIndex = m_bodyStore.ModelIndexForHandle( sourceBody );
+    PhysicsBodyRecord* sourceRecord = m_bodyStore.MutableRecordForHandle( sourceBody );
+    if ( sourceIndex < 0 || !sourceRecord )
+    {
+        return false;
+    }
+
+    const std::size_t bodyCapacity = static_cast<std::size_t>( m_bodyStore.Count() );
+    m_fixedTreeReleaseWakeBodies.reserve( bodyCapacity );
+    outReleasedBodyIndices.reserve( bodyCapacity );
+
+    if ( sourceRecord->isFixed )
+    {
+        // Hazard: authored fixed props only become dynamic when their store
+        // policy accepts the tool impulse. The source body receives the actual
+        // launcher impulse separately, so its release preserves current velocity
+        // while attached parts inherit the seeded breakaway velocity.
+        if ( !sourceRecord->releasesFromFixedOnContact ||
+             releaseImpulseStrength < sourceRecord->contactReleaseImpulseThreshold )
+        {
+            return false;
+        }
+        const Math::Vector::Vector3 sourceLinearVelocity = sourceRecord->linearVelocity;
+        const Math::Vector::Vector3 sourceAngularVelocity = sourceRecord->angularVelocity;
+        PhysicsBodyStore::ReleaseFixedRecord( *sourceRecord, sourceLinearVelocity, sourceAngularVelocity );
+        outReleasedBodyIndices.push_back( sourceIndex );
+    }
+
+    const PhysicsFixedTreeReleaseEvent event = { sourceIndex, seedLinearVelocity, seedAngularVelocity };
+    m_bodyStore.ReleaseAttachedFixedTreeParts( event, m_fixedTreeReleaseWakeBodies );
+    outReleasedBodyIndices.insert( outReleasedBodyIndices.end(),
+                                   m_fixedTreeReleaseWakeBodies.begin(),
+                                   m_fixedTreeReleaseWakeBodies.end() );
+
+    for ( int index : outReleasedBodyIndices )
+    {
+        if ( m_hasLastWorldForces )
+        {
+            m_world.WakeModel( m_bodyStore, m_colliderStore, m_lastWorldForces, index );
+        }
+        else
+        {
+            m_world.WakeModel( m_bodyStore, index );
+        }
+    }
+    if ( !outReleasedBodyIndices.empty() )
+    {
+        m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+    }
+    return true;
 }
 
 

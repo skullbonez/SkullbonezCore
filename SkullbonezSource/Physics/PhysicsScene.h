@@ -14,6 +14,10 @@ Glossary:
   Solver: Physics step that integrates bodies and resolves contacts.
   Store: Ordered snapshot for one concern, such as bodies, colliders, or render
     instances.
+  Fixed-tree release: Store-owned command that turns authored fixed props into
+    dynamic bodies and wakes same-tree parts after an accepted impulse.
+  Sleep: Solver optimization that stops integrating stable bodies until an
+    explicit wake or contact event reactivates them.
   SkullScope: Queryable physics diagnostics trace workflow.
   Determinism: Same inputs produce byte-exact validation output.
 
@@ -93,6 +97,13 @@ class PhysicsScene
                      Threading::WorkerPool& workerPool,
                      const char* const* diagnosticNames,
                      int diagnosticNameCount );
+    // Releases an authored fixed body, then same-tree parts, using body-store
+    // policy and returning touched model-order rows for compatibility writeback.
+    bool ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,
+                                               float releaseImpulseStrength,
+                                               const Math::Vector::Vector3& seedLinearVelocity,
+                                               const Math::Vector::Vector3& seedAngularVelocity,
+                                               std::vector<int>& outReleasedBodyIndices );
     // Wakes solver sleep/island state by handle. Legacy model-index callers
     // must refresh topology before entering this command.
     void WakeBody( PhysicsBodyHandle body );

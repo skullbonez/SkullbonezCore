@@ -62,21 +62,13 @@ constexpr float LAUNCHER_PROJECTILE_RESTITUTION = 0.42f;
 constexpr float LAUNCHER_PROJECTILE_SPAWN_LEAD = 3.2f;
 constexpr float LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
 
-// Why: launcher ray hits still identify existing bodies by model index, but the
-// impulse can use the authoritative store row directly once topology drift has
-// been repaired at this tool boundary.
-void ApplyLauncherPhysicsImpulse( GameObjects::GameModelCollection& collection,
-                                  int modelIndex,
-                                  const Math::Vector::Vector3& impulse,
-                                  const Math::Vector::Vector3& localApplicationPoint )
+// Why: ray hits preserve model-index identity for picking, but same-count body
+// state must remain PhysicsBodyStore authority. This imports only construction
+// topology drift before the tool resolves a handle.
+bool RepairLauncherPhysicsStores( GameObjects::GameModelCollection& collection,
+                                  Physics::PhysicsEngine& physics,
+                                  int modelCount )
 {
-    const int modelCount = collection.GetModelCount();
-    if ( modelIndex < 0 || modelIndex >= modelCount )
-    {
-        return;
-    }
-
-    Physics::PhysicsEngine& physics = collection.GetPhysicsEngine();
     const bool bodyTopologyChanged = physics.BodyStore().Count() != modelCount;
     const bool colliderTopologyChanged = physics.Colliders().Count() != modelCount;
     if ( bodyTopologyChanged || colliderTopologyChanged )
@@ -92,7 +84,17 @@ void ApplyLauncherPhysicsImpulse( GameObjects::GameModelCollection& collection,
         }
     }
 
-    const Physics::PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelIndex );
+    return physics.BodyStore().Count() == modelCount && physics.Colliders().Count() == modelCount;
+}
+
+
+// Why: launcher ray hits still identify targets by model index, but the physics
+// mutation should run on the already-resolved body handle.
+void ApplyLauncherPhysicsImpulse( Physics::PhysicsEngine& physics,
+                                  Physics::PhysicsBodyHandle body,
+                                  const Math::Vector::Vector3& impulse,
+                                  const Math::Vector::Vector3& localApplicationPoint )
+{
     if ( !body.IsValid() )
     {
         return;
@@ -462,33 +464,37 @@ void RuntimeTools::FireLauncherLaser( GameObjects::GameModelCollection& collecti
     m_laser.Fire( rayOrigin, rayDirection, cameraUp, hitT, hit );
     AddRayCastTestLine( rayOrigin, visualEnd, hit );
 
-    if ( terrainIsClosest || !modelHit || modelHitIndex < 0 || modelHitIndex >= collection.GetModelCount() )
+    const int modelCount = collection.GetModelCount();
+    if ( terrainIsClosest || !modelHit || modelHitIndex < 0 || modelHitIndex >= modelCount )
     {
         return;
     }
 
-    GameObjects::GameModel& model = collection.GetModelAtIndex( modelHitIndex );
-    if ( model.IsFixed() )
+    Physics::PhysicsEngine& physics = collection.GetPhysicsEngine();
+    if ( !RepairLauncherPhysicsStores( collection, physics, modelCount ) )
     {
-        // Hazard: Fixed authored props are released only through their contact
-        // release policy; bypassing this gate would make decorative assets
-        // unexpectedly dynamic.
-        if ( !model.ReleasesFromFixedOnContact() ||
-             m_rayCastTest.impulseStrength < model.GetContactReleaseImpulseThreshold() )
-        {
-            return;
-        }
-        model.SetFixed( false );
+        return;
+    }
+
+    const Physics::PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelHitIndex );
+    const Physics::PhysicsBodyRecord* bodyRecord = physics.BodyStore().RecordForHandle( body );
+    if ( !bodyRecord )
+    {
+        return;
     }
 
     const Math::Vector::Vector3 hitPoint = rayOrigin + rayDirection * hitT;
-    ApplyLauncherPhysicsImpulse( collection,
-                                 modelHitIndex,
-                                 rayDirection * m_rayCastTest.impulseStrength,
-                                 hitPoint - model.GetPosition() );
-    const float mass = (std::max)( 0.001f, model.GetMass() );
+    const Math::Vector::Vector3 localApplicationPoint = hitPoint - bodyRecord->position;
+    const float mass = (std::max)( 0.001f, bodyRecord->mass );
     const float releaseSpeed = std::clamp( m_rayCastTest.impulseStrength / mass, 1.5f, 36.0f );
-    collection.ReleaseAttachedFixedTreeParts( modelHitIndex, rayDirection * releaseSpeed, Math::Vector::ZERO_VECTOR );
+    if ( !collection.ReleaseAttachedFixedTreeParts( modelHitIndex,
+                                                    m_rayCastTest.impulseStrength,
+                                                    rayDirection * releaseSpeed,
+                                                    Math::Vector::ZERO_VECTOR ) )
+    {
+        return;
+    }
+    ApplyLauncherPhysicsImpulse( physics, body, rayDirection * m_rayCastTest.impulseStrength, localApplicationPoint );
 }
 
 bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& collection,

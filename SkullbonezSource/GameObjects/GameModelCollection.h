@@ -22,6 +22,10 @@ Glossary:
     interfaces.
   Render instance store: Renderer-facing snapshot built once before frame passes
     so draw code can read physics-owned transforms without GameModel pose copies.
+  Topology drift: A body/collider/model count mismatch that means compatibility
+    stores must import model-owned construction data before stepping.
+  Fixed-tree release: Compatibility rule that lets authored tree parts become
+    dynamic when a related fixed part is hit strongly enough.
   Replay render pose override: One-frame presentation pose used when replay
     scrubbing or prediction draws historical/future bodies without mutating physics.
   Replay body id: Per-collection identity saved in replay samples so restore
@@ -118,6 +122,8 @@ class GameModelCollection
     bool m_shadowParallelPrep = false;                  // Cached worker-prep toggle copied from EngineConfig.
     uint32_t m_nextReplayBodyId = 1;
     std::vector<int> m_replayRenderPoseOverrideIndices; // Pending one-frame render-only replay pose rows.
+    std::vector<int>
+        m_fixedTreeReleaseWriteBackBodies;              // Reused release writeback list; avoids launcher-path allocation churn.
 
     void RememberReplayRenderPoseOverride( int modelIndex );
     void ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore );
@@ -255,9 +261,10 @@ class GameModelCollection
     void NotifyFixedContact( int modelIndex, float highlightSeconds );
     void TickContactHighlights( int modelCount, float deltaSeconds );
     void NotifyAudioContact( int modelIndex, float highlightSeconds );
-    // Runtime-tool edge: ray tools can release authored fixed tree props before
-    // a physics step has imported the edit into PhysicsBodyStore.
-    void ReleaseAttachedFixedTreeParts( int sourceIndex,
+    // Runtime-tool edge: ray tools release authored fixed tree props through
+    // PhysicsBodyStore, then mirror only touched rows for compatibility.
+    bool ReleaseAttachedFixedTreeParts( int sourceIndex,
+                                        float releaseImpulseStrength,
                                         const Math::Vector::Vector3& seedLinearVelocity,
                                         const Math::Vector::Vector3& seedAngularVelocity );
 

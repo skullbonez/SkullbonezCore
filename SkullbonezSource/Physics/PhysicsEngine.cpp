@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   Facade: Narrow public boundary that forwards commands while hiding solver
   internals.
+  Fixed-tree release: Store-owned command that turns authored fixed props into
+    dynamic bodies and wakes same-tree parts after an accepted impulse.
   Store refresh: Deterministic copy between compatibility model-view state and
   physics-owned body/collider/render stores.
   Replay restore: Replacement of live solver state from a saved replay sample.
@@ -129,6 +131,20 @@ void PhysicsEngine::Step( float deltaSeconds,
 void PhysicsEngine::WakeBody( PhysicsBodyHandle body )
 {
     m_scene.WakeBody( body );
+}
+
+
+bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,
+                                                          float releaseImpulseStrength,
+                                                          const Math::Vector::Vector3& seedLinearVelocity,
+                                                          const Math::Vector::Vector3& seedAngularVelocity,
+                                                          std::vector<int>& outReleasedBodyIndices )
+{
+    return m_scene.ReleaseFixedBodyAndAttachedTreeParts( sourceBody,
+                                                         releaseImpulseStrength,
+                                                         seedLinearVelocity,
+                                                         seedAngularVelocity,
+                                                         outReleasedBodyIndices );
 }
 
 

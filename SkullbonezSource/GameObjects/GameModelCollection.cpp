@@ -1008,29 +1008,23 @@ void GameModelCollection::NotifyAudioContact( int modelIndex, float highlightSec
 }
 
 
-void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
+bool GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
+                                                         float releaseImpulseStrength,
                                                          const Vector3& seedLinearVelocity,
                                                          const Vector3& seedAngularVelocity )
 {
     if ( sourceIndex < 0 || sourceIndex >= static_cast<int>( m_gameModels.size() ) )
     {
-        return;
+        return false;
     }
 
-    const int sourceRootModelIndex =
-        m_gameModels[static_cast<size_t>( sourceIndex )].GetRuntimeCollectionRootModelIndex();
-    const float sourceY = m_gameModels[static_cast<size_t>( sourceIndex )].GetPosition().y;
-    if ( m_gameModels[static_cast<size_t>( sourceIndex )].GetRuntimeCollectionKind() !=
-             GameModelCollectionKind::ReleasableTree ||
-         sourceRootModelIndex < 0 )
-    {
-        return;
-    }
-
-    // Why: runtime ray tools edit this GameModel-owned compatibility edge
-    // directly. Repair topology once, then resolve body handles from the store
-    // instead of bouncing back through the legacy model-index adapter per part.
     const int modelCount = static_cast<int>( m_gameModels.size() );
+    // Compatibility owner: GameModelCollection runtime-tool edge.
+    // Reason: launcher hits still arrive as model indices, but fixed-state,
+    // release policy, and same-tree propagation now belong to PhysicsBodyStore.
+    // Deletion condition: runtime picking and scene identity use stable entity
+    // ids or body handles directly. Checker budget: boundary grep blocks this
+    // function from reading GameModel fixed/position/tree body metadata again.
     const bool bodyTopologyChanged = m_physicsEngine.BodyStore().Count() != modelCount;
     const bool colliderTopologyChanged = m_physicsEngine.Colliders().Count() != modelCount;
     if ( bodyTopologyChanged || colliderTopologyChanged )
@@ -1045,40 +1039,31 @@ void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex,
             m_physicsEngine.RefreshColliderSnapshot( modelAccess );
         }
     }
-    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
+
+    const PhysicsBodyHandle sourceBody = m_physicsEngine.BodyStore().HandleForModelIndex( sourceIndex );
+    if ( !sourceBody.IsValid() )
     {
-        if ( i == sourceIndex )
-        {
-            continue;
-        }
+        return false;
+    }
 
-        GameModel& model = m_gameModels[static_cast<size_t>( i )];
-        if ( model.GetRuntimeCollectionKind() != GameModelCollectionKind::ReleasableTree ||
-             model.GetRuntimeCollectionRootModelIndex() != sourceRootModelIndex )
-        {
-            continue;
-        }
-        if ( model.GetPosition().y + 0.05f < sourceY )
-        {
-            continue;
-        }
+    m_fixedTreeReleaseWriteBackBodies.reserve( static_cast<std::size_t>( modelCount ) );
+    if ( !m_physicsEngine.ReleaseFixedBodyAndAttachedTreeParts( sourceBody,
+                                                                releaseImpulseStrength,
+                                                                seedLinearVelocity,
+                                                                seedAngularVelocity,
+                                                                m_fixedTreeReleaseWriteBackBodies ) )
+    {
+        return false;
+    }
 
-        if ( model.IsFixed() )
+    for ( int index : m_fixedTreeReleaseWriteBackBodies )
+    {
+        if ( index >= 0 && index < modelCount )
         {
-            if ( !model.ReleasesFromFixedOnContact() )
-            {
-                continue;
-            }
-            model.SetFixed( false );
-            model.SetLinearVelocity( seedLinearVelocity );
-            model.SetAngularVelocity( seedAngularVelocity );
-        }
-        const PhysicsBodyHandle body = m_physicsEngine.BodyStore().HandleForModelIndex( i );
-        if ( body.IsValid() )
-        {
-            m_physicsEngine.WakeBody( body );
+            WriteBackPhysicsBody( m_physicsEngine.BodyStore(), index );
         }
     }
+    return true;
 }
 
 

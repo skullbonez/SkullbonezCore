@@ -544,6 +544,14 @@ LAUNCHER_ADAPTER_COMMAND_WRAPPER_PATTERN = re.compile(
 LAUNCHER_ADAPTER_LOOKUP_PATTERN = re.compile(
     r"\b(?:GameModelCollectionPhysicsAdapter|BodyHandleForVelocityCommand|BodyHandleForModelIndex)\b"
 )
+LAUNCHER_FIRE_LASER_FUNCTION_PATTERN = re.compile(
+    r"\bvoid\s+RuntimeTools::FireLauncherLaser\s*\("
+)
+LAUNCHER_GAME_MODEL_BODY_READ_PATTERN = re.compile(
+    r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*"
+    r"(?:IsFixed|SetFixed|GetPosition|GetMass|ReleasesFromFixedOnContact|"
+    r"GetContactReleaseImpulseThreshold)\s*\("
+)
 LAUNCHER_PROJECTILE_ADAPTER_WAKE_PATTERN = re.compile(
     r"\bcollection\s*\.\s*AddGameModel\s*\([^;]*\)\s*;\s*[\s\S]{0,800}?"
     r"\b(?:WakeLauncherPhysicsBody\s*\(|BodyHandleForVelocityCommand\s*\()"
@@ -582,6 +590,11 @@ GAME_MODEL_COLLECTION_FIXED_TREE_RELEASE_FUNCTION_PATTERN = re.compile(
 )
 GAME_MODEL_COLLECTION_FIXED_TREE_RELEASE_ADAPTER_LOOKUP_PATTERN = re.compile(
     r"\b(?:GameModelCollectionPhysicsAdapter|BodyHandleForVelocityCommand|BodyHandleForModelIndex)\b"
+)
+GAME_MODEL_COLLECTION_FIXED_TREE_RELEASE_MODEL_BODY_PATTERN = re.compile(
+    r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*"
+    r"(?:GetRuntimeCollectionKind|GetRuntimeCollectionRootModelIndex|GetPosition|IsFixed|"
+    r"ReleasesFromFixedOnContact|SetFixed|SetLinearVelocity|SetAngularVelocity)\s*\("
 )
 DELETED_GAME_MODEL_COLLECTION_PHYSICS_ADAPTER_COMMAND_WRAPPER_PATTERN = re.compile(
     r"\b(?:void\s+)?(?:GameModelCollectionPhysicsAdapter\s*::\s*)?"
@@ -4186,6 +4199,22 @@ def check_launcher_model_index_physics_command_guardrails_text(path: Path, text:
                 ),
             )
         )
+    bounds = _function_body_bounds(stripped, LAUNCHER_FIRE_LASER_FUNCTION_PATTERN)
+    if bounds:
+        open_brace, close_brace = bounds
+        for match in LAUNCHER_GAME_MODEL_BODY_READ_PATTERN.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "launcher GameModel body read is blocked",
+                    (
+                        "Launcher hits may keep model index for picking identity, but fixed policy, position, "
+                        "mass, and release writes should use PhysicsBodyStore records and PhysicsEngine "
+                        "handle commands."
+                    ),
+                )
+            )
     return errors
 
 
@@ -4381,6 +4410,22 @@ def check_game_model_collection_fixed_tree_release_adapter_guardrails_text(
                 (
                     "GameModelCollection owns this release edge; repair store topology once and resolve "
                     "PhysicsBodyHandle values directly from PhysicsBodyStore instead of using the legacy adapter."
+                ),
+            )
+        )
+    for match in GAME_MODEL_COLLECTION_FIXED_TREE_RELEASE_MODEL_BODY_PATTERN.finditer(
+        stripped,
+        open_brace,
+        close_brace,
+    ):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "fixed-tree release GameModel body read is blocked",
+                (
+                    "Fixed-tree release should use PhysicsBodyStore release policy, body position, and "
+                    "store-owned fixed writes instead of rebuilding the release set from GameModel state."
                 ),
             )
         )
@@ -12257,6 +12302,48 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("handle-keyed launcher command synthetic surface was rejected")
 
+    old_launcher_game_model_body_read = """
+    void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
+    {
+        GameModel& model = collection.GetModelAtIndex( modelHitIndex );
+        if ( model.IsFixed() )
+        {
+            if ( !model.ReleasesFromFixedOnContact() || impulse < model.GetContactReleaseImpulseThreshold() )
+            {
+                return;
+            }
+            model.SetFixed( false );
+        }
+        const Vector3 localPoint = hitPoint - model.GetPosition();
+        const float mass = model.GetMass();
+    }
+    """
+    if not any(
+        error.message == "launcher GameModel body read is blocked"
+        for error in check_launcher_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
+            old_launcher_game_model_body_read,
+        )
+    ):
+        failures.append("old launcher GameModel body read synthetic surface was not rejected")
+
+    allowed_launcher_body_store_read = """
+    void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
+    {
+        const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelHitIndex );
+        const PhysicsBodyRecord* record = physics.BodyStore().RecordForHandle( body );
+        const Vector3 localPoint = hitPoint - record->position;
+        const float mass = record->mass;
+        collection.ReleaseAttachedFixedTreeParts( modelHitIndex, impulse, velocity, ZERO_VECTOR );
+        physics.ApplyBodyImpulse( body, impulseVector, localPoint );
+    }
+    """
+    if check_launcher_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
+        allowed_launcher_body_store_read,
+    ):
+        failures.append("launcher body-store read synthetic surface was rejected")
+
     old_launcher_adapter_lookup = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
     {
@@ -12713,6 +12800,47 @@ def run_self_tests() -> list[str]:
         allowed_game_model_collection_fixed_tree_store_lookup,
     ):
         failures.append("fixed-tree release direct body-store synthetic surface was rejected")
+
+    old_game_model_collection_fixed_tree_body_read = """
+    void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
+    {
+        const int sourceRoot = m_gameModels[sourceIndex].GetRuntimeCollectionRootModelIndex();
+        const float sourceY = m_gameModels[sourceIndex].GetPosition().y;
+        GameModel& model = m_gameModels[i];
+        if ( model.GetRuntimeCollectionKind() != GameModelCollectionKind::ReleasableTree )
+        {
+            return;
+        }
+        if ( model.IsFixed() && model.ReleasesFromFixedOnContact() )
+        {
+            model.SetFixed( false );
+            model.SetLinearVelocity( velocity );
+            model.SetAngularVelocity( angularVelocity );
+        }
+    }
+    """
+    if not any(
+        error.message == "fixed-tree release GameModel body read is blocked"
+        for error in check_game_model_collection_fixed_tree_release_adapter_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_game_model_collection_fixed_tree_body_read,
+        )
+    ):
+        failures.append("old fixed-tree release GameModel body read synthetic surface was not rejected")
+
+    allowed_game_model_collection_fixed_tree_store_release = """
+    void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
+    {
+        const PhysicsBodyHandle sourceBody = m_physicsEngine.BodyStore().HandleForModelIndex( sourceIndex );
+        m_physicsEngine.ReleaseFixedBodyAndAttachedTreeParts( sourceBody, impulse, velocity, angularVelocity, bodies );
+        WriteBackPhysicsBody( m_physicsEngine.BodyStore(), sourceIndex );
+    }
+    """
+    if check_game_model_collection_fixed_tree_release_adapter_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_game_model_collection_fixed_tree_store_release,
+    ):
+        failures.append("fixed-tree release store-owned synthetic surface was rejected")
 
     commented_game_model_collection_physics_wrapper = """
     void DocumentDeletedWrappers()

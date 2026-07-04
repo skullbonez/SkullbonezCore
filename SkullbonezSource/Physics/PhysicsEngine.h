@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   Facade: Narrow public boundary that forwards commands while hiding solver
   internals.
+  Fixed-tree release: Store-owned command that turns authored fixed props into
+    dynamic bodies and wakes same-tree parts after an accepted impulse.
   Diagnostics view: Borrowed read-only solver/debug state exposed for tooling.
   Compatibility view: Transitional model-order view used while stores migrate.
 
@@ -83,6 +85,13 @@ class PhysicsEngine
                Threading::WorkerPool& workerPool,
                const char* const* diagnosticNames,
                int diagnosticNameCount );
+    // Runtime fixed-tree commands enter physics by handle and return only the
+    // changed model-order rows that still need compatibility writeback.
+    bool ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,
+                                               float releaseImpulseStrength,
+                                               const Math::Vector::Vector3& seedLinearVelocity,
+                                               const Math::Vector::Vector3& seedAngularVelocity,
+                                               std::vector<int>& outReleasedBodyIndices );
     // Wakes solver sleep/island state by handle. Legacy model-index callers
     // must refresh topology before entering this command.
     void WakeBody( PhysicsBodyHandle body );
