@@ -108,10 +108,15 @@ class PhysicsModelAccess
     void ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event );
     PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const;
 #ifdef _DEBUG
+    bool TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const;
     // Lifetime: string pointers in the returned record are borrowed from the
     // model owner and must not be cached after the current diagnostics write.
-    // False means the requested index is outside the dense model order.
-    bool TryGetPhysicsDiagnosticsModel( int index, PhysicsDiagnosticsModelRecord& outRecord ) const;
+    // Pose, motion, mass, and shape fields come from physics-owned stores.
+    // False means the requested index is outside the dense model/store order.
+    bool TryGetPhysicsDiagnosticsModel( int index,
+                                        const PhysicsBodyStore& bodyStore,
+                                        const ColliderStore& colliderStore,
+                                        PhysicsDiagnosticsModelRecord& outRecord ) const;
 #endif
 
     std::size_t size() const

@@ -42,6 +42,8 @@ Related:
 #include "../Core/SkullScope.h"
 #include "../Physics/Debug/CollisionVisualizer.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../Physics/ColliderStore.h"
+#include "../Physics/PhysicsBodyStore.h"
 #ifdef _DEBUG
 #include "../Physics/PhysicsDiagnosticsModel.h"
 #endif
@@ -157,9 +159,18 @@ PhysicsDiagnosticsView PhysicsModelAccess::GetPhysicsDiagnosticsView() const
 
 
 #ifdef _DEBUG
-bool PhysicsModelAccess::TryGetPhysicsDiagnosticsModel( int index, PhysicsDiagnosticsModelRecord& outRecord ) const
+bool PhysicsModelAccess::TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const
 {
-    return m_collection.TryGetPhysicsDiagnosticsModel( index, outRecord );
+    return m_collection.TryGetPhysicsDiagnosticsModelName( index, outName );
+}
+
+
+bool PhysicsModelAccess::TryGetPhysicsDiagnosticsModel( int index,
+                                                        const PhysicsBodyStore& bodyStore,
+                                                        const ColliderStore& colliderStore,
+                                                        PhysicsDiagnosticsModelRecord& outRecord ) const
+{
+    return m_collection.TryGetPhysicsDiagnosticsModel( index, bodyStore, colliderStore, outRecord );
 }
 #endif
 } // namespace Physics
@@ -568,8 +579,7 @@ const GameModel* GameModelCollection::TryGetModel( int index ) const
 
 
 #ifdef _DEBUG
-bool GameModelCollection::TryGetPhysicsDiagnosticsModel( int index,
-                                                         Physics::PhysicsDiagnosticsModelRecord& outRecord ) const
+bool GameModelCollection::TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const
 {
     if ( index < 0 || index >= GetModelCount() )
     {
@@ -577,31 +587,53 @@ bool GameModelCollection::TryGetPhysicsDiagnosticsModel( int index,
     }
 
     const GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+    outName = model.GetName();
+    return true;
+}
+
+
+bool GameModelCollection::TryGetPhysicsDiagnosticsModel( int index,
+                                                         const Physics::PhysicsBodyStore& bodyStore,
+                                                         const Physics::ColliderStore& colliderStore,
+                                                         Physics::PhysicsDiagnosticsModelRecord& outRecord ) const
+{
+    if ( index < 0 || index >= GetModelCount() || index >= bodyStore.Count() || index >= colliderStore.Count() )
+    {
+        return false;
+    }
+
+    const GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+    const Physics::PhysicsBodyRecord& bodyRecord = bodyStore.Records()[static_cast<std::size_t>( index )];
+    const Physics::ColliderRecord& colliderRecord = colliderStore.Records()[static_cast<std::size_t>( index )];
     outRecord = Physics::PhysicsDiagnosticsModelRecord{};
     outRecord.name = model.GetName();
-    outRecord.shapeName = model.GetShapeName();
-    outRecord.position = model.GetPosition();
-    outRecord.velocity = model.GetVelocity();
-    outRecord.angularVelocity = model.GetAngularVelocity();
-    outRecord.rotationalInertia = model.GetRotationalInertia();
-    model.GetOrientation().GetComponents( outRecord.qx, outRecord.qy, outRecord.qz, outRecord.qw );
-    outRecord.mass = model.GetMass();
-    outRecord.inverseMass = model.GetInvertedMass();
+    outRecord.position = bodyRecord.position;
+    outRecord.velocity = bodyRecord.linearVelocity;
+    outRecord.angularVelocity = bodyRecord.angularVelocity;
+    outRecord.rotationalInertia = bodyRecord.rotationalInertia;
+    bodyRecord.orientation.GetComponents( outRecord.qx, outRecord.qy, outRecord.qz, outRecord.qw );
+    outRecord.mass = bodyRecord.mass;
+    outRecord.inverseMass = bodyRecord.invMass;
 
+    // Why: Debug diagnostics may borrow presentation names, but state sampled
+    // after the solver must come from the stores that the solver just wrote.
     std::visit(
         [&]( const auto& shape )
         {
             using ShapeT = std::decay_t<decltype( shape )>;
             if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingSphere> )
             {
+                outRecord.shapeName = "sphere";
                 outRecord.radius = shape.GetRadius();
             }
             else if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingBox> )
             {
+                outRecord.shapeName = "box";
                 outRecord.halfExtents = shape.GetHalfExtents();
             }
             else
             {
+                outRecord.shapeName = "convex_hull";
                 outRecord.radius = shape.GetBoundingRadius();
                 outRecord.hullName = shape.GetName();
                 outRecord.hullVertices = shape.GetVertexCount();
@@ -609,7 +641,7 @@ bool GameModelCollection::TryGetPhysicsDiagnosticsModel( int index,
                 outRecord.hullEdges = shape.GetEdgeCount();
             }
         },
-        model.GetCollisionShape() );
+        colliderRecord.shape );
     return true;
 }
 #endif

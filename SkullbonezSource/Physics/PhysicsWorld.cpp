@@ -758,8 +758,8 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
     // 2. Reset debug, sleep-support, pipeline, and terrain-manifold output.
     // 3. Run broadphase, swept movement, terrain manifold generation, and the
     //    persistent Catto-style contact solver.
-    // 4. Mirror the finished store once for remaining GameModel-owned render,
-    //    replay, editor, and Debug diagnostics consumers.
+    // 4. Mirror the finished store once for remaining GameModel-owned replay
+    //    and editor consumers.
     // 5. Emit bounded Debug diagnostics, then invalidate cached render/physics
     //    SoA data because solver writeback may have changed body state.
     //
@@ -818,19 +818,19 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
     bodyStore.CopySleepStatesFrom( m_sleepState );
 
     // Compatibility owner: PhysicsScene/PhysicsWorld boundary.
-    // Reason: render, editor, replay, and Debug diagnostics still read
-    // GameModel pose/state after the store-owned solver has finished.
-    // Deletion condition: those consumers read PhysicsBodyStore or explicit
-    // render/diagnostic stores directly. Checker budget: boundary grep keeps
-    // per-body solver writeback out of the hot step.
+    // Reason: editor and replay compatibility consumers still read GameModel
+    // pose/state after the store-owned solver has finished.
+    // Deletion condition: those consumers read PhysicsBodyStore or
+    // handle-addressed physics commands directly. Checker budget: boundary grep
+    // keeps per-body solver writeback out of the hot step.
     modelAccess.WriteBackPhysicsBodies( bodyStore );
 
 #ifdef _DEBUG
     if ( !m_diagnosticsSuppressed )
     {
-        m_diagnostics.EmitRegressionLog( *this, modelAccess );
+        m_diagnostics.EmitRegressionLog( *this, modelAccess, bodyStore, colliderStore );
         m_diagnostics.IncrementCollisionTimeFrameIfEnabled();
-        m_diagnostics.EmitFrame( modelAccess, fChangeInTime );
+        m_diagnostics.EmitFrame( modelAccess, bodyStore, colliderStore, fChangeInTime );
     }
 #endif
 
@@ -1384,13 +1384,16 @@ bool PhysicsWorld::SetDiagnosticsSuppressed( bool suppressed )
 }
 
 
-void PhysicsWorld::EmitPhysicsDiagnosticsFrame( PhysicsModelAccess& modelAccess, float dt )
+void PhysicsWorld::EmitPhysicsDiagnosticsFrame( PhysicsModelAccess& modelAccess,
+                                                const PhysicsBodyStore& bodyStore,
+                                                const ColliderStore& colliderStore,
+                                                float dt )
 {
     if ( m_diagnosticsSuppressed )
     {
         return;
     }
-    m_diagnostics.EmitFrame( modelAccess, dt );
+    m_diagnostics.EmitFrame( modelAccess, bodyStore, colliderStore, dt );
 }
 #endif
 

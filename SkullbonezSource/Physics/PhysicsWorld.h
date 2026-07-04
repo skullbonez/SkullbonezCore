@@ -294,7 +294,10 @@ class PhysicsWorld
                            Threading::WorkerPool& workerPool );
     void SolvePersistentObjectContacts( PhysicsModelAccess& modelAccess, float dt );
 #ifdef _DEBUG
-    void EmitPhysicsDiagnosticsFrame( PhysicsModelAccess& modelAccess, float dt );
+    void EmitPhysicsDiagnosticsFrame( PhysicsModelAccess& modelAccess,
+                                      const PhysicsBodyStore& bodyStore,
+                                      const ColliderStore& colliderStore,
+                                      float dt );
 #endif
     void EmitPhysicsCollisionTime( PhysicsModelAccess& modelAccess,
                                    const char* type,

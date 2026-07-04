@@ -76,7 +76,9 @@ RUN_HEADER = Path("SkullbonezSource/Runtime/Run.h")
 RUN_INTERNAL_HEADER = Path("SkullbonezSource/Runtime/RunInternal.h")
 RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
+SKULL_SCOPE_SOURCE = Path("SkullbonezSource/Core/SkullScope.cpp")
 PHYSICS_WORLD_SOURCE = PHYSICS_ROOT / "PhysicsWorld.cpp"
+PHYSICS_DIAGNOSTICS_SINK_SOURCE = PHYSICS_ROOT / "PhysicsDiagnosticsSink.cpp"
 GAME_MODEL_COLLECTION_SOURCE = Path("SkullbonezSource/GameObjects/GameModelCollection.cpp")
 IRENDER_BACKEND_HEADER = Path("SkullbonezSource/Rendering/IRenderBackend.h")
 RUN_RENDER_SOURCE = Path("SkullbonezSource/Runtime/RunRender.cpp")
@@ -137,6 +139,13 @@ PHYSICS_WORLD_SOLVER_MODEL_STREAM_FUNCTIONS = (
 PHYSICS_WORLD_SOLVER_MODEL_STREAM_PATTERN = re.compile(r"\b(?:GameModelBodyStream|GetBodyStream)\b")
 RENDER_INSTANCE_MODEL_REFRESH_PATTERN = re.compile(
     r"\brenderInstanceStore\s*\.\s*Refresh\s*\(\s*m_gameModels\s*\)"
+)
+PHYSICS_DIAGNOSTICS_MODEL_RECORD_COMPAT_PATTERN = re.compile(
+    r"\bmodelAccess\s*\.\s*TryGetPhysicsDiagnosticsModel\s*\(\s*[^,()]+\s*,\s*[^,()]+\s*\)"
+)
+PHYSICS_DIAGNOSTICS_MODEL_RECORD_SOURCES = (
+    PHYSICS_DIAGNOSTICS_SINK_SOURCE,
+    SKULL_SCOPE_SOURCE,
 )
 HOT_PATH_INHERITANCE_PATTERN = re.compile(
     r"^\s*(?:class|struct)\s+[A-Za-z_]\w*[^{;\n]*:\s*(?:public|protected|private)\b",
@@ -1864,6 +1873,32 @@ def check_render_instance_store_authority_guardrails_text(path: Path, text: str)
 def check_render_instance_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / GAME_MODEL_COLLECTION_SOURCE
     return check_render_instance_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_physics_diagnostics_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_DIAGNOSTICS_MODEL_RECORD_COMPAT_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "physics diagnostics model-state mirror read is blocked",
+                (
+                    "Pass PhysicsBodyStore and ColliderStore to TryGetPhysicsDiagnosticsModel; "
+                    "use TryGetPhysicsDiagnosticsModelName only for name-only logs."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_diagnostics_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in PHYSICS_DIAGNOSTICS_MODEL_RECORD_SOURCES:
+        path = repo / relative_path
+        errors.extend(check_physics_diagnostics_store_authority_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_physics_hot_path_inheritance_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -6467,6 +6502,61 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only render instance model refresh synthetic text was rejected")
 
+    old_diagnostics_model_record_read = """
+    void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess )
+    {
+        PhysicsDiagnosticsModelRecord model;
+        modelAccess.TryGetPhysicsDiagnosticsModel( i, model );
+    }
+    """
+    if not any(
+        error.message == "physics diagnostics model-state mirror read is blocked"
+        for error in check_physics_diagnostics_store_authority_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
+            old_diagnostics_model_record_read,
+        )
+    ):
+        failures.append("old diagnostics GameModel-sourced record synthetic surface was not rejected")
+
+    store_owned_diagnostics_model_record_read = """
+    void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess )
+    {
+        PhysicsDiagnosticsModelRecord model;
+        modelAccess.TryGetPhysicsDiagnosticsModel( i, bodyStore, colliderStore, model );
+    }
+    """
+    if check_physics_diagnostics_store_authority_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
+        store_owned_diagnostics_model_record_read,
+    ):
+        failures.append("store-owned diagnostics record synthetic surface was rejected")
+
+    diagnostics_name_only_read = """
+    void PhysicsDiagnosticsSink::EmitCollisionTime( PhysicsModelAccess& modelAccess )
+    {
+        const char* name = "";
+        modelAccess.TryGetPhysicsDiagnosticsModelName( bodyA, name );
+    }
+    """
+    if check_physics_diagnostics_store_authority_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
+        diagnostics_name_only_read,
+    ):
+        failures.append("diagnostics name-only synthetic surface was rejected")
+
+    commented_diagnostics_model_record_read = """
+    void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess )
+    {
+        // modelAccess.TryGetPhysicsDiagnosticsModel( i, model ) is old mirror debt.
+        UseBodyAndColliderStores();
+    }
+    """
+    if check_physics_diagnostics_store_authority_guardrails_text(
+        Path("SkullbonezSource/Core/SkullScope.cpp"),
+        commented_diagnostics_model_record_read,
+    ):
+        failures.append("comment-only diagnostics model record synthetic text was rejected")
+
     allowed_physics_hot_path_values = """
     struct SolverBodyState
     {
@@ -6882,6 +6972,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_world_solver_body_writeback_guardrails(repo))
     errors.extend(check_physics_world_solver_model_stream_guardrails(repo))
     errors.extend(check_render_instance_store_authority_guardrails(repo))
+    errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))
     errors.extend(check_approved_inheritance_guardrails(repo))

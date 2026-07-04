@@ -72,6 +72,8 @@ class WorldEnvironment;
 
 namespace Physics
 {
+class ColliderStore;
+class PhysicsBodyStore;
 class CollisionVisualizer;
 class PhysicsDebugVisualizer;
 } // namespace Physics
@@ -186,9 +188,14 @@ class GameModelCollection
     // mutation. Null means the caller held a stale model index.
     const GameModel* TryGetModel( int index ) const;
 #ifdef _DEBUG
-    // Returns only the model facts diagnostics serialize, without handing debug
-    // sinks a mutable or indexable GameModel range.
-    bool TryGetPhysicsDiagnosticsModel( int index, Physics::PhysicsDiagnosticsModelRecord& outRecord ) const;
+    bool TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const;
+    // Builds one diagnostics record from model-owned display names plus
+    // physics-owned body/collider stores, without handing debug sinks a mutable
+    // or indexable GameModel range.
+    bool TryGetPhysicsDiagnosticsModel( int index,
+                                        const Physics::PhysicsBodyStore& bodyStore,
+                                        const Physics::ColliderStore& colliderStore,
+                                        Physics::PhysicsDiagnosticsModelRecord& outRecord ) const;
 #endif
     // Replays restore saved body state through the collection so cache
     // invalidation and replay-id validation stay with the model owner.
