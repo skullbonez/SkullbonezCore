@@ -80,6 +80,7 @@ RUNTIME_ROOT = Path("SkullbonezSource/Runtime")
 PHYSICS_ROOT = Path("SkullbonezSource/Physics")
 SKULL_SCOPE_SOURCE = Path("SkullbonezSource/Core/SkullScope.cpp")
 PHYSICS_WORLD_SOURCE = PHYSICS_ROOT / "PhysicsWorld.cpp"
+PHYSICS_WORLD_HEADER = PHYSICS_ROOT / "PhysicsWorld.h"
 PHYSICS_SCENE_SOURCE = PHYSICS_ROOT / "PhysicsScene.cpp"
 PHYSICS_DIAGNOSTICS_SINK_SOURCE = PHYSICS_ROOT / "PhysicsDiagnosticsSink.cpp"
 RAGDOLL_SOURCE = PHYSICS_ROOT / "Ragdoll.cpp"
@@ -109,7 +110,7 @@ RUNTIME_RENDER_PASS_CAPABILITY_SOURCES = (
     Path("SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h"),
 )
 PHYSICS_HOT_PATH_INHERITANCE_SOURCES = (
-    PHYSICS_ROOT / "PhysicsWorld.h",
+    PHYSICS_WORLD_HEADER,
     PHYSICS_ROOT / "PhysicsWorld.cpp",
     PHYSICS_ROOT / "PersistentContactSolver.h",
     PHYSICS_ROOT / "PersistentContactSolver.cpp",
@@ -167,6 +168,12 @@ PHYSICS_WORLD_STORE_WAKE_MODEL_ACCESS_PATTERN = re.compile(
     r"\b(?:GameModelBodyStream|GetBodyStream)\b|\bmodelAccess\s*\.\s*InvalidatePhysicsStreams\s*\("
 )
 PHYSICS_WORLD_STORE_WAKE_MODEL_ACCESS_SIGNATURE_PATTERN = re.compile(r"\bPhysicsModelAccess\s*&")
+# Why: the model-stream wake/seed overloads were deleted after store-owned
+# commands became the real path. Reintroducing the old signature would quietly
+# bring back a GameModel cache rebuild inside PhysicsWorld.
+PHYSICS_WORLD_DELETED_MODEL_STREAM_WAKE_SEED_PATTERN = re.compile(
+    r"\b(?:GameModelBodyStream|GetBodyStream)\b|\b(?:WakeModel|SeedModelAsleep)\s*\(\s*PhysicsModelAccess\s*&"
+)
 PHYSICS_WORLD_RUN_PHYSICS_WRITEBACK_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*WriteBackPhysicsBodies\s*\(")
 PHYSICS_WORLD_RUN_PHYSICS_INVALIDATION_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*InvalidatePhysicsStreams\s*\(")
 PHYSICS_WORLD_RUN_PHYSICS_DIAGNOSTICS_PATTERN = re.compile(
@@ -2192,6 +2199,39 @@ def check_physics_world_store_wake_model_access_guardrails_text(path: Path, text
 def check_physics_world_store_wake_model_access_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / PHYSICS_WORLD_SOURCE
     return check_physics_world_store_wake_model_access_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_physics_world_deleted_model_stream_wake_seed_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name not in {"PhysicsWorld.cpp", "PhysicsWorld.h"}:
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_WORLD_DELETED_MODEL_STREAM_WAKE_SEED_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "physics world legacy model-stream wake/seed path is deleted",
+                (
+                    "PhysicsWorld wake/seed commands must use PhysicsBodyStore/body records; "
+                    "model-stream compatibility belongs at the PhysicsScene edge."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_world_deleted_model_stream_wake_seed_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in (PHYSICS_WORLD_SOURCE, PHYSICS_WORLD_HEADER):
+        path = repo / relative_path
+        errors.extend(
+            check_physics_world_deleted_model_stream_wake_seed_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+            )
+        )
+    return errors
 
 
 def check_physics_world_run_invalidation_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -7680,17 +7720,20 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("store-owned PhysicsWorld seed synthetic surface was rejected")
 
-    allowed_legacy_seed_body_stream = """
+    old_legacy_seed_body_stream = """
     void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, const GameModelBodyStream& bodyStream, int index )
     {
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if check_physics_world_store_seed_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        allowed_legacy_seed_body_stream,
+    if not any(
+        error.message == "physics world legacy model-stream wake/seed path is deleted"
+        for error in check_physics_world_deleted_model_stream_wake_seed_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+            old_legacy_seed_body_stream,
+        )
     ):
-        failures.append("legacy PhysicsWorld seed model-stream synthetic surface was rejected")
+        failures.append("old PhysicsWorld seed model-stream synthetic surface was not rejected")
 
     allowed_scene_seed_invalidation = """
     void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -7760,17 +7803,20 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("store-owned PhysicsWorld wake synthetic surface was rejected")
 
-    allowed_legacy_wake_body_stream = """
+    old_legacy_wake_body_stream = """
     void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, const GameModelBodyStream& bodyStream, int index )
     {
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if check_physics_world_store_wake_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        allowed_legacy_wake_body_stream,
+    if not any(
+        error.message == "physics world legacy model-stream wake/seed path is deleted"
+        for error in check_physics_world_deleted_model_stream_wake_seed_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+            old_legacy_wake_body_stream,
+        )
     ):
-        failures.append("legacy PhysicsWorld wake model-stream synthetic surface was rejected")
+        failures.append("old PhysicsWorld wake model-stream synthetic surface was not rejected")
 
     allowed_scene_wake_invalidation = """
     void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -7797,6 +7843,49 @@ def run_self_tests() -> list[str]:
         commented_store_wake_model_access,
     ):
         failures.append("comment-only PhysicsWorld store wake synthetic text was rejected")
+
+    old_public_wake_seed_model_access = """
+    class PhysicsWorld
+    {
+        void WakeModel( PhysicsModelAccess& modelAccess, int index );
+        void SeedModelAsleep( PhysicsModelAccess& modelAccess, int index );
+    };
+    """
+    if not any(
+        error.message == "physics world legacy model-stream wake/seed path is deleted"
+        for error in check_physics_world_deleted_model_stream_wake_seed_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.h"),
+            old_public_wake_seed_model_access,
+        )
+    ):
+        failures.append("old PhysicsWorld public model-access wake/seed synthetic surface was not rejected")
+
+    allowed_store_wake_seed_header = """
+    class PhysicsWorld
+    {
+        void WakeModel( PhysicsBodyStore& bodyStore, int index );
+        void SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index );
+    };
+    """
+    if check_physics_world_deleted_model_stream_wake_seed_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.h"),
+        allowed_store_wake_seed_header,
+    ):
+        failures.append("store-owned PhysicsWorld wake/seed header synthetic surface was rejected")
+
+    commented_deleted_world_stream = """
+    void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore, int index )
+    {
+        // WakeModel( PhysicsModelAccess& modelAccess, int index ) used to live here.
+        // const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
+        WakeBodyRecord();
+    }
+    """
+    if check_physics_world_deleted_model_stream_wake_seed_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        commented_deleted_world_stream,
+    ):
+        failures.append("comment-only PhysicsWorld deleted model-stream synthetic text was rejected")
 
     old_world_run_diagnostics = """
     void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -9115,6 +9204,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_world_tornado_release_model_access_guardrails(repo))
     errors.extend(check_physics_world_store_seed_model_access_guardrails(repo))
     errors.extend(check_physics_world_store_wake_model_access_guardrails(repo))
+    errors.extend(check_physics_world_deleted_model_stream_wake_seed_guardrails(repo))
     errors.extend(check_physics_world_run_invalidation_guardrails(repo))
     errors.extend(check_physics_world_run_writeback_guardrails(repo))
     errors.extend(check_physics_world_run_diagnostics_guardrails(repo))

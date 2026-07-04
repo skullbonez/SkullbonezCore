@@ -295,7 +295,7 @@ in 20.7s with byte-exact `physics_regression_solver.csv`;
 failed on DX12 memory at +5.02 MB against a +5.0 MB threshold, then rerun passed
 in 21.3s with no DX12 or PHYSICS_BENCH regressions.
 
-Latest strict-step authority slice `PHY-0207O`: store-owned wake propagation no
+Strict-step authority slice `PHY-0207O`: store-owned wake propagation no
 longer carries `PhysicsModelAccess` through `PhysicsWorld` just to invalidate
 GameModel streams. The store `WakeModel` overloads, store island wake helpers,
 point-joint connected wake propagation, and persistent-contact side-effect wake
@@ -314,6 +314,22 @@ and `tools\validate_format.bat` passed; focused Debug build first caught a dead
 `physics_regression_solver.csv`; `tools\validate_fast.bat` passed in 22.1s;
 `tools\validate_perf.bat` first failed on PHYSICS_BENCH frame and memory
 thresholds, then rerun passed in 21.5s with no DX12 or PHYSICS_BENCH
+regressions.
+
+Latest strict-step authority slice `PHY-0207P`: the dead
+`PhysicsWorld` model-stream wake/seed path is deleted instead of left as visible
+debt. `PhysicsWorld` no longer exposes or implements `WakeModel` or
+`SeedModelAsleep` overloads that take `PhysicsModelAccess` or
+`GameModelBodyStream`, and the helper wake-island variants now exist only in the
+store-owned body-record form. The checker blocks `GameModelBodyStream`,
+`GetBodyStream`, and public model-access wake/seed signatures from returning to
+`PhysicsWorld.cpp` or `PhysicsWorld.h`, while allowing the scene edge to own
+remaining compatibility writeback/cache invalidation. Evidence: diff check,
+py_compile, runtime-boundary checks, and `tools\validate_format.bat` passed;
+focused Debug build passed in 8.0s with 0 warnings/errors;
+`tools\validate_physics.bat` passed in 20.7s with byte-exact
+`physics_regression_solver.csv`; `tools\validate_fast.bat` passed in 21.8s;
+`tools\validate_perf.bat` passed in 22.3s with no DX12 or PHYSICS_BENCH
 regressions.
 
 ## Phase 3 - Collider Store Authority

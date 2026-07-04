@@ -55,7 +55,6 @@ Related:
 #include <cstring>
 #include <variant>
 
-using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Basics::ReplaySolverContactCacheSample;
 using SkullbonezCore::Basics::ReplaySolverPersistentContactSample;
@@ -848,13 +847,6 @@ void PhysicsWorld::EmitStepDiagnostics( PhysicsModelAccess& modelAccess,
 }
 
 
-void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, int index )
-{
-    const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
-    WakeModel( modelAccess, bodyStream, nullptr, nullptr, nullptr, index );
-}
-
-
 void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore, int index )
 {
     WakeModel( bodyStore.Count(), bodyStore.Records(), &bodyStore, nullptr, nullptr, index );
@@ -870,84 +862,9 @@ void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore,
 }
 
 
-void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess,
-                              const GameModelBodyStream& bodyStream,
-                              PhysicsBodyStore* bodyStore,
-                              const ColliderStore* colliderStore,
-                              const PhysicsWorldForces* worldForces,
-                              int index )
-{
-    const std::vector<PhysicsBodyRecord>* bodyRecords = bodyStore ? &bodyStore->Records() : nullptr;
-    if ( index >= 0 && index < bodyStream.count )
-    {
-        const bool isFixed = bodyRecords && index < static_cast<int>( bodyRecords->size() )
-                                 ? ( *bodyRecords )[static_cast<size_t>( index )].isFixed
-                                 : bodyStream.isFixed[index];
-        if ( isFixed )
-        {
-            return;
-        }
-    }
-    else if ( index >= 0 )
-    {
-        return;
-    }
-
-    const int modelCount = bodyStream.count;
-    if ( static_cast<int>( m_sleepState.size() ) < modelCount )
-    {
-        m_sleepState.resize( modelCount, 0 );
-        m_sleepCounter.resize( modelCount, 0 );
-    }
-    else if ( static_cast<int>( m_sleepState.size() ) > modelCount )
-    {
-        m_sleepState.assign( modelCount, 0 );
-        m_sleepCounter.assign( modelCount, 0 );
-    }
-    EnsureUnderwaterSleepLockBuffer( modelCount );
-    if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
-    {
-        if ( bodyStore && !m_underwaterSleepLocked[index] && m_sleepState[index] )
-        {
-            bool refreshedSubmersion = false;
-            if ( colliderStore && worldForces )
-            {
-                refreshedSubmersion =
-                    RefreshUnderwaterSubmersionForBall( *worldForces, *bodyStore, *colliderStore, index );
-            }
-            const PhysicsBodyRecord* record = bodyStore->RecordForModelIndex( index );
-            if ( record && ( refreshedSubmersion || record->submergedVolumePercent > 0.0f ) )
-            {
-                if ( colliderStore && IsFullySubmergedBall( *record, *colliderStore, index ) )
-                {
-                    m_underwaterSleepLocked[index] = 1;
-                    if ( index < static_cast<int>( m_timeRemaining.size() ) )
-                    {
-                        m_timeRemaining[index] = 0.0f;
-                    }
-                    return;
-                }
-            }
-        }
-        if ( IsUnderwaterSleepLocked( bodyStream.count, index ) )
-        {
-            return;
-        }
-    }
-    if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
-    {
-        modelAccess.InvalidatePhysicsStreams();
-        WakeSleepVisualIsland( modelAccess, bodyStream, bodyStore, index, 0.0f, false );
-        WakePointJointIsland( modelAccess, bodyStream, bodyStore, index, 0.0f, false );
-        WakeRestingContactIsland( modelAccess, bodyStream, bodyStore, index, 0.0f, false );
-    }
-}
-
-
 // Why: callers that already hold PhysicsBodyStore should not refresh the
-// GameModelBodyStream just to wake a body. Keep the model-stream overload for
-// explicit legacy commands, but make store-owned step side effects stay on dense
-// body records.
+// model owner just to wake a body. Store-owned wake commands stay on dense body
+// records; PhysicsScene owns any compatibility writeback/cache invalidation.
 void PhysicsWorld::WakeModel( int bodyCount,
                               const std::vector<PhysicsBodyRecord>& bodyRecords,
                               PhysicsBodyStore* bodyStore,
@@ -1017,80 +934,14 @@ void PhysicsWorld::WakeModel( int bodyCount,
 }
 
 
-void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, int index )
-{
-    const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
-    SeedModelAsleep( modelAccess, bodyStream, nullptr, index );
-}
-
-
 void PhysicsWorld::SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index )
 {
     SeedModelAsleep( bodyStore.Count(), bodyStore.Records(), index );
 }
 
 
-void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess,
-                                    const GameModelBodyStream& bodyStream,
-                                    const PhysicsBodyStore* bodyStore,
-                                    int index )
-{
-    if ( !m_sleepEnabled )
-    {
-        return;
-    }
-
-    const std::vector<PhysicsBodyRecord>* bodyRecords = bodyStore ? &bodyStore->Records() : nullptr;
-    if ( index < 0 || index >= bodyStream.count )
-    {
-        return;
-    }
-    const bool isFixed = bodyRecords && index < static_cast<int>( bodyRecords->size() )
-                             ? ( *bodyRecords )[static_cast<size_t>( index )].isFixed
-                             : bodyStream.isFixed[index];
-    if ( isFixed )
-    {
-        return;
-    }
-
-    const int modelCount = bodyStream.count;
-    if ( static_cast<int>( m_sleepState.size() ) < modelCount )
-    {
-        m_sleepState.resize( modelCount, 0 );
-        m_sleepCounter.resize( modelCount, 0 );
-    }
-    else if ( static_cast<int>( m_sleepState.size() ) > modelCount )
-    {
-        m_sleepState.assign( modelCount, 0 );
-        m_sleepCounter.assign( modelCount, 0 );
-    }
-    if ( static_cast<int>( m_sleepIslandVisualId.size() ) < modelCount )
-    {
-        m_sleepIslandVisualId.resize( modelCount, 0 );
-    }
-    else if ( static_cast<int>( m_sleepIslandVisualId.size() ) > modelCount )
-    {
-        m_sleepIslandVisualId.assign( modelCount, 0 );
-    }
-    EnsureUnderwaterSleepLockBuffer( modelCount );
-
-    modelAccess.InvalidatePhysicsStreams();
-    m_sleepState[index] = 1;
-    m_sleepCounter[index] = m_seedSleepFrameCount;
-    m_underwaterSleepLocked[index] = 0;
-    if ( index < static_cast<int>( m_sleepIslandVisualId.size() ) )
-    {
-        m_sleepIslandVisualId[index] = m_nextSleepIslandVisualId++;
-        if ( m_nextSleepIslandVisualId <= 0 )
-        {
-            m_nextSleepIslandVisualId = 1;
-        }
-    }
-}
-
-
 // Why: store-owned seed commands already have dense body records. Avoid
-// rebuilding GameModelBodyStream or invalidating GameModel caches from inside
+// rebuilding model-owner streams or invalidating GameModel caches from inside
 // PhysicsWorld; compatibility projection belongs to PhysicsScene.
 void PhysicsWorld::SeedModelAsleep( int bodyCount, const std::vector<PhysicsBodyRecord>& bodyRecords, int index )
 {
@@ -1534,72 +1385,10 @@ void PhysicsWorld::ForgetPersistentContactCacheForBody( int bodyIndex )
 }
 
 
-bool PhysicsWorld::WakeDynamicBodyState( const GameModelBodyStream& bodyStream,
-                                         PhysicsBodyStore* bodyStore,
-                                         int index,
-                                         float dt,
-                                         bool applyForces,
-                                         const PhysicsWorldForces* worldForces,
-                                         const ColliderStore* colliderStore )
-{
-    const std::vector<PhysicsBodyRecord>* bodyRecords = bodyStore ? &bodyStore->Records() : nullptr;
-    if ( index < 0 || index >= bodyStream.count || index >= static_cast<int>( m_sleepState.size() ) )
-    {
-        return false;
-    }
-    const bool isFixed = bodyRecords && index < static_cast<int>( bodyRecords->size() )
-                             ? ( *bodyRecords )[static_cast<size_t>( index )].isFixed
-                             : bodyStream.isFixed[index];
-    if ( isFixed )
-    {
-        return false;
-    }
-
-    const bool wasSleeping = m_sleepState[index] != 0;
-    const bool hadCounter = index < static_cast<int>( m_sleepCounter.size() ) && m_sleepCounter[index] != 0;
-    const bool hadSleepVisual =
-        index < static_cast<int>( m_sleepIslandVisualId.size() ) && m_sleepIslandVisualId[index] != 0;
-    const bool wasUnderwaterLocked =
-        index < static_cast<int>( m_underwaterSleepLocked.size() ) && m_underwaterSleepLocked[index] != 0;
-
-    m_sleepState[index] = 0;
-    if ( bodyStore )
-    {
-        bodyStore->WakeBody( index );
-    }
-    if ( index < static_cast<int>( m_sleepCounter.size() ) )
-    {
-        m_sleepCounter[index] = 0;
-    }
-    if ( index < static_cast<int>( m_underwaterSleepLocked.size() ) )
-    {
-        m_underwaterSleepLocked[index] = 0;
-    }
-    if ( index < static_cast<int>( m_sleepIslandVisualId.size() ) )
-    {
-        m_sleepIslandVisualId[index] = 0;
-    }
-    if ( dt > 0.0f && index < static_cast<int>( m_timeRemaining.size() ) )
-    {
-        m_timeRemaining[index] = dt;
-    }
-    if ( applyForces && wasSleeping && dt > TOLERANCE && bodyStore && worldForces && colliderStore )
-    {
-        (void)bodyStore->ApplyForces( *worldForces, *colliderStore, index, dt );
-    }
-    // Hazard: waking a body must also forget any cached contact impulses that
-    // involve that body. Warm-start impulses are great for resting contact, but
-    // stale impulses after a manual wake or external force can push the body as
-    // if an old support contact still existed.
-    ForgetPersistentContactCacheForBody( index );
-
-    return wasSleeping || hadCounter || hadSleepVisual || wasUnderwaterLocked;
-}
-
-
 // Why: store-owned wake propagation uses the same sleep-state mutation as the
-// legacy stream path, but fixed-state authority comes from PhysicsBodyRecord.
-// This keeps solver-triggered wakeups off the GameModel SoA cache.
+// deleted legacy stream path, but fixed-state authority comes from
+// PhysicsBodyRecord. This keeps solver-triggered wakeups off the GameModel SoA
+// cache.
 bool PhysicsWorld::WakeDynamicBodyState( int bodyCount,
                                          const std::vector<PhysicsBodyRecord>& bodyRecords,
                                          PhysicsBodyStore* bodyStore,
@@ -1657,50 +1446,6 @@ bool PhysicsWorld::WakeDynamicBodyState( int bodyCount,
 }
 
 
-void PhysicsWorld::WakeSleepVisualIsland( PhysicsModelAccess& modelAccess,
-                                          const GameModelBodyStream& bodyStream,
-                                          PhysicsBodyStore* bodyStore,
-                                          int index,
-                                          float dt,
-                                          bool applyForces,
-                                          const PhysicsWorldForces* worldForces,
-                                          const ColliderStore* colliderStore )
-{
-    // Concept: m_sleepIslandVisualId is the persisted identity of a group that
-    // deactivated together. Contacts may be pruned while the group sleeps, so
-    // this id is the cheap way to wake the whole resting pile again.
-    if ( index < 0 || index >= static_cast<int>( m_sleepState.size() ) )
-    {
-        return;
-    }
-
-    const int visualId = index < static_cast<int>( m_sleepIslandVisualId.size() ) ? m_sleepIslandVisualId[index] : 0;
-    bool changed = false;
-    if ( visualId > 0 )
-    {
-        const int count = (std::min)( static_cast<int>( m_sleepIslandVisualId.size() ), bodyStream.count );
-        for ( int i = 0; i < count; ++i )
-        {
-            if ( m_sleepIslandVisualId[i] == visualId )
-            {
-                changed =
-                    WakeDynamicBodyState( bodyStream, bodyStore, i, dt, applyForces, worldForces, colliderStore ) ||
-                    changed;
-            }
-        }
-    }
-    else
-    {
-        changed = WakeDynamicBodyState( bodyStream, bodyStore, index, dt, applyForces, worldForces, colliderStore );
-    }
-
-    if ( changed )
-    {
-        modelAccess.InvalidatePhysicsStreams();
-    }
-}
-
-
 // Why: sleep visual islands are persisted as model-order indices, but the fixed
 // and sleep-state facts needed to wake them are already in PhysicsBodyStore.
 void PhysicsWorld::WakeSleepVisualIsland( int bodyCount,
@@ -1741,110 +1486,6 @@ void PhysicsWorld::WakeSleepVisualIsland( int bodyCount,
     else
     {
         WakeDynamicBodyState( bodyCount, bodyRecords, bodyStore, index, dt, applyForces, worldForces, colliderStore );
-    }
-}
-
-
-void PhysicsWorld::WakePointJointIsland( PhysicsModelAccess& modelAccess,
-                                         const GameModelBodyStream& bodyStream,
-                                         PhysicsBodyStore* bodyStore,
-                                         int index,
-                                         float dt,
-                                         bool applyForces,
-                                         const PhysicsWorldForces* worldForces,
-                                         const ColliderStore* colliderStore )
-{
-    // Hazard: solving a ragdoll with one awake piece and several sleeping pieces
-    // treats the sleepers as temporary static anchors. Wake the whole constraint
-    // component so later point-joint impulses are applied to the same live island.
-    const int modelCount = bodyStore ? (std::min)( bodyStream.count, bodyStore->Count() ) : bodyStream.count;
-    if ( m_pointJointConstraints.empty() || index < 0 || index >= modelCount ||
-         index >= static_cast<int>( m_sleepState.size() ) )
-    {
-        return;
-    }
-
-    m_sleepIslandParent.assign( modelCount, 0 );
-    m_sleepIslandRank.assign( modelCount, 0 );
-    m_sleepPointJointBody.assign( modelCount, 0 );
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        m_sleepIslandParent[i] = i;
-    }
-
-    auto findIsland = [&]( int bodyIndex ) -> int
-    {
-        int root = bodyIndex;
-        while ( m_sleepIslandParent[root] != root )
-        {
-            root = m_sleepIslandParent[root];
-        }
-        while ( m_sleepIslandParent[bodyIndex] != bodyIndex )
-        {
-            int parent = m_sleepIslandParent[bodyIndex];
-            m_sleepIslandParent[bodyIndex] = root;
-            bodyIndex = parent;
-        }
-        return root;
-    };
-
-    auto unionIslands = [&]( int a, int b )
-    {
-        int rootA = findIsland( a );
-        int rootB = findIsland( b );
-        if ( rootA == rootB )
-        {
-            return;
-        }
-
-        if ( m_sleepIslandRank[rootA] < m_sleepIslandRank[rootB] )
-        {
-            std::swap( rootA, rootB );
-        }
-        m_sleepIslandParent[rootB] = rootA;
-        if ( m_sleepIslandRank[rootA] == m_sleepIslandRank[rootB] )
-        {
-            ++m_sleepIslandRank[rootA];
-        }
-    };
-
-    for ( const PointJointConstraint& constraint : m_pointJointConstraints )
-    {
-        // Point-joint constraints are sleep-island edges. This keeps the current
-        // ragdoll behavior aligned with the future generic constraint system:
-        // constraints decide connectivity, contacts decide physical impulses.
-        const int a = constraint.BodyAIndex( *bodyStore );
-        const int b = constraint.BodyBIndex( *bodyStore );
-        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
-        {
-            continue;
-        }
-
-        m_sleepPointJointBody[a] = 1;
-        m_sleepPointJointBody[b] = 1;
-        unionIslands( a, b );
-    }
-
-    if ( m_sleepPointJointBody[index] == 0 )
-    {
-        return;
-    }
-
-    const int root = findIsland( index );
-    bool changed = false;
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        if ( m_sleepPointJointBody[i] == 0 || findIsland( i ) != root )
-        {
-            continue;
-        }
-        changed =
-            WakeDynamicBodyState( bodyStream, bodyStore, i, dt, applyForces, worldForces, colliderStore ) || changed;
-    }
-
-    if ( changed )
-    {
-        modelAccess.InvalidatePhysicsStreams();
     }
 }
 
@@ -1948,108 +1589,9 @@ void PhysicsWorld::WakePointJointIsland( int bodyCount,
 }
 
 
-void PhysicsWorld::WakeRestingContactIsland( PhysicsModelAccess& modelAccess,
-                                             const GameModelBodyStream& bodyStream,
-                                             PhysicsBodyStore* bodyStore,
-                                             int index,
-                                             float dt,
-                                             bool applyForces,
-                                             const PhysicsWorldForces* worldForces,
-                                             const ColliderStore* colliderStore )
-{
-    const std::vector<PhysicsBodyRecord>* bodyRecords = bodyStore ? &bodyStore->Records() : nullptr;
-    const int modelCount =
-        bodyRecords ? (std::min)( bodyStream.count, static_cast<int>( bodyRecords->size() ) ) : bodyStream.count;
-    if ( index < 0 || index >= modelCount || index >= static_cast<int>( m_sleepState.size() ) )
-    {
-        return;
-    }
-
-    std::vector<uint8_t> visited( static_cast<size_t>( modelCount ), 0 );
-    std::vector<int> wakeQueue;
-    wakeQueue.reserve( static_cast<size_t>( modelCount ) );
-    visited[static_cast<size_t>( index )] = 1;
-    wakeQueue.push_back( index );
-
-    auto hasPersistentContactEdge = [&]( int a, int b ) -> bool
-    {
-        for ( const PersistentContact& contact : m_persistentContacts )
-        {
-            if ( ( contact.bodyA == a && contact.bodyB == b ) || ( contact.bodyA == b && contact.bodyB == a ) )
-            {
-                return true;
-            }
-        }
-        return false;
-    };
-
-    auto isLikelyRestingNeighbor = [&]( int a, int b ) -> bool
-    {
-        const bool hasRecordA = bodyRecords && a < static_cast<int>( bodyRecords->size() );
-        const bool hasRecordB = bodyRecords && b < static_cast<int>( bodyRecords->size() );
-        const Vector3 posA = hasRecordA ? ( *bodyRecords )[static_cast<size_t>( a )].position : bodyStream.positions[a];
-        const Vector3 posB = hasRecordB ? ( *bodyRecords )[static_cast<size_t>( b )].position : bodyStream.positions[b];
-        const float radiusA = (std::max)( 0.01f,
-                                          hasRecordA ? ( *bodyRecords )[static_cast<size_t>( a )].boundingRadius
-                                                     : bodyStream.boundingRadii[a] );
-        const float radiusB = (std::max)( 0.01f,
-                                          hasRecordB ? ( *bodyRecords )[static_cast<size_t>( b )].boundingRadius
-                                                     : bodyStream.boundingRadii[b] );
-        if ( posB.y + radiusB + EXPLICIT_WAKE_VERTICAL_SLOP < posA.y - radiusA )
-        {
-            return false;
-        }
-
-        const float range = radiusA + radiusB + EXPLICIT_WAKE_NEIGHBOR_SLOP;
-        const Vector3 delta = posB - posA;
-        return delta * delta <= range * range;
-    };
-
-    bool changed = false;
-    for ( size_t cursor = 0; cursor < wakeQueue.size(); ++cursor )
-    {
-        const int current = wakeQueue[cursor];
-        for ( int candidate = 0; candidate < modelCount; ++candidate )
-        {
-            if ( visited[static_cast<size_t>( candidate )] || candidate >= static_cast<int>( m_sleepState.size() ) ||
-                 m_sleepState[candidate] == 0 )
-            {
-                continue;
-            }
-            const bool candidateFixed = bodyRecords && candidate < static_cast<int>( bodyRecords->size() )
-                                            ? ( *bodyRecords )[static_cast<size_t>( candidate )].isFixed
-                                            : bodyStream.isFixed[candidate];
-            if ( candidateFixed )
-            {
-                continue;
-            }
-            if ( IsUnderwaterSleepLocked( bodyStream.count, candidate ) )
-            {
-                continue;
-            }
-            if ( !hasPersistentContactEdge( current, candidate ) && !isLikelyRestingNeighbor( current, candidate ) )
-            {
-                continue;
-            }
-
-            visited[static_cast<size_t>( candidate )] = 1;
-            wakeQueue.push_back( candidate );
-            changed =
-                WakeDynamicBodyState( bodyStream, bodyStore, candidate, dt, applyForces, worldForces, colliderStore ) ||
-                changed;
-        }
-    }
-
-    if ( changed )
-    {
-        modelAccess.InvalidatePhysicsStreams();
-    }
-}
-
-
 // Why: explicit wake still needs to fan out through resting contacts. The store
-// path uses body-record position/radius snapshots instead of GameModelBodyStream
-// so solver side effects do not rebuild the model SoA cache.
+// path uses body-record position/radius snapshots so solver side effects do not
+// rebuild the model SoA cache.
 void PhysicsWorld::WakeRestingContactIsland( int bodyCount,
                                              const std::vector<PhysicsBodyRecord>& bodyRecords,
                                              PhysicsBodyStore* bodyStore,
