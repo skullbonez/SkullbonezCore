@@ -826,6 +826,34 @@ row. Evidence logs: `TestOutput\agent_validate_fast_pending_impulse_overload.log
 and `TestOutput\agent_validate_physics_pending_impulse_overload.log`; the
 physics gate passed with byte-exact `physics_regression_solver.csv`.
 
+Slice `PHY-1006`: remove the one-body `GameModel` writeback and
+model-stream invalidation from `PhysicsScene::WakeBody` after store/world wake
+propagation. Keep the `WakeBody(PhysicsModelAccess&, PhysicsBodyHandle)`
+signature and topology/collider refresh behavior in this row; deleting that
+remaining signature belongs with the broader step-boundary migration.
+
+- [x] Delete the wake command's per-command `WriteBackPhysicsBody` and
+  `InvalidatePhysicsStreams` calls.
+- [x] Add runtime-boundary self-tests that reject the deleted wake mirror shape
+  while allowing store/world wake propagation and the existing
+  `WakeBody(modelAccess, body)` caller edge.
+- [x] Comment-audit the touched source files.
+- [x] Validation for this slice:
+  - [x] `git diff --check`
+  - [x] `python -m py_compile tools\check_runtime_boundaries.py`
+  - [x] `python tools\check_runtime_boundaries.py --repo .`
+  - [x] `tools\validate_fast.bat`
+  - [x] `tools\validate_physics.bat`
+
+Follow-up slice `PHY-1006`: wake propagation now stops at
+`PhysicsBodyStore`/`PhysicsWorld` sleep and island state. `PhysicsScene::WakeBody`
+no longer performs a one-body `GameModel` writeback or model-stream
+invalidation; it still keeps the current model-access signature so topology and
+collider refresh behavior remain bounded until the broader step-boundary row.
+Evidence logs: `TestOutput\agent_validate_fast_wake_command_mirror.log` and
+`TestOutput\agent_validate_physics_wake_command_mirror.log`; the physics gate
+passed with byte-exact `physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

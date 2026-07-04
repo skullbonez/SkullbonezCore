@@ -17,6 +17,10 @@ Glossary:
     by the next solver step.
   Velocity edit: Replay-authored command that changes live body velocity before
     prediction or the next step samples the body store.
+  Sleep: Solver optimization that stops integrating stable bodies until an
+    explicit wake or contact event reactivates them.
+  SoA (Structure of Arrays): Cache layout used by GameModelCollection streams;
+    each body field is stored in a separate contiguous array.
   Determinism: Same inputs produce byte-exact validation artifacts.
 
 Invariants:
@@ -26,6 +30,8 @@ Invariants:
     invalidated only when presentation state changes.
   - Velocity edits stay store-owned until the normal step boundary projects
     body state for presentation.
+  - Wake commands update solver sleep/island state without rebuilding model
+    streams.
 
 Related:
   - SkullbonezSource/Physics/PhysicsScene.h
@@ -306,14 +312,9 @@ void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle 
         m_world.WakeModel( m_bodyStore, index );
     }
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    // Compatibility owner: PhysicsScene explicit command edge.
-    // Reason: wake propagation mutates PhysicsWorld and PhysicsBodyStore state;
-    // GameModel is only the remaining presentation mirror.
-    // Deletion condition: editor/ragdoll callers consume store views directly.
-    // Checker budget: store-owned PhysicsWorld wake must not invalidate model
-    // caches itself.
-    modelAccess.WriteBackPhysicsBody( m_bodyStore, index );
-    modelAccess.InvalidatePhysicsStreams();
+    // Why: wake is solver sleep/island state. Copying the body back to
+    // GameModel here dirtied SoA streams for no presentation change; the normal
+    // step boundary owns any later model projection that actually changes pose.
 }
 
 

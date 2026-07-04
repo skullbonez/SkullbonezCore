@@ -267,6 +267,12 @@ PHYSICS_SCENE_SET_BODY_VELOCITY_FUNCTION_PATTERN = re.compile(
 PHYSICS_SCENE_SET_BODY_VELOCITY_MODEL_MIRROR_PATTERN = re.compile(
     r"\bmodelAccess\s*\.\s*(?:WriteBackPhysicsBody|InvalidatePhysicsStreams)\s*\("
 )
+PHYSICS_SCENE_WAKE_BODY_FUNCTION_PATTERN = re.compile(
+    r"\bvoid\s+PhysicsScene::WakeBody\s*\(\s*PhysicsModelAccess\s*&"
+)
+PHYSICS_SCENE_WAKE_BODY_MODEL_MIRROR_PATTERN = re.compile(
+    r"\bmodelAccess\s*\.\s*(?:WriteBackPhysicsBody|InvalidatePhysicsStreams)\s*\("
+)
 PHYSICS_SEED_BODY_ASLEEP_MODEL_ACCESS_SOURCES = (
     PHYSICS_ENGINE_SOURCE,
     PHYSICS_ENGINE_HEADER,
@@ -2813,6 +2819,37 @@ def check_physics_scene_velocity_model_mirror_guardrails_text(path: Path, text: 
 def check_physics_scene_velocity_model_mirror_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / PHYSICS_SCENE_SOURCE
     return check_physics_scene_velocity_model_mirror_guardrails_text(
+        path,
+        path.read_text(encoding="utf-8"),
+    )
+
+
+def check_physics_scene_wake_body_model_mirror_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    bounds = _function_body_bounds(stripped, PHYSICS_SCENE_WAKE_BODY_FUNCTION_PATTERN)
+    if not bounds:
+        return errors
+
+    open_brace, close_brace = bounds
+    for match in PHYSICS_SCENE_WAKE_BODY_MODEL_MIRROR_PATTERN.finditer(stripped, open_brace, close_brace):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "wake command model mirror is blocked",
+                (
+                    "PhysicsScene::WakeBody should update PhysicsWorld and PhysicsBodyStore sleep state only; "
+                    "the normal step boundary owns any later GameModel projection."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_scene_wake_body_model_mirror_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / PHYSICS_SCENE_SOURCE
+    return check_physics_scene_wake_body_model_mirror_guardrails_text(
         path,
         path.read_text(encoding="utf-8"),
     )
@@ -9021,6 +9058,71 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only velocity edit model mirror synthetic text was rejected")
 
+    old_wake_body_model_mirror = """
+    void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        m_world.WakeModel( m_bodyStore, index );
+        m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+        modelAccess.WriteBackPhysicsBody( m_bodyStore, index );
+        modelAccess.InvalidatePhysicsStreams();
+    }
+    """
+    if not any(
+        error.message == "wake command model mirror is blocked"
+        for error in check_physics_scene_wake_body_model_mirror_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+            old_wake_body_model_mirror,
+        )
+    ):
+        failures.append("old WakeBody model mirror synthetic surface was not rejected")
+
+    allowed_wake_body_store_only = """
+    void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        const int modelCount = modelAccess.ModelCount();
+        if ( m_bodyStore.Count() != modelCount )
+        {
+            RefreshBodyStore( modelAccess );
+        }
+        if ( m_colliderStore.Count() != modelCount )
+        {
+            RefreshColliderStore( modelAccess );
+        }
+        const int index = m_bodyStore.ModelIndexForHandle( body );
+        if ( index < 0 )
+        {
+            return;
+        }
+        m_world.WakeModel( m_bodyStore, index );
+        m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+    }
+    void PhysicsScene::ApplyBodyImpulse( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        SetPendingBodyImpulse( body, impulse, localPoint );
+        WakeBody( modelAccess, body );
+    }
+    """
+    if check_physics_scene_wake_body_model_mirror_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        allowed_wake_body_store_only,
+    ):
+        failures.append("store-only WakeBody synthetic surface was rejected")
+
+    commented_wake_body_model_mirror = """
+    void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+    {
+        // modelAccess.WriteBackPhysicsBody(m_bodyStore, index) used to mirror wake state.
+        // modelAccess.InvalidatePhysicsStreams() used to rebuild model streams here.
+        m_world.WakeModel( m_bodyStore, index );
+        m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+    }
+    """
+    if check_physics_scene_wake_body_model_mirror_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
+        commented_wake_body_model_mirror,
+    ):
+        failures.append("comment-only WakeBody model mirror synthetic text was rejected")
+
     old_seed_body_asleep_model_access_overload = """
     void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
     {
@@ -10033,6 +10135,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_scene_step_body_reload_guardrails(repo))
     errors.extend(check_physics_scene_pending_impulse_model_mirror_guardrails(repo))
     errors.extend(check_physics_scene_velocity_model_mirror_guardrails(repo))
+    errors.extend(check_physics_scene_wake_body_model_mirror_guardrails(repo))
     errors.extend(check_physics_seed_body_asleep_model_access_guardrails(repo))
     errors.extend(check_physics_pending_impulse_model_access_guardrails(repo))
     errors.extend(check_command_side_body_refresh_guardrails(repo))
