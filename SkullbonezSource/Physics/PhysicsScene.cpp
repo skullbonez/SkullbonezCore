@@ -220,6 +220,15 @@ void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
     m_lastWorldForces = worldForces;
     m_hasLastWorldForces = true;
     m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime, config, worldForces, workerPool );
+
+    // Compatibility owner: PhysicsScene step boundary.
+    // Reason: editor and replay compatibility consumers still read GameModel
+    // pose/state after the store-owned solver has finished.
+    // Deletion condition: those consumers read PhysicsBodyStore or
+    // handle-addressed physics commands directly. Checker budget: boundary grep
+    // keeps bulk solver writeback out of PhysicsWorld::RunPhysics.
+    modelAccess.WriteBackPhysicsBodies( m_bodyStore );
+
     // Why: model stream caches belong to the compatibility model view. The
     // world step may mirror body state back to GameModel, but PhysicsScene owns
     // the boundary where those cached SoA streams become stale.

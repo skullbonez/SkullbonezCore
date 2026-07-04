@@ -776,10 +776,9 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
     // 2. Reset debug, sleep-support, pipeline, and terrain-manifold output.
     // 3. Run broadphase, swept movement, terrain manifold generation, and the
     //    persistent Catto-style contact solver.
-    // 4. Mirror the finished store once for remaining GameModel-owned replay
-    //    and editor consumers.
-    // 5. Emit bounded Debug diagnostics before PhysicsScene invalidates cached
-    //    model SoA data at the compatibility boundary.
+    // 4. Emit bounded Debug diagnostics before PhysicsScene mirrors the solved
+    //    store and invalidates cached model SoA data at the compatibility
+    //    boundary.
     //
     // Determinism note: changing this ordering can change byte-exact physics
     // baselines even when the final scene "looks" similar.
@@ -832,14 +831,6 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
 
     RunSolverPhysics( modelAccess, bodyStore, colliderStore, fChangeInTime, config, worldForces, workerPool );
     bodyStore.CopySleepStatesFrom( m_sleepState );
-
-    // Compatibility owner: PhysicsScene/PhysicsWorld boundary.
-    // Reason: editor and replay compatibility consumers still read GameModel
-    // pose/state after the store-owned solver has finished.
-    // Deletion condition: those consumers read PhysicsBodyStore or
-    // handle-addressed physics commands directly. Checker budget: boundary grep
-    // keeps per-body solver writeback out of the hot step.
-    modelAccess.WriteBackPhysicsBodies( bodyStore );
 
 #ifdef _DEBUG
     if ( !m_diagnosticsSuppressed )

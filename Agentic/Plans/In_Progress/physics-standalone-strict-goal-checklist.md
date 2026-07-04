@@ -207,7 +207,7 @@ boundary checker now rejects `modelAccess.TickContactHighlights(...)` in
 14.3s with byte-exact `physics_regression_solver.csv`; `tools\validate_perf.bat`
 passed on rerun in 21.5s after an initial +0.06 MB memory-threshold miss.
 
-Latest strict-step authority slice `PHY-0207I`: post-step model stream
+Strict-step authority slice `PHY-0207I`: post-step model stream
 invalidation moved out of `PhysicsWorld::RunPhysics` and into
 `PhysicsScene::RunPhysics` immediately after the world step returns. Other
 explicit `PhysicsWorld` wake/release paths may still invalidate after their
@@ -218,6 +218,18 @@ passed with 0 errors; focused Debug build passed in 4.8s with 0 warnings/errors;
 `tools\validate_physics.bat` passed in 14.3s with byte-exact
 `physics_regression_solver.csv`; `tools\validate_perf.bat` passed in 22.6s with
 no DX12 or PHYSICS_BENCH regressions.
+
+Latest strict-step authority slice `PHY-0207J`: bulk compatibility writeback
+moved out of `PhysicsWorld::RunPhysics` and into `PhysicsScene::RunPhysics`.
+`PhysicsWorld` now finishes solver state and emits Debug diagnostics from the
+stores; `PhysicsScene` then mirrors `PhysicsBodyStore` to GameModel for the
+remaining editor/replay presentation consumers and invalidates model streams.
+The new checker blocks `WriteBackPhysicsBodies()` from returning to
+`PhysicsWorld::RunPhysics`. Evidence: py_compile and runtime-boundary checks
+passed with 0 errors; focused Debug build passed in 4.4s with 0 warnings/errors;
+`tools\validate_fast.bat` passed in 24.9s; `tools\validate_physics.bat` passed in
+14.2s with byte-exact `physics_regression_solver.csv`; `tools\validate_perf.bat`
+passed in 22.6s with no DX12 or PHYSICS_BENCH regressions.
 
 ## Phase 3 - Collider Store Authority
 
