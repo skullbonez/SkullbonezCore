@@ -302,11 +302,9 @@ class PhysicsWorld
                                    int bodyB,
                                    float collisionTime,
                                    float availableTime );
-    PersistentContactSolverContext
-    CreatePersistentContactSolverContext( const GameObjects::GameModelBodyStream& bodyStream,
-                                          PhysicsBodyStore& bodyStore,
-                                          const ColliderStore& colliderStore,
-                                          const Basics::EngineConfig& config );
+    PersistentContactSolverContext CreatePersistentContactSolverContext( PhysicsBodyStore& bodyStore,
+                                                                         const ColliderStore& colliderStore,
+                                                                         const Basics::EngineConfig& config );
     void PreparePersistentContactSideEffects( int modelCount );
     void ApplyPersistentContactSideEffects( PhysicsModelAccess& modelAccess,
                                             PhysicsBodyStore& bodyStore,
@@ -318,9 +316,7 @@ class PhysicsWorld
     void EnsureCollisionVisualBuffers( int modelCount );
     void EnsureTornadoStateBuffers( int modelCount );
     void EnsureUnderwaterSleepLockBuffer( int modelCount );
-    bool IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord,
-                               const GameObjects::GameModelBodyStream& bodyStream,
-                               int index );
+    bool IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord, const ColliderStore& colliderStore, int index );
     bool RefreshUnderwaterSubmersionForBall( const PhysicsWorldForces& worldForces,
                                              PhysicsBodyStore& bodyStore,
                                              const ColliderStore& colliderStore,
@@ -328,11 +324,8 @@ class PhysicsWorld
     void LockUnderwaterSleeperIfReady( const PhysicsWorldForces& worldForces,
                                        PhysicsBodyStore& bodyStore,
                                        const ColliderStore& colliderStore,
-                                       const GameObjects::GameModelBodyStream& bodyStream,
                                        int index );
-    bool IsUnderwaterSleepLocked( PhysicsModelAccess& modelAccess,
-                                  const GameObjects::GameModelBodyStream& bodyStream,
-                                  int index );
+    bool IsUnderwaterSleepLocked( int bodyCount, int index );
     void MarkCollisionVisualContact( int index );
     void ApplyTornadoField( PhysicsModelAccess& modelAccess,
                             PhysicsBodyStore& bodyStore,
@@ -350,11 +343,26 @@ class PhysicsWorld
                     const ColliderStore* colliderStore,
                     const PhysicsWorldForces* worldForces,
                     int index );
+    void WakeModel( PhysicsModelAccess& modelAccess,
+                    int bodyCount,
+                    const std::vector<PhysicsBodyRecord>& bodyRecords,
+                    PhysicsBodyStore* bodyStore,
+                    const ColliderStore* colliderStore,
+                    const PhysicsWorldForces* worldForces,
+                    int index );
     void SeedModelAsleep( PhysicsModelAccess& modelAccess,
                           const GameObjects::GameModelBodyStream& bodyStream,
                           const PhysicsBodyStore* bodyStore,
                           int index );
     bool WakeDynamicBodyState( const GameObjects::GameModelBodyStream& bodyStream,
+                               PhysicsBodyStore* bodyStore,
+                               int index,
+                               float dt,
+                               bool applyForces,
+                               const PhysicsWorldForces* worldForces = nullptr,
+                               const ColliderStore* colliderStore = nullptr );
+    bool WakeDynamicBodyState( int bodyCount,
+                               const std::vector<PhysicsBodyRecord>& bodyRecords,
                                PhysicsBodyStore* bodyStore,
                                int index,
                                float dt,
@@ -369,6 +377,15 @@ class PhysicsWorld
                                 bool applyForces,
                                 const PhysicsWorldForces* worldForces = nullptr,
                                 const ColliderStore* colliderStore = nullptr );
+    void WakeSleepVisualIsland( PhysicsModelAccess& modelAccess,
+                                int bodyCount,
+                                const std::vector<PhysicsBodyRecord>& bodyRecords,
+                                PhysicsBodyStore* bodyStore,
+                                int index,
+                                float dt,
+                                bool applyForces,
+                                const PhysicsWorldForces* worldForces = nullptr,
+                                const ColliderStore* colliderStore = nullptr );
     void WakePointJointIsland( PhysicsModelAccess& modelAccess,
                                const GameObjects::GameModelBodyStream& bodyStream,
                                PhysicsBodyStore* bodyStore,
@@ -377,8 +394,26 @@ class PhysicsWorld
                                bool applyForces,
                                const PhysicsWorldForces* worldForces = nullptr,
                                const ColliderStore* colliderStore = nullptr );
+    void WakePointJointIsland( PhysicsModelAccess& modelAccess,
+                               int bodyCount,
+                               const std::vector<PhysicsBodyRecord>& bodyRecords,
+                               PhysicsBodyStore* bodyStore,
+                               int index,
+                               float dt,
+                               bool applyForces,
+                               const PhysicsWorldForces* worldForces = nullptr,
+                               const ColliderStore* colliderStore = nullptr );
     void WakeRestingContactIsland( PhysicsModelAccess& modelAccess,
                                    const GameObjects::GameModelBodyStream& bodyStream,
+                                   PhysicsBodyStore* bodyStore,
+                                   int index,
+                                   float dt,
+                                   bool applyForces,
+                                   const PhysicsWorldForces* worldForces = nullptr,
+                                   const ColliderStore* colliderStore = nullptr );
+    void WakeRestingContactIsland( PhysicsModelAccess& modelAccess,
+                                   int bodyCount,
+                                   const std::vector<PhysicsBodyRecord>& bodyRecords,
                                    PhysicsBodyStore* bodyStore,
                                    int index,
                                    float dt,
@@ -488,7 +523,6 @@ struct PersistentContactSolverContext
     std::array<uint8_t, MAX_GAME_MODELS>& terrainRestApplied;
     std::vector<uint8_t>& sleepSupportedThisFrame;
     PersistentContactSolverSideEffects& sideEffects;
-    const GameObjects::GameModelBodyStream& bodyStream;
     std::vector<PhysicsBodyRecord>& bodyRecords;
     const std::vector<ColliderRecord>& colliderRecords;
     int bodyStoreCount = 0;

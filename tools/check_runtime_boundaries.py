@@ -125,6 +125,15 @@ PERSISTENT_CONTACT_SOLVER_CONTEXT_PATTERN = re.compile(
 PERSISTENT_SOLVER_CALLBACK_BOUNDARY_PATTERN = re.compile(
     r"\b(?:PhysicsModelAccess|PhysicsBodyEventSink|PhysicsBodyWritebackSink|PhysicsWorld)\s*&\s*[A-Za-z_]\w*\s*;"
 )
+PERSISTENT_SOLVER_CONTEXT_MODEL_STREAM_PATTERN = re.compile(
+    r"\b(?:GameObjects\s*::\s*)?GameModelBodyStream\b"
+)
+PHYSICS_WORLD_SOLVER_MODEL_STREAM_FUNCTIONS = (
+    "RunSolverPhysics",
+    "ApplyTornadoField",
+    "WakePointJointConnectedBodies",
+)
+PHYSICS_WORLD_SOLVER_MODEL_STREAM_PATTERN = re.compile(r"\b(?:GameModelBodyStream|GetBodyStream)\b")
 HOT_PATH_INHERITANCE_PATTERN = re.compile(
     r"^\s*(?:class|struct)\s+[A-Za-z_]\w*[^{;\n]*:\s*(?:public|protected|private)\b",
     re.M,
@@ -1752,6 +1761,15 @@ def check_persistent_solver_context_model_access_guardrails_text(path: Path, tex
                     "Emit PersistentContactSolverSideEffects arrays and apply owner-side consequences after Solve().",
                 )
             )
+        for stream_match in PERSISTENT_SOLVER_CONTEXT_MODEL_STREAM_PATTERN.finditer(context_body):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, context_match.start("body") + stream_match.start()),
+                    "persistent contact solver model stream boundary is blocked",
+                    "Persistent contact solving should read PhysicsBodyStore and ColliderStore records, not GameModelBodyStream.",
+                )
+            )
     return errors
 
 
@@ -1762,6 +1780,8 @@ def check_persistent_solver_context_model_access_guardrails(repo: Path) -> list[
 
 # Invariant: RunSolverPhysics is the hot step. Per-body model mirror writes here
 # recreate cache churn and make PhysicsBodyStore less authoritative.
+# Invariant: the same hot-step helpers must not refresh GameModelBodyStream; the
+# solver should read PhysicsBodyStore/ColliderStore records already in memory.
 def check_physics_world_solver_body_writeback_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments_and_string_literals(text)
     errors: list[BoundaryError] = []
@@ -1787,6 +1807,39 @@ def check_physics_world_solver_body_writeback_guardrails_text(path: Path, text: 
 def check_physics_world_solver_body_writeback_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / PHYSICS_WORLD_SOURCE
     return check_physics_world_solver_body_writeback_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_physics_world_solver_model_stream_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for function_name in PHYSICS_WORLD_SOLVER_MODEL_STREAM_FUNCTIONS:
+        function_pattern = re.compile(
+            rf"\bvoid\s+PhysicsWorld::{re.escape(function_name)}\s*\([^{{}}]*\)\s*\{{",
+            re.S,
+        )
+        for function_match in function_pattern.finditer(stripped):
+            open_brace = stripped.find("{", function_match.start(), function_match.end())
+            if open_brace < 0:
+                continue
+            close_brace = find_matching_close_brace(stripped, open_brace)
+            for stream_match in PHYSICS_WORLD_SOLVER_MODEL_STREAM_PATTERN.finditer(stripped, open_brace, close_brace):
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, stream_match.start()),
+                        "physics solver hot path model body stream is blocked",
+                        (
+                            f"PhysicsWorld::{function_name} should read PhysicsBodyStore/ColliderStore records "
+                            "instead of refreshing GameModelBodyStream."
+                        ),
+                    )
+                )
+    return errors
+
+
+def check_physics_world_solver_model_stream_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / PHYSICS_WORLD_SOURCE
+    return check_physics_world_solver_model_stream_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_physics_hot_path_inheritance_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -6229,10 +6282,27 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old persistent solver broad model access synthetic surface was not rejected")
 
+    old_persistent_solver_body_stream_context = """
+    struct PersistentContactSolverContext
+    {
+        const GameObjects::GameModelBodyStream& bodyStream;
+        PersistentContactSolverSideEffects& sideEffects;
+    };
+    """
+    if not any(
+        error.message == "persistent contact solver model stream boundary is blocked"
+        for error in check_persistent_solver_context_model_access_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.h"),
+            old_persistent_solver_body_stream_context,
+        )
+    ):
+        failures.append("old persistent solver body stream synthetic surface was not rejected")
+
     commented_persistent_solver_context = """
     struct PersistentContactSolverContext
     {
         // PhysicsModelAccess& modelAccess; and PhysicsBodyEventSink& bodyEvents are deleted migration notes only.
+        // const GameObjects::GameModelBodyStream& bodyStream is a deleted migration note only.
         PersistentContactSolverSideEffects& sideEffects;
     };
     """
@@ -6285,6 +6355,51 @@ def run_self_tests() -> list[str]:
         commented_solver_writeback_text,
     ):
         failures.append("comment-only solver writeback synthetic text was rejected")
+
+    old_solver_body_stream_text = """
+    void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess )
+    {
+        const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
+    }
+    void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess )
+    {
+        auto stream = modelAccess.GetBodyStream();
+    }
+    """
+    if not any(
+        error.message == "physics solver hot path model body stream is blocked"
+        for error in check_physics_world_solver_model_stream_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+            old_solver_body_stream_text,
+        )
+    ):
+        failures.append("old solver model body stream synthetic surface was not rejected")
+
+    allowed_explicit_wake_body_stream_text = """
+    void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, int index )
+    {
+        const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
+        WakeModel( modelAccess, bodyStream, nullptr, nullptr, nullptr, index );
+    }
+    """
+    if check_physics_world_solver_model_stream_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        allowed_explicit_wake_body_stream_text,
+    ):
+        failures.append("explicit non-solver wake body stream synthetic surface was rejected")
+
+    commented_solver_body_stream_text = """
+    void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess )
+    {
+        // const GameModelBodyStream bodyStream = modelAccess.GetBodyStream(); is a deleted hot-path note.
+        UseStoreRecords();
+    }
+    """
+    if check_physics_world_solver_model_stream_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
+        commented_solver_body_stream_text,
+    ):
+        failures.append("comment-only solver body stream synthetic text was rejected")
 
     allowed_physics_hot_path_values = """
     struct SolverBodyState
@@ -6699,6 +6814,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_deleted_physics_model_view_guardrails(repo))
     errors.extend(check_persistent_solver_context_model_access_guardrails(repo))
     errors.extend(check_physics_world_solver_body_writeback_guardrails(repo))
+    errors.extend(check_physics_world_solver_model_stream_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
     errors.extend(check_physics_model_access_inheritance_guardrails(repo))
     errors.extend(check_approved_inheritance_guardrails(repo))

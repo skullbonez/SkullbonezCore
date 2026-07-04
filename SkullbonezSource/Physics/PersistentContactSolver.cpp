@@ -72,8 +72,6 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     using PersistentContact = PhysicsWorld::PersistentContact;
     using PersistentContactSolverStats = PhysicsWorld::PersistentContactSolverStats;
 
-    const auto& bodyStream = context.bodyStream;
-    const uint8_t* m_soaIsFixed = bodyStream.isFixed;
     auto& m_candidatePairs = context.candidatePairs;
     auto& m_sleepState = context.sleepState;
     auto& m_sleepSupportEdges = context.sleepSupportEdges;
@@ -133,8 +131,10 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     //   Object-object narrowphase uses Skullbonez shape-pair manifold builders
     //   for the row geometry. The cache and PGS row shape are Catto; the exact
     //   sphere/box/OBB feature encodings are local engine policy.
-    const int modelCount =
-        (std::min)( { bodyStream.count, context.bodyStoreCount, static_cast<int>( m_colliderRecords.size() ) } );
+    const int modelCount = (std::min)( { context.bodyStoreCount,
+                                         static_cast<int>( m_bodyRecords.size() ),
+                                         static_cast<int>( m_colliderRecords.size() ) } );
+    auto isFixedBody = [&]( int index ) -> bool { return m_bodyRecords[static_cast<size_t>( index )].isFixed; };
     const auto& config = context.config;
     m_persistentContactSolverStats = PersistentContactSolverStats();
     m_persistentContactSolverStats.cachePreviousRows = static_cast<int>( m_persistentContactCache.size() );
@@ -250,7 +250,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
         {
             const PhysicsBodyRecord& record = m_bodyRecords[static_cast<size_t>( i )];
             SolverBodyState& body = m_solverBodies[i];
-            if ( m_sleepState[i] || m_soaIsFixed[i] )
+            if ( m_sleepState[i] || isFixedBody( i ) )
             {
                 // Sleeping bodies still provide persistent support to awake bodies,
                 // but they behave as static anchors until deliberately woken.
@@ -456,7 +456,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
 
         const int supportedIndex = ( c.normal.y > 0.0f ) ? c.bodyB : c.bodyA;
         if ( supportedIndex < 0 || supportedIndex >= modelCount ||
-             supportedIndex >= static_cast<int>( m_solverBodies.size() ) || m_soaIsFixed[supportedIndex] ||
+             supportedIndex >= static_cast<int>( m_solverBodies.size() ) || isFixedBody( supportedIndex ) ||
              m_sleepState[supportedIndex] )
         {
             return;
@@ -687,7 +687,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             int aIndex = cp.first;
             int bIndex = cp.second;
             if ( aIndex == bIndex || aIndex < 0 || bIndex < 0 || aIndex >= modelCount || bIndex >= modelCount ||
-                 ( m_sleepState[aIndex] && m_sleepState[bIndex] ) || ( m_soaIsFixed[aIndex] && m_soaIsFixed[bIndex] ) )
+                 ( m_sleepState[aIndex] && m_sleepState[bIndex] ) ||
+                 ( isFixedBody( aIndex ) && isFixedBody( bIndex ) ) )
             {
                 continue;
             }
@@ -1288,7 +1289,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
         {
             const int bodyIndex = manifold.bodyA;
             if ( bodyIndex < 0 || bodyIndex >= modelCount || m_terrainRestApplied[bodyIndex] ||
-                 !manifold.supportsRestingPolicy || m_sleepState[bodyIndex] || m_soaIsFixed[bodyIndex] )
+                 !manifold.supportsRestingPolicy || m_sleepState[bodyIndex] || isFixedBody( bodyIndex ) )
             {
                 continue;
             }
@@ -1363,7 +1364,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/WriteBack" );
         for ( int i = 0; i < modelCount; ++i )
         {
-            if ( m_sleepState[i] || m_soaIsFixed[i] )
+            if ( m_sleepState[i] || isFixedBody( i ) )
             {
                 continue;
             }
