@@ -459,6 +459,9 @@ GAME_MODEL_COLLECTION_COLLIDER_STORE_COUNT_GATE_PATTERN = re.compile(
 GAME_MODEL_COLLECTION_ADD_GAME_MODEL_FUNCTION_PATTERN = re.compile(
     r"\bPhysicsBodyHandle\s+GameModelCollection::AddGameModel\s*\("
 )
+GAME_MODEL_COLLECTION_APPEND_MODEL_ROWS_FUNCTION_PATTERN = re.compile(
+    r"\bPhysicsBodyHandle\s+GameModelCollection::AppendGameModelAndPhysicsRows\s*\("
+)
 GAME_MODEL_COLLECTION_ADD_GAME_MODEL_BODY_ONLY_REPAIR_PATTERN = re.compile(
     r"\bRepairPhysicsBodyTopology\s*\("
 )
@@ -756,6 +759,13 @@ SCENE_SETUP_ADAPTER_BODY_LOOKUP_PATTERN = re.compile(
 )
 SCENE_SETUP_GAME_MODEL_ORIENTATION_READBACK_PATTERN = re.compile(
     r"\b[A-Za-z_]\w*\s*\.\s*GetOrientation\s*\("
+)
+# Why: authored/generated scene setup already owns primitive and hull shape
+# facts. A bare AddGameModel call forces GameModelCollection to recapture
+# collider data from the model mirror instead of importing a physics descriptor.
+SCENE_SETUP_COLLIDER_DESC_IMPORT_PATTERN = re.compile(
+    r"\bcontext\s*\.\s*models\s*\.\s*AddGameModel\s*\(\s*"
+    r"std\s*::\s*move\s*\(\s*[A-Za-z_]\w*\s*\)\s*\)"
 )
 SCENE_SETUP_PHYSICS_COMMAND_SOURCES = (
     SCENE_AUTHORED_SETUP_SOURCE,
@@ -4350,7 +4360,9 @@ def check_game_model_collection_append_collider_authority_guardrails_text(path: 
 
     stripped = strip_cpp_comments_and_string_literals(text)
     errors: list[BoundaryError] = []
-    bounds = _function_body_bounds(stripped, GAME_MODEL_COLLECTION_ADD_GAME_MODEL_FUNCTION_PATTERN)
+    bounds = _function_body_bounds(stripped, GAME_MODEL_COLLECTION_APPEND_MODEL_ROWS_FUNCTION_PATTERN)
+    if not bounds:
+        bounds = _function_body_bounds(stripped, GAME_MODEL_COLLECTION_ADD_GAME_MODEL_FUNCTION_PATTERN)
     if not bounds:
         return errors
 
@@ -5126,6 +5138,19 @@ def check_scene_setup_model_index_physics_command_guardrails_text(path: Path, te
                     "Scene setup owns authored Euler-degree conversion. Build a Quaternion locally, pass it to "
                     "GameModel::SetOrientation, and reuse the same value for construction math instead of reading "
                     "the GameModel body mirror back out."
+                ),
+            )
+        )
+    for match in SCENE_SETUP_COLLIDER_DESC_IMPORT_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "scene setup collider descriptor import is required",
+                (
+                    "Authored/generated primitive and hull setup owns the shape/material facts. Pass a "
+                    "PhysicsColliderCreateDesc into AddGameModel so GameModelCollection does not recapture "
+                    "collider rows from GameModel."
                 ),
             )
         )
@@ -15201,7 +15226,8 @@ def run_self_tests() -> list[str]:
     allowed_scene_setup_handle_command = """
     void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
     {
-        const PhysicsBodyHandle body = context.models.AddGameModel( std::move( model ) );
+        const PhysicsBodyHandle body =
+            context.models.AddGameModel( std::move( gameModel ), MakeSceneSphereColliderDesc( radius, restitution, material ) );
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
         context.physics.SeedBodyAsleep( body );
     }
@@ -15211,6 +15237,23 @@ def run_self_tests() -> list[str]:
         allowed_scene_setup_handle_command,
     ):
         failures.append("handle-keyed scene setup command synthetic surface was rejected")
+
+    old_scene_setup_collider_recapture = """
+    void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
+    {
+        gameModel.AddBoundingSphere( ball.m_radius );
+        const PhysicsBodyHandle body = context.models.AddGameModel( std::move( gameModel ) );
+        context.physics.SetPendingBodyImpulse( body, force, forcePos );
+    }
+    """
+    if not any(
+        error.message == "scene setup collider descriptor import is required"
+        for error in check_scene_setup_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"),
+            old_scene_setup_collider_recapture,
+        )
+    ):
+        failures.append("old scene setup collider recapture synthetic surface was not rejected")
 
     old_scene_setup_orientation_readback = """
     void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )

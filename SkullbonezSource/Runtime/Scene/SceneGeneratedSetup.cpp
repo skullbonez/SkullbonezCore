@@ -14,6 +14,8 @@ Glossary:
   RNG (Random Number Generator): Local MSVC-compatible generator used for
     stable object placement.
   Solver object: Exact-count generated ball or box used by solver validation.
+  Collider descriptor: Value packet carrying generated shape and contact
+    material facts into the physics collider store.
 
 Invariants:
   - RNG consumption is part of generated scene determinism.
@@ -29,9 +31,12 @@ Related:
 #include "SceneGeneratedSetup.h"
 #include "SceneRuntime.h"
 #include "../CameraCollection.h"
+#include "../../Core/Common.h"
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Maths/Vector3.h"
+#include "../../Physics/CollisionShape.h"
+#include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
@@ -45,8 +50,15 @@ namespace Basics
 {
 namespace
 {
+using SkullbonezCore::Math::CollisionDetection::BoundingBox;
+using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
+using SkullbonezCore::Math::CollisionDetection::CollisionShape;
+using SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius;
+using SkullbonezCore::Math::CollisionDetection::GetShapeDragCoefficient;
+using SkullbonezCore::Math::CollisionDetection::GetShapeProjectedSurfaceArea;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 
 int NextSceneRand( unsigned int& state )
 {
@@ -54,6 +66,31 @@ int NextSceneRand( unsigned int& state )
     // stable while avoiding global RNG state.
     state = state * 214013u + 2531011u;
     return static_cast<int>( ( state >> 16 ) & 0x7fffu );
+}
+
+PhysicsColliderCreateDesc MakeGeneratedColliderDesc( CollisionShape shape, float restitution )
+{
+    // Why: generated setup already owns the exact shape parameters at spawn
+    // time. Passing this value into physics avoids a cold GameModel collider
+    // recapture and keeps store rows descriptor-owned.
+    PhysicsColliderCreateDesc desc;
+    desc.shape = std::move( shape );
+    desc.boundingRadius = GetShapeBoundingRadius( desc.shape );
+    desc.restitution = restitution;
+    desc.contactMaterialId = HashStr( "default" );
+    desc.projectedSurfaceArea = GetShapeProjectedSurfaceArea( desc.shape );
+    desc.dragCoefficient = GetShapeDragCoefficient( desc.shape );
+    return desc;
+}
+
+PhysicsColliderCreateDesc MakeGeneratedSphereColliderDesc( float radius, float restitution )
+{
+    return MakeGeneratedColliderDesc( BoundingSphere( radius, Vector3( 0.0f, 0.0f, 0.0f ) ), restitution );
+}
+
+PhysicsColliderCreateDesc MakeGeneratedBoxColliderDesc( const Vector3& halfExtents, float restitution )
+{
+    return MakeGeneratedColliderDesc( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ), restitution );
 }
 } // namespace
 
@@ -149,7 +186,9 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
             gameModel.SetTerrain( context.terrain );
             gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
 
-            const PhysicsBodyHandle body = context.models.AddGameModel( std::move( gameModel ) );
+            const PhysicsBodyHandle body =
+                context.models.AddGameModel( std::move( gameModel ),
+                                             MakeGeneratedBoxColliderDesc( Vector3( hx, hy, hz ), restitution ) );
             context.physics.SetPendingBodyImpulse( body, force, forcePos );
         }
         else
@@ -166,7 +205,9 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
             gameModel.SetTerrain( context.terrain );
             gameModel.AddBoundingSphere( radius );
 
-            const PhysicsBodyHandle body = context.models.AddGameModel( std::move( gameModel ) );
+            const PhysicsBodyHandle body =
+                context.models.AddGameModel( std::move( gameModel ),
+                                             MakeGeneratedSphereColliderDesc( radius, restitution ) );
             context.physics.SetPendingBodyImpulse( body, force, forcePos );
         }
     }
@@ -228,7 +269,9 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         gameModel.SetCoefficientRestitution( restitution );
         gameModel.SetTerrain( context.terrain );
         gameModel.AddBoundingSphere( radius );
-        const PhysicsBodyHandle body = context.models.AddGameModel( std::move( gameModel ) );
+        const PhysicsBodyHandle body =
+            context.models.AddGameModel( std::move( gameModel ),
+                                         MakeGeneratedSphereColliderDesc( radius, restitution ) );
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
     }
 
@@ -264,7 +307,9 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         gameModel.SetCoefficientRestitution( restitution );
         gameModel.SetTerrain( context.terrain );
         gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
-        const PhysicsBodyHandle body = context.models.AddGameModel( std::move( gameModel ) );
+        const PhysicsBodyHandle body =
+            context.models.AddGameModel( std::move( gameModel ),
+                                         MakeGeneratedBoxColliderDesc( Vector3( hx, hy, hz ), restitution ) );
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
     }
 

@@ -20,6 +20,8 @@ Glossary:
     interfaces.
   Render instance store: Renderer-facing snapshot built from physics-owned pose
     and model-owned material/presentation state before frame passes.
+  Collider descriptor: Value packet containing shape/material facts that
+    PhysicsScene turns into a live ColliderStore row.
   Topology drift: A body/collider/model count mismatch that means compatibility
     stores must import model-owned construction data before stepping.
   Fixed-tree release: Compatibility rule that lets authored tree parts become
@@ -63,9 +65,11 @@ Related:
 #include <cstring>
 #include <stdexcept>
 #include <utility>
+#include <variant>
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::GameObjects;
+using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
@@ -75,6 +79,7 @@ using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
+using SkullbonezCore::Physics::PhysicsMaterial;
 using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Rendering::ShadowFrameData;
 
@@ -147,6 +152,17 @@ PhysicsColliderCreateDesc CaptureAuthoredColliderDesc( GameModel& model, const P
     desc.projectedSurfaceArea = model.GetProjectedSurfaceArea();
     desc.dragCoefficient = model.GetDragCoefficient();
     return desc;
+}
+
+
+void ApplyCollectionPhysicsMaterialToColliderDesc( PhysicsColliderCreateDesc& desc, const PhysicsMaterial& material )
+{
+    desc.friction = material.frictionCoefficient;
+    if ( BoundingSphere* sphere = std::get_if<BoundingSphere>( &desc.shape ) )
+    {
+        sphere->SetDragCoefficient( material.sphereDragCoefficient );
+        desc.dragCoefficient = material.sphereDragCoefficient;
+    }
 }
 
 
@@ -467,6 +483,22 @@ SkullbonezCore::Threading::WorkerPool* GameModelCollection::RenderWorkerPool() c
 
 PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel, uint32_t replayBodyId )
 {
+    return AppendGameModelAndPhysicsRows( std::move( gameModel ), replayBodyId, nullptr );
+}
+
+
+PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel,
+                                                     const PhysicsColliderCreateDesc& colliderDesc,
+                                                     uint32_t replayBodyId )
+{
+    return AppendGameModelAndPhysicsRows( std::move( gameModel ), replayBodyId, &colliderDesc );
+}
+
+
+PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel gameModel,
+                                                                      uint32_t replayBodyId,
+                                                                      const PhysicsColliderCreateDesc* colliderDesc )
+{
     const int activeCapacity = ActiveGameModelCapacity();
     assert( static_cast<int>( m_gameModels.size() ) < activeCapacity && "Exceeded active game model capacity" );
     if ( static_cast<int>( m_gameModels.size() ) >= activeCapacity )
@@ -505,8 +537,18 @@ PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel, uint32
     {
         throw std::runtime_error( "Failed to resolve newly authored physics body record." );
     }
-    const auto colliderHandle =
-        m_physicsEngine.RegisterAuthoredCollider( CaptureAuthoredColliderDesc( m_gameModels.back(), *bodyRecord ) );
+    // Owner: scene/editor creation provides shape facts; PhysicsScene owns live
+    // collider rows. Reason: scene setup already has the radius/extents/hull
+    // values, so recapturing them from GameModel only preserves migration debt.
+    // Deletion: when all creation callers pass descriptors, remove the fallback
+    // CaptureAuthoredColliderDesc path. Checker: scene setup guardrails reject
+    // primitive/hull AddGameModel calls that omit a collider descriptor.
+    PhysicsColliderCreateDesc authoredCollider =
+        colliderDesc ? *colliderDesc : CaptureAuthoredColliderDesc( m_gameModels.back(), *bodyRecord );
+    authoredCollider.body = bodyRecord->handle;
+    authoredCollider.sceneObjectId = bodyRecord->sceneObjectId;
+    ApplyCollectionPhysicsMaterialToColliderDesc( authoredCollider, m_physicsMaterial );
+    const auto colliderHandle = m_physicsEngine.RegisterAuthoredCollider( authoredCollider );
     assert( colliderHandle.IsValid() );
     if ( !colliderHandle.IsValid() )
     {

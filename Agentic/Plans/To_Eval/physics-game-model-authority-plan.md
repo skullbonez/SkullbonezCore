@@ -4,14 +4,40 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_physics.bat` passed on 2026-07-05 after moving authored collider
-registration/update through `PhysicsColliderCreateDesc` descriptors and
-handle-keyed collider updates. Runtime boundaries reported 0 errors,
-standalone/runtime physics smoke passed with `collider_refresh=pass`, and
-`physics_regression_solver.csv` was a byte-exact 20,001-line match.
+`tools\validate_physics.bat` passed on 2026-07-05 after moving authored and
+generated scene primitive/hull creation to pass `PhysicsColliderCreateDesc`
+directly into `GameModelCollection::AddGameModel()`. Runtime boundaries reported
+0 errors, standalone/runtime physics smoke passed with `collider_refresh=pass`,
+and `physics_regression_solver.csv` was a byte-exact 20,001-line match.
 
 ## Completed Slices
 
+- [x] 2026-07-05: Moved authored/generated scene primitive and hull creation to
+  direct `PhysicsColliderCreateDesc` submission at `AddGameModel()`.
+  `SceneAuthoredSetup` and `SceneGeneratedSetup` now build descriptors from the
+  parsed/generated radius, half-extents, hull, restitution, and contact material
+  already present at the scene boundary. `GameModelCollection` fills the new
+  body handle, scene object id, and current collection physics material policy
+  before registering the collider, so friction and sphere drag behavior remain
+  unchanged while those scene paths stop rereading shape/material facts from
+  `GameModel`. Owner: scene setup authored facts plus `PhysicsScene` live
+  collider row import. Reason: primitive/hull scene setup already owns the
+  values needed to create collider rows; recapturing them from `GameModel`
+  added duplicate authority and a pointless compatibility hop. Deletion
+  condition: ragdoll/editor/config creation also passes descriptors and
+  `CaptureAuthoredColliderDesc()` is deleted from `GameModelCollection`.
+  Checker budget: `tools/check_runtime_boundaries.py` rejects bare scene
+  `AddGameModel(std::move(...))` calls and follows
+  `AppendGameModelAndPhysicsRows()` for append-time collider registration.
+  Validation: `git diff --check`, `python -m py_compile
+  tools/check_runtime_boundaries.py`, and `python
+  tools/check_runtime_boundaries.py --repo .` passed; focused Profile build
+  passed with 0 warnings/errors; `tools\validate_format.bat` passed after a
+  targeted header alignment fix; touched-source comment audit inspected all
+  touched source/tool files; `tools\validate_fast.bat` passed formatting,
+  project filters, runtime boundaries, and Profile/Debug builds with 0
+  warnings/errors; `tools\validate_physics.bat` passed standalone/runtime smoke
+  with `collider_refresh=pass` and byte-exact `physics_regression_solver.csv`.
 - [x] 2026-07-05: Moved the remaining cold authored-collider import from
   collection-built `ColliderRecord` rows to `PhysicsColliderCreateDesc`.
   `GameModelCollection` now captures only descriptor values at append, edit,
@@ -1019,6 +1045,10 @@ Colliders should own exact collision data. `GameModel` must not remain the hidde
 - [ ] Make `ColliderStore` own body-to-collider and collider-to-body mapping
   without requiring a `GameModel` refresh input.
 - [ ] Move shape creation from `GameModel` construction into a collider registration path.
+  - [x] 2026-07-05 authored/generated scene balls, boxes, and convex hulls now
+    pass `PhysicsColliderCreateDesc` directly at append. Ragdoll, editor,
+    config, and legacy append paths still use the explicit
+    `CaptureAuthoredColliderDesc()` fallback until their creation facts move.
 - [ ] Move shape mutation into explicit collider update commands.
 - [ ] Update broadphase code to read collider bounds from `ColliderStore`.
 - [ ] Update narrowphase code to read exact shapes from `ColliderStore`.

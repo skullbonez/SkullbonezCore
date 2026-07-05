@@ -24,6 +24,8 @@ Glossary:
     so draw code can read physics-owned transforms without GameModel pose copies.
   Topology drift: A body/collider/model count mismatch that means compatibility
     stores must import model-owned construction data before stepping.
+  Collider descriptor: Value packet containing shape/material facts that
+    PhysicsScene turns into a live ColliderStore row.
   Fixed-tree release: Compatibility rule that lets authored tree parts become
     dynamic when a related fixed part is hit strongly enough.
   Replay render pose override: One-frame presentation pose used when replay
@@ -87,6 +89,7 @@ class ColliderStore;
 class PhysicsBodyStore;
 class CollisionVisualizer;
 class PhysicsDebugVisualizer;
+struct PhysicsColliderCreateDesc;
 } // namespace Physics
 
 namespace Rendering
@@ -142,6 +145,9 @@ class GameModelCollection
     bool UpdateColliderStoreFromModel( int modelIndex );
     void ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore,
                                          const Physics::ColliderStore& colliderStore );
+    Physics::PhysicsBodyHandle AppendGameModelAndPhysicsRows( GameModel gameModel,
+                                                              uint32_t replayBodyId,
+                                                              const Physics::PhysicsColliderCreateDesc* colliderDesc );
 
   public:
     GameModelCollection();
@@ -155,6 +161,11 @@ class GameModelCollection
     // Appends scene-authored model storage and the matching body-store row in
     // one owner step so construction commands can use the returned body handle.
     Physics::PhysicsBodyHandle AddGameModel( GameModel gameModel, uint32_t replayBodyId = 0 );
+    // Appends model storage while importing scene-owned collider shape/material
+    // facts directly into physics, avoiding a GameModel collider readback.
+    Physics::PhysicsBodyHandle AddGameModel( GameModel gameModel,
+                                             const Physics::PhysicsColliderCreateDesc& colliderDesc,
+                                             uint32_t replayBodyId = 0 );
     void Clear();
     int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount );
     void RenderModels( const Basics::RenderHelperContext& helperContext,

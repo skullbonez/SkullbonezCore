@@ -74,10 +74,12 @@ Import-Csv Agentic\Plans\In_Progress\physics-standalone-agent-workqueue.csv |
   Evidence: `SkullbonezSource/Physics/PhysicsBodyStore.cpp:192`,
   `SkullbonezSource/Physics/PhysicsBodyStore.cpp:266`.
 - `ColliderStore` owns dense live collider rows and only refreshes body
-  identity from `PhysicsBodyStore`; `GameModelCollection` still has a cold
-  compatibility edge that captures `PhysicsColliderCreateDesc` from `GameModel`
-  on append, edit, config, or topology drift until scene/entity metadata writes
-  collider descriptors directly. Evidence: `PHY-1062`,
+  identity from `PhysicsBodyStore`; authored/generated scene primitives and
+  hulls now pass `PhysicsColliderCreateDesc` directly at creation. The remaining
+  cold compatibility edge captures descriptors from `GameModel` for
+  ragdoll/editor/config/legacy append paths, edits, config, or topology drift
+  until scene/entity metadata writes every collider descriptor directly.
+  Evidence: `PHY-1062`, `PHY-1063`,
   `SkullbonezSource/Physics/PhysicsScene.cpp`,
   `SkullbonezSource/Physics/ColliderStore.cpp`,
   `SkullbonezSource/GameObjects/GameModelCollection.cpp`.
@@ -94,7 +96,9 @@ Import-Csv Agentic\Plans\In_Progress\physics-standalone-agent-workqueue.csv |
   names, and project entries from returning.
 - Authored scene setup still receives both `GameModelCollection&` and
   `PhysicsEngine&`, so scene creation still builds through runtime/game-object
-  storage rather than a standalone physics creation API.
+  storage rather than a standalone physics creation API. Primitive and hull
+  collider facts now cross that boundary as descriptors instead of being
+  recaptured from `GameModel`.
   Evidence: `SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.h:87`.
 
 ## Definition Of Done
@@ -2118,6 +2122,31 @@ audit inspected `RunEditorTools.cpp`, `RunEditorGizmoTools.inl`, and
 project filters, runtime boundaries, and Profile/Debug builds with 0
 warnings/errors; intermittent `tools\validate_physics.bat` passed
 standalone/runtime handle smoke and byte-exact 20,001-line
+`physics_regression_solver.csv`.
+
+Slice `PHY-1063`: authored/generated scene primitive and hull creation now
+passes `PhysicsColliderCreateDesc` directly into `GameModelCollection::AddGameModel()`.
+Owner: scene setup owns parsed/generated shape facts while `PhysicsScene` owns
+live collider rows; reason: scene setup already knows radius, half-extents,
+hull, restitution, and contact material, so rereading those values from
+`GameModel` only preserves migration work and cache-hostile authority drift;
+deletion condition: ragdoll/editor/config creation also supply descriptors and
+`CaptureAuthoredColliderDesc()` disappears from `GameModelCollection`; checker
+budget: `tools/check_runtime_boundaries.py` rejects bare scene setup
+`AddGameModel(std::move(...))` calls and checks the append helper for direct
+collider registration.
+
+Evidence: `git diff --check`, boundary-checker Python compile, and
+runtime-boundary validation passed with runtime-boundary summary reporting 0
+errors; focused Profile build passed with 0 warnings/errors; a targeted header
+format pass plus `tools\validate_format.bat` passed after the first
+`validate_fast` attempt stopped on header alignment; touched-file comment audit
+inspected `GameModelCollection.h`, `GameModelCollection.cpp`,
+`SceneAuthoredSetup.cpp`, `SceneGeneratedSetup.cpp`, and
+`check_runtime_boundaries.py`; `tools\validate_fast.bat` passed formatting,
+project filters, runtime boundaries, and Profile/Debug builds with 0
+warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle
+smoke with `collider_refresh=pass` and byte-exact 20,001-line
 `physics_regression_solver.csv`.
 
 ## Required Evidence For Each Source Slice
