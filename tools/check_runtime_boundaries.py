@@ -194,6 +194,7 @@ PHYSICS_WORLD_HEADER = PHYSICS_ROOT / "PhysicsWorld.h"
 PHYSICS_SCENE_SOURCE = PHYSICS_ROOT / "PhysicsScene.cpp"
 PHYSICS_SCENE_HEADER = PHYSICS_ROOT / "PhysicsScene.h"
 COLLIDER_STORE_SOURCE = PHYSICS_ROOT / "ColliderStore.cpp"
+COLLIDER_STORE_HEADER = PHYSICS_ROOT / "ColliderStore.h"
 PHYSICS_DIAGNOSTICS_SINK_SOURCE = PHYSICS_ROOT / "PhysicsDiagnosticsSink.cpp"
 PHYSICS_DIAGNOSTICS_SINK_HEADER = PHYSICS_ROOT / "PhysicsDiagnosticsSink.h"
 RAGDOLL_SOURCE = PHYSICS_ROOT / "Ragdoll.cpp"
@@ -559,11 +560,25 @@ RUN_REPLAY_RESTORE_BODY_STORE_REFRESH_PATTERN = re.compile(
 RUN_REPLAY_RESTORE_MODEL_ID_PATTERN = re.compile(
     r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*GetReplayBodyId\s*\("
 )
-COLLIDER_STORE_REFRESH_FUNCTION_PATTERN = re.compile(
-    r"\bvoid\s+ColliderStore::Refresh\s*\(\s*GameModel\s*\*\s+models\s*,"
+# Why: ColliderStore owns live collider rows. Letting it accept GameModel again
+# brings back scattered shape/material reads and makes refresh cost depend on
+# the old object container.
+COLLIDER_STORE_GAME_MODEL_AUTHORING_PATTERN = re.compile(
+    r"\b(?:GameObjects::)?GameModel\b"
+    r"|\bstd::vector\s*<\s*(?:GameObjects::)?GameModel\s*>\s*&"
+    r"|\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)"
+    r"(?:GetReplayBodyId|GetCollisionShape|GetBoundingRadius|GetCoefficientRestitution|"
+    r"GetFrictionCoefficient|GetContactMaterialId|GetProjectedSurfaceArea|GetDragCoefficient|"
+    r"IsBox|IsConvexHull)\s*\("
 )
-COLLIDER_STORE_REFRESH_MODEL_REPLAY_ID_PATTERN = re.compile(
-    r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*GetReplayBodyId\s*\("
+GAME_MODEL_COLLECTION_REFRESH_COLLIDERS_FUNCTION_PATTERN = re.compile(
+    r"\bvoid\s+GameModelCollection::RefreshPhysicsColliders\s*\("
+)
+GAME_MODEL_COLLECTION_REFRESH_COLLIDERS_MODELS_PATTERN = re.compile(
+    r"\bcolliderStore\s*\.\s*Refresh\s*\(\s*m_gameModels\s*,"
+)
+COLLIDER_AUTHORING_SIDECAR_PATTERN = re.compile(
+    r"\b(?:ColliderAuthoringRecord|m_colliderAuthoringRows|MakeColliderRecordFromAuthoring)\b"
 )
 GAME_MODEL_REPLAY_ID_MIRROR_PATTERN = re.compile(
     r"\b(?:GetReplayBodyId|SetReplayBodyId)\s*\(|\bm_replayBodyId\b"
@@ -4235,25 +4250,20 @@ def check_run_replay_restore_store_authority_guardrails_text(path: Path, text: s
 
 
 def check_collider_store_identity_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
-    if path.name != COLLIDER_STORE_SOURCE.name:
+    if path.name not in { COLLIDER_STORE_SOURCE.name, COLLIDER_STORE_HEADER.name }:
         return []
 
     stripped = strip_cpp_comments_and_string_literals(text)
     errors: list[BoundaryError] = []
-    bounds = _function_body_bounds(stripped, COLLIDER_STORE_REFRESH_FUNCTION_PATTERN)
-    if not bounds:
-        return errors
-
-    open_brace, close_brace = bounds
-    for match in COLLIDER_STORE_REFRESH_MODEL_REPLAY_ID_PATTERN.finditer(stripped, open_brace, close_brace):
+    for match in COLLIDER_STORE_GAME_MODEL_AUTHORING_PATTERN.finditer(stripped):
         errors.append(
             BoundaryError(
                 path,
                 line_for_offset(stripped, match.start()),
-                "ColliderStore refresh replay identity must use PhysicsBodyStore",
+                "ColliderStore GameModel collider authoring is blocked",
                 (
-                    "ColliderStore refresh may still import GameModel shape/material authoring data, but collider "
-                    "replay id and body handle identity must come from the matching PhysicsBodyStore row."
+                    "ColliderStore must own live ColliderRecord values and refresh only body identity; "
+                    "do not reintroduce GameModel shape/material or replay-id reads in the store."
                 ),
             )
         )
@@ -4261,8 +4271,60 @@ def check_collider_store_identity_authority_guardrails_text(path: Path, text: st
 
 
 def check_collider_store_identity_authority_guardrails(repo: Path) -> list[BoundaryError]:
-    path = repo / COLLIDER_STORE_SOURCE
-    return check_collider_store_identity_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+    errors: list[BoundaryError] = []
+    for relative_path in ( COLLIDER_STORE_SOURCE, COLLIDER_STORE_HEADER ):
+        path = repo / relative_path
+        errors.extend(check_collider_store_identity_authority_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_game_model_collection_collider_authoring_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name not in { GAME_MODEL_COLLECTION_SOURCE.name, GAME_MODEL_COLLECTION_HEADER.name }:
+        return []
+
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in COLLIDER_AUTHORING_SIDECAR_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "collection collider authoring sidecar is blocked",
+                (
+                    "Do not keep a second scene-order collider authoring array; update ColliderStore rows "
+                    "at append/edit/config/topology-repair boundaries instead."
+                ),
+            )
+        )
+    if path.name != GAME_MODEL_COLLECTION_SOURCE.name:
+        return errors
+
+    bounds = _function_body_bounds(stripped, GAME_MODEL_COLLECTION_REFRESH_COLLIDERS_FUNCTION_PATTERN)
+    if not bounds:
+        return errors
+
+    open_brace, close_brace = bounds
+    for match in GAME_MODEL_COLLECTION_REFRESH_COLLIDERS_MODELS_PATTERN.finditer(stripped, open_brace, close_brace):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "collider refresh must not pass GameModel rows",
+                (
+                    "GameModelCollection may still import collider authoring at append/edit/topology boundaries, "
+                    "but ColliderStore refresh must never accept the whole GameModel row array."
+                ),
+            )
+        )
+    return errors
+
+
+def check_game_model_collection_collider_authoring_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in ( GAME_MODEL_COLLECTION_SOURCE, GAME_MODEL_COLLECTION_HEADER ):
+        path = repo / relative_path
+        errors.extend(check_game_model_collection_collider_authoring_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_game_model_collection_append_collider_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -13773,41 +13835,87 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("store-owned replay restore synthetic surface was rejected")
 
-    old_collider_store_model_replay_id = """
+    old_collider_store_model_authoring = """
     void ColliderStore::Refresh( GameModel* models, int modelCount, const PhysicsBodyStore& bodyStore )
     {
         GameModel& model = models[i];
-        record.handle = ResolveHandleForModelIndex( i, model.GetReplayBodyId(), assignedHandleSlots );
-        record.body = bodyStore.HandleForModelIndex( i );
+        record.shape = model.GetCollisionShape();
         record.replayBodyId = model.GetReplayBodyId();
     }
     """
     if not any(
-        error.message == "ColliderStore refresh replay identity must use PhysicsBodyStore"
+        error.message == "ColliderStore GameModel collider authoring is blocked"
         for error in check_collider_store_identity_authority_guardrails_text(
             Path("SkullbonezSource/Physics/ColliderStore.cpp"),
-            old_collider_store_model_replay_id,
+            old_collider_store_model_authoring,
         )
     ):
-        failures.append("old ColliderStore model replay-id synthetic surface was not rejected")
+        failures.append("old ColliderStore GameModel authoring synthetic surface was not rejected")
 
-    allowed_collider_store_body_identity = """
-    void ColliderStore::Refresh( GameModel* models, int modelCount, const PhysicsBodyStore& bodyStore )
+    allowed_collider_store_authoring_identity = """
+    void ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
     {
-        GameModel& model = models[i];
         const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( i );
-        const uint32_t replayBodyId = body ? body->replayBodyId : 0u;
+        record.body = body->handle;
+        record.replayBodyId = body->replayBodyId;
+        const uint32_t replayBodyId = record.replayBodyId;
         record.handle = ResolveHandleForModelIndex( i, replayBodyId, assignedHandleSlots );
-        record.body = body ? body->handle : PhysicsBodyHandle{};
-        record.replayBodyId = replayBodyId;
-        record.shape = model.GetCollisionShape();
     }
     """
     if check_collider_store_identity_authority_guardrails_text(
         Path("SkullbonezSource/Physics/ColliderStore.cpp"),
-        allowed_collider_store_body_identity,
+        allowed_collider_store_authoring_identity,
     ):
-        failures.append("store-owned ColliderStore replay identity synthetic surface was rejected")
+        failures.append("store-owned ColliderStore authoring synthetic surface was rejected")
+
+    old_collection_collider_refresh_models = """
+    void GameModelCollection::RefreshPhysicsColliders( ColliderStore& colliderStore,
+                                                       const PhysicsBodyStore& bodyStore )
+    {
+        colliderStore.Refresh( m_gameModels, bodyStore );
+    }
+    """
+    if not any(
+        error.message == "collider refresh must not pass GameModel rows"
+        for error in check_game_model_collection_collider_authoring_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_collection_collider_refresh_models,
+        )
+    ):
+        failures.append("old collection GameModel collider refresh synthetic surface was not rejected")
+
+    old_collection_collider_authoring_sidecar = """
+    class GameModelCollection
+    {
+        std::vector<ColliderAuthoringRecord> m_colliderAuthoringRows;
+    };
+    """
+    if not any(
+        error.message == "collection collider authoring sidecar is blocked"
+        for error in check_game_model_collection_collider_authoring_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
+            old_collection_collider_authoring_sidecar,
+        )
+    ):
+        failures.append("collection collider authoring sidecar synthetic surface was not rejected")
+
+    allowed_collection_collider_refresh_authoring = """
+    void GameModelCollection::RefreshPhysicsColliders( ColliderStore& colliderStore,
+                                                       const PhysicsBodyStore& bodyStore )
+    {
+        const bool colliderTopologyChanged = colliderStore.Count() != ModelCount();
+        colliderStore.RefreshBodyBindings( bodyStore );
+        if ( colliderTopologyChanged )
+        {
+            colliderStore.UpdateRecordForModelIndex( i, BuildColliderRecordFromModel( m_gameModels[i], *bodyRecord ) );
+        }
+    }
+    """
+    if check_game_model_collection_collider_authoring_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_collection_collider_refresh_authoring,
+    ):
+        failures.append("collection authored-collider refresh synthetic surface was rejected")
 
     old_add_model_body_only_append = """
     PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel, uint32_t replayBodyId )
@@ -13840,7 +13948,7 @@ def run_self_tests() -> list[str]:
         const PhysicsBodyHandle bodyHandle =
             m_physicsEngine.RegisterAuthoredBody( MakeBodyRecordFromAuthoredModel( m_gameModels.back(), replayBodyId ) );
         const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForHandle( bodyHandle );
-        m_physicsEngine.RegisterAuthoredCollider( MakeColliderRecordFromAuthoredModel( m_gameModels.back(), *bodyRecord ) );
+        m_physicsEngine.RegisterAuthoredCollider( BuildColliderRecordFromModel( m_gameModels.back(), *bodyRecord ) );
         return bodyHandle;
     }
     """
@@ -17844,6 +17952,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_replay_prediction_ghost_render_store_authority_guardrails(repo))
     errors.extend(check_replay_restore_store_authority_guardrails(repo))
     errors.extend(check_collider_store_identity_authority_guardrails(repo))
+    errors.extend(check_game_model_collection_collider_authoring_guardrails(repo))
     errors.extend(check_game_model_collection_append_collider_authority_guardrails(repo))
     errors.extend(check_game_model_replay_id_mirror_guardrails(repo))
     errors.extend(check_physics_body_store_model_index_command_guardrails(repo))

@@ -72,10 +72,14 @@ class PhysicsScene
     // Construction edge: registers the collider paired with a newly authored
     // body without forcing a collider snapshot refresh through GameModel order.
     PhysicsColliderHandle RegisterAuthoredCollider( const ColliderRecord& record );
+    // Authoring/config edge: replaces one live collider row while preserving
+    // the allocator-owned collider handle for that model slot.
+    bool UpdateAuthoredCollider( int modelIndex, const ColliderRecord& record );
     void ClearPendingBodyImpulses();
     // Replay restore trims the authoritative body store directly; callers must
     // not force a model-to-store refresh after this succeeds.
     bool TrimBodyStoreToCount( int bodyCount );
+    bool TrimColliderStoreToCount( int colliderCount );
     // Store-owned replay restore facade used by runtime replay without
     // treating model-order slots as the source of truth for simulation state.
     bool RestoreReplayBodyState( PhysicsBodyHandle body,
@@ -89,9 +93,9 @@ class PhysicsScene
                                  float inverseMass,
                                  const Math::Vector::Vector3& rotationalInertia,
                                  const Math::Vector::Vector3& inverseRotationalInertia );
-    // Refreshes collider authoring data against the already-current body store.
-    // Step prep uses this after count-gated body refresh to avoid a second body
-    // reload during topology repair.
+    // Refreshes collider body bindings against the already-current body store.
+    // Count-gated topology repair may rebuild collider fields at the collection
+    // owner boundary, but same-count refresh keeps ColliderStore values.
     void RefreshColliderSnapshot( PhysicsModelAccess& modelAccess );
     void RefreshRenderStore( PhysicsModelAccess& modelAccess );
     void RunPhysics( float fChangeInTime,

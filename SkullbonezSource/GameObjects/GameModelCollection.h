@@ -36,6 +36,11 @@ Glossary:
 Invariants:
   - m_gameModels is the stable scene-order owner; collaborators mirror or view
     that order rather than replacing it.
+  - m_replayBodyIds stays one-to-one with m_gameModels until scene/entity
+    metadata owns replay identity directly.
+  - Collider shape/material data is imported into ColliderStore at create,
+    edit, config, or topology-repair boundaries; the collection does not keep a
+    second collider-authoring cache.
   - Replay body ids are assigned monotonically per collection and stored beside
     model rows so diagnostics can identify bodies without reopening GameModel.
 
@@ -134,6 +139,7 @@ class GameModelCollection
     uint32_t m_nextReplayBodyId = 1;
     std::vector<ReplayRenderPoseOverride> m_replayRenderPoseOverrides; // Single-frame replay draw-pose requests.
 
+    bool UpdateColliderStoreFromModel( int modelIndex );
     void ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore,
                                          const Physics::ColliderStore& colliderStore );
 

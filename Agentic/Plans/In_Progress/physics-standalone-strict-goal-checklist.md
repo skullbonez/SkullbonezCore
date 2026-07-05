@@ -73,10 +73,12 @@ Import-Csv Agentic\Plans\In_Progress\physics-standalone-agent-workqueue.csv |
   `PhysicsModelAccess`.
   Evidence: `SkullbonezSource/Physics/PhysicsBodyStore.cpp:192`,
   `SkullbonezSource/Physics/PhysicsBodyStore.cpp:266`.
-- `ColliderStore` still refreshes collider rows from `GameModel` or
-  `PhysicsModelAccess` and preserves compatibility model order.
-  Evidence: `SkullbonezSource/Physics/ColliderStore.cpp:55`,
-  `SkullbonezSource/Physics/ColliderStore.cpp:94`.
+- `ColliderStore` owns dense live collider rows and only refreshes body
+  identity from `PhysicsBodyStore`; `GameModelCollection` still has the cold
+  compatibility edge that builds a collider row from `GameModel` on append,
+  edit, config, or topology drift until scene/entity collider descriptors exist.
+  Evidence: `PHY-1061`, `SkullbonezSource/Physics/ColliderStore.cpp`,
+  `SkullbonezSource/GameObjects/GameModelCollection.cpp`.
 - `PhysicsStandaloneWorld::Contacts()` and `PhysicsStandaloneWorld::Islands()`
   return real public rows for the current standalone smoke coverage, but
   remaining exact shape-pair contacts and full support propagation are still
@@ -410,6 +412,10 @@ Target: `ColliderStore` owns the standalone collision shape and metadata surface
 - [x] Make standalone collider creation attach to a live `PhysicsBodyHandle`.
 - [x] Make compatibility append-time model creation register the paired
   `ColliderStore` row immediately after the new `PhysicsBodyStore` row.
+- [x] Make same-count collider refresh store-owned: `ColliderStore` now
+  preserves dense shape/material rows during body-binding refresh, editor/config
+  changes replace one row in place, and topology drift is the only path that
+  rebuilds collider fields from `GameModel`.
 - [x] Make collider deletion and body deletion tombstone collider handles in one
   deterministic path.
 - [x] Move broadphase candidate generation to `ColliderStore` plus body-store
@@ -436,10 +442,13 @@ and sphere/box contact generation now read collider-record shape/material rows
 and body-store transforms, then expose public contact views with material,
 restitution, and friction evidence. Compatibility appends now create one body
 row and one paired collider row at `GameModelCollection::AddGameModel()` instead
-of waiting for a later collider topology refresh. Remaining shape pairs and the
-final move of `GameModel` shape/material authoring into collider descriptors are
-future contact/authoring coverage, not blockers for the Phase 3 smoke row.
-Latest append-time collider evidence: runtime-boundary checker passed with 0
+of waiting for a later collider topology refresh. Same-count collider refresh no
+longer scans `GameModel` or a duplicate authoring sidecar: `ColliderStore`
+rebases body identity only, while append/edit/config/topology boundaries replace
+store rows explicitly. Remaining shape pairs and the final move of `GameModel`
+shape/material authoring into scene/entity collider descriptors are future
+contact/authoring coverage, not blockers for the Phase 3 smoke row. Latest
+collider-store authority evidence: runtime-boundary checker passed with 0
 errors, `tools\validate_fast.bat` passed, standalone smoke reported
 `contacts=2` and `contact_hash=0x5DBDF5257E90EA9B`, runtime handle smoke
 reported `collider_refresh=pass`, and `tools\validate_physics.bat` passed with

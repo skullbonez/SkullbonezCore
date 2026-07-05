@@ -4,9 +4,10 @@ Purpose:
   Owns deterministic collider records and stable collider-handle identity.
 
 Mental model:
-  Runtime compatibility can refresh records from GameModel order, while the
-  standalone API creates dense live records directly. Handles are allocator
-  identity; record order is only an iteration/detail surface.
+  ColliderStore owns the dense live collider rows. Runtime compatibility code
+  may replace a row at explicit create/edit/config boundaries, while topology
+  repair only refreshes body identity from PhysicsBodyStore. Handles are
+  allocator identity; record order is only an iteration/detail surface.
 
 Glossary:
   Collider: Shape metadata used to choose sphere, box, or convex-hull tests.
@@ -15,13 +16,12 @@ Glossary:
   Replay body id: Stable per-scene id paired with a body for replay diagnostics.
 
 Invariants:
-  - Compatibility refresh keeps store row order aligned to GameModelCollection
-    physics order.
+  - Compatibility refresh keeps store row order aligned to scene physics order.
   - Standalone creation keeps rows dense for cache-friendly scans; handles map
     back to the current row after deletions move the last record down.
   - Collider handles are allocator-owned; model-order arrays use explicit maps
     instead of encoding model index inside the handle.
-  - Refresh must not mutate GameModel state; it is a snapshot boundary only.
+  - Body-binding refresh must not recapture shape/material authoring data.
 
 Related:
   - SkullbonezSource/Physics/ColliderStore.cpp
@@ -37,11 +37,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
-{
-class GameModel;
-}
-
 namespace Physics
 {
 class PhysicsBodyStore;
@@ -70,27 +65,17 @@ struct ColliderRecord
     float dragCoefficient = 0.0f;                            // Shape drag coefficient used by fluid forces.
 };
 
-// Construction/refresh edge while GameModelCollection still authors collider
-// shape/material rows.
-// Owner: ColliderStore append-time import.
-// Reason: AddGameModel can append the paired collider row once, without waiting
-// for a later model-order refresh to rebuild collider topology.
-// Deletion condition: scene/entity creation writes PhysicsColliderCreateDesc
-// directly and no ColliderStore helper accepts GameModel.
-// Checker budget: tools/check_runtime_boundaries.py requires AddGameModel to
-// call RegisterAuthoredCollider and blocks the body-only repair shape.
-ColliderRecord MakeColliderRecordFromAuthoredModel( GameObjects::GameModel& model, const PhysicsBodyRecord& body );
-
 class ColliderStore
 {
   public:
     ColliderStore();
 
     void Clear();
-    void Refresh( std::vector<GameObjects::GameModel>& models, const PhysicsBodyStore& bodyStore );
-    void Refresh( GameObjects::GameModel* models, int modelCount, const PhysicsBodyStore& bodyStore );
+    void RefreshBodyBindings( const PhysicsBodyStore& bodyStore );
     PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord );
+    bool UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record );
     bool DestroyColliderRecord( PhysicsColliderHandle handle );
+    bool TrimToCount( int colliderCount );
 
     const ColliderRecord* Data() const;
     int Count() const;

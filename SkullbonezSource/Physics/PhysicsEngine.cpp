@@ -75,6 +75,12 @@ PhysicsColliderHandle PhysicsEngine::RegisterAuthoredCollider( const ColliderRec
 }
 
 
+bool PhysicsEngine::UpdateAuthoredCollider( int modelIndex, const ColliderRecord& record )
+{
+    return m_scene.UpdateAuthoredCollider( modelIndex, record );
+}
+
+
 void PhysicsEngine::ClearPendingBodyImpulses()
 {
     m_scene.ClearPendingBodyImpulses();
@@ -84,6 +90,12 @@ void PhysicsEngine::ClearPendingBodyImpulses()
 bool PhysicsEngine::TrimBodyStoreToCount( int bodyCount )
 {
     return m_scene.TrimBodyStoreToCount( bodyCount );
+}
+
+
+bool PhysicsEngine::TrimColliderStoreToCount( int colliderCount )
+{
+    return m_scene.TrimColliderStoreToCount( colliderCount );
 }
 
 

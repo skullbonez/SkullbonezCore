@@ -68,8 +68,9 @@ using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::MakeBodyRecordFromAuthoredModel;
-using SkullbonezCore::Physics::MakeColliderRecordFromAuthoredModel;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
@@ -124,6 +125,42 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
 {
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
 }
+
+
+ColliderShapeKind ColliderShapeKindFromModel( const GameModel& model )
+{
+    if ( model.IsBox() )
+    {
+        return ColliderShapeKind::Box;
+    }
+    if ( model.IsConvexHull() )
+    {
+        return ColliderShapeKind::ConvexHull;
+    }
+    return ColliderShapeKind::Sphere;
+}
+
+
+// Why: this is the remaining cold collider-authoring import while scene and
+// editor code still mutate GameModel fields. It returns a store row immediately
+// so physics keeps one dense collider copy instead of a persistent sidecar.
+ColliderRecord BuildColliderRecordFromModel( GameModel& model, const PhysicsBodyRecord& body )
+{
+    ColliderRecord record;
+    record.body = body.handle;
+    record.sceneObjectId = body.sceneObjectId;
+    record.replayBodyId = body.replayBodyId;
+    record.shape = model.GetCollisionShape();
+    record.shapeKind = ColliderShapeKindFromModel( model );
+    record.boundingRadius = model.GetBoundingRadius();
+    record.restitution = model.GetCoefficientRestitution();
+    record.friction = model.GetFrictionCoefficient();
+    record.contactMaterialId = model.GetContactMaterialId();
+    record.projectedSurfaceArea = model.GetProjectedSurfaceArea();
+    record.dragCoefficient = model.GetDragCoefficient();
+    return record;
+}
+
 
 bool IsDecimalDigit( char c )
 {
@@ -357,6 +394,33 @@ GameModelCollection::GameModelCollection()
     // vector, so preserving deterministic order matters even when the work is
     // delegated to renderer/physics helper classes.
     m_gameModels.reserve( ActiveGameModelCapacity() );
+    m_replayBodyIds.reserve( ActiveGameModelCapacity() );
+}
+
+
+bool GameModelCollection::UpdateColliderStoreFromModel( int modelIndex )
+{
+    if ( modelIndex < 0 || modelIndex >= GetModelCount() )
+    {
+        return false;
+    }
+    const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForModelIndex( modelIndex );
+    assert( bodyRecord != nullptr );
+    if ( !bodyRecord )
+    {
+        return false;
+    }
+
+    // Owner: GameModelCollection still owns the compatibility import because
+    // scene/editor construction mutates GameModel collider fields today.
+    // Reason: replace one dense ColliderStore row at explicit edit/config
+    // boundaries instead of keeping a second authoring array or rescanning every
+    // model on steady frames. Deletion: scene/entity creation writes collider
+    // descriptors directly. Checker: runtime boundaries block ColliderStore
+    // from accepting GameModel and block the deleted authoring sidecar names.
+    return m_physicsEngine.UpdateAuthoredCollider(
+        modelIndex,
+        BuildColliderRecordFromModel( m_gameModels[static_cast<std::size_t>( modelIndex )], *bodyRecord ) );
 }
 
 
@@ -374,11 +438,22 @@ void GameModelCollection::ApplyRuntimeConfig( const Basics::EngineConfig& config
     m_renderCollisionVolumes = config.runtimeRender.renderCollisionVolumes;
     m_shadowParallelPrep = config.shadowParallelPrep;
     m_physicsEngine.ApplyRuntimeConfig( config );
-    for ( GameModel& model : m_gameModels )
+    const bool colliderRowsReady =
+        m_physicsEngine.BodyStore().Count() == ModelCount() && m_physicsEngine.Colliders().Count() == ModelCount();
+    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
     {
+        GameModel& model = m_gameModels[static_cast<std::size_t>( i )];
         model.ApplyPhysicsMaterial( m_physicsMaterial );
         model.ApplyBodySimulationLimits( m_bodySimulationLimits );
         model.ApplyContactPolicy( m_contactPolicy );
+        if ( colliderRowsReady )
+        {
+            (void)UpdateColliderStoreFromModel( i );
+        }
+    }
+    if ( !colliderRowsReady )
+    {
+        RepairPhysicsBodyAndColliderTopology();
     }
 }
 
@@ -413,8 +488,8 @@ PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel, uint32
     AssignRuntimeCollectionFromConstructionName( gameModel, m_gameModels, static_cast<int>( m_gameModels.size() ) );
     assert( m_replayBodyIds.size() == m_gameModels.size() );
     // Invariant: replay identity is collection metadata, not a GameModel field.
-    // Body/collider/render stores import this sidecar while GameModel remains
-    // only the temporary source for authoring values that have not moved yet.
+    // Body/collider/render stores import explicit values at owner boundaries
+    // while GameModel remains only the temporary source for unmigrated authoring.
     if ( replayBodyId == 0 )
     {
         replayBodyId = m_nextReplayBodyId++;
@@ -441,8 +516,8 @@ PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel, uint32
     {
         throw std::runtime_error( "Failed to resolve newly authored physics body record." );
     }
-    const auto colliderHandle = m_physicsEngine.RegisterAuthoredCollider(
-        MakeColliderRecordFromAuthoredModel( m_gameModels.back(), *bodyRecord ) );
+    const auto colliderHandle =
+        m_physicsEngine.RegisterAuthoredCollider( BuildColliderRecordFromModel( m_gameModels.back(), *bodyRecord ) );
     assert( colliderHandle.IsValid() );
     if ( !colliderHandle.IsValid() )
     {
@@ -955,6 +1030,10 @@ bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
     {
         return false;
     }
+    if ( m_physicsEngine.Colliders().Count() > modelCount && !m_physicsEngine.TrimColliderStoreToCount( modelCount ) )
+    {
+        return false;
+    }
     if ( targetCount < m_gameModels.size() )
     {
         m_gameModels.erase( m_gameModels.begin() + static_cast<std::ptrdiff_t>( targetCount ), m_gameModels.end() );
@@ -1130,7 +1209,30 @@ void GameModelCollection::RefreshPhysicsBodyFromModel( SkullbonezCore::Physics::
 void GameModelCollection::RefreshPhysicsColliders( SkullbonezCore::Physics::ColliderStore& colliderStore,
                                                    const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
 {
-    colliderStore.Refresh( m_gameModels, bodyStore );
+    const int modelCount = ModelCount();
+    assert( bodyStore.Count() == modelCount );
+    const bool colliderTopologyChanged = colliderStore.Count() != modelCount;
+    // Invariant: same-count refresh is identity repair only. Shape/material
+    // data is rebuilt from GameModel below only when topology count drift means
+    // some ColliderStore rows do not exist yet.
+    colliderStore.RefreshBodyBindings( bodyStore );
+    if ( !colliderTopologyChanged || bodyStore.Count() != modelCount )
+    {
+        return;
+    }
+
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForModelIndex( i );
+        assert( bodyRecord != nullptr );
+        const bool updated =
+            bodyRecord &&
+            colliderStore.UpdateRecordForModelIndex(
+                i,
+                BuildColliderRecordFromModel( m_gameModels[static_cast<std::size_t>( i )], *bodyRecord ) );
+        assert( updated );
+        (void)updated;
+    }
 }
 
 
@@ -1160,13 +1262,21 @@ void GameModelCollection::CommitEditedModelPhysicsState( int modelIndex, bool co
     PhysicsModelAccess modelAccess( *this );
     if ( colliderChanged )
     {
-        // Why: collider edits need shape/material metadata imported, but
-        // same-count body rows stay PhysicsBodyStore authority.
         if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
         {
             m_physicsEngine.RefreshBodyStore( modelAccess );
         }
-        m_physicsEngine.RefreshColliderSnapshot( modelAccess );
+        if ( m_physicsEngine.Colliders().Count() != ModelCount() )
+        {
+            m_physicsEngine.RefreshColliderSnapshot( modelAccess );
+        }
+        else
+        {
+            // Why: same-count collider edits replace exactly one dense store
+            // row. That avoids a full model-order scan and keeps the existing
+            // collider handle stable for editor, render, and query callers.
+            (void)UpdateColliderStoreFromModel( modelIndex );
+        }
     }
     else
     {

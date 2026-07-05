@@ -5,22 +5,47 @@ Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
 `tools\validate_physics.bat` passed on 2026-07-05 after making
-`GameModelCollection::AddGameModel()` register the paired `ColliderStore` row
-at the same append-time boundary as the new `PhysicsBodyStore` row. Runtime
-boundaries reported 0 errors, standalone/runtime physics smoke passed, and
+same-count collider refresh store-owned. Runtime boundaries reported 0 errors,
+standalone/runtime physics smoke passed with `collider_refresh=pass`, and
 `physics_regression_solver.csv` was a byte-exact 20,001-line match.
 
 ## Completed Slices
 
+- [x] 2026-07-05: Made same-count collider refresh store-owned and deleted the
+  proposed collection-side collider authoring cache. `ColliderStore` now keeps
+  the dense live `ColliderRecord` rows, exposes `RefreshBodyBindings()` for
+  body-handle/replay-id rebasing without touching shape/material fields, and
+  preserves stable collider handles when `UpdateRecordForModelIndex()` replaces
+  one row after an editor/config authoring change. `GameModelCollection`
+  builds a `ColliderRecord` from the compatibility `GameModel` only at append,
+  edit, config, or topology-repair boundaries; topology drift is the only path
+  that rebuilds all collider fields from `GameModel`. Owner:
+  `ColliderStore` live collider rows plus `GameModelCollection` cold
+  compatibility import. Reason: avoid a duplicate scene-order authoring array,
+  avoid same-count `GameModel` scans, and keep cache-visible collider state in
+  one dense store. Deletion condition: scene/entity creation writes collider
+  descriptors directly and the local `BuildColliderRecordFromModel()` import
+  disappears. Checker budget: `tools/check_runtime_boundaries.py` rejects
+  `ColliderStore` references to `GameModel`, rejects
+  `m_colliderAuthoringRows`/`ColliderAuthoringRecord`/`MakeColliderRecordFromAuthoring`
+  in live collection source, and rejects passing `m_gameModels` to collider
+  refresh. Validation: targeted residue scan found no deleted sidecar or
+  `colliderStore.Refresh(` spellings under `SkullbonezSource`; `git diff
+  --check`, `python -m py_compile tools/check_runtime_boundaries.py`, and
+  `python tools/check_runtime_boundaries.py --repo .` passed; touched-source
+  comment audit inspected all touched source/tool files; `tools\validate_fast.bat`
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds with 0 warnings/errors; `tools\validate_physics.bat` passed
+  standalone/runtime handle smoke and byte-exact `physics_regression_solver.csv`.
 - [x] 2026-07-05: Registered append-time collider rows directly from
   `GameModelCollection::AddGameModel()`. The collection now repairs any
   pre-existing body/collider count drift once, appends the model and replay id,
   registers the new body row, resolves the just-created `PhysicsBodyRecord`,
   and registers the paired `ColliderRecord` immediately through
-  `PhysicsEngine::RegisterAuthoredCollider()`. `ColliderStore::Refresh()` and
-  the append path share `MakeColliderRecordFromAuthoredModel()` so the
-  remaining `GameModel` authoring read is one explicit construction/refresh
-  edge, not a hidden topology dependency. Owner: `GameModelCollection`
+  `PhysicsEngine::RegisterAuthoredCollider()`. The later same-count refresh
+  slice keeps `ColliderStore` as the single live collider copy and limits
+  `GameModel` authoring reads to append/edit/config/topology boundaries. Owner:
+  `GameModelCollection`
   construction boundary plus `ColliderStore` append-time import. Reason: a new
   object should not require a later model-order collider refresh before the
   body/collider mapping is live; the store keeps the dense rows and handle maps

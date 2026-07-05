@@ -1,13 +1,13 @@
 /*
 File: SkullbonezSource/Physics/ColliderStore.cpp
 Purpose:
-  Builds deterministic collider records from either compatibility models or
-  standalone descriptors.
+  Owns deterministic collider records from explicit create/update descriptors.
 
 Mental model:
-  Refresh copies live compatibility models in model order for the legacy solver
-  boundary. Standalone creation appends dense live records directly, with
-  handles mapped to rows so queries scan compact data and stale handles fail.
+  Collider shape/material values live in dense ColliderRecord rows. Runtime
+  compatibility code can replace a row at cold authoring edges, while topology
+  repair only rebases body identity and handle maps against PhysicsBodyStore.
+  Queries scan compact data and stale handles fail through generation checks.
 
 Glossary:
   Collider: Shape metadata used to decide what precise collision test applies.
@@ -16,12 +16,12 @@ Glossary:
     physics body across frames.
 
 Invariants:
-  - Compatibility records stay in GameModelCollection order for current solver
-    traversal, but public collider handles are allocator-owned slots.
+  - Compatibility records stay in scene/model order for current solver traversal,
+    but public collider handles are allocator-owned slots.
   - Standalone records stay dense; deleting a collider may move the final row
     and updates only the moved handle's row map.
-  - Refresh snapshots collision metadata only; model pose and solver state
-    remain owned elsewhere.
+  - Body-binding refresh preserves shape/material fields; it must not reopen
+    model-owned collider authoring.
 
 Related:
   - SkullbonezSource/Physics/ColliderStore.h
@@ -33,11 +33,7 @@ Related:
 #include <cstddef>
 
 #include "../Core/Common.h"
-#include "../GameObjects/GameModel.h"
-
-using SkullbonezCore::GameObjects::GameModel;
 using SkullbonezCore::Physics::ColliderRecord;
-using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PHYSICS_HANDLE_INITIAL_GENERATION;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
@@ -68,7 +64,7 @@ ColliderStore::ColliderStore()
 
 // Concept: handle slots are stable identities, not model indices.
 //
-// Refresh still walks GameModelCollection order, but callers receive handles
+// Refresh still walks scene/model order, but callers receive handles
 // from this slot table. Same-slot reuse keeps ids stable across refreshes;
 // retiring a slot bumps its generation so stale collider handles stop resolving.
 PhysicsColliderHandle ColliderStore::ResolveHandleForModelIndex( int modelIndex,
@@ -185,62 +181,31 @@ void ColliderStore::Clear()
 }
 
 
-void ColliderStore::Refresh( std::vector<GameModel>& models, const PhysicsBodyStore& bodyStore )
+void ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
 {
-    Refresh( models.empty() ? nullptr : models.data(), static_cast<int>( models.size() ), bodyStore );
-}
-
-
-void ColliderStore::Refresh( GameModel* models, int modelCount, const PhysicsBodyStore& bodyStore )
-{
-    m_colliders.resize( static_cast<std::size_t>( modelCount ) );
-    m_modelColliderHandles.resize( static_cast<std::size_t>( modelCount ) );
+    const int bodyCount = bodyStore.Count();
+    m_colliders.resize( static_cast<std::size_t>( bodyCount ) );
+    m_modelColliderHandles.resize( static_cast<std::size_t>( bodyCount ) );
     std::vector<uint8_t> assignedHandleSlots( m_handleGenerations.size(), 0 );
-    for ( int i = 0; i < modelCount; ++i )
+    for ( int i = 0; i < bodyCount; ++i )
     {
-        GameModel& model = models[i];
         ColliderRecord& record = m_colliders[static_cast<std::size_t>( i )];
         const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( i );
         assert( body != nullptr );
-        // Invariant: collider identity follows the body row imported by
-        // PhysicsBodyStore. GameModel still supplies authoring shape/material
-        // data here, but it must not approve replay id or body-handle identity.
-        record = body ? MakeColliderRecordFromAuthoredModel( model, *body ) : ColliderRecord{};
+        // Invariant: topology repair updates identity only. Shape, material,
+        // and broadphase fields stay in this dense row until an explicit
+        // authoring/config command replaces the row.
+        if ( body )
+        {
+            record.body = body->handle;
+            record.replayBodyId = body->replayBodyId;
+            record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
+        }
         const uint32_t replayBodyId = record.replayBodyId;
         record.handle = ResolveHandleForModelIndex( i, replayBodyId, assignedHandleSlots );
         m_modelColliderHandles[static_cast<std::size_t>( i )] = record.handle;
     }
     RetireUnassignedHandles( assignedHandleSlots );
-}
-
-
-ColliderRecord SkullbonezCore::Physics::MakeColliderRecordFromAuthoredModel( GameModel& model,
-                                                                             const PhysicsBodyRecord& body )
-{
-    ColliderRecord record;
-    record.body = body.handle;
-    record.replayBodyId = body.replayBodyId;
-    record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
-    record.shape = model.GetCollisionShape();
-    record.boundingRadius = model.GetBoundingRadius();
-    record.restitution = model.GetCoefficientRestitution();
-    record.friction = model.GetFrictionCoefficient();
-    record.contactMaterialId = model.GetContactMaterialId();
-    record.projectedSurfaceArea = model.GetProjectedSurfaceArea();
-    record.dragCoefficient = model.GetDragCoefficient();
-    if ( model.IsBox() )
-    {
-        record.shapeKind = ColliderShapeKind::Box;
-    }
-    else if ( model.IsConvexHull() )
-    {
-        record.shapeKind = ColliderShapeKind::ConvexHull;
-    }
-    else
-    {
-        record.shapeKind = ColliderShapeKind::Sphere;
-    }
-    return record;
 }
 
 
@@ -282,6 +247,38 @@ PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord&
 }
 
 
+bool ColliderStore::UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record )
+{
+    if ( modelIndex < 0 || modelIndex >= Count() || modelIndex >= static_cast<int>( m_modelColliderHandles.size() ) )
+    {
+        return false;
+    }
+
+    const PhysicsColliderHandle handle = m_modelColliderHandles[static_cast<std::size_t>( modelIndex )];
+    if ( !Contains( handle ) )
+    {
+        return false;
+    }
+
+    ColliderRecord updated = record;
+    // Invariant: authoring edits replace collider contents, not identity. The
+    // handle slot stays stable so picks, render snapshots, and stale-handle
+    // rejection keep their existing contracts.
+    updated.handle = handle;
+    if ( !updated.sceneObjectId.IsValid() )
+    {
+        updated.sceneObjectId = updated.replayBodyId != 0u
+                                    ? MakePhysicsSceneObjectIdFromReplayBodyId( updated.replayBodyId )
+                                    : PhysicsSceneObjectId{ handle.index + 1u };
+    }
+
+    m_colliders[static_cast<std::size_t>( modelIndex )] = updated;
+    m_handleModelIndices[static_cast<std::size_t>( handle.index )] = modelIndex;
+    m_handleReplayBodyIds[static_cast<std::size_t>( handle.index )] = updated.replayBodyId;
+    return true;
+}
+
+
 bool ColliderStore::DestroyColliderRecord( PhysicsColliderHandle handle )
 {
     if ( !Contains( handle ) )
@@ -319,6 +316,24 @@ bool ColliderStore::DestroyColliderRecord( PhysicsColliderHandle handle )
     m_handleReplayBodyIds[handleSlot] = 0;
     m_handleGenerations[handleSlot] = NextHandleGeneration( m_handleGenerations[handleSlot] );
     m_freeHandleSlots.push_back( handle.index );
+    return true;
+}
+
+
+bool ColliderStore::TrimToCount( int colliderCount )
+{
+    if ( colliderCount < 0 || colliderCount > Count() )
+    {
+        return false;
+    }
+
+    while ( Count() > colliderCount )
+    {
+        if ( m_modelColliderHandles.empty() || !DestroyColliderRecord( m_modelColliderHandles.back() ) )
+        {
+            return false;
+        }
+    }
     return true;
 }
 

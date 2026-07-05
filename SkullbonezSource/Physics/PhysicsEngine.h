@@ -59,10 +59,13 @@ class PhysicsEngine
     // Scene/model construction receives a collider handle from the same append
     // edge, so new bodies do not need a later collider topology refresh.
     PhysicsColliderHandle RegisterAuthoredCollider( const ColliderRecord& record );
+    // Replaces one authored collider row without moving its stable handle.
+    bool UpdateAuthoredCollider( int modelIndex, const ColliderRecord& record );
     void ClearPendingBodyImpulses();
     // Replay restore trims the authoritative body store directly; callers must
     // not force a model-to-store refresh after this succeeds.
     bool TrimBodyStoreToCount( int bodyCount );
+    bool TrimColliderStoreToCount( int colliderCount );
     // Store-owned replay restore facade. Callers resolve a body handle at the
     // owner edge so physics does not accept transient model slots as authority.
     bool RestoreReplayBodyState( PhysicsBodyHandle body,
@@ -76,8 +79,8 @@ class PhysicsEngine
                                  float inverseMass,
                                  const Math::Vector::Vector3& rotationalInertia,
                                  const Math::Vector::Vector3& inverseRotationalInertia );
-    // Refreshes collider records from model-owned authoring data while keeping
-    // the current PhysicsBodyStore authority intact.
+    // Refreshes collider body bindings from PhysicsBodyStore; topology repair
+    // may rebuild collider fields at the GameModelCollection owner boundary.
     void RefreshColliderSnapshot( PhysicsModelAccess& modelAccess );
     void RefreshRenderStore( PhysicsModelAccess& modelAccess );
     // Steps the owned stores. Model-order import/export lives with
