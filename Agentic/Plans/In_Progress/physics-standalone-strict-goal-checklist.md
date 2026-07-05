@@ -256,6 +256,24 @@ handle smoke and byte-exact solver CSV; `tools\validate_perf.bat` completed in
 21.4s with absolute DX12/PHYSICS_BENCH budgets passing, no perf regressions, and
 DX12 `Frame/Physics` improving from 0.4347ms to 0.2444ms.
 
+Strict-step authority slice `PHY-1054`: attached-camera target identity now
+stores `PhysicsBodyHandle` and `PhysicsColliderHandle` as the live physics
+identity. The cached model index remains a UI/presentation hint and stale-handle
+recovery aid; replay id and name are fallback recovery keys only after the handle
+lookup fails. Follow, orbit, selection seeding, pinning, and ragdoll-eye sampling
+resolve the target through `PhysicsBodyStore`/`ColliderStore`, then read pose,
+velocity, rotation, and broad radius from those stores. The old
+`TryResolveAttachedCameraPhysicsTarget(..., modelIndex, ...)` shape is deleted
+and blocked by runtime-boundary self-tests. Evidence: CodeGraph mapped the
+attached-camera flow; residue scan found no old resolver source calls;
+`python -m py_compile tools\check_runtime_boundaries.py`,
+`python tools\check_runtime_boundaries.py`, `git diff --check`, and a focused
+Debug build passed; touched-file comment audit inspected `RunInput.cpp`,
+`RunState.h`, `Run.h`, and `tools/check_runtime_boundaries.py`;
+`tools\validate_fast.bat` passed in 36.1s; intermittent
+`tools\validate_physics.bat` passed in about 13.8s with standalone/runtime handle
+smoke and byte-exact `physics_regression_solver.csv`.
+
 Strict-step authority slice `PHY-0207K`: fixed-contact highlight
 notification moved out of `PhysicsWorld` side-effect application. The persistent
 solver already fills `fixedContactBodies`; `PhysicsWorld` now exposes that queue

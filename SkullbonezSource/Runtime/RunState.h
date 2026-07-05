@@ -15,6 +15,8 @@ Glossary:
   Runtime setting: Live toggle or tuning value applied while a scene is running.
   Contact-audio flash mode: Render-only selector for which audio decisions get
     a body flash after physics, independent of deterministic simulation.
+  Attached camera target: Camera-owned follow identity that stores physics
+    handles for live motion and keeps model-order facts only as UI fallback.
   Borrowed subsystem pointer: Non-owning pointer to state owned elsewhere in
     the Run composition root.
 
@@ -37,6 +39,7 @@ Related:
 #include "../Core/Config.h"
 #include "../Core/Timer.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
+#include "../Physics/PhysicsHandles.h"
 #include "../Physics/TornadoField.h"
 #include "../World/SkyBox.h"
 #include "CameraCollection.h"
@@ -186,7 +189,9 @@ enum class AttachedCameraSubmode
 
 struct AttachedCameraTarget
 {
-    int modelIndex = -1;                                       // Fast live lookup; revalidated every frame before use.
+    Physics::PhysicsBodyHandle body;                           // Primary live physics identity for follow/orbit sampling.
+    Physics::PhysicsColliderHandle collider;                   // Shape/radius identity paired with body.
+    int modelIndex = -1;                                       // UI/presentation hint; revalidated before use.
     uint32_t replayBodyId = 0;                                 // Stable scene-local identity used to recover stale indices.
     char name[64] = {};                                        // Human/debug fallback when replay id cannot recover the target.
 };

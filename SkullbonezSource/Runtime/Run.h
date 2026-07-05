@@ -235,8 +235,7 @@ class Run
     void CaptureAttachedCameraReturnState(
         RunCameraMode previousMode );                                      // Saves the camera mode/pose Attach should restore on exit.
     void RestoreAttachedCameraReturnState();                               // Smoothly restores the saved pre-Attach pose when returning to that mode.
-    bool TryResolveAttachedCameraTarget(
-        int& outModelIndex );                                              // Revalidates/recover target by index, replay id, or exact name.
+    bool TryResolveAttachedCameraTarget( int& outModelIndex );             // Revalidates handle-owned target; model index is a UI hint.
     void SetAttachedCameraTarget( int modelIndex );                        // Stores exact clicked/seeded model identity and captures offset.
     void ClearAttachedCameraTarget();                                      // Clears follow target but preserves current camera world pose.
     void SeedAttachedCameraTargetFromSelection();                          // Initializes Attach from replay/editor selection when possible.

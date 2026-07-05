@@ -16,8 +16,8 @@ Glossary:
     diagnostic selector; it does not change audio classification policy.
   Contact-audio simple command: One-frame UI request that switches audio to the
     body-linear-energy path instead of the solver contact-row classifier.
-  Attached-camera physics target: Store-owned pose, velocity, and broad radius
-    sampled for camera follow math while GameModel supplies cold identity.
+  Attached-camera physics target: Body/collider handles plus a store-owned pose,
+    velocity, and broad radius sampled for camera follow math.
   Validation gate: Repository script that proves a class of changes before
     commit or PR.
 
@@ -159,23 +159,158 @@ float AttachedCameraTargetRadius( const PhysicsBodyRecord& body, const ColliderR
     return (std::max)( (std::max)( collider.boundingRadius, body.boundingRadius ), 1.0f );
 }
 
-bool TryResolveAttachedCameraPhysicsTarget( SkullbonezCore::GameObjects::GameModelCollection& collection,
-                                            int modelIndex,
-                                            AttachedCameraPhysicsTarget& outTarget )
+bool TryAttachCameraTargetHandlesFromModelIndex( SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                                 int modelIndex,
+                                                 AttachedCameraTarget& target )
 {
     const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
     const ColliderStore& colliderStore = collection.GetColliderStore();
     const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
     const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
     const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
-    if ( !body || !collider )
+    if ( !body || !collider || collider->body != body->handle )
     {
         return false;
     }
 
-    // Concept: attached camera follow is presentation, but its target motion is
-    // live physics state. Sample the dense stores here so camera follow no
-    // longer depends on the post-step GameModel compatibility mirror.
+    target.body = body->handle;
+    target.collider = collider->handle;
+    target.modelIndex = modelIndex;
+    target.replayBodyId = body->replayBodyId;
+    return true;
+}
+
+bool TryResolveAttachedCameraTargetIdentity( SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                             AttachedCameraTarget& target,
+                                             int& outModelIndex )
+{
+    outModelIndex = -1;
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
+    const ColliderStore& colliderStore = collection.GetColliderStore();
+
+    if ( target.body.IsValid() )
+    {
+        const PhysicsBodyRecord* body = bodyStore.RecordForHandle( target.body );
+        const int modelIndex = bodyStore.ModelIndexForHandle( target.body );
+        const ColliderRecord* collider =
+            target.collider.IsValid() ? colliderStore.RecordForHandle( target.collider ) : nullptr;
+        if ( body && modelIndex >= 0 && ( !collider || collider->body != body->handle ) )
+        {
+            const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
+            collider = colliderStore.RecordForHandle( colliderHandle );
+            if ( collider )
+            {
+                target.collider = collider->handle;
+            }
+        }
+        if ( body && collider && collider->body == body->handle )
+        {
+            // Concept: the attach camera follows physics identity, not vector
+            // order. Model index is kept as a presentation hint after the live
+            // handle proves which dense row currently owns the body.
+            target.body = body->handle;
+            target.modelIndex = modelIndex;
+            target.replayBodyId = body->replayBodyId;
+            outModelIndex = modelIndex;
+            return true;
+        }
+    }
+
+    const std::vector<GameModel>& models = collection.Models();
+    const int cachedIndex = target.modelIndex;
+    if ( cachedIndex >= 0 && cachedIndex < static_cast<int>( models.size() ) )
+    {
+        const GameModel& model = models[static_cast<std::size_t>( cachedIndex )];
+        const bool hasReplayId = target.replayBodyId != 0;
+        const bool hasName = target.name[0] != '\0';
+        bool cachedIndexMatches = true;
+        if ( hasReplayId )
+        {
+            cachedIndexMatches = model.GetReplayBodyId() == target.replayBodyId;
+        }
+        if ( cachedIndexMatches && hasName )
+        {
+            cachedIndexMatches = strcmp( model.GetName(), target.name ) == 0;
+        }
+        if ( cachedIndexMatches && TryAttachCameraTargetHandlesFromModelIndex( collection, cachedIndex, target ) )
+        {
+            outModelIndex = cachedIndex;
+            return true;
+        }
+    }
+
+    if ( target.replayBodyId != 0 )
+    {
+        int match = -1;
+        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        {
+            if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == target.replayBodyId )
+            {
+                if ( match >= 0 )
+                {
+                    target = AttachedCameraTarget{};
+                    return false;
+                }
+                match = i;
+            }
+        }
+        if ( match >= 0 && TryAttachCameraTargetHandlesFromModelIndex( collection, match, target ) )
+        {
+            outModelIndex = match;
+            return true;
+        }
+    }
+
+    if ( target.name[0] != '\0' )
+    {
+        int match = -1;
+        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        {
+            if ( strcmp( models[static_cast<std::size_t>( i )].GetName(), target.name ) == 0 )
+            {
+                if ( match >= 0 )
+                {
+                    target = AttachedCameraTarget{};
+                    return false;
+                }
+                match = i;
+            }
+        }
+        if ( match >= 0 && TryAttachCameraTargetHandlesFromModelIndex( collection, match, target ) )
+        {
+            outModelIndex = match;
+            return true;
+        }
+    }
+
+    target = AttachedCameraTarget{};
+    return false;
+}
+
+bool TryResolveAttachedCameraPhysicsTarget( SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                            AttachedCameraTarget& target,
+                                            AttachedCameraPhysicsTarget& outTarget,
+                                            int* outModelIndex = nullptr )
+{
+    int modelIndex = -1;
+    if ( !TryResolveAttachedCameraTargetIdentity( collection, target, modelIndex ) )
+    {
+        return false;
+    }
+    if ( outModelIndex )
+    {
+        *outModelIndex = modelIndex;
+    }
+
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
+    const ColliderStore& colliderStore = collection.GetColliderStore();
+    const PhysicsBodyRecord* body = bodyStore.RecordForHandle( target.body );
+    const ColliderRecord* collider = colliderStore.RecordForHandle( target.collider );
+    if ( !body || !collider || collider->body != body->handle )
+    {
+        return false;
+    }
+
     outTarget.position = body->position;
     outTarget.linearVelocity = body->linearVelocity;
     outTarget.rotation = BodyRotation( body->orientation );
@@ -1116,75 +1251,9 @@ void Run::ClearAttachedCameraTarget()
 
 bool Run::TryResolveAttachedCameraTarget( int& outModelIndex )
 {
-    outModelIndex = -1;
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    const int cachedIndex = m_attachedCamera.target.modelIndex;
-    if ( cachedIndex >= 0 && cachedIndex < static_cast<int>( models.size() ) )
+    if ( TryResolveAttachedCameraTargetIdentity( m_cGameModelCollection, m_attachedCamera.target, outModelIndex ) )
     {
-        const GameModel& model = models[static_cast<std::size_t>( cachedIndex )];
-        const bool hasReplayId = m_attachedCamera.target.replayBodyId != 0;
-        const bool hasName = m_attachedCamera.target.name[0] != '\0';
-        bool cachedIndexMatches = true;
-        if ( hasReplayId )
-        {
-            cachedIndexMatches = model.GetReplayBodyId() == m_attachedCamera.target.replayBodyId;
-        }
-        if ( cachedIndexMatches && hasName )
-        {
-            cachedIndexMatches = strcmp( model.GetName(), m_attachedCamera.target.name ) == 0;
-        }
-        if ( cachedIndexMatches )
-        {
-            outModelIndex = cachedIndex;
-            return true;
-        }
-    }
-
-    if ( m_attachedCamera.target.replayBodyId != 0 )
-    {
-        int match = -1;
-        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
-        {
-            if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == m_attachedCamera.target.replayBodyId )
-            {
-                if ( match >= 0 )
-                {
-                    ClearAttachedCameraTarget();
-                    return false;
-                }
-                match = i;
-            }
-        }
-        if ( match >= 0 )
-        {
-            m_attachedCamera.target.modelIndex = match;
-            outModelIndex = match;
-            return true;
-        }
-    }
-
-    if ( m_attachedCamera.target.name[0] != '\0' )
-    {
-        int match = -1;
-        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
-        {
-            if ( strcmp( models[static_cast<std::size_t>( i )].GetName(), m_attachedCamera.target.name ) == 0 )
-            {
-                if ( match >= 0 )
-                {
-                    ClearAttachedCameraTarget();
-                    return false;
-                }
-                match = i;
-            }
-        }
-        if ( match >= 0 )
-        {
-            m_attachedCamera.target.modelIndex = match;
-            m_attachedCamera.target.replayBodyId = models[static_cast<std::size_t>( match )].GetReplayBodyId();
-            outModelIndex = match;
-            return true;
-        }
+        return true;
     }
 
     ClearAttachedCameraTarget();
@@ -1258,14 +1327,13 @@ void Run::SetAttachedCameraTarget( int modelIndex )
 
     const GameModel& model = models[static_cast<std::size_t>( modelIndex )];
     AttachedCameraPhysicsTarget targetState;
-    if ( !TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, modelIndex, targetState ) )
+    if ( !TryAttachCameraTargetHandlesFromModelIndex( m_cGameModelCollection, modelIndex, m_attachedCamera.target ) ||
+         !TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, m_attachedCamera.target, targetState ) )
     {
         ClearAttachedCameraTarget();
         return;
     }
 
-    m_attachedCamera.target.modelIndex = modelIndex;
-    m_attachedCamera.target.replayBodyId = model.GetReplayBodyId();
     strncpy_s( m_attachedCamera.target.name, sizeof( m_attachedCamera.target.name ), model.GetName(), _TRUNCATE );
     RuntimeInteractionCommand command;
     command.type = RuntimeInteractionCommandType::SetEditorSelection;
@@ -1290,17 +1358,13 @@ void Run::SetAttachedCameraTarget( int modelIndex )
 
 void Run::SeedAttachedCameraTargetFromSelection()
 {
-    int currentIndex = -1;
-    if ( TryResolveAttachedCameraTarget( currentIndex ) )
+    AttachedCameraPhysicsTarget currentState;
+    if ( TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, m_attachedCamera.target, currentState ) )
     {
-        AttachedCameraPhysicsTarget currentState;
-        if ( TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, currentIndex, currentState ) )
-        {
-            CaptureAttachedCameraFixedOffset( currentState.position, currentState.rotation, currentState.radius );
-            m_attachedCamera.activeFollow = true;
-            ApplyCursorOwnership();
-            return;
-        }
+        CaptureAttachedCameraFixedOffset( currentState.position, currentState.rotation, currentState.radius );
+        m_attachedCamera.activeFollow = true;
+        ApplyCursorOwnership();
+        return;
     }
 
     int seedIndex = -1;
@@ -1427,7 +1491,11 @@ void Run::CycleAttachedCameraSubmode()
         return;
     }
     int modelIndex = -1;
-    if ( !TryResolveAttachedCameraTarget( modelIndex ) )
+    AttachedCameraPhysicsTarget targetState;
+    if ( !TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection,
+                                                 m_attachedCamera.target,
+                                                 targetState,
+                                                 &modelIndex ) )
     {
         return;
     }
@@ -1448,11 +1516,7 @@ void Run::CycleAttachedCameraSubmode()
     m_attachedCamera.needsEntryTween = true;
     if ( next != AttachedCameraSubmode::RagdollEyes || !m_attachedCamera.hasFixedOffset )
     {
-        AttachedCameraPhysicsTarget targetState;
-        if ( TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, modelIndex, targetState ) )
-        {
-            CaptureAttachedCameraFixedOffset( targetState.position, targetState.rotation, targetState.radius );
-        }
+        CaptureAttachedCameraFixedOffset( targetState.position, targetState.rotation, targetState.radius );
     }
     UpdateRuntimeInputModeAfterAction( RuntimeInputAction::CycleAttachedCameraSubmode,
                                        RuntimeInputActionSource::Keyboard );
@@ -1469,14 +1533,10 @@ void Run::ToggleAttachedCameraPin()
     m_attachedCamera.activeFollow = !m_attachedCamera.activeFollow;
     if ( m_attachedCamera.activeFollow )
     {
-        int modelIndex = -1;
-        if ( TryResolveAttachedCameraTarget( modelIndex ) )
+        AttachedCameraPhysicsTarget targetState;
+        if ( TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, m_attachedCamera.target, targetState ) )
         {
-            AttachedCameraPhysicsTarget targetState;
-            if ( TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, modelIndex, targetState ) )
-            {
-                CaptureAttachedCameraFixedOffset( targetState.position, targetState.rotation, targetState.radius );
-            }
+            CaptureAttachedCameraFixedOffset( targetState.position, targetState.rotation, targetState.radius );
         }
         m_attachedCamera.needsEntryTween = true;
     }
@@ -1504,14 +1564,8 @@ void Run::TickAttachedCameraOrbitInput( int unhandledWheelDelta )
         return;
     }
 
-    int modelIndex = -1;
-    if ( !TryResolveAttachedCameraTarget( modelIndex ) )
-    {
-        return;
-    }
-
     AttachedCameraPhysicsTarget targetState;
-    if ( !TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, modelIndex, targetState ) )
+    if ( !TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, m_attachedCamera.target, targetState ) )
     {
         return;
     }
@@ -1536,13 +1590,11 @@ void Run::TickAttachedCamera()
     }
 
     int modelIndex = -1;
-    if ( !TryResolveAttachedCameraTarget( modelIndex ) )
-    {
-        return;
-    }
-
     AttachedCameraPhysicsTarget targetState;
-    if ( !TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, modelIndex, targetState ) )
+    if ( !TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection,
+                                                 m_attachedCamera.target,
+                                                 targetState,
+                                                 &modelIndex ) )
     {
         return;
     }
@@ -1567,7 +1619,9 @@ void Run::TickAttachedCamera()
         if ( TryResolveAttachedCameraRagdollHead( modelIndex, headIndex ) )
         {
             AttachedCameraPhysicsTarget headState;
-            if ( !TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, headIndex, headState ) )
+            AttachedCameraTarget headTarget;
+            if ( !TryAttachCameraTargetHandlesFromModelIndex( m_cGameModelCollection, headIndex, headTarget ) ||
+                 !TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, headTarget, headState ) )
             {
                 return;
             }

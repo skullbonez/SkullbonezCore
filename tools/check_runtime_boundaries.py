@@ -13,8 +13,9 @@
 #   have an extra file-classification fence, object rendering has a
 #   render-instance authority fence, runtime picking, attached-camera follow,
 #   and required scene contacts have store-authority fences, runtime handle
-#   smoke has a handle-authority fence, contact-audio simple mode has a
-#   body-store motion fence, and fixed-tree, replay-restore wake, replay
+#   smoke has a handle-authority fence, attached-camera target identity has a
+#   handle-authority fence, contact-audio simple mode has a body-store motion
+#   fence, and fixed-tree, replay-restore wake, replay
 #   velocity-edit, launcher ray-hit, selection overlay, mouse-pickup overlay,
 #   attached-camera overlay, replay marker radii, or editor wake/sleep commands
 #   have store-handle fences. The deleted collection step wrapper has its own
@@ -50,9 +51,10 @@
 #     body/collider records instead of reopening a GameModel mirror path.
 #   Object contact manifold: Exact narrowphase contact report built from
 #     PhysicsBodyStore pose and ColliderStore shape snapshots.
-#   Attached-camera follow: Runtime camera mode that tracks a selected body;
-#     GameModel identifies the selection while PhysicsBodyStore and
-#     ColliderStore own the live pose, velocity, orientation, and radius.
+#   Attached-camera follow: Runtime camera mode that tracks a selected body.
+#     Camera state keeps PhysicsBodyHandle/PhysicsColliderHandle as the live
+#     identity and uses model-order replay/name facts only to recover stale
+#     presentation selections.
 #   Body-store motion fence: Static rule that keeps post-step motion
 #     classification on PhysicsBodyStore records instead of mirrored GameModel
 #     body fields.
@@ -363,6 +365,10 @@ RUNTIME_PICK_SERVICE_MODEL_STATE_PATTERN = re.compile(
 )
 ATTACHED_CAMERA_DELETED_MODEL_HELPER_PATTERN = re.compile(
     r"\b(?:ModelRotation|ModelToWorldVector|WorldToModelVector|AttachedCameraModelRadius)\s*\("
+)
+ATTACHED_CAMERA_MODEL_INDEX_TARGET_RESOLVE_PATTERN = re.compile(
+    r"\bTryResolveAttachedCameraPhysicsTarget\s*\(\s*[^,\n]+,\s*"
+    r"(?:(?:int\s+)?(?:modelIndex|currentIndex|headIndex|selectedModelIndex))\s*,"
 )
 ATTACHED_CAMERA_STORE_AUTHORITY_FUNCTION_PATTERNS = (
     re.compile(r"\bvoid\s+Run::CaptureAttachedCameraFixedOffset\s*\("),
@@ -3592,6 +3598,19 @@ def check_attached_camera_store_authority_guardrails_text(path: Path, text: str)
                 (
                     "Attach camera follow should sample PhysicsBodyStore and ColliderStore records for pose, "
                     "velocity, orientation, and radius instead of routing those facts through GameModel helpers."
+                ),
+            )
+        )
+
+    for match in ATTACHED_CAMERA_MODEL_INDEX_TARGET_RESOLVE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "attached camera target identity must use physics handles",
+                (
+                    "Attach camera follow should resolve PhysicsBodyHandle and PhysicsColliderHandle from its "
+                    "target state instead of doing late model-index physics lookup."
                 ),
             )
         )
@@ -8768,7 +8787,7 @@ def run_self_tests() -> list[str]:
     void Run::TickAttachedCamera()
     {
         AttachedCameraPhysicsTarget targetState;
-        if ( !TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, modelIndex, targetState ) )
+        if ( !TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, m_attachedCamera.target, targetState ) )
         {
             return;
         }
@@ -8782,6 +8801,42 @@ def run_self_tests() -> list[str]:
         allowed_attached_camera_store_reads,
     ):
         failures.append("attached camera store-read synthetic surface was rejected")
+
+    old_attached_camera_model_index_resolver = """
+    void Run::TickAttachedCamera()
+    {
+        AttachedCameraPhysicsTarget targetState;
+        if ( !TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, modelIndex, targetState ) )
+        {
+            return;
+        }
+    }
+    """
+    if not any(
+        error.message == "attached camera target identity must use physics handles"
+        for error in check_attached_camera_store_authority_guardrails_text(
+            Path("synthetic/RunInput.cpp"),
+            old_attached_camera_model_index_resolver,
+        )
+    ):
+        failures.append("attached camera model-index physics resolver synthetic surface was not rejected")
+
+    old_attached_camera_model_index_resolver_definition = """
+    bool TryResolveAttachedCameraPhysicsTarget( GameModelCollection& collection,
+                                                int modelIndex,
+                                                AttachedCameraPhysicsTarget& outTarget )
+    {
+        return true;
+    }
+    """
+    if not any(
+        error.message == "attached camera target identity must use physics handles"
+        for error in check_attached_camera_store_authority_guardrails_text(
+            Path("synthetic/RunInput.cpp"),
+            old_attached_camera_model_index_resolver_definition,
+        )
+    ):
+        failures.append("attached camera model-index resolver definition synthetic surface was not rejected")
 
     commented_attached_camera_model_reads = """
     void DocumentAttachedCameraHistory()
