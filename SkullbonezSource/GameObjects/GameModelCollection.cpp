@@ -1015,6 +1015,12 @@ bool GameModelCollection::RepairPhysicsBodyAndColliderTopology()
 }
 
 
+const SkullbonezCore::Physics::ColliderStore& GameModelCollection::Colliders() const
+{
+    return m_physicsEngine.Colliders();
+}
+
+
 const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::RenderInstances() const
 {
     return m_physicsEngine.RenderInstances();

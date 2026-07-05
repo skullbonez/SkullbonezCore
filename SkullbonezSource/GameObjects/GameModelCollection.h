@@ -255,6 +255,9 @@ class GameModelCollection
     // Repairs model/body/collider count drift before tool or picker code asks
     // for body handles and collider bounds.
     bool RepairPhysicsBodyAndColliderTopology();
+    // Current prepared collider snapshot. Hot render passes use this after
+    // PrepareRenderInstances() instead of invoking topology repair mid-submit.
+    const Physics::ColliderStore& Colliders() const;
     // Current prepared render snapshot. Call PrepareRenderInstances() before frame
     // passes; cold callers that need an ensured snapshot use GetRenderInstanceStore().
     const Rendering::RenderInstanceStore& RenderInstances() const;

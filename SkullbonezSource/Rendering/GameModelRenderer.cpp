@@ -7,8 +7,9 @@ Purpose:
 Mental model:
   Renderer-facing code translates engine concepts into backend resources, draw
   calls, shader bindings, and validation artifacts. Draw transforms come from
-  RenderInstanceStore so physics-owned pose does not have to be copied back into
-  every GameModel merely for rendering.
+  RenderInstanceStore and hull geometry comes from ColliderStore so
+  physics-owned pose/shape data does not have to be copied back into every
+  GameModel merely for rendering.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -33,6 +34,7 @@ Related:
 
 #include "../Core/Config.h"
 #include "../GameObjects/GameModelCollection.h"
+#include "../Physics/ColliderStore.h"
 #include "Helper.h"
 #include "IRenderBackend.h"
 #include "RenderInstanceStore.h"
@@ -49,6 +51,7 @@ using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Rendering::RenderInstanceRecord;
 using SkullbonezCore::Rendering::RenderInstanceShapeKind;
 using SkullbonezCore::Rendering::RenderInstanceStore;
@@ -121,16 +124,15 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
                                       const std::vector<uint8_t>* modelMask,
                                       bool drawMaskedModels )
 {
-    const std::vector<GameModel>& models = collection.Models();
     const RenderInstanceStore& renderStore = collection.RenderInstances();
     const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
 
-    if ( models.empty() || instances.empty() )
+    if ( instances.empty() )
     {
         return;
     }
 
-    const int modelCount = (std::min)( static_cast<int>( models.size() ), static_cast<int>( instances.size() ) );
+    const int modelCount = static_cast<int>( instances.size() );
     const float clampedMaterialAlpha = std::clamp( materialAlpha, 0.0f, 1.0f );
     const bool alphaBlendedPass = collection.ShouldRenderCollisionVolumes() || clampedMaterialAlpha < 1.0f;
     const auto shouldDrawModel = [&]( int index ) -> bool
@@ -238,6 +240,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
 
     {
         DRAW_CALL_TRACE_SCOPE( "ConvexHulls" );
+        const std::vector<ColliderRecord>* colliders = nullptr;
         for ( int x = 0; x < modelCount; ++x )
         {
             if ( !shouldDrawModel( x ) )
@@ -249,8 +252,17 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
             {
                 continue;
             }
+            if ( !colliders )
+            {
+                colliders = &collection.Colliders().Records();
+            }
+            if ( static_cast<std::size_t>( x ) >= colliders->size() )
+            {
+                continue;
+            }
 
-            const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &models[x].GetCollisionShape() );
+            const ColliderRecord& collider = ( *colliders )[static_cast<std::size_t>( x )];
+            const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
             if ( !hull )
             {
                 continue;
@@ -277,17 +289,16 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches" );
 
-    const std::vector<GameModel>& models = collection.Models();
     const RenderInstanceStore& renderStore = collection.RenderInstances();
     const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
     outBatches.Clear();
 
-    if ( models.empty() || instances.empty() )
+    if ( instances.empty() )
     {
         return;
     }
 
-    const int modelCount = (std::min)( static_cast<int>( models.size() ), static_cast<int>( instances.size() ) );
+    const int modelCount = static_cast<int>( instances.size() );
 
     auto appendRange = [&]( int begin, int end, ShadowCasterBatches& batches )
     {
@@ -296,6 +307,7 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
         batches.boxes.reserve( static_cast<size_t>( end - begin ) );
         batches.pines.reserve( static_cast<size_t>( end - begin ) );
         batches.convexHulls.reserve( static_cast<size_t>( end - begin ) );
+        const std::vector<ColliderRecord>* colliders = nullptr;
         for ( int x = begin; x < end; ++x )
         {
             const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( x )];
@@ -307,7 +319,19 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
 
             if ( instance.shapeKind == RenderInstanceShapeKind::ConvexHull )
             {
-                const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &models[x].GetCollisionShape() );
+                if ( !colliders )
+                {
+                    colliders = &collection.Colliders().Records();
+                }
+                if ( static_cast<std::size_t>( x ) >= colliders->size() )
+                {
+                    continue;
+                }
+                const ColliderRecord& collider = ( *colliders )[static_cast<std::size_t>( x )];
+                // Lifetime: shadow batches hold pointers into ColliderStore
+                // records and are submitted in the same frame before the store
+                // is refreshed or compacted.
+                const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
                 if ( hull )
                 {
                     batches.convexHulls.push_back( { hull, instance.modelMatrix } );

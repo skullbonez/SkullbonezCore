@@ -3,10 +3,10 @@
 Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
-Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_full.bat` passed on 2026-07-05 after moving replay
-prediction ghost draw shape/material reads to `ColliderStore` and
-`RenderInstanceStore` snapshots.
+Validation for latest source slice: `tools\validate_fast.bat`,
+`tools\validate_dx12_renderer.bat`, and `tools\validate_perf.bat` passed on
+2026-07-05 after moving convex-hull render geometry reads to prepared
+`ColliderStore` snapshots.
 
 ## Completed Slices
 
@@ -507,6 +507,26 @@ prediction ghost draw shape/material reads to `ColliderStore` and
   2026-07-05; full gate reported DX12 InfoQueue errors 0, DX12 screenshots
   matched committed baselines, standalone/runtime physics smoke passed, and
   `physics_regression_solver.csv` was a byte-exact 20,001-line match.
+- [x] 2026-07-05: Moved convex-hull render geometry reads to prepared
+  `ColliderStore` snapshots. Owner: `GameModelRenderer::RenderModels()` and
+  `GameModelRenderer::BuildShadowCasterBatches()`. Reason: sphere/box/pine
+  rendering already consumed `RenderInstanceStore`, but convex hulls still
+  reopened `models[x].GetCollisionShape()` in normal and shadow render paths.
+  `GameModelCollection::Colliders()` now exposes the already-prepared collider
+  snapshot without topology repair, and the renderer lazily borrows collider
+  rows only after a render instance identifies a convex-hull draw. Deletion
+  condition: `GameModelRenderer.cpp` contains no `GameModel`
+  `GetCollisionShape()`, `GetRenderMaterial()`, or `GetColliderStore()` render
+  reads. Checker budget: `tools/check_runtime_boundaries.py` rejects those
+  renderer reads and self-tests old, allowed, and comment-only forms.
+  Validation: focused Profile build passed at 0 warnings/errors;
+  `git diff --check`, `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, `tools\validate_dx12_renderer.bat`, and
+  `tools\validate_perf.bat` passed on 2026-07-05; DX12 InfoQueue errors were
+  0, screenshots matched baselines, and the final perf run reported no
+  regressions after the renderer stopped touching collider storage for
+  sphere/box/pine-only passes.
 
 ## Goal
 

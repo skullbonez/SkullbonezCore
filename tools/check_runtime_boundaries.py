@@ -11,10 +11,10 @@
 #   already moved to render graph callback ownership, and new normal-path global
 #   service access while explicit service contexts are built. Renderer globals
 #   have an extra file-classification fence, object rendering has a
-#   render-instance authority fence, runtime picking, attached-camera follow,
-#   and required scene contacts have store-authority fences, runtime handle
-#   smoke has a handle-authority fence, attached-camera target identity has a
-#   handle-authority fence, contact-audio simple mode has a body-store motion
+#   render-instance/collider authority fence, runtime picking, attached-camera
+#   follow, and required scene contacts have store-authority fences, runtime
+#   handle smoke has a handle-authority fence, attached-camera target identity
+#   has a handle-authority fence, contact-audio simple mode has a body-store motion
 #   fence, fixed-contact presentation highlights have a body-store fixed-state
 #   fence, and fixed-tree, replay-restore wake, replay
 #   velocity-edit, launcher ray-hit, selection overlay, editor selection-frame,
@@ -51,7 +51,7 @@
 #   Topology repair: Count-gated compatibility import that rebuilds store rows
 #     only after object counts change.
 #   Render instance store: Physics-backed, model-order snapshot consumed by
-#     render passes instead of rebuilding GameModel pose streams.
+#     render passes instead of rebuilding GameModel pose/material streams.
 #   Store-authority fence: Static rule that keeps a migrated reader on physics
 #     body/collider records instead of reopening a GameModel mirror path.
 #   Object contact manifold: Exact narrowphase contact report built from
@@ -350,7 +350,8 @@ RENDER_INSTANCE_STORE_MODEL_POSE_OVERRIDE_PATTERN = re.compile(
 GAME_MODEL_RENDERER_MODEL_POSE_STREAM_PATTERN = re.compile(
     r"\b(?:GameModelRenderStream|GameModelBodyStream)\b"
     r"|\bcollection\s*\.\s*(?:GetRenderStream|GetBodyStream)\s*\("
-    r"|\bmodels\s*\[[^\]]+\]\s*\.\s*(?:GetPosition|GetOrientation|GetRenderMaterial)\s*\("
+    r"|\bcollection\s*\.\s*GetColliderStore\s*\("
+    r"|\bmodels\s*\[[^\]]+\]\s*\.\s*(?:GetPosition|GetOrientation|GetCollisionShape|GetRenderMaterial)\s*\("
     r"|\bmodels\s*\[[^\]]+\]\s*\.\s*(?:IsSphere|IsBox|IsConvexHull)\s*\("
 )
 DXR_MODEL_MATRIX_RENDER_INSTANCE_PATTERN = re.compile(
@@ -3394,7 +3395,9 @@ def check_game_model_renderer_render_instance_authority_guardrails_text(path: Pa
                 "GameModelRenderer model-pose stream read is blocked",
                 (
                     "Object rendering should read RenderInstanceStore records for transforms, fixed flags, "
-                    "material highlights, shape kind, and bounds instead of rebuilding GameModel SoA pose streams."
+                    "material highlights, shape kind, and bounds, plus prepared ColliderStore records for "
+                    "convex-hull geometry, instead of rebuilding GameModel SoA pose streams or invoking "
+                    "topology repair from the render hot path."
                 ),
             )
         )
@@ -12331,9 +12334,11 @@ def run_self_tests() -> list[str]:
     {
         const GameModelRenderStream renderStream = collection.GetRenderStream();
         const GameModelBodyStream bodyStream = collection.GetBodyStream();
+        const std::vector<ColliderRecord>& colliders = collection.GetColliderStore().Records();
         if ( models[x].IsSphere() || models[x].IsBox() || models[x].IsConvexHull() ) {}
         const Matrix4 bodyModel = Matrix4::Translate( models[x].GetPosition() ) *
                                   Matrix4::FromQuaternion( models[x].GetOrientation() );
+        const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &models[x].GetCollisionShape() );
         const bool isPineVisual = IsPineVisualMaterial( models[x].GetRenderMaterial() );
     }
     """
@@ -12351,10 +12356,11 @@ def run_self_tests() -> list[str]:
     {
         const RenderInstanceStore& renderStore = collection.RenderInstances();
         const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
+        const std::vector<ColliderRecord>& colliders = collection.Colliders().Records();
         if ( instances[x].shapeKind == RenderInstanceShapeKind::Sphere ||
              instances[x].shapeKind == RenderInstanceShapeKind::ConvexHull )
         {
-            const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &models[x].GetCollisionShape() );
+            const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &colliders[x].shape );
             RenderHelper::DrawSphereBatchModel( instances[x].modelMatrix, instances[x].material );
         }
     }
