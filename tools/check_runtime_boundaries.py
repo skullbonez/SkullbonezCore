@@ -575,7 +575,12 @@ RUN_FRAME_REPLAY_PROBE_FUNCTION_PATTERNS = (
 )
 RUN_FRAME_REPLAY_PROBE_MODEL_BODY_READ_PATTERN = re.compile(
     r"\b[A-Za-z_]\w*\s*(?:->|\.)"
-    r"(?:GetPosition|GetVelocity|GetAngularVelocity|GetOrientation|GetMass|IsFixed)\s*\("
+    r"(?:GetReplayBodyId|GetPosition|GetVelocity|GetAngularVelocity|GetOrientation|GetMass|IsFixed)\s*\("
+)
+# Why: replay save/restore may still edit the authoring GameModel, but the
+# shape being scaled must come from the collider snapshot that physics owns.
+RUN_FRAME_REPLAY_PROBE_MODEL_COLLIDER_READ_PATTERN = re.compile(
+    r"\b[A-Za-z_]\w*\s*(?:->|\.)GetCollisionShape\s*\("
 )
 PHYSICS_SCENE_RUN_PHYSICS_FUNCTION_PATTERN = re.compile(r"\bvoid\s+PhysicsScene::RunPhysics\s*\(")
 PHYSICS_SCENE_STEP_BODY_RELOAD_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*ReloadPhysicsBodies\s*\(")
@@ -4315,8 +4320,20 @@ def check_run_frame_replay_probe_body_store_guardrails_text(path: Path, text: st
                     line_for_offset(stripped, match.start()),
                     "replay probe body state must use PhysicsBodyStore",
                     (
-                        "Replay scrub/save/load probes should prove live simulation state from PhysicsBodyStore "
-                        "records, not from the temporary GameModel body mirror."
+                        "Replay scrub/save/load probes should prove live simulation state and replay identity from "
+                        "PhysicsBodyStore records, not from the temporary GameModel body mirror."
+                    ),
+                )
+            )
+        for match in RUN_FRAME_REPLAY_PROBE_MODEL_COLLIDER_READ_PATTERN.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "replay probe collider state must use ColliderStore",
+                    (
+                        "Replay save/restore editor scale paths should read the base shape from ColliderStore "
+                        "records, then commit the edited authoring model back through the explicit owner path."
                     ),
                 )
             )
@@ -13650,6 +13667,7 @@ def run_self_tests() -> list[str]:
         const GameModel* restoredModel = m_cGameModelCollection.TryGetModel( 0 );
         const Vector3& restoredVelocity = restoredModel->GetVelocity();
         restoredModel->GetOrientation().GetComponents( qx, qy, qz, qw );
+        const uint32_t replayBodyId = restoredModel->GetReplayBodyId();
         return true;
     }
     """
@@ -13711,6 +13729,76 @@ def run_self_tests() -> list[str]:
         allowed_run_frame_replay_save_probe_editor_authoring,
     ):
         failures.append("editor-authoring RunFrame replay save probe synthetic surface was rejected")
+
+    old_run_frame_replay_save_probe_model_shape_read = """
+    void Run::TickReplaySaveProbe()
+    {
+        GameModel& placedModel = m_cGameModelCollection.GetModelAtIndex( modelCountBeforePlace );
+        const CollisionShape placedShapeBeforeScale = placedModel.GetCollisionShape();
+        placedModel.ScaleCollisionShapeAxisFromBase( placedShapeBeforeScale, 0, 1.5f );
+    }
+    """
+    if not any(
+        error.message == "replay probe collider state must use ColliderStore"
+        for error in check_run_frame_replay_probe_body_store_guardrails_text(
+            RUN_FRAME_SOURCE,
+            old_run_frame_replay_save_probe_model_shape_read,
+        )
+    ):
+        failures.append("old RunFrame replay save probe model-shape synthetic surface was not rejected")
+
+    allowed_run_frame_replay_save_probe_collider_shape_read = """
+    void Run::TickReplaySaveProbe()
+    {
+        const ColliderRecord* placedColliderBeforeEdit = TryGetEditorTransformColliderRecord(
+            m_cGameModelCollection,
+            placementResult.placedCollider,
+            modelCountBeforePlace,
+            placedBodyBeforeEdit->replayBodyId );
+        const CollisionShape placedShapeBeforeScale = placedColliderBeforeEdit->shape;
+        placedModel.ScaleCollisionShapeAxisFromBase( placedShapeBeforeScale, 0, 1.5f );
+    }
+    """
+    if check_run_frame_replay_probe_body_store_guardrails_text(
+        RUN_FRAME_SOURCE,
+        allowed_run_frame_replay_save_probe_collider_shape_read,
+    ):
+        failures.append("store-owned RunFrame replay save probe collider synthetic surface was rejected")
+
+    old_run_frame_replay_transform_model_shape_read = """
+    bool Run::RestoreReplayV2ArtifactTargetState()
+    {
+        GameModel& model = m_cGameModelCollection.GetModelAtIndex( event.value0 );
+        const CollisionShape baseShape = model.GetCollisionShape();
+        return model.ScaleCollisionShapeAxisFromBase( baseShape, event.value3, scaleFactor );
+    }
+    """
+    if not any(
+        error.message == "replay probe collider state must use ColliderStore"
+        for error in check_run_frame_replay_probe_body_store_guardrails_text(
+            RUN_FRAME_SOURCE,
+            old_run_frame_replay_transform_model_shape_read,
+        )
+    ):
+        failures.append("old RunFrame replay transform model-shape synthetic surface was not rejected")
+
+    allowed_run_frame_replay_transform_collider_shape_read = """
+    bool Run::RestoreReplayV2ArtifactTargetState()
+    {
+        const ColliderRecord* colliderBeforeScale = TryGetEditorTransformColliderRecord(
+            m_cGameModelCollection,
+            PhysicsColliderHandle{},
+            event.value0,
+            eventBodyRecord->replayBodyId );
+        const CollisionShape baseShape = colliderBeforeScale->shape;
+        return model.ScaleCollisionShapeAxisFromBase( baseShape, event.value3, scaleFactor );
+    }
+    """
+    if check_run_frame_replay_probe_body_store_guardrails_text(
+        RUN_FRAME_SOURCE,
+        allowed_run_frame_replay_transform_collider_shape_read,
+    ):
+        failures.append("store-owned RunFrame replay transform collider synthetic surface was rejected")
 
     commented_run_frame_replay_probe_model_body_read = """
     void Run::VerifyLoadedReplayPresentationProbe()

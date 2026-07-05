@@ -17,6 +17,10 @@ Glossary:
     velocity changes rather than solver contact rows.
   Fixed-step edge: Runtime-owned code that repairs model/body topology before
     PhysicsEngine::Step and applies presentation-only mirror work after it.
+  PhysicsBodyStore: Physics-owned body rows for live pose, velocity, fixed
+    state, and replay identity.
+  ColliderStore: Physics-owned collider rows for exact shape variants, material
+    parameters, and broadphase radius.
   Replay event payload: Saved event data that must be decoded exactly so replay
     restore and validation compare the same floating-point bits.
   Validation gate: Repository script that proves a class of changes before
@@ -40,6 +44,7 @@ Related:
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeStyle.h"
 
+#include "../Physics/ColliderStore.h"
 #include "../Rendering/RenderInstanceStore.h"
 
 #include <cmath>
@@ -120,6 +125,31 @@ TryGetReplayProbeBodyRecord( const SkullbonezCore::GameObjects::GameModelCollect
         return nullptr;
     }
     return body;
+}
+
+
+// Why: editor transform replay still mutates the authoring GameModel, but the
+// shape it scales from is already owned by ColliderStore. Reading the store row
+// here avoids treating the compatibility model mirror as collision authority.
+const ColliderRecord*
+TryGetEditorTransformColliderRecord( const SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                     PhysicsColliderHandle colliderHandle,
+                                     int modelIndex,
+                                     uint32_t replayBodyId )
+{
+    const ColliderStore& colliderStore = collection.Colliders();
+    const PhysicsColliderHandle resolvedHandle =
+        colliderHandle.IsValid() ? colliderHandle : colliderStore.HandleForModelIndex( modelIndex );
+    const ColliderRecord* collider = colliderStore.RecordForHandle( resolvedHandle );
+    if ( !collider || colliderStore.ModelIndexForHandle( resolvedHandle ) != modelIndex )
+    {
+        return nullptr;
+    }
+    if ( replayBodyId != 0 && collider->replayBodyId != replayBodyId )
+    {
+        return nullptr;
+    }
+    return collider;
 }
 
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
@@ -1186,7 +1216,16 @@ void Run::TickReplaySaveProbe()
             Quaternion placedOrientation = placedBodyBeforeEdit->orientation;
             placedOrientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), 0.25f );
             placedModel.SetOrientation( placedOrientation );
-            const CollisionShape placedShapeBeforeScale = placedModel.GetCollisionShape();
+            const ColliderRecord* placedColliderBeforeEdit =
+                TryGetEditorTransformColliderRecord( m_cGameModelCollection,
+                                                     placementResult.placedCollider,
+                                                     modelCountBeforePlace,
+                                                     placedBodyBeforeEdit->replayBodyId );
+            if ( !placedColliderBeforeEdit )
+            {
+                throw std::runtime_error( "replay save probe failed to resolve placed collider record" );
+            }
+            const CollisionShape placedShapeBeforeScale = placedColliderBeforeEdit->shape;
             constexpr int PROBE_SCALE_AXIS = 0;
             constexpr float PROBE_SCALE_FACTOR = 1.5f;
             if ( !placedModel.ScaleCollisionShapeAxisFromBase( placedShapeBeforeScale,
@@ -1875,13 +1914,17 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 return false;
             }
 
-            GameModel& model = m_cGameModelCollection.GetModelAtIndex( event.value0 );
-            if ( model.GetReplayBodyId() != static_cast<uint32_t>( event.value1 ) )
+            const PhysicsBodyStore& bodyStoreBeforeEdit = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+            const PhysicsBodyHandle eventBody = bodyStoreBeforeEdit.HandleForModelIndex( event.value0 );
+            const PhysicsBodyRecord* eventBodyRecord = bodyStoreBeforeEdit.RecordForHandle( eventBody );
+            if ( !eventBodyRecord || bodyStoreBeforeEdit.ModelIndexForHandle( eventBody ) != event.value0 ||
+                 eventBodyRecord->replayBodyId != static_cast<uint32_t>( event.value1 ) )
             {
                 WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform replay body id mismatch" );
                 return false;
             }
 
+            GameModel& model = m_cGameModelCollection.GetModelAtIndex( event.value0 );
             if ( event.flags & REPLAY_EDITOR_TRANSFORM_TRANSLATE )
             {
                 model.SetPosition( position );
@@ -1892,7 +1935,17 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             }
             if ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE )
             {
-                const CollisionShape baseShape = model.GetCollisionShape();
+                const ColliderRecord* colliderBeforeScale =
+                    TryGetEditorTransformColliderRecord( m_cGameModelCollection,
+                                                         PhysicsColliderHandle{},
+                                                         event.value0,
+                                                         eventBodyRecord->replayBodyId );
+                if ( !colliderBeforeScale )
+                {
+                    WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform collider row missing" );
+                    return false;
+                }
+                const CollisionShape baseShape = colliderBeforeScale->shape;
                 if ( !model.ScaleCollisionShapeAxisFromBase( baseShape, event.value3, scaleFactor ) )
                 {
                     WriteReplayProbeReason( eventOutReason,
@@ -2043,8 +2096,9 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             {
                 return false;
             }
-            const GameModel* model = m_cGameModelCollection.TryGetModel( body.modelIndex );
-            if ( !model || model->GetReplayBodyId() != body.id.value )
+            const PhysicsBodyRecord* bodyRecord =
+                TryGetReplayProbeBodyRecord( m_cGameModelCollection, body.modelIndex );
+            if ( !bodyRecord || bodyRecord->replayBodyId != body.id.value )
             {
                 return false;
             }

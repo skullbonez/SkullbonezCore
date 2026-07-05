@@ -3,10 +3,11 @@
 Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
-Validation for latest source slice: `tools\validate_fast.bat`,
-`tools\validate_dx12_renderer.bat`, and `tools\validate_perf.bat` passed on
-2026-07-05 after moving convex-hull render geometry reads to prepared
-`ColliderStore` snapshots.
+Validation for latest source slice: `tools\validate_full.bat` passed on
+2026-07-05 after moving editor/replay transform-scale base-shape reads to
+`ColliderStore`; DX12 InfoQueue errors were 0, screenshots matched baselines,
+standalone/runtime physics smoke passed, and `physics_regression_solver.csv`
+was a byte-exact 20,001-line match.
 
 ## Completed Slices
 
@@ -527,6 +528,31 @@ Validation for latest source slice: `tools\validate_fast.bat`,
   0, screenshots matched baselines, and the final perf run reported no
   regressions after the renderer stopped touching collider storage for
   sphere/box/pine-only passes.
+- [x] 2026-07-05: Moved editor/replay transform-scale base-shape reads to
+  `ColliderStore`. Owner: `Run::TickReplaySaveProbe()` and the
+  `ReplayEventKind::EditorTransform` restore path in
+  `Run::RestoreReplayV2ArtifactTargetState()`. Reason: editor scaling still
+  needs to mutate the authoring `GameModel` until direct body/collider commands
+  exist, but the current base shape for replay save/restore is already
+  `ColliderStore` state, not `GameModel::GetCollisionShape()`. The local
+  `TryGetEditorTransformColliderRecord()` helper resolves the current collider
+  row by placed collider handle or model-index handle, validates the expected
+  replay body id when supplied, then the existing
+  `CommitEditedModelPhysicsState(..., true)` imports the edited authoring model
+  once. The same slice also moved `RunFrame` replay-id topology checks in these
+  paths from `GameModel::GetReplayBodyId()` to `PhysicsBodyStore` rows. Deletion
+  condition: `RunFrame.cpp` contains no live `GameModel::GetCollisionShape()` or
+  `GameModel::GetReplayBodyId()` reads. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects replay probe/save/restore
+  `GameModel` collision-shape and replay-id reads with old/allowed self-tests.
+  Validation: focused Profile build passed at 0 warnings/errors;
+  `tools\validate_format.bat`, `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, and
+  `tools\validate_full.bat` passed on 2026-07-05; full gate reported DX12
+  InfoQueue errors 0, screenshots matched committed baselines,
+  standalone/runtime physics smoke passed, and
+  `physics_regression_solver.csv` was a byte-exact 20,001-line match.
 
 ## Goal
 
