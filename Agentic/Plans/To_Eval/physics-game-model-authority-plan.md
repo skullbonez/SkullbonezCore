@@ -4,8 +4,9 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_full.bat` passed on 2026-07-05 after moving fixed-contact
-highlight fixed-state gating from `GameModel` to `PhysicsBodyStore`.
+`tools\validate_full.bat` passed on 2026-07-05 after moving replay
+prediction ghost draw shape/material reads to `ColliderStore` and
+`RenderInstanceStore` snapshots.
 
 ## Completed Slices
 
@@ -480,6 +481,26 @@ highlight fixed-state gating from `GameModel` to `PhysicsBodyStore`.
   inside `GameModelCollection::NotifyFixedContact()` and
   `GameModel::NotifyFixedContact()`, with reject/allow/comment-only self-tests.
   Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and `tools\validate_full.bat` passed on
+  2026-07-05; full gate reported DX12 InfoQueue errors 0, DX12 screenshots
+  matched committed baselines, standalone/runtime physics smoke passed, and
+  `physics_regression_solver.csv` was a byte-exact 20,001-line match.
+- [x] 2026-07-05: Moved replay prediction ghost draw shape/material reads to
+  `ColliderStore` and `RenderInstanceStore` snapshots. Owner:
+  `RuntimeRenderHost::RenderReplayPredictionGhosts()`. Reason: replay ghost
+  request construction still uses `GameModel` for cold ragdoll membership and
+  replay metadata, but the draw pass should not reopen `GameModel` collider
+  shapes or render materials after the stores already hold frame snapshots.
+  The render loop now indexes `ColliderRecord::shape` and
+  `RenderInstanceRecord::material` directly, with no per-ghost model mirror
+  refresh or copied side table. Deletion condition:
+  `RuntimeRenderHost::RenderReplayPredictionGhosts()` contains no
+  `GameModel::GetCollisionShape()` or `GameModel::GetRenderMaterial()` render
+  reads. Checker budget: `tools/check_runtime_boundaries.py` rejects those
+  calls inside the function and self-tests old, allowed, and comment-only
+  forms. Validation: `git diff --check`,
   `python -m py_compile tools\check_runtime_boundaries.py`,
   `python tools\check_runtime_boundaries.py --repo .`,
   `tools\validate_fast.bat`, and `tools\validate_full.bat` passed on

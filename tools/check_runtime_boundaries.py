@@ -109,6 +109,9 @@
 #   Replay probe body-state fence: Static rule that keeps replay scrub/save/load
 #     validation probes on PhysicsBodyStore rows instead of using GameModel body
 #     mirrors as proof that live simulation state stayed untouched.
+#   Replay prediction ghost render fence: Static rule that keeps prediction
+#     ghost drawing on ColliderStore/RenderInstanceStore snapshots instead of
+#     GameModel collider/material mirrors.
 #   Replay restore handle fence: Static rule that keeps replay restore commands
 #     handle-keyed below the GameModelCollection presentation edge.
 #   Authored scene orientation fence: Static rule that keeps Euler-degree scene
@@ -213,6 +216,7 @@ REPLAY_PREDICTION_VISUALIZER_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunR
 REPLAY_RECORDER_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp")
 REPLAY_RUNTIME_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp")
 REPLAY_RUNTIME_HEADER = Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.h")
+RUNTIME_RENDER_HOST_SOURCE = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp")
 RUNTIME_RENDER_HOST_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.h")
 RUNTIME_RENDER_PASS_CAPABILITY_SOURCES = (
     RUN_PASSES_SOURCE,
@@ -514,6 +518,12 @@ REPLAY_PREDICTION_MODEL_STATE_CAPTURE_PATTERN = re.compile(
 REPLAY_PREDICTION_PHYSICS_TICK_FUNCTION_PATTERN = re.compile(r"\bvoid\s+StepReplayPredictionPhysicsTick\s*\(")
 REPLAY_PREDICTION_BULK_WRITEBACK_PATTERN = re.compile(
     r"\bmodelCollection\s*\.\s*WriteBackPhysicsBodies\s*\("
+)
+REPLAY_PREDICTION_GHOST_RENDER_FUNCTION_PATTERN = re.compile(
+    r"\bvoid\s+RuntimeRenderHost::RenderReplayPredictionGhosts\s*\("
+)
+REPLAY_PREDICTION_GHOST_GAME_MODEL_RENDER_PATTERN = re.compile(
+    r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*(?:GetCollisionShape|GetRenderMaterial)\s*\("
 )
 RUN_REPLAY_RESTORE_BODY_STORE_REFRESH_PATTERN = re.compile(
     r"\bm_cGameModelCollection\s*\.\s*GetPhysicsBodyStore\s*\("
@@ -4082,6 +4092,34 @@ def check_replay_prediction_step_writeback_guardrails_text(path: Path, text: str
 def check_replay_prediction_step_writeback_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / RUN_REPLAY_TOOLS_SOURCE
     return check_replay_prediction_step_writeback_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_replay_prediction_ghost_render_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    bounds = _function_body_bounds(stripped, REPLAY_PREDICTION_GHOST_RENDER_FUNCTION_PATTERN)
+    if not bounds:
+        return errors
+
+    open_brace, close_brace = bounds
+    for match in REPLAY_PREDICTION_GHOST_GAME_MODEL_RENDER_PATTERN.finditer(stripped, open_brace, close_brace):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay prediction ghost GameModel render read is blocked",
+                (
+                    "Replay prediction ghost drawing should consume ColliderStore shape records and "
+                    "RenderInstanceStore material snapshots instead of reopening GameModel collider/material state."
+                ),
+            )
+        )
+    return errors
+
+
+def check_replay_prediction_ghost_render_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / RUNTIME_RENDER_HOST_SOURCE
+    return check_replay_prediction_ghost_render_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_run_replay_restore_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -13262,6 +13300,56 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only replay prediction writeback synthetic text was rejected")
 
+    old_replay_prediction_ghost_model_render_read = """
+    void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& frame )
+    {
+        const GameModel& model = models[request.modelIndex];
+        const BoundingBox* box = std::get_if<BoundingBox>( &model.GetCollisionShape() );
+        RenderMaterial material = model.GetRenderMaterial();
+        DrawGhost( *box, material );
+    }
+    """
+    if not any(
+        error.message == "replay prediction ghost GameModel render read is blocked"
+        for error in check_replay_prediction_ghost_render_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp"),
+            old_replay_prediction_ghost_model_render_read,
+        )
+    ):
+        failures.append("old replay prediction ghost GameModel render read synthetic surface was not rejected")
+
+    allowed_replay_prediction_ghost_store_render_read = """
+    void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& frame )
+    {
+        const std::vector<ColliderRecord>& colliders = m_cGameModelCollection.GetColliderStore().Records();
+        const std::vector<RenderInstanceRecord>& renderInstances =
+            m_cGameModelCollection.RenderInstances().Records();
+        const ColliderRecord& collider = colliders[request.modelIndex];
+        const BoundingBox* box = std::get_if<BoundingBox>( &collider.shape );
+        RenderMaterial material = renderInstances[request.modelIndex].material;
+        DrawGhost( *box, material );
+    }
+    """
+    if check_replay_prediction_ghost_render_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp"),
+        allowed_replay_prediction_ghost_store_render_read,
+    ):
+        failures.append("store-owned replay prediction ghost render synthetic surface was rejected")
+
+    commented_replay_prediction_ghost_model_render_read = """
+    void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& frame )
+    {
+        // model.GetCollisionShape() and model.GetRenderMaterial() used to live here.
+        const ColliderRecord& collider = colliders[request.modelIndex];
+        DrawGhost( collider.shape );
+    }
+    """
+    if check_replay_prediction_ghost_render_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp"),
+        commented_replay_prediction_ghost_model_render_read,
+    ):
+        failures.append("comment-only replay prediction ghost GameModel render synthetic text was rejected")
+
     old_run_replay_restore_body_store_reload = """
     bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample )
     {
@@ -17038,6 +17126,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))
     errors.extend(check_replay_prediction_body_capture_store_authority_guardrails(repo))
     errors.extend(check_replay_prediction_step_writeback_guardrails(repo))
+    errors.extend(check_replay_prediction_ghost_render_store_authority_guardrails(repo))
     errors.extend(check_replay_restore_store_authority_guardrails(repo))
     errors.extend(check_physics_body_store_model_index_command_guardrails(repo))
     errors.extend(check_replay_render_pose_value_override_guardrails(repo))

@@ -31,8 +31,10 @@ Related:
 #include "../../Assets/TextureCollection.h"
 #include "../../Core/Profiler.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../Physics/ColliderStore.h"
 #include "../../Rendering/Helper.h"
 #include "../../Rendering/IRenderBackend.h"
+#include "../../Rendering/RenderInstanceStore.h"
 #include "../RunInternal.h"
 
 #include <cassert>
@@ -205,6 +207,13 @@ void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& 
         return;
     }
 
+    // Why: ghost drawing is a render projection path. Shape and material come
+    // from the prepared store snapshots so replay visualization does not need
+    // the GameModel collider mirror to stay fresh after physics steps.
+    const std::vector<Physics::ColliderRecord>& colliders = m_cGameModelCollection.GetColliderStore().Records();
+    const std::vector<Rendering::RenderInstanceRecord>& renderInstances =
+        m_cGameModelCollection.RenderInstances().Records();
+
     SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
     assert( frame.renderResources && frame.renderCommands && frame.assets );
     const RenderHelperContext helperContext{ *frame.renderResources, *frame.renderCommands, *frame.assets, m_config };
@@ -219,20 +228,22 @@ void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& 
 
     for ( const ReplayPredictionGhostDrawRequest& request : m_replayRuntime.PredictionGhostDrawRequests() )
     {
-        if ( request.modelIndex < 0 || request.modelIndex >= static_cast<int>( models.size() ) )
+        if ( request.modelIndex < 0 || request.modelIndex >= static_cast<int>( colliders.size() ) ||
+             request.modelIndex >= static_cast<int>( renderInstances.size() ) )
         {
             continue;
         }
 
-        const GameObjects::GameModel& model = models[static_cast<std::size_t>( request.modelIndex )];
+        const std::size_t modelIndex = static_cast<std::size_t>( request.modelIndex );
+        const Physics::ColliderRecord& collider = colliders[modelIndex];
         const Math::CollisionDetection::BoundingBox* box =
-            std::get_if<Math::CollisionDetection::BoundingBox>( &model.GetCollisionShape() );
+            std::get_if<Math::CollisionDetection::BoundingBox>( &collider.shape );
         if ( !box )
         {
             continue;
         }
 
-        Rendering::RenderMaterial material = model.GetRenderMaterial();
+        Rendering::RenderMaterial material = renderInstances[modelIndex].material;
         material.baseColor[3] = request.alpha;
         const Math::Transformation::Matrix4 modelMatrix =
             box->GetModelMatrix( request.position,
