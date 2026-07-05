@@ -1,6 +1,6 @@
 # Runtime Static Allocation Policy Plan
 
-Date: 2026-06-27
+Date: 2026-06-27 (policy revised 2026-07-05)
 Status: Draft
 Impact area: performance, runtime, physics, renderer, UI/diagnostics, tooling
 Validation note: plan-only edits require no validation. Implementation touches
@@ -15,19 +15,64 @@ path, including replay, under one explicitly registered reserve allocator.
 Target policy:
 
 ```text
-No unregistered dynamic allocation during gameplay or replay runtime phases.
-No per-frame dynamic allocation.
-Runtime growth is allowed only through RuntimeReserveAllocator.
-Emergency overflow should be rare: once or twice across an entire run, not every frame.
-Hard caps fail deterministically instead of silently falling back to generic heap growth.
+Dynamically growing STL types are banned in physics/gameplay runtime code.
+Physics/gameplay storage is preallocated to pool capacity before steady gameplay
+begins; pool exhaustion is a hard assert/fatal, never a growth path.
+Replay may grow, but only through RuntimeReserveAllocator approval within
+registered caps; unapproved replay growth is a hard assert.
+new/delete/malloc and equivalent heap calls are banned at runtime outside
+explicit cold utility actions (screenshot/readback, file save/load, replay
+artifact IO, diagnostics dumps) and the allocator/wrapper implementations.
+Startup, scene load, and backend init build the pools; allocation there is
+expected and measured, not banned.
 ```
 
-The preferred end state is static or preallocated storage sized at startup or
-scene load from known capacity limits. Systems that cannot honestly guarantee
-that must carry explicit comments next to the owning storage and must report
-their emergency growth. Replay is not exempt from this rule: replay should have
-enough working memory for expected capture, prediction, restore, and scrub
-work, and any occasional bump must flow through the same reserve allocator.
+The end state is static or preallocated storage sized at startup or scene load
+from known capacity limits. Physics/gameplay owners get no growth escape hatch:
+if a pool is exhausted, the run asserts (Profile/Debug) or fails fatally with
+owner diagnostics (Release), and the fix is a bigger scene-load reserve, not a
+runtime bump. Replay is the one subsystem allowed to grow at runtime, and only
+through `RuntimeReserveAllocator` approval within registered caps; any replay
+growth that bypasses the allocator is a hard assert.
+
+## 2026-07-05 Policy Decision
+
+The user fixed the policy to three rules; every later section is subordinate
+to them:
+
+1. Dynamically growing STL types are banned in physics/gameplay code and the
+   ban is enforced by static checker and allocation guard. Owners preallocate
+   pools sized from scene capacity and hard-assert on exhaustion. There is no
+   gameplay "emergency bump": earlier drafts allowed one or two registered
+   bumps per run for gameplay owners; this revision removes that entirely.
+2. Replay may grow dynamically, but every growth must be approved by
+   `RuntimeReserveAllocator` (registered owner, phase check, cap check).
+   Unapproved replay growth is a hard assert.
+3. `new`/`delete`/`malloc` and equivalents are banned in general. The only
+   exempt runtime paths are explicit cold utility actions - screenshot/
+   readback, file save/load (scene snapshots, replay artifacts, config,
+   traces), diagnostics dumps, editor mutation actions - plus allocator and
+   wrapper internals, and the pre-gameplay phases (startup, scene load,
+   backend init) where pools are built.
+
+Clarifications that make the three rules implementable:
+
+- Phase qualification: the bans apply to steady gameplay and interactive
+  replay phases. Startup, scene load/reset, and backend init are measured but
+  allowed to allocate; that is where preallocation happens.
+- Release behavior: asserts compile out of Release, so pool exhaustion and
+  allocator rejection must fall through to a fatal diagnostic (owner, arena,
+  phase, requested bytes, cap, high-water), never silent undefined behavior.
+- Enforcement scope: the guard and checker cover engine code. Driver, D3D12
+  runtime, and CRT-internal allocations are outside engine control and are
+  not counted against the policy.
+- Sizing is a correctness contract: committed scenes and validation launches
+  must never hit a pool cap. A cap hit during validation is a failing result
+  that demands a bigger reserve or a scene fix, not a tolerated fallback.
+- Bounded degrade is allowed where the domain calls for it and no allocation
+  occurs: audio voice-steal and UI text truncation are documented policies,
+  not policy violations. Physics gets no such degrade; dropping pairs or
+  contacts changes simulation results and breaks the byte-exact baseline.
 
 ## Carmack-Test Option 3 Checklist
 
@@ -53,6 +98,11 @@ source of truth, and use this checklist as the Carmack-test acceptance overlay.
   shutdown.
 - [x] Identify at least one representative non-replay gameplay launch and one
   replay-enabled launch for allocation guard proof.
+- [ ] Restore comparable perf evidence (Phase 0) before implementation phases
+  land: root-cause or formally accept the 2026-06-28 `physics_bench`
+  regression (including the +71.88 MB memory growth) and re-baseline
+  `dx12_perf` on the current machine label so `tools\validate_perf.bat` can
+  compare again.
 
 ### Implementation Details
 
@@ -62,18 +112,21 @@ source of truth, and use this checklist as the Carmack-test acceptance overlay.
   backend/resource init, steady gameplay, replay, screenshot/capture, and
   shutdown.
 - [ ] Implement `RuntimeReserveAllocator` owner registration with owner name,
-  phase, capacity source, hard cap, emergency bump cap, and diagnostic counters.
+  phase, capacity source, hard cap, replay-only growth allowance, and
+  diagnostic counters.
 - [ ] Define runtime memory budgets and backing arenas by subsystem, with
   `RuntimeReserveAllocator` as the policy gate rather than a generic malloc
   replacement.
-- [ ] Convert runtime growable owners to fixed storage, preallocated storage, or
-  registered reserve bumps.
+- [ ] Convert runtime growable owners to fixed storage or preallocated pools;
+  replay owners alone may keep registered allocator-approved growth.
 - [ ] Add policy comments beside every runtime growable storage owner.
-- [ ] Make ordinary steady gameplay fail on nonzero unregistered allocations.
+- [ ] Make ordinary steady gameplay fail on any nonzero allocation; pool
+  exhaustion asserts instead of growing, with no registered-owner exception
+  outside replay phases.
 - [ ] Make replay scenarios fail on unregistered replay allocations while still
   allowing registered replay-phase reserve bumps within cap.
 - [ ] Print owner-level allocation summaries with allocation count, bytes,
-  high-water, emergency bump count, frame, and phase.
+  high-water, replay growth count, frame, and phase.
 - [ ] Ensure the allocation tracker itself cannot allocate while reporting.
 
 ### Guardrails And Validation Integration
@@ -81,8 +134,10 @@ source of truth, and use this checklist as the Carmack-test acceptance overlay.
 - [ ] Add a static checker for banned runtime dynamic allocation patterns.
 - [ ] Add an allowlist format that requires owner, phase, reason, cap, and
   removal or wrapper plan.
-- [ ] Add the allocation guard launch to the appropriate validation script after
-  the first implementation slice lands.
+- [ ] Add the allocation guard launch to `tools\validate_perf.bat` (its
+  natural home; it already launches perf scenes) after the first
+  implementation slice lands, and add a File-To-Validation row to `AGENTS.md`
+  for the allocator/tracker/checker files.
 - [ ] Make `tools\validate_perf.bat` output distinguish clean perf evidence from
   warning-bearing evidence that still exits 0.
 - [ ] Add synthetic checker tests for rejected direct allocation, allowed
@@ -150,11 +205,12 @@ that the perf log is local/ignored. Follow-up review found no blockers.
 | Runtime allocation | CPU heap allocation through `new`, `malloc`, STL container growth, `std::function`, `std::string`, `std::shared_ptr`, stream buffers, or similar allocator-backed paths. |
 | Static allocation | Fixed arrays, fixed rings, object members, preallocated arenas, or containers whose capacity is fully established before steady gameplay begins. |
 | High-water allocation | Growth to a known capacity during startup, scene load, backend init, or explicit warmup, followed by reuse without further heap growth. |
-| Emergency overflow | A bounded, logged, commented growth path used only when a scene exceeds a documented best-guess high-water mark. |
-| RuntimeReserveAllocator | The single runtime path allowed to perform bounded dynamic reserve bumps for registered mostly-static memory owners. |
+| Pool exhaustion | A physics/gameplay pool reaching its preallocated capacity. Hard assert in Profile/Debug, fatal owner diagnostic in Release; never a growth path. |
+| Replay growth approval | A bounded, logged replay-phase growth granted by `RuntimeReserveAllocator` to a registered replay owner within its cap. The only legal runtime growth. |
+| RuntimeReserveAllocator | The registry and policy gate for all runtime memory owners. For gameplay owners it records pools, caps, and high-water stats and always denies growth; for replay owners it is the single approval path for bounded growth. |
 | Runtime memory budget | A startup-selected CPU memory budget split into named subsystem pools or arenas, sized for the platform and scene/replay class. |
 | Runtime arena | A reserved backing region for one subsystem or memory class, such as physics scratch, replay working sets, runtime commands, worker scratch, diagnostics, or renderer CPU telemetry. |
-| Mostly-static memory | Runtime storage that is preallocated for the expected high-water mark and may grow only through a bounded `RuntimeReserveAllocator` bump. |
+| Mostly-static memory | Runtime storage preallocated for the expected high-water mark. Gameplay owners never grow it; replay owners may grow it only through a bounded `RuntimeReserveAllocator` approval. |
 | Replay system | Storage and tools under replay capture, scrub, restore, prediction, artifact load/save, and replay diagnostics. Replay memory is allowed larger prediction/model-count reserves, but still must register and grow only through `RuntimeReserveAllocator`. |
 
 ## Current Findings To Address
@@ -171,6 +227,7 @@ The recent audit found allocation-capable runtime paths:
 | UI/capture | Backdrop blur and screenshot/readback paths allocate CPU image buffers when invoked. |
 | Runtime command queue | `std::deque<RuntimeCommand>` and `std::string` can allocate for UI/input commands. |
 | Tornado visual/debug | Visual vortex and vertex vectors mostly reuse capacity, but need explicit warmup and overflow comments. |
+| Contact audio classification | Per-frame contact classification, reducers, and voice bookkeeping are hot-path per `AGENTS.md`; storage needs explicit pool policy, and the service must not allocate while classifying or mixing. |
 | Replay working sets | Replay capture, prediction, scrub, restore, and artifact load/save should have prediction/model-count reserves, with any occasional bump routed through `RuntimeReserveAllocator`. |
 
 ### Runtime Owner Phase Map
@@ -185,6 +242,7 @@ The recent audit found allocation-capable runtime paths:
 | UI and screenshot/readback buffers | Startup/scene load for UI caches; capture phase for screenshot and readback CPU buffers. | Ordinary UI frame work should reuse caches; screenshot/readback allocation is allowed only under an explicit capture phase. |
 | Runtime command queue | Startup as a fixed ring or preallocated queue sized from expected command pressure. | Input/UI commands may enqueue during steady gameplay without heap growth; string payloads need fixed storage or registered reserve bumps. |
 | Tornado visual/debug storage | Scene load or runtime warmup when tornado/debug features are enabled. | Visual/debug vectors must reuse capacity during steady gameplay; optional debug growth needs a documented diagnostics/capture phase or registered owner. |
+| Contact audio classification/voices | Startup/scene load from voice budget and contact-rate policy. | Classification, reducer, and voice records run from fixed pools during steady gameplay; over-budget contacts fall to the documented voice-steal/drop policy, never heap growth. |
 | Replay working sets | Replay phase setup from model count, prediction horizon, scrub window, and artifact metadata. | Replay capture, restore, prediction, path/cause rows, and artifact load/save can grow only through replay-phase registered reserves within cap. |
 
 ## Allocation Policy
@@ -194,11 +252,12 @@ The recent audit found allocation-capable runtime paths:
 Every system on the steady gameplay path must satisfy one of these contracts:
 
 1. Fixed storage: compile-time bounded arrays or fixed rings.
-2. Preallocated storage: capacity is reserved before steady gameplay begins and
-   never grows during steady gameplay.
-3. Explicit emergency overflow through `RuntimeReserveAllocator`: growth is
-   registered, bounded, logged, counted, commented, and expected to happen at
-   most once or twice per run outside pathological scenes.
+2. Preallocated pool: capacity is reserved before steady gameplay begins and
+   never grows afterward. Exhaustion is a hard assert (Profile/Debug) or a
+   fatal diagnostic (Release) naming owner, capacity, and frame.
+3. Replay-only registered growth: replay owners may grow through
+   `RuntimeReserveAllocator` approval - registered, bounded, logged, counted,
+   and commented. No non-replay owner qualifies for this contract.
 
 No system should rely on "vector probably already has enough capacity" as the
 policy. The capacity owner must state when capacity is established and what
@@ -211,15 +270,19 @@ registered mostly-static reserve bump through `RuntimeReserveAllocator`.
 
 ### Repository Policy Update
 
-Add a follow-up `AGENTS.md` rule after the implementation design lands:
+Add the `AGENTS.md` rule in the same slice that lands the static checker
+(Implementation Order step 12), so the ban and its enforcement arrive
+together:
 
 ```text
-Runtime/gameplay dynamic allocation is banned by default. Any runtime storage
-that can grow after startup, scene load, or backend init must be registered as a
-mostly-static owner and may grow only through RuntimeReserveAllocator. Direct
-STL container growth, heap allocation, std::function task allocation, and
-string/stream growth in steady gameplay paths are review and lint failures.
-Replay is covered by the same policy.
+Dynamically growing STL types are banned in physics/gameplay runtime code.
+Gameplay storage is preallocated to pool capacity and hard-asserts on
+exhaustion; there is no gameplay growth path. Replay storage may grow only
+through RuntimeReserveAllocator approval within registered caps; unapproved
+replay growth is a hard assert. new/delete/malloc and equivalent heap calls
+are banned at runtime outside explicit cold utility actions (screenshot,
+file save/load, replay artifact IO, diagnostics dumps), allocator/wrapper
+internals, and pre-gameplay phases. Violations are lint and review failures.
 ```
 
 This is intentionally planned as an `AGENTS.md` update, not just an
@@ -228,10 +291,17 @@ unless the allocator policy explicitly allows it.
 
 ## RuntimeReserveAllocator Spec
 
-`RuntimeReserveAllocator` is the single choke point for all runtime reserve
-bumps. It owns the "mostly static" memory contract: storage is pre-sized from a
-capacity policy, then any rare overflow is requested, counted, logged, and
-bounded through this allocator.
+`RuntimeReserveAllocator` is the registry and policy gate for runtime memory
+owners and the single choke point for replay growth. Storage is pre-sized from
+a capacity policy; gameplay owners register their pools for stats, caps, and
+denial, while replay owners request rare, counted, logged, bounded growth
+through this allocator.
+
+Migration Artifact Gate note: `RuntimeReserveAllocator`, the wrapper
+containers, and `RuntimeCapacityPolicy` are permanent domain infrastructure
+owned by the runtime memory system, not migration bridges. They carry no
+deletion condition; their checker budget is the allocation-policy checker
+introduced in Phase 7.
 
 This does not mean every allocation should immediately route through one giant
 custom heap. The first implementation should make allocation policy measurable
@@ -250,13 +320,14 @@ leaving a precise trail.
 
 1. Register every runtime-growable owner before steady gameplay begins.
 2. Store each owner's phase, subsystem, capacity source, initial reserve,
-   hard cap, emergency growth allowance, and current growth count.
-3. Provide the only API that can request runtime heap-backed growth for
-   gameplay or replay memory.
+   hard cap, replay growth allowance, and current growth count.
+3. Provide the only API that can request runtime heap-backed growth, and grant
+   it to replay owners only; gameplay growth requests are always denied and
+   assert at the callsite.
 4. Reject unregistered owners.
 5. Reject growth from disallowed phases unless the owner explicitly allows that
    phase.
-6. Reject growth after the owner's per-run emergency allowance is exhausted.
+6. Reject growth after a replay owner's per-run allowance is exhausted.
 7. Log every growth with owner id, subsystem, phase, frame number, old capacity,
    requested capacity, granted capacity, bytes, growth count, and hard cap.
 8. Feed allocation guard diagnostics and profiler/event markers.
@@ -285,7 +356,7 @@ Recommended CPU-side arena groups:
 
 | Arena | Owners | Failure behavior |
 |-------|--------|------------------|
-| Physics runtime arena | candidate pairs, contacts, manifolds, sleep/island scratch, solver scratch | In Profile/Debug, assert or fatal at the owner cap; in shipping, fail scene load or disable the oversized optional feature before steady gameplay. |
+| Physics runtime arena | candidate pairs, contacts, manifolds, sleep/island scratch, solver scratch | Hard assert at the owner cap in Profile/Debug and a fatal owner diagnostic in Release. Scene load may reject an oversized scene before steady gameplay, but in-frame exhaustion never grows or degrades silently. |
 | Replay arena | capture frames, prediction rows, restore snapshots, branch/path records, artifact staging | Reject oversized artifact or shorten/deny prediction setup before replay interaction begins. |
 | Runtime command arena | input/UI command queue, fixed command payload text, deferred runtime actions | Drop or reject noncritical command with a visible diagnostic only if the command contract allows it; otherwise fatal in validation. |
 | Worker scratch arena | task chunks, worker-local temporary arrays, dispatch bookkeeping | Fail validation on growth during steady gameplay; resize during startup or scene warmup. |
@@ -305,8 +376,8 @@ Console-oriented policy:
   gracefully when possible: scene load, replay artifact load, prediction setup,
   or diagnostics enablement.
 - Once steady gameplay begins, the desired result is zero generic heap
-  allocation and zero unregistered reserve bumps. Registered emergency bumps
-  remain visible debt, not normal behavior.
+  allocation of any kind for gameplay owners. Registered replay growths remain
+  visible debt, not normal behavior.
 
 ### Suggested Types
 
@@ -341,9 +412,8 @@ struct RuntimeReserveOwnerDesc
     RuntimeReservePhase initPhase;
     int initialCapacity;
     int hardCapacity;
-    int emergencyGrowthLimit;
-    bool allowSteadyGameplayGrowth;
-    bool allowReplayGrowth;
+    int replayGrowthLimit;   // Per-run approvals; meaningful only with allowReplayGrowth.
+    bool allowReplayGrowth;  // Replay owners only; gameplay owners never grow.
     const char* capacityReason;
 };
 
@@ -354,7 +424,8 @@ struct RuntimeReserveGrowthRequest
     int frameNumber;
     int oldCapacity;
     int requestedCapacity;
-    int elementSizeBytes;
+    int elementSizeBytes;    // Byte totals are computed and tracked as int64_t;
+                             // int byte math overflows at 2 GB.
 };
 
 struct RuntimeReserveGrowthResult
@@ -389,14 +460,14 @@ template <typename T>
 class RuntimeReserveVector
 {
 public:
+    // Cold path: binds the owner handle once so hot paths never carry
+    // allocator or policy parameters.
     void Preallocate(RuntimeReserveAllocator& allocator,
-                    RuntimeReserveOwnerHandle owner,
-                    int capacity);
-    bool EnsureCapacity(RuntimeReserveAllocator& allocator,
-                        RuntimeReserveOwnerHandle owner,
-                        int requiredCount,
-                        RuntimeReservePhase phase,
-                        int frameNumber);
+                     RuntimeReserveOwnerHandle owner,
+                     int capacity);
+    // Hot path: a plain inline capacity compare. On shortfall, gameplay
+    // owners assert; replay owners take one cold out-of-line approval call.
+    bool EnsureCapacity(int requiredCount);
 };
 ```
 
@@ -450,44 +521,82 @@ near the member declaration or growth helper:
 // Runtime allocation policy:
 //   Preallocated at <startup|scene load|backend init> for <capacity source>.
 //   Steady gameplay must not grow this buffer.
-//   Emergency overflow: <not allowed|RuntimeReserveAllocator owner TAG, max N bumps>.
+//   Exhaustion: hard assert (no growth path).
 ```
 
-For containers that must retain emergency growth:
+For replay owners that retain allocator-approved growth:
 
 ```cpp
 // Runtime allocation policy:
 //   Best-guess reserve is <X> entries from <reason>.
-//   Registered mostly-static owner: <RuntimeReserveAllocator owner TAG>.
-//   If exceeded, this buffer may grow at most <N> times per run through the allocator.
+//   Registered replay owner: <RuntimeReserveAllocator owner TAG>.
+//   If exceeded, this buffer may grow at most <N> times per run through the
+//   allocator during replay phases; unapproved growth is a hard assert.
 //   Each growth logs <tag> and increments allocation guard counters.
 ```
 
 This is intentionally a little loud. Future code review should see the policy
 before seeing `push_back`.
 
-### Emergency Overflow Rules
+### Replay Growth Approval Rules
 
-Emergency growth is acceptable only when all are true:
+Gameplay owners have no growth path: exhaustion asserts. Replay growth is
+acceptable only when all are true:
 
-1. There is a documented best-guess reserve.
-2. The owner is registered with `RuntimeReserveAllocator`.
-3. The growth request flows through `RuntimeReserveAllocator::RequestGrowth`.
-4. There is a hard cap or a fatal/assert path after the emergency allowance.
+1. There is a documented best-guess reserve derived from prediction horizon,
+   model count, frame count, and artifact metadata.
+2. The owner is registered with `RuntimeReserveAllocator` under the replay
+   subsystem with `allowReplayGrowth`.
+3. The growth request flows through `RuntimeReserveAllocator::RequestGrowth`
+   during a replay phase.
+4. There is a hard cap and a hard assert/fatal path after the per-run
+   allowance.
 5. Growth count is tracked by owner and visible in logs or memory diagnostics.
 6. The growth emits a profiler/event marker with owner, old capacity, new
    capacity, requested count, and frame number.
-7. The steady-frame allocation guard can fail tests if the same owner grows
-   every frame.
+7. The allocation guard fails if the same owner grows every frame.
 
 Suggested default:
 
 ```text
-emergency_growth_limit_per_owner_per_run = 2
+replay_growth_limit_per_owner_per_run = 2
 ```
 
-If an owner needs more than that, the owner is not actually emergency-only and
-should be redesigned around a fixed arena or a larger scene-load reserve.
+If a replay owner needs more than that, it is under-reserved and its
+scene-load/artifact-load sizing should be fixed instead.
+
+## Phase 0: Restore Comparable Perf Evidence
+
+Goal: no allocation work lands on top of a red or uncomparable perf gate.
+
+The 2026-06-28 baseline recorded `physics_bench` failing 9 perf checks at the
+same machine label, including `Frame.avg +50.7%` and `mem_restart`/`mem_end`
+`+71.88 MB`, and a `dx12_perf` baseline from a different machine label that
+skips comparison entirely. The memory growth in particular is
+allocation-shaped evidence: either it is part of the problem this plan exists
+to fix, or it is an unrelated regression that will contaminate every perf
+measurement this plan relies on.
+
+Tasks:
+
+1. Root-cause the `physics_bench` frame-time and memory regressions to a
+   commit, or accept them explicitly with marker-level evidence rather than
+   script exit codes.
+2. Re-baseline `TestOutput\baselines\physics_bench_perf.json` and
+   `TestOutput\baselines\dx12_perf.json` from intentional current-machine runs
+   via `tools\update_baselines.bat` (visual/perf artifacts are in its remit)
+   once the deltas are understood.
+3. Record the accepted baseline metadata (commit, machine label, key
+   percentiles, memory) in this plan.
+
+Acceptance:
+
+| Check | Expected result |
+|-------|-----------------|
+| `tools\validate_perf.bat` | Comparable on this machine and green, or carrying a documented, dated acceptance of specific deltas. |
+| Memory metrics | `mem_restart`/`mem_end` growth is explained by a named cause, not left as noise. |
+
+Later phases must not land while this phase is open.
 
 ## Phase 1: Add A Gameplay Allocation Guard
 
@@ -496,7 +605,15 @@ alone.
 
 Tasks:
 
-1. Add a lightweight allocation tracker for Profile/Debug builds.
+1. Spike the tracker mechanism before building enforcement on it: global
+   `operator new`/`operator delete` replacement in Profile (the release CRT
+   has no allocation hook), optional `_CrtSetAllocHook` corroboration in
+   Debug, a documented cross-thread phase-attribution rule (each allocation
+   reads a global atomic phase at the callsite, worker threads included), and
+   a false-positive scrub against CRT/driver startup noise. Driver, D3D12
+   runtime, and CRT-internal allocations are out of enforcement scope. Prove
+   the mechanism compiles at `/W4` with zero warnings, then build the
+   lightweight allocation tracker on it for Profile/Debug builds.
 2. Track allocation count and bytes by runtime phase:
    - startup,
    - scene load/reset,
@@ -508,19 +625,23 @@ Tasks:
 3. Mark steady gameplay only after scene load and warmup are complete.
 4. Add scoped opt-outs for replay and explicit capture paths so the non-replay
    policy remains clear. These opt-outs label phases only; replay reserve bumps
-   still go through `RuntimeReserveAllocator`.
+   still go through `RuntimeReserveAllocator`. Diagnostics writers that run
+   during validation launches (`--physics-diag` NDJSON, SkullScope staging)
+   must be labeled as diagnostics phase so `validate_physics` runs do not fail
+   the guard.
 5. Add an automated launch mode such as:
 
 ```bat
 Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\perf_1000.scene.json --frames 600 --allocation-guard gameplay
 ```
 
-6. Fail the guard if steady gameplay allocations exceed zero, unless the owner
-   is registered with `RuntimeReserveAllocator` and within its per-run cap.
+6. Fail the guard if steady gameplay allocations exceed zero. There is no
+   registered-owner exception outside replay phases; replay growth passes only
+   when allocator-approved and within cap.
 7. Print a compact summary:
 
 ```text
-allocation_guard phase=steady_gameplay allocations=0 bytes=0 emergency_grows=0
+allocation_guard phase=steady_gameplay allocations=0 bytes=0 replay_grows=0
 ```
 
 Acceptance:
@@ -530,7 +651,7 @@ Acceptance:
 | Replay disabled steady scene | Reports zero non-replay steady allocations. |
 | Replay enabled | Reports zero unregistered replay allocations, and all reserve bumps go through `RuntimeReserveAllocator`. |
 | Screenshot/capture | Capture allocation is labeled capture-only. |
-| Emergency growth | Logs owner, old/new capacity, frame, and count. |
+| Replay growth approval | Logs owner, old/new capacity, frame, and count. |
 
 ## Phase 2: Preallocate Physics To Active Capacity
 
@@ -549,20 +670,30 @@ candidate_pair_reserve = min(modelCapacity * pair_factor, hard_pair_cap)
 contact_row_reserve = candidate_pair_reserve * max_contact_points_per_pair + terrain_row_reserve
 ```
 
-4. Decide pair/contact hard caps per scene capacity. If a scene exceeds them,
-   prefer a deterministic overflow path over silent container growth.
+4. Size pair/contact hard caps so no committed scene or validation launch can
+   hit them. A cap hit during validation is a failing result that demands a
+   bigger scene-load reserve or a scene fix; exhaustion asserts rather than
+   dropping pairs or contacts, because deterministic-but-wrong still breaks
+   the byte-exact baseline.
 5. Replace ad hoc `reserve()` calls inside the solver with checks against the
    already-established capacity.
 6. Flatten optional object narrowphase island storage:
    - replace nested `std::vector<int> pairIndices` per island with one
      preallocated pair-index array plus `start/count` ranges,
-   - reserve island records at scene load.
+   - reserve island records at scene load,
+   - preserve existing iteration order exactly; flattening must not reorder
+     pair or island visits or the byte-exact baseline diverges.
 7. Make terrain detection candidates and terrain manifolds scene-capacity
    owned.
 8. Ensure physics debug contacts and pipeline trace have fixed caps and do not
    grow once the cap is reached.
-9. Add required allocation-policy comments to every physics container that can
-   still grow.
+9. Audit pointer stability: any owner that holds pointers or spans into
+   physics arrays across solver iterations or frames (persistent contact rows
+   are the known risk) must be a fixed-cap pool with stable addresses;
+   reallocation is not available to gameplay owners, so held pointers must
+   never depend on a container that could have grown.
+10. Add required allocation-policy comments to every physics container whose
+    capacity is established before steady gameplay.
 
 Acceptance:
 
@@ -570,7 +701,7 @@ Acceptance:
 |-------|-----------------|
 | Core physics scene | Zero non-replay steady allocations after warmup. |
 | 1000-object perf scene | Zero non-replay steady allocations after warmup. |
-| Pair/contact overflow | Deterministic logged overflow, not recurring frame growth. |
+| Pool exhaustion | Hard assert/fatal with owner, capacity, and frame; committed scenes never hit caps. |
 | Physics determinism | Byte-exact physics baseline still passes. |
 
 ## Phase 3: Remove WorkerPool Per-Frame Heap Use
@@ -652,7 +783,9 @@ Tasks:
 4. Mark screenshot and backdrop blur refresh as explicit capture phases, not
    steady gameplay. If backdrop blur is expected during ordinary UI movement,
    preallocate readback/result/source buffers and reuse them.
-5. Add comments to any UI buffer that may emergency-grow.
+5. Add policy comments to every per-frame UI buffer; UI is gameplay code, so
+   pools are fixed and overflow truncates by documented policy or asserts,
+   never allocates.
 6. Ensure in-game text formatting uses stack/fixed buffers on frame paths.
 
 Acceptance:
@@ -685,7 +818,12 @@ struct RuntimeCapacityPolicy
 ```
 
 2. Build the policy once from:
-   - `ActiveGameModelCapacity()`,
+   - `PhysicsBodyStore`/`ColliderStore` capacity and scene descriptor counts.
+     Do not anchor new infrastructure on `ActiveGameModelCapacity()` or other
+     `GameModel`-order counts; the compat-endgame plan
+     (`Agentic/Plans/In_Progress/game-model-compat-endgame-and-fence-consolidation-plan.md`)
+     is retiring that authority, and both plans touch `PhysicsWorld`, the
+     stores, and `Init.cpp`, so sequence slices against it,
    - scene-authored object count,
    - config,
    - known hard caps.
@@ -694,14 +832,14 @@ struct RuntimeCapacityPolicy
 4. Add `CollectRuntimeCapacityStats()` so memory/profiler diagnostics can show:
    - capacity,
    - high-water size,
-   - emergency growth count,
+   - replay growth count,
    - overflow/drop count.
 5. Add a concise diagnostics dump section:
 
 ```json
 "runtime_capacity": {
-  "physics_candidate_pairs": { "capacity": 16384, "high_water": 9210, "emergency_grows": 0 },
-  "worker_tasks": { "capacity": 64, "high_water": 14, "emergency_grows": 0 }
+  "physics_candidate_pairs": { "capacity": 16384, "high_water": 9210, "replay_grows": 0 },
+  "worker_tasks": { "capacity": 64, "high_water": 14, "replay_grows": 0 }
 }
 ```
 
@@ -719,9 +857,15 @@ Goal: stop regression to casual per-frame allocation.
 
 Tasks:
 
-1. Add a static checker that rejects dynamic memory types in gameplay/replay
-   source unless they are inside approved wrappers, allocator implementation,
-   startup-only code, scene-load code, backend-init code, or offline tooling.
+1. Add a new standalone checker `tools/check_allocation_policy.py` - not an
+   extension of `tools/check_runtime_boundaries.py`, which is under a shrink
+   ratchet from the compat-endgame plan - that rejects dynamic memory types in
+   gameplay/replay source unless they are inside approved wrappers, allocator
+   implementation, startup-only code, scene-load code, backend-init code, an
+   exempt cold utility action (screenshot, file save/load, replay artifact IO,
+   diagnostics dumps), or offline tooling. Placement new is allowed; it does
+   not touch the heap. Ship it with old/allowed/comment-only self-tests like
+   the boundary checker.
 2. Rejected patterns include:
    - local or member `std::vector`, `std::deque`, `std::string`,
      `std::ostringstream`, `std::unordered_map`, `std::map`, and
@@ -733,9 +877,12 @@ Tasks:
    - task closures or type-erased callables in worker dispatch,
    - any growable storage without a nearby allocation-policy comment and
      registered `RuntimeReserveAllocator` owner.
-3. Treat new violations as lint failures, not warnings. Existing violations may
-   be tracked by a temporary baseline only while the cleanup phases are in
-   progress.
+3. Treat new violations as lint failures, not warnings. Scope first
+   enforcement to the named hot-path surfaces (physics/solver, WorkerPool,
+   frame loop, render submission, contact audio classification), then widen.
+   Existing violations may be tracked by a temporary baseline only while the
+   cleanup phases are in progress, and the baseline is a monotonic ratchet:
+   the count may only decrease, and the checker fails if it grows.
 4. Add a static allowlist format that requires owner, phase, reason, and
    planned removal or allocator wrapper. Empty "because legacy" allowlist
    entries are not acceptable.
@@ -744,7 +891,7 @@ Tasks:
 ```text
 Does this runtime container reserve before steady gameplay?
 Can this path allocate every frame?
-If it can grow, where is the RuntimeReserveAllocator owner, policy comment, and emergency counter?
+If it can grow, it must be a replay owner: where is the RuntimeReserveAllocator owner, policy comment, and growth counter?
 Is this a banned dynamic type that lint should reject?
 ```
 
@@ -762,8 +909,9 @@ Acceptance:
 
 ## Implementation Order
 
-1. Add the `AGENTS.md` blanket dynamic-allocation ban and point exceptions to
-   `RuntimeReserveAllocator`.
+1. Restore comparable perf evidence (Phase 0): resolve or formally accept the
+   2026-06-28 `physics_bench` regression and re-baseline `dx12_perf` on the
+   current machine label so every later phase can prove its effect.
 2. Add `RuntimeReserveAllocator`, owner registration, and mostly-static wrapper
    types.
 3. Add allocation guard and phase markers.
@@ -777,7 +925,8 @@ Acceptance:
 10. Convert runtime command queue and ordinary UI frame buffers.
 11. Add central capacity policy and diagnostics.
 12. Turn dynamic-type lint rejection and allocation guardrails into validation
-    gates.
+    gates, and land the `AGENTS.md` blanket ban in the same slice so the rule
+    and its enforcement arrive together.
 
 This order front-loads measurement. The guard should make every later phase
 obvious: run scene, see which owner still allocates, fix that owner.
@@ -807,7 +956,7 @@ Profile\SKULLBONEZ_CORE.exe --fixed-step --scene SkullbonezData\scenes\water_bal
 The guard should print enough detail to quote in handoffs:
 
 ```text
-allocation_guard result=pass phase=steady_gameplay allocations=0 bytes=0 emergency_grows=0
+allocation_guard result=pass phase=steady_gameplay allocations=0 bytes=0 replay_grows=0
 allocation_guard high_water owner=physics_candidate_pairs capacity=16384 high_water=9210
 ```
 
@@ -816,10 +965,12 @@ allocation_guard high_water owner=physics_candidate_pairs capacity=16384 high_wa
 | Risk | Mitigation |
 |------|------------|
 | Over-reserving wastes memory | Report capacity/high-water in diagnostics and tune policy from real scenes. |
-| Fixed caps drop simulation data | Make overflow explicit, deterministic, and validation-visible before changing behavior. |
+| Fixed caps drop simulation data | Caps are sized so committed scenes never hit them; a cap hit asserts and fails validation instead of dropping pairs/contacts, so behavior never silently changes. |
+| Pool exhaustion in Release builds | Asserts compile out; Release falls through to a fatal owner diagnostic (owner, arena, phase, bytes, cap, high-water) instead of silent undefined behavior. |
+| Reallocation invalidates held pointers | Owners with cross-pass pointers into storage are fixed-cap stable-address pools; growth is unavailable to gameplay owners by policy. |
 | Allocator becomes a loophole for casual runtime allocation | Require owner registration, hard caps, per-run bump limits, phase checks, lint rejection, and code-review comments. |
 | Allocation tracker recurses | Use thread-local reentrancy guards and fixed logging buffers. |
-| WorkerPool fixed task ring is too small | Size from worker count and max chunks; overflow fails loudly outside emergency policy. |
+| WorkerPool fixed task ring is too small | Size from worker count and max chunks; worker dispatch is gameplay code with no growth path, so overflow asserts loudly. |
 | Render graph diagnostics lose useful text | Move rich text generation to init/shutdown/validation commands, not steady frames. |
 | UI/capture exceptions become confusing | Phase labels must distinguish ordinary UI from explicit capture/readback actions. |
 | Replay gets under-reserved | Size replay working memory from prediction horizon, model count, branch/event budgets, and artifact metadata; allow bounded replay-phase reserve bumps only through `RuntimeReserveAllocator`. |
@@ -834,16 +985,21 @@ This work is complete when:
    allocations and bounded reserve bumps through `RuntimeReserveAllocator`.
 3. No known runtime path allocates every frame, including replay paths.
 4. Any runtime growable storage has an allocation-policy comment.
-5. Any runtime growable storage is registered with `RuntimeReserveAllocator`.
-6. Emergency growth is bounded, logged, counted, and visible in diagnostics.
-7. Emergency growth does not recur every frame and defaults to no more than two
-   growths per owner per run.
+5. Every runtime pool is registered with `RuntimeReserveAllocator` for stats
+   and caps; only replay owners carry growth allowances.
+6. Replay growth is allocator-approved, bounded, logged, counted, and visible
+   in diagnostics; gameplay pool exhaustion asserts with owner diagnostics in
+   Profile/Debug and fails fatally with the same diagnostics in Release.
+7. No owner grows recurrently; replay defaults to no more than two approvals
+   per owner per run.
 8. Physics, worker, renderer, UI, replay, and command-queue hot paths are either
    fixed storage or preallocated from central capacity policy.
-9. Runtime capacity diagnostics show capacity, high-water, and emergency growth
+9. Runtime capacity diagnostics show capacity, high-water, and replay growth
    counts by owner.
 10. Static guardrails reject new dynamic memory types and unregistered growth in
    gameplay/replay source before review misses them.
 11. `AGENTS.md` carries the blanket dynamic-allocation ban and points any
     runtime growth exception to `RuntimeReserveAllocator`.
 12. Required validation gates pass for the implementation phases that land.
+13. `tools\validate_perf.bat` is comparable and green on the working machine
+    (Phase 0), so allocation improvements and regressions are measurable.
