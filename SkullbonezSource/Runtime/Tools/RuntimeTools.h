@@ -14,6 +14,8 @@ Glossary:
     data that persists between frames.
   Replay visual sample: Compact snapshot of tool visuals restored while replay
     scrubbing so debug feedback follows recorded frames.
+  Replay target marker: Debug overlay outline/ring drawn around a replay body
+    from live body/collider store values.
   Gizmo drag group: Bounded set of selected model indices transformed as one
     editor gesture.
   Body store: Physics-owned dense body rows borrowed by tool hit tests and
@@ -60,7 +62,6 @@ Related:
 
 namespace SkullbonezCore::GameObjects
 {
-class GameModel;
 class GameModelCollection;
 } // namespace SkullbonezCore::GameObjects
 
@@ -258,13 +259,18 @@ class RunEditorTracer
                                  float g,
                                  float b );
     void AddReplayFutureTargetMarker( const Math::Vector::Vector3& center, float radius, int depth );
-    void AddReplayTargetMarker( const GameObjects::GameModel& model );
+    // Draws a replay target marker from explicit store values. Replay may still
+    // resolve identity by model order, but marker geometry must not read the
+    // post-step GameModel body mirror.
+    void AddReplayTargetMarker( const Math::Vector::Vector3& position,
+                                const Math::Orientation::Quaternion& orientation,
+                                const Math::CollisionDetection::CollisionShape& shape,
+                                float radius );
     void AddAttachedCameraTargetMarker( const Math::Vector::Vector3& position,
                                         const Math::Orientation::Quaternion& orientation,
                                         const Math::CollisionDetection::CollisionShape& shape,
                                         float radius,
                                         bool activeFollow );
-    void AddSelectionOutline( const GameObjects::GameModel& model );
     // Draws a shape-accurate outline from explicit pose/shape values. Replay
     // velocity edit uses this so overlay drawing does not need the post-step
     // GameModel body mirror.

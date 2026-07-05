@@ -11,7 +11,9 @@ Glossary:
   Tracer: Per-frame line builder for placement rays, gizmos, replay paths, and selection outlines.
   Gizmo: World-space translate, rotate, or scale affordance drawn over selected models.
   Selection outline: Shape-accurate wire outline drawn from explicit pose and
-    collision-shape values; model-backed callers are compatibility wrappers.
+    collision-shape values supplied by the owning tool.
+  Replay target marker: Replay overlay outline/ring drawn from explicit
+    body-store pose and collider-store shape/radius values.
   Placement ghost: Preview outline drawn before an editor placement commit; it
     must match the primitive bodies that placement will actually spawn.
 
@@ -396,10 +398,13 @@ void RunEditorTracer::AddReplayFutureTargetMarker( const Vector3& center, float 
 }
 
 
-void RunEditorTracer::AddReplayTargetMarker( const GameModel& model )
+void RunEditorTracer::AddReplayTargetMarker( const Vector3& position,
+                                             const Quaternion& orientation,
+                                             const CollisionShape& shape,
+                                             float radius )
 {
-    AddSelectionOutline( model );
-    EmitRing( model.GetPosition(), 1, (std::max)( 1.0f, EditorModelRadius( model ) * 1.18f ), 1.0f, 1.0f, 1.0f );
+    AddSelectionOutline( position, orientation, shape );
+    EmitRing( position, 1, (std::max)( 1.0f, radius ), 1.0f, 1.0f, 1.0f );
 }
 
 
@@ -416,12 +421,6 @@ void RunEditorTracer::AddAttachedCameraTargetMarker( const Vector3& position,
     const float b = activeFollow ? 0.92f : 0.24f;
     EmitRing( position, 1, radius, r, g, b );
     EmitRing( position, 0, radius * 0.68f, r, g, b );
-}
-
-
-void RunEditorTracer::AddSelectionOutline( const GameModel& model )
-{
-    AddSelectionOutline( model.GetPosition(), model.GetOrientation(), model.GetCollisionShape() );
 }
 
 

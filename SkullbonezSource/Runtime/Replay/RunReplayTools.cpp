@@ -14,6 +14,8 @@ Glossary:
   Cause tree: Contact graph that explains how one body influenced others.
   Path visualizer: Overlay that draws past/future body trajectories and contact
     handoffs.
+  Replay target marker: Overlay outline/ring drawn around the replay-selected
+    body from live body/collider store rows.
   Prediction slice: Time-budgeted replay preview work performed inside a render
     frame.
   Prediction physics tick: Replay-owned fixed step that temporarily advances
@@ -106,6 +108,30 @@ Vector3 EditorAxisVector( int axis )
 float EditorModelRadius( const GameModel& model )
 {
     return (std::max)( GetShapeBoundingRadius( model.GetCollisionShape() ), 1.0f );
+}
+
+
+bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
+                                         const PhysicsBodyStore& bodyStore,
+                                         const ColliderStore& colliderStore,
+                                         int modelIndex )
+{
+    const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
+    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
+    const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
+    const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+    if ( !body || !collider || bodyStore.ModelIndexForHandle( bodyHandle ) != modelIndex ||
+         colliderStore.ModelIndexForHandle( colliderHandle ) != modelIndex || collider->body != bodyHandle )
+    {
+        return false;
+    }
+
+    // Invariant: replay target identity may still be found by model order, but
+    // visible marker facts are read from store rows. This avoids copying shape
+    // state back through GameModel just so the tracer can read it again.
+    const float radius = (std::max)( 1.0f, (std::max)( body->boundingRadius, collider->boundingRadius ) ) * 1.18f;
+    tracer.AddReplayTargetMarker( body->position, body->orientation, collider->shape, radius );
+    return true;
 }
 
 
@@ -446,6 +472,8 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
 
     m_replayRuntime.PathVisualizer().futureNodes.clear();
     const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
     for ( RunReplayPathTarget& target : m_replayRuntime.PathVisualizer().targets )
     {
         if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
@@ -557,7 +585,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
             }
             if ( markerIndex >= 0 && markerIndex < static_cast<int>( models.size() ) )
             {
-                tracer.AddReplayTargetMarker( models[static_cast<std::size_t>( markerIndex )] );
+                TryAddReplayTargetMarkerFromStores( tracer, bodyStore, colliderStore, markerIndex );
             }
         }
     }
@@ -574,11 +602,14 @@ void Run::RenderReplayCauseFocusOverlay( RunEditorTracer& tracer )
     if ( m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::Body )
     {
         const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-        for ( const GameModel& model : models )
+        const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+        const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
+        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
         {
+            const GameModel& model = models[static_cast<std::size_t>( i )];
             if ( model.GetReplayBodyId() == m_replayRuntime.Camera().focusedId.value )
             {
-                tracer.AddReplayTargetMarker( model );
+                TryAddReplayTargetMarkerFromStores( tracer, bodyStore, colliderStore, i );
                 return;
             }
         }
