@@ -15,6 +15,7 @@
 #   and required scene contacts have store-authority fences, runtime handle
 #   smoke has a handle-authority fence, attached-camera target identity has a
 #   handle-authority fence, contact-audio simple mode has a body-store motion
+#   fence, fixed-contact presentation highlights have a body-store fixed-state
 #   fence, and fixed-tree, replay-restore wake, replay
 #   velocity-edit, launcher ray-hit, selection overlay, editor selection-frame,
 #   editor transform grouping, mouse-pickup overlay, attached-camera overlay,
@@ -182,6 +183,7 @@ PHYSICS_SCENE_HEADER = PHYSICS_ROOT / "PhysicsScene.h"
 PHYSICS_DIAGNOSTICS_SINK_SOURCE = PHYSICS_ROOT / "PhysicsDiagnosticsSink.cpp"
 PHYSICS_DIAGNOSTICS_SINK_HEADER = PHYSICS_ROOT / "PhysicsDiagnosticsSink.h"
 RAGDOLL_SOURCE = PHYSICS_ROOT / "Ragdoll.cpp"
+GAME_MODEL_SOURCE = Path("SkullbonezSource/GameObjects/GameModel.cpp")
 GAME_MODEL_COLLECTION_SOURCE = Path("SkullbonezSource/GameObjects/GameModelCollection.cpp")
 GAME_MODEL_COLLECTION_HEADER = Path("SkullbonezSource/GameObjects/GameModelCollection.h")
 IRENDER_BACKEND_HEADER = Path("SkullbonezSource/Rendering/IRenderBackend.h")
@@ -865,6 +867,14 @@ DELETED_GAME_MODEL_COLLECTION_PHYSICS_WRAPPER_PATTERN = re.compile(
     r"\b(?:void\s+GameModelCollection\s*::\s*)?"
     r"(?:WakeModel|SeedModelAsleep|ApplyBodyImpulse|SetPendingBodyImpulse)\s*\("
 )
+GAME_MODEL_COLLECTION_FIXED_CONTACT_FUNCTION_PATTERN = re.compile(
+    r"\bvoid\s+GameModelCollection::NotifyFixedContact\s*\("
+)
+GAME_MODEL_COLLECTION_FIXED_CONTACT_MODEL_FIXED_PATTERN = re.compile(
+    r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*IsFixed\s*\("
+)
+GAME_MODEL_FIXED_CONTACT_FUNCTION_PATTERN = re.compile(r"\bvoid\s+GameModel::NotifyFixedContact\s*\(")
+GAME_MODEL_FIXED_CONTACT_INTERNAL_FIXED_PATTERN = re.compile(r"\b(?:m_isFixed|IsFixed)\s*(?:\(|\b)")
 GAME_MODEL_COLLECTION_FIXED_TREE_RELEASE_FUNCTION_PATTERN = re.compile(
     r"\bvoid\s+GameModelCollection::ReleaseAttachedFixedTreeParts\s*\("
 )
@@ -5753,6 +5763,60 @@ def check_game_model_collection_fixed_tree_release_adapter_guardrails_text(
 def check_game_model_collection_fixed_tree_release_adapter_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / GAME_MODEL_COLLECTION_SOURCE
     return check_game_model_collection_fixed_tree_release_adapter_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_game_model_fixed_contact_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    if path.name == "GameModelCollection.cpp":
+        bounds = _function_body_bounds(stripped, GAME_MODEL_COLLECTION_FIXED_CONTACT_FUNCTION_PATTERN)
+        if bounds:
+            open_brace, close_brace = bounds
+            for match in GAME_MODEL_COLLECTION_FIXED_CONTACT_MODEL_FIXED_PATTERN.finditer(
+                stripped,
+                open_brace,
+                close_brace,
+            ):
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, match.start()),
+                        "fixed-contact highlight GameModel fixed read is blocked",
+                        (
+                            "GameModelCollection::NotifyFixedContact must gate presentation highlights on "
+                            "PhysicsBodyStore::RecordForModelIndex(...)->isFixed instead of GameModel::IsFixed()."
+                        ),
+                    )
+                )
+    elif path.name == "GameModel.cpp":
+        bounds = _function_body_bounds(stripped, GAME_MODEL_FIXED_CONTACT_FUNCTION_PATTERN)
+        if bounds:
+            open_brace, close_brace = bounds
+            for match in GAME_MODEL_FIXED_CONTACT_INTERNAL_FIXED_PATTERN.finditer(
+                stripped,
+                open_brace,
+                close_brace,
+            ):
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, match.start()),
+                        "fixed-contact timer GameModel fixed read is blocked",
+                        (
+                            "GameModel::NotifyFixedContact is presentation state; fixed-state authority belongs "
+                            "to PhysicsBodyStore at the caller boundary."
+                        ),
+                    )
+                )
+    return errors
+
+
+def check_game_model_fixed_contact_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in ( GAME_MODEL_COLLECTION_SOURCE, GAME_MODEL_SOURCE ):
+        path = repo / relative_path
+        errors.extend(check_game_model_fixed_contact_store_authority_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_deleted_per_body_model_writeback_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -16094,6 +16158,91 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old GameModelCollection physics wrapper definition synthetic surface was not rejected")
 
+    old_game_model_collection_fixed_contact_model_read = """
+    void GameModelCollection::NotifyFixedContact( int modelIndex, float highlightSeconds )
+    {
+        GameModel& model = m_gameModels[modelIndex];
+        if ( model.IsFixed() )
+        {
+            model.NotifyFixedContact( highlightSeconds );
+        }
+    }
+    """
+    if not any(
+        error.message == "fixed-contact highlight GameModel fixed read is blocked"
+        for error in check_game_model_fixed_contact_store_authority_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_game_model_collection_fixed_contact_model_read,
+        )
+    ):
+        failures.append("old fixed-contact GameModel fixed read synthetic surface was not rejected")
+
+    allowed_game_model_collection_fixed_contact_store_read = """
+    void GameModelCollection::NotifyFixedContact( int modelIndex, float highlightSeconds )
+    {
+        const PhysicsBodyRecord* body = m_physicsEngine.BodyStore().RecordForModelIndex( modelIndex );
+        if ( body && body->isFixed )
+        {
+            m_gameModels[modelIndex].NotifyFixedContact( highlightSeconds );
+        }
+    }
+    """
+    if check_game_model_fixed_contact_store_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_game_model_collection_fixed_contact_store_read,
+    ):
+        failures.append("fixed-contact body-store synthetic surface was rejected")
+
+    old_game_model_fixed_contact_internal_read = """
+    void GameModel::NotifyFixedContact( float highlightSeconds )
+    {
+        if ( m_isFixed && highlightSeconds > m_fixedContactHighlightSeconds )
+        {
+            m_fixedContactHighlightSeconds = highlightSeconds;
+        }
+    }
+    """
+    if not any(
+        error.message == "fixed-contact timer GameModel fixed read is blocked"
+        for error in check_game_model_fixed_contact_store_authority_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModel.cpp"),
+            old_game_model_fixed_contact_internal_read,
+        )
+    ):
+        failures.append("old GameModel fixed-contact timer fixed read synthetic surface was not rejected")
+
+    allowed_game_model_fixed_contact_presentation_timer = """
+    void GameModel::NotifyFixedContact( float highlightSeconds )
+    {
+        if ( highlightSeconds > m_fixedContactHighlightSeconds )
+        {
+            m_fixedContactHighlightSeconds = highlightSeconds;
+        }
+    }
+    """
+    if check_game_model_fixed_contact_store_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModel.cpp"),
+        allowed_game_model_fixed_contact_presentation_timer,
+    ):
+        failures.append("allowed GameModel fixed-contact presentation timer synthetic surface was rejected")
+
+    commented_game_model_fixed_contact_model_read = """
+    void GameModelCollection::NotifyFixedContact( int modelIndex, float highlightSeconds )
+    {
+        // model.IsFixed() used to guard fixed-contact presentation here.
+        const PhysicsBodyRecord* body = m_physicsEngine.BodyStore().RecordForModelIndex( modelIndex );
+        if ( body && body->isFixed )
+        {
+            m_gameModels[modelIndex].NotifyFixedContact( highlightSeconds );
+        }
+    }
+    """
+    if check_game_model_fixed_contact_store_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        commented_game_model_fixed_contact_model_read,
+    ):
+        failures.append("comment-only fixed-contact GameModel fixed read synthetic text was rejected")
+
     old_game_model_collection_adapter_use = """
     void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
     {
@@ -16919,6 +17068,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_run_frame_contact_audio_simple_store_authority_guardrails(repo))
     errors.extend(check_ragdoll_model_index_physics_command_guardrails(repo))
     errors.extend(check_deleted_game_model_collection_physics_wrapper_guardrails(repo))
+    errors.extend(check_game_model_fixed_contact_store_authority_guardrails(repo))
     errors.extend(check_game_model_collection_fixed_tree_release_adapter_guardrails(repo))
     errors.extend(check_deleted_bulk_model_writeback_guardrails(repo))
     errors.extend(check_deleted_per_body_model_writeback_guardrails(repo))

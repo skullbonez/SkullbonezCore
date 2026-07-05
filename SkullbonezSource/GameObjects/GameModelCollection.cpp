@@ -1139,10 +1139,13 @@ void GameModelCollection::NotifyFixedContact( int modelIndex, float highlightSec
         return;
     }
 
-    GameModel& model = m_gameModels[static_cast<size_t>( modelIndex )];
-    if ( model.IsFixed() )
+    // Why: fixed-contact events come from the solver. The presentation timer
+    // should trust the same dense body row instead of reopening the GameModel
+    // physics mirror to decide whether a body is fixed.
+    const PhysicsBodyRecord* body = m_physicsEngine.BodyStore().RecordForModelIndex( modelIndex );
+    if ( body && body->isFixed )
     {
-        model.NotifyFixedContact( highlightSeconds );
+        m_gameModels[static_cast<size_t>( modelIndex )].NotifyFixedContact( highlightSeconds );
     }
 }
 

@@ -4,9 +4,8 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_full.bat` passed on 2026-07-05 after moving editor transform
-reset wake eligibility from `GameModel::IsFixed()` to the freshly committed
-`PhysicsBodyStore` record.
+`tools\validate_full.bat` passed on 2026-07-05 after moving fixed-contact
+highlight fixed-state gating from `GameModel` to `PhysicsBodyStore`.
 
 ## Completed Slices
 
@@ -466,6 +465,27 @@ reset wake eligibility from `GameModel::IsFixed()` to the freshly committed
   InfoQueue errors 0, DX12 screenshots matched committed baselines,
   standalone/runtime physics smoke passed, and `physics_regression_solver.csv`
   was a byte-exact 20,001-line match.
+- [x] 2026-07-05: Moved fixed-contact highlight fixed-state gating to
+  `PhysicsBodyStore`. Owner: `GameModelCollection::NotifyFixedContact()` and
+  the `GameModel` presentation timer it updates. Reason: persistent-contact
+  side effects already identify fixed-contact body rows from physics-owned
+  state, but the final presentation edge still asked the mutable `GameModel`
+  mirror whether the body was fixed, then asked `GameModel::NotifyFixedContact()`
+  to repeat the same mirror check internally. The collection now reads
+  `PhysicsBodyRecord::isFixed` directly from the dense body store and
+  `GameModel::NotifyFixedContact()` only updates its render/debug timer.
+  Deletion condition: the fixed-contact highlight path contains no
+  `GameModel::IsFixed()` or `m_isFixed` read. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects `GameModel` fixed-state reads
+  inside `GameModelCollection::NotifyFixedContact()` and
+  `GameModel::NotifyFixedContact()`, with reject/allow/comment-only self-tests.
+  Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and `tools\validate_full.bat` passed on
+  2026-07-05; full gate reported DX12 InfoQueue errors 0, DX12 screenshots
+  matched committed baselines, standalone/runtime physics smoke passed, and
+  `physics_regression_solver.csv` was a byte-exact 20,001-line match.
 
 ## Goal
 

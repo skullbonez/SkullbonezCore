@@ -280,7 +280,7 @@ float GameModel::GetContactReleaseImpulseThreshold() const
 
 void GameModel::NotifyFixedContact( float highlightSeconds )
 {
-    if ( m_isFixed && highlightSeconds > m_fixedContactHighlightSeconds )
+    if ( highlightSeconds > m_fixedContactHighlightSeconds )
     {
         m_fixedContactHighlightSeconds = highlightSeconds;
     }
