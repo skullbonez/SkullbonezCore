@@ -281,6 +281,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 
 bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                                   const std::vector<GameModel>& models,
+                                  const ColliderStore& colliderStore,
                                   RunEditorTracer& tracer,
                                   const std::chrono::steady_clock::time_point& budgetStart,
                                   double budgetMilliseconds )
@@ -367,7 +368,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawChildren" );
         ReplayPathChildDrawContext childDraw;
         childDraw.tracer = &tracer;
-        childDraw.models = &models;
+        childDraw.colliderStore = &colliderStore;
         childDraw.presentFrame = 0;
         childDraw.lastFrame = lastFrame;
         childDraw.sampleStride = sampleStride;
@@ -420,7 +421,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                     if ( !drawState.markerDrawn )
                     {
                         const float radius =
-                            ReplayFutureMarkerRadiusForModelIndex( childDraw.models, body->modelIndex );
+                            ReplayFutureMarkerRadiusForModelIndex( childDraw.colliderStore, body->modelIndex );
                         tracer.AddReplayFutureTargetMarker( body->position, radius, drawState.node.depth );
                         drawState.markerDrawn = true;
                     }
@@ -545,6 +546,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
         }
     }
     const std::vector<GameModel>& models = modelCollection.Models();
+    const ColliderStore& colliderStore = modelCollection.GetPhysicsEngine().Colliders();
     if ( replayRuntime.Prediction().building )
     {
         const double remainingMilliseconds = ReplayPredictionRemainingMilliseconds( budgetStart, budgetMilliseconds );
@@ -565,5 +567,10 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
     // lines need a draw chance even on frames where stepping consumes that
     // budget. Start a fresh draw-only timer so the overlay degrades by detail
     // instead of disappearing for a frame.
-    DrawReplayPredictionOverlay( replayRuntime, models, tracer, std::chrono::steady_clock::now(), budgetMilliseconds );
+    DrawReplayPredictionOverlay( replayRuntime,
+                                 models,
+                                 colliderStore,
+                                 tracer,
+                                 std::chrono::steady_clock::now(),
+                                 budgetMilliseconds );
 }

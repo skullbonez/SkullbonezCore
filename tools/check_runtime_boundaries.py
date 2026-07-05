@@ -16,11 +16,11 @@
 #   smoke has a handle-authority fence, contact-audio simple mode has a
 #   body-store motion fence, and fixed-tree, replay-restore wake, replay
 #   velocity-edit, launcher ray-hit, selection overlay, mouse-pickup overlay,
-#   attached-camera overlay, or editor wake/sleep commands have store-handle
-#   fences. The deleted collection step wrapper has its own fence, replay
-#   render-pose overrides have their own value-override fence, and per-body
-#   model writeback has its own fence, so count allowances do not silently
-#   approve a new compatibility location.
+#   attached-camera overlay, replay marker radii, or editor wake/sleep commands
+#   have store-handle fences. The deleted collection step wrapper has its own
+#   fence, replay render-pose overrides have their own value-override fence,
+#   and per-body model writeback has its own fence, so count allowances do not
+#   silently approve a new compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -63,6 +63,9 @@
 #     marker on PhysicsBodyStore pose and ColliderStore shape/radius rows.
 #   Replay target marker fence: Static rule that keeps replay target markers on
 #     PhysicsBodyStore pose and ColliderStore shape/radius rows.
+#   Replay marker radius fence: Static rule that keeps retained and predicted
+#     replay path marker radii on ColliderStore rows instead of GameModel shape
+#     mirrors.
 #   Replay velocity body-read fence: Static rule that keeps velocity-edit hit
 #     testing and gizmo drawing on PhysicsBodyStore/ColliderStore rows.
 #   Handle-authority fence: Static rule that keeps a validation smoke on handles
@@ -165,6 +168,7 @@ RUNTIME_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp")
 RUNTIME_TOOLS_HEADER = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h")
 RUN_REPLAY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp")
 REPLAY_VELOCITY_EDIT_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl")
+REPLAY_QUERY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayQueryTools.inl")
 REPLAY_PREDICTION_HELPERS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl")
 REPLAY_PREDICTION_VISUALIZER_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl")
 REPLAY_RECORDER_SOURCE = Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp")
@@ -653,6 +657,12 @@ REPLAY_TARGET_MARKER_MODEL_OVERLOAD_PATTERN = re.compile(
 REPLAY_TARGET_MARKER_MODEL_CALL_PATTERN = re.compile(
     r"\b[A-Za-z_]\w*\s*\.\s*AddReplayTargetMarker\s*\(\s*"
     r"(?:models\s*\[|[A-Za-z_]\w+\s*\[|(?:model|target|selected)\b)"
+)
+REPLAY_MARKER_RADIUS_MODEL_READ_PATTERN = re.compile(
+    r"\bReplayFutureMarkerRadiusForModelIndex\s*\(\s*const\s+std\s*::\s*vector\s*<\s*"
+    r"(?:(?:GameObjects|SkullbonezCore\s*::\s*GameObjects)\s*::\s*)?GameModel\s*>\s*\*"
+    r"|\bEditorModelRadius\s*\("
+    r"|\bGetCollisionShape\s*\("
 )
 SELECTION_OUTLINE_MODEL_OVERLOAD_PATTERN = re.compile(
     r"\bAddSelectionOutline\s*\(\s*const\s+"
@@ -4720,6 +4730,39 @@ def check_replay_target_marker_store_authority_guardrails(repo: Path) -> list[Bo
         path = repo / relative_path
         errors.extend(
             check_replay_target_marker_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+        )
+    return errors
+
+
+def check_replay_marker_radius_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in REPLAY_MARKER_RADIUS_MODEL_READ_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay marker radius must use collider stores",
+                (
+                    "Replay path and prediction marker radii should resolve ColliderStore rows, not "
+                    "GameModel collision-shape mirrors or model-vector radius helpers."
+                ),
+            )
+        )
+    return errors
+
+
+def check_replay_marker_radius_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in (
+        RUN_REPLAY_TOOLS_SOURCE,
+        REPLAY_QUERY_TOOLS_SOURCE,
+        REPLAY_PREDICTION_HELPERS_SOURCE,
+        REPLAY_PREDICTION_VISUALIZER_SOURCE,
+    ):
+        path = repo / relative_path
+        errors.extend(
+            check_replay_marker_radius_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
         )
     return errors
 
@@ -13736,6 +13779,81 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only replay target marker synthetic text was rejected")
 
+    old_replay_future_marker_radius_helper = """
+    float ReplayFutureMarkerRadiusForModelIndex( const std::vector<GameModel>* models, int modelIndex )
+    {
+        return EditorModelRadius( ( *models )[static_cast<std::size_t>( modelIndex )] ) * 1.18f;
+    }
+    """
+    if not any(
+        error.message == "replay marker radius must use collider stores"
+        for error in check_replay_marker_radius_store_authority_guardrails_text(
+            REPLAY_PREDICTION_HELPERS_SOURCE,
+            old_replay_future_marker_radius_helper,
+        )
+    ):
+        failures.append("old replay future marker model-radius helper synthetic surface was not rejected")
+
+    old_replay_query_model_radius = """
+    bool Run::TryPickReplayPathTargetFromMouse()
+    {
+        radius = EditorModelRadius( models[static_cast<std::size_t>( body.modelIndex )] ) + 1.0f;
+    }
+    """
+    if not any(
+        error.message == "replay marker radius must use collider stores"
+        for error in check_replay_marker_radius_store_authority_guardrails_text(
+            REPLAY_QUERY_TOOLS_SOURCE,
+            old_replay_query_model_radius,
+        )
+    ):
+        failures.append("old replay query model-radius synthetic surface was not rejected")
+
+    old_replay_direct_collision_shape_radius = """
+    float ReplayFutureMarkerRadiusForModel( const GameModel& model )
+    {
+        return GetShapeBoundingRadius( model.GetCollisionShape() );
+    }
+    """
+    if not any(
+        error.message == "replay marker radius must use collider stores"
+        for error in check_replay_marker_radius_store_authority_guardrails_text(
+            RUN_REPLAY_TOOLS_SOURCE,
+            old_replay_direct_collision_shape_radius,
+        )
+    ):
+        failures.append("old replay direct collision-shape radius synthetic surface was not rejected")
+
+    allowed_replay_collider_radius = """
+    float ReplayFutureMarkerRadiusForModelIndex( const ColliderStore* colliderStore, int modelIndex )
+    {
+        float radius = 1.0f;
+        if ( colliderStore && TryReplayColliderRadiusForModelIndex( *colliderStore, modelIndex, radius ) )
+        {
+            return radius * 1.18f;
+        }
+        return 1.25f;
+    }
+    """
+    if check_replay_marker_radius_store_authority_guardrails_text(
+        REPLAY_PREDICTION_HELPERS_SOURCE,
+        allowed_replay_collider_radius,
+    ):
+        failures.append("store-backed replay marker radius synthetic surface was rejected")
+
+    commented_replay_marker_radius = """
+    void DocumentReplayRadius()
+    {
+        // The old helper used EditorModelRadius(model.GetCollisionShape()) for future markers.
+        // It now resolves ColliderStore rows for marker radii.
+    }
+    """
+    if check_replay_marker_radius_store_authority_guardrails_text(
+        REPLAY_PREDICTION_HELPERS_SOURCE,
+        commented_replay_marker_radius,
+    ):
+        failures.append("comment-only replay marker radius synthetic text was rejected")
+
     old_launcher_model_index_command = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
     {
@@ -15128,6 +15246,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_selection_overlay_store_authority_guardrails(repo))
     errors.extend(check_attached_camera_overlay_store_authority_guardrails(repo))
     errors.extend(check_replay_target_marker_store_authority_guardrails(repo))
+    errors.extend(check_replay_marker_radius_store_authority_guardrails(repo))
     errors.extend(check_launcher_model_index_physics_command_guardrails(repo))
     errors.extend(check_replay_velocity_model_state_physics_command_guardrails(repo))
     errors.extend(check_run_frame_replay_editor_transform_wake_guardrails(repo))

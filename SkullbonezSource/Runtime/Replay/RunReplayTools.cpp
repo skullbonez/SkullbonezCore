@@ -105,9 +105,30 @@ Vector3 EditorAxisVector( int axis )
 }
 
 
-float EditorModelRadius( const GameModel& model )
+// Why: retained and predicted replay samples carry model-index hints, but
+// shape/radius facts are owned by ColliderStore. Keep overlay and query radii
+// on the live store row instead of forcing a GameModel mirror refresh.
+bool TryReplayColliderRadiusForModelIndex( const ColliderStore& colliderStore, int modelIndex, float& outRadius )
 {
-    return (std::max)( GetShapeBoundingRadius( model.GetCollisionShape() ), 1.0f );
+    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
+    const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+    if ( !collider || colliderStore.ModelIndexForHandle( colliderHandle ) != modelIndex )
+    {
+        return false;
+    }
+
+    outRadius = (std::max)( collider->boundingRadius > 0.0f ? collider->boundingRadius
+                                                            : GetShapeBoundingRadius( collider->shape ),
+                            1.0f );
+    return true;
+}
+
+
+float ReplayColliderRadiusForModelIndex( const ColliderStore& colliderStore, int modelIndex )
+{
+    float radius = 1.0f;
+    TryReplayColliderRadiusForModelIndex( colliderStore, modelIndex, radius );
+    return radius;
 }
 
 
@@ -527,7 +548,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
 
         ReplayPathChildDrawContext childDraw;
         childDraw.tracer = &tracer;
-        childDraw.models = &models;
+        childDraw.colliderStore = &colliderStore;
         childDraw.budgetStart = &visualizerStart;
         childDraw.presentFrame = presentFrame;
         childDraw.lastFrame = bounds.lastFrame;

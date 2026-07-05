@@ -38,6 +38,7 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
     }
 
     const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
     ReplayBodyId pickedId;
     int pickedIndex = -1;
     char pickedName[64] = {};
@@ -49,7 +50,7 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
             float radius = 1.0f;
             if ( body.modelIndex >= 0 && body.modelIndex < static_cast<int>( models.size() ) )
             {
-                radius = EditorModelRadius( models[static_cast<std::size_t>( body.modelIndex )] ) + 1.0f;
+                radius = ReplayColliderRadiusForModelIndex( colliderStore, body.modelIndex ) + 1.0f;
             }
             float rayT = 0.0f;
             if ( IntersectRaySphere( rayOrigin, rayDirection, body.position, radius, rayT ) && rayT < bestT )

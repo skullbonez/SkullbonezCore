@@ -637,7 +637,7 @@ struct ReplayPathChildDrawState
 struct ReplayPathChildDrawContext
 {
     RunEditorTracer* tracer = nullptr;
-    const std::vector<GameModel>* models = nullptr;
+    const ColliderStore* colliderStore = nullptr;
     const std::chrono::steady_clock::time_point* budgetStart = nullptr;
     std::array<ReplayPathChildDrawState, REPLAY_PATH_MAX_FUTURE_NODES> nodes = {};
     std::size_t nodeCount = 0;
@@ -660,11 +660,15 @@ bool ReplayPathChildDrawBudgetExpired( ReplayPathChildDrawContext& context )
     return context.budgetExpired;
 }
 
-float ReplayFutureMarkerRadiusForModelIndex( const std::vector<GameModel>* models, int modelIndex )
+float ReplayFutureMarkerRadiusForModelIndex( const ColliderStore* colliderStore, int modelIndex )
 {
-    if ( models && modelIndex >= 0 && modelIndex < static_cast<int>( models->size() ) )
+    if ( colliderStore )
     {
-        return EditorModelRadius( ( *models )[static_cast<std::size_t>( modelIndex )] ) * 1.18f;
+        float radius = 1.0f;
+        if ( TryReplayColliderRadiusForModelIndex( *colliderStore, modelIndex, radius ) )
+        {
+            return radius * 1.18f;
+        }
     }
     return 1.25f;
 }
@@ -789,7 +793,8 @@ void DrawReplayChildPaths( const ReplaySolverFrameSample& sample, void* userData
         {
             if ( !drawState.markerDrawn )
             {
-                const float radius = ReplayFutureMarkerRadiusForModelIndex( context.models, body->modelIndex );
+                const float radius =
+                    ReplayFutureMarkerRadiusForModelIndex( context.colliderStore, body->modelIndex );
                 context.tracer->AddReplayFutureTargetMarker( body->position, radius, drawState.node.depth );
                 drawState.markerDrawn = true;
             }
