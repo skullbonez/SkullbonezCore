@@ -4,13 +4,35 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_physics.bat` passed on 2026-07-05 after moving
-`ColliderStore` refresh replay/body identity to `PhysicsBodyStore` rows;
-standalone/runtime physics smoke passed, and `physics_regression_solver.csv`
-was a byte-exact 20,001-line match.
+`tools\validate_full.bat` passed on 2026-07-05 after deleting the `GameModel`
+replay-id mirror and moving creation/import replay identity to
+`GameModelCollection` sidecar metadata plus `PhysicsBodyStore` rows; DX12
+InfoQueue reported 0 validation errors, screenshots matched committed
+baselines, standalone/runtime physics smoke passed, and
+`physics_regression_solver.csv` was a byte-exact 20,001-line match.
 
 ## Completed Slices
 
+- [x] 2026-07-05: Deleted the `GameModel` replay-id mirror. `GameModel` no
+  longer stores, sets, or exposes replay identity; `GameModelCollection`
+  assigns/preserves ids in the dense `m_replayBodyIds` sidecar, passes the id
+  directly into `MakeBodyRecordFromAuthoredModel()`, and feeds the same sidecar
+  into `PhysicsBodyStore::LoadFromModels()`. The runtime handle reorder smoke
+  now swaps replay ids in the metadata stream instead of mutating models, and
+  main-memory diagnostics count the sidecar bytes explicitly. Owner:
+  `GameModelCollection` scene-order replay metadata and `PhysicsBodyStore` body
+  identity import. Reason: the old mirror made every body import and body-record
+  creation prove stable identity by reading a mutable `GameModel` row; the
+  store path now receives identity as compact owner metadata and keeps body rows
+  authoritative. Deletion condition: `SkullbonezSource` contains no
+  `GameModel::GetReplayBodyId()`, `GameModel::SetReplayBodyId()`, or
+  `m_replayBodyId`, and `PhysicsBodyStore` import contains no replay-id reads
+  from `GameModel`. Checker budget: `tools/check_runtime_boundaries.py` rejects
+  the deleted mirror symbols anywhere under `SkullbonezSource` and self-tests
+  the allowed collection-owned sidecar. Validation: focused Profile build,
+  `git diff --check`, `python -m py_compile tools/check_runtime_boundaries.py`,
+  `python tools/check_runtime_boundaries.py --repo .`, `tools\validate_fast.bat`,
+  and `tools\validate_full.bat` passed on 2026-07-05.
 - [x] 2026-07-05: Moved `ColliderStore::Refresh()` replay/body identity off the
   `GameModel` replay-id mirror. The refresh still imports cold authoring
   collider data from `GameModel` for shape/material fields that have not moved
@@ -866,6 +888,9 @@ Move one body-state group at a time. Keep compatibility writeback narrow and tem
   `PhysicsBodyRecord::isFixed` from the committed body row instead of
   `GameModel::IsFixed()`.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of sleep and wake state.
+- [x] 2026-07-05 body-store creation/import receives replay ids from
+  `GameModelCollection`'s dense sidecar metadata instead of the deleted
+  `GameModel` replay-id mirror.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of accumulated forces and impulses.
 - [ ] Change physics stepping to consume body handles/store views rather than `GameModelCollection&`.
   - [x] 2026-07-03 production stepping signatures no longer accept
@@ -983,6 +1008,9 @@ Scene/editor/replay metadata should not force physics or render ownership to sta
     preflight now validate replay ids from `PhysicsBodyStore` rows; model index
     remains only a staleable replay/UI hint until scene/entity ids move out of
     `GameModel`.
+  - [x] 2026-07-05 creation/import replay identity no longer lives in
+    `GameModel`; `GameModelCollection` owns the current dense sidecar until
+    scene/entity metadata owns replay ids directly.
 - [ ] Update scene load to create metadata, body, collider, and render records through one coordinated creation path.
   - [x] 2026-07-05 authored scene load no longer asks `GameModel` to interpret
     scene Euler degrees or return a cached orientation for hull setup; this is
@@ -1031,6 +1059,8 @@ Only remove compatibility after callers have moved and validation has covered th
     those per-body writeback names plus the released-row output-vector shape.
 - [x] Delete `GameModel::SetInitialOrientation()` after authored scene setup
   became the sole owner of scene Euler-degree startup conversion.
+- [x] Delete `GameModel` replay-id mirror after body creation/import and
+  compatibility refreshes consume collection/body-store replay identity instead.
     The explicit bulk step compatibility writeback remains pending final reader
     migration.
 - [ ] Delete compatibility collider fields from `GameModel` after final reader migrates.

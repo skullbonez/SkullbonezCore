@@ -128,7 +128,6 @@ class GameModel
     bool m_isFixed;                                                         // True for immovable collision bodies such as floating ramps
     bool m_releasesFromFixedOnContact;                                      // Fixed decorative pieces can become dynamic after a real hit.
     float m_contactReleaseImpulseThreshold;                                 // Minimum solved normal impulse before fixed-contact release.
-    uint32_t m_replayBodyId;                                                // Stable replay-facing id assigned by GameModelCollection.
     GameModelCollectionKind m_collectionKind;                               // Runtime grouping metadata; names stay diagnostic-only after construction.
     int m_collectionRootModelIndex;                                         // Model index that represents this runtime collection, or -1.
     int m_collectionPartIndex;                                              // Collection-local part index, or -1 when not part of a collection.
@@ -195,8 +194,6 @@ class GameModel
     void SetCoefficientRestitution( float fCoefficientRestitution );
     void SetName( const char* name );                                       // Diagnostic name is capped at 63 bytes for deterministic logs.
     const char* GetName() const;
-    void SetReplayBodyId( uint32_t id );                                    // Replay ids are scene-local and assigned once by the owning collection.
-    uint32_t GetReplayBodyId() const;
     void SetRuntimeCollection( GameModelCollectionKind kind,
                                int rootModelIndex,
                                int partIndex );                             // Integer identity for grouped runtime objects.

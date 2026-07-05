@@ -103,11 +103,10 @@ struct PhysicsBodyRecord
 };
 
 // Construction edge: GameModelCollection still authors scene rows, but it
-// converts the just-appended model to this value record so PhysicsEngine receives
-// data, not a GameModel reference. Delete this when scene creation writes
-// PhysicsBodyCreateDesc records directly; the boundary checker blocks scene
-// setup from going back through adapter lookups.
-PhysicsBodyRecord MakeBodyRecordFromAuthoredModel( GameObjects::GameModel& model );
+// supplies replay identity separately and converts the just-appended model to
+// this value record so PhysicsEngine receives data, not a GameModel reference.
+// Delete this when scene creation writes PhysicsBodyCreateDesc records directly.
+PhysicsBodyRecord MakeBodyRecordFromAuthoredModel( GameObjects::GameModel& model, uint32_t replayBodyId );
 
 class PhysicsBodyStore
 {
@@ -115,8 +114,9 @@ class PhysicsBodyStore
     PhysicsBodyStore();
 
     void Clear();
-    void Refresh( std::vector<GameObjects::GameModel>& models, const std::vector<uint8_t>& sleepStates );
-    void LoadFromModels( std::vector<GameObjects::GameModel>& models, const std::vector<uint8_t>& sleepStates );
+    void LoadFromModels( std::vector<GameObjects::GameModel>& models,
+                         const std::vector<uint32_t>& replayBodyIds,
+                         const std::vector<uint8_t>& sleepStates );
     // Creates a physics-owned body row without consulting GameModel. The store
     // assigns the handle and keeps the row dense; callers supply authored state.
     PhysicsBodyHandle CreateBodyRecord( const PhysicsBodyRecord& record );

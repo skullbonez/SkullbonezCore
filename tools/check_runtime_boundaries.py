@@ -178,6 +178,8 @@ from pathlib import Path
 
 
 RUN_HEADER = Path("SkullbonezSource/Runtime/Run.h")
+SOURCE_ROOT = Path("SkullbonezSource")
+SOURCE_FILE_SUFFIXES = {".cpp", ".h", ".hpp", ".inl", ".hlsl"}
 RUN_SOURCE = Path("SkullbonezSource/Runtime/Run.cpp")
 RUN_FRAME_SOURCE = Path("SkullbonezSource/Runtime/RunFrame.cpp")
 RUN_INTERNAL_HEADER = Path("SkullbonezSource/Runtime/RunInternal.h")
@@ -547,6 +549,9 @@ COLLIDER_STORE_REFRESH_FUNCTION_PATTERN = re.compile(
 )
 COLLIDER_STORE_REFRESH_MODEL_REPLAY_ID_PATTERN = re.compile(
     r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*GetReplayBodyId\s*\("
+)
+GAME_MODEL_REPLAY_ID_MIRROR_PATTERN = re.compile(
+    r"\b(?:GetReplayBodyId|SetReplayBodyId)\s*\(|\bm_replayBodyId\b"
 )
 REPLAY_RESTORE_MODEL_INDEX_PHYSICS_API_PATTERN = re.compile(
     r"\b(?:PhysicsEngine|PhysicsScene|PhysicsBodyStore)?(?:::)?RestoreReplayBodyState\s*\(\s*int\s+"
@@ -4243,6 +4248,33 @@ def check_collider_store_identity_authority_guardrails_text(path: Path, text: st
 def check_collider_store_identity_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / COLLIDER_STORE_SOURCE
     return check_collider_store_identity_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_game_model_replay_id_mirror_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in GAME_MODEL_REPLAY_ID_MIRROR_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "GameModel replay identity mirror is deleted",
+                (
+                    "Replay identity must live in GameModelCollection/PhysicsBodyStore rows. Do not restore "
+                    "GameModel replay-id storage or GameModel getter/setter access."
+                ),
+            )
+        )
+    return errors
+
+
+def check_game_model_replay_id_mirror_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / SOURCE_ROOT).rglob("*")):
+        if path.suffix not in SOURCE_FILE_SUFFIXES:
+            continue
+        errors.extend(check_game_model_replay_id_mirror_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_game_model_collection_replay_restore_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -13698,6 +13730,41 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("store-owned ColliderStore replay identity synthetic surface was rejected")
 
+    old_game_model_replay_id_mirror = """
+    class GameModel
+    {
+        uint32_t m_replayBodyId;
+        void SetReplayBodyId( uint32_t id );
+        uint32_t GetReplayBodyId() const;
+    };
+    """
+    if not any(
+        error.message == "GameModel replay identity mirror is deleted"
+        for error in check_game_model_replay_id_mirror_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModel.h"),
+            old_game_model_replay_id_mirror,
+        )
+    ):
+        failures.append("old GameModel replay-id mirror synthetic surface was not rejected")
+
+    allowed_collection_replay_ids = """
+    class GameModelCollection
+    {
+        std::vector<uint32_t> m_replayBodyIds;
+        uint32_t m_nextReplayBodyId = 1;
+    };
+    void GameModelCollection::ReloadPhysicsBodies( PhysicsBodyStore& bodyStore,
+                                                   const std::vector<uint8_t>& sleepStates )
+    {
+        bodyStore.LoadFromModels( m_gameModels, m_replayBodyIds, sleepStates );
+    }
+    """
+    if check_game_model_replay_id_mirror_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
+        allowed_collection_replay_ids,
+    ):
+        failures.append("collection-owned replay-id synthetic surface was rejected")
+
     old_collection_replay_restore_model_refresh = """
     bool GameModelCollection::TryRestoreReplayBodyState( int index,
                                                          uint32_t replayBodyId,
@@ -17657,6 +17724,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_replay_prediction_ghost_render_store_authority_guardrails(repo))
     errors.extend(check_replay_restore_store_authority_guardrails(repo))
     errors.extend(check_collider_store_identity_authority_guardrails(repo))
+    errors.extend(check_game_model_replay_id_mirror_guardrails(repo))
     errors.extend(check_physics_body_store_model_index_command_guardrails(repo))
     errors.extend(check_replay_render_pose_value_override_guardrails(repo))
     errors.extend(check_run_frame_replay_probe_body_store_guardrails(repo))

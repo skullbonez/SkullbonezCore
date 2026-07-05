@@ -37,6 +37,7 @@ Related:
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <type_traits>
@@ -1055,14 +1056,14 @@ void PhysicsBodyStore::Clear()
 }
 
 
-void PhysicsBodyStore::Refresh( std::vector<GameModel>& models, const std::vector<uint8_t>& sleepStates )
+void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models,
+                                       const std::vector<uint32_t>& replayBodyIds,
+                                       const std::vector<uint8_t>& sleepStates )
 {
-    LoadFromModels( models, sleepStates );
-}
-
-
-void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std::vector<uint8_t>& sleepStates )
-{
+    assert( replayBodyIds.size() == models.size() );
+    // Invariant: GameModel no longer owns replay identity. The model array is
+    // only the compatibility source for mutable body authoring data; replay ids
+    // arrive as the owner-side dense metadata stream.
     const std::vector<PreservedRefreshState> preservedStateByHandle =
         CapturePreservedRefreshState( m_bodies, m_handleGenerations.size() );
     std::vector<uint8_t> assignedHandleSlots( m_handleGenerations.size(), 0 );
@@ -1072,7 +1073,7 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std
     {
         GameModel& model = models[i];
         PhysicsBodyRecord& record = m_bodies[i];
-        const uint32_t replayBodyId = model.GetReplayBodyId();
+        const uint32_t replayBodyId = replayBodyIds[i];
         const PhysicsBodyHandle handle =
             ResolveHandleForModelIndex( static_cast<int>( i ), replayBodyId, assignedHandleSlots );
         // Why: refresh copies live compatibility state every frame, but a
@@ -1104,10 +1105,10 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std
 }
 
 
-PhysicsBodyRecord SkullbonezCore::Physics::MakeBodyRecordFromAuthoredModel( GameModel& model )
+PhysicsBodyRecord SkullbonezCore::Physics::MakeBodyRecordFromAuthoredModel( GameModel& model, uint32_t replayBodyId )
 {
     PhysicsBodyRecord record;
-    record.replayBodyId = model.GetReplayBodyId();
+    record.replayBodyId = replayBodyId;
     record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
     CaptureMutableBodyState( model, record );
     return record;

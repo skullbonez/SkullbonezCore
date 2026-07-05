@@ -36,8 +36,8 @@ Glossary:
 Invariants:
   - m_gameModels is the stable scene-order owner; collaborators mirror or view
     that order rather than replacing it.
-  - Replay body ids are assigned monotonically per collection so diagnostics can
-    identify bodies across frames.
+  - Replay body ids are assigned monotonically per collection and stored beside
+    model rows so diagnostics can identify bodies without reopening GameModel.
 
 Related:
   - SkullbonezSource/GameObjects/GameModelCollection.cpp
@@ -121,6 +121,7 @@ class GameModelCollection
     };
 
     std::vector<GameModel> m_gameModels;
+    std::vector<uint32_t> m_replayBodyIds;                             // Scene-order replay ids paired one-to-one with m_gameModels.
     Physics::PhysicsEngine m_physicsEngine;
     // Cached physics policy applied to existing and newly added models whenever
     // runtime config changes.
@@ -147,7 +148,7 @@ class GameModelCollection
     Threading::WorkerPool* RenderWorkerPool() const;
     // Appends scene-authored model storage and the matching body-store row in
     // one owner step so construction commands can use the returned body handle.
-    Physics::PhysicsBodyHandle AddGameModel( GameModel gameModel );
+    Physics::PhysicsBodyHandle AddGameModel( GameModel gameModel, uint32_t replayBodyId = 0 );
     void Clear();
     int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount );
     void RenderModels( const Basics::RenderHelperContext& helperContext,

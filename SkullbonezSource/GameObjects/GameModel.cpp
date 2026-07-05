@@ -161,7 +161,6 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_isFixed = false;
     m_releasesFromFixedOnContact = false;
     m_contactReleaseImpulseThreshold = 1.0f;
-    m_replayBodyId = 0;
     m_collectionKind = GameModelCollectionKind::None;
     m_collectionRootModelIndex = -1;
     m_collectionPartIndex = -1;
@@ -344,18 +343,6 @@ void GameModel::SetName( const char* name )
 const char* GameModel::GetName() const
 {
     return m_name;
-}
-
-
-void GameModel::SetReplayBodyId( uint32_t id )
-{
-    m_replayBodyId = id;
-}
-
-
-uint32_t GameModel::GetReplayBodyId() const
-{
-    return m_replayBodyId;
 }
 
 
