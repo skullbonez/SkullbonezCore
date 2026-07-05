@@ -60,9 +60,9 @@ class PhysicsEngine
     // Replay restore trims the authoritative body store directly; callers must
     // not force a model-to-store refresh after this succeeds.
     bool TrimBodyStoreToCount( int bodyCount );
-    // Store-owned replay restore facade used by runtime replay without
-    // treating GameModel as the source of truth for simulation state.
-    bool RestoreReplayBodyState( int modelIndex,
+    // Store-owned replay restore facade. Callers resolve a body handle at the
+    // owner edge so physics does not accept transient model slots as authority.
+    bool RestoreReplayBodyState( PhysicsBodyHandle body,
                                  uint32_t replayBodyId,
                                  bool fixed,
                                  const Math::Vector::Vector3& position,

@@ -117,7 +117,7 @@ bool PhysicsScene::TrimBodyStoreToCount( int bodyCount )
 }
 
 
-bool PhysicsScene::RestoreReplayBodyState( int modelIndex,
+bool PhysicsScene::RestoreReplayBodyState( PhysicsBodyHandle body,
                                            uint32_t replayBodyId,
                                            bool fixed,
                                            const Math::Vector::Vector3& position,
@@ -129,7 +129,7 @@ bool PhysicsScene::RestoreReplayBodyState( int modelIndex,
                                            const Math::Vector::Vector3& rotationalInertia,
                                            const Math::Vector::Vector3& inverseRotationalInertia )
 {
-    return m_bodyStore.RestoreReplayBodyState( modelIndex,
+    return m_bodyStore.RestoreReplayBodyState( body,
                                                replayBodyId,
                                                fixed,
                                                position,

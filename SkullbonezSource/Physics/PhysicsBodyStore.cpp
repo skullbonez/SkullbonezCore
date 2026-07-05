@@ -1244,7 +1244,7 @@ bool PhysicsBodyStore::TrimToCount( int bodyCount )
 //
 // GameModel may still be updated for presentation compatibility, but the body
 // record must not reload pose, velocity, mass, or inertia from that mirror.
-bool PhysicsBodyStore::RestoreReplayBodyState( int modelIndex,
+bool PhysicsBodyStore::RestoreReplayBodyState( PhysicsBodyHandle body,
                                                uint32_t replayBodyId,
                                                bool fixed,
                                                const Vector3& position,
@@ -1256,7 +1256,7 @@ bool PhysicsBodyStore::RestoreReplayBodyState( int modelIndex,
                                                const Vector3& rotationalInertia,
                                                const Vector3& inverseRotationalInertia )
 {
-    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
+    PhysicsBodyRecord* record = MutableRecordForHandle( body );
     if ( !record || record->replayBodyId != replayBodyId )
     {
         return false;

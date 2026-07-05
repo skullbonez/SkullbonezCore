@@ -74,8 +74,8 @@ class PhysicsScene
     // not force a model-to-store refresh after this succeeds.
     bool TrimBodyStoreToCount( int bodyCount );
     // Store-owned replay restore facade used by runtime replay without
-    // treating GameModel as the source of truth for simulation state.
-    bool RestoreReplayBodyState( int modelIndex,
+    // treating model-order slots as the source of truth for simulation state.
+    bool RestoreReplayBodyState( PhysicsBodyHandle body,
                                  uint32_t replayBodyId,
                                  bool fixed,
                                  const Math::Vector::Vector3& position,

@@ -79,7 +79,7 @@ bool PhysicsEngine::TrimBodyStoreToCount( int bodyCount )
 }
 
 
-bool PhysicsEngine::RestoreReplayBodyState( int modelIndex,
+bool PhysicsEngine::RestoreReplayBodyState( PhysicsBodyHandle body,
                                             uint32_t replayBodyId,
                                             bool fixed,
                                             const Math::Vector::Vector3& position,
@@ -91,7 +91,7 @@ bool PhysicsEngine::RestoreReplayBodyState( int modelIndex,
                                             const Math::Vector::Vector3& rotationalInertia,
                                             const Math::Vector::Vector3& inverseRotationalInertia )
 {
-    return m_scene.RestoreReplayBodyState( modelIndex,
+    return m_scene.RestoreReplayBodyState( body,
                                            replayBodyId,
                                            fixed,
                                            position,

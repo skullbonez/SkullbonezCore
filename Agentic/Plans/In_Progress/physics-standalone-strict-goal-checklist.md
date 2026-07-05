@@ -274,6 +274,25 @@ Debug build passed; touched-file comment audit inspected `RunInput.cpp`,
 `tools\validate_physics.bat` passed in about 13.8s with standalone/runtime handle
 smoke and byte-exact `physics_regression_solver.csv`.
 
+Strict-step authority slice `PHY-1055`: replay restore physics commands are now
+handle-keyed below `GameModelCollection`. The collection edge still verifies the
+model-slot replay id for the presentation mirror, but it resolves the current
+`PhysicsBodyHandle`/`PhysicsBodyRecord`, restores the `PhysicsBodyStore` row
+first, then updates `GameModel` presentation state. `PhysicsEngine`,
+`PhysicsScene`, and `PhysicsBodyStore` no longer accept `int modelIndex` for
+`RestoreReplayBodyState`; `tools/check_runtime_boundaries.py` blocks model-index
+restore signatures in those physics APIs and self-tests the handle-keyed shape.
+Evidence: CodeGraph traced the restore chain and blast radius; residue scan
+found no `RestoreReplayBodyState(int modelIndex/index)` in
+`SkullbonezSource/Physics`; `python -m py_compile
+tools\check_runtime_boundaries.py`, `python tools\check_runtime_boundaries.py`,
+`git diff --check`, and a focused Debug build passed; touched-file comment audit
+inspected `GameModelCollection.cpp`, `PhysicsEngine.h/cpp`,
+`PhysicsScene.h/cpp`, `PhysicsBodyStore.h/cpp`, and
+`tools/check_runtime_boundaries.py`; `tools\validate_fast.bat` passed in 33.0s;
+intermittent `tools\validate_physics.bat` passed in 14.0s with
+standalone/runtime handle smoke and byte-exact `physics_regression_solver.csv`.
+
 Strict-step authority slice `PHY-0207K`: fixed-contact highlight
 notification moved out of `PhysicsWorld` side-effect application. The persistent
 solver already fills `fixedContactBodies`; `PhysicsWorld` now exposes that queue

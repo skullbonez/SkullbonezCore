@@ -87,6 +87,8 @@
 #   Replay probe body-state fence: Static rule that keeps replay scrub/save/load
 #     validation probes on PhysicsBodyStore rows instead of using GameModel body
 #     mirrors as proof that live simulation state stayed untouched.
+#   Replay restore handle fence: Static rule that keeps replay restore commands
+#     handle-keyed below the GameModelCollection presentation edge.
 #
 # Invariants:
 #   - Run.h may own subsystem objects, but not their extracted transient state.
@@ -486,6 +488,10 @@ REPLAY_PREDICTION_BULK_WRITEBACK_PATTERN = re.compile(
 )
 RUN_REPLAY_RESTORE_BODY_STORE_REFRESH_PATTERN = re.compile(
     r"\bm_cGameModelCollection\s*\.\s*GetPhysicsBodyStore\s*\("
+)
+REPLAY_RESTORE_MODEL_INDEX_PHYSICS_API_PATTERN = re.compile(
+    r"\b(?:PhysicsEngine|PhysicsScene|PhysicsBodyStore)?(?:::)?RestoreReplayBodyState\s*\(\s*int\s+"
+    r"(?:modelIndex|index)\b"
 )
 GAME_MODEL_COLLECTION_REPLAY_RESTORE_FUNCTION_PATTERN = re.compile(
     r"\bbool\s+GameModelCollection::TryRestoreReplayBodyState\s*\("
@@ -4006,6 +4012,24 @@ def check_game_model_collection_replay_restore_store_authority_guardrails_text(p
     return errors
 
 
+def check_replay_restore_handle_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in REPLAY_RESTORE_MODEL_INDEX_PHYSICS_API_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay restore physics API must be handle-keyed",
+                (
+                    "Physics-layer replay restore must receive a PhysicsBodyHandle resolved at the "
+                    "GameModelCollection edge; do not let model-index command authority leak back into physics."
+                ),
+            )
+        )
+    return errors
+
+
 def check_game_model_collection_replay_render_pose_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments_and_string_literals(text)
     errors: list[BoundaryError] = []
@@ -4131,6 +4155,16 @@ def check_replay_restore_store_authority_guardrails(repo: Path) -> list[Boundary
             collection_path.read_text(encoding="utf-8"),
         )
     )
+    for relative_path in (
+        PHYSICS_ENGINE_HEADER,
+        PHYSICS_ENGINE_SOURCE,
+        PHYSICS_SCENE_HEADER,
+        PHYSICS_SCENE_SOURCE,
+        PHYSICS_ROOT / "PhysicsBodyStore.h",
+        PHYSICS_ROOT / "PhysicsBodyStore.cpp",
+    ):
+        path = repo / relative_path
+        errors.extend(check_replay_restore_handle_authority_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -12646,7 +12680,8 @@ def run_self_tests() -> list[str]:
                                                                    const Vector3& linearVelocity,
                                                                    const Vector3& angularVelocity )
     {
-        return m_physicsEngine.RestoreReplayBodyState( index, replayBodyId, fixed, position, orientation, linearVelocity, angularVelocity, mass, inverseMass, rotationalInertia, inverseRotationalInertia );
+        const PhysicsBodyHandle body = m_physicsEngine.BodyStore().HandleForModelIndex( index );
+        return m_physicsEngine.RestoreReplayBodyState( body, replayBodyId, fixed, position, orientation, linearVelocity, angularVelocity, mass, inverseMass, rotationalInertia, inverseRotationalInertia );
     }
     """
     if check_game_model_collection_replay_restore_store_authority_guardrails_text(
@@ -12654,6 +12689,47 @@ def run_self_tests() -> list[str]:
         allowed_collection_replay_prediction_restore,
     ):
         failures.append("store-owned replay prediction restore synthetic surface was rejected")
+
+    old_physics_replay_restore_model_index_api = """
+    class PhysicsEngine
+    {
+        bool RestoreReplayBodyState( int modelIndex,
+                                     uint32_t replayBodyId,
+                                     bool fixed,
+                                     const Vector3& position );
+    };
+    bool PhysicsScene::RestoreReplayBodyState( int index, uint32_t replayBodyId )
+    {
+        return m_bodyStore.RestoreReplayBodyState( index, replayBodyId );
+    }
+    """
+    if not any(
+        error.message == "replay restore physics API must be handle-keyed"
+        for error in check_replay_restore_handle_authority_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+            old_physics_replay_restore_model_index_api,
+        )
+    ):
+        failures.append("old replay restore model-index physics API synthetic surface was not rejected")
+
+    allowed_physics_replay_restore_handle_api = """
+    class PhysicsEngine
+    {
+        bool RestoreReplayBodyState( PhysicsBodyHandle body,
+                                     uint32_t replayBodyId,
+                                     bool fixed,
+                                     const Vector3& position );
+    };
+    bool PhysicsScene::RestoreReplayBodyState( PhysicsBodyHandle body, uint32_t replayBodyId )
+    {
+        return m_bodyStore.RestoreReplayBodyState( body, replayBodyId );
+    }
+    """
+    if check_replay_restore_handle_authority_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsEngine.h"),
+        allowed_physics_replay_restore_handle_api,
+    ):
+        failures.append("handle-keyed replay restore physics API synthetic surface was rejected")
 
     deleted_replay_render_pose_symbol = """
     void ReplayRuntime::RestoreRenderPose( GameModelCollection& collection )

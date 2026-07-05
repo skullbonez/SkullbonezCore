@@ -130,8 +130,8 @@ class PhysicsBodyStore
     // current store range.
     bool TrimToCount( int bodyCount );
     // Restores sampled replay values into the authoritative body record. The
-    // replay id must match so stale samples cannot mutate a reused model slot.
-    bool RestoreReplayBodyState( int modelIndex,
+    // replay id must match so stale handles cannot mutate a reused body slot.
+    bool RestoreReplayBodyState( PhysicsBodyHandle body,
                                  uint32_t replayBodyId,
                                  bool fixed,
                                  const Math::Vector::Vector3& position,

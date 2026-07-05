@@ -622,22 +622,38 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
         return false;
     }
 
+    // Invariant: model index verifies the presentation slot only. The current
+    // body handle and replay id must prove the live physics row before either
+    // side of the compatibility restore mutates.
+    const PhysicsBodyStore& bodyStore = m_physicsEngine.BodyStore();
+    const PhysicsBodyHandle body = bodyStore.HandleForModelIndex( index );
+    const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
+    if ( !bodyRecord || bodyRecord->replayBodyId != replayBodyId )
+    {
+        return false;
+    }
+
+    if ( !m_physicsEngine.RestoreReplayBodyState( body,
+                                                  replayBodyId,
+                                                  fixed,
+                                                  position,
+                                                  orientation,
+                                                  linearVelocity,
+                                                  angularVelocity,
+                                                  mass,
+                                                  inverseMass,
+                                                  rotationalInertia,
+                                                  inverseRotationalInertia ) )
+    {
+        return false;
+    }
+
     model.SetFixed( fixed );
     model.SetPosition( position );
     model.SetOrientation( orientation );
     model.SetLinearVelocity( linearVelocity );
     model.SetAngularVelocity( angularVelocity );
-    return m_physicsEngine.RestoreReplayBodyState( index,
-                                                   replayBodyId,
-                                                   fixed,
-                                                   position,
-                                                   orientation,
-                                                   linearVelocity,
-                                                   angularVelocity,
-                                                   mass,
-                                                   inverseMass,
-                                                   rotationalInertia,
-                                                   inverseRotationalInertia );
+    return true;
 }
 
 
@@ -665,25 +681,41 @@ bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
         return false;
     }
 
+    // Invariant: model index verifies the presentation slot only. The current
+    // body handle and replay id must prove the live physics row before either
+    // side of the compatibility restore mutates.
+    const PhysicsBodyStore& bodyStore = m_physicsEngine.BodyStore();
+    const PhysicsBodyHandle body = bodyStore.HandleForModelIndex( index );
+    const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
+    if ( !bodyRecord || bodyRecord->replayBodyId != replayBodyId )
+    {
+        return false;
+    }
+
+    // Why: prediction restore swaps live/job state repeatedly. Restore the
+    // physics record from the captured backup instead of recapturing GameModel.
+    if ( !m_physicsEngine.RestoreReplayBodyState( body,
+                                                  replayBodyId,
+                                                  fixed,
+                                                  position,
+                                                  orientation,
+                                                  linearVelocity,
+                                                  angularVelocity,
+                                                  mass,
+                                                  inverseMass,
+                                                  rotationalInertia,
+                                                  inverseRotationalInertia ) )
+    {
+        return false;
+    }
+
     model.SetFixed( fixed );
     model.SetPosition( position );
     model.SetOrientation( orientation );
     model.SetLinearVelocity( linearVelocity );
     model.SetAngularVelocity( angularVelocity );
     model.SetFixedContactHighlightSeconds( fixedContactHighlightSeconds );
-    // Why: prediction restore swaps live/job state repeatedly. Restore the
-    // physics record from the captured backup instead of recapturing GameModel.
-    return m_physicsEngine.RestoreReplayBodyState( index,
-                                                   replayBodyId,
-                                                   fixed,
-                                                   position,
-                                                   orientation,
-                                                   linearVelocity,
-                                                   angularVelocity,
-                                                   mass,
-                                                   inverseMass,
-                                                   rotationalInertia,
-                                                   inverseRotationalInertia );
+    return true;
 }
 
 
