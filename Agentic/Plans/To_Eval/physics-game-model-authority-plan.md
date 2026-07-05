@@ -4,9 +4,10 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_full.bat` passed on 2026-07-05 after moving replay
-save/restore probe pose and fixed-state decisions from the `GameModel`
-compatibility mirror to `PhysicsBodyStore` records.
+`tools\validate_full.bat` passed on 2026-07-05 after moving authored scene
+Euler-degree startup orientation conversion out of `GameModel`, deleting
+`GameModel::SetInitialOrientation()`, and blocking scene setup orientation
+readbacks.
 
 ## Completed Slices
 
@@ -428,6 +429,25 @@ compatibility mirror to `PhysicsBodyStore` records.
   2026-07-05; full gate reported DX12 InfoQueue errors 0, DX12 screenshots
   matched committed baselines, standalone/runtime physics smoke passed, and
   `physics_regression_solver.csv` was a byte-exact 20,001-line match.
+- [x] 2026-07-05: Deleted `GameModel::SetInitialOrientation()` and moved
+  authored startup Euler conversion into `SceneAuthoredSetup`. Owner: authored
+  scene model construction for balls, boxes, and convex hulls. Reason: scene
+  JSON owns the degree units and Euler-order interpretation; routing that value
+  through `GameModel`, then reading `GameModel::GetOrientation()` back for hull
+  center-of-mass placement, kept a body-state mirror in the construction path
+  and did duplicate quaternion work. Deletion condition:
+  `SkullbonezSource` has no `SetInitialOrientation()` declaration, definition,
+  or call, and `SceneAuthoredSetup.cpp` has no `GameModel::GetOrientation()`
+  readback. Checker budget: `tools/check_runtime_boundaries.py` blocks the
+  deleted setter name as a migration artifact and rejects scene setup
+  `GameModel` orientation readbacks while allowing local
+  `MakeSceneEulerQuaternion()` plus `GameModel::SetOrientation()`. Validation:
+  `git diff --check`, `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, `tools\validate_fast.bat`,
+  and `tools\validate_full.bat` passed on 2026-07-05; full gate reported DX12
+  InfoQueue errors 0, DX12 screenshots matched committed baselines,
+  standalone/runtime physics smoke passed, and `physics_regression_solver.csv`
+  was a byte-exact 20,001-line match.
 
 ## Goal
 
@@ -663,6 +683,10 @@ Move one body-state group at a time. Keep compatibility writeback narrow and tem
 - [x] 2026-07-05 replay save/restore probes read starting pose, orientation,
   and fixed state from `PhysicsBodyStore` records instead of the `GameModel`
   compatibility mirror.
+- [x] 2026-07-05 authored scene startup orientation converts Euler-degree
+  values locally and writes a `Quaternion` through `GameModel::SetOrientation()`;
+  convex-hull COM placement reuses that value instead of reading
+  `GameModel::GetOrientation()` back out.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of sleep and wake state.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of accumulated forces and impulses.
 - [ ] Change physics stepping to consume body handles/store views rather than `GameModelCollection&`.
@@ -773,6 +797,10 @@ Scene/editor/replay metadata should not force physics or render ownership to sta
     `GameModel`.
 - [ ] Move replay identity to stable entity/body handles.
 - [ ] Update scene load to create metadata, body, collider, and render records through one coordinated creation path.
+  - [x] 2026-07-05 authored scene load no longer asks `GameModel` to interpret
+    scene Euler degrees or return a cached orientation for hull setup; this is
+    still a construction facade until body/collider registration moves behind
+    one coordinated creation path.
 - [ ] Update scene save to serialize from authoritative stores and metadata, not stale compatibility fields.
 - [ ] Update replay capture to read from body handles and stable replay ids.
 - [ ] Update replay playback or diagnostics to resolve through stable handles.
@@ -808,6 +836,8 @@ Only remove compatibility after callers have moved and validation has covered th
     internally, `GameModelCollection::WriteBackPhysicsBody` and
     `PhysicsBodyStore::WriteBackToModelAt` are deleted, and the checker rejects
     those per-body writeback names plus the released-row output-vector shape.
+- [x] Delete `GameModel::SetInitialOrientation()` after authored scene setup
+  became the sole owner of scene Euler-degree startup conversion.
     The explicit bulk step compatibility writeback remains pending final reader
     migration.
 - [ ] Delete compatibility collider fields from `GameModel` after final reader migrates.

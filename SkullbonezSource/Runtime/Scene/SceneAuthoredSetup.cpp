@@ -71,6 +71,9 @@ using SkullbonezCore::Physics::RagdollBuildOptions;
 
 constexpr float SCENE_EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
 
+// Why: Scene JSON stores authored startup angles in degrees. Convert that
+// authoring unit once here, then pass a quaternion into model/body setup instead
+// of asking GameModel to cache and hand the value back.
 Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eulerZDeg )
 {
     static constexpr float DEG2RAD = 3.14159265f / 180.0f;
@@ -286,7 +289,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         // order, while snapshot state stores the final quaternion directly.
         if ( ball.hasInitOrient )
         {
-            gameModel.SetInitialOrientation( ball.eulerX, ball.eulerY, ball.eulerZ );
+            gameModel.SetOrientation( MakeSceneEulerQuaternion( ball.eulerX, ball.eulerY, ball.eulerZ ) );
         }
 
         const bool hasInitialImpulse =
@@ -350,7 +353,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
 
         if ( box.hasInitOrient )
         {
-            gameModel.SetInitialOrientation( box.eulerX, box.eulerY, box.eulerZ );
+            gameModel.SetOrientation( MakeSceneEulerQuaternion( box.eulerX, box.eulerY, box.eulerZ ) );
         }
 
         if ( box.hasInitVelocity )
@@ -408,12 +411,13 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
                                              hullScene.contactReleaseImpulseThreshold );
         gameModel.AddConvexHull( hull );
 
+        Quaternion hullQuaternion;
         if ( hullScene.hasInitOrient )
         {
-            gameModel.SetInitialOrientation( hullScene.eulerX, hullScene.eulerY, hullScene.eulerZ );
+            hullQuaternion = MakeSceneEulerQuaternion( hullScene.eulerX, hullScene.eulerY, hullScene.eulerZ );
+            gameModel.SetOrientation( hullQuaternion );
         }
 
-        Quaternion hullQuaternion = gameModel.GetOrientation();
         const RotationMatrix hullOrientation = hullQuaternion.GetOrientationMatrix();
         gameModel.SetPosition( authoredPosition + hullOrientation * hull.GetAuthoredCenterOfMass() );
 

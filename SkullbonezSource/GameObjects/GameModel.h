@@ -193,9 +193,6 @@ class GameModel
     const Math::Vector::Vector3& GetAngularVelocity() const;
     void SetTerrain( Geometry::Terrain* pTerrain );                         // Borrowed scene terrain; caller keeps it alive for this model.
     void SetCoefficientRestitution( float fCoefficientRestitution );
-    void SetInitialOrientation( float fEulerXDeg,
-                                float fEulerYDeg,
-                                float fEulerZDeg );                         // Input angles are degrees in the engine's Euler order.
     void SetName( const char* name );                                       // Diagnostic name is capped at 63 bytes for deterministic logs.
     const char* GetName() const;
     void SetReplayBodyId( uint32_t id );                                    // Replay ids are scene-local and assigned once by the owning collection.

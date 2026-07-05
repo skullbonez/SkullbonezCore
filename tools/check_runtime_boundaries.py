@@ -19,7 +19,9 @@
 #   velocity-edit, launcher ray-hit, selection overlay, editor selection-frame,
 #   editor transform grouping, mouse-pickup overlay, attached-camera overlay,
 #   replay marker radii, replay path target identity, editor selection identity,
-#   or editor wake/sleep commands have store-handle fences. The deleted
+#   or editor wake/sleep commands have store-handle fences. Authored scene
+#   setup also blocks GameModel orientation readbacks after local authoring
+#   conversion. The deleted
 #   collection step wrapper has its own fence, replay render-pose overrides have
 #   their own value-override fence,
 #   per-body model writeback, and the deleted bulk model mirror have their own
@@ -105,6 +107,9 @@
 #     mirrors as proof that live simulation state stayed untouched.
 #   Replay restore handle fence: Static rule that keeps replay restore commands
 #     handle-keyed below the GameModelCollection presentation edge.
+#   Authored scene orientation fence: Static rule that keeps Euler-degree scene
+#     data converted at the scene boundary instead of reading a cached GameModel
+#     body mirror back out during construction.
 #
 # Invariants:
 #   - Run.h may own subsystem objects, but not their extracted transient state.
@@ -652,6 +657,9 @@ SCENE_SETUP_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
 SCENE_SETUP_ADAPTER_BODY_LOOKUP_PATTERN = re.compile(
     r"\b(?:GameModelCollectionPhysicsAdapter\b|[A-Za-z_]\w*\s*\.\s*BodyHandleForModelIndex\s*\()"
 )
+SCENE_SETUP_GAME_MODEL_ORIENTATION_READBACK_PATTERN = re.compile(
+    r"\b[A-Za-z_]\w*\s*\.\s*GetOrientation\s*\("
+)
 SCENE_SETUP_PHYSICS_COMMAND_SOURCES = (
     SCENE_AUTHORED_SETUP_SOURCE,
     SCENE_GENERATED_SETUP_SOURCE,
@@ -954,6 +962,11 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "GameModel stream API",
         re.compile(r"\b(?:GetPhysicsBodyStream|GetBodyStream|GetRenderStream|PrepareRenderStreams|InvalidatePhysicsStreams)\s*\("),
         "Prepare or read authoritative stores directly; the deleted GameModel stream/cache API must not return.",
+    ),
+    (
+        "GameModel scene Euler orientation setter",
+        re.compile(r"\bSetInitialOrientation\s*\("),
+        "Scene-authored Euler degrees should convert at the scene boundary, then call SetOrientation with a Quaternion.",
     ),
     (
         "GameModelCollectionPhysicsAdapter",
@@ -4670,6 +4683,19 @@ def check_scene_setup_model_index_physics_command_guardrails_text(path: Path, te
                     "Scene construction receives PhysicsBodyHandle from AddGameModel's append-time body registration; "
                     "authored/generated setup must not re-resolve a just-created model through "
                     "GameModelCollectionPhysicsAdapter."
+                ),
+            )
+        )
+    for match in SCENE_SETUP_GAME_MODEL_ORIENTATION_READBACK_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "scene setup GameModel orientation readback is blocked",
+                (
+                    "Scene setup owns authored Euler-degree conversion. Build a Quaternion locally, pass it to "
+                    "GameModel::SetOrientation, and reuse the same value for construction math instead of reading "
+                    "the GameModel body mirror back out."
                 ),
             )
         )
@@ -10798,6 +10824,21 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("deleted migration artifact synthetic surface was not rejected")
 
+    deleted_game_model_initial_orientation_text = """
+    class GameModel
+    {
+        void SetInitialOrientation( float eulerX, float eulerY, float eulerZ );
+    };
+    """
+    if not any(
+        error.message == "deleted migration artifact is blocked: GameModel scene Euler orientation setter"
+        for error in check_deleted_migration_artifact_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModel.h"),
+            deleted_game_model_initial_orientation_text,
+        )
+    ):
+        failures.append("deleted GameModel SetInitialOrientation synthetic surface was not rejected")
+
     standalone_body_mirror_text = """
     class PhysicsStandaloneWorld
     {
@@ -14141,10 +14182,51 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("handle-keyed scene setup command synthetic surface was rejected")
 
+    old_scene_setup_orientation_readback = """
+    void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
+    {
+        if ( hullScene.hasInitOrient )
+        {
+            gameModel.SetInitialOrientation( hullScene.eulerX, hullScene.eulerY, hullScene.eulerZ );
+        }
+        Quaternion hullQuaternion = gameModel.GetOrientation();
+        const RotationMatrix hullOrientation = hullQuaternion.GetOrientationMatrix();
+        gameModel.SetPosition( authoredPosition + hullOrientation * hull.GetAuthoredCenterOfMass() );
+    }
+    """
+    if not any(
+        error.message == "scene setup GameModel orientation readback is blocked"
+        for error in check_scene_setup_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"),
+            old_scene_setup_orientation_readback,
+        )
+    ):
+        failures.append("old scene setup orientation readback synthetic surface was not rejected")
+
+    allowed_scene_setup_local_orientation = """
+    void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
+    {
+        Quaternion hullQuaternion;
+        if ( hullScene.hasInitOrient )
+        {
+            hullQuaternion = MakeSceneEulerQuaternion( hullScene.eulerX, hullScene.eulerY, hullScene.eulerZ );
+            gameModel.SetOrientation( hullQuaternion );
+        }
+        const RotationMatrix hullOrientation = hullQuaternion.GetOrientationMatrix();
+        gameModel.SetPosition( authoredPosition + hullOrientation * hull.GetAuthoredCenterOfMass() );
+    }
+    """
+    if check_scene_setup_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"),
+        allowed_scene_setup_local_orientation,
+    ):
+        failures.append("local scene orientation synthetic surface was rejected")
+
     commented_scene_setup_model_index_command = """
     void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
     {
         // context.models.SetPendingBodyImpulse(modelIndex, force, forcePos) used to be the migration path.
+        // Quaternion hullQuaternion = gameModel.GetOrientation() was also an old body-mirror readback.
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
     }
     """

@@ -335,27 +335,6 @@ void GameModel::SetCoefficientRestitution( float fCoefficientRestitution )
 }
 
 
-void GameModel::SetInitialOrientation( float fEulerXDeg, float fEulerYDeg, float fEulerZDeg )
-{
-    static constexpr float DEG2RAD = 3.14159265f / 180.0f;
-    float x = fEulerXDeg * DEG2RAD;
-    float y = fEulerYDeg * DEG2RAD;
-    float z = fEulerZDeg * DEG2RAD;
-    float xHalf = x * 0.5f;
-    float yHalf = y * 0.5f;
-    float zHalf = z * 0.5f;
-
-    Quaternion xRotation( sinf( xHalf ), 0.0f, 0.0f, cosf( xHalf ) );
-    Quaternion yRotation( 0.0f, sinf( yHalf ), 0.0f, cosf( yHalf ) );
-    Quaternion zRotation( 0.0f, 0.0f, sinf( zHalf ), cosf( zHalf ) );
-
-    Quaternion q;
-    q *= xRotation * yRotation * zRotation;
-    q.Normalise();
-    m_physicsInfo.SetOrientation( q );
-}
-
-
 void GameModel::SetName( const char* name )
 {
     strncpy_s( m_name, sizeof( m_name ), name, _TRUNCATE );
