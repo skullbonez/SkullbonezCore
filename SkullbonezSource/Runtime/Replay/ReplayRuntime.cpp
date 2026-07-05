@@ -269,6 +269,45 @@ bool ReplayRuntimeModelIsRagdollPart( const GameObjects::GameModel& model )
 }
 
 
+const PhysicsBodyRecord* ReplayRuntimeResolveReplayBody( const PhysicsBodyStore& bodyStore,
+                                                         ReplayBodyId id,
+                                                         int modelIndexHint,
+                                                         int modelCount,
+                                                         int& outModelIndex )
+{
+    outModelIndex = -1;
+    if ( id.value == 0 )
+    {
+        return nullptr;
+    }
+
+    // Invariant: replay artifacts carry model indices only as staleable hints.
+    // Stable identity is the replay id resolved through the live body handle map.
+    const PhysicsBodyHandle body = bodyStore.HandleForReplayBodyId( id.value, modelIndexHint );
+    const int modelIndex = bodyStore.ModelIndexForHandle( body );
+    const PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
+    if ( !record || record->replayBodyId != id.value || modelIndex < 0 || modelIndex >= modelCount )
+    {
+        return nullptr;
+    }
+
+    outModelIndex = modelIndex;
+    return record;
+}
+
+
+const PhysicsBodyRecord* ReplayRuntimeBodyRecordForModelIndex( const PhysicsBodyStore& bodyStore, int modelIndex )
+{
+    const PhysicsBodyHandle body = bodyStore.HandleForModelIndex( modelIndex );
+    const PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
+    if ( !record || bodyStore.ModelIndexForHandle( body ) != modelIndex || record->replayBodyId == 0 )
+    {
+        return nullptr;
+    }
+    return record;
+}
+
+
 const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample, ReplayBodyId id )
 {
     for ( const ReplaySolverBodySample& body : sample.bodies )
@@ -1027,19 +1066,15 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
                                                       const ReplayPresentationSample& sample )
 {
     const int modelCount = collection.GetModelCount();
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
     collection.ClearReplayRenderPoseOverrides();
     std::vector<uint8_t> bodyMatched( static_cast<std::size_t>( modelCount ), 0 );
     bool queuedAny = false;
 
     for ( const ReplayBodyPresentationSample& body : sample.bodies )
     {
-        if ( body.modelIndex < 0 || body.modelIndex >= modelCount )
-        {
-            continue;
-        }
-
-        const GameObjects::GameModel* model = collection.TryGetModel( body.modelIndex );
-        if ( !model || model->GetReplayBodyId() != body.id.value )
+        int resolvedModelIndex = -1;
+        if ( !ReplayRuntimeResolveReplayBody( bodyStore, body.id, body.modelIndex, modelCount, resolvedModelIndex ) )
         {
             continue;
         }
@@ -1049,9 +1084,12 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
                                                    body.orientation[2],
                                                    body.orientation[3] );
         orientation.Normalise();
-        if ( collection.TryQueueReplayRenderPoseOverride( body.modelIndex, body.id.value, body.position, orientation ) )
+        if ( collection.TryQueueReplayRenderPoseOverride( resolvedModelIndex,
+                                                          body.id.value,
+                                                          body.position,
+                                                          orientation ) )
         {
-            bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
+            bodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
             queuedAny = true;
         }
     }
@@ -1065,8 +1103,8 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
             continue;
         }
 
-        const GameObjects::GameModel* model = collection.TryGetModel( i );
-        if ( !model )
+        const PhysicsBodyRecord* bodyRecord = ReplayRuntimeBodyRecordForModelIndex( bodyStore, i );
+        if ( !bodyRecord )
         {
             continue;
         }
@@ -1075,7 +1113,7 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
         // bodies out of view instead of letting unrelated live geometry appear
         // inside the scrubbed replay frame.
         if ( collection.TryQueueReplayRenderPoseOverride( i,
-                                                          model->GetReplayBodyId(),
+                                                          bodyRecord->replayBodyId,
                                                           hiddenReplayPosition,
                                                           Math::Orientation::IDENTITY_QUATERNION ) )
         {
@@ -1089,19 +1127,15 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
                                                 const ReplaySolverFrameSample& sample )
 {
     const int modelCount = collection.GetModelCount();
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
     collection.ClearReplayRenderPoseOverrides();
     std::vector<uint8_t> bodyMatched( static_cast<std::size_t>( modelCount ), 0 );
     bool queuedAny = false;
 
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
-        if ( body.modelIndex < 0 || body.modelIndex >= modelCount )
-        {
-            continue;
-        }
-
-        const GameObjects::GameModel* model = collection.TryGetModel( body.modelIndex );
-        if ( !model || model->GetReplayBodyId() != body.id.value )
+        int resolvedModelIndex = -1;
+        if ( !ReplayRuntimeResolveReplayBody( bodyStore, body.id, body.modelIndex, modelCount, resolvedModelIndex ) )
         {
             continue;
         }
@@ -1111,9 +1145,12 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
                                                    body.orientation[2],
                                                    body.orientation[3] );
         orientation.Normalise();
-        if ( collection.TryQueueReplayRenderPoseOverride( body.modelIndex, body.id.value, body.position, orientation ) )
+        if ( collection.TryQueueReplayRenderPoseOverride( resolvedModelIndex,
+                                                          body.id.value,
+                                                          body.position,
+                                                          orientation ) )
         {
-            bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
+            bodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
             queuedAny = true;
         }
     }
@@ -1127,14 +1164,14 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
             continue;
         }
 
-        const GameObjects::GameModel* model = collection.TryGetModel( i );
-        if ( !model )
+        const PhysicsBodyRecord* bodyRecord = ReplayRuntimeBodyRecordForModelIndex( bodyStore, i );
+        if ( !bodyRecord )
         {
             continue;
         }
 
         if ( collection.TryQueueReplayRenderPoseOverride( i,
-                                                          model->GetReplayBodyId(),
+                                                          bodyRecord->replayBodyId,
                                                           hiddenReplayPosition,
                                                           Math::Orientation::IDENTITY_QUATERNION ) )
         {
@@ -1148,28 +1185,27 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollect
                                                    const RunReplayPredictionFrame& frame )
 {
     const int modelCount = collection.GetModelCount();
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
     collection.ClearReplayRenderPoseOverrides();
     std::vector<uint8_t> bodyMatched( static_cast<std::size_t>( modelCount ), 0 );
     bool queuedAny = false;
 
     for ( const RunReplayPredictionBodySample& body : frame.bodies )
     {
-        if ( body.modelIndex < 0 || body.modelIndex >= modelCount )
-        {
-            continue;
-        }
-
-        const GameObjects::GameModel* model = collection.TryGetModel( body.modelIndex );
-        if ( !model || model->GetReplayBodyId() != body.id.value )
+        int resolvedModelIndex = -1;
+        if ( !ReplayRuntimeResolveReplayBody( bodyStore, body.id, body.modelIndex, modelCount, resolvedModelIndex ) )
         {
             continue;
         }
 
         Math::Orientation::Quaternion orientation = body.orientation;
         orientation.Normalise();
-        if ( collection.TryQueueReplayRenderPoseOverride( body.modelIndex, body.id.value, body.position, orientation ) )
+        if ( collection.TryQueueReplayRenderPoseOverride( resolvedModelIndex,
+                                                          body.id.value,
+                                                          body.position,
+                                                          orientation ) )
         {
-            bodyMatched[static_cast<std::size_t>( body.modelIndex )] = 1;
+            bodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
             queuedAny = true;
         }
     }
@@ -1183,14 +1219,14 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollect
             continue;
         }
 
-        const GameObjects::GameModel* model = collection.TryGetModel( i );
-        if ( !model )
+        const PhysicsBodyRecord* bodyRecord = ReplayRuntimeBodyRecordForModelIndex( bodyStore, i );
+        if ( !bodyRecord )
         {
             continue;
         }
 
         if ( collection.TryQueueReplayRenderPoseOverride( i,
-                                                          model->GetReplayBodyId(),
+                                                          bodyRecord->replayBodyId,
                                                           hiddenReplayPosition,
                                                           Math::Orientation::IDENTITY_QUATERNION ) )
         {
@@ -1830,7 +1866,8 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
 }
 
 
-bool ReplayRuntime::BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models )
+bool ReplayRuntime::BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models,
+                                                      const PhysicsBodyStore& bodyStore )
 {
     m_predictionGhostDrawRequests.clear();
     const std::vector<RunReplayPredictionFrame>& frames = ActivePredictionFrames();
@@ -1882,19 +1919,24 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests( const std::vector<GameObje
 
         for ( const RunReplayPredictionBodySample& body : predictionFrame.bodies )
         {
-            if ( body.modelIndex < 0 || body.modelIndex >= static_cast<int>( models.size() ) )
+            int resolvedModelIndex = -1;
+            if ( !ReplayRuntimeResolveReplayBody( bodyStore,
+                                                  body.id,
+                                                  body.modelIndex,
+                                                  static_cast<int>( models.size() ),
+                                                  resolvedModelIndex ) )
             {
                 continue;
             }
 
-            const GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
-            if ( model.GetReplayBodyId() != body.id.value || !ReplayRuntimeModelIsRagdollPart( model ) )
+            const GameObjects::GameModel& model = models[static_cast<std::size_t>( resolvedModelIndex )];
+            if ( !ReplayRuntimeModelIsRagdollPart( model ) )
             {
                 continue;
             }
 
             ReplayPredictionGhostDrawRequest request;
-            request.modelIndex = body.modelIndex;
+            request.modelIndex = resolvedModelIndex;
             request.position = body.position;
             request.orientation = body.orientation;
             request.orientation.Normalise();

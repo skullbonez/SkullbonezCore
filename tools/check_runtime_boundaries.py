@@ -23,8 +23,8 @@
 #   or editor wake/sleep commands have store-handle fences. Editor transform
 #   reset wake and authored scene setup also block GameModel body readbacks
 #   after their owner-side store commits. The deleted
-#   collection step wrapper has its own fence, replay render-pose overrides have
-#   their own value-override fence,
+#   collection step wrapper has its own fence, replay render-pose overrides and
+#   prediction ghost identity have their own value-override/store-authority fence,
 #   per-body model writeback, and the deleted bulk model mirror have their own
 #   fences, so count allowances do not silently approve a new compatibility
 #   location.
@@ -112,6 +112,9 @@
 #   Replay prediction ghost render fence: Static rule that keeps prediction
 #     ghost drawing on ColliderStore/RenderInstanceStore snapshots instead of
 #     GameModel collider/material mirrors.
+#   Replay prediction ghost identity fence: Static rule that keeps future-body
+#     ghost requests paired through PhysicsBodyStore replay-id handles instead
+#     of approving sampled model slots through GameModel replay ids.
 #   Replay restore handle fence: Static rule that keeps replay restore commands
 #     handle-keyed below the GameModelCollection presentation edge.
 #   Authored scene orientation fence: Static rule that keeps Euler-degree scene
@@ -557,6 +560,9 @@ GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_FUNCTION_PATTERN = re.compile(
 GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_MODEL_MUTATION_PATTERN = re.compile(
     r"\b(?:CommitEditedModelPhysicsState|RefreshBodyFromModel|GetPhysicsBodyStore|SetPosition|SetOrientation)\s*\("
 )
+GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_MODEL_ID_PATTERN = re.compile(
+    r"\b(?:model|m_gameModels\s*\[[^\]]+\])\s*(?:\.|->)\s*GetReplayBodyId\s*\("
+)
 REPLAY_RENDER_POSE_DELETED_SYMBOL_PATTERN = re.compile(
     r"\b(?:TrySetReplayRenderPose|RestoreRenderPose|OverridePoseFromModel|RenderPoseBackup|m_renderPoseBackups)\b"
 )
@@ -566,6 +572,17 @@ REPLAY_RUNTIME_RENDER_APPLY_FUNCTION_PATTERN = re.compile(
 )
 REPLAY_RUNTIME_RENDER_MODEL_POSE_PATTERN = re.compile(
     r"\bmodel\s*(?:->|\.)\s*(?:GetPosition|GetOrientation|SetPosition|SetOrientation)\s*\("
+)
+REPLAY_RUNTIME_RENDER_MODEL_ID_PATTERN = re.compile(
+    r"\b(?:model|models\s*\[[^\]]+\])\s*(?:\.|->)\s*GetReplayBodyId\s*\("
+)
+REPLAY_RUNTIME_PREDICTION_GHOST_FUNCTION_PATTERN = re.compile(
+    r"\bbool\s+ReplayRuntime::BuildPredictionGhostDrawRequests\s*\("
+)
+REPLAY_RUNTIME_PREDICTION_GHOST_MODEL_ONLY_SIGNATURE_PATTERN = re.compile(
+    r"\bBuildPredictionGhostDrawRequests\s*\(\s*const\s+std\s*::\s*vector\s*<\s*"
+    r"(?:GameObjects\s*::\s*)?GameModel\s*>\s*&\s*models\s*\)",
+    re.S,
 )
 RUN_FRAME_REPLAY_PROBE_FUNCTION_PATTERNS = (
     re.compile(r"\bvoid\s+Run::TickReplayScrubProbe\s*\("),
@@ -4249,6 +4266,22 @@ def check_game_model_collection_replay_render_pose_guardrails_text(path: Path, t
                 ),
             )
         )
+    for match in GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_MODEL_ID_PATTERN.finditer(
+        stripped,
+        open_brace,
+        close_brace,
+    ):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay render-pose GameModel replay-id validation is blocked",
+                (
+                    "TryQueueReplayRenderPoseOverride must validate replay identity through PhysicsBodyStore "
+                    "records; GameModel replay ids are a retiring compatibility mirror."
+                ),
+            )
+        )
     return errors
 
 
@@ -4283,6 +4316,44 @@ def check_replay_render_pose_value_override_guardrails_text(path: Path, text: st
                         ),
                     )
                 )
+            for match in REPLAY_RUNTIME_RENDER_MODEL_ID_PATTERN.finditer(stripped, open_brace, close_brace):
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, match.start()),
+                        "replay render apply GameModel replay-id lookup is blocked",
+                        (
+                            "Replay render apply functions must resolve ReplayBodyId through PhysicsBodyStore "
+                            "handles; model indices in replay samples are hints only."
+                        ),
+                    )
+                )
+        for bounds in _function_body_bounds_all(stripped, REPLAY_RUNTIME_PREDICTION_GHOST_FUNCTION_PATTERN):
+            open_brace, close_brace = bounds
+            for match in REPLAY_RUNTIME_RENDER_MODEL_ID_PATTERN.finditer(stripped, open_brace, close_brace):
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, match.start()),
+                        "replay prediction ghost GameModel replay-id lookup is blocked",
+                        (
+                            "Prediction ghost requests should pair replay samples with live bodies through "
+                            "PhysicsBodyStore, then use GameModel only for display metadata."
+                        ),
+                    )
+                )
+    for match in REPLAY_RUNTIME_PREDICTION_GHOST_MODEL_ONLY_SIGNATURE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay prediction ghost builder must take PhysicsBodyStore",
+                (
+                    "BuildPredictionGhostDrawRequests needs PhysicsBodyStore so replay ids resolve through "
+                    "live body handles instead of GameModel identity mirrors."
+                ),
+            )
+        )
     return errors
 
 
@@ -13569,12 +13640,40 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old replay render-pose model mutation synthetic surface was not rejected")
 
+    old_replay_render_pose_model_id_validation = """
+    bool GameModelCollection::TryQueueReplayRenderPoseOverride( int index,
+                                                                uint32_t replayBodyId,
+                                                                const Vector3& position,
+                                                                const Quaternion& orientation )
+    {
+        GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+        if ( model.GetReplayBodyId() != replayBodyId )
+        {
+            return false;
+        }
+        return true;
+    }
+    """
+    if not any(
+        error.message == "replay render-pose GameModel replay-id validation is blocked"
+        for error in check_game_model_collection_replay_render_pose_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_replay_render_pose_model_id_validation,
+        )
+    ):
+        failures.append("old replay render-pose model-id validation synthetic surface was not rejected")
+
     allowed_replay_render_pose_override_queue = """
     bool GameModelCollection::TryQueueReplayRenderPoseOverride( int index,
                                                                 uint32_t replayBodyId,
                                                                 const Vector3& position,
                                                                 const Quaternion& orientation )
     {
+        const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
+        if ( !bodyRecord || bodyRecord->replayBodyId != replayBodyId )
+        {
+            return false;
+        }
         ReplayRenderPoseOverride overridePose;
         overridePose.modelIndex = index;
         overridePose.replayBodyId = replayBodyId;
@@ -13625,7 +13724,7 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old replay runtime render-apply model-pose synthetic surface was not rejected")
 
-    allowed_replay_runtime_render_apply_queue = """
+    old_replay_runtime_render_apply_model_id = """
     bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
                                                           const ReplayPresentationSample& sample )
     {
@@ -13637,11 +13736,68 @@ def run_self_tests() -> list[str]:
         return collection.TryQueueReplayRenderPoseOverride( body.modelIndex, body.id.value, body.position, orientation );
     }
     """
+    if not any(
+        error.message == "replay render apply GameModel replay-id lookup is blocked"
+        for error in check_replay_render_pose_value_override_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
+            old_replay_runtime_render_apply_model_id,
+        )
+    ):
+        failures.append("old replay runtime render-apply model-id synthetic surface was not rejected")
+
+    allowed_replay_runtime_render_apply_queue = """
+    bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
+                                                          const ReplayPresentationSample& sample )
+    {
+        const PhysicsBodyRecord* bodyRecord = ReplayRuntimeBodyRecordForModelIndex( bodyStore, body.modelIndex );
+        if ( !bodyRecord || bodyRecord->replayBodyId != body.id.value )
+        {
+            return false;
+        }
+        return collection.TryQueueReplayRenderPoseOverride( body.modelIndex, bodyRecord->replayBodyId, body.position, orientation );
+    }
+    """
     if check_replay_render_pose_value_override_guardrails_text(
         Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
         allowed_replay_runtime_render_apply_queue,
     ):
         failures.append("queued replay runtime render-apply synthetic surface was rejected")
+
+    old_replay_prediction_ghost_model_only_signature = """
+    bool ReplayRuntime::BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models )
+    {
+        return true;
+    }
+    """
+    if not any(
+        error.message == "replay prediction ghost builder must take PhysicsBodyStore"
+        for error in check_replay_render_pose_value_override_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
+            old_replay_prediction_ghost_model_only_signature,
+        )
+    ):
+        failures.append("old replay prediction ghost model-only signature synthetic surface was not rejected")
+
+    old_replay_prediction_ghost_model_id = """
+    bool ReplayRuntime::BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models,
+                                                          const PhysicsBodyStore& bodyStore )
+    {
+        const GameObjects::GameModel& model = models[static_cast<std::size_t>( body.modelIndex )];
+        if ( model.GetReplayBodyId() != body.id.value )
+        {
+            return false;
+        }
+        return true;
+    }
+    """
+    if not any(
+        error.message == "replay prediction ghost GameModel replay-id lookup is blocked"
+        for error in check_replay_render_pose_value_override_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
+            old_replay_prediction_ghost_model_id,
+        )
+    ):
+        failures.append("old replay prediction ghost model-id synthetic surface was not rejected")
 
     old_run_frame_replay_probe_model_body_read = """
     void Run::TickReplayScrubProbe()

@@ -839,8 +839,13 @@ bool GameModelCollection::TryQueueReplayRenderPoseOverride( int index,
         return false;
     }
 
-    GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
-    if ( model.GetReplayBodyId() != replayBodyId )
+    const PhysicsBodyStore& bodyStore = m_physicsEngine.BodyStore();
+    const PhysicsBodyHandle body = bodyStore.HandleForModelIndex( index );
+    const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
+    // Why: replay render overrides are keyed by the physics-owned body id. The
+    // GameModel mirror may lag during scrub/prediction presentation, so it is
+    // not allowed to approve which live body receives the override.
+    if ( !bodyRecord || bodyStore.ModelIndexForHandle( body ) != index || bodyRecord->replayBodyId != replayBodyId )
     {
         return false;
     }

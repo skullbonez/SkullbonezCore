@@ -480,7 +480,8 @@ class ReplayRuntime
     Physics::PhysicsBodyHandle ResolveVelocityEditBodyHandle( const Physics::PhysicsBodyStore& bodyStore ) const;
     bool BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models,
                              const Physics::PhysicsBodyStore& bodyStore );
-    bool BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models );
+    bool BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models,
+                                           const Physics::PhysicsBodyStore& bodyStore );
     const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const;
     bool BuildFocusModelMask( const Physics::PhysicsBodyStore& bodyStore, int modelCount );
     std::vector<uint8_t>& FocusModelMask();

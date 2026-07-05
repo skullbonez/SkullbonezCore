@@ -202,7 +202,8 @@ void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& 
 {
     PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
     const std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.Models();
-    if ( !m_replayRuntime.BuildPredictionGhostDrawRequests( models ) )
+    if ( !m_replayRuntime.BuildPredictionGhostDrawRequests( models,
+                                                            m_cGameModelCollection.GetPhysicsEngine().BodyStore() ) )
     {
         return;
     }
