@@ -202,6 +202,15 @@ const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayR
                                                                    double nowSeconds,
                                                                    bool force )
 {
+    return RefreshMainMemoryStats( replay, models.CollectMemoryStats(), nowSeconds, force );
+}
+
+
+const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,
+                                                                   const MainMemoryGameObjectStats& gameObjects,
+                                                                   double nowSeconds,
+                                                                   bool force )
+{
     const bool sampleDue = m_lastMainMemorySampleSeconds < 0.0 ||
                            nowSeconds - m_lastMainMemorySampleSeconds >= MAIN_MEMORY_SAMPLE_INTERVAL_SECONDS;
     if ( !force && !sampleDue )
@@ -216,7 +225,7 @@ const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayR
     stats.sampleTimeSeconds = nowSeconds;
     stats.process = RuntimeDiagnostics::SampleProcessMemory();
     stats.replay = replay.CollectMemoryStats();
-    stats.gameObjects = models.CollectMemoryStats();
+    stats.gameObjects = gameObjects;
     stats.trackedEngineBytes = stats.replay.totalBytes + stats.gameObjects.totalBytes + stats.otherTrackedBytes;
     if ( stats.process.available )
     {

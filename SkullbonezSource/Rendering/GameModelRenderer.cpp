@@ -21,8 +21,8 @@ Glossary:
     sound actually submits, independent of physics state.
 
 Invariants:
-  - GameModelRenderer consumes collection render instances; GameModelCollection
-    remains the owner of model order and lifetime.
+  - GameModelRenderer consumes prepared render instances and collider rows; the
+    scene owner remains responsible for refreshing those stores before drawing.
   - Shadow caster preparation may run worker-side, but draw submission remains
     on the render thread through RenderHelper command/resource contexts.
 
@@ -33,7 +33,6 @@ Related:
 #include "GameModelRenderer.h"
 
 #include "../Core/Config.h"
-#include "../GameObjects/GameModelCollection.h"
 #include "../Physics/ColliderStore.h"
 #include "Helper.h"
 #include "IRenderBackend.h"
@@ -114,7 +113,9 @@ RenderMaterial MaterialWithContactHighlights( const RenderInstanceRecord& instan
 
 
 void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
-                                      GameModelCollection& collection,
+                                      const RenderInstanceStore& renderStore,
+                                      const SkullbonezCore::Physics::ColliderStore& colliderStore,
+                                      bool renderCollisionVolumes,
                                       const Matrix4& view,
                                       const Matrix4& proj,
                                       const float lightPos[4],
@@ -124,7 +125,6 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
                                       const std::vector<uint8_t>* modelMask,
                                       bool drawMaskedModels )
 {
-    const RenderInstanceStore& renderStore = collection.RenderInstances();
     const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
 
     if ( instances.empty() )
@@ -134,7 +134,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
 
     const int modelCount = static_cast<int>( instances.size() );
     const float clampedMaterialAlpha = std::clamp( materialAlpha, 0.0f, 1.0f );
-    const bool alphaBlendedPass = collection.ShouldRenderCollisionVolumes() || clampedMaterialAlpha < 1.0f;
+    const bool alphaBlendedPass = renderCollisionVolumes || clampedMaterialAlpha < 1.0f;
     const auto shouldDrawModel = [&]( int index ) -> bool
     {
         if ( !modelMask )
@@ -254,7 +254,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
             }
             if ( !colliders )
             {
-                colliders = &collection.Colliders().Records();
+                colliders = &colliderStore.Records();
             }
             if ( static_cast<std::size_t>( x ) >= colliders->size() )
             {
@@ -285,11 +285,14 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
 }
 
 
-void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collection, ShadowCasterBatches& outBatches )
+void GameModelRenderer::BuildShadowCasterBatches( const RenderInstanceStore& renderStore,
+                                                  const SkullbonezCore::Physics::ColliderStore& colliderStore,
+                                                  SkullbonezCore::Threading::WorkerPool* workerPool,
+                                                  bool useShadowParallelPrep,
+                                                  ShadowCasterBatches& outBatches )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches" );
 
-    const RenderInstanceStore& renderStore = collection.RenderInstances();
     const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
     outBatches.Clear();
 
@@ -321,7 +324,7 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
             {
                 if ( !colliders )
                 {
-                    colliders = &collection.Colliders().Records();
+                    colliders = &colliderStore.Records();
                 }
                 if ( static_cast<std::size_t>( x ) >= colliders->size() )
                 {
@@ -351,8 +354,7 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
         }
     };
 
-    SkullbonezCore::Threading::WorkerPool* workerPool = collection.RenderWorkerPool();
-    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && collection.ShouldUseShadowParallelPrep() && workerPool &&
+    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && useShadowParallelPrep && workerPool &&
          modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/OrderedWorkerCollect" );
@@ -449,18 +451,23 @@ void GameModelRenderer::SubmitShadowCasterBatches( const RenderHelperContext& he
 
 
 void GameModelRenderer::RenderShadowCasters( const RenderHelperContext& helperContext,
-                                             GameModelCollection& collection,
+                                             const RenderInstanceStore& renderStore,
+                                             const SkullbonezCore::Physics::ColliderStore& colliderStore,
+                                             SkullbonezCore::Threading::WorkerPool* workerPool,
+                                             bool useShadowParallelPrep,
                                              const Matrix4& view,
                                              const Matrix4& proj,
                                              const CinematicRenderConfig* cinematic )
 {
     ShadowCasterBatches batches;
-    BuildShadowCasterBatches( collection, batches );
+    BuildShadowCasterBatches( renderStore, colliderStore, workerPool, useShadowParallelPrep, batches );
     SubmitShadowCasterBatches( helperContext, batches, view, proj, cinematic );
 }
 
 
-bool GameModelRenderer::GetObjectShadowBounds( GameModelCollection& collection,
+bool GameModelRenderer::GetObjectShadowBounds( const RenderInstanceStore& renderStore,
+                                               SkullbonezCore::Threading::WorkerPool* workerPool,
+                                               bool useShadowParallelPrep,
                                                const Vector3& focus,
                                                float maxDistance,
                                                Vector3& outCenter,
@@ -469,7 +476,6 @@ bool GameModelRenderer::GetObjectShadowBounds( GameModelCollection& collection,
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds" );
 
-    const RenderInstanceStore& renderStore = collection.RenderInstances();
     const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
 
     if ( instances.empty() )
@@ -533,8 +539,7 @@ bool GameModelRenderer::GetObjectShadowBounds( GameModelCollection& collection,
     };
 
     BoundsAccumulator bounds;
-    SkullbonezCore::Threading::WorkerPool* workerPool = collection.RenderWorkerPool();
-    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && collection.ShouldUseShadowParallelPrep() && workerPool &&
+    if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && useShadowParallelPrep && workerPool &&
          modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
         PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/OrderedWorkerCollect" );

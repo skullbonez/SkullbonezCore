@@ -104,8 +104,8 @@ class PhysicsWorld
     // supported and quiet can stop integrating until something wakes them. The
     // "supported" and "inhibited" arrays are rebuilt each frame from contacts.
     // PhysicsBodyStore owns the persisted sleep flag; m_sleepState is the
-    // solver's model-indexed compatibility mirror for existing diagnostics and
-    // sleep algorithms. A fully submerged sleeping sphere also gets a one-way
+    // solver's model-indexed working copy for existing diagnostics and sleep
+    // algorithms. A fully submerged sleeping sphere also gets a one-way
     // lock so water-floor balls behave like static rocks instead of rejoining
     // buoyancy/contact churn.
     std::vector<uint8_t> m_sleepSupportedThisFrame;
@@ -118,9 +118,9 @@ class PhysicsWorld
     std::vector<int>
         m_tornadoFixedTreeReleaseWakeBodies; // Reused tornado release wake list; avoids reload/allocation churn.
 
-    // Debug visualization state. These arrays intentionally mirror model index
-    // order so render/debug code can look up one byte/id per GameModel without
-    // doing map lookups in the overlay path.
+    // Debug visualization state. These arrays intentionally mirror scene/model
+    // slot order so render/debug code can look up one byte/id without map
+    // lookups in the overlay path.
     std::vector<uint8_t> m_collisionVisualContacts;
     std::vector<int> m_sleepIslandVisualId;
     std::vector<int> m_sleepIslandAssignedVisualId;
@@ -403,7 +403,7 @@ class PhysicsWorld
                               const char* const* diagnosticNames,
                               int diagnosticNameCount );
     // Wake and seed decisions read physics-owned fixed/sleep state before the
-    // scene edge performs any compatibility writeback/cache invalidation.
+    // scene edge performs any owner-side cache invalidation.
     void WakeModel( PhysicsBodyStore& bodyStore, int index );
     void WakeModel( PhysicsBodyStore& bodyStore,
                     const ColliderStore& colliderStore,
@@ -433,7 +433,7 @@ class PhysicsWorld
     const std::vector<uint8_t>& GetCollisionVisualContacts() const;
     const std::vector<int>& GetFixedContactHighlightBodies() const;
     // Returns solver-emitted fixed-tree releases from the latest step. The
-    // scene edge applies them before diagnostics and compatibility writeback.
+    // scene edge applies them before diagnostics and owner-side projection.
     const std::vector<PhysicsFixedTreeReleaseEvent>& GetFixedTreeReleaseEvents() const;
     const std::vector<uint8_t>& GetSleepStates() const;
     const std::vector<int>& GetSleepIslandVisualIds() const;

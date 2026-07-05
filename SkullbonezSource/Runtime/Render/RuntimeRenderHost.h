@@ -53,10 +53,6 @@ namespace Environment
 {
 class WorldEnvironment;
 }
-namespace GameObjects
-{
-class GameModelCollection;
-}
 namespace Physics
 {
 class BroadphaseVisualizer;
@@ -96,6 +92,7 @@ struct RunSceneBrowserState;
 struct RunSceneState;
 struct RunSubsystemState;
 struct RunTimerState;
+struct RuntimeRenderModelFrameView;
 class ReplayRuntime;
 struct RuntimeViewModel;
 namespace ReplayOverlay
@@ -115,7 +112,6 @@ struct RenderRuntimeView
 
 struct RenderWorldView
 {
-    GameObjects::GameModelCollection* gameModelCollection = nullptr;
     Environment::WorldEnvironment* worldEnvironment = nullptr;
     Physics::CollisionVisualizer* collisionVisualizer = nullptr;
     Physics::BroadphaseVisualizer* broadphaseVisualizer = nullptr;
@@ -176,6 +172,19 @@ struct RuntimeRenderHostBindings
     RenderDiagnosticsView diagnostics;
 };
 
+// Concept: RuntimeRenderHost owns this callback boundary while Run remains the
+// composition root for editor overlays, resource lifecycle logging, and camera
+// labels.
+//
+// Why: those commands still live on Run, but render passes must not borrow the
+// whole Run object or the concrete scene container. Keeping the function-pointer
+// list here makes each remaining command explicit.
+//
+// Deletion condition: replace each callback with a domain owner in the runtime
+// decomposition plan, then remove the corresponding entry from this struct.
+// Checker budget: no concrete scene-container borrow is allowed in Runtime/Render;
+// callbacks stay outside per-instance render loops and are audited as this one
+// host-owned boundary.
 struct RuntimeRenderHostCallbacks
 {
     using LogLifecycleStepFn = void ( * )( void* user, const char* phase, const char* step );
@@ -204,7 +213,6 @@ class RuntimeRenderHost
           m_debug( *bindings.diagnostics.debug ), m_timers( *bindings.diagnostics.timers ),
           m_config( *bindings.runtime.config ), m_launchOptions( *bindings.runtime.launchOptions ),
           m_runtimeSettings( *bindings.runtime.runtimeSettings ),
-          m_cGameModelCollection( *bindings.world.gameModelCollection ),
           m_cWorldEnvironment( *bindings.world.worldEnvironment ),
           m_collisionVisualizer( *bindings.world.collisionVisualizer ),
           m_broadphaseVisualizer( *bindings.world.broadphaseVisualizer ),
@@ -308,9 +316,9 @@ class RuntimeRenderHost
         return m_runtimeTools.HasLingeredRayCastLine( maxAgeSeconds );
     }
 
-    bool ToolHasSelectionOverlayWork() const;
+    bool ToolHasSelectionOverlayWork( int modelCount ) const;
 
-    bool ToolHasMousePickupOverlayWork() const;
+    bool ToolHasMousePickupOverlayWork( int modelCount ) const;
 
     bool ToolHasLauncherShots() const
     {
@@ -322,7 +330,8 @@ class RuntimeRenderHost
         return m_runtimeTools.LauncherFireModeLabel();
     }
 
-    void RenderReplayScrubberOverlay( const UI::UIRenderContext& uiRender ) const;
+    void RenderReplayScrubberOverlay( const UI::UIRenderContext& uiRender,
+                                      const RuntimeRenderModelFrameView& models ) const;
 
     int CurrentSceneBrowserIndex() const;
 
@@ -336,9 +345,9 @@ class RuntimeRenderHost
         return m_callbacks.cameraModeLabel( m_callbacks.user, mode );
     }
 
-    MainMemoryStats RefreshMainMemoryStats( double nowSeconds ) const;
+    MainMemoryStats RefreshMainMemoryStats( double nowSeconds, const MainMemoryGameObjectStats& gameObjects ) const;
 
-    bool BuildReplayFocusModelMask() const;
+    bool BuildReplayFocusModelMask( const RenderFrameContext& frame ) const;
 
     void RenderReplayPredictionGhosts( const RenderFrameContext& frame,
                                        const CinematicRenderConfig* cinematic,
@@ -351,7 +360,6 @@ class RuntimeRenderHost
     EngineConfig& m_config;
     const RunLaunchOptions& m_launchOptions;
     RunRuntimeSettings& m_runtimeSettings;
-    GameObjects::GameModelCollection& m_cGameModelCollection;
     Environment::WorldEnvironment& m_cWorldEnvironment;
     Physics::CollisionVisualizer& m_collisionVisualizer;
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
@@ -374,8 +382,10 @@ class RuntimeRenderHost
 
   private:
     ReplayOverlay::ReplayOverlayRenderContext
-    BuildReplayOverlayRenderContext( const UI::UIRenderContext& uiRender ) const;
-    void RenderReplayCauseTreeOverlay( const UI::UIRenderContext& uiRender ) const;
+    BuildReplayOverlayRenderContext( const UI::UIRenderContext& uiRender,
+                                     const RuntimeRenderModelFrameView& models ) const;
+    void RenderReplayCauseTreeOverlay( const UI::UIRenderContext& uiRender,
+                                       const RuntimeRenderModelFrameView& models ) const;
 
     RuntimeRenderHostCallbacks m_callbacks;
 };

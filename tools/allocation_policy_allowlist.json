@@ -1,0 +1,146 @@
+{
+  "schema": 1,
+  "allowed": [
+    {
+      "path": "SkullbonezSource/Core/WorkerPool.cpp",
+      "patterns": [
+        "std::make_shared<ParallelForChunksState>"
+      ],
+      "owner": "WorkerPool fork-join dispatch",
+      "phase": "steady_gameplay_pending_conversion",
+      "reason": "ParallelForChunks still allocates one shared completion state for parallel dispatch; the runtime allocation guard measures this as hot-path debt.",
+      "cap": "One shared task state per parallel dispatch, plus queue storage owned by WorkerPool.",
+      "removal_or_wrapper_plan": "Replace with fixed per-dispatch state and preallocated task queue storage before strict gameplay allocation enforcement."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Init.cpp",
+      "patterns": [
+        "std::make_unique<SkullbonezCore::Environment::WorldEnvironment>",
+        "std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>"
+      ],
+      "owner": "Standalone physics smoke bootstrap",
+      "phase": "startup_validation",
+      "reason": "The runtime handle smoke constructs isolated runtime owners before WorkerPool, Window, renderer, or Run startup.",
+      "cap": "Two owner allocations when --physics-standalone-smoke is requested.",
+      "removal_or_wrapper_plan": "Keep this validation-only path outside steady gameplay; convert to stack or fixture-owned storage if the smoke grows."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Init.cpp",
+      "patterns": [
+        "std::make_unique<RenderBackendDX12>",
+        "std::make_unique<Run>"
+      ],
+      "owner": "Runtime process bootstrap",
+      "phase": "startup_backend_init",
+      "reason": "WinMain creates the DX12 backend and Run composition root before steady gameplay begins.",
+      "cap": "One backend and one Run allocation per process launch.",
+      "removal_or_wrapper_plan": "Leave as startup composition-root ownership unless process bootstrap moves to arena-backed lifetime storage."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Run.cpp",
+      "patterns": [
+        "std::make_unique<Terrain>",
+        "std::make_unique<SkyBox>"
+      ],
+      "owner": "Runtime world resource owner",
+      "phase": "scene_load_backend_resource_init",
+      "reason": "Terrain and skybox owners are rebuilt during scene/resource initialization, not ordinary gameplay simulation.",
+      "cap": "One terrain owner and one skybox owner for the active scene/resource set.",
+      "removal_or_wrapper_plan": "If scene churn remains allocation-sensitive, move these owner objects into preallocated world-resource storage."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Scene/RunScene.cpp",
+      "patterns": [
+        "std::make_unique<Terrain>"
+      ],
+      "owner": "Scene terrain rebuild",
+      "phase": "scene_load",
+      "reason": "Scene load/reset creates terrain resources from scene data before returning to steady gameplay.",
+      "cap": "One terrain owner per scene load/reset path.",
+      "removal_or_wrapper_plan": "Move terrain object lifetime to a reusable scene-load arena if scene churn becomes allocation-sensitive."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.Resources.cpp",
+      "patterns": [
+        "std::make_unique<ShaderDX12>",
+        "std::make_unique<MeshDX12>",
+        "std::make_unique<FramebufferDX12>"
+      ],
+      "owner": "DX12 resource factory",
+      "phase": "backend_resource_init",
+      "reason": "Backend resource factory calls create typed GPU resource owner objects during backend/resource initialization and explicit scene resource rebuilds.",
+      "cap": "One owner object per requested shader, mesh, or framebuffer resource.",
+      "removal_or_wrapper_plan": "Route resource owner allocation through a backend resource arena before strict allocation enforcement covers resource rebuilds."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.cpp",
+      "patterns": [
+        "std::malloc(",
+        "std::free("
+      ],
+      "owner": "Runtime allocation tracker",
+      "phase": "allocator_wrapper",
+      "reason": "The global C++ allocation hook needs one raw CRT backing call pair so it can wrap allocations with fixed tracker metadata.",
+      "cap": "One backing allocation per intercepted C++ allocation, sized exactly from the caller request plus fixed header/alignment padding.",
+      "removal_or_wrapper_plan": "Keep raw heap calls isolated in this wrapper; future arena work should replace this implementation without adding raw calls elsewhere."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Init.cpp",
+      "patterns": [
+        "free( envPlatformProfilerValue )",
+        "free( envPixValue )"
+      ],
+      "owner": "Runtime command-line bootstrap",
+      "phase": "startup",
+      "reason": "_dupenv_s returns CRT-owned buffers while reading profiler marker environment overrides before WorkerPool, Window, backend, or Run startup.",
+      "cap": "At most two environment buffers per process launch.",
+      "removal_or_wrapper_plan": "If environment parsing grows, route it through a startup-only platform helper that owns the CRT cleanup."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Audio/ContactAudioService.cpp",
+      "patterns": [
+        "free( output )"
+      ],
+      "owner": "Contact audio sample decoder",
+      "phase": "startup_scene_load",
+      "reason": "stb_vorbis_decode_filename returns a decoder-owned PCM buffer that is copied into the startup/scene-load audio cache and then released.",
+      "cap": "One decoder buffer per configured contact-audio sample while audio maps are loaded.",
+      "removal_or_wrapper_plan": "If contact-audio decoding moves onto a gameplay path, route decoded samples through a preallocated audio asset cache."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Audio/ContactAudioService.cpp",
+      "patterns": [
+        "new Impl()",
+        "delete m_impl"
+      ],
+      "owner": "Contact audio service lifetime",
+      "phase": "startup_shutdown",
+      "reason": "The pimpl object hides platform audio headers and is created/destroyed with the service, outside classification and mixing hot paths.",
+      "cap": "Exactly one Impl allocation for the ContactAudioService instance.",
+      "removal_or_wrapper_plan": "Replace with inline storage if contact-audio platform headers become acceptable in the public header."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp",
+      "patterns": [
+        "malloc( msgLen )",
+        "free( msg )"
+      ],
+      "owner": "DX12 info queue diagnostics",
+      "phase": "backend_init_diagnostics",
+      "reason": "D3D12 debug message retrieval uses variable message lengths while reporting validation/device diagnostics, not ordinary gameplay work.",
+      "cap": "One temporary buffer per debug message, bounded by the D3D12 info queue message length.",
+      "removal_or_wrapper_plan": "Move to a fixed diagnostics scratch buffer if this path is ever enabled during steady gameplay validation."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/Text.cpp",
+      "patterns": [
+        "new uint8_t["
+      ],
+      "owner": "Text atlas construction",
+      "phase": "startup_backend_init",
+      "reason": "Text atlas generation builds CPU image buffers before runtime text rendering consumes backend resources.",
+      "cap": "Atlas dimensions selected by the text system; allocations happen during atlas construction only.",
+      "removal_or_wrapper_plan": "Move atlas construction through a startup arena if text atlas generation becomes runtime-mutable."
+    }
+  ]
+}

@@ -264,8 +264,8 @@ class RunEditorTracer
                                  float b );
     void AddReplayFutureTargetMarker( const Math::Vector::Vector3& center, float radius, int depth );
     // Draws a replay target marker from explicit store values. Replay may still
-    // resolve identity by model order, but marker geometry must not read the
-    // post-step GameModel body mirror.
+    // resolve identity by model order, but marker geometry must not read legacy
+    // model-side body state.
     void AddReplayTargetMarker( const Math::Vector::Vector3& position,
                                 const Math::Orientation::Quaternion& orientation,
                                 const Math::CollisionDetection::CollisionShape& shape,
@@ -276,8 +276,8 @@ class RunEditorTracer
                                         float radius,
                                         bool activeFollow );
     // Draws a shape-accurate outline from explicit pose/shape values. Replay
-    // velocity edit uses this so overlay drawing does not need the post-step
-    // GameModel body mirror.
+    // velocity edit uses this so overlay drawing does not need legacy model-side
+    // body state.
     void AddSelectionOutline( const Math::Vector::Vector3& position,
                               const Math::Orientation::Quaternion& orientation,
                               const Math::CollisionDetection::CollisionShape& shape );
@@ -335,7 +335,6 @@ class RuntimeTools
                                     Math::Vector::Vector3& outCameraUp ) const;
     bool FireLauncherRay( GameObjects::GameModelCollection& collection,
                           RunSceneState& scene,
-                          Environment::WorldEnvironment& world,
                           Geometry::Terrain* terrain,
                           int activeModelCapacity,
                           const Math::Vector::Vector3& rayOrigin,
@@ -348,7 +347,6 @@ class RuntimeTools
                             const Math::Vector::Vector3& cameraUp );
     bool FireLauncherProjectile( GameObjects::GameModelCollection& collection,
                                  RunSceneState& scene,
-                                 Environment::WorldEnvironment& world,
                                  Geometry::Terrain* terrain,
                                  int activeModelCapacity,
                                  const Math::Vector::Vector3& rayOrigin,

@@ -159,6 +159,17 @@ float AttachedCameraTargetRadius( const PhysicsBodyRecord& body, const ColliderR
     return (std::max)( (std::max)( collider.boundingRadius, body.boundingRadius ), 1.0f );
 }
 
+const char* PresentationNameForModelIndex( const SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                           int modelIndex )
+{
+    const auto& presentationRecords = collection.RenderPresentationRecords();
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
+    {
+        return "";
+    }
+    return presentationRecords[static_cast<std::size_t>( modelIndex )].displayName;
+}
+
 bool TryAttachCameraTargetHandlesFromModelIndex( SkullbonezCore::GameObjects::GameModelCollection& collection,
                                                  int modelIndex,
                                                  AttachedCameraTarget& target )
@@ -216,22 +227,16 @@ bool TryResolveAttachedCameraTargetIdentity( SkullbonezCore::GameObjects::GameMo
         }
     }
 
-    const std::vector<GameModel>& models = collection.Models();
+    const int modelCount = bodyStore.Count();
     const int cachedIndex = target.modelIndex;
-    if ( cachedIndex >= 0 && cachedIndex < static_cast<int>( models.size() ) )
+    if ( cachedIndex >= 0 && cachedIndex < modelCount )
     {
         const bool hasReplayId = target.replayBodyId != 0;
-        const bool hasName = target.name[0] != '\0';
         bool cachedIndexMatches = true;
         if ( hasReplayId )
         {
             const PhysicsBodyRecord* cachedBody = bodyStore.RecordForModelIndex( cachedIndex );
             cachedIndexMatches = cachedBody && cachedBody->replayBodyId == target.replayBodyId;
-        }
-        if ( cachedIndexMatches && hasName )
-        {
-            const GameModel& model = models[static_cast<std::size_t>( cachedIndex )];
-            cachedIndexMatches = strcmp( model.GetName(), target.name ) == 0;
         }
         if ( cachedIndexMatches && TryAttachCameraTargetHandlesFromModelIndex( collection, cachedIndex, target ) )
         {
@@ -246,32 +251,10 @@ bool TryResolveAttachedCameraTargetIdentity( SkullbonezCore::GameObjects::GameMo
         const std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.Records();
         // Invariant: duplicate replay ids are corruption, not an arbitrary
         // first match. Scan the dense body rows so stale camera targets fail
-        // closed without touching the GameModel compatibility mirror.
+        // closed without touching authoring/presentation data.
         for ( int i = 0; i < static_cast<int>( bodyRecords.size() ); ++i )
         {
             if ( bodyRecords[static_cast<std::size_t>( i )].replayBodyId == target.replayBodyId )
-            {
-                if ( match >= 0 )
-                {
-                    target = AttachedCameraTarget{};
-                    return false;
-                }
-                match = i;
-            }
-        }
-        if ( match >= 0 && TryAttachCameraTargetHandlesFromModelIndex( collection, match, target ) )
-        {
-            outModelIndex = match;
-            return true;
-        }
-    }
-
-    if ( target.name[0] != '\0' )
-    {
-        int match = -1;
-        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
-        {
-            if ( strcmp( models[static_cast<std::size_t>( i )].GetName(), target.name ) == 0 )
             {
                 if ( match >= 0 )
                 {
@@ -675,7 +658,6 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
                 m_cGameModelCollection.GetModelCount() );
             if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
                                                  SceneState(),
-                                                 m_cWorldEnvironment,
                                                  m_systems.terrain.get(),
                                                  ActiveGameModelCapacity(),
                                                  rayOrigin,
@@ -1348,14 +1330,13 @@ void Run::CaptureAttachedCameraOrbit( const Vector3& targetPosition, float targe
 
 void Run::SetAttachedCameraTarget( int modelIndex )
 {
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    if ( modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) )
+    const int modelCount = m_cGameModelCollection.GetPhysicsEngine().BodyStore().Count();
+    if ( modelIndex < 0 || modelIndex >= modelCount )
     {
         ClearAttachedCameraTarget();
         return;
     }
 
-    const GameModel& model = models[static_cast<std::size_t>( modelIndex )];
     AttachedCameraPhysicsTarget targetState;
     if ( !TryAttachCameraTargetHandlesFromModelIndex( m_cGameModelCollection, modelIndex, m_attachedCamera.target ) ||
          !TryResolveAttachedCameraPhysicsTarget( m_cGameModelCollection, m_attachedCamera.target, targetState ) )
@@ -1364,7 +1345,10 @@ void Run::SetAttachedCameraTarget( int modelIndex )
         return;
     }
 
-    strncpy_s( m_attachedCamera.target.name, sizeof( m_attachedCamera.target.name ), model.GetName(), _TRUNCATE );
+    strncpy_s( m_attachedCamera.target.name,
+               sizeof( m_attachedCamera.target.name ),
+               PresentationNameForModelIndex( m_cGameModelCollection, modelIndex ),
+               _TRUNCATE );
     RuntimeInteractionCommand command;
     command.type = RuntimeInteractionCommandType::SetEditorSelection;
     command.modelIndex = modelIndex;
@@ -1401,13 +1385,13 @@ void Run::SeedAttachedCameraTargetFromSelection()
 
     int seedIndex = -1;
     const RunReplayPathVisualizerState& path = m_replayRuntime.PathVisualizer();
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    if ( path.hasTarget && path.targetModelIndex >= 0 && path.targetModelIndex < static_cast<int>( models.size() ) )
+    const int modelCount = m_cGameModelCollection.GetPhysicsBodyStore().Count();
+    if ( path.hasTarget && path.targetModelIndex >= 0 && path.targetModelIndex < modelCount )
     {
         seedIndex = path.targetModelIndex;
     }
     else if ( m_runtimeTools.Editor().selectedModelIndex >= 0 &&
-              m_runtimeTools.Editor().selectedModelIndex < static_cast<int>( models.size() ) )
+              m_runtimeTools.Editor().selectedModelIndex < modelCount )
     {
         seedIndex = m_runtimeTools.Editor().selectedModelIndex;
     }
@@ -1474,8 +1458,8 @@ bool Run::TickAttachedCameraWorldClick( const RuntimeMouseEdges& mouseEdges, boo
 bool Run::TryResolveAttachedCameraRagdollHead( int selectedModelIndex, int& outHeadModelIndex ) const
 {
     outHeadModelIndex = -1;
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    if ( selectedModelIndex < 0 || selectedModelIndex >= static_cast<int>( models.size() ) )
+    const int modelCount = m_cGameModelCollection.GetPhysicsEngine().BodyStore().Count();
+    if ( selectedModelIndex < 0 || selectedModelIndex >= modelCount )
     {
         return false;
     }
@@ -1491,12 +1475,11 @@ bool Run::TryResolveAttachedCameraRagdollHead( int selectedModelIndex, int& outH
     }
 
     const int rootModelIndex = m_cGameModelCollection.GroupRootModelIndexAt( selectedModelIndex );
-    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+    for ( int i = 0; i < modelCount; ++i )
     {
-        const GameModel& candidate = models[static_cast<std::size_t>( i )];
         if ( m_cGameModelCollection.IsSimpleRagdollPart( i ) &&
              m_cGameModelCollection.GroupRootModelIndexAt( i ) == rootModelIndex &&
-             EndsWith( candidate.GetName(), "_head" ) )
+             EndsWith( PresentationNameForModelIndex( m_cGameModelCollection, i ), "_head" ) )
         {
             outHeadModelIndex = i;
             return true;

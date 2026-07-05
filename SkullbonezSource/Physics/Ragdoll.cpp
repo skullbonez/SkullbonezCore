@@ -1,13 +1,13 @@
 /*
 File: SkullbonezSource/Physics/Ragdoll.cpp
 Purpose:
-  Builds simple humanoid ragdolls and solves their first point-joint constraints.
+  Defines simple humanoid ragdoll descriptors and point-joint solving.
 
 Mental model:
-  The body layout is prefab code; joint creation goes through handle-keyed
-  point-joint descriptors, while PhysicsWorld owns the solver rows. This keeps
-  the hacky ragdoll feature isolated and leaves a clear migration path to a full
-  constraint solver.
+  The body layout is prefab value data. Scene owners turn the descriptors into
+  authored objects; Physics keeps only handle-keyed point-joint descriptors and
+  solver rows. This keeps the ragdoll feature isolated and leaves a clear
+  migration path to a full constraint solver.
 
 Glossary:
   Point joint: Constraint that keeps two local anchors near each other.
@@ -16,14 +16,14 @@ Glossary:
   Neck swing limit: Special angular clamp applied to the head/torso joint.
   Body record: Physics-owned snapshot of pose, velocity, mass, and inertia used
     by the joint solver.
-  Scene-object group: Collection sidecar row that keeps simple-ragdoll parts
-    tied to one root model without asking runtime tools to parse display names.
+  Prefab descriptor: Immutable local part or joint facts consumed by authored
+    scene setup.
 
 Invariants:
   - Body and constraint creation order must stay deterministic.
   - Constraint solving must not allocate per row while physics is stepping.
-  - Ragdoll sleep seeding targets PhysicsBodyStore/PhysicsWorld by handle;
-    GameModel remains only the construction/presentation owner for this path.
+  - This file does not construct scene objects; callers build renderable bodies
+    from descriptors before registering point joints by handle.
 
 Related:
   - SkullbonezSource/Physics/Ragdoll.h
@@ -32,28 +32,17 @@ Related:
 #include "Ragdoll.h"
 
 #include "../Core/Common.h"
-#include "../GameObjects/GameModel.h"
-#include "../GameObjects/GameModelCollection.h"
 #include "ContactSolverCommon.h"
-#include "PhysicsApi.h"
 #include "PhysicsBodyStore.h"
-#include "PhysicsEngine.h"
-#include "PhysicsMass.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cfloat>
-#include <cstdio>
-#include <cstring>
-#include <stdexcept>
 
-using namespace SkullbonezCore::Environment;
-using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
-using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 
 namespace
 {
@@ -88,100 +77,9 @@ enum SimplePart
 
 static_assert( PART_COUNT == Ragdoll::SIMPLE_PART_COUNT, "simple ragdoll part count mismatch" );
 
-struct SimplePartDef
-{
-    const char* suffix;
-    Vector3 localCenter;
-    Vector3 halfExtents;
-    float restitution;
-    float tintR;
-    float tintG;
-    float tintB;
-};
-
-struct SimpleJointDef
-{
-    int bodyA;
-    int bodyB;
-    Vector3 localAnchorA;
-    Vector3 localAnchorB;
-    float slack;
-    uint8_t flags;
-};
-
 Vector3 ScaleVector( const Vector3& value, float scale )
 {
     return Vector3( value.x * scale, value.y * scale, value.z * scale );
-}
-
-float ClampRagdollScale( float scale )
-{
-    if ( !std::isfinite( scale ) )
-    {
-        return RAGDOLL_DEFAULT_SCALE;
-    }
-    return std::clamp( scale, RAGDOLL_MIN_SCALE, RAGDOLL_MAX_SCALE );
-}
-
-const SimplePartDef* SimpleParts()
-{
-    // Invariant: this table order is the prefab body index order and is paired
-    // with SimpleJoints plus SIMPLE_PART_COUNT.
-    static const SimplePartDef parts[PART_COUNT] = {
-        { "torso", Vector3( 0.0f, 12.8f, 0.0f ), Vector3( 2.2f, 3.2f, 1.1f ), 0.18f, 0.62f, 0.72f, 1.0f },
-        { "head", Vector3( 0.0f, 17.25f, 0.0f ), Vector3( 1.2f, 1.2f, 1.2f ), 0.15f, 0.95f, 0.82f, 0.58f },
-        { "upper_arm_l", Vector3( -3.0f, 13.8f, 0.0f ), Vector3( 0.65f, 2.2f, 0.65f ), 0.14f, 0.42f, 0.50f, 0.90f },
-        { "lower_arm_l", Vector3( -3.0f, 9.4f, 0.0f ), Vector3( 0.58f, 2.2f, 0.58f ), 0.14f, 0.42f, 0.50f, 0.90f },
-        { "upper_arm_r", Vector3( 3.0f, 13.8f, 0.0f ), Vector3( 0.65f, 2.2f, 0.65f ), 0.14f, 0.42f, 0.50f, 0.90f },
-        { "lower_arm_r", Vector3( 3.0f, 9.4f, 0.0f ), Vector3( 0.58f, 2.2f, 0.58f ), 0.14f, 0.42f, 0.50f, 0.90f },
-        { "upper_leg_l", Vector3( -0.85f, 7.2f, 0.0f ), Vector3( 0.8f, 2.4f, 0.75f ), 0.12f, 0.36f, 0.42f, 0.80f },
-        { "lower_leg_l", Vector3( -0.85f, 2.4f, 0.0f ), Vector3( 0.72f, 2.4f, 0.72f ), 0.12f, 0.36f, 0.42f, 0.80f },
-        { "upper_leg_r", Vector3( 0.85f, 7.2f, 0.0f ), Vector3( 0.8f, 2.4f, 0.75f ), 0.12f, 0.36f, 0.42f, 0.80f },
-        { "lower_leg_r", Vector3( 0.85f, 2.4f, 0.0f ), Vector3( 0.72f, 2.4f, 0.72f ), 0.12f, 0.36f, 0.42f, 0.80f },
-    };
-    return parts;
-}
-
-const SimpleJointDef* SimpleJoints( int& outCount )
-{
-    static const SimpleJointDef joints[] = {
-        { PART_TORSO,
-          PART_HEAD,
-          Vector3( 0.0f, 3.2f, 0.0f ),
-          Vector3( 0.0f, -1.2f, 0.0f ),
-          0.28f,
-          PointJointConstraint::FLAG_LIMIT_NECK_SWING },
-        { PART_TORSO, PART_LEFT_UPPER_ARM, Vector3( -2.2f, 2.25f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.35f, 0 },
-        { PART_LEFT_UPPER_ARM,
-          PART_LEFT_LOWER_ARM,
-          Vector3( 0.0f, -2.2f, 0.0f ),
-          Vector3( 0.0f, 2.2f, 0.0f ),
-          0.30f,
-          0 },
-        { PART_TORSO, PART_RIGHT_UPPER_ARM, Vector3( 2.2f, 2.25f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.35f, 0 },
-        { PART_RIGHT_UPPER_ARM,
-          PART_RIGHT_LOWER_ARM,
-          Vector3( 0.0f, -2.2f, 0.0f ),
-          Vector3( 0.0f, 2.2f, 0.0f ),
-          0.30f,
-          0 },
-        { PART_TORSO, PART_LEFT_UPPER_LEG, Vector3( -0.85f, -3.2f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.35f, 0 },
-        { PART_LEFT_UPPER_LEG,
-          PART_LEFT_LOWER_LEG,
-          Vector3( 0.0f, -2.4f, 0.0f ),
-          Vector3( 0.0f, 2.4f, 0.0f ),
-          0.30f,
-          0 },
-        { PART_TORSO, PART_RIGHT_UPPER_LEG, Vector3( 0.85f, -3.2f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.35f, 0 },
-        { PART_RIGHT_UPPER_LEG,
-          PART_RIGHT_LOWER_LEG,
-          Vector3( 0.0f, -2.4f, 0.0f ),
-          Vector3( 0.0f, 2.4f, 0.0f ),
-          0.30f,
-          0 },
-    };
-    outCount = static_cast<int>( sizeof( joints ) / sizeof( joints[0] ) );
-    return joints;
 }
 
 void AppendPreviewLine( std::vector<float>& lineData, const Vector3& a, const Vector3& b, float r, float g, float bl )
@@ -382,9 +280,89 @@ float Ragdoll::DefaultEditorScale()
     return RAGDOLL_DEFAULT_SCALE;
 }
 
+
+float Ragdoll::ClampScale( float scale )
+{
+    if ( !std::isfinite( scale ) )
+    {
+        return RAGDOLL_DEFAULT_SCALE;
+    }
+    return std::clamp( scale, RAGDOLL_MIN_SCALE, RAGDOLL_MAX_SCALE );
+}
+
+
+float Ragdoll::SurfaceEpsilon()
+{
+    return RAGDOLL_SURFACE_EPSILON;
+}
+
+
+const RagdollPartDesc* Ragdoll::SimpleParts()
+{
+    // Invariant: this table order is the prefab body index order and is paired
+    // with SimpleJoints plus SIMPLE_PART_COUNT.
+    static const RagdollPartDesc parts[PART_COUNT] = {
+        { "torso", Vector3( 0.0f, 12.8f, 0.0f ), Vector3( 2.2f, 3.2f, 1.1f ), 0.18f, 0.62f, 0.72f, 1.0f },
+        { "head", Vector3( 0.0f, 17.25f, 0.0f ), Vector3( 1.2f, 1.2f, 1.2f ), 0.15f, 0.95f, 0.82f, 0.58f },
+        { "upper_arm_l", Vector3( -3.0f, 13.8f, 0.0f ), Vector3( 0.65f, 2.2f, 0.65f ), 0.14f, 0.42f, 0.50f, 0.90f },
+        { "lower_arm_l", Vector3( -3.0f, 9.4f, 0.0f ), Vector3( 0.58f, 2.2f, 0.58f ), 0.14f, 0.42f, 0.50f, 0.90f },
+        { "upper_arm_r", Vector3( 3.0f, 13.8f, 0.0f ), Vector3( 0.65f, 2.2f, 0.65f ), 0.14f, 0.42f, 0.50f, 0.90f },
+        { "lower_arm_r", Vector3( 3.0f, 9.4f, 0.0f ), Vector3( 0.58f, 2.2f, 0.58f ), 0.14f, 0.42f, 0.50f, 0.90f },
+        { "upper_leg_l", Vector3( -0.85f, 7.2f, 0.0f ), Vector3( 0.8f, 2.4f, 0.75f ), 0.12f, 0.36f, 0.42f, 0.80f },
+        { "lower_leg_l", Vector3( -0.85f, 2.4f, 0.0f ), Vector3( 0.72f, 2.4f, 0.72f ), 0.12f, 0.36f, 0.42f, 0.80f },
+        { "upper_leg_r", Vector3( 0.85f, 7.2f, 0.0f ), Vector3( 0.8f, 2.4f, 0.75f ), 0.12f, 0.36f, 0.42f, 0.80f },
+        { "lower_leg_r", Vector3( 0.85f, 2.4f, 0.0f ), Vector3( 0.72f, 2.4f, 0.72f ), 0.12f, 0.36f, 0.42f, 0.80f },
+    };
+    return parts;
+}
+
+
+const RagdollJointDesc* Ragdoll::SimpleJoints( int& outCount )
+{
+    static const RagdollJointDesc joints[] = {
+        { PART_TORSO,
+          PART_HEAD,
+          Vector3( 0.0f, 3.2f, 0.0f ),
+          Vector3( 0.0f, -1.2f, 0.0f ),
+          0.28f,
+          PointJointConstraint::FLAG_LIMIT_NECK_SWING },
+        { PART_TORSO, PART_LEFT_UPPER_ARM, Vector3( -2.2f, 2.25f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.35f, 0 },
+        { PART_LEFT_UPPER_ARM,
+          PART_LEFT_LOWER_ARM,
+          Vector3( 0.0f, -2.2f, 0.0f ),
+          Vector3( 0.0f, 2.2f, 0.0f ),
+          0.30f,
+          0 },
+        { PART_TORSO, PART_RIGHT_UPPER_ARM, Vector3( 2.2f, 2.25f, 0.0f ), Vector3( 0.0f, 2.2f, 0.0f ), 0.35f, 0 },
+        { PART_RIGHT_UPPER_ARM,
+          PART_RIGHT_LOWER_ARM,
+          Vector3( 0.0f, -2.2f, 0.0f ),
+          Vector3( 0.0f, 2.2f, 0.0f ),
+          0.30f,
+          0 },
+        { PART_TORSO, PART_LEFT_UPPER_LEG, Vector3( -0.85f, -3.2f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.35f, 0 },
+        { PART_LEFT_UPPER_LEG,
+          PART_LEFT_LOWER_LEG,
+          Vector3( 0.0f, -2.4f, 0.0f ),
+          Vector3( 0.0f, 2.4f, 0.0f ),
+          0.30f,
+          0 },
+        { PART_TORSO, PART_RIGHT_UPPER_LEG, Vector3( 0.85f, -3.2f, 0.0f ), Vector3( 0.0f, 2.4f, 0.0f ), 0.35f, 0 },
+        { PART_RIGHT_UPPER_LEG,
+          PART_RIGHT_LOWER_LEG,
+          Vector3( 0.0f, -2.4f, 0.0f ),
+          Vector3( 0.0f, 2.4f, 0.0f ),
+          0.30f,
+          0 },
+    };
+    outCount = static_cast<int>( sizeof( joints ) / sizeof( joints[0] ) );
+    return joints;
+}
+
+
 Vector3 Ragdoll::DefaultPreviewCenter( const Vector3& terrainPoint, float scale, const Quaternion& orientation )
 {
-    const SimplePartDef* parts = SimpleParts();
+    const RagdollPartDesc* parts = SimpleParts();
     float minY = FLT_MAX;
     float maxY = -FLT_MAX;
     for ( int i = 0; i < PART_COUNT; ++i )
@@ -395,7 +373,7 @@ Vector3 Ragdoll::DefaultPreviewCenter( const Vector3& terrainPoint, float scale,
 
     Quaternion q = orientation;
     const RotationMatrix rotation = q.GetOrientationMatrix();
-    const float clampedScale = ClampRagdollScale( scale );
+    const float clampedScale = ClampScale( scale );
     return terrainPoint + rotation * Vector3( 0.0f, ( minY + maxY ) * 0.5f * clampedScale, 0.0f );
 }
 
@@ -407,10 +385,10 @@ void Ragdoll::AddPreviewLines( std::vector<float>& lineData,
                                float g,
                                float b )
 {
-    const SimplePartDef* parts = SimpleParts();
+    const RagdollPartDesc* parts = SimpleParts();
     Quaternion q = orientation;
     const RotationMatrix rotation = q.GetOrientationMatrix();
-    const float clampedScale = ClampRagdollScale( scale );
+    const float clampedScale = ClampScale( scale );
     const Vector3 base = terrainPoint + rotation * Vector3( 0.0f, RAGDOLL_SURFACE_EPSILON, 0.0f );
     for ( int i = 0; i < PART_COUNT; ++i )
     {
@@ -421,91 +399,6 @@ void Ragdoll::AddPreviewLines( std::vector<float>& lineData,
                           r,
                           g,
                           b );
-    }
-}
-
-void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
-                                 PhysicsEngine& physics,
-                                 WorldEnvironment& worldEnvironment,
-                                 SkullbonezCore::Geometry::Terrain* terrain,
-                                 const RagdollBuildOptions& options )
-{
-    const int firstBody = collection.GetModelCount();
-    const uint32_t groupId = static_cast<uint32_t>( firstBody + 1 );
-    const float scale = ClampRagdollScale( options.scale );
-    Quaternion orientation = options.orientation;
-    const RotationMatrix rotation = orientation.GetOrientationMatrix();
-    const Vector3 base = options.terrainPoint + rotation * Vector3( 0.0f, RAGDOLL_SURFACE_EPSILON, 0.0f );
-    const char* prefix = options.namePrefix && options.namePrefix[0] ? options.namePrefix : "ragdoll";
-    const SimplePartDef* parts = SimpleParts();
-    // Invariant: the caller reserves SIMPLE_PART_COUNT ids as one range so
-    // ragdoll parts append with deterministic, gap-free scene identity.
-    if ( !options.firstSceneObjectId.IsValid() )
-    {
-        throw std::runtime_error( "Ragdoll build requires a scene object id range." );
-    }
-
-    for ( int i = 0; i < PART_COUNT; ++i )
-    {
-        const Vector3 halfExtents = ScaleVector( parts[i].halfExtents, scale );
-        const float mass = CalculateBoxMass( halfExtents );
-        GameModel model( &worldEnvironment,
-                         base + rotation * ScaleVector( parts[i].localCenter, scale ),
-                         CalculateBoxInertiaForHalfExtents( halfExtents, mass ),
-                         mass );
-        model.SetTerrain( terrain );
-        model.SetCoefficientRestitution( parts[i].restitution );
-        model.AddBoundingBox( halfExtents );
-        model.SetOrientation( orientation );
-        model.SetRenderTint( parts[i].tintR, parts[i].tintG, parts[i].tintB, 1.0f );
-        char name[64];
-        sprintf_s( name, sizeof( name ), "%s_%s", prefix, parts[i].suffix );
-        model.SetName( name );
-        model.SetFixed( options.fixed );
-        PhysicsSceneObjectId partSceneObjectId;
-        partSceneObjectId.value = options.firstSceneObjectId.value + static_cast<uint32_t>( i );
-        SceneObjectGroupCreateDesc groupDesc;
-        groupDesc.kind = GameModelCollectionKind::SimpleRagdoll;
-        groupDesc.rootModelIndex = firstBody;
-        groupDesc.partIndex = i;
-
-        // Invariant: ragdoll grouping is prefab metadata. Pass root/part facts
-        // directly so collection append never parses display names to recover it.
-        collection.AddGameModel( std::move( model ),
-                                 MakeColliderCreateDesc( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ),
-                                                         parts[i].restitution,
-                                                         HashStr( "default" ) ),
-                                 partSceneObjectId,
-                                 groupDesc );
-    }
-
-    int jointCount = 0;
-    const SimpleJointDef* joints = SimpleJoints( jointCount );
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
-    for ( int i = 0; i < jointCount; ++i )
-    {
-        PhysicsPointJointCreateDesc desc;
-        desc.bodyA = bodyStore.HandleForModelIndex( firstBody + joints[i].bodyA );
-        desc.bodyB = bodyStore.HandleForModelIndex( firstBody + joints[i].bodyB );
-        desc.localAnchorA = ScaleVector( joints[i].localAnchorA, scale );
-        desc.localAnchorB = ScaleVector( joints[i].localAnchorB, scale );
-        desc.slack = joints[i].slack * scale;
-        desc.stiffness = 0.22f;
-        desc.damping = 0.35f;
-        desc.groupId = groupId;
-        desc.flags = joints[i].flags;
-        physics.CreatePointJoint( desc );
-    }
-
-    if ( options.startsAsleep && !options.fixed )
-    {
-        for ( int i = 0; i < PART_COUNT; ++i )
-        {
-            // Why: ragdoll construction already resolves body handles for
-            // joints. Seed sleep through the same physics boundary instead of
-            // reopening the collection's model-index command wrapper.
-            physics.SeedBodyAsleep( bodyStore.HandleForModelIndex( firstBody + i ) );
-        }
     }
 }
 

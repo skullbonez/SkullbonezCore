@@ -17,7 +17,7 @@ Glossary:
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
   Contact body view: Pose-only body input used by narrowphase so the manifold
-  builder does not need to borrow whole GameModel storage.
+  builder does not need to borrow unrelated owner storage.
   Contact sweep: Conservative object/object time-of-impact query used before
   exact manifold generation and solver response.
   Feature ID: Deterministic contact key used to match rows across frames for
@@ -47,9 +47,9 @@ namespace Physics
 {
 struct ObjectContactBodyView
 {
-    // Narrowphase contact geometry needs pose plus shape, not the whole
-    // GameModel. PhysicsBodyRecord callers fill this view directly while
-    // ColliderRecord owns the exact shape snapshot.
+    // Narrowphase contact geometry needs pose plus shape. PhysicsBodyRecord
+    // callers fill this view directly while ColliderRecord owns the exact
+    // shape snapshot.
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation;
 };

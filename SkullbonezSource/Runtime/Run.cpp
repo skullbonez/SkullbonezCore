@@ -31,6 +31,7 @@ Related:
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
+#include "Allocation/RuntimeAllocationTracker.h"
 #include "Scene/SceneRuntimeLoad.h"
 #include "../UI/UIInput.h"
 
@@ -46,6 +47,7 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
 using namespace SkullbonezCore::Basics::ReplayOverlay;
+namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
@@ -105,7 +107,6 @@ RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
     bindings.runtime.config = &m_config;
     bindings.runtime.launchOptions = &m_launchOptions;
     bindings.runtime.runtimeSettings = &m_runtimeSettings;
-    bindings.world.gameModelCollection = &m_cGameModelCollection;
     bindings.world.worldEnvironment = &m_cWorldEnvironment;
     bindings.world.collisionVisualizer = &m_collisionVisualizer;
     bindings.world.broadphaseVisualizer = &m_broadphaseVisualizer;
@@ -279,6 +280,7 @@ void Run::RefreshRuntimeViewModel()
 
 Run::~Run()
 {
+    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Shutdown );
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( "process_end" );
 #endif
@@ -696,6 +698,16 @@ void Run::SetFrameCountOverride( int frames )
 }
 
 
+void Run::SetAllocationGuardMode( RuntimeAllocation::RuntimeAllocationGuardMode mode )
+{
+    m_launchOptions.allocationGuardMode = mode;
+    if ( RuntimeAllocation::GetRuntimeAllocationGuardMode() != mode )
+    {
+        RuntimeAllocation::SetRuntimeAllocationGuardMode( mode );
+    }
+}
+
+
 void Run::SetUIStressOverride( unsigned int seed, int actionsPerFrame )
 {
     m_launchOptions.uiStress = true;
@@ -982,7 +994,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         }
 
         // Invariant: replay restore identity belongs to the live body row.
-        // GameModel is only a compatibility projection after the restore writes
+        // Authoring/presentation data is secondary after the restore writes
         // store-owned pose, velocity, and fixed state.
         const PhysicsBodyRecord* liveBody = bodyStore.RecordForModelIndex( body.modelIndex );
         if ( !liveBody || liveBody->replayBodyId != body.id.value )
@@ -992,7 +1004,6 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         }
     }
 
-    m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
     if ( !m_cGameModelCollection.TrimModelsForReplayRestore( restoreModelCount ) )
     {
         writeReason( "failed to trim live model list" );

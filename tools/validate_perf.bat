@@ -48,7 +48,7 @@ echo   VALIDATE_PERF - Performance Check
 echo ========================================
 echo.
 
-echo [1/4] Ensuring Profile x64 build...
+echo [1/5] Ensuring Profile x64 build...
 if /I "%SKULLBONEZ_ASSUME_PROFILE_BUILT%"=="1" (
     echo PASS: Reusing prebuilt Profile x64.
 ) else (
@@ -56,12 +56,43 @@ if /I "%SKULLBONEZ_ASSUME_PROFILE_BUILT%"=="1" (
     if errorlevel 1 exit /b 1
 )
 
-echo [2/4] Cleaning old perf artifacts...
+echo [2/5] Checking runtime allocation policy...
+"%PYTHON_EXE%" "%REPO%\tools\check_allocation_policy.py" --repo "%REPO%"
+if errorlevel 1 exit /b 9
+
+echo [3/5] Cleaning old perf artifacts...
 del /q "%REPO%\Profile\perf_log.csv" 2>nul
 del /q "%REPO%\Profile\*_perf_log.csv" 2>nul
 del /q "%REPO%\Profile\*_perf.json" 2>nul
 
-echo [3/4] Running DX12 perf tests...
+echo [4/5] Running allocation guard and DX12 perf tests...
+echo.
+echo Running allocation guard perf_1000 smoke...
+set "ALLOC_GUARD_LOG=%REPO%\TestOutput\validation\agent_logs\allocation_guard_perf_1000.log"
+if not exist "%REPO%\TestOutput\validation\agent_logs" mkdir "%REPO%\TestOutput\validation\agent_logs"
+"%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --fixed-step %PERF_HEADLESS_ARGS% --allocation-guard gameplay --frames 180 --scene SkullbonezData/scenes/perf_1000.scene.json > "%ALLOC_GUARD_LOG%" 2>&1
+set "ALLOC_GUARD_EXIT=!errorlevel!"
+type "%ALLOC_GUARD_LOG%"
+if not "!ALLOC_GUARD_EXIT!"=="0" (
+    echo FAIL: allocation guard perf_1000 smoke crashed.
+    exit /b 9
+)
+findstr /C:"[allocation-guard] mode=gameplay" "%ALLOC_GUARD_LOG%" >nul
+if errorlevel 1 (
+    echo FAIL: allocation guard summary marker missing.
+    exit /b 9
+)
+findstr /C:"[allocation-guard] phase=steady_gameplay" "%ALLOC_GUARD_LOG%" >nul
+if errorlevel 1 (
+    echo FAIL: allocation guard steady gameplay phase marker missing.
+    exit /b 9
+)
+findstr /C:"[allocation-guard] WARNING" "%ALLOC_GUARD_LOG%" >nul
+if errorlevel 1 (
+    echo PASS: allocation guard evidence is clean for perf_1000.
+) else (
+    echo WARN: allocation guard evidence is warning-bearing; steady gameplay allocations remain to be converted.
+)
 echo.
 echo Running dx12 perf test...
 del /q "%REPO%\Profile\perf_log.csv" 2>nul
@@ -98,7 +129,7 @@ if errorlevel 1 (
     exit /b 6
 )
 
-echo [4/4] Analyzing and comparing performance...
+echo [5/5] Analyzing and comparing performance...
 set "SKORE_REPO=%REPO%"
 set "PYTHONUTF8=1"
 set "PYTHONIOENCODING=utf-8"

@@ -46,6 +46,7 @@ Related:
 #include "RuntimeInteractionController.h"
 #include "RuntimeCommandQueue.h"
 #include "RuntimeCameraMode.h"
+#include "Allocation/RuntimeAllocationTracker.h"
 #include "Audio/ContactAudioService.h"
 #include "Render/RuntimeRenderHost.h"
 #include "Render/RuntimeRenderInputs.h"
@@ -149,7 +150,10 @@ class Run
     RuntimeRenderer m_renderer;                                            // Owns runtime render passes and frame render ordering.
 
     inline static int sPerfPass = 0;
-    void Render();                                                         // Skips 3D in text-only runs, then records passes for the current camera state.
+    void Render( const RuntimeRenderModelFrameView&
+                     renderModels );                                       // Skips 3D in text-only runs, then records passes for the current camera state.
+    RuntimeRenderModelFrameView
+    BuildRuntimeRenderModelFrameView();                                    // Packages model-owned render/debug views for this frame.
     RunSceneState& SceneState();                                           // Mutable scene-run state owned by SceneController
     const RunSceneState& SceneState() const;                               // Read-only scene-run state owned by SceneController
     void BindEngineContext();                                              // Binds runtime-owned systems into EngineContext
@@ -286,9 +290,7 @@ class Run
         bool preserveRuntimeState = false );                               // Queue-indexed scene load; preserve flags keep selected runtime/UI state.
     void MoveCamera( float keyMovementQty,
                      float mouseMovemementQty );                           // Keyboard/mouse deltas dispatched to CameraCollection.
-    // Tight light-space frame for nearby object receivers.
-    // Depth casters requested from the sun view.
-    void RunUIStressActions();
+    void RunUIStressActions();                                             // Deterministic UI control-state churn; leaves runtime/world rebuilds gated off.
     void RunGraphicsStressActions(
         const Rendering::IRenderDiagnostics&
             renderDiagnostics );                                           // Deterministic render/scene churn used to shake out DX12 crashes.
@@ -382,6 +384,8 @@ class Run
     void SetInteractiveRunOverride();                                      // Keep scene automation from quitting the app (CLI --interactive/--hold)
     void SetLiveStyleControlDirectory( const char* path );                 // Enable live style/capture harness in a control folder
     void SetFrameCountOverride( int frames );                              // Stop scene/demo automation after N frames (CLI --frames)
+    void SetAllocationGuardMode( Runtime::Allocation::RuntimeAllocationGuardMode
+                                     mode );                               // Record launch allocation evidence mode (CLI --allocation-guard).
     void SetUIStressOverride( unsigned int seed, int actionsPerFrame );    // Enable deterministic UI stress from CLI
     void
     SetGraphicsStressOverride( unsigned int seed,

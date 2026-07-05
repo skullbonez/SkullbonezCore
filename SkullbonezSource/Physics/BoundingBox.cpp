@@ -33,8 +33,8 @@ Related:
 // PURPOSE: Oriented Bounding Box (OBB) collision shape implementation.
 //
 // An OBB is defined by three half-extents (half the width/height/depth).
-// The actual world-space orientation is provided by the owning RigidBody's
-// quaternion — this class only stores the shape definition and provides
+// The actual world-space orientation is provided by the owning body row's
+// quaternion; this class only stores the shape definition and provides
 // volume/drag/collision queries.
 //
 // --- Inertia Tensor for a Solid Box ---
@@ -74,8 +74,8 @@ BoundingBox::BoundingBox( const Vector3& halfExtents, const Vector3& position )
 }
 
 // The box class stores only local shape data. Current world orientation lives on
-// the owning RigidBody/GameModel, so any exact box-vs-box contact work must
-// combine this shape with the body's quaternion later in the narrowphase.
+// the body row, so any exact box-vs-box contact work must combine this shape
+// with the body's quaternion later in the narrowphase.
 
 // Compute model matrix: T(worldPos) * R * S(halfExtents)
 // The shader renders a unit cube [-1,1]³ scaled by half-extents.

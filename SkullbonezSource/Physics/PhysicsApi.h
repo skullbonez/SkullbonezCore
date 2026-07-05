@@ -6,8 +6,8 @@ Purpose:
 Mental model:
   This header is the migration target for scene setup, runtime tools, replay,
   rendering, and diagnostics. It names the operations and data snapshots those
-  callers should use without exposing GameModelCollection, PhysicsWorld, or
-  solver-private containers.
+  callers should use without exposing runtime collection owners, PhysicsWorld,
+  or solver-private containers.
 
 Glossary:
   Activation command: Handle-based request to wake a body, seed it asleep, or
@@ -44,7 +44,7 @@ Glossary:
   View: Immutable span-like snapshot exposed to callers without ownership.
 
 Invariants:
-  - Public API structs do not include or require GameModelCollection.
+  - Public API structs do not include or require runtime collection owners.
   - Command and update descriptors target physics handles, not model indices;
     scene object ids are descriptive identity metadata, not storage offsets.
   - Descriptors describe intent; later facade code owns allocation order and
@@ -63,6 +63,7 @@ Related:
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <utility>
 #include <vector>
 
@@ -142,15 +143,65 @@ struct PhysicsBodyCreateDesc
     float mass = 1.0f;
     float restitution = 0.0f;
     float friction = 0.0f;
+    float boundingRadius = 0.0f;
     float volume = 0.0f;
     float projectedSurfaceArea = 0.0f;
     float dragCoefficient = 0.0f;
+    float angularVelocityLimit = 5.0f;
+    float contactEpsilon = 0.05f;
+    int fixedTreeReleaseRootIndex = -1;
     PhysicsBodyMotionKind motionKind = PhysicsBodyMotionKind::Dynamic;
     bool startsAsleep = false;
     bool releasesFromFixedOnContact = false;
+    bool usesWorldInertia = false;
     float contactReleaseImpulseThreshold = 0.0f;
+    Geometry::Terrain* terrain = nullptr;
     const char* diagnosticName = nullptr;
 };
+
+inline PhysicsBodyCreateDesc MakePhysicsBodyCreateDesc( PhysicsSceneObjectId sceneObjectId,
+                                                        const Math::CollisionDetection::CollisionShape& shape,
+                                                        const Math::Vector::Vector3& position,
+                                                        const Math::Orientation::Quaternion& orientation,
+                                                        const Math::Vector::Vector3& linearVelocity,
+                                                        const Math::Vector::Vector3& angularVelocity,
+                                                        const Math::Vector::Vector3& rotationalInertia,
+                                                        float mass,
+                                                        float restitution,
+                                                        PhysicsBodyMotionKind motionKind,
+                                                        Geometry::Terrain* terrain,
+                                                        const char* diagnosticName = nullptr )
+{
+    PhysicsBodyCreateDesc desc;
+    desc.sceneObjectId = sceneObjectId;
+    desc.shape = shape;
+    desc.position = position;
+    desc.orientation = orientation;
+    desc.linearVelocity = linearVelocity;
+    desc.angularVelocity = angularVelocity;
+    desc.rotationalInertia = rotationalInertia;
+    desc.mass = mass;
+    desc.restitution = restitution;
+    desc.boundingRadius = Math::CollisionDetection::GetShapeBoundingRadius( desc.shape );
+    desc.volume = Math::CollisionDetection::GetShapeVolume( desc.shape );
+    desc.projectedSurfaceArea = Math::CollisionDetection::GetShapeProjectedSurfaceArea( desc.shape );
+    desc.dragCoefficient = Math::CollisionDetection::GetShapeDragCoefficient( desc.shape );
+    if ( const auto* sphere = std::get_if<Math::CollisionDetection::BoundingSphere>( &desc.shape ) )
+    {
+        const float radius = sphere->GetRadius();
+        const float radiusSq = radius * radius;
+        // Invariant: sphere body descriptors must match the retired
+        // retired model-side sphere cache multiplication order. The physics
+        // regression CSV is sensitive enough to catch one-ulp volume drift.
+        desc.volume = FOUR_OVER_THREE * _PI * radiusSq * radius;
+        desc.projectedSurfaceArea = _PI * radiusSq;
+    }
+    desc.motionKind = motionKind;
+    desc.usesWorldInertia = !std::holds_alternative<Math::CollisionDetection::BoundingSphere>( desc.shape );
+    desc.terrain = terrain;
+    desc.diagnosticName = diagnosticName;
+    return desc;
+}
 
 struct PhysicsBodyUpdateDesc
 {
@@ -179,21 +230,28 @@ struct PhysicsColliderCreateDesc
     float restitution = 0.0f;
     float friction = 0.0f;
     uint32_t contactMaterialId = 0;
+    char contactMaterialName[32] = {};
     float projectedSurfaceArea = 0.0f;
     float dragCoefficient = 0.0f;
 };
 
-inline PhysicsColliderCreateDesc
-MakeColliderCreateDesc( Math::CollisionDetection::CollisionShape shape, float restitution, uint32_t contactMaterialId )
+inline PhysicsColliderCreateDesc MakeColliderCreateDesc( Math::CollisionDetection::CollisionShape shape,
+                                                         float restitution,
+                                                         uint32_t contactMaterialId,
+                                                         const char* contactMaterialName = nullptr )
 {
     // Why: creation paths already know the exact primitive facts. Build the
     // collider import packet once there so PhysicsScene owns the live row and
-    // GameModelCollection does not rediscover shape metrics on append.
+    // collection owners do not rediscover shape metrics on append.
     PhysicsColliderCreateDesc desc;
     desc.shape = std::move( shape );
     desc.boundingRadius = Math::CollisionDetection::GetShapeBoundingRadius( desc.shape );
     desc.restitution = restitution;
     desc.contactMaterialId = contactMaterialId;
+    if ( contactMaterialName && contactMaterialName[0] != '\0' )
+    {
+        strncpy_s( desc.contactMaterialName, sizeof( desc.contactMaterialName ), contactMaterialName, _TRUNCATE );
+    }
     desc.projectedSurfaceArea = Math::CollisionDetection::GetShapeProjectedSurfaceArea( desc.shape );
     desc.dragCoefficient = Math::CollisionDetection::GetShapeDragCoefficient( desc.shape );
     return desc;
@@ -208,6 +266,7 @@ struct PhysicsColliderUpdateDesc
     float restitution = 0.0f;
     float friction = 0.0f;
     uint32_t contactMaterialId = 0;
+    char contactMaterialName[32] = {};
     float projectedSurfaceArea = 0.0f;
     float dragCoefficient = 0.0f;
 };
@@ -473,9 +532,9 @@ class PhysicsStandaloneWorld
     // Existing handles become invalid even when the same slot index is reused.
     void Clear();
 
-    // Creates one body from descriptor data without consulting GameModel or scene
-    // storage. PhysicsBodyStore assigns handle identity and owns the dense
-    // mutable row used by Step().
+    // Creates one body from descriptor data without consulting scene storage.
+    // PhysicsBodyStore assigns handle identity and owns the dense mutable row
+    // used by Step().
     PhysicsBodyHandle CreateBody( const PhysicsBodyCreateDesc& desc );
 
     // Applies masked public fields to a live body. Stale handles fail without
@@ -589,7 +648,6 @@ class PhysicsStandaloneWorld
     bool IsAlive( PhysicsBodyHandle body ) const;
     bool IsAlive( PhysicsColliderHandle collider ) const;
     bool IsAlive( PhysicsConstraintHandle constraint ) const;
-    PhysicsBodyRecord MakeBodyRecord( const PhysicsBodyCreateDesc& desc ) const;
     PhysicsBodyRecord* MutableBodyRecord( PhysicsBodyHandle body );
     const PhysicsBodyRecord* BodyRecord( PhysicsBodyHandle body ) const;
     PhysicsBodyView MakeBodyView( const PhysicsBodyRecord& record ) const;

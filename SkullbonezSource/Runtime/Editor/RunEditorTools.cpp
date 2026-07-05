@@ -39,6 +39,7 @@ Related:
 #include "../InputController.h"
 #include "../RuntimeInteractionCommands.h"
 #include "../RuntimePickService.h"
+#include "../Scene/SceneAuthoredSetup.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsApi.h"
@@ -79,6 +80,7 @@ using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
 using SkullbonezCore::GameObjects::GameModelCollection;
+using SkullbonezCore::GameObjects::PhysicsBodyStateEdit;
 using Json = nlohmann::ordered_json;
 
 namespace
@@ -121,9 +123,10 @@ bool RecordEditorTransformEventFromBodyStore( ReplayRuntime& replayRuntime,
                                               int scaleAxis,
                                               float scaleFactor )
 {
-    // Why: editor gizmos still mutate the model-owned authoring edge, then commit
-    // into PhysicsBodyStore. Replay event bytes must come from that authoritative
-    // body row so model-mirror writeback is not required before recording.
+    // Why: editor gizmos still mutate the collection-owned authoring edge, then
+    // commit into PhysicsBodyStore. Replay event bytes must come from that
+    // authoritative body row so legacy model-side writeback is not required
+    // before recording.
     changedFlags &= REPLAY_EDITOR_TRANSFORM_SUPPORTED;
     if ( changedFlags == 0 )
     {
@@ -456,7 +459,7 @@ using EditorGizmoGroupIndices = std::array<int, RunEditorPlacementState::GIZMO_D
 
 // Why: editor transform grouping is scene-object metadata, not physics state.
 // The collection owns a dense grouping row beside model order, so gizmo grouping
-// does not parse display names or read metadata from GameModel body records.
+// does not parse display names or read legacy physics metadata from GameModel.
 int GatherSelectedEditorTransformGroup( const GameModelCollection& collection,
                                         int selectedIndex,
                                         EditorGizmoGroupIndices& outIndices )
@@ -549,7 +552,7 @@ bool TryGetEditorSelectionFrame( const GameModelCollection& collection,
 
     // Invariant: editor selection may group by GameModel name metadata, but the
     // interactive frame itself must use live body/collider rows so stale
-    // compatibility pose mirrors do not steer hit testing or drag math.
+    // presentation poses do not steer hit testing or drag math.
     std::array<const PhysicsBodyRecord*, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY> bodies = {};
     std::array<const ColliderRecord*, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY> colliders = {};
     Vector3 origin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
@@ -650,8 +653,8 @@ bool TryTraceEditorSelectionOverlayFromStores( const GameModelCollection& collec
     origin /= static_cast<float>( count );
 
     // Why: selection grouping still uses model-owned editor identity, but the
-    // visible overlay follows the live body/collider rows so GameModel pose and
-    // shape mirrors are not required for presentation.
+    // visible overlay follows the live body/collider rows so legacy GameModel
+    // pose/shape caches are not required for presentation.
     float radius = 1.0f;
     for ( int i = 0; i < count; ++i )
     {
@@ -783,17 +786,19 @@ void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollecti
 
 void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollection& collection,
                                     int index,
-                                    GameModel& model )
+                                    PhysicsBodyStateEdit edit )
 {
     // Why: Direct editor transforms teleport the body. Clearing velocities and
     // waking dynamic bodies prevents stale solver momentum from immediately
     // dragging the authored pose away.
-    model.SetLinearVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
-    model.SetAngularVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
-    collection.CommitEditedModelBodyState( index );
+    edit.hasLinearVelocity = true;
+    edit.linearVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    edit.hasAngularVelocity = true;
+    edit.angularVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    collection.ApplyPhysicsBodyEdit( index, edit );
     const PhysicsBodyRecord* body = collection.GetPhysicsEngine().BodyStore().RecordForModelIndex( index );
-    // Why: CommitEditedModelBodyState just imported the editor-authored row;
-    // wake eligibility should now follow PhysicsBodyStore, not the model mirror.
+    // Why: the explicit edit just refreshed the physics row; wake eligibility
+    // should now follow PhysicsBodyStore, not legacy model-side body state.
     if ( body && !body->isFixed )
     {
         WakeEditorPhysicsBody( collection, index );
@@ -803,15 +808,17 @@ void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollec
 
 void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollection& collection,
                                     int index,
-                                    GameModel& model,
+                                    PhysicsBodyStateEdit edit,
                                     PhysicsColliderCreateDesc colliderDesc )
 {
-    // Why: scale edits change the model authoring cache and the physics collider
-    // row. Commit them together so wake decisions, picks, and replay recording
-    // all see one coherent body/collider state.
-    model.SetLinearVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
-    model.SetAngularVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
-    collection.CommitEditedModelColliderState( index, std::move( colliderDesc ) );
+    // Why: scale edits change the authored descriptor sidecar and the physics
+    // collider row. Commit them together so wake decisions, picks, and replay
+    // recording all see one coherent body/collider state.
+    edit.hasLinearVelocity = true;
+    edit.linearVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    edit.hasAngularVelocity = true;
+    edit.angularVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    collection.ApplyPhysicsBodyColliderEdit( index, edit, std::move( colliderDesc ) );
     const PhysicsBodyRecord* body = collection.GetPhysicsEngine().BodyStore().RecordForModelIndex( index );
     if ( body && !body->isFixed )
     {

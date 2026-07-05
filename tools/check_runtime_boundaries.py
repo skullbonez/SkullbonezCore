@@ -2,169 +2,32 @@
 #
 # File: tools/check_runtime_boundaries.py
 # Purpose:
-#   Check that Run.h stays a runtime composition root instead of regrowing
-#   extracted subsystem ownership, prevent new source inheritance outside the
-#   approved stable-boundary budget, and prevent new physics dependencies on the
-#   legacy GameModelCollection world container, new game-object types on public
-#   physics facades, or raytracing calls on the wide render backend facade. It
-#   also blocks direct scheduling or manual-barrier regressions for passes that
-#   already moved to render graph callback ownership, and new normal-path global
-#   service access while explicit service contexts are built. Renderer globals
-#   have an extra file-classification fence, object rendering has a
-#   render-instance/collider authority fence, runtime picking, attached-camera
-#   follow, and required scene contacts have store-authority fences, runtime
-#   handle smoke has handle/replay-id authority fences, attached-camera target identity
-#   has handle/replay-id authority fences, contact-audio simple mode has a body-store motion
-#   fence, fixed-contact presentation highlights have a body-store fixed-state
-#   fence, and fixed-tree, replay-restore wake, replay
-#   velocity-edit, launcher ray-hit, selection overlay, editor selection-frame,
-#   editor transform grouping, editor tree placement grouping, mouse-pickup
-#   overlay, attached-camera overlay, replay marker radii, replay path target
-#   identity, editor selection identity, or editor wake/sleep commands have
-#   store-handle fences. Editor transform
-#   reset wake and authored scene setup also block GameModel body readbacks
-#   after their owner-side store commits. The deleted
-#   collection step wrapper has its own fence, replay render-pose overrides and
-#   prediction ghost identity have their own value-override/store-authority fence,
-#   runtime config has a collider-material fence, the deleted collection
-#   replay-id sidecar has a source-wide fence, the deleted edited-model bool
-#   commit has a source-wide fence, and per-body model writeback plus the
-#   deleted bulk model mirror, deleted GameModel runtime grouping metadata, and
-#   deleted simple-ragdoll name grouping inference have their own fences, so
-#   count allowances do not silently approve a new compatibility location.
+#   Validate the repository architecture boundaries that are cheap to regress in
+#   text: runtime composition-root ownership, public physics/store authority,
+#   render graph scheduling, global service access, inheritance budgets, and
+#   deleted migration artifacts. Deleted names live in
+#   DELETED_MIGRATION_ARTIFACT_PATTERNS so each removed seam has one tombstone
+#   row plus self-test coverage instead of another bespoke check function.
 #
 # Mental model:
-#   Runtime decomposition is easy to regress by adding one convenient field or
-#   helper back to Run. Physics data ownership is similarly easy to regress by
-#   threading GameModelCollection into one more API. Render ownership can regress
-#   when DXR reflection calls creep back onto Gfx(), when a graph-owned pass is
-#   called directly from the runtime frame loop again, or when migrated runtime
-#   pass code starts issuing DX12 barriers outside graph declarations. This
-#   check is intentionally small: it watches the boundaries named by the active
-#   architecture plans.
+#   This is a guardrail, not an architecture substitute. Prefer making old paths
+#   impossible by construction; use this checker to catch textual resurrection of
+#   deleted names and permanent boundary drift that the compiler cannot express.
 #
 # Glossary:
 #   Composition root: Top-level owner that wires subsystems together.
 #   Boundary guardrail: Static check that blocks architecture drift.
-#   Inheritance guardrail: Static check that blocks source base classes unless
-#     they are in the approved stable-boundary budget.
-#   Allowlist: Explicit set of legacy references accepted during migration.
-#   Migration artifact: Temporary adapter, data-transfer object, or
-#     compatibility name that must disappear once its real owner or API replaces
-#     it.
-#   Topology repair: Count-gated compatibility import that rebuilds store rows
-#     only after object counts change.
-#   Render instance store: Physics-backed, model-order snapshot consumed by
-#     render passes instead of rebuilding GameModel pose/material streams.
-#   Store-authority fence: Static rule that keeps a migrated reader on physics
-#     body/collider records instead of reopening a GameModel mirror path.
-#   Replay-id sidecar fence: Static rule that keeps persistent replay identity
-#     on PhysicsBodyStore rows instead of regrowing collection-order storage or
-#     memory stats under a compatibility name.
-#   Object contact manifold: Exact narrowphase contact report built from
-#     PhysicsBodyStore pose and ColliderStore shape snapshots.
-#   Attached-camera follow: Runtime camera mode that tracks a selected body.
-#     Camera state keeps PhysicsBodyHandle/PhysicsColliderHandle as the live
-#     identity and uses model-order replay/name facts only to recover stale
-#     presentation selections.
-#   Body-store motion fence: Static rule that keeps post-step motion
-#     classification on PhysicsBodyStore records instead of mirrored GameModel
-#     body fields.
-#   Mouse-pickup overlay fence: Static rule that keeps drag-line and outline
-#     projection on the picked PhysicsBodyStore/ColliderStore rows.
-#   Selection overlay fence: Static rule that keeps editor selection outlines
-#     and gizmo presentation on PhysicsBodyStore/ColliderStore rows.
-#   Editor selection-frame fence: Static rule that keeps gizmo hit testing,
-#     drag-start snapshots, and transform-change detection on PhysicsBodyStore
-#     pose and ColliderStore shape/radius rows.
-#   Editor transform grouping fence: Static rule that keeps ragdoll gizmo groups
-#     on collection metadata instead of per-frame display-name suffix parsing.
-#   Editor selection identity fence: Static rule that keeps selection commands
-#     and editor state paired with PhysicsBodyHandle/PhysicsColliderHandle
-#     instead of allowing model-index-only selection to regain physics authority.
-#   Editor reset wake fence: Static rule that keeps editor transform wake
-#     decisions on the committed PhysicsBodyStore row instead of the GameModel
-#     mirror.
-#   Attached-camera overlay fence: Static rule that keeps the camera-target
-#     marker on PhysicsBodyStore pose and ColliderStore shape/radius rows.
-#   Replay target marker fence: Static rule that keeps replay target markers on
-#     PhysicsBodyStore pose and ColliderStore shape/radius rows.
-#   Replay marker radius fence: Static rule that keeps retained and predicted
-#     replay path marker radii on ColliderStore rows instead of GameModel shape
-#     mirrors.
-#   Replay path target identity fence: Static rule that keeps path picking,
-#     prediction setup, and retained marker repair on PhysicsBodyStore replay-id
-#     rows/handles instead of GameModel replay-id scans.
-#   Replay velocity body-read fence: Static rule that keeps velocity-edit hit
-#     testing and gizmo drawing on PhysicsBodyStore/ColliderStore rows.
-#   Replay velocity identity fence: Static rule that keeps velocity-edit target
-#     lookup on PhysicsBodyStore replay-id handles instead of scanning GameModel
-#     replay ids.
-#   Handle-authority fence: Static rule that keeps a validation smoke on handles
-#     returned by creation instead of proving authority through adapter lookup.
-#   Store-handle fence: Static rule that keeps owner-side command edges on
-#     PhysicsBodyStore handle lookup instead of a legacy external adapter.
-#   Per-body writeback fence: Static rule that keeps command paths from copying
-#     one PhysicsBodyStore row back into GameModel as a convenience mirror.
-#   Bulk model-mirror fence: Static rule that keeps normal physics steps from
-#     copying every PhysicsBodyStore row back into GameModel after stepping.
-#   Replay prediction writeback fence: Static rule that keeps temporary future
-#     preview steps from copying every store row back into GameModel.
-#   Replay render-pose value-override fence: Static rule that keeps scrub and
-#     prediction draw poses as queued RenderInstanceStore values instead of
-#     backing up or mutating GameModel transforms.
-#   Replay probe body-state fence: Static rule that keeps replay scrub/save/load
-#     validation probes on PhysicsBodyStore rows instead of using GameModel body
-#     mirrors as proof that live simulation state stayed untouched.
-#   Replay prediction ghost render fence: Static rule that keeps prediction
-#     ghost drawing on ColliderStore/RenderInstanceStore snapshots instead of
-#     GameModel collider/material mirrors.
-#   Replay prediction ghost identity fence: Static rule that keeps future-body
-#     ghost requests paired through PhysicsBodyStore replay-id handles instead
-#     of approving sampled model slots through GameModel replay ids.
-#   Replay restore handle fence: Static rule that keeps replay restore commands
-#     handle-keyed below the GameModelCollection presentation edge.
-#   Replay restore identity fence: Static rule that keeps collection-side
-#     replay restore validation on PhysicsBodyStore replay ids instead of the
-#     compatibility GameModel mirror.
-#   Authored scene orientation fence: Static rule that keeps Euler-degree scene
-#     data converted at the scene boundary instead of reading a cached GameModel
-#     body mirror back out during construction.
+#   Tombstone row: Data-driven deleted-name rule with synthetic self-tests.
+#   Store-authority fence: Rule that keeps migrated callers on body/collider/
+#     render stores instead of reopening model mirrors.
+#   Inheritance budget: Approved list of stable runtime-polymorphism boundaries.
 #
 # Invariants:
-#   - Run.h may own subsystem objects, but not their extracted transient state.
-#   - Subsystems may borrow explicit service/context structs, but not store Run.
-#   - Physics may only keep the current GameModelCollection compatibility
-#     surface while stores and handles become authoritative.
-#   - Public physics facades expose handles, descriptors, views, or the named
-#     PhysicsModelAccess bridge instead of game-object storage types.
-#   - IRenderBackend stays a temporary aggregate of named render capabilities;
-#     raytracing calls go through IRenderRayTracing/GfxRayTracing instead of the
-#     wide IRenderBackend/Gfx facade.
-#   - Graph-owned render passes stay scheduled through render graph callback
-#     helpers after migration, and runtime pass code must not issue DX12
-#     ResourceBarrier calls or backend transition helpers directly.
-#   - Object rendering and DXR matrix upload read prepared render instances
-#     rather than recomputing GameModel model matrices or body streams.
-#   - Runtime picking reads PhysicsBodyStore/ColliderStore records instead of
-#     requiring the GameModel compatibility mirror to be refreshed before input.
-#   - Attached-camera follow reads live body motion and radius from
-#     PhysicsBodyStore/ColliderStore instead of the post-step GameModel mirror.
-#   - Runtime replay restore and attach-camera recovery validate replay ids from
-#     PhysicsBodyStore rows instead of the GameModel compatibility mirror.
-#   - Fixed-tree release wakes store-owned rows inside PhysicsScene and must not
-#     return model-order rows to GameModelCollection for per-body projection.
-#   - Replay scrub and prediction draw poses must not backup, restore, or write
-#     GameModel pose; they are single-frame render-instance value overrides.
-#   - Object contact manifolds and required scene-contact gates read body pose
-#     and exact shapes from PhysicsBodyStore/ColliderStore snapshots.
-#   - Unknown render graph resource states remain explicitly counted handoffs
-#     until the graph owns concrete initial access for migrated resources.
-#   - Existing global service calls are counted debt; adding new ones requires
-#     migrating the caller or lowering another allowlist entry first. Direct
-#     renderer service calls also need an approved debt-location classification.
-#   - Source inheritance is deny-by-default; only rows in
-#     APPROVED_INHERITANCE_DECLARATIONS are accepted.
+#   - New deleted-artifact guards belong in DELETED_MIGRATION_ARTIFACT_PATTERNS.
+#   - New inheritance needs an approved stable-boundary row with owner evidence.
+#   - Checker self-tests run before repo scans.
+#   - Comment-only historical mentions of deleted names are allowed; live code is
+#     scanned after comments and string literals are stripped where needed.
 #
 # Related:
 #   - Agentic/Plans/runtime-run-decomposition-plan.md
@@ -410,9 +273,9 @@ DELETED_GAME_MODEL_STREAM_PROJECT_PATTERN = re.compile(
 DELETED_GAME_MODEL_COLLECTION_PHYSICS_ADAPTER_PROJECT_PATTERN = re.compile(
     r"SkullbonezSource\\GameObjects\\GameModelCollectionPhysicsAdapter\.(?:cpp|h)"
 )
-# Why: read-only presentation helpers should not rebuild body stores from the
-# GameModel mirror. Count drift is topology repair; same-count state belongs to
-# PhysicsBodyStore until a compatibility writeback explicitly projects it.
+# Why: read-only presentation helpers should not rebuild body stores from legacy
+# model-side physics state. Count drift is topology repair; same-count state
+# belongs to PhysicsBodyStore until an explicit owner command changes it.
 GAME_MODEL_COLLECTION_BODY_STORE_REFRESH_PATTERN = re.compile(
     r"\bm_physicsEngine\s*\.\s*RefreshBodyStore\s*\(\s*modelAccess\s*\)"
 )
@@ -529,12 +392,6 @@ WORLD_ENVIRONMENT_DELETED_MODEL_FORCE_BRIDGE_PATTERN = re.compile(
     r"|\bGameObjects\s*::\s*GameModel\b"
     r"|\bclass\s+GameModel\s*;"
     r'|#\s*include\s+"(?:\.\./)?GameObjects/GameModel\.h"'
-)
-RIGID_BODY_DELETED_FORCE_BRIDGE_PATTERN = re.compile(
-    r"\b(?:ApplyWorldForce|ApplyLinearForce|ApplyAngularForce|ApplyForces|ApplyImpulseForce|"
-    r"SetWorldForce|SetImpulseForce|ClearImpulseForce|ZeroForce)\s*\("
-    r"|\bm_(?:isForceApplied|appliedForce|forceApplicationPoint|worldForce|worldTorque|"
-    r"linearAcceleration|angularAcceleration|torque)\b"
 )
 PHYSICS_BODY_STORE_PENDING_IMPULSE_MODEL_MIRROR_PATTERN = re.compile(
     r"\bmodel\s*\.\s*(?:SetImpulseForce|ClearImpulseForce)\s*\("
@@ -1163,9 +1020,49 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "Prepare or read authoritative stores directly; the deleted GameModel stream/cache API must not return.",
     ),
     (
+        "PhysicsModelView",
+        PHYSICS_DELETED_MODEL_VIEW_PATTERN,
+        "Use store/handle views instead of reviving MakePhysicsModelView or PhysicsModelView.",
+    ),
+    (
+        "PhysicsModels vector accessor",
+        PHYSICS_MODELS_ACCESS_PATTERN,
+        "Use owner-specific store and presentation queries instead of reopening the raw model vector.",
+    ),
+    (
+        "PhysicsModelsForCompatibility accessor",
+        PHYSICS_MODELS_COMPAT_ACCESS_PATTERN,
+        "The named compatibility vector accessors are deleted; route callers through stable owners.",
+    ),
+    (
         "GameModel scene Euler orientation setter",
         re.compile(r"\bSetInitialOrientation\s*\("),
         "Scene-authored Euler degrees should convert at the scene boundary, then call SetOrientation with a Quaternion.",
+    ),
+    (
+        "GameModel replay identity mirror",
+        GAME_MODEL_REPLAY_ID_MIRROR_PATTERN,
+        "Replay identity belongs in PhysicsBodyStore rows after append, not on GameModel.",
+    ),
+    (
+        "GameModel runtime collection metadata",
+        DELETED_GAME_MODEL_RUNTIME_COLLECTION_METADATA_PATTERN,
+        "Scene-object grouping is a collection/entity sidecar; do not restore GameModel grouping fields or accessors.",
+    ),
+    (
+        "GameModel force bridge",
+        re.compile(
+            r"\bGameModel::(?:ApplyForces|ApplyWorldForces|SetWorldForce|SetImpulseForce|ClearImpulseForce)\s*\("
+            r"|\bclass\s+GameModel\b[^{]*\{(?:(?!\n\};).)*\b"
+            r"(?:ApplyForces|ApplyWorldForces|SetWorldForce|SetImpulseForce|ClearImpulseForce)\s*\(",
+            re.S,
+        ),
+        "PhysicsBodyStore owns force and impulse integration; do not restore model-side force methods.",
+    ),
+    (
+        "WorldEnvironment model force bridge",
+        re.compile(r"\bWorldEnvironment::AddWorldForces\s*\("),
+        "WorldEnvironment exposes scalar world-force settings; do not restore model-specific force integration.",
     ),
     (
         "GameModelCollectionPhysicsAdapter",
@@ -1174,6 +1071,28 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
             r"BodyHandleForVelocityCommand|BodyHandleForWakeCommand)\b"
         ),
         "Resolve legacy model identity at the owning caller boundary through PhysicsBodyStore or append-time handles; do not revive the deleted adapter.",
+    ),
+    (
+        "GameModelCollection physics command wrappers",
+        re.compile(
+            r"\bGameModelCollection\s*::\s*(?:WakeModel|SeedModelAsleep|ApplyBodyImpulse|SetPendingBodyImpulse)\s*\("
+            r"|\b(?:m_cGameModelCollection|modelCollection|collection|models|context\.models)\s*\.\s*"
+            r"(?:WakeModel|SeedModelAsleep|ApplyBodyImpulse|SetPendingBodyImpulse)\s*\("
+        ),
+        "Resolve PhysicsBodyHandle at the caller boundary; GameModelCollection no longer exposes model-index physics command wrappers.",
+    ),
+    (
+        "GameModelCollection RunPhysics wrapper",
+        re.compile(
+            r"\bGameModelCollection\s*::\s*RunPhysics\s*\("
+            r"|\b(?:m_cGameModelCollection|modelCollection|collection)\s*\.\s*RunPhysics\s*\("
+        ),
+        "Physics stepping is owned by PhysicsEngine/PhysicsScene; do not restore a collection-level RunPhysics wrapper.",
+    ),
+    (
+        "GameModelCollectionPhysicsAdapter command wrappers",
+        DELETED_GAME_MODEL_COLLECTION_PHYSICS_ADAPTER_COMMAND_WRAPPER_PATTERN,
+        "The adapter type was deleted; do not restore model-index command wrapper methods.",
     ),
     (
         "RefreshColliderStore full body reload facade",
@@ -1187,6 +1106,53 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
             r"|\b(?:GameModelCollection|PhysicsModelAccess)::RefreshPhysicsColliders\s*\("
         ),
         "Collider shape/material rows are created or edited by explicit descriptors; topology repair must not recapture them from GameModel.",
+    ),
+    (
+        "GameModel physics payload",
+        re.compile(
+            r"\bclass\s+GameModel\b[^{]*\{(?:(?!\n\};).)*"
+            r"\b(?:BallPhysicsCache|m_boundingVolume|m_ballPhysics|m_physicsInfo|m_worldEnvironment|"
+            r"m_terrain|m_projectedSurfaceArea|m_dragCoefficient|m_isFixed|m_releasesFromFixedOnContact|"
+            r"m_contactReleaseImpulseThreshold)\b"
+            r"|\bGameModel::(?:BuildSpherePhysicsCache|CalculateVolume|CalculateProjectedSurfaceArea|"
+            r"CalculateDragCoefficient|UpdateModelInfo)\s*\(",
+            re.S,
+        ),
+        "GameModel is presentation metadata only; body, terrain, collider, and derived physics caches belong to stores/descriptors.",
+    ),
+    (
+        "GameModel physics constructor",
+        re.compile(
+            r"\bGameModel::GameModel\s*\(\s*(?:Environment\s*::\s*)?WorldEnvironment\s*\*"
+            r"|\bGameModel\s+[A-Za-z_]\w*\s*\(\s*(?:&\s*)?(?:context\.world|world\b|world\.get\s*\(\s*\))\s*,",
+            re.S,
+        ),
+        "GameModel has a default presentation constructor; physics construction values must be passed through body/collider descriptors.",
+    ),
+    (
+        "GameModel physics API",
+        re.compile(
+            r"\bGameModel::(?:GetSubmergedVolumePercent|CalculateBuoyancySample|CalculateBuoyancyRightingTorque|"
+            r"GetMass|GetInvertedMass|GetPosition|GetVelocity|GetAngularVelocity|SetTerrain|"
+            r"SetCoefficientRestitution|ApplyRuntimeConfig|ApplyPhysicsMaterial|ApplyBodySimulationLimits|"
+            r"ApplyContactPolicy|GetAngularVelocityLimit|GetContactEpsilon|GetTerrain|AddBoundingSphere|"
+            r"AddBoundingBox|AddConvexHull|ScaleCollisionShapeAxisFromBase|SetFixed|IsFixed|"
+            r"SetContactReleaseOnImpact|ReleasesFromFixedOnContact|GetContactReleaseImpulseThreshold|"
+            r"GetOrientationUp|GetOrientation|GetRotationalInertia|GetInvertedRotationalInertia|"
+            r"GetCoefficientRestitution|GetFrictionCoefficient|SetLinearVelocity|SetAngularVelocity|"
+            r"SetPosition|SetOrientation)\s*\("
+            r"|\bclass\s+GameModel\b[^{]*\{(?:(?!\n\};).)*\b(?:GetSubmergedVolumePercent|"
+            r"CalculateBuoyancySample|CalculateBuoyancyRightingTorque|GetMass|GetInvertedMass|"
+            r"GetPosition|GetVelocity|GetAngularVelocity|SetTerrain|SetCoefficientRestitution|"
+            r"ApplyRuntimeConfig|ApplyPhysicsMaterial|ApplyBodySimulationLimits|ApplyContactPolicy|"
+            r"GetAngularVelocityLimit|GetContactEpsilon|GetTerrain|AddBoundingSphere|AddBoundingBox|"
+            r"AddConvexHull|ScaleCollisionShapeAxisFromBase|SetFixed|IsFixed|SetContactReleaseOnImpact|"
+            r"ReleasesFromFixedOnContact|GetContactReleaseImpulseThreshold|GetOrientationUp|GetOrientation|"
+            r"GetRotationalInertia|GetInvertedRotationalInertia|GetCoefficientRestitution|"
+            r"GetFrictionCoefficient|SetLinearVelocity|SetAngularVelocity|SetPosition|SetOrientation)\s*\(",
+            re.S,
+        ),
+        "GameModel no longer owns physics authoring or mirrored body state; use PhysicsBodyStore, ColliderStore, and explicit edit descriptors.",
     ),
     (
         "GameModelCollection replay-id sidecar",
@@ -1203,6 +1169,26 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "Scene/runtime creation owns PhysicsSceneObjectId allocation; GameModelCollection must not allocate replay ids.",
     ),
     (
+        "CommitEditedModelPhysicsState",
+        DELETED_EDITED_MODEL_PHYSICS_STATE_PATTERN,
+        "Use explicit body/collider edit commands instead of the deleted combined model physics commit.",
+    ),
+    (
+        "per-body model writeback",
+        DELETED_PER_BODY_MODEL_WRITEBACK_PATTERN,
+        "Per-body projection back into GameModel is deleted; consume PhysicsBodyStore, ColliderStore, RenderInstanceStore, or diagnostics views.",
+    ),
+    (
+        "bulk model writeback",
+        DELETED_BULK_MODEL_WRITEBACK_PATTERN,
+        "Normal physics steps must not copy solved PhysicsBodyStore rows back into GameModel.",
+    ),
+    (
+        "fixed-tree release output vector",
+        FIXED_TREE_RELEASE_OUTPUT_VECTOR_PATTERN,
+        "Fixed-tree release wakes rows inside PhysicsScene; do not return model-order writeback vectors.",
+    ),
+    (
         "simple-ragdoll name grouping inference",
         re.compile(
             r"\b(?:TryGetSimpleRagdollInstancePrefixLength|SimpleRagdollPrefixMatches|SIMPLE_RAGDOLL_SUFFIXES)\b"
@@ -1211,6 +1197,11 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
             "Ragdoll construction must pass SceneObjectGroupCreateDesc root/part metadata; "
             "collection append must not parse display names for grouping."
         ),
+    ),
+    (
+        "Physics ragdoll scene builder",
+        re.compile(r"\bAddSimpleHumanoid\s*\("),
+        "Scene/authored setup builds simple ragdoll objects; Physics/Ragdoll exposes descriptors and solver helpers only.",
     ),
     (
         "collection fixed-tree name grouping inference",
@@ -1238,6 +1229,26 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
             r"|\b(?:modelAccess|physicsModelAccess)\s*\.\s*Models\s*\("
         ),
         "Use PhysicsModelAccess command/query methods and store-backed views instead of raw GameModel ranges.",
+    ),
+    (
+        "PhysicsModelAccess deleted step facade",
+        PHYSICS_MODEL_ACCESS_DELETED_STEP_FACADE_DEFINITION_PATTERN,
+        "PhysicsModelAccess was deleted; step/writeback/name helpers must not return.",
+    ),
+    (
+        "PhysicsModelAccess deleted collider refresh facade",
+        PHYSICS_MODEL_ACCESS_DELETED_COLLIDER_REFRESH_DEFINITION_PATTERN,
+        "Collider refresh must be explicit descriptor/store work, not a PhysicsModelAccess facade.",
+    ),
+    (
+        "PhysicsModelAccess deleted render refresh facade",
+        PHYSICS_MODEL_ACCESS_DELETED_RENDER_REFRESH_DEFINITION_PATTERN,
+        "Render projection consumes stores and presentation records, not a PhysicsModelAccess render facade.",
+    ),
+    (
+        "PhysicsModelAccess or event-sink inheritance",
+        PHYSICS_MODEL_ACCESS_INHERITANCE_PATTERN,
+        "Use value composition and the approved inheritance budget; do not derive from deleted migration interfaces.",
     ),
     (
         "PhysicsBodyWritebackSink",
@@ -1270,6 +1281,66 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
             r"|\bm_(?:generations|alive|freeIndices)\b"
         ),
         "Standalone bodies must live in PhysicsBodyStore; do not recreate a parallel view/liveness/generation mirror.",
+    ),
+    (
+        "GameModel authored body record importer",
+        re.compile(r"\bMakeBodyRecordFromAuthoredModel\b"),
+        "Creation must submit PhysicsBodyCreateDesc values directly instead of rebuilding body records from GameModel.",
+    ),
+    (
+        "PhysicsBodyStore GameModel reload",
+        re.compile(r"\bLoadFromModels\s*\("),
+        "Topology repair must call LoadFromDescriptors with explicit body values, not reload PhysicsBodyStore from GameModel.",
+    ),
+    (
+        "RigidBody physics state holder",
+        re.compile(r"\bclass\s+RigidBody\b|\bRigidBody::[A-Za-z_]\w*\s*\("),
+        "RigidBody was deleted with the model-side physics mirror; body state belongs in PhysicsBodyStore records.",
+    ),
+    (
+        "PhysicsModelAccess body refresh facade",
+        re.compile(
+            r"\bPhysicsModelAccess\b"
+            r"|\b(?:RefreshBodyFromModel|ReloadPhysicsBodies|RefreshPhysicsBodyFromModel)\s*\("
+        ),
+        "Body refresh must flow through descriptor values and PhysicsBodyStore rows; do not revive PhysicsModelAccess.",
+    ),
+    (
+        "RenderInstanceStore GameModel refresh",
+        re.compile(
+            r"\bRenderInstanceStore\s*::\s*Refresh\s*\(\s*"
+            r"(?:std\s*::\s*vector\s*<\s*(?:GameObjects\s*::\s*)?GameModel\s*>\s*&|"
+            r"(?:GameObjects\s*::\s*)?GameModel\s*\*)"
+            r"|\b\w+\s*\.\s*Refresh\s*\(\s*m_gameModels\s*,",
+            re.S,
+        ),
+        "RenderInstanceStore refresh must consume presentation records plus body/collider stores, not GameModel arrays.",
+    ),
+    (
+        "GameModelRenderer concrete collection input",
+        re.compile(
+            r"\bGameModelRenderer\s*::\s*"
+            r"(?:RenderModels|BuildShadowCasterBatches|RenderShadowCasters|GetObjectShadowBounds)\s*"
+            r"\([^;{}]*\bGameModelCollection\s*&",
+            re.S,
+        ),
+        "GameModelRenderer must consume prepared render/collider stores and worker settings, not a concrete GameModelCollection.",
+    ),
+    (
+        "Physics debug visualizer GameModelCollection input",
+        re.compile(
+            r"\b(?:CollisionVisualizer|PhysicsDebugVisualizer)::[A-Za-z_]\w*\s*\([^;{}]*\bGameModelCollection\s*&"
+            r"|\b(?:ComputeModelColor|BuildSleepGroupSizes|EmitObjectAxes|EmitConvexHullWireframes|EmitContacts|"
+            r"EmitSleepState|EmitPipelineStage|EmitTerrainContactProbe|Update|Render)\s*"
+            r"\([^;{}]*\b(?:GameObjects\s*::\s*)?GameModelCollection\s*&",
+            re.S,
+        ),
+        "Physics debug visualizers must consume explicit body/collider/render/debug views, not concrete GameModelCollection.",
+    ),
+    (
+        "RenderInstanceStore compatibility handle name",
+        re.compile(r"\b(?:RENDER_INSTANCE_COMPATIBILITY_HANDLE_GENERATION|MakeCompatibilityRenderInstanceHandle)\b"),
+        "RenderInstanceStore handles now use model-slot render identity; do not revive compatibility-named handle helpers.",
     ),
 )
 PUBLIC_PHYSICS_FACADE_HEADERS = (
@@ -1542,14 +1613,15 @@ PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
         ),
         ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void Update( float dt, GameObjects::GameModelCollection& models );" ),
         ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.h", "void Render( GameObjects::GameModelCollection& models," ),
-        # Creation still lives on the legacy scene/model facade; the solver
-        # path uses PhysicsModelAccess and handles after creation.
+        # Creation still enters through scene/model append facades; the solver
+        # path uses body/collider handles after creation.
         ( "SkullbonezSource/Physics/Ragdoll.cpp", '#include "../GameObjects/GameModelCollection.h"' ),
         ( "SkullbonezSource/Physics/Ragdoll.cpp", "void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection," ),
         ( "SkullbonezSource/Physics/Ragdoll.h", "class GameModelCollection;" ),
         ( "SkullbonezSource/Physics/Ragdoll.h", "static void AddSimpleHumanoid( GameObjects::GameModelCollection& collection," ),
-        # PhysicsModelAccess is the named owner facade. It may hold the owner;
-        # physics code must not add unrelated GameModelCollection dependencies.
+        # The deleted PhysicsModelAccess facade remains listed only as historical
+        # allowlist debt; physics code must not add unrelated GameModelCollection
+        # dependencies.
         ( "SkullbonezSource/Physics/PhysicsModelAccess.h", "class GameModelCollection;" ),
         (
             "SkullbonezSource/Physics/PhysicsModelAccess.h",
@@ -1559,14 +1631,14 @@ PHYSICS_GAME_MODEL_COLLECTION_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     )
 )
 
-# The old neutral PhysicsModels() name is fully blocked. Remaining vector
-# borrowers must use the explicit *ForCompatibility() accessors until stable
-# body/entity handles replace them.
+# The old neutral PhysicsModels() name is fully blocked. New model-vector
+# borrowers must use an owner-specific store/descriptor path instead of reopening
+# a compatibility accessor.
 PHYSICS_MODELS_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter()
 
-# Deleted named compatibility accessors stay blocked at zero hits. Remaining
-# raw model borrowers are tracked by PhysicsModelAccess and owner-specific
-# store migration rows instead of by reviving these vector accessor names.
+# Deleted named compatibility accessors stay blocked at zero hits. Remaining raw
+# model borrowers are tracked by owner-specific store migration rows instead of
+# by reviving these vector accessor names.
 PHYSICS_MODELS_COMPAT_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter()
 
 # Counted allowlist for the current global-service compatibility surface. This
@@ -2912,6 +2984,10 @@ def check_deleted_migration_artifact_guardrails(repo: Path) -> list[BoundaryErro
         if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
             continue
         errors.extend(check_deleted_migration_artifact_guardrails_text(path, path.read_text(encoding="utf-8")))
+    for relative_path in ( Path("SKULLBONEZ_CORE.vcxproj"), Path("SKULLBONEZ_CORE.vcxproj.filters") ):
+        path = repo / relative_path
+        if path.exists():
+            errors.extend(check_deleted_migration_artifact_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -3336,6 +3412,8 @@ def check_physics_model_access_deleted_step_facade_guardrails(repo: Path) -> lis
     errors: list[BoundaryError] = []
     for relative_path in ( PHYSICS_ROOT / "PhysicsModelAccess.h", GAME_MODEL_COLLECTION_SOURCE ):
         path = repo / relative_path
+        if not path.exists():
+            continue
         errors.extend(
             check_physics_model_access_deleted_step_facade_guardrails_text(
                 path,
@@ -4232,21 +4310,6 @@ def check_deleted_model_force_bridge_guardrails_text(path: Path, text: str) -> l
             )
         return errors
 
-    if path.name in { "RigidBody.cpp", "RigidBody.h" }:
-        for match in RIGID_BODY_DELETED_FORCE_BRIDGE_PATTERN.finditer(stripped):
-            errors.append(
-                BoundaryError(
-                    path,
-                    line_for_offset(stripped, match.start()),
-                    "deleted RigidBody force bridge is blocked",
-                    (
-                        "RigidBody is legacy GameModel storage now; force accumulators and integration wrappers "
-                        "belong in PhysicsBodyStore."
-                    ),
-                )
-            )
-        return errors
-
     if path.name == "PhysicsBodyStore.cpp":
         for match in PHYSICS_BODY_STORE_PENDING_IMPULSE_MODEL_MIRROR_PATTERN.finditer(stripped):
             errors.append(
@@ -4270,8 +4333,6 @@ def check_deleted_model_force_bridge_guardrails(repo: Path) -> list[BoundaryErro
         Path("SkullbonezSource/GameObjects/GameModel.h"),
         Path("SkullbonezSource/World/WorldEnvironment.cpp"),
         Path("SkullbonezSource/World/WorldEnvironment.h"),
-        Path("SkullbonezSource/Physics/RigidBody.cpp"),
-        Path("SkullbonezSource/Physics/RigidBody.h"),
         Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"),
     ):
         path = repo / relative_path
@@ -8631,12 +8692,24 @@ def check_run_ui_text_pass_replay_overlay_guardrails(repo: Path) -> list[Boundar
 
 def run_self_tests() -> list[str]:
     failures: list[str] = []
+    run_header_path = Path("synthetic/Run.h")
     synthetic_path = Path("synthetic/RuntimeRenderHost.h")
     allowed_physics_path = Path("SkullbonezSource/Physics/PhysicsEngine.h")
     allowed_physics_dependency = "class GameModelCollection;"
     synthetic_physics_allowlist: Counter[tuple[Path, str]] = Counter(
         { ( allowed_physics_path, allowed_physics_dependency ): 1 }
     )
+
+    def expect_clean(label: str, errors: list[BoundaryError]) -> None:
+        if errors:
+            failures.append(label)
+
+    def expect_error(label: str, errors: list[BoundaryError], message: str) -> None:
+        if not any(error.message == message for error in errors):
+            failures.append(label)
+
+    def run_header_with(addition: str) -> str:
+        return allowed_run_header.replace("void Render();", f"void Render();\n        {addition}")
 
     allowed_host = """
     struct RenderRuntimeView
@@ -8697,8 +8770,7 @@ def run_self_tests() -> list[str]:
         VoidFn refreshRuntimeViewModel = nullptr;
     };
     """
-    if check_runtime_render_host_guardrails_text(synthetic_path, allowed_host):
-        failures.append("allowed RuntimeRenderHost synthetic surface failed")
+    expect_clean('allowed RuntimeRenderHost synthetic surface failed', check_runtime_render_host_guardrails_text(synthetic_path, allowed_host))
 
     allowed_run_header = """
     class Run
@@ -8709,35 +8781,22 @@ def run_self_tests() -> list[str]:
         void Execute();
     };
     """
-    if check_run_private_method_count_text(Path("synthetic/Run.h"), allowed_run_header, max_allowed=1):
-        failures.append("allowed Run.h private method count synthetic surface failed")
+    expect_clean(
+        "allowed Run.h private method count synthetic surface failed",
+        check_run_private_method_count_text(run_header_path, allowed_run_header, max_allowed=1),
+    )
 
     old_run_dxr_reflection_state = allowed_run_header.replace(
         "void Render();",
         "void Render();\n        std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms = {};",
     )
-    if not any(
-        error.message == "DXR reflection state must stay out of Run.h"
-        for error in check_text_rules(Path("synthetic/Run.h"), old_run_dxr_reflection_state, RUN_HEADER_RULES)
-    ):
-        failures.append("old Run.h DXR reflection state synthetic surface was not rejected")
+    expect_error('old Run.h DXR reflection state synthetic surface was not rejected', check_text_rules(run_header_path, old_run_dxr_reflection_state, RUN_HEADER_RULES), 'DXR reflection state must stay out of Run.h')
 
     allowed_raytracing_accessor = "void Render() { GfxRayTracing().BuildTLAS( matrices, count, 0, 0 ); }"
-    if check_direct_gfx_raytracing_guardrails_text(
-        Path("synthetic/RunPasses.cpp"),
-        allowed_raytracing_accessor,
-    ):
-        failures.append("allowed GfxRayTracing synthetic call was rejected")
+    expect_clean('allowed GfxRayTracing synthetic call was rejected', check_direct_gfx_raytracing_guardrails_text( Path("synthetic/RunPasses.cpp"), allowed_raytracing_accessor, ))
 
     old_direct_gfx_raytracing_call = "void Render() { Gfx().BuildTLAS( matrices, count, 0, 0 ); }"
-    if not any(
-        error.message == "direct Gfx() raytracing calls are blocked"
-        for error in check_direct_gfx_raytracing_guardrails_text(
-            Path("synthetic/RunPasses.cpp"),
-            old_direct_gfx_raytracing_call,
-        )
-    ):
-        failures.append("direct Gfx raytracing synthetic call was not rejected")
+    expect_error('direct Gfx raytracing synthetic call was not rejected', check_direct_gfx_raytracing_guardrails_text( Path("synthetic/RunPasses.cpp"), old_direct_gfx_raytracing_call, ), 'direct Gfx() raytracing calls are blocked')
 
     old_irender_backend_raytracing_surface = """
     class IRenderBackend
@@ -8747,14 +8806,7 @@ def run_self_tests() -> list[str]:
         virtual uint32_t GetReflectionUAVTexture() const = 0;
     };
     """
-    if not any(
-        error.message == "raytracing declarations are blocked on IRenderBackend"
-        for error in check_irender_backend_raytracing_declarations_text(
-            Path("synthetic/IRenderBackend.h"),
-            old_irender_backend_raytracing_surface,
-        )
-    ):
-        failures.append("IRenderBackend raytracing declaration synthetic surface was not rejected")
+    expect_error('IRenderBackend raytracing declaration synthetic surface was not rejected', check_irender_backend_raytracing_declarations_text( Path("synthetic/IRenderBackend.h"), old_irender_backend_raytracing_surface, ), 'raytracing declarations are blocked on IRenderBackend')
 
     allowed_irender_backend_aggregate = """
     class IRenderBackend : public IRenderDeviceLifecycle,
@@ -8767,11 +8819,7 @@ def run_self_tests() -> list[str]:
         ~IRenderBackend() override = default;
     };
     """
-    if check_irender_backend_aggregate_contract_text(
-        Path("synthetic/IRenderBackend.h"),
-        allowed_irender_backend_aggregate,
-    ):
-        failures.append("allowed IRenderBackend aggregate synthetic surface failed")
+    expect_clean('allowed IRenderBackend aggregate synthetic surface failed', check_irender_backend_aggregate_contract_text( Path("synthetic/IRenderBackend.h"), allowed_irender_backend_aggregate, ))
 
     old_irender_backend_raytracing_inheritance = """
     class IRenderBackend : public IRenderDeviceLifecycle,
@@ -8781,14 +8829,7 @@ def run_self_tests() -> list[str]:
         ~IRenderBackend() override = default;
     };
     """
-    if not any(
-        error.message == "IRenderBackend must not inherit raytracing"
-        for error in check_irender_backend_aggregate_contract_text(
-            Path("synthetic/IRenderBackend.h"),
-            old_irender_backend_raytracing_inheritance,
-        )
-    ):
-        failures.append("IRenderBackend raytracing inheritance synthetic surface was not rejected")
+    expect_error('IRenderBackend raytracing inheritance synthetic surface was not rejected', check_irender_backend_aggregate_contract_text( Path("synthetic/IRenderBackend.h"), old_irender_backend_raytracing_inheritance, ), 'IRenderBackend must not inherit raytracing')
 
     old_irender_backend_direct_method = """
     class IRenderBackend : public IRenderDeviceLifecycle
@@ -8799,14 +8840,7 @@ def run_self_tests() -> list[str]:
         RenderCapabilities GetCapabilities() const;
     };
     """
-    if not any(
-        error.message == "IRenderBackend direct methods are blocked"
-        for error in check_irender_backend_aggregate_contract_text(
-            Path("synthetic/IRenderBackend.h"),
-            old_irender_backend_direct_method,
-        )
-    ):
-        failures.append("IRenderBackend direct method synthetic surface was not rejected")
+    expect_error('IRenderBackend direct method synthetic surface was not rejected', check_irender_backend_aggregate_contract_text( Path("synthetic/IRenderBackend.h"), old_irender_backend_direct_method, ), 'IRenderBackend direct methods are blocked')
 
     allowed_runtime_pass_narrow_capabilities = """
     #include "../Rendering/IRenderCommandContext.h"
@@ -8817,11 +8851,7 @@ def run_self_tests() -> list[str]:
         resources.CreateDynamicVB( attribs, 2, 6 );
     }
     """
-    if check_runtime_render_pass_wide_backend_guardrails_text(
-        Path("synthetic/RunPasses.cpp"),
-        allowed_runtime_pass_narrow_capabilities,
-    ):
-        failures.append("allowed runtime render pass narrow capability synthetic surface failed")
+    expect_clean('allowed runtime render pass narrow capability synthetic surface failed', check_runtime_render_pass_wide_backend_guardrails_text( Path("synthetic/RunPasses.cpp"), allowed_runtime_pass_narrow_capabilities, ))
 
     old_runtime_pass_wide_backend_include = """
     #include "../Rendering/IRenderBackend.h"
@@ -8830,14 +8860,7 @@ def run_self_tests() -> list[str]:
         backend.Clear( true, true );
     }
     """
-    if not any(
-        error.message == "runtime render pass wide backend access is blocked"
-        for error in check_runtime_render_pass_wide_backend_guardrails_text(
-            Path("synthetic/RunPasses.cpp"),
-            old_runtime_pass_wide_backend_include,
-        )
-    ):
-        failures.append("runtime render pass wide backend include synthetic surface was not rejected")
+    expect_error('runtime render pass wide backend include synthetic surface was not rejected', check_runtime_render_pass_wide_backend_guardrails_text( Path("synthetic/RunPasses.cpp"), old_runtime_pass_wide_backend_include, ), 'runtime render pass wide backend access is blocked')
 
     allowed_graph_owned_pass_scheduling = """
     void RuntimeRenderer::RenderFrame()
@@ -8856,11 +8879,7 @@ def run_self_tests() -> list[str]:
         ExecuteUiTextThroughRenderGraph( secondsPerFrame );
     }
     """
-    if check_graph_owned_render_pass_scheduling_text(
-        Path("synthetic/RunRender.cpp"),
-        allowed_graph_owned_pass_scheduling,
-    ):
-        failures.append("allowed graph-owned pass helper scheduling synthetic surface failed")
+    expect_clean('allowed graph-owned pass helper scheduling synthetic surface failed', check_graph_owned_render_pass_scheduling_text( Path("synthetic/RunRender.cpp"), allowed_graph_owned_pass_scheduling, ))
 
     old_direct_graph_owned_pass_scheduling = """
     void RuntimeRenderer::RenderFrame()
@@ -8880,14 +8899,7 @@ def run_self_tests() -> list[str]:
         m_uiTextPass.Render( secondsPerFrame );
     }
     """
-    if not any(
-        error.message == "graph-owned render pass direct scheduling is blocked"
-        for error in check_graph_owned_render_pass_scheduling_text(
-            Path("synthetic/RunRender.cpp"),
-            old_direct_graph_owned_pass_scheduling,
-        )
-    ):
-        failures.append("direct graph-owned pass scheduling synthetic surface was not rejected")
+    expect_error('direct graph-owned pass scheduling synthetic surface was not rejected', check_graph_owned_render_pass_scheduling_text( Path("synthetic/RunRender.cpp"), old_direct_graph_owned_pass_scheduling, ), 'graph-owned render pass direct scheduling is blocked')
 
     allowed_graph_owned_pass_graph_access = """
     void RuntimeRenderer::RenderFrame()
@@ -8896,11 +8908,7 @@ def run_self_tests() -> list[str]:
         graph.AddPass( "UiTextPass", Rendering::RenderGraphQueueType::Graphics );
     }
     """
-    if check_graph_owned_render_pass_manual_barriers_text(
-        Path("synthetic/RunRender.cpp"),
-        allowed_graph_owned_pass_graph_access,
-    ):
-        failures.append("allowed graph-owned pass graph-access synthetic surface failed")
+    expect_clean('allowed graph-owned pass graph-access synthetic surface failed', check_graph_owned_render_pass_manual_barriers_text( Path("synthetic/RunRender.cpp"), allowed_graph_owned_pass_graph_access, ))
 
     old_manual_graph_owned_pass_barrier = """
     void RuntimeRenderer::RenderFrame()
@@ -8909,24 +8917,10 @@ def run_self_tests() -> list[str]:
         commandList->ResourceBarrier( 1, &barrier );
     }
     """
-    if not any(
-        error.message == "graph-owned render pass manual barriers are blocked"
-        for error in check_graph_owned_render_pass_manual_barriers_text(
-            Path("synthetic/RunRender.cpp"),
-            old_manual_graph_owned_pass_barrier,
-        )
-    ):
-        failures.append("manual graph-owned pass barrier synthetic surface was not rejected")
+    expect_error('manual graph-owned pass barrier synthetic surface was not rejected', check_graph_owned_render_pass_manual_barriers_text( Path("synthetic/RunRender.cpp"), old_manual_graph_owned_pass_barrier, ), 'graph-owned render pass manual barriers are blocked')
 
     old_resource_barrier_call_only = "void Render() { commandList->ResourceBarrier( 1, &barrier ); }"
-    if not any(
-        error.message == "graph-owned render pass manual barriers are blocked"
-        for error in check_graph_owned_render_pass_manual_barriers_text(
-            Path("synthetic/RunRender.cpp"),
-            old_resource_barrier_call_only,
-        )
-    ):
-        failures.append("ResourceBarrier-only synthetic surface was not rejected")
+    expect_error('ResourceBarrier-only synthetic surface was not rejected', check_graph_owned_render_pass_manual_barriers_text( Path("synthetic/RunRender.cpp"), old_resource_barrier_call_only, ), 'graph-owned render pass manual barriers are blocked')
 
     commented_manual_barrier = """
     void RuntimeRenderer::RenderFrame()
@@ -8935,11 +8929,7 @@ def run_self_tests() -> list[str]:
         const char* label = "D3D12_RESOURCE_BARRIER and ExecuteGraphTransition are documentation text";
     }
     """
-    if check_graph_owned_render_pass_manual_barriers_text(
-        Path("synthetic/RunRender.cpp"),
-        commented_manual_barrier,
-    ):
-        failures.append("comment/string manual barrier synthetic surface was falsely rejected")
+    expect_clean('comment/string manual barrier synthetic surface was falsely rejected', check_graph_owned_render_pass_manual_barriers_text( Path("synthetic/RunRender.cpp"), commented_manual_barrier, ))
 
     old_graph_transition_helper_in_runtime_pass = """
     void SceneTargetPass::Begin()
@@ -8947,14 +8937,7 @@ def run_self_tests() -> list[str]:
         backend.ExecuteGraphTransition( "SceneTarget", resource, before, after );
     }
     """
-    if not any(
-        error.message == "graph-owned render pass manual barriers are blocked"
-        for error in check_graph_owned_render_pass_manual_barriers_text(
-            Path("synthetic/RunPasses.cpp"),
-            old_graph_transition_helper_in_runtime_pass,
-        )
-    ):
-        failures.append("runtime pass backend transition helper synthetic surface was not rejected")
+    expect_error('runtime pass backend transition helper synthetic surface was not rejected', check_graph_owned_render_pass_manual_barriers_text( Path("synthetic/RunPasses.cpp"), old_graph_transition_helper_in_runtime_pass, ), 'graph-owned render pass manual barriers are blocked')
 
     old_graph_uav_helper_in_ui_text_pass = """
     void UiTextPass::Render()
@@ -8962,14 +8945,7 @@ def run_self_tests() -> list[str]:
         backend.ExecuteGraphUavBarrier( "UiTextWriteOrder", "SwapchainBackbuffer", resource );
     }
     """
-    if not any(
-        error.message == "graph-owned render pass manual barriers are blocked"
-        for error in check_graph_owned_render_pass_manual_barriers_text(
-            Path("synthetic/RunUiTextPass.cpp"),
-            old_graph_uav_helper_in_ui_text_pass,
-        )
-    ):
-        failures.append("UiTextPass graph UAV helper synthetic surface was not rejected")
+    expect_error('UiTextPass graph UAV helper synthetic surface was not rejected', check_graph_owned_render_pass_manual_barriers_text( Path("synthetic/RunUiTextPass.cpp"), old_graph_uav_helper_in_ui_text_pass, ), 'graph-owned render pass manual barriers are blocked')
 
     allowed_unknown_graph_access_path = Path("SkullbonezSource/Runtime/RunRender.cpp")
     allowed_unknown_graph_access = """
@@ -8981,12 +8957,7 @@ def run_self_tests() -> list[str]:
     synthetic_unknown_access_allowlist: Counter[tuple[Path, str]] = Counter(
         { ( allowed_unknown_graph_access_path, "CinematicSceneDepth" ): 1 }
     )
-    if check_render_graph_unknown_access_text(
-        allowed_unknown_graph_access_path,
-        allowed_unknown_graph_access,
-        allowlist=synthetic_unknown_access_allowlist,
-    ):
-        failures.append("count-allowed render graph Unknown access synthetic surface was rejected")
+    expect_clean('count-allowed render graph Unknown access synthetic surface was rejected', check_render_graph_unknown_access_text( allowed_unknown_graph_access_path, allowed_unknown_graph_access, allowlist=synthetic_unknown_access_allowlist, ))
 
     new_unknown_graph_access = """
     void BuildMigratedGraph()
@@ -8994,14 +8965,7 @@ def run_self_tests() -> list[str]:
         graph.AddExternalResource( "NewSceneDepth", Rendering::RenderGraphResourceAccess::Unknown );
     }
     """
-    if not any(
-        error.message == "render graph Unknown resource access is count-guarded"
-        for error in check_render_graph_unknown_access_text(
-            Path("synthetic/RunRender.cpp"),
-            new_unknown_graph_access,
-        )
-    ):
-        failures.append("new render graph Unknown access synthetic surface was not rejected")
+    expect_error('new render graph Unknown access synthetic surface was not rejected', check_render_graph_unknown_access_text( Path("synthetic/RunRender.cpp"), new_unknown_graph_access, ), 'render graph Unknown resource access is count-guarded')
 
     new_unknown_graph_access_with_native = """
     void BuildMigratedGraph()
@@ -9012,14 +8976,7 @@ def run_self_tests() -> list[str]:
             nativeDepth );
     }
     """
-    if not any(
-        error.message == "render graph Unknown resource access is count-guarded"
-        for error in check_render_graph_unknown_access_text(
-            Path("synthetic/RunRender.cpp"),
-            new_unknown_graph_access_with_native,
-        )
-    ):
-        failures.append("three-argument render graph Unknown access synthetic surface was not rejected")
+    expect_error('three-argument render graph Unknown access synthetic surface was not rejected', check_render_graph_unknown_access_text( Path("synthetic/RunRender.cpp"), new_unknown_graph_access_with_native, ), 'render graph Unknown resource access is count-guarded')
 
     dynamic_unknown_graph_access = """
     void BuildMigratedGraph()
@@ -9029,123 +8986,47 @@ def run_self_tests() -> list[str]:
             SkullbonezCore::Rendering::RenderGraphResourceAccess::Unknown );
     }
     """
-    if not any(
-        error.message == "render graph Unknown resource access is count-guarded"
-        for error in check_render_graph_unknown_access_text(
-            Path("synthetic/RunRender.cpp"),
-            dynamic_unknown_graph_access,
-        )
-    ):
-        failures.append("dynamic-name render graph Unknown access synthetic surface was not rejected")
+    expect_error('dynamic-name render graph Unknown access synthetic surface was not rejected', check_render_graph_unknown_access_text( Path("synthetic/RunRender.cpp"), dynamic_unknown_graph_access, ), 'render graph Unknown resource access is count-guarded')
 
     allowed_global_service_path = Path("SkullbonezSource/Runtime/Run.cpp")
     allowed_global_service_access = "void BootstrapRenderer() { Gfx().Present(); }"
     synthetic_global_service_allowlist: Counter[tuple[Path, str]] = Counter(
         { ( allowed_global_service_path, "Gfx()" ): 1 }
     )
-    if check_global_service_access_guardrails_text(
-        allowed_global_service_path,
-        allowed_global_service_access,
-        allowlist=synthetic_global_service_allowlist,
-    ):
-        failures.append("count-allowed global service synthetic surface was rejected")
+    expect_clean('count-allowed global service synthetic surface was rejected', check_global_service_access_guardrails_text( allowed_global_service_path, allowed_global_service_access, allowlist=synthetic_global_service_allowlist, ))
 
     unclassified_global_renderer_path = Path("SkullbonezSource/Runtime/NewRenderPath.cpp")
     synthetic_unclassified_renderer_allowlist: Counter[tuple[Path, str]] = Counter(
         { ( unclassified_global_renderer_path, "Gfx()" ): 1 }
     )
-    if not any(
-        error.message == "global renderer service access is outside approved compatibility files"
-        for error in check_global_service_access_guardrails_text(
-            unclassified_global_renderer_path,
-            "void NewRenderPath() { Gfx().Present(); }",
-            allowlist=synthetic_unclassified_renderer_allowlist,
-        )
-    ):
-        failures.append("unclassified count-allowed Gfx synthetic surface was not rejected")
+    expect_error('unclassified count-allowed Gfx synthetic surface was not rejected', check_global_service_access_guardrails_text( unclassified_global_renderer_path, "void NewRenderPath() { Gfx().Present(); }", allowlist=synthetic_unclassified_renderer_allowlist, ), 'global renderer service access is outside approved compatibility files')
 
     unclassified_global_dxr_path = Path("SkullbonezSource/Runtime/NewDxrPath.cpp")
     synthetic_unclassified_dxr_allowlist: Counter[tuple[Path, str]] = Counter(
         { ( unclassified_global_dxr_path, "GfxRayTracing()" ): 1 }
     )
-    if not any(
-        error.message == "global renderer service access is outside approved compatibility files"
-        for error in check_global_service_access_guardrails_text(
-            unclassified_global_dxr_path,
-            "void NewDxrPath() { GfxRayTracing().GetReflectionUAVTexture(); }",
-            allowlist=synthetic_unclassified_dxr_allowlist,
-        )
-    ):
-        failures.append("unclassified count-allowed GfxRayTracing synthetic surface was not rejected")
+    expect_error('unclassified count-allowed GfxRayTracing synthetic surface was not rejected', check_global_service_access_guardrails_text( unclassified_global_dxr_path, "void NewDxrPath() { GfxRayTracing().GetReflectionUAVTexture(); }", allowlist=synthetic_unclassified_dxr_allowlist, ), 'global renderer service access is outside approved compatibility files')
 
     grown_global_service_access = """
     void BootstrapRenderer() { Gfx().Present(); }
     void NewRenderHelper() { Gfx().Clear( true, true ); }
     """
-    if not any(
-        error.message == "global renderer service access is count-guarded"
-        for error in check_global_service_access_guardrails_text(
-            allowed_global_service_path,
-            grown_global_service_access,
-            allowlist=synthetic_global_service_allowlist,
-        )
-    ):
-        failures.append("grown global renderer service synthetic surface was not rejected")
+    expect_error('grown global renderer service synthetic surface was not rejected', check_global_service_access_guardrails_text( allowed_global_service_path, grown_global_service_access, allowlist=synthetic_global_service_allowlist, ), 'global renderer service access is count-guarded')
 
     new_window_singleton_access = "void DeepInputPath() { Window::Instance()->ShowCursor( true ); }"
-    if not any(
-        error.message == "global window service access is count-guarded"
-        for error in check_global_service_access_guardrails_text(
-            Path("SkullbonezSource/Runtime/InputNew.cpp"),
-            new_window_singleton_access,
-            relative_path=Path("SkullbonezSource/Runtime/InputNew.cpp"),
-        )
-    ):
-        failures.append("new window singleton synthetic surface was not rejected")
+    expect_error('new window singleton synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/InputNew.cpp"), new_window_singleton_access, relative_path=Path("SkullbonezSource/Runtime/InputNew.cpp"), ), 'global window service access is count-guarded')
 
     new_cfg_access = "void DeepConfigPath() { int threads = Cfg().workerThreads; }"
-    if not any(
-        error.message == "global config access is count-guarded"
-        for error in check_global_service_access_guardrails_text(
-            Path("SkullbonezSource/Runtime/NewConfigPath.cpp"),
-            new_cfg_access,
-            relative_path=Path("SkullbonezSource/Runtime/NewConfigPath.cpp"),
-        )
-    ):
-        failures.append("new Cfg synthetic surface was not rejected")
+    expect_error('new Cfg synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/NewConfigPath.cpp"), new_cfg_access, relative_path=Path("SkullbonezSource/Runtime/NewConfigPath.cpp"), ), 'global config access is count-guarded')
 
     new_generic_instance_access = "void DeepConfigPath() { EngineConfig::Instance().workerThreads = 0; }"
-    if not any(
-        error.message == "generic singleton access is count-guarded"
-        for error in check_global_service_access_guardrails_text(
-            Path("SkullbonezSource/Runtime/NewConfigPath.cpp"),
-            new_generic_instance_access,
-            relative_path=Path("SkullbonezSource/Runtime/NewConfigPath.cpp"),
-        )
-    ):
-        failures.append("new generic Instance synthetic surface was not rejected")
+    expect_error('new generic Instance synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/NewConfigPath.cpp"), new_generic_instance_access, relative_path=Path("SkullbonezSource/Runtime/NewConfigPath.cpp"), ), 'generic singleton access is count-guarded')
 
     new_process_singleton_pointer = "class Service { static Service* pInstance; };"
-    if not any(
-        error.message == "process singleton pointer access is count-guarded"
-        for error in check_global_service_access_guardrails_text(
-            Path("SkullbonezSource/Runtime/NewService.h"),
-            new_process_singleton_pointer,
-            relative_path=Path("SkullbonezSource/Runtime/NewService.h"),
-        )
-    ):
-        failures.append("new pInstance synthetic surface was not rejected")
+    expect_error('new pInstance synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/NewService.h"), new_process_singleton_pointer, relative_path=Path("SkullbonezSource/Runtime/NewService.h"), ), 'process singleton pointer access is count-guarded')
 
     new_mutable_process_global = "int g_newInputBridge = 0;"
-    if not any(
-        error.message == "mutable process global access is count-guarded"
-        for error in check_global_service_access_guardrails_text(
-            Path("SkullbonezSource/Runtime/NewInputBridge.cpp"),
-            new_mutable_process_global,
-            relative_path=Path("SkullbonezSource/Runtime/NewInputBridge.cpp"),
-        )
-    ):
-        failures.append("new g_ global synthetic surface was not rejected")
+    expect_error('new g_ global synthetic surface was not rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/NewInputBridge.cpp"), new_mutable_process_global, relative_path=Path("SkullbonezSource/Runtime/NewInputBridge.cpp"), ), 'mutable process global access is count-guarded')
 
     diagnostic_text_only_global = r'''
     void LogMigrationHint()
@@ -9155,873 +9036,351 @@ def run_self_tests() -> list[str]:
         /* Cfg().workerThreads = 0; */
     }
     '''
-    if check_global_service_access_guardrails_text(
-        Path("SkullbonezSource/Runtime/DiagnosticStrings.cpp"),
-        diagnostic_text_only_global,
-        relative_path=Path("SkullbonezSource/Runtime/DiagnosticStrings.cpp"),
-    ):
-        failures.append("diagnostic string/comment global service synthetic surface was rejected")
+    expect_clean('diagnostic string/comment global service synthetic surface was rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/DiagnosticStrings.cpp"), diagnostic_text_only_global, relative_path=Path("SkullbonezSource/Runtime/DiagnosticStrings.cpp"), ))
 
     grown_run_header = allowed_run_header.replace("void Render();", "void Render();\n        void NewHelper();")
-    if not any(
-        error.message == "Run.h private method count exceeds ratchet"
-        for error in check_run_private_method_count_text(Path("synthetic/Run.h"), grown_run_header, max_allowed=1)
-    ):
-        failures.append("grown Run.h private method count synthetic surface was not rejected")
+    expect_error(
+        "grown Run.h private method count synthetic surface was not rejected",
+        check_run_private_method_count_text(run_header_path, grown_run_header, max_allowed=1),
+        "Run.h private method count exceeds ratchet",
+    )
 
     pointer_return_run_header = allowed_run_header.replace(
         "void Render();",
         "void Render();\n        const ReplayPresentationSample* CurrentReplayScrubSample() const;",
     )
-    if not any(
-        error.message == "Run.h private method count exceeds ratchet"
-        for error in check_run_private_method_count_text(
-            Path("synthetic/Run.h"), pointer_return_run_header, max_allowed=1
+    expect_error('pointer-return Run.h private method count synthetic surface was not rejected', check_run_private_method_count_text( run_header_path, pointer_return_run_header, max_allowed=1 ), 'Run.h private method count exceeds ratchet')
+
+    run_header_error_cases = (
+        (
+            "void BuildEditorOverlay();",
+            "editor overlay/preview helpers must stay out of Run.h",
+            "short editor overlay helper synthetic surface was not rejected",
+        ),
+        (
+            "void RefreshInteractionPreview();",
+            "editor overlay/preview helpers must stay out of Run.h",
+            "short interaction preview helper synthetic surface was not rejected",
+        ),
+        (
+            "const ReplayPresentationSample* CurrentReplayScrubSample() const;",
+            "replay render-query helpers must stay out of Run.h",
+            "replay render-query helper synthetic surface was not rejected",
+        ),
+        (
+            "bool ShouldRenderReplayScrubber() const;",
+            "replay render-query helpers must stay out of Run.h",
+            "replay scrubber visibility helper synthetic surface was not rejected",
+        ),
+        (
+            "void RenderReplayPredictionGhosts( const RenderFrameContext& frame );",
+            "replay render-query helpers must stay out of Run.h",
+            "replay prediction ghost helper synthetic surface was not rejected",
+        ),
+        (
+            "bool BuildReplayCauseTreeRows();",
+            "replay cause-tree row builders must stay out of Run.h",
+            "replay cause-tree header helper synthetic surface was not rejected",
+        ),
+        (
+            "bool BuildCauseTreeRows();",
+            "replay cause-tree row builders must stay out of Run.h",
+            "renamed replay cause-tree header helper synthetic surface was not rejected",
+        ),
+        (
+            "void CancelReplayPredictionJob( bool clearSamples );",
+            "replay prediction job-state helpers must stay out of Run.h",
+            "replay prediction job-state header helper synthetic surface was not rejected",
+        ),
+        (
+            "void CaptureReplayPredictionFrame( ReplayFrameIndex frameIndex );",
+            "replay prediction capture helpers must stay out of Run.h",
+            "replay prediction capture header helper synthetic surface was not rejected",
+        ),
+        (
+            "bool StepReplayPredictionJob();",
+            "replay prediction lifecycle helpers must stay out of Run.h",
+            "replay prediction lifecycle header helper synthetic surface was not rejected",
+        ),
+        (
+            "void ClearReplayPathVisualizer();",
+            "replay path-state helpers must stay out of Run.h",
+            "replay path-state header helper synthetic surface was not rejected",
+        ),
+        (
+            "bool TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id );",
+            "replay cause-tree body lookup helpers must stay out of Run.h",
+            "replay cause-tree body lookup header helper synthetic surface was not rejected",
+        ),
+        (
+            "bool FocusReplayCauseTreeBody( ReplayBodyId id );",
+            "replay cause-tree body focus wrappers must stay out of Run.h",
+            "replay cause-tree body focus header helper synthetic surface was not rejected",
+        ),
+        (
+            "void ActivateReplayCameraForCauseRow( const RunReplayCauseTreeRow& row, int rowIndex );",
+            "replay cause-tree camera activation helper must stay out of Run.h",
+            "replay cause-tree camera activation header helper synthetic surface was not rejected",
+        ),
+        (
+            "void ApplyReplayRenderStateForFrame();",
+            "replay render-state helpers must stay out of Run.h",
+            "replay render-state header helper synthetic surface was not rejected",
+        ),
+        (
+            "void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;",
+            "replay launcher visual sample helpers must stay out of Run.h",
+            "replay launcher visual sample header helper synthetic surface was not rejected",
+        ),
+        (
+            "void CompareLatestReplaySamples();",
+            "replay sample comparison helper must stay out of Run.h",
+            "replay sample comparison header helper synthetic surface was not rejected",
+        ),
+        (
+            "Textures::TextureCollection& Textures();\n"
+            "        uint32_t TextureHandle( uint32_t textureHash );\n"
+            "        void SelectRenderTexture( uint32_t textureHash );",
+            "render host texture wrappers must stay out of Run.h",
+            "render host texture header helpers synthetic surface was not rejected",
+        ),
+        (
+            "bool PromptLoadReplayPresentationArtifact( HWND hwnd );",
+            "replay presentation artifact picker must stay out of Run.h",
+            "replay presentation picker header helper synthetic surface was not rejected",
+        ),
+        (
+            "bool SaveReplayBufferFromScrubber( RunReplayTrack track );",
+            "replay scrubber save helper must stay out of Run.h",
+            "replay scrubber save header helper synthetic surface was not rejected",
+        ),
+        (
+            "bool ApplyReplayEventForRestoreTarget( const ReplayEventSample& event );",
+            "replay restore event helper must stay out of Run.h",
+            "replay restore event header helper synthetic surface was not rejected",
+        ),
+        (
+            "void UpdateReplayInspectionCamera();",
+            "replay inspection camera update wrapper must stay out of Run.h",
+            "replay inspection camera header helper synthetic surface was not rejected",
+        ),
+        (
+            "bool ReplayInspectionActive() const;\n"
+            "        bool ReplayInspectionMouseLookActive() const;",
+            "replay inspection query wrappers must stay out of Run.h",
+            "replay inspection query header helpers synthetic surface was not rejected",
+        ),
+        (
+            "void SetReplayLiveAdvanceHeld( bool held );",
+            "replay live-advance wrapper must stay out of Run.h",
+            "replay live-advance header helper synthetic surface was not rejected",
+        ),
+        (
+            "void ResetReplayScrubber();",
+            "replay scrubber reset wrapper must stay out of Run.h",
+            "replay scrubber reset header helper synthetic surface was not rejected",
+        ),
+        (
+            "void ArmLoadedReplayPresentationScrubber( float normalized );",
+            "replay loaded-presentation scrubber arming wrapper must stay out of Run.h",
+            "replay loaded-presentation scrubber header helper synthetic surface was not rejected",
+        ),
+        (
+            "void ClearReplayCameraFocus( bool restoreCamera );",
+            "replay camera focus clear wrapper must stay out of Run.h",
+            "replay camera focus clear header helper synthetic surface was not rejected",
+        ),
+        (
+            "ReplayFrameIndex NextReplayEventFrameIndex() const;",
+            "replay event frame cursor wrapper must stay out of Run.h",
+            "replay event frame cursor header helper synthetic surface was not rejected",
+        ),
+        (
+            "void RecordReplayEvent( ReplayEventKind kind );",
+            "replay event record wrapper must stay out of Run.h",
+            "replay event record header helper synthetic surface was not rejected",
+        ),
+        (
+            "void RecordReplayGeneratedSceneConfigEvent();",
+            "replay generated-scene config wrapper must stay out of Run.h",
+            "replay generated-scene config header helper synthetic surface was not rejected",
+        ),
+        (
+            "void CaptureReplayPhysicsStep();\n"
+            "        static void CaptureReplayPhysicsStepThunk( void* userData );",
+            "replay physics capture wrappers must stay out of Run.h",
+            "replay physics capture header helper synthetic surface was not rejected",
+        ),
+        (
+            "void RecordReplayWorldOverrideEvent( float gravity );",
+            "replay world override event wrapper must stay out of Run.h",
+            "replay world override event header helper synthetic surface was not rejected",
+        ),
+        (
+            "void RecordReplayLauncherConfigEvent( uint32_t changedFlags );",
+            "replay launcher config event wrapper must stay out of Run.h",
+            "replay launcher config event header helper synthetic surface was not rejected",
+        ),
+        (
+            "void RecordReplayLauncherFireEvent( const Vector3& rayOrigin );",
+            "replay launcher fire event wrapper must stay out of Run.h",
+            "replay launcher fire event header helper synthetic surface was not rejected",
+        ),
+        (
+            "void RecordReplayEditorPlaceEvent( int objectType );",
+            "replay editor place event wrapper must stay out of Run.h",
+            "replay editor place event header helper synthetic surface was not rejected",
+        ),
+        (
+            "void RecordReplayEditorTransformEvent( int modelIndex );",
+            "replay editor transform event wrapper must stay out of Run.h",
+            "replay editor transform event header helper synthetic surface was not rejected",
+        ),
+        (
+            "int ResolveReplayVelocityEditModelIndex() const;",
+            "replay velocity target lookup helpers must stay out of Run.h",
+            "replay velocity target header helper synthetic surface was not rejected",
+        ),
+        (
+            "int HitReplayVelocityLinearAxis();",
+            "replay velocity hit helpers must stay out of Run.h",
+            "replay velocity hit header helper synthetic surface was not rejected",
+        ),
+        (
+            "void SetReplayVelocityEditEnabled(bool enabled);",
+            "replay velocity edit toggle helper must stay out of Run.h",
+            "replay velocity edit toggle header helper synthetic surface was not rejected",
+        ),
+        (
+            "void ApplyReplayVelocityEditDrag();",
+            "replay velocity apply helper must stay out of Run.h",
+            "replay velocity apply header helper synthetic surface was not rejected",
+        ),
+        (
+            "void RenderReplayScrubberOverlay();",
+            "replay overlay render helpers must stay out of Run.h",
+            "replay scrubber overlay header helper synthetic surface was not rejected",
+        ),
+        (
+            "void RenderReplayCauseTreeOverlay();",
+            "replay overlay render helpers must stay out of Run.h",
+            "replay cause-tree overlay header helper synthetic surface was not rejected",
+        ),
+        (
+            "void RestoreSceneRuntimeResetSnapshot( const SceneRuntimeResetSnapshot& snapshot );",
+            "scene runtime reset helpers must stay out of Run.h",
+            "scene runtime reset header helper synthetic surface was not rejected",
+        ),
+        (
+            "const std::string* CurrentSceneQueuePath() const;",
+            "scene queue wrappers must stay out of Run.h",
+            "scene queue header wrapper synthetic surface was not rejected",
+        ),
+        (
+            "SceneGeneratedModelContext BuildSceneGeneratedModelContext();",
+            "scene context builders must stay out of Run.h",
+            "scene context builder header synthetic surface was not rejected",
+        ),
+        (
+            "void SetUpCameras();",
+            "generated camera setup wrapper must stay out of Run.h",
+            "generated camera setup header synthetic surface was not rejected",
+        ),
+        (
+            "void UseDefaultTerrain();",
+            "scene terrain/world setup wrappers must stay out of Run.h",
+            "scene terrain/world header synthetic surface was not rejected",
+        ),
+        (
+            "bool SaveCurrentEditableSceneSnapshot();",
+            "editable scene snapshot helper must stay out of Run.h",
+            "editable scene snapshot header helper synthetic surface was not rejected",
+        ),
+        (
+            "void ApplyTornadoDefaultsForActiveScene();",
+            "tornado defaults helper must stay out of Run.h",
+            "tornado defaults header helper synthetic surface was not rejected",
+        ),
+        (
+            "void SyncTornadoFieldToPhysics();",
+            "tornado physics sync wrapper must stay out of Run.h",
+            "tornado sync header helper synthetic surface was not rejected",
+        ),
+        (
+            "void LogPerfMemory( const char* checkpoint );",
+            "diagnostics perf-memory wrappers must stay out of Run.h",
+            "diagnostics perf-memory header wrapper synthetic surface was not rejected",
+        ),
+        (
+            "void TickPerfLog();",
+            "diagnostics perf-log tick wrappers must stay out of Run.h",
+            "diagnostics perf-log tick header wrapper synthetic surface was not rejected",
+        ),
+        (
+            "bool WriteMainMemoryDump( const char* checkpoint );",
+            "diagnostics memory-dump wrapper must stay out of Run.h",
+            "diagnostics memory-dump header wrapper synthetic surface was not rejected",
+        ),
+        (
+            "unsigned int NextUIStressRandom();\n"
+            "        int NextUIStressInt( int maxExclusive );\n"
+            "        float NextUIStressFloat( float minValue, float maxValue );",
+            "diagnostics UI stress RNG helpers must stay out of Run.h",
+            "diagnostics UI stress RNG header helpers synthetic surface was not rejected",
+        ),
+        (
+            "bool AdvanceScene();",
+            "scene-control wrappers must stay out of Run.h",
+            "scene-control header wrapper synthetic surface was not rejected",
+        ),
+        (
+            "void RefreshSceneBrowserList();",
+            "scene browser refresh wrapper must stay out of Run.h",
+            "scene browser refresh header wrapper synthetic surface was not rejected",
+        ),
+        (
+            "int CurrentSceneBrowserIndex() const;",
+            "scene browser index wrapper must stay out of Run.h",
+            "scene browser index header wrapper synthetic surface was not rejected",
+        ),
+        (
+            "bool SaveRenderDefaults();\n        bool SaveSkyDefaults();",
+            "scene default persistence wrappers must stay out of Run.h",
+            "scene default persistence header wrappers synthetic surface was not rejected",
+        ),
+        (
+            "bool CreateSceneFromUI( const char* requestedName );",
+            "scene create wrapper must stay out of Run.h",
+            "scene create header wrapper synthetic surface was not rejected",
+        ),
+        (
+            "void ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity );",
+            "scene world override wrapper must stay out of Run.h",
+            "scene world override header wrapper synthetic surface was not rejected",
+        ),
+        (
+            "void ApplyUIModelCountOverride( int count );\n"
+            "        void ApplyUISolverObjectCounts( int balls, int boxes );",
+            "scene generated control wrappers must stay out of Run.h",
+            "scene generated control header wrappers synthetic surface was not rejected",
+        ),
+        (
+            "bool ApplyCinematicModeFromBrowserIndex( int index );",
+            "scene style wrappers must stay out of Run.h",
+            "scene style header wrapper synthetic surface was not rejected",
+        ),
+        (
+            "SceneRuntimeCoordinatorCallbacks BuildSceneRuntimeCoordinatorCallbacks();",
+            "scene coordinator callback builders must stay out of Run.h",
+            "scene coordinator callback builder header synthetic surface was not rejected",
+        ),
+    )
+    for addition, message, label in run_header_error_cases:
+        expect_error(
+            label,
+            check_text_rules(run_header_path, run_header_with(addition), RUN_HEADER_RULES),
+            message,
         )
-    ):
-        failures.append("pointer-return Run.h private method count synthetic surface was not rejected")
-
-    short_editor_overlay_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void BuildEditorOverlay();",
-    )
-    if not any(
-        error.message == "editor overlay/preview helpers must stay out of Run.h"
-        for error in check_text_rules(Path("synthetic/Run.h"), short_editor_overlay_helper, RUN_HEADER_RULES)
-    ):
-        failures.append("short editor overlay helper synthetic surface was not rejected")
-
-    short_interaction_preview_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void RefreshInteractionPreview();",
-    )
-    if not any(
-        error.message == "editor overlay/preview helpers must stay out of Run.h"
-        for error in check_text_rules(Path("synthetic/Run.h"), short_interaction_preview_helper, RUN_HEADER_RULES)
-    ):
-        failures.append("short interaction preview helper synthetic surface was not rejected")
-
-    old_replay_render_query_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        const ReplayPresentationSample* CurrentReplayScrubSample() const;",
-    )
-    if not any(
-        error.message == "replay render-query helpers must stay out of Run.h"
-        for error in check_text_rules(Path("synthetic/Run.h"), old_replay_render_query_helper, RUN_HEADER_RULES)
-    ):
-        failures.append("replay render-query helper synthetic surface was not rejected")
-
-    old_scrubber_visibility_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        bool ShouldRenderReplayScrubber() const;",
-    )
-    if not any(
-        error.message == "replay render-query helpers must stay out of Run.h"
-        for error in check_text_rules(Path("synthetic/Run.h"), old_scrubber_visibility_helper, RUN_HEADER_RULES)
-    ):
-        failures.append("replay scrubber visibility helper synthetic surface was not rejected")
-
-    old_replay_prediction_ghost_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void RenderReplayPredictionGhosts( const RenderFrameContext& frame );",
-    )
-    if not any(
-        error.message == "replay render-query helpers must stay out of Run.h"
-        for error in check_text_rules(Path("synthetic/Run.h"), old_replay_prediction_ghost_helper, RUN_HEADER_RULES)
-    ):
-        failures.append("replay prediction ghost helper synthetic surface was not rejected")
-
-    old_replay_cause_tree_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        bool BuildReplayCauseTreeRows();",
-    )
-    if not any(
-        error.message == "replay cause-tree row builders must stay out of Run.h"
-        for error in check_text_rules(Path("synthetic/Run.h"), old_replay_cause_tree_header_helper, RUN_HEADER_RULES)
-    ):
-        failures.append("replay cause-tree header helper synthetic surface was not rejected")
-
-    renamed_replay_cause_tree_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        bool BuildCauseTreeRows();",
-    )
-    if not any(
-        error.message == "replay cause-tree row builders must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            renamed_replay_cause_tree_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("renamed replay cause-tree header helper synthetic surface was not rejected")
-
-    old_replay_prediction_job_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void CancelReplayPredictionJob( bool clearSamples );",
-    )
-    if not any(
-        error.message == "replay prediction job-state helpers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_prediction_job_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay prediction job-state header helper synthetic surface was not rejected")
-
-    old_replay_prediction_capture_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void CaptureReplayPredictionFrame( ReplayFrameIndex frameIndex );",
-    )
-    if not any(
-        error.message == "replay prediction capture helpers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_prediction_capture_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay prediction capture header helper synthetic surface was not rejected")
-
-    old_replay_prediction_lifecycle_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        bool StepReplayPredictionJob();",
-    )
-    if not any(
-        error.message == "replay prediction lifecycle helpers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_prediction_lifecycle_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay prediction lifecycle header helper synthetic surface was not rejected")
-
-    old_replay_path_state_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void ClearReplayPathVisualizer();",
-    )
-    if not any(
-        error.message == "replay path-state helpers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_path_state_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay path-state header helper synthetic surface was not rejected")
-
-    old_replay_cause_tree_lookup_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        bool TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id );",
-    )
-    if not any(
-        error.message == "replay cause-tree body lookup helpers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_cause_tree_lookup_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay cause-tree body lookup header helper synthetic surface was not rejected")
-
-    old_replay_cause_tree_focus_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        bool FocusReplayCauseTreeBody( ReplayBodyId id );",
-    )
-    if not any(
-        error.message == "replay cause-tree body focus wrappers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_cause_tree_focus_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay cause-tree body focus header helper synthetic surface was not rejected")
-
-    old_replay_cause_tree_camera_activation_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void ActivateReplayCameraForCauseRow( const RunReplayCauseTreeRow& row, int rowIndex );",
-    )
-    if not any(
-        error.message == "replay cause-tree camera activation helper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_cause_tree_camera_activation_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay cause-tree camera activation header helper synthetic surface was not rejected")
-
-    old_replay_render_state_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void ApplyReplayRenderStateForFrame();",
-    )
-    if not any(
-        error.message == "replay render-state helpers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_render_state_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay render-state header helper synthetic surface was not rejected")
-
-    old_replay_launcher_visual_sample_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;",
-    )
-    if not any(
-        error.message == "replay launcher visual sample helpers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_launcher_visual_sample_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay launcher visual sample header helper synthetic surface was not rejected")
-
-    old_replay_sample_comparison_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void CompareLatestReplaySamples();",
-    )
-    if not any(
-        error.message == "replay sample comparison helper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_sample_comparison_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay sample comparison header helper synthetic surface was not rejected")
-
-    old_render_host_texture_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n"
-        "        Textures::TextureCollection& Textures();\n"
-        "        uint32_t TextureHandle( uint32_t textureHash );\n"
-        "        void SelectRenderTexture( uint32_t textureHash );",
-    )
-    if not any(
-        error.message == "render host texture wrappers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_render_host_texture_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("render host texture header helpers synthetic surface was not rejected")
-
-    old_replay_presentation_picker_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        bool PromptLoadReplayPresentationArtifact( HWND hwnd );",
-    )
-    if not any(
-        error.message == "replay presentation artifact picker must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_presentation_picker_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay presentation picker header helper synthetic surface was not rejected")
-
-    old_replay_scrubber_save_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        bool SaveReplayBufferFromScrubber( RunReplayTrack track );",
-    )
-    if not any(
-        error.message == "replay scrubber save helper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_scrubber_save_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay scrubber save header helper synthetic surface was not rejected")
-
-    old_replay_restore_event_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        bool ApplyReplayEventForRestoreTarget( const ReplayEventSample& event );",
-    )
-    if not any(
-        error.message == "replay restore event helper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_restore_event_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay restore event header helper synthetic surface was not rejected")
-
-    old_replay_inspection_camera_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void UpdateReplayInspectionCamera();",
-    )
-    if not any(
-        error.message == "replay inspection camera update wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_inspection_camera_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay inspection camera header helper synthetic surface was not rejected")
-
-    old_replay_inspection_query_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n"
-        "        bool ReplayInspectionActive() const;\n"
-        "        bool ReplayInspectionMouseLookActive() const;",
-    )
-    if not any(
-        error.message == "replay inspection query wrappers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_inspection_query_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay inspection query header helpers synthetic surface was not rejected")
-
-    old_replay_live_advance_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void SetReplayLiveAdvanceHeld( bool held );",
-    )
-    if not any(
-        error.message == "replay live-advance wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_live_advance_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay live-advance header helper synthetic surface was not rejected")
-
-    old_replay_scrubber_reset_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void ResetReplayScrubber();",
-    )
-    if not any(
-        error.message == "replay scrubber reset wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_scrubber_reset_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay scrubber reset header helper synthetic surface was not rejected")
-
-    old_replay_loaded_presentation_scrubber_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void ArmLoadedReplayPresentationScrubber( float normalized );",
-    )
-    if not any(
-        error.message == "replay loaded-presentation scrubber arming wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_loaded_presentation_scrubber_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay loaded-presentation scrubber header helper synthetic surface was not rejected")
-
-    old_replay_camera_focus_clear_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void ClearReplayCameraFocus( bool restoreCamera );",
-    )
-    if not any(
-        error.message == "replay camera focus clear wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_camera_focus_clear_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay camera focus clear header helper synthetic surface was not rejected")
-
-    old_replay_event_frame_cursor_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        ReplayFrameIndex NextReplayEventFrameIndex() const;",
-    )
-    if not any(
-        error.message == "replay event frame cursor wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_event_frame_cursor_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay event frame cursor header helper synthetic surface was not rejected")
-
-    old_replay_event_record_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void RecordReplayEvent( ReplayEventKind kind );",
-    )
-    if not any(
-        error.message == "replay event record wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_event_record_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay event record header helper synthetic surface was not rejected")
-
-    old_replay_generated_scene_config_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void RecordReplayGeneratedSceneConfigEvent();",
-    )
-    if not any(
-        error.message == "replay generated-scene config wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_generated_scene_config_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay generated-scene config header helper synthetic surface was not rejected")
-
-    old_replay_physics_capture_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void CaptureReplayPhysicsStep();\n        static void CaptureReplayPhysicsStepThunk( void* userData );",
-    )
-    if not any(
-        error.message == "replay physics capture wrappers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_physics_capture_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay physics capture header helper synthetic surface was not rejected")
-
-    old_replay_world_override_event_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void RecordReplayWorldOverrideEvent( float gravity );",
-    )
-    if not any(
-        error.message == "replay world override event wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_world_override_event_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay world override event header helper synthetic surface was not rejected")
-
-    old_replay_launcher_config_event_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void RecordReplayLauncherConfigEvent( uint32_t changedFlags );",
-    )
-    if not any(
-        error.message == "replay launcher config event wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_launcher_config_event_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay launcher config event header helper synthetic surface was not rejected")
-
-    old_replay_launcher_fire_event_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void RecordReplayLauncherFireEvent( const Vector3& rayOrigin );",
-    )
-    if not any(
-        error.message == "replay launcher fire event wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_launcher_fire_event_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay launcher fire event header helper synthetic surface was not rejected")
-
-    old_replay_editor_place_event_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void RecordReplayEditorPlaceEvent( int objectType );",
-    )
-    if not any(
-        error.message == "replay editor place event wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_editor_place_event_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay editor place event header helper synthetic surface was not rejected")
-
-    old_replay_editor_transform_event_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void RecordReplayEditorTransformEvent( int modelIndex );",
-    )
-    if not any(
-        error.message == "replay editor transform event wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_editor_transform_event_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay editor transform event header helper synthetic surface was not rejected")
-
-    old_replay_velocity_target_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        int ResolveReplayVelocityEditModelIndex() const;",
-    )
-    if not any(
-        error.message == "replay velocity target lookup helpers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_velocity_target_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay velocity target header helper synthetic surface was not rejected")
-
-    old_replay_velocity_hit_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        int HitReplayVelocityLinearAxis();",
-    )
-    if not any(
-        error.message == "replay velocity hit helpers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_velocity_hit_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay velocity hit header helper synthetic surface was not rejected")
-
-    old_replay_velocity_toggle_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void SetReplayVelocityEditEnabled(bool enabled);",
-    )
-    if not any(
-        error.message == "replay velocity edit toggle helper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_velocity_toggle_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay velocity edit toggle header helper synthetic surface was not rejected")
-
-    old_replay_velocity_apply_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void ApplyReplayVelocityEditDrag();",
-    )
-    if not any(
-        error.message == "replay velocity apply helper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_velocity_apply_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay velocity apply header helper synthetic surface was not rejected")
-
-    old_replay_scrubber_overlay_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void RenderReplayScrubberOverlay();",
-    )
-    if not any(
-        error.message == "replay overlay render helpers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_scrubber_overlay_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay scrubber overlay header helper synthetic surface was not rejected")
-
-    old_replay_cause_tree_overlay_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void RenderReplayCauseTreeOverlay();",
-    )
-    if not any(
-        error.message == "replay overlay render helpers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_replay_cause_tree_overlay_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("replay cause-tree overlay header helper synthetic surface was not rejected")
-
-    old_scene_reset_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void RestoreSceneRuntimeResetSnapshot( const SceneRuntimeResetSnapshot& snapshot );",
-    )
-    if not any(
-        error.message == "scene runtime reset helpers must stay out of Run.h"
-        for error in check_text_rules(Path("synthetic/Run.h"), old_scene_reset_header_helper, RUN_HEADER_RULES)
-    ):
-        failures.append("scene runtime reset header helper synthetic surface was not rejected")
-
-    old_scene_queue_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        const std::string* CurrentSceneQueuePath() const;",
-    )
-    if not any(
-        error.message == "scene queue wrappers must stay out of Run.h"
-        for error in check_text_rules(Path("synthetic/Run.h"), old_scene_queue_header_helper, RUN_HEADER_RULES)
-    ):
-        failures.append("scene queue header wrapper synthetic surface was not rejected")
-
-    old_scene_context_builder_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        SceneGeneratedModelContext BuildSceneGeneratedModelContext();",
-    )
-    if not any(
-        error.message == "scene context builders must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_scene_context_builder_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("scene context builder header synthetic surface was not rejected")
-
-    old_generated_camera_setup_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void SetUpCameras();",
-    )
-    if not any(
-        error.message == "generated camera setup wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_generated_camera_setup_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("generated camera setup header synthetic surface was not rejected")
-
-    old_scene_terrain_world_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void UseDefaultTerrain();",
-    )
-    if not any(
-        error.message == "scene terrain/world setup wrappers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_scene_terrain_world_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("scene terrain/world header synthetic surface was not rejected")
-
-    old_editable_scene_snapshot_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        bool SaveCurrentEditableSceneSnapshot();",
-    )
-    if not any(
-        error.message == "editable scene snapshot helper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_editable_scene_snapshot_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("editable scene snapshot header helper synthetic surface was not rejected")
-
-    old_tornado_defaults_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void ApplyTornadoDefaultsForActiveScene();",
-    )
-    if not any(
-        error.message == "tornado defaults helper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_tornado_defaults_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("tornado defaults header helper synthetic surface was not rejected")
-
-    old_tornado_sync_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void SyncTornadoFieldToPhysics();",
-    )
-    if not any(
-        error.message == "tornado physics sync wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_tornado_sync_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("tornado sync header helper synthetic surface was not rejected")
-
-    old_diagnostics_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void LogPerfMemory( const char* checkpoint );",
-    )
-    if not any(
-        error.message == "diagnostics perf-memory wrappers must stay out of Run.h"
-        for error in check_text_rules(Path("synthetic/Run.h"), old_diagnostics_header_helper, RUN_HEADER_RULES)
-    ):
-        failures.append("diagnostics perf-memory header wrapper synthetic surface was not rejected")
-
-    old_diagnostics_tick_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void TickPerfLog();",
-    )
-    if not any(
-        error.message == "diagnostics perf-log tick wrappers must stay out of Run.h"
-        for error in check_text_rules(Path("synthetic/Run.h"), old_diagnostics_tick_header_helper, RUN_HEADER_RULES)
-    ):
-        failures.append("diagnostics perf-log tick header wrapper synthetic surface was not rejected")
-
-    old_diagnostics_memory_dump_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        bool WriteMainMemoryDump( const char* checkpoint );",
-    )
-    if not any(
-        error.message == "diagnostics memory-dump wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"), old_diagnostics_memory_dump_header_helper, RUN_HEADER_RULES
-        )
-    ):
-        failures.append("diagnostics memory-dump header wrapper synthetic surface was not rejected")
-
-    old_diagnostics_ui_stress_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n"
-        "        unsigned int NextUIStressRandom();\n"
-        "        int NextUIStressInt( int maxExclusive );\n"
-        "        float NextUIStressFloat( float minValue, float maxValue );",
-    )
-    if not any(
-        error.message == "diagnostics UI stress RNG helpers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"), old_diagnostics_ui_stress_header_helper, RUN_HEADER_RULES
-        )
-    ):
-        failures.append("diagnostics UI stress RNG header helpers synthetic surface was not rejected")
-
-    old_scene_control_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        bool AdvanceScene();",
-    )
-    if not any(
-        error.message == "scene-control wrappers must stay out of Run.h"
-        for error in check_text_rules(Path("synthetic/Run.h"), old_scene_control_header_helper, RUN_HEADER_RULES)
-    ):
-        failures.append("scene-control header wrapper synthetic surface was not rejected")
-
-    old_scene_browser_refresh_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void RefreshSceneBrowserList();",
-    )
-    if not any(
-        error.message == "scene browser refresh wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_scene_browser_refresh_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("scene browser refresh header wrapper synthetic surface was not rejected")
-
-    old_scene_browser_index_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        int CurrentSceneBrowserIndex() const;",
-    )
-    if not any(
-        error.message == "scene browser index wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_scene_browser_index_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("scene browser index header wrapper synthetic surface was not rejected")
-
-    old_scene_defaults_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        bool SaveRenderDefaults();\n        bool SaveSkyDefaults();",
-    )
-    if not any(
-        error.message == "scene default persistence wrappers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_scene_defaults_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("scene default persistence header wrappers synthetic surface was not rejected")
-
-    old_scene_create_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        bool CreateSceneFromUI( const char* requestedName );",
-    )
-    if not any(
-        error.message == "scene create wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_scene_create_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("scene create header wrapper synthetic surface was not rejected")
-
-    old_scene_world_override_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        void ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity );",
-    )
-    if not any(
-        error.message == "scene world override wrapper must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_scene_world_override_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("scene world override header wrapper synthetic surface was not rejected")
-
-    old_scene_generated_control_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n"
-        "        void ApplyUIModelCountOverride( int count );\n"
-        "        void ApplyUISolverObjectCounts( int balls, int boxes );",
-    )
-    if not any(
-        error.message == "scene generated control wrappers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_scene_generated_control_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("scene generated control header wrappers synthetic surface was not rejected")
-
-    old_scene_style_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        bool ApplyCinematicModeFromBrowserIndex( int index );",
-    )
-    if not any(
-        error.message == "scene style wrappers must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"),
-            old_scene_style_header_helper,
-            RUN_HEADER_RULES,
-        )
-    ):
-        failures.append("scene style header wrapper synthetic surface was not rejected")
-
-    old_scene_coordinator_callback_header_helper = allowed_run_header.replace(
-        "void Render();",
-        "void Render();\n        SceneRuntimeCoordinatorCallbacks BuildSceneRuntimeCoordinatorCallbacks();",
-    )
-    if not any(
-        error.message == "scene coordinator callback builders must stay out of Run.h"
-        for error in check_text_rules(
-            Path("synthetic/Run.h"), old_scene_coordinator_callback_header_helper, RUN_HEADER_RULES
-        )
-    ):
-        failures.append("scene coordinator callback builder header synthetic surface was not rejected")
 
     old_run_internal_scrubber_helper = """
     static inline float ReplayScrubberTrackPosition( const RunReplayScrubberState& state, RunReplayTrack track )
@@ -10029,13 +9388,7 @@ def run_self_tests() -> list[str]:
         return state.position;
     }
     """
-    if not any(
-        error.message == "replay scrubber timeline helpers must stay out of RunInternal.h"
-        for error in check_run_internal_scrubber_guardrails_text(
-            Path("synthetic/RunInternal.h"), old_run_internal_scrubber_helper
-        )
-    ):
-        failures.append("RunInternal scrubber timeline helper synthetic surface was not rejected")
+    expect_error('RunInternal scrubber timeline helper synthetic surface was not rejected', check_run_internal_scrubber_guardrails_text( Path("synthetic/RunInternal.h"), old_run_internal_scrubber_helper ), 'replay scrubber timeline helpers must stay out of RunInternal.h')
 
     old_run_internal_panel_layout_helper = """
     inline UI::UIRect ReplayScrubberPanelRect( int screenW, int screenH )
@@ -10043,13 +9396,7 @@ def run_self_tests() -> list[str]:
         return { 0.0f, 0.0f, 1.0f, 1.0f };
     }
     """
-    if not any(
-        error.message == "replay overlay layout helpers must stay out of RunInternal.h"
-        for error in check_run_internal_replay_layout_guardrails_text(
-            Path("synthetic/RunInternal.h"), old_run_internal_panel_layout_helper
-        )
-    ):
-        failures.append("RunInternal replay scrubber panel layout helper synthetic surface was not rejected")
+    expect_error('RunInternal replay scrubber panel layout helper synthetic surface was not rejected', check_run_internal_replay_layout_guardrails_text( Path("synthetic/RunInternal.h"), old_run_internal_panel_layout_helper ), 'replay overlay layout helpers must stay out of RunInternal.h')
 
     old_run_internal_cause_window_layout_helper = """
     inline UI::UIRect ReplayCauseWindowRect( const RunReplayCauseTreeState& state )
@@ -10057,26 +9404,14 @@ def run_self_tests() -> list[str]:
         return { 0.0f, 0.0f, 1.0f, 1.0f };
     }
     """
-    if not any(
-        error.message == "replay overlay layout helpers must stay out of RunInternal.h"
-        for error in check_run_internal_replay_layout_guardrails_text(
-            Path("synthetic/RunInternal.h"), old_run_internal_cause_window_layout_helper
-        )
-    ):
-        failures.append("RunInternal replay cause window layout helper synthetic surface was not rejected")
+    expect_error('RunInternal replay cause window layout helper synthetic surface was not rejected', check_run_internal_replay_layout_guardrails_text( Path("synthetic/RunInternal.h"), old_run_internal_cause_window_layout_helper ), 'replay overlay layout helpers must stay out of RunInternal.h')
 
     old_run_internal_cause_window_placement_helper = """
     inline void EnsureReplayCauseWindowPlacement( RunReplayCauseTreeState& state, int screenW, int screenH )
     {
     }
     """
-    if not any(
-        error.message == "replay overlay layout helpers must stay out of RunInternal.h"
-        for error in check_run_internal_replay_layout_guardrails_text(
-            Path("synthetic/RunInternal.h"), old_run_internal_cause_window_placement_helper
-        )
-    ):
-        failures.append("RunInternal replay cause window placement helper synthetic surface was not rejected")
+    expect_error('RunInternal replay cause window placement helper synthetic surface was not rejected', check_run_internal_replay_layout_guardrails_text( Path("synthetic/RunInternal.h"), old_run_internal_cause_window_placement_helper ), 'replay overlay layout helpers must stay out of RunInternal.h')
 
     old_run_internal_scrubber_geometry = """
     inline float ReplayScrubberPositionFromMouse( int mouseX, int screenW, int screenH, RunReplayTrack trackName )
@@ -10084,22 +9419,10 @@ def run_self_tests() -> list[str]:
         return 1.0f;
     }
     """
-    if not any(
-        error.message == "replay overlay layout helpers must stay out of RunInternal.h"
-        for error in check_run_internal_replay_layout_guardrails_text(
-            Path("synthetic/RunInternal.h"), old_run_internal_scrubber_geometry
-        )
-    ):
-        failures.append("RunInternal replay scrubber geometry helper synthetic surface was not rejected")
+    expect_error('RunInternal replay scrubber geometry helper synthetic surface was not rejected', check_run_internal_replay_layout_guardrails_text( Path("synthetic/RunInternal.h"), old_run_internal_scrubber_geometry ), 'replay overlay layout helpers must stay out of RunInternal.h')
 
     old_run_internal_scene_runtime_snapshot = "struct SceneRuntimeResetSnapshot { int value = 0; };"
-    if not any(
-        error.message == "scene runtime reset snapshot must stay out of RunInternal.h"
-        for error in check_run_internal_scene_runtime_guardrails_text(
-            Path("synthetic/RunInternal.h"), old_run_internal_scene_runtime_snapshot
-        )
-    ):
-        failures.append("RunInternal scene runtime reset snapshot synthetic surface was not rejected")
+    expect_error('RunInternal scene runtime reset snapshot synthetic surface was not rejected', check_run_internal_scene_runtime_guardrails_text( Path("synthetic/RunInternal.h"), old_run_internal_scene_runtime_snapshot ), 'scene runtime reset snapshot must stay out of RunInternal.h')
 
     old_run_internal_scene_style_helper = """
     inline void ApplyCinematicSceneOverrides( CinematicRenderConfig& target,
@@ -10108,192 +9431,118 @@ def run_self_tests() -> list[str]:
     {
     }
     """
-    if not any(
-        error.message == "cinematic override helpers must stay out of RunInternal.h"
-        for error in check_run_internal_scene_style_guardrails_text(
-            Path("synthetic/RunInternal.h"), old_run_internal_scene_style_helper
-        )
-    ):
-        failures.append("RunInternal cinematic override helper synthetic surface was not rejected")
+    expect_error('RunInternal cinematic override helper synthetic surface was not rejected', check_run_internal_scene_style_guardrails_text( Path("synthetic/RunInternal.h"), old_run_internal_scene_style_helper ), 'cinematic override helpers must stay out of RunInternal.h')
 
     new_binding = allowed_host.replace(
         "RenderDiagnosticsView diagnostics;",
         "RenderDiagnosticsView diagnostics;\n        RunSceneState* newSceneState = nullptr;",
     )
-    if not any(
-        error.message == "new RuntimeRenderHostBindings fields are blocked"
-        for error in check_runtime_render_host_guardrails_text(synthetic_path, new_binding)
-    ):
-        failures.append("new RuntimeRenderHostBindings synthetic field was not rejected")
+    expect_error('new RuntimeRenderHostBindings synthetic field was not rejected', check_runtime_render_host_guardrails_text(synthetic_path, new_binding), 'new RuntimeRenderHostBindings fields are blocked')
 
     bare_new_binding = allowed_host.replace(
         "RenderDiagnosticsView diagnostics;",
         "RenderDiagnosticsView diagnostics;\n        RunSceneState* bareSceneState;",
     )
-    if not any(
-        error.message == "new RuntimeRenderHostBindings fields are blocked"
-        for error in check_runtime_render_host_guardrails_text(synthetic_path, bare_new_binding)
-    ):
-        failures.append("bare RuntimeRenderHostBindings synthetic field was not rejected")
+    expect_error('bare RuntimeRenderHostBindings synthetic field was not rejected', check_runtime_render_host_guardrails_text(synthetic_path, bare_new_binding), 'new RuntimeRenderHostBindings fields are blocked')
 
     old_replay_binding = allowed_host.replace(
         "RenderDiagnosticsView diagnostics;",
         "RenderDiagnosticsView diagnostics;\n        RunReplayScrubberState* replayScrubber = nullptr;",
     )
-    if not any(
-        error.message == "new RuntimeRenderHostBindings fields are blocked"
-        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_replay_binding)
-    ):
-        failures.append("old RuntimeRenderHost replay binding synthetic field was not rejected")
+    expect_error('old RuntimeRenderHost replay binding synthetic field was not rejected', check_runtime_render_host_guardrails_text(synthetic_path, old_replay_binding), 'new RuntimeRenderHostBindings fields are blocked')
 
     old_dxr_world_binding = allowed_host.replace(
         "PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;",
         "PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;\n"
         "        std::array<float, MAX_GAME_MODELS * 16>* dxrReflectionTransforms = nullptr;",
     )
-    if not any(
-        error.message == "new RenderWorldView fields are blocked"
-        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_dxr_world_binding)
-    ):
-        failures.append("old RuntimeRenderHost DXR reflection binding synthetic field was not rejected")
+    expect_error('old RuntimeRenderHost DXR reflection binding synthetic field was not rejected', check_runtime_render_host_guardrails_text(synthetic_path, old_dxr_world_binding), 'new RenderWorldView fields are blocked')
 
     nested_world_binding = allowed_host.replace(
         "PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;",
         "PhysicsDebugVisualizer* physicsDebugVisualizer = nullptr;\n        RunMousePickupState* mousePickup = nullptr;",
     )
-    if not any(
-        error.message == "new RenderWorldView fields are blocked"
-        for error in check_runtime_render_host_guardrails_text(synthetic_path, nested_world_binding)
-    ):
-        failures.append("new RenderWorldView synthetic field was not rejected")
+    expect_error('new RenderWorldView synthetic field was not rejected', check_runtime_render_host_guardrails_text(synthetic_path, nested_world_binding), 'new RenderWorldView fields are blocked')
 
     nested_replay_binding = allowed_host.replace(
         "ReplayRuntime* replayRuntime = nullptr;",
         "ReplayRuntime* replayRuntime = nullptr;\n        RunReplayScrubberState* scrubber = nullptr;",
     )
-    if not any(
-        error.message == "new RenderReplayOverlayView fields are blocked"
-        for error in check_runtime_render_host_guardrails_text(synthetic_path, nested_replay_binding)
-    ):
-        failures.append("new RenderReplayOverlayView synthetic field was not rejected")
+    expect_error('new RenderReplayOverlayView synthetic field was not rejected', check_runtime_render_host_guardrails_text(synthetic_path, nested_replay_binding), 'new RenderReplayOverlayView fields are blocked')
 
     nested_diagnostics_binding = allowed_host.replace(
         "RunTimerState* timers = nullptr;",
         "RunTimerState* timers = nullptr;\n        RunPerfLogState* perfLog = nullptr;",
     )
-    if not any(
-        error.message == "new RenderDiagnosticsView fields are blocked"
-        for error in check_runtime_render_host_guardrails_text(synthetic_path, nested_diagnostics_binding)
-    ):
-        failures.append("new RenderDiagnosticsView synthetic field was not rejected")
+    expect_error('new RenderDiagnosticsView synthetic field was not rejected', check_runtime_render_host_guardrails_text(synthetic_path, nested_diagnostics_binding), 'new RenderDiagnosticsView fields are blocked')
 
     new_callback = allowed_host.replace(
         "VoidFn refreshRuntimeViewModel = nullptr;",
         "VoidFn refreshRuntimeViewModel = nullptr;\n        VoidFn newRenderCallback = nullptr;",
     )
-    if not any(
-        error.message == "new RuntimeRenderHostCallbacks fields are blocked"
-        for error in check_runtime_render_host_guardrails_text(synthetic_path, new_callback)
-    ):
-        failures.append("new RuntimeRenderHostCallbacks synthetic field was not rejected")
+    expect_error('new RuntimeRenderHostCallbacks synthetic field was not rejected', check_runtime_render_host_guardrails_text(synthetic_path, new_callback), 'new RuntimeRenderHostCallbacks fields are blocked')
 
     old_main_memory_callback_typedef = allowed_host.replace(
         "using VoidFn = void ( * )( void* user );",
         "using VoidFn = void ( * )( void* user );\n        using MainMemoryStatsFn = MainMemoryStats ( * )( void* user, double nowSeconds );",
     )
-    if not any(
-        error.message == "new RuntimeRenderHostCallbacks typedefs are blocked"
-        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_main_memory_callback_typedef)
-    ):
-        failures.append("old RuntimeRenderHost main-memory callback typedef was not rejected")
+    expect_error('old RuntimeRenderHost main-memory callback typedef was not rejected', check_runtime_render_host_guardrails_text(synthetic_path, old_main_memory_callback_typedef), 'new RuntimeRenderHostCallbacks typedefs are blocked')
 
     old_main_memory_callback_field = allowed_host.replace(
         "VoidFn refreshRuntimeViewModel = nullptr;",
         "VoidFn refreshRuntimeViewModel = nullptr;\n        MainMemoryStatsFn refreshMainMemoryStats = nullptr;",
     )
-    if not any(
-        error.message == "new RuntimeRenderHostCallbacks fields are blocked"
-        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_main_memory_callback_field)
-    ):
-        failures.append("old RuntimeRenderHost main-memory callback field was not rejected")
+    expect_error('old RuntimeRenderHost main-memory callback field was not rejected', check_runtime_render_host_guardrails_text(synthetic_path, old_main_memory_callback_field), 'new RuntimeRenderHostCallbacks fields are blocked')
 
     old_scrubber_callback_field = allowed_host.replace(
         "VoidFn refreshRuntimeViewModel = nullptr;",
         "VoidFn refreshRuntimeViewModel = nullptr;\n        VoidFn shouldRenderReplayScrubber = nullptr;",
     )
-    if not any(
-        error.message == "new RuntimeRenderHostCallbacks fields are blocked"
-        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_scrubber_callback_field)
-    ):
-        failures.append("old RuntimeRenderHost scrubber callback field was not rejected")
+    expect_error('old RuntimeRenderHost scrubber callback field was not rejected', check_runtime_render_host_guardrails_text(synthetic_path, old_scrubber_callback_field), 'new RuntimeRenderHostCallbacks fields are blocked')
 
     old_replay_scrubber_overlay_callback_field = allowed_host.replace(
         "VoidFn refreshRuntimeViewModel = nullptr;",
         "VoidFn refreshRuntimeViewModel = nullptr;\n        VoidFn renderReplayScrubberOverlay = nullptr;",
     )
-    if not any(
-        error.message == "new RuntimeRenderHostCallbacks fields are blocked"
-        for error in check_runtime_render_host_guardrails_text(
-            synthetic_path,
-            old_replay_scrubber_overlay_callback_field,
-        )
-    ):
-        failures.append("old RuntimeRenderHost replay scrubber overlay callback field was not rejected")
+    expect_error('old RuntimeRenderHost replay scrubber overlay callback field was not rejected', check_runtime_render_host_guardrails_text( synthetic_path, old_replay_scrubber_overlay_callback_field, ), 'new RuntimeRenderHostCallbacks fields are blocked')
 
     old_prediction_ghost_callback_field = allowed_host.replace(
         "VoidFn refreshRuntimeViewModel = nullptr;",
         "VoidFn refreshRuntimeViewModel = nullptr;\n        VoidFn renderReplayPredictionGhosts = nullptr;",
     )
-    if not any(
-        error.message == "new RuntimeRenderHostCallbacks fields are blocked"
-        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_prediction_ghost_callback_field)
-    ):
-        failures.append("old RuntimeRenderHost replay prediction ghost callback field was not rejected")
+    expect_error('old RuntimeRenderHost replay prediction ghost callback field was not rejected', check_runtime_render_host_guardrails_text(synthetic_path, old_prediction_ghost_callback_field), 'new RuntimeRenderHostCallbacks fields are blocked')
 
     mutable_callback = allowed_host.replace(
         "using VoidFn = void ( * )( void* user );",
         "using VoidFn = void ( * )( void* user );\n        using MutableSceneFn = RunSceneState& (*)( void* user );",
     )
     mutable_errors = check_runtime_render_host_guardrails_text(synthetic_path, mutable_callback)
-    if not any(error.message == "new RuntimeRenderHostCallbacks typedefs are blocked" for error in mutable_errors):
-        failures.append("new RuntimeRenderHostCallbacks synthetic typedef was not rejected")
-    if not any(error.message == "mutable RuntimeRenderHostCallbacks returns are blocked" for error in mutable_errors):
-        failures.append("mutable RuntimeRenderHostCallbacks synthetic return was not rejected")
+    expect_error('new RuntimeRenderHostCallbacks synthetic typedef was not rejected', mutable_errors, 'new RuntimeRenderHostCallbacks typedefs are blocked')
+    expect_error('mutable RuntimeRenderHostCallbacks synthetic return was not rejected', mutable_errors, 'mutable RuntimeRenderHostCallbacks returns are blocked')
 
     mutable_pointer_callback = allowed_host.replace(
         "using VoidFn = void ( * )( void* user );",
         "using VoidFn = void ( * )( void* user );\n        using MutableScenePtrFn = RunSceneState* (*)( void* user );",
     )
     pointer_errors = check_runtime_render_host_guardrails_text(synthetic_path, mutable_pointer_callback)
-    if not any(error.message == "new RuntimeRenderHostCallbacks typedefs are blocked" for error in pointer_errors):
-        failures.append("new pointer RuntimeRenderHostCallbacks synthetic typedef was not rejected")
-    if not any(error.message == "mutable RuntimeRenderHostCallbacks returns are blocked" for error in pointer_errors):
-        failures.append("mutable pointer RuntimeRenderHostCallbacks synthetic return was not rejected")
+    expect_error('new pointer RuntimeRenderHostCallbacks synthetic typedef was not rejected', pointer_errors, 'new RuntimeRenderHostCallbacks typedefs are blocked')
+    expect_error('mutable pointer RuntimeRenderHostCallbacks synthetic return was not rejected', pointer_errors, 'mutable RuntimeRenderHostCallbacks returns are blocked')
 
     old_replay_callback = allowed_host.replace(
         "using VoidFn = void ( * )( void* user );",
         "using VoidFn = void ( * )( void* user );\n        using ReplayPresentationSampleFn = const ReplayPresentationSample* (*)( void* user );",
     )
-    if not any(
-        error.message == "new RuntimeRenderHostCallbacks typedefs are blocked"
-        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_replay_callback)
-    ):
-        failures.append("old RuntimeRenderHost replay callback typedef was not rejected")
+    expect_error('old RuntimeRenderHost replay callback typedef was not rejected', check_runtime_render_host_guardrails_text(synthetic_path, old_replay_callback), 'new RuntimeRenderHostCallbacks typedefs are blocked')
 
     old_prediction_ghost_callback_typedef = allowed_host.replace(
         "using VoidFn = void ( * )( void* user );",
         "using VoidFn = void ( * )( void* user );\n"
         "        using ReplayPredictionGhostsFn = void ( * )( void* user, const RenderFrameContext& frame );",
     )
-    if not any(
-        error.message == "new RuntimeRenderHostCallbacks typedefs are blocked"
-        for error in check_runtime_render_host_guardrails_text(synthetic_path, old_prediction_ghost_callback_typedef)
-    ):
-        failures.append("old RuntimeRenderHost replay prediction ghost callback typedef was not rejected")
+    expect_error('old RuntimeRenderHost replay prediction ghost callback typedef was not rejected', check_runtime_render_host_guardrails_text(synthetic_path, old_prediction_ghost_callback_typedef), 'new RuntimeRenderHostCallbacks typedefs are blocked')
 
     pick_service_call = "RuntimePickService::TryPickModel( request, result );"
-    if check_pick_helper_guardrails_text(Path("synthetic/RunInput.cpp"), pick_service_call):
-        failures.append("direct RuntimePickService synthetic call was rejected")
+    expect_clean('direct RuntimePickService synthetic call was rejected', check_pick_helper_guardrails_text(Path("synthetic/RunInput.cpp"), pick_service_call))
 
     old_attached_camera_model_body_reads = """
     void Run::TickAttachedCamera()
@@ -10304,14 +9553,7 @@ def run_self_tests() -> list[str]:
         view = targetPosition + direction * AttachedCameraModelRadius( target );
     }
     """
-    if not any(
-        error.message == "attached camera physics follow must use stores"
-        for error in check_attached_camera_store_authority_guardrails_text(
-            Path("synthetic/RunInput.cpp"),
-            old_attached_camera_model_body_reads,
-        )
-    ):
-        failures.append("attached camera GameModel body read synthetic surface was not rejected")
+    expect_error('attached camera GameModel body read synthetic surface was not rejected', check_attached_camera_store_authority_guardrails_text( Path("synthetic/RunInput.cpp"), old_attached_camera_model_body_reads, ), 'attached camera physics follow must use stores')
 
     old_attached_camera_model_replay_id_read = """
     bool TryResolveAttachedCameraTargetIdentity( GameModelCollection& collection,
@@ -10326,14 +9568,7 @@ def run_self_tests() -> list[str]:
         return outModelIndex >= 0;
     }
     """
-    if not any(
-        error.message == "attached camera physics follow must use stores"
-        for error in check_attached_camera_store_authority_guardrails_text(
-            Path("synthetic/RunInput.cpp"),
-            old_attached_camera_model_replay_id_read,
-        )
-    ):
-        failures.append("attached camera GameModel replay-id synthetic surface was not rejected")
+    expect_error('attached camera GameModel replay-id synthetic surface was not rejected', check_attached_camera_store_authority_guardrails_text( Path("synthetic/RunInput.cpp"), old_attached_camera_model_replay_id_read, ), 'attached camera physics follow must use stores')
 
     allowed_attached_camera_store_reads = """
     void Run::TickAttachedCamera()
@@ -10348,11 +9583,7 @@ def run_self_tests() -> list[str]:
         view = targetPosition + direction * targetState.radius;
     }
     """
-    if check_attached_camera_store_authority_guardrails_text(
-        Path("synthetic/RunInput.cpp"),
-        allowed_attached_camera_store_reads,
-    ):
-        failures.append("attached camera store-read synthetic surface was rejected")
+    expect_clean('attached camera store-read synthetic surface was rejected', check_attached_camera_store_authority_guardrails_text( Path("synthetic/RunInput.cpp"), allowed_attached_camera_store_reads, ))
 
     allowed_attached_camera_store_replay_id_read = """
     bool TryResolveAttachedCameraTargetIdentity( GameModelCollection& collection,
@@ -10364,11 +9595,7 @@ def run_self_tests() -> list[str]:
         return body && body->replayBodyId == target.replayBodyId;
     }
     """
-    if check_attached_camera_store_authority_guardrails_text(
-        Path("synthetic/RunInput.cpp"),
-        allowed_attached_camera_store_replay_id_read,
-    ):
-        failures.append("attached camera store replay-id synthetic surface was rejected")
+    expect_clean('attached camera store replay-id synthetic surface was rejected', check_attached_camera_store_authority_guardrails_text( Path("synthetic/RunInput.cpp"), allowed_attached_camera_store_replay_id_read, ))
 
     old_attached_camera_model_index_resolver = """
     void Run::TickAttachedCamera()
@@ -10380,14 +9607,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if not any(
-        error.message == "attached camera target identity must use physics handles"
-        for error in check_attached_camera_store_authority_guardrails_text(
-            Path("synthetic/RunInput.cpp"),
-            old_attached_camera_model_index_resolver,
-        )
-    ):
-        failures.append("attached camera model-index physics resolver synthetic surface was not rejected")
+    expect_error('attached camera model-index physics resolver synthetic surface was not rejected', check_attached_camera_store_authority_guardrails_text( Path("synthetic/RunInput.cpp"), old_attached_camera_model_index_resolver, ), 'attached camera target identity must use physics handles')
 
     old_attached_camera_model_index_resolver_definition = """
     bool TryResolveAttachedCameraPhysicsTarget( GameModelCollection& collection,
@@ -10397,14 +9617,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "attached camera target identity must use physics handles"
-        for error in check_attached_camera_store_authority_guardrails_text(
-            Path("synthetic/RunInput.cpp"),
-            old_attached_camera_model_index_resolver_definition,
-        )
-    ):
-        failures.append("attached camera model-index resolver definition synthetic surface was not rejected")
+    expect_error('attached camera model-index resolver definition synthetic surface was not rejected', check_attached_camera_store_authority_guardrails_text( Path("synthetic/RunInput.cpp"), old_attached_camera_model_index_resolver_definition, ), 'attached camera target identity must use physics handles')
 
     commented_attached_camera_model_reads = """
     void DocumentAttachedCameraHistory()
@@ -10412,11 +9625,7 @@ def run_self_tests() -> list[str]:
         // target.GetPosition(), target.GetVelocity(), and AttachedCameraModelRadius(target) used to live here.
     }
     """
-    if check_attached_camera_store_authority_guardrails_text(
-        Path("synthetic/RunInput.cpp"),
-        commented_attached_camera_model_reads,
-    ):
-        failures.append("comment-only attached camera GameModel body read synthetic text was rejected")
+    expect_clean('comment-only attached camera GameModel body read synthetic text was rejected', check_attached_camera_store_authority_guardrails_text( Path("synthetic/RunInput.cpp"), commented_attached_camera_model_reads, ))
 
     old_object_contact_model_overload = """
     bool BuildObjectContactManifold( const GameModel& a,
@@ -10436,14 +9645,7 @@ def run_self_tests() -> list[str]:
                                            out );
     }
     """
-    if not any(
-        error.message == "object contact manifolds must use store snapshots"
-        for error in check_object_contact_manifold_store_authority_guardrails_text(
-            Path("SkullbonezSource/Physics/ObjectContactManifold.cpp"),
-            old_object_contact_model_overload,
-        )
-    ):
-        failures.append("old GameModel object-contact manifold overload synthetic surface was not rejected")
+    expect_error('old GameModel object-contact manifold overload synthetic surface was not rejected', check_object_contact_manifold_store_authority_guardrails_text( Path("SkullbonezSource/Physics/ObjectContactManifold.cpp"), old_object_contact_model_overload, ), 'object contact manifolds must use store snapshots')
 
     allowed_object_contact_store_surface = """
     bool BuildObjectContactManifold( const ObjectContactBodyView& a,
@@ -10458,11 +9660,7 @@ def run_self_tests() -> list[str]:
         return DispatchShapePair( a, shapeA, b, shapeB, contactSkin, out );
     }
     """
-    if check_object_contact_manifold_store_authority_guardrails_text(
-        Path("SkullbonezSource/Physics/ObjectContactManifold.cpp"),
-        allowed_object_contact_store_surface,
-    ):
-        failures.append("store-backed object-contact manifold synthetic surface was rejected")
+    expect_clean('store-backed object-contact manifold synthetic surface was rejected', check_object_contact_manifold_store_authority_guardrails_text( Path("SkullbonezSource/Physics/ObjectContactManifold.cpp"), allowed_object_contact_store_surface, ))
 
     old_required_scene_contact_model_reads = """
     void Run::UpdateRequiredSceneContacts()
@@ -10477,14 +9675,7 @@ def run_self_tests() -> list[str]:
                                     manifold );
     }
     """
-    if not any(
-        error.message == "required scene contacts must use physics stores"
-        for error in check_object_contact_manifold_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Scene/RunScene.cpp"),
-            old_required_scene_contact_model_reads,
-        )
-    ):
-        failures.append("old required scene-contact GameModel manifold synthetic surface was not rejected")
+    expect_error('old required scene-contact GameModel manifold synthetic surface was not rejected', check_object_contact_manifold_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Scene/RunScene.cpp"), old_required_scene_contact_model_reads, ), 'required scene contacts must use physics stores')
 
     allowed_required_scene_contact_store_reads = """
     void Run::UpdateRequiredSceneContacts()
@@ -10504,11 +9695,7 @@ def run_self_tests() -> list[str]:
                                     manifold );
     }
     """
-    if check_object_contact_manifold_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Scene/RunScene.cpp"),
-        allowed_required_scene_contact_store_reads,
-    ):
-        failures.append("store-backed required scene-contact synthetic surface was rejected")
+    expect_clean('store-backed required scene-contact synthetic surface was rejected', check_object_contact_manifold_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Scene/RunScene.cpp"), allowed_required_scene_contact_store_reads, ))
 
     commented_object_contact_model_reads = """
     void DocumentOldContactPath()
@@ -10517,97 +9704,36 @@ def run_self_tests() -> list[str]:
         UseBodyAndColliderStores();
     }
     """
-    if check_object_contact_manifold_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Scene/RunScene.cpp"),
-        commented_object_contact_model_reads,
-    ):
-        failures.append("comment-only object-contact GameModel synthetic text was rejected")
+    expect_clean('comment-only object-contact GameModel synthetic text was rejected', check_object_contact_manifold_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Scene/RunScene.cpp"), commented_object_contact_model_reads, ))
 
     duplicated_pick_helper = "bool Run::TryPickEditorModel( const Ray& ray ) { return false; }"
-    if not any(
-        error.message == "duplicated runtime pick helper wrappers are blocked"
-        for error in check_pick_helper_guardrails_text(Path("synthetic/RunEditorTools.cpp"), duplicated_pick_helper)
-    ):
-        failures.append("duplicated runtime pick helper synthetic wrapper was not rejected")
+    expect_error('duplicated runtime pick helper synthetic wrapper was not rejected', check_pick_helper_guardrails_text(Path("synthetic/RunEditorTools.cpp"), duplicated_pick_helper), 'duplicated runtime pick helper wrappers are blocked')
 
     suffixed_pick_helper = "bool Run::TryPickEditorModelFromMouse() { return false; }"
-    if not any(
-        error.message == "duplicated runtime pick helper wrappers are blocked"
-        for error in check_pick_helper_guardrails_text(Path("synthetic/RunEditorTools.cpp"), suffixed_pick_helper)
-    ):
-        failures.append("suffixed runtime pick helper synthetic wrapper was not rejected")
+    expect_error('suffixed runtime pick helper synthetic wrapper was not rejected', check_pick_helper_guardrails_text(Path("synthetic/RunEditorTools.cpp"), suffixed_pick_helper), 'duplicated runtime pick helper wrappers are blocked')
 
     old_replay_cause_tree_source_helper = "bool Run::BuildReplayCauseTreeRows() { return false; }"
-    if not any(
-        error.message == "Run replay cause-tree row builders are blocked"
-        for error in check_run_replay_cause_tree_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_cause_tree_source_helper,
-        )
-    ):
-        failures.append("replay cause-tree source helper synthetic surface was not rejected")
+    expect_error('replay cause-tree source helper synthetic surface was not rejected', check_run_replay_cause_tree_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_cause_tree_source_helper, ), 'Run replay cause-tree row builders are blocked')
 
     renamed_replay_cause_tree_source_helper = "bool Run::BuildCauseTreeRows() { return false; }"
-    if not any(
-        error.message == "Run replay cause-tree row builders are blocked"
-        for error in check_run_replay_cause_tree_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            renamed_replay_cause_tree_source_helper,
-        )
-    ):
-        failures.append("renamed replay cause-tree source helper synthetic surface was not rejected")
+    expect_error('renamed replay cause-tree source helper synthetic surface was not rejected', check_run_replay_cause_tree_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), renamed_replay_cause_tree_source_helper, ), 'Run replay cause-tree row builders are blocked')
 
     old_replay_prediction_job_source_helper = "void Run::CancelReplayPredictionJob( bool clearSamples ) {}"
-    if not any(
-        error.message == "Run replay prediction job-state helpers are blocked"
-        for error in check_run_replay_prediction_job_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_prediction_job_source_helper,
-        )
-    ):
-        failures.append("replay prediction job-state source helper synthetic surface was not rejected")
+    expect_error('replay prediction job-state source helper synthetic surface was not rejected', check_run_replay_prediction_job_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_prediction_job_source_helper, ), 'Run replay prediction job-state helpers are blocked')
 
     old_replay_prediction_capture_source_helper = "void Run::CaptureReplayPredictionFrame( ReplayFrameIndex frameIndex ) {}"
-    if not any(
-        error.message == "Run replay prediction capture helpers are blocked"
-        for error in check_run_replay_prediction_capture_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_prediction_capture_source_helper,
-        )
-    ):
-        failures.append("replay prediction capture source helper synthetic surface was not rejected")
+    expect_error('replay prediction capture source helper synthetic surface was not rejected', check_run_replay_prediction_capture_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_prediction_capture_source_helper, ), 'Run replay prediction capture helpers are blocked')
 
     old_replay_prediction_lifecycle_source_helper = "bool Run::StepReplayPredictionJob() { return false; }"
-    if not any(
-        error.message == "Run replay prediction lifecycle helpers are blocked"
-        for error in check_run_replay_prediction_lifecycle_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_prediction_lifecycle_source_helper,
-        )
-    ):
-        failures.append("replay prediction lifecycle source helper synthetic surface was not rejected")
+    expect_error('replay prediction lifecycle source helper synthetic surface was not rejected', check_run_replay_prediction_lifecycle_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_prediction_lifecycle_source_helper, ), 'Run replay prediction lifecycle helpers are blocked')
 
     old_replay_path_state_source_helper = "void Run::ClearReplayPathVisualizer() {}"
-    if not any(
-        error.message == "Run replay path-state helpers are blocked"
-        for error in check_run_replay_path_state_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_path_state_source_helper,
-        )
-    ):
-        failures.append("replay path-state source helper synthetic surface was not rejected")
+    expect_error('replay path-state source helper synthetic surface was not rejected', check_run_replay_path_state_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_path_state_source_helper, ), 'Run replay path-state helpers are blocked')
 
     old_replay_cause_tree_lookup_source_helper = (
         "bool Run::TryResolveReplayCauseTreeBodyPosition( ReplayBodyId id ) { return false; }"
     )
-    if not any(
-        error.message == "Run replay cause-tree lookup helpers are blocked"
-        for error in check_run_replay_cause_tree_lookup_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_cause_tree_lookup_source_helper,
-        )
-    ):
-        failures.append("replay cause-tree body lookup source helper synthetic surface was not rejected")
+    expect_error('replay cause-tree body lookup source helper synthetic surface was not rejected', check_run_replay_cause_tree_lookup_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_cause_tree_lookup_source_helper, ), 'Run replay cause-tree lookup helpers are blocked')
 
     old_replay_cause_tree_model_param = """
     bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
@@ -10618,14 +9744,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "replay cause-tree GameModel body lookup parameter is blocked"
-        for error in check_run_replay_cause_tree_lookup_source_guardrails_text(
-            Path("synthetic/ReplayRuntime.cpp"),
-            old_replay_cause_tree_model_param,
-        )
-    ):
-        failures.append("replay cause-tree GameModel parameter synthetic surface was not rejected")
+    expect_error('replay cause-tree GameModel parameter synthetic surface was not rejected', check_run_replay_cause_tree_lookup_source_guardrails_text( Path("synthetic/ReplayRuntime.cpp"), old_replay_cause_tree_model_param, ), 'replay cause-tree GameModel body lookup parameter is blocked')
 
     old_replay_cause_tree_model_body_read = """
     bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
@@ -10642,14 +9761,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "replay cause-tree GameModel body read is blocked"
-        for error in check_run_replay_cause_tree_lookup_source_guardrails_text(
-            Path("synthetic/ReplayRuntime.cpp"),
-            old_replay_cause_tree_model_body_read,
-        )
-    ):
-        failures.append("replay cause-tree GameModel body read synthetic surface was not rejected")
+    expect_error('replay cause-tree GameModel body read synthetic surface was not rejected', check_run_replay_cause_tree_lookup_source_guardrails_text( Path("synthetic/ReplayRuntime.cpp"), old_replay_cause_tree_model_body_read, ), 'replay cause-tree GameModel body read is blocked')
 
     allowed_replay_cause_tree_store_lookup = """
     bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
@@ -10664,11 +9776,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if check_run_replay_cause_tree_lookup_source_guardrails_text(
-        Path("synthetic/ReplayRuntime.cpp"),
-        allowed_replay_cause_tree_store_lookup,
-    ):
-        failures.append("store-backed replay cause-tree lookup synthetic surface was rejected")
+    expect_clean('store-backed replay cause-tree lookup synthetic surface was rejected', check_run_replay_cause_tree_lookup_source_guardrails_text( Path("synthetic/ReplayRuntime.cpp"), allowed_replay_cause_tree_store_lookup, ))
 
     commented_replay_cause_tree_model_body_read = """
     void DocumentOldCauseTreeLookup()
@@ -10677,11 +9785,7 @@ def run_self_tests() -> list[str]:
         outPosition = body.position;
     }
     """
-    if check_run_replay_cause_tree_lookup_source_guardrails_text(
-        Path("synthetic/ReplayRuntime.cpp"),
-        commented_replay_cause_tree_model_body_read,
-    ):
-        failures.append("comment-only replay cause-tree model body read synthetic text was rejected")
+    expect_clean('comment-only replay cause-tree model body read synthetic text was rejected', check_run_replay_cause_tree_lookup_source_guardrails_text( Path("synthetic/ReplayRuntime.cpp"), commented_replay_cause_tree_model_body_read, ))
 
     old_replay_cause_tree_identity_model_scan = """
     bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models )
@@ -10696,14 +9800,7 @@ def run_self_tests() -> list[str]:
         return false;
     }
     """
-    if not any(
-        error.message == "replay cause-tree GameModel replay-id lookup is blocked"
-        for error in check_run_replay_cause_tree_lookup_source_guardrails_text(
-            Path("synthetic/ReplayRuntime.cpp"),
-            old_replay_cause_tree_identity_model_scan,
-        )
-    ):
-        failures.append("old replay cause-tree GameModel replay-id scan synthetic surface was not rejected")
+    expect_error('old replay cause-tree GameModel replay-id scan synthetic surface was not rejected', check_run_replay_cause_tree_lookup_source_guardrails_text( Path("synthetic/ReplayRuntime.cpp"), old_replay_cause_tree_identity_model_scan, ), 'replay cause-tree GameModel replay-id lookup is blocked')
 
     old_replay_focus_mask_collection_signature = """
     bool ReplayRuntime::BuildFocusModelMask( const GameObjects::GameModelCollection& collection )
@@ -10720,10 +9817,8 @@ def run_self_tests() -> list[str]:
         Path("synthetic/ReplayRuntime.cpp"),
         old_replay_focus_mask_collection_signature,
     )
-    if not any( error.message == "replay focus mask collection parameter is blocked" for error in focus_mask_errors ):
-        failures.append("old replay focus mask collection parameter synthetic surface was not rejected")
-    if not any( error.message == "replay focus mask GameModel replay-id lookup is blocked" for error in focus_mask_errors ):
-        failures.append("old replay focus mask GameModel replay-id lookup synthetic surface was not rejected")
+    expect_error('old replay focus mask collection parameter synthetic surface was not rejected', focus_mask_errors, 'replay focus mask collection parameter is blocked')
+    expect_error('old replay focus mask GameModel replay-id lookup synthetic surface was not rejected', focus_mask_errors, 'replay focus mask GameModel replay-id lookup is blocked')
 
     allowed_replay_cause_tree_body_store_identity = """
     bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models,
@@ -10741,250 +9836,92 @@ def run_self_tests() -> list[str]:
         return bodyStore.ModelIndexForHandle( body ) < modelCount;
     }
     """
-    if check_run_replay_cause_tree_lookup_source_guardrails_text(
-        Path("synthetic/ReplayRuntime.cpp"),
-        allowed_replay_cause_tree_body_store_identity,
-    ):
-        failures.append("store-owned replay cause-tree/focus identity synthetic surface was rejected")
+    expect_clean('store-owned replay cause-tree/focus identity synthetic surface was rejected', check_run_replay_cause_tree_lookup_source_guardrails_text( Path("synthetic/ReplayRuntime.cpp"), allowed_replay_cause_tree_body_store_identity, ))
 
     old_replay_cause_tree_focus_source_helper = "bool Run::FocusReplayCauseTreeBody( ReplayBodyId id ) { return true; }"
-    if not any(
-        error.message == "Run replay cause-tree focus wrappers are blocked"
-        for error in check_run_replay_cause_tree_focus_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_cause_tree_focus_source_helper,
-        )
-    ):
-        failures.append("replay cause-tree body focus source helper synthetic surface was not rejected")
+    expect_error('replay cause-tree body focus source helper synthetic surface was not rejected', check_run_replay_cause_tree_focus_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_cause_tree_focus_source_helper, ), 'Run replay cause-tree focus wrappers are blocked')
 
     old_replay_cause_tree_camera_activation_source_helper = (
         "void Run::ActivateReplayCameraForCauseRow( const RunReplayCauseTreeRow& row, int rowIndex ) {}"
     )
-    if not any(
-        error.message == "Run replay cause-tree camera activation helper is blocked"
-        for error in check_run_replay_cause_tree_camera_activation_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_cause_tree_camera_activation_source_helper,
-        )
-    ):
-        failures.append("replay cause-tree camera activation source helper synthetic surface was not rejected")
+    expect_error('replay cause-tree camera activation source helper synthetic surface was not rejected', check_run_replay_cause_tree_camera_activation_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_cause_tree_camera_activation_source_helper, ), 'Run replay cause-tree camera activation helper is blocked')
 
     old_replay_render_state_source_helper = "void Run::RestoreReplayRenderStateForFrame() {}"
-    if not any(
-        error.message == "Run replay render-state helpers are blocked"
-        for error in check_run_replay_render_state_source_guardrails_text(
-            Path("synthetic/RunRender.cpp"),
-            old_replay_render_state_source_helper,
-        )
-    ):
-        failures.append("replay render-state source helper synthetic surface was not rejected")
+    expect_error('replay render-state source helper synthetic surface was not rejected', check_run_replay_render_state_source_guardrails_text( Path("synthetic/RunRender.cpp"), old_replay_render_state_source_helper, ), 'Run replay render-state helpers are blocked')
 
     old_replay_launcher_visual_sample_source_helper = (
         "void Run::RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample ) {}"
     )
-    if not any(
-        error.message == "Run replay launcher visual sample helpers are blocked"
-        for error in check_run_replay_launcher_visual_sample_source_guardrails_text(
-            Path("synthetic/Run.cpp"),
-            old_replay_launcher_visual_sample_source_helper,
-        )
-    ):
-        failures.append("replay launcher visual sample source helper synthetic surface was not rejected")
+    expect_error('replay launcher visual sample source helper synthetic surface was not rejected', check_run_replay_launcher_visual_sample_source_guardrails_text( Path("synthetic/Run.cpp"), old_replay_launcher_visual_sample_source_helper, ), 'Run replay launcher visual sample helpers are blocked')
 
     old_replay_sample_comparison_source_helper = "void Run::CompareLatestReplaySamples() {}"
-    if not any(
-        error.message == "Run replay sample comparison helper is blocked"
-        for error in check_run_replay_sample_comparison_source_guardrails_text(
-            Path("synthetic/RunFrame.cpp"),
-            old_replay_sample_comparison_source_helper,
-        )
-    ):
-        failures.append("replay sample comparison source helper synthetic surface was not rejected")
+    expect_error('replay sample comparison source helper synthetic surface was not rejected', check_run_replay_sample_comparison_source_guardrails_text( Path("synthetic/RunFrame.cpp"), old_replay_sample_comparison_source_helper, ), 'Run replay sample comparison helper is blocked')
 
     old_render_host_texture_source_helper = (
         "Textures::TextureCollection& Run::Textures() { throw; }\n"
         "uint32_t Run::TextureHandle( uint32_t textureHash ) { return textureHash; }\n"
         "void Run::SelectRenderTexture( uint32_t textureHash ) { (void)textureHash; }"
     )
-    if not any(
-        error.message == "Run render host texture wrappers are blocked"
-        for error in check_run_render_host_texture_source_guardrails_text(
-            Path("synthetic/Run.cpp"),
-            old_render_host_texture_source_helper,
-        )
-    ):
-        failures.append("render host texture source helpers synthetic surface was not rejected")
+    expect_error('render host texture source helpers synthetic surface was not rejected', check_run_render_host_texture_source_guardrails_text( Path("synthetic/Run.cpp"), old_render_host_texture_source_helper, ), 'Run render host texture wrappers are blocked')
 
     old_replay_presentation_picker_source_helper = "bool Run::PromptLoadReplayPresentationArtifact( HWND hwnd ) { return false; }"
-    if not any(
-        error.message == "Run replay presentation artifact picker is blocked"
-        for error in check_run_replay_presentation_picker_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_presentation_picker_source_helper,
-        )
-    ):
-        failures.append("replay presentation picker source helper synthetic surface was not rejected")
+    expect_error('replay presentation picker source helper synthetic surface was not rejected', check_run_replay_presentation_picker_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_presentation_picker_source_helper, ), 'Run replay presentation artifact picker is blocked')
 
     old_replay_scrubber_save_source_helper = "bool Run::SaveReplayBufferFromScrubber( RunReplayTrack track ) { return false; }"
-    if not any(
-        error.message == "Run replay scrubber save helper is blocked"
-        for error in check_run_replay_scrubber_save_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_scrubber_save_source_helper,
-        )
-    ):
-        failures.append("replay scrubber save source helper synthetic surface was not rejected")
+    expect_error('replay scrubber save source helper synthetic surface was not rejected', check_run_replay_scrubber_save_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_scrubber_save_source_helper, ), 'Run replay scrubber save helper is blocked')
 
     old_replay_restore_event_source_helper = (
         "bool Run::ApplyReplayEventForRestoreTarget( const ReplayEventSample& event, char* outReason, "
         "std::size_t reasonSize ) { return false; }"
     )
-    if not any(
-        error.message == "Run replay restore event helper is blocked"
-        for error in check_run_replay_restore_event_source_guardrails_text(
-            Path("synthetic/RunFrame.cpp"),
-            old_replay_restore_event_source_helper,
-        )
-    ):
-        failures.append("replay restore event source helper synthetic surface was not rejected")
+    expect_error('replay restore event source helper synthetic surface was not rejected', check_run_replay_restore_event_source_guardrails_text( Path("synthetic/RunFrame.cpp"), old_replay_restore_event_source_helper, ), 'Run replay restore event helper is blocked')
 
     old_replay_inspection_camera_source_helper = "void Run::UpdateReplayInspectionCamera() {}"
-    if not any(
-        error.message == "Run replay inspection camera update wrapper is blocked"
-        for error in check_run_replay_inspection_camera_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_inspection_camera_source_helper,
-        )
-    ):
-        failures.append("replay inspection camera source helper synthetic surface was not rejected")
+    expect_error('replay inspection camera source helper synthetic surface was not rejected', check_run_replay_inspection_camera_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_inspection_camera_source_helper, ), 'Run replay inspection camera update wrapper is blocked')
 
     old_replay_inspection_query_source_helper = (
         "bool Run::ReplayInspectionActive() const { return false; }\n"
         "bool Run::ReplayInspectionMouseLookActive() const { return false; }"
     )
-    if not any(
-        error.message == "Run replay inspection query wrappers are blocked"
-        for error in check_run_replay_inspection_query_source_guardrails_text(
-            Path("synthetic/RunInput.cpp"),
-            old_replay_inspection_query_source_helper,
-        )
-    ):
-        failures.append("replay inspection query source helpers synthetic surface was not rejected")
+    expect_error('replay inspection query source helpers synthetic surface was not rejected', check_run_replay_inspection_query_source_guardrails_text( Path("synthetic/RunInput.cpp"), old_replay_inspection_query_source_helper, ), 'Run replay inspection query wrappers are blocked')
 
     old_replay_live_advance_source_helper = "void Run::SetReplayLiveAdvanceHeld( bool held ) { }"
-    if not any(
-        error.message == "Run replay live-advance wrapper is blocked"
-        for error in check_run_replay_live_advance_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_live_advance_source_helper,
-        )
-    ):
-        failures.append("replay live-advance source helper synthetic surface was not rejected")
+    expect_error('replay live-advance source helper synthetic surface was not rejected', check_run_replay_live_advance_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_live_advance_source_helper, ), 'Run replay live-advance wrapper is blocked')
 
     old_replay_scrubber_reset_source_helper = "void Run::ResetReplayScrubber() {}"
-    if not any(
-        error.message == "Run replay scrubber reset wrapper is blocked"
-        for error in check_run_replay_scrubber_reset_source_guardrails_text(
-            Path("synthetic/Run.cpp"),
-            old_replay_scrubber_reset_source_helper,
-        )
-    ):
-        failures.append("replay scrubber reset source helper synthetic surface was not rejected")
+    expect_error('replay scrubber reset source helper synthetic surface was not rejected', check_run_replay_scrubber_reset_source_guardrails_text( Path("synthetic/Run.cpp"), old_replay_scrubber_reset_source_helper, ), 'Run replay scrubber reset wrapper is blocked')
 
     old_replay_event_frame_cursor_source_helper = "ReplayFrameIndex Run::NextReplayEventFrameIndex() const { return 0; }"
-    if not any(
-        error.message == "Run replay event frame cursor wrapper is blocked"
-        for error in check_run_replay_event_frame_cursor_source_guardrails_text(
-            Path("synthetic/Run.cpp"),
-            old_replay_event_frame_cursor_source_helper,
-        )
-    ):
-        failures.append("replay event frame cursor source helper synthetic surface was not rejected")
+    expect_error('replay event frame cursor source helper synthetic surface was not rejected', check_run_replay_event_frame_cursor_source_guardrails_text( Path("synthetic/Run.cpp"), old_replay_event_frame_cursor_source_helper, ), 'Run replay event frame cursor wrapper is blocked')
 
     old_replay_event_record_source_helper = "void Run::RecordReplayEvent( ReplayEventKind kind ) { }"
-    if not any(
-        error.message == "Run replay event record wrapper is blocked"
-        for error in check_run_replay_event_record_source_guardrails_text(
-            Path("synthetic/Run.cpp"),
-            old_replay_event_record_source_helper,
-        )
-    ):
-        failures.append("replay event record source helper synthetic surface was not rejected")
+    expect_error('replay event record source helper synthetic surface was not rejected', check_run_replay_event_record_source_guardrails_text( Path("synthetic/Run.cpp"), old_replay_event_record_source_helper, ), 'Run replay event record wrapper is blocked')
 
     old_replay_generated_scene_config_source_helper = "void Run::RecordReplayGeneratedSceneConfigEvent() { }"
-    if not any(
-        error.message == "Run replay generated-scene config wrapper is blocked"
-        for error in check_run_replay_generated_scene_config_source_guardrails_text(
-            Path("synthetic/Run.cpp"),
-            old_replay_generated_scene_config_source_helper,
-        )
-    ):
-        failures.append("replay generated-scene config source helper synthetic surface was not rejected")
+    expect_error('replay generated-scene config source helper synthetic surface was not rejected', check_run_replay_generated_scene_config_source_guardrails_text( Path("synthetic/Run.cpp"), old_replay_generated_scene_config_source_helper, ), 'Run replay generated-scene config wrapper is blocked')
 
     old_replay_physics_capture_source_helper = (
         "void Run::CaptureReplayPhysicsStep() { }\n"
         "void Run::CaptureReplayPhysicsStepThunk( void* userData ) { }"
     )
-    if not any(
-        error.message == "Run replay physics capture wrappers are blocked"
-        for error in check_run_replay_physics_capture_source_guardrails_text(
-            Path("synthetic/RunFrame.cpp"),
-            old_replay_physics_capture_source_helper,
-        )
-    ):
-        failures.append("replay physics capture source helper synthetic surface was not rejected")
+    expect_error('replay physics capture source helper synthetic surface was not rejected', check_run_replay_physics_capture_source_guardrails_text( Path("synthetic/RunFrame.cpp"), old_replay_physics_capture_source_helper, ), 'Run replay physics capture wrappers are blocked')
 
     old_replay_world_override_event_source_helper = "void Run::RecordReplayWorldOverrideEvent( float gravity ) { }"
-    if not any(
-        error.message == "Run replay world override event wrapper is blocked"
-        for error in check_run_replay_world_override_event_source_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_replay_world_override_event_source_helper,
-        )
-    ):
-        failures.append("replay world override event source helper synthetic surface was not rejected")
+    expect_error('replay world override event source helper synthetic surface was not rejected', check_run_replay_world_override_event_source_guardrails_text( Path("synthetic/RunScene.cpp"), old_replay_world_override_event_source_helper, ), 'Run replay world override event wrapper is blocked')
 
     old_replay_launcher_config_event_source_helper = "void Run::RecordReplayLauncherConfigEvent( uint32_t changedFlags ) { }"
-    if not any(
-        error.message == "Run replay launcher config event wrapper is blocked"
-        for error in check_run_replay_launcher_config_event_source_guardrails_text(
-            Path("synthetic/RunInput.cpp"),
-            old_replay_launcher_config_event_source_helper,
-        )
-    ):
-        failures.append("replay launcher config event source helper synthetic surface was not rejected")
+    expect_error('replay launcher config event source helper synthetic surface was not rejected', check_run_replay_launcher_config_event_source_guardrails_text( Path("synthetic/RunInput.cpp"), old_replay_launcher_config_event_source_helper, ), 'Run replay launcher config event wrapper is blocked')
 
     old_replay_launcher_fire_event_source_helper = "void Run::RecordReplayLauncherFireEvent( const Vector3& rayOrigin ) { }"
-    if not any(
-        error.message == "Run replay launcher fire event wrapper is blocked"
-        for error in check_run_replay_launcher_fire_event_source_guardrails_text(
-            Path("synthetic/RunInput.cpp"),
-            old_replay_launcher_fire_event_source_helper,
-        )
-    ):
-        failures.append("replay launcher fire event source helper synthetic surface was not rejected")
+    expect_error('replay launcher fire event source helper synthetic surface was not rejected', check_run_replay_launcher_fire_event_source_guardrails_text( Path("synthetic/RunInput.cpp"), old_replay_launcher_fire_event_source_helper, ), 'Run replay launcher fire event wrapper is blocked')
 
     old_replay_editor_place_event_source_helper = "void Run::RecordReplayEditorPlaceEvent( int objectType ) { }"
-    if not any(
-        error.message == "Run replay editor place event wrapper is blocked"
-        for error in check_run_replay_editor_place_event_source_guardrails_text(
-            Path("synthetic/RunEditorTools.cpp"),
-            old_replay_editor_place_event_source_helper,
-        )
-    ):
-        failures.append("replay editor place event source helper synthetic surface was not rejected")
+    expect_error('replay editor place event source helper synthetic surface was not rejected', check_run_replay_editor_place_event_source_guardrails_text( Path("synthetic/RunEditorTools.cpp"), old_replay_editor_place_event_source_helper, ), 'Run replay editor place event wrapper is blocked')
 
     old_replay_editor_transform_event_source_helper = (
         "void Run::RecordReplayEditorTransformEvent( int modelIndex ) { }"
     )
-    if not any(
-        error.message == "Run replay editor transform event wrapper is blocked"
-        for error in check_run_replay_editor_transform_event_source_guardrails_text(
-            Path("synthetic/RunEditorTools.cpp"),
-            old_replay_editor_transform_event_source_helper,
-        )
-    ):
-        failures.append("replay editor transform event source helper synthetic surface was not rejected")
+    expect_error('replay editor transform event source helper synthetic surface was not rejected', check_run_replay_editor_transform_event_source_guardrails_text( Path("synthetic/RunEditorTools.cpp"), old_replay_editor_transform_event_source_helper, ), 'Run replay editor transform event wrapper is blocked')
 
     old_replay_editor_transform_model_param = """
     void ReplayRuntime::RecordEditorTransformEvent( int modelIndex,
@@ -10995,14 +9932,7 @@ def run_self_tests() -> list[str]:
         RecordEvent();
     }
     """
-    if not any(
-        error.message == "ReplayRuntime editor transform event GameModel parameter is blocked"
-        for error in check_run_replay_editor_transform_event_source_guardrails_text(
-            Path("synthetic/ReplayRuntime.cpp"),
-            old_replay_editor_transform_model_param,
-        )
-    ):
-        failures.append("replay editor transform GameModel parameter synthetic surface was not rejected")
+    expect_error('replay editor transform GameModel parameter synthetic surface was not rejected', check_run_replay_editor_transform_event_source_guardrails_text( Path("synthetic/ReplayRuntime.cpp"), old_replay_editor_transform_model_param, ), 'ReplayRuntime editor transform event GameModel parameter is blocked')
 
     allowed_replay_editor_transform_body_values = """
     void ReplayRuntime::RecordEditorTransformEvent( int modelIndex,
@@ -11015,11 +9945,7 @@ def run_self_tests() -> list[str]:
         RecordEvent();
     }
     """
-    if check_run_replay_editor_transform_event_source_guardrails_text(
-        Path("synthetic/ReplayRuntime.cpp"),
-        allowed_replay_editor_transform_body_values,
-    ):
-        failures.append("store-backed replay editor transform event synthetic surface was rejected")
+    expect_clean('store-backed replay editor transform event synthetic surface was rejected', check_run_replay_editor_transform_event_source_guardrails_text( Path("synthetic/ReplayRuntime.cpp"), allowed_replay_editor_transform_body_values, ))
 
     commented_replay_editor_transform_model_param = """
     void DocumentOldReplayTransformRecorder()
@@ -11028,217 +9954,73 @@ def run_self_tests() -> list[str]:
         RecordEditorTransformEvent( modelIndex, flags, replayBodyId, position, orientation, modelCount );
     }
     """
-    if check_run_replay_editor_transform_event_source_guardrails_text(
-        Path("synthetic/ReplayRuntime.cpp"),
-        commented_replay_editor_transform_model_param,
-    ):
-        failures.append("comment-only replay editor transform model parameter synthetic text was rejected")
+    expect_clean('comment-only replay editor transform model parameter synthetic text was rejected', check_run_replay_editor_transform_event_source_guardrails_text( Path("synthetic/ReplayRuntime.cpp"), commented_replay_editor_transform_model_param, ))
 
     old_replay_loaded_presentation_scrubber_source_helper = (
         "void Run::ArmLoadedReplayPresentationScrubber( float normalized ) { }"
     )
-    if not any(
-        error.message == "Run loaded-presentation scrubber arming wrapper is blocked"
-        for error in check_run_replay_loaded_presentation_scrubber_source_guardrails_text(
-            Path("synthetic/Run.cpp"),
-            old_replay_loaded_presentation_scrubber_source_helper,
-        )
-    ):
-        failures.append("replay loaded-presentation scrubber source helper synthetic surface was not rejected")
+    expect_error('replay loaded-presentation scrubber source helper synthetic surface was not rejected', check_run_replay_loaded_presentation_scrubber_source_guardrails_text( Path("synthetic/Run.cpp"), old_replay_loaded_presentation_scrubber_source_helper, ), 'Run loaded-presentation scrubber arming wrapper is blocked')
 
     old_replay_camera_focus_clear_source_helper = "void Run::ClearReplayCameraFocus( bool restoreCamera ) { }"
-    if not any(
-        error.message == "Run replay camera focus clear wrapper is blocked"
-        for error in check_run_replay_camera_focus_clear_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_camera_focus_clear_source_helper,
-        )
-    ):
-        failures.append("replay camera focus clear source helper synthetic surface was not rejected")
+    expect_error('replay camera focus clear source helper synthetic surface was not rejected', check_run_replay_camera_focus_clear_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_camera_focus_clear_source_helper, ), 'Run replay camera focus clear wrapper is blocked')
 
     old_replay_velocity_target_source_helper = "int Run::ResolveReplayVelocityEditModelIndex() const { return -1; }"
-    if not any(
-        error.message == "Run replay velocity target lookup helpers are blocked"
-        for error in check_run_replay_velocity_target_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_velocity_target_source_helper,
-        )
-    ):
-        failures.append("replay velocity target source helper synthetic surface was not rejected")
+    expect_error('replay velocity target source helper synthetic surface was not rejected', check_run_replay_velocity_target_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_velocity_target_source_helper, ), 'Run replay velocity target lookup helpers are blocked')
 
     old_replay_velocity_hit_source_helper = "int Run::HitReplayVelocityLinearAxis() const { return -1; }"
-    if not any(
-        error.message == "Run replay velocity hit helpers are blocked"
-        for error in check_run_replay_velocity_hit_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_velocity_hit_source_helper,
-        )
-    ):
-        failures.append("replay velocity hit source helper synthetic surface was not rejected")
+    expect_error('replay velocity hit source helper synthetic surface was not rejected', check_run_replay_velocity_hit_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_velocity_hit_source_helper, ), 'Run replay velocity hit helpers are blocked')
 
     old_replay_velocity_toggle_source_helper = "void Run::SetReplayVelocityEditEnabled(bool enabled) {}"
-    if not any(
-        error.message == "Run replay velocity edit toggle helper is blocked"
-        for error in check_run_replay_velocity_toggle_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_velocity_toggle_source_helper,
-        )
-    ):
-        failures.append("replay velocity edit toggle source helper synthetic surface was not rejected")
+    expect_error('replay velocity edit toggle source helper synthetic surface was not rejected', check_run_replay_velocity_toggle_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_velocity_toggle_source_helper, ), 'Run replay velocity edit toggle helper is blocked')
 
     old_replay_velocity_apply_source_helper = "void Run::ApplyReplayVelocityEditDrag() {}"
-    if not any(
-        error.message == "Run replay velocity apply helper is blocked"
-        for error in check_run_replay_velocity_apply_source_guardrails_text(
-            Path("synthetic/RunReplayTools.cpp"),
-            old_replay_velocity_apply_source_helper,
-        )
-    ):
-        failures.append("replay velocity apply source helper synthetic surface was not rejected")
+    expect_error('replay velocity apply source helper synthetic surface was not rejected', check_run_replay_velocity_apply_source_guardrails_text( Path("synthetic/RunReplayTools.cpp"), old_replay_velocity_apply_source_helper, ), 'Run replay velocity apply helper is blocked')
 
     old_replay_scrubber_overlay_source_helper = "void Run::RenderReplayScrubberOverlay() {}"
-    if not any(
-        error.message == "Run replay overlay render helpers are blocked"
-        for error in check_run_replay_overlay_source_guardrails_text(
-            Path("synthetic/RunUiTextPass.cpp"),
-            old_replay_scrubber_overlay_source_helper,
-        )
-    ):
-        failures.append("replay scrubber overlay source helper synthetic surface was not rejected")
+    expect_error('replay scrubber overlay source helper synthetic surface was not rejected', check_run_replay_overlay_source_guardrails_text( Path("synthetic/RunUiTextPass.cpp"), old_replay_scrubber_overlay_source_helper, ), 'Run replay overlay render helpers are blocked')
 
     old_replay_cause_tree_overlay_source_helper = "void Run::RenderReplayCauseTreeOverlay() {}"
-    if not any(
-        error.message == "Run replay overlay render helpers are blocked"
-        for error in check_run_replay_overlay_source_guardrails_text(
-            Path("synthetic/RunUiTextPass.cpp"),
-            old_replay_cause_tree_overlay_source_helper,
-        )
-    ):
-        failures.append("replay cause-tree overlay source helper synthetic surface was not rejected")
+    expect_error('replay cause-tree overlay source helper synthetic surface was not rejected', check_run_replay_overlay_source_guardrails_text( Path("synthetic/RunUiTextPass.cpp"), old_replay_cause_tree_overlay_source_helper, ), 'Run replay overlay render helpers are blocked')
 
     old_scene_reset_source_helper = "void Run::ClearSceneRuntimeUIOverrides() {}"
-    if not any(
-        error.message == "Run scene runtime reset helpers are blocked"
-        for error in check_run_scene_reset_source_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_scene_reset_source_helper,
-        )
-    ):
-        failures.append("scene runtime reset source helper synthetic surface was not rejected")
+    expect_error('scene runtime reset source helper synthetic surface was not rejected', check_run_scene_reset_source_guardrails_text( Path("synthetic/RunScene.cpp"), old_scene_reset_source_helper, ), 'Run scene runtime reset helpers are blocked')
 
     old_scene_queue_source_helper = "const std::string* Run::CurrentSceneQueuePath() const { return nullptr; }"
-    if not any(
-        error.message == "Run scene queue wrappers are blocked"
-        for error in check_run_scene_queue_source_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_scene_queue_source_helper,
-        )
-    ):
-        failures.append("scene queue source wrapper synthetic surface was not rejected")
+    expect_error('scene queue source wrapper synthetic surface was not rejected', check_run_scene_queue_source_guardrails_text( Path("synthetic/RunScene.cpp"), old_scene_queue_source_helper, ), 'Run scene queue wrappers are blocked')
 
     old_scene_context_builder_source_helper = "SceneGeneratedModelContext Run::BuildSceneGeneratedModelContext() { return {}; }"
-    if not any(
-        error.message == "Run scene context builders are blocked"
-        for error in check_run_scene_context_builder_source_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_scene_context_builder_source_helper,
-        )
-    ):
-        failures.append("scene context builder source synthetic surface was not rejected")
+    expect_error('scene context builder source synthetic surface was not rejected', check_run_scene_context_builder_source_guardrails_text( Path("synthetic/RunScene.cpp"), old_scene_context_builder_source_helper, ), 'Run scene context builders are blocked')
 
     old_generated_camera_setup_source_helper = "void Run::SetUpCameras() {}"
-    if not any(
-        error.message == "Run generated camera setup wrapper is blocked"
-        for error in check_run_generated_camera_setup_source_guardrails_text(
-            Path("synthetic/RunRender.cpp"),
-            old_generated_camera_setup_source_helper,
-        )
-    ):
-        failures.append("generated camera setup source synthetic surface was not rejected")
+    expect_error('generated camera setup source synthetic surface was not rejected', check_run_generated_camera_setup_source_guardrails_text( Path("synthetic/RunRender.cpp"), old_generated_camera_setup_source_helper, ), 'Run generated camera setup wrapper is blocked')
 
     old_scene_terrain_world_source_helper = "void Run::UseDefaultTerrain() {}"
-    if not any(
-        error.message == "Run scene terrain/world setup wrappers are blocked"
-        for error in check_run_scene_terrain_world_source_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_scene_terrain_world_source_helper,
-        )
-    ):
-        failures.append("scene terrain/world source synthetic surface was not rejected")
+    expect_error('scene terrain/world source synthetic surface was not rejected', check_run_scene_terrain_world_source_guardrails_text( Path("synthetic/RunScene.cpp"), old_scene_terrain_world_source_helper, ), 'Run scene terrain/world setup wrappers are blocked')
 
     old_editable_scene_snapshot_source_helper = "bool Run::SaveCurrentEditableSceneSnapshot() { return false; }"
-    if not any(
-        error.message == "Run editable scene snapshot helper is blocked"
-        for error in check_run_editable_scene_snapshot_source_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_editable_scene_snapshot_source_helper,
-        )
-    ):
-        failures.append("editable scene snapshot source synthetic surface was not rejected")
+    expect_error('editable scene snapshot source synthetic surface was not rejected', check_run_editable_scene_snapshot_source_guardrails_text( Path("synthetic/RunScene.cpp"), old_editable_scene_snapshot_source_helper, ), 'Run editable scene snapshot helper is blocked')
 
     old_tornado_defaults_source_helper = "void Run::ApplyTornadoDefaultsForActiveScene() {}"
-    if not any(
-        error.message == "Run tornado defaults helper is blocked"
-        for error in check_run_tornado_defaults_source_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_tornado_defaults_source_helper,
-        )
-    ):
-        failures.append("tornado defaults source synthetic surface was not rejected")
+    expect_error('tornado defaults source synthetic surface was not rejected', check_run_tornado_defaults_source_guardrails_text( Path("synthetic/RunScene.cpp"), old_tornado_defaults_source_helper, ), 'Run tornado defaults helper is blocked')
 
     old_tornado_sync_source_helper = "void Run::SyncTornadoFieldToPhysics() {}"
-    if not any(
-        error.message == "Run tornado physics sync wrapper is blocked"
-        for error in check_run_tornado_sync_source_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_tornado_sync_source_helper,
-        )
-    ):
-        failures.append("tornado sync source helper synthetic surface was not rejected")
+    expect_error('tornado sync source helper synthetic surface was not rejected', check_run_tornado_sync_source_guardrails_text( Path("synthetic/RunScene.cpp"), old_tornado_sync_source_helper, ), 'Run tornado physics sync wrapper is blocked')
 
     old_diagnostics_source_helper = "void Run::LogPerfMemory( const char* checkpoint ) {}"
-    if not any(
-        error.message == "Run diagnostics perf-memory wrappers are blocked"
-        for error in check_run_diagnostics_source_guardrails_text(
-            Path("synthetic/RunCapture.cpp"),
-            old_diagnostics_source_helper,
-        )
-    ):
-        failures.append("diagnostics perf-memory source wrapper synthetic surface was not rejected")
+    expect_error('diagnostics perf-memory source wrapper synthetic surface was not rejected', check_run_diagnostics_source_guardrails_text( Path("synthetic/RunCapture.cpp"), old_diagnostics_source_helper, ), 'Run diagnostics perf-memory wrappers are blocked')
 
     old_diagnostics_tick_source_helper = "void Run::TickPerfLog() {}"
-    if not any(
-        error.message == "Run diagnostics perf-log tick wrappers are blocked"
-        for error in check_run_diagnostics_perf_tick_source_guardrails_text(
-            Path("synthetic/RunFrame.cpp"),
-            old_diagnostics_tick_source_helper,
-        )
-    ):
-        failures.append("diagnostics perf-log tick source wrapper synthetic surface was not rejected")
+    expect_error('diagnostics perf-log tick source wrapper synthetic surface was not rejected', check_run_diagnostics_perf_tick_source_guardrails_text( Path("synthetic/RunFrame.cpp"), old_diagnostics_tick_source_helper, ), 'Run diagnostics perf-log tick wrappers are blocked')
 
     old_diagnostics_memory_dump_source_helper = "bool Run::WriteMainMemoryDump( const char* checkpoint ) { return true; }"
-    if not any(
-        error.message == "Run diagnostics memory-dump wrapper is blocked"
-        for error in check_run_diagnostics_memory_dump_source_guardrails_text(
-            Path("synthetic/RunCapture.cpp"),
-            old_diagnostics_memory_dump_source_helper,
-        )
-    ):
-        failures.append("diagnostics memory-dump source wrapper synthetic surface was not rejected")
+    expect_error('diagnostics memory-dump source wrapper synthetic surface was not rejected', check_run_diagnostics_memory_dump_source_guardrails_text( Path("synthetic/RunCapture.cpp"), old_diagnostics_memory_dump_source_helper, ), 'Run diagnostics memory-dump wrapper is blocked')
 
     old_diagnostics_ui_stress_source_helper = (
         "unsigned int Run::NextUIStressRandom() { return 0; }\n"
         "int Run::NextUIStressInt( int maxExclusive ) { return maxExclusive; }\n"
         "float Run::NextUIStressFloat( float minValue, float maxValue ) { return minValue + maxValue; }"
     )
-    if not any(
-        error.message == "Run diagnostics UI stress RNG helpers are blocked"
-        for error in check_run_diagnostics_ui_stress_rng_source_guardrails_text(
-            Path("synthetic/RunStress.cpp"),
-            old_diagnostics_ui_stress_source_helper,
-        )
-    ):
-        failures.append("diagnostics UI stress RNG source helpers synthetic surface was not rejected")
+    expect_error('diagnostics UI stress RNG source helpers synthetic surface was not rejected', check_run_diagnostics_ui_stress_rng_source_guardrails_text( Path("synthetic/RunStress.cpp"), old_diagnostics_ui_stress_source_helper, ), 'Run diagnostics UI stress RNG helpers are blocked')
 
     old_run_scene_perf_file_helper = """
     void Run::LoadScene( int index )
@@ -11248,24 +10030,10 @@ def run_self_tests() -> list[str]:
                  "w" );
     }
     """
-    if not any(
-        error.message == "RunScene direct perf-log lifecycle access is blocked"
-        for error in check_run_scene_perf_log_lifecycle_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_run_scene_perf_file_helper,
-        )
-    ):
-        failures.append("RunScene direct perf-log file synthetic surface was not rejected")
+    expect_error('RunScene direct perf-log file synthetic surface was not rejected', check_run_scene_perf_log_lifecycle_guardrails_text( Path("synthetic/RunScene.cpp"), old_run_scene_perf_file_helper, ), 'RunScene direct perf-log lifecycle access is blocked')
 
     old_run_scene_perf_field_helper = "m_diagnosticsRuntime.PerfLog().isPerfLogFlushEnabled = true;"
-    if not any(
-        error.message == "RunScene direct perf-log lifecycle access is blocked"
-        for error in check_run_scene_perf_log_lifecycle_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_run_scene_perf_field_helper,
-        )
-    ):
-        failures.append("RunScene direct perf-log field synthetic surface was not rejected")
+    expect_error('RunScene direct perf-log field synthetic surface was not rejected', check_run_scene_perf_log_lifecycle_guardrails_text( Path("synthetic/RunScene.cpp"), old_run_scene_perf_field_helper, ), 'RunScene direct perf-log lifecycle access is blocked')
 
     unrelated_run_scene_file_helper = """
     void Run::LoadScene( int index )
@@ -11284,92 +10052,36 @@ def run_self_tests() -> list[str]:
         failures.append("RunScene unrelated file open synthetic surface was rejected")
 
     old_scene_control_source_helper = "bool Run::AdvanceScene() { return false; }"
-    if not any(
-        error.message == "Run scene-control wrappers are blocked"
-        for error in check_run_scene_control_source_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_scene_control_source_helper,
-        )
-    ):
-        failures.append("scene-control source wrapper synthetic surface was not rejected")
+    expect_error('scene-control source wrapper synthetic surface was not rejected', check_run_scene_control_source_guardrails_text( Path("synthetic/RunScene.cpp"), old_scene_control_source_helper, ), 'Run scene-control wrappers are blocked')
 
     old_scene_browser_refresh_source_helper = "void Run::RefreshSceneBrowserList() {}"
-    if not any(
-        error.message == "Run scene browser refresh wrapper is blocked"
-        for error in check_run_scene_browser_refresh_source_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_scene_browser_refresh_source_helper,
-        )
-    ):
-        failures.append("scene browser refresh source wrapper synthetic surface was not rejected")
+    expect_error('scene browser refresh source wrapper synthetic surface was not rejected', check_run_scene_browser_refresh_source_guardrails_text( Path("synthetic/RunScene.cpp"), old_scene_browser_refresh_source_helper, ), 'Run scene browser refresh wrapper is blocked')
 
     old_scene_browser_index_source_helper = "int Run::CurrentSceneBrowserIndex() const { return -1; }"
-    if not any(
-        error.message == "Run scene browser index wrapper is blocked"
-        for error in check_run_scene_browser_index_source_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_scene_browser_index_source_helper,
-        )
-    ):
-        failures.append("scene browser index source wrapper synthetic surface was not rejected")
+    expect_error('scene browser index source wrapper synthetic surface was not rejected', check_run_scene_browser_index_source_guardrails_text( Path("synthetic/RunScene.cpp"), old_scene_browser_index_source_helper, ), 'Run scene browser index wrapper is blocked')
 
     old_scene_defaults_source_helper = (
         "bool Run::SaveRenderDefaults() { return true; }\n"
         "bool Run::SaveSkyDefaults() { return true; }"
     )
-    if not any(
-        error.message == "Run scene default persistence wrappers are blocked"
-        for error in check_run_scene_defaults_source_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_scene_defaults_source_helper,
-        )
-    ):
-        failures.append("scene default persistence source wrappers synthetic surface was not rejected")
+    expect_error('scene default persistence source wrappers synthetic surface was not rejected', check_run_scene_defaults_source_guardrails_text( Path("synthetic/RunScene.cpp"), old_scene_defaults_source_helper, ), 'Run scene default persistence wrappers are blocked')
 
     old_scene_create_source_helper = "bool Run::CreateSceneFromUI( const char* requestedName ) { return requestedName; }"
-    if not any(
-        error.message == "Run scene create wrapper is blocked"
-        for error in check_run_scene_create_source_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_scene_create_source_helper,
-        )
-    ):
-        failures.append("scene create source wrapper synthetic surface was not rejected")
+    expect_error('scene create source wrapper synthetic surface was not rejected', check_run_scene_create_source_guardrails_text( Path("synthetic/RunScene.cpp"), old_scene_create_source_helper, ), 'Run scene create wrapper is blocked')
 
     old_scene_world_override_source_helper = (
         "void Run::ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity ) {}"
     )
-    if not any(
-        error.message == "Run scene world override wrapper is blocked"
-        for error in check_run_scene_world_override_source_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_scene_world_override_source_helper,
-        )
-    ):
-        failures.append("scene world override source wrapper synthetic surface was not rejected")
+    expect_error('scene world override source wrapper synthetic surface was not rejected', check_run_scene_world_override_source_guardrails_text( Path("synthetic/RunScene.cpp"), old_scene_world_override_source_helper, ), 'Run scene world override wrapper is blocked')
 
     old_scene_generated_control_source_helper = (
         "void Run::ApplyUIModelCountOverride( int count ) {}\n"
         "void Run::ApplyUISolverObjectCounts( int balls, int boxes ) {}"
     )
-    if not any(
-        error.message == "Run scene generated control wrappers are blocked"
-        for error in check_run_scene_generated_control_source_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_scene_generated_control_source_helper,
-        )
-    ):
-        failures.append("scene generated control source wrappers synthetic surface was not rejected")
+    expect_error('scene generated control source wrappers synthetic surface was not rejected', check_run_scene_generated_control_source_guardrails_text( Path("synthetic/RunScene.cpp"), old_scene_generated_control_source_helper, ), 'Run scene generated control wrappers are blocked')
 
     old_scene_style_source_helper = "void Run::ApplyLiveStyleScene( const TestScene& styleScene ) {}"
-    if not any(
-        error.message == "Run scene style wrappers are blocked"
-        for error in check_run_scene_style_source_guardrails_text(
-            Path("synthetic/RunScene.cpp"),
-            old_scene_style_source_helper,
-        )
-    ):
-        failures.append("scene style source wrapper synthetic surface was not rejected")
+    expect_error('scene style source wrapper synthetic surface was not rejected', check_run_scene_style_source_guardrails_text( Path("synthetic/RunScene.cpp"), old_scene_style_source_helper, ), 'Run scene style wrappers are blocked')
 
     old_scene_coordinator_callback_source_helper = """
     SceneRuntimeCoordinatorCallbacks Run::BuildSceneRuntimeCoordinatorCallbacks()
@@ -11377,14 +10089,7 @@ def run_self_tests() -> list[str]:
         return {};
     }
     """
-    if not any(
-        error.message == "Run scene coordinator callback builders are blocked"
-        for error in check_run_scene_coordinator_callback_source_guardrails_text(
-            Path("synthetic/Run.cpp"),
-            old_scene_coordinator_callback_source_helper,
-        )
-    ):
-        failures.append("scene coordinator callback builder source synthetic surface was not rejected")
+    expect_error('scene coordinator callback builder source synthetic surface was not rejected', check_run_scene_coordinator_callback_source_guardrails_text( Path("synthetic/Run.cpp"), old_scene_coordinator_callback_source_helper, ), 'Run scene coordinator callback builders are blocked')
 
     old_scene_coordinator_callback_state = """
     struct SceneRuntimeCoordinatorCallbacks {};
@@ -11397,55 +10102,22 @@ def run_self_tests() -> list[str]:
         Path("synthetic/SceneRuntimeCoordinator.h"),
         old_scene_coordinator_callback_state,
     )
-    if not any(error.message == "SceneRuntimeCoordinator callbacks are blocked" for error in coordinator_callback_errors):
-        failures.append("SceneRuntimeCoordinator callback state synthetic surface was not rejected")
+    expect_error('SceneRuntimeCoordinator callback state synthetic surface was not rejected', coordinator_callback_errors, 'SceneRuntimeCoordinator callbacks are blocked')
 
     old_ui_text_pass_replay_scrubber_overlay_definition = "void RuntimeRenderHost::RenderReplayScrubberOverlay() const {}"
-    if not any(
-        error.message == "replay overlay renderer definitions must stay out of RunUiTextPass.cpp"
-        for error in check_run_ui_text_pass_replay_overlay_guardrails_text(
-            Path("synthetic/RunUiTextPass.cpp"),
-            old_ui_text_pass_replay_scrubber_overlay_definition,
-        )
-    ):
-        failures.append("RunUiTextPass replay scrubber overlay definition synthetic surface was not rejected")
+    expect_error('RunUiTextPass replay scrubber overlay definition synthetic surface was not rejected', check_run_ui_text_pass_replay_overlay_guardrails_text( Path("synthetic/RunUiTextPass.cpp"), old_ui_text_pass_replay_scrubber_overlay_definition, ), 'replay overlay renderer definitions must stay out of RunUiTextPass.cpp')
 
     old_ui_text_pass_replay_cause_tree_overlay_definition = "void RuntimeRenderHost::RenderReplayCauseTreeOverlay() const {}"
-    if not any(
-        error.message == "replay overlay renderer definitions must stay out of RunUiTextPass.cpp"
-        for error in check_run_ui_text_pass_replay_overlay_guardrails_text(
-            Path("synthetic/RunUiTextPass.cpp"),
-            old_ui_text_pass_replay_cause_tree_overlay_definition,
-        )
-    ):
-        failures.append("RunUiTextPass replay cause-tree overlay definition synthetic surface was not rejected")
+    expect_error('RunUiTextPass replay cause-tree overlay definition synthetic surface was not rejected', check_run_ui_text_pass_replay_overlay_guardrails_text( Path("synthetic/RunUiTextPass.cpp"), old_ui_text_pass_replay_cause_tree_overlay_definition, ), 'replay overlay renderer definitions must stay out of RunUiTextPass.cpp')
 
     new_ui_text_pass_replay_scrubber_overlay_definition = "void ReplayOverlay::RenderReplayScrubberOverlay() {}"
-    if not any(
-        error.message == "replay overlay renderer definitions must stay out of RunUiTextPass.cpp"
-        for error in check_run_ui_text_pass_replay_overlay_guardrails_text(
-            Path("synthetic/RunUiTextPass.cpp"),
-            new_ui_text_pass_replay_scrubber_overlay_definition,
-        )
-    ):
-        failures.append("RunUiTextPass replay scrubber free-function renderer synthetic surface was not rejected")
+    expect_error('RunUiTextPass replay scrubber free-function renderer synthetic surface was not rejected', check_run_ui_text_pass_replay_overlay_guardrails_text( Path("synthetic/RunUiTextPass.cpp"), new_ui_text_pass_replay_scrubber_overlay_definition, ), 'replay overlay renderer definitions must stay out of RunUiTextPass.cpp')
 
     new_ui_text_pass_replay_cause_tree_overlay_definition = "void RenderReplayCauseTreeOverlay() {}"
-    if not any(
-        error.message == "replay overlay renderer definitions must stay out of RunUiTextPass.cpp"
-        for error in check_run_ui_text_pass_replay_overlay_guardrails_text(
-            Path("synthetic/RunUiTextPass.cpp"),
-            new_ui_text_pass_replay_cause_tree_overlay_definition,
-        )
-    ):
-        failures.append("RunUiTextPass replay cause-tree free-function renderer synthetic surface was not rejected")
+    expect_error('RunUiTextPass replay cause-tree free-function renderer synthetic surface was not rejected', check_run_ui_text_pass_replay_overlay_guardrails_text( Path("synthetic/RunUiTextPass.cpp"), new_ui_text_pass_replay_cause_tree_overlay_definition, ), 'replay overlay renderer definitions must stay out of RunUiTextPass.cpp')
 
     allowed_ui_text_pass_replay_overlay_host_call = "m_host.RenderReplayScrubberOverlay();"
-    if check_run_ui_text_pass_replay_overlay_guardrails_text(
-        Path("synthetic/RunUiTextPass.cpp"),
-        allowed_ui_text_pass_replay_overlay_host_call,
-    ):
-        failures.append("RunUiTextPass replay overlay host call synthetic surface was rejected")
+    expect_clean('RunUiTextPass replay overlay host call synthetic surface was rejected', check_run_ui_text_pass_replay_overlay_guardrails_text( Path("synthetic/RunUiTextPass.cpp"), allowed_ui_text_pass_replay_overlay_host_call, ))
 
     allowed_physics_text = """
     namespace SkullbonezCore::GameObjects
@@ -11453,13 +10125,7 @@ def run_self_tests() -> list[str]:
     class GameModelCollection;
     }
     """
-    if check_physics_game_model_collection_guardrails_text(
-        allowed_physics_path,
-        allowed_physics_text,
-        allowed_physics_path,
-        synthetic_physics_allowlist,
-    ):
-        failures.append("allowed physics GameModelCollection synthetic dependency failed")
+    expect_clean('allowed physics GameModelCollection synthetic dependency failed', check_physics_game_model_collection_guardrails_text( allowed_physics_path, allowed_physics_text, allowed_physics_path, synthetic_physics_allowlist, ))
 
     commented_physics_text = """
     // GameModelCollection is mentioned in a migration note only.
@@ -11468,13 +10134,7 @@ def run_self_tests() -> list[str]:
     */
     class PhysicsBodyStore;
     """
-    if check_physics_game_model_collection_guardrails_text(
-        Path("SkullbonezSource/Physics/NewPhysicsStore.h"),
-        commented_physics_text,
-        Path("SkullbonezSource/Physics/NewPhysicsStore.h"),
-        synthetic_physics_allowlist,
-    ):
-        failures.append("comment-only physics GameModelCollection synthetic text was rejected")
+    expect_clean('comment-only physics GameModelCollection synthetic text was rejected', check_physics_game_model_collection_guardrails_text( Path("SkullbonezSource/Physics/NewPhysicsStore.h"), commented_physics_text, Path("SkullbonezSource/Physics/NewPhysicsStore.h"), synthetic_physics_allowlist, ))
 
     new_physics_dependency = """
     namespace SkullbonezCore::GameObjects
@@ -11482,55 +10142,19 @@ def run_self_tests() -> list[str]:
     class GameModelCollection;
     }
     """
-    if not any(
-        error.message == "new physics GameModelCollection dependencies are blocked"
-        for error in check_physics_game_model_collection_guardrails_text(
-            Path("SkullbonezSource/Physics/NewPhysicsStore.h"),
-            new_physics_dependency,
-            Path("SkullbonezSource/Physics/NewPhysicsStore.h"),
-            synthetic_physics_allowlist,
-        )
-    ):
-        failures.append("new physics GameModelCollection synthetic dependency was not rejected")
+    expect_error('new physics GameModelCollection synthetic dependency was not rejected', check_physics_game_model_collection_guardrails_text( Path("SkullbonezSource/Physics/NewPhysicsStore.h"), new_physics_dependency, Path("SkullbonezSource/Physics/NewPhysicsStore.h"), synthetic_physics_allowlist, ), 'new physics GameModelCollection dependencies are blocked')
 
     duplicate_physics_dependency = allowed_physics_text + allowed_physics_text
-    if not any(
-        error.message == "new physics GameModelCollection dependencies are blocked"
-        for error in check_physics_game_model_collection_guardrails_text(
-            allowed_physics_path,
-            duplicate_physics_dependency,
-            allowed_physics_path,
-            synthetic_physics_allowlist,
-        )
-    ):
-        failures.append("duplicate physics GameModelCollection synthetic dependency was not rejected")
+    expect_error('duplicate physics GameModelCollection synthetic dependency was not rejected', check_physics_game_model_collection_guardrails_text( allowed_physics_path, duplicate_physics_dependency, allowed_physics_path, synthetic_physics_allowlist, ), 'new physics GameModelCollection dependencies are blocked')
 
     old_physics_engine_step = "void Step( GameObjects::GameModelCollection& collection, float deltaSeconds );"
-    if not any(
-        error.message == "new physics GameModelCollection dependencies are blocked"
-        for error in check_physics_game_model_collection_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
-            old_physics_engine_step,
-            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
-            synthetic_physics_allowlist,
-        )
-    ):
-        failures.append("old PhysicsEngine collection step synthetic surface was not rejected")
+    expect_error('old PhysicsEngine collection step synthetic surface was not rejected', check_physics_game_model_collection_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.h"), old_physics_engine_step, Path("SkullbonezSource/Physics/PhysicsEngine.h"), synthetic_physics_allowlist, ), 'new physics GameModelCollection dependencies are blocked')
 
     old_physics_world_step = (
         "void RunPhysics( GameObjects::GameModelCollection& collection, "
         "PhysicsBodyStore& bodyStore, float fChangeInTime );"
     )
-    if not any(
-        error.message == "new physics GameModelCollection dependencies are blocked"
-        for error in check_physics_game_model_collection_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.h"),
-            old_physics_world_step,
-            Path("SkullbonezSource/Physics/PhysicsWorld.h"),
-            synthetic_physics_allowlist,
-        )
-    ):
-        failures.append("old PhysicsWorld collection step synthetic surface was not rejected")
+    expect_error('old PhysicsWorld collection step synthetic surface was not rejected', check_physics_game_model_collection_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.h"), old_physics_world_step, Path("SkullbonezSource/Physics/PhysicsWorld.h"), synthetic_physics_allowlist, ), 'new physics GameModelCollection dependencies are blocked')
 
     allowed_public_physics_facade = """
     struct PhysicsBodyCreateDesc;
@@ -11543,11 +10167,7 @@ def run_self_tests() -> list[str]:
         void Step( PhysicsModelAccess& modelAccess, float deltaSeconds );
     };
     """
-    if check_public_physics_facade_game_object_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsEngine.h"),
-        allowed_public_physics_facade,
-    ):
-        failures.append("allowed public physics facade synthetic surface was rejected")
+    expect_clean('allowed public physics facade synthetic surface was rejected', check_public_physics_facade_game_object_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.h"), allowed_public_physics_facade, ))
 
     old_public_physics_collection_api = """
     class PhysicsEngine
@@ -11556,14 +10176,7 @@ def run_self_tests() -> list[str]:
         void Step( GameObjects::GameModelCollection& collection, float deltaSeconds );
     };
     """
-    if not any(
-        error.message == "public physics facade game-object dependency is blocked"
-        for error in check_public_physics_facade_game_object_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
-            old_public_physics_collection_api,
-        )
-    ):
-        failures.append("public physics GameModelCollection facade synthetic surface was not rejected")
+    expect_error('public physics GameModelCollection facade synthetic surface was not rejected', check_public_physics_facade_game_object_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.h"), old_public_physics_collection_api, ), 'public physics facade game-object dependency is blocked')
 
     old_public_physics_collection_pointer_api = """
     class PhysicsEngine
@@ -11572,14 +10185,7 @@ def run_self_tests() -> list[str]:
         void AttachWorld( GameModelCollection* collection );
     };
     """
-    if not any(
-        error.message == "public physics facade game-object dependency is blocked"
-        for error in check_public_physics_facade_game_object_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
-            old_public_physics_collection_pointer_api,
-        )
-    ):
-        failures.append("public physics GameModelCollection pointer synthetic surface was not rejected")
+    expect_error('public physics GameModelCollection pointer synthetic surface was not rejected', check_public_physics_facade_game_object_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.h"), old_public_physics_collection_pointer_api, ), 'public physics facade game-object dependency is blocked')
 
     old_public_physics_model_ref_api = """
     namespace GameObjects
@@ -11592,14 +10198,7 @@ def run_self_tests() -> list[str]:
         void RefreshBody( GameObjects::GameModel& model );
     };
     """
-    if not any(
-        error.message == "public physics facade game-object dependency is blocked"
-        for error in check_public_physics_facade_game_object_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
-            old_public_physics_model_ref_api,
-        )
-    ):
-        failures.append("public physics raw GameModel reference synthetic surface was not rejected")
+    expect_error('public physics raw GameModel reference synthetic surface was not rejected', check_public_physics_facade_game_object_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.h"), old_public_physics_model_ref_api, ), 'public physics facade game-object dependency is blocked')
 
     old_public_physics_vector_api = """
     class PhysicsEngine
@@ -11608,14 +10207,7 @@ def run_self_tests() -> list[str]:
         void RefreshBodies( std::vector<GameObjects::GameModel>& models );
     };
     """
-    if not any(
-        error.message == "public physics facade game-object dependency is blocked"
-        for error in check_public_physics_facade_game_object_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
-            old_public_physics_vector_api,
-        )
-    ):
-        failures.append("public physics raw GameModel vector synthetic surface was not rejected")
+    expect_error('public physics raw GameModel vector synthetic surface was not rejected', check_public_physics_facade_game_object_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.h"), old_public_physics_vector_api, ), 'public physics facade game-object dependency is blocked')
 
     public_facade_comment_only_text = """
     // GameModelCollection and std::vector<GameModel>& are migration notes only.
@@ -11628,11 +10220,7 @@ def run_self_tests() -> list[str]:
         PhysicsBodyCollectionView Bodies() const;
     };
     """
-    if check_public_physics_facade_game_object_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsEngine.h"),
-        public_facade_comment_only_text,
-    ):
-        failures.append("public physics facade comment-only synthetic surface was rejected")
+    expect_clean('public physics facade comment-only synthetic surface was rejected', check_public_physics_facade_game_object_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.h"), public_facade_comment_only_text, ))
 
     old_public_descriptor_model_index = """
     struct PhysicsBodyCreateDesc
@@ -11641,14 +10229,7 @@ def run_self_tests() -> list[str]:
         PhysicsBodyMotionKind motionKind = PhysicsBodyMotionKind::Dynamic;
     };
     """
-    if not any(
-        error.message == "public physics descriptor model-index field is blocked"
-        for error in check_public_physics_descriptor_model_index_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsApi.h"),
-            old_public_descriptor_model_index,
-        )
-    ):
-        failures.append("public physics descriptor model-index synthetic field was not rejected")
+    expect_error('public physics descriptor model-index synthetic field was not rejected', check_public_physics_descriptor_model_index_guardrails_text( Path("SkullbonezSource/Physics/PhysicsApi.h"), old_public_descriptor_model_index, ), 'public physics descriptor model-index field is blocked')
 
     public_descriptor_handle_only = """
     struct PhysicsBodyCreateDesc
@@ -11657,11 +10238,7 @@ def run_self_tests() -> list[str]:
         PhysicsSceneObjectId sceneObject;
     };
     """
-    if check_public_physics_descriptor_model_index_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsApi.h"),
-        public_descriptor_handle_only,
-    ):
-        failures.append("public physics descriptor handle-only synthetic surface was rejected")
+    expect_clean('public physics descriptor handle-only synthetic surface was rejected', check_public_physics_descriptor_model_index_guardrails_text( Path("SkullbonezSource/Physics/PhysicsApi.h"), public_descriptor_handle_only, ))
 
     old_standalone_model_access_models = """
     void PhysicsStandaloneWorld::StepFromLegacyModelAccess( PhysicsModelAccess& modelAccess )
@@ -11670,14 +10247,7 @@ def run_self_tests() -> list[str]:
         (void)models;
     }
     """
-    if not any(
-        error.message == "standalone physics implementation game-object dependency is blocked"
-        for error in check_standalone_physics_implementation_game_object_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsApi.cpp"),
-            old_standalone_model_access_models,
-        )
-    ):
-        failures.append("standalone modelAccess.Models synthetic surface was not rejected")
+    expect_error('standalone modelAccess.Models synthetic surface was not rejected', check_standalone_physics_implementation_game_object_guardrails_text( Path("SkullbonezSource/Physics/PhysicsApi.cpp"), old_standalone_model_access_models, ), 'standalone physics implementation game-object dependency is blocked')
 
     old_standalone_raw_game_model = """
     void PhysicsStandaloneWorld::ImportForTests( std::vector<GameObjects::GameModel>& models )
@@ -11686,14 +10256,7 @@ def run_self_tests() -> list[str]:
         (void)model;
     }
     """
-    if not any(
-        error.message == "standalone physics implementation game-object dependency is blocked"
-        for error in check_standalone_physics_implementation_game_object_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsApi.cpp"),
-            old_standalone_raw_game_model,
-        )
-    ):
-        failures.append("standalone raw GameModel synthetic surface was not rejected")
+    expect_error('standalone raw GameModel synthetic surface was not rejected', check_standalone_physics_implementation_game_object_guardrails_text( Path("SkullbonezSource/Physics/PhysicsApi.cpp"), old_standalone_raw_game_model, ), 'standalone physics implementation game-object dependency is blocked')
 
     standalone_store_only = """
     void PhysicsStandaloneWorld::StepStores( const PhysicsStandaloneStepDesc& desc )
@@ -11702,11 +10265,7 @@ def run_self_tests() -> list[str]:
         m_colliderStore.RefreshBroadphase();
     }
     """
-    if check_standalone_physics_implementation_game_object_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsApi.cpp"),
-        standalone_store_only,
-    ):
-        failures.append("standalone store-only synthetic surface was rejected")
+    expect_clean('standalone store-only synthetic surface was rejected', check_standalone_physics_implementation_game_object_guardrails_text( Path("SkullbonezSource/Physics/PhysicsApi.cpp"), standalone_store_only, ))
 
     deleted_runtime_adapter_use = """
     void WakeEditorPhysicsBody( GameModelCollection& collection, PhysicsEngine& physics, int modelIndex )
@@ -11716,14 +10275,7 @@ def run_self_tests() -> list[str]:
         physics.WakeBody( body );
     }
     """
-    if not any(
-        error.message == "deleted migration artifact is blocked: GameModelCollectionPhysicsAdapter"
-        for error in check_deleted_migration_artifact_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-            deleted_runtime_adapter_use,
-        )
-    ):
-        failures.append("deleted runtime adapter synthetic surface was not rejected")
+    expect_error('deleted runtime adapter synthetic surface was not rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), deleted_runtime_adapter_use, ), 'deleted migration artifact is blocked: GameModelCollectionPhysicsAdapter')
 
     diagnostics_view_only = """
     struct PhysicsDiagnosticsFrameInput
@@ -11732,11 +10284,7 @@ def run_self_tests() -> list[str]:
         const PhysicsBodyStore& bodyStore;
     };
     """
-    if check_standalone_physics_implementation_game_object_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.h"),
-        diagnostics_view_only,
-    ):
-        failures.append("diagnostics-only view synthetic surface was rejected")
+    expect_clean('diagnostics-only view synthetic surface was rejected', check_standalone_physics_implementation_game_object_guardrails_text( Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.h"), diagnostics_view_only, ))
 
     test_fixture_game_model_text = """
     void BuildLegacyFixture( GameObjects::GameModel& model )
@@ -11744,11 +10292,7 @@ def run_self_tests() -> list[str]:
         (void)model;
     }
     """
-    if check_standalone_physics_implementation_game_object_guardrails_text(
-        Path("SkullbonezSource/Tests/PhysicsFixture.cpp"),
-        test_fixture_game_model_text,
-    ):
-        failures.append("test fixture GameModel synthetic surface was rejected")
+    expect_clean('test fixture GameModel synthetic surface was rejected', check_standalone_physics_implementation_game_object_guardrails_text( Path("SkullbonezSource/Tests/PhysicsFixture.cpp"), test_fixture_game_model_text, ))
 
     old_runtime_handle_smoke_adapter_lookup = """
     PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
@@ -11759,14 +10303,7 @@ def run_self_tests() -> list[str]:
         return {};
     }
     """
-    if not any(
-        error.message == "runtime handle smoke adapter lookup is blocked"
-        for error in check_runtime_handle_smoke_adapter_guardrails_text(
-            Path("SkullbonezSource/Runtime/Init.cpp"),
-            old_runtime_handle_smoke_adapter_lookup,
-        )
-    ):
-        failures.append("runtime handle smoke adapter lookup synthetic surface was not rejected")
+    expect_error('runtime handle smoke adapter lookup synthetic surface was not rejected', check_runtime_handle_smoke_adapter_guardrails_text( Path("SkullbonezSource/Runtime/Init.cpp"), old_runtime_handle_smoke_adapter_lookup, ), 'runtime handle smoke adapter lookup is blocked')
 
     old_runtime_handle_smoke_model_replay_id = """
     PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
@@ -11776,14 +10313,7 @@ def run_self_tests() -> list[str]:
         return {};
     }
     """
-    if not any(
-        error.message == "runtime handle smoke replay-id model read is blocked"
-        for error in check_runtime_handle_smoke_adapter_guardrails_text(
-            Path("SkullbonezSource/Runtime/Init.cpp"),
-            old_runtime_handle_smoke_model_replay_id,
-        )
-    ):
-        failures.append("runtime handle smoke GameModel replay-id synthetic surface was not rejected")
+    expect_error('runtime handle smoke GameModel replay-id synthetic surface was not rejected', check_runtime_handle_smoke_adapter_guardrails_text( Path("SkullbonezSource/Runtime/Init.cpp"), old_runtime_handle_smoke_model_replay_id, ), 'runtime handle smoke replay-id model read is blocked')
 
     allowed_runtime_handle_smoke_creation_handles = """
     PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
@@ -11799,24 +10329,13 @@ def run_self_tests() -> list[str]:
         return {};
     }
     """
-    if check_runtime_handle_smoke_adapter_guardrails_text(
-        Path("SkullbonezSource/Runtime/Init.cpp"),
-        allowed_runtime_handle_smoke_creation_handles,
-    ):
-        failures.append("runtime handle smoke returned-handle synthetic surface was rejected")
+    expect_clean('runtime handle smoke returned-handle synthetic surface was rejected', check_runtime_handle_smoke_adapter_guardrails_text( Path("SkullbonezSource/Runtime/Init.cpp"), allowed_runtime_handle_smoke_creation_handles, ))
 
     deleted_model_view_text = """
     void GameModelCollection::MakePhysicsModelView();
     class PhysicsModelView;
     """
-    if not any(
-        error.message == "deleted PhysicsModelView boundary is blocked"
-        for error in check_deleted_physics_model_view_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsScene.h"),
-            deleted_model_view_text,
-        )
-    ):
-        failures.append("deleted PhysicsModelView synthetic surface was not rejected")
+    expect_error('deleted PhysicsModelView synthetic surface was not rejected', check_deleted_physics_model_view_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.h"), deleted_model_view_text, ), 'deleted PhysicsModelView boundary is blocked')
 
     deleted_migration_artifact_text = """
     struct GameModelRuntimePhysicsTuning {};
@@ -11839,6 +10358,16 @@ def run_self_tests() -> list[str]:
     physics.RefreshColliderStore( modelAccess );
     PhysicsColliderCreateDesc desc = CaptureAuthoredColliderDesc( model, body );
     collection.UpdateColliderStoreFromModel( index );
+    class GameModel
+    {
+        Physics::RigidBody m_physicsInfo;
+        BallPhysicsCache m_ballPhysics;
+        GameModel( Environment::WorldEnvironment* world, const Vector3& position, const Vector3& inertia, float mass );
+        void AddBoundingSphere( float radius );
+        void SetPosition( const Vector3& position );
+    };
+    GameModel localModel( &context.world, position, inertia, mass );
+    void GameModel::CalculateBuoyancyRightingTorque( float force, float percent ) {}
     modelAccess.RefreshColliderSnapshot( modelAccess );
     std::vector<uint32_t> m_replayBodyIds;
     uint32_t m_nextReplayBodyId = 1;
@@ -11850,6 +10379,20 @@ def run_self_tests() -> list[str]:
     PhysicsBodyWritebackSink* writebackSink = nullptr;
     PhysicsBodyEventSink* eventSink = nullptr;
     std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logicalNameOrBaseName ) const;
+    PhysicsBodyRecord MakeBodyRecordFromAuthoredModel( GameModel& model, PhysicsSceneObjectId sceneObjectId, int rootIndex );
+    bodyStore.LoadFromModels( models, replayBodyIds, fixedTreeReleaseRoots, sleepStates );
+    PhysicsModelAccess modelAccess( collection );
+    physics.RefreshBodyFromModel( modelAccess, modelIndex, modelCount );
+    modelAccess.ReloadPhysicsBodies( bodyStore, sleepStates );
+    modelAccess.RefreshPhysicsBodyFromModel( bodyStore, modelIndex );
+    Ragdoll::AddSimpleHumanoid( collection, physics, world, terrain, options );
+    void RenderInstanceStore::Refresh( std::vector<GameModel>& models, const PhysicsBodyStore& bodies, const ColliderStore& colliders );
+    renderInstanceStore.Refresh( m_gameModels, bodyStore, colliderStore );
+    void GameModelRenderer::RenderModels( GameModelCollection& collection, const Matrix4& view );
+    void CollisionVisualizer::Update( float dt, GameModelCollection& models );
+    void PhysicsDebugVisualizer::Render( GameObjects::GameModelCollection& models, const Matrix4& viewProj );
+    inline RenderInstanceHandle MakeCompatibilityRenderInstanceHandle( uint32_t modelIndex );
+    static constexpr uint32_t RENDER_INSTANCE_COMPATIBILITY_HANDLE_GENERATION = 1u;
     """
     if not any(
         error.message.startswith("deleted migration artifact is blocked:")
@@ -11863,26 +10406,29 @@ def run_self_tests() -> list[str]:
         Path("SkullbonezSource/Runtime/SyntheticDeletedArtifacts.cpp"),
         deleted_migration_artifact_text,
     )
-    if not any(
-        error.message == "deleted migration artifact is blocked: GameModel collider topology recapture"
-        for error in deleted_migration_artifact_errors
-    ):
-        failures.append("deleted collider topology recapture synthetic surface was not rejected")
-    if not any(
-        error.message == "deleted migration artifact is blocked: RefreshColliderSnapshot model access parameter"
-        for error in deleted_migration_artifact_errors
-    ):
-        failures.append("deleted RefreshColliderSnapshot modelAccess synthetic surface was not rejected")
-    if not any(
-        error.message == "deleted migration artifact is blocked: GameModelCollection replay-id sidecar"
-        for error in deleted_migration_artifact_errors
-    ):
-        failures.append("deleted collection replay-id sidecar synthetic surface was not rejected")
-    if not any(
-        error.message == "deleted migration artifact is blocked: GameModelCollection replay-id allocator"
-        for error in deleted_migration_artifact_errors
-    ):
-        failures.append("deleted collection replay-id allocator synthetic surface was not rejected")
+    expect_error('deleted collider topology recapture synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: GameModel collider topology recapture')
+    expect_error('deleted GameModel physics payload synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: GameModel physics payload')
+    expect_error('deleted GameModel physics constructor synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: GameModel physics constructor')
+    expect_error('deleted GameModel physics API synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: GameModel physics API')
+    expect_error('deleted RefreshColliderSnapshot modelAccess synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: RefreshColliderSnapshot model access parameter')
+    expect_error('deleted collection replay-id sidecar synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: GameModelCollection replay-id sidecar')
+    expect_error('deleted collection replay-id allocator synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: GameModelCollection replay-id allocator')
+    expect_error('deleted authored body record importer synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: GameModel authored body record importer')
+    expect_error('deleted PhysicsBodyStore LoadFromModels synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: PhysicsBodyStore GameModel reload')
+    expect_error('deleted PhysicsModelAccess body refresh synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: PhysicsModelAccess body refresh facade')
+    expect_error('deleted Physics ragdoll scene builder synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: Physics ragdoll scene builder')
+    expect_error('deleted RenderInstanceStore GameModel refresh synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: RenderInstanceStore GameModel refresh')
+    expect_error('deleted GameModelRenderer collection input synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: GameModelRenderer concrete collection input')
+    expect_error('deleted physics debug visualizer collection input synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: Physics debug visualizer GameModelCollection input')
+    expect_error('deleted render instance compatibility handle synthetic surface was not rejected', deleted_migration_artifact_errors, 'deleted migration artifact is blocked: RenderInstanceStore compatibility handle name')
+
+    deleted_rigid_body_text = """
+    class RigidBody
+    {
+        void SetLinearVelocity( const Vector3& velocity );
+    };
+    """
+    expect_error('deleted RigidBody synthetic surface was not rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/Physics/RigidBody.h"), deleted_rigid_body_text, ), 'deleted migration artifact is blocked: RigidBody physics state holder')
 
     deleted_game_model_initial_orientation_text = """
     class GameModel
@@ -11890,14 +10436,7 @@ def run_self_tests() -> list[str]:
         void SetInitialOrientation( float eulerX, float eulerY, float eulerZ );
     };
     """
-    if not any(
-        error.message == "deleted migration artifact is blocked: GameModel scene Euler orientation setter"
-        for error in check_deleted_migration_artifact_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModel.h"),
-            deleted_game_model_initial_orientation_text,
-        )
-    ):
-        failures.append("deleted GameModel SetInitialOrientation synthetic surface was not rejected")
+    expect_error('deleted GameModel SetInitialOrientation synthetic surface was not rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/GameObjects/GameModel.h"), deleted_game_model_initial_orientation_text, ), 'deleted migration artifact is blocked: GameModel scene Euler orientation setter')
 
     standalone_body_mirror_text = """
     class PhysicsStandaloneWorld
@@ -11908,26 +10447,12 @@ def run_self_tests() -> list[str]:
         std::vector<uint32_t> m_freeIndices;
     };
     """
-    if not any(
-        error.message == "deleted migration artifact is blocked: PhysicsStandaloneWorld body mirror arrays"
-        for error in check_deleted_migration_artifact_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsApi.h"),
-            standalone_body_mirror_text,
-        )
-    ):
-        failures.append("standalone body mirror synthetic surface was not rejected")
+    expect_error('standalone body mirror synthetic surface was not rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/Physics/PhysicsApi.h"), standalone_body_mirror_text, ), 'deleted migration artifact is blocked: PhysicsStandaloneWorld body mirror arrays')
 
     deleted_render_scene_view_text = """
     class GameModelCollection : public Rendering::IRenderSceneView {};
     """
-    if not any(
-        error.message == "deleted migration artifact is blocked: IRenderSceneView"
-        for error in check_deleted_migration_artifact_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
-            deleted_render_scene_view_text,
-        )
-    ):
-        failures.append("deleted IRenderSceneView synthetic surface was not rejected")
+    expect_error('deleted IRenderSceneView synthetic surface was not rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.h"), deleted_render_scene_view_text, ), 'deleted migration artifact is blocked: IRenderSceneView')
 
     deleted_game_model_stream_cache_text = """
     class GameModelCollection
@@ -11963,14 +10488,7 @@ def run_self_tests() -> list[str]:
         const PhysicsBodyHandle body = adapter.BodyHandleForVelocityCommand( 0, true );
     }
     """
-    if not any(
-        error.message == "deleted migration artifact is blocked: GameModelCollectionPhysicsAdapter"
-        for error in check_deleted_migration_artifact_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.h"),
-            deleted_game_model_collection_physics_adapter_text,
-        )
-    ):
-        failures.append("deleted GameModelCollectionPhysicsAdapter synthetic surface was not rejected")
+    expect_error('deleted GameModelCollectionPhysicsAdapter synthetic surface was not rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.h"), deleted_game_model_collection_physics_adapter_text, ), 'deleted migration artifact is blocked: GameModelCollectionPhysicsAdapter')
 
     deleted_full_collider_refresh_text = """
     class PhysicsEngine
@@ -11982,40 +10500,19 @@ def run_self_tests() -> list[str]:
         physics.RefreshColliderStore( modelAccess );
     }
     """
-    if not any(
-        error.message == "deleted migration artifact is blocked: RefreshColliderStore full body reload facade"
-        for error in check_deleted_migration_artifact_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
-            deleted_full_collider_refresh_text,
-        )
-    ):
-        failures.append("deleted RefreshColliderStore synthetic surface was not rejected")
+    expect_error('deleted RefreshColliderStore synthetic surface was not rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.h"), deleted_full_collider_refresh_text, ), 'deleted migration artifact is blocked: RefreshColliderStore full body reload facade')
 
     deleted_game_model_stream_project_text = """
     <ClCompile Include="SkullbonezSource\\GameObjects\\GameModelStreams.cpp" />
     <ClInclude Include="SkullbonezSource\\GameObjects\\GameModelSoACache.h" />
     """
-    if not any(
-        error.message == "deleted GameModel stream/cache file is blocked"
-        for error in check_deleted_game_model_stream_project_guardrails_text(
-            Path("SKULLBONEZ_CORE.vcxproj"),
-            deleted_game_model_stream_project_text,
-        )
-    ):
-        failures.append("deleted GameModel stream/cache project entry synthetic surface was not rejected")
+    expect_error('deleted GameModel stream/cache project entry synthetic surface was not rejected', check_deleted_game_model_stream_project_guardrails_text( Path("SKULLBONEZ_CORE.vcxproj"), deleted_game_model_stream_project_text, ), 'deleted GameModel stream/cache file is blocked')
 
     deleted_game_model_collection_physics_adapter_project_text = """
     <ClCompile Include="SkullbonezSource\\GameObjects\\GameModelCollectionPhysicsAdapter.cpp" />
     <ClInclude Include="SkullbonezSource\\GameObjects\\GameModelCollectionPhysicsAdapter.h" />
     """
-    if not any(
-        error.message == "deleted GameModelCollectionPhysicsAdapter project entry is blocked"
-        for error in check_deleted_game_model_collection_physics_adapter_project_guardrails_text(
-            Path("SKULLBONEZ_CORE.vcxproj"),
-            deleted_game_model_collection_physics_adapter_project_text,
-        )
-    ):
-        failures.append("deleted GameModelCollectionPhysicsAdapter project entry synthetic surface was not rejected")
+    expect_error('deleted GameModelCollectionPhysicsAdapter project entry synthetic surface was not rejected', check_deleted_game_model_collection_physics_adapter_project_guardrails_text( Path("SKULLBONEZ_CORE.vcxproj"), deleted_game_model_collection_physics_adapter_project_text, ), 'deleted GameModelCollectionPhysicsAdapter project entry is blocked')
 
     allowed_render_instance_prepare_text = """
     class GameModelCollection
@@ -12029,11 +10526,7 @@ def run_self_tests() -> list[str]:
         const RenderInstanceStore& instances = collection.RenderInstances();
     }
     """
-    if check_deleted_migration_artifact_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
-        allowed_render_instance_prepare_text,
-    ):
-        failures.append("render-instance preparation synthetic surface was rejected")
+    expect_clean('render-instance preparation synthetic surface was rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.h"), allowed_render_instance_prepare_text, ))
 
     commented_deleted_migration_artifact_text = """
     // GameModelRuntimePhysicsTuning, legacyModelIndex, RuntimeConfigSnapshot, and IRenderSceneView are migration notes only.
@@ -12043,17 +10536,15 @@ def run_self_tests() -> list[str]:
     // PhysicsModelMutableRange, MutableModelData(), and modelAccess.Models() are notes only.
     // PhysicsBodyWritebackSink, QueueBodyMirrorWriteback, bodyMirrorWritebacks, and PhysicsBodyEventSink are deleted migration notes only.
     // PhysicsStandaloneWorld used to store std::vector<PhysicsBodyView> m_bodies plus m_alive/m_generations/m_freeIndices.
+    // Ragdoll::AddSimpleHumanoid(collection, physics, world, terrain, options) is a deleted scene-builder note only.
+    // GameModelRenderer::RenderModels(GameModelCollection& collection) is a deleted render input note only.
     /*
        AssetSystem::CreateShader( const char* name ) is mentioned in the plan but must not be code.
        BorrowMutableModels(modelAccess) appears in the audit notes, not compiled source.
     */
     void UseExplicitStoresAndFactories();
     """
-    if check_deleted_migration_artifact_guardrails_text(
-        Path("SkullbonezSource/Runtime/SyntheticDeletedArtifacts.cpp"),
-        commented_deleted_migration_artifact_text,
-    ):
-        failures.append("comment-only deleted migration artifact synthetic text was rejected")
+    expect_clean('comment-only deleted migration artifact synthetic text was rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/Runtime/SyntheticDeletedArtifacts.cpp"), commented_deleted_migration_artifact_text, ))
 
     allowed_persistent_solver_context = """
     struct PersistentContactSolverContext
@@ -12063,11 +10554,7 @@ def run_self_tests() -> list[str]:
         int pipelineRecordCapacity = 0;
     };
     """
-    if check_persistent_solver_context_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.h"),
-        allowed_persistent_solver_context,
-    ):
-        failures.append("allowed persistent solver sink context synthetic surface was rejected")
+    expect_clean('allowed persistent solver sink context synthetic surface was rejected', check_persistent_solver_context_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.h"), allowed_persistent_solver_context, ))
 
     old_persistent_solver_context = """
     struct PersistentContactSolverContext
@@ -12077,14 +10564,7 @@ def run_self_tests() -> list[str]:
         PhysicsWorld& world;
     };
     """
-    if not any(
-        error.message == "persistent contact solver callback boundary is blocked"
-        for error in check_persistent_solver_context_model_access_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.h"),
-            old_persistent_solver_context,
-        )
-    ):
-        failures.append("old persistent solver broad model access synthetic surface was not rejected")
+    expect_error('old persistent solver broad model access synthetic surface was not rejected', check_persistent_solver_context_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.h"), old_persistent_solver_context, ), 'persistent contact solver callback boundary is blocked')
 
     old_persistent_solver_body_stream_context = """
     struct PersistentContactSolverContext
@@ -12093,14 +10573,7 @@ def run_self_tests() -> list[str]:
         PersistentContactSolverSideEffects& sideEffects;
     };
     """
-    if not any(
-        error.message == "persistent contact solver model stream boundary is blocked"
-        for error in check_persistent_solver_context_model_access_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.h"),
-            old_persistent_solver_body_stream_context,
-        )
-    ):
-        failures.append("old persistent solver body stream synthetic surface was not rejected")
+    expect_error('old persistent solver body stream synthetic surface was not rejected', check_persistent_solver_context_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.h"), old_persistent_solver_body_stream_context, ), 'persistent contact solver model stream boundary is blocked')
 
     commented_persistent_solver_context = """
     struct PersistentContactSolverContext
@@ -12110,11 +10583,7 @@ def run_self_tests() -> list[str]:
         PersistentContactSolverSideEffects& sideEffects;
     };
     """
-    if check_persistent_solver_context_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.h"),
-        commented_persistent_solver_context,
-    ):
-        failures.append("comment-only persistent solver broad model access synthetic text was rejected")
+    expect_clean('comment-only persistent solver broad model access synthetic text was rejected', check_persistent_solver_context_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.h"), commented_persistent_solver_context, ))
 
     old_solver_writeback_text = """
     void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess )
@@ -12122,14 +10591,7 @@ def run_self_tests() -> list[str]:
         modelAccess.WriteBackPhysicsBody( bodyStore, x );
     }
     """
-    if not any(
-        error.message == "physics solver hot path per-body model writeback is blocked"
-        for error in check_physics_world_solver_body_writeback_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_solver_writeback_text,
-        )
-    ):
-        failures.append("old solver per-body model writeback synthetic surface was not rejected")
+    expect_error('old solver per-body model writeback synthetic surface was not rejected', check_physics_world_solver_body_writeback_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_solver_writeback_text, ), 'physics solver hot path per-body model writeback is blocked')
 
     allowed_step_boundary_writeback_text = """
     void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -12141,11 +10603,7 @@ def run_self_tests() -> list[str]:
         modelAccess.WriteBackPhysicsBody( bodyStore, fixedIndex );
     }
     """
-    if check_physics_world_solver_body_writeback_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        allowed_step_boundary_writeback_text,
-    ):
-        failures.append("allowed non-solver physics writeback synthetic surface was rejected")
+    expect_clean('allowed non-solver physics writeback synthetic surface was rejected', check_physics_world_solver_body_writeback_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), allowed_step_boundary_writeback_text, ))
 
     commented_solver_writeback_text = """
     void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess )
@@ -12154,11 +10612,7 @@ def run_self_tests() -> list[str]:
         KeepBodyStoreAuthoritative();
     }
     """
-    if check_physics_world_solver_body_writeback_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        commented_solver_writeback_text,
-    ):
-        failures.append("comment-only solver writeback synthetic text was rejected")
+    expect_clean('comment-only solver writeback synthetic text was rejected', check_physics_world_solver_body_writeback_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), commented_solver_writeback_text, ))
 
     old_solver_body_stream_text = """
     void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess )
@@ -12170,14 +10624,7 @@ def run_self_tests() -> list[str]:
         auto stream = modelAccess.GetBodyStream();
     }
     """
-    if not any(
-        error.message == "physics solver hot path model body stream is blocked"
-        for error in check_physics_world_solver_model_stream_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_solver_body_stream_text,
-        )
-    ):
-        failures.append("old solver model body stream synthetic surface was not rejected")
+    expect_error('old solver model body stream synthetic surface was not rejected', check_physics_world_solver_model_stream_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_solver_body_stream_text, ), 'physics solver hot path model body stream is blocked')
 
     allowed_explicit_wake_body_stream_text = """
     void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, int index )
@@ -12186,11 +10633,7 @@ def run_self_tests() -> list[str]:
         WakeModel( modelAccess, bodyStream, nullptr, nullptr, nullptr, index );
     }
     """
-    if check_physics_world_solver_model_stream_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        allowed_explicit_wake_body_stream_text,
-    ):
-        failures.append("explicit non-solver wake body stream synthetic surface was rejected")
+    expect_clean('explicit non-solver wake body stream synthetic surface was rejected', check_physics_world_solver_model_stream_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), allowed_explicit_wake_body_stream_text, ))
 
     commented_solver_body_stream_text = """
     void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess )
@@ -12199,11 +10642,7 @@ def run_self_tests() -> list[str]:
         UseStoreRecords();
     }
     """
-    if check_physics_world_solver_model_stream_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        commented_solver_body_stream_text,
-    ):
-        failures.append("comment-only solver body stream synthetic text was rejected")
+    expect_clean('comment-only solver body stream synthetic text was rejected', check_physics_world_solver_model_stream_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), commented_solver_body_stream_text, ))
 
     old_world_contact_highlight_tick = """
     void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -12211,14 +10650,7 @@ def run_self_tests() -> list[str]:
         modelAccess.TickContactHighlights( modelCount, dt );
     }
     """
-    if not any(
-        error.message == "physics world model contact-highlight tick is blocked"
-        for error in check_physics_world_contact_highlight_tick_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_world_contact_highlight_tick,
-        )
-    ):
-        failures.append("old PhysicsWorld contact-highlight tick synthetic surface was not rejected")
+    expect_error('old PhysicsWorld contact-highlight tick synthetic surface was not rejected', check_physics_world_contact_highlight_tick_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_world_contact_highlight_tick, ), 'physics world model contact-highlight tick is blocked')
 
     allowed_scene_contact_highlight_tick = """
     void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -12227,11 +10659,7 @@ def run_self_tests() -> list[str]:
         m_world.RunPhysics( modelAccess, bodyStore, colliderStore, dt, config, forces, workerPool );
     }
     """
-    if check_physics_world_contact_highlight_tick_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        allowed_scene_contact_highlight_tick,
-    ):
-        failures.append("PhysicsScene contact-highlight tick synthetic surface was rejected")
+    expect_clean('PhysicsScene contact-highlight tick synthetic surface was rejected', check_physics_world_contact_highlight_tick_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), allowed_scene_contact_highlight_tick, ))
 
     commented_world_contact_highlight_tick = """
     void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -12240,11 +10668,7 @@ def run_self_tests() -> list[str]:
         StepBodyStores();
     }
     """
-    if check_physics_world_contact_highlight_tick_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        commented_world_contact_highlight_tick,
-    ):
-        failures.append("comment-only PhysicsWorld contact-highlight tick synthetic text was rejected")
+    expect_clean('comment-only PhysicsWorld contact-highlight tick synthetic text was rejected', check_physics_world_contact_highlight_tick_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), commented_world_contact_highlight_tick, ))
 
     old_world_run_invalidation = """
     void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -12253,14 +10677,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if not any(
-        error.message == "physics world model stream invalidation is blocked"
-        for error in check_physics_world_run_invalidation_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_world_run_invalidation,
-        )
-    ):
-        failures.append("old PhysicsWorld RunPhysics stream invalidation synthetic surface was not rejected")
+    expect_error('old PhysicsWorld RunPhysics stream invalidation synthetic surface was not rejected', check_physics_world_run_invalidation_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_world_run_invalidation, ), 'physics world model stream invalidation is blocked')
 
     allowed_world_wake_invalidation = """
     void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess )
@@ -12268,11 +10685,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if check_physics_world_run_invalidation_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        allowed_world_wake_invalidation,
-    ):
-        failures.append("non-RunPhysics PhysicsWorld stream invalidation synthetic surface was rejected")
+    expect_clean('non-RunPhysics PhysicsWorld stream invalidation synthetic surface was rejected', check_physics_world_run_invalidation_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), allowed_world_wake_invalidation, ))
 
     allowed_scene_run_invalidation = """
     void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -12281,11 +10694,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if check_physics_world_run_invalidation_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        allowed_scene_run_invalidation,
-    ):
-        failures.append("PhysicsScene stream invalidation synthetic surface was rejected")
+    expect_clean('PhysicsScene stream invalidation synthetic surface was rejected', check_physics_world_run_invalidation_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), allowed_scene_run_invalidation, ))
 
     commented_world_run_invalidation = """
     void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -12294,11 +10703,7 @@ def run_self_tests() -> list[str]:
         StepBodyStores();
     }
     """
-    if check_physics_world_run_invalidation_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        commented_world_run_invalidation,
-    ):
-        failures.append("comment-only PhysicsWorld RunPhysics stream invalidation synthetic text was rejected")
+    expect_clean('comment-only PhysicsWorld RunPhysics stream invalidation synthetic text was rejected', check_physics_world_run_invalidation_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), commented_world_run_invalidation, ))
 
     old_world_run_writeback = """
     void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -12307,14 +10712,7 @@ def run_self_tests() -> list[str]:
         modelAccess.WriteBackPhysicsBodies( bodyStore );
     }
     """
-    if not any(
-        error.message == "physics world bulk model writeback is blocked"
-        for error in check_physics_world_run_writeback_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_world_run_writeback,
-        )
-    ):
-        failures.append("old PhysicsWorld RunPhysics bulk writeback synthetic surface was not rejected")
+    expect_error('old PhysicsWorld RunPhysics bulk writeback synthetic surface was not rejected', check_physics_world_run_writeback_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_world_run_writeback, ), 'physics world bulk model writeback is blocked')
 
     allowed_scene_run_writeback = """
     void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -12323,11 +10721,7 @@ def run_self_tests() -> list[str]:
         modelAccess.WriteBackPhysicsBodies( bodyStore );
     }
     """
-    if check_physics_world_run_writeback_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        allowed_scene_run_writeback,
-    ):
-        failures.append("PhysicsScene bulk writeback synthetic surface was rejected")
+    expect_clean('PhysicsScene bulk writeback synthetic surface was rejected', check_physics_world_run_writeback_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), allowed_scene_run_writeback, ))
 
     commented_world_run_writeback = """
     void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -12336,11 +10730,7 @@ def run_self_tests() -> list[str]:
         StepBodyStores();
     }
     """
-    if check_physics_world_run_writeback_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        commented_world_run_writeback,
-    ):
-        failures.append("comment-only PhysicsWorld RunPhysics bulk writeback synthetic text was rejected")
+    expect_clean('comment-only PhysicsWorld RunPhysics bulk writeback synthetic text was rejected', check_physics_world_run_writeback_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), commented_world_run_writeback, ))
 
     old_world_fixed_contact_notify = """
     void PhysicsWorld::ApplyPersistentContactSideEffects( PhysicsModelAccess& modelAccess )
@@ -12348,14 +10738,7 @@ def run_self_tests() -> list[str]:
         modelAccess.NotifyFixedContact( index, 0.5f );
     }
     """
-    if not any(
-        error.message == "physics world fixed-contact presentation notify is blocked"
-        for error in check_physics_world_fixed_contact_notify_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_world_fixed_contact_notify,
-        )
-    ):
-        failures.append("old PhysicsWorld fixed-contact notify synthetic surface was not rejected")
+    expect_error('old PhysicsWorld fixed-contact notify synthetic surface was not rejected', check_physics_world_fixed_contact_notify_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_world_fixed_contact_notify, ), 'physics world fixed-contact presentation notify is blocked')
 
     allowed_scene_fixed_contact_notify = """
     void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -12366,11 +10749,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if check_physics_world_fixed_contact_notify_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        allowed_scene_fixed_contact_notify,
-    ):
-        failures.append("PhysicsScene fixed-contact notify synthetic surface was rejected")
+    expect_clean('PhysicsScene fixed-contact notify synthetic surface was rejected', check_physics_world_fixed_contact_notify_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), allowed_scene_fixed_contact_notify, ))
 
     commented_world_fixed_contact_notify = """
     void PhysicsWorld::ApplyPersistentContactSideEffects( PhysicsModelAccess& modelAccess )
@@ -12379,11 +10758,7 @@ def run_self_tests() -> list[str]:
         ApplyStoreSideEffects();
     }
     """
-    if check_physics_world_fixed_contact_notify_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        commented_world_fixed_contact_notify,
-    ):
-        failures.append("comment-only PhysicsWorld fixed-contact notify synthetic text was rejected")
+    expect_clean('comment-only PhysicsWorld fixed-contact notify synthetic text was rejected', check_physics_world_fixed_contact_notify_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), commented_world_fixed_contact_notify, ))
 
     old_world_persistent_contact_tree_release = """
     void PhysicsWorld::ApplyPersistentContactSideEffects( PhysicsModelAccess& modelAccess )
@@ -12391,14 +10766,7 @@ def run_self_tests() -> list[str]:
         modelAccess.ReleaseAttachedFixedTreeParts( event );
     }
     """
-    if not any(
-        error.message == "physics world persistent-contact tree release is blocked"
-        for error in check_physics_world_persistent_contact_tree_release_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_world_persistent_contact_tree_release,
-        )
-    ):
-        failures.append("old PhysicsWorld persistent-contact tree release synthetic surface was not rejected")
+    expect_error('old PhysicsWorld persistent-contact tree release synthetic surface was not rejected', check_physics_world_persistent_contact_tree_release_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_world_persistent_contact_tree_release, ), 'physics world persistent-contact tree release is blocked')
 
     allowed_tornado_tree_release = """
     void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess )
@@ -12406,11 +10774,7 @@ def run_self_tests() -> list[str]:
         modelAccess.ReleaseAttachedFixedTreeParts( event );
     }
     """
-    if check_physics_world_persistent_contact_tree_release_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        allowed_tornado_tree_release,
-    ):
-        failures.append("non-persistent-contact PhysicsWorld tree release synthetic surface was rejected")
+    expect_clean('non-persistent-contact PhysicsWorld tree release synthetic surface was rejected', check_physics_world_persistent_contact_tree_release_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), allowed_tornado_tree_release, ))
 
     allowed_scene_tree_release = """
     void PhysicsScene::ApplyFixedTreeReleaseEvents( PhysicsModelAccess& modelAccess )
@@ -12418,11 +10782,7 @@ def run_self_tests() -> list[str]:
         modelAccess.ReleaseAttachedFixedTreeParts( bodyStore, event, wakeBodies );
     }
     """
-    if check_physics_world_persistent_contact_tree_release_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        allowed_scene_tree_release,
-    ):
-        failures.append("PhysicsScene fixed-tree release synthetic surface was rejected")
+    expect_clean('PhysicsScene fixed-tree release synthetic surface was rejected', check_physics_world_persistent_contact_tree_release_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), allowed_scene_tree_release, ))
 
     commented_world_persistent_contact_tree_release = """
     void PhysicsWorld::ApplyPersistentContactSideEffects( PhysicsModelAccess& modelAccess )
@@ -12431,11 +10791,7 @@ def run_self_tests() -> list[str]:
         ApplyStoreSideEffects();
     }
     """
-    if check_physics_world_persistent_contact_tree_release_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        commented_world_persistent_contact_tree_release,
-    ):
-        failures.append("comment-only PhysicsWorld persistent-contact tree release synthetic text was rejected")
+    expect_clean('comment-only PhysicsWorld persistent-contact tree release synthetic text was rejected', check_physics_world_persistent_contact_tree_release_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), commented_world_persistent_contact_tree_release, ))
 
     old_tornado_release_model_access = """
     void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess )
@@ -12446,14 +10802,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if not any(
-        error.message == "physics world tornado release model access is blocked"
-        for error in check_physics_world_tornado_release_model_access_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_tornado_release_model_access,
-        )
-    ):
-        failures.append("old PhysicsWorld tornado release model-access synthetic surface was not rejected")
+    expect_error('old PhysicsWorld tornado release model-access synthetic surface was not rejected', check_physics_world_tornado_release_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_tornado_release_model_access, ), 'physics world tornado release model access is blocked')
 
     allowed_tornado_store_release = """
     void PhysicsWorld::ApplyTornadoField( PhysicsBodyStore& bodyStore )
@@ -12462,11 +10811,7 @@ def run_self_tests() -> list[str]:
         bodyStore.ReleaseAttachedFixedTreeParts( event, wakeBodies );
     }
     """
-    if check_physics_world_tornado_release_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        allowed_tornado_store_release,
-    ):
-        failures.append("store-owned PhysicsWorld tornado release synthetic surface was rejected")
+    expect_clean('store-owned PhysicsWorld tornado release synthetic surface was rejected', check_physics_world_tornado_release_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), allowed_tornado_store_release, ))
 
     allowed_scene_tornado_model_access = """
     void PhysicsScene::ApplyTornadoReleaseEvents( PhysicsModelAccess& modelAccess )
@@ -12475,11 +10820,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if check_physics_world_tornado_release_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        allowed_scene_tornado_model_access,
-    ):
-        failures.append("PhysicsScene tornado model-access synthetic surface was rejected")
+    expect_clean('PhysicsScene tornado model-access synthetic surface was rejected', check_physics_world_tornado_release_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), allowed_scene_tornado_model_access, ))
 
     commented_tornado_release_model_access = """
     void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess )
@@ -12488,11 +10829,7 @@ def run_self_tests() -> list[str]:
         ApplyStoreSideEffects();
     }
     """
-    if check_physics_world_tornado_release_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        commented_tornado_release_model_access,
-    ):
-        failures.append("comment-only PhysicsWorld tornado release synthetic text was rejected")
+    expect_clean('comment-only PhysicsWorld tornado release synthetic text was rejected', check_physics_world_tornado_release_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), commented_tornado_release_model_access, ))
 
     old_world_step_model_access_signature = """
     void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore )
@@ -12500,14 +10837,7 @@ def run_self_tests() -> list[str]:
         StepBodyStores();
     }
     """
-    if not any(
-        error.message == "physics world step model-access signature is blocked"
-        for error in check_physics_world_step_model_access_signature_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_world_step_model_access_signature,
-        )
-    ):
-        failures.append("old PhysicsWorld step model-access signature synthetic surface was not rejected")
+    expect_error('old PhysicsWorld step model-access signature synthetic surface was not rejected', check_physics_world_step_model_access_signature_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_world_step_model_access_signature, ), 'physics world step model-access signature is blocked')
 
     old_world_tornado_model_access_signature = """
     void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess )
@@ -12515,14 +10845,7 @@ def run_self_tests() -> list[str]:
         StepBodyStores();
     }
     """
-    if not any(
-        error.message == "physics world step model-access signature is blocked"
-        for error in check_physics_world_step_model_access_signature_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_world_tornado_model_access_signature,
-        )
-    ):
-        failures.append("old PhysicsWorld tornado model-access signature synthetic surface was not rejected")
+    expect_error('old PhysicsWorld tornado model-access signature synthetic surface was not rejected', check_physics_world_step_model_access_signature_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_world_tornado_model_access_signature, ), 'physics world step model-access signature is blocked')
 
     allowed_world_step_store_signature = """
     void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore )
@@ -12530,11 +10853,7 @@ def run_self_tests() -> list[str]:
         bodyStore.ReleaseAttachedFixedTreeParts( event, wakeBodies );
     }
     """
-    if check_physics_world_step_model_access_signature_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        allowed_world_step_store_signature,
-    ):
-        failures.append("store-owned PhysicsWorld step signature synthetic surface was rejected")
+    expect_clean('store-owned PhysicsWorld step signature synthetic surface was rejected', check_physics_world_step_model_access_signature_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), allowed_world_step_store_signature, ))
 
     commented_world_step_model_access_signature = """
     void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore )
@@ -12543,11 +10862,7 @@ def run_self_tests() -> list[str]:
         StepBodyStores();
     }
     """
-    if check_physics_world_step_model_access_signature_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        commented_world_step_model_access_signature,
-    ):
-        failures.append("comment-only PhysicsWorld model-access signature synthetic text was rejected")
+    expect_clean('comment-only PhysicsWorld model-access signature synthetic text was rejected', check_physics_world_step_model_access_signature_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), commented_world_step_model_access_signature, ))
 
     old_engine_step_model_access_signature = """
     void PhysicsEngine::Step( PhysicsModelAccess& modelAccess, float deltaSeconds )
@@ -12555,14 +10870,7 @@ def run_self_tests() -> list[str]:
         m_scene.RunPhysics( modelAccess, deltaSeconds, config, forces, workerPool );
     }
     """
-    if not any(
-        error.message == "physics engine step model-access signature is blocked"
-        for error in check_physics_engine_step_model_access_signature_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsEngine.cpp"),
-            old_engine_step_model_access_signature,
-        )
-    ):
-        failures.append("old PhysicsEngine step model-access signature synthetic surface was not rejected")
+    expect_error('old PhysicsEngine step model-access signature synthetic surface was not rejected', check_physics_engine_step_model_access_signature_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.cpp"), old_engine_step_model_access_signature, ), 'physics engine step model-access signature is blocked')
 
     old_engine_step_model_access_declaration = """
     class PhysicsEngine
@@ -12570,14 +10878,7 @@ def run_self_tests() -> list[str]:
         void Step( PhysicsModelAccess& modelAccess, float deltaSeconds );
     };
     """
-    if not any(
-        error.message == "physics engine step model-access signature is blocked"
-        for error in check_physics_engine_step_model_access_signature_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
-            old_engine_step_model_access_declaration,
-        )
-    ):
-        failures.append("old PhysicsEngine step header model-access synthetic surface was not rejected")
+    expect_error('old PhysicsEngine step header model-access synthetic surface was not rejected', check_physics_engine_step_model_access_signature_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.h"), old_engine_step_model_access_declaration, ), 'physics engine step model-access signature is blocked')
 
     allowed_engine_step_store_signature = """
     void PhysicsEngine::Step( float deltaSeconds,
@@ -12590,11 +10891,7 @@ def run_self_tests() -> list[str]:
         m_scene.RunPhysics( deltaSeconds, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
     }
     """
-    if check_physics_engine_step_model_access_signature_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsEngine.cpp"),
-        allowed_engine_step_store_signature,
-    ):
-        failures.append("model-free PhysicsEngine step synthetic surface was rejected")
+    expect_clean('model-free PhysicsEngine step synthetic surface was rejected', check_physics_engine_step_model_access_signature_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.cpp"), allowed_engine_step_store_signature, ))
 
     commented_engine_step_model_access_signature = """
     void PhysicsEngine::Step( float deltaSeconds )
@@ -12603,11 +10900,7 @@ def run_self_tests() -> list[str]:
         m_scene.RunPhysics( deltaSeconds, config, forces, workerPool, nullptr, 0 );
     }
     """
-    if check_physics_engine_step_model_access_signature_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsEngine.cpp"),
-        commented_engine_step_model_access_signature,
-    ):
-        failures.append("comment-only PhysicsEngine model-access signature synthetic text was rejected")
+    expect_clean('comment-only PhysicsEngine model-access signature synthetic text was rejected', check_physics_engine_step_model_access_signature_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.cpp"), commented_engine_step_model_access_signature, ))
 
     old_scene_step_model_access_signature = """
     void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess, float deltaSeconds )
@@ -12615,14 +10908,7 @@ def run_self_tests() -> list[str]:
         m_world.RunPhysics( m_bodyStore, m_colliderStore, deltaSeconds, config, forces, workerPool, nullptr, 0 );
     }
     """
-    if not any(
-        error.message == "physics scene step model-access signature is blocked"
-        for error in check_physics_scene_step_model_access_signature_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-            old_scene_step_model_access_signature,
-        )
-    ):
-        failures.append("old PhysicsScene step model-access signature synthetic surface was not rejected")
+    expect_error('old PhysicsScene step model-access signature synthetic surface was not rejected', check_physics_scene_step_model_access_signature_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), old_scene_step_model_access_signature, ), 'physics scene step model-access signature is blocked')
 
     old_scene_step_model_access_declaration = """
     class PhysicsScene
@@ -12630,14 +10916,7 @@ def run_self_tests() -> list[str]:
         void RunPhysics( PhysicsModelAccess& modelAccess, float deltaSeconds );
     };
     """
-    if not any(
-        error.message == "physics scene step model-access signature is blocked"
-        for error in check_physics_scene_step_model_access_signature_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsScene.h"),
-            old_scene_step_model_access_declaration,
-        )
-    ):
-        failures.append("old PhysicsScene step header model-access synthetic surface was not rejected")
+    expect_error('old PhysicsScene step header model-access synthetic surface was not rejected', check_physics_scene_step_model_access_signature_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.h"), old_scene_step_model_access_declaration, ), 'physics scene step model-access signature is blocked')
 
     allowed_scene_step_store_signature = """
     void PhysicsScene::RunPhysics( float deltaSeconds,
@@ -12650,11 +10929,7 @@ def run_self_tests() -> list[str]:
         m_world.RunPhysics( m_bodyStore, m_colliderStore, deltaSeconds, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
     }
     """
-    if check_physics_scene_step_model_access_signature_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        allowed_scene_step_store_signature,
-    ):
-        failures.append("model-free PhysicsScene step synthetic surface was rejected")
+    expect_clean('model-free PhysicsScene step synthetic surface was rejected', check_physics_scene_step_model_access_signature_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), allowed_scene_step_store_signature, ))
 
     commented_scene_step_model_access_signature = """
     void PhysicsScene::RunPhysics( float deltaSeconds )
@@ -12663,11 +10938,7 @@ def run_self_tests() -> list[str]:
         RunStoreOwnedStep();
     }
     """
-    if check_physics_scene_step_model_access_signature_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        commented_scene_step_model_access_signature,
-    ):
-        failures.append("comment-only PhysicsScene model-access signature synthetic text was rejected")
+    expect_clean('comment-only PhysicsScene model-access signature synthetic text was rejected', check_physics_scene_step_model_access_signature_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), commented_scene_step_model_access_signature, ))
 
     old_simulation_step_owner_borrow = """
     struct SimulationPhysicsStep
@@ -12678,14 +10949,7 @@ def run_self_tests() -> list[str]:
         PhysicsWorldForces* worldForces = nullptr;
     };
     """
-    if not any(
-        error.message == "simulation scheduler physics-owner borrow is blocked"
-        for error in check_simulation_system_owner_borrow_guardrails_text(
-            Path("SkullbonezSource/Physics/SimulationSystem.h"),
-            old_simulation_step_owner_borrow,
-        )
-    ):
-        failures.append("old SimulationSystem owner-borrow synthetic surface was not rejected")
+    expect_error('old SimulationSystem owner-borrow synthetic surface was not rejected', check_simulation_system_owner_borrow_guardrails_text( Path("SkullbonezSource/Physics/SimulationSystem.h"), old_simulation_step_owner_borrow, ), 'simulation scheduler physics-owner borrow is blocked')
 
     old_simulation_system_direct_step = """
     #include "PhysicsModelAccess.h"
@@ -12695,14 +10959,7 @@ def run_self_tests() -> list[str]:
         engine->Step( *modelAccess, deltaSeconds, *config, *worldForces, *workerPool );
     }
     """
-    if not any(
-        error.message == "simulation scheduler physics-owner borrow is blocked"
-        for error in check_simulation_system_owner_borrow_guardrails_text(
-            Path("SkullbonezSource/Physics/SimulationSystem.cpp"),
-            old_simulation_system_direct_step,
-        )
-    ):
-        failures.append("old SimulationSystem direct physics step synthetic surface was not rejected")
+    expect_error('old SimulationSystem direct physics step synthetic surface was not rejected', check_simulation_system_owner_borrow_guardrails_text( Path("SkullbonezSource/Physics/SimulationSystem.cpp"), old_simulation_system_direct_step, ), 'simulation scheduler physics-owner borrow is blocked')
 
     allowed_simulation_tick_count = """
     SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
@@ -12713,11 +10970,7 @@ def run_self_tests() -> list[str]:
         return result;
     }
     """
-    if check_simulation_system_owner_borrow_guardrails_text(
-        Path("SkullbonezSource/Physics/SimulationSystem.cpp"),
-        allowed_simulation_tick_count,
-    ):
-        failures.append("owner-free SimulationSystem tick-count synthetic surface was rejected")
+    expect_clean('owner-free SimulationSystem tick-count synthetic surface was rejected', check_simulation_system_owner_borrow_guardrails_text( Path("SkullbonezSource/Physics/SimulationSystem.cpp"), allowed_simulation_tick_count, ))
 
     commented_simulation_owner_borrow = """
     SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
@@ -12726,11 +10979,7 @@ def run_self_tests() -> list[str]:
         return {};
     }
     """
-    if check_simulation_system_owner_borrow_guardrails_text(
-        Path("SkullbonezSource/Physics/SimulationSystem.cpp"),
-        commented_simulation_owner_borrow,
-    ):
-        failures.append("comment-only SimulationSystem owner-borrow synthetic text was rejected")
+    expect_clean('comment-only SimulationSystem owner-borrow synthetic text was rejected', check_simulation_system_owner_borrow_guardrails_text( Path("SkullbonezSource/Physics/SimulationSystem.cpp"), commented_simulation_owner_borrow, ))
 
     old_physics_model_access_step_facade_header = """
     class PhysicsModelAccess
@@ -12744,14 +10993,7 @@ def run_self_tests() -> list[str]:
         void FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& names ) const;
     };
     """
-    if not any(
-        error.message == "deleted PhysicsModelAccess step facade surface is blocked"
-        for error in check_physics_model_access_deleted_step_facade_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsModelAccess.h"),
-            old_physics_model_access_step_facade_header,
-        )
-    ):
-        failures.append("old PhysicsModelAccess step facade header synthetic surface was not rejected")
+    expect_error('old PhysicsModelAccess step facade header synthetic surface was not rejected', check_physics_model_access_deleted_step_facade_guardrails_text( Path("SkullbonezSource/Physics/PhysicsModelAccess.h"), old_physics_model_access_step_facade_header, ), 'deleted PhysicsModelAccess step facade surface is blocked')
 
     old_physics_model_access_step_facade_definitions = """
     void PhysicsModelAccess::InvalidatePhysicsStreams()
@@ -12767,14 +11009,7 @@ def run_self_tests() -> list[str]:
         m_collection.NotifyFixedContact( index, seconds );
     }
     """
-    if not any(
-        error.message == "deleted PhysicsModelAccess step facade surface is blocked"
-        for error in check_physics_model_access_deleted_step_facade_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_physics_model_access_step_facade_definitions,
-        )
-    ):
-        failures.append("old PhysicsModelAccess step facade definitions synthetic surface was not rejected")
+    expect_error('old PhysicsModelAccess step facade definitions synthetic surface was not rejected', check_physics_model_access_deleted_step_facade_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_physics_model_access_step_facade_definitions, ), 'deleted PhysicsModelAccess step facade surface is blocked')
 
     allowed_physics_model_access_refresh_facade = """
     class PhysicsModelAccess
@@ -12783,11 +11018,7 @@ def run_self_tests() -> list[str]:
         void RefreshPhysicsBodyFromModel( PhysicsBodyStore& bodyStore, int modelIndex );
     };
     """
-    if check_physics_model_access_deleted_step_facade_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsModelAccess.h"),
-        allowed_physics_model_access_refresh_facade,
-    ):
-        failures.append("refresh-only PhysicsModelAccess synthetic surface was rejected")
+    expect_clean('refresh-only PhysicsModelAccess synthetic surface was rejected', check_physics_model_access_deleted_step_facade_guardrails_text( Path("SkullbonezSource/Physics/PhysicsModelAccess.h"), allowed_physics_model_access_refresh_facade, ))
 
     old_physics_model_access_model_count = """
     class PhysicsModelAccess
@@ -12799,14 +11030,7 @@ def run_self_tests() -> list[str]:
         return m_collection.ModelCount();
     }
     """
-    if not any(
-        error.message == "deleted PhysicsModelAccess step facade surface is blocked"
-        for error in check_physics_model_access_deleted_step_facade_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsModelAccess.h"),
-            old_physics_model_access_model_count,
-        )
-    ):
-        failures.append("old PhysicsModelAccess ModelCount synthetic surface was not rejected")
+    expect_error('old PhysicsModelAccess ModelCount synthetic surface was not rejected', check_physics_model_access_deleted_step_facade_guardrails_text( Path("SkullbonezSource/Physics/PhysicsModelAccess.h"), old_physics_model_access_model_count, ), 'deleted PhysicsModelAccess step facade surface is blocked')
 
     old_physics_model_access_render_refresh = """
     class PhysicsModelAccess
@@ -12822,14 +11046,7 @@ def run_self_tests() -> list[str]:
         m_collection.RefreshRenderInstances( renderInstanceStore, bodyStore, colliderStore );
     }
     """
-    if not any(
-        error.message == "deleted PhysicsModelAccess render refresh facade is blocked"
-        for error in check_physics_model_access_deleted_step_facade_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsModelAccess.h"),
-            old_physics_model_access_render_refresh,
-        )
-    ):
-        failures.append("old PhysicsModelAccess render refresh synthetic surface was not rejected")
+    expect_error('old PhysicsModelAccess render refresh synthetic surface was not rejected', check_physics_model_access_deleted_step_facade_guardrails_text( Path("SkullbonezSource/Physics/PhysicsModelAccess.h"), old_physics_model_access_render_refresh, ), 'deleted PhysicsModelAccess render refresh facade is blocked')
 
     allowed_mutable_render_instances = """
     Rendering::RenderInstanceStore& PhysicsEngine::MutableRenderInstances()
@@ -12837,12 +11054,7 @@ def run_self_tests() -> list[str]:
         return m_scene.MutableRenderInstances();
     }
     """
-    if check_render_instance_mutable_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsEngine.cpp"),
-        allowed_mutable_render_instances,
-        Path("SkullbonezSource/Physics/PhysicsEngine.cpp"),
-    ):
-        failures.append("owner-boundary mutable render-instance synthetic surface was rejected")
+    expect_clean('owner-boundary mutable render-instance synthetic surface was rejected', check_render_instance_mutable_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.cpp"), allowed_mutable_render_instances, Path("SkullbonezSource/Physics/PhysicsEngine.cpp"), ))
 
     old_mutable_render_instances_caller = """
     void Run::Render()
@@ -12851,15 +11063,7 @@ def run_self_tests() -> list[str]:
         instances.Clear();
     }
     """
-    if not any(
-        error.message == "mutable render-instance store access is owner-boundary only"
-        for error in check_render_instance_mutable_access_guardrails_text(
-            Path("SkullbonezSource/Runtime/RunRender.cpp"),
-            old_mutable_render_instances_caller,
-            Path("SkullbonezSource/Runtime/RunRender.cpp"),
-        )
-    ):
-        failures.append("outside mutable render-instance synthetic caller was not rejected")
+    expect_error('outside mutable render-instance synthetic caller was not rejected', check_render_instance_mutable_access_guardrails_text( Path("SkullbonezSource/Runtime/RunRender.cpp"), old_mutable_render_instances_caller, Path("SkullbonezSource/Runtime/RunRender.cpp"), ), 'mutable render-instance store access is owner-boundary only')
 
     old_physics_model_access_collider_refresh = """
     class PhysicsModelAccess
@@ -12867,14 +11071,7 @@ def run_self_tests() -> list[str]:
         void RefreshPhysicsColliders( ColliderStore& colliderStore, const PhysicsBodyStore& bodyStore );
     };
     """
-    if not any(
-        error.message == "deleted PhysicsModelAccess collider refresh facade is blocked"
-        for error in check_physics_model_access_deleted_step_facade_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsModelAccess.h"),
-            old_physics_model_access_collider_refresh,
-        )
-    ):
-        failures.append("old PhysicsModelAccess collider refresh synthetic surface was not rejected")
+    expect_error('old PhysicsModelAccess collider refresh synthetic surface was not rejected', check_physics_model_access_deleted_step_facade_guardrails_text( Path("SkullbonezSource/Physics/PhysicsModelAccess.h"), old_physics_model_access_collider_refresh, ), 'deleted PhysicsModelAccess collider refresh facade is blocked')
 
     commented_physics_model_access_step_facade = """
     class PhysicsModelAccess
@@ -12882,11 +11079,7 @@ def run_self_tests() -> list[str]:
         // ModelCount, WriteBackPhysicsBodies, and FillPhysicsDiagnosticsNames were deleted from this facade.
     };
     """
-    if check_physics_model_access_deleted_step_facade_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsModelAccess.h"),
-        commented_physics_model_access_step_facade,
-    ):
-        failures.append("comment-only PhysicsModelAccess step facade synthetic text was rejected")
+    expect_clean('comment-only PhysicsModelAccess step facade synthetic text was rejected', check_physics_model_access_deleted_step_facade_guardrails_text( Path("SkullbonezSource/Physics/PhysicsModelAccess.h"), commented_physics_model_access_step_facade, ))
 
     old_store_seed_model_access = """
     void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, const PhysicsBodyStore& bodyStore, int index )
@@ -12895,14 +11088,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if not any(
-        error.message == "physics world store seed model access is blocked"
-        for error in check_physics_world_store_seed_model_access_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_store_seed_model_access,
-        )
-    ):
-        failures.append("old PhysicsWorld store seed model-access synthetic surface was not rejected")
+    expect_error('old PhysicsWorld store seed model-access synthetic surface was not rejected', check_physics_world_store_seed_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_store_seed_model_access, ), 'physics world store seed model access is blocked')
 
     allowed_store_seed_body_records = """
     void PhysicsWorld::SeedModelAsleep( int bodyCount, const std::vector<PhysicsBodyRecord>& bodyRecords, int index )
@@ -12914,11 +11100,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if check_physics_world_store_seed_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        allowed_store_seed_body_records,
-    ):
-        failures.append("store-owned PhysicsWorld seed synthetic surface was rejected")
+    expect_clean('store-owned PhysicsWorld seed synthetic surface was rejected', check_physics_world_store_seed_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), allowed_store_seed_body_records, ))
 
     old_legacy_seed_body_stream = """
     void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, const GameModelBodyStream& bodyStream, int index )
@@ -12926,14 +11108,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if not any(
-        error.message == "physics world legacy model-stream wake/seed path is deleted"
-        for error in check_physics_world_deleted_model_stream_wake_seed_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_legacy_seed_body_stream,
-        )
-    ):
-        failures.append("old PhysicsWorld seed model-stream synthetic surface was not rejected")
+    expect_error('old PhysicsWorld seed model-stream synthetic surface was not rejected', check_physics_world_deleted_model_stream_wake_seed_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_legacy_seed_body_stream, ), 'physics world legacy model-stream wake/seed path is deleted')
 
     allowed_scene_seed_invalidation = """
     void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -12942,11 +11117,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if check_physics_world_store_seed_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        allowed_scene_seed_invalidation,
-    ):
-        failures.append("PhysicsScene seed invalidation synthetic surface was rejected")
+    expect_clean('PhysicsScene seed invalidation synthetic surface was rejected', check_physics_world_store_seed_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), allowed_scene_seed_invalidation, ))
 
     commented_store_seed_model_access = """
     void PhysicsWorld::SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index )
@@ -12955,11 +11126,7 @@ def run_self_tests() -> list[str]:
         SeedBodyRecord();
     }
     """
-    if check_physics_world_store_seed_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        commented_store_seed_model_access,
-    ):
-        failures.append("comment-only PhysicsWorld store seed synthetic text was rejected")
+    expect_clean('comment-only PhysicsWorld store seed synthetic text was rejected', check_physics_world_store_seed_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), commented_store_seed_model_access, ))
 
     old_store_wake_model_access = """
     void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, int index )
@@ -12967,14 +11134,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if not any(
-        error.message == "physics world store wake model access is blocked"
-        for error in check_physics_world_store_wake_model_access_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_store_wake_model_access,
-        )
-    ):
-        failures.append("old PhysicsWorld store wake model-access synthetic surface was not rejected")
+    expect_error('old PhysicsWorld store wake model-access synthetic surface was not rejected', check_physics_world_store_wake_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_store_wake_model_access, ), 'physics world store wake model access is blocked')
 
     old_store_wake_connected_invalidation = """
     void PhysicsWorld::WakePointJointConnectedBodies( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore )
@@ -12982,14 +11142,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if not any(
-        error.message == "physics world store wake model access is blocked"
-        for error in check_physics_world_store_wake_model_access_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_store_wake_connected_invalidation,
-        )
-    ):
-        failures.append("old PhysicsWorld store point-joint wake invalidation synthetic surface was not rejected")
+    expect_error('old PhysicsWorld store point-joint wake invalidation synthetic surface was not rejected', check_physics_world_store_wake_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_store_wake_connected_invalidation, ), 'physics world store wake model access is blocked')
 
     allowed_store_wake_body_records = """
     void PhysicsWorld::WakeModel( int bodyCount, const std::vector<PhysicsBodyRecord>& bodyRecords, int index )
@@ -12997,11 +11150,7 @@ def run_self_tests() -> list[str]:
         WakeSleepVisualIsland( bodyCount, bodyRecords, nullptr, index, 0.0f, false );
     }
     """
-    if check_physics_world_store_wake_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        allowed_store_wake_body_records,
-    ):
-        failures.append("store-owned PhysicsWorld wake synthetic surface was rejected")
+    expect_clean('store-owned PhysicsWorld wake synthetic surface was rejected', check_physics_world_store_wake_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), allowed_store_wake_body_records, ))
 
     old_legacy_wake_body_stream = """
     void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, const GameModelBodyStream& bodyStream, int index )
@@ -13009,14 +11158,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if not any(
-        error.message == "physics world legacy model-stream wake/seed path is deleted"
-        for error in check_physics_world_deleted_model_stream_wake_seed_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_legacy_wake_body_stream,
-        )
-    ):
-        failures.append("old PhysicsWorld wake model-stream synthetic surface was not rejected")
+    expect_error('old PhysicsWorld wake model-stream synthetic surface was not rejected', check_physics_world_deleted_model_stream_wake_seed_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_legacy_wake_body_stream, ), 'physics world legacy model-stream wake/seed path is deleted')
 
     allowed_scene_wake_invalidation = """
     void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -13025,11 +11167,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if check_physics_world_store_wake_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        allowed_scene_wake_invalidation,
-    ):
-        failures.append("PhysicsScene wake invalidation synthetic surface was rejected")
+    expect_clean('PhysicsScene wake invalidation synthetic surface was rejected', check_physics_world_store_wake_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), allowed_scene_wake_invalidation, ))
 
     commented_store_wake_model_access = """
     void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore, int index )
@@ -13038,11 +11176,7 @@ def run_self_tests() -> list[str]:
         WakeBodyRecord();
     }
     """
-    if check_physics_world_store_wake_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        commented_store_wake_model_access,
-    ):
-        failures.append("comment-only PhysicsWorld store wake synthetic text was rejected")
+    expect_clean('comment-only PhysicsWorld store wake synthetic text was rejected', check_physics_world_store_wake_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), commented_store_wake_model_access, ))
 
     old_public_wake_seed_model_access = """
     class PhysicsWorld
@@ -13051,14 +11185,7 @@ def run_self_tests() -> list[str]:
         void SeedModelAsleep( PhysicsModelAccess& modelAccess, int index );
     };
     """
-    if not any(
-        error.message == "physics world legacy model-stream wake/seed path is deleted"
-        for error in check_physics_world_deleted_model_stream_wake_seed_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.h"),
-            old_public_wake_seed_model_access,
-        )
-    ):
-        failures.append("old PhysicsWorld public model-access wake/seed synthetic surface was not rejected")
+    expect_error('old PhysicsWorld public model-access wake/seed synthetic surface was not rejected', check_physics_world_deleted_model_stream_wake_seed_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.h"), old_public_wake_seed_model_access, ), 'physics world legacy model-stream wake/seed path is deleted')
 
     allowed_store_wake_seed_header = """
     class PhysicsWorld
@@ -13067,11 +11194,7 @@ def run_self_tests() -> list[str]:
         void SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index );
     };
     """
-    if check_physics_world_deleted_model_stream_wake_seed_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.h"),
-        allowed_store_wake_seed_header,
-    ):
-        failures.append("store-owned PhysicsWorld wake/seed header synthetic surface was rejected")
+    expect_clean('store-owned PhysicsWorld wake/seed header synthetic surface was rejected', check_physics_world_deleted_model_stream_wake_seed_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.h"), allowed_store_wake_seed_header, ))
 
     commented_deleted_world_stream = """
     void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore, int index )
@@ -13081,11 +11204,7 @@ def run_self_tests() -> list[str]:
         WakeBodyRecord();
     }
     """
-    if check_physics_world_deleted_model_stream_wake_seed_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        commented_deleted_world_stream,
-    ):
-        failures.append("comment-only PhysicsWorld deleted model-stream synthetic text was rejected")
+    expect_clean('comment-only PhysicsWorld deleted model-stream synthetic text was rejected', check_physics_world_deleted_model_stream_wake_seed_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), commented_deleted_world_stream, ))
 
     old_world_run_diagnostics = """
     void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -13094,14 +11213,7 @@ def run_self_tests() -> list[str]:
         m_diagnostics.EmitFrame( modelAccess, bodyStore, colliderStore, dt );
     }
     """
-    if not any(
-        error.message == "physics world run diagnostics emission is blocked"
-        for error in check_physics_world_run_diagnostics_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_world_run_diagnostics,
-        )
-    ):
-        failures.append("old PhysicsWorld RunPhysics diagnostics synthetic surface was not rejected")
+    expect_error('old PhysicsWorld RunPhysics diagnostics synthetic surface was not rejected', check_physics_world_run_diagnostics_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_world_run_diagnostics, ), 'physics world run diagnostics emission is blocked')
 
     allowed_world_step_diagnostics = """
     void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore )
@@ -13112,11 +11224,7 @@ def run_self_tests() -> list[str]:
         m_diagnostics.EmitFrame( frame );
     }
     """
-    if check_physics_world_run_diagnostics_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        allowed_world_step_diagnostics,
-    ):
-        failures.append("PhysicsWorld EmitStepDiagnostics synthetic surface was rejected")
+    expect_clean('PhysicsWorld EmitStepDiagnostics synthetic surface was rejected', check_physics_world_run_diagnostics_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), allowed_world_step_diagnostics, ))
 
     commented_world_run_diagnostics = """
     void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -13125,11 +11233,7 @@ def run_self_tests() -> list[str]:
         StepBodyStores();
     }
     """
-    if check_physics_world_run_diagnostics_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        commented_world_run_diagnostics,
-    ):
-        failures.append("comment-only PhysicsWorld RunPhysics diagnostics synthetic text was rejected")
+    expect_clean('comment-only PhysicsWorld RunPhysics diagnostics synthetic text was rejected', check_physics_world_run_diagnostics_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), commented_world_run_diagnostics, ))
 
     old_world_step_diagnostics_model_access = """
     void PhysicsWorld::EmitStepDiagnostics( PhysicsModelAccess& modelAccess,
@@ -13146,14 +11250,7 @@ def run_self_tests() -> list[str]:
         modelAccess.FillPhysicsDiagnosticsNames( bodyStore.Count(), m_physicsDiagnosticsModelNames );
     }
     """
-    if not any(
-        error.message == "physics world step diagnostics model access is blocked"
-        for error in check_physics_world_step_diagnostics_model_access_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-            old_world_step_diagnostics_model_access,
-        )
-    ):
-        failures.append("old PhysicsWorld step diagnostics model-access synthetic surface was not rejected")
+    expect_error('old PhysicsWorld step diagnostics model-access synthetic surface was not rejected', check_physics_world_step_diagnostics_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), old_world_step_diagnostics_model_access, ), 'physics world step diagnostics model access is blocked')
 
     allowed_world_step_diagnostics_names = """
     bool PhysicsWorld::ShouldEmitStepDiagnostics() const
@@ -13171,11 +11268,7 @@ def run_self_tests() -> list[str]:
         m_diagnostics.EmitFrame( frame );
     }
     """
-    if check_physics_world_step_diagnostics_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        allowed_world_step_diagnostics_names,
-    ):
-        failures.append("model-free PhysicsWorld step diagnostics synthetic surface was rejected")
+    expect_clean('model-free PhysicsWorld step diagnostics synthetic surface was rejected', check_physics_world_step_diagnostics_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), allowed_world_step_diagnostics_names, ))
 
     commented_world_step_diagnostics_model_access = """
     void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore )
@@ -13186,11 +11279,7 @@ def run_self_tests() -> list[str]:
         m_diagnostics.EmitFrame( frame );
     }
     """
-    if check_physics_world_step_diagnostics_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsWorld.cpp"),
-        commented_world_step_diagnostics_model_access,
-    ):
-        failures.append("comment-only PhysicsWorld step diagnostics model-access synthetic text was rejected")
+    expect_clean('comment-only PhysicsWorld step diagnostics model-access synthetic text was rejected', check_physics_world_step_diagnostics_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsWorld.cpp"), commented_world_step_diagnostics_model_access, ))
 
     old_render_instance_model_refresh = """
     void GameModelCollection::RefreshRenderInstances( RenderInstanceStore& renderInstanceStore )
@@ -13198,14 +11287,7 @@ def run_self_tests() -> list[str]:
         renderInstanceStore.Refresh( m_gameModels );
     }
     """
-    if not any(
-        error.message == "render instance model-transform refresh is blocked"
-        for error in check_render_instance_store_authority_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_render_instance_model_refresh,
-        )
-    ):
-        failures.append("old render instance model refresh synthetic surface was not rejected")
+    expect_error('old render instance model refresh synthetic surface was not rejected', check_render_instance_store_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_render_instance_model_refresh, ), 'render instance model-transform refresh is blocked')
 
     allowed_render_instance_store_refresh = """
     void GameModelCollection::RefreshRenderInstances( RenderInstanceStore& renderInstanceStore,
@@ -13215,11 +11297,7 @@ def run_self_tests() -> list[str]:
         renderInstanceStore.Refresh( m_gameModels, bodyStore, colliderStore );
     }
     """
-    if check_render_instance_store_authority_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_render_instance_store_refresh,
-    ):
-        failures.append("store-owned render instance refresh synthetic surface was rejected")
+    expect_clean('store-owned render instance refresh synthetic surface was rejected', check_render_instance_store_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_render_instance_store_refresh, ))
 
     commented_render_instance_model_refresh = """
     void GameModelCollection::RefreshRenderInstances( RenderInstanceStore& renderInstanceStore )
@@ -13228,11 +11306,7 @@ def run_self_tests() -> list[str]:
         renderInstanceStore.Refresh( m_gameModels, bodyStore, colliderStore );
     }
     """
-    if check_render_instance_store_authority_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        commented_render_instance_model_refresh,
-    ):
-        failures.append("comment-only render instance model refresh synthetic text was rejected")
+    expect_clean('comment-only render instance model refresh synthetic text was rejected', check_render_instance_store_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), commented_render_instance_model_refresh, ))
 
     old_render_instance_store_model_only_refresh = """
     void RenderInstanceStore::Refresh( std::vector<GameModel>& models )
@@ -13244,14 +11318,7 @@ def run_self_tests() -> list[str]:
         record.modelMatrix = model.GetModelMatrix();
     }
     """
-    if not any(
-        error.message == "RenderInstanceStore model-only refresh overload is blocked"
-        for error in check_render_instance_store_authority_guardrails_text(
-            Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"),
-            old_render_instance_store_model_only_refresh,
-        )
-    ):
-        failures.append("old RenderInstanceStore model-only refresh synthetic surface was not rejected")
+    expect_error('old RenderInstanceStore model-only refresh synthetic surface was not rejected', check_render_instance_store_authority_guardrails_text( Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"), old_render_instance_store_model_only_refresh, ), 'RenderInstanceStore model-only refresh overload is blocked')
 
     old_render_instance_store_model_only_declarations = """
     class RenderInstanceStore
@@ -13260,14 +11327,7 @@ def run_self_tests() -> list[str]:
         void Refresh( GameObjects::GameModel* models, int modelCount );
     };
     """
-    if not any(
-        error.message == "RenderInstanceStore model-only refresh overload is blocked"
-        for error in check_render_instance_store_authority_guardrails_text(
-            Path("SkullbonezSource/Rendering/RenderInstanceStore.h"),
-            old_render_instance_store_model_only_declarations,
-        )
-    ):
-        failures.append("old RenderInstanceStore model-only refresh declarations were not rejected")
+    expect_error('old RenderInstanceStore model-only refresh declarations were not rejected', check_render_instance_store_authority_guardrails_text( Path("SkullbonezSource/Rendering/RenderInstanceStore.h"), old_render_instance_store_model_only_declarations, ), 'RenderInstanceStore model-only refresh overload is blocked')
 
     old_render_instance_store_refresh_fallback = """
     void RenderInstanceStore::Refresh( GameModel* models,
@@ -13282,14 +11342,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if not any(
-        error.message == "RenderInstanceStore GameModel fallback refresh is blocked"
-        for error in check_render_instance_store_authority_guardrails_text(
-            Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"),
-            old_render_instance_store_refresh_fallback,
-        )
-    ):
-        failures.append("old RenderInstanceStore fallback refresh synthetic surface was not rejected")
+    expect_error('old RenderInstanceStore fallback refresh synthetic surface was not rejected', check_render_instance_store_authority_guardrails_text( Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"), old_render_instance_store_refresh_fallback, ), 'RenderInstanceStore GameModel fallback refresh is blocked')
 
     old_render_instance_store_model_pose_override = """
     void RenderInstanceStore::OverridePoseFromModel( int modelIndex, GameModel& model )
@@ -13297,14 +11350,7 @@ def run_self_tests() -> list[str]:
         record.modelMatrix = model.GetModelMatrix();
     }
     """
-    if not any(
-        error.message == "RenderInstanceStore model-pose override is blocked"
-        for error in check_render_instance_store_authority_guardrails_text(
-            Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"),
-            old_render_instance_store_model_pose_override,
-        )
-    ):
-        failures.append("old RenderInstanceStore model-pose override synthetic surface was not rejected")
+    expect_error('old RenderInstanceStore model-pose override synthetic surface was not rejected', check_render_instance_store_authority_guardrails_text( Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"), old_render_instance_store_model_pose_override, ), 'RenderInstanceStore model-pose override is blocked')
 
     allowed_render_instance_store_fail_closed = """
     void RenderInstanceStore::Refresh( GameModel* models,
@@ -13322,11 +11368,7 @@ def run_self_tests() -> list[str]:
         record.modelMatrix = BuildPhysicsModelMatrix( body, collider );
     }
     """
-    if check_render_instance_store_authority_guardrails_text(
-        Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"),
-        allowed_render_instance_store_fail_closed,
-    ):
-        failures.append("store-backed RenderInstanceStore fail-closed synthetic surface was rejected")
+    expect_clean('store-backed RenderInstanceStore fail-closed synthetic surface was rejected', check_render_instance_store_authority_guardrails_text( Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"), allowed_render_instance_store_fail_closed, ))
 
     commented_render_instance_store_refresh_fallback = """
     void RenderInstanceStore::Refresh( GameModel* models,
@@ -13338,11 +11380,7 @@ def run_self_tests() -> list[str]:
         Clear();
     }
     """
-    if check_render_instance_store_authority_guardrails_text(
-        Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"),
-        commented_render_instance_store_refresh_fallback,
-    ):
-        failures.append("comment-only RenderInstanceStore fallback refresh synthetic text was rejected")
+    expect_clean('comment-only RenderInstanceStore fallback refresh synthetic text was rejected', check_render_instance_store_authority_guardrails_text( Path("SkullbonezSource/Rendering/RenderInstanceStore.cpp"), commented_render_instance_store_refresh_fallback, ))
 
     old_game_model_renderer_stream_reads = """
     void GameModelRenderer::RenderModels( GameModelCollection& collection )
@@ -13357,21 +11395,13 @@ def run_self_tests() -> list[str]:
         const bool isPineVisual = IsPineVisualMaterial( models[x].GetRenderMaterial() );
     }
     """
-    if not any(
-        error.message == "GameModelRenderer model-pose stream read is blocked"
-        for error in check_game_model_renderer_render_instance_authority_guardrails_text(
-            Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"),
-            old_game_model_renderer_stream_reads,
-        )
-    ):
-        failures.append("old GameModelRenderer model-pose stream synthetic surface was not rejected")
+    expect_error('old GameModelRenderer model-pose stream synthetic surface was not rejected', check_game_model_renderer_render_instance_authority_guardrails_text( Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"), old_game_model_renderer_stream_reads, ), 'GameModelRenderer model-pose stream read is blocked')
 
     allowed_game_model_renderer_render_instances = """
-    void GameModelRenderer::RenderModels( GameModelCollection& collection )
+    void GameModelRenderer::RenderModels( const RenderInstanceStore& renderStore, const ColliderStore& colliderStore )
     {
-        const RenderInstanceStore& renderStore = collection.RenderInstances();
         const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
-        const std::vector<ColliderRecord>& colliders = collection.Colliders().Records();
+        const std::vector<ColliderRecord>& colliders = colliderStore.Records();
         if ( instances[x].shapeKind == RenderInstanceShapeKind::Sphere ||
              instances[x].shapeKind == RenderInstanceShapeKind::ConvexHull )
         {
@@ -13380,24 +11410,16 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if check_game_model_renderer_render_instance_authority_guardrails_text(
-        Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"),
-        allowed_game_model_renderer_render_instances,
-    ):
-        failures.append("RenderInstanceStore-backed GameModelRenderer synthetic surface was rejected")
+    expect_clean('RenderInstanceStore-backed GameModelRenderer synthetic surface was rejected', check_game_model_renderer_render_instance_authority_guardrails_text( Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"), allowed_game_model_renderer_render_instances, ))
 
     commented_game_model_renderer_stream_reads = """
-    void GameModelRenderer::RenderModels( GameModelCollection& collection )
+    void GameModelRenderer::RenderModels( const RenderInstanceStore& renderStore, const ColliderStore& colliderStore )
     {
         // collection.GetRenderStream() and models[x].GetPosition() used to drive object rendering.
-        const RenderInstanceStore& renderStore = collection.RenderInstances();
+        const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
     }
     """
-    if check_game_model_renderer_render_instance_authority_guardrails_text(
-        Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"),
-        commented_game_model_renderer_stream_reads,
-    ):
-        failures.append("comment-only GameModelRenderer stream-read synthetic text was rejected")
+    expect_clean('comment-only GameModelRenderer stream-read synthetic text was rejected', check_game_model_renderer_render_instance_authority_guardrails_text( Path("SkullbonezSource/Rendering/GameModelRenderer.cpp"), commented_game_model_renderer_stream_reads, ))
 
     old_dxr_model_matrix_copy = """
     int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount )
@@ -13407,14 +11429,7 @@ def run_self_tests() -> list[str]:
         return 1;
     }
     """
-    if not any(
-        error.message == "DXR model-matrix upload must use render instances"
-        for error in check_dxr_render_instance_matrix_authority_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_dxr_model_matrix_copy,
-        )
-    ):
-        failures.append("old DXR GameModel matrix copy synthetic surface was not rejected")
+    expect_error('old DXR GameModel matrix copy synthetic surface was not rejected', check_dxr_render_instance_matrix_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_dxr_model_matrix_copy, ), 'DXR model-matrix upload must use render instances')
 
     allowed_dxr_render_instance_matrix_copy = """
     int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount )
@@ -13425,11 +11440,7 @@ def run_self_tests() -> list[str]:
         return 1;
     }
     """
-    if check_dxr_render_instance_matrix_authority_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_dxr_render_instance_matrix_copy,
-    ):
-        failures.append("RenderInstanceStore-backed DXR matrix copy synthetic surface was rejected")
+    expect_clean('RenderInstanceStore-backed DXR matrix copy synthetic surface was rejected', check_dxr_render_instance_matrix_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_dxr_render_instance_matrix_copy, ))
 
     commented_dxr_model_matrix_copy = """
     int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount )
@@ -13438,11 +11449,7 @@ def run_self_tests() -> list[str]:
         return 0;
     }
     """
-    if check_dxr_render_instance_matrix_authority_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        commented_dxr_model_matrix_copy,
-    ):
-        failures.append("comment-only DXR model matrix copy synthetic text was rejected")
+    expect_clean('comment-only DXR model matrix copy synthetic text was rejected', check_dxr_render_instance_matrix_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), commented_dxr_model_matrix_copy, ))
 
     old_unconditional_body_store_refresh = """
     const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysicsBodyStore()
@@ -13452,14 +11459,7 @@ def run_self_tests() -> list[str]:
         return m_physicsEngine.BodyStore();
     }
     """
-    if not any(
-        error.message == "body-store read accessor must not unconditionally refresh from GameModel"
-        for error in check_game_model_collection_body_store_read_authority_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_unconditional_body_store_refresh,
-        )
-    ):
-        failures.append("old unconditional body-store refresh synthetic surface was not rejected")
+    expect_error('old unconditional body-store refresh synthetic surface was not rejected', check_game_model_collection_body_store_read_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_unconditional_body_store_refresh, ), 'body-store read accessor must not unconditionally refresh from GameModel')
 
     allowed_count_gated_body_store_refresh = """
     const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysicsBodyStore()
@@ -13472,11 +11472,7 @@ def run_self_tests() -> list[str]:
         return m_physicsEngine.BodyStore();
     }
     """
-    if check_game_model_collection_body_store_read_authority_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_count_gated_body_store_refresh,
-    ):
-        failures.append("count-gated body-store refresh synthetic surface was rejected")
+    expect_clean('count-gated body-store refresh synthetic surface was rejected', check_game_model_collection_body_store_read_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_count_gated_body_store_refresh, ))
 
     old_unconditional_collider_store_refresh = """
     const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
@@ -13486,14 +11482,7 @@ def run_self_tests() -> list[str]:
         return m_physicsEngine.Colliders();
     }
     """
-    if not any(
-        error.message == "collider-store read accessor must preserve body-store authority"
-        for error in check_game_model_collection_body_store_read_authority_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_unconditional_collider_store_refresh,
-        )
-    ):
-        failures.append("old full collider-store refresh synthetic surface was not rejected")
+    expect_error('old full collider-store refresh synthetic surface was not rejected', check_game_model_collection_body_store_read_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_unconditional_collider_store_refresh, ), 'collider-store read accessor must preserve body-store authority')
 
     old_unconditional_collider_snapshot_refresh = """
     const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
@@ -13504,14 +11493,7 @@ def run_self_tests() -> list[str]:
         return m_physicsEngine.Colliders();
     }
     """
-    if not any(
-        error.message == "collider-store read accessor must not unconditionally refresh from GameModel"
-        for error in check_game_model_collection_body_store_read_authority_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_unconditional_collider_snapshot_refresh,
-        )
-    ):
-        failures.append("old unconditional collider snapshot refresh synthetic surface was not rejected")
+    expect_error('old unconditional collider snapshot refresh synthetic surface was not rejected', check_game_model_collection_body_store_read_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_unconditional_collider_snapshot_refresh, ), 'collider-store read accessor must not unconditionally refresh from GameModel')
 
     allowed_count_gated_collider_snapshot_refresh = """
     const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
@@ -13522,11 +11504,7 @@ def run_self_tests() -> list[str]:
         return m_physicsEngine.Colliders();
     }
     """
-    if check_game_model_collection_body_store_read_authority_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_count_gated_collider_snapshot_refresh,
-    ):
-        failures.append("count-gated collider snapshot refresh synthetic surface was rejected")
+    expect_clean('count-gated collider snapshot refresh synthetic surface was rejected', check_game_model_collection_body_store_read_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_count_gated_collider_snapshot_refresh, ))
 
     commented_collider_store_refresh = """
     const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
@@ -13536,11 +11514,7 @@ def run_self_tests() -> list[str]:
         return m_physicsEngine.Colliders();
     }
     """
-    if check_game_model_collection_body_store_read_authority_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        commented_collider_store_refresh,
-    ):
-        failures.append("comment-only collider-store refresh synthetic text was rejected")
+    expect_clean('comment-only collider-store refresh synthetic text was rejected', check_game_model_collection_body_store_read_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), commented_collider_store_refresh, ))
 
     old_deleted_bool_edit_commit = """
     void ApplyEditorScale( GameModelCollection& collection, int index )
@@ -13548,14 +11522,7 @@ def run_self_tests() -> list[str]:
         collection.CommitEditedModelPhysicsState( index, true );
     }
     """
-    if not any(
-        error.message == "deleted edited-model physics bool commit is blocked"
-        for error in check_deleted_edited_model_physics_state_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"),
-            old_deleted_bool_edit_commit,
-        )
-    ):
-        failures.append("deleted edited-model physics bool commit synthetic surface was not rejected")
+    expect_error('deleted edited-model physics bool commit synthetic surface was not rejected', check_deleted_edited_model_physics_state_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"), old_deleted_bool_edit_commit, ), 'deleted edited-model physics bool commit is blocked')
 
     allowed_split_edited_state_commit = """
     void ApplyEditorScale( GameModelCollection& collection, int index, PhysicsColliderCreateDesc desc )
@@ -13564,11 +11531,7 @@ def run_self_tests() -> list[str]:
         collection.CommitEditedModelColliderState( index, desc );
     }
     """
-    if check_deleted_edited_model_physics_state_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"),
-        allowed_split_edited_state_commit,
-    ):
-        failures.append("split edited-state commit synthetic surface was rejected")
+    expect_clean('split edited-state commit synthetic surface was rejected', check_deleted_edited_model_physics_state_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"), allowed_split_edited_state_commit, ))
 
     old_full_collider_edit_commit = """
     void GameModelCollection::CommitEditedModelColliderState( int modelIndex, PhysicsColliderCreateDesc colliderDesc )
@@ -13577,14 +11540,7 @@ def run_self_tests() -> list[str]:
         m_physicsEngine.RefreshColliderStore( modelAccess );
     }
     """
-    if not any(
-        error.message == "collider edit commit must not reload same-count body rows"
-        for error in check_game_model_collection_body_store_read_authority_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_full_collider_edit_commit,
-        )
-    ):
-        failures.append("old full collider edit commit synthetic surface was not rejected")
+    expect_error('old full collider edit commit synthetic surface was not rejected', check_game_model_collection_body_store_read_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_full_collider_edit_commit, ), 'collider edit commit must not reload same-count body rows')
 
     allowed_narrow_collider_edit_commit = """
     void GameModelCollection::CommitEditedModelColliderState( int modelIndex, PhysicsColliderCreateDesc colliderDesc )
@@ -13599,11 +11555,7 @@ def run_self_tests() -> list[str]:
         m_physicsEngine.UpdateAuthoredCollider( collider, colliderDesc );
     }
     """
-    if check_game_model_collection_body_store_read_authority_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_narrow_collider_edit_commit,
-    ):
-        failures.append("narrow collider edit commit synthetic surface was rejected")
+    expect_clean('narrow collider edit commit synthetic surface was rejected', check_game_model_collection_body_store_read_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_narrow_collider_edit_commit, ))
 
     old_run_physics_wrapper_definition = """
     void GameModelCollection::RunPhysics( float dt )
@@ -13613,14 +11565,7 @@ def run_self_tests() -> list[str]:
         WriteBackPhysicsBodies( m_physicsEngine.BodyStore() );
     }
     """
-    if not any(
-        error.message == "GameModelCollection physics step wrapper is blocked"
-        for error in check_game_model_collection_run_physics_model_access_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_run_physics_wrapper_definition,
-        )
-    ):
-        failures.append("old GameModelCollection::RunPhysics wrapper definition was not rejected")
+    expect_error('old GameModelCollection::RunPhysics wrapper definition was not rejected', check_game_model_collection_run_physics_model_access_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_run_physics_wrapper_definition, ), 'GameModelCollection physics step wrapper is blocked')
 
     old_run_physics_wrapper_declaration = """
     class GameModelCollection
@@ -13628,14 +11573,7 @@ def run_self_tests() -> list[str]:
         void RunPhysics( float dt, const EngineConfig& config, const PhysicsWorldForces& forces );
     };
     """
-    if not any(
-        error.message == "GameModelCollection physics step wrapper is blocked"
-        for error in check_game_model_collection_run_physics_model_access_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
-            old_run_physics_wrapper_declaration,
-        )
-    ):
-        failures.append("old GameModelCollection::RunPhysics wrapper declaration was not rejected")
+    expect_error('old GameModelCollection::RunPhysics wrapper declaration was not rejected', check_game_model_collection_run_physics_model_access_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.h"), old_run_physics_wrapper_declaration, ), 'GameModelCollection physics step wrapper is blocked')
 
     old_run_physics_wrapper_call = """
     void Run::TickPhysics()
@@ -13643,14 +11581,7 @@ def run_self_tests() -> list[str]:
         m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT, config, forces, workerPool );
     }
     """
-    if not any(
-        error.message == "GameModelCollection physics step wrapper is blocked"
-        for error in check_game_model_collection_run_physics_model_access_guardrails_text(
-            Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-            old_run_physics_wrapper_call,
-        )
-    ):
-        failures.append("old GameModelCollection::RunPhysics call site was not rejected")
+    expect_error('old GameModelCollection::RunPhysics call site was not rejected', check_game_model_collection_run_physics_model_access_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), old_run_physics_wrapper_call, ), 'GameModelCollection physics step wrapper is blocked')
 
     old_replay_prediction_run_physics_wrapper_call = """
     void StepReplayPrediction()
@@ -13658,14 +11589,7 @@ def run_self_tests() -> list[str]:
         modelCollection.RunPhysics( PHYSICS_FIXED_DT, config, worldForces, workerPool );
     }
     """
-    if not any(
-        error.message == "GameModelCollection physics step wrapper is blocked"
-        for error in check_game_model_collection_run_physics_model_access_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"),
-            old_replay_prediction_run_physics_wrapper_call,
-        )
-    ):
-        failures.append("old replay prediction GameModelCollection::RunPhysics call site was not rejected")
+    expect_error('old replay prediction GameModelCollection::RunPhysics call site was not rejected', check_game_model_collection_run_physics_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), old_replay_prediction_run_physics_wrapper_call, ), 'GameModelCollection physics step wrapper is blocked')
 
     allowed_runtime_explicit_physics_step = """
     void Run::TickPhysics()
@@ -13682,11 +11606,7 @@ def run_self_tests() -> list[str]:
         m_cGameModelCollection.WriteBackPhysicsBodies( physicsEngine.BodyStore() );
     }
     """
-    if check_game_model_collection_run_physics_model_access_guardrails_text(
-        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-        allowed_runtime_explicit_physics_step,
-    ):
-        failures.append("explicit runtime PhysicsEngine::Step synthetic surface was rejected")
+    expect_clean('explicit runtime PhysicsEngine::Step synthetic surface was rejected', check_game_model_collection_run_physics_model_access_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), allowed_runtime_explicit_physics_step, ))
 
     commented_run_physics_wrapper = """
     void Run::TickPhysics()
@@ -13695,11 +11615,7 @@ def run_self_tests() -> list[str]:
         physicsEngine.Step( PHYSICS_FIXED_DT, config, forces, workerPool, nullptr, 0 );
     }
     """
-    if check_game_model_collection_run_physics_model_access_guardrails_text(
-        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-        commented_run_physics_wrapper,
-    ):
-        failures.append("comment-only RunPhysics wrapper synthetic text was rejected")
+    expect_clean('comment-only RunPhysics wrapper synthetic text was rejected', check_game_model_collection_run_physics_model_access_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), commented_run_physics_wrapper, ))
 
     old_collection_body_model_reads = """
     Vector3 GameModelCollection::GetModelPosition( int index )
@@ -13721,14 +11637,7 @@ def run_self_tests() -> list[str]:
         return totalEnergy;
     }
     """
-    if not any(
-        error.message == "GameModelCollection body read should use PhysicsBodyStore"
-        for error in check_game_model_collection_body_store_read_authority_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_collection_body_model_reads,
-        )
-    ):
-        failures.append("old collection body model-read synthetic surface was not rejected")
+    expect_error('old collection body model-read synthetic surface was not rejected', check_game_model_collection_body_store_read_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_collection_body_model_reads, ), 'GameModelCollection body read should use PhysicsBodyStore')
 
     allowed_collection_body_store_reads = """
     Vector3 GameModelCollection::GetModelPosition( int index )
@@ -13749,11 +11658,7 @@ def run_self_tests() -> list[str]:
         return totalEnergy;
     }
     """
-    if check_game_model_collection_body_store_read_authority_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_collection_body_store_reads,
-    ):
-        failures.append("PhysicsBodyStore-backed collection body-read synthetic surface was rejected")
+    expect_clean('PhysicsBodyStore-backed collection body-read synthetic surface was rejected', check_game_model_collection_body_store_read_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_collection_body_store_reads, ))
 
     commented_collection_body_model_reads = """
     double GameModelCollection::GetSceneKineticEnergy()
@@ -13763,11 +11668,7 @@ def run_self_tests() -> list[str]:
         return static_cast<double>( bodyStore.Count() );
     }
     """
-    if check_game_model_collection_body_store_read_authority_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        commented_collection_body_model_reads,
-    ):
-        failures.append("comment-only collection body model-read synthetic text was rejected")
+    expect_clean('comment-only collection body model-read synthetic text was rejected', check_game_model_collection_body_store_read_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), commented_collection_body_model_reads, ))
 
     old_runtime_pick_service_model_reads = """
     #include "../GameObjects/GameModel.h"
@@ -13785,14 +11686,7 @@ def run_self_tests() -> list[str]:
         return TryIntersectRuntimePickShape( model.GetCollisionShape(), transform, request.rayOrigin, request.rayDirection, outResult.rayT );
     }
     """
-    if not any(
-        error.message == "RuntimePickService must use physics stores for body state"
-        for error in check_runtime_pick_service_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/RuntimePickService.cpp"),
-            old_runtime_pick_service_model_reads,
-        )
-    ):
-        failures.append("old RuntimePickService GameModel-backed synthetic surface was not rejected")
+    expect_error('old RuntimePickService GameModel-backed synthetic surface was not rejected', check_runtime_pick_service_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/RuntimePickService.cpp"), old_runtime_pick_service_model_reads, ), 'RuntimePickService must use physics stores for body state')
 
     allowed_runtime_pick_service_store_reads = """
     bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, RuntimePickResult& outResult )
@@ -13807,11 +11701,7 @@ def run_self_tests() -> list[str]:
         return TryIntersectRuntimePickShape( collider.shape, transform, request.rayOrigin, request.rayDirection, outResult.rayT );
     }
     """
-    if check_runtime_pick_service_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/RuntimePickService.cpp"),
-        allowed_runtime_pick_service_store_reads,
-    ):
-        failures.append("Physics-store RuntimePickService synthetic surface was rejected")
+    expect_clean('Physics-store RuntimePickService synthetic surface was rejected', check_runtime_pick_service_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/RuntimePickService.cpp"), allowed_runtime_pick_service_store_reads, ))
 
     commented_runtime_pick_service_model_reads = """
     bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, RuntimePickResult& outResult )
@@ -13821,11 +11711,7 @@ def run_self_tests() -> list[str]:
         return !bodies.empty();
     }
     """
-    if check_runtime_pick_service_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/RuntimePickService.cpp"),
-        commented_runtime_pick_service_model_reads,
-    ):
-        failures.append("comment-only RuntimePickService model-read synthetic text was rejected")
+    expect_clean('comment-only RuntimePickService model-read synthetic text was rejected', check_runtime_pick_service_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/RuntimePickService.cpp"), commented_runtime_pick_service_model_reads, ))
 
     old_scene_snapshot_model_physics_reads = """
     bool SceneSnapshotWriter::Save( GameModelCollection& collection, const char* path )
@@ -13843,14 +11729,7 @@ def run_self_tests() -> list[str]:
         return fixed || mass > 0.0f || rest > 0.0f || !shape.valueless_by_exception();
     }
     """
-    if not any(
-        error.message == "scene snapshot physics state must use stores"
-        for error in check_scene_snapshot_store_authority_guardrails_text(
-            Path("SkullbonezSource/Scene/SceneSnapshotWriter.cpp"),
-            old_scene_snapshot_model_physics_reads,
-        )
-    ):
-        failures.append("old SceneSnapshotWriter GameModel-backed physics reads were not rejected")
+    expect_error('old SceneSnapshotWriter GameModel-backed physics reads were not rejected', check_scene_snapshot_store_authority_guardrails_text( Path("SkullbonezSource/Scene/SceneSnapshotWriter.cpp"), old_scene_snapshot_model_physics_reads, ), 'scene snapshot physics state must use stores')
 
     allowed_scene_snapshot_store_reads = """
     bool SceneSnapshotWriter::Save( GameModelCollection& collection, const char* path )
@@ -13871,11 +11750,7 @@ def run_self_tests() -> list[str]:
         return fixed || mass > 0.0f || rest > 0.0f || !shape.valueless_by_exception();
     }
     """
-    if check_scene_snapshot_store_authority_guardrails_text(
-        Path("SkullbonezSource/Scene/SceneSnapshotWriter.cpp"),
-        allowed_scene_snapshot_store_reads,
-    ):
-        failures.append("Physics-store SceneSnapshotWriter synthetic surface was rejected")
+    expect_clean('Physics-store SceneSnapshotWriter synthetic surface was rejected', check_scene_snapshot_store_authority_guardrails_text( Path("SkullbonezSource/Scene/SceneSnapshotWriter.cpp"), allowed_scene_snapshot_store_reads, ))
 
     commented_scene_snapshot_model_physics_reads = """
     bool SceneSnapshotWriter::Save( GameModelCollection& collection, const char* path )
@@ -13886,11 +11761,7 @@ def run_self_tests() -> list[str]:
         return body != nullptr;
     }
     """
-    if check_scene_snapshot_store_authority_guardrails_text(
-        Path("SkullbonezSource/Scene/SceneSnapshotWriter.cpp"),
-        commented_scene_snapshot_model_physics_reads,
-    ):
-        failures.append("comment-only SceneSnapshotWriter model physics-read synthetic text was rejected")
+    expect_clean('comment-only SceneSnapshotWriter model physics-read synthetic text was rejected', check_scene_snapshot_store_authority_guardrails_text( Path("SkullbonezSource/Scene/SceneSnapshotWriter.cpp"), commented_scene_snapshot_model_physics_reads, ))
 
     old_game_model_force_bridge = """
     class GameModel
@@ -13902,14 +11773,7 @@ def run_self_tests() -> list[str]:
         void ClearImpulseForce();
     };
     """
-    if not any(
-        error.message == "deleted GameModel force bridge is blocked"
-        for error in check_deleted_model_force_bridge_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModel.h"),
-            old_game_model_force_bridge,
-        )
-    ):
-        failures.append("old GameModel force bridge synthetic surface was not rejected")
+    expect_error('old GameModel force bridge synthetic surface was not rejected', check_deleted_model_force_bridge_guardrails_text( Path("SkullbonezSource/GameObjects/GameModel.h"), old_game_model_force_bridge, ), 'deleted GameModel force bridge is blocked')
 
     old_world_environment_model_force_bridge = """
     #include "../GameObjects/GameModel.h"
@@ -13918,34 +11782,7 @@ def run_self_tests() -> list[str]:
         target.SetWorldForce( force, torque );
     }
     """
-    if not any(
-        error.message == "deleted WorldEnvironment model force bridge is blocked"
-        for error in check_deleted_model_force_bridge_guardrails_text(
-            Path("SkullbonezSource/World/WorldEnvironment.cpp"),
-            old_world_environment_model_force_bridge,
-        )
-    ):
-        failures.append("old WorldEnvironment model force bridge synthetic surface was not rejected")
-
-    old_rigid_body_force_bridge = """
-    class RigidBody
-    {
-        bool m_isForceApplied;
-        Vector3 m_appliedForce;
-        Vector3 m_worldForce;
-        void ApplyWorldForce();
-        void ApplyImpulseForce();
-        void SetImpulseForce( const Vector3& impulse, const Vector3& point );
-    };
-    """
-    if not any(
-        error.message == "deleted RigidBody force bridge is blocked"
-        for error in check_deleted_model_force_bridge_guardrails_text(
-            Path("SkullbonezSource/Physics/RigidBody.h"),
-            old_rigid_body_force_bridge,
-        )
-    ):
-        failures.append("old RigidBody force bridge synthetic surface was not rejected")
+    expect_error('old WorldEnvironment model force bridge synthetic surface was not rejected', check_deleted_model_force_bridge_guardrails_text( Path("SkullbonezSource/World/WorldEnvironment.cpp"), old_world_environment_model_force_bridge, ), 'deleted WorldEnvironment model force bridge is blocked')
 
     old_pending_impulse_model_mirror = """
     void WriteRecordToCompatibilityModel( const PhysicsBodyRecord& record, GameModel& model )
@@ -13960,14 +11797,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if not any(
-        error.message == "pending impulses must not mirror into GameModel"
-        for error in check_deleted_model_force_bridge_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"),
-            old_pending_impulse_model_mirror,
-        )
-    ):
-        failures.append("old pending-impulse model mirror synthetic surface was not rejected")
+    expect_error('old pending-impulse model mirror synthetic surface was not rejected', check_deleted_model_force_bridge_guardrails_text( Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"), old_pending_impulse_model_mirror, ), 'pending impulses must not mirror into GameModel')
 
     allowed_store_force_owner = """
     bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
@@ -13980,24 +11810,16 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if check_deleted_model_force_bridge_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"),
-        allowed_store_force_owner,
-    ):
-        failures.append("store-owned force integration synthetic surface was rejected")
+    expect_clean('store-owned force integration synthetic surface was rejected', check_deleted_model_force_bridge_guardrails_text( Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"), allowed_store_force_owner, ))
 
     commented_model_force_bridge = """
-    class RigidBody
+    class GameModel
     {
-        // ApplyWorldForce(), SetImpulseForce(), m_worldForce, and m_appliedForce were deleted.
-        void SetLinearVelocity( const Vector3& velocity );
+        // ApplyWorldForces(), SetImpulseForce(), and ClearImpulseForce() were deleted.
+        void SetPosition( const Vector3& position );
     };
     """
-    if check_deleted_model_force_bridge_guardrails_text(
-        Path("SkullbonezSource/Physics/RigidBody.h"),
-        commented_model_force_bridge,
-    ):
-        failures.append("comment-only deleted model force bridge synthetic text was rejected")
+    expect_clean('comment-only deleted model force bridge synthetic text was rejected', check_deleted_model_force_bridge_guardrails_text( Path("SkullbonezSource/GameObjects/GameModel.h"), commented_model_force_bridge, ))
 
     old_diagnostics_model_record_read = """
     void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess )
@@ -14006,14 +11828,7 @@ def run_self_tests() -> list[str]:
         modelAccess.TryGetPhysicsDiagnosticsModel( i, model );
     }
     """
-    if not any(
-        error.message == "physics diagnostics model-record access is deleted"
-        for error in check_physics_diagnostics_store_authority_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
-            old_diagnostics_model_record_read,
-        )
-    ):
-        failures.append("old diagnostics GameModel-sourced record synthetic surface was not rejected")
+    expect_error('old diagnostics GameModel-sourced record synthetic surface was not rejected', check_physics_diagnostics_store_authority_guardrails_text( Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"), old_diagnostics_model_record_read, ), 'physics diagnostics model-record access is deleted')
 
     deleted_sink_diagnostics_model_record_read = """
     void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world, PhysicsModelAccess& modelAccess )
@@ -14022,14 +11837,7 @@ def run_self_tests() -> list[str]:
         modelAccess.TryGetPhysicsDiagnosticsModel( i, bodyStore, colliderStore, model );
     }
     """
-    if not any(
-        error.message == "physics diagnostics model-record access is deleted"
-        for error in check_physics_diagnostics_store_authority_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
-            deleted_sink_diagnostics_model_record_read,
-        )
-    ):
-        failures.append("deleted diagnostics sink record synthetic surface was not rejected")
+    expect_error('deleted diagnostics sink record synthetic surface was not rejected', check_physics_diagnostics_store_authority_guardrails_text( Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"), deleted_sink_diagnostics_model_record_read, ), 'physics diagnostics model-record access is deleted')
 
     deleted_skullscope_diagnostics_model_record_read = """
     void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess )
@@ -14038,14 +11846,7 @@ def run_self_tests() -> list[str]:
         modelAccess.TryGetPhysicsDiagnosticsModel( i, bodyStore, colliderStore, model );
     }
     """
-    if not any(
-        error.message == "physics diagnostics model-record access is deleted"
-        for error in check_physics_diagnostics_store_authority_guardrails_text(
-            Path("SkullbonezSource/Core/SkullScope.cpp"),
-            deleted_skullscope_diagnostics_model_record_read,
-        )
-    ):
-        failures.append("deleted SkullScope diagnostics record synthetic surface was not rejected")
+    expect_error('deleted SkullScope diagnostics record synthetic surface was not rejected', check_physics_diagnostics_store_authority_guardrails_text( Path("SkullbonezSource/Core/SkullScope.cpp"), deleted_skullscope_diagnostics_model_record_read, ), 'physics diagnostics model-record access is deleted')
 
     allowed_skullscope_frame_input = """
     void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frame )
@@ -14054,11 +11855,7 @@ def run_self_tests() -> list[str]:
         TryBuildPhysicsDiagnosticsModelRecord( i, frame.bodyStore, frame.colliderStore, frame.names, model );
     }
     """
-    if check_physics_diagnostics_store_authority_guardrails_text(
-        Path("SkullbonezSource/Core/SkullScope.cpp"),
-        allowed_skullscope_frame_input,
-    ):
-        failures.append("SkullScope frame-input synthetic surface was rejected")
+    expect_clean('SkullScope frame-input synthetic surface was rejected', check_physics_diagnostics_store_authority_guardrails_text( Path("SkullbonezSource/Core/SkullScope.cpp"), allowed_skullscope_frame_input, ))
 
     deleted_collision_time_model_name_read = """
     void PhysicsDiagnosticsSink::EmitCollisionTime( PhysicsModelAccess& modelAccess )
@@ -14071,14 +11868,7 @@ def run_self_tests() -> list[str]:
         m_diagnostics.EmitCollisionTime( modelAccess, type, bodyA, bodyB, collisionTime, availableTime );
     }
     """
-    if not any(
-        error.message == "physics collision-time diagnostics model-name access is deleted"
-        for error in check_physics_collision_time_name_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
-            deleted_collision_time_model_name_read,
-        )
-    ):
-        failures.append("deleted collision-time diagnostics model-name synthetic surface was not rejected")
+    expect_error('deleted collision-time diagnostics model-name synthetic surface was not rejected', check_physics_collision_time_name_guardrails_text( Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"), deleted_collision_time_model_name_read, ), 'physics collision-time diagnostics model-name access is deleted')
 
     allowed_collision_time_name_view = """
     void PhysicsDiagnosticsSink::EmitCollisionTime( const char* const* diagnosticNames,
@@ -14089,11 +11879,7 @@ def run_self_tests() -> list[str]:
         Log().Writef( path, "%s", name );
     }
     """
-    if check_physics_collision_time_name_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
-        allowed_collision_time_name_view,
-    ):
-        failures.append("collision-time diagnostics name-view synthetic surface was rejected")
+    expect_clean('collision-time diagnostics name-view synthetic surface was rejected', check_physics_collision_time_name_guardrails_text( Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"), allowed_collision_time_name_view, ))
 
     commented_collision_time_model_name_read = """
     void PhysicsDiagnosticsSink::EmitCollisionTime( const char* const* diagnosticNames )
@@ -14102,11 +11888,7 @@ def run_self_tests() -> list[str]:
         const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
     }
     """
-    if check_physics_collision_time_name_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"),
-        commented_collision_time_model_name_read,
-    ):
-        failures.append("comment-only collision-time diagnostics model-name synthetic text was rejected")
+    expect_clean('comment-only collision-time diagnostics model-name synthetic text was rejected', check_physics_collision_time_name_guardrails_text( Path("SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp"), commented_collision_time_model_name_read, ))
 
     commented_diagnostics_model_record_read = """
     void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess )
@@ -14115,11 +11897,7 @@ def run_self_tests() -> list[str]:
         UseBodyAndColliderStores();
     }
     """
-    if check_physics_diagnostics_store_authority_guardrails_text(
-        Path("SkullbonezSource/Core/SkullScope.cpp"),
-        commented_diagnostics_model_record_read,
-    ):
-        failures.append("comment-only diagnostics model record synthetic text was rejected")
+    expect_clean('comment-only diagnostics model record synthetic text was rejected', check_physics_diagnostics_store_authority_guardrails_text( Path("SkullbonezSource/Core/SkullScope.cpp"), commented_diagnostics_model_record_read, ))
 
     old_replay_recorder_model_state_read = """
     void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
@@ -14129,14 +11907,7 @@ def run_self_tests() -> list[str]:
         body.mass = model->GetMass();
     }
     """
-    if not any(
-        error.message == "replay recorder model-state capture is blocked"
-        for error in check_replay_recorder_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"),
-            old_replay_recorder_model_state_read,
-        )
-    ):
-        failures.append("old replay recorder GameModel-sourced body state synthetic surface was not rejected")
+    expect_error('old replay recorder GameModel-sourced body state synthetic surface was not rejected', check_replay_recorder_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"), old_replay_recorder_model_state_read, ), 'replay recorder model-state capture is blocked')
 
     store_owned_replay_recorder_body_read = """
     bool BuildReplayPresentationBodySample( int bodyIndex,
@@ -14150,11 +11921,7 @@ def run_self_tests() -> list[str]:
         body.shapeKind = ShapeKindForCollider( colliderRecord );
     }
     """
-    if check_replay_recorder_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"),
-        store_owned_replay_recorder_body_read,
-    ):
-        failures.append("store-owned replay recorder body read synthetic surface was rejected")
+    expect_clean('store-owned replay recorder body read synthetic surface was rejected', check_replay_recorder_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"), store_owned_replay_recorder_body_read, ))
 
     replay_name_only_model_read = """
     void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
@@ -14163,11 +11930,7 @@ def run_self_tests() -> list[str]:
         const char* modelName = model->GetName();
     }
     """
-    if check_replay_recorder_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"),
-        replay_name_only_model_read,
-    ):
-        failures.append("replay name-only GameModel read synthetic surface was rejected")
+    expect_clean('replay name-only GameModel read synthetic surface was rejected', check_replay_recorder_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"), replay_name_only_model_read, ))
 
     commented_replay_recorder_model_state_read = """
     void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
@@ -14176,11 +11939,7 @@ def run_self_tests() -> list[str]:
         UseBodyAndColliderStores();
     }
     """
-    if check_replay_recorder_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"),
-        commented_replay_recorder_model_state_read,
-    ):
-        failures.append("comment-only replay recorder model-state synthetic text was rejected")
+    expect_clean('comment-only replay recorder model-state synthetic text was rejected', check_replay_recorder_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"), commented_replay_recorder_model_state_read, ))
 
     old_prediction_model_state_capture = """
     bool CaptureReplayPredictionBodyState( GameModelCollection& modelCollection )
@@ -14194,14 +11953,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "replay prediction model-state capture is blocked"
-        for error in check_replay_prediction_body_capture_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"),
-            old_prediction_model_state_capture,
-        )
-    ):
-        failures.append("old replay prediction model-state capture synthetic surface was not rejected")
+    expect_error('old replay prediction model-state capture synthetic surface was not rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), old_prediction_model_state_capture, ), 'replay prediction model-state capture is blocked')
 
     old_prediction_refreshing_body_store_capture = """
     bool CaptureReplayPredictionBodyState( GameModelCollection& modelCollection )
@@ -14211,14 +11963,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "replay prediction model-state capture is blocked"
-        for error in check_replay_prediction_body_capture_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"),
-            old_prediction_refreshing_body_store_capture,
-        )
-    ):
-        failures.append("old replay prediction refreshing body-store synthetic surface was not rejected")
+    expect_error('old replay prediction refreshing body-store synthetic surface was not rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), old_prediction_refreshing_body_store_capture, ), 'replay prediction model-state capture is blocked')
 
     store_owned_prediction_capture = """
     bool CaptureReplayPredictionBodyState( GameModelCollection& modelCollection )
@@ -14235,11 +11980,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if check_replay_prediction_body_capture_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"),
-        store_owned_prediction_capture,
-    ):
-        failures.append("store-owned replay prediction capture synthetic surface was rejected")
+    expect_clean('store-owned replay prediction capture synthetic surface was rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), store_owned_prediction_capture, ))
 
     old_prediction_sample_model_state_capture = """
     void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime, GameModelCollection& modelCollection )
@@ -14250,14 +11991,7 @@ def run_self_tests() -> list[str]:
         body.orientation = model->GetOrientation();
     }
     """
-    if not any(
-        error.message == "replay prediction model-state capture is blocked"
-        for error in check_replay_prediction_body_capture_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"),
-            old_prediction_sample_model_state_capture,
-        )
-    ):
-        failures.append("old replay prediction sample model-state capture synthetic surface was not rejected")
+    expect_error('old replay prediction sample model-state capture synthetic surface was not rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), old_prediction_sample_model_state_capture, ), 'replay prediction model-state capture is blocked')
 
     store_owned_prediction_sample_capture = """
     void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime, GameModelCollection& modelCollection )
@@ -14269,11 +12003,7 @@ def run_self_tests() -> list[str]:
         body.orientation = source.orientation;
     }
     """
-    if check_replay_prediction_body_capture_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"),
-        store_owned_prediction_sample_capture,
-    ):
-        failures.append("store-owned replay prediction sample capture synthetic surface was rejected")
+    expect_clean('store-owned replay prediction sample capture synthetic surface was rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), store_owned_prediction_sample_capture, ))
 
     commented_prediction_model_state_capture = """
     bool CaptureReplayPredictionBodyState( GameModelCollection& modelCollection )
@@ -14284,11 +12014,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if check_replay_prediction_body_capture_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"),
-        commented_prediction_model_state_capture,
-    ):
-        failures.append("comment-only replay prediction model-state synthetic text was rejected")
+    expect_clean('comment-only replay prediction model-state synthetic text was rejected', check_replay_prediction_body_capture_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl"), commented_prediction_model_state_capture, ))
 
     old_replay_prediction_model_writeback = """
     void StepReplayPredictionPhysicsTick( GameModelCollection& modelCollection )
@@ -14298,14 +12024,7 @@ def run_self_tests() -> list[str]:
         modelCollection.WriteBackPhysicsBodies( physicsEngine.BodyStore() );
     }
     """
-    if not any(
-        error.message == "replay prediction model writeback is blocked"
-        for error in check_replay_prediction_step_writeback_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"),
-            old_replay_prediction_model_writeback,
-        )
-    ):
-        failures.append("old replay prediction model writeback synthetic surface was not rejected")
+    expect_error('old replay prediction model writeback synthetic surface was not rejected', check_replay_prediction_step_writeback_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), old_replay_prediction_model_writeback, ), 'replay prediction model writeback is blocked')
 
     allowed_replay_prediction_store_step = """
     void StepReplayPredictionPhysicsTick( GameModelCollection& modelCollection )
@@ -14315,11 +12034,7 @@ def run_self_tests() -> list[str]:
         NotifyFixedContactsOnly();
     }
     """
-    if check_replay_prediction_step_writeback_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"),
-        allowed_replay_prediction_store_step,
-    ):
-        failures.append("store-owned replay prediction step synthetic surface was rejected")
+    expect_clean('store-owned replay prediction step synthetic surface was rejected', check_replay_prediction_step_writeback_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), allowed_replay_prediction_store_step, ))
 
     commented_replay_prediction_model_writeback = """
     void StepReplayPredictionPhysicsTick( GameModelCollection& modelCollection )
@@ -14328,11 +12043,7 @@ def run_self_tests() -> list[str]:
         physicsEngine.Step( PHYSICS_FIXED_DT, config, worldForces, workerPool, nullptr, 0 );
     }
     """
-    if check_replay_prediction_step_writeback_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"),
-        commented_replay_prediction_model_writeback,
-    ):
-        failures.append("comment-only replay prediction writeback synthetic text was rejected")
+    expect_clean('comment-only replay prediction writeback synthetic text was rejected', check_replay_prediction_step_writeback_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), commented_replay_prediction_model_writeback, ))
 
     old_replay_prediction_ghost_model_render_read = """
     void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& frame )
@@ -14343,14 +12054,7 @@ def run_self_tests() -> list[str]:
         DrawGhost( *box, material );
     }
     """
-    if not any(
-        error.message == "replay prediction ghost GameModel render read is blocked"
-        for error in check_replay_prediction_ghost_render_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp"),
-            old_replay_prediction_ghost_model_render_read,
-        )
-    ):
-        failures.append("old replay prediction ghost GameModel render read synthetic surface was not rejected")
+    expect_error('old replay prediction ghost GameModel render read synthetic surface was not rejected', check_replay_prediction_ghost_render_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp"), old_replay_prediction_ghost_model_render_read, ), 'replay prediction ghost GameModel render read is blocked')
 
     allowed_replay_prediction_ghost_store_render_read = """
     void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& frame )
@@ -14364,11 +12068,7 @@ def run_self_tests() -> list[str]:
         DrawGhost( *box, material );
     }
     """
-    if check_replay_prediction_ghost_render_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp"),
-        allowed_replay_prediction_ghost_store_render_read,
-    ):
-        failures.append("store-owned replay prediction ghost render synthetic surface was rejected")
+    expect_clean('store-owned replay prediction ghost render synthetic surface was rejected', check_replay_prediction_ghost_render_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp"), allowed_replay_prediction_ghost_store_render_read, ))
 
     commented_replay_prediction_ghost_model_render_read = """
     void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& frame )
@@ -14378,11 +12078,7 @@ def run_self_tests() -> list[str]:
         DrawGhost( collider.shape );
     }
     """
-    if check_replay_prediction_ghost_render_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp"),
-        commented_replay_prediction_ghost_model_render_read,
-    ):
-        failures.append("comment-only replay prediction ghost GameModel render synthetic text was rejected")
+    expect_clean('comment-only replay prediction ghost GameModel render synthetic text was rejected', check_replay_prediction_ghost_render_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Render/RuntimeRenderHost.cpp"), commented_replay_prediction_ghost_model_render_read, ))
 
     old_run_replay_restore_body_store_reload = """
     bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample )
@@ -14391,14 +12087,7 @@ def run_self_tests() -> list[str]:
         (void)m_cGameModelCollection.GetPhysicsBodyStore();
     }
     """
-    if not any(
-        error.message == "replay restore body-store reload is blocked"
-        for error in check_run_replay_restore_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Run.cpp"),
-            old_run_replay_restore_body_store_reload,
-        )
-    ):
-        failures.append("old replay restore full body-store reload synthetic surface was not rejected")
+    expect_error('old replay restore full body-store reload synthetic surface was not rejected', check_run_replay_restore_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Run.cpp"), old_run_replay_restore_body_store_reload, ), 'replay restore body-store reload is blocked')
 
     old_run_replay_restore_model_id_validation = """
     bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample )
@@ -14411,14 +12100,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "replay solver restore identity must use PhysicsBodyStore"
-        for error in check_run_replay_restore_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Run.cpp"),
-            old_run_replay_restore_model_id_validation,
-        )
-    ):
-        failures.append("old replay restore GameModel replay-id synthetic surface was not rejected")
+    expect_error('old replay restore GameModel replay-id synthetic surface was not rejected', check_run_replay_restore_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Run.cpp"), old_run_replay_restore_model_id_validation, ), 'replay solver restore identity must use PhysicsBodyStore')
 
     store_owned_run_replay_restore = """
     bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample )
@@ -14442,11 +12124,7 @@ def run_self_tests() -> list[str]:
                                                           body.inverseRotationalInertia );
     }
     """
-    if check_run_replay_restore_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Run.cpp"),
-        store_owned_run_replay_restore,
-    ):
-        failures.append("store-owned replay restore synthetic surface was rejected")
+    expect_clean('store-owned replay restore synthetic surface was rejected', check_run_replay_restore_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Run.cpp"), store_owned_run_replay_restore, ))
 
     old_collider_store_model_authoring = """
     void ColliderStore::Refresh( GameModel* models, int modelCount, const PhysicsBodyStore& bodyStore )
@@ -14456,14 +12134,7 @@ def run_self_tests() -> list[str]:
         record.replayBodyId = model.GetReplayBodyId();
     }
     """
-    if not any(
-        error.message == "ColliderStore GameModel collider authoring is blocked"
-        for error in check_collider_store_identity_authority_guardrails_text(
-            Path("SkullbonezSource/Physics/ColliderStore.cpp"),
-            old_collider_store_model_authoring,
-        )
-    ):
-        failures.append("old ColliderStore GameModel authoring synthetic surface was not rejected")
+    expect_error('old ColliderStore GameModel authoring synthetic surface was not rejected', check_collider_store_identity_authority_guardrails_text( Path("SkullbonezSource/Physics/ColliderStore.cpp"), old_collider_store_model_authoring, ), 'ColliderStore GameModel collider authoring is blocked')
 
     old_collider_store_body_binding_resize = """
     void ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
@@ -14473,14 +12144,7 @@ def run_self_tests() -> list[str]:
         m_modelColliderHandles.resize( bodyCount );
     }
     """
-    if not any(
-        error.message == "ColliderStore body-binding refresh must not create collider rows"
-        for error in check_collider_store_identity_authority_guardrails_text(
-            Path("SkullbonezSource/Physics/ColliderStore.cpp"),
-            old_collider_store_body_binding_resize,
-        )
-    ):
-        failures.append("old ColliderStore body-binding resize synthetic surface was not rejected")
+    expect_error('old ColliderStore body-binding resize synthetic surface was not rejected', check_collider_store_identity_authority_guardrails_text( Path("SkullbonezSource/Physics/ColliderStore.cpp"), old_collider_store_body_binding_resize, ), 'ColliderStore body-binding refresh must not create collider rows')
 
     allowed_collider_store_authoring_identity = """
     bool ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
@@ -14493,11 +12157,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if check_collider_store_identity_authority_guardrails_text(
-        Path("SkullbonezSource/Physics/ColliderStore.cpp"),
-        allowed_collider_store_authoring_identity,
-    ):
-        failures.append("store-owned ColliderStore authoring synthetic surface was rejected")
+    expect_clean('store-owned ColliderStore authoring synthetic surface was rejected', check_collider_store_identity_authority_guardrails_text( Path("SkullbonezSource/Physics/ColliderStore.cpp"), allowed_collider_store_authoring_identity, ))
 
     old_collection_collider_refresh_models = """
     void GameModelCollection::RefreshPhysicsColliders( ColliderStore& colliderStore,
@@ -14506,14 +12166,7 @@ def run_self_tests() -> list[str]:
         colliderStore.Refresh( m_gameModels, bodyStore );
     }
     """
-    if not any(
-        error.message == "collider refresh must not pass GameModel rows"
-        for error in check_game_model_collection_collider_authoring_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_collection_collider_refresh_models,
-        )
-    ):
-        failures.append("old collection GameModel collider refresh synthetic surface was not rejected")
+    expect_error('old collection GameModel collider refresh synthetic surface was not rejected', check_game_model_collection_collider_authoring_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_collection_collider_refresh_models, ), 'collider refresh must not pass GameModel rows')
 
     old_collection_collider_authoring_sidecar = """
     class GameModelCollection
@@ -14521,14 +12174,7 @@ def run_self_tests() -> list[str]:
         std::vector<ColliderAuthoringRecord> m_colliderAuthoringRows;
     };
     """
-    if not any(
-        error.message == "collection collider authoring sidecar is blocked"
-        for error in check_game_model_collection_collider_authoring_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
-            old_collection_collider_authoring_sidecar,
-        )
-    ):
-        failures.append("collection collider authoring sidecar synthetic surface was not rejected")
+    expect_error('collection collider authoring sidecar synthetic surface was not rejected', check_game_model_collection_collider_authoring_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.h"), old_collection_collider_authoring_sidecar, ), 'collection collider authoring sidecar is blocked')
 
     old_collection_collider_record_import = """
     bool GameModelCollection::UpdateColliderStoreFromModel( int modelIndex )
@@ -14538,14 +12184,7 @@ def run_self_tests() -> list[str]:
             BuildColliderRecordFromModel( m_gameModels[modelIndex], *bodyRecord ) );
     }
     """
-    if not any(
-        error.message == "collection collider record construction is blocked"
-        for error in check_game_model_collection_collider_authoring_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_collection_collider_record_import,
-        )
-    ):
-        failures.append("collection collider record import synthetic surface was not rejected")
+    expect_error('collection collider record import synthetic surface was not rejected', check_game_model_collection_collider_authoring_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_collection_collider_record_import, ), 'collection collider record construction is blocked')
 
     old_runtime_config_collider_recapture = """
     void GameModelCollection::ApplyRuntimeConfig( const Basics::EngineConfig& config )
@@ -14556,14 +12195,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if not any(
-        error.message == "runtime config collider recapture is blocked"
-        for error in check_game_model_collection_collider_authoring_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_runtime_config_collider_recapture,
-        )
-    ):
-        failures.append("runtime config collider recapture synthetic surface was not rejected")
+    expect_error('runtime config collider recapture synthetic surface was not rejected', check_game_model_collection_collider_authoring_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_runtime_config_collider_recapture, ), 'runtime config collider recapture is blocked')
 
     allowed_runtime_config_collider_material = """
     void GameModelCollection::ApplyRuntimeConfig( const Basics::EngineConfig& config )
@@ -14576,11 +12208,7 @@ def run_self_tests() -> list[str]:
         m_physicsEngine.ApplyColliderMaterial( m_physicsMaterial );
     }
     """
-    if check_game_model_collection_collider_authoring_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_runtime_config_collider_material,
-    ):
-        failures.append("store-owned runtime config collider material synthetic surface was rejected")
+    expect_clean('store-owned runtime config collider material synthetic surface was rejected', check_game_model_collection_collider_authoring_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_runtime_config_collider_material, ))
 
     old_collection_collider_refresh_authoring = """
     void GameModelCollection::RefreshPhysicsColliders( ColliderStore& colliderStore,
@@ -14594,14 +12222,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if not any(
-        error.message == "collection collider topology recapture is blocked"
-        for error in check_game_model_collection_collider_authoring_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_collection_collider_refresh_authoring,
-        )
-    ):
-        failures.append("old collection authored-collider refresh synthetic surface was not rejected")
+    expect_error('old collection authored-collider refresh synthetic surface was not rejected', check_game_model_collection_collider_authoring_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_collection_collider_refresh_authoring, ), 'collection collider topology recapture is blocked')
 
     allowed_collection_collider_rebind = """
     bool GameModelCollection::RepairPhysicsBodyAndColliderTopology()
@@ -14615,11 +12236,7 @@ def run_self_tests() -> list[str]:
         return colliderBindingsReady;
     }
     """
-    if check_game_model_collection_collider_authoring_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_collection_collider_rebind,
-    ):
-        failures.append("collection collider rebind synthetic surface was rejected")
+    expect_clean('collection collider rebind synthetic surface was rejected', check_game_model_collection_collider_authoring_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_collection_collider_rebind, ))
 
     old_add_model_body_only_append = """
     PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel, uint32_t replayBodyId )
@@ -14634,14 +12251,8 @@ def run_self_tests() -> list[str]:
         Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
         old_add_model_body_only_append,
     )
-    if not any(
-        error.message == "AddGameModel must register collider directly" for error in old_add_model_errors
-    ):
-        failures.append("old AddGameModel missing collider registration synthetic surface was not rejected")
-    if not any(
-        error.message == "AddGameModel body-only topology repair is blocked" for error in old_add_model_errors
-    ):
-        failures.append("old AddGameModel body-only repair synthetic surface was not rejected")
+    expect_error('old AddGameModel missing collider registration synthetic surface was not rejected', old_add_model_errors, 'AddGameModel must register collider directly')
+    expect_error('old AddGameModel body-only repair synthetic surface was not rejected', old_add_model_errors, 'AddGameModel body-only topology repair is blocked')
 
     allowed_add_model_direct_collider_append = """
     PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel,
@@ -14661,11 +12272,7 @@ def run_self_tests() -> list[str]:
         return bodyHandle;
     }
     """
-    if check_game_model_collection_append_collider_authority_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_add_model_direct_collider_append,
-    ):
-        failures.append("direct AddGameModel collider registration synthetic surface was rejected")
+    expect_clean('direct AddGameModel collider registration synthetic surface was rejected', check_game_model_collection_append_collider_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_add_model_direct_collider_append, ))
 
     old_game_model_replay_id_mirror = """
     class GameModel
@@ -14675,14 +12282,7 @@ def run_self_tests() -> list[str]:
         uint32_t GetReplayBodyId() const;
     };
     """
-    if not any(
-        error.message == "GameModel replay identity mirror is deleted"
-        for error in check_game_model_replay_id_mirror_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModel.h"),
-            old_game_model_replay_id_mirror,
-        )
-    ):
-        failures.append("old GameModel replay-id mirror synthetic surface was not rejected")
+    expect_error('old GameModel replay-id mirror synthetic surface was not rejected', check_game_model_replay_id_mirror_guardrails_text( Path("SkullbonezSource/GameObjects/GameModel.h"), old_game_model_replay_id_mirror, ), 'GameModel replay identity mirror is deleted')
 
     old_collection_replay_id_sidecar = """
     class GameModelCollection
@@ -14697,22 +12297,8 @@ def run_self_tests() -> list[str]:
         bodyStore.LoadFromModels( m_gameModels, m_replayBodyIds, sleepStates );
     }
     """
-    if not any(
-        error.message == "GameModelCollection replay-id sidecar is deleted"
-        for error in check_game_model_replay_id_mirror_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
-            old_collection_replay_id_sidecar,
-        )
-    ):
-        failures.append("old collection replay-id sidecar synthetic surface was not rejected")
-    if not any(
-        error.message == "GameModelCollection replay-id allocator is deleted"
-        for error in check_game_model_replay_id_mirror_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
-            old_collection_replay_id_sidecar,
-        )
-    ):
-        failures.append("old collection replay-id allocator synthetic surface was not rejected")
+    expect_error('old collection replay-id sidecar synthetic surface was not rejected', check_game_model_replay_id_mirror_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.h"), old_collection_replay_id_sidecar, ), 'GameModelCollection replay-id sidecar is deleted')
+    expect_error('old collection replay-id allocator synthetic surface was not rejected', check_game_model_replay_id_mirror_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.h"), old_collection_replay_id_sidecar, ), 'GameModelCollection replay-id allocator is deleted')
 
     allowed_collection_replay_reload_scratch = """
     class GameModelCollection
@@ -14726,11 +12312,7 @@ def run_self_tests() -> list[str]:
         bodyStore.LoadFromModels( m_gameModels, replayBodyIds, sleepStates );
     }
     """
-    if check_game_model_replay_id_mirror_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
-        allowed_collection_replay_reload_scratch,
-    ):
-        failures.append("collection replay-id reload scratch synthetic surface was rejected")
+    expect_clean('collection replay-id reload scratch synthetic surface was rejected', check_game_model_replay_id_mirror_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.h"), allowed_collection_replay_reload_scratch, ))
 
     old_collection_replay_restore_model_refresh = """
     bool GameModelCollection::TryRestoreReplayBodyState( int index,
@@ -14745,14 +12327,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "replay restore model-to-store refresh is blocked"
-        for error in check_game_model_collection_replay_restore_store_authority_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_collection_replay_restore_model_refresh,
-        )
-    ):
-        failures.append("old replay restore model-refresh synthetic surface was not rejected")
+    expect_error('old replay restore model-refresh synthetic surface was not rejected', check_game_model_collection_replay_restore_store_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_collection_replay_restore_model_refresh, ), 'replay restore model-to-store refresh is blocked')
 
     commented_collection_replay_restore_model_refresh = """
     bool GameModelCollection::TryRestoreReplayBodyState( int index,
@@ -14767,11 +12342,7 @@ def run_self_tests() -> list[str]:
         return m_physicsEngine.RestoreReplayBodyState( index, replayBodyId, fixed, position, orientation, linearVelocity, angularVelocity, mass, inverseMass, rotationalInertia, inverseRotationalInertia );
     }
     """
-    if check_game_model_collection_replay_restore_store_authority_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        commented_collection_replay_restore_model_refresh,
-    ):
-        failures.append("comment-only replay restore model-refresh synthetic text was rejected")
+    expect_clean('comment-only replay restore model-refresh synthetic text was rejected', check_game_model_collection_replay_restore_store_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), commented_collection_replay_restore_model_refresh, ))
 
     old_collection_replay_restore_model_id_validation = """
     bool GameModelCollection::TryRestoreReplayBodyState( int index,
@@ -14790,14 +12361,7 @@ def run_self_tests() -> list[str]:
         return m_physicsEngine.RestoreReplayBodyState( body, replayBodyId, fixed, position, orientation, linearVelocity, angularVelocity, mass, inverseMass, rotationalInertia, inverseRotationalInertia );
     }
     """
-    if not any(
-        error.message == "replay restore GameModel replay-id validation is blocked"
-        for error in check_game_model_collection_replay_restore_store_authority_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_collection_replay_restore_model_id_validation,
-        )
-    ):
-        failures.append("old replay restore model-id validation synthetic surface was not rejected")
+    expect_error('old replay restore model-id validation synthetic surface was not rejected', check_game_model_collection_replay_restore_store_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_collection_replay_restore_model_id_validation, ), 'replay restore GameModel replay-id validation is blocked')
 
     old_collection_replay_prediction_restore_model_refresh = """
     bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
@@ -14812,14 +12376,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "replay restore model-to-store refresh is blocked"
-        for error in check_game_model_collection_replay_restore_store_authority_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_collection_replay_prediction_restore_model_refresh,
-        )
-    ):
-        failures.append("old replay prediction restore model-refresh synthetic surface was not rejected")
+    expect_error('old replay prediction restore model-refresh synthetic surface was not rejected', check_game_model_collection_replay_restore_store_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_collection_replay_prediction_restore_model_refresh, ), 'replay restore model-to-store refresh is blocked')
 
     old_collection_replay_prediction_restore_model_id_validation = """
     bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
@@ -14838,14 +12395,7 @@ def run_self_tests() -> list[str]:
         return m_physicsEngine.RestoreReplayBodyState( body, replayBodyId, fixed, position, orientation, linearVelocity, angularVelocity, mass, inverseMass, rotationalInertia, inverseRotationalInertia );
     }
     """
-    if not any(
-        error.message == "replay restore GameModel replay-id validation is blocked"
-        for error in check_game_model_collection_replay_restore_store_authority_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_collection_replay_prediction_restore_model_id_validation,
-        )
-    ):
-        failures.append("old replay prediction restore model-id validation synthetic surface was not rejected")
+    expect_error('old replay prediction restore model-id validation synthetic surface was not rejected', check_game_model_collection_replay_restore_store_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_collection_replay_prediction_restore_model_id_validation, ), 'replay restore GameModel replay-id validation is blocked')
 
     allowed_collection_replay_prediction_restore = """
     bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
@@ -14870,11 +12420,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if check_game_model_collection_replay_restore_store_authority_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_collection_replay_prediction_restore,
-    ):
-        failures.append("store-owned replay prediction restore synthetic surface was rejected")
+    expect_clean('store-owned replay prediction restore synthetic surface was rejected', check_game_model_collection_replay_restore_store_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_collection_replay_prediction_restore, ))
 
     old_physics_replay_restore_model_index_api = """
     class PhysicsEngine
@@ -14889,14 +12435,7 @@ def run_self_tests() -> list[str]:
         return m_bodyStore.RestoreReplayBodyState( index, replayBodyId );
     }
     """
-    if not any(
-        error.message == "replay restore physics API must be handle-keyed"
-        for error in check_replay_restore_handle_authority_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsEngine.h"),
-            old_physics_replay_restore_model_index_api,
-        )
-    ):
-        failures.append("old replay restore model-index physics API synthetic surface was not rejected")
+    expect_error('old replay restore model-index physics API synthetic surface was not rejected', check_replay_restore_handle_authority_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.h"), old_physics_replay_restore_model_index_api, ), 'replay restore physics API must be handle-keyed')
 
     allowed_physics_replay_restore_handle_api = """
     class PhysicsEngine
@@ -14911,11 +12450,7 @@ def run_self_tests() -> list[str]:
         return m_bodyStore.RestoreReplayBodyState( body, replayBodyId );
     }
     """
-    if check_replay_restore_handle_authority_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsEngine.h"),
-        allowed_physics_replay_restore_handle_api,
-    ):
-        failures.append("handle-keyed replay restore physics API synthetic surface was rejected")
+    expect_clean('handle-keyed replay restore physics API synthetic surface was rejected', check_replay_restore_handle_authority_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.h"), allowed_physics_replay_restore_handle_api, ))
 
     deleted_replay_render_pose_symbol = """
     void ReplayRuntime::RestoreRenderPose( GameModelCollection& collection )
@@ -14923,14 +12458,7 @@ def run_self_tests() -> list[str]:
         collection.TrySetReplayRenderPose( 0, 1u, position, orientation );
     }
     """
-    if not any(
-        error.message == "deleted replay render-pose model override is blocked"
-        for error in check_replay_render_pose_value_override_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
-            deleted_replay_render_pose_symbol,
-        )
-    ):
-        failures.append("deleted replay render-pose symbol synthetic surface was not rejected")
+    expect_error('deleted replay render-pose symbol synthetic surface was not rejected', check_replay_render_pose_value_override_guardrails_text( Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"), deleted_replay_render_pose_symbol, ), 'deleted replay render-pose model override is blocked')
 
     old_replay_render_pose_model_mutation = """
     bool GameModelCollection::TryQueueReplayRenderPoseOverride( int index,
@@ -14943,14 +12471,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "replay render-pose model mutation is blocked"
-        for error in check_game_model_collection_replay_render_pose_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_replay_render_pose_model_mutation,
-        )
-    ):
-        failures.append("old replay render-pose model mutation synthetic surface was not rejected")
+    expect_error('old replay render-pose model mutation synthetic surface was not rejected', check_game_model_collection_replay_render_pose_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_replay_render_pose_model_mutation, ), 'replay render-pose model mutation is blocked')
 
     old_replay_render_pose_model_id_validation = """
     bool GameModelCollection::TryQueueReplayRenderPoseOverride( int index,
@@ -14966,14 +12487,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "replay render-pose GameModel replay-id validation is blocked"
-        for error in check_game_model_collection_replay_render_pose_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_replay_render_pose_model_id_validation,
-        )
-    ):
-        failures.append("old replay render-pose model-id validation synthetic surface was not rejected")
+    expect_error('old replay render-pose model-id validation synthetic surface was not rejected', check_game_model_collection_replay_render_pose_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_replay_render_pose_model_id_validation, ), 'replay render-pose GameModel replay-id validation is blocked')
 
     allowed_replay_render_pose_override_queue = """
     bool GameModelCollection::TryQueueReplayRenderPoseOverride( int index,
@@ -14995,11 +12509,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if check_game_model_collection_replay_render_pose_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_replay_render_pose_override_queue,
-    ):
-        failures.append("queued replay render-pose synthetic surface was rejected")
+    expect_clean('queued replay render-pose synthetic surface was rejected', check_game_model_collection_replay_render_pose_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_replay_render_pose_override_queue, ))
 
     commented_replay_render_pose_model_mutation = """
     bool GameModelCollection::TryQueueReplayRenderPoseOverride( int index,
@@ -15012,11 +12522,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if check_game_model_collection_replay_render_pose_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        commented_replay_render_pose_model_mutation,
-    ):
-        failures.append("comment-only replay render-pose model mutation synthetic text was rejected")
+    expect_clean('comment-only replay render-pose model mutation synthetic text was rejected', check_game_model_collection_replay_render_pose_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), commented_replay_render_pose_model_mutation, ))
 
     old_replay_runtime_render_apply_model_pose = """
     bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
@@ -15027,14 +12533,7 @@ def run_self_tests() -> list[str]:
         return collection.TryQueueReplayRenderPoseOverride( body.modelIndex, body.id.value, body.position, orientation );
     }
     """
-    if not any(
-        error.message == "replay render apply model-pose access is blocked"
-        for error in check_replay_render_pose_value_override_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
-            old_replay_runtime_render_apply_model_pose,
-        )
-    ):
-        failures.append("old replay runtime render-apply model-pose synthetic surface was not rejected")
+    expect_error('old replay runtime render-apply model-pose synthetic surface was not rejected', check_replay_render_pose_value_override_guardrails_text( Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"), old_replay_runtime_render_apply_model_pose, ), 'replay render apply model-pose access is blocked')
 
     old_replay_runtime_render_apply_model_id = """
     bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
@@ -15048,14 +12547,7 @@ def run_self_tests() -> list[str]:
         return collection.TryQueueReplayRenderPoseOverride( body.modelIndex, body.id.value, body.position, orientation );
     }
     """
-    if not any(
-        error.message == "replay render apply GameModel replay-id lookup is blocked"
-        for error in check_replay_render_pose_value_override_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
-            old_replay_runtime_render_apply_model_id,
-        )
-    ):
-        failures.append("old replay runtime render-apply model-id synthetic surface was not rejected")
+    expect_error('old replay runtime render-apply model-id synthetic surface was not rejected', check_replay_render_pose_value_override_guardrails_text( Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"), old_replay_runtime_render_apply_model_id, ), 'replay render apply GameModel replay-id lookup is blocked')
 
     allowed_replay_runtime_render_apply_queue = """
     bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
@@ -15069,11 +12561,7 @@ def run_self_tests() -> list[str]:
         return collection.TryQueueReplayRenderPoseOverride( body.modelIndex, bodyRecord->replayBodyId, body.position, orientation );
     }
     """
-    if check_replay_render_pose_value_override_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
-        allowed_replay_runtime_render_apply_queue,
-    ):
-        failures.append("queued replay runtime render-apply synthetic surface was rejected")
+    expect_clean('queued replay runtime render-apply synthetic surface was rejected', check_replay_render_pose_value_override_guardrails_text( Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"), allowed_replay_runtime_render_apply_queue, ))
 
     old_replay_prediction_ghost_model_only_signature = """
     bool ReplayRuntime::BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models )
@@ -15081,14 +12569,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "replay prediction ghost builder must take PhysicsBodyStore"
-        for error in check_replay_render_pose_value_override_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
-            old_replay_prediction_ghost_model_only_signature,
-        )
-    ):
-        failures.append("old replay prediction ghost model-only signature synthetic surface was not rejected")
+    expect_error('old replay prediction ghost model-only signature synthetic surface was not rejected', check_replay_render_pose_value_override_guardrails_text( Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"), old_replay_prediction_ghost_model_only_signature, ), 'replay prediction ghost builder must take PhysicsBodyStore')
 
     old_replay_prediction_ghost_model_id = """
     bool ReplayRuntime::BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models,
@@ -15102,14 +12583,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "replay prediction ghost GameModel replay-id lookup is blocked"
-        for error in check_replay_render_pose_value_override_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
-            old_replay_prediction_ghost_model_id,
-        )
-    ):
-        failures.append("old replay prediction ghost model-id synthetic surface was not rejected")
+    expect_error('old replay prediction ghost model-id synthetic surface was not rejected', check_replay_render_pose_value_override_guardrails_text( Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"), old_replay_prediction_ghost_model_id, ), 'replay prediction ghost GameModel replay-id lookup is blocked')
 
     old_run_frame_replay_probe_model_body_read = """
     void Run::TickReplayScrubProbe()
@@ -15120,14 +12594,7 @@ def run_self_tests() -> list[str]:
         const Vector3 restoredPosition = restoredModel->GetPosition();
     }
     """
-    if not any(
-        error.message == "replay probe body state must use PhysicsBodyStore"
-        for error in check_run_frame_replay_probe_body_store_guardrails_text(
-            RUN_FRAME_SOURCE,
-            old_run_frame_replay_probe_model_body_read,
-        )
-    ):
-        failures.append("old RunFrame replay probe model-body synthetic surface was not rejected")
+    expect_error('old RunFrame replay probe model-body synthetic surface was not rejected', check_run_frame_replay_probe_body_store_guardrails_text( RUN_FRAME_SOURCE, old_run_frame_replay_probe_model_body_read, ), 'replay probe body state must use PhysicsBodyStore')
 
     old_run_frame_restore_probe_diagnostic_model_body_read = """
     bool Run::RestoreReplayV2ArtifactTargetState()
@@ -15139,14 +12606,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "replay probe body state must use PhysicsBodyStore"
-        for error in check_run_frame_replay_probe_body_store_guardrails_text(
-            RUN_FRAME_SOURCE,
-            old_run_frame_restore_probe_diagnostic_model_body_read,
-        )
-    ):
-        failures.append("old RunFrame restore-probe diagnostic model-body synthetic surface was not rejected")
+    expect_error('old RunFrame restore-probe diagnostic model-body synthetic surface was not rejected', check_run_frame_replay_probe_body_store_guardrails_text( RUN_FRAME_SOURCE, old_run_frame_restore_probe_diagnostic_model_body_read, ), 'replay probe body state must use PhysicsBodyStore')
 
     allowed_run_frame_replay_probe_store_body_read = """
     void Run::TickReplayScrubProbe()
@@ -15157,11 +12617,7 @@ def run_self_tests() -> list[str]:
         const Vector3 restoredPosition = restoredBody->position;
     }
     """
-    if check_run_frame_replay_probe_body_store_guardrails_text(
-        RUN_FRAME_SOURCE,
-        allowed_run_frame_replay_probe_store_body_read,
-    ):
-        failures.append("store-owned RunFrame replay probe synthetic surface was rejected")
+    expect_clean('store-owned RunFrame replay probe synthetic surface was rejected', check_run_frame_replay_probe_body_store_guardrails_text( RUN_FRAME_SOURCE, allowed_run_frame_replay_probe_store_body_read, ))
 
     old_run_frame_replay_save_probe_editor_authoring_pose_read = """
     void Run::TickReplaySaveProbe()
@@ -15172,14 +12628,7 @@ def run_self_tests() -> list[str]:
         placedModel.SetOrientation( placedOrientation );
     }
     """
-    if not any(
-        error.message == "replay probe body state must use PhysicsBodyStore"
-        for error in check_run_frame_replay_probe_body_store_guardrails_text(
-            RUN_FRAME_SOURCE,
-            old_run_frame_replay_save_probe_editor_authoring_pose_read,
-        )
-    ):
-        failures.append("old RunFrame replay save probe model-pose read synthetic surface was not rejected")
+    expect_error('old RunFrame replay save probe model-pose read synthetic surface was not rejected', check_run_frame_replay_probe_body_store_guardrails_text( RUN_FRAME_SOURCE, old_run_frame_replay_save_probe_editor_authoring_pose_read, ), 'replay probe body state must use PhysicsBodyStore')
 
     allowed_run_frame_replay_save_probe_editor_authoring = """
     void Run::TickReplaySaveProbe()
@@ -15192,11 +12641,7 @@ def run_self_tests() -> list[str]:
         placedModel.SetOrientation( placedOrientation );
     }
     """
-    if check_run_frame_replay_probe_body_store_guardrails_text(
-        RUN_FRAME_SOURCE,
-        allowed_run_frame_replay_save_probe_editor_authoring,
-    ):
-        failures.append("editor-authoring RunFrame replay save probe synthetic surface was rejected")
+    expect_clean('editor-authoring RunFrame replay save probe synthetic surface was rejected', check_run_frame_replay_probe_body_store_guardrails_text( RUN_FRAME_SOURCE, allowed_run_frame_replay_save_probe_editor_authoring, ))
 
     old_run_frame_replay_save_probe_model_shape_read = """
     void Run::TickReplaySaveProbe()
@@ -15206,14 +12651,7 @@ def run_self_tests() -> list[str]:
         placedModel.ScaleCollisionShapeAxisFromBase( placedShapeBeforeScale, 0, 1.5f );
     }
     """
-    if not any(
-        error.message == "replay probe collider state must use ColliderStore"
-        for error in check_run_frame_replay_probe_body_store_guardrails_text(
-            RUN_FRAME_SOURCE,
-            old_run_frame_replay_save_probe_model_shape_read,
-        )
-    ):
-        failures.append("old RunFrame replay save probe model-shape synthetic surface was not rejected")
+    expect_error('old RunFrame replay save probe model-shape synthetic surface was not rejected', check_run_frame_replay_probe_body_store_guardrails_text( RUN_FRAME_SOURCE, old_run_frame_replay_save_probe_model_shape_read, ), 'replay probe collider state must use ColliderStore')
 
     allowed_run_frame_replay_save_probe_collider_shape_read = """
     void Run::TickReplaySaveProbe()
@@ -15227,11 +12665,7 @@ def run_self_tests() -> list[str]:
         placedModel.ScaleCollisionShapeAxisFromBase( placedShapeBeforeScale, 0, 1.5f );
     }
     """
-    if check_run_frame_replay_probe_body_store_guardrails_text(
-        RUN_FRAME_SOURCE,
-        allowed_run_frame_replay_save_probe_collider_shape_read,
-    ):
-        failures.append("store-owned RunFrame replay save probe collider synthetic surface was rejected")
+    expect_clean('store-owned RunFrame replay save probe collider synthetic surface was rejected', check_run_frame_replay_probe_body_store_guardrails_text( RUN_FRAME_SOURCE, allowed_run_frame_replay_save_probe_collider_shape_read, ))
 
     old_run_frame_replay_transform_model_shape_read = """
     bool Run::RestoreReplayV2ArtifactTargetState()
@@ -15241,14 +12675,7 @@ def run_self_tests() -> list[str]:
         return model.ScaleCollisionShapeAxisFromBase( baseShape, event.value3, scaleFactor );
     }
     """
-    if not any(
-        error.message == "replay probe collider state must use ColliderStore"
-        for error in check_run_frame_replay_probe_body_store_guardrails_text(
-            RUN_FRAME_SOURCE,
-            old_run_frame_replay_transform_model_shape_read,
-        )
-    ):
-        failures.append("old RunFrame replay transform model-shape synthetic surface was not rejected")
+    expect_error('old RunFrame replay transform model-shape synthetic surface was not rejected', check_run_frame_replay_probe_body_store_guardrails_text( RUN_FRAME_SOURCE, old_run_frame_replay_transform_model_shape_read, ), 'replay probe collider state must use ColliderStore')
 
     allowed_run_frame_replay_transform_collider_shape_read = """
     bool Run::RestoreReplayV2ArtifactTargetState()
@@ -15262,11 +12689,7 @@ def run_self_tests() -> list[str]:
         return model.ScaleCollisionShapeAxisFromBase( baseShape, event.value3, scaleFactor );
     }
     """
-    if check_run_frame_replay_probe_body_store_guardrails_text(
-        RUN_FRAME_SOURCE,
-        allowed_run_frame_replay_transform_collider_shape_read,
-    ):
-        failures.append("store-owned RunFrame replay transform collider synthetic surface was rejected")
+    expect_clean('store-owned RunFrame replay transform collider synthetic surface was rejected', check_run_frame_replay_probe_body_store_guardrails_text( RUN_FRAME_SOURCE, allowed_run_frame_replay_transform_collider_shape_read, ))
 
     commented_run_frame_replay_probe_model_body_read = """
     void Run::VerifyLoadedReplayPresentationProbe()
@@ -15275,11 +12698,7 @@ def run_self_tests() -> list[str]:
         const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
     }
     """
-    if check_run_frame_replay_probe_body_store_guardrails_text(
-        RUN_FRAME_SOURCE,
-        commented_run_frame_replay_probe_model_body_read,
-    ):
-        failures.append("comment-only RunFrame replay probe model-body synthetic text was rejected")
+    expect_clean('comment-only RunFrame replay probe model-body synthetic text was rejected', check_run_frame_replay_probe_body_store_guardrails_text( RUN_FRAME_SOURCE, commented_run_frame_replay_probe_model_body_read, ))
 
     old_physics_scene_step_body_reload = """
     void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -15288,14 +12707,7 @@ def run_self_tests() -> list[str]:
         m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, 0.016f, config, forces, workerPool );
     }
     """
-    if not any(
-        error.message == "per-step model-to-body-store reload is blocked"
-        for error in check_physics_scene_step_body_reload_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-            old_physics_scene_step_body_reload,
-        )
-    ):
-        failures.append("old unconditional step-start body reload synthetic surface was not rejected")
+    expect_error('old unconditional step-start body reload synthetic surface was not rejected', check_physics_scene_step_body_reload_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), old_physics_scene_step_body_reload, ), 'per-step model-to-body-store reload is blocked')
 
     topology_guarded_physics_scene_step_body_reload = """
     void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -15308,11 +12720,7 @@ def run_self_tests() -> list[str]:
         m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, 0.016f, config, forces, workerPool );
     }
     """
-    if check_physics_scene_step_body_reload_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        topology_guarded_physics_scene_step_body_reload,
-    ):
-        failures.append("topology-guarded step-start body reload synthetic surface was rejected")
+    expect_clean('topology-guarded step-start body reload synthetic surface was rejected', check_physics_scene_step_body_reload_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), topology_guarded_physics_scene_step_body_reload, ))
 
     commented_physics_scene_step_body_reload = """
     void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
@@ -15321,11 +12729,7 @@ def run_self_tests() -> list[str]:
         RunStoreOwnedStep();
     }
     """
-    if check_physics_scene_step_body_reload_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        commented_physics_scene_step_body_reload,
-    ):
-        failures.append("comment-only step-start body reload synthetic text was rejected")
+    expect_clean('comment-only step-start body reload synthetic text was rejected', check_physics_scene_step_body_reload_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), commented_physics_scene_step_body_reload, ))
 
     old_physics_scene_command_body_refresh = """
     void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15334,14 +12738,7 @@ def run_self_tests() -> list[str]:
         ApplyCommand();
     }
     """
-    if not any(
-        error.message == "command-side model-to-body-store refresh is blocked"
-        for error in check_physics_scene_command_body_refresh_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-            old_physics_scene_command_body_refresh,
-        )
-    ):
-        failures.append("old unconditional command-side body refresh synthetic surface was not rejected")
+    expect_error('old unconditional command-side body refresh synthetic surface was not rejected', check_physics_scene_command_body_refresh_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), old_physics_scene_command_body_refresh, ), 'command-side model-to-body-store refresh is blocked')
 
     topology_guarded_physics_scene_command_body_refresh = """
     void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15354,11 +12751,7 @@ def run_self_tests() -> list[str]:
         ApplyCommand();
     }
     """
-    if check_physics_scene_command_body_refresh_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        topology_guarded_physics_scene_command_body_refresh,
-    ):
-        failures.append("topology-guarded command-side body refresh synthetic surface was rejected")
+    expect_clean('topology-guarded command-side body refresh synthetic surface was rejected', check_physics_scene_command_body_refresh_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), topology_guarded_physics_scene_command_body_refresh, ))
 
     old_pending_impulse_model_mirror = """
     void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15368,14 +12761,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if not any(
-        error.message == "pending impulse model mirror is blocked"
-        for error in check_physics_scene_pending_impulse_model_mirror_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-            old_pending_impulse_model_mirror,
-        )
-    ):
-        failures.append("old pending-impulse model mirror synthetic surface was not rejected")
+    expect_error('old pending-impulse model mirror synthetic surface was not rejected', check_physics_scene_pending_impulse_model_mirror_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), old_pending_impulse_model_mirror, ), 'pending impulse model mirror is blocked')
 
     allowed_pending_impulse_store_only = """
     void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15388,11 +12774,7 @@ def run_self_tests() -> list[str]:
         m_bodyStore.SetPendingBodyImpulse( body, impulse, localPoint );
     }
     """
-    if check_physics_scene_pending_impulse_model_mirror_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        allowed_pending_impulse_store_only,
-    ):
-        failures.append("store-only pending impulse synthetic surface was rejected")
+    expect_clean('store-only pending impulse synthetic surface was rejected', check_physics_scene_pending_impulse_model_mirror_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), allowed_pending_impulse_store_only, ))
 
     allowed_apply_body_impulse_mirror = """
     void PhysicsScene::ApplyBodyImpulse( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15406,11 +12788,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if check_physics_scene_pending_impulse_model_mirror_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        allowed_apply_body_impulse_mirror,
-    ):
-        failures.append("non-pending impulse compatibility mirror synthetic surface was rejected")
+    expect_clean('non-pending impulse compatibility mirror synthetic surface was rejected', check_physics_scene_pending_impulse_model_mirror_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), allowed_apply_body_impulse_mirror, ))
 
     commented_pending_impulse_model_mirror = """
     void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15420,11 +12798,7 @@ def run_self_tests() -> list[str]:
         m_bodyStore.SetPendingBodyImpulse( body, impulse, localPoint );
     }
     """
-    if check_physics_scene_pending_impulse_model_mirror_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        commented_pending_impulse_model_mirror,
-    ):
-        failures.append("comment-only pending impulse model mirror synthetic text was rejected")
+    expect_clean('comment-only pending impulse model mirror synthetic text was rejected', check_physics_scene_pending_impulse_model_mirror_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), commented_pending_impulse_model_mirror, ))
 
     old_velocity_model_mirror = """
     bool PhysicsScene::SetBodyVelocity( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15435,14 +12809,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "velocity edit model mirror is blocked"
-        for error in check_physics_scene_velocity_model_mirror_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-            old_velocity_model_mirror,
-        )
-    ):
-        failures.append("old SetBodyVelocity model mirror synthetic surface was not rejected")
+    expect_error('old SetBodyVelocity model mirror synthetic surface was not rejected', check_physics_scene_velocity_model_mirror_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), old_velocity_model_mirror, ), 'velocity edit model mirror is blocked')
 
     allowed_velocity_store_only = """
     bool PhysicsScene::SetBodyVelocity( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15465,11 +12832,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if check_physics_scene_velocity_model_mirror_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        allowed_velocity_store_only,
-    ):
-        failures.append("store-only velocity edit synthetic surface was rejected")
+    expect_clean('store-only velocity edit synthetic surface was rejected', check_physics_scene_velocity_model_mirror_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), allowed_velocity_store_only, ))
 
     allowed_wake_body_mirror_after_velocity = """
     bool PhysicsScene::SetBodyVelocity( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15483,11 +12846,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if check_physics_scene_velocity_model_mirror_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        allowed_wake_body_mirror_after_velocity,
-    ):
-        failures.append("non-velocity wake compatibility mirror synthetic surface was rejected")
+    expect_clean('non-velocity wake compatibility mirror synthetic surface was rejected', check_physics_scene_velocity_model_mirror_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), allowed_wake_body_mirror_after_velocity, ))
 
     commented_velocity_model_mirror = """
     bool PhysicsScene::SetBodyVelocity( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15498,11 +12857,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if check_physics_scene_velocity_model_mirror_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        commented_velocity_model_mirror,
-    ):
-        failures.append("comment-only velocity edit model mirror synthetic text was rejected")
+    expect_clean('comment-only velocity edit model mirror synthetic text was rejected', check_physics_scene_velocity_model_mirror_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), commented_velocity_model_mirror, ))
 
     old_velocity_model_access_overloads = """
     bool PhysicsEngine::SetBodyVelocity( PhysicsModelAccess& modelAccess,
@@ -15518,14 +12873,7 @@ def run_self_tests() -> list[str]:
         return m_bodyStore.SetBodyVelocity( body, linearVelocity, angularVelocity );
     }
     """
-    if not any(
-        error.message == "velocity model-access overload is blocked"
-        for error in check_physics_velocity_model_access_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsEngine.cpp"),
-            old_velocity_model_access_overloads,
-        )
-    ):
-        failures.append("old SetBodyVelocity model-access overload synthetic surface was not rejected")
+    expect_error('old SetBodyVelocity model-access overload synthetic surface was not rejected', check_physics_velocity_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsEngine.cpp"), old_velocity_model_access_overloads, ), 'velocity model-access overload is blocked')
 
     old_velocity_model_access_call = """
     void ApplyReplayVelocityEditToModel( GameModelCollection& modelCollection )
@@ -15534,14 +12882,7 @@ def run_self_tests() -> list[str]:
         modelCollection.GetPhysicsEngine().SetBodyVelocity( modelAccess, body, linearVelocity, angularVelocity, true );
     }
     """
-    if not any(
-        error.message == "velocity model-access call is blocked"
-        for error in check_physics_velocity_model_access_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
-            old_velocity_model_access_call,
-        )
-    ):
-        failures.append("old SetBodyVelocity model-access call synthetic surface was not rejected")
+    expect_error('old SetBodyVelocity model-access call synthetic surface was not rejected', check_physics_velocity_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), old_velocity_model_access_call, ), 'velocity model-access call is blocked')
 
     allowed_velocity_handle_command = """
     PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForVelocityCommand( int modelIndex,
@@ -15560,11 +12901,7 @@ def run_self_tests() -> list[str]:
         return m_bodyStore.SetBodyVelocity( body, linearVelocity, angularVelocity );
     }
     """
-    if check_physics_velocity_model_access_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
-        allowed_velocity_handle_command,
-    ):
-        failures.append("body-only velocity command synthetic surface was rejected")
+    expect_clean('body-only velocity command synthetic surface was rejected', check_physics_velocity_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), allowed_velocity_handle_command, ))
 
     commented_velocity_model_access = """
     void DocumentOldVelocityCommand()
@@ -15574,11 +12911,7 @@ def run_self_tests() -> list[str]:
         modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
     }
     """
-    if check_physics_velocity_model_access_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
-        commented_velocity_model_access,
-    ):
-        failures.append("comment-only velocity model-access synthetic text was rejected")
+    expect_clean('comment-only velocity model-access synthetic text was rejected', check_physics_velocity_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), commented_velocity_model_access, ))
 
     old_wake_body_model_mirror = """
     void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15589,14 +12922,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if not any(
-        error.message == "wake command model mirror is blocked"
-        for error in check_physics_scene_wake_body_model_mirror_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-            old_wake_body_model_mirror,
-        )
-    ):
-        failures.append("old WakeBody model mirror synthetic surface was not rejected")
+    expect_error('old WakeBody model mirror synthetic surface was not rejected', check_physics_scene_wake_body_model_mirror_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), old_wake_body_model_mirror, ), 'wake command model mirror is blocked')
 
     allowed_wake_body_store_only = """
     void PhysicsScene::WakeBody( PhysicsBodyHandle body )
@@ -15615,11 +12941,7 @@ def run_self_tests() -> list[str]:
         WakeBody( body );
     }
     """
-    if check_physics_scene_wake_body_model_mirror_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        allowed_wake_body_store_only,
-    ):
-        failures.append("store-only WakeBody synthetic surface was rejected")
+    expect_clean('store-only WakeBody synthetic surface was rejected', check_physics_scene_wake_body_model_mirror_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), allowed_wake_body_store_only, ))
 
     commented_wake_body_model_mirror = """
     void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15630,11 +12952,7 @@ def run_self_tests() -> list[str]:
         m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
     }
     """
-    if check_physics_scene_wake_body_model_mirror_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        commented_wake_body_model_mirror,
-    ):
-        failures.append("comment-only WakeBody model mirror synthetic text was rejected")
+    expect_clean('comment-only WakeBody model mirror synthetic text was rejected', check_physics_scene_wake_body_model_mirror_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), commented_wake_body_model_mirror, ))
 
     old_wake_apply_model_access_overloads = """
     void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15650,14 +12968,7 @@ def run_self_tests() -> list[str]:
         WakeBody( modelAccess, body );
     }
     """
-    if not any(
-        error.message == "wake/apply model-access overload is blocked"
-        for error in check_physics_wake_apply_model_access_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-            old_wake_apply_model_access_overloads,
-        )
-    ):
-        failures.append("old wake/apply model-access overload synthetic surface was not rejected")
+    expect_error('old wake/apply model-access overload synthetic surface was not rejected', check_physics_wake_apply_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), old_wake_apply_model_access_overloads, ), 'wake/apply model-access overload is blocked')
 
     old_wake_apply_model_access_calls = """
     void ApplyLauncherPhysicsImpulse( PhysicsEngine& physics, PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15666,14 +12977,7 @@ def run_self_tests() -> list[str]:
         physics.WakeBody( modelAccess, body );
     }
     """
-    if not any(
-        error.message == "wake/apply model-access call is blocked"
-        for error in check_physics_wake_apply_model_access_guardrails_text(
-            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
-            old_wake_apply_model_access_calls,
-        )
-    ):
-        failures.append("old wake/apply model-access call synthetic surface was not rejected")
+    expect_error('old wake/apply model-access call synthetic surface was not rejected', check_physics_wake_apply_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"), old_wake_apply_model_access_calls, ), 'wake/apply model-access call is blocked')
 
     allowed_wake_apply_body_commands = """
     PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForWakeCommand( int modelIndex ) const
@@ -15698,11 +13002,7 @@ def run_self_tests() -> list[str]:
         WakeBody( body );
     }
     """
-    if check_physics_wake_apply_model_access_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp"),
-        allowed_wake_apply_body_commands,
-    ):
-        failures.append("body-only wake/apply synthetic surface was rejected")
+    expect_clean('body-only wake/apply synthetic surface was rejected', check_physics_wake_apply_model_access_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp"), allowed_wake_apply_body_commands, ))
 
     commented_wake_apply_model_access = """
     void PhysicsScene::WakeBody( PhysicsBodyHandle body )
@@ -15712,11 +13012,7 @@ def run_self_tests() -> list[str]:
         m_world.WakeModel( m_bodyStore, index );
     }
     """
-    if check_physics_wake_apply_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        commented_wake_apply_model_access,
-    ):
-        failures.append("comment-only wake/apply model-access synthetic text was rejected")
+    expect_clean('comment-only wake/apply model-access synthetic text was rejected', check_physics_wake_apply_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), commented_wake_apply_model_access, ))
 
     old_seed_body_asleep_model_access_overload = """
     void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15725,14 +13021,7 @@ def run_self_tests() -> list[str]:
         modelAccess.InvalidatePhysicsStreams();
     }
     """
-    if not any(
-        error.message == "sleep seed model-access overload is blocked"
-        for error in check_physics_seed_body_asleep_model_access_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-            old_seed_body_asleep_model_access_overload,
-        )
-    ):
-        failures.append("old sleep seed model-access overload synthetic surface was not rejected")
+    expect_error('old sleep seed model-access overload synthetic surface was not rejected', check_physics_seed_body_asleep_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), old_seed_body_asleep_model_access_overload, ), 'sleep seed model-access overload is blocked')
 
     old_seed_body_asleep_model_access_call = """
     void SeedEditorPhysicsBodyAsleep( PhysicsEngine& physics, PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15740,14 +13029,7 @@ def run_self_tests() -> list[str]:
         physics.SeedBodyAsleep( modelAccess, body );
     }
     """
-    if not any(
-        error.message == "sleep seed model-access call is blocked"
-        for error in check_physics_seed_body_asleep_model_access_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-            old_seed_body_asleep_model_access_call,
-        )
-    ):
-        failures.append("old sleep seed model-access call synthetic surface was not rejected")
+    expect_error('old sleep seed model-access call synthetic surface was not rejected', check_physics_seed_body_asleep_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), old_seed_body_asleep_model_access_call, ), 'sleep seed model-access call is blocked')
 
     allowed_seed_body_asleep_store_command = """
     void PhysicsScene::SeedBodyAsleep( PhysicsBodyHandle body )
@@ -15764,11 +13046,7 @@ def run_self_tests() -> list[str]:
         physics.SeedBodyAsleep( body );
     }
     """
-    if check_physics_seed_body_asleep_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        allowed_seed_body_asleep_store_command,
-    ):
-        failures.append("store-only sleep seed synthetic surface was rejected")
+    expect_clean('store-only sleep seed synthetic surface was rejected', check_physics_seed_body_asleep_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), allowed_seed_body_asleep_store_command, ))
 
     commented_seed_body_asleep_model_access = """
     void PhysicsScene::SeedBodyAsleep( PhysicsBodyHandle body )
@@ -15778,11 +13056,7 @@ def run_self_tests() -> list[str]:
         m_bodyStore.SeedBodyAsleep( body );
     }
     """
-    if check_physics_seed_body_asleep_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        commented_seed_body_asleep_model_access,
-    ):
-        failures.append("comment-only sleep seed model-access synthetic text was rejected")
+    expect_clean('comment-only sleep seed model-access synthetic text was rejected', check_physics_seed_body_asleep_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), commented_seed_body_asleep_model_access, ))
 
     old_pending_impulse_model_access_overload = """
     void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
@@ -15794,14 +13068,7 @@ def run_self_tests() -> list[str]:
         m_bodyStore.SetPendingBodyImpulse( body, impulse, localPoint );
     }
     """
-    if not any(
-        error.message == "pending impulse model-access overload is blocked"
-        for error in check_physics_pending_impulse_model_access_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-            old_pending_impulse_model_access_overload,
-        )
-    ):
-        failures.append("old pending impulse model-access overload synthetic surface was not rejected")
+    expect_error('old pending impulse model-access overload synthetic surface was not rejected', check_physics_pending_impulse_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), old_pending_impulse_model_access_overload, ), 'pending impulse model-access overload is blocked')
 
     old_pending_impulse_model_access_call = """
     void GameModelCollectionPhysicsAdapter::SetPendingBodyImpulseForModelIndex( int modelIndex ) const
@@ -15810,14 +13077,7 @@ def run_self_tests() -> list[str]:
         m_collection.m_physicsEngine.SetPendingBodyImpulse( modelAccess, body, impulse, localPoint );
     }
     """
-    if not any(
-        error.message == "pending impulse model-access call is blocked"
-        for error in check_physics_pending_impulse_model_access_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp"),
-            old_pending_impulse_model_access_call,
-        )
-    ):
-        failures.append("old pending impulse model-access call synthetic surface was not rejected")
+    expect_error('old pending impulse model-access call synthetic surface was not rejected', check_physics_pending_impulse_model_access_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp"), old_pending_impulse_model_access_call, ), 'pending impulse model-access call is blocked')
 
     allowed_pending_impulse_store_command = """
     void PhysicsScene::SetPendingBodyImpulse( PhysicsBodyHandle body, const Vector3& impulse, const Vector3& localPoint )
@@ -15833,11 +13093,7 @@ def run_self_tests() -> list[str]:
         WakeBody( modelAccess, body );
     }
     """
-    if check_physics_pending_impulse_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        allowed_pending_impulse_store_command,
-    ):
-        failures.append("store-only pending impulse synthetic surface was rejected")
+    expect_clean('store-only pending impulse synthetic surface was rejected', check_physics_pending_impulse_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), allowed_pending_impulse_store_command, ))
 
     commented_pending_impulse_model_access = """
     void PhysicsScene::SetPendingBodyImpulse( PhysicsBodyHandle body, const Vector3& impulse, const Vector3& localPoint )
@@ -15847,11 +13103,7 @@ def run_self_tests() -> list[str]:
         m_bodyStore.SetPendingBodyImpulse( body, impulse, localPoint );
     }
     """
-    if check_physics_pending_impulse_model_access_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        commented_pending_impulse_model_access,
-    ):
-        failures.append("comment-only pending impulse model-access synthetic text was rejected")
+    expect_clean('comment-only pending impulse model-access synthetic text was rejected', check_physics_pending_impulse_model_access_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), commented_pending_impulse_model_access, ))
 
     commented_command_body_refresh = """
     void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -15860,11 +13112,7 @@ def run_self_tests() -> list[str]:
         ApplyCommand();
     }
     """
-    if check_physics_scene_command_body_refresh_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-        commented_command_body_refresh,
-    ):
-        failures.append("comment-only command-side body refresh synthetic text was rejected")
+    expect_clean('comment-only command-side body refresh synthetic text was rejected', check_physics_scene_command_body_refresh_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), commented_command_body_refresh, ))
 
     old_scene_setup_model_index_command = """
     void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
@@ -15875,14 +13123,7 @@ def run_self_tests() -> list[str]:
         context.models.SeedModelAsleep( modelIndex );
     }
     """
-    if not any(
-        error.message == "scene setup model-index physics command is blocked"
-        for error in check_scene_setup_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"),
-            old_scene_setup_model_index_command,
-        )
-    ):
-        failures.append("old scene setup model-index command synthetic surface was not rejected")
+    expect_error('old scene setup model-index command synthetic surface was not rejected', check_scene_setup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"), old_scene_setup_model_index_command, ), 'scene setup model-index physics command is blocked')
 
     old_scene_setup_adapter_body_lookup = """
     void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context )
@@ -15894,14 +13135,7 @@ def run_self_tests() -> list[str]:
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
     }
     """
-    if not any(
-        error.message == "scene setup adapter body lookup is blocked"
-        for error in check_scene_setup_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp"),
-            old_scene_setup_adapter_body_lookup,
-        )
-    ):
-        failures.append("old scene setup adapter body lookup synthetic surface was not rejected")
+    expect_error('old scene setup adapter body lookup synthetic surface was not rejected', check_scene_setup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp"), old_scene_setup_adapter_body_lookup, ), 'scene setup adapter body lookup is blocked')
 
     allowed_scene_setup_handle_command = """
     void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
@@ -15915,11 +13149,7 @@ def run_self_tests() -> list[str]:
         context.physics.SeedBodyAsleep( body );
     }
     """
-    if check_scene_setup_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"),
-        allowed_scene_setup_handle_command,
-    ):
-        failures.append("handle-keyed scene setup command synthetic surface was rejected")
+    expect_clean('handle-keyed scene setup command synthetic surface was rejected', check_scene_setup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"), allowed_scene_setup_handle_command, ))
 
     old_scene_setup_collider_recapture = """
     void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
@@ -15929,14 +13159,7 @@ def run_self_tests() -> list[str]:
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
     }
     """
-    if not any(
-        error.message == "AddGameModel collider descriptor import is required"
-        for error in check_add_game_model_collider_desc_guardrails_text(
-            Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"),
-            old_scene_setup_collider_recapture,
-        )
-    ):
-        failures.append("old scene setup collider recapture synthetic surface was not rejected")
+    expect_error('old scene setup collider recapture synthetic surface was not rejected', check_add_game_model_collider_desc_guardrails_text( Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"), old_scene_setup_collider_recapture, ), 'AddGameModel collider descriptor import is required')
 
     old_editor_collider_recapture = """
     void PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context )
@@ -15944,14 +13167,7 @@ def run_self_tests() -> list[str]:
         lastPlacedBody = context.models.AddGameModel( std::move( model ) );
     }
     """
-    if not any(
-        error.message == "AddGameModel collider descriptor import is required"
-        for error in check_add_game_model_collider_desc_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"),
-            old_editor_collider_recapture,
-        )
-    ):
-        failures.append("old editor collider recapture synthetic surface was not rejected")
+    expect_error('old editor collider recapture synthetic surface was not rejected', check_add_game_model_collider_desc_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), old_editor_collider_recapture, ), 'AddGameModel collider descriptor import is required')
 
     old_ragdoll_collider_recapture = """
     void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection )
@@ -15959,14 +13175,7 @@ def run_self_tests() -> list[str]:
         collection.AddGameModel( std::move( model ) );
     }
     """
-    if not any(
-        error.message == "AddGameModel collider descriptor import is required"
-        for error in check_add_game_model_collider_desc_guardrails_text(
-            Path("SkullbonezSource/Physics/Ragdoll.cpp"),
-            old_ragdoll_collider_recapture,
-        )
-    ):
-        failures.append("old ragdoll collider recapture synthetic surface was not rejected")
+    expect_error('old ragdoll collider recapture synthetic surface was not rejected', check_add_game_model_collider_desc_guardrails_text( Path("SkullbonezSource/Physics/Ragdoll.cpp"), old_ragdoll_collider_recapture, ), 'AddGameModel collider descriptor import is required')
 
     allowed_descriptor_append = """
     void PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context )
@@ -15977,11 +13186,7 @@ def run_self_tests() -> list[str]:
             context.scene.AllocateSceneObjectId() );
     }
     """
-    if check_add_game_model_collider_desc_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"),
-        allowed_descriptor_append,
-    ):
-        failures.append("descriptor-owned AddGameModel synthetic surface was rejected")
+    expect_clean('descriptor-owned AddGameModel synthetic surface was rejected', check_add_game_model_collider_desc_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), allowed_descriptor_append, ))
 
     old_scene_setup_orientation_readback = """
     void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
@@ -15995,14 +13200,7 @@ def run_self_tests() -> list[str]:
         gameModel.SetPosition( authoredPosition + hullOrientation * hull.GetAuthoredCenterOfMass() );
     }
     """
-    if not any(
-        error.message == "scene setup GameModel orientation readback is blocked"
-        for error in check_scene_setup_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"),
-            old_scene_setup_orientation_readback,
-        )
-    ):
-        failures.append("old scene setup orientation readback synthetic surface was not rejected")
+    expect_error('old scene setup orientation readback synthetic surface was not rejected', check_scene_setup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"), old_scene_setup_orientation_readback, ), 'scene setup GameModel orientation readback is blocked')
 
     allowed_scene_setup_local_orientation = """
     void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
@@ -16017,11 +13215,7 @@ def run_self_tests() -> list[str]:
         gameModel.SetPosition( authoredPosition + hullOrientation * hull.GetAuthoredCenterOfMass() );
     }
     """
-    if check_scene_setup_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"),
-        allowed_scene_setup_local_orientation,
-    ):
-        failures.append("local scene orientation synthetic surface was rejected")
+    expect_clean('local scene orientation synthetic surface was rejected', check_scene_setup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"), allowed_scene_setup_local_orientation, ))
 
     commented_scene_setup_model_index_command = """
     void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
@@ -16031,11 +13225,7 @@ def run_self_tests() -> list[str]:
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
     }
     """
-    if check_scene_setup_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"),
-        commented_scene_setup_model_index_command,
-    ):
-        failures.append("comment-only scene setup model-index command synthetic text was rejected")
+    expect_clean('comment-only scene setup model-index command synthetic text was rejected', check_scene_setup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"), commented_scene_setup_model_index_command, ))
 
     old_editor_model_index_command = """
     bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context )
@@ -16047,14 +13237,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "editor model-index physics command is blocked"
-        for error in check_editor_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"),
-            old_editor_model_index_command,
-        )
-    ):
-        failures.append("old editor placement model-index command synthetic surface was not rejected")
+    expect_error('old editor placement model-index command synthetic surface was not rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), old_editor_model_index_command, ), 'editor model-index physics command is blocked')
 
     old_editor_reset_model_index_command = """
     void ResetEditorModelMotionAndWake( GameModelCollection& collection, PhysicsEngine&, int index )
@@ -16063,14 +13246,7 @@ def run_self_tests() -> list[str]:
         collection.WakeModel( index );
     }
     """
-    if not any(
-        error.message == "editor model-index physics command is blocked"
-        for error in check_editor_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-            old_editor_reset_model_index_command,
-        )
-    ):
-        failures.append("old editor reset model-index command synthetic surface was not rejected")
+    expect_error('old editor reset model-index command synthetic surface was not rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), old_editor_reset_model_index_command, ), 'editor model-index physics command is blocked')
 
     old_editor_reset_model_fixed_read = """
     void ResetEditorModelMotionAndWake( GameModelCollection& collection, int index, GameModel& model )
@@ -16082,14 +13258,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if not any(
-        error.message == "editor reset wake must use body-store fixed state"
-        for error in check_editor_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-            old_editor_reset_model_fixed_read,
-        )
-    ):
-        failures.append("old editor reset model fixed-state synthetic surface was not rejected")
+    expect_error('old editor reset model fixed-state synthetic surface was not rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), old_editor_reset_model_fixed_read, ), 'editor reset wake must use body-store fixed state')
 
     allowed_editor_reset_body_fixed_read = """
     void ResetEditorModelMotionAndWake( GameModelCollection& collection, int index, GameModel& model )
@@ -16102,11 +13271,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if check_editor_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-        allowed_editor_reset_body_fixed_read,
-    ):
-        failures.append("body-store editor reset wake synthetic surface was rejected")
+    expect_clean('body-store editor reset wake synthetic surface was rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), allowed_editor_reset_body_fixed_read, ))
 
     old_editor_tool_model_access = """
     void WakeEditorPhysicsBody( GameModelCollection& collection, int modelIndex )
@@ -16122,14 +13287,7 @@ def run_self_tests() -> list[str]:
         physics.WakeBody( body );
     }
     """
-    if not any(
-        error.message == "runtime/editor PhysicsModelAccess topology repair is blocked"
-        for error in check_editor_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-            old_editor_tool_model_access,
-        )
-    ):
-        failures.append("old editor PhysicsModelAccess topology repair synthetic surface was not rejected")
+    expect_error('old editor PhysicsModelAccess topology repair synthetic surface was not rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), old_editor_tool_model_access, ), 'runtime/editor PhysicsModelAccess topology repair is blocked')
 
     allowed_editor_handle_command = """
     void WakeEditorPhysicsBody( GameModelCollection& collection, int modelIndex )
@@ -16143,11 +13301,7 @@ def run_self_tests() -> list[str]:
         physics.WakeBody( body );
     }
     """
-    if check_editor_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-        allowed_editor_handle_command,
-    ):
-        failures.append("handle-keyed editor command synthetic surface was rejected")
+    expect_clean('handle-keyed editor command synthetic surface was rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), allowed_editor_handle_command, ))
 
     commented_editor_tool_model_access = """
     void DocumentOldEditorRepair()
@@ -16158,11 +13312,7 @@ def run_self_tests() -> list[str]:
         collection.RepairPhysicsBodyAndColliderTopology();
     }
     """
-    if check_editor_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-        commented_editor_tool_model_access,
-    ):
-        failures.append("comment-only editor PhysicsModelAccess topology synthetic text was rejected")
+    expect_clean('comment-only editor PhysicsModelAccess topology synthetic text was rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), commented_editor_tool_model_access, ))
 
     commented_editor_model_index_command = """
     void DocumentOldEditorCommand()
@@ -16171,11 +13321,7 @@ def run_self_tests() -> list[str]:
         WakeEditorPhysicsBody( context.models, context.models.GetPhysicsEngine(), modelIndex );
     }
     """
-    if check_editor_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"),
-        commented_editor_model_index_command,
-    ):
-        failures.append("comment-only editor model-index command synthetic text was rejected")
+    expect_clean('comment-only editor model-index command synthetic text was rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), commented_editor_model_index_command, ))
 
     old_editor_adapter_command = """
     void WakeEditorPhysicsBody( GameModelCollection& collection, int modelIndex )
@@ -16184,14 +13330,7 @@ def run_self_tests() -> list[str]:
         physicsBodies.WakeBodyForModelIndex( modelIndex );
     }
     """
-    if not any(
-        error.message == "editor adapter command wrapper is blocked"
-        for error in check_editor_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-            old_editor_adapter_command,
-        )
-    ):
-        failures.append("old editor adapter command synthetic surface was not rejected")
+    expect_error('old editor adapter command synthetic surface was not rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), old_editor_adapter_command, ), 'editor adapter command wrapper is blocked')
 
     old_editor_adapter_lookup = """
     void WakeEditorPhysicsBody( GameModelCollection& collection, int modelIndex )
@@ -16201,14 +13340,7 @@ def run_self_tests() -> list[str]:
         collection.GetPhysicsEngine().WakeBody( body );
     }
     """
-    if not any(
-        error.message == "editor adapter lookup is blocked"
-        for error in check_editor_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-            old_editor_adapter_lookup,
-        )
-    ):
-        failures.append("old editor adapter lookup synthetic surface was not rejected")
+    expect_error('old editor adapter lookup synthetic surface was not rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), old_editor_adapter_lookup, ), 'editor adapter lookup is blocked')
 
     commented_editor_adapter_command = """
     void DocumentOldEditorAdapterCommand()
@@ -16219,11 +13351,7 @@ def run_self_tests() -> list[str]:
         collection.GetPhysicsEngine().WakeBody( body );
     }
     """
-    if check_editor_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-        commented_editor_adapter_command,
-    ):
-        failures.append("comment-only editor adapter command synthetic text was rejected")
+    expect_clean('comment-only editor adapter command synthetic text was rejected', check_editor_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), commented_editor_adapter_command, ))
 
     old_mouse_pickup_model_index_command = """
     void Run::ApplyMousePickupPhysicsStep()
@@ -16232,14 +13360,7 @@ def run_self_tests() -> list[str]:
         m_cGameModelCollection.TrySetModelAngularVelocity( modelIndex, angularVelocity );
     }
     """
-    if not any(
-        error.message == "mouse pickup model-index physics command is blocked"
-        for error in check_mouse_pickup_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"),
-            old_mouse_pickup_model_index_command,
-        )
-    ):
-        failures.append("old mouse pickup model-index command synthetic surface was not rejected")
+    expect_error('old mouse pickup model-index command synthetic surface was not rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), old_mouse_pickup_model_index_command, ), 'mouse pickup model-index physics command is blocked')
 
     allowed_mouse_pickup_handle_command = """
     void Run::ApplyMousePickupPhysicsStep()
@@ -16252,11 +13373,7 @@ def run_self_tests() -> list[str]:
         m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse( pickup.body, impulse, ZERO_VECTOR );
     }
     """
-    if check_mouse_pickup_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"),
-        allowed_mouse_pickup_handle_command,
-    ):
-        failures.append("handle-keyed mouse pickup command synthetic surface was rejected")
+    expect_clean('handle-keyed mouse pickup command synthetic surface was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), allowed_mouse_pickup_handle_command, ))
 
     commented_mouse_pickup_model_index_command = """
     void DocumentOldMousePickupCommand()
@@ -16266,11 +13383,7 @@ def run_self_tests() -> list[str]:
         m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse( pickup.body, impulse, ZERO_VECTOR );
     }
     """
-    if check_mouse_pickup_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"),
-        commented_mouse_pickup_model_index_command,
-    ):
-        failures.append("comment-only mouse pickup model-index command synthetic text was rejected")
+    expect_clean('comment-only mouse pickup model-index command synthetic text was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), commented_mouse_pickup_model_index_command, ))
 
     old_mouse_pickup_game_model_body_read = """
     void Run::ApplyMousePickupPhysicsStep()
@@ -16285,14 +13398,7 @@ def run_self_tests() -> list[str]:
         Vector3 impulse = pull - model->GetVelocity();
     }
     """
-    if not any(
-        error.message == "mouse pickup GameModel body read is blocked"
-        for error in check_mouse_pickup_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"),
-            old_mouse_pickup_game_model_body_read,
-        )
-    ):
-        failures.append("old mouse pickup GameModel body read synthetic surface was not rejected")
+    expect_error('old mouse pickup GameModel body read synthetic surface was not rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), old_mouse_pickup_game_model_body_read, ), 'mouse pickup GameModel body read is blocked')
 
     allowed_mouse_pickup_body_store_read = """
     void Run::ApplyMousePickupPhysicsStep()
@@ -16306,11 +13412,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if check_mouse_pickup_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"),
-        allowed_mouse_pickup_body_store_read,
-    ):
-        failures.append("store-owned mouse pickup body read synthetic surface was rejected")
+    expect_clean('store-owned mouse pickup body read synthetic surface was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), allowed_mouse_pickup_body_store_read, ))
 
     commented_mouse_pickup_game_model_body_read = """
     void DocumentOldMousePickupBodyRead()
@@ -16319,11 +13421,7 @@ def run_self_tests() -> list[str]:
         const Vector3 grabPoint = body->position + pickup.grabOffset;
     }
     """
-    if check_mouse_pickup_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"),
-        commented_mouse_pickup_game_model_body_read,
-    ):
-        failures.append("comment-only mouse pickup GameModel body read synthetic text was rejected")
+    expect_clean('comment-only mouse pickup GameModel body read synthetic text was rejected', check_mouse_pickup_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl"), commented_mouse_pickup_game_model_body_read, ))
 
     old_mouse_pickup_overlay_model_body_read = """
     void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
@@ -16333,14 +13431,7 @@ def run_self_tests() -> list[str]:
         context.tracer.AddSelectionOutline( grabbed );
     }
     """
-    if not any(
-        error.message == "mouse pickup overlay GameModel body read is blocked"
-        for error in check_mouse_pickup_overlay_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
-            old_mouse_pickup_overlay_model_body_read,
-        )
-    ):
-        failures.append("old mouse pickup overlay GameModel body read synthetic surface was not rejected")
+    expect_error('old mouse pickup overlay GameModel body read synthetic surface was not rejected', check_mouse_pickup_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), old_mouse_pickup_overlay_model_body_read, ), 'mouse pickup overlay GameModel body read is blocked')
 
     allowed_mouse_pickup_overlay_store_read = """
     void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
@@ -16355,11 +13446,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if check_mouse_pickup_overlay_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
-        allowed_mouse_pickup_overlay_store_read,
-    ):
-        failures.append("store-backed mouse pickup overlay synthetic surface was rejected")
+    expect_clean('store-backed mouse pickup overlay synthetic surface was rejected', check_mouse_pickup_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), allowed_mouse_pickup_overlay_store_read, ))
 
     commented_mouse_pickup_overlay_model_body_read = """
     void DocumentOldMousePickupOverlay()
@@ -16368,11 +13455,7 @@ def run_self_tests() -> list[str]:
         // It now reads body->position and collider->shape.
     }
     """
-    if check_mouse_pickup_overlay_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
-        commented_mouse_pickup_overlay_model_body_read,
-    ):
-        failures.append("comment-only mouse pickup overlay model read synthetic text was rejected")
+    expect_clean('comment-only mouse pickup overlay model read synthetic text was rejected', check_mouse_pickup_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), commented_mouse_pickup_overlay_model_body_read, ))
 
     old_selection_overlay_model_frame = """
     void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
@@ -16386,14 +13469,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if not any(
-        error.message == "selection overlay GameModel frame read is blocked"
-        for error in check_selection_overlay_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
-            old_selection_overlay_model_frame,
-        )
-    ):
-        failures.append("old selection overlay GameModel frame synthetic surface was not rejected")
+    expect_error('old selection overlay GameModel frame synthetic surface was not rejected', check_selection_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), old_selection_overlay_model_frame, ), 'selection overlay GameModel frame read is blocked')
 
     allowed_selection_overlay_store_frame = """
     void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
@@ -16412,11 +13488,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if check_selection_overlay_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
-        allowed_selection_overlay_store_frame,
-    ):
-        failures.append("store-backed selection overlay synthetic surface was rejected")
+    expect_clean('store-backed selection overlay synthetic surface was rejected', check_selection_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), allowed_selection_overlay_store_frame, ))
 
     commented_selection_overlay_model_frame = """
     void DocumentOldSelectionOverlay()
@@ -16425,11 +13497,7 @@ def run_self_tests() -> list[str]:
         // It now traces from body/collider store rows.
     }
     """
-    if check_selection_overlay_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
-        commented_selection_overlay_model_frame,
-    ):
-        failures.append("comment-only selection overlay synthetic text was rejected")
+    expect_clean('comment-only selection overlay synthetic text was rejected', check_selection_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), commented_selection_overlay_model_frame, ))
 
     old_editor_selection_frame_model_reads = """
     bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
@@ -16455,13 +13523,8 @@ def run_self_tests() -> list[str]:
         Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
         old_editor_selection_frame_model_reads,
     )
-    if not any(error.message == "editor selection frame must use store rows" for error in old_editor_selection_errors):
-        failures.append("old editor selection frame model-only signature synthetic surface was not rejected")
-    if not any(
-        error.message == "editor selection frame GameModel body read is blocked"
-        for error in old_editor_selection_errors
-    ):
-        failures.append("old editor selection frame GameModel body-read synthetic surface was not rejected")
+    expect_error('old editor selection frame model-only signature synthetic surface was not rejected', old_editor_selection_errors, 'editor selection frame must use store rows')
+    expect_error('old editor selection frame GameModel body-read synthetic surface was not rejected', old_editor_selection_errors, 'editor selection frame GameModel body read is blocked')
 
     old_editor_gizmo_model_only_call = """
     int HitEditorGizmoAxis( EditorGizmoContext context, const Vector3& rayOrigin, const Vector3& rayDirection )
@@ -16476,14 +13539,7 @@ def run_self_tests() -> list[str]:
         return 0;
     }
     """
-    if not any(
-        error.message == "editor selection frame must use store rows"
-        for error in check_editor_selection_frame_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"),
-            old_editor_gizmo_model_only_call,
-        )
-    ):
-        failures.append("old editor gizmo model-only frame call synthetic surface was not rejected")
+    expect_error('old editor gizmo model-only frame call synthetic surface was not rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"), old_editor_gizmo_model_only_call, ), 'editor selection frame must use store rows')
 
     old_editor_frame_store_without_handles = """
     bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
@@ -16512,16 +13568,8 @@ def run_self_tests() -> list[str]:
         Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
         old_editor_frame_store_without_handles,
     )
-    if not any(
-        error.message == "editor selection frame must receive selected handles"
-        for error in old_editor_frame_handle_errors
-    ):
-        failures.append("old editor selection frame store-only signature synthetic surface was not rejected")
-    if not any(
-        error.message == "editor selection frame call must pass selected handles"
-        for error in old_editor_frame_handle_errors
-    ):
-        failures.append("old editor selection frame store-only call synthetic surface was not rejected")
+    expect_error('old editor selection frame store-only signature synthetic surface was not rejected', old_editor_frame_handle_errors, 'editor selection frame must receive selected handles')
+    expect_error('old editor selection frame store-only call synthetic surface was not rejected', old_editor_frame_handle_errors, 'editor selection frame call must pass selected handles')
 
     allowed_editor_selection_frame_store_reads = """
     bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
@@ -16561,16 +13609,8 @@ def run_self_tests() -> list[str]:
         return 0;
     }
     """
-    if check_editor_selection_frame_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-        allowed_editor_selection_frame_store_reads,
-    ):
-        failures.append("store-backed editor selection frame synthetic surface was rejected")
-    if check_editor_selection_frame_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"),
-        allowed_editor_selection_frame_store_reads,
-    ):
-        failures.append("store-backed editor gizmo selection frame call synthetic surface was rejected")
+    expect_clean('store-backed editor selection frame synthetic surface was rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), allowed_editor_selection_frame_store_reads, ))
+    expect_clean('store-backed editor gizmo selection frame call synthetic surface was rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"), allowed_editor_selection_frame_store_reads, ))
 
     old_editor_tree_group_append = """
     void PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context )
@@ -16587,14 +13627,7 @@ def run_self_tests() -> list[str]:
         };
     }
     """
-    if not any(
-        error.message == "editor tree grouping descriptor is required"
-        for error in check_editor_tree_group_descriptor_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"),
-            old_editor_tree_group_append,
-        )
-    ):
-        failures.append("old editor tree ungrouped append synthetic surface was not rejected")
+    expect_error('old editor tree ungrouped append synthetic surface was not rejected', check_editor_tree_group_descriptor_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), old_editor_tree_group_append, ), 'editor tree grouping descriptor is required')
 
     allowed_editor_tree_group_descriptor = """
     void PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context )
@@ -16617,11 +13650,7 @@ def run_self_tests() -> list[str]:
         };
     }
     """
-    if check_editor_tree_group_descriptor_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"),
-        allowed_editor_tree_group_descriptor,
-    ):
-        failures.append("editor tree group descriptor synthetic surface was rejected")
+    expect_clean('editor tree group descriptor synthetic surface was rejected', check_editor_tree_group_descriptor_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), allowed_editor_tree_group_descriptor, ))
 
     commented_editor_tree_group_append = """
     // Old tree placement used addModel(std::move(model), MakeEditorColliderDesc(hull, part.restitution), partFixed, treeDefinition.seedAsleep && !partFixed).
@@ -16635,11 +13664,7 @@ def run_self_tests() -> list[str]:
                   groupDesc );
     }
     """
-    if check_editor_tree_group_descriptor_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"),
-        commented_editor_tree_group_append,
-    ):
-        failures.append("comment-only editor tree ungrouped append synthetic text was rejected")
+    expect_clean('comment-only editor tree ungrouped append synthetic text was rejected', check_editor_tree_group_descriptor_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"), commented_editor_tree_group_append, ))
 
     old_editor_transform_group_name_parse = """
     bool TryGetEditorRagdollInstancePrefixLength( const GameModel& model, std::size_t& outPrefixLength )
@@ -16658,14 +13683,7 @@ def run_self_tests() -> list[str]:
         return std::strncmp( selectedName, models[0].GetName(), 4 ) == 0 ? 2 : 1;
     }
     """
-    if not any(
-        error.message == "editor transform grouping must use collection metadata"
-        for error in check_editor_selection_frame_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-            old_editor_transform_group_name_parse,
-        )
-    ):
-        failures.append("old editor transform group name-parse synthetic surface was not rejected")
+    expect_error('old editor transform group name-parse synthetic surface was not rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), old_editor_transform_group_name_parse, ), 'editor transform grouping must use collection metadata')
 
     allowed_editor_transform_group_metadata = """
     int GatherSelectedEditorTransformGroup( const std::vector<GameModel>& models,
@@ -16693,11 +13711,7 @@ def run_self_tests() -> list[str]:
         return count;
     }
     """
-    if check_editor_selection_frame_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-        allowed_editor_transform_group_metadata,
-    ):
-        failures.append("editor transform group metadata synthetic surface was rejected")
+    expect_clean('editor transform group metadata synthetic surface was rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), allowed_editor_transform_group_metadata, ))
 
     commented_editor_transform_group_name_parse = """
     void DocumentOldEditorTransformGroup()
@@ -16706,11 +13720,7 @@ def run_self_tests() -> list[str]:
         // It now uses runtime collection metadata.
     }
     """
-    if check_editor_selection_frame_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-        commented_editor_transform_group_name_parse,
-    ):
-        failures.append("comment-only editor transform group name-parse synthetic text was rejected")
+    expect_clean('comment-only editor transform group name-parse synthetic text was rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), commented_editor_transform_group_name_parse, ))
 
     commented_editor_selection_frame_model_reads = """
     void DocumentOldEditorSelectionFrame()
@@ -16719,11 +13729,7 @@ def run_self_tests() -> list[str]:
         // and then read model.GetPosition() plus EditorModelRadius(model).
     }
     """
-    if check_editor_selection_frame_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-        commented_editor_selection_frame_model_reads,
-    ):
-        failures.append("comment-only editor selection frame synthetic text was rejected")
+    expect_clean('comment-only editor selection frame synthetic text was rejected', check_editor_selection_frame_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), commented_editor_selection_frame_model_reads, ))
 
     old_selection_command_model_only = """
     struct RuntimeInteractionCommand
@@ -16732,14 +13738,7 @@ def run_self_tests() -> list[str]:
         int modelIndex = -1;
     };
     """
-    if not any(
-        error.message == "editor selection command must carry store handles"
-        for error in check_editor_selection_identity_handle_guardrails_text(
-            Path("SkullbonezSource/Runtime/RuntimeInteractionCommands.h"),
-            old_selection_command_model_only,
-        )
-    ):
-        failures.append("old model-index-only selection command synthetic surface was not rejected")
+    expect_error('old model-index-only selection command synthetic surface was not rejected', check_editor_selection_identity_handle_guardrails_text( Path("SkullbonezSource/Runtime/RuntimeInteractionCommands.h"), old_selection_command_model_only, ), 'editor selection command must carry store handles')
 
     old_selection_executor_model_index_fallback = """
     bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& command )
@@ -16751,14 +13750,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "SetEditorSelection must not rediscover body handles from modelIndex"
-        for error in check_editor_selection_identity_handle_guardrails_text(
-            Path("SkullbonezSource/Runtime/RunInput.cpp"),
-            old_selection_executor_model_index_fallback,
-        )
-    ):
-        failures.append("old selection executor model-index handle lookup synthetic surface was not rejected")
+    expect_error('old selection executor model-index handle lookup synthetic surface was not rejected', check_editor_selection_identity_handle_guardrails_text( Path("SkullbonezSource/Runtime/RunInput.cpp"), old_selection_executor_model_index_fallback, ), 'SetEditorSelection must not rediscover body handles from modelIndex')
 
     old_pick_selection_drops_handles = """
     void Run::TickEditorWorldClick()
@@ -16770,14 +13762,7 @@ def run_self_tests() -> list[str]:
         consumedWorldClick = ExecuteRuntimeInteractionCommand( command );
     }
     """
-    if not any(
-        error.message == "editor pick selection must forward store handles"
-        for error in check_editor_selection_identity_handle_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-            old_pick_selection_drops_handles,
-        )
-    ):
-        failures.append("old editor pick selection handle-drop synthetic surface was not rejected")
+    expect_error('old editor pick selection handle-drop synthetic surface was not rejected', check_editor_selection_identity_handle_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), old_pick_selection_drops_handles, ), 'editor pick selection must forward store handles')
 
     old_attach_selection_drops_handles = """
     void Run::SetAttachedCameraTarget( int modelIndex )
@@ -16789,14 +13774,7 @@ def run_self_tests() -> list[str]:
         ExecuteRuntimeInteractionCommand( command );
     }
     """
-    if not any(
-        error.message == "attached-camera inspect selection must forward store handles"
-        for error in check_editor_selection_identity_handle_guardrails_text(
-            Path("SkullbonezSource/Runtime/RunInput.cpp"),
-            old_attach_selection_drops_handles,
-        )
-    ):
-        failures.append("old attach-camera selection handle-drop synthetic surface was not rejected")
+    expect_error('old attach-camera selection handle-drop synthetic surface was not rejected', check_editor_selection_identity_handle_guardrails_text( Path("SkullbonezSource/Runtime/RunInput.cpp"), old_attach_selection_drops_handles, ), 'attached-camera inspect selection must forward store handles')
 
     allowed_selection_identity_handles = """
     struct RuntimeInteractionCommand
@@ -16825,21 +13803,9 @@ def run_self_tests() -> list[str]:
         consumedWorldClick = ExecuteRuntimeInteractionCommand( command );
     }
     """
-    if check_editor_selection_identity_handle_guardrails_text(
-        Path("SkullbonezSource/Runtime/RuntimeInteractionCommands.h"),
-        allowed_selection_identity_handles,
-    ):
-        failures.append("store-handle selection command synthetic surface was rejected")
-    if check_editor_selection_identity_handle_guardrails_text(
-        Path("SkullbonezSource/Runtime/RunInput.cpp"),
-        allowed_selection_identity_handles,
-    ):
-        failures.append("store-handle selection executor synthetic surface was rejected")
-    if check_editor_selection_identity_handle_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
-        allowed_selection_identity_handles,
-    ):
-        failures.append("store-handle editor selection caller synthetic surface was rejected")
+    expect_clean('store-handle selection command synthetic surface was rejected', check_editor_selection_identity_handle_guardrails_text( Path("SkullbonezSource/Runtime/RuntimeInteractionCommands.h"), allowed_selection_identity_handles, ))
+    expect_clean('store-handle selection executor synthetic surface was rejected', check_editor_selection_identity_handle_guardrails_text( Path("SkullbonezSource/Runtime/RunInput.cpp"), allowed_selection_identity_handles, ))
+    expect_clean('store-handle editor selection caller synthetic surface was rejected', check_editor_selection_identity_handle_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"), allowed_selection_identity_handles, ))
 
     old_attached_camera_marker_overload = """
     class RunEditorTracer
@@ -16847,14 +13813,7 @@ def run_self_tests() -> list[str]:
         void AddAttachedCameraTargetMarker( const GameObjects::GameModel& model, bool activeFollow );
     };
     """
-    if not any(
-        error.message == "attached camera overlay marker must use store values"
-        for error in check_attached_camera_overlay_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h"),
-            old_attached_camera_marker_overload,
-        )
-    ):
-        failures.append("old attached-camera marker GameModel overload synthetic surface was not rejected")
+    expect_error('old attached-camera marker GameModel overload synthetic surface was not rejected', check_attached_camera_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h"), old_attached_camera_marker_overload, ), 'attached camera overlay marker must use store values')
 
     old_attached_camera_overlay_marker = """
     void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
@@ -16863,14 +13822,7 @@ def run_self_tests() -> list[str]:
         context.tracer.AddAttachedCameraTargetMarker( target, input.attachedCameraActiveFollow );
     }
     """
-    if not any(
-        error.message == "attached camera overlay marker must use store values"
-        for error in check_attached_camera_overlay_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
-            old_attached_camera_overlay_marker,
-        )
-    ):
-        failures.append("old attached-camera overlay GameModel marker synthetic surface was not rejected")
+    expect_error('old attached-camera overlay GameModel marker synthetic surface was not rejected', check_attached_camera_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), old_attached_camera_overlay_marker, ), 'attached camera overlay marker must use store values')
 
     allowed_attached_camera_overlay_store_marker = """
     void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
@@ -16887,11 +13839,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if check_attached_camera_overlay_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
-        allowed_attached_camera_overlay_store_marker,
-    ):
-        failures.append("store-backed attached-camera overlay marker synthetic surface was rejected")
+    expect_clean('store-backed attached-camera overlay marker synthetic surface was rejected', check_attached_camera_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), allowed_attached_camera_overlay_store_marker, ))
 
     commented_attached_camera_overlay_marker = """
     void DocumentOldAttachedCameraOverlay()
@@ -16900,11 +13848,7 @@ def run_self_tests() -> list[str]:
         // It now passes body->position, body->orientation, and collider->shape.
     }
     """
-    if check_attached_camera_overlay_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
-        commented_attached_camera_overlay_marker,
-    ):
-        failures.append("comment-only attached-camera overlay marker synthetic text was rejected")
+    expect_clean('comment-only attached-camera overlay marker synthetic text was rejected', check_attached_camera_overlay_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"), commented_attached_camera_overlay_marker, ))
 
     old_replay_target_marker_overload = """
     class RunEditorTracer
@@ -16912,14 +13856,7 @@ def run_self_tests() -> list[str]:
         void AddReplayTargetMarker( const GameObjects::GameModel& model );
     };
     """
-    if not any(
-        error.message == "replay target marker must use store values"
-        for error in check_replay_target_marker_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h"),
-            old_replay_target_marker_overload,
-        )
-    ):
-        failures.append("old replay target marker GameModel overload synthetic surface was not rejected")
+    expect_error('old replay target marker GameModel overload synthetic surface was not rejected', check_replay_target_marker_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h"), old_replay_target_marker_overload, ), 'replay target marker must use store values')
 
     old_selection_outline_model_overload = """
     class RunEditorTracer
@@ -16927,14 +13864,7 @@ def run_self_tests() -> list[str]:
         void AddSelectionOutline( const GameObjects::GameModel& model );
     };
     """
-    if not any(
-        error.message == "selection outline GameModel overload is blocked"
-        for error in check_replay_target_marker_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h"),
-            old_selection_outline_model_overload,
-        )
-    ):
-        failures.append("old selection outline GameModel overload synthetic surface was not rejected")
+    expect_error('old selection outline GameModel overload synthetic surface was not rejected', check_replay_target_marker_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h"), old_selection_outline_model_overload, ), 'selection outline GameModel overload is blocked')
 
     old_replay_target_marker_call = """
     void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
@@ -16942,14 +13872,7 @@ def run_self_tests() -> list[str]:
         tracer.AddReplayTargetMarker( models[static_cast<std::size_t>( markerIndex )] );
     }
     """
-    if not any(
-        error.message == "replay target marker must use store values"
-        for error in check_replay_target_marker_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"),
-            old_replay_target_marker_call,
-        )
-    ):
-        failures.append("old replay target marker GameModel call synthetic surface was not rejected")
+    expect_error('old replay target marker GameModel call synthetic surface was not rejected', check_replay_target_marker_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), old_replay_target_marker_call, ), 'replay target marker must use store values')
 
     allowed_replay_target_marker_store_call = """
     bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
@@ -16968,11 +13891,7 @@ def run_self_tests() -> list[str]:
         return false;
     }
     """
-    if check_replay_target_marker_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"),
-        allowed_replay_target_marker_store_call,
-    ):
-        failures.append("store-backed replay target marker synthetic surface was rejected")
+    expect_clean('store-backed replay target marker synthetic surface was rejected', check_replay_target_marker_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), allowed_replay_target_marker_store_call, ))
 
     commented_replay_target_marker_model_call = """
     void DocumentOldReplayMarker()
@@ -16981,11 +13900,7 @@ def run_self_tests() -> list[str]:
         // It now resolves body/collider rows before tracing.
     }
     """
-    if check_replay_target_marker_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"),
-        commented_replay_target_marker_model_call,
-    ):
-        failures.append("comment-only replay target marker synthetic text was rejected")
+    expect_clean('comment-only replay target marker synthetic text was rejected', check_replay_target_marker_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp"), commented_replay_target_marker_model_call, ))
 
     old_replay_future_marker_radius_helper = """
     float ReplayFutureMarkerRadiusForModelIndex( const std::vector<GameModel>* models, int modelIndex )
@@ -16993,14 +13908,7 @@ def run_self_tests() -> list[str]:
         return EditorModelRadius( ( *models )[static_cast<std::size_t>( modelIndex )] ) * 1.18f;
     }
     """
-    if not any(
-        error.message == "replay marker radius must use collider stores"
-        for error in check_replay_marker_radius_store_authority_guardrails_text(
-            REPLAY_PREDICTION_HELPERS_SOURCE,
-            old_replay_future_marker_radius_helper,
-        )
-    ):
-        failures.append("old replay future marker model-radius helper synthetic surface was not rejected")
+    expect_error('old replay future marker model-radius helper synthetic surface was not rejected', check_replay_marker_radius_store_authority_guardrails_text( REPLAY_PREDICTION_HELPERS_SOURCE, old_replay_future_marker_radius_helper, ), 'replay marker radius must use collider stores')
 
     old_replay_query_model_radius = """
     bool Run::TryPickReplayPathTargetFromMouse()
@@ -17008,14 +13916,7 @@ def run_self_tests() -> list[str]:
         radius = EditorModelRadius( models[static_cast<std::size_t>( body.modelIndex )] ) + 1.0f;
     }
     """
-    if not any(
-        error.message == "replay marker radius must use collider stores"
-        for error in check_replay_marker_radius_store_authority_guardrails_text(
-            REPLAY_QUERY_TOOLS_SOURCE,
-            old_replay_query_model_radius,
-        )
-    ):
-        failures.append("old replay query model-radius synthetic surface was not rejected")
+    expect_error('old replay query model-radius synthetic surface was not rejected', check_replay_marker_radius_store_authority_guardrails_text( REPLAY_QUERY_TOOLS_SOURCE, old_replay_query_model_radius, ), 'replay marker radius must use collider stores')
 
     old_replay_direct_collision_shape_radius = """
     float ReplayFutureMarkerRadiusForModel( const GameModel& model )
@@ -17023,14 +13924,7 @@ def run_self_tests() -> list[str]:
         return GetShapeBoundingRadius( model.GetCollisionShape() );
     }
     """
-    if not any(
-        error.message == "replay marker radius must use collider stores"
-        for error in check_replay_marker_radius_store_authority_guardrails_text(
-            RUN_REPLAY_TOOLS_SOURCE,
-            old_replay_direct_collision_shape_radius,
-        )
-    ):
-        failures.append("old replay direct collision-shape radius synthetic surface was not rejected")
+    expect_error('old replay direct collision-shape radius synthetic surface was not rejected', check_replay_marker_radius_store_authority_guardrails_text( RUN_REPLAY_TOOLS_SOURCE, old_replay_direct_collision_shape_radius, ), 'replay marker radius must use collider stores')
 
     allowed_replay_collider_radius = """
     float ReplayFutureMarkerRadiusForModelIndex( const ColliderStore* colliderStore, int modelIndex )
@@ -17043,11 +13937,7 @@ def run_self_tests() -> list[str]:
         return 1.25f;
     }
     """
-    if check_replay_marker_radius_store_authority_guardrails_text(
-        REPLAY_PREDICTION_HELPERS_SOURCE,
-        allowed_replay_collider_radius,
-    ):
-        failures.append("store-backed replay marker radius synthetic surface was rejected")
+    expect_clean('store-backed replay marker radius synthetic surface was rejected', check_replay_marker_radius_store_authority_guardrails_text( REPLAY_PREDICTION_HELPERS_SOURCE, allowed_replay_collider_radius, ))
 
     commented_replay_marker_radius = """
     void DocumentReplayRadius()
@@ -17056,11 +13946,7 @@ def run_self_tests() -> list[str]:
         // It now resolves ColliderStore rows for marker radii.
     }
     """
-    if check_replay_marker_radius_store_authority_guardrails_text(
-        REPLAY_PREDICTION_HELPERS_SOURCE,
-        commented_replay_marker_radius,
-    ):
-        failures.append("comment-only replay marker radius synthetic text was rejected")
+    expect_clean('comment-only replay marker radius synthetic text was rejected', check_replay_marker_radius_store_authority_guardrails_text( REPLAY_PREDICTION_HELPERS_SOURCE, commented_replay_marker_radius, ))
 
     old_replay_query_target_identity = """
     bool Run::TryPickReplayPathTargetFromMouse()
@@ -17072,14 +13958,7 @@ def run_self_tests() -> list[str]:
         return pickedId.value != 0;
     }
     """
-    if not any(
-        error.message == "replay path target GameModel replay-id lookup is blocked"
-        for error in check_replay_path_target_identity_store_authority_guardrails_text(
-            REPLAY_QUERY_TOOLS_SOURCE,
-            old_replay_query_target_identity,
-        )
-    ):
-        failures.append("old replay query GameModel replay-id lookup synthetic surface was not rejected")
+    expect_error('old replay query GameModel replay-id lookup synthetic surface was not rejected', check_replay_path_target_identity_store_authority_guardrails_text( REPLAY_QUERY_TOOLS_SOURCE, old_replay_query_target_identity, ), 'replay path target GameModel replay-id lookup is blocked')
 
     old_replay_prediction_target_identity = """
     bool BeginReplayPredictionJob( GameModelCollection& modelCollection )
@@ -17092,14 +13971,7 @@ def run_self_tests() -> list[str]:
         return targetIndex >= 0;
     }
     """
-    if not any(
-        error.message == "replay path target GameModel replay-id lookup is blocked"
-        for error in check_replay_path_target_identity_store_authority_guardrails_text(
-            REPLAY_PREDICTION_VISUALIZER_SOURCE,
-            old_replay_prediction_target_identity,
-        )
-    ):
-        failures.append("old replay prediction GameModel replay-id lookup synthetic surface was not rejected")
+    expect_error('old replay prediction GameModel replay-id lookup synthetic surface was not rejected', check_replay_path_target_identity_store_authority_guardrails_text( REPLAY_PREDICTION_VISUALIZER_SOURCE, old_replay_prediction_target_identity, ), 'replay path target GameModel replay-id lookup is blocked')
 
     old_replay_marker_target_identity = """
     void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
@@ -17114,14 +13986,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if not any(
-        error.message == "replay path target GameModel replay-id lookup is blocked"
-        for error in check_replay_path_target_identity_store_authority_guardrails_text(
-            RUN_REPLAY_TOOLS_SOURCE,
-            old_replay_marker_target_identity,
-        )
-    ):
-        failures.append("old replay marker GameModel replay-id lookup synthetic surface was not rejected")
+    expect_error('old replay marker GameModel replay-id lookup synthetic surface was not rejected', check_replay_path_target_identity_store_authority_guardrails_text( RUN_REPLAY_TOOLS_SOURCE, old_replay_marker_target_identity, ), 'replay path target GameModel replay-id lookup is blocked')
 
     allowed_replay_path_target_identity = """
     ReplayBodyId ReplayBodyIdForModelIndex( const PhysicsBodyStore& bodyStore, int modelIndex )
@@ -17145,11 +14010,7 @@ def run_self_tests() -> list[str]:
         return outModelIndex >= 0 && outModelIndex < modelCount;
     }
     """
-    if check_replay_path_target_identity_store_authority_guardrails_text(
-        RUN_REPLAY_TOOLS_SOURCE,
-        allowed_replay_path_target_identity,
-    ):
-        failures.append("store-owned replay path target identity synthetic surface was rejected")
+    expect_clean('store-owned replay path target identity synthetic surface was rejected', check_replay_path_target_identity_store_authority_guardrails_text( RUN_REPLAY_TOOLS_SOURCE, allowed_replay_path_target_identity, ))
 
     commented_replay_path_target_identity = """
     void DocumentOldReplayTargetIdentity()
@@ -17158,11 +14019,7 @@ def run_self_tests() -> list[str]:
         // It now resolves through PhysicsBodyStore::HandleForReplayBodyId.
     }
     """
-    if check_replay_path_target_identity_store_authority_guardrails_text(
-        RUN_REPLAY_TOOLS_SOURCE,
-        commented_replay_path_target_identity,
-    ):
-        failures.append("comment-only replay path target identity synthetic text was rejected")
+    expect_clean('comment-only replay path target identity synthetic text was rejected', check_replay_path_target_identity_store_authority_guardrails_text( RUN_REPLAY_TOOLS_SOURCE, commented_replay_path_target_identity, ))
 
     old_launcher_model_index_command = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
@@ -17171,14 +14028,7 @@ def run_self_tests() -> list[str]:
         collection.WakeModel( projectileIndex );
     }
     """
-    if not any(
-        error.message == "launcher model-index physics command is blocked"
-        for error in check_launcher_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
-            old_launcher_model_index_command,
-        )
-    ):
-        failures.append("old launcher model-index command synthetic surface was not rejected")
+    expect_error('old launcher model-index command synthetic surface was not rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"), old_launcher_model_index_command, ), 'launcher model-index physics command is blocked')
 
     old_launcher_tool_model_access = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
@@ -17195,14 +14045,7 @@ def run_self_tests() -> list[str]:
         physics.WakeBody( body );
     }
     """
-    if not any(
-        error.message == "runtime/editor PhysicsModelAccess topology repair is blocked"
-        for error in check_launcher_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
-            old_launcher_tool_model_access,
-        )
-    ):
-        failures.append("old launcher PhysicsModelAccess topology repair synthetic surface was not rejected")
+    expect_error('old launcher PhysicsModelAccess topology repair synthetic surface was not rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"), old_launcher_tool_model_access, ), 'runtime/editor PhysicsModelAccess topology repair is blocked')
 
     allowed_launcher_handle_command = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
@@ -17218,11 +14061,7 @@ def run_self_tests() -> list[str]:
         physics.WakeBody( body );
     }
     """
-    if check_launcher_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
-        allowed_launcher_handle_command,
-    ):
-        failures.append("handle-keyed launcher command synthetic surface was rejected")
+    expect_clean('handle-keyed launcher command synthetic surface was rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"), allowed_launcher_handle_command, ))
 
     old_launcher_game_model_body_read = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
@@ -17240,14 +14079,7 @@ def run_self_tests() -> list[str]:
         const float mass = model.GetMass();
     }
     """
-    if not any(
-        error.message == "launcher GameModel body read is blocked"
-        for error in check_launcher_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
-            old_launcher_game_model_body_read,
-        )
-    ):
-        failures.append("old launcher GameModel body read synthetic surface was not rejected")
+    expect_error('old launcher GameModel body read synthetic surface was not rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"), old_launcher_game_model_body_read, ), 'launcher GameModel body read is blocked')
 
     allowed_launcher_body_store_read = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
@@ -17260,11 +14092,7 @@ def run_self_tests() -> list[str]:
         physics.ApplyBodyImpulse( body, impulseVector, localPoint );
     }
     """
-    if check_launcher_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
-        allowed_launcher_body_store_read,
-    ):
-        failures.append("launcher body-store read synthetic surface was rejected")
+    expect_clean('launcher body-store read synthetic surface was rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"), allowed_launcher_body_store_read, ))
 
     old_launcher_model_vector_raycast_header = """
     class RuntimeTools
@@ -17277,14 +14105,7 @@ def run_self_tests() -> list[str]:
                                 float& outT ) const;
     };
     """
-    if not any(
-        error.message == "launcher GameModel raycast is blocked"
-        for error in check_launcher_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h"),
-            old_launcher_model_vector_raycast_header,
-        )
-    ):
-        failures.append("old launcher GameModel raycast header synthetic surface was not rejected")
+    expect_error('old launcher GameModel raycast header synthetic surface was not rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h"), old_launcher_model_vector_raycast_header, ), 'launcher GameModel raycast is blocked')
 
     old_launcher_model_vector_raycast_body = """
     bool RuntimeTools::TryRayCastTestHit( const std::vector<GameModel>& models )
@@ -17299,14 +14120,7 @@ def run_self_tests() -> list[str]:
         TryRayCastTestHit( collection.Models(), origin, direction, maxDistance, index, rayT );
     }
     """
-    if not any(
-        error.message == "launcher GameModel raycast is blocked"
-        for error in check_launcher_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
-            old_launcher_model_vector_raycast_body,
-        )
-    ):
-        failures.append("old launcher GameModel raycast body synthetic surface was not rejected")
+    expect_error('old launcher GameModel raycast body synthetic surface was not rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"), old_launcher_model_vector_raycast_body, ), 'launcher GameModel raycast is blocked')
 
     allowed_launcher_store_raycast = """
     bool RuntimeTools::TryRayCastTestHit( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore )
@@ -17324,11 +14138,7 @@ def run_self_tests() -> list[str]:
         TryRayCastTestHit( physics.BodyStore(), physics.Colliders(), origin, direction, maxDistance, index, rayT );
     }
     """
-    if check_launcher_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
-        allowed_launcher_store_raycast,
-    ):
-        failures.append("launcher store raycast synthetic surface was rejected")
+    expect_clean('launcher store raycast synthetic surface was rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"), allowed_launcher_store_raycast, ))
 
     commented_launcher_model_vector_raycast = """
     void DocumentOldLauncherRaycast()
@@ -17337,11 +14147,7 @@ def run_self_tests() -> list[str]:
         // model.GetPosition() and LauncherModelRadius(model) are historical notes.
     }
     """
-    if check_launcher_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
-        commented_launcher_model_vector_raycast,
-    ):
-        failures.append("comment-only launcher GameModel raycast synthetic text was rejected")
+    expect_clean('comment-only launcher GameModel raycast synthetic text was rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"), commented_launcher_model_vector_raycast, ))
 
     old_launcher_repro_model_body_reads = """
     bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection )
@@ -17362,14 +14168,7 @@ def run_self_tests() -> list[str]:
         return LauncherReproSnapshotStatus::Wrote;
     }
     """
-    if not any(
-        error.message == "launcher repro GameModel body read is blocked"
-        for error in check_launcher_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Editor/LauncherTools.cpp"),
-            old_launcher_repro_model_body_reads,
-        )
-    ):
-        failures.append("old launcher repro GameModel body reads synthetic surface was not rejected")
+    expect_error('old launcher repro GameModel body reads synthetic surface was not rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/LauncherTools.cpp"), old_launcher_repro_model_body_reads, ), 'launcher repro GameModel body read is blocked')
 
     allowed_launcher_repro_store_reads = """
     bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection )
@@ -17394,11 +14193,7 @@ def run_self_tests() -> list[str]:
         return LauncherReproSnapshotStatus::Wrote;
     }
     """
-    if check_launcher_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/LauncherTools.cpp"),
-        allowed_launcher_repro_store_reads,
-    ):
-        failures.append("store-backed launcher repro synthetic surface was rejected")
+    expect_clean('store-backed launcher repro synthetic surface was rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/LauncherTools.cpp"), allowed_launcher_repro_store_reads, ))
 
     commented_launcher_repro_model_reads = """
     void DocumentOldLauncherRepro()
@@ -17407,11 +14202,7 @@ def run_self_tests() -> list[str]:
         // WriteLauncherReproSnapshot used model.GetVelocity() and model.GetMass().
     }
     """
-    if check_launcher_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Editor/LauncherTools.cpp"),
-        commented_launcher_repro_model_reads,
-    ):
-        failures.append("comment-only launcher repro model body reads synthetic text was rejected")
+    expect_clean('comment-only launcher repro model body reads synthetic text was rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Editor/LauncherTools.cpp"), commented_launcher_repro_model_reads, ))
 
     old_launcher_adapter_lookup = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
@@ -17421,14 +14212,7 @@ def run_self_tests() -> list[str]:
         collection.GetPhysicsEngine().ApplyBodyImpulse( body, impulse, localPoint );
     }
     """
-    if not any(
-        error.message == "launcher adapter lookup is blocked"
-        for error in check_launcher_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
-            old_launcher_adapter_lookup,
-        )
-    ):
-        failures.append("old launcher adapter lookup synthetic surface was not rejected")
+    expect_error('old launcher adapter lookup synthetic surface was not rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"), old_launcher_adapter_lookup, ), 'launcher adapter lookup is blocked')
 
     commented_launcher_model_index_command = """
     void DocumentOldLauncherCommand()
@@ -17437,11 +14221,7 @@ def run_self_tests() -> list[str]:
         ApplyLauncherPhysicsImpulse( collection, modelHitIndex, impulse, localPoint );
     }
     """
-    if check_launcher_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
-        commented_launcher_model_index_command,
-    ):
-        failures.append("comment-only launcher model-index command synthetic text was rejected")
+    expect_clean('comment-only launcher model-index command synthetic text was rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"), commented_launcher_model_index_command, ))
 
     old_launcher_adapter_command = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
@@ -17451,14 +14231,7 @@ def run_self_tests() -> list[str]:
         physicsBodies.WakeBodyForModelIndex( projectileIndex );
     }
     """
-    if not any(
-        error.message == "launcher adapter command wrapper is blocked"
-        for error in check_launcher_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
-            old_launcher_adapter_command,
-        )
-    ):
-        failures.append("old launcher adapter command synthetic surface was not rejected")
+    expect_error('old launcher adapter command synthetic surface was not rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"), old_launcher_adapter_command, ), 'launcher adapter command wrapper is blocked')
 
     commented_launcher_adapter_command = """
     void DocumentOldLauncherAdapterCommand()
@@ -17469,11 +14242,7 @@ def run_self_tests() -> list[str]:
         collection.GetPhysicsEngine().ApplyBodyImpulse( body, impulse, localPoint );
     }
     """
-    if check_launcher_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
-        commented_launcher_adapter_command,
-    ):
-        failures.append("comment-only launcher adapter command synthetic text was rejected")
+    expect_clean('comment-only launcher adapter command synthetic text was rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"), commented_launcher_adapter_command, ))
 
     old_launcher_projectile_adapter_wake = """
     bool RuntimeTools::FireLauncherProjectile( GameModelCollection& collection )
@@ -17486,14 +14255,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "launcher projectile adapter wake is blocked"
-        for error in check_launcher_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
-            old_launcher_projectile_adapter_wake,
-        )
-    ):
-        failures.append("old launcher projectile adapter wake synthetic surface was not rejected")
+    expect_error('old launcher projectile adapter wake synthetic surface was not rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"), old_launcher_projectile_adapter_wake, ), 'launcher projectile adapter wake is blocked')
 
     allowed_launcher_projectile_handle_wake = """
     bool RuntimeTools::FireLauncherProjectile( GameModelCollection& collection, RunSceneState& scene )
@@ -17510,11 +14272,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if check_launcher_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"),
-        allowed_launcher_projectile_handle_wake,
-    ):
-        failures.append("handle-owned launcher projectile wake synthetic surface was rejected")
+    expect_clean('handle-owned launcher projectile wake synthetic surface was rejected', check_launcher_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp"), allowed_launcher_projectile_handle_wake, ))
 
     old_replay_velocity_model_state_command = """
     void ApplyReplayVelocityEditToModel( GameModelCollection& modelCollection )
@@ -17526,14 +14284,7 @@ def run_self_tests() -> list[str]:
         modelCollection.WakeModel( modelIndex );
     }
     """
-    if not any(
-        error.message == "replay velocity model-state physics command is blocked"
-        for error in check_replay_velocity_model_state_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
-            old_replay_velocity_model_state_command,
-        )
-    ):
-        failures.append("old replay velocity model-state command synthetic surface was not rejected")
+    expect_error('old replay velocity model-state command synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), old_replay_velocity_model_state_command, ), 'replay velocity model-state physics command is blocked')
 
     old_replay_velocity_adapter_command = """
     void ApplyReplayVelocityEditToModel( GameModelCollection& modelCollection )
@@ -17543,14 +14294,7 @@ def run_self_tests() -> list[str]:
         modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
     }
     """
-    if not any(
-        error.message == "replay velocity adapter lookup is blocked"
-        for error in check_replay_velocity_model_state_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
-            old_replay_velocity_adapter_command,
-        )
-    ):
-        failures.append("old replay velocity adapter lookup synthetic surface was not rejected")
+    expect_error('old replay velocity adapter lookup synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), old_replay_velocity_adapter_command, ), 'replay velocity adapter lookup is blocked')
 
     allowed_replay_velocity_handle_command = """
     void ApplyReplayVelocityEditToBody( GameModelCollection& modelCollection )
@@ -17559,11 +14303,7 @@ def run_self_tests() -> list[str]:
         modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
     }
     """
-    if check_replay_velocity_model_state_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
-        allowed_replay_velocity_handle_command,
-    ):
-        failures.append("store-handle replay velocity command synthetic surface was rejected")
+    expect_clean('store-handle replay velocity command synthetic surface was rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), allowed_replay_velocity_handle_command, ))
 
     old_replay_velocity_model_body_reads = """
     void RenderReplayVelocityEditOverlay( const GameModel& model )
@@ -17577,14 +14317,7 @@ def run_self_tests() -> list[str]:
         const Vector3 angular = model.GetAngularVelocity();
     }
     """
-    if not any(
-        error.message == "replay velocity GameModel body read is blocked"
-        for error in check_replay_velocity_model_state_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
-            old_replay_velocity_model_body_reads,
-        )
-    ):
-        failures.append("old replay velocity GameModel body read synthetic surface was not rejected")
+    expect_error('old replay velocity GameModel body read synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), old_replay_velocity_model_body_reads, ), 'replay velocity GameModel body read is blocked')
 
     allowed_replay_velocity_store_body_reads = """
     void RenderReplayVelocityEditOverlay( const PhysicsBodyRecord& body, const ColliderRecord& collider )
@@ -17599,11 +14332,7 @@ def run_self_tests() -> list[str]:
         tracer.AddReplayVelocityGizmo( origin, body.orientation, collider.shape, collider.boundingRadius, linear, angular, -1, -1, -1, false );
     }
     """
-    if check_replay_velocity_model_state_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
-        allowed_replay_velocity_store_body_reads,
-    ):
-        failures.append("store-backed replay velocity body read synthetic surface was rejected")
+    expect_clean('store-backed replay velocity body read synthetic surface was rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), allowed_replay_velocity_store_body_reads, ))
 
     commented_replay_velocity_model_state_command = """
     void DocumentOldReplayVelocityCommand()
@@ -17614,11 +14343,7 @@ def run_self_tests() -> list[str]:
         modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
     }
     """
-    if check_replay_velocity_model_state_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
-        commented_replay_velocity_model_state_command,
-    ):
-        failures.append("comment-only replay velocity model-state command synthetic text was rejected")
+    expect_clean('comment-only replay velocity model-state command synthetic text was rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), commented_replay_velocity_model_state_command, ))
 
     old_replay_velocity_model_identity_lookup = """
     int ReplayRuntime::ResolveVelocityEditModelIndex( const std::vector<GameObjects::GameModel>& models ) const
@@ -17633,14 +14358,7 @@ def run_self_tests() -> list[str]:
         return -1;
     }
     """
-    if not any(
-        error.message == "replay velocity GameModel replay-id lookup is blocked"
-        for error in check_replay_velocity_model_state_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
-            old_replay_velocity_model_identity_lookup,
-        )
-    ):
-        failures.append("old replay velocity GameModel replay-id lookup synthetic surface was not rejected")
+    expect_error('old replay velocity GameModel replay-id lookup synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"), old_replay_velocity_model_identity_lookup, ), 'replay velocity GameModel replay-id lookup is blocked')
 
     old_replay_velocity_collection_models_lookup = """
     bool TryResolveReplayVelocityBodyView( const ReplayRuntime& replayRuntime, GameModelCollection& collection )
@@ -17649,14 +14367,7 @@ def run_self_tests() -> list[str]:
         return modelIndex >= 0;
     }
     """
-    if not any(
-        error.message == "replay velocity collection Models lookup is blocked"
-        for error in check_replay_velocity_model_state_physics_command_guardrails_text(
-            Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
-            old_replay_velocity_collection_models_lookup,
-        )
-    ):
-        failures.append("old replay velocity collection Models lookup synthetic surface was not rejected")
+    expect_error('old replay velocity collection Models lookup synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), old_replay_velocity_collection_models_lookup, ), 'replay velocity collection Models lookup is blocked')
 
     allowed_replay_velocity_body_handle_lookup = """
     PhysicsBodyHandle ReplayRuntime::ResolveVelocityEditBodyHandle( const PhysicsBodyStore& bodyStore ) const
@@ -17664,11 +14375,7 @@ def run_self_tests() -> list[str]:
         return bodyStore.HandleForReplayBodyId( m_pathVisualizer.targetId.value, m_pathVisualizer.targetModelIndex );
     }
     """
-    if check_replay_velocity_model_state_physics_command_guardrails_text(
-        Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
-        allowed_replay_velocity_body_handle_lookup,
-    ):
-        failures.append("store-owned replay velocity body-handle lookup synthetic surface was rejected")
+    expect_clean('store-owned replay velocity body-handle lookup synthetic surface was rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"), allowed_replay_velocity_body_handle_lookup, ))
 
     old_run_frame_replay_editor_transform_wake = """
     bool ApplyReplayEditorTransformEvent()
@@ -17680,14 +14387,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "RunFrame replay editor transform wake wrapper is blocked"
-        for error in check_run_frame_replay_editor_transform_wake_guardrails_text(
-            Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-            old_run_frame_replay_editor_transform_wake,
-        )
-    ):
-        failures.append("old RunFrame replay editor transform wake synthetic surface was not rejected")
+    expect_error('old RunFrame replay editor transform wake synthetic surface was not rejected', check_run_frame_replay_editor_transform_wake_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), old_run_frame_replay_editor_transform_wake, ), 'RunFrame replay editor transform wake wrapper is blocked')
 
     old_run_frame_replay_editor_transform_adapter_resolver = """
     bool ApplyReplayEditorTransformEvent()
@@ -17701,14 +14401,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "RunFrame replay editor transform adapter wake wrapper is blocked"
-        for error in check_run_frame_replay_editor_transform_wake_guardrails_text(
-            Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-            old_run_frame_replay_editor_transform_adapter_resolver,
-        )
-    ):
-        failures.append("old RunFrame replay editor transform adapter resolver synthetic surface was not rejected")
+    expect_error('old RunFrame replay editor transform adapter resolver synthetic surface was not rejected', check_run_frame_replay_editor_transform_wake_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), old_run_frame_replay_editor_transform_adapter_resolver, ), 'RunFrame replay editor transform adapter wake wrapper is blocked')
 
     old_run_frame_replay_editor_transform_model_fixed_state = """
     bool ApplyReplayEditorTransformEvent()
@@ -17722,14 +14415,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "RunFrame replay editor transform wake must use body-store fixed state"
-        for error in check_run_frame_replay_editor_transform_wake_guardrails_text(
-            Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-            old_run_frame_replay_editor_transform_model_fixed_state,
-        )
-    ):
-        failures.append("old RunFrame replay editor transform model fixed-state synthetic surface was not rejected")
+    expect_error('old RunFrame replay editor transform model fixed-state synthetic surface was not rejected', check_run_frame_replay_editor_transform_wake_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), old_run_frame_replay_editor_transform_model_fixed_state, ), 'RunFrame replay editor transform wake must use body-store fixed state')
 
     allowed_run_frame_replay_editor_transform_wake = """
     bool ApplyReplayEditorTransformEvent()
@@ -17746,11 +14432,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if check_run_frame_replay_editor_transform_wake_guardrails_text(
-        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-        allowed_run_frame_replay_editor_transform_wake,
-    ):
-        failures.append("store-handle RunFrame replay editor transform wake synthetic surface was rejected")
+    expect_clean('store-handle RunFrame replay editor transform wake synthetic surface was rejected', check_run_frame_replay_editor_transform_wake_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), allowed_run_frame_replay_editor_transform_wake, ))
 
     commented_run_frame_replay_editor_transform_wake = """
     void DocumentOldReplayEditorTransformWake()
@@ -17759,11 +14441,7 @@ def run_self_tests() -> list[str]:
         m_cGameModelCollection.GetPhysicsEngine().WakeBody( body );
     }
     """
-    if check_run_frame_replay_editor_transform_wake_guardrails_text(
-        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-        commented_run_frame_replay_editor_transform_wake,
-    ):
-        failures.append("comment-only RunFrame replay editor transform wake synthetic text was rejected")
+    expect_clean('comment-only RunFrame replay editor transform wake synthetic text was rejected', check_run_frame_replay_editor_transform_wake_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), commented_run_frame_replay_editor_transform_wake, ))
 
     old_run_frame_replay_editor_transform_adapter_wake = """
     bool ApplyReplayEditorTransformEvent()
@@ -17775,14 +14453,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "RunFrame replay editor transform adapter wake wrapper is blocked"
-        for error in check_run_frame_replay_editor_transform_wake_guardrails_text(
-            Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-            old_run_frame_replay_editor_transform_adapter_wake,
-        )
-    ):
-        failures.append("old RunFrame replay editor transform adapter wake synthetic surface was not rejected")
+    expect_error('old RunFrame replay editor transform adapter wake synthetic surface was not rejected', check_run_frame_replay_editor_transform_wake_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), old_run_frame_replay_editor_transform_adapter_wake, ), 'RunFrame replay editor transform adapter wake wrapper is blocked')
 
     commented_run_frame_replay_editor_transform_adapter_wake = """
     void DocumentOldReplayEditorTransformAdapterWake()
@@ -17794,13 +14465,7 @@ def run_self_tests() -> list[str]:
         m_cGameModelCollection.GetPhysicsEngine().WakeBody( body );
     }
     """
-    if check_run_frame_replay_editor_transform_wake_guardrails_text(
-        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-        commented_run_frame_replay_editor_transform_adapter_wake,
-    ):
-        failures.append(
-            "comment-only RunFrame replay editor transform adapter wake synthetic text was rejected"
-        )
+    expect_clean('comment-only RunFrame replay editor transform adapter wake synthetic text was rejected', check_run_frame_replay_editor_transform_wake_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), commented_run_frame_replay_editor_transform_adapter_wake, ))
 
     old_run_frame_contact_audio_simple_model_motion = """
     void Run::AfterPhysicsStep()
@@ -17820,14 +14485,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if not any(
-        error.message == "contact audio simple mode GameModel motion read is blocked"
-        for error in check_run_frame_contact_audio_simple_store_authority_guardrails_text(
-            Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-            old_run_frame_contact_audio_simple_model_motion,
-        )
-    ):
-        failures.append("old RunFrame contact-audio simple model-motion synthetic surface was not rejected")
+    expect_error('old RunFrame contact-audio simple model-motion synthetic surface was not rejected', check_run_frame_contact_audio_simple_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), old_run_frame_contact_audio_simple_model_motion, ), 'contact audio simple mode GameModel motion read is blocked')
 
     allowed_run_frame_contact_audio_simple_store_motion = """
     void Run::AfterPhysicsStep()
@@ -17849,11 +14507,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if check_run_frame_contact_audio_simple_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-        allowed_run_frame_contact_audio_simple_store_motion,
-    ):
-        failures.append("store-owned RunFrame contact-audio simple synthetic surface was rejected")
+    expect_clean('store-owned RunFrame contact-audio simple synthetic surface was rejected', check_run_frame_contact_audio_simple_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), allowed_run_frame_contact_audio_simple_store_motion, ))
 
     commented_run_frame_contact_audio_simple_model_motion = """
     void Run::AfterPhysicsStep()
@@ -17865,11 +14519,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if check_run_frame_contact_audio_simple_store_authority_guardrails_text(
-        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-        commented_run_frame_contact_audio_simple_model_motion,
-    ):
-        failures.append("comment-only RunFrame contact-audio simple synthetic text was rejected")
+    expect_clean('comment-only RunFrame contact-audio simple synthetic text was rejected', check_run_frame_contact_audio_simple_store_authority_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), commented_run_frame_contact_audio_simple_model_motion, ))
 
     old_ragdoll_model_index_command = """
     void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection )
@@ -17880,14 +14530,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if not any(
-        error.message == "ragdoll model-index physics command is blocked"
-        for error in check_ragdoll_model_index_physics_command_guardrails_text(
-            Path("SkullbonezSource/Physics/Ragdoll.cpp"),
-            old_ragdoll_model_index_command,
-        )
-    ):
-        failures.append("old ragdoll model-index command synthetic surface was not rejected")
+    expect_error('old ragdoll model-index command synthetic surface was not rejected', check_ragdoll_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Physics/Ragdoll.cpp"), old_ragdoll_model_index_command, ), 'ragdoll model-index physics command is blocked')
 
     allowed_ragdoll_handle_command = """
     void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection, PhysicsEngine& physics )
@@ -17897,11 +14540,7 @@ def run_self_tests() -> list[str]:
         physics.SeedBodyAsleep( modelAccess, bodyStore.HandleForModelIndex( firstBody + i ) );
     }
     """
-    if check_ragdoll_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Physics/Ragdoll.cpp"),
-        allowed_ragdoll_handle_command,
-    ):
-        failures.append("handle-keyed ragdoll command synthetic surface was rejected")
+    expect_clean('handle-keyed ragdoll command synthetic surface was rejected', check_ragdoll_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Physics/Ragdoll.cpp"), allowed_ragdoll_handle_command, ))
 
     commented_ragdoll_model_index_command = """
     void DocumentOldRagdollCommand()
@@ -17910,11 +14549,7 @@ def run_self_tests() -> list[str]:
         physics.SeedBodyAsleep( modelAccess, body );
     }
     """
-    if check_ragdoll_model_index_physics_command_guardrails_text(
-        Path("SkullbonezSource/Physics/Ragdoll.cpp"),
-        commented_ragdoll_model_index_command,
-    ):
-        failures.append("comment-only ragdoll model-index command synthetic text was rejected")
+    expect_clean('comment-only ragdoll model-index command synthetic text was rejected', check_ragdoll_model_index_physics_command_guardrails_text( Path("SkullbonezSource/Physics/Ragdoll.cpp"), commented_ragdoll_model_index_command, ))
 
     old_game_model_collection_physics_wrapper_header = """
     class GameModelCollection
@@ -17923,14 +14558,7 @@ def run_self_tests() -> list[str]:
         void SeedModelAsleep( int index );
     };
     """
-    if not any(
-        error.message == "deleted GameModelCollection model-index physics wrapper is blocked"
-        for error in check_deleted_game_model_collection_physics_wrapper_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
-            old_game_model_collection_physics_wrapper_header,
-        )
-    ):
-        failures.append("old GameModelCollection physics wrapper header synthetic surface was not rejected")
+    expect_error('old GameModelCollection physics wrapper header synthetic surface was not rejected', check_deleted_game_model_collection_physics_wrapper_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.h"), old_game_model_collection_physics_wrapper_header, ), 'deleted GameModelCollection model-index physics wrapper is blocked')
 
     old_game_model_collection_physics_wrapper_definition = """
     void GameModelCollection::ApplyBodyImpulse( int index, const Vector3& impulse, const Vector3& localPoint )
@@ -17938,14 +14566,7 @@ def run_self_tests() -> list[str]:
         GameModelCollectionPhysicsAdapter( *this ).ApplyBodyImpulseForModelIndex( index, impulse, localPoint );
     }
     """
-    if not any(
-        error.message == "deleted GameModelCollection model-index physics wrapper is blocked"
-        for error in check_deleted_game_model_collection_physics_wrapper_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_game_model_collection_physics_wrapper_definition,
-        )
-    ):
-        failures.append("old GameModelCollection physics wrapper definition synthetic surface was not rejected")
+    expect_error('old GameModelCollection physics wrapper definition synthetic surface was not rejected', check_deleted_game_model_collection_physics_wrapper_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_game_model_collection_physics_wrapper_definition, ), 'deleted GameModelCollection model-index physics wrapper is blocked')
 
     old_game_model_collection_fixed_contact_model_read = """
     void GameModelCollection::NotifyFixedContact( int modelIndex, float highlightSeconds )
@@ -17957,14 +14578,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if not any(
-        error.message == "fixed-contact highlight GameModel fixed read is blocked"
-        for error in check_game_model_fixed_contact_store_authority_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_game_model_collection_fixed_contact_model_read,
-        )
-    ):
-        failures.append("old fixed-contact GameModel fixed read synthetic surface was not rejected")
+    expect_error('old fixed-contact GameModel fixed read synthetic surface was not rejected', check_game_model_fixed_contact_store_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_game_model_collection_fixed_contact_model_read, ), 'fixed-contact highlight GameModel fixed read is blocked')
 
     allowed_game_model_collection_fixed_contact_store_read = """
     void GameModelCollection::NotifyFixedContact( int modelIndex, float highlightSeconds )
@@ -17976,11 +14590,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if check_game_model_fixed_contact_store_authority_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_game_model_collection_fixed_contact_store_read,
-    ):
-        failures.append("fixed-contact body-store synthetic surface was rejected")
+    expect_clean('fixed-contact body-store synthetic surface was rejected', check_game_model_fixed_contact_store_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_game_model_collection_fixed_contact_store_read, ))
 
     old_game_model_fixed_contact_internal_read = """
     void GameModel::NotifyFixedContact( float highlightSeconds )
@@ -17991,14 +14601,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if not any(
-        error.message == "fixed-contact timer GameModel fixed read is blocked"
-        for error in check_game_model_fixed_contact_store_authority_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModel.cpp"),
-            old_game_model_fixed_contact_internal_read,
-        )
-    ):
-        failures.append("old GameModel fixed-contact timer fixed read synthetic surface was not rejected")
+    expect_error('old GameModel fixed-contact timer fixed read synthetic surface was not rejected', check_game_model_fixed_contact_store_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModel.cpp"), old_game_model_fixed_contact_internal_read, ), 'fixed-contact timer GameModel fixed read is blocked')
 
     allowed_game_model_fixed_contact_presentation_timer = """
     void GameModel::NotifyFixedContact( float highlightSeconds )
@@ -18009,11 +14612,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if check_game_model_fixed_contact_store_authority_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModel.cpp"),
-        allowed_game_model_fixed_contact_presentation_timer,
-    ):
-        failures.append("allowed GameModel fixed-contact presentation timer synthetic surface was rejected")
+    expect_clean('allowed GameModel fixed-contact presentation timer synthetic surface was rejected', check_game_model_fixed_contact_store_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModel.cpp"), allowed_game_model_fixed_contact_presentation_timer, ))
 
     commented_game_model_fixed_contact_model_read = """
     void GameModelCollection::NotifyFixedContact( int modelIndex, float highlightSeconds )
@@ -18026,11 +14625,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if check_game_model_fixed_contact_store_authority_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        commented_game_model_fixed_contact_model_read,
-    ):
-        failures.append("comment-only fixed-contact GameModel fixed read synthetic text was rejected")
+    expect_clean('comment-only fixed-contact GameModel fixed read synthetic text was rejected', check_game_model_fixed_contact_store_authority_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), commented_game_model_fixed_contact_model_read, ))
 
     old_game_model_collection_adapter_use = """
     void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
@@ -18040,23 +14635,9 @@ def run_self_tests() -> list[str]:
         m_physicsEngine.WakeBody( body );
     }
     """
-    if not any(
-        error.message == "deleted migration artifact is blocked: GameModelCollectionPhysicsAdapter"
-        for error in check_deleted_migration_artifact_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_game_model_collection_adapter_use,
-        )
-    ):
-        failures.append("deleted GameModelCollection adapter handle resolver synthetic surface was not rejected")
+    expect_error('deleted GameModelCollection adapter handle resolver synthetic surface was not rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_game_model_collection_adapter_use, ), 'deleted migration artifact is blocked: GameModelCollectionPhysicsAdapter')
 
-    if not any(
-        error.message == "fixed-tree release adapter lookup is blocked"
-        for error in check_game_model_collection_fixed_tree_release_adapter_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_game_model_collection_adapter_use,
-        )
-    ):
-        failures.append("fixed-tree release adapter lookup synthetic surface was not rejected")
+    expect_error('fixed-tree release adapter lookup synthetic surface was not rejected', check_game_model_collection_fixed_tree_release_adapter_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_game_model_collection_adapter_use, ), 'fixed-tree release adapter lookup is blocked')
 
     allowed_game_model_collection_fixed_tree_store_lookup = """
     void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
@@ -18067,11 +14648,7 @@ def run_self_tests() -> list[str]:
         m_physicsEngine.WakeBody( body );
     }
     """
-    if check_game_model_collection_fixed_tree_release_adapter_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_game_model_collection_fixed_tree_store_lookup,
-    ):
-        failures.append("fixed-tree release direct body-store synthetic surface was rejected")
+    expect_clean('fixed-tree release direct body-store synthetic surface was rejected', check_game_model_collection_fixed_tree_release_adapter_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_game_model_collection_fixed_tree_store_lookup, ))
 
     old_game_model_collection_fixed_tree_body_read = """
     void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
@@ -18091,14 +14668,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if not any(
-        error.message == "fixed-tree release GameModel body read is blocked"
-        for error in check_game_model_collection_fixed_tree_release_adapter_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_game_model_collection_fixed_tree_body_read,
-        )
-    ):
-        failures.append("old fixed-tree release GameModel body read synthetic surface was not rejected")
+    expect_error('old fixed-tree release GameModel body read synthetic surface was not rejected', check_game_model_collection_fixed_tree_release_adapter_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_game_model_collection_fixed_tree_body_read, ), 'fixed-tree release GameModel body read is blocked')
 
     old_game_model_collection_fixed_tree_per_release_writeback = """
     void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
@@ -18108,14 +14678,7 @@ def run_self_tests() -> list[str]:
         WriteBackPhysicsBody( m_physicsEngine.BodyStore(), sourceIndex );
     }
     """
-    if not any(
-        error.message == "deleted per-body model writeback is blocked"
-        for error in check_deleted_per_body_model_writeback_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_game_model_collection_fixed_tree_per_release_writeback,
-        )
-    ):
-        failures.append("old fixed-tree per-release model writeback synthetic surface was not rejected")
+    expect_error('old fixed-tree per-release model writeback synthetic surface was not rejected', check_deleted_per_body_model_writeback_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_game_model_collection_fixed_tree_per_release_writeback, ), 'deleted per-body model writeback is blocked')
 
     old_fixed_tree_release_output_vector = """
     bool PhysicsScene::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,
@@ -18126,14 +14689,7 @@ def run_self_tests() -> list[str]:
         return true;
     }
     """
-    if not any(
-        error.message == "fixed-tree release output writeback vector is blocked"
-        for error in check_deleted_per_body_model_writeback_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsScene.cpp"),
-            old_fixed_tree_release_output_vector,
-        )
-    ):
-        failures.append("old fixed-tree release output vector synthetic surface was not rejected")
+    expect_error('old fixed-tree release output vector synthetic surface was not rejected', check_deleted_per_body_model_writeback_guardrails_text( Path("SkullbonezSource/Physics/PhysicsScene.cpp"), old_fixed_tree_release_output_vector, ), 'fixed-tree release output writeback vector is blocked')
 
     allowed_game_model_collection_fixed_tree_store_release = """
     void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
@@ -18142,11 +14698,7 @@ def run_self_tests() -> list[str]:
         m_physicsEngine.ReleaseFixedBodyAndAttachedTreeParts( sourceBody, impulse, velocity, angularVelocity );
     }
     """
-    if check_game_model_collection_fixed_tree_release_adapter_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_game_model_collection_fixed_tree_store_release,
-    ):
-        failures.append("fixed-tree release store-owned synthetic surface was rejected")
+    expect_clean('fixed-tree release store-owned synthetic surface was rejected', check_game_model_collection_fixed_tree_release_adapter_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_game_model_collection_fixed_tree_store_release, ))
     old_body_store_runtime_collection_metadata_import = """
     void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record )
     {
@@ -18156,14 +14708,7 @@ def run_self_tests() -> list[str]:
                 : -1;
     }
     """
-    if not any(
-        error.message == "PhysicsBodyStore runtime collection metadata read is blocked"
-        for error in check_physics_body_store_runtime_collection_metadata_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"),
-            old_body_store_runtime_collection_metadata_import,
-        )
-    ):
-        failures.append("old PhysicsBodyStore runtime collection metadata synthetic surface was not rejected")
+    expect_error('old PhysicsBodyStore runtime collection metadata synthetic surface was not rejected', check_physics_body_store_runtime_collection_metadata_guardrails_text( Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"), old_body_store_runtime_collection_metadata_import, ), 'PhysicsBodyStore runtime collection metadata read is blocked')
 
     allowed_body_store_fixed_tree_scalar_import = """
     void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record, int fixedTreeReleaseRootIndex )
@@ -18172,11 +14717,7 @@ def run_self_tests() -> list[str]:
         record.fixedTreeReleaseRootIndex = fixedTreeReleaseRootIndex;
     }
     """
-    if check_physics_body_store_runtime_collection_metadata_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"),
-        allowed_body_store_fixed_tree_scalar_import,
-    ):
-        failures.append("fixed-tree root scalar body-store import synthetic surface was rejected")
+    expect_clean('fixed-tree root scalar body-store import synthetic surface was rejected', check_physics_body_store_runtime_collection_metadata_guardrails_text( Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"), allowed_body_store_fixed_tree_scalar_import, ))
 
     commented_body_store_runtime_collection_metadata = """
     // Old import read model.GetRuntimeCollectionKind() and GameModelCollectionKind here.
@@ -18186,11 +14727,7 @@ def run_self_tests() -> list[str]:
         record.fixedTreeReleaseRootIndex = fixedTreeReleaseRootIndex;
     }
     """
-    if check_physics_body_store_runtime_collection_metadata_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"),
-        commented_body_store_runtime_collection_metadata,
-    ):
-        failures.append("comment-only PhysicsBodyStore runtime collection metadata synthetic text was rejected")
+    expect_clean('comment-only PhysicsBodyStore runtime collection metadata synthetic text was rejected', check_physics_body_store_runtime_collection_metadata_guardrails_text( Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"), commented_body_store_runtime_collection_metadata, ))
 
     old_game_model_runtime_collection_metadata = """
     class GameModel
@@ -18204,14 +14741,7 @@ def run_self_tests() -> list[str]:
         int m_collectionPartIndex = -1;
     };
     """
-    if not any(
-        error.message == "deleted GameModel runtime collection metadata is blocked"
-        for error in check_deleted_game_model_runtime_collection_metadata_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModel.h"),
-            old_game_model_runtime_collection_metadata,
-        )
-    ):
-        failures.append("old GameModel runtime collection metadata synthetic surface was not rejected")
+    expect_error('old GameModel runtime collection metadata synthetic surface was not rejected', check_deleted_game_model_runtime_collection_metadata_guardrails_text( Path("SkullbonezSource/GameObjects/GameModel.h"), old_game_model_runtime_collection_metadata, ), 'deleted GameModel runtime collection metadata is blocked')
 
     allowed_collection_group_sidecar_query = """
     GameModelCollectionKind GameModelCollection::GroupKindAt( int modelIndex ) const
@@ -18219,11 +14749,7 @@ def run_self_tests() -> list[str]:
         return GroupRecordAt( modelIndex ).kind;
     }
     """
-    if check_deleted_game_model_runtime_collection_metadata_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_collection_group_sidecar_query,
-    ):
-        failures.append("collection-owned group sidecar query synthetic surface was rejected")
+    expect_clean('collection-owned group sidecar query synthetic surface was rejected', check_deleted_game_model_runtime_collection_metadata_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_collection_group_sidecar_query, ))
 
     commented_game_model_runtime_collection_metadata = """
     // GameModel used to have GetRuntimeCollectionKind() and m_collectionKind here.
@@ -18232,11 +14758,7 @@ def run_self_tests() -> list[str]:
         return GroupRecordAt( modelIndex ).kind;
     }
     """
-    if check_deleted_game_model_runtime_collection_metadata_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        commented_game_model_runtime_collection_metadata,
-    ):
-        failures.append("comment-only GameModel runtime collection metadata synthetic text was rejected")
+    expect_clean('comment-only GameModel runtime collection metadata synthetic text was rejected', check_deleted_game_model_runtime_collection_metadata_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), commented_game_model_runtime_collection_metadata, ))
 
     old_simple_ragdoll_name_grouping_inference = """
     bool TryGetSimpleRagdollInstancePrefixLength( const char* name, size_t& outPrefixLength, int& outPartIndex )
@@ -18245,45 +14767,30 @@ def run_self_tests() -> list[str]:
         return SimpleRagdollPrefixMatches( name, outPrefixLength, "ragdoll", 7 );
     }
     """
-    if not any(
-        error.message == "deleted migration artifact is blocked: simple-ragdoll name grouping inference"
-        for error in check_deleted_migration_artifact_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_simple_ragdoll_name_grouping_inference,
-        )
-    ):
-        failures.append("old simple-ragdoll name grouping inference synthetic surface was not rejected")
+    expect_error('old simple-ragdoll name grouping inference synthetic surface was not rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_simple_ragdoll_name_grouping_inference, ), 'deleted migration artifact is blocked: simple-ragdoll name grouping inference')
 
     allowed_simple_ragdoll_group_descriptor = """
-    void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection )
+    void AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context )
     {
-        SceneObjectGroupCreateDesc groupDesc;
-        groupDesc.kind = GameModelCollectionKind::SimpleRagdoll;
+        GameObjects::SceneObjectGroupCreateDesc groupDesc;
+        groupDesc.kind = GameObjects::GameModelCollectionKind::SimpleRagdoll;
         groupDesc.rootModelIndex = firstBody;
         groupDesc.partIndex = i;
-        collection.AddGameModel( std::move( model ), colliderDesc, partSceneObjectId, groupDesc );
+        context.models.AddGameModel( std::move( model ), colliderDesc, partSceneObjectId, groupDesc );
     }
     """
-    if check_deleted_migration_artifact_guardrails_text(
-        Path("SkullbonezSource/Physics/Ragdoll.cpp"),
-        allowed_simple_ragdoll_group_descriptor,
-    ):
-        failures.append("explicit simple-ragdoll group descriptor synthetic surface was rejected")
+    expect_clean('explicit simple-ragdoll group descriptor synthetic surface was rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"), allowed_simple_ragdoll_group_descriptor, ))
 
     commented_simple_ragdoll_name_grouping_inference = """
     // TryGetSimpleRagdollInstancePrefixLength and SIMPLE_RAGDOLL_SUFFIXES used to run here.
-    void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection )
+    void AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context )
     {
-        SceneObjectGroupCreateDesc groupDesc;
-        groupDesc.kind = GameModelCollectionKind::SimpleRagdoll;
-        collection.AddGameModel( std::move( model ), colliderDesc, partSceneObjectId, groupDesc );
+        GameObjects::SceneObjectGroupCreateDesc groupDesc;
+        groupDesc.kind = GameObjects::GameModelCollectionKind::SimpleRagdoll;
+        context.models.AddGameModel( std::move( model ), colliderDesc, partSceneObjectId, groupDesc );
     }
     """
-    if check_deleted_migration_artifact_guardrails_text(
-        Path("SkullbonezSource/Physics/Ragdoll.cpp"),
-        commented_simple_ragdoll_name_grouping_inference,
-    ):
-        failures.append("comment-only simple-ragdoll name grouping inference synthetic text was rejected")
+    expect_clean('comment-only simple-ragdoll name grouping inference synthetic text was rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"), commented_simple_ragdoll_name_grouping_inference, ))
 
     old_collection_fixed_tree_name_grouping = """
     bool TryGetEditorTreeInstancePrefixLength( const char* name, size_t& outPrefixLength )
@@ -18291,14 +14798,7 @@ def run_self_tests() -> list[str]:
         return IsReleasableEditorTreePartSuffix( name );
     }
     """
-    if not any(
-        error.message == "deleted migration artifact is blocked: collection fixed-tree name grouping inference"
-        for error in check_deleted_migration_artifact_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_collection_fixed_tree_name_grouping,
-        )
-    ):
-        failures.append("old collection fixed-tree name grouping inference synthetic surface was not rejected")
+    expect_error('old collection fixed-tree name grouping inference synthetic surface was not rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_collection_fixed_tree_name_grouping, ), 'deleted migration artifact is blocked: collection fixed-tree name grouping inference')
 
     allowed_authored_tree_group_descriptor = """
     GameObjects::SceneObjectGroupCreateDesc MakeSceneObjectGroupCreateDesc( const SceneObjectGroupMetadata& group )
@@ -18310,11 +14810,7 @@ def run_self_tests() -> list[str]:
         return desc;
     }
     """
-    if check_deleted_migration_artifact_guardrails_text(
-        Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"),
-        allowed_authored_tree_group_descriptor,
-    ):
-        failures.append("authored tree group descriptor synthetic surface was rejected")
+    expect_clean('authored tree group descriptor synthetic surface was rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"), allowed_authored_tree_group_descriptor, ))
 
     commented_collection_fixed_tree_name_grouping = """
     // TryGetEditorTreeInstancePrefixLength and IsReleasableEditorTreePartSuffix used to run here.
@@ -18323,11 +14819,7 @@ def run_self_tests() -> list[str]:
         return {};
     }
     """
-    if check_deleted_migration_artifact_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        commented_collection_fixed_tree_name_grouping,
-    ):
-        failures.append("comment-only collection fixed-tree name grouping inference synthetic text was rejected")
+    expect_clean('comment-only collection fixed-tree name grouping inference synthetic text was rejected', check_deleted_migration_artifact_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), commented_collection_fixed_tree_name_grouping, ))
 
     old_collection_group_append_name_fallback = """
     GameModelCollection::SceneObjectGroupRecord
@@ -18339,14 +14831,7 @@ def run_self_tests() -> list[str]:
         return {};
     }
     """
-    if not any(
-        error.message == "collection append grouping must not read display names"
-        for error in check_collection_group_append_name_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_collection_group_append_name_fallback,
-        )
-    ):
-        failures.append("old collection group append display-name fallback synthetic surface was not rejected")
+    expect_error('old collection group append display-name fallback synthetic surface was not rejected', check_collection_group_append_name_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_collection_group_append_name_fallback, ), 'collection append grouping must not read display names')
 
     allowed_collection_group_append_descriptor_only = """
     GameModelCollection::SceneObjectGroupRecord
@@ -18365,11 +14850,7 @@ def run_self_tests() -> list[str]:
         return group;
     }
     """
-    if check_collection_group_append_name_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_collection_group_append_descriptor_only,
-    ):
-        failures.append("descriptor-only collection group append synthetic surface was rejected")
+    expect_clean('descriptor-only collection group append synthetic surface was rejected', check_collection_group_append_name_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_collection_group_append_descriptor_only, ))
 
     commented_collection_group_append_name_fallback = """
     GameModelCollection::SceneObjectGroupRecord
@@ -18381,17 +14862,9 @@ def run_self_tests() -> list[str]:
         return {};
     }
     """
-    if check_collection_group_append_name_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        commented_collection_group_append_name_fallback,
-    ):
-        failures.append("comment-only collection group append display-name fallback synthetic text was rejected")
+    expect_clean('comment-only collection group append display-name fallback synthetic text was rejected', check_collection_group_append_name_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), commented_collection_group_append_name_fallback, ))
 
-    if check_deleted_per_body_model_writeback_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_game_model_collection_fixed_tree_store_release,
-    ):
-        failures.append("fixed-tree release no-writeback synthetic surface was rejected")
+    expect_clean('fixed-tree release no-writeback synthetic surface was rejected', check_deleted_per_body_model_writeback_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_game_model_collection_fixed_tree_store_release, ))
 
     old_normal_step_bulk_model_writeback = """
     void StepRuntimePhysicsTick( GameModelCollection& modelCollection )
@@ -18401,14 +14874,7 @@ def run_self_tests() -> list[str]:
         modelCollection.WriteBackPhysicsBodies( physicsEngine.BodyStore() );
     }
     """
-    if not any(
-        error.message == "deleted bulk model writeback is blocked"
-        for error in check_deleted_bulk_model_writeback_guardrails_text(
-            Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-            old_normal_step_bulk_model_writeback,
-        )
-    ):
-        failures.append("old normal-step bulk model writeback synthetic surface was not rejected")
+    expect_error('old normal-step bulk model writeback synthetic surface was not rejected', check_deleted_bulk_model_writeback_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), old_normal_step_bulk_model_writeback, ), 'deleted bulk model writeback is blocked')
 
     old_collection_bulk_model_writeback_surface = """
     class GameModelCollection
@@ -18420,14 +14886,7 @@ def run_self_tests() -> list[str]:
         bodyStore.WriteBackToModels( m_gameModels );
     }
     """
-    if not any(
-        error.message == "deleted bulk model writeback is blocked"
-        for error in check_deleted_bulk_model_writeback_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_collection_bulk_model_writeback_surface,
-        )
-    ):
-        failures.append("old collection bulk writeback surface synthetic text was not rejected")
+    expect_error('old collection bulk writeback surface synthetic text was not rejected', check_deleted_bulk_model_writeback_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_collection_bulk_model_writeback_surface, ), 'deleted bulk model writeback is blocked')
 
     allowed_normal_step_store_owned_surface = """
     void StepRuntimePhysicsTick( GameModelCollection& modelCollection )
@@ -18440,11 +14899,7 @@ def run_self_tests() -> list[str]:
         }
     }
     """
-    if check_deleted_bulk_model_writeback_guardrails_text(
-        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-        allowed_normal_step_store_owned_surface,
-    ):
-        failures.append("store-owned normal step synthetic surface was rejected")
+    expect_clean('store-owned normal step synthetic surface was rejected', check_deleted_bulk_model_writeback_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), allowed_normal_step_store_owned_surface, ))
 
     commented_bulk_model_writeback = """
     void DocumentDeletedBulkMirror()
@@ -18453,11 +14908,7 @@ def run_self_tests() -> list[str]:
         // PhysicsBodyStore::WriteBackToModels(models) is intentionally gone.
     }
     """
-    if check_deleted_bulk_model_writeback_guardrails_text(
-        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-        commented_bulk_model_writeback,
-    ):
-        failures.append("comment-only bulk model writeback synthetic text was rejected")
+    expect_clean('comment-only bulk model writeback synthetic text was rejected', check_deleted_bulk_model_writeback_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), commented_bulk_model_writeback, ))
 
     commented_per_body_model_writeback = """
     void DocumentDeletedReleaseMirror()
@@ -18466,11 +14917,7 @@ def run_self_tests() -> list[str]:
         // PhysicsBodyStore::WriteBackToModelAt(models, sourceIndex) is intentionally gone.
     }
     """
-    if check_deleted_per_body_model_writeback_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        commented_per_body_model_writeback,
-    ):
-        failures.append("comment-only per-body model writeback synthetic text was rejected")
+    expect_clean('comment-only per-body model writeback synthetic text was rejected', check_deleted_per_body_model_writeback_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), commented_per_body_model_writeback, ))
 
     commented_game_model_collection_physics_wrapper = """
     void DocumentDeletedWrappers()
@@ -18479,11 +14926,7 @@ def run_self_tests() -> list[str]:
         GameModelCollectionPhysicsAdapter( *this ).WakeBodyForModelIndex( index );
     }
     """
-    if check_deleted_game_model_collection_physics_wrapper_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        commented_game_model_collection_physics_wrapper,
-    ):
-        failures.append("comment-only GameModelCollection physics wrapper synthetic text was rejected")
+    expect_clean('comment-only GameModelCollection physics wrapper synthetic text was rejected', check_deleted_game_model_collection_physics_wrapper_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), commented_game_model_collection_physics_wrapper, ))
 
     old_game_model_collection_adapter_command_declaration = """
     class GameModelCollectionPhysicsAdapter
@@ -18492,14 +14935,7 @@ def run_self_tests() -> list[str]:
         void ApplyBodyImpulseForModelIndex( int modelIndex ) const;
     };
     """
-    if not any(
-        error.message == "deleted GameModelCollectionPhysicsAdapter command wrapper is blocked"
-        for error in check_deleted_game_model_collection_physics_adapter_command_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.h"),
-            old_game_model_collection_adapter_command_declaration,
-        )
-    ):
-        failures.append("old GameModelCollectionPhysicsAdapter command declaration synthetic surface was not rejected")
+    expect_error('old GameModelCollectionPhysicsAdapter command declaration synthetic surface was not rejected', check_deleted_game_model_collection_physics_adapter_command_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.h"), old_game_model_collection_adapter_command_declaration, ), 'deleted GameModelCollectionPhysicsAdapter command wrapper is blocked')
 
     old_game_model_collection_adapter_command_definition = """
     void GameModelCollectionPhysicsAdapter::SetPendingBodyImpulseForModelIndex( int index ) const
@@ -18507,14 +14943,7 @@ def run_self_tests() -> list[str]:
         m_collection.GetPhysicsEngine().SetPendingBodyImpulse( BodyHandleForModelIndex( index ), impulse, point );
     }
     """
-    if not any(
-        error.message == "deleted GameModelCollectionPhysicsAdapter command wrapper is blocked"
-        for error in check_deleted_game_model_collection_physics_adapter_command_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp"),
-            old_game_model_collection_adapter_command_definition,
-        )
-    ):
-        failures.append("old GameModelCollectionPhysicsAdapter command definition synthetic surface was not rejected")
+    expect_error('old GameModelCollectionPhysicsAdapter command definition synthetic surface was not rejected', check_deleted_game_model_collection_physics_adapter_command_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollectionPhysicsAdapter.cpp"), old_game_model_collection_adapter_command_definition, ), 'deleted GameModelCollectionPhysicsAdapter command wrapper is blocked')
 
     old_game_model_collection_adapter_command_call = """
     void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
@@ -18522,14 +14951,7 @@ def run_self_tests() -> list[str]:
         GameModelCollectionPhysicsAdapter( *this ).WakeBodyForModelIndex( sourceIndex );
     }
     """
-    if not any(
-        error.message == "deleted GameModelCollectionPhysicsAdapter command wrapper is blocked"
-        for error in check_deleted_game_model_collection_physics_adapter_command_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-            old_game_model_collection_adapter_command_call,
-        )
-    ):
-        failures.append("old GameModelCollectionPhysicsAdapter command call synthetic surface was not rejected")
+    expect_error('old GameModelCollectionPhysicsAdapter command call synthetic surface was not rejected', check_deleted_game_model_collection_physics_adapter_command_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), old_game_model_collection_adapter_command_call, ), 'deleted GameModelCollectionPhysicsAdapter command wrapper is blocked')
 
     allowed_game_model_collection_body_store_handle_lookup = """
     void GameModelCollection::ReleaseAttachedFixedTreeParts( int sourceIndex )
@@ -18538,11 +14960,7 @@ def run_self_tests() -> list[str]:
         m_physicsEngine.WakeBody( body );
     }
     """
-    if check_deleted_game_model_collection_physics_adapter_command_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_game_model_collection_body_store_handle_lookup,
-    ):
-        failures.append("body-store handle lookup synthetic surface was rejected by adapter command checker")
+    expect_clean('body-store handle lookup synthetic surface was rejected by adapter command checker', check_deleted_game_model_collection_physics_adapter_command_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), allowed_game_model_collection_body_store_handle_lookup, ))
 
     commented_game_model_collection_adapter_command = """
     void DocumentDeletedAdapterCommands()
@@ -18551,11 +14969,7 @@ def run_self_tests() -> list[str]:
         const PhysicsBodyHandle body = m_physicsEngine.BodyStore().HandleForModelIndex( index );
     }
     """
-    if check_deleted_game_model_collection_physics_adapter_command_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        commented_game_model_collection_adapter_command,
-    ):
-        failures.append("comment-only GameModelCollectionPhysicsAdapter command synthetic text was rejected")
+    expect_clean('comment-only GameModelCollectionPhysicsAdapter command synthetic text was rejected', check_deleted_game_model_collection_physics_adapter_command_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"), commented_game_model_collection_adapter_command, ))
 
     allowed_body_store_handle_commands = """
     class PhysicsBodyStore
@@ -18575,11 +14989,7 @@ def run_self_tests() -> list[str]:
         return MutableRecordForHandle( body ) != nullptr;
     }
     """
-    if check_physics_body_store_model_index_command_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsBodyStore.h"),
-        allowed_body_store_handle_commands,
-    ):
-        failures.append("allowed PhysicsBodyStore handle commands synthetic surface was rejected")
+    expect_clean('allowed PhysicsBodyStore handle commands synthetic surface was rejected', check_physics_body_store_model_index_command_guardrails_text( Path("SkullbonezSource/Physics/PhysicsBodyStore.h"), allowed_body_store_handle_commands, ))
 
     deleted_body_store_int_commands = """
     class PhysicsBodyStore
@@ -18595,14 +15005,7 @@ def run_self_tests() -> list[str]:
         return WakeBody( HandleForModelIndex( modelIndex ) );
     }
     """
-    if not any(
-        error.message == "PhysicsBodyStore model-index command overload is blocked"
-        for error in check_physics_body_store_model_index_command_guardrails_text(
-            Path("SkullbonezSource/Physics/PhysicsBodyStore.h"),
-            deleted_body_store_int_commands,
-        )
-    ):
-        failures.append("deleted PhysicsBodyStore model-index command synthetic surface was not rejected")
+    expect_error('deleted PhysicsBodyStore model-index command synthetic surface was not rejected', check_physics_body_store_model_index_command_guardrails_text( Path("SkullbonezSource/Physics/PhysicsBodyStore.h"), deleted_body_store_int_commands, ), 'PhysicsBodyStore model-index command overload is blocked')
 
     commented_body_store_int_commands = """
     // bool PhysicsBodyStore::WakeBody(int modelIndex) was deleted with the other int command overloads.
@@ -18611,11 +15014,7 @@ def run_self_tests() -> list[str]:
         return MutableRecordForHandle( body ) != nullptr;
     }
     """
-    if check_physics_body_store_model_index_command_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"),
-        commented_body_store_int_commands,
-    ):
-        failures.append("comment-only PhysicsBodyStore model-index command synthetic text was rejected")
+    expect_clean('comment-only PhysicsBodyStore model-index command synthetic text was rejected', check_physics_body_store_model_index_command_guardrails_text( Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"), commented_body_store_int_commands, ))
 
     allowed_physics_hot_path_values = """
     struct SolverBodyState
@@ -18628,25 +15027,14 @@ def run_self_tests() -> list[str]:
         void Solve();
     };
     """
-    if check_physics_hot_path_inheritance_guardrails_text(
-        Path("SkullbonezSource/Physics/PersistentContactSolver.h"),
-        allowed_physics_hot_path_values,
-    ):
-        failures.append("allowed physics hot-path value types synthetic surface was rejected")
+    expect_clean('allowed physics hot-path value types synthetic surface was rejected', check_physics_hot_path_inheritance_guardrails_text( Path("SkullbonezSource/Physics/PersistentContactSolver.h"), allowed_physics_hot_path_values, ))
 
     old_physics_hot_path_inheritance = """
     class SolverSideEffectSink : public PhysicsBodyEventSink
     {
     };
     """
-    if not any(
-        error.message == "physics hot-path inheritance is blocked"
-        for error in check_physics_hot_path_inheritance_guardrails_text(
-            Path("SkullbonezSource/Physics/PersistentContactSolver.h"),
-            old_physics_hot_path_inheritance,
-        )
-    ):
-        failures.append("physics hot-path inheritance synthetic surface was not rejected")
+    expect_error('physics hot-path inheritance synthetic surface was not rejected', check_physics_hot_path_inheritance_guardrails_text( Path("SkullbonezSource/Physics/PersistentContactSolver.h"), old_physics_hot_path_inheritance, ), 'physics hot-path inheritance is blocked')
 
     commented_physics_hot_path_inheritance = """
     // class SolverSideEffectSink : public PhysicsBodyEventSink is a deleted migration note only.
@@ -18655,11 +15043,7 @@ def run_self_tests() -> list[str]:
         int count = 0;
     };
     """
-    if check_physics_hot_path_inheritance_guardrails_text(
-        Path("SkullbonezSource/Physics/PersistentContactSolver.h"),
-        commented_physics_hot_path_inheritance,
-    ):
-        failures.append("comment-only physics hot-path inheritance synthetic text was rejected")
+    expect_clean('comment-only physics hot-path inheritance synthetic text was rejected', check_physics_hot_path_inheritance_guardrails_text( Path("SkullbonezSource/Physics/PersistentContactSolver.h"), commented_physics_hot_path_inheritance, ))
 
     allowed_physics_model_access_facade = """
     class PhysicsModelAccess
@@ -18668,11 +15052,7 @@ def run_self_tests() -> list[str]:
         explicit PhysicsModelAccess( GameObjects::GameModelCollection& collection );
     };
     """
-    if check_physics_model_access_inheritance_guardrails_text(
-        Path("SkullbonezSource/Physics/PhysicsModelAccess.h"),
-        allowed_physics_model_access_facade,
-    ):
-        failures.append("allowed PhysicsModelAccess facade synthetic surface was rejected")
+    expect_clean('allowed PhysicsModelAccess facade synthetic surface was rejected', check_physics_model_access_inheritance_guardrails_text( Path("SkullbonezSource/Physics/PhysicsModelAccess.h"), allowed_physics_model_access_facade, ))
 
     old_physics_model_access_inheritance = """
     class GameModelCollection : public Rendering::IRenderSceneView,
@@ -18681,24 +15061,13 @@ def run_self_tests() -> list[str]:
     {
     };
     """
-    if not any(
-        error.message == "PhysicsModelAccess inheritance is blocked"
-        for error in check_physics_model_access_inheritance_guardrails_text(
-            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
-            old_physics_model_access_inheritance,
-        )
-    ):
-        failures.append("old PhysicsModelAccess inheritance synthetic surface was not rejected")
+    expect_error('old PhysicsModelAccess inheritance synthetic surface was not rejected', check_physics_model_access_inheritance_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.h"), old_physics_model_access_inheritance, ), 'PhysicsModelAccess inheritance is blocked')
 
     commented_physics_model_access_inheritance = """
     // class GameModelCollection : public Physics::PhysicsModelAccess is a deleted migration note only.
     class GameModelCollection;
     """
-    if check_physics_model_access_inheritance_guardrails_text(
-        Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
-        commented_physics_model_access_inheritance,
-    ):
-        failures.append("comment-only PhysicsModelAccess inheritance synthetic text was rejected")
+    expect_clean('comment-only PhysicsModelAccess inheritance synthetic text was rejected', check_physics_model_access_inheritance_guardrails_text( Path("SkullbonezSource/GameObjects/GameModelCollection.h"), commented_physics_model_access_inheritance, ))
 
     allowed_renderer_inheritance = """
     class IRenderBackend : public IRenderDeviceLifecycle,
@@ -18709,27 +15078,14 @@ def run_self_tests() -> list[str]:
     {
     };
     """
-    if check_approved_inheritance_guardrails_text(
-        Path("SkullbonezSource/Rendering/IRenderBackend.h"),
-        allowed_renderer_inheritance,
-        Path("SkullbonezSource/Rendering/IRenderBackend.h"),
-    ):
-        failures.append("approved renderer inheritance synthetic surface was rejected")
+    expect_clean('approved renderer inheritance synthetic surface was rejected', check_approved_inheritance_guardrails_text( Path("SkullbonezSource/Rendering/IRenderBackend.h"), allowed_renderer_inheritance, Path("SkullbonezSource/Rendering/IRenderBackend.h"), ))
 
     unapproved_runtime_inheritance = """
     struct RuntimeCaptureSink : public IScreenshotSink
     {
     };
     """
-    if not any(
-        error.message == "unapproved inheritance is blocked"
-        for error in check_approved_inheritance_guardrails_text(
-            Path("SkullbonezSource/Runtime/CaptureSystem.h"),
-            unapproved_runtime_inheritance,
-            Path("SkullbonezSource/Runtime/CaptureSystem.h"),
-        )
-    ):
-        failures.append("unapproved runtime inheritance synthetic surface was not rejected")
+    expect_error('unapproved runtime inheritance synthetic surface was not rejected', check_approved_inheritance_guardrails_text( Path("SkullbonezSource/Runtime/CaptureSystem.h"), unapproved_runtime_inheritance, Path("SkullbonezSource/Runtime/CaptureSystem.h"), ), 'unapproved inheritance is blocked')
 
     qualified_pimpl_definition = """
     struct ContactAudioService::Impl
@@ -18737,12 +15093,7 @@ def run_self_tests() -> list[str]:
         int sampleCount = 0;
     };
     """
-    if check_approved_inheritance_guardrails_text(
-        Path("SkullbonezSource/Runtime/Audio/ContactAudioService.cpp"),
-        qualified_pimpl_definition,
-        Path("SkullbonezSource/Runtime/Audio/ContactAudioService.cpp"),
-    ):
-        failures.append("qualified PIMPL definition synthetic text was rejected as inheritance")
+    expect_clean('qualified PIMPL definition synthetic text was rejected as inheritance', check_approved_inheritance_guardrails_text( Path("SkullbonezSource/Runtime/Audio/ContactAudioService.cpp"), qualified_pimpl_definition, Path("SkullbonezSource/Runtime/Audio/ContactAudioService.cpp"), ))
 
     commented_general_inheritance = """
     // class RuntimeCaptureSink : public IScreenshotSink is deleted migration debt.
@@ -18751,25 +15102,14 @@ def run_self_tests() -> list[str]:
         void* context = nullptr;
     };
     """
-    if check_approved_inheritance_guardrails_text(
-        Path("SkullbonezSource/Runtime/CaptureSystem.h"),
-        commented_general_inheritance,
-        Path("SkullbonezSource/Runtime/CaptureSystem.h"),
-    ):
-        failures.append("comment-only general inheritance synthetic text was rejected")
+    expect_clean('comment-only general inheritance synthetic text was rejected', check_approved_inheritance_guardrails_text( Path("SkullbonezSource/Runtime/CaptureSystem.h"), commented_general_inheritance, Path("SkullbonezSource/Runtime/CaptureSystem.h"), ))
 
     compatibility_physics_models_text = (
         "std::vector<SkullbonezCore::GameObjects::GameModel>& physicsModels = "
         "m_cGameModelCollection.MutablePhysicsModelsForCompatibility();"
     )
     empty_physics_models_allowlist: Counter[tuple[Path, str]] = Counter()
-    if check_physics_models_access_guardrails_text(
-        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-        compatibility_physics_models_text,
-        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
-        empty_physics_models_allowlist,
-    ):
-        failures.append("named PhysicsModels compatibility adapter was rejected")
+    expect_clean('named PhysicsModels compatibility adapter was rejected', check_physics_models_access_guardrails_text( Path("SkullbonezSource/Runtime/RunFrame.cpp"), compatibility_physics_models_text, Path("SkullbonezSource/Runtime/RunFrame.cpp"), empty_physics_models_allowlist, ))
 
     commented_physics_models_text = """
     // m_cGameModelCollection.PhysicsModels() is mentioned in a migration note only.
@@ -18778,61 +15118,22 @@ def run_self_tests() -> list[str]:
     */
     void UseStoresInstead();
     """
-    if check_physics_models_access_guardrails_text(
-        Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
-        commented_physics_models_text,
-        Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
-        empty_physics_models_allowlist,
-    ):
-        failures.append("comment-only PhysicsModels synthetic text was rejected")
+    expect_clean('comment-only PhysicsModels synthetic text was rejected', check_physics_models_access_guardrails_text( Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"), commented_physics_models_text, Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"), empty_physics_models_allowlist, ))
 
     duplicate_physics_models_access = "auto& models = collection.PhysicsModels();\n" * 2
-    if not any(
-        error.message == "direct PhysicsModels() compatibility access is blocked"
-        for error in check_physics_models_access_guardrails_text(
-            Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
-            duplicate_physics_models_access,
-            Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
-            empty_physics_models_allowlist,
-        )
-    ):
-        failures.append("duplicate PhysicsModels synthetic access was not rejected")
+    expect_error('duplicate PhysicsModels synthetic access was not rejected', check_physics_models_access_guardrails_text( Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"), duplicate_physics_models_access, Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"), empty_physics_models_allowlist, ), 'direct PhysicsModels() compatibility access is blocked')
 
     new_physics_models_access = "auto& models = collection.PhysicsModels();"
-    if not any(
-        error.message == "direct PhysicsModels() compatibility access is blocked"
-        for error in check_physics_models_access_guardrails_text(
-            Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
-            new_physics_models_access,
-            Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
-            empty_physics_models_allowlist,
-        )
-    ):
-        failures.append("new PhysicsModels synthetic access was not rejected")
+    expect_error('new PhysicsModels synthetic access was not rejected', check_physics_models_access_guardrails_text( Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"), new_physics_models_access, Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"), empty_physics_models_allowlist, ), 'direct PhysicsModels() compatibility access is blocked')
 
     allowed_named_physics_models_path = Path("SkullbonezSource/Runtime/RunFrame.cpp")
     allowed_named_physics_models_line = "m_cGameModelCollection.MutablePhysicsModelsForCompatibility();"
     synthetic_named_physics_models_allowlist = Counter(
         { ( allowed_named_physics_models_path, normalize_boundary_line( allowed_named_physics_models_line ) ): 1 }
     )
-    if check_named_physics_models_compat_access_guardrails_text(
-        allowed_named_physics_models_path,
-        allowed_named_physics_models_line,
-        allowed_named_physics_models_path,
-        synthetic_named_physics_models_allowlist,
-    ):
-        failures.append("allowed named PhysicsModels compatibility access failed")
+    expect_clean('allowed named PhysicsModels compatibility access failed', check_named_physics_models_compat_access_guardrails_text( allowed_named_physics_models_path, allowed_named_physics_models_line, allowed_named_physics_models_path, synthetic_named_physics_models_allowlist, ))
 
-    if not any(
-        error.message == "named physics model vector compatibility access is count-guarded"
-        for error in check_named_physics_models_compat_access_guardrails_text(
-            allowed_named_physics_models_path,
-            allowed_named_physics_models_line,
-            allowed_named_physics_models_path,
-            empty_physics_models_allowlist,
-        )
-    ):
-        failures.append("deleted named PhysicsModels compatibility access was not rejected without an allowlist")
+    expect_error('deleted named PhysicsModels compatibility access was not rejected without an allowlist', check_named_physics_models_compat_access_guardrails_text( allowed_named_physics_models_path, allowed_named_physics_models_line, allowed_named_physics_models_path, empty_physics_models_allowlist, ), 'named physics model vector compatibility access is count-guarded')
 
     commented_named_physics_models_text = """
     // m_cGameModelCollection.MutablePhysicsModelsForCompatibility() is mentioned in a note only.
@@ -18841,37 +15142,13 @@ def run_self_tests() -> list[str]:
     */
     void UseStoresInstead();
     """
-    if check_named_physics_models_compat_access_guardrails_text(
-        Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
-        commented_named_physics_models_text,
-        Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
-        synthetic_named_physics_models_allowlist,
-    ):
-        failures.append("comment-only named PhysicsModels synthetic text was rejected")
+    expect_clean('comment-only named PhysicsModels synthetic text was rejected', check_named_physics_models_compat_access_guardrails_text( Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"), commented_named_physics_models_text, Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"), synthetic_named_physics_models_allowlist, ))
 
     duplicate_named_physics_models_access = allowed_named_physics_models_line + "\n" + allowed_named_physics_models_line
-    if not any(
-        error.message == "named physics model vector compatibility access is count-guarded"
-        for error in check_named_physics_models_compat_access_guardrails_text(
-            allowed_named_physics_models_path,
-            duplicate_named_physics_models_access,
-            allowed_named_physics_models_path,
-            synthetic_named_physics_models_allowlist,
-        )
-    ):
-        failures.append("duplicate named PhysicsModels synthetic access was not rejected")
+    expect_error('duplicate named PhysicsModels synthetic access was not rejected', check_named_physics_models_compat_access_guardrails_text( allowed_named_physics_models_path, duplicate_named_physics_models_access, allowed_named_physics_models_path, synthetic_named_physics_models_allowlist, ), 'named physics model vector compatibility access is count-guarded')
 
     new_named_physics_models_access = "auto& models = collection.MutablePhysicsModelsForCompatibility();"
-    if not any(
-        error.message == "named physics model vector compatibility access is count-guarded"
-        for error in check_named_physics_models_compat_access_guardrails_text(
-            Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
-            new_named_physics_models_access,
-            Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"),
-            synthetic_named_physics_models_allowlist,
-        )
-    ):
-        failures.append("new named PhysicsModels synthetic access was not rejected")
+    expect_error('new named PhysicsModels synthetic access was not rejected', check_named_physics_models_compat_access_guardrails_text( Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"), new_named_physics_models_access, Path("SkullbonezSource/Runtime/NewPhysicsCaller.cpp"), synthetic_named_physics_models_allowlist, ), 'named physics model vector compatibility access is count-guarded')
 
     return failures
 
@@ -19033,40 +15310,25 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_standalone_physics_implementation_game_object_guardrails(repo))
     errors.extend(check_runtime_handle_smoke_adapter_guardrails(repo))
     errors.extend(check_deleted_migration_artifact_guardrails(repo))
-    errors.extend(check_deleted_physics_model_view_guardrails(repo))
     errors.extend(check_persistent_solver_context_model_access_guardrails(repo))
-    errors.extend(check_physics_world_solver_body_writeback_guardrails(repo))
     errors.extend(check_physics_world_solver_model_stream_guardrails(repo))
     errors.extend(check_physics_world_contact_highlight_tick_guardrails(repo))
     errors.extend(check_physics_world_fixed_contact_notify_guardrails(repo))
     errors.extend(check_physics_world_persistent_contact_tree_release_guardrails(repo))
-    errors.extend(check_physics_world_tornado_release_model_access_guardrails(repo))
-    errors.extend(check_physics_world_step_model_access_signature_guardrails(repo))
-    errors.extend(check_physics_engine_step_model_access_signature_guardrails(repo))
-    errors.extend(check_physics_scene_step_model_access_signature_guardrails(repo))
     errors.extend(check_simulation_system_owner_borrow_guardrails(repo))
-    errors.extend(check_physics_model_access_deleted_step_facade_guardrails(repo))
     errors.extend(check_physics_world_store_seed_model_access_guardrails(repo))
     errors.extend(check_physics_world_store_wake_model_access_guardrails(repo))
-    errors.extend(check_physics_world_deleted_model_stream_wake_seed_guardrails(repo))
-    errors.extend(check_physics_world_run_invalidation_guardrails(repo))
-    errors.extend(check_physics_world_run_writeback_guardrails(repo))
     errors.extend(check_physics_world_run_diagnostics_guardrails(repo))
     errors.extend(check_physics_world_step_diagnostics_model_access_guardrails(repo))
     errors.extend(check_render_instance_store_authority_guardrails(repo))
     errors.extend(check_render_instance_mutable_access_guardrails(repo))
     errors.extend(check_game_model_renderer_render_instance_authority_guardrails(repo))
     errors.extend(check_dxr_render_instance_matrix_authority_guardrails(repo))
-    errors.extend(check_deleted_game_model_stream_project_guardrails(repo))
-    errors.extend(check_deleted_game_model_collection_physics_adapter_project_guardrails(repo))
     errors.extend(check_game_model_collection_body_store_read_authority_guardrails(repo))
-    errors.extend(check_deleted_edited_model_physics_state_guardrails(repo))
-    errors.extend(check_game_model_collection_run_physics_model_access_guardrails(repo))
     errors.extend(check_attached_camera_store_authority_guardrails(repo))
     errors.extend(check_object_contact_manifold_store_authority_guardrails(repo))
     errors.extend(check_physics_diagnostics_store_authority_guardrails(repo))
     errors.extend(check_physics_collision_time_name_guardrails(repo))
-    errors.extend(check_deleted_model_force_bridge_guardrails(repo))
     errors.extend(check_replay_recorder_store_authority_guardrails(repo))
     errors.extend(check_replay_prediction_body_capture_store_authority_guardrails(repo))
     errors.extend(check_replay_prediction_step_writeback_guardrails(repo))
@@ -19075,21 +15337,9 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_collider_store_identity_authority_guardrails(repo))
     errors.extend(check_game_model_collection_collider_authoring_guardrails(repo))
     errors.extend(check_game_model_collection_append_collider_authority_guardrails(repo))
-    errors.extend(check_game_model_replay_id_mirror_guardrails(repo))
     errors.extend(check_physics_body_store_model_index_command_guardrails(repo))
     errors.extend(check_replay_render_pose_value_override_guardrails(repo))
     errors.extend(check_run_frame_replay_probe_body_store_guardrails(repo))
-    errors.extend(check_physics_scene_step_body_reload_guardrails(repo))
-    errors.extend(check_physics_scene_pending_impulse_model_mirror_guardrails(repo))
-    errors.extend(check_physics_scene_velocity_model_mirror_guardrails(repo))
-    errors.extend(check_physics_velocity_model_access_guardrails(repo))
-    errors.extend(check_physics_scene_wake_body_model_mirror_guardrails(repo))
-    errors.extend(check_physics_wake_apply_model_access_guardrails(repo))
-    errors.extend(check_physics_seed_body_asleep_model_access_guardrails(repo))
-    errors.extend(check_physics_pending_impulse_model_access_guardrails(repo))
-    errors.extend(check_command_side_body_refresh_guardrails(repo))
-    errors.extend(check_scene_setup_model_index_physics_command_guardrails(repo))
-    errors.extend(check_editor_model_index_physics_command_guardrails(repo))
     errors.extend(check_mouse_pickup_model_index_physics_command_guardrails(repo))
     errors.extend(check_mouse_pickup_overlay_store_authority_guardrails(repo))
     errors.extend(check_selection_overlay_store_authority_guardrails(repo))
@@ -19101,24 +15351,13 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_replay_target_marker_store_authority_guardrails(repo))
     errors.extend(check_replay_marker_radius_store_authority_guardrails(repo))
     errors.extend(check_replay_path_target_identity_store_authority_guardrails(repo))
-    errors.extend(check_launcher_model_index_physics_command_guardrails(repo))
     errors.extend(check_replay_velocity_model_state_physics_command_guardrails(repo))
     errors.extend(check_run_frame_replay_editor_transform_wake_guardrails(repo))
     errors.extend(check_run_frame_contact_audio_simple_store_authority_guardrails(repo))
-    errors.extend(check_ragdoll_model_index_physics_command_guardrails(repo))
-    errors.extend(check_deleted_game_model_collection_physics_wrapper_guardrails(repo))
     errors.extend(check_game_model_fixed_contact_store_authority_guardrails(repo))
-    errors.extend(check_game_model_collection_fixed_tree_release_adapter_guardrails(repo))
     errors.extend(check_physics_body_store_runtime_collection_metadata_guardrails(repo))
-    errors.extend(check_deleted_game_model_runtime_collection_metadata_guardrails(repo))
-    errors.extend(check_deleted_bulk_model_writeback_guardrails(repo))
-    errors.extend(check_deleted_per_body_model_writeback_guardrails(repo))
-    errors.extend(check_deleted_game_model_collection_physics_adapter_command_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))
-    errors.extend(check_physics_model_access_inheritance_guardrails(repo))
     errors.extend(check_approved_inheritance_guardrails(repo))
-    errors.extend(check_physics_models_access_guardrails(repo))
-    errors.extend(check_named_physics_models_compat_access_guardrails(repo))
     errors.extend(check_direct_gfx_raytracing_guardrails(repo))
     errors.extend(check_irender_backend_raytracing_declarations(repo))
     errors.extend(check_irender_backend_aggregate_contract(repo))
@@ -19140,6 +15379,7 @@ def main() -> int:
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--max-errors", type=int, default=80)
+    parser.add_argument("--self-test", action="store_true", help="Run synthetic checker tests without scanning the repo.")
     args = parser.parse_args()
 
     repo = args.repo.resolve()
@@ -19149,6 +15389,9 @@ def main() -> int:
         for failure in self_test_failures:
             print(f"ERROR: runtime boundary self-test failed: {failure}")
         return 98
+    if args.self_test:
+        print("SELF_TEST_PASS: runtime boundary checker synthetic cases passed")
+        return 0
 
     errors = validate_runtime_boundaries(repo)
     summary = {

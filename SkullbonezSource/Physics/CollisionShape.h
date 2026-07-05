@@ -26,6 +26,8 @@ Related:
 #pragma once
 
 
+#include <algorithm>
+#include <cmath>
 #include <variant>
 #include "BoundingSphere.h"
 #include "BoundingBox.h"
@@ -105,6 +107,56 @@ inline Transformation::Matrix4 GetShapeModelMatrix( const CollisionShape& shape,
                                                     const Transformation::Matrix4& rotation )
 {
     return std::visit( [&]( const auto& s ) { return s.GetModelMatrix( worldPos, rotation ); }, shape );
+}
+
+inline bool
+ScaleShapeAxisFromBase( const CollisionShape& baseShape, int axis, float factor, CollisionShape& outScaledShape )
+{
+    if ( axis < 0 || axis > 2 || !std::isfinite( factor ) || factor <= 0.0f )
+    {
+        return false;
+    }
+
+    factor = std::clamp( factor, 0.05f, 20.0f );
+    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &baseShape ) )
+    {
+        const float radius = (std::max)( 0.25f, sphere->GetRadius() * factor );
+        outScaledShape = BoundingSphere( radius, sphere->GetPosition(), sphere->GetDragCoefficient() );
+        return true;
+    }
+
+    if ( const BoundingBox* box = std::get_if<BoundingBox>( &baseShape ) )
+    {
+        Vector::Vector3 halfExtents = box->GetHalfExtents();
+        if ( axis == 0 )
+        {
+            halfExtents.x = (std::max)( 0.25f, halfExtents.x * factor );
+        }
+        else if ( axis == 1 )
+        {
+            halfExtents.y = (std::max)( 0.25f, halfExtents.y * factor );
+        }
+        else
+        {
+            halfExtents.z = (std::max)( 0.25f, halfExtents.z * factor );
+        }
+        outScaledShape = BoundingBox( halfExtents, box->GetPosition() );
+        return true;
+    }
+
+    if ( const ConvexHullShape* hullBase = std::get_if<ConvexHullShape>( &baseShape ) )
+    {
+        ConvexHullShape hull = *hullBase;
+        hull.ScaleAxis( axis, factor );
+        if ( hull.GetBoundingRadius() <= TOLERANCE )
+        {
+            return false;
+        }
+        outScaledShape = hull;
+        return true;
+    }
+
+    return false;
 }
 
 /* -- Double-dispatch collision test

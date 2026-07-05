@@ -4,11 +4,9 @@ Purpose:
   Owns deterministic physics-scene state and store snapshots.
 
 Mental model:
-  PhysicsScene is the boundary between the compatibility model view and the
+  PhysicsScene is the boundary between cold authoring descriptors and the
   authoritative physics/render stores. PhysicsBodyStore owns mutable body
-  records, PhysicsWorld owns solver scratch and diagnostics, and GameModel
-  remains only the compatibility authoring/presentation surface until later
-  runtime migrations.
+  records, while PhysicsWorld owns solver scratch and diagnostics.
 
 Glossary:
   Solver: Physics step that integrates bodies and resolves contacts.
@@ -24,8 +22,8 @@ Glossary:
 
 Invariants:
   - Body, collider, render, replay, and diagnostics ordering stays aligned.
-  - RunPhysics must not borrow PhysicsModelAccess; model projection stays at
-    GameModelCollection after the store-owned step.
+  - RunPhysics must not rebuild authoring descriptors; presentation projection
+    stays at the collection owner after the store-owned step.
 
 Related:
   - SkullbonezSource/Physics/PhysicsScene.cpp
@@ -38,7 +36,6 @@ Related:
 
 #include "ColliderStore.h"
 #include "PhysicsBodyStore.h"
-#include "PhysicsModelAccess.h"
 #include "PhysicsWorld.h"
 #include "PhysicsWorldForces.h"
 #include "../Rendering/RenderInstanceStore.h"
@@ -67,17 +64,16 @@ class PhysicsScene
 
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
     // Applies collection-wide material config to live collider rows without
-    // reopening the GameModel authoring mirror.
+    // reopening authoring storage.
     void ApplyColliderMaterial( const PhysicsMaterial& material );
     void Clear();
-    void RefreshBodyStore( PhysicsModelAccess& modelAccess );
-    // Owner passes the expected count so PhysicsModelAccess stays a refresh-only
-    // facade rather than a generic model-order query surface.
-    void RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex, int expectedModelCount );
+    void RefreshBodyStore( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
+    // Owner passes the expected count so one-row descriptor commits stay a
+    // same-topology edit and cannot hide missing body rows.
+    void RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc, int modelIndex, int expectedModelCount );
     // Construction edge: registers one newly authored body value without a full
-    // compatibility reload. Owner is GameModelCollection until scene creation
-    // writes body descriptors directly.
-    PhysicsBodyHandle RegisterAuthoredBody( const PhysicsBodyRecord& record );
+    // full descriptor reload. Owner is the scene/model creation edge.
+    PhysicsBodyHandle RegisterAuthoredBody( const PhysicsBodyCreateDesc& desc );
     // Construction edge: registers the collider descriptor paired with a newly
     // authored body without forcing a collider snapshot refresh through the
     // model container.
@@ -107,9 +103,9 @@ class PhysicsScene
     // Count drift must be fixed by the creator/editor path that owns shape data.
     bool RefreshColliderSnapshot();
     // Prepares body/collider rows for the owner-side render projection refresh.
-    // GameModelCollection fills material/highlight facts after this returns.
-    bool PrepareRenderStoreRefresh( PhysicsModelAccess& modelAccess, int expectedModelCount );
-    // Mutable only for the cold GameModelCollection render projection owner edge.
+    // The collection owner fills material/highlight facts after this returns.
+    bool PrepareRenderStoreRefresh( int expectedModelCount );
+    // Mutable only for the cold collection-owned render projection edge.
     Rendering::RenderInstanceStore& MutableRenderInstances();
     void RunPhysics( float fChangeInTime,
                      const Basics::EngineConfig& config,
@@ -118,12 +114,13 @@ class PhysicsScene
                      const char* const* diagnosticNames,
                      int diagnosticNameCount );
     // Releases an authored fixed body, then same-tree parts, using body-store
-    // policy and waking touched rows without a per-release model mirror.
+    // policy and waking touched rows without a per-release model-side body
+    // projection.
     bool ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,
                                                float releaseImpulseStrength,
                                                const Math::Vector::Vector3& seedLinearVelocity,
                                                const Math::Vector::Vector3& seedAngularVelocity );
-    // Wakes solver sleep/island state by handle. Legacy model-index callers
+    // Wakes solver sleep/island state by handle. Model-index callers
     // must refresh topology before entering this command.
     void WakeBody( PhysicsBodyHandle body );
     // Sets replay/editor-authored live velocities by body handle and optionally
@@ -134,7 +131,7 @@ class PhysicsScene
                           bool wakeIfMoving );
     void SeedBodyAsleep( PhysicsBodyHandle body );
     // Queues one-shot solver input by body handle. The command is store-owned;
-    // ApplyBodyImpulse owns the separate wake/presentation compatibility edge.
+    // ApplyBodyImpulse owns the separate wake/presentation edge.
     void SetPendingBodyImpulse( PhysicsBodyHandle body,
                                 const Math::Vector::Vector3& impulse,
                                 const Math::Vector::Vector3& localApplicationPoint );

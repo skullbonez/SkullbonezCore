@@ -24,8 +24,8 @@ Invariants:
     reach back into global configuration.
 
 Related:
-  - SkullbonezSource/GameObjects/GameModel.h
-  - SkullbonezSource/GameObjects/GameModelCollection.h
+  - SkullbonezSource/Physics/PhysicsBodyStore.h
+  - SkullbonezSource/Physics/ColliderStore.h
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once

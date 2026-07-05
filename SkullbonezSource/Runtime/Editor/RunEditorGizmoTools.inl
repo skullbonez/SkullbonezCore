@@ -313,7 +313,6 @@ void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
         return;
     }
 
-    GameModel& model = context.models.GetModelAtIndex( index );
     const Vector3 axisVector = EditorAxisVector( context.editor.activeGizmoAxis );
     const Vector3 delta = axisVector * ( axisT - context.editor.gizmoDragStartAxisT );
     const int groupCount = ValidCapturedEditorGizmoGroupCount( context.editor, context.models.GetModelCount() );
@@ -325,17 +324,18 @@ void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
         for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
         {
             const int modelIndex = context.editor.gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )];
-            GameModel& groupModel = context.models.GetModelAtIndex( modelIndex );
-            groupModel.SetPosition(
-                context.editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] + delta );
-            ResetEditorModelMotionAndWake( context.models, modelIndex, groupModel );
+            PhysicsBodyStateEdit edit;
+            edit.hasPosition = true;
+            edit.position = context.editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] + delta;
+            ResetEditorModelMotionAndWake( context.models, modelIndex, edit );
         }
     }
     else
     {
-        const Vector3 newPosition = context.editor.gizmoDragStartPosition + delta;
-        model.SetPosition( newPosition );
-        ResetEditorModelMotionAndWake( context.models, index, model );
+        PhysicsBodyStateEdit edit;
+        edit.hasPosition = true;
+        edit.position = context.editor.gizmoDragStartPosition + delta;
+        ResetEditorModelMotionAndWake( context.models, index, edit );
     }
 }
 
@@ -367,7 +367,6 @@ void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
     const float targetExtent = (std::max)( 0.25f, startExtent + axisT - context.editor.gizmoDragStartAxisT );
     const float factor = targetExtent / startExtent;
 
-    GameModel& model = context.models.GetModelAtIndex( index );
     // Invariant: scale starts from the ColliderStore shape captured at drag
     // begin. The descriptor below preserves that store-owned material identity
     // while replacing only the edited shape facts.
@@ -387,15 +386,13 @@ void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
     }
 
     CollisionShape scaledShape;
-    if ( model.ScaleCollisionShapeAxisFromBase( context.editor.gizmoDragStartShape,
-                                                context.editor.activeGizmoAxis,
-                                                factor,
-                                                &scaledShape ) )
+    if ( ScaleShapeAxisFromBase( context.editor.gizmoDragStartShape, context.editor.activeGizmoAxis, factor, scaledShape ) )
     {
+        PhysicsBodyStateEdit edit;
         ResetEditorModelMotionAndWake(
             context.models,
             index,
-            model,
+            edit,
             MakeColliderCreateDesc( std::move( scaledShape ),
                                     selectedCollider->restitution,
                                     selectedCollider->contactMaterialId ) );
@@ -435,26 +432,29 @@ void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
         for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
         {
             const int modelIndex = context.editor.gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )];
-            GameModel& groupModel = context.models.GetModelAtIndex( modelIndex );
             const Vector3 startOffset =
                 context.editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] -
                 context.editor.gizmoDragStartPosition;
             Quaternion orientation =
                 context.editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )];
             orientation.RotateAboutAxis( axisVector, angleDelta );
-            groupModel.SetPosition( context.editor.gizmoDragStartPosition +
-                                    RotatePointAboutArbitrary( angleDelta, axisVector, startOffset ) );
-            groupModel.SetOrientation( orientation );
-            ResetEditorModelMotionAndWake( context.models, modelIndex, groupModel );
+            PhysicsBodyStateEdit edit;
+            edit.hasPosition = true;
+            edit.position =
+                context.editor.gizmoDragStartPosition + RotatePointAboutArbitrary( angleDelta, axisVector, startOffset );
+            edit.hasOrientation = true;
+            edit.orientation = orientation;
+            ResetEditorModelMotionAndWake( context.models, modelIndex, edit );
         }
     }
     else
     {
         Quaternion orientation = context.editor.gizmoDragStartOrientation;
         orientation.RotateAboutAxis( axisVector, angleDelta );
-        GameModel& model = context.models.GetModelAtIndex( index );
-        model.SetOrientation( orientation );
-        ResetEditorModelMotionAndWake( context.models, index, model );
+        PhysicsBodyStateEdit edit;
+        edit.hasOrientation = true;
+        edit.orientation = orientation;
+        ResetEditorModelMotionAndWake( context.models, index, edit );
     }
 }
 

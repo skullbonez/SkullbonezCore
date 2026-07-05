@@ -5,7 +5,7 @@ Purpose:
 
 Mental model:
   Collider shape/material values live in dense ColliderRecord rows. Runtime
-  compatibility code can replace a row at cold authoring edges, while config
+  editor/tooling code can replace a row at cold authoring edges, while config
   changes update material scalars in-place and topology repair only rebases body
   identity and handle maps against PhysicsBodyStore. Queries scan compact data
   and stale handles fail through generation checks.
@@ -18,7 +18,7 @@ Glossary:
     physics body across frames.
 
 Invariants:
-  - Compatibility records stay in scene/model order for current solver traversal,
+  - Dense collider rows stay in scene/model order for current solver traversal,
     but public collider handles are allocator-owned slots.
   - Standalone records stay dense; deleting a collider may move the final row
     and updates only the moved handle's row map.

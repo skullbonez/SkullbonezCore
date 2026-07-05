@@ -57,9 +57,21 @@ class RuntimeRenderer
     void SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing );
     void RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,
                        const UI::UIRenderContext& uiRender,
+                       const RuntimeRenderModelFrameView& models,
                        double dSecondsPerFrame );
 
   private:
+    // Concept: callback-owned results record which render passes executed
+    // through the temporary RenderGraph callback path this frame.
+    //
+    // Why: diagnostics still compare direct pass execution with callback-owned
+    // graph execution while the graph API carries C-style userData. RuntimeRenderer
+    // owns these flags because pass scheduling is its responsibility.
+    //
+    // Deletion condition: remove these flags with the callback payload structs
+    // when render passes become typed graph nodes. Checker budget: callback
+    // accounting stays renderer-local and may not add concrete scene-container
+    // or Run borrows to Runtime/Render contracts.
     struct CinematicPostGraphResult
     {
         bool volumetricReady = false;         // Volumetric target was produced and can be sampled by tonemap.
@@ -133,6 +145,7 @@ class RuntimeRenderer
     CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const RenderFrameContext& frame );
     bool ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
                                           const UI::UIRenderContext& uiRender,
+                                          const RuntimeRenderModelFrameView& models,
                                           Rendering::IRenderRayTracing* renderRayTracing,
                                           double secondsPerFrame );
 

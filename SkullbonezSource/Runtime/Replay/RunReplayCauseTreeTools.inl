@@ -164,7 +164,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
     }
 
     const auto& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
-    if ( !m_replayRuntime.BuildCauseTreeRows( m_cGameModelCollection.Models(), bodyStore ) )
+    if ( !m_replayRuntime.BuildCauseTreeRows( m_cGameModelCollection.RenderPresentationRecords(), bodyStore ) )
     {
         endCauseTreeDragIfReleased();
         return false;

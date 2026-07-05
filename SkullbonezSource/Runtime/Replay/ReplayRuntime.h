@@ -48,18 +48,14 @@ Related:
 #include "../../Core/Common.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsHandles.h"
+#include "../../Rendering/RenderInstanceStore.h"
 
 namespace SkullbonezCore
 {
-namespace GameObjects
-{
-class GameModel;
-class GameModelCollection;
-} // namespace GameObjects
-
 namespace Physics
 {
 class ColliderStore;
+class PhysicsEngine;
 class PhysicsBodyStore;
 } // namespace Physics
 
@@ -455,12 +451,10 @@ class ReplayRuntime
     ReplayEventRecorderStats EventStats() const;
     ReplayFrameIndex NextEventFrameIndex() const;
     void CaptureFrame( ReplayCaptureInput input );
-    bool ApplyPresentationSampleForRender( GameObjects::GameModelCollection& models,
+    bool ApplyPresentationSampleForRender( Physics::PhysicsEngine& physicsEngine,
                                            const ReplayPresentationSample& sample );
-    bool ApplySolverSampleForRender( GameObjects::GameModelCollection& models, const ReplaySolverFrameSample& sample );
-    bool ApplyPredictionFrameForRender( GameObjects::GameModelCollection& models,
-                                        const RunReplayPredictionFrame& frame );
-    void ClearRenderPoseOverrides( GameObjects::GameModelCollection& models );
+    bool ApplySolverSampleForRender( Physics::PhysicsEngine& physicsEngine, const ReplaySolverFrameSample& sample );
+    bool ApplyPredictionFrameForRender( Physics::PhysicsEngine& physicsEngine, const RunReplayPredictionFrame& frame );
     bool HasLoadedPresentation() const;
     const ReplayPresentationSample* LoadedPresentationSampleAtNormalized( float normalized ) const;
     const ReplayPresentationSample* LoadedPresentationLatestSample() const;
@@ -478,10 +472,11 @@ class ReplayRuntime
     // Resolves the current velocity-edit target to live physics authority. The
     // stored model index is a staleable hint, not identity.
     Physics::PhysicsBodyHandle ResolveVelocityEditBodyHandle( const Physics::PhysicsBodyStore& bodyStore ) const;
-    bool BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models,
+    bool BuildCauseTreeRows( const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
                              const Physics::PhysicsBodyStore& bodyStore );
-    bool BuildPredictionGhostDrawRequests( const GameObjects::GameModelCollection& collection,
-                                           const Physics::PhysicsBodyStore& bodyStore );
+    bool BuildPredictionGhostDrawRequests(
+        const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
+        const Physics::PhysicsBodyStore& bodyStore );
     const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const;
     bool BuildFocusModelMask( const Physics::PhysicsBodyStore& bodyStore, int modelCount );
     std::vector<uint8_t>& FocusModelMask();

@@ -1,7 +1,7 @@
 # Runtime Static Allocation Policy Plan
 
 Date: 2026-06-27 (policy revised 2026-07-05)
-Status: Draft
+Status: In progress - first enforcement slice landed 2026-07-05
 Impact area: performance, runtime, physics, renderer, UI/diagnostics, tooling
 Validation note: plan-only edits require no validation. Implementation touches
 hot runtime paths, so PR-bound work should use `tools\validate_perf.bat` plus
@@ -106,9 +106,9 @@ source of truth, and use this checklist as the Carmack-test acceptance overlay.
 
 ### Implementation Details
 
-- [ ] Implement phase-aware allocation tracking with fixed, non-allocating
+- [x] Implement phase-aware allocation tracking with fixed, non-allocating
   tracker storage and a reentrancy guard.
-- [ ] Add runtime phase transitions for startup, scene load/reset,
+- [x] Add runtime phase transitions for startup, scene load/reset,
   backend/resource init, steady gameplay, replay, screenshot/capture, and
   shutdown.
 - [ ] Implement `RuntimeReserveAllocator` owner registration with owner name,
@@ -127,33 +127,102 @@ source of truth, and use this checklist as the Carmack-test acceptance overlay.
   allowing registered replay-phase reserve bumps within cap.
 - [ ] Print owner-level allocation summaries with allocation count, bytes,
   high-water, replay growth count, frame, and phase.
-- [ ] Ensure the allocation tracker itself cannot allocate while reporting.
+- [x] Ensure the allocation tracker itself cannot allocate while reporting.
 
 ### Guardrails And Validation Integration
 
-- [ ] Add a static checker for banned runtime dynamic allocation patterns.
-- [ ] Add an allowlist format that requires owner, phase, reason, cap, and
+- [x] Add a static checker for banned runtime dynamic allocation patterns.
+- [x] Add an allowlist format that requires owner, phase, reason, cap, and
   removal or wrapper plan.
-- [ ] Add the allocation guard launch to `tools\validate_perf.bat` (its
+- [x] Add the allocation guard launch to `tools\validate_perf.bat` (its
   natural home; it already launches perf scenes) after the first
   implementation slice lands, and add a File-To-Validation row to `AGENTS.md`
   for the allocator/tracker/checker files.
-- [ ] Make `tools\validate_perf.bat` output distinguish clean perf evidence from
+- [x] Make `tools\validate_perf.bat` output distinguish clean perf evidence from
   warning-bearing evidence that still exits 0.
-- [ ] Add synthetic checker tests for rejected direct allocation, allowed
+- [x] Add synthetic checker tests for rejected direct allocation, allowed
   startup allocation, and allowed registered reserve bumps.
 
 ### Independent Review And Handoff
 
-- [ ] Ask a rubber-duck reviewer to inspect whether the guard can falsely pass
+- [x] Ask a rubber-duck reviewer to inspect whether the guard can falsely pass
   when allocations happen in steady gameplay.
-- [ ] Ask the reviewer to inspect recursion, thread-local tracking, WorkerPool
+- [x] Ask the reviewer to inspect recursion, thread-local tracking, WorkerPool
   dispatch, replay phases, screenshot/capture opt-outs, and DX12 telemetry.
-- [ ] Record any accepted perf warnings with marker-level evidence, not just
+- [x] Record any accepted perf warnings with marker-level evidence, not just
   script exit code.
-- [ ] Quote allocation guard output in the handoff.
-- [ ] Do not mark the Carmack-test performance issue resolved until the guard
+- [x] Quote allocation guard output in the handoff.
+- [x] Do not mark the Carmack-test performance issue resolved until the guard
   and static checker are both active in validation.
+
+### 2026-07-05 First Enforcement Slice
+
+Landed the measurement/checker slice on branch `nightrunner-5th-july`:
+
+- `SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h/.cpp`
+  installs a global C++ allocation hook, fixed atomic phase counters, a
+  reentrancy guard, phase scopes, and a bounded stdout summary.
+- `--allocation-guard off|measure|gameplay` is parsed in `Runtime/Init.cpp`.
+  The guard is enabled before WorkerPool/window/backend startup; frame work then
+  scopes scene load, backend init, steady gameplay, physics, render, and
+  explicit replay/capture/shutdown regions where those paths are entered.
+- `tools/check_allocation_policy.py` and
+  `tools/allocation_policy_allowlist.json` cover the first static direct-heap
+  guardrail. The checker self-test exercises rejected direct allocation,
+  global-qualified and nothrow heap `new` forms, allowed placement `new`,
+  same-line allowlist collision rejection, allowed startup cleanup, and an
+  allowed registered replay-reserve-bump shape.
+- `tools/validate_perf.bat` now runs the checker and an allocation-guard
+  `perf_1000` launch, mirrors the guard output to
+  `TestOutput\validation\agent_logs\allocation_guard_perf_1000.log`, and prints
+  whether evidence is clean or warning-bearing.
+
+Final warning-bearing proof launch from `tools\validate_perf.bat`:
+
+```text
+Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --fixed-step --no-contact-audio --allocation-guard gameplay --frames 180 --scene SkullbonezData/scenes/perf_1000.scene.json
+Runtime allocation policy summary: scanned=258 direct_heap_findings=26 allowlist_errors=0
+[allocation-guard] mode=gameplay total_allocations=126096 total_bytes=174848324 gameplay_violations=90127
+[allocation-guard] phase=steady_gameplay allocations=24487 frees=24487 bytes=1946890 active_bytes=0 high_water_bytes=69575
+[allocation-guard] phase=physics allocations=4399 frees=4399 bytes=3663150 active_bytes=0 high_water_bytes=468038
+[allocation-guard] phase=render allocations=61241 frees=61239 bytes=10554209 active_bytes=1054366 high_water_bytes=3548438
+[allocation-guard] WARNING: steady gameplay allocation evidence is warning-bearing; owner conversion is still required before strict enforcement.
+```
+
+This proves the guard does not falsely pass steady gameplay allocation. It does
+not complete the larger reserve allocator, fixed-pool conversions, replay growth
+approval, replay/capture-specific guard proof, or strict failure policy; those
+checklist rows remain open.
+
+Rubber-duck follow-up: the final reviewer found one blocking false-pass risk in
+the static checker. The checker now emits one finding per heap expression, keeps
+allowlist matches tied to the exact matched expression span, rejects
+`::new`/`new (std::nothrow)` heap forms, preserves placement `new`, and has
+self-tests for same-line allowlist collisions. The reviewer also noted partial
+replay/capture guard evidence; the final proof above is intentionally the
+non-replay `perf_1000` launch, while replay/capture proof remains part of the
+open later acceptance rows.
+
+Final first-slice validation on 2026-07-05/06:
+
+- `python -m py_compile tools\check_runtime_boundaries.py tools\check_allocation_policy.py` passed.
+- `python tools\check_runtime_boundaries.py --self-test` passed.
+- `python tools\check_allocation_policy.py --self-test` passed.
+- `python tools\check_runtime_boundaries.py --repo . --max-errors 30`
+  reported 0 errors.
+- `python tools\check_allocation_policy.py --repo .` reported
+  `scanned=258 direct_heap_findings=26 allowlist_errors=0`.
+- `tools\validate_fast.bat` passed format, project filters, runtime boundaries,
+  and Profile/Debug builds with 0 warnings/errors
+  (`Agentic\Temp\validate_fast_plan1_plan2_final_after_duck_fixes.log`,
+  elapsed 30.12s).
+- `tools\validate_perf.bat` completed with warning-bearing allocation evidence
+  and passing absolute DX12/physics-bench perf budgets
+  (`Agentic\Temp\validate_perf_plan1_plan2_final_after_duck_fixes.log`,
+  elapsed 28.69s).
+- `tools\validate_full.bat` passed the broad gate
+  (`Agentic\Temp\validate_full_plan1_plan2_final_after_duck_fixes.log`,
+  elapsed 38.72s).
 
 ### 2026-06-28 Evidence Baseline
 
@@ -821,7 +890,7 @@ struct RuntimeCapacityPolicy
    - `PhysicsBodyStore`/`ColliderStore` capacity and scene descriptor counts.
      Do not anchor new infrastructure on `ActiveGameModelCapacity()` or other
      `GameModel`-order counts; the compat-endgame plan
-     (`Agentic/Plans/In_Progress/game-model-compat-endgame-and-fence-consolidation-plan.md`)
+     (`Agentic/Plans/Done/game-model-compat-endgame-and-fence-consolidation-plan.md`)
      is retiring that authority, and both plans touch `PhysicsWorld`, the
      stores, and `Init.cpp`, so sequence slices against it,
    - scene-authored object count,

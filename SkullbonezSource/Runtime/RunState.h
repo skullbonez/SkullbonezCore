@@ -44,6 +44,7 @@ Related:
 #include "../World/SkyBox.h"
 #include "CameraCollection.h"
 #include "Input.h"
+#include "Allocation/RuntimeAllocationTracker.h"
 #include "Render/RuntimeRenderResources.h"
 #include "RuntimeCameraMode.h"
 #include "Scene/SceneGeneratedSetup.h"
@@ -300,6 +301,9 @@ struct RunLaunchOptions
     int graphicsStressActions = 12;                            // CLI --graphics-stress-actions
     int graphicsStressSceneIntervalFrames = 45;                // CLI --graphics-stress-scene-interval
     int graphicsStressMemoryIntervalFrames = 1800;             // CLI --graphics-stress-memory-interval
+    Runtime::Allocation::RuntimeAllocationGuardMode allocationGuardMode =
+        Runtime::Allocation::RuntimeAllocationGuardMode::Off;  // CLI --allocation-guard tracking mode for runtime heap
+                                                              // evidence.
     GeneratedObjectTypeOverride generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     bool hasPhysicsDebugFlagsOverride = false;
     uint32_t physicsDebugFlagsOverride = Physics::PHYSICS_DEBUG_NONE;

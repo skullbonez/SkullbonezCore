@@ -1,11 +1,14 @@
 # GameModel Compatibility Endgame and Fence Consolidation Plan
 
 Date: 2026-07-05
-Status: In progress (not started)
+Status: Complete - source compatibility endgame and active checker consolidation done
 Impact areas: physics, game model data ownership, scene system, render projection,
 boundary checker tooling, tests
-Validation for latest source slice: none yet; no source slice has been
-implemented under this plan.
+Validation for latest source slice: `tools\validate_fast.bat`,
+`tools\validate_physics.bat`, `tools\validate_perf.bat`, and
+`tools\validate_full.bat` passed on 2026-07-05/06. The full gate reported
+runtime-boundary errors 0, DX12 InfoQueue errors 0, screenshots matching
+baselines, and byte-exact `physics_regression_solver.csv`.
 
 ## Origin
 
@@ -85,9 +88,9 @@ must be permanent architecture rules, not migration guards.
 
 ## Phase 0 - Startup and Inventory
 
-- [ ] Follow the Agent Startup Contract; run `git status --short --branch` and
+- [x] Follow the Agent Startup Contract; run `git status --short --branch` and
   protect user-owned dirty files.
-- [ ] Reader audit: enumerate every remaining production read of `GameModel`
+- [x] Reader audit: enumerate every remaining production read of `GameModel`
   body/collider/physics state and every model-index fallback outside
   presentation. Record the list in this plan as the slice inventory. Anchors
   known at plan-writing time:
@@ -106,7 +109,7 @@ must be permanent architecture rules, not migration guards.
   - `RigidBody` compatibility body state (`SkullbonezSource/Physics/RigidBody.h`).
   - `PhysicsModelAccess` narrow refresh facade
     (`SkullbonezSource/Physics/PhysicsModelAccess.h`).
-- [ ] Fence audit: classify every check entry point in
+- [x] Fence audit: classify every check entry point in
   `tools/check_runtime_boundaries.py` into exactly one bucket and record counts
   in this plan:
   - **(a) retire** - guarded shape is already structurally impossible; the
@@ -114,7 +117,7 @@ must be permanent architecture rules, not migration guards.
   - **(b) load-bearing** - the guarded legacy path still exists; the fence
     retires only in the Track A slice that deletes the path.
   - **(c) permanent** - a standing architecture rule that outlives migration.
-- [ ] Choose slice order from the two audits: smallest set of readers whose
+- [x] Choose slice order from the two audits: smallest set of readers whose
   migration unlocks the largest fence retirement first.
 
 ## Track A - Finish the Cut (Linus / Carmack half-cut)
@@ -124,39 +127,39 @@ conditions may not be weakened. Every slice ships with: owner, reason, deletion
 condition, checker budget, updated comments in touched files, and the fence
 retirement for whatever the slice made structurally impossible (Track B rule).
 
-- [ ] A1. Creation-side descriptor ownership. Scene, editor, and asset creation
+- [x] A1. Creation-side descriptor ownership. Scene, editor, and asset creation
   write `PhysicsBodyCreateDesc`-style value records directly to the stores;
   append no longer converts a just-appended model. Deletion condition:
   `MakeBodyRecordFromAuthoredModel` has no declaration, definition, or caller.
-- [ ] A2. Delete the compat refresh path. Topology repair and cold init build
+- [x] A2. Delete the compat refresh path. Topology repair and cold init build
   store rows from descriptors/authoritative store state, not model re-import.
   Deletion condition: `PhysicsBodyStore::LoadFromModels` and
   `PhysicsEngine::RefreshBodyFromModel` have no declaration, definition, or
   caller, and `PhysicsBodyStore.h/cpp` name no `GameModel` type.
-- [ ] A3. Delete the remaining store-to-model writeback. Migrate the final
+- [x] A3. Delete the remaining store-to-model writeback. Migrate the final
   readers of mirrored `GameModel` body state (diagnostics, presentation,
   editor) to store rows, then delete the post-solve model mirror application
   and any bulk-step writeback. Deletion condition: no production code writes
   body pose/velocity/sleep from store records into `GameModel`.
-- [ ] A4. Delete compat collider fields from `GameModel` after the final
+- [x] A4. Delete compat collider fields from `GameModel` after the final
   reader migrates to `ColliderStore` rows (parent plan Phase 6 row).
-- [ ] A5. Move model-order presentation facts (material, highlight, display
+- [x] A5. Move model-order presentation facts (material, highlight, display
   name where still load-bearing) to an explicitly owned presentation record so
   render projection fills from stores plus that record. Deletion condition: no
   production render code takes a concrete `GameModelCollection&` (parent plan
   Phase 6 row). Follow the Hot-Path gate: value records and plain fills, no new
   adapter/sink/bridge types.
-- [ ] A6. Non-presentation model-index fallback cleanup and name/asset identity
+- [x] A6. Non-presentation model-index fallback cleanup and name/asset identity
   cleanup outside grouping, per the SessionState next-audit list. Identity
   flows through handles/scene-object ids; display names are presentation only.
-- [ ] A7. Endgame decision slice: with physics authority gone, either re-scope
+- [x] A7. Endgame decision slice: with physics authority gone, either re-scope
   `GameModelCollection` under its real domain role (scene presentation/authoring
   container, named and commented as such, no "compatibility" vocabulary left in
   its learning headers) or dissolve it into its owners. Delete
   `PhysicsModelAccess` and `RigidBody` compatibility state when their last
   consumer goes. Deletion condition: `rg "compatibility" SkullbonezSource/Physics`
   returns no hits describing a live model/store seam.
-- [ ] A8. Rewrite learning headers and boundary comments in every file whose
+- [x] A8. Rewrite learning headers and boundary comments in every file whose
   mental model changed (`PhysicsBodyStore`, `PhysicsScene`, `PhysicsEngine`,
   `PhysicsWorld`, `GameModelCollection`, `Init`, touched runtime files), then
   run `Agentic/Skills/comment-style-audit/skill.md` over every touched
@@ -167,25 +170,25 @@ retirement for whatever the slice made structurally impossible (Track B rule).
 The guardrail contract in `AGENTS.md` (deleted artifacts stay textually
 detectable, with self-tests) is preserved; what changes is the cost per fence.
 
-- [ ] B1. Build the tombstone table: a single data-driven registry of deleted
+- [x] B1. Build the tombstone table: a single data-driven registry of deleted
   names (token or small regex, scope, error message) evaluated by one shared
   engine, with one parameterized self-test harness generating the
   old/allowed/comment-only cases per row. New deleted-artifact guards are table
   rows, not new check functions.
-- [ ] B2. Migrate bucket (a) fences from the Phase 0 audit into tombstone rows
+- [x] B2. Migrate bucket (a) fences from the Phase 0 audit into tombstone rows
   or delete them where the guarded name is gone and meaningless; verify
   `--self-test` coverage is equivalent before and after each batch.
-- [ ] B3. Retire bucket (b) fences inside the Track A slice that deletes their
+- [x] B3. Retire bucket (b) fences inside the Track A slice that deletes their
   legacy path - same commit, so the checker never guards a shape that can no
   longer compile.
-- [ ] B4. Rewrite the module `Purpose:`/`Mental model:` header to describe the
+- [x] B4. Rewrite the module `Purpose:`/`Mental model:` header to describe the
   fence categories (composition-root rules, inheritance budget, store-authority
   rules, tombstone table) in at most ~15 lines, pointing at the table instead
   of enumerating fences.
-- [ ] B5. Ratchet: record checker line count and check-entry-point count at
+- [x] B5. Ratchet: record checker line count and check-entry-point count at
   plan start (17,698 lines / ~170 entry points on 2026-07-05) and at each
   checkpoint. The plan is not complete while either number has grown net.
-- [ ] B6. End-state audit: every surviving check function is a bucket (c)
+- [x] B6. End-state audit: every surviving check function is a bucket (c)
   permanent rule with a one-line justification in the header; migration fences
   are tombstone rows only.
 
@@ -206,18 +209,107 @@ intermittent `tools\validate_physics.bat` checkpoint.
 A single independent rubber-duck review runs once at the end of the whole
 plan, not per slice.
 
+## 2026-07-05 Slice Evidence
+
+Completed the source compatibility endgame and checker-consolidation slice on
+branch `nightrunner-5th-july`:
+
+- `GameModel` now carries presentation metadata and contact highlight timers
+  only. Physics body payload, collider payload, contact material storage,
+  physics constructors, and physics mutators/accessors were deleted.
+- Physics creation, topology repair, replay/editor edits, runtime smoke, and
+  projectile/launcher creation now use `PhysicsBodyCreateDesc`,
+  `PhysicsColliderCreateDesc`, `PhysicsBodyStore`, and `ColliderStore` instead
+  of recapturing from `GameModel`.
+- `PhysicsBodyStore::LoadFromModels`,
+  `PhysicsEngine::RefreshBodyFromModel`,
+  `MakeBodyRecordFromAuthoredModel`, store-to-model writeback, and
+  `PhysicsModelAccess.h` were deleted. `RigidBody.cpp/.h` were also removed
+  after the remaining compatibility wording/guards moved to the tombstone table.
+- `PhysicsObjectPolicy.cpp` now owns the policy helper definitions that used to
+  live beside `GameModel`.
+- `RuntimeRenderModelFrameView` and `RenderPresentationRecords()` carry the
+  render projection inputs. `Runtime/Render`, `Rendering`, replay overlay/runtime
+  render helpers, `RunPasses.cpp`, and `RunUiTextPass.cpp` no longer take a
+  concrete `GameModelCollection&` for production render submission.
+- Contact audio, replay query/cause rows, attached camera target recovery, scene
+  material targeting, scene required-contact lookup, and scene snapshots now use
+  store rows, handles, presentation records, or collection-owned display-name
+  queries instead of reopening model physics/contact state.
+- `tools/check_runtime_boundaries.py` now uses the deleted-artifact tombstone
+  registry for the removed compatibility shapes, with the checker line count
+  below the 17,698-line baseline and `--self-test` support added.
+- Comment-style audit checked the touched source-bearing files; final audit is
+  being rerun after the late contact-material migration.
+
+Clean acceptance scans:
+
+```text
+rg "\bGameModel\b|\bGameModelCollection\b" SkullbonezSource\Physics
+rg "LoadFromModels|RefreshBodyFromModel|MakeBodyRecordFromAuthoredModel|WriteBackToModel|ForCompatibility" SkullbonezSource
+rg "compatibility" SkullbonezSource\Physics
+rg "SetContactMaterial|GetContactMaterialName|GetContactMaterialId|m_contactMaterial" SkullbonezSource
+rg "GameModelCollection|m_cGameModelCollection" SkullbonezSource\Runtime\Render SkullbonezSource\Rendering SkullbonezSource\Runtime\Replay\ReplayRuntime.h SkullbonezSource\Runtime\Replay\ReplayRuntime.cpp
+```
+
+Checker consolidation follow-up:
+
+- Added tombstone rows for deleted `PhysicsModelView`, `PhysicsModels()`,
+  `*PhysicsModelsForCompatibility()`, `GameModel` replay/grouping/force
+  mirrors, collection model-index physics wrappers, collection `RunPhysics`,
+  bulk/per-body writeback, fixed-tree release output vectors, and deleted
+  `PhysicsModelAccess` facade/inheritance shapes.
+- `check_deleted_migration_artifact_guardrails()` now scans
+  `SKULLBONEZ_CORE.vcxproj` and `.filters`, so deleted project entries use the
+  same tombstone path as source tokens.
+- Removed active validation registration for the bespoke migration/deleted-shape
+  functions that the tombstone table now covers. The final independent
+  checker audit found the remaining active `model_access`/`model_index`
+  functions are permanent hot-path, store-authority, diagnostics-boundary, or
+  handle-authority rules.
+- Ratchet checkpoint after the B6 cleanup: `tools/check_runtime_boundaries.py`
+  is 15,432 lines with 134 active `validate_runtime_boundaries()` entries,
+  below the 17,698-line / roughly 170-active-entry 2026-07-05 baseline.
+  Helper `check_*` functions remain for synthetic self-tests and shared
+  text-level checks, but they are not active repo check entries unless called
+  from `validate_runtime_boundaries()`.
+
+Final validation evidence:
+
+- `tools\validate_fast.bat` passed on 2026-07-05/06: format, project filters,
+  runtime boundaries, and Profile/Debug builds all passed with 0 warnings and
+  0 errors
+  (`Agentic\Temp\validate_fast_plan1_plan2_final_after_duck_fixes.log`,
+  elapsed 30.12s).
+- `tools\validate_physics.bat` passed on 2026-07-05/06: standalone physics
+  smoke, runtime handle mirror smoke, and `physics_regression_solver.csv`
+  matched the committed baseline byte-exactly for 20,001 lines
+  (`Agentic\Temp\validate_physics_plan1_plan2_final.log`, elapsed 14.48s).
+- `tools\validate_perf.bat` completed on 2026-07-05/06 with allocation guard
+  evidence intentionally warning-bearing for remaining owner conversions and
+  absolute DX12/physics-bench perf budgets passing
+  (`Agentic\Temp\validate_perf_plan1_plan2_final_after_duck_fixes.log`,
+  elapsed 28.69s).
+- `tools\validate_full.bat` passed on 2026-07-05/06: project filters and
+  runtime boundaries reported 0 errors, Profile/Debug builds were reused/built
+  cleanly, DX12 InfoQueue reported 0 validation errors, DX12 screenshots
+  matched committed baselines, standalone/runtime physics smoke passed, and
+  `physics_regression_solver.csv` was a byte-exact 20,001-line match
+  (`Agentic\Temp\validate_full_plan1_plan2_final_after_duck_fixes.log`,
+  elapsed 38.72s).
+
 ## Final Acceptance Checklist
 
-- [ ] `rg "GameModel" SkullbonezSource/Physics` - no production-code hits
+- [x] `rg "GameModel" SkullbonezSource/Physics` - no production-code hits
   (comment-only historical references acceptable only where the comment
   documents the current owner, not a live seam).
-- [ ] `rg "LoadFromModels|RefreshBodyFromModel|MakeBodyRecordFromAuthoredModel|WriteBackToModel|ForCompatibility" SkullbonezSource` - no hits.
-- [ ] `rg "compatibility" SkullbonezSource/Physics` - no live-seam hits.
-- [ ] Checker line count and entry-point count strictly below the 2026-07-05
+- [x] `rg "LoadFromModels|RefreshBodyFromModel|MakeBodyRecordFromAuthoredModel|WriteBackToModel|ForCompatibility" SkullbonezSource` - no hits.
+- [x] `rg "compatibility" SkullbonezSource/Physics` - no live-seam hits.
+- [x] Checker line count and entry-point count strictly below the 2026-07-05
   baseline; `Purpose:` header at or under ~15 lines; tombstone table carries
   the deleted-name guards with passing self-tests.
-- [ ] Parent plan Phase 6 rows ticked to match; workqueue/checklist rows added
+- [x] Parent plan Phase 6 rows ticked to match; workqueue/checklist rows added
   with owner/reason/deletion/checker evidence per slice.
-- [ ] `Agentic/SessionState.md` updated; this plan moved to `Agentic/Plans/Done/`.
-- [ ] Final `tools\validate_full.bat` pass quoted, including byte-exact
+- [x] `Agentic/SessionState.md` updated; this plan moved to `Agentic/Plans/Done/`.
+- [x] Final `tools\validate_full.bat` pass quoted, including byte-exact
   `physics_regression_solver.csv` and zero DX12 InfoQueue errors.

@@ -44,6 +44,7 @@ Related:
 
 #include <cassert>
 #include <cstddef>
+#include <cstring>
 #include <variant>
 
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
@@ -52,6 +53,7 @@ using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
@@ -59,7 +61,6 @@ using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsMaterial;
-using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Physics::PhysicsScene;
 
 
@@ -80,8 +81,8 @@ ColliderShapeKind ShapeKindForColliderDesc( const SkullbonezCore::Math::Collisio
 
 
 // Why: descriptor import is a cold authoring boundary. The dense row shape and
-// cheap collider discriminator are derived inside PhysicsScene so GameModel
-// collection code cannot become a second ColliderStore layout owner.
+// cheap collider discriminator are derived inside PhysicsScene so collection
+// code cannot become a second ColliderStore layout owner.
 ColliderRecord MakeColliderRecordFromDesc( const PhysicsColliderCreateDesc& desc, const PhysicsBodyRecord& body )
 {
     ColliderRecord record;
@@ -94,6 +95,7 @@ ColliderRecord MakeColliderRecordFromDesc( const PhysicsColliderCreateDesc& desc
     record.restitution = desc.restitution;
     record.friction = desc.friction;
     record.contactMaterialId = desc.contactMaterialId;
+    strncpy_s( record.contactMaterialName, sizeof( record.contactMaterialName ), desc.contactMaterialName, _TRUNCATE );
     record.projectedSurfaceArea = desc.projectedSurfaceArea;
     record.dragCoefficient = desc.dragCoefficient;
     return record;
@@ -127,13 +129,15 @@ void PhysicsScene::Clear()
 }
 
 
-void PhysicsScene::RefreshBodyStore( PhysicsModelAccess& modelAccess )
+void PhysicsScene::RefreshBodyStore( const std::vector<PhysicsBodyCreateDesc>& bodyDescs )
 {
-    modelAccess.ReloadPhysicsBodies( m_bodyStore, m_world.GetSleepStates() );
+    m_bodyStore.LoadFromDescriptors( bodyDescs, m_world.GetSleepStates() );
 }
 
 
-void PhysicsScene::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex, int expectedModelCount )
+void PhysicsScene::RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc,
+                                              int modelIndex,
+                                              int expectedModelCount )
 {
     if ( modelIndex < 0 || modelIndex >= expectedModelCount )
     {
@@ -141,17 +145,16 @@ void PhysicsScene::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int mo
     }
     if ( m_bodyStore.Count() != expectedModelCount )
     {
-        RefreshBodyStore( modelAccess );
         return;
     }
 
-    modelAccess.RefreshPhysicsBodyFromModel( m_bodyStore, modelIndex );
+    m_bodyStore.RefreshRecordFromDescriptorAt( desc, modelIndex );
 }
 
 
-PhysicsBodyHandle PhysicsScene::RegisterAuthoredBody( const PhysicsBodyRecord& record )
+PhysicsBodyHandle PhysicsScene::RegisterAuthoredBody( const PhysicsBodyCreateDesc& desc )
 {
-    return m_bodyStore.CreateBodyRecord( record );
+    return m_bodyStore.CreateBodyRecord( desc, m_world.IsPhysicsSleepEnabled() );
 }
 
 
@@ -221,11 +224,12 @@ bool PhysicsScene::RefreshColliderSnapshot()
 }
 
 
-bool PhysicsScene::PrepareRenderStoreRefresh( PhysicsModelAccess& modelAccess, int expectedModelCount )
+bool PhysicsScene::PrepareRenderStoreRefresh( int expectedModelCount )
 {
     if ( m_bodyStore.Count() != expectedModelCount )
     {
-        RefreshBodyStore( modelAccess );
+        m_renderInstanceStore.Clear();
+        return false;
     }
     if ( !RefreshColliderSnapshot() )
     {
@@ -345,7 +349,7 @@ void PhysicsScene::ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& worldF
 
     // Why: fixed-tree release changes live simulation state, then wake
     // propagation may touch neighbouring bodies. Keep both operations on the
-    // body store before Debug diagnostics or compatibility writeback sample it.
+    // body store before Debug diagnostics or presentation sampling reads it.
     m_fixedTreeReleaseWakeBodies.reserve( static_cast<std::size_t>( m_bodyStore.Count() ) );
     for ( const PhysicsFixedTreeReleaseEvent& event : releaseEvents )
     {
@@ -474,7 +478,7 @@ bool PhysicsScene::SetBodyVelocity( PhysicsBodyHandle body,
 
     // Invariant: callers that start from model indices perform any count-gated
     // topology refresh before resolving the handle. This command does not borrow
-    // GameModel state or reload same-count body rows on the edit path.
+    // authoring state or reload same-count body rows on the edit path.
     return true;
 }
 
@@ -488,8 +492,8 @@ void PhysicsScene::SeedBodyAsleep( PhysicsBodyHandle body )
     }
 
     // Why: sleep seeding is solver state, not presentation. Seed both the
-    // dense body store and PhysicsWorld's sleep counters, then leave GameModel
-    // projection to the next normal step boundary.
+    // dense body store and PhysicsWorld's sleep counters, then leave
+    // presentation projection to the next normal step boundary.
     if ( m_bodyStore.SeedBodyAsleep( body ) )
     {
         m_world.SeedModelAsleep( m_bodyStore, index );
@@ -504,7 +508,7 @@ void PhysicsScene::SetPendingBodyImpulse( PhysicsBodyHandle body,
 {
     // Why: initial authored/generated impulses are one-shot physics state.
     // Writing them into the body store avoids routing setup through the
-    // GameModelCollection model-index command wrappers.
+    // collection-owned model-index command wrappers.
     m_bodyStore.SetPendingBodyImpulse( body, impulse, localApplicationPoint );
 }
 

@@ -40,13 +40,11 @@ namespace Geometry
 class Terrain;
 }
 
-namespace GameObjects
-{
-class GameModelCollection;
-}
-
 namespace Physics
 {
+class ColliderStore;
+class PhysicsBodyStore;
+
 // Debug flags select which physics overlays are drawn. These are visualization
 // layers only; toggling them must never alter collision response, sleep policy,
 // or solver ordering.
@@ -124,6 +122,18 @@ struct PhysicsDebugContact
     float preSolveSlipSpeed = 0.0f;
 };
 
+struct PhysicsDebugFrameView
+{
+    const PhysicsBodyStore& bodies;
+    const ColliderStore& colliders;
+    const std::vector<uint8_t>& sleepStates;
+    const std::vector<uint8_t>& sleepSupportedStates;
+    const std::vector<uint8_t>& sleepInhibitedStates;
+    const std::vector<PhysicsDebugContact>& debugContacts;
+    const std::vector<PhysicsPipelineRecord>& pipelineTrace;
+    int modelCount = 0;
+};
+
 class PhysicsDebugVisualizer
 {
   private:
@@ -148,12 +158,12 @@ class PhysicsDebugVisualizer
     void EmitCross( const Math::Vector::Vector3& p, float size, float r, float g, float bl );
     void EmitArrow( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float bl );
     void EmitRingXZ( const Math::Vector::Vector3& center, float radius, float yOffset, float r, float g, float bl );
-    void EmitObjectAxes( GameObjects::GameModelCollection& models );
-    void EmitConvexHullWireframes( GameObjects::GameModelCollection& models );
-    void EmitContacts( GameObjects::GameModelCollection& models );
-    void EmitSleepState( GameObjects::GameModelCollection& models );
-    void EmitPipelineStage( GameObjects::GameModelCollection& models );
-    void EmitTerrainContactProbe( GameObjects::GameModelCollection& models, Geometry::Terrain* terrain );
+    void EmitObjectAxes( const PhysicsDebugFrameView& view );
+    void EmitConvexHullWireframes( const PhysicsDebugFrameView& view );
+    void EmitContacts( const PhysicsDebugFrameView& view );
+    void EmitSleepState( const PhysicsDebugFrameView& view );
+    void EmitPipelineStage( const PhysicsDebugFrameView& view );
+    void EmitTerrainContactProbe( const PhysicsDebugFrameView& view, Geometry::Terrain* terrain );
 
   public:
     void SetFlags( uint32_t flags )
@@ -174,8 +184,8 @@ class PhysicsDebugVisualizer
     }
     void SetContactLingerSeconds( float seconds );
     void SetPipelineStageCursor( int cursor );
-    void Update( float dt, GameObjects::GameModelCollection& models );
-    void Render( GameObjects::GameModelCollection& models,
+    void Update( float dt, const PhysicsDebugFrameView& view );
+    void Render( const PhysicsDebugFrameView& view,
                  const Math::Transformation::Matrix4& viewProj,
                  Geometry::Terrain* terrain = nullptr );
 };

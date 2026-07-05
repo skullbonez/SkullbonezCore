@@ -1,13 +1,13 @@
 /*
 File: SkullbonezSource/Physics/Ragdoll.h
 Purpose:
-  Builds simple ragdoll body sets and solves their first point-joint constraints.
+  Describes simple ragdoll prefab geometry and solves point-joint constraints.
 
 Mental model:
-  This is deliberately a small bridge toward a future generic constraint system.
-  Ragdoll owns prefab construction, while PointJointConstraint is generic solver
-  data that names bodies with physics handles while solvers ask PhysicsBodyStore
-  to resolve the current scene-order rows.
+  This is deliberately a small bridge toward a future generic constraint
+  system. Ragdoll prefab data is value metadata; scene/authored owners decide
+  how those values become renderable objects while physics only keeps handle-
+  keyed point-joint descriptors and solver math.
 
 Glossary:
   Point joint: Constraint that keeps two local anchors near each other.
@@ -20,8 +20,8 @@ Invariants:
   - Constraint order is deterministic and scene-authored.
   - Constraint bodies refer to PhysicsBodyHandle values; only owners with a live
     PhysicsBodyStore may resolve those handles to current model-order rows.
-  - The joint solver mutates PhysicsBodyStore records only; PhysicsWorld owns
-    any temporary compatibility writeback needed by later legacy solver paths.
+  - The joint solver mutates PhysicsBodyStore records only; later presentation
+    mirrors are owner-side side effects, not ragdoll solver state.
 
 Related:
   - SkullbonezSource/Physics/Ragdoll.cpp
@@ -38,25 +38,30 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Environment
-{
-class WorldEnvironment;
-}
-
-namespace Geometry
-{
-class Terrain;
-}
-
-namespace GameObjects
-{
-class GameModelCollection;
-}
-
 namespace Physics
 {
-class PhysicsEngine;
 class PhysicsBodyStore;
+
+struct RagdollPartDesc
+{
+    const char* suffix;
+    Math::Vector::Vector3 localCenter = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 halfExtents = Math::Vector::ZERO_VECTOR;
+    float restitution = 0.0f;
+    float tintR = 1.0f;
+    float tintG = 1.0f;
+    float tintB = 1.0f;
+};
+
+struct RagdollJointDesc
+{
+    int bodyA = 0;
+    int bodyB = 0;
+    Math::Vector::Vector3 localAnchorA = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 localAnchorB = Math::Vector::ZERO_VECTOR;
+    float slack = 0.25f;
+    uint8_t flags = 0;
+};
 
 struct PointJointConstraint
 {
@@ -104,6 +109,10 @@ class Ragdoll
     static constexpr int SIMPLE_PART_COUNT = 10;
 
     static float DefaultEditorScale();
+    static float ClampScale( float scale );
+    static float SurfaceEpsilon();
+    static const RagdollPartDesc* SimpleParts();
+    static const RagdollJointDesc* SimpleJoints( int& outCount );
     static Math::Vector::Vector3 DefaultPreviewCenter( const Math::Vector::Vector3& terrainPoint,
                                                        float scale,
                                                        const Math::Orientation::Quaternion& orientation );
@@ -114,11 +123,6 @@ class Ragdoll
                                  float r,
                                  float g,
                                  float b );
-    static void AddSimpleHumanoid( GameObjects::GameModelCollection& collection,
-                                   PhysicsEngine& physics,
-                                   Environment::WorldEnvironment& worldEnvironment,
-                                   Geometry::Terrain* terrain,
-                                   const RagdollBuildOptions& options );
     static bool SolvePointJoints( PhysicsBodyStore& bodyStore,
                                   const std::vector<PointJointConstraint>& constraints,
                                   const std::vector<uint8_t>& sleepState,

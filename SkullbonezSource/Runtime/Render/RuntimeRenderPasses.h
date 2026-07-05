@@ -10,7 +10,7 @@ Mental model:
 
 Glossary:
   Pass: Ordered unit of frame rendering owned by RuntimeRenderer.
-  Frame context: Per-frame camera, projection, lighting, water, and model
+  Frame context: Per-frame camera, projection, lighting, water, and store-backed
   render inputs shared by passes.
   Resource context: Creation/rebuild-only render factory bundle used by
   EnsureGpuResources methods, not by draw methods.
@@ -43,10 +43,14 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
+namespace Physics
 {
-class GameModelCollection;
-}
+class ColliderStore;
+class PhysicsEngine;
+class PhysicsBodyStore;
+struct PhysicsDebugContact;
+struct PhysicsPipelineRecord;
+} // namespace Physics
 
 namespace Rendering
 {
@@ -54,8 +58,15 @@ class IRenderCommandContext;
 class IRenderDiagnostics;
 class IRenderRayTracing;
 class IRenderResourceFactory;
+class RenderInstanceStore;
+struct RenderInstancePresentationRecord;
 struct RenderGraphTextureBinding;
 } // namespace Rendering
+
+namespace Threading
+{
+class WorkerPool;
+}
 
 namespace Assets
 {
@@ -70,6 +81,7 @@ struct UIRenderContext;
 namespace Basics
 {
 class RuntimeRenderHost;
+struct RuntimeRenderModelFrameView;
 struct RenderHelperContext;
 
 // Concept: these private pass contracts are the extraction boundary.
@@ -117,10 +129,27 @@ struct RenderFrameContext
     bool cinematicEnabled = false;
     const CinematicRenderConfig* cinematic = nullptr;
 
-    // Runtime model collection still owns the legacy render projection. Passes
-    // borrow it for this frame only while RenderInstanceStore becomes the
-    // production renderer input.
-    GameObjects::GameModelCollection* models = nullptr;
+    // Store-backed render inputs prepared once before the pass chain. Object,
+    // shadow, and reflection passes must consume these instead of reopening the
+    // scene/model collection.
+    const Rendering::RenderInstanceStore* renderInstances = nullptr;
+    const Physics::ColliderStore* colliders = nullptr;
+    const Physics::PhysicsBodyStore* bodyStore = nullptr;
+    Physics::PhysicsEngine* physicsEngine = nullptr;
+    const std::vector<Rendering::RenderInstancePresentationRecord>* presentationRecords = nullptr;
+    const std::vector<uint8_t>* collisionVisualContacts = nullptr;
+    const std::vector<uint8_t>* sleepStates = nullptr;
+    const std::vector<int>* sleepIslandVisualIds = nullptr;
+    const std::vector<uint8_t>* sleepSupportedStates = nullptr;
+    const std::vector<uint8_t>* sleepInhibitedStates = nullptr;
+    const std::vector<Physics::PhysicsDebugContact>* physicsDebugContacts = nullptr;
+    const std::vector<Physics::PhysicsPipelineRecord>* physicsPipelineTrace = nullptr;
+    Threading::WorkerPool* renderWorkerPool = nullptr;
+    int modelCount = 0;
+    bool renderCollisionVolumes = false;
+    bool shadowParallelPrep = false;
+    double sceneKineticEnergy = 0.0;
+    float tornadoElapsedSeconds = 0.0f;
 
     // Lifetime: borrowed from RuntimeRenderInputs for this frame only. It is
     // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
@@ -228,6 +257,7 @@ struct UiTextPassInputs
     // so it borrows only the narrow render facets sampled by overlays.
     Rendering::IRenderDiagnostics& renderDiagnostics;
     const UI::UIRenderContext& uiRender;
+    const RuntimeRenderModelFrameView& models;
     Rendering::IRenderRayTracing* renderRayTracing;
     double secondsPerFrame = 0.0;
 };
@@ -372,7 +402,9 @@ class ShadowPass
     Rendering::ShadowFrameData BuildObjectFrameData( const CinematicRenderConfig& cinematic,
                                                      const Math::Vector::Vector3& lightDirectionWorld,
                                                      const Math::Vector::Vector3& focusHint,
-                                                     GameObjects::GameModelCollection& models );
+                                                     const Rendering::RenderInstanceStore& renderInstances,
+                                                     Threading::WorkerPool* renderWorkerPool,
+                                                     bool shadowParallelPrep );
     void RenderShadowMap( Rendering::IFramebuffer& target,
                           const RenderHelperContext& helperContext,
                           const Rendering::ShadowFrameData& shadowFrame,
@@ -380,7 +412,10 @@ class ShadowPass
                           Rendering::IRenderCommandContext& renderCommands,
                           bool renderTerrain,
                           bool renderObjects,
-                          GameObjects::GameModelCollection& models,
+                          const Rendering::RenderInstanceStore& renderInstances,
+                          const Physics::ColliderStore& colliders,
+                          Threading::WorkerPool* renderWorkerPool,
+                          bool shadowParallelPrep,
                           const Rendering::ShadowCasterBatches* objectCasters );
 
     RuntimeRenderHost& m_host;

@@ -26,13 +26,9 @@ Related:
 #pragma once
 
 #include "ReplayRuntime.h"
+#include "../../Rendering/RenderInstanceStore.h"
 
 #include <vector>
-
-namespace SkullbonezCore::GameObjects
-{
-class GameModel;
-}
 
 namespace SkullbonezCore::Rendering
 {
@@ -52,7 +48,7 @@ struct ReplayOverlayRenderContext
     // store it after the draw call returns.
     Rendering::IRenderCommandContext& renderCommands;
     ReplayRuntime& replayRuntime;
-    const std::vector<GameObjects::GameModel>& models;
+    const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords;
     const Physics::PhysicsBodyStore& bodyStore;
     bool editorModeEnabled = false;
     bool uiVisible = false;

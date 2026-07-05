@@ -55,6 +55,19 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
+// Concept: RenderGraph callback payloads are RuntimeRenderer-owned one-frame
+// scratch records. The graph API invokes C-style callbacks, so each payload
+// carries only the pass object and frame/view borrows needed by that pass.
+//
+// Lifetime: payloads are stack objects consumed during the same RenderFrame()
+// call. Never cache these pointers across graph execution or use them as a
+// wider runtime service boundary.
+//
+// Deletion condition: once every pass records through typed graph nodes instead
+// of C-style userData callbacks, these payload structs and callback-owned
+// result flags should disappear together. Checker budget: graph callbacks may
+// borrow frame/view records, but must not reintroduce concrete scene-container
+// access into production render code.
 struct CinematicPostGraphCallbackData
 {
     VolumetricPass* volumetricPass = nullptr;
@@ -145,6 +158,7 @@ struct UiTextGraphCallbackData
     UiTextPass* uiTextPass = nullptr;
     SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
     const SkullbonezCore::UI::UIRenderContext* uiRender = nullptr;
+    const RuntimeRenderModelFrameView* models = nullptr;
     SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = nullptr;
     double secondsPerFrame = 0.0;
 };
@@ -294,12 +308,12 @@ void ExecuteSkyboxGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
 {
     auto* data = static_cast<UiTextGraphCallbackData*>( userData );
-    if ( !data || !data->uiTextPass || !data->renderDiagnostics || !data->uiRender )
+    if ( !data || !data->uiTextPass || !data->renderDiagnostics || !data->uiRender || !data->models )
     {
         throw std::runtime_error( "UiTextPass graph callback missing execution data" );
     }
     data->uiTextPass->Render(
-        { *data->renderDiagnostics, *data->uiRender, data->renderRayTracing, data->secondsPerFrame } );
+        { *data->renderDiagnostics, *data->uiRender, *data->models, data->renderRayTracing, data->secondsPerFrame } );
 }
 
 void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
@@ -364,7 +378,7 @@ void WriteCinematicPostGraphEvidence(
 }
 
 RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
-                                              SkullbonezCore::GameObjects::GameModelCollection& models,
+                                              const RuntimeRenderModelFrameView& models,
                                               SkullbonezCore::Environment::WorldEnvironment& world,
                                               SkullbonezCore::UI::InGameUI& ui,
                                               SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
@@ -990,6 +1004,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
 
 bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
                                                        const UI::UIRenderContext& uiRender,
+                                                       const RuntimeRenderModelFrameView& models,
                                                        Rendering::IRenderRayTracing* renderRayTracing,
                                                        double secondsPerFrame )
 {
@@ -1006,6 +1021,7 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
     callbackData.uiTextPass = &m_uiTextPass;
     callbackData.renderDiagnostics = &renderDiagnostics;
     callbackData.uiRender = &uiRender;
+    callbackData.models = &models;
     callbackData.renderRayTracing = renderRayTracing;
     callbackData.secondsPerFrame = secondsPerFrame;
     graph.SetPassCallback( uiTextPass, ExecuteUiTextGraphCallback, &callbackData, true, "Frame/UI" );
@@ -1029,7 +1045,24 @@ RenderFrameContext RuntimeRenderer::BuildRenderFrameContext( const RuntimeRender
     RenderFrameContext frame;
     frame.cinematicEnabled = cinematicRender;
     frame.cinematic = cinematicRender ? &renderConfig : nullptr;
-    frame.models = &services.models;
+    frame.renderInstances = &services.models.renderInstances;
+    frame.colliders = &services.models.colliders;
+    frame.bodyStore = &services.models.bodyStore;
+    frame.physicsEngine = &services.models.physicsEngine;
+    frame.presentationRecords = &services.models.presentationRecords;
+    frame.collisionVisualContacts = &services.models.collisionVisualContacts;
+    frame.sleepStates = &services.models.sleepStates;
+    frame.sleepIslandVisualIds = &services.models.sleepIslandVisualIds;
+    frame.sleepSupportedStates = &services.models.sleepSupportedStates;
+    frame.sleepInhibitedStates = &services.models.sleepInhibitedStates;
+    frame.physicsDebugContacts = &services.models.physicsDebugContacts;
+    frame.physicsPipelineTrace = &services.models.physicsPipelineTrace;
+    frame.renderWorkerPool = services.models.renderWorkerPool;
+    frame.modelCount = services.models.modelCount;
+    frame.renderCollisionVolumes = services.models.renderCollisionVolumes;
+    frame.shadowParallelPrep = services.models.shadowParallelPrep;
+    frame.sceneKineticEnergy = services.models.sceneKineticEnergy;
+    frame.tornadoElapsedSeconds = services.models.tornadoElapsedSeconds;
     frame.assets = &services.assets;
     frame.renderResources = &services.renderResources;
     frame.renderCommands = &services.renderCommands;
@@ -1147,10 +1180,6 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     // pass can bind targets. All extracted passes consume this same frame view.
     RenderFrameContext frame = BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
 
-    PROFILE_BEGIN( "Frame/Render/PrepareModels" );
-    host.m_cGameModelCollection.PrepareRenderInstances();
-    PROFILE_END( "Frame/Render/PrepareModels" );
-
     // These passes currently borrow subsystem-owned mesh/material resources,
     // but keeping the ensure calls in the frame story gives future extraction
     // work an obvious place to move those GPU resources.
@@ -1184,7 +1213,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
         host.m_debug.isPhysicsDebugTransparent && host.m_debug.physicsDebugAlpha < 1.0f;
     const bool replayPredictionOverlayActive = host.m_replayRuntime.Prediction().enabled;
     const bool replayFocusFadeActive = !replayPredictionOverlayActive && !collisionStateColorsVisible &&
-                                       !debugTransparentBodyPass && host.BuildReplayFocusModelMask();
+                                       !debugTransparentBodyPass && host.BuildReplayFocusModelMask( frame );
     const std::vector<uint8_t>* replayFocusModelMask =
         replayFocusFadeActive ? &host.m_replayRuntime.FocusModelMask() : nullptr;
     const bool transparentBodyPass = debugTransparentBodyPass || replayFocusFadeActive;
@@ -1394,13 +1423,39 @@ void RuntimeRenderer::SetUiTextRayTracingCapability( Rendering::IRenderRayTracin
 
 void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,
                                     const UI::UIRenderContext& uiRender,
+                                    const RuntimeRenderModelFrameView& models,
                                     double dSecondsPerFrame )
 {
-    (void)ExecuteUiTextThroughRenderGraph( renderDiagnostics, uiRender, m_uiTextRayTracing, dSecondsPerFrame );
+    (void)ExecuteUiTextThroughRenderGraph( renderDiagnostics, uiRender, models, m_uiTextRayTracing, dSecondsPerFrame );
 }
 
 
-void Run::Render()
+RuntimeRenderModelFrameView Run::BuildRuntimeRenderModelFrameView()
+{
+    PhysicsEngine& physics = m_cGameModelCollection.GetPhysicsEngine();
+    return RuntimeRenderModelFrameView{ m_cGameModelCollection.RenderInstances(),
+                                        m_cGameModelCollection.Colliders(),
+                                        m_cGameModelCollection.GetPhysicsBodyStore(),
+                                        physics,
+                                        m_cGameModelCollection.RenderPresentationRecords(),
+                                        m_cGameModelCollection.GetCollisionVisualContacts(),
+                                        m_cGameModelCollection.GetSleepStates(),
+                                        m_cGameModelCollection.GetSleepIslandVisualIds(),
+                                        m_cGameModelCollection.GetSleepSupportedStates(),
+                                        m_cGameModelCollection.GetSleepInhibitedStates(),
+                                        m_cGameModelCollection.GetPhysicsDebugContacts(),
+                                        m_cGameModelCollection.GetPhysicsPipelineTrace(),
+                                        m_cGameModelCollection.RenderWorkerPool(),
+                                        m_cGameModelCollection.GetModelCount(),
+                                        m_cGameModelCollection.ShouldRenderCollisionVolumes(),
+                                        m_cGameModelCollection.ShouldUseShadowParallelPrep(),
+                                        m_cGameModelCollection.GetSceneKineticEnergy(),
+                                        m_cGameModelCollection.GetTornadoSystemElapsedSeconds(),
+                                        m_cGameModelCollection.CollectMemoryStats() };
+}
+
+
+void Run::Render( const RuntimeRenderModelFrameView& renderModels )
 {
     m_renderer.SetUiTextRayTracingCapability( nullptr );
 
@@ -1446,26 +1501,20 @@ void Run::Render()
     {
         if ( const RunReplayPredictionFrame* predictionFrame = m_replayRuntime.CurrentPredictionScrubFrame() )
         {
-            m_replayRuntime.ApplyPredictionFrameForRender( m_cGameModelCollection, *predictionFrame );
+            m_replayRuntime.ApplyPredictionFrameForRender( renderModels.physicsEngine, *predictionFrame );
         }
         else if ( const ReplayPresentationSample* replaySample = m_replayRuntime.CurrentScrubSample() )
         {
-            m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, *replaySample );
+            m_replayRuntime.ApplyPresentationSampleForRender( renderModels.physicsEngine, *replaySample );
         }
         else if ( const ReplaySolverFrameSample* solverSample = m_replayRuntime.CurrentSolverScrubSample() )
         {
-            m_replayRuntime.ApplySolverSampleForRender( m_cGameModelCollection, *solverSample );
+            m_replayRuntime.ApplySolverSampleForRender( renderModels.physicsEngine, *solverSample );
             applyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
         }
     };
 
-    const auto restoreReplayRenderStateForFrame = [&]()
-    {
-        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
-        restoreReplayLauncherVisualForRender();
-    };
-
-    applyReplayRenderStateForFrame();
+    const auto restoreReplayRenderStateForFrame = [&]() { restoreReplayLauncherVisualForRender(); };
 
     const bool renderReady = IsGfxReady();
     if ( !renderReady )
@@ -1487,8 +1536,13 @@ void Run::Render()
     SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing =
         IsGfxRayTracingReady() ? &GfxRayTracing() : nullptr;
     m_renderer.SetUiTextRayTracingCapability( renderRayTracing );
+    PROFILE_BEGIN( "Frame/Render/PrepareModels" );
+    m_cGameModelCollection.PrepareRenderInstances();
+    PROFILE_END( "Frame/Render/PrepareModels" );
+    applyReplayRenderStateForFrame();
+
     m_renderer.RenderFrame( BuildRuntimeRenderInputs( m_systems,
-                                                      m_cGameModelCollection,
+                                                      renderModels,
                                                       m_cWorldEnvironment,
                                                       m_UI,
                                                       renderCommands,

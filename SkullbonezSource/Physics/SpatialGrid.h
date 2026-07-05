@@ -85,7 +85,7 @@ class SpatialGrid
 
     struct Entry
     {
-        int objectIndex;     // GameModel index stored in one occupied grid cell.
+        int objectIndex;     // Scene/model slot stored in one occupied grid cell.
         int next;            // Linked-list index into entries[], -1 = end of list.
     };
 

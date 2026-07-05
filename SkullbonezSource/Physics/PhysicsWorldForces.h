@@ -6,8 +6,7 @@ Purpose:
 Mental model:
   WorldEnvironment owns live gravity and fluid settings. Physics receives this
   value snapshot for one deterministic tick so body, collider, and solver code
-  can move off GameModel-owned world pointers without reaching back into runtime
-  scene services.
+  can avoid borrowing runtime scene services.
 
 Glossary:
   Fluid surface: World-space Y plane where the fluid medium begins.

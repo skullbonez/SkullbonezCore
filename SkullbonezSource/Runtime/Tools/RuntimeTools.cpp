@@ -410,7 +410,6 @@ bool RuntimeTools::TryBuildLauncherCameraRay( Environment::CameraCollection* cam
 
 bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection,
                                     RunSceneState& scene,
-                                    Environment::WorldEnvironment& world,
                                     Geometry::Terrain* terrain,
                                     int activeModelCapacity,
                                     const Math::Vector::Vector3& rayOrigin,
@@ -421,7 +420,6 @@ bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection
     {
         return FireLauncherProjectile( collection,
                                        scene,
-                                       world,
                                        terrain,
                                        activeModelCapacity,
                                        rayOrigin,
@@ -494,7 +492,6 @@ void RuntimeTools::FireLauncherLaser( GameObjects::GameModelCollection& collecti
 
 bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& collection,
                                            RunSceneState& scene,
-                                           Environment::WorldEnvironment& world,
                                            Geometry::Terrain* terrain,
                                            int activeModelCapacity,
                                            const Math::Vector::Vector3& rayOrigin,
@@ -548,25 +545,29 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
     }
 
     const float moment = 0.4f * LAUNCHER_PROJECTILE_MASS * LAUNCHER_PROJECTILE_RADIUS * LAUNCHER_PROJECTILE_RADIUS;
-    GameObjects::GameModel projectile( &world,
-                                       spawn,
-                                       Math::Vector::Vector3( moment, moment, moment ),
-                                       LAUNCHER_PROJECTILE_MASS );
-    projectile.SetTerrain( terrain );
-    projectile.SetCoefficientRestitution( LAUNCHER_PROJECTILE_RESTITUTION );
-    projectile.AddBoundingSphere( LAUNCHER_PROJECTILE_RADIUS );
-    projectile.SetLinearVelocity( velocityDir * m_rayCastTest.projectileSpeed );
+    GameObjects::GameModel projectile;
     projectile.SetRenderTint( 0.72f, 0.88f, 1.0f, 1.0f );
     projectile.SetName( "launcher_projectile" );
 
+    const Math::CollisionDetection::BoundingSphere projectileShape( LAUNCHER_PROJECTILE_RADIUS,
+                                                                    Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
+    const Physics::PhysicsSceneObjectId sceneObjectId = scene.AllocateSceneObjectId();
     const Physics::PhysicsBodyHandle projectileBody = collection.AddGameModel(
         std::move( projectile ),
-        Physics::MakeColliderCreateDesc(
-            Math::CollisionDetection::BoundingSphere( LAUNCHER_PROJECTILE_RADIUS,
-                                                      Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) ),
-            LAUNCHER_PROJECTILE_RESTITUTION,
-            HashStr( "default" ) ),
-        scene.AllocateSceneObjectId() );
+        Physics::MakePhysicsBodyCreateDesc( sceneObjectId,
+                                            projectileShape,
+                                            spawn,
+                                            Math::Orientation::IDENTITY_QUATERNION,
+                                            velocityDir * m_rayCastTest.projectileSpeed,
+                                            Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
+                                            Math::Vector::Vector3( moment, moment, moment ),
+                                            LAUNCHER_PROJECTILE_MASS,
+                                            LAUNCHER_PROJECTILE_RESTITUTION,
+                                            Physics::PhysicsBodyMotionKind::Dynamic,
+                                            terrain,
+                                            "launcher_projectile" ),
+        Physics::MakeColliderCreateDesc( projectileShape, LAUNCHER_PROJECTILE_RESTITUTION, HashStr( "default" ) ),
+        sceneObjectId );
     if ( projectileBody.IsValid() )
     {
         collection.GetPhysicsEngine().WakeBody( projectileBody );

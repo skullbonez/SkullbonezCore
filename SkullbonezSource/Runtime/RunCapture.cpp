@@ -26,6 +26,7 @@ Related:
 */
 #include "CaptureSystem.h"
 #include "RunInternal.h"
+#include "Allocation/RuntimeAllocationTracker.h"
 #include "../Rendering/IRenderCaptureBackend.h"
 
 #include <cstdio>
@@ -36,9 +37,11 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
+namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 void Run::SaveScreenshot( const char* path )
 {
+    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Capture );
     // Why: screenshot save only needs readback capability, so keep the call on
     // the narrow capture facade instead of handing CaptureController Gfx().
     CaptureController::SaveBackbufferBmp( SkullbonezCore::Rendering::GfxCapture(), path );

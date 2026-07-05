@@ -92,6 +92,12 @@
     <Filter Include="Header Files\Runtime">
       <UniqueIdentifier>{31639C9E-0BD5-779D-C281-0DEC18B44398}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Allocation">
+      <UniqueIdentifier>{6579C1A7-27A1-4F1F-9F07-8E26B0BC8F3E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Allocation">
+      <UniqueIdentifier>{9E0B1E54-2AA1-4C1C-8E4E-3C2E02E19A67}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Scene">
       <UniqueIdentifier>{BF05E1B9-F880-D20B-B7B9-EC287DBB27DC}</UniqueIdentifier>
     </Filter>
@@ -298,7 +304,7 @@
     <ClCompile Include="SkullbonezSource\Maths\Quaternion.cpp">
       <Filter>Source Files\Maths</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Physics\RigidBody.cpp">
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsObjectPolicy.cpp">
       <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Maths\RotationMatrix.cpp">
@@ -496,6 +502,9 @@
     <ClCompile Include="SkullbonezSource\Physics\Debug\BroadphaseVisualizer.cpp">
       <Filter>Source Files\Physics\Debug</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp">
+      <Filter>Source Files\Runtime\Allocation</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp">
       <Filter>Source Files\Runtime</Filter>
     </ClCompile>
@@ -686,9 +695,6 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsModelAccess.h">
-      <Filter>Header Files\Physics</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsObjectPolicy.h">
       <Filter>Header Files\Physics</Filter>
     </ClInclude>
@@ -769,9 +775,6 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Maths\Quaternion.h">
       <Filter>Header Files\Maths</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Physics\RigidBody.h">
-      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Maths\RotationMatrix.h">
       <Filter>Header Files\Maths</Filter>
@@ -1054,6 +1057,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Debug\BroadphaseVisualizer.h">
       <Filter>Header Files\Physics\Debug</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.h">
+      <Filter>Header Files\Runtime\Allocation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\CaptureController.h">
       <Filter>Header Files\Runtime</Filter>

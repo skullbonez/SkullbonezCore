@@ -78,7 +78,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     m_host.m_timers.timeSinceLastRender += static_cast<float>( m_host.m_timers.updateTimer.GetElapsedTime() );
     m_host.m_timers.updateTimer.StartTimer();
 
-    const double currentSceneEnergy = m_host.m_cGameModelCollection.GetSceneKineticEnergy();
+    const double currentSceneEnergy = inputs.models.sceneKineticEnergy;
     m_host.m_timers.sceneEnergyAccumulator += currentSceneEnergy;
     ++m_host.m_timers.sceneEnergySampleCount;
 
@@ -538,7 +538,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.now = m_host.m_timers.simulationTimer.GetTotalTime();
         if ( m_host.m_UI.GetActiveTab() == InGameUITab::Profiler )
         {
-            UIData.mainMemory = m_host.RefreshMainMemoryStats( UIData.now );
+            UIData.mainMemory = m_host.RefreshMainMemoryStats( UIData.now, inputs.models.gameObjectMemory );
         }
         UIData.sceneMode = view.sceneMode;
         UIData.scenePhysicsEnabled = view.scenePhysics;
@@ -796,7 +796,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         PROFILE_END( "Frame/UI/PostFlushText" );
         if ( m_host.m_UI.IsVisible() )
         {
-            m_host.RenderReplayScrubberOverlay( inputs.uiRender );
+            m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
             return;
         }
     }
@@ -804,7 +804,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     // --- Overlay: None ---
     if ( m_host.m_debug.overlayMode == OverlayMode::None )
     {
-        m_host.RenderReplayScrubberOverlay( inputs.uiRender );
+        m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
         {
             DRAW_CALL_TRACE_SCOPE( "HUD" );
             Text2d::FlushText( renderCommands );
@@ -850,7 +850,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                                    0.85f,
                                    "Scene Energy: %.6f",
                                    sceneEnergyForDisplay );
-        m_host.RenderReplayScrubberOverlay( inputs.uiRender );
+        m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
         {
             DRAW_CALL_TRACE_SCOPE( "SceneStats" );
             Text2d::FlushText( renderCommands );
@@ -871,7 +871,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
         const bool absolute = ( m_host.m_debug.overlayMode == OverlayMode::BarsAbsolute );
         profiler.RenderBarOverlay( renderCommands, panX, panY, panW, panH, absolute );
-        m_host.RenderReplayScrubberOverlay( inputs.uiRender );
+        m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
         {
             DRAW_CALL_TRACE_SCOPE( "ProfilerBars" );
             Text2d::FlushText( renderCommands );
@@ -961,7 +961,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             Text2d::Render2dTextColor( col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
         }
 
-        m_host.RenderReplayScrubberOverlay( inputs.uiRender );
+        m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
         {
             DRAW_CALL_TRACE_SCOPE( "Keys" );
             Text2d::FlushText( renderCommands );
@@ -987,7 +987,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     }
 #endif
 
-    m_host.RenderReplayScrubberOverlay( inputs.uiRender );
+    m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
     {
         DRAW_CALL_TRACE_SCOPE( "ProfilerOverlay" );
         Text2d::FlushText( renderCommands );

@@ -146,6 +146,7 @@
     <ClCompile Include="SkullbonezSource\Physics\ColliderStore.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\ConvexHullShape.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Debug\BroadphaseVisualizer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp" />
@@ -165,6 +166,7 @@
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsEngine.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\PhysicsObjectPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsScene.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsWorld.cpp" />
@@ -212,7 +214,6 @@
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Log.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\Quaternion.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\RigidBody.cpp" />
     <ClCompile Include="SkullbonezSource\Maths\RotationMatrix.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunCapture.cpp" />
@@ -302,6 +303,7 @@
     <ClInclude Include="SkullbonezSource\Physics\ColliderStore.h" />
     <ClInclude Include="SkullbonezSource\Physics\ConvexHullShape.h" />
     <ClInclude Include="SkullbonezSource\Physics\Debug\BroadphaseVisualizer.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CaptureController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CaptureSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Camera.h" />
@@ -338,7 +340,6 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsModelAccess.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsObjectPolicy.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorldForces.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h" />
@@ -358,7 +359,6 @@
     <ClInclude Include="SkullbonezSource\Core\Log.h" />
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveMeshBuilder.h" />
     <ClInclude Include="SkullbonezSource\Maths\Quaternion.h" />
-    <ClInclude Include="SkullbonezSource\Physics\RigidBody.h" />
     <ClInclude Include="SkullbonezSource\Maths\RotationMatrix.h" />
     <ClInclude Include="SkullbonezSource\Core\Config.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Run.h" />

@@ -58,6 +58,10 @@ class DiagnosticsRuntime
                                                    const GameObjects::GameModelCollection& models,
                                                    double nowSeconds,
                                                    bool force );
+    const MainMemoryStats& RefreshMainMemoryStats( const ReplayRuntime& replay,
+                                                   const MainMemoryGameObjectStats& gameObjects,
+                                                   double nowSeconds,
+                                                   bool force );
     const MainMemoryStats& MainMemoryStatsSnapshot() const;
     void SetMainMemoryDumpPath( const char* path );
     const char* MainMemoryDumpPath() const;

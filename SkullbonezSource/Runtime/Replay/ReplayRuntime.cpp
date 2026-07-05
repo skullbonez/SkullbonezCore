@@ -37,10 +37,9 @@ Related:
 #include "ReplayExporter.h"
 #include "ReplayOverlayLayout.h"
 #include "ReplayV2Artifact.h"
-#include "../../GameObjects/GameModel.h"
-#include "../../GameObjects/GameModelCollection.h"
 #include "../../Core/Profiler.h"
 #include "../../Physics/ColliderStore.h"
+#include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsBodyStore.h"
 
 #include <algorithm>
@@ -66,7 +65,6 @@ constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
 constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
 
-using GameObjects::GameModel;
 using Math::Vector::Vector3;
 using Math::Vector::VectorMagSquared;
 using Physics::ColliderRecord;
@@ -261,11 +259,17 @@ uint64_t PredictionFrameMemoryBytes( const RunReplayPredictionFrame& frame )
     return VectorCapacityBytes( frame.bodies ) + VectorCapacityBytes( frame.debugContacts );
 }
 
-bool ReplayRuntimeModelIsRagdollPart( const GameObjects::GameModelCollection& collection, int modelIndex )
+bool ReplayRuntimeModelIsRagdollPart(
+    const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
+    int modelIndex )
 {
     // SimpleRagdoll children share replay visuals with their collection root.
     // This helper keeps that policy local to replay loading/restoration paths.
-    return collection.IsSimpleRagdollPart( modelIndex );
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
+    {
+        return false;
+    }
+    return presentationRecords[static_cast<std::size_t>( modelIndex )].simpleRagdollPart;
 }
 
 
@@ -305,6 +309,16 @@ const PhysicsBodyRecord* ReplayRuntimeBodyRecordForModelIndex( const PhysicsBody
         return nullptr;
     }
     return record;
+}
+
+
+bool ReplayRuntimeQueueRenderPoseOverride( Physics::PhysicsEngine& physicsEngine,
+                                           int modelIndex,
+                                           uint32_t replayBodyId,
+                                           const Vector3& position,
+                                           const Math::Orientation::Quaternion& orientation )
+{
+    return physicsEngine.OverrideRenderInstancePose( modelIndex, replayBodyId, position, orientation );
 }
 
 
@@ -1060,14 +1074,14 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
 // Concept: render replay poses are temporary render-instance overrides.
 //
 // Scrubbing should affect only the pixels drawn for this frame. The helpers
-// below queue replay or prediction poses for the next render-instance refresh;
-// live GameModel body mirrors are not mutated and therefore need no restore.
-bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
+// below apply replay or prediction poses to a freshly prepared render-instance
+// snapshot; live physics rows and authored presentation metadata are not
+// mutated and therefore need no restore.
+bool ReplayRuntime::ApplyPresentationSampleForRender( Physics::PhysicsEngine& physicsEngine,
                                                       const ReplayPresentationSample& sample )
 {
-    const int modelCount = collection.GetModelCount();
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
-    collection.ClearReplayRenderPoseOverrides();
+    const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
+    const int modelCount = physicsEngine.RenderInstances().Count();
     std::vector<uint8_t> bodyMatched( static_cast<std::size_t>( modelCount ), 0 );
     bool queuedAny = false;
 
@@ -1084,10 +1098,11 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
                                                    body.orientation[2],
                                                    body.orientation[3] );
         orientation.Normalise();
-        if ( collection.TryQueueReplayRenderPoseOverride( resolvedModelIndex,
-                                                          body.id.value,
-                                                          body.position,
-                                                          orientation ) )
+        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+                                                   resolvedModelIndex,
+                                                   body.id.value,
+                                                   body.position,
+                                                   orientation ) )
         {
             bodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
             queuedAny = true;
@@ -1112,10 +1127,11 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
         // Why: loaded artifacts may not contain every live body. Move unmatched
         // bodies out of view instead of letting unrelated live geometry appear
         // inside the scrubbed replay frame.
-        if ( collection.TryQueueReplayRenderPoseOverride( i,
-                                                          bodyRecord->replayBodyId,
-                                                          hiddenReplayPosition,
-                                                          Math::Orientation::IDENTITY_QUATERNION ) )
+        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+                                                   i,
+                                                   bodyRecord->replayBodyId,
+                                                   hiddenReplayPosition,
+                                                   Math::Orientation::IDENTITY_QUATERNION ) )
         {
             queuedAny = true;
         }
@@ -1123,12 +1139,11 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
     return queuedAny;
 }
 
-bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection& collection,
+bool ReplayRuntime::ApplySolverSampleForRender( Physics::PhysicsEngine& physicsEngine,
                                                 const ReplaySolverFrameSample& sample )
 {
-    const int modelCount = collection.GetModelCount();
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
-    collection.ClearReplayRenderPoseOverrides();
+    const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
+    const int modelCount = physicsEngine.RenderInstances().Count();
     std::vector<uint8_t> bodyMatched( static_cast<std::size_t>( modelCount ), 0 );
     bool queuedAny = false;
 
@@ -1145,10 +1160,11 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
                                                    body.orientation[2],
                                                    body.orientation[3] );
         orientation.Normalise();
-        if ( collection.TryQueueReplayRenderPoseOverride( resolvedModelIndex,
-                                                          body.id.value,
-                                                          body.position,
-                                                          orientation ) )
+        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+                                                   resolvedModelIndex,
+                                                   body.id.value,
+                                                   body.position,
+                                                   orientation ) )
         {
             bodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
             queuedAny = true;
@@ -1170,10 +1186,11 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
             continue;
         }
 
-        if ( collection.TryQueueReplayRenderPoseOverride( i,
-                                                          bodyRecord->replayBodyId,
-                                                          hiddenReplayPosition,
-                                                          Math::Orientation::IDENTITY_QUATERNION ) )
+        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+                                                   i,
+                                                   bodyRecord->replayBodyId,
+                                                   hiddenReplayPosition,
+                                                   Math::Orientation::IDENTITY_QUATERNION ) )
         {
             queuedAny = true;
         }
@@ -1181,12 +1198,11 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
     return queuedAny;
 }
 
-bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollection& collection,
+bool ReplayRuntime::ApplyPredictionFrameForRender( Physics::PhysicsEngine& physicsEngine,
                                                    const RunReplayPredictionFrame& frame )
 {
-    const int modelCount = collection.GetModelCount();
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
-    collection.ClearReplayRenderPoseOverrides();
+    const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
+    const int modelCount = physicsEngine.RenderInstances().Count();
     std::vector<uint8_t> bodyMatched( static_cast<std::size_t>( modelCount ), 0 );
     bool queuedAny = false;
 
@@ -1200,10 +1216,11 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollect
 
         Math::Orientation::Quaternion orientation = body.orientation;
         orientation.Normalise();
-        if ( collection.TryQueueReplayRenderPoseOverride( resolvedModelIndex,
-                                                          body.id.value,
-                                                          body.position,
-                                                          orientation ) )
+        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+                                                   resolvedModelIndex,
+                                                   body.id.value,
+                                                   body.position,
+                                                   orientation ) )
         {
             bodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
             queuedAny = true;
@@ -1225,25 +1242,17 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollect
             continue;
         }
 
-        if ( collection.TryQueueReplayRenderPoseOverride( i,
-                                                          bodyRecord->replayBodyId,
-                                                          hiddenReplayPosition,
-                                                          Math::Orientation::IDENTITY_QUATERNION ) )
+        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+                                                   i,
+                                                   bodyRecord->replayBodyId,
+                                                   hiddenReplayPosition,
+                                                   Math::Orientation::IDENTITY_QUATERNION ) )
         {
             queuedAny = true;
         }
     }
     return queuedAny;
 }
-
-void ReplayRuntime::ClearRenderPoseOverrides( GameObjects::GameModelCollection& collection )
-{
-    // Lifetime: queued overrides are single-frame render state. They are usually
-    // consumed by GameModelCollection::PrepareRenderInstances(); early render
-    // exits clear them here so stale replay poses cannot leak into a later frame.
-    collection.ClearReplayRenderPoseOverrides();
-}
-
 
 bool ReplayRuntime::HasLoadedPresentation() const
 {
@@ -1449,8 +1458,9 @@ PhysicsBodyHandle ReplayRuntime::ResolveVelocityEditBodyHandle( const PhysicsBod
 }
 
 
-bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models,
-                                        const PhysicsBodyStore& bodyStore )
+bool ReplayRuntime::BuildCauseTreeRows(
+    const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
+    const PhysicsBodyStore& bodyStore )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/BuildRows" );
     m_causeTree.rows.clear();
@@ -1528,9 +1538,9 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
             strncpy_s( out, outSize, fallback, _TRUNCATE );
             return;
         }
-        if ( modelIndex >= 0 && modelIndex < static_cast<int>( models.size() ) )
+        if ( modelIndex >= 0 && modelIndex < static_cast<int>( presentationRecords.size() ) )
         {
-            const char* modelName = models[static_cast<std::size_t>( modelIndex )].GetName();
+            const char* modelName = presentationRecords[static_cast<std::size_t>( modelIndex )].displayName;
             if ( modelName && modelName[0] != '\0' )
             {
                 strncpy_s( out, outSize, modelName, _TRUNCATE );
@@ -1866,11 +1876,11 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
 }
 
 
-bool ReplayRuntime::BuildPredictionGhostDrawRequests( const GameObjects::GameModelCollection& collection,
-                                                      const PhysicsBodyStore& bodyStore )
+bool ReplayRuntime::BuildPredictionGhostDrawRequests(
+    const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
+    const PhysicsBodyStore& bodyStore )
 {
     m_predictionGhostDrawRequests.clear();
-    const std::vector<GameObjects::GameModel>& models = collection.Models();
     const std::vector<RunReplayPredictionFrame>& frames = ActivePredictionFrames();
     if ( !m_prediction.enabled || !m_prediction.ragdollVisualsEnabled || frames.size() < 2 )
     {
@@ -1878,9 +1888,9 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests( const GameObjects::GameMod
     }
 
     bool hasRagdollPart = false;
-    for ( int i = 0; i < collection.GetModelCount(); ++i )
+    for ( int i = 0; i < static_cast<int>( presentationRecords.size() ); ++i )
     {
-        if ( ReplayRuntimeModelIsRagdollPart( collection, i ) )
+        if ( ReplayRuntimeModelIsRagdollPart( presentationRecords, i ) )
         {
             hasRagdollPart = true;
             break;
@@ -1900,7 +1910,7 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests( const GameObjects::GameMod
     // render. Sample at a bounded stride so ragdoll prediction stays readable
     // and cheap even when the future buffer contains many physics frames.
     m_predictionGhostDrawRequests.reserve( (std::min)( frames.size(), REPLAY_PREDICTION_GHOST_MAX_FRAMES + 1 ) *
-                                           models.size() );
+                                           presentationRecords.size() );
 
     auto appendGhostFrame = [&]( std::size_t index )
     {
@@ -1924,13 +1934,13 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests( const GameObjects::GameMod
             if ( !ReplayRuntimeResolveReplayBody( bodyStore,
                                                   body.id,
                                                   body.modelIndex,
-                                                  static_cast<int>( models.size() ),
+                                                  static_cast<int>( presentationRecords.size() ),
                                                   resolvedModelIndex ) )
             {
                 continue;
             }
 
-            if ( !ReplayRuntimeModelIsRagdollPart( collection, resolvedModelIndex ) )
+            if ( !ReplayRuntimeModelIsRagdollPart( presentationRecords, resolvedModelIndex ) )
             {
                 continue;
             }

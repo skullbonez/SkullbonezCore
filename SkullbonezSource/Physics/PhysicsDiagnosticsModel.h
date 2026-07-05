@@ -5,7 +5,7 @@ Purpose:
 
 Mental model:
   SkullScope and Debug CSV output need stable per-body names, motion values, and
-  shape metadata, but diagnostics must not borrow the mutable GameModel range.
+  shape metadata, but diagnostics must not borrow mutable authoring storage.
   This record is a one-frame serialization DTO, not physics storage authority.
 
 Glossary:
@@ -40,7 +40,7 @@ class PhysicsBodyStore;
 
 // Cold presentation names for diagnostics rows. The table is supplied by the
 // scene/model edge; diagnostics treats missing names as empty and never indexes
-// a GameModel range.
+// authoring storage for physics state.
 struct PhysicsDiagnosticsNameView
 {
     const char* const* names = nullptr;

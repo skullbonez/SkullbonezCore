@@ -55,7 +55,10 @@ using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::MakeColliderCreateDesc;
+using SkullbonezCore::Physics::MakePhysicsBodyCreateDesc;
+using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 
 int NextSceneRand( unsigned int& state )
@@ -69,7 +72,7 @@ int NextSceneRand( unsigned int& state )
 PhysicsColliderCreateDesc MakeGeneratedColliderDesc( CollisionShape shape, float restitution )
 {
     // Why: generated setup already owns the exact shape parameters at spawn
-    // time. Passing this value into physics avoids a cold GameModel collider
+    // time. Passing this value into physics avoids cold model-side collider
     // recapture and keeps store rows descriptor-owned.
     return MakeColliderCreateDesc( std::move( shape ), restitution, HashStr( "default" ) );
 }
@@ -82,6 +85,27 @@ PhysicsColliderCreateDesc MakeGeneratedSphereColliderDesc( float radius, float r
 PhysicsColliderCreateDesc MakeGeneratedBoxColliderDesc( const Vector3& halfExtents, float restitution )
 {
     return MakeGeneratedColliderDesc( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ), restitution );
+}
+
+PhysicsBodyCreateDesc MakeGeneratedBodyDesc( Physics::PhysicsSceneObjectId sceneObjectId,
+                                             const CollisionShape& shape,
+                                             const Vector3& position,
+                                             const Vector3& rotationalInertia,
+                                             float mass,
+                                             float restitution,
+                                             Geometry::Terrain* terrain )
+{
+    return MakePhysicsBodyCreateDesc( sceneObjectId,
+                                      shape,
+                                      position,
+                                      Math::Orientation::IDENTITY_QUATERNION,
+                                      Vector3( 0.0f, 0.0f, 0.0f ),
+                                      Vector3( 0.0f, 0.0f, 0.0f ),
+                                      rotationalInertia,
+                                      mass,
+                                      restitution,
+                                      PhysicsBodyMotionKind::Dynamic,
+                                      terrain );
 }
 } // namespace
 
@@ -172,15 +196,21 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
             float m3 = mass / 3.0f;
             Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
 
-            GameObjects::GameModel gameModel( &context.world, Vector3( posX, posY, posZ ), inertia, mass );
-            gameModel.SetCoefficientRestitution( restitution );
-            gameModel.SetTerrain( context.terrain );
-            gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
+            GameObjects::GameModel gameModel;
 
+            const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
+            const BoundingBox shape( Vector3( hx, hy, hz ), Vector3( 0.0f, 0.0f, 0.0f ) );
             const PhysicsBodyHandle body =
                 context.models.AddGameModel( std::move( gameModel ),
-                                             MakeGeneratedBoxColliderDesc( Vector3( hx, hy, hz ), restitution ),
-                                             context.scene.AllocateSceneObjectId() );
+                                             MakeGeneratedBodyDesc( sceneObjectId,
+                                                                    shape,
+                                                                    Vector3( posX, posY, posZ ),
+                                                                    inertia,
+                                                                    mass,
+                                                                    restitution,
+                                                                    context.terrain ),
+                                             MakeGeneratedColliderDesc( shape, restitution ),
+                                             sceneObjectId );
             context.physics.SetPendingBodyImpulse( body, force, forcePos );
         }
         else
@@ -189,18 +219,21 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
             float radius =
                 ( 1.0f + static_cast<float>( NextSceneRand( context.scene.rngState ) % cfg.ballRadiusRange ) ) * 0.5f;
 
-            GameObjects::GameModel gameModel( &context.world,
-                                              Vector3( posX, posY, posZ ),
-                                              Vector3( moment, moment, moment ),
-                                              mass );
-            gameModel.SetCoefficientRestitution( restitution );
-            gameModel.SetTerrain( context.terrain );
-            gameModel.AddBoundingSphere( radius );
+            GameObjects::GameModel gameModel;
 
+            const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
+            const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
             const PhysicsBodyHandle body =
                 context.models.AddGameModel( std::move( gameModel ),
-                                             MakeGeneratedSphereColliderDesc( radius, restitution ),
-                                             context.scene.AllocateSceneObjectId() );
+                                             MakeGeneratedBodyDesc( sceneObjectId,
+                                                                    shape,
+                                                                    Vector3( posX, posY, posZ ),
+                                                                    Vector3( moment, moment, moment ),
+                                                                    mass,
+                                                                    restitution,
+                                                                    context.terrain ),
+                                             MakeGeneratedColliderDesc( shape, restitution ),
+                                             sceneObjectId );
             context.physics.SetPendingBodyImpulse( body, force, forcePos );
         }
     }
@@ -255,17 +288,20 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
                        randSigned( cfg.ballForceRange ) );
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
-        GameObjects::GameModel gameModel( &context.world,
-                                          Vector3( posX, posY, posZ ),
-                                          Vector3( moment, moment, moment ),
-                                          mass );
-        gameModel.SetCoefficientRestitution( restitution );
-        gameModel.SetTerrain( context.terrain );
-        gameModel.AddBoundingSphere( radius );
+        GameObjects::GameModel gameModel;
+        const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
+        const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
         const PhysicsBodyHandle body =
             context.models.AddGameModel( std::move( gameModel ),
-                                         MakeGeneratedSphereColliderDesc( radius, restitution ),
-                                         context.scene.AllocateSceneObjectId() );
+                                         MakeGeneratedBodyDesc( sceneObjectId,
+                                                                shape,
+                                                                Vector3( posX, posY, posZ ),
+                                                                Vector3( moment, moment, moment ),
+                                                                mass,
+                                                                restitution,
+                                                                context.terrain ),
+                                         MakeGeneratedColliderDesc( shape, restitution ),
+                                         sceneObjectId );
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
     }
 
@@ -297,14 +333,19 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         float m3 = mass / 3.0f;
         Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
 
-        GameObjects::GameModel gameModel( &context.world, Vector3( posX, posY, posZ ), inertia, mass );
-        gameModel.SetCoefficientRestitution( restitution );
-        gameModel.SetTerrain( context.terrain );
-        gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
-        const PhysicsBodyHandle body =
-            context.models.AddGameModel( std::move( gameModel ),
-                                         MakeGeneratedBoxColliderDesc( Vector3( hx, hy, hz ), restitution ),
-                                         context.scene.AllocateSceneObjectId() );
+        GameObjects::GameModel gameModel;
+        const Physics::PhysicsSceneObjectId sceneObjectId = context.scene.AllocateSceneObjectId();
+        const BoundingBox shape( Vector3( hx, hy, hz ), Vector3( 0.0f, 0.0f, 0.0f ) );
+        const PhysicsBodyHandle body = context.models.AddGameModel( std::move( gameModel ),
+                                                                    MakeGeneratedBodyDesc( sceneObjectId,
+                                                                                           shape,
+                                                                                           Vector3( posX, posY, posZ ),
+                                                                                           inertia,
+                                                                                           mass,
+                                                                                           restitution,
+                                                                                           context.terrain ),
+                                                                    MakeGeneratedColliderDesc( shape, restitution ),
+                                                                    sceneObjectId );
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
     }
 

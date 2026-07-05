@@ -14,8 +14,8 @@ Glossary:
   Fixed-tree release: Store-owned command that turns authored fixed props into
     dynamic bodies and wakes same-tree parts after an accepted impulse.
   Physics material: Runtime policy for collider friction and sphere drag.
-  Store refresh: Deterministic copy between compatibility model-view state and
-  physics-owned body/collider/render stores.
+  Descriptor refresh: Deterministic copy from cold authoring values into
+    physics-owned body/collider/render stores.
   Replay restore: Replacement of live solver state from a saved replay sample.
 
 Invariants:
@@ -30,6 +30,7 @@ Related:
 
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
@@ -38,7 +39,6 @@ using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsMaterial;
-using SkullbonezCore::Physics::PhysicsModelAccess;
 
 
 void PhysicsEngine::ApplyRuntimeConfig( const Basics::EngineConfig& config )
@@ -59,21 +59,23 @@ void PhysicsEngine::Clear()
 }
 
 
-void PhysicsEngine::RefreshBodyStore( PhysicsModelAccess& modelAccess )
+void PhysicsEngine::RefreshBodyStore( const std::vector<PhysicsBodyCreateDesc>& bodyDescs )
 {
-    m_scene.RefreshBodyStore( modelAccess );
+    m_scene.RefreshBodyStore( bodyDescs );
 }
 
 
-void PhysicsEngine::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex, int expectedModelCount )
+void PhysicsEngine::RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc,
+                                               int modelIndex,
+                                               int expectedModelCount )
 {
-    m_scene.RefreshBodyFromModel( modelAccess, modelIndex, expectedModelCount );
+    m_scene.RefreshBodyFromDescriptor( desc, modelIndex, expectedModelCount );
 }
 
 
-PhysicsBodyHandle PhysicsEngine::RegisterAuthoredBody( const PhysicsBodyRecord& record )
+PhysicsBodyHandle PhysicsEngine::RegisterAuthoredBody( const PhysicsBodyCreateDesc& desc )
 {
-    return m_scene.RegisterAuthoredBody( record );
+    return m_scene.RegisterAuthoredBody( desc );
 }
 
 
@@ -139,9 +141,34 @@ bool PhysicsEngine::RefreshColliderSnapshot()
 }
 
 
-bool PhysicsEngine::PrepareRenderStoreRefresh( PhysicsModelAccess& modelAccess, int expectedModelCount )
+bool PhysicsEngine::PrepareRenderStoreRefresh( int expectedModelCount )
 {
-    return m_scene.PrepareRenderStoreRefresh( modelAccess, expectedModelCount );
+    return m_scene.PrepareRenderStoreRefresh( expectedModelCount );
+}
+
+
+bool PhysicsEngine::OverrideRenderInstancePose( int modelIndex,
+                                                uint32_t replayBodyId,
+                                                const Math::Vector::Vector3& position,
+                                                const Math::Orientation::Quaternion& orientation )
+{
+    const PhysicsBodyStore& bodyStore = m_scene.BodyStore();
+    const PhysicsBodyHandle body = bodyStore.HandleForModelIndex( modelIndex );
+    const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
+    // Invariant: render-pose overrides are keyed by the physics-owned body id.
+    // The model-index hint can lag during scrub/prediction presentation, so it
+    // is not allowed to approve which live render instance receives the pose.
+    if ( !bodyRecord || bodyStore.ModelIndexForHandle( body ) != modelIndex ||
+         bodyRecord->replayBodyId != replayBodyId )
+    {
+        return false;
+    }
+
+    return m_scene.MutableRenderInstances().OverridePose( modelIndex,
+                                                          replayBodyId,
+                                                          position,
+                                                          orientation,
+                                                          m_scene.Colliders() );
 }
 
 

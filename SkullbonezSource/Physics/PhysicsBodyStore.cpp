@@ -1,14 +1,14 @@
 /*
 File: SkullbonezSource/Physics/PhysicsBodyStore.cpp
 Purpose:
-  Owns deterministic body-order mutable physics state for compatibility scenes
-  and standalone physics worlds.
+  Owns deterministic body-order mutable physics state for runtime scenes and
+  standalone physics worlds.
 
 Mental model:
-  LoadFromModels copies legacy construction/runtime state into compatibility
-  rows. Standalone creation appends dense rows directly. PhysicsWorld or the
-  standalone step mutates records, then named compatibility writeback keeps
-  remaining model-side readers working until they move to store-backed views.
+  Descriptor reload copies construction/runtime state into body rows at cold
+  authoring boundaries. Standalone creation appends dense rows directly.
+  PhysicsWorld or the standalone step mutates records, then store-backed views
+  expose the authoritative state to runtime callers.
 
 Glossary:
   Body: Simulated object state such as position, orientation, velocity, mass,
@@ -20,19 +20,20 @@ Glossary:
   Replay body id: Stable per-scene id used by replay and SkullScope traces.
 
 Invariants:
-  - Compatibility body records stay in GameModelCollection physics model order
+  - Runtime body records stay in scene/model slot order
     for current solver traversal, but public body handles are allocator-owned
     slots.
   - Standalone body records are dense and handle-addressed; deletion may move
     the last row to close a hole without changing live handles.
-  - Pending impulses and sleep state are preserved across compatibility refresh
-    by handle identity, even if a compatible model refresh reorders slots.
+  - Pending impulses and sleep state are preserved across descriptor refresh
+    by handle identity, even if a descriptor refresh reorders slots.
 
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.h
 */
 #include "PhysicsBodyStore.h"
 #include "ColliderStore.h"
+#include "PhysicsApi.h"
 #include "PhysicsWorldForces.h"
 
 #include <algorithm>
@@ -44,16 +45,15 @@ Related:
 
 #include "../Core/Common.h"
 #include "../Core/Profiler.h"
-#include "../GameObjects/GameModel.h"
 #include "../World/Terrain.h"
 #include "../World/TerrainSupportClassifier.h"
 
-using SkullbonezCore::GameObjects::GameModel;
 using SkullbonezCore::Geometry::Plane;
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
+using SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius;
 using SkullbonezCore::Math::CollisionDetection::GetShapeTerrainBottomOffset;
 using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::CrossProduct;
@@ -64,7 +64,9 @@ using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PHYSICS_HANDLE_INITIAL_GENERATION;
+using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
@@ -746,11 +748,11 @@ void ApplyPendingImpulse( PhysicsBodyRecord& record )
     record.hasPendingImpulse = false;
 }
 
-// Concept: this is the store-owned successor to GameModel::ApplyForces.
+// Concept: this is the store-owned force integration path.
 //
 // The record carries mutable body state, the collider carries exact shape data,
 // and PhysicsWorldForces carries scene-wide fluid/gravity scalars. Keeping all
-// force math here prevents hot physics paths from borrowing GameModel only to
+// force math here prevents hot physics paths from borrowing authoring owners to
 // mutate velocities.
 void ApplyWorldForces( PhysicsBodyRecord& record,
                        const ColliderRecord& collider,
@@ -872,10 +874,10 @@ void ApplyWorldForces( PhysicsBodyRecord& record,
     ApplyWorldImpulse( record, worldForce * deltaSeconds, worldTorque * deltaSeconds );
 }
 
-// Concept: store-owned pose integration is the data-record successor to
-// RigidBody::UpdatePosition plus GameModel::ClampToTerrainSurface. Keeping this
-// here means solver hot paths no longer round-trip through GameModel just to
-// advance a position and orientation.
+// Concept: store-owned pose integration advances the authoritative body row.
+//
+// Keeping this here means solver hot paths mutate only physics records when
+// advancing position and orientation.
 void IntegrateBodyRecordPose( PhysicsBodyRecord& record, float deltaSeconds )
 {
     record.linearVelocity.Simplify();
@@ -892,31 +894,46 @@ void IntegrateBodyRecordPose( PhysicsBodyRecord& record, float deltaSeconds )
     }
 }
 
-void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record, int fixedTreeReleaseRootIndex )
+void ApplyBodyDescriptorState( const PhysicsBodyCreateDesc& desc, PhysicsBodyRecord& record )
 {
-    record.position = model.GetPosition();
-    record.orientation = model.GetOrientation();
-    record.linearVelocity = model.GetVelocity();
-    record.angularVelocity = model.GetAngularVelocity();
-    record.rotationalInertia = model.GetRotationalInertia();
-    record.invRotationalInertia = model.GetInvertedRotationalInertia();
-    record.mass = model.GetMass();
-    record.invMass = model.GetInvertedMass();
-    record.boundingRadius = model.GetBoundingRadius();
-    record.volume = model.GetVolume();
-    record.projectedSurfaceArea = model.GetProjectedSurfaceArea();
-    record.dragCoefficient = model.GetDragCoefficient();
+    record.position = desc.position;
+    record.orientation = desc.orientation;
+    record.linearVelocity = desc.linearVelocity;
+    record.angularVelocity = desc.angularVelocity;
+    record.rotationalInertia = desc.rotationalInertia;
+    record.invRotationalInertia = desc.motionKind == PhysicsBodyMotionKind::Fixed
+                                      ? ZERO_VECTOR
+                                      : PositiveComponentInverseOrZero( desc.rotationalInertia );
+    record.mass = desc.mass;
+    record.invMass = desc.motionKind == PhysicsBodyMotionKind::Fixed || desc.mass <= 0.0f ? 0.0f : 1.0f / desc.mass;
+    // Why: descriptor refresh carries body-only scalars that are not derivable
+    // from collider rows. Keeping them explicit preserves broadphase, fluid, and
+    // fixed-release behavior while keeping descriptor refresh self-contained.
+    record.boundingRadius = desc.boundingRadius > 0.0f ? desc.boundingRadius : GetShapeBoundingRadius( desc.shape );
+    record.volume = desc.volume;
+    record.projectedSurfaceArea = desc.projectedSurfaceArea;
+    record.dragCoefficient = desc.dragCoefficient;
     // Why: buoyancy sampling is deliberately targeted. Ordinary body refreshes
     // clear this field, and underwater sleep probes refresh only the candidate.
     record.submergedVolumePercent = 0.0f;
-    record.contactReleaseImpulseThreshold = model.GetContactReleaseImpulseThreshold();
-    record.angularVelocityLimit = model.GetAngularVelocityLimit();
-    record.contactEpsilon = model.GetContactEpsilon();
-    record.terrain = model.GetTerrain();
-    record.isFixed = model.IsFixed();
-    record.usesWorldInertia = model.UsesWorldInertia();
-    record.releasesFromFixedOnContact = model.ReleasesFromFixedOnContact();
-    record.fixedTreeReleaseRootIndex = fixedTreeReleaseRootIndex;
+    record.contactReleaseImpulseThreshold = desc.contactReleaseImpulseThreshold;
+    record.angularVelocityLimit = desc.angularVelocityLimit;
+    record.contactEpsilon = desc.contactEpsilon;
+    record.terrain = desc.terrain;
+    record.isFixed = desc.motionKind == PhysicsBodyMotionKind::Fixed;
+    record.usesWorldInertia = desc.usesWorldInertia;
+    record.releasesFromFixedOnContact = desc.releasesFromFixedOnContact;
+    record.fixedTreeReleaseRootIndex = desc.fixedTreeReleaseRootIndex;
+}
+
+PhysicsBodyRecord MakeBodyRecord( const PhysicsBodyCreateDesc& desc, bool sleepEnabled )
+{
+    PhysicsBodyRecord record;
+    record.sceneObjectId = desc.sceneObjectId;
+    record.replayBodyId = desc.sceneObjectId.value;
+    ApplyBodyDescriptorState( desc, record );
+    record.isSleeping = sleepEnabled && desc.startsAsleep;
+    return record;
 }
 
 } // namespace
@@ -1054,38 +1071,31 @@ void PhysicsBodyStore::Clear()
 }
 
 
-void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models,
-                                       const std::vector<uint32_t>& replayBodyIds,
-                                       const std::vector<int>& fixedTreeReleaseRootIndices,
-                                       const std::vector<uint8_t>& sleepStates )
+void PhysicsBodyStore::LoadFromDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs,
+                                            const std::vector<uint8_t>& sleepStates )
 {
-    assert( replayBodyIds.size() == models.size() );
-    assert( fixedTreeReleaseRootIndices.size() == models.size() );
-    // Invariant: GameModel no longer owns replay identity. The model array is
-    // only the compatibility source for mutable body authoring data; replay ids
-    // and fixed-tree release roots arrive as cold scratch streams rebuilt by the
-    // collection owner edge, not by physics querying model metadata.
     const std::vector<PreservedRefreshState> preservedStateByHandle =
         CapturePreservedRefreshState( m_bodies, m_handleGenerations.size() );
     std::vector<uint8_t> assignedHandleSlots( m_handleGenerations.size(), 0 );
-    m_bodies.resize( models.size() );
-    m_modelBodyHandles.resize( models.size() );
-    for ( std::size_t i = 0; i < models.size(); ++i )
+    m_bodies.resize( bodyDescs.size() );
+    m_modelBodyHandles.resize( bodyDescs.size() );
+    for ( std::size_t i = 0; i < bodyDescs.size(); ++i )
     {
-        GameModel& model = models[i];
+        const PhysicsBodyCreateDesc& desc = bodyDescs[i];
         PhysicsBodyRecord& record = m_bodies[i];
-        const uint32_t replayBodyId = replayBodyIds[i];
+        const uint32_t replayBodyId = desc.sceneObjectId.value;
         const PhysicsBodyHandle handle =
             ResolveHandleForModelIndex( static_cast<int>( i ), replayBodyId, assignedHandleSlots );
-        // Why: refresh copies live compatibility state every frame, but a
+        // Why: refresh copies descriptor state at cold repair edges, but a
         // pending tool impulse and sleep seed are physics-owned one-shot state.
         // Preserve them by handle slot so allocator-owned identity survives a
         // same-scene reorder instead of accidentally following the model slot.
         const PreservedRefreshState* preservedState = PreservedStateForHandle( preservedStateByHandle, handle );
         record.handle = handle;
         record.replayBodyId = replayBodyId;
-        record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
-        CaptureMutableBodyState( model, record, fixedTreeReleaseRootIndices[i] );
+        record.sceneObjectId = desc.sceneObjectId.IsValid() ? desc.sceneObjectId
+                                                            : MakePhysicsSceneObjectIdFromReplayBodyId( replayBodyId );
+        ApplyBodyDescriptorState( desc, record );
         if ( preservedState && preservedState->hasPendingImpulse )
         {
             record.pendingImpulse = preservedState->pendingImpulse;
@@ -1103,18 +1113,6 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models,
         m_modelBodyHandles[i] = record.handle;
     }
     RetireUnassignedHandles( assignedHandleSlots );
-}
-
-
-PhysicsBodyRecord SkullbonezCore::Physics::MakeBodyRecordFromAuthoredModel( GameModel& model,
-                                                                            PhysicsSceneObjectId sceneObjectId,
-                                                                            int fixedTreeReleaseRootIndex )
-{
-    PhysicsBodyRecord record;
-    record.sceneObjectId = sceneObjectId;
-    record.replayBodyId = sceneObjectId.value;
-    CaptureMutableBodyState( model, record, fixedTreeReleaseRootIndex );
-    return record;
 }
 
 
@@ -1153,6 +1151,12 @@ PhysicsBodyHandle PhysicsBodyStore::CreateBodyRecord( const PhysicsBodyRecord& i
     m_bodies.push_back( record );
     m_modelBodyHandles.push_back( handle );
     return handle;
+}
+
+
+PhysicsBodyHandle PhysicsBodyStore::CreateBodyRecord( const PhysicsBodyCreateDesc& desc, bool sleepEnabled )
+{
+    return CreateBodyRecord( MakeBodyRecord( desc, sleepEnabled ) );
 }
 
 
@@ -1246,8 +1250,8 @@ bool PhysicsBodyStore::TrimToCount( int bodyCount )
 
 // Concept: replay restore writes recorded physics values into the store.
 //
-// GameModel may still be updated for presentation compatibility, but the body
-// record must not reload pose, velocity, mass, or inertia from that mirror.
+// Presentation owners may cache draw-facing state, but the body record must not
+// reload pose, velocity, mass, or inertia from presentation rows.
 bool PhysicsBodyStore::RestoreReplayBodyState( PhysicsBodyHandle body,
                                                uint32_t replayBodyId,
                                                bool fixed,
@@ -1282,17 +1286,15 @@ bool PhysicsBodyStore::RestoreReplayBodyState( PhysicsBodyHandle body,
 }
 
 
-void PhysicsBodyStore::CaptureMutableStateFromModelAt( std::vector<GameModel>& models,
-                                                       int modelIndex,
-                                                       int fixedTreeReleaseRootIndex )
+void PhysicsBodyStore::RefreshRecordFromDescriptorAt( const PhysicsBodyCreateDesc& desc, int modelIndex )
 {
     PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
-    if ( !record || modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) )
+    if ( !record || modelIndex < 0 )
     {
         return;
     }
 
-    CaptureMutableBodyState( models[static_cast<std::size_t>( modelIndex )], *record, fixedTreeReleaseRootIndex );
+    ApplyBodyDescriptorState( desc, *record );
 }
 
 
@@ -1319,7 +1321,7 @@ void PhysicsBodyStore::CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) co
 
 // Why: fixed records keep their authored mass and inertia even while solver
 // reciprocals are zero. Release paths must restore those reciprocals in-place
-// so they do not need a GameModel writeback plus full body-store reload.
+// so they do not need a full body-store reload.
 void PhysicsBodyStore::ReleaseFixedRecord( PhysicsBodyRecord& record,
                                            const Vector3& seedLinearVelocity,
                                            const Vector3& seedAngularVelocity )
@@ -1351,7 +1353,7 @@ void PhysicsBodyStore::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeRele
     }
 
     // Why: fixed-tree grouping is copied into the body row during refresh, so
-    // same-frame releases do not borrow GameModelCollection while the solver is
+    // same-frame releases do not borrow collection owners while the solver is
     // mutating live body state.
     const float sourceY = sourceRecord.position.y;
     const int bodyCount = Count();
@@ -1612,8 +1614,8 @@ bool PhysicsBodyStore::ApplyBodyImpulse( PhysicsBodyHandle body,
 
 // Concept: pending impulses are one-shot velocity edits owned by body records.
 //
-// Compatibility force integration and standalone stepping both consume them
-// through this store hook so impulse math stays in one cache-local body path.
+// Runtime force integration and standalone stepping both consume them through
+// this store hook so impulse math stays in one cache-local body path.
 bool PhysicsBodyStore::ConsumePendingBodyImpulse( PhysicsBodyRecord& record )
 {
     if ( !record.hasPendingImpulse )

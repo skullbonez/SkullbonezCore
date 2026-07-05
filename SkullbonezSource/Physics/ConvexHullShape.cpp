@@ -18,7 +18,7 @@ Glossary:
 Invariants:
   - Runtime hull loading trusts baked topology order and validates shape data
     rather than deriving new topology at load time.
-  - Missing legacy mass metadata uses a compatibility default with a warning so
+  - Missing legacy mass metadata uses a legacy default with a warning so
     old assets remain loadable without silently changing validation behavior.
 
 Related:
@@ -147,7 +147,7 @@ void RequireNoExtraTokens( char* context, const char* path, int lineNumber, cons
 void WarnMissingDefaultMassMetadata( const char* path )
 {
     fprintf( stderr,
-             "[hull][compat] %s missing default_mass; using compatibility mass default %.3f at load. Re-bake with "
+             "[hull][legacy] %s missing default_mass; using legacy mass default %.3f at load. Re-bake with "
              "tools\\bake_hulls.bat --write.\n",
              path,
              COMPATIBILITY_HULL_DEFAULT_MASS );

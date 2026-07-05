@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Rendering/GameModelRenderer.h
 Purpose:
-  Converts GameModel data into backend draw calls for normal and shadow rendering.
+  Converts prepared render-instance records into backend draw calls.
 
 Mental model:
   Renderer-facing code translates engine concepts into backend resources, draw
@@ -13,8 +13,8 @@ Glossary:
   Back buffer: Swap-chain image that will be presented to the window.
 
 Invariants:
-  - Methods translate model collections into render work; they do not own model
-    storage or backend lifetime.
+  - Methods consume prepared render/collider stores; they do not own scene
+    model storage or backend lifetime.
   - Shadow batch structs are CPU-side preparation data and must be submitted
     through backend-facing helpers.
 
@@ -39,15 +39,30 @@ struct CinematicRenderConfig;
 struct RenderHelperContext;
 } // namespace Basics
 
+namespace Physics
+{
+class ColliderStore;
+}
+
+namespace Rendering
+{
+class RenderInstanceStore;
+}
+
+namespace Threading
+{
+class WorkerPool;
+}
+
 namespace GameObjects
 {
-class GameModelCollection;
-
 class GameModelRenderer
 {
   public:
     static void RenderModels( const Basics::RenderHelperContext& helperContext,
-                              GameModelCollection& collection,
+                              const Rendering::RenderInstanceStore& renderStore,
+                              const Physics::ColliderStore& colliderStore,
+                              bool renderCollisionVolumes,
                               const Math::Transformation::Matrix4& view,
                               const Math::Transformation::Matrix4& proj,
                               const float lightPos[4],
@@ -56,18 +71,27 @@ class GameModelRenderer
                               float materialAlpha,
                               const std::vector<uint8_t>* modelMask = nullptr,
                               bool drawMaskedModels = true );
-    static void BuildShadowCasterBatches( GameModelCollection& collection, Rendering::ShadowCasterBatches& outBatches );
+    static void BuildShadowCasterBatches( const Rendering::RenderInstanceStore& renderStore,
+                                          const Physics::ColliderStore& colliderStore,
+                                          Threading::WorkerPool* workerPool,
+                                          bool useShadowParallelPrep,
+                                          Rendering::ShadowCasterBatches& outBatches );
     static void SubmitShadowCasterBatches( const Basics::RenderHelperContext& helperContext,
                                            const Rendering::ShadowCasterBatches& batches,
                                            const Math::Transformation::Matrix4& view,
                                            const Math::Transformation::Matrix4& proj,
                                            const Basics::CinematicRenderConfig* cinematic );
     static void RenderShadowCasters( const Basics::RenderHelperContext& helperContext,
-                                     GameModelCollection& collection,
+                                     const Rendering::RenderInstanceStore& renderStore,
+                                     const Physics::ColliderStore& colliderStore,
+                                     Threading::WorkerPool* workerPool,
+                                     bool useShadowParallelPrep,
                                      const Math::Transformation::Matrix4& view,
                                      const Math::Transformation::Matrix4& proj,
                                      const Basics::CinematicRenderConfig* cinematic );
-    static bool GetObjectShadowBounds( GameModelCollection& collection,
+    static bool GetObjectShadowBounds( const Rendering::RenderInstanceStore& renderStore,
+                                       Threading::WorkerPool* workerPool,
+                                       bool useShadowParallelPrep,
                                        const Math::Vector::Vector3& focus,
                                        float maxDistance,
                                        Math::Vector::Vector3& outCenter,

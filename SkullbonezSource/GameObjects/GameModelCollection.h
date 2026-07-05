@@ -13,23 +13,22 @@ Glossary:
   output and local queries.
   Physics material: Per-object friction and drag coefficients cached by the
     collection before models are added or reconfigured.
-  Body simulation limit: Scalar cap cached by the collection before models hand
-    velocity state to RigidBody integration.
+  Body simulation limit: Scalar cap cached by the collection before authored
+    descriptors create PhysicsBodyStore rows.
   Contact policy: Terrain and contact thresholds cached by the collection so
     existing and newly added models receive the same physics policy.
-  PhysicsModelAccess: Stack-owned refresh facade that lets physics stores import
-    model-owned authoring without making this collection inherit physics
-    interfaces.
+  Body descriptor: Value packet containing authoring body facts that
+    PhysicsScene turns into a live PhysicsBodyStore row.
   Render instance store: Renderer-facing snapshot built once before frame passes
     so draw code can read physics-owned transforms without GameModel pose copies.
-  Topology drift: A body/collider/model count mismatch that means compatibility
-    stores must import model-owned construction data before stepping.
+  Topology drift: A body/collider/model count mismatch that means stores must
+    import explicit construction descriptors before stepping.
   Scene-object group: Cold metadata that maps multi-part authored objects, such
     as ragdolls or releasable trees, back to a root model slot.
   Collider descriptor: Value packet containing shape/material facts that
     PhysicsScene turns into a live ColliderStore row.
-  Fixed-tree release: Compatibility rule that lets authored tree parts become
-    dynamic when a related fixed part is hit strongly enough.
+  Fixed-tree release: Authored scene rule that lets tree parts become dynamic
+    when a related fixed part is hit strongly enough.
   Replay render pose override: One-frame presentation pose used when replay
     scrubbing or prediction draws historical/future bodies without mutating physics.
   Replay body id: PhysicsBodyStore row identity saved in replay samples so
@@ -40,8 +39,10 @@ Glossary:
 Invariants:
   - m_gameModels is the stable scene-order owner; collaborators mirror or view
     that order rather than replacing it.
-  - m_sceneObjectGroups is a same-length sidecar keyed by m_gameModels slot.
-    GameModel does not own runtime grouping fields.
+  - m_sceneObjectGroups and m_authoredBodyDescs are same-length sidecars keyed
+    by m_gameModels slot. GameModel does not own runtime grouping fields, and
+    body-store topology repair reloads from descriptor rows rather than model
+    physics fields.
   - Replay identity lives in PhysicsBodyStore rows after creation. Collection
     code receives scene-owned ids at creation and does not allocate them.
   - Collider shape/material data is imported into ColliderStore at create,
@@ -63,8 +64,10 @@ Related:
 
 #include "GameModel.h"
 #include "../Maths/Matrix4.h"
+#include "../Physics/PhysicsApi.h"
 #include "../Physics/PhysicsEngine.h"
-#include "../Physics/PhysicsModelAccess.h"
+#include "../Physics/PhysicsObjectPolicy.h"
+#include "../Rendering/RenderInstanceStore.h"
 #include "../Rendering/Shadow.h"
 #include "../Maths/Vector3.h"
 
@@ -94,13 +97,13 @@ class ColliderStore;
 class PhysicsBodyStore;
 class CollisionVisualizer;
 class PhysicsDebugVisualizer;
+struct PhysicsBodyCreateDesc;
 struct PhysicsColliderCreateDesc;
 } // namespace Physics
 
 namespace Rendering
 {
 class IRenderResourceFactory;
-class RenderInstanceStore;
 } // namespace Rendering
 
 namespace Threading
@@ -129,6 +132,20 @@ struct SceneObjectGroupCreateDesc
     int partIndex = -1;
 };
 
+// Value packet for cold editor/replay body edits. Set only the fields changed by
+// the command; unchanged fields are copied from the current PhysicsBodyStore row.
+struct PhysicsBodyStateEdit
+{
+    bool hasPosition = false;
+    Math::Vector::Vector3 position;
+    bool hasOrientation = false;
+    Math::Orientation::Quaternion orientation;
+    bool hasLinearVelocity = false;
+    Math::Vector::Vector3 linearVelocity;
+    bool hasAngularVelocity = false;
+    Math::Vector::Vector3 angularVelocity;
+};
+
 /* -- Game Model Collection
 --------------------------------------------------------------------------------------------------------------------------------------
 
@@ -140,16 +157,6 @@ struct SceneObjectGroupCreateDesc
 class GameModelCollection
 {
   private:
-    // Queued replay draw pose, keyed by the model slot plus stable replay id so
-    // stale samples cannot paint over a different live body.
-    struct ReplayRenderPoseOverride
-    {
-        int modelIndex = -1;
-        uint32_t replayBodyId = 0;
-        Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
-        Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
-    };
-
     struct SceneObjectGroupRecord
     {
         GameModelCollectionKind kind = GameModelCollectionKind::None;
@@ -162,16 +169,20 @@ class GameModelCollection
     // of GameModel preserves the model vector for authored presentation data
     // while collection-order systems still get O(1) group lookup by model slot.
     std::vector<SceneObjectGroupRecord> m_sceneObjectGroups;
+    // Same-length authoring rows for body-store topology repair. Editor/replay
+    // commits update these before refreshing PhysicsBodyStore rows.
+    std::vector<Physics::PhysicsBodyCreateDesc> m_authoredBodyDescs;
     Physics::PhysicsEngine m_physicsEngine;
     // Cached physics policy applied to existing and newly added models whenever
     // runtime config changes.
     Physics::PhysicsMaterial m_physicsMaterial;
     Physics::BodySimulationLimits m_bodySimulationLimits;
     Physics::ContactPolicy m_contactPolicy;
-    Threading::WorkerPool* m_workerPool = nullptr;                     // Borrowed startup worker pool for render/physics parallel helpers.
-    bool m_renderCollisionVolumes = false;                             // Cached render debug toggle copied from EngineConfig.
-    bool m_shadowParallelPrep = false;                                 // Cached worker-prep toggle copied from EngineConfig.
-    std::vector<ReplayRenderPoseOverride> m_replayRenderPoseOverrides; // Single-frame replay draw-pose requests.
+    Threading::WorkerPool* m_workerPool = nullptr; // Borrowed startup worker pool for render/physics parallel helpers.
+    bool m_renderCollisionVolumes = false;         // Cached render debug toggle copied from EngineConfig.
+    bool m_shadowParallelPrep = false;             // Cached worker-prep toggle copied from EngineConfig.
+    std::vector<Rendering::RenderInstancePresentationRecord>
+        m_renderPresentationRecords;               // Render-facing material/highlight values keyed by model slot.
 
     SceneObjectGroupRecord BuildSceneObjectGroupForAppend( const GameModel& gameModel,
                                                            int newModelIndex,
@@ -181,11 +192,12 @@ class GameModelCollection
     // Owner boundary: fixed-tree grouping is collection metadata. Body-store
     // import receives only the scalar root, never collection-kind accessors.
     std::vector<int> BuildFixedTreeReleaseRootsForReload() const;
+    std::vector<Physics::PhysicsBodyCreateDesc>
+    BuildBodyCreateDescsForReload( const Physics::PhysicsBodyStore& bodyStore );
     int FixedTreeReleaseRootForModelIndex( int modelIndex ) const;
-    void ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore,
-                                         const Physics::ColliderStore& colliderStore );
     void RefreshRenderInstances();
     Physics::PhysicsBodyHandle AppendGameModelAndPhysicsRows( GameModel gameModel,
+                                                              Physics::PhysicsBodyCreateDesc bodyDesc,
                                                               Physics::PhysicsSceneObjectId sceneObjectId,
                                                               Physics::PhysicsColliderCreateDesc colliderDesc,
                                                               SceneObjectGroupCreateDesc groupDesc );
@@ -202,6 +214,7 @@ class GameModelCollection
     // Appends model storage while importing caller-owned collider shape/material
     // facts and any explicit scene-object grouping directly into owner stores.
     Physics::PhysicsBodyHandle AddGameModel( GameModel gameModel,
+                                             Physics::PhysicsBodyCreateDesc bodyDesc,
                                              Physics::PhysicsColliderCreateDesc colliderDesc,
                                              Physics::PhysicsSceneObjectId sceneObjectId,
                                              SceneObjectGroupCreateDesc groupDesc = {} );
@@ -256,7 +269,7 @@ class GameModelCollection
     // mutation. Null means the caller held a stale model index.
     const GameModel* TryGetModel( int index ) const;
     // Scene-object grouping belongs to the collection because model order is the
-    // compatibility key shared by editor, replay, snapshots, and physics import.
+    // scene key shared by editor, replay, snapshots, and physics import.
     GameModelCollectionKind GroupKindAt( int modelIndex ) const;
     int GroupRootModelIndexAt( int modelIndex ) const;
     int GroupPartIndexAt( int modelIndex ) const;
@@ -297,13 +310,6 @@ class GameModelCollection
                                               const Math::Vector::Vector3& rotationalInertia,
                                               const Math::Vector::Vector3& inverseRotationalInertia,
                                               float fixedContactHighlightSeconds );
-    // Replay scrub rendering may override only the draw pose for a frame. The
-    // replay id check prevents stale sample indices from drawing the wrong body.
-    bool TryQueueReplayRenderPoseOverride( int index,
-                                           uint32_t replayBodyId,
-                                           const Math::Vector::Vector3& position,
-                                           const Math::Orientation::Quaternion& orientation );
-    void ClearReplayRenderPoseOverrides();
     // Mutates angular velocity through the collection so PhysicsBodyStore is
     // refreshed through the same owner-checked path as replay/editor edits.
     bool TrySetModelAngularVelocity( int index, const Math::Vector::Vector3& angularVelocity );
@@ -328,23 +334,33 @@ class GameModelCollection
     // Current prepared render snapshot. Call PrepareRenderInstances() before frame
     // passes; cold callers that need an ensured snapshot use GetRenderInstanceStore().
     const Rendering::RenderInstanceStore& RenderInstances() const;
+    const std::vector<Rendering::RenderInstancePresentationRecord>& RenderPresentationRecords() const
+    {
+        return m_renderPresentationRecords;
+    }
+    const char* DisplayNameAt( int modelIndex ) const;
+    int FindModelIndexByDisplayName( const char* name ) const;
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();
     GameModel& GetModelAtIndex( int index );
     double GetSceneKineticEnergy();
-    void ReloadPhysicsBodies( Physics::PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
-    void RefreshPhysicsBodyFromModel( Physics::PhysicsBodyStore& bodyStore, int modelIndex );
-    // Commits an editor/replay body-only mutation from the model authoring cache
-    // into PhysicsBodyStore after the caller has validated the model index.
+    // Commits a body-only edit described by explicit command data; unchanged
+    // fields come from PhysicsBodyStore and the descriptor sidecar is refreshed
+    // only after the store commit wins.
+    bool ApplyPhysicsBodyEdit( int modelIndex, const PhysicsBodyStateEdit& edit );
+    // Commits a shape edit with optional body fields from the same cold command.
+    bool ApplyPhysicsBodyColliderEdit( int modelIndex,
+                                       const PhysicsBodyStateEdit& edit,
+                                       Physics::PhysicsColliderCreateDesc colliderDesc );
+    // Owner command for callers whose explicit descriptors are already current.
     void CommitEditedModelBodyState( int modelIndex );
-    // Commits an editor/replay shape mutation from a caller-built collider
-    // descriptor; the collection fills body identity and current material policy.
+    // Owner command for shape edits that do not also change body fields.
     void CommitEditedModelColliderState( int modelIndex, Physics::PhysicsColliderCreateDesc colliderDesc );
     void NotifyFixedContact( int modelIndex, float highlightSeconds );
     void TickContactHighlights( int modelCount, float deltaSeconds );
     void NotifyAudioContact( int modelIndex, float highlightSeconds );
     // Runtime-tool edge: ray tools release authored fixed tree props through
     // PhysicsBodyStore; presentation reads the store/render snapshot instead of
-    // forcing a per-release GameModel mirror.
+    // forcing a per-release model-side body projection.
     bool ReleaseAttachedFixedTreeParts( int sourceIndex,
                                         float releaseImpulseStrength,
                                         const Math::Vector::Vector3& seedLinearVelocity,
@@ -368,6 +384,8 @@ class GameModelCollection
     {
         return m_physicsEngine.GetTornadoSystemElapsedSeconds();
     }
+    void UpdateCollisionVisualizer( Physics::CollisionVisualizer& visualizer, float deltaSeconds );
+    void UpdatePhysicsDebugVisualizer( Physics::PhysicsDebugVisualizer& visualizer, float deltaSeconds );
     void RenderCollisionStateSolids( Physics::CollisionVisualizer& visualizer,
                                      Assets::AssetSystem& assets,
                                      Rendering::IRenderResourceFactory& renderResources,

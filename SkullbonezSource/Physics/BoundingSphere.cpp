@@ -54,8 +54,8 @@ BoundingSphere::BoundingSphere( float fRadius, const Vector3& vPosition, float f
 //   2. Shape facts: radius, volume, area, drag, and render matrix.
 //
 // The precise resting/contact response is not here. If a broadphase test says
-// "possible hit", GameModelCollection later asks the narrowphase manifold code
-// for exact contact points and lets the shared Catto-style row solver respond.
+// "possible hit", PhysicsWorld asks the narrowphase manifold code for exact
+// contact points and lets the shared Catto-style row solver respond.
 
 /* --- Swept Sphere vs Sphere Collision Test (Continuous Collision Detection) ---
  *
@@ -161,7 +161,7 @@ Matrix4 BoundingSphere::GetModelMatrix( const Vector3& worldPos, const Matrix4& 
     // Builds the full TRS model matrix: T(worldPos) * rotation * T(m_position) * Scale(radius).
     //
     // SIMPLIFICATION: m_position is always ZERO_VECTOR in this engine — every sphere's local
-    // offset is zero because GameModel::AddBoundingSphere() hard-codes it to ZERO_VECTOR.
+    // offset is zero because scene authoring creates spheres around their body origin.
     // T(m_position) is therefore identity and the chain collapses to:
     //   T(worldPos) * rotation * Scale(radius)
     //

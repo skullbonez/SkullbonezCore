@@ -40,10 +40,12 @@ Related:
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/RotationMatrix.h"
 #include "../../Maths/Vector3.h"
+#include "../../Physics/ColliderStore.h"
 #include "../../Physics/ConvexHullShape.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
+#include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
 #include "../../Scene/TestScene.h"
 #include "../../World/Terrain.h"
@@ -63,6 +65,7 @@ namespace
 {
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
 using SkullbonezCore::GameObjects::GameModel;
+using SkullbonezCore::GameObjects::GameModelCollection;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
@@ -70,14 +73,20 @@ using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::MakeColliderCreateDesc;
+using SkullbonezCore::Physics::MakePhysicsBodyCreateDesc;
+using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsPointJointCreateDesc;
 using SkullbonezCore::Physics::PointJointConstraint;
 using SkullbonezCore::Physics::Ragdoll;
 using SkullbonezCore::Physics::RagdollBuildOptions;
+using SkullbonezCore::Physics::RagdollJointDesc;
+using SkullbonezCore::Physics::RagdollPartDesc;
 
 constexpr float SCENE_EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
 
@@ -112,7 +121,35 @@ PhysicsColliderCreateDesc MakeSceneColliderDesc( CollisionShape shape, float res
     // Why: authored scene setup owns the parsed shape/material facts. Importing
     // them as a collider descriptor keeps PhysicsScene/ColliderStore authoritative
     // for row layout instead of asking GameModelCollection to rediscover them.
-    return MakeColliderCreateDesc( std::move( shape ), restitution, SceneContactMaterialId( materialName ) );
+    const char* safeName = ( materialName && materialName[0] != '\0' ) ? materialName : "default";
+    return MakeColliderCreateDesc( std::move( shape ), restitution, SceneContactMaterialId( safeName ), safeName );
+}
+
+PhysicsBodyCreateDesc MakeSceneBodyDesc( Physics::PhysicsSceneObjectId sceneObjectId,
+                                         const CollisionShape& shape,
+                                         const Vector3& position,
+                                         const Quaternion& orientation,
+                                         const Vector3& linearVelocity,
+                                         const Vector3& angularVelocity,
+                                         const Vector3& rotationalInertia,
+                                         float mass,
+                                         float restitution,
+                                         bool fixed,
+                                         Geometry::Terrain* terrain,
+                                         const char* name )
+{
+    return MakePhysicsBodyCreateDesc( sceneObjectId,
+                                      shape,
+                                      position,
+                                      orientation,
+                                      linearVelocity,
+                                      angularVelocity,
+                                      rotationalInertia,
+                                      mass,
+                                      restitution,
+                                      fixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic,
+                                      terrain,
+                                      name );
 }
 
 PhysicsColliderCreateDesc MakeSceneSphereColliderDesc( float radius, float restitution, const char* materialName )
@@ -130,6 +167,98 @@ PhysicsColliderCreateDesc
 MakeSceneHullColliderDesc( const ConvexHullShape& hull, float restitution, const char* materialName )
 {
     return MakeSceneColliderDesc( hull, restitution, materialName );
+}
+
+Vector3 ScaleSceneVector( const Vector3& value, float scale )
+{
+    return Vector3( value.x * scale, value.y * scale, value.z * scale );
+}
+
+void AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context, const RagdollBuildOptions& options )
+{
+    const int firstBody = context.models.GetModelCount();
+    const uint32_t groupId = static_cast<uint32_t>( firstBody + 1 );
+    const float scale = Ragdoll::ClampScale( options.scale );
+    Quaternion orientation = options.orientation;
+    const RotationMatrix rotation = orientation.GetOrientationMatrix();
+    const Vector3 base = options.terrainPoint + rotation * Vector3( 0.0f, Ragdoll::SurfaceEpsilon(), 0.0f );
+    const char* prefix = options.namePrefix && options.namePrefix[0] ? options.namePrefix : "ragdoll";
+    const RagdollPartDesc* parts = Ragdoll::SimpleParts();
+    // Invariant: the caller reserves SIMPLE_PART_COUNT ids as one range so
+    // ragdoll parts append with deterministic, gap-free scene identity.
+    if ( !options.firstSceneObjectId.IsValid() )
+    {
+        throw std::runtime_error( "Ragdoll build requires a scene object id range." );
+    }
+
+    for ( int i = 0; i < Ragdoll::SIMPLE_PART_COUNT; ++i )
+    {
+        const Vector3 halfExtents = ScaleSceneVector( parts[i].halfExtents, scale );
+        const BoundingBox shape( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) );
+        const float mass = Physics::CalculateBoxMass( halfExtents );
+        const Vector3 inertia = Physics::CalculateBoxInertiaForHalfExtents( halfExtents, mass );
+        const Vector3 position = base + rotation * ScaleSceneVector( parts[i].localCenter, scale );
+        GameModel model;
+        model.SetRenderTint( parts[i].tintR, parts[i].tintG, parts[i].tintB, 1.0f );
+        char name[64];
+        sprintf_s( name, sizeof( name ), "%s_%s", prefix, parts[i].suffix );
+        model.SetName( name );
+
+        Physics::PhysicsSceneObjectId partSceneObjectId;
+        partSceneObjectId.value = options.firstSceneObjectId.value + static_cast<uint32_t>( i );
+        GameObjects::SceneObjectGroupCreateDesc groupDesc;
+        groupDesc.kind = GameObjects::GameModelCollectionKind::SimpleRagdoll;
+        groupDesc.rootModelIndex = firstBody;
+        groupDesc.partIndex = i;
+
+        // Invariant: ragdoll grouping is prefab metadata. Pass root/part facts
+        // directly so collection append never parses display names to recover it.
+        context.models.AddGameModel( std::move( model ),
+                                     MakeSceneBodyDesc( partSceneObjectId,
+                                                        shape,
+                                                        position,
+                                                        orientation,
+                                                        Vector3( 0.0f, 0.0f, 0.0f ),
+                                                        Vector3( 0.0f, 0.0f, 0.0f ),
+                                                        inertia,
+                                                        mass,
+                                                        parts[i].restitution,
+                                                        options.fixed,
+                                                        context.terrain,
+                                                        name ),
+                                     MakeSceneColliderDesc( shape, parts[i].restitution, "default" ),
+                                     partSceneObjectId,
+                                     groupDesc );
+    }
+
+    int jointCount = 0;
+    const RagdollJointDesc* joints = Ragdoll::SimpleJoints( jointCount );
+    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsBodyStore();
+    for ( int i = 0; i < jointCount; ++i )
+    {
+        PhysicsPointJointCreateDesc desc;
+        desc.bodyA = bodyStore.HandleForModelIndex( firstBody + joints[i].bodyA );
+        desc.bodyB = bodyStore.HandleForModelIndex( firstBody + joints[i].bodyB );
+        desc.localAnchorA = ScaleSceneVector( joints[i].localAnchorA, scale );
+        desc.localAnchorB = ScaleSceneVector( joints[i].localAnchorB, scale );
+        desc.slack = joints[i].slack * scale;
+        desc.stiffness = 0.22f;
+        desc.damping = 0.35f;
+        desc.groupId = groupId;
+        desc.flags = joints[i].flags;
+        context.physics.CreatePointJoint( desc );
+    }
+
+    if ( options.startsAsleep && !options.fixed )
+    {
+        for ( int i = 0; i < Ragdoll::SIMPLE_PART_COUNT; ++i )
+        {
+            // Why: authored setup already resolves body handles for joints.
+            // Seed sleep through the same physics boundary instead of reopening
+            // the collection's model-index command wrapper.
+            context.physics.SeedBodyAsleep( bodyStore.HandleForModelIndex( firstBody + i ) );
+        }
+    }
 }
 
 GameObjects::SceneObjectGroupCreateDesc MakeSceneObjectGroupCreateDesc( const SceneObjectGroupMetadata& group,
@@ -166,30 +295,6 @@ bool SceneNameEndsWithPartSuffix( const char* name, const char* suffix )
     return strcmp( name + nameLength - suffixLength, suffix ) == 0;
 }
 
-bool IsSimpleRagdollPartName( const char* name )
-{
-    static const char* partSuffixes[] = {
-        "torso",
-        "head",
-        "upper_arm_l",
-        "lower_arm_l",
-        "upper_arm_r",
-        "lower_arm_r",
-        "upper_leg_l",
-        "lower_leg_l",
-        "upper_leg_r",
-        "lower_leg_r",
-    };
-    for ( const char* suffix : partSuffixes )
-    {
-        if ( SceneNameEndsWithPartSuffix( name, suffix ) )
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
 bool TryGetSimpleRagdollPartPrefixLength( const char* name, const char* suffix, size_t& outPrefixLength )
 {
     outPrefixLength = 0;
@@ -217,12 +322,15 @@ bool IsBroadMaterialTarget( const char* target )
            strcmp( target, "hulls" ) == 0 || strcmp( target, "convex_hulls" ) == 0;
 }
 
-bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const GameModel& model )
+bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material,
+                                 const char* displayName,
+                                 bool simpleRagdollPart,
+                                 ColliderShapeKind shapeKind )
 {
     // Invariant: broad scene style targets must not recolor generated ragdoll
     // body parts, but a named prefix/exact target may opt one authored ragdoll
     // into a scene-local presentation material.
-    if ( IsSimpleRagdollPartName( model.GetName() ) && IsBroadMaterialTarget( material.target ) )
+    if ( simpleRagdollPart && IsBroadMaterialTarget( material.target ) )
     {
         return false;
     }
@@ -232,22 +340,22 @@ bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, co
     }
     if ( strcmp( material.target, "balls" ) == 0 )
     {
-        return model.IsSphere();
+        return shapeKind == ColliderShapeKind::Sphere;
     }
     if ( strcmp( material.target, "boxes" ) == 0 )
     {
-        return model.IsBox();
+        return shapeKind == ColliderShapeKind::Box;
     }
     if ( strcmp( material.target, "hulls" ) == 0 || strcmp( material.target, "convex_hulls" ) == 0 )
     {
-        return model.IsConvexHull();
+        return shapeKind == ColliderShapeKind::ConvexHull;
     }
     if ( strncmp( material.target, "prefix:", 7 ) == 0 )
     {
         const char* prefix = material.target + 7;
-        return prefix[0] != '\0' && strncmp( model.GetName(), prefix, strlen( prefix ) ) == 0;
+        return prefix[0] != '\0' && strncmp( displayName, prefix, strlen( prefix ) ) == 0;
     }
-    return strcmp( material.target, model.GetName() ) == 0;
+    return strcmp( material.target, displayName ) == 0;
 }
 
 bool SceneNameStartsWith( const char* name, const char* prefix )
@@ -262,30 +370,26 @@ bool IsEditorPlacedSphereName( const char* name )
            SceneNameStartsWith( name, "dynamic_sphere_" ) || SceneNameStartsWith( name, "sleeping_sphere_" );
 }
 
-void ApplyEditorPlacedSphereMaterial( GameModel& model )
+void ApplyEditorPlacedSphereMaterial( GameModel& model, const char* displayName )
 {
-    if ( IsEditorPlacedSphereName( model.GetName() ) )
+    if ( IsEditorPlacedSphereName( displayName ) )
     {
         model.SetRenderTint( 1.0f, 1.0f, 1.0f, SCENE_EDITOR_TEXTURE_MODE_INVERTED );
     }
 }
 
-int FindModelByName( const std::vector<GameModel>& models, const char* name )
+int FindModelByName( const GameModelCollection& models, const char* name )
 {
-    if ( !name || name[0] == '\0' )
-    {
-        return -1;
-    }
-    for ( int modelIndex = 0; modelIndex < static_cast<int>( models.size() ); ++modelIndex )
-    {
-        if ( strcmp( models[static_cast<size_t>( modelIndex )].GetName(), name ) == 0 )
-        {
-            return modelIndex;
-        }
-    }
-    return -1;
+    return models.FindModelIndexByDisplayName( name );
 }
 } // namespace
+
+
+void SceneAuthoredSetup::AppendSimpleRagdoll( SceneSimpleRagdollAppendContext context,
+                                              const RagdollBuildOptions& options )
+{
+    AppendAuthoredSimpleRagdoll( context, options );
+}
 
 
 void SceneAuthoredSetup::SetUpCameras( SceneAuthoredCameraContext context, const TestScene& scene )
@@ -335,32 +439,32 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
     {
         const SceneBall& ball = scene.GetBall( i );
 
-        GameModel gameModel( &context.world,
-                             Vector3( ball.posX, ball.posY, ball.posZ ),
-                             Vector3( ball.moment, ball.moment, ball.moment ),
-                             ball.m_mass );
+        GameModel gameModel;
 
-        gameModel.SetCoefficientRestitution( ball.restitution );
-        gameModel.SetTerrain( context.terrain );
         gameModel.SetName( ball.name );
-        gameModel.SetContactMaterial( ball.contactMaterial );
-        gameModel.AddBoundingSphere( ball.m_radius );
-        gameModel.SetFixed( ball.isFixed );
-        ApplyEditorPlacedSphereMaterial( gameModel );
-
-        // Concept: Authored init orientation is stored as Euler degrees in XYZ
-        // order, while snapshot state stores the final quaternion directly.
-        if ( ball.hasInitOrient )
-        {
-            gameModel.SetOrientation( MakeSceneEulerQuaternion( ball.eulerX, ball.eulerY, ball.eulerZ ) );
-        }
+        ApplyEditorPlacedSphereMaterial( gameModel, ball.name );
 
         const bool hasInitialImpulse =
             !ball.isFixed && ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f );
+        const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
+        const BoundingSphere shape( ball.m_radius, Vector3( 0.0f, 0.0f, 0.0f ) );
         const PhysicsBodyHandle body = context.models.AddGameModel(
             std::move( gameModel ),
-            MakeSceneSphereColliderDesc( ball.m_radius, ball.restitution, ball.contactMaterial ),
-            context.sceneState.AllocateSceneObjectId() );
+            MakeSceneBodyDesc(
+                sceneObjectId,
+                shape,
+                Vector3( ball.posX, ball.posY, ball.posZ ),
+                ball.hasInitOrient ? MakeSceneEulerQuaternion( ball.eulerX, ball.eulerY, ball.eulerZ ) : Quaternion(),
+                Vector3( 0.0f, 0.0f, 0.0f ),
+                Vector3( 0.0f, 0.0f, 0.0f ),
+                Vector3( ball.moment, ball.moment, ball.moment ),
+                ball.m_mass,
+                ball.restitution,
+                ball.isFixed,
+                context.terrain,
+                ball.name ),
+            MakeSceneColliderDesc( shape, ball.restitution, ball.contactMaterial ),
+            sceneObjectId );
         if ( hasInitialImpulse )
         {
             context.physics.SetPendingBodyImpulse( body,
@@ -374,26 +478,29 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
     {
         const SceneBallState& bs = scene.GetBallState( i );
 
-        GameModel gameModel( &context.world,
-                             Vector3( bs.posX, bs.posY, bs.posZ ),
-                             Vector3( bs.inertiaX, bs.inertiaY, bs.inertiaZ ),
-                             bs.mass );
+        GameModel gameModel;
 
-        gameModel.SetCoefficientRestitution( bs.restitution );
-        gameModel.SetTerrain( context.terrain );
         gameModel.SetName( bs.name );
-        gameModel.SetContactMaterial( bs.contactMaterial );
-        gameModel.AddBoundingSphere( bs.radius );
-        gameModel.SetLinearVelocity( Vector3( bs.velX, bs.velY, bs.velZ ) );
-        gameModel.SetAngularVelocity( Vector3( bs.angVelX, bs.angVelY, bs.angVelZ ) );
-        gameModel.SetOrientation( Quaternion( bs.orientX, bs.orientY, bs.orientZ, bs.orientW ) );
-        gameModel.SetFixed( bs.isFixed );
-        ApplyEditorPlacedSphereMaterial( gameModel );
+        ApplyEditorPlacedSphereMaterial( gameModel, bs.name );
 
-        const PhysicsBodyHandle body =
-            context.models.AddGameModel( std::move( gameModel ),
-                                         MakeSceneSphereColliderDesc( bs.radius, bs.restitution, bs.contactMaterial ),
-                                         context.sceneState.AllocateSceneObjectId() );
+        const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
+        const BoundingSphere shape( bs.radius, Vector3( 0.0f, 0.0f, 0.0f ) );
+        const PhysicsBodyHandle body = context.models.AddGameModel(
+            std::move( gameModel ),
+            MakeSceneBodyDesc( sceneObjectId,
+                               shape,
+                               Vector3( bs.posX, bs.posY, bs.posZ ),
+                               Quaternion( bs.orientX, bs.orientY, bs.orientZ, bs.orientW ),
+                               Vector3( bs.velX, bs.velY, bs.velZ ),
+                               Vector3( bs.angVelX, bs.angVelY, bs.angVelZ ),
+                               Vector3( bs.inertiaX, bs.inertiaY, bs.inertiaZ ),
+                               bs.mass,
+                               bs.restitution,
+                               bs.isFixed,
+                               context.terrain,
+                               bs.name ),
+            MakeSceneColliderDesc( shape, bs.restitution, bs.contactMaterial ),
+            sceneObjectId );
         if ( bs.isSleeping && !bs.isFixed )
         {
             context.physics.SeedBodyAsleep( body );
@@ -412,31 +519,29 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         float m3 = box.mass / 3.0f;
         Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
 
-        GameModel gameModel( &context.world, Vector3( box.posX, box.posY, box.posZ ), inertia, box.mass );
+        GameModel gameModel;
 
-        gameModel.SetCoefficientRestitution( box.restitution );
-        gameModel.SetTerrain( context.terrain );
         gameModel.SetName( box.name );
-        gameModel.SetContactMaterial( box.contactMaterial );
-        gameModel.AddBoundingBox( Vector3( box.halfX, box.halfY, box.halfZ ) );
 
-        if ( box.hasInitOrient )
-        {
-            gameModel.SetOrientation( MakeSceneEulerQuaternion( box.eulerX, box.eulerY, box.eulerZ ) );
-        }
-
-        if ( box.hasInitVelocity )
-        {
-            gameModel.SetLinearVelocity( Vector3( box.velX, box.velY, box.velZ ) );
-        }
-
-        gameModel.SetFixed( box.isFixed );
-
-        context.models.AddGameModel( std::move( gameModel ),
-                                     MakeSceneBoxColliderDesc( Vector3( box.halfX, box.halfY, box.halfZ ),
-                                                               box.restitution,
-                                                               box.contactMaterial ),
-                                     context.sceneState.AllocateSceneObjectId() );
+        const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
+        const BoundingBox shape( Vector3( box.halfX, box.halfY, box.halfZ ), Vector3( 0.0f, 0.0f, 0.0f ) );
+        context.models.AddGameModel(
+            std::move( gameModel ),
+            MakeSceneBodyDesc(
+                sceneObjectId,
+                shape,
+                Vector3( box.posX, box.posY, box.posZ ),
+                box.hasInitOrient ? MakeSceneEulerQuaternion( box.eulerX, box.eulerY, box.eulerZ ) : Quaternion(),
+                box.hasInitVelocity ? Vector3( box.velX, box.velY, box.velZ ) : Vector3( 0.0f, 0.0f, 0.0f ),
+                Vector3( 0.0f, 0.0f, 0.0f ),
+                inertia,
+                box.mass,
+                box.restitution,
+                box.isFixed,
+                context.terrain,
+                box.name ),
+            MakeSceneColliderDesc( shape, box.restitution, box.contactMaterial ),
+            sceneObjectId );
     }
 
     // box_state entries: full dynamic state from an editable scene snapshot
@@ -444,27 +549,28 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
     {
         const SceneBoxState& box = scene.GetBoxState( i );
 
-        GameModel gameModel( &context.world,
-                             Vector3( box.posX, box.posY, box.posZ ),
-                             Vector3( box.inertiaX, box.inertiaY, box.inertiaZ ),
-                             box.mass );
+        GameModel gameModel;
 
-        gameModel.SetCoefficientRestitution( box.restitution );
-        gameModel.SetTerrain( context.terrain );
         gameModel.SetName( box.name );
-        gameModel.SetContactMaterial( box.contactMaterial );
-        gameModel.AddBoundingBox( Vector3( box.halfX, box.halfY, box.halfZ ) );
-        gameModel.SetLinearVelocity( Vector3( box.velX, box.velY, box.velZ ) );
-        gameModel.SetAngularVelocity( Vector3( box.angVelX, box.angVelY, box.angVelZ ) );
-        gameModel.SetOrientation( Quaternion( box.orientX, box.orientY, box.orientZ, box.orientW ) );
-        gameModel.SetFixed( box.isFixed );
 
-        const PhysicsBodyHandle body =
-            context.models.AddGameModel( std::move( gameModel ),
-                                         MakeSceneBoxColliderDesc( Vector3( box.halfX, box.halfY, box.halfZ ),
-                                                                   box.restitution,
-                                                                   box.contactMaterial ),
-                                         context.sceneState.AllocateSceneObjectId() );
+        const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
+        const BoundingBox shape( Vector3( box.halfX, box.halfY, box.halfZ ), Vector3( 0.0f, 0.0f, 0.0f ) );
+        const PhysicsBodyHandle body = context.models.AddGameModel(
+            std::move( gameModel ),
+            MakeSceneBodyDesc( sceneObjectId,
+                               shape,
+                               Vector3( box.posX, box.posY, box.posZ ),
+                               Quaternion( box.orientX, box.orientY, box.orientZ, box.orientW ),
+                               Vector3( box.velX, box.velY, box.velZ ),
+                               Vector3( box.angVelX, box.angVelY, box.angVelZ ),
+                               Vector3( box.inertiaX, box.inertiaY, box.inertiaZ ),
+                               box.mass,
+                               box.restitution,
+                               box.isFixed,
+                               context.terrain,
+                               box.name ),
+            MakeSceneColliderDesc( shape, box.restitution, box.contactMaterial ),
+            sceneObjectId );
         if ( box.isSleeping && !box.isFixed )
         {
             context.physics.SeedBodyAsleep( body );
@@ -479,46 +585,47 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         const Vector3 inertia = hull.ComputeBoxApproxInertia( hullScene.mass );
         const Vector3 authoredPosition( hullScene.posX, hullScene.posY, hullScene.posZ );
 
-        GameModel gameModel( &context.world, authoredPosition, inertia, hullScene.mass );
+        GameModel gameModel;
 
-        gameModel.SetCoefficientRestitution( hullScene.restitution );
-        gameModel.SetTerrain( context.terrain );
         gameModel.SetName( hullScene.name );
-        gameModel.SetContactMaterial( hullScene.contactMaterial );
-        gameModel.SetContactReleaseOnImpact( hullScene.contactReleaseOnImpact,
-                                             hullScene.contactReleaseImpulseThreshold );
-        gameModel.AddConvexHull( hull );
 
         Quaternion hullQuaternion;
         if ( hullScene.hasInitOrient )
         {
             hullQuaternion = MakeSceneEulerQuaternion( hullScene.eulerX, hullScene.eulerY, hullScene.eulerZ );
-            gameModel.SetOrientation( hullQuaternion );
         }
 
         const RotationMatrix hullOrientation = hullQuaternion.GetOrientationMatrix();
-        gameModel.SetPosition( authoredPosition + hullOrientation * hull.GetAuthoredCenterOfMass() );
-
-        if ( hullScene.hasInitVelocity )
-        {
-            gameModel.SetLinearVelocity( Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ) );
-        }
-        if ( hullScene.hasInitAngularVelocity )
-        {
-            gameModel.SetAngularVelocity( Vector3( hullScene.angVelX, hullScene.angVelY, hullScene.angVelZ ) );
-        }
-
-        gameModel.SetFixed( hullScene.isFixed );
+        const Vector3 bodyPosition = authoredPosition + hullOrientation * hull.GetAuthoredCenterOfMass();
 
         // Invariant: parsed scene object grouping is converted once at the
         // authored construction edge. Collection append only copies the
         // descriptor into its dense sidecar.
         const GameObjects::SceneObjectGroupCreateDesc groupDesc =
             MakeSceneObjectGroupCreateDesc( hullScene.group, convexHullModelBase );
+        const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
+        PhysicsBodyCreateDesc bodyDesc = MakeSceneBodyDesc(
+            sceneObjectId,
+            hull,
+            bodyPosition,
+            hullQuaternion,
+            hullScene.hasInitVelocity ? Vector3( hullScene.velX, hullScene.velY, hullScene.velZ )
+                                      : Vector3( 0.0f, 0.0f, 0.0f ),
+            hullScene.hasInitAngularVelocity ? Vector3( hullScene.angVelX, hullScene.angVelY, hullScene.angVelZ )
+                                             : Vector3( 0.0f, 0.0f, 0.0f ),
+            inertia,
+            hullScene.mass,
+            hullScene.restitution,
+            hullScene.isFixed,
+            context.terrain,
+            hullScene.name );
+        bodyDesc.releasesFromFixedOnContact = hullScene.contactReleaseOnImpact;
+        bodyDesc.contactReleaseImpulseThreshold = hullScene.contactReleaseImpulseThreshold;
         const PhysicsBodyHandle body = context.models.AddGameModel(
             std::move( gameModel ),
+            bodyDesc,
             MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ),
-            context.sceneState.AllocateSceneObjectId(),
+            sceneObjectId,
             groupDesc );
         if ( hullScene.isSleeping && !hullScene.isFixed )
         {
@@ -527,36 +634,39 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
     }
 
     // Invariant: convex_hull_state entries come from editable scene snapshots.
-    // The writer stores GameModel::GetPosition(), the simulated body/COM
-    // position, so do not add the authored hull COM here.
+    // The writer stores body-store position, the simulated body/COM position,
+    // so do not add the authored hull COM here.
     for ( int i = 0; i < scene.GetConvexHullStateCount(); ++i )
     {
         const SceneConvexHullState& hullScene = scene.GetConvexHullState( i );
         const ConvexHullShape hull = ConvexHullShape::LoadFromFile( ResolveEditorHullAssetPath( hullScene.hullPath ) );
 
-        GameModel gameModel( &context.world,
-                             Vector3( hullScene.posX, hullScene.posY, hullScene.posZ ),
-                             Vector3( hullScene.inertiaX, hullScene.inertiaY, hullScene.inertiaZ ),
-                             hullScene.mass );
+        GameModel gameModel;
 
-        gameModel.SetCoefficientRestitution( hullScene.restitution );
-        gameModel.SetTerrain( context.terrain );
         gameModel.SetName( hullScene.name );
-        gameModel.SetContactMaterial( hullScene.contactMaterial );
-        gameModel.SetContactReleaseOnImpact( hullScene.contactReleaseOnImpact,
-                                             hullScene.contactReleaseImpulseThreshold );
-        gameModel.AddConvexHull( hull );
-        gameModel.SetLinearVelocity( Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ) );
-        gameModel.SetAngularVelocity( Vector3( hullScene.angVelX, hullScene.angVelY, hullScene.angVelZ ) );
-        gameModel.SetOrientation(
-            Quaternion( hullScene.orientX, hullScene.orientY, hullScene.orientZ, hullScene.orientW ) );
-        gameModel.SetFixed( hullScene.isFixed );
         const GameObjects::SceneObjectGroupCreateDesc groupDesc =
             MakeSceneObjectGroupCreateDesc( hullScene.group, convexHullStateModelBase );
+        const Physics::PhysicsSceneObjectId sceneObjectId = context.sceneState.AllocateSceneObjectId();
+        PhysicsBodyCreateDesc bodyDesc =
+            MakeSceneBodyDesc( sceneObjectId,
+                               hull,
+                               Vector3( hullScene.posX, hullScene.posY, hullScene.posZ ),
+                               Quaternion( hullScene.orientX, hullScene.orientY, hullScene.orientZ, hullScene.orientW ),
+                               Vector3( hullScene.velX, hullScene.velY, hullScene.velZ ),
+                               Vector3( hullScene.angVelX, hullScene.angVelY, hullScene.angVelZ ),
+                               Vector3( hullScene.inertiaX, hullScene.inertiaY, hullScene.inertiaZ ),
+                               hullScene.mass,
+                               hullScene.restitution,
+                               hullScene.isFixed,
+                               context.terrain,
+                               hullScene.name );
+        bodyDesc.releasesFromFixedOnContact = hullScene.contactReleaseOnImpact;
+        bodyDesc.contactReleaseImpulseThreshold = hullScene.contactReleaseImpulseThreshold;
         const PhysicsBodyHandle body = context.models.AddGameModel(
             std::move( gameModel ),
+            bodyDesc,
             MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ),
-            context.sceneState.AllocateSceneObjectId(),
+            sceneObjectId,
             groupDesc );
         if ( hullScene.isSleeping && !hullScene.isFixed )
         {
@@ -579,17 +689,23 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
             options.orientation =
                 MakeSceneEulerQuaternion( ragdollScene.eulerX, ragdollScene.eulerY, ragdollScene.eulerZ );
         }
-        Ragdoll::AddSimpleHumanoid( context.models, context.physics, context.world, context.terrain, options );
+        SceneSimpleRagdollAppendContext ragdollContext{
+            context.sceneState,
+            context.world,
+            context.terrain,
+            context.models,
+            context.physics,
+        };
+        AppendSimpleRagdoll( ragdollContext, options );
     }
 
-    const std::vector<GameModel>& models = context.models.Models();
     const PhysicsBodyStore& bodyStore = context.models.GetPhysicsBodyStore();
     for ( int i = 0; i < scene.GetPointJointConstraintCount(); ++i )
     {
         const ScenePointJointConstraint& sceneJoint = scene.GetPointJointConstraint( i );
         PhysicsPointJointCreateDesc joint;
-        const int bodyAIndex = FindModelByName( models, sceneJoint.bodyA );
-        const int bodyBIndex = FindModelByName( models, sceneJoint.bodyB );
+        const int bodyAIndex = FindModelByName( context.models, sceneJoint.bodyA );
+        const int bodyBIndex = FindModelByName( context.models, sceneJoint.bodyB );
         if ( bodyAIndex < 0 || bodyBIndex < 0 )
         {
             fprintf( stderr,
@@ -620,10 +736,17 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         // and exact-name targets can hit authored objects, generated ragdolls,
         // and snapshot bodies uniformly.
         const SceneObjectMaterialOverride& material = scene.GetObjectMaterialOverride( materialIndex );
+        const std::vector<Physics::ColliderRecord>& colliders = context.models.GetColliderStore().Records();
         for ( int modelIndex = 0; modelIndex < context.models.GetModelCount(); ++modelIndex )
         {
+            const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() )
+                                                    ? colliders[static_cast<std::size_t>( modelIndex )].shapeKind
+                                                    : ColliderShapeKind::Sphere;
             GameModel& model = context.models.GetModelAtIndex( modelIndex );
-            if ( SceneMaterialTargetMatches( material, model ) )
+            if ( SceneMaterialTargetMatches( material,
+                                             context.models.DisplayNameAt( modelIndex ),
+                                             context.models.IsSimpleRagdollPart( modelIndex ),
+                                             shapeKind ) )
             {
                 model.SetRenderMaterial( material.material );
             }
@@ -641,16 +764,14 @@ void SceneAuthoredSetup::SetUpRequiredContacts( SceneAuthoredModelContext contex
     // Scene reloads must rebuild them because model storage is recreated.
     context.requiredContacts.clear();
     context.requiredContacts.reserve( static_cast<size_t>( scene.GetRequiredContactCount() ) );
-    const std::vector<GameModel>& models = context.models.Models();
-
     for ( int i = 0; i < scene.GetRequiredContactCount(); ++i )
     {
         const SceneRequiredContact& contact = scene.GetRequiredContact( i );
         RunRequiredContactState state;
         strcpy_s( state.nameA, sizeof( state.nameA ), contact.nameA );
         strcpy_s( state.nameB, sizeof( state.nameB ), contact.nameB );
-        state.bodyA = FindModelByName( models, state.nameA );
-        state.bodyB = FindModelByName( models, state.nameB );
+        state.bodyA = FindModelByName( context.models, state.nameA );
+        state.bodyB = FindModelByName( context.models, state.nameB );
         if ( state.bodyA < 0 || state.bodyB < 0 )
         {
             fprintf( stderr, "[scene] required_contact could not resolve '%s' <-> '%s'\n", state.nameA, state.nameB );

@@ -532,9 +532,8 @@ bool PhysicsWorld::RefreshUnderwaterSubmersionForBall( const PhysicsWorldForces&
         return true;
     }
 
-    // Concept: match GameModel::CalculateBuoyancySample's analytic sphere-cap
-    // fraction, but derive the world-space sphere center from physics-owned body
-    // pose and collider shape instead of calling back into GameModel.
+    // Concept: use the analytic sphere-cap fraction, deriving the world-space
+    // sphere center from physics-owned body pose and collider shape.
     const float yValue = fluidHeightRelativeToCenter + radius;
     bodyRecord->submergedVolumePercent =
         std::clamp( ( ONE_OVER_THREE * _PI * ( ( 3.0f * radius ) - yValue ) * yValue * yValue ) / sphere->GetVolume(),
@@ -768,9 +767,9 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
     // 2. Reset debug, sleep-support, pipeline, and terrain-manifold output.
     // 3. Run broadphase, swept movement, terrain manifold generation, and the
     //    persistent Catto-style contact solver.
-    // 4. Emit bounded Debug diagnostics before PhysicsScene mirrors the solved
-    //    store and invalidates cached model SoA data at the compatibility
-    //    boundary.
+    // 4. Emit bounded Debug diagnostics before PhysicsScene copies solved state
+    //    into PhysicsBodyStore and invalidates cached model-order data at the
+    //    scene owner boundary.
     //
     // Determinism note: changing this ordering can change byte-exact physics
     // baselines even when the final scene "looks" similar.
@@ -907,7 +906,7 @@ void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore,
 
 // Why: callers that already hold PhysicsBodyStore should not refresh the
 // model owner just to wake a body. Store-owned wake commands stay on dense body
-// records; PhysicsScene owns any compatibility writeback/cache invalidation.
+// records; PhysicsScene owns any owner-side cache invalidation.
 void PhysicsWorld::WakeModel( int bodyCount,
                               const std::vector<PhysicsBodyRecord>& bodyRecords,
                               PhysicsBodyStore* bodyStore,
@@ -984,8 +983,8 @@ void PhysicsWorld::SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index
 
 
 // Why: store-owned seed commands already have dense body records. Avoid
-// rebuilding model-owner streams or invalidating GameModel caches from inside
-// PhysicsWorld; compatibility projection belongs to PhysicsScene.
+// rebuilding presentation streams from inside PhysicsWorld; owner-side
+// projection belongs to PhysicsScene.
 void PhysicsWorld::SeedModelAsleep( int bodyCount, const std::vector<PhysicsBodyRecord>& bodyRecords, int index )
 {
     if ( !m_sleepEnabled )
@@ -1129,8 +1128,8 @@ void PhysicsWorld::ApplyTornadoField( PhysicsBodyStore& bodyStore,
                 ClampVectorMagnitude( acceleration * 0.08f, (std::max)( 10.0f, bestConfig.maxDeltaVelocity * 1.5f ) );
             const Vector3 seedAngularVelocity( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f );
             // Why: tornado release runs before broadphase and the parallel
-            // tornado pass. Mutate the body store directly so later fixed checks
-            // see dynamic bodies without bouncing through GameModel caches.
+            // tornado pass. Mutate the body store directly so later fixed
+            // checks see dynamic bodies from the authoritative row.
             PhysicsBodyStore::ReleaseFixedRecord( record, seedLinearVelocity, seedAngularVelocity );
             WakeModel( bodyStore, colliderStore, worldForces, i );
             bodyStore.ReleaseAttachedFixedTreeParts(
@@ -1419,8 +1418,7 @@ void PhysicsWorld::ForgetPersistentContactCacheForBody( int bodyIndex )
 
 // Why: store-owned wake propagation uses the same sleep-state mutation as the
 // deleted legacy stream path, but fixed-state authority comes from
-// PhysicsBodyRecord. This keeps solver-triggered wakeups off the GameModel SoA
-// cache.
+// PhysicsBodyRecord. This keeps solver-triggered wakeups on physics-owned rows.
 bool PhysicsWorld::WakeDynamicBodyState( int bodyCount,
                                          const std::vector<PhysicsBodyRecord>& bodyRecords,
                                          PhysicsBodyStore* bodyStore,
@@ -2331,8 +2329,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         }
 
         // Query at a candidate time without mutating PhysicsBodyStore or the
-        // compatibility GameModel mirror. CCD refinement only needs temporary
-        // pose views plus the collider shape snapshots.
+        // owner-side presentation rows. CCD refinement only needs temporary pose
+        // views plus the collider shape snapshots.
         ObjectContactManifold manifold;
         return BuildObjectContactManifold( contactBodyViewAtTime( a, time ),
                                            colliderRecords[static_cast<size_t>( a )].shape,

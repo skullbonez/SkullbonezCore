@@ -37,9 +37,26 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
         return false;
     }
 
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
     const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
     const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
+    const auto& presentationRecords = m_cGameModelCollection.RenderPresentationRecords();
+    const int modelCount = bodyStore.Count() < colliderStore.Count() ? bodyStore.Count() : colliderStore.Count();
+    const auto copyPresentationName = [&]( int modelIndex, char* outName, std::size_t outSize )
+    {
+        if ( !outName || outSize == 0 )
+        {
+            return;
+        }
+        outName[0] = '\0';
+        if ( modelIndex >= 0 && modelIndex < static_cast<int>( presentationRecords.size() ) )
+        {
+            const char* displayName = presentationRecords[static_cast<std::size_t>( modelIndex )].displayName;
+            if ( displayName[0] != '\0' )
+            {
+                strncpy_s( outName, outSize, displayName, _TRUNCATE );
+            }
+        }
+    };
     ReplayBodyId pickedId;
     int pickedIndex = -1;
     char pickedName[64] = {};
@@ -49,7 +66,7 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
         for ( const ReplaySolverBodySample& body : sample->bodies )
         {
             float radius = 1.0f;
-            if ( body.modelIndex >= 0 && body.modelIndex < static_cast<int>( models.size() ) )
+            if ( body.modelIndex >= 0 && body.modelIndex < modelCount )
             {
                 radius = ReplayColliderRadiusForModelIndex( colliderStore, body.modelIndex ) + 1.0f;
             }
@@ -78,34 +95,23 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
 
         RuntimePickResult result;
         if ( RuntimePickService::TryPickModel( request, result ) && result.modelIndex >= 0 &&
-             result.modelIndex < static_cast<int>( models.size() ) )
+             result.modelIndex < modelCount )
         {
             pickedIndex = result.modelIndex;
-            const GameModel& model = models[static_cast<std::size_t>( pickedIndex )];
             pickedId = ReplayBodyIdForModelIndex( bodyStore, pickedIndex );
-            const char* modelName = model.GetName();
-            if ( modelName && modelName[0] != '\0' )
-            {
-                strncpy_s( pickedName, sizeof( pickedName ), modelName, _TRUNCATE );
-            }
+            copyPresentationName( pickedIndex, pickedName, sizeof( pickedName ) );
         }
     }
 
-    if ( pickedIndex >= 0 && pickedIndex < static_cast<int>( models.size() ) )
+    if ( pickedIndex >= 0 && pickedIndex < modelCount )
     {
         const int collectionIndex = ReplayRagdollTorsoModelIndexForPart( m_cGameModelCollection, pickedIndex );
-        if ( collectionIndex >= 0 && collectionIndex < static_cast<int>( models.size() ) &&
+        if ( collectionIndex >= 0 && collectionIndex < modelCount &&
              collectionIndex != pickedIndex )
         {
-            const GameModel& rootModel = models[static_cast<std::size_t>( collectionIndex )];
             pickedIndex = collectionIndex;
             pickedId = ReplayBodyIdForModelIndex( bodyStore, collectionIndex );
-            pickedName[0] = '\0';
-            const char* rootName = rootModel.GetName();
-            if ( rootName && rootName[0] != '\0' )
-            {
-                strncpy_s( pickedName, sizeof( pickedName ), rootName, _TRUNCATE );
-            }
+            copyPresentationName( collectionIndex, pickedName, sizeof( pickedName ) );
         }
     }
 

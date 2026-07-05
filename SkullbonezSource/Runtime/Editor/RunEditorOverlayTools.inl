@@ -180,8 +180,7 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
         {
             // Why: Mouse pickup stores a body handle when the drag begins.
             // Overlay drawing should follow that live store row instead of
-            // requiring the post-step GameModel compatibility mirror to be
-            // current.
+            // requiring post-step authoring/presentation data to be current.
             const Vector3 grabPoint = body->position + context.mousePickup.grabOffset;
             context.tracer.AddSelectionOutline( body->position, body->orientation, collider->shape );
             context.tracer.AddReplayPathSegment( grabPoint, context.mousePickup.targetPoint, 0.1f, 0.95f, 1.0f );
@@ -207,7 +206,7 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
         {
             // Why: attached-camera follow is already store-backed; its overlay
             // marker should read the same live body/collider rows instead of
-            // keeping GameModel pose and shape mirrors hot for presentation.
+            // keeping legacy model-side pose/shape caches hot for presentation.
             const float markerRadius = EditorColliderRadius( *collider ) * 1.24f;
             context.tracer.AddAttachedCameraTargetMarker( body->position,
                                                           body->orientation,

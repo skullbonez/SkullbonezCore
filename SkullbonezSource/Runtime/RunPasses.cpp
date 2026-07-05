@@ -45,7 +45,9 @@ Related:
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderRayTracing.h"
 #include "../Rendering/IRenderResourceFactory.h"
+#include "../Rendering/GameModelRenderer.h"
 #include "../Rendering/RenderGraph.h"
+#include "../Rendering/RenderInstanceStore.h"
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -79,6 +81,60 @@ void ClearRenderTextureSlotsExcept( SkullbonezCore::Rendering::IRenderCommandCon
 void ClearAllRenderTextureSlots( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands )
 {
     ClearRenderTextureSlotsExcept( renderCommands, 0u );
+}
+
+int CopyDxrRenderInstanceMatrices( const SkullbonezCore::Rendering::RenderInstanceStore& renderStore,
+                                   float* outMatrixFloats,
+                                   int maxModelCount )
+{
+    if ( !outMatrixFloats || maxModelCount <= 0 )
+    {
+        return 0;
+    }
+
+    const std::vector<SkullbonezCore::Rendering::RenderInstanceRecord>& instances = renderStore.Records();
+    const int modelCount = (std::min)( static_cast<int>( instances.size() ), maxModelCount );
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        const Matrix4& modelMatrix = instances[static_cast<std::size_t>( i )].modelMatrix;
+        memcpy( outMatrixFloats + static_cast<std::size_t>( i ) * 16u, modelMatrix.Data(), 16u * sizeof( float ) );
+    }
+    return modelCount;
+}
+
+bool HasCollisionVisualizerFrameView( const RenderFrameContext& frame )
+{
+    return frame.bodyStore && frame.colliders && frame.renderInstances && frame.collisionVisualContacts &&
+           frame.sleepStates && frame.sleepIslandVisualIds;
+}
+
+CollisionVisualizerFrameView BuildCollisionVisualizerFrameView( const RenderFrameContext& frame )
+{
+    return CollisionVisualizerFrameView{ *frame.bodyStore,
+                                         *frame.colliders,
+                                         *frame.renderInstances,
+                                         *frame.collisionVisualContacts,
+                                         *frame.sleepStates,
+                                         *frame.sleepIslandVisualIds,
+                                         frame.modelCount };
+}
+
+bool HasPhysicsDebugFrameView( const RenderFrameContext& frame )
+{
+    return frame.bodyStore && frame.colliders && frame.sleepStates && frame.sleepSupportedStates &&
+           frame.sleepInhibitedStates && frame.physicsDebugContacts && frame.physicsPipelineTrace;
+}
+
+PhysicsDebugFrameView BuildPhysicsDebugFrameView( const RenderFrameContext& frame )
+{
+    return PhysicsDebugFrameView{ *frame.bodyStore,
+                                  *frame.colliders,
+                                  *frame.sleepStates,
+                                  *frame.sleepSupportedStates,
+                                  *frame.sleepInhibitedStates,
+                                  *frame.physicsDebugContacts,
+                                  *frame.physicsPipelineTrace,
+                                  frame.modelCount };
 }
 
 void BindRenderTextureSlots( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
@@ -660,7 +716,9 @@ SkullbonezCore::Rendering::ShadowFrameData
 ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
                                   const Math::Vector::Vector3& lightDirectionWorld,
                                   const Math::Vector::Vector3& focusHint,
-                                  GameObjects::GameModelCollection& models )
+                                  const Rendering::RenderInstanceStore& renderInstances,
+                                  SkullbonezCore::Threading::WorkerPool* renderWorkerPool,
+                                  bool shadowParallelPrep )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame" );
 
@@ -675,7 +733,14 @@ ShadowPass::BuildObjectFrameData( const CinematicRenderConfig& cinematic,
     float shadowRadius = 0.0f;
     float heightRange = 0.0f;
     const float objectSearchDistance = std::clamp( cinematic.shadowMaxDistance * 0.15f, 180.0f, 320.0f );
-    if ( !models.GetObjectShadowBounds( focusHint, objectSearchDistance, focus, shadowRadius, heightRange ) )
+    if ( !GameObjects::GameModelRenderer::GetObjectShadowBounds( renderInstances,
+                                                                 renderWorkerPool,
+                                                                 shadowParallelPrep,
+                                                                 focusHint,
+                                                                 objectSearchDistance,
+                                                                 focus,
+                                                                 shadowRadius,
+                                                                 heightRange ) )
     {
         return shadowFrame;
     }
@@ -715,7 +780,10 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
                                   Rendering::IRenderCommandContext& renderCommands,
                                   bool renderTerrain,
                                   bool renderObjects,
-                                  GameObjects::GameModelCollection& models,
+                                  const Rendering::RenderInstanceStore& renderInstances,
+                                  const Physics::ColliderStore& colliders,
+                                  SkullbonezCore::Threading::WorkerPool* renderWorkerPool,
+                                  bool shadowParallelPrep,
                                   const Rendering::ShadowCasterBatches* objectCasters )
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap" );
@@ -775,19 +843,26 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
         DRAW_CALL_TRACE_SCOPE( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
 
         // Balls, boxes, and pine-style box visuals all write depth here. The
-        // scene view keeps separate instanced batches so each caster shape uses
-        // the same mesh silhouette as the visible forward pass.
+        // prepared render store keeps separate instanced batches so each caster
+        // shape uses the same mesh silhouette as the visible forward pass.
         if ( objectCasters )
         {
-            models.RenderShadowCasterBatches( helperContext,
-                                              *objectCasters,
-                                              shadowFrame.lightView,
-                                              shadowFrame.lightProjection,
-                                              &cinematic );
+            GameObjects::GameModelRenderer::SubmitShadowCasterBatches( helperContext,
+                                                                       *objectCasters,
+                                                                       shadowFrame.lightView,
+                                                                       shadowFrame.lightProjection,
+                                                                       &cinematic );
         }
         else
         {
-            models.RenderShadowCasters( helperContext, shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
+            GameObjects::GameModelRenderer::RenderShadowCasters( helperContext,
+                                                                 renderInstances,
+                                                                 colliders,
+                                                                 renderWorkerPool,
+                                                                 shadowParallelPrep,
+                                                                 shadowFrame.lightView,
+                                                                 shadowFrame.lightProjection,
+                                                                 &cinematic );
         }
     }
 
@@ -811,7 +886,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
     shadows.objectCasterBatches.Clear();
     if ( inputs.cinematic )
     {
-        if ( !inputs.frame.models )
+        if ( !inputs.frame.renderInstances || !inputs.frame.colliders )
         {
             return ShadowPassOutput();
         }
@@ -832,7 +907,11 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                 inputs.cinematic->shadowObjectsCast && !m_host.m_debug.isCollisionVisualizer;
             if ( shouldBuildObjectCasters )
             {
-                inputs.frame.models->BuildShadowCasterBatches( objectCasters );
+                GameObjects::GameModelRenderer::BuildShadowCasterBatches( *inputs.frame.renderInstances,
+                                                                          *inputs.frame.colliders,
+                                                                          inputs.frame.renderWorkerPool,
+                                                                          inputs.frame.shadowParallelPrep,
+                                                                          objectCasters );
             }
             shadows.terrainFrame = BuildTerrainFrameData( *inputs.cinematic, lightDirection );
             if ( shadows.terrainTarget )
@@ -844,7 +923,10 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                                  RenderCommands( inputs.frame ),
                                  true,
                                  true,
-                                 *inputs.frame.models,
+                                 *inputs.frame.renderInstances,
+                                 *inputs.frame.colliders,
+                                 inputs.frame.renderWorkerPool,
+                                 inputs.frame.shadowParallelPrep,
                                  &objectCasters );
             }
             // Anchor the tight object-shadow map to the render look target, not
@@ -853,7 +935,9 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
             shadows.objectFrame = BuildObjectFrameData( *inputs.cinematic,
                                                         lightDirection,
                                                         inputs.frame.viewCenter,
-                                                        *inputs.frame.models );
+                                                        *inputs.frame.renderInstances,
+                                                        inputs.frame.renderWorkerPool,
+                                                        inputs.frame.shadowParallelPrep );
             if ( shadows.objectTarget )
             {
                 RenderShadowMap( *shadows.objectTarget,
@@ -863,7 +947,10 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                                  RenderCommands( inputs.frame ),
                                  false,
                                  true,
-                                 *inputs.frame.models,
+                                 *inputs.frame.renderInstances,
+                                 *inputs.frame.colliders,
+                                 inputs.frame.renderWorkerPool,
+                                 inputs.frame.shadowParallelPrep,
                                  &objectCasters );
             }
         }
@@ -971,13 +1058,14 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
     if ( useDxrReflection )
     {
         // Lifetime: the DX12 backend owns the raytracing acceleration
-        // structures. The model collection streams current per-model transforms
-        // into the TLAS before dispatching one reflection ray per texture pixel.
-        const int ballCount = inputs.frame.models
-                                  ? inputs.frame.models->CopyDxrModelMatrices(
-                                        m_host.m_dxrReflectionTransforms.data(),
-                                        static_cast<int>( m_host.m_dxrReflectionTransforms.size() / 16 ) )
-                                  : 0;
+        // structures. The prepared render store streams current per-model
+        // transforms into the TLAS before one reflection ray per texture pixel.
+        const int ballCount =
+            inputs.frame.renderInstances
+                ? CopyDxrRenderInstanceMatrices( *inputs.frame.renderInstances,
+                                                 m_host.m_dxrReflectionTransforms.data(),
+                                                 static_cast<int>( m_host.m_dxrReflectionTransforms.size() / 16 ) )
+                : 0;
 
         // Terrain/sphere BLAS objects are owned by the DX12 backend, so the
         // runtime supplies only per-instance sphere transforms here.
@@ -1051,15 +1139,17 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             // Pass contract: collision-state solids are vertex-colored and do
             // not sample textures.
             ClearAllRenderTextureSlots( renderCommands );
-            if ( inputs.frame.models )
+            if ( HasCollisionVisualizerFrameView( inputs.frame ) )
             {
-                inputs.frame.models->RenderCollisionStateSolids( m_host.m_collisionVisualizer,
-                                                                 RenderAssets( inputs.frame ),
-                                                                 RenderResources( inputs.frame ),
-                                                                 inputs.frame.reflectionView,
-                                                                 inputs.frame.projection,
-                                                                 inputs.frame.lightPosition,
-                                                                 inputs.collisionVisualizerAlphaOverride );
+                const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.frame );
+                m_host.m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
+                m_host.m_collisionVisualizer.Render( RenderAssets( inputs.frame ),
+                                                     RenderResources( inputs.frame ),
+                                                     frameView,
+                                                     inputs.frame.reflectionView,
+                                                     inputs.frame.projection,
+                                                     inputs.frame.lightPosition );
+                m_host.m_collisionVisualizer.SetAlphaOverride( -1.0f );
             }
         }
         else
@@ -1071,15 +1161,18 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
                 RENDER_TEXTURE_SLOT_0 |
                     ( inputs.objectShadow && inputs.objectShadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
             m_host.SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
-            if ( inputs.frame.models )
+            if ( inputs.frame.renderInstances && inputs.frame.colliders )
             {
-                inputs.frame.models->RenderModels( RenderHelperServices( inputs.frame, m_host.m_config ),
-                                                   inputs.frame.reflectionView,
-                                                   inputs.frame.projection,
-                                                   inputs.frame.lightPosition,
-                                                   inputs.cinematic,
-                                                   inputs.objectShadow,
-                                                   inputs.bodyAlpha );
+                GameObjects::GameModelRenderer::RenderModels( RenderHelperServices( inputs.frame, m_host.m_config ),
+                                                              *inputs.frame.renderInstances,
+                                                              *inputs.frame.colliders,
+                                                              inputs.frame.renderCollisionVolumes,
+                                                              inputs.frame.reflectionView,
+                                                              inputs.frame.projection,
+                                                              inputs.frame.lightPosition,
+                                                              inputs.cinematic,
+                                                              inputs.objectShadow,
+                                                              inputs.bodyAlpha );
             }
         }
         renderCommands.SetClipPlane( 0, false );
@@ -1113,15 +1206,17 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         // Pass contract: collision-state solids are vertex-colored and do not
         // sample textures.
         ClearAllRenderTextureSlots( RenderCommands( inputs.frame ) );
-        if ( inputs.frame.models )
+        if ( HasCollisionVisualizerFrameView( inputs.frame ) )
         {
-            inputs.frame.models->RenderCollisionStateSolids( m_host.m_collisionVisualizer,
-                                                             RenderAssets( inputs.frame ),
-                                                             RenderResources( inputs.frame ),
-                                                             inputs.frame.baseView,
-                                                             inputs.frame.projection,
-                                                             inputs.frame.lightPosition,
-                                                             inputs.collisionVisualizerAlphaOverride );
+            const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.frame );
+            m_host.m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
+            m_host.m_collisionVisualizer.Render( RenderAssets( inputs.frame ),
+                                                 RenderResources( inputs.frame ),
+                                                 frameView,
+                                                 inputs.frame.baseView,
+                                                 inputs.frame.projection,
+                                                 inputs.frame.lightPosition );
+            m_host.m_collisionVisualizer.SetAlphaOverride( -1.0f );
         }
     }
     else
@@ -1132,17 +1227,20 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
             RenderCommands( inputs.frame ),
             RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
         m_host.SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
-        if ( inputs.frame.models )
+        if ( inputs.frame.renderInstances && inputs.frame.colliders )
         {
-            inputs.frame.models->RenderModels( RenderHelperServices( inputs.frame, m_host.m_config ),
-                                               inputs.frame.baseView,
-                                               inputs.frame.projection,
-                                               inputs.frame.lightPosition,
-                                               inputs.cinematic,
-                                               inputs.shadow,
-                                               inputs.bodyAlpha,
-                                               inputs.modelMask,
-                                               inputs.drawMaskedModels );
+            GameObjects::GameModelRenderer::RenderModels( RenderHelperServices( inputs.frame, m_host.m_config ),
+                                                          *inputs.frame.renderInstances,
+                                                          *inputs.frame.colliders,
+                                                          inputs.frame.renderCollisionVolumes,
+                                                          inputs.frame.baseView,
+                                                          inputs.frame.projection,
+                                                          inputs.frame.lightPosition,
+                                                          inputs.cinematic,
+                                                          inputs.shadow,
+                                                          inputs.bodyAlpha,
+                                                          inputs.modelMask,
+                                                          inputs.drawMaskedModels );
         }
     }
 }
@@ -1373,7 +1471,7 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
     }
     else if ( useTornadoSystem )
     {
-        time = m_host.m_cGameModelCollection.GetTornadoSystemElapsedSeconds();
+        time = inputs.frame.tornadoElapsedSeconds;
     }
 
     m_activeVisualVortices.clear();
@@ -1645,20 +1743,17 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     };
     const bool tornadoVectorsVisible = m_host.m_runtimeSettings.tornadoField.visualizeVelocityField ||
                                        tornadoSystemVectorsVisible( m_host.m_runtimeSettings.tornadoSystem );
-    if ( tornadoVectorsVisible )
+    if ( tornadoVectorsVisible && inputs.frame.physicsEngine )
     {
-        if ( inputs.frame.models )
+        if ( detailMarkers )
         {
-            if ( detailMarkers )
-            {
-                PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay/TornadoField" );
-            }
-            DRAW_CALL_TRACE_SCOPE( "TornadoField" );
-            inputs.frame.models->RenderTornadoFieldVectors( inputs.frame.viewProjection );
-            if ( detailMarkers )
-            {
-                PROFILE_GPU_END( "Frame/Render/DebugOverlay/TornadoField" );
-            }
+            PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay/TornadoField" );
+        }
+        DRAW_CALL_TRACE_SCOPE( "TornadoField" );
+        inputs.frame.physicsEngine->RenderTornadoFieldVectors( inputs.frame.viewProjection );
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_END( "Frame/Render/DebugOverlay/TornadoField" );
         }
     }
 
@@ -1676,11 +1771,12 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         DRAW_CALL_TRACE_SCOPE( "PhysicsDebug" );
         m_host.m_physicsDebugVisualizer.SetFlags( m_host.m_debug.physicsDebugFlags );
         m_host.m_physicsDebugVisualizer.SetPipelineStageCursor( m_host.m_debug.physicsDebugPipelineStageCursor );
-        if ( inputs.frame.models )
+        if ( HasPhysicsDebugFrameView( inputs.frame ) )
         {
-            inputs.frame.models->RenderPhysicsDebug( m_host.m_physicsDebugVisualizer,
-                                                     inputs.frame.viewProjection,
-                                                     m_host.m_systems.terrain.get() );
+            const PhysicsDebugFrameView frameView = BuildPhysicsDebugFrameView( inputs.frame );
+            m_host.m_physicsDebugVisualizer.Render( frameView,
+                                                    inputs.frame.viewProjection,
+                                                    m_host.m_systems.terrain.get() );
         }
         if ( detailMarkers )
         {
@@ -1702,7 +1798,7 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
     }
     if ( ( m_host.m_runtimeSettings.tornadoField.visualizeVelocityField ||
            m_host.m_runtimeSettings.tornadoSystem.visualizeVelocityField ) &&
-         inputs.frame.models )
+         inputs.frame.physicsEngine )
     {
         return true;
     }
@@ -1717,11 +1813,11 @@ bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) co
         return true;
     }
 
-    if ( m_host.ToolHasSelectionOverlayWork() )
+    if ( m_host.ToolHasSelectionOverlayWork( inputs.frame.modelCount ) )
     {
         return true;
     }
-    if ( m_host.ToolHasMousePickupOverlayWork() )
+    if ( m_host.ToolHasMousePickupOverlayWork( inputs.frame.modelCount ) )
     {
         return true;
     }

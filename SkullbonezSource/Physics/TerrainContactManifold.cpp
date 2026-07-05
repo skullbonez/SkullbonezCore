@@ -16,7 +16,7 @@ Glossary:
   Contact patch: The set of terrain-touching features that become solver rows.
 
 Invariants:
-  - The helper must not mutate body, collider, terrain, or compatibility model state.
+  - The helper must not mutate body, collider, terrain, or legacy model state.
   - A collision ratio in [ZERO_TAKE_TOLERANCE, 1] is converted to seconds exactly
     once by SweepTerrainContact.
 
@@ -364,7 +364,7 @@ TerrainContactSweepResult SkullbonezCore::Physics::SweepTerrainContact( const Te
                                                                         float changeInTime )
 {
     // This answers "how many seconds can this body move before it hits terrain?"
-    // and returns the hit plane directly instead of writing a GameModel mailbox.
+    // and returns the hit plane directly for the solver row builder.
     if ( body.terrain == nullptr )
     {
         throw std::runtime_error( "Terrain pointer not valid!  (SweepTerrainContact)" );

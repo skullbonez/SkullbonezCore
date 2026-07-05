@@ -662,7 +662,8 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
     Rendering::IRenderCommandContext& renderCommands = context.renderCommands;
     const int screenW = context.screenW;
     const int screenH = context.screenH;
-    if ( screenW <= 0 || screenH <= 0 || !replayRuntime.BuildCauseTreeRows( context.models, context.bodyStore ) )
+    if ( screenW <= 0 || screenH <= 0 ||
+         !replayRuntime.BuildCauseTreeRows( context.presentationRecords, context.bodyStore ) )
     {
         return;
     }

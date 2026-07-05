@@ -47,9 +47,10 @@ Related:
 
 #include "CollisionVisualizer.h"
 #include "../../Assets/AssetSystem.h"
+#include "../../Rendering/RenderInstanceStore.h"
+#include "../ColliderStore.h"
 #include "../ConvexHullShape.h"
-#include "../../GameObjects/GameModelCollection.h"
-#include "../../GameObjects/GameModel.h"
+#include "../PhysicsBodyStore.h"
 #include "../../Rendering/IRenderBackend.h"
 #include "../../Rendering/PrimitiveMeshBuilder.h"
 #include "../../Core/Common.h"
@@ -60,7 +61,6 @@ Related:
 
 
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
@@ -233,26 +233,26 @@ void CollisionVisualizer::AppendInstance( std::vector<float>& out, const Matrix4
 }
 
 
-void CollisionVisualizer::Update( float dt, GameModelCollection& models )
+void CollisionVisualizer::Update( float dt, const CollisionVisualizerFrameView& view )
 {
     // This mirrors per-frame contact/sleep state into a visual fade cache. The
     // cache is for rendering only; the solver never reads these values back.
-    // GameModelCollection records whether each object contacted another object
-    // during the current physics step. This visualizer keeps a small amount of
+    // PhysicsWorld records whether each object contacted another object during
+    // the current physics step. This visualizer keeps a small amount of
     // temporal state so contact flashes do not disappear in a single frame.
     //
     // Color state:
     //   sleeping object: collision flash forced to zero; sleep palette wins
     //   contact object:  collision amount snaps to 1.0
     //   otherwise:       collision amount fades back toward 0.0 over FADE_DURATION
-    const int modelCount = models.GetModelCount();
+    const int modelCount = view.modelCount;
     if ( static_cast<int>( m_models.size() ) != modelCount )
     {
         m_models.assign( modelCount, TrackedModel() );
     }
 
-    const std::vector<uint8_t>& contacts = models.GetCollisionVisualContacts();
-    const std::vector<uint8_t>& sleepStates = models.GetSleepStates();
+    const std::vector<uint8_t>& contacts = view.collisionContacts;
+    const std::vector<uint8_t>& sleepStates = view.sleepStates;
     const float fadeStep = ( FADE_DURATION > 0.0f ) ? ( dt / FADE_DURATION ) : 1.0f;
 
     for ( int i = 0; i < modelCount; ++i )
@@ -276,16 +276,16 @@ void CollisionVisualizer::Update( float dt, GameModelCollection& models )
 }
 
 
-void CollisionVisualizer::BuildSleepGroupSizes( GameModelCollection& models )
+void CollisionVisualizer::BuildSleepGroupSizes( const CollisionVisualizerFrameView& view )
 {
     // Sleeping objects are grouped into islands by the solver. The color palette
     // uses that island id so stacks/resting piles are easy to distinguish at a
     // glance. Group size is also used for a special single-sphere color below.
-    const int modelCount = models.GetModelCount();
+    const int modelCount = view.modelCount;
     m_sleepGroupSizes.assign( modelCount, 1 );
 
-    const std::vector<uint8_t>& sleepStates = models.GetSleepStates();
-    const std::vector<int>& islandIds = models.GetSleepIslandVisualIds();
+    const std::vector<uint8_t>& sleepStates = view.sleepStates;
+    const std::vector<int>& islandIds = view.sleepIslandVisualIds;
 
     for ( int i = 0; i < modelCount; ++i )
     {
@@ -314,7 +314,8 @@ void CollisionVisualizer::BuildSleepGroupSizes( GameModelCollection& models )
 }
 
 
-CollisionVisualizer::Color CollisionVisualizer::ComputeModelColor( int modelIndex, GameModelCollection& models ) const
+CollisionVisualizer::Color CollisionVisualizer::ComputeModelColor( int modelIndex,
+                                                                   const CollisionVisualizerFrameView& view ) const
 {
     // Awake objects fade between green and red:
     //   green = no recent contact
@@ -331,18 +332,19 @@ CollisionVisualizer::Color CollisionVisualizer::ComputeModelColor( int modelInde
         { 0.05f, 0.42f, 1.0f, 1.0f },
     };
 
-    const std::vector<uint8_t>& sleepStates = models.GetSleepStates();
+    const std::vector<uint8_t>& sleepStates = view.sleepStates;
     const bool sleeping = modelIndex < static_cast<int>( sleepStates.size() ) && sleepStates[modelIndex] != 0;
     if ( sleeping )
     {
-        GameModel& model = models.GetModelAtIndex( modelIndex );
-        if ( !model.IsBox() && modelIndex < static_cast<int>( m_sleepGroupSizes.size() ) &&
-             m_sleepGroupSizes[modelIndex] <= 1 )
+        const std::vector<ColliderRecord>& colliders = view.colliders.Records();
+        const bool isBox = modelIndex < static_cast<int>( colliders.size() ) &&
+                           colliders[static_cast<std::size_t>( modelIndex )].shapeKind == ColliderShapeKind::Box;
+        if ( !isBox && modelIndex < static_cast<int>( m_sleepGroupSizes.size() ) && m_sleepGroupSizes[modelIndex] <= 1 )
         {
             return yellow;
         }
 
-        const std::vector<int>& islandIds = models.GetSleepIslandVisualIds();
+        const std::vector<int>& islandIds = view.sleepIslandVisualIds;
         const int islandId = modelIndex < static_cast<int>( islandIds.size() ) && islandIds[modelIndex] != 0
                                  ? islandIds[modelIndex]
                                  : modelIndex + 1;
@@ -437,18 +439,18 @@ void CollisionVisualizer::DrawHullInstance( const ConvexHullShape& hull, const M
 
 void CollisionVisualizer::Render( Assets::AssetSystem& assets,
                                   Rendering::IRenderResourceFactory& renderResources,
-                                  GameModelCollection& models,
-                                  const Matrix4& view,
+                                  const CollisionVisualizerFrameView& view,
+                                  const Matrix4& cameraView,
                                   const Matrix4& proj,
                                   const float lightPos[4] )
 {
-    if ( !m_enabled || models.GetModelCount() <= 0 )
+    if ( !m_enabled || view.modelCount <= 0 )
     {
         return;
     }
 
     EnsureResources( assets, renderResources );
-    BuildSleepGroupSizes( models );
+    BuildSleepGroupSizes( view );
 
     m_sphereInstanceData.clear();
     m_boxInstanceData.clear();
@@ -456,22 +458,27 @@ void CollisionVisualizer::Render( Assets::AssetSystem& assets,
     // Build primitive streams from the authoritative collision shape. Hulls are
     // drawn after shader constants are bound because each hull emits transient
     // triangle data instead of reusing a cached static mesh.
-    const int modelCount = models.GetModelCount();
+    const std::vector<ColliderRecord>& colliders = view.colliders.Records();
+    const std::vector<RenderInstanceRecord>& instances = view.renderInstances.Records();
+    const int modelCount =
+        (std::min)( view.modelCount,
+                    (std::min)( static_cast<int>( colliders.size() ), static_cast<int>( instances.size() ) ) );
     for ( int i = 0; i < modelCount; ++i )
     {
-        GameModel& model = models.GetModelAtIndex( i );
-        Color color = ComputeModelColor( i, models );
+        const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
+        const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( i )];
+        Color color = ComputeModelColor( i, view );
         if ( m_alphaOverride >= 0.0f )
         {
             color.a = m_alphaOverride;
         }
-        if ( model.IsBox() )
+        if ( collider.shapeKind == ColliderShapeKind::Box )
         {
-            AppendInstance( m_boxInstanceData, model.GetModelMatrix(), color );
+            AppendInstance( m_boxInstanceData, instance.modelMatrix, color );
         }
-        else if ( !model.IsConvexHull() )
+        else if ( collider.shapeKind != ColliderShapeKind::ConvexHull )
         {
-            AppendInstance( m_sphereInstanceData, model.GetModelMatrix(), color );
+            AppendInstance( m_sphereInstanceData, instance.modelMatrix, color );
         }
     }
 
@@ -481,13 +488,13 @@ void CollisionVisualizer::Render( Assets::AssetSystem& assets,
     float viewLightPos[4];
     for ( int i = 0; i < 3; ++i )
     {
-        viewLightPos[i] = view.m[i] * lightPos[0] + view.m[i + 4] * lightPos[1] + view.m[i + 8] * lightPos[2] +
-                          view.m[i + 12] * lightPos[3];
+        viewLightPos[i] = cameraView.m[i] * lightPos[0] + cameraView.m[i + 4] * lightPos[1] +
+                          cameraView.m[i + 8] * lightPos[2] + cameraView.m[i + 12] * lightPos[3];
     }
     viewLightPos[3] = lightPos[3];
 
     m_shader->Use();
-    m_shader->SetMat4( "uView", view );
+    m_shader->SetMat4( "uView", cameraView );
     m_shader->SetMat4( "uProjection", proj );
     m_shader->SetVec4( "uClipPlane", m_clipPlane[0], m_clipPlane[1], m_clipPlane[2], m_clipPlane[3] );
     m_shader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
@@ -511,27 +518,24 @@ void CollisionVisualizer::Render( Assets::AssetSystem& assets,
         DRAW_CALL_TRACE_SCOPE( "CollisionHulls" );
         for ( int i = 0; i < modelCount; ++i )
         {
-            GameModel& model = models.GetModelAtIndex( i );
-            if ( !model.IsConvexHull() )
+            const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
+            if ( collider.shapeKind != ColliderShapeKind::ConvexHull )
             {
                 continue;
             }
 
-            const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &model.GetCollisionShape() );
+            const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
             if ( !hull )
             {
                 continue;
             }
 
-            Color color = ComputeModelColor( i, models );
+            Color color = ComputeModelColor( i, view );
             if ( m_alphaOverride >= 0.0f )
             {
                 color.a = m_alphaOverride;
             }
-            DrawHullInstance(
-                *hull,
-                Matrix4::Translate( model.GetPosition() ) * Matrix4::FromQuaternion( model.GetOrientation() ),
-                color );
+            DrawHullInstance( *hull, instances[static_cast<std::size_t>( i )].modelMatrix, color );
         }
     }
     if ( translucent )
