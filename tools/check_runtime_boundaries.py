@@ -79,6 +79,9 @@
 #   Replay render-pose value-override fence: Static rule that keeps scrub and
 #     prediction draw poses as queued RenderInstanceStore values instead of
 #     backing up or mutating GameModel transforms.
+#   Replay probe body-state fence: Static rule that keeps replay scrub/save/load
+#     validation probes on PhysicsBodyStore rows instead of using GameModel body
+#     mirrors as proof that live simulation state stayed untouched.
 #
 # Invariants:
 #   - Run.h may own subsystem objects, but not their extracted transient state.
@@ -499,6 +502,16 @@ REPLAY_RUNTIME_RENDER_APPLY_FUNCTION_PATTERN = re.compile(
 )
 REPLAY_RUNTIME_RENDER_MODEL_POSE_PATTERN = re.compile(
     r"\bmodel\s*(?:->|\.)\s*(?:GetPosition|GetOrientation|SetPosition|SetOrientation)\s*\("
+)
+RUN_FRAME_REPLAY_PROBE_FUNCTION_PATTERNS = (
+    re.compile(r"\bvoid\s+Run::TickReplayScrubProbe\s*\("),
+    re.compile(r"\bvoid\s+Run::TickReplaySaveProbe\s*\("),
+    re.compile(r"\bvoid\s+Run::VerifyLoadedReplayPresentationProbe\s*\("),
+    re.compile(r"\bbool\s+Run::RestoreReplayV2ArtifactTargetState\s*\("),
+)
+RUN_FRAME_REPLAY_PROBE_MODEL_BODY_READ_PATTERN = re.compile(
+    r"\b(?:probedModel|appliedModel|restoredModel)\s*(?:->|\.)"
+    r"(?:GetPosition|GetVelocity|GetOrientation)\s*\("
 )
 PHYSICS_SCENE_RUN_PHYSICS_FUNCTION_PATTERN = re.compile(r"\bvoid\s+PhysicsScene::RunPhysics\s*\(")
 PHYSICS_SCENE_STEP_BODY_RELOAD_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*ReloadPhysicsBodies\s*\(")
@@ -4043,6 +4056,35 @@ def check_replay_render_pose_value_override_guardrails(repo: Path) -> list[Bound
         path = repo / relative_path
         errors.extend(check_replay_render_pose_value_override_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
+
+
+def check_run_frame_replay_probe_body_store_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for function_pattern in RUN_FRAME_REPLAY_PROBE_FUNCTION_PATTERNS:
+        bounds = _function_body_bounds(stripped, function_pattern)
+        if not bounds:
+            continue
+
+        open_brace, close_brace = bounds
+        for match in RUN_FRAME_REPLAY_PROBE_MODEL_BODY_READ_PATTERN.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "replay probe body state must use PhysicsBodyStore",
+                    (
+                        "Replay scrub/save/load probes should prove live simulation state from PhysicsBodyStore "
+                        "records, not from the temporary GameModel body mirror."
+                    ),
+                )
+            )
+    return errors
+
+
+def check_run_frame_replay_probe_body_store_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / RUN_FRAME_SOURCE
+    return check_run_frame_replay_probe_body_store_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_replay_restore_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
@@ -12627,6 +12669,85 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("queued replay runtime render-apply synthetic surface was rejected")
 
+    old_run_frame_replay_probe_model_body_read = """
+    void Run::TickReplayScrubProbe()
+    {
+        const GameModel* probedModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
+        const Vector3 preApplyPosition = probedModel->GetPosition();
+        const GameModel* restoredModel = m_cGameModelCollection.TryGetModel( probedModelIndex );
+        const Vector3 restoredPosition = restoredModel->GetPosition();
+    }
+    """
+    if not any(
+        error.message == "replay probe body state must use PhysicsBodyStore"
+        for error in check_run_frame_replay_probe_body_store_guardrails_text(
+            RUN_FRAME_SOURCE,
+            old_run_frame_replay_probe_model_body_read,
+        )
+    ):
+        failures.append("old RunFrame replay probe model-body synthetic surface was not rejected")
+
+    old_run_frame_restore_probe_diagnostic_model_body_read = """
+    bool Run::RestoreReplayV2ArtifactTargetState()
+    {
+        const GameModel* restoredModel = m_cGameModelCollection.TryGetModel( 0 );
+        const Vector3& restoredVelocity = restoredModel->GetVelocity();
+        restoredModel->GetOrientation().GetComponents( qx, qy, qz, qw );
+        return true;
+    }
+    """
+    if not any(
+        error.message == "replay probe body state must use PhysicsBodyStore"
+        for error in check_run_frame_replay_probe_body_store_guardrails_text(
+            RUN_FRAME_SOURCE,
+            old_run_frame_restore_probe_diagnostic_model_body_read,
+        )
+    ):
+        failures.append("old RunFrame restore-probe diagnostic model-body synthetic surface was not rejected")
+
+    allowed_run_frame_replay_probe_store_body_read = """
+    void Run::TickReplayScrubProbe()
+    {
+        const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
+        const Vector3 preApplyPosition = probedBody->position;
+        const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
+        const Vector3 restoredPosition = restoredBody->position;
+    }
+    """
+    if check_run_frame_replay_probe_body_store_guardrails_text(
+        RUN_FRAME_SOURCE,
+        allowed_run_frame_replay_probe_store_body_read,
+    ):
+        failures.append("store-owned RunFrame replay probe synthetic surface was rejected")
+
+    allowed_run_frame_replay_save_probe_editor_authoring = """
+    void Run::TickReplaySaveProbe()
+    {
+        GameModel& placedModel = m_cGameModelCollection.GetModelAtIndex( modelCountBeforePlace );
+        placedModel.SetPosition( placedModel.GetPosition() + Vector3( 4.0f, 0.0f, 0.0f ) );
+        Quaternion placedOrientation = placedModel.GetOrientation();
+        placedModel.SetOrientation( placedOrientation );
+    }
+    """
+    if check_run_frame_replay_probe_body_store_guardrails_text(
+        RUN_FRAME_SOURCE,
+        allowed_run_frame_replay_save_probe_editor_authoring,
+    ):
+        failures.append("editor-authoring RunFrame replay save probe synthetic surface was rejected")
+
+    commented_run_frame_replay_probe_model_body_read = """
+    void Run::VerifyLoadedReplayPresentationProbe()
+    {
+        // probedModel->GetPosition() used to prove live state preservation here.
+        const PhysicsBodyRecord* probedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
+    }
+    """
+    if check_run_frame_replay_probe_body_store_guardrails_text(
+        RUN_FRAME_SOURCE,
+        commented_run_frame_replay_probe_model_body_read,
+    ):
+        failures.append("comment-only RunFrame replay probe model-body synthetic text was rejected")
+
     old_physics_scene_step_body_reload = """
     void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess )
     {
@@ -15230,6 +15351,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_replay_prediction_step_writeback_guardrails(repo))
     errors.extend(check_replay_restore_store_authority_guardrails(repo))
     errors.extend(check_replay_render_pose_value_override_guardrails(repo))
+    errors.extend(check_run_frame_replay_probe_body_store_guardrails(repo))
     errors.extend(check_physics_scene_step_body_reload_guardrails(repo))
     errors.extend(check_physics_scene_pending_impulse_model_mirror_guardrails(repo))
     errors.extend(check_physics_scene_velocity_model_mirror_guardrails(repo))
