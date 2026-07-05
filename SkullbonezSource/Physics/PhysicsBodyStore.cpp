@@ -1409,6 +1409,45 @@ PhysicsBodyHandle PhysicsBodyStore::HandleForModelIndex( int modelIndex ) const
 }
 
 
+PhysicsBodyHandle PhysicsBodyStore::HandleForReplayBodyId( uint32_t replayBodyId, int modelIndexHint ) const
+{
+    if ( replayBodyId == 0 )
+    {
+        return PhysicsBodyHandle{};
+    }
+
+    const PhysicsBodyHandle hintedHandle = HandleForModelIndex( modelIndexHint );
+    if ( Contains( hintedHandle ) )
+    {
+        const std::size_t hintedSlot = static_cast<std::size_t>( hintedHandle.index );
+        if ( hintedSlot < m_handleReplayBodyIds.size() && m_handleReplayBodyIds[hintedSlot] == replayBodyId )
+        {
+            return hintedHandle;
+        }
+    }
+
+    const std::size_t slotCount =
+        (std::min)( m_handleGenerations.size(), (std::min)( m_handleAlive.size(), m_handleReplayBodyIds.size() ) );
+    for ( std::size_t slot = 0; slot < slotCount; ++slot )
+    {
+        if ( m_handleAlive[slot] == 0 || m_handleReplayBodyIds[slot] != replayBodyId )
+        {
+            continue;
+        }
+
+        PhysicsBodyHandle handle;
+        handle.index = static_cast<uint32_t>( slot );
+        handle.generation = m_handleGenerations[slot];
+        if ( Contains( handle ) )
+        {
+            return handle;
+        }
+    }
+
+    return PhysicsBodyHandle{};
+}
+
+
 int PhysicsBodyStore::ModelIndexForHandle( PhysicsBodyHandle handle ) const
 {
     if ( !Contains( handle ) )

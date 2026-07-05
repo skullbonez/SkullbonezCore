@@ -11,8 +11,8 @@ Glossary:
   Velocity gizmo: Replay overlay that exposes linear axes and angular rings for one body.
   Live advance: Replay scrubber mode that lets edited live physics advance while tools stay active.
   Replay velocity body view: Local value view resolved from PhysicsBodyStore and
-    ColliderStore for one replay target; model order is used only to find the
-    replay identity.
+    ColliderStore for one replay target; model index is a UI/presentation hint
+    after replay identity resolves to a PhysicsBodyHandle.
 
 Invariants:
   - Pointer capture must end whenever the drag exits or the edited target becomes invalid.
@@ -29,6 +29,7 @@ Related:
 
 struct ReplayVelocityBodyView
 {
+    PhysicsBodyHandle body;
     int modelIndex = -1;
     Vector3 position = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     Quaternion orientation = IDENTITY_QUATERNION;
@@ -45,11 +46,6 @@ static bool TryResolveReplayVelocityBodyView( const ReplayRuntime& replayRuntime
                                               ReplayVelocityBodyView& outView )
 {
     outView = ReplayVelocityBodyView{};
-    const int modelIndex = replayRuntime.ResolveVelocityEditModelIndex( collection.Models() );
-    if ( modelIndex < 0 || modelIndex >= collection.GetModelCount() )
-    {
-        return false;
-    }
     if ( !collection.RepairPhysicsBodyAndColliderTopology() )
     {
         return false;
@@ -57,24 +53,33 @@ static bool TryResolveReplayVelocityBodyView( const ReplayRuntime& replayRuntime
 
     const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
     const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
-    if ( modelIndex >= bodyStore.Count() || modelIndex >= colliderStore.Count() )
+    const PhysicsBodyHandle bodyHandle = replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
+    const int modelIndex = bodyStore.ModelIndexForHandle( bodyHandle );
+    if ( modelIndex < 0 || modelIndex >= collection.GetModelCount() )
+    {
+        return false;
+    }
+    const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
+    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
+    const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+    if ( !body || !collider )
     {
         return false;
     }
 
-    const PhysicsBodyRecord& body = bodyStore.Records()[static_cast<std::size_t>( modelIndex )];
-    const ColliderRecord& collider = colliderStore.Records()[static_cast<std::size_t>( modelIndex )];
-    // Invariant: replay velocity edit may use model order for replay identity,
-    // but live body facts come from the store rows so the post-step GameModel
-    // mirror is not required for hit testing or gizmo drawing.
+    // Invariant: replay velocity edit resolves identity to a body handle before
+    // it reads pose, velocity, or shape rows. modelIndex remains only for UI
+    // gesture metadata and collider pairing while replay/editor identity moves
+    // away from transient GameModel order.
+    outView.body = bodyHandle;
     outView.modelIndex = modelIndex;
-    outView.position = body.position;
-    outView.orientation = body.orientation;
-    outView.linearVelocity = body.linearVelocity;
-    outView.angularVelocity = body.angularVelocity;
-    outView.shape = &collider.shape;
-    outView.radius = (std::max)( 1.0f, (std::max)( body.boundingRadius, collider.boundingRadius ) );
-    outView.fixed = body.isFixed;
+    outView.position = body->position;
+    outView.orientation = body->orientation;
+    outView.linearVelocity = body->linearVelocity;
+    outView.angularVelocity = body->angularVelocity;
+    outView.shape = &collider->shape;
+    outView.radius = (std::max)( 1.0f, (std::max)( body->boundingRadius, collider->boundingRadius ) );
+    outView.fixed = body->isFixed;
     return outView.shape != nullptr;
 }
 
@@ -226,7 +231,7 @@ bool TryReplayVelocityAngularRayAngle( const ReplayVelocityBodyView& body,
 
 static void ApplyReplayVelocityEditToBody( ReplayRuntime& replayRuntime,
                                            SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
-                                           int modelIndex,
+                                           PhysicsBodyHandle body,
                                            const Vector3& linearVelocity,
                                            const Vector3& angularVelocity,
                                            double visibleUntil )
@@ -235,7 +240,7 @@ static void ApplyReplayVelocityEditToBody( ReplayRuntime& replayRuntime,
     // Invariant: replay velocity edit mutates live physics state deliberately,
     // then marks prediction dirty so retained and predicted overlays do not
     // present stale paths for the edited body.
-    if ( modelIndex < 0 || modelIndex >= modelCollection.GetModelCount() )
+    if ( !body.IsValid() )
     {
         return;
     }
@@ -251,15 +256,6 @@ static void ApplyReplayVelocityEditToBody( ReplayRuntime& replayRuntime,
         std::clamp( clampedAngular.y, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
     clampedAngular.z =
         std::clamp( clampedAngular.z, -REPLAY_VELOCITY_EDIT_ANGULAR_MAX, REPLAY_VELOCITY_EDIT_ANGULAR_MAX );
-
-    // Why: replay selection still resolves from model order, but velocity edits
-    // can target the authoritative store row directly instead of constructing
-    // the legacy model-index adapter.
-    const PhysicsBodyHandle body = modelCollection.GetPhysicsEngine().BodyStore().HandleForModelIndex( modelIndex );
-    if ( !body.IsValid() )
-    {
-        return;
-    }
 
     if ( !modelCollection.GetPhysicsEngine().SetBodyVelocity( body, clampedLinear, clampedAngular, true ) )
     {
@@ -387,7 +383,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
 
         ApplyReplayVelocityEditToBody( m_replayRuntime,
                                        m_cGameModelCollection,
-                                       body.modelIndex,
+                                       body.body,
                                        linearVelocity,
                                        angularVelocity,
                                        m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS );

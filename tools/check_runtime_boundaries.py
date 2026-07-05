@@ -71,6 +71,9 @@
 #     mirrors.
 #   Replay velocity body-read fence: Static rule that keeps velocity-edit hit
 #     testing and gizmo drawing on PhysicsBodyStore/ColliderStore rows.
+#   Replay velocity identity fence: Static rule that keeps velocity-edit target
+#     lookup on PhysicsBodyStore replay-id handles instead of scanning GameModel
+#     replay ids.
 #   Handle-authority fence: Static rule that keeps a validation smoke on handles
 #     returned by creation instead of proving authority through adapter lookup.
 #   Store-handle fence: Static rule that keeps owner-side command edges on
@@ -764,6 +767,15 @@ REPLAY_VELOCITY_ADAPTER_LOOKUP_PATTERN = re.compile(
 REPLAY_VELOCITY_MODEL_BODY_READ_PATTERN = re.compile(
     r"\b(?:[A-Za-z_]\w*|[A-Za-z_]\w*\s*\[[^\]]+\])\s*(?:\.|->)\s*"
     r"(?:IsFixed|GetPosition|GetVelocity|GetAngularVelocity)\s*\("
+)
+REPLAY_VELOCITY_GAME_MODEL_ID_LOOKUP_PATTERN = re.compile(
+    r"\b(?:ResolveVelocityEditModelIndex\s*\(|"
+    r"[A-Za-z_]\w*VelocityEdit[A-Za-z_]\w*\s*\([^;{)]{0,240}"
+    r"std\s*::\s*vector\s*<\s*(?:GameObjects\s*::\s*)?GameModel)"
+)
+REPLAY_VELOCITY_COLLECTION_MODELS_LOOKUP_PATTERN = re.compile(
+    r"\bResolveVelocityEdit[A-Za-z_]\w*\s*\([^;)]*"
+    r"(?:collection|modelCollection|m_cGameModelCollection)\s*\.\s*Models\s*\("
 )
 RUN_FRAME_REPLAY_EDITOR_TRANSFORM_WAKE_PATTERN = re.compile(
     r"\bm_cGameModelCollection\s*\.\s*WakeModel\s*\("
@@ -5086,12 +5098,40 @@ def check_replay_velocity_model_state_physics_command_guardrails_text(path: Path
                 ),
             )
         )
+    for match in REPLAY_VELOCITY_GAME_MODEL_ID_LOOKUP_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay velocity GameModel replay-id lookup is blocked",
+                (
+                    "Replay velocity edit target identity must resolve ReplayBodyId through "
+                    "PhysicsBodyStore::HandleForReplayBodyId. Model index may remain only as a staleable "
+                    "hint or presentation token after physics owns the target."
+                ),
+            )
+        )
+    for match in REPLAY_VELOCITY_COLLECTION_MODELS_LOOKUP_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay velocity collection Models lookup is blocked",
+                (
+                    "Replay velocity edit should pass PhysicsBodyStore to ReplayRuntime target resolution "
+                    "instead of reopening GameModelCollection::Models for replay identity."
+                ),
+            )
+        )
     return errors
 
 
 def check_replay_velocity_model_state_physics_command_guardrails(repo: Path) -> list[BoundaryError]:
-    path = repo / REPLAY_VELOCITY_EDIT_SOURCE
-    return check_replay_velocity_model_state_physics_command_guardrails_text(path, path.read_text(encoding="utf-8"))
+    errors: list[BoundaryError] = []
+    for relative_path in (REPLAY_VELOCITY_EDIT_SOURCE, REPLAY_RUNTIME_SOURCE, REPLAY_RUNTIME_HEADER):
+        path = repo / relative_path
+        errors.extend(check_replay_velocity_model_state_physics_command_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_run_frame_replay_editor_transform_wake_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -14634,6 +14674,56 @@ def run_self_tests() -> list[str]:
         commented_replay_velocity_model_state_command,
     ):
         failures.append("comment-only replay velocity model-state command synthetic text was rejected")
+
+    old_replay_velocity_model_identity_lookup = """
+    int ReplayRuntime::ResolveVelocityEditModelIndex( const std::vector<GameObjects::GameModel>& models ) const
+    {
+        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        {
+            if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == m_pathVisualizer.targetId.value )
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+    """
+    if not any(
+        error.message == "replay velocity GameModel replay-id lookup is blocked"
+        for error in check_replay_velocity_model_state_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
+            old_replay_velocity_model_identity_lookup,
+        )
+    ):
+        failures.append("old replay velocity GameModel replay-id lookup synthetic surface was not rejected")
+
+    old_replay_velocity_collection_models_lookup = """
+    bool TryResolveReplayVelocityBodyView( const ReplayRuntime& replayRuntime, GameModelCollection& collection )
+    {
+        const int modelIndex = replayRuntime.ResolveVelocityEditModelIndex( collection.Models() );
+        return modelIndex >= 0;
+    }
+    """
+    if not any(
+        error.message == "replay velocity collection Models lookup is blocked"
+        for error in check_replay_velocity_model_state_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"),
+            old_replay_velocity_collection_models_lookup,
+        )
+    ):
+        failures.append("old replay velocity collection Models lookup synthetic surface was not rejected")
+
+    allowed_replay_velocity_body_handle_lookup = """
+    PhysicsBodyHandle ReplayRuntime::ResolveVelocityEditBodyHandle( const PhysicsBodyStore& bodyStore ) const
+    {
+        return bodyStore.HandleForReplayBodyId( m_pathVisualizer.targetId.value, m_pathVisualizer.targetModelIndex );
+    }
+    """
+    if check_replay_velocity_model_state_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp"),
+        allowed_replay_velocity_body_handle_lookup,
+    ):
+        failures.append("store-owned replay velocity body-handle lookup synthetic surface was rejected")
 
     old_run_frame_replay_editor_transform_wake = """
     bool ApplyReplayEditorTransformEvent()

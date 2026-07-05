@@ -71,6 +71,7 @@ using Math::Vector::Vector3;
 using Math::Vector::VectorMagSquared;
 using Physics::ColliderRecord;
 using Physics::ColliderStore;
+using Physics::PhysicsBodyHandle;
 using Physics::PhysicsBodyRecord;
 using Physics::PhysicsBodyStore;
 using Physics::PhysicsPipelineRecord;
@@ -1401,28 +1402,14 @@ bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
 }
 
 
-int ReplayRuntime::ResolveVelocityEditModelIndex( const std::vector<GameObjects::GameModel>& models ) const
+PhysicsBodyHandle ReplayRuntime::ResolveVelocityEditBodyHandle( const PhysicsBodyStore& bodyStore ) const
 {
     if ( !m_pathVisualizer.hasTarget || m_pathVisualizer.targetId.value == 0 )
     {
-        return -1;
+        return PhysicsBodyHandle{};
     }
 
-    const int cachedIndex = m_pathVisualizer.targetModelIndex;
-    if ( cachedIndex >= 0 && cachedIndex < static_cast<int>( models.size() ) &&
-         models[static_cast<std::size_t>( cachedIndex )].GetReplayBodyId() == m_pathVisualizer.targetId.value )
-    {
-        return cachedIndex;
-    }
-
-    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
-    {
-        if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == m_pathVisualizer.targetId.value )
-        {
-            return i;
-        }
-    }
-    return -1;
+    return bodyStore.HandleForReplayBodyId( m_pathVisualizer.targetId.value, m_pathVisualizer.targetModelIndex );
 }
 
 

@@ -2008,6 +2008,28 @@ boundaries, and Profile/Debug builds with 0 warnings/errors;
 `tools\validate_physics.bat` passed standalone/runtime handle smoke and
 byte-exact `physics_regression_solver.csv`.
 
+Slice `PHY-1057`: replay velocity-edit target identity now resolves through
+`PhysicsBodyStore::HandleForReplayBodyId()` instead of scanning
+`GameModel::GetReplayBodyId()` across `GameModelCollection::Models()`. Owner:
+replay velocity edit and the body store handle maps; reason: after a
+handle-backed path exists, replay identity should not depend on transient vector
+order except as a staleable fast hint; deletion condition:
+`RunReplayVelocityEdit.inl` has no `ResolveVelocityEditModelIndex()` or
+`collection.Models()` target lookup, `ReplayRuntime` returns a
+`PhysicsBodyHandle`, and `ApplyReplayVelocityEditToBody()` receives that handle
+directly; checker budget: `tools/check_runtime_boundaries.py` blocks the deleted
+vector-`GameModel` replay-id resolver and collection `Models()` call shape while
+allowing `PhysicsBodyStore` replay-id handle lookup.
+
+Evidence: residue scan found no deleted velocity target lookup in the
+velocity-edit path; diff-check, boundary-checker Python compile, and
+runtime-boundary validation passed with runtime-boundary summary reporting 0 errors;
+focused Debug build passed with 0 warnings/errors; touched-file comment audit
+inspected all touched source/tool files; `tools\validate_fast.bat` passed
+formatting, project filters, runtime boundaries, and Profile/Debug builds with
+0 warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle
+smoke and byte-exact 20,001-line `physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

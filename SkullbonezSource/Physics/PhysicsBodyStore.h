@@ -160,6 +160,9 @@ class PhysicsBodyStore
     int Count() const;
     bool Empty() const;
     PhysicsBodyHandle HandleForModelIndex( int modelIndex ) const;
+    // Resolves stable replay identity to the live body handle. modelIndexHint
+    // is a fast path only; stale hints fall back to the handle replay-id table.
+    PhysicsBodyHandle HandleForReplayBodyId( uint32_t replayBodyId, int modelIndexHint = -1 ) const;
     int ModelIndexForHandle( PhysicsBodyHandle handle ) const;
     bool Contains( PhysicsBodyHandle handle ) const;
     const std::vector<PhysicsBodyRecord>& Records() const;

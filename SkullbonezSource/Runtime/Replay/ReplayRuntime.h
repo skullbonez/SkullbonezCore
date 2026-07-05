@@ -47,6 +47,7 @@ Related:
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/Common.h"
 #include "../../Maths/Quaternion.h"
+#include "../../Physics/PhysicsHandles.h"
 
 namespace SkullbonezCore
 {
@@ -474,7 +475,9 @@ class ReplayRuntime
                                        const Physics::ColliderStore& colliderStore,
                                        Math::Vector::Vector3& outPosition,
                                        float* outRadius ) const;
-    int ResolveVelocityEditModelIndex( const std::vector<GameObjects::GameModel>& models ) const;
+    // Resolves the current velocity-edit target to live physics authority. The
+    // stored model index is a staleable hint, not identity.
+    Physics::PhysicsBodyHandle ResolveVelocityEditBodyHandle( const Physics::PhysicsBodyStore& bodyStore ) const;
     bool BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models );
     bool BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models );
     const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const;
