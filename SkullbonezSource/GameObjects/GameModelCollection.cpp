@@ -133,71 +133,6 @@ void ApplyCollectionPhysicsMaterialToColliderDesc( PhysicsColliderCreateDesc& de
 }
 
 
-bool IsDecimalDigit( char c )
-{
-    return c >= '0' && c <= '9';
-}
-
-
-bool IsReleasableEditorTreePartSuffix( const char* suffix )
-{
-    if ( !suffix || suffix[0] == '\0' )
-    {
-        return false;
-    }
-    return strcmp( suffix, "trunk" ) == 0 || strcmp( suffix, "low" ) == 0 || strcmp( suffix, "mid" ) == 0 ||
-           strcmp( suffix, "top" ) == 0 || strncmp( suffix, "needle_", 7 ) == 0;
-}
-
-
-bool TryGetEditorTreeInstancePrefixLength( const char* name, size_t& outPrefixLength )
-{
-    outPrefixLength = 0;
-    if ( !name || name[0] == '\0' )
-    {
-        return false;
-    }
-
-    if ( strstr( name, "_tree_" ) == nullptr && strncmp( name, "tree_", 5 ) != 0 )
-    {
-        return false;
-    }
-
-    const size_t nameLength = strlen( name );
-    size_t marker = nameLength;
-    for ( size_t i = 0; i + 5 < nameLength; ++i )
-    {
-        if ( name[i] == '_' && IsDecimalDigit( name[i + 1] ) && IsDecimalDigit( name[i + 2] ) &&
-             IsDecimalDigit( name[i + 3] ) && name[i + 4] == '_' )
-        {
-            marker = i;
-        }
-    }
-
-    if ( marker != nameLength )
-    {
-        const size_t prefixLength = marker + 5;
-        if ( !IsReleasableEditorTreePartSuffix( name + prefixLength ) )
-        {
-            return false;
-        }
-
-        outPrefixLength = prefixLength;
-        return true;
-    }
-
-    for ( size_t i = 0; i + 1 < nameLength; ++i )
-    {
-        if ( name[i] == '_' && IsReleasableEditorTreePartSuffix( name + i + 1 ) )
-        {
-            outPrefixLength = i + 1;
-            return true;
-        }
-    }
-
-    return false;
-}
-
 } // namespace
 
 
@@ -213,7 +148,7 @@ GameModelCollection::GameModelCollection()
 
 
 GameModelCollection::SceneObjectGroupRecord
-GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel& gameModel,
+GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel&,
                                                      int newModelIndex,
                                                      SceneObjectGroupCreateDesc groupDesc )
 {
@@ -236,40 +171,6 @@ GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel& gameModel,
         return group;
     }
 
-    const char* sourceName = gameModel.GetName();
-    size_t sourcePrefixLength = 0;
-    if ( !TryGetEditorTreeInstancePrefixLength( sourceName, sourcePrefixLength ) )
-    {
-        return group;
-    }
-
-    group.kind = GameModelCollectionKind::ReleasableTree;
-    group.rootModelIndex = newModelIndex;
-    group.partIndex = 0;
-    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
-    {
-        const SceneObjectGroupRecord& existingGroup = m_sceneObjectGroups[static_cast<std::size_t>( i )];
-        if ( existingGroup.kind != GameModelCollectionKind::ReleasableTree )
-        {
-            continue;
-        }
-
-        size_t existingPrefixLength = 0;
-        const char* existingName = m_gameModels[static_cast<std::size_t>( i )].GetName();
-        if ( !TryGetEditorTreeInstancePrefixLength( existingName, existingPrefixLength ) ||
-             existingPrefixLength != sourcePrefixLength ||
-             strncmp( existingName, sourceName, sourcePrefixLength ) != 0 )
-        {
-            continue;
-        }
-
-        group.rootModelIndex = existingGroup.rootModelIndex;
-        if ( group.rootModelIndex < 0 || group.rootModelIndex >= newModelIndex )
-        {
-            group.rootModelIndex = i;
-        }
-        group.partIndex = (std::max)( group.partIndex, existingGroup.partIndex + 1 );
-    }
     return group;
 }
 

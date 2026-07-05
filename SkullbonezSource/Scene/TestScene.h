@@ -18,9 +18,11 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
   Override mask: Bitfield that records which optional JSON fields were authored
-  so unspecified values keep engine.cfg defaults.
+    so unspecified values keep engine.cfg defaults.
   Asset system: Runtime-owned registry that resolves logical asset-library names
     without requiring the parser to query process-global state.
+  Scene object group: Parsed metadata that ties multi-part authored objects,
+    such as releasable trees, to one root object before runtime construction.
 
 Invariants:
   - Command-line and scene JSON fields are user-facing compatibility
@@ -41,6 +43,7 @@ Related:
 #include "../Physics/TornadoField.h"
 #include "../Rendering/RenderMaterial.h"
 #include "../Maths/Vector3.h"
+#include <cstdint>
 #include <vector>
 
 namespace SkullbonezCore
@@ -106,6 +109,20 @@ struct SceneBoxState
     bool isSleeping;
 };
 
+enum class SceneObjectGroupKind : uint8_t
+{
+    None = 0,
+    ReleasableTree
+};
+
+struct SceneObjectGroupMetadata
+{
+    SceneObjectGroupKind kind = SceneObjectGroupKind::None;
+    char rootObjectName[64] = {};                             // Authored root name, resolved after scene expansion.
+    int rootObjectIndex = -1;                                 // Index in the owning parsed object section.
+    int partIndex = -1;                                       // Deterministic part order inside the group.
+};
+
 struct SceneConvexHullState
 {
     char name[64];
@@ -118,6 +135,7 @@ struct SceneConvexHullState
     float inertiaX, inertiaY, inertiaZ;
     float contactReleaseImpulseThreshold;
     char contactMaterial[32];                                 // Snapshot-preserved gameplay/audio contact material token.
+    SceneObjectGroupMetadata group;                           // Parsed multi-part object ownership metadata.
     bool isFixed;
     bool isSleeping;
     bool contactReleaseOnImpact;
@@ -174,6 +192,7 @@ struct SceneConvexHull
     float angVelX, angVelY, angVelZ;
     float contactReleaseImpulseThreshold;
     char contactMaterial[32];                                 // Gameplay/audio contact material token.
+    SceneObjectGroupMetadata group;                           // Parsed multi-part object ownership metadata.
     bool hasInitOrient;
     bool hasInitVelocity;
     bool hasInitAngularVelocity;

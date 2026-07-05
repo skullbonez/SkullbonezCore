@@ -17,6 +17,8 @@ Glossary:
   Collider descriptor: Value packet carrying parsed shape and contact material
     facts into the physics collider store.
   Ragdoll part: One model body in the generated simple ragdoll assembly.
+  Scene object group: Parsed metadata that ties multi-part authored objects,
+    such as releasable trees, to a single root scene object.
 
 Invariants:
   - Scene object insertion order is validation-facing and must stay stable.
@@ -50,6 +52,7 @@ Related:
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <stdexcept>
 #include <utility>
 
 namespace SkullbonezCore
@@ -127,6 +130,25 @@ PhysicsColliderCreateDesc
 MakeSceneHullColliderDesc( const ConvexHullShape& hull, float restitution, const char* materialName )
 {
     return MakeSceneColliderDesc( hull, restitution, materialName );
+}
+
+GameObjects::SceneObjectGroupCreateDesc MakeSceneObjectGroupCreateDesc( const SceneObjectGroupMetadata& group,
+                                                                        int sectionModelIndexBase )
+{
+    if ( group.kind == SceneObjectGroupKind::None )
+    {
+        return {};
+    }
+    if ( group.kind != SceneObjectGroupKind::ReleasableTree || group.rootObjectIndex < 0 || group.partIndex < 0 )
+    {
+        throw std::runtime_error( "Invalid authored scene object group metadata." );
+    }
+
+    GameObjects::SceneObjectGroupCreateDesc desc;
+    desc.kind = GameObjects::GameModelCollectionKind::ReleasableTree;
+    desc.rootModelIndex = sectionModelIndexBase + group.rootObjectIndex;
+    desc.partIndex = group.partIndex;
+    return desc;
 }
 
 bool SceneNameEndsWithPartSuffix( const char* name, const char* suffix )
@@ -306,6 +328,9 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
                                     scene.GetConvexHullStateCount() +
                                     scene.GetRagdollCount() * Ragdoll::SIMPLE_PART_COUNT;
     context.physics.ClearPointJointConstraints();
+    const int convexHullModelBase =
+        scene.GetBallCount() + scene.GetBallStateCount() + scene.GetBoxCount() + scene.GetBoxStateCount();
+    const int convexHullStateModelBase = convexHullModelBase + scene.GetConvexHullCount();
     for ( int i = 0; i < scene.GetBallCount(); ++i )
     {
         const SceneBall& ball = scene.GetBall( i );
@@ -485,10 +510,16 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
 
         gameModel.SetFixed( hullScene.isFixed );
 
+        // Invariant: parsed scene object grouping is converted once at the
+        // authored construction edge. Collection append only copies the
+        // descriptor into its dense sidecar.
+        const GameObjects::SceneObjectGroupCreateDesc groupDesc =
+            MakeSceneObjectGroupCreateDesc( hullScene.group, convexHullModelBase );
         const PhysicsBodyHandle body = context.models.AddGameModel(
             std::move( gameModel ),
             MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ),
-            context.sceneState.AllocateSceneObjectId() );
+            context.sceneState.AllocateSceneObjectId(),
+            groupDesc );
         if ( hullScene.isSleeping && !hullScene.isFixed )
         {
             context.physics.SeedBodyAsleep( body );
@@ -520,10 +551,13 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         gameModel.SetOrientation(
             Quaternion( hullScene.orientX, hullScene.orientY, hullScene.orientZ, hullScene.orientW ) );
         gameModel.SetFixed( hullScene.isFixed );
+        const GameObjects::SceneObjectGroupCreateDesc groupDesc =
+            MakeSceneObjectGroupCreateDesc( hullScene.group, convexHullStateModelBase );
         const PhysicsBodyHandle body = context.models.AddGameModel(
             std::move( gameModel ),
             MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ),
-            context.sceneState.AllocateSceneObjectId() );
+            context.sceneState.AllocateSceneObjectId(),
+            groupDesc );
         if ( hullScene.isSleeping && !hullScene.isFixed )
         {
             context.physics.SeedBodyAsleep( body );

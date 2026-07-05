@@ -2492,6 +2492,41 @@ byte-exact 20,001-line `physics_regression_solver.csv` in about 14s. Logs:
 and
 `TestOutput\validation\physics_store_authority\validate_physics_editor_tree_group_desc.log`.
 
+Slice `PHY-1076`: authored scene releasable-tree grouping is parsed as
+`SceneObjectGroupMetadata` and converted once into
+`SceneObjectGroupCreateDesc` at the authored setup edge. Owner:
+`TestSceneParser` owns legacy scene-name import and asset-token classification;
+`SceneAuthoredSetup` owns conversion from parsed section-local root/part data to
+collection descriptors; `GameModelCollection` only validates and copies the
+descriptor into its dense sidecar. Reason: collection append should not parse
+display names or scan previous `GameModel` rows to rediscover authored tree
+groups, especially on a performance-focused engine boundary. Deletion
+condition: `GameModelCollection.cpp` contains no fixed-tree suffix/prefix
+helpers, no display-name grouping fallback, and
+`BuildSceneObjectGroupForAppend()` returns `None` unless a descriptor is
+supplied. New editable scene snapshots write explicit `objectGroup` JSON for
+releasable tree hull states so saved content no longer depends on the legacy
+name importer. Checker budget: `tools/check_runtime_boundaries.py` rejects the
+deleted collection-side fixed-tree helper names and any display-name/string API
+read inside `BuildSceneObjectGroupForAppend()` while allowing parser-side legacy
+import and comment-only examples.
+
+Evidence: CodeGraph and targeted source review mapped the fixed-tree append
+path; `git diff --check`, boundary-checker Python compile, runtime-boundary
+validation, and workqueue CSV parse passed; focused Profile build passed with 0
+warnings/errors; touched-source comment audit inspected
+`GameModelCollection.cpp`, `SceneAuthoredSetup.cpp`,
+`SceneSnapshotWriter.cpp`, `TestScene.h`, `TestSceneParser.cpp`, and
+`tools/check_runtime_boundaries.py`; targeted clang-format/header alignment
+satisfied format gates; `tools\validate_fast.bat` passed formatting, project
+filters, runtime boundaries, Profile build, and Debug build; and
+`tools\validate_physics.bat` passed standalone/runtime smoke and byte-exact
+20,001-line `physics_regression_solver.csv` in about 14s. Logs:
+`TestOutput\validation\physics_store_authority\validate_build_profile_authored_tree_group_metadata.log`,
+`TestOutput\validation\physics_store_authority\validate_fast_authored_tree_group_metadata.log`,
+and
+`TestOutput\validation\physics_store_authority\validate_physics_authored_tree_group_metadata.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

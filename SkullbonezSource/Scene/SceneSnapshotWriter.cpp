@@ -13,8 +13,10 @@ Glossary:
     original authored file.
   Cold metadata: Names, render materials, and collection grouping that identify
     objects but do not drive physics integration.
+  Scene object group: JSON metadata that lets multi-part object grouping
+    round-trip without parsing display-name suffixes at collection append time.
   Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+    commit or PR.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
@@ -150,6 +152,29 @@ Json RenderMaterialJson( const char* target, const SkullbonezCore::Rendering::Re
         materialJson["flags"] = material.flags;
     }
     return materialJson;
+}
+
+void AddSceneObjectGroupJson( Json& object,
+                              const GameModelCollection& collection,
+                              const std::vector<GameModel>& gameModels,
+                              int modelIndex )
+{
+    if ( collection.GroupKindAt( modelIndex ) != GameModelCollectionKind::ReleasableTree )
+    {
+        return;
+    }
+
+    const int rootModelIndex = collection.GroupRootModelIndexAt( modelIndex );
+    if ( rootModelIndex < 0 || rootModelIndex >= static_cast<int>( gameModels.size() ) )
+    {
+        return;
+    }
+
+    object["objectGroup"] = {
+        { "kind", "releasableTree" },
+        { "root", gameModels[static_cast<std::size_t>( rootModelIndex )].GetName() },
+        { "part", collection.GroupPartIndexAt( modelIndex ) },
+    };
 }
 } // namespace
 
@@ -335,6 +360,7 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
             {
                 hullState["sleeping"] = true;
             }
+            AddSceneObjectGroupJson( hullState, collection, m_gameModels, i );
             scene["objects"].push_back( hullState );
         }
 

@@ -915,6 +915,10 @@ EDITOR_TREE_PLACEMENT_UNGROUPED_APPEND_PATTERN = re.compile(
     r"partFixed\s*,\s*treeDefinition\s*\.\s*seedAsleep\s*&&\s*!partFixed\s*\)",
     re.S,
 )
+COLLECTION_GROUP_APPEND_FUNCTION_PATTERN = re.compile(r"\bGameModelCollection::BuildSceneObjectGroupForAppend\s*\(")
+COLLECTION_GROUP_APPEND_NAME_READ_PATTERN = re.compile(
+    r"\b(?:GetName|strlen|strncmp|strstr|strcmp)\s*\(",
+)
 RUNTIME_INTERACTION_EXECUTE_COMMAND_PATTERN = re.compile(r"\bbool\s+Run\s*::\s*ExecuteRuntimeInteractionCommand\s*\(")
 ATTACHED_CAMERA_OVERLAY_MODEL_MARKER_PATTERN = re.compile(
     r"\bcontext\s*\.\s*tracer\s*\.\s*AddAttachedCameraTargetMarker\s*\(\s*"
@@ -1206,6 +1210,14 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         (
             "Ragdoll construction must pass SceneObjectGroupCreateDesc root/part metadata; "
             "collection append must not parse display names for grouping."
+        ),
+    ),
+    (
+        "collection fixed-tree name grouping inference",
+        re.compile(r"\b(?:TryGetEditorTreeInstancePrefixLength|IsReleasableEditorTreePartSuffix)\b"),
+        (
+            "Authored scene loading must pass SceneObjectGroupCreateDesc root/part metadata; "
+            "GameModelCollection append must not parse tree display names for grouping."
         ),
     ),
     (
@@ -5802,6 +5814,36 @@ def check_editor_tree_group_descriptor_guardrails_text(path: Path, text: str) ->
 def check_editor_tree_group_descriptor_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / EDITOR_OBJECT_PLACEMENT_SOURCE
     return check_editor_tree_group_descriptor_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_collection_group_append_name_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != GAME_MODEL_COLLECTION_SOURCE.name:
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for function_match in COLLECTION_GROUP_APPEND_FUNCTION_PATTERN.finditer(stripped):
+        open_brace = stripped.find("{", function_match.end())
+        if open_brace < 0:
+            continue
+        close_brace = find_matching_close_brace(stripped, open_brace)
+        for match in COLLECTION_GROUP_APPEND_NAME_READ_PATTERN.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "collection append grouping must not read display names",
+                    (
+                        "Scene/editor/ragdoll owners must pass SceneObjectGroupCreateDesc; "
+                        "GameModelCollection::BuildSceneObjectGroupForAppend only validates and copies descriptors."
+                    ),
+                )
+            )
+    return errors
+
+
+def check_collection_group_append_name_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / GAME_MODEL_COLLECTION_SOURCE
+    return check_collection_group_append_name_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_editor_selection_identity_handle_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -18243,6 +18285,108 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only simple-ragdoll name grouping inference synthetic text was rejected")
 
+    old_collection_fixed_tree_name_grouping = """
+    bool TryGetEditorTreeInstancePrefixLength( const char* name, size_t& outPrefixLength )
+    {
+        return IsReleasableEditorTreePartSuffix( name );
+    }
+    """
+    if not any(
+        error.message == "deleted migration artifact is blocked: collection fixed-tree name grouping inference"
+        for error in check_deleted_migration_artifact_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_collection_fixed_tree_name_grouping,
+        )
+    ):
+        failures.append("old collection fixed-tree name grouping inference synthetic surface was not rejected")
+
+    allowed_authored_tree_group_descriptor = """
+    GameObjects::SceneObjectGroupCreateDesc MakeSceneObjectGroupCreateDesc( const SceneObjectGroupMetadata& group )
+    {
+        GameObjects::SceneObjectGroupCreateDesc desc;
+        desc.kind = GameObjects::GameModelCollectionKind::ReleasableTree;
+        desc.rootModelIndex = sectionModelIndexBase + group.rootObjectIndex;
+        desc.partIndex = group.partIndex;
+        return desc;
+    }
+    """
+    if check_deleted_migration_artifact_guardrails_text(
+        Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"),
+        allowed_authored_tree_group_descriptor,
+    ):
+        failures.append("authored tree group descriptor synthetic surface was rejected")
+
+    commented_collection_fixed_tree_name_grouping = """
+    // TryGetEditorTreeInstancePrefixLength and IsReleasableEditorTreePartSuffix used to run here.
+    SceneObjectGroupRecord GameModelCollection::BuildSceneObjectGroupForAppend()
+    {
+        return {};
+    }
+    """
+    if check_deleted_migration_artifact_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        commented_collection_fixed_tree_name_grouping,
+    ):
+        failures.append("comment-only collection fixed-tree name grouping inference synthetic text was rejected")
+
+    old_collection_group_append_name_fallback = """
+    GameModelCollection::SceneObjectGroupRecord
+    GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel& gameModel,
+                                                         int newModelIndex,
+                                                         SceneObjectGroupCreateDesc groupDesc )
+    {
+        const char* sourceName = gameModel.GetName();
+        return {};
+    }
+    """
+    if not any(
+        error.message == "collection append grouping must not read display names"
+        for error in check_collection_group_append_name_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_collection_group_append_name_fallback,
+        )
+    ):
+        failures.append("old collection group append display-name fallback synthetic surface was not rejected")
+
+    allowed_collection_group_append_descriptor_only = """
+    GameModelCollection::SceneObjectGroupRecord
+    GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel&,
+                                                         int newModelIndex,
+                                                         SceneObjectGroupCreateDesc groupDesc )
+    {
+        assert( m_sceneObjectGroups.size() == m_gameModels.size() );
+        SceneObjectGroupRecord group;
+        if ( groupDesc.kind != GameModelCollectionKind::None )
+        {
+            group.kind = groupDesc.kind;
+            group.rootModelIndex = groupDesc.rootModelIndex;
+            group.partIndex = groupDesc.partIndex;
+        }
+        return group;
+    }
+    """
+    if check_collection_group_append_name_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_collection_group_append_descriptor_only,
+    ):
+        failures.append("descriptor-only collection group append synthetic surface was rejected")
+
+    commented_collection_group_append_name_fallback = """
+    GameModelCollection::SceneObjectGroupRecord
+    GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel&,
+                                                         int newModelIndex,
+                                                         SceneObjectGroupCreateDesc groupDesc )
+    {
+        // Old code read gameModel.GetName() here.
+        return {};
+    }
+    """
+    if check_collection_group_append_name_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        commented_collection_group_append_name_fallback,
+    ):
+        failures.append("comment-only collection group append display-name fallback synthetic text was rejected")
+
     if check_deleted_per_body_model_writeback_guardrails_text(
         Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
         allowed_game_model_collection_fixed_tree_store_release,
@@ -18951,6 +19095,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_selection_overlay_store_authority_guardrails(repo))
     errors.extend(check_editor_selection_frame_store_authority_guardrails(repo))
     errors.extend(check_editor_tree_group_descriptor_guardrails(repo))
+    errors.extend(check_collection_group_append_name_guardrails(repo))
     errors.extend(check_editor_selection_identity_handle_guardrails(repo))
     errors.extend(check_attached_camera_overlay_store_authority_guardrails(repo))
     errors.extend(check_replay_target_marker_store_authority_guardrails(repo))
