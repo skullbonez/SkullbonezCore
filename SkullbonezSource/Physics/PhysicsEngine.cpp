@@ -65,9 +65,9 @@ void PhysicsEngine::RefreshBodyStore( PhysicsModelAccess& modelAccess )
 }
 
 
-void PhysicsEngine::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex )
+void PhysicsEngine::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex, int expectedModelCount )
 {
-    m_scene.RefreshBodyFromModel( modelAccess, modelIndex );
+    m_scene.RefreshBodyFromModel( modelAccess, modelIndex, expectedModelCount );
 }
 
 
@@ -139,9 +139,9 @@ bool PhysicsEngine::RefreshColliderSnapshot()
 }
 
 
-void PhysicsEngine::RefreshRenderStore( PhysicsModelAccess& modelAccess )
+void PhysicsEngine::RefreshRenderStore( PhysicsModelAccess& modelAccess, int expectedModelCount )
 {
-    m_scene.RefreshRenderStore( modelAccess );
+    m_scene.RefreshRenderStore( modelAccess, expectedModelCount );
 }
 
 

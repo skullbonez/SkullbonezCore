@@ -2318,6 +2318,33 @@ InfoQueue 0 errors, DX12 screenshots matching baselines, and byte-exact
 20,001-line `physics_regression_solver.csv`. Log:
 `TestOutput\validation\physics_store_authority\validate_full_scene_owned_identity.log`.
 
+Slice `PHY-1070`: `PhysicsModelAccess` no longer exposes a generic
+`ModelCount()` query. Owner: `GameModelCollection` owns model order and passes
+the expected count into body/render refresh calls; `PhysicsScene` only compares
+store counts against that caller-owned value before asking the facade to refresh
+rows. Reason: a model-count query made the facade look like a general model-order
+view again, inviting future physics code to ask model-owner questions through a
+compatibility object. Deletion condition: `PhysicsModelAccess.h` and its
+definitions expose no `ModelCount`, `Count`, or `size` style query; checker
+budget: `tools/check_runtime_boundaries.py` rejects the deleted count query
+alongside the older step facade methods.
+
+Evidence: CodeGraph traced `RepairPhysicsBodyAndColliderTopology()` through
+`RefreshBodyStore()` and the render refresh call sites; residue scan found no
+`PhysicsModelAccess::ModelCount` or `modelAccess.ModelCount()` source calls;
+`git diff --check`, boundary-checker Python compile, and runtime-boundary
+validation passed with 0 errors; focused Profile build passed with 0
+warnings/errors after fixing the render refresh count path; touched-source
+comment audit inspected `GameModelCollection.cpp`, `PhysicsModelAccess.h`,
+`PhysicsEngine.h/cpp`, `PhysicsScene.h/cpp`, and
+`tools/check_runtime_boundaries.py`; `tools\validate_fast.bat` passed formatting,
+project filters, runtime boundaries, and Profile/Debug builds with 0
+warnings/errors; `tools\validate_physics.bat` passed standalone/runtime smoke and
+byte-exact 20,001-line `physics_regression_solver.csv`. Logs:
+`TestOutput\validation\physics_store_authority\validate_fast_model_access_count_query.log`
+and
+`TestOutput\validation\physics_store_authority\validate_physics_model_access_count_query.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

@@ -71,7 +71,9 @@ class PhysicsScene
     void ApplyColliderMaterial( const PhysicsMaterial& material );
     void Clear();
     void RefreshBodyStore( PhysicsModelAccess& modelAccess );
-    void RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex );
+    // Owner passes the expected count so PhysicsModelAccess stays a refresh-only
+    // facade rather than a generic model-order query surface.
+    void RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex, int expectedModelCount );
     // Construction edge: registers one newly authored body value without a full
     // compatibility reload. Owner is GameModelCollection until scene creation
     // writes body descriptors directly.
@@ -104,7 +106,7 @@ class PhysicsScene
     // Rebinds existing collider rows against the already-current body store.
     // Count drift must be fixed by the creator/editor path that owns shape data.
     bool RefreshColliderSnapshot();
-    void RefreshRenderStore( PhysicsModelAccess& modelAccess );
+    void RefreshRenderStore( PhysicsModelAccess& modelAccess, int expectedModelCount );
     void RunPhysics( float fChangeInTime,
                      const Basics::EngineConfig& config,
                      const PhysicsWorldForces& worldForces,

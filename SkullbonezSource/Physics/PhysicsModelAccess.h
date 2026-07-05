@@ -10,8 +10,8 @@ Mental model:
   stores; step writeback and presentation feedback stay with GameModelCollection.
 
 Glossary:
-  Model-owner access: Narrow command/query facade over GameModelCollection
-    state that physics stores still need for model-order sync.
+  Model-owner access: Narrow refresh facade over GameModelCollection state that
+    physics stores still need for model-order sync.
   Authoring refresh: Model-owner import that rebuilds body or render store rows
     after scene/editor/replay code changes model-owned authoring data.
   Model order: Deterministic vector order still used to align compatibility
@@ -65,7 +65,6 @@ class PhysicsModelAccess
   public:
     explicit PhysicsModelAccess( GameObjects::GameModelCollection& collection );
 
-    int ModelCount() const;
     // Reloads body records after compatibility model-owned edits mutate model
     // state before the step can import them through a narrower command.
     void ReloadPhysicsBodies( PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
@@ -74,7 +73,7 @@ class PhysicsModelAccess
     // GameModel supplies render material and feedback alpha until rendering owns
     // them.
     // Captures one editor/replay-edited body into PhysicsBodyStore without
-    // forcing every render refresh to reload the full model mirror.
+    // exposing model-order queries through this facade.
     void RefreshPhysicsBodyFromModel( PhysicsBodyStore& bodyStore, int modelIndex );
     void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
                                  const PhysicsBodyStore& bodyStore,

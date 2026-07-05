@@ -133,14 +133,13 @@ void PhysicsScene::RefreshBodyStore( PhysicsModelAccess& modelAccess )
 }
 
 
-void PhysicsScene::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex )
+void PhysicsScene::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex, int expectedModelCount )
 {
-    const int modelCount = modelAccess.ModelCount();
-    if ( modelIndex < 0 || modelIndex >= modelCount )
+    if ( modelIndex < 0 || modelIndex >= expectedModelCount )
     {
         return;
     }
-    if ( m_bodyStore.Count() != modelCount )
+    if ( m_bodyStore.Count() != expectedModelCount )
     {
         RefreshBodyStore( modelAccess );
         return;
@@ -222,10 +221,9 @@ bool PhysicsScene::RefreshColliderSnapshot()
 }
 
 
-void PhysicsScene::RefreshRenderStore( PhysicsModelAccess& modelAccess )
+void PhysicsScene::RefreshRenderStore( PhysicsModelAccess& modelAccess, int expectedModelCount )
 {
-    const int modelCount = modelAccess.ModelCount();
-    if ( m_bodyStore.Count() != modelCount )
+    if ( m_bodyStore.Count() != expectedModelCount )
     {
         RefreshBodyStore( modelAccess );
     }
@@ -239,8 +237,8 @@ void PhysicsScene::RefreshRenderStore( PhysicsModelAccess& modelAccess )
     }
     modelAccess.RefreshRenderInstances( m_renderInstanceStore, m_bodyStore, m_colliderStore );
 #ifdef _DEBUG
-    ValidatePhysicsStoreMappings( modelCount );
-    ValidateRenderStoreMappings( modelCount );
+    ValidatePhysicsStoreMappings( expectedModelCount );
+    ValidateRenderStoreMappings( expectedModelCount );
 #endif
 }
 

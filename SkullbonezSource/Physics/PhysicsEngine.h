@@ -59,7 +59,9 @@ class PhysicsEngine
     void ApplyColliderMaterial( const PhysicsMaterial& material );
     void Clear();
     void RefreshBodyStore( PhysicsModelAccess& modelAccess );
-    void RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex );
+    // Owner passes the expected count so PhysicsModelAccess stays a refresh-only
+    // facade rather than a generic model-order query surface.
+    void RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex, int expectedModelCount );
     // Scene/model construction receives a body handle at append time instead of
     // resolving the just-created row through the compatibility adapter.
     PhysicsBodyHandle RegisterAuthoredBody( const PhysicsBodyRecord& record );
@@ -90,7 +92,7 @@ class PhysicsEngine
     // Rebinds existing collider rows from PhysicsBodyStore. Missing collider
     // rows are a topology bug, not a cue to rebuild shape facts from GameModel.
     bool RefreshColliderSnapshot();
-    void RefreshRenderStore( PhysicsModelAccess& modelAccess );
+    void RefreshRenderStore( PhysicsModelAccess& modelAccess, int expectedModelCount );
     // Steps the owned stores. Model-order import/export lives with
     // GameModelCollection so the solver path does not borrow PhysicsModelAccess.
     void Step( float deltaSeconds,

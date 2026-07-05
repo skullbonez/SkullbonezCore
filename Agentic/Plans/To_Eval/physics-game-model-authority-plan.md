@@ -3,15 +3,36 @@
 Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
-Validation for latest source slice: `tools\validate_full.bat` passed on
-2026-07-05 after moving creation identity to `RunSceneState` and deleting the
-remaining `GameModelCollection` replay-id allocator. Runtime boundaries reported
-0 errors, Profile/Debug builds were 0 warnings/errors, DX12 InfoQueue reported
-0 errors, screenshots matched baselines, and `physics_regression_solver.csv` was
-a byte-exact 20,001-line match.
+Validation for latest source slice: `tools\validate_fast.bat` and
+`tools\validate_physics.bat` passed on 2026-07-05 after deleting the generic
+`PhysicsModelAccess::ModelCount()` query. Runtime boundaries reported 0 errors,
+Profile/Debug builds were 0 warnings/errors, standalone/runtime physics smoke
+passed, and `physics_regression_solver.csv` was a byte-exact 20,001-line match.
 
 ## Completed Slices
 
+- [x] 2026-07-05: Deleted the generic `PhysicsModelAccess::ModelCount()` query.
+  `GameModelCollection` now computes model count at the owner boundary and
+  passes the expected count into `PhysicsEngine::RefreshBodyFromModel()` and
+  `PhysicsEngine::RefreshRenderStore()`. `PhysicsScene` compares body/render
+  store counts against that caller-owned value before requesting model-owner
+  refreshes, so `PhysicsModelAccess` remains a narrow refresh facade instead of
+  a model-order query surface. Owner: `GameModelCollection` owns model order;
+  `PhysicsScene` owns store count validation. Reason: a count query on the
+  compatibility facade made it too easy for future physics code to treat the
+  model owner as a general view again. Deletion condition:
+  `PhysicsModelAccess.h` and `GameModelCollection.cpp` contain no
+  `PhysicsModelAccess::ModelCount` declaration or definition, and refresh
+  callers pass explicit expected counts. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects `ModelCount`, `Count`, and `size`
+  style queries on `PhysicsModelAccess`. Validation: CodeGraph traced the body
+  and render refresh call paths; residue scan found no deleted source calls;
+  `git diff --check`, boundary-checker Python compile, runtime boundaries with 0
+  errors, focused Profile build with 0 warnings/errors, and touched-source
+  comment audit passed; `tools\validate_fast.bat` passed formatting, project
+  filters, runtime boundaries, and Profile/Debug builds with 0 warnings/errors;
+  `tools\validate_physics.bat` passed standalone/runtime smoke and byte-exact
+  20,001-line `physics_regression_solver.csv`.
 - [x] 2026-07-05: Deleted the remaining `GameModelCollection` replay-id
   allocator. Scene/editor/runtime creation now allocates
   `PhysicsSceneObjectId` values from `RunSceneState` and passes them into

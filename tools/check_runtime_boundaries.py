@@ -314,13 +314,13 @@ SIMULATION_SYSTEM_OWNER_BORROW_PATTERN = re.compile(
 PHYSICS_MODEL_ACCESS_DELETED_STEP_FACADE_PATTERN = re.compile(
     r"\b(?:GetPhysicsBodyStream|GetBodyStream|InvalidatePhysicsStreams|WriteBackPhysicsBodies|WriteBackPhysicsBody|"
     r"NotifyFixedContact|TickContactHighlights|TryGetPhysicsDiagnosticsModelName|FillPhysicsDiagnosticsNames|"
-    r"Count|size)\s*\("
+    r"ModelCount|Count|size)\s*\("
 )
 PHYSICS_MODEL_ACCESS_DELETED_STEP_FACADE_DEFINITION_PATTERN = re.compile(
     r"\bPhysicsModelAccess::"
     r"(?:GetPhysicsBodyStream|GetBodyStream|InvalidatePhysicsStreams|WriteBackPhysicsBodies|WriteBackPhysicsBody|"
     r"NotifyFixedContact|TickContactHighlights|TryGetPhysicsDiagnosticsModelName|FillPhysicsDiagnosticsNames|"
-    r"Count|size)\s*\("
+    r"ModelCount|Count|size)\s*\("
 )
 PHYSICS_MODEL_ACCESS_DELETED_COLLIDER_REFRESH_PATTERN = re.compile(
     r"\bRefreshPhysicsColliders\s*\("
@@ -12542,7 +12542,6 @@ def run_self_tests() -> list[str]:
     allowed_physics_model_access_refresh_facade = """
     class PhysicsModelAccess
     {
-        int ModelCount() const;
         void ReloadPhysicsBodies( PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
         void RefreshPhysicsBodyFromModel( PhysicsBodyStore& bodyStore, int modelIndex );
         void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
@@ -12555,6 +12554,25 @@ def run_self_tests() -> list[str]:
         allowed_physics_model_access_refresh_facade,
     ):
         failures.append("refresh-only PhysicsModelAccess synthetic surface was rejected")
+
+    old_physics_model_access_model_count = """
+    class PhysicsModelAccess
+    {
+        int ModelCount() const;
+    };
+    int PhysicsModelAccess::ModelCount() const
+    {
+        return m_collection.ModelCount();
+    }
+    """
+    if not any(
+        error.message == "deleted PhysicsModelAccess step facade surface is blocked"
+        for error in check_physics_model_access_deleted_step_facade_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsModelAccess.h"),
+            old_physics_model_access_model_count,
+        )
+    ):
+        failures.append("old PhysicsModelAccess ModelCount synthetic surface was not rejected")
 
     old_physics_model_access_collider_refresh = """
     class PhysicsModelAccess
@@ -12574,8 +12592,7 @@ def run_self_tests() -> list[str]:
     commented_physics_model_access_step_facade = """
     class PhysicsModelAccess
     {
-        int ModelCount() const;
-        // WriteBackPhysicsBodies and FillPhysicsDiagnosticsNames were deleted from this facade.
+        // ModelCount, WriteBackPhysicsBodies, and FillPhysicsDiagnosticsNames were deleted from this facade.
     };
     """
     if check_physics_model_access_deleted_step_facade_guardrails_text(

@@ -94,12 +94,6 @@ PhysicsModelAccess::PhysicsModelAccess( GameObjects::GameModelCollection& collec
 }
 
 
-int PhysicsModelAccess::ModelCount() const
-{
-    return m_collection.ModelCount();
-}
-
-
 void PhysicsModelAccess::ReloadPhysicsBodies( PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates )
 {
     m_collection.ReloadPhysicsBodies( bodyStore, sleepStates );
@@ -585,7 +579,7 @@ void GameModelCollection::PrepareRenderInstances()
     // Preparing it once here prevents each render pass from re-importing the
     // same physics pose repeatedly.
     PhysicsModelAccess modelAccess( *this );
-    m_physicsEngine.RefreshRenderStore( modelAccess );
+    m_physicsEngine.RefreshRenderStore( modelAccess, ModelCount() );
 }
 
 
@@ -603,7 +597,7 @@ int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxMo
         // cold path keeps standalone DXR callers on the render-instance
         // authority instead of falling back to GameModel pose recomputation.
         PhysicsModelAccess modelAccess( *this );
-        m_physicsEngine.RefreshRenderStore( modelAccess );
+        m_physicsEngine.RefreshRenderStore( modelAccess, ModelCount() );
     }
 
     const std::vector<Rendering::RenderInstanceRecord>& instances = m_physicsEngine.RenderInstances().Records();
@@ -1145,7 +1139,7 @@ const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::Rende
 const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::GetRenderInstanceStore()
 {
     PhysicsModelAccess modelAccess( *this );
-    m_physicsEngine.RefreshRenderStore( modelAccess );
+    m_physicsEngine.RefreshRenderStore( modelAccess, ModelCount() );
     return m_physicsEngine.RenderInstances();
 }
 
@@ -1220,7 +1214,8 @@ void GameModelCollection::RefreshRenderInstances( SkullbonezCore::Rendering::Ren
 
 void GameModelCollection::CommitEditedModelBodyState( int modelIndex )
 {
-    if ( modelIndex < 0 || modelIndex >= GetModelCount() )
+    const int modelCount = GetModelCount();
+    if ( modelIndex < 0 || modelIndex >= modelCount )
     {
         return;
     }
@@ -1233,20 +1228,21 @@ void GameModelCollection::CommitEditedModelBodyState( int modelIndex )
     // Deletion: replace this when editor/replay writes PhysicsBodyHandle-backed
     // body commands directly. Checker: the boundary script rejects the deleted
     // bool collider/body commit API from returning.
-    if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
+    if ( m_physicsEngine.BodyStore().Count() != modelCount )
     {
         m_physicsEngine.RefreshBodyStore( modelAccess );
     }
     else
     {
-        m_physicsEngine.RefreshBodyFromModel( modelAccess, modelIndex );
+        m_physicsEngine.RefreshBodyFromModel( modelAccess, modelIndex, modelCount );
     }
 }
 
 
 void GameModelCollection::CommitEditedModelColliderState( int modelIndex, PhysicsColliderCreateDesc colliderDesc )
 {
-    if ( modelIndex < 0 || modelIndex >= GetModelCount() )
+    const int modelCount = GetModelCount();
+    if ( modelIndex < 0 || modelIndex >= modelCount )
     {
         return;
     }
@@ -1256,19 +1252,19 @@ void GameModelCollection::CommitEditedModelColliderState( int modelIndex, Physic
     // body row first, then replace exactly one collider row by stable handle.
     // Count drift still goes through topology repair because missing rows cannot
     // be patched by a single descriptor.
-    if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
+    if ( m_physicsEngine.BodyStore().Count() != modelCount )
     {
         m_physicsEngine.RefreshBodyStore( modelAccess );
     }
     else
     {
-        m_physicsEngine.RefreshBodyFromModel( modelAccess, modelIndex );
+        m_physicsEngine.RefreshBodyFromModel( modelAccess, modelIndex, modelCount );
     }
 
     const bool colliderBindingsReady = m_physicsEngine.RefreshColliderSnapshot();
 
     const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForModelIndex( modelIndex );
-    if ( !bodyRecord || !colliderBindingsReady || m_physicsEngine.Colliders().Count() != ModelCount() )
+    if ( !bodyRecord || !colliderBindingsReady || m_physicsEngine.Colliders().Count() != modelCount )
     {
         return;
     }
