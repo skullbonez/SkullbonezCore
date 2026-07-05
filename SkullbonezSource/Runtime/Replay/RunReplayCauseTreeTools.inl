@@ -146,8 +146,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
 
     const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
     const int screenH = RuntimeWindowScreenHeight( m_systems, m_config );
-    if ( m_runtimeTools.Editor().editorModeEnabled || screenW <= 0 || screenH <= 0 ||
-         !m_replayRuntime.BuildCauseTreeRows( m_cGameModelCollection.Models() ) )
+    const auto endCauseTreeDragIfReleased = [&]()
     {
         if ( leftReleased &&
              ( m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow ) )
@@ -157,6 +156,17 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
             m_replayRuntime.CauseTree().draggingWindow = false;
             m_replayRuntime.CauseTree().resizingWindow = false;
         }
+    };
+    if ( m_runtimeTools.Editor().editorModeEnabled || screenW <= 0 || screenH <= 0 )
+    {
+        endCauseTreeDragIfReleased();
+        return false;
+    }
+
+    const auto& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+    if ( !m_replayRuntime.BuildCauseTreeRows( m_cGameModelCollection.Models(), bodyStore ) )
+    {
+        endCauseTreeDragIfReleased();
         return false;
     }
 

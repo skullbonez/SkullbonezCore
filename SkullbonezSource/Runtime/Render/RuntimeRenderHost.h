@@ -338,10 +338,7 @@ class RuntimeRenderHost
 
     MainMemoryStats RefreshMainMemoryStats( double nowSeconds ) const;
 
-    bool BuildReplayFocusModelMask() const
-    {
-        return m_replayRuntime.BuildFocusModelMask( m_cGameModelCollection );
-    }
+    bool BuildReplayFocusModelMask() const;
 
     void RenderReplayPredictionGhosts( const RenderFrameContext& frame,
                                        const CinematicRenderConfig* cinematic,

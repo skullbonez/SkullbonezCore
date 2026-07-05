@@ -1801,6 +1801,23 @@ REPLAY_CAUSE_TREE_MODEL_BODY_READ_PATTERN = re.compile(
     r"|\bReplayRuntimeModelRadius\s*\(",
     re.S,
 )
+REPLAY_CAUSE_TREE_BUILD_FUNCTION_PATTERN = re.compile(
+    r"\bbool\s+ReplayRuntime::BuildCauseTreeRows\s*\([^{}]*\)",
+    re.S,
+)
+REPLAY_FOCUS_MODEL_MASK_FUNCTION_PATTERN = re.compile(
+    r"\bbool\s+ReplayRuntime::BuildFocusModelMask\s*\([^{}]*\)",
+    re.S,
+)
+REPLAY_CAUSE_TREE_IDENTITY_MODEL_READ_PATTERN = re.compile(
+    r"\bmodels\s*\[[^\]]+\]\s*\.\s*GetReplayBodyId\s*\("
+    r"|\b(?:model|models\s*\[[^\]]+\])\s*(?:\.|->)\s*GetReplayBodyId\s*\(",
+    re.S,
+)
+REPLAY_FOCUS_MODEL_COLLECTION_PARAM_PATTERN = re.compile(
+    r"\bBuildFocusModelMask\s*\(\s*const\s+(?:GameObjects\s*::\s*)?GameModelCollection\s*&",
+    re.S,
+)
 
 RUN_REPLAY_CAUSE_TREE_FOCUS_SOURCE_RULE = (
     "Run replay cause-tree focus wrappers are blocked",
@@ -6212,6 +6229,35 @@ def check_run_replay_cause_tree_lookup_source_guardrails_text(path: Path, text: 
             )
             for match in REPLAY_CAUSE_TREE_MODEL_BODY_READ_PATTERN.finditer(stripped, open_brace, close_brace)
         )
+    for function_pattern, message in (
+        ( REPLAY_CAUSE_TREE_BUILD_FUNCTION_PATTERN, "replay cause-tree GameModel replay-id lookup is blocked" ),
+        ( REPLAY_FOCUS_MODEL_MASK_FUNCTION_PATTERN, "replay focus mask GameModel replay-id lookup is blocked" ),
+    ):
+        bounds = _function_body_bounds(stripped, function_pattern)
+        if not bounds:
+            continue
+        open_brace, close_brace = bounds
+        errors.extend(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                message,
+                (
+                    "Replay cause/focus identity must resolve ReplayBodyId through PhysicsBodyStore handles. "
+                    "GameModel may provide display metadata, but it must not be the replay-id lookup table."
+                ),
+            )
+            for match in REPLAY_CAUSE_TREE_IDENTITY_MODEL_READ_PATTERN.finditer(stripped, open_brace, close_brace)
+        )
+    errors.extend(
+        BoundaryError(
+            path,
+            line_for_offset(stripped, match.start()),
+            "replay focus mask collection parameter is blocked",
+            "BuildFocusModelMask should take PhysicsBodyStore plus model count, not reopen GameModelCollection.",
+        )
+        for match in REPLAY_FOCUS_MODEL_COLLECTION_PARAM_PATTERN.finditer(stripped)
+    )
     return errors
 
 
@@ -9225,6 +9271,70 @@ def run_self_tests() -> list[str]:
         commented_replay_cause_tree_model_body_read,
     ):
         failures.append("comment-only replay cause-tree model body read synthetic text was rejected")
+
+    old_replay_cause_tree_identity_model_scan = """
+    bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models )
+    {
+        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        {
+            if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == id.value )
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    """
+    if not any(
+        error.message == "replay cause-tree GameModel replay-id lookup is blocked"
+        for error in check_run_replay_cause_tree_lookup_source_guardrails_text(
+            Path("synthetic/ReplayRuntime.cpp"),
+            old_replay_cause_tree_identity_model_scan,
+        )
+    ):
+        failures.append("old replay cause-tree GameModel replay-id scan synthetic surface was not rejected")
+
+    old_replay_focus_mask_collection_signature = """
+    bool ReplayRuntime::BuildFocusModelMask( const GameObjects::GameModelCollection& collection )
+    {
+        const std::vector<GameObjects::GameModel>& models = collection.Models();
+        if ( models[0].GetReplayBodyId() == id.value )
+        {
+            return true;
+        }
+        return false;
+    }
+    """
+    focus_mask_errors = check_run_replay_cause_tree_lookup_source_guardrails_text(
+        Path("synthetic/ReplayRuntime.cpp"),
+        old_replay_focus_mask_collection_signature,
+    )
+    if not any( error.message == "replay focus mask collection parameter is blocked" for error in focus_mask_errors ):
+        failures.append("old replay focus mask collection parameter synthetic surface was not rejected")
+    if not any( error.message == "replay focus mask GameModel replay-id lookup is blocked" for error in focus_mask_errors ):
+        failures.append("old replay focus mask GameModel replay-id lookup synthetic surface was not rejected")
+
+    allowed_replay_cause_tree_body_store_identity = """
+    bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models,
+                                            const PhysicsBodyStore& bodyStore )
+    {
+        const PhysicsBodyHandle body = bodyStore.HandleForReplayBodyId( id.value, preferredModelIndex );
+        const int modelIndex = bodyStore.ModelIndexForHandle( body );
+        const char* name = models[static_cast<std::size_t>( modelIndex )].GetName();
+        return name != nullptr;
+    }
+
+    bool ReplayRuntime::BuildFocusModelMask( const PhysicsBodyStore& bodyStore, int modelCount )
+    {
+        const PhysicsBodyHandle body = bodyStore.HandleForReplayBodyId( id.value, preferredModelIndex );
+        return bodyStore.ModelIndexForHandle( body ) < modelCount;
+    }
+    """
+    if check_run_replay_cause_tree_lookup_source_guardrails_text(
+        Path("synthetic/ReplayRuntime.cpp"),
+        allowed_replay_cause_tree_body_store_identity,
+    ):
+        failures.append("store-owned replay cause-tree/focus identity synthetic surface was rejected")
 
     old_replay_cause_tree_focus_source_helper = "bool Run::FocusReplayCauseTreeBody( ReplayBodyId id ) { return true; }"
     if not any(

@@ -148,6 +148,7 @@ RuntimeRenderHost::BuildReplayOverlayRenderContext( const UI::UIRenderContext& u
     return { *uiRender.commands,
              m_replayRuntime,
              m_cGameModelCollection.Models(),
+             m_cGameModelCollection.GetPhysicsBodyStore(),
              m_editor.editorModeEnabled,
              m_UI.IsVisible(),
              m_UI.IsMinimized(),
@@ -155,6 +156,12 @@ RuntimeRenderHost::BuildReplayOverlayRenderContext( const UI::UIRenderContext& u
              WindowScreenWidth(),
              WindowScreenHeight(),
              m_timers.simulationTimer.GetTotalTime() };
+}
+
+bool RuntimeRenderHost::BuildReplayFocusModelMask() const
+{
+    const auto& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+    return m_replayRuntime.BuildFocusModelMask( bodyStore, m_cGameModelCollection.GetModelCount() );
 }
 
 void RuntimeRenderHost::RenderReplayScrubberOverlay( const UI::UIRenderContext& uiRender ) const

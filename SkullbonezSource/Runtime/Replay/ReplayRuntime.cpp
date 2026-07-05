@@ -1413,7 +1413,8 @@ PhysicsBodyHandle ReplayRuntime::ResolveVelocityEditBodyHandle( const PhysicsBod
 }
 
 
-bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models )
+bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models,
+                                        const PhysicsBodyStore& bodyStore )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/BuildRows" );
     m_causeTree.rows.clear();
@@ -1439,13 +1440,22 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
         m_causeTree.rows.reserve( estimatedRows );
     }
 
-    auto modelIndexForId = [&]( ReplayBodyId id ) -> int
+    // Invariant: cause-tree rows keep model indices only for UI row selection
+    // and solver-artifact contact matching. ReplayBodyId identity resolves
+    // through body-store handles first; solver samples are historical fallback.
+    auto modelIndexForId = [&]( ReplayBodyId id, int preferredModelIndex ) -> int
     {
-        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        const PhysicsBodyHandle body = bodyStore.HandleForReplayBodyId( id.value, preferredModelIndex );
+        const int liveIndex = bodyStore.ModelIndexForHandle( body );
+        if ( liveIndex >= 0 )
         {
-            if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == id.value )
+            return liveIndex;
+        }
+        if ( solverSample )
+        {
+            if ( const ReplaySolverBodySample* sampleBody = FindReplayBodyById( *solverSample, id ) )
             {
-                return i;
+                return sampleBody->modelIndex;
             }
         }
         return -1;
@@ -1466,9 +1476,9 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
                 return id;
             }
         }
-        if ( modelIndex < static_cast<int>( models.size() ) )
+        if ( const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex ) )
         {
-            id.value = models[static_cast<std::size_t>( modelIndex )].GetReplayBodyId();
+            id.value = body->replayBodyId;
         }
         return id;
     };
@@ -1732,7 +1742,7 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
         row.parentId = parentId;
         row.firstFrame = firstFrame;
         row.depth = depth;
-        row.modelIndex = modelIndex >= 0 ? modelIndex : modelIndexForId( id );
+        row.modelIndex = modelIndexForId( id, modelIndex );
         row.prediction = usePrediction;
         writeName( id, row.modelIndex, fallbackName, row.name, sizeof( row.name ) );
         if ( row.modelIndex >= 0 && solverSample )
@@ -1775,7 +1785,12 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
                 continue;
             }
             const int depth = node.depth > 0 ? node.depth : fallbackDepth;
-            if ( addBodyRow( node.id, parentId, node.firstFrame, depth, modelIndexForId( node.id ), nullptr ) )
+            if ( addBodyRow( node.id,
+                             parentId,
+                             node.firstFrame,
+                             depth,
+                             modelIndexForId( node.id, node.modelIndex ),
+                             nullptr ) )
             {
                 self( self, node.id, depth + 1 );
             }
@@ -1911,10 +1926,9 @@ const std::vector<ReplayPredictionGhostDrawRequest>& ReplayRuntime::PredictionGh
 }
 
 
-bool ReplayRuntime::BuildFocusModelMask( const GameObjects::GameModelCollection& collection )
+bool ReplayRuntime::BuildFocusModelMask( const PhysicsBodyStore& bodyStore, int modelCount )
 {
     PROFILE_SCOPED( "Frame/Replay/FocusMask" );
-    const int modelCount = collection.GetModelCount();
     if ( !m_pathVisualizer.hasTarget || m_pathVisualizer.targetId.value == 0 || modelCount <= 0 )
     {
         m_focusModelMask.clear();
@@ -1922,7 +1936,6 @@ bool ReplayRuntime::BuildFocusModelMask( const GameObjects::GameModelCollection&
     }
 
     m_focusModelMask.assign( static_cast<std::size_t>( modelCount ), 0 );
-    const std::vector<GameObjects::GameModel>& models = collection.Models();
     int markedCount = 0;
     const auto markByReplayId = [&]( ReplayBodyId id, int preferredModelIndex )
     {
@@ -1931,25 +1944,9 @@ bool ReplayRuntime::BuildFocusModelMask( const GameObjects::GameModelCollection&
             return;
         }
 
-        int resolvedIndex = -1;
-        if ( preferredModelIndex >= 0 && preferredModelIndex < modelCount &&
-             models[static_cast<std::size_t>( preferredModelIndex )].GetReplayBodyId() == id.value )
-        {
-            resolvedIndex = preferredModelIndex;
-        }
-        else
-        {
-            for ( int i = 0; i < modelCount; ++i )
-            {
-                if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == id.value )
-                {
-                    resolvedIndex = i;
-                    break;
-                }
-            }
-        }
-
-        if ( resolvedIndex >= 0 )
+        const PhysicsBodyHandle body = bodyStore.HandleForReplayBodyId( id.value, preferredModelIndex );
+        const int resolvedIndex = bodyStore.ModelIndexForHandle( body );
+        if ( resolvedIndex >= 0 && resolvedIndex < modelCount )
         {
             uint8_t& mask = m_focusModelMask[static_cast<std::size_t>( resolvedIndex )];
             if ( mask == 0 )

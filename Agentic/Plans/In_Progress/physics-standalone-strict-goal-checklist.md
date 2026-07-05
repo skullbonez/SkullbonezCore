@@ -2030,6 +2030,28 @@ formatting, project filters, runtime boundaries, and Profile/Debug builds with
 0 warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle
 smoke and byte-exact 20,001-line `physics_regression_solver.csv`.
 
+Slice `PHY-1058`: replay cause-tree and focus-mask identity now resolve
+`ReplayBodyId` to model index through `PhysicsBodyStore::HandleForReplayBodyId()`
+instead of scanning `GameModel::GetReplayBodyId()`. Owner: replay cause-tree UI,
+focus mask construction, and the body store handle maps; reason: cause/focus
+rows can retain model indices for UI row selection and solver-artifact contacts,
+but replay identity must not depend on transient model vector order; deletion
+condition: `BuildCauseTreeRows()` receives `PhysicsBodyStore`,
+`BuildFocusModelMask()` receives `PhysicsBodyStore` plus model count, and neither
+builder reads `GameModel` replay ids; checker budget:
+`tools/check_runtime_boundaries.py` blocks the deleted GameModel replay-id scans
+and old focus-mask `GameModelCollection` parameter while allowing display-name
+metadata reads.
+
+Evidence: residue scan found no live cause/focus GameModel replay-id lookup
+outside checker self-tests; diff-check, boundary-checker Python compile, and
+runtime-boundary validation passed with runtime-boundary summary reporting
+0 errors; focused Debug build passed with 0 warnings/errors; touched-file comment
+audit inspected all touched source/tool files; `tools\validate_fast.bat` passed
+formatting, project filters, runtime boundaries, and Profile/Debug builds with
+0 warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle
+smoke and byte-exact 20,001-line `physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

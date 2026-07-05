@@ -478,10 +478,11 @@ class ReplayRuntime
     // Resolves the current velocity-edit target to live physics authority. The
     // stored model index is a staleable hint, not identity.
     Physics::PhysicsBodyHandle ResolveVelocityEditBodyHandle( const Physics::PhysicsBodyStore& bodyStore ) const;
-    bool BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models );
+    bool BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models,
+                             const Physics::PhysicsBodyStore& bodyStore );
     bool BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models );
     const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const;
-    bool BuildFocusModelMask( const GameObjects::GameModelCollection& models );
+    bool BuildFocusModelMask( const Physics::PhysicsBodyStore& bodyStore, int modelCount );
     std::vector<uint8_t>& FocusModelMask();
     const std::vector<uint8_t>& FocusModelMask() const;
     bool HasLauncherVisualBackup() const;
