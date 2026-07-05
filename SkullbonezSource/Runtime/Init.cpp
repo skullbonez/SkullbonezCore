@@ -695,6 +695,8 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                   pointJoints[0].bodyB == bodyB && pointJoints[0].BodyAIndex( bodyStore ) == 0 &&
                                   pointJoints[0].BodyBIndex( bodyStore ) == 1;
 
+    constexpr uint32_t REORDER_BODY_A_REPLAY_ID = 100u;
+    constexpr uint32_t REORDER_BODY_B_REPLAY_ID = 101u;
     PhysicsBodyStore reorderBodyStore;
     std::vector<SkullbonezCore::GameObjects::GameModel> reorderModels;
     for ( int i = 0; i < 2; ++i )
@@ -705,13 +707,13 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
             SkullbonezCore::Math::Vector::Vector3( 1.0f, 1.0f, 1.0f ),
             3.0f + static_cast<float>( i ) );
         model.AddBoundingSphere( 0.5f );
-        model.SetReplayBodyId( 100u + static_cast<uint32_t>( i ) );
+        model.SetReplayBodyId( REORDER_BODY_A_REPLAY_ID + static_cast<uint32_t>( i ) );
         reorderModels.push_back( std::move( model ) );
     }
     reorderBodyStore.LoadFromModels( reorderModels, std::vector<uint8_t>{} );
     const PhysicsBodyHandle reorderedOriginalBody = reorderBodyStore.HandleForModelIndex( 0 );
-    const uint32_t reorderBodyAReplayId = reorderModels[0].GetReplayBodyId();
-    const uint32_t reorderBodyBReplayId = reorderModels[1].GetReplayBodyId();
+    const uint32_t reorderBodyAReplayId = REORDER_BODY_A_REPLAY_ID;
+    const uint32_t reorderBodyBReplayId = REORDER_BODY_B_REPLAY_ID;
     const SkullbonezCore::Math::Vector::Vector3 pendingImpulse( 0.0f, 2.0f, 0.0f );
     const SkullbonezCore::Math::Vector::Vector3 pendingImpulsePoint( 0.25f, 0.0f, 0.0f );
     const bool seededReorderState =

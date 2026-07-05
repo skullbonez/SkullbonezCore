@@ -972,6 +972,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
     }
 
     const int restoreModelCount = static_cast<int>( sample.bodies.size() );
+    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
         if ( body.modelIndex < 0 || body.modelIndex >= liveModelCount || body.modelIndex >= restoreModelCount )
@@ -980,8 +981,11 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
             return false;
         }
 
-        const GameObjects::GameModel* model = m_cGameModelCollection.TryGetModel( body.modelIndex );
-        if ( !model || model->GetReplayBodyId() != body.id.value )
+        // Invariant: replay restore identity belongs to the live body row.
+        // GameModel is only a compatibility projection after the restore writes
+        // store-owned pose, velocity, and fixed state.
+        const PhysicsBodyRecord* liveBody = bodyStore.RecordForModelIndex( body.modelIndex );
+        if ( !liveBody || liveBody->replayBodyId != body.id.value )
         {
             writeReason( "selected frame body ids no longer match" );
             return false;

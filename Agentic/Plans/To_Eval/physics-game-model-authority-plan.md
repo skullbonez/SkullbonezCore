@@ -4,12 +4,32 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_physics.bat` passed on 2026-07-05 after moving replay restore
-identity validation to `PhysicsBodyStore`; standalone/runtime physics smoke
-passed, and `physics_regression_solver.csv` was a byte-exact 20,001-line match.
+`tools\validate_full.bat` passed on 2026-07-05 after moving runtime replay-id
+validation to `PhysicsBodyStore` rows; DX12 InfoQueue reported 0 validation
+errors, screenshots matched committed baselines, standalone/runtime physics
+smoke passed, and `physics_regression_solver.csv` was a byte-exact
+20,001-line match.
 
 ## Completed Slices
 
+- [x] 2026-07-05: Moved the remaining runtime replay-id validation paths off
+  the `GameModel` replay-id mirror. `RunInput.cpp` now validates attached-camera
+  cached and stale replay targets against dense `PhysicsBodyStore` records while
+  preserving the duplicate-id fail-closed behavior; `Run::ApplyReplaySolverSampleState()`
+  preflights sampled ids against `PhysicsEngine::BodyStore()` records before
+  restore; and the runtime handle smoke keeps authored reorder replay ids as
+  constants instead of reading them back from `GameModel`. Owner: runtime
+  replay/attached-camera identity validation. Reason: these paths were using a
+  compatibility mirror to approve body identity even though the body store
+  already owns the stable replay id and live handle mapping. Deletion condition:
+  live runtime validation outside creation/import contains no
+  `GameModel::GetReplayBodyId()` reads for attached-camera recovery, solver
+  sample restore, or runtime handle smoke. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects those old shapes and self-tests
+  their store-owned replacements. Validation: focused Profile build,
+  `git diff --check`, `python -m py_compile tools/check_runtime_boundaries.py`,
+  `python tools/check_runtime_boundaries.py --repo .`, `tools\validate_fast.bat`,
+  and `tools\validate_full.bat` passed on 2026-07-05.
 - [x] 2026-07-05: Moved replay render apply and prediction ghost identity off
   the `GameModel` replay-id mirror. `ReplayRuntime` now resolves
   presentation, solver, and prediction scrub bodies through
@@ -939,6 +959,10 @@ Scene/editor/replay metadata should not force physics or render ownership to sta
     object names, grouping, duplication, and save/load metadata leave
     `GameModel`.
 - [ ] Move replay identity to stable entity/body handles.
+  - [x] 2026-07-05 attached-camera target recovery and solver-sample restore
+    preflight now validate replay ids from `PhysicsBodyStore` rows; model index
+    remains only a staleable replay/UI hint until scene/entity ids move out of
+    `GameModel`.
 - [ ] Update scene load to create metadata, body, collider, and render records through one coordinated creation path.
   - [x] 2026-07-05 authored scene load no longer asks `GameModel` to interpret
     scene Euler degrees or return a cached orientation for hull setup; this is
@@ -950,6 +974,9 @@ Scene/editor/replay metadata should not force physics or render ownership to sta
   - [x] 2026-07-05 replay save/restore probes now resolve pose/orientation and
     fixed-state decisions through body-store records while preserving saved
     model index only as replay event identity.
+  - [x] 2026-07-05 replay solver-sample restore preflight compares sampled
+    replay ids against live `PhysicsBodyStore` records before applying sampled
+    body state.
   - [x] 2026-07-05 editor transform reset/wake now resolves fixed-state
     decisions from the committed body-store row while preserving model index
     only as the editor selection/replay gesture token.

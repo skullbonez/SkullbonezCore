@@ -13,8 +13,8 @@
 #   have an extra file-classification fence, object rendering has a
 #   render-instance/collider authority fence, runtime picking, attached-camera
 #   follow, and required scene contacts have store-authority fences, runtime
-#   handle smoke has a handle-authority fence, attached-camera target identity
-#   has a handle-authority fence, contact-audio simple mode has a body-store motion
+#   handle smoke has handle/replay-id authority fences, attached-camera target identity
+#   has handle/replay-id authority fences, contact-audio simple mode has a body-store motion
 #   fence, fixed-contact presentation highlights have a body-store fixed-state
 #   fence, and fixed-tree, replay-restore wake, replay
 #   velocity-edit, launcher ray-hit, selection overlay, editor selection-frame,
@@ -143,6 +143,8 @@
 #     requiring the GameModel compatibility mirror to be refreshed before input.
 #   - Attached-camera follow reads live body motion and radius from
 #     PhysicsBodyStore/ColliderStore instead of the post-step GameModel mirror.
+#   - Runtime replay restore and attach-camera recovery validate replay ids from
+#     PhysicsBodyStore rows instead of the GameModel compatibility mirror.
 #   - Fixed-tree release wakes store-owned rows inside PhysicsScene and must not
 #     return model-order rows to GameModelCollection for per-body projection.
 #   - Replay scrub and prediction draw poses must not backup, restore, or write
@@ -413,6 +415,7 @@ ATTACHED_CAMERA_MODEL_INDEX_TARGET_RESOLVE_PATTERN = re.compile(
     r"(?:(?:int\s+)?(?:modelIndex|currentIndex|headIndex|selectedModelIndex))\s*,"
 )
 ATTACHED_CAMERA_STORE_AUTHORITY_FUNCTION_PATTERNS = (
+    re.compile(r"\bbool\s+TryResolveAttachedCameraTargetIdentity\s*\("),
     re.compile(r"\bvoid\s+Run::CaptureAttachedCameraFixedOffset\s*\("),
     re.compile(r"\bvoid\s+Run::CaptureAttachedCameraOrbit\s*\("),
     re.compile(r"\bvoid\s+Run::TickAttachedCameraOrbitInput\s*\("),
@@ -420,7 +423,7 @@ ATTACHED_CAMERA_STORE_AUTHORITY_FUNCTION_PATTERNS = (
 )
 ATTACHED_CAMERA_GAME_MODEL_BODY_READ_PATTERN = re.compile(
     r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*"
-    r"(?:GetPosition|GetVelocity|GetOrientation|GetCollisionShape)\s*\("
+    r"(?:GetReplayBodyId|GetPosition|GetVelocity|GetOrientation|GetCollisionShape)\s*\("
 )
 OBJECT_CONTACT_MANIFOLD_GAME_MODEL_PATTERN = re.compile(
     r"\b(?:GameObjects\s*::\s*)?GameModel\b"
@@ -534,6 +537,9 @@ REPLAY_PREDICTION_GHOST_GAME_MODEL_RENDER_PATTERN = re.compile(
 )
 RUN_REPLAY_RESTORE_BODY_STORE_REFRESH_PATTERN = re.compile(
     r"\bm_cGameModelCollection\s*\.\s*GetPhysicsBodyStore\s*\("
+)
+RUN_REPLAY_RESTORE_MODEL_ID_PATTERN = re.compile(
+    r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*GetReplayBodyId\s*\("
 )
 REPLAY_RESTORE_MODEL_INDEX_PHYSICS_API_PATTERN = re.compile(
     r"\b(?:PhysicsEngine|PhysicsScene|PhysicsBodyStore)?(?:::)?RestoreReplayBodyState\s*\(\s*int\s+"
@@ -1112,6 +1118,9 @@ RUNTIME_HANDLE_SMOKE_FUNCTION_PATTERN = re.compile(
 )
 RUNTIME_HANDLE_SMOKE_ADAPTER_LOOKUP_PATTERN = re.compile(
     r"\b(?:GameModelCollectionPhysicsAdapter|BodyHandleForModelIndex)\b"
+)
+RUNTIME_HANDLE_SMOKE_MODEL_REPLAY_ID_PATTERN = re.compile(
+    r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*GetReplayBodyId\s*\("
 )
 DIRECT_GFX_RAYTRACING_PATTERN = re.compile(
     r"\bGfx\s*\(\s*\)\s*\.\s*(?:InitDXR|DispatchReflectionRays|BuildTLAS|GetReflectionUAVTexture|"
@@ -2653,6 +2662,18 @@ def check_runtime_handle_smoke_adapter_guardrails_text(path: Path, text: str) ->
                 ),
             )
         )
+    for match in RUNTIME_HANDLE_SMOKE_MODEL_REPLAY_ID_PATTERN.finditer(stripped, open_brace, close_brace):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "runtime handle smoke replay-id model read is blocked",
+                (
+                    "RunPhysicsRuntimeHandleSmokeSample should keep authored replay ids as test data or read "
+                    "PhysicsBodyStore rows; do not validate handle authority by reading GameModel replay-id mirrors."
+                ),
+            )
+        )
     return errors
 
 
@@ -4168,6 +4189,21 @@ def check_run_replay_restore_store_authority_guardrails_text(path: Path, text: s
                 ),
             )
         )
+    bounds = _function_body_bounds(stripped, re.compile(r"\bbool\s+Run::ApplyReplaySolverSampleState\s*\("))
+    if bounds:
+        open_brace, close_brace = bounds
+        for match in RUN_REPLAY_RESTORE_MODEL_ID_PATTERN.finditer(stripped, open_brace, close_brace):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "replay solver restore identity must use PhysicsBodyStore",
+                    (
+                        "Replay solver restore should compare sampled replay ids against live PhysicsBodyStore "
+                        "records before applying state; GameModel is only the compatibility projection after restore."
+                    ),
+                )
+            )
     return errors
 
 
@@ -9581,6 +9617,28 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("attached camera GameModel body read synthetic surface was not rejected")
 
+    old_attached_camera_model_replay_id_read = """
+    bool TryResolveAttachedCameraTargetIdentity( GameModelCollection& collection,
+                                                 AttachedCameraTarget& target,
+                                                 int& outModelIndex )
+    {
+        const std::vector<GameModel>& models = collection.Models();
+        if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == target.replayBodyId )
+        {
+            outModelIndex = i;
+        }
+        return outModelIndex >= 0;
+    }
+    """
+    if not any(
+        error.message == "attached camera physics follow must use stores"
+        for error in check_attached_camera_store_authority_guardrails_text(
+            Path("synthetic/RunInput.cpp"),
+            old_attached_camera_model_replay_id_read,
+        )
+    ):
+        failures.append("attached camera GameModel replay-id synthetic surface was not rejected")
+
     allowed_attached_camera_store_reads = """
     void Run::TickAttachedCamera()
     {
@@ -9599,6 +9657,22 @@ def run_self_tests() -> list[str]:
         allowed_attached_camera_store_reads,
     ):
         failures.append("attached camera store-read synthetic surface was rejected")
+
+    allowed_attached_camera_store_replay_id_read = """
+    bool TryResolveAttachedCameraTargetIdentity( GameModelCollection& collection,
+                                                 AttachedCameraTarget& target,
+                                                 int& outModelIndex )
+    {
+        const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
+        const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( target.modelIndex );
+        return body && body->replayBodyId == target.replayBodyId;
+    }
+    """
+    if check_attached_camera_store_authority_guardrails_text(
+        Path("synthetic/RunInput.cpp"),
+        allowed_attached_camera_store_replay_id_read,
+    ):
+        failures.append("attached camera store replay-id synthetic surface was rejected")
 
     old_attached_camera_model_index_resolver = """
     void Run::TickAttachedCamera()
@@ -10998,12 +11072,32 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("runtime handle smoke adapter lookup synthetic surface was not rejected")
 
+    old_runtime_handle_smoke_model_replay_id = """
+    PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
+    {
+        const uint32_t replayBodyId = reorderModels[0].GetReplayBodyId();
+        (void)replayBodyId;
+        return {};
+    }
+    """
+    if not any(
+        error.message == "runtime handle smoke replay-id model read is blocked"
+        for error in check_runtime_handle_smoke_adapter_guardrails_text(
+            Path("SkullbonezSource/Runtime/Init.cpp"),
+            old_runtime_handle_smoke_model_replay_id,
+        )
+    ):
+        failures.append("runtime handle smoke GameModel replay-id synthetic surface was not rejected")
+
     allowed_runtime_handle_smoke_creation_handles = """
     PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     {
         PhysicsBodyHandle createdBodies[2];
         createdBodies[0] = collection->AddGameModel( std::move( model ) );
+        constexpr uint32_t REORDER_BODY_A_REPLAY_ID = 100u;
+        const uint32_t replayBodyId = REORDER_BODY_A_REPLAY_ID;
         const PhysicsBodyHandle bodyA = createdBodies[0];
+        (void)replayBodyId;
         return {};
     }
     """
@@ -13482,9 +13576,35 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old replay restore full body-store reload synthetic surface was not rejected")
 
+    old_run_replay_restore_model_id_validation = """
+    bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample )
+    {
+        const GameObjects::GameModel* model = m_cGameModelCollection.TryGetModel( body.modelIndex );
+        if ( !model || model->GetReplayBodyId() != body.id.value )
+        {
+            return false;
+        }
+        return true;
+    }
+    """
+    if not any(
+        error.message == "replay solver restore identity must use PhysicsBodyStore"
+        for error in check_run_replay_restore_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/Run.cpp"),
+            old_run_replay_restore_model_id_validation,
+        )
+    ):
+        failures.append("old replay restore GameModel replay-id synthetic surface was not rejected")
+
     store_owned_run_replay_restore = """
     bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample )
     {
+        const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+        const PhysicsBodyRecord* liveBody = bodyStore.RecordForModelIndex( body.modelIndex );
+        if ( !liveBody || liveBody->replayBodyId != body.id.value )
+        {
+            return false;
+        }
         m_cGameModelCollection.TryRestoreReplayBodyState( body.modelIndex,
                                                           body.id.value,
                                                           body.fixed,

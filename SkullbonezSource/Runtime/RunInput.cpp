@@ -220,16 +220,17 @@ bool TryResolveAttachedCameraTargetIdentity( SkullbonezCore::GameObjects::GameMo
     const int cachedIndex = target.modelIndex;
     if ( cachedIndex >= 0 && cachedIndex < static_cast<int>( models.size() ) )
     {
-        const GameModel& model = models[static_cast<std::size_t>( cachedIndex )];
         const bool hasReplayId = target.replayBodyId != 0;
         const bool hasName = target.name[0] != '\0';
         bool cachedIndexMatches = true;
         if ( hasReplayId )
         {
-            cachedIndexMatches = model.GetReplayBodyId() == target.replayBodyId;
+            const PhysicsBodyRecord* cachedBody = bodyStore.RecordForModelIndex( cachedIndex );
+            cachedIndexMatches = cachedBody && cachedBody->replayBodyId == target.replayBodyId;
         }
         if ( cachedIndexMatches && hasName )
         {
+            const GameModel& model = models[static_cast<std::size_t>( cachedIndex )];
             cachedIndexMatches = strcmp( model.GetName(), target.name ) == 0;
         }
         if ( cachedIndexMatches && TryAttachCameraTargetHandlesFromModelIndex( collection, cachedIndex, target ) )
@@ -242,9 +243,13 @@ bool TryResolveAttachedCameraTargetIdentity( SkullbonezCore::GameObjects::GameMo
     if ( target.replayBodyId != 0 )
     {
         int match = -1;
-        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        const std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.Records();
+        // Invariant: duplicate replay ids are corruption, not an arbitrary
+        // first match. Scan the dense body rows so stale camera targets fail
+        // closed without touching the GameModel compatibility mirror.
+        for ( int i = 0; i < static_cast<int>( bodyRecords.size() ); ++i )
         {
-            if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == target.replayBodyId )
+            if ( bodyRecords[static_cast<std::size_t>( i )].replayBodyId == target.replayBodyId )
             {
                 if ( match >= 0 )
                 {
