@@ -28,8 +28,9 @@
 #   runtime config has a collider-material fence, the deleted collection
 #   replay-id sidecar has a source-wide fence, the deleted edited-model bool
 #   commit has a source-wide fence, and per-body model writeback plus the
-#   deleted bulk model mirror have their own fences, so count allowances do not
-#   silently approve a new compatibility location.
+#   deleted bulk model mirror and deleted GameModel runtime grouping metadata
+#   have their own fences, so count allowances do not silently approve a new
+#   compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -1053,6 +1054,10 @@ GAME_MODEL_COLLECTION_FIXED_TREE_RELEASE_MODEL_BODY_PATTERN = re.compile(
 )
 PHYSICS_BODY_STORE_RUNTIME_COLLECTION_METADATA_PATTERN = re.compile(
     r"\b(?:GameModelCollectionKind|GetRuntimeCollection(?:Kind|PartIndex|RootModelIndex)|SetRuntimeCollection)\b"
+)
+DELETED_GAME_MODEL_RUNTIME_COLLECTION_METADATA_PATTERN = re.compile(
+    r"\b(?:SetRuntimeCollection|GetRuntimeCollectionKind|GetRuntimeCollectionRootModelIndex|"
+    r"GetRuntimeCollectionPartIndex|m_collectionKind|m_collectionRootModelIndex|m_collectionPartIndex)\b"
 )
 DELETED_PER_BODY_MODEL_WRITEBACK_PATTERN = re.compile(
     r"\b(?:(?:void|bool)\s+)?(?:(?:GameModelCollection|PhysicsBodyStore)\s*::\s*)?"
@@ -6516,6 +6521,42 @@ def check_physics_body_store_runtime_collection_metadata_guardrails(repo: Path) 
         path = repo / relative_path
         errors.extend(
             check_physics_body_store_runtime_collection_metadata_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+            )
+        )
+    return errors
+
+
+def check_deleted_game_model_runtime_collection_metadata_guardrails_text(
+    path: Path,
+    text: str,
+) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in DELETED_GAME_MODEL_RUNTIME_COLLECTION_METADATA_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "deleted GameModel runtime collection metadata is blocked",
+                (
+                    "Scene-object grouping is a GameModelCollection sidecar. Do not reintroduce "
+                    "GameModel runtime collection fields or accessors; use collection-owned group "
+                    "queries such as GroupKindAt, GroupRootModelIndexAt, or TryFindSimpleRagdollPart."
+                ),
+            )
+        )
+    return errors
+
+
+def check_deleted_game_model_runtime_collection_metadata_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / SOURCE_ROOT).rglob("*")):
+        if path.suffix not in SOURCE_FILE_SUFFIXES:
+            continue
+        errors.extend(
+            check_deleted_game_model_runtime_collection_metadata_guardrails_text(
                 path,
                 path.read_text(encoding="utf-8"),
             )
@@ -17998,6 +18039,52 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only PhysicsBodyStore runtime collection metadata synthetic text was rejected")
 
+    old_game_model_runtime_collection_metadata = """
+    class GameModel
+    {
+        void SetRuntimeCollection( GameModelCollectionKind kind, int root, int part );
+        GameModelCollectionKind GetRuntimeCollectionKind() const;
+        int GetRuntimeCollectionRootModelIndex() const;
+        int GetRuntimeCollectionPartIndex() const;
+        GameModelCollectionKind m_collectionKind = GameModelCollectionKind::None;
+        int m_collectionRootModelIndex = -1;
+        int m_collectionPartIndex = -1;
+    };
+    """
+    if not any(
+        error.message == "deleted GameModel runtime collection metadata is blocked"
+        for error in check_deleted_game_model_runtime_collection_metadata_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModel.h"),
+            old_game_model_runtime_collection_metadata,
+        )
+    ):
+        failures.append("old GameModel runtime collection metadata synthetic surface was not rejected")
+
+    allowed_collection_group_sidecar_query = """
+    GameModelCollectionKind GameModelCollection::GroupKindAt( int modelIndex ) const
+    {
+        return GroupRecordAt( modelIndex ).kind;
+    }
+    """
+    if check_deleted_game_model_runtime_collection_metadata_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_collection_group_sidecar_query,
+    ):
+        failures.append("collection-owned group sidecar query synthetic surface was rejected")
+
+    commented_game_model_runtime_collection_metadata = """
+    // GameModel used to have GetRuntimeCollectionKind() and m_collectionKind here.
+    GameModelCollectionKind GameModelCollection::GroupKindAt( int modelIndex ) const
+    {
+        return GroupRecordAt( modelIndex ).kind;
+    }
+    """
+    if check_deleted_game_model_runtime_collection_metadata_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        commented_game_model_runtime_collection_metadata,
+    ):
+        failures.append("comment-only GameModel runtime collection metadata synthetic text was rejected")
+
     if check_deleted_per_body_model_writeback_guardrails_text(
         Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
         allowed_game_model_collection_fixed_tree_store_release,
@@ -18719,6 +18806,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_game_model_fixed_contact_store_authority_guardrails(repo))
     errors.extend(check_game_model_collection_fixed_tree_release_adapter_guardrails(repo))
     errors.extend(check_physics_body_store_runtime_collection_metadata_guardrails(repo))
+    errors.extend(check_deleted_game_model_runtime_collection_metadata_guardrails(repo))
     errors.extend(check_deleted_bulk_model_writeback_guardrails(repo))
     errors.extend(check_deleted_per_body_model_writeback_guardrails(repo))
     errors.extend(check_deleted_game_model_collection_physics_adapter_command_guardrails(repo))

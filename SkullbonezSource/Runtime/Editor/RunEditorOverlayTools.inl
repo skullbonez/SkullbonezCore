@@ -137,11 +137,10 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
     if ( ( context.editor.editorModeEnabled || input.inspectGizmoActive ) && !context.editor.placementModeEnabled &&
          context.editor.selectedModelIndex >= 0 && context.editor.selectedModelIndex < context.models.GetModelCount() )
     {
-        const std::vector<GameModel>& models = context.models.Models();
         Vector3 gizmoOrigin;
         float radius = 1.0f;
         const bool scaleMode = context.editor.gizmoDragIsScale || input.scaleMode;
-        if ( TryTraceEditorSelectionOverlayFromStores( models,
+        if ( TryTraceEditorSelectionOverlayFromStores( context.models,
                                                        context.bodyStore,
                                                        context.colliderStore,
                                                        context.editor.selectedBody,

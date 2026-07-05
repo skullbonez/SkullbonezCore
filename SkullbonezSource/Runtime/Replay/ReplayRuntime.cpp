@@ -261,11 +261,11 @@ uint64_t PredictionFrameMemoryBytes( const RunReplayPredictionFrame& frame )
     return VectorCapacityBytes( frame.bodies ) + VectorCapacityBytes( frame.debugContacts );
 }
 
-bool ReplayRuntimeModelIsRagdollPart( const GameObjects::GameModel& model )
+bool ReplayRuntimeModelIsRagdollPart( const GameObjects::GameModelCollection& collection, int modelIndex )
 {
     // SimpleRagdoll children share replay visuals with their collection root.
     // This helper keeps that policy local to replay loading/restoration paths.
-    return model.GetRuntimeCollectionKind() == SkullbonezCore::GameObjects::GameModelCollectionKind::SimpleRagdoll;
+    return collection.IsSimpleRagdollPart( modelIndex );
 }
 
 
@@ -1866,10 +1866,11 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
 }
 
 
-bool ReplayRuntime::BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models,
+bool ReplayRuntime::BuildPredictionGhostDrawRequests( const GameObjects::GameModelCollection& collection,
                                                       const PhysicsBodyStore& bodyStore )
 {
     m_predictionGhostDrawRequests.clear();
+    const std::vector<GameObjects::GameModel>& models = collection.Models();
     const std::vector<RunReplayPredictionFrame>& frames = ActivePredictionFrames();
     if ( !m_prediction.enabled || !m_prediction.ragdollVisualsEnabled || frames.size() < 2 )
     {
@@ -1877,9 +1878,9 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests( const std::vector<GameObje
     }
 
     bool hasRagdollPart = false;
-    for ( const GameObjects::GameModel& model : models )
+    for ( int i = 0; i < collection.GetModelCount(); ++i )
     {
-        if ( ReplayRuntimeModelIsRagdollPart( model ) )
+        if ( ReplayRuntimeModelIsRagdollPart( collection, i ) )
         {
             hasRagdollPart = true;
             break;
@@ -1929,8 +1930,7 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests( const std::vector<GameObje
                 continue;
             }
 
-            const GameObjects::GameModel& model = models[static_cast<std::size_t>( resolvedModelIndex )];
-            if ( !ReplayRuntimeModelIsRagdollPart( model ) )
+            if ( !ReplayRuntimeModelIsRagdollPart( collection, resolvedModelIndex ) )
             {
                 continue;
             }

@@ -93,7 +93,7 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
 
     if ( pickedIndex >= 0 && pickedIndex < static_cast<int>( models.size() ) )
     {
-        const int collectionIndex = ReplayRagdollTorsoModelIndexForPart( models, pickedIndex );
+        const int collectionIndex = ReplayRagdollTorsoModelIndexForPart( m_cGameModelCollection, pickedIndex );
         if ( collectionIndex >= 0 && collectionIndex < static_cast<int>( models.size() ) &&
              collectionIndex != pickedIndex )
         {

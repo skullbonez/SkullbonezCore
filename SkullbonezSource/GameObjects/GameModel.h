@@ -66,13 +66,6 @@ namespace Physics
 
 namespace GameObjects
 {
-enum class GameModelCollectionKind : uint8_t
-{
-    None = 0,
-    SimpleRagdoll,
-    ReleasableTree
-};
-
 /* -- Game Model
 -------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -128,9 +121,6 @@ class GameModel
     bool m_isFixed;                                                         // True for immovable collision bodies such as floating ramps
     bool m_releasesFromFixedOnContact;                                      // Fixed decorative pieces can become dynamic after a real hit.
     float m_contactReleaseImpulseThreshold;                                 // Minimum solved normal impulse before fixed-contact release.
-    GameModelCollectionKind m_collectionKind;                               // Runtime grouping metadata; names stay diagnostic-only after construction.
-    int m_collectionRootModelIndex;                                         // Model index that represents this runtime collection, or -1.
-    int m_collectionPartIndex;                                              // Collection-local part index, or -1 when not part of a collection.
     char m_name[64];                                                        // Optional name for logging (empty = unnamed)
 
     void BuildSpherePhysicsCache(
@@ -194,12 +184,6 @@ class GameModel
     void SetCoefficientRestitution( float fCoefficientRestitution );
     void SetName( const char* name );                                       // Diagnostic name is capped at 63 bytes for deterministic logs.
     const char* GetName() const;
-    void SetRuntimeCollection( GameModelCollectionKind kind,
-                               int rootModelIndex,
-                               int partIndex );                             // Integer identity for grouped runtime objects.
-    GameModelCollectionKind GetRuntimeCollectionKind() const;
-    int GetRuntimeCollectionRootModelIndex() const;
-    int GetRuntimeCollectionPartIndex() const;
     void SetRenderTint( float tintR,
                         float tintG,
                         float tintB,

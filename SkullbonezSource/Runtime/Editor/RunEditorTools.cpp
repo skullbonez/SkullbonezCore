@@ -78,7 +78,7 @@ using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
-using SkullbonezCore::GameObjects::GameModelCollectionKind;
+using SkullbonezCore::GameObjects::GameModelCollection;
 using Json = nlohmann::ordered_json;
 
 namespace
@@ -454,54 +454,17 @@ float EditorGizmoRotationRadius( float modelRadius )
 
 using EditorGizmoGroupIndices = std::array<int, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY>;
 
-// Why: editor transform grouping is metadata, not physics state. Simple
-// ragdolls stamp integer collection kind/root values at construction, so gizmo
-// grouping can compare those fields instead of parsing display-name suffixes.
-// Owner: runtime editor transform grouping. Deletion condition: Phase 5 moves
-// grouping to scene/entity metadata. Checker budget: runtime boundaries block
-// name/suffix parsing in this helper.
-int GatherSelectedEditorTransformGroup( const std::vector<GameModel>& models,
+// Why: editor transform grouping is scene-object metadata, not physics state.
+// The collection owns a dense grouping row beside model order, so gizmo grouping
+// does not parse display names or read metadata from GameModel body records.
+int GatherSelectedEditorTransformGroup( const GameModelCollection& collection,
                                         int selectedIndex,
                                         EditorGizmoGroupIndices& outIndices )
 {
     outIndices.fill( -1 );
-    if ( selectedIndex < 0 || selectedIndex >= static_cast<int>( models.size() ) )
-    {
-        return 0;
-    }
-
-    const GameModel& selected = models[static_cast<std::size_t>( selectedIndex )];
-    if ( selected.GetRuntimeCollectionKind() != GameModelCollectionKind::SimpleRagdoll )
-    {
-        outIndices[0] = selectedIndex;
-        return 1;
-    }
-
-    const int selectedRootIndex = selected.GetRuntimeCollectionRootModelIndex();
-    if ( selectedRootIndex < 0 || selectedRootIndex >= static_cast<int>( models.size() ) )
-    {
-        outIndices[0] = selectedIndex;
-        return 1;
-    }
-
-    int count = 0;
-    for ( int i = 0; i < static_cast<int>( models.size() ) && count < static_cast<int>( outIndices.size() ); ++i )
-    {
-        const GameModel& candidate = models[static_cast<std::size_t>( i )];
-        if ( candidate.GetRuntimeCollectionKind() == GameModelCollectionKind::SimpleRagdoll &&
-             candidate.GetRuntimeCollectionRootModelIndex() == selectedRootIndex )
-        {
-            outIndices[static_cast<std::size_t>( count )] = i;
-            ++count;
-        }
-    }
-
-    if ( count <= 0 )
-    {
-        outIndices[0] = selectedIndex;
-        return 1;
-    }
-    return count;
+    return collection.GatherGroupMemberIndices( selectedIndex,
+                                                outIndices.data(),
+                                                static_cast<int>( outIndices.size() ) );
 }
 
 
@@ -566,7 +529,7 @@ bool TryResolveEditorBodyCollider( const PhysicsBodyStore& bodyStore,
 }
 
 
-bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
+bool TryGetEditorSelectionFrame( const GameModelCollection& collection,
                                  const PhysicsBodyStore& bodyStore,
                                  const ColliderStore& colliderStore,
                                  PhysicsBodyHandle selectedBodyHandle,
@@ -578,7 +541,7 @@ bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
                                  int* outGroupCount = nullptr )
 {
     EditorGizmoGroupIndices indices = {};
-    const int count = GatherSelectedEditorTransformGroup( models, selectedIndex, indices );
+    const int count = GatherSelectedEditorTransformGroup( collection, selectedIndex, indices );
     if ( count <= 0 )
     {
         return false;
@@ -638,7 +601,7 @@ bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
 }
 
 
-bool TryTraceEditorSelectionOverlayFromStores( const std::vector<GameModel>& models,
+bool TryTraceEditorSelectionOverlayFromStores( const GameModelCollection& collection,
                                                const PhysicsBodyStore& bodyStore,
                                                const ColliderStore& colliderStore,
                                                PhysicsBodyHandle selectedBodyHandle,
@@ -649,7 +612,7 @@ bool TryTraceEditorSelectionOverlayFromStores( const std::vector<GameModel>& mod
                                                float& outRadius )
 {
     EditorGizmoGroupIndices indices = {};
-    const int count = GatherSelectedEditorTransformGroup( models, selectedIndex, indices );
+    const int count = GatherSelectedEditorTransformGroup( collection, selectedIndex, indices );
     if ( count <= 0 )
     {
         return false;
@@ -705,7 +668,7 @@ bool TryTraceEditorSelectionOverlayFromStores( const std::vector<GameModel>& mod
 
 
 void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
-                                       const std::vector<GameModel>& models,
+                                       const GameModelCollection& collection,
                                        const PhysicsBodyStore& bodyStore,
                                        bool allowRagdollGroup )
 {
@@ -714,7 +677,7 @@ void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
     // invalidates the group before movement, scale, or rotation applies.
     editor.gizmoDragGroupCount = 0;
     editor.gizmoDragGroupIndices.fill( -1 );
-    if ( editor.selectedModelIndex < 0 || editor.selectedModelIndex >= static_cast<int>( models.size() ) )
+    if ( editor.selectedModelIndex < 0 || editor.selectedModelIndex >= collection.GetModelCount() )
     {
         return;
     }
@@ -724,7 +687,7 @@ void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
     indices[0] = editor.selectedModelIndex;
     if ( allowRagdollGroup )
     {
-        count = GatherSelectedEditorTransformGroup( models, editor.selectedModelIndex, indices );
+        count = GatherSelectedEditorTransformGroup( collection, editor.selectedModelIndex, indices );
     }
 
     editor.gizmoDragGroupCount =
@@ -1481,10 +1444,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 m_runtimeTools.Editor().gizmoDragStartShape = selectedCollider->shape;
                 m_runtimeTools.Editor().gizmoDragStartPosition = selectedBody->position;
                 m_runtimeTools.Editor().gizmoDragStartOrientation = selectedBody->orientation;
-                CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(),
-                                                  m_cGameModelCollection.Models(),
-                                                  bodyStore,
-                                                  false );
+                CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(), m_cGameModelCollection, bodyStore, false );
                 consumedWorldClick = true;
                 UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoScale,
                                                    RuntimeInputActionSource::Mouse );
@@ -1519,7 +1479,6 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 m_runtimeTools.Editor().gizmoDragIsScale = false;
                 m_runtimeTools.Editor().activeGizmoAxis = m_runtimeTools.Editor().hotRotationAxis;
                 m_runtimeTools.Editor().gizmoDragStartRotationAngle = startAngle;
-                const std::vector<GameModel>& models = m_cGameModelCollection.Models();
                 const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
                 const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
                 const PhysicsBodyRecord* selectedBody =
@@ -1533,7 +1492,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 }
                 Vector3 selectionOrigin = selectedBody->position;
                 float selectionRadius = 1.0f;
-                if ( !TryGetEditorSelectionFrame( models,
+                if ( !TryGetEditorSelectionFrame( m_cGameModelCollection,
                                                   bodyStore,
                                                   colliderStore,
                                                   m_runtimeTools.Editor().selectedBody,
@@ -1547,7 +1506,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 }
                 m_runtimeTools.Editor().gizmoDragStartPosition = selectionOrigin;
                 m_runtimeTools.Editor().gizmoDragStartOrientation = selectedBody->orientation;
-                CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(), models, bodyStore, true );
+                CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(), m_cGameModelCollection, bodyStore, true );
                 consumedWorldClick = true;
                 UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoRotate,
                                                    RuntimeInputActionSource::Mouse );
@@ -1561,7 +1520,6 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             Vector3 rayDirection;
             float axisT = 0.0f;
             EditorGizmoContext gizmoContext{ m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction };
-            const std::vector<GameModel>& models = m_cGameModelCollection.Models();
             const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
             const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
             const PhysicsBodyRecord* selectedBody =
@@ -1570,7 +1528,7 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                             m_runtimeTools.Editor().selectedModelIndex );
             Vector3 selectionOrigin;
             float selectionRadius = 1.0f;
-            const bool haveSelectionFrame = TryGetEditorSelectionFrame( models,
+            const bool haveSelectionFrame = TryGetEditorSelectionFrame( m_cGameModelCollection,
                                                                         bodyStore,
                                                                         colliderStore,
                                                                         m_runtimeTools.Editor().selectedBody,
@@ -1606,7 +1564,10 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                     m_runtimeTools.Editor().gizmoDragStartPosition = selectionOrigin;
                     m_runtimeTools.Editor().gizmoDragPlaneNormal = planeNormal;
                     m_runtimeTools.Editor().gizmoDragStartOrientation = selectedBody->orientation;
-                    CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(), models, bodyStore, true );
+                    CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(),
+                                                      m_cGameModelCollection,
+                                                      bodyStore,
+                                                      true );
                     consumedWorldClick = true;
                     UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoTranslate,
                                                        RuntimeInputActionSource::Mouse );

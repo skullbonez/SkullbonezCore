@@ -77,7 +77,6 @@ using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
-using SkullbonezCore::GameObjects::GameModelCollectionKind;
 
 namespace
 {
@@ -530,7 +529,6 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
     const std::size_t sampleStride = ReplayPathStrideForSampleCount( stats.sampleCount );
 
     m_replayRuntime.PathVisualizer().futureNodes.clear();
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
     const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
     const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
     for ( RunReplayPathTarget& target : m_replayRuntime.PathVisualizer().targets )
@@ -553,7 +551,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
             PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/BuildTree" );
             ReplayPathFutureContext futureContext;
             futureContext.visualizer = &targetVisualizer;
-            futureContext.models = &models;
+            futureContext.collection = &m_cGameModelCollection;
             futureContext.budgetStart = &visualizerStart;
             futureContext.rootId = target.id;
             futureContext.presentFrame = presentFrame;
@@ -627,7 +625,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
             if ( TryResolveReplayBodyModelIndex( bodyStore,
                                                  target.id,
                                                  target.modelIndex,
-                                                 static_cast<int>( models.size() ),
+                                                 m_cGameModelCollection.GetModelCount(),
                                                  markerIndex ) )
             {
                 target.modelIndex = markerIndex;

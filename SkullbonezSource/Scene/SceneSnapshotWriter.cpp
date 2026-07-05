@@ -339,7 +339,7 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
         }
 
         const SkullbonezCore::Rendering::RenderMaterial& material = m_gameModels[i].GetRenderMaterial();
-        if ( m_gameModels[i].GetRuntimeCollectionKind() != GameModelCollectionKind::SimpleRagdoll &&
+        if ( collection.GroupKindAt( i ) != GameModelCollectionKind::SimpleRagdoll &&
              ShouldSaveRenderMaterial( material ) )
         {
             objectMaterials.push_back( RenderMaterialJson( name, material ) );

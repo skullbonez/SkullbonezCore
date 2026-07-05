@@ -161,9 +161,6 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_isFixed = false;
     m_releasesFromFixedOnContact = false;
     m_contactReleaseImpulseThreshold = 1.0f;
-    m_collectionKind = GameModelCollectionKind::None;
-    m_collectionRootModelIndex = -1;
-    m_collectionPartIndex = -1;
     m_name[0] = '\0';
 }
 
@@ -343,32 +340,6 @@ void GameModel::SetName( const char* name )
 const char* GameModel::GetName() const
 {
     return m_name;
-}
-
-
-void GameModel::SetRuntimeCollection( GameModelCollectionKind kind, int rootModelIndex, int partIndex )
-{
-    m_collectionKind = kind;
-    m_collectionRootModelIndex = rootModelIndex;
-    m_collectionPartIndex = partIndex;
-}
-
-
-GameModelCollectionKind GameModel::GetRuntimeCollectionKind() const
-{
-    return m_collectionKind;
-}
-
-
-int GameModel::GetRuntimeCollectionRootModelIndex() const
-{
-    return m_collectionRootModelIndex;
-}
-
-
-int GameModel::GetRuntimeCollectionPartIndex() const
-{
-    return m_collectionPartIndex;
 }
 
 

@@ -323,11 +323,6 @@ bool TryResolveAttachedCameraPhysicsTarget( SkullbonezCore::GameObjects::GameMod
     return true;
 }
 
-bool IsSimpleRagdollPart( const GameModel& model )
-{
-    return model.GetRuntimeCollectionKind() == SkullbonezCore::GameObjects::GameModelCollectionKind::SimpleRagdoll;
-}
-
 bool EndsWith( const char* value, const char* suffix )
 {
     if ( !value || !suffix )
@@ -1485,32 +1480,22 @@ bool Run::TryResolveAttachedCameraRagdollHead( int selectedModelIndex, int& outH
         return false;
     }
 
-    const GameModel& selected = models[static_cast<std::size_t>( selectedModelIndex )];
-    if ( !IsSimpleRagdollPart( selected ) )
+    if ( !m_cGameModelCollection.IsSimpleRagdollPart( selectedModelIndex ) )
     {
         return false;
     }
 
-    const int rootModelIndex = selected.GetRuntimeCollectionRootModelIndex();
-    for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+    if ( m_cGameModelCollection.TryFindSimpleRagdollPart( selectedModelIndex, 1, outHeadModelIndex ) )
     {
-        const GameModel& candidate = models[static_cast<std::size_t>( i )];
-        if ( candidate.GetRuntimeCollectionKind() ==
-                 SkullbonezCore::GameObjects::GameModelCollectionKind::SimpleRagdoll &&
-             candidate.GetRuntimeCollectionRootModelIndex() == rootModelIndex &&
-             candidate.GetRuntimeCollectionPartIndex() == 1 )
-        {
-            outHeadModelIndex = i;
-            return true;
-        }
+        return true;
     }
 
+    const int rootModelIndex = m_cGameModelCollection.GroupRootModelIndexAt( selectedModelIndex );
     for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
     {
         const GameModel& candidate = models[static_cast<std::size_t>( i )];
-        if ( candidate.GetRuntimeCollectionKind() ==
-                 SkullbonezCore::GameObjects::GameModelCollectionKind::SimpleRagdoll &&
-             candidate.GetRuntimeCollectionRootModelIndex() == rootModelIndex &&
+        if ( m_cGameModelCollection.IsSimpleRagdollPart( i ) &&
+             m_cGameModelCollection.GroupRootModelIndexAt( i ) == rootModelIndex &&
              EndsWith( candidate.GetName(), "_head" ) )
         {
             outHeadModelIndex = i;

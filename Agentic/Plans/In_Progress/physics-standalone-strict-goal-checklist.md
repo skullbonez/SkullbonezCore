@@ -2405,6 +2405,37 @@ byte-exact `physics_regression_solver.csv`. Logs:
 and
 `TestOutput\validation\physics_store_authority\validate_physics_fixed_tree_metadata_import.log`.
 
+Slice `PHY-1073`: scene-object grouping now lives in a dense
+`GameModelCollection` sidecar instead of `GameModel` runtime collection fields.
+Owner: `GameModelCollection` owns the same-length `SceneObjectGroupRecord`
+stream keyed by model slot while `GameModel` stays presentation/body-authoring
+storage. Reason: ragdoll/tree grouping is cold scene/entity metadata; keeping
+kind/root/part fields on every `GameModel` made unrelated systems carry a
+compatibility payload and encouraged replay/editor/input code to reopen model
+metadata instead of asking the owner. Deletion condition: `GameModel.h/cpp`
+contain no runtime collection fields or `SetRuntimeCollection` /
+`GetRuntimeCollection*` accessors, and source users ask
+`GameModelCollection::{GroupKindAt,GroupRootModelIndexAt,GroupPartIndexAt,
+IsSimpleRagdollPart,IsSimpleRagdollTorso,RagdollRootModelIndexForPart,
+TryFindSimpleRagdollPart,GatherGroupMemberIndices}` as needed. Checker budget:
+`tools/check_runtime_boundaries.py` rejects the deleted GameModel runtime
+collection fields/accessors source-wide and covers old, allowed collection
+query, and comment-only synthetic cases.
+
+Evidence: residue scan found no deleted runtime collection symbols under
+`SkullbonezSource`; `git diff --check`, boundary-checker Python compile, runtime
+boundary validation, and `tools\validate_format.bat` passed; focused Profile
+build passed with 0 warnings/errors after one namespace/callsite fix;
+touched-source comment audit inspected 19 touched source/tool files and refreshed
+sidecar/grouping comments; `tools\validate_full.bat` passed project filters,
+runtime boundaries, Profile/Debug builds at 0 warnings/errors, DX12 InfoQueue 0
+errors, DX12 screenshots matching baselines, and byte-exact 20,001-line
+`physics_regression_solver.csv` in 51.6s. Logs:
+`TestOutput\validation\physics_store_authority\validate_format_scene_group_sidecar.log`,
+`TestOutput\validation\physics_store_authority\validate_build_profile_scene_group_sidecar.log`,
+and
+`TestOutput\validation\physics_store_authority\validate_full_scene_group_sidecar.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

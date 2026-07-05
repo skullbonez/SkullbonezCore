@@ -24,6 +24,8 @@ Glossary:
     PhysicsScene turns into a live ColliderStore row.
   Topology drift: A body/collider/model count mismatch that means compatibility
     stores must import model-owned construction data before stepping.
+  Scene-object group: Cold metadata that maps multi-part authored objects, such
+    as ragdolls or releasable trees, back to a root model slot.
   Fixed-tree release: Compatibility rule that lets authored tree parts become
     dynamic when a related fixed part is hit strongly enough.
   Replay body id: PhysicsBodyStore-owned identity saved in replay samples so
@@ -35,6 +37,8 @@ Invariants:
   - Model vector order remains the compatibility alignment key for physics
     stores, render batches, and scene snapshots. Replay ids live in
     PhysicsBodyStore rows after append.
+  - Scene-object group records are a same-length sidecar keyed by model slot;
+    GameModel does not carry runtime grouping fields.
   - Render prep imports store-backed snapshots once before frame passes; render
     code must not rebuild GameModel-derived pose streams.
   - Owner-side compatibility release paths repair topology once before resolving
@@ -252,105 +256,6 @@ bool SimpleRagdollPrefixMatches( const char* a, size_t aLength, const char* b, s
 }
 
 
-void AssignRuntimeCollectionFromConstructionName( GameModel& gameModel,
-                                                  std::vector<GameModel>& existingModels,
-                                                  int newModelIndex )
-{
-    if ( gameModel.GetRuntimeCollectionKind() != GameModelCollectionKind::None )
-    {
-        return;
-    }
-
-    const char* sourceName = gameModel.GetName();
-    size_t sourcePrefixLength = 0;
-    int sourcePartIndex = -1;
-    if ( TryGetSimpleRagdollInstancePrefixLength( sourceName, sourcePrefixLength, sourcePartIndex ) )
-    {
-        int rootModelIndex = sourcePartIndex == 0 ? newModelIndex : -1;
-        for ( int i = 0; i < static_cast<int>( existingModels.size() ); ++i )
-        {
-            GameModel& existing = existingModels[static_cast<size_t>( i )];
-            if ( existing.GetRuntimeCollectionKind() != GameModelCollectionKind::SimpleRagdoll )
-            {
-                continue;
-            }
-
-            size_t existingPrefixLength = 0;
-            int existingPartIndex = -1;
-            const char* existingName = existing.GetName();
-            if ( !TryGetSimpleRagdollInstancePrefixLength( existingName, existingPrefixLength, existingPartIndex ) ||
-                 !SimpleRagdollPrefixMatches( sourceName, sourcePrefixLength, existingName, existingPrefixLength ) )
-            {
-                continue;
-            }
-
-            int existingRoot = existing.GetRuntimeCollectionRootModelIndex();
-            if ( existingRoot < 0 || existingRoot >= newModelIndex )
-            {
-                existingRoot = i;
-            }
-            if ( rootModelIndex < 0 || existingPartIndex == 0 )
-            {
-                rootModelIndex = existingRoot;
-            }
-            if ( sourcePartIndex == 0 )
-            {
-                // Why: legacy scenes can stream parts in any model order. When the
-                // torso arrives late, move earlier siblings to the torso root so the
-                // editor sees one collection instead of one group per early limb.
-                existing.SetRuntimeCollection( GameModelCollectionKind::SimpleRagdoll,
-                                               newModelIndex,
-                                               existing.GetRuntimeCollectionPartIndex() );
-            }
-            if ( existingPartIndex == 0 )
-            {
-                break;
-            }
-        }
-        if ( rootModelIndex < 0 )
-        {
-            rootModelIndex = newModelIndex;
-        }
-        gameModel.SetRuntimeCollection( GameModelCollectionKind::SimpleRagdoll, rootModelIndex, sourcePartIndex );
-        return;
-    }
-
-    if ( !TryGetEditorTreeInstancePrefixLength( sourceName, sourcePrefixLength ) )
-    {
-        return;
-    }
-
-    int rootModelIndex = newModelIndex;
-    int partIndex = 0;
-    for ( int i = 0; i < static_cast<int>( existingModels.size() ); ++i )
-    {
-        const GameModel& existing = existingModels[static_cast<size_t>( i )];
-        if ( existing.GetRuntimeCollectionKind() != GameModelCollectionKind::ReleasableTree )
-        {
-            continue;
-        }
-
-        size_t existingPrefixLength = 0;
-        const char* existingName = existing.GetName();
-        if ( !TryGetEditorTreeInstancePrefixLength( existingName, existingPrefixLength ) ||
-             existingPrefixLength != sourcePrefixLength ||
-             strncmp( existingName, sourceName, sourcePrefixLength ) != 0 )
-        {
-            continue;
-        }
-
-        rootModelIndex = existing.GetRuntimeCollectionRootModelIndex();
-        if ( rootModelIndex < 0 || rootModelIndex >= newModelIndex )
-        {
-            rootModelIndex = i;
-        }
-        partIndex = (std::max)( partIndex, existing.GetRuntimeCollectionPartIndex() + 1 );
-    }
-
-    gameModel.SetRuntimeCollection( GameModelCollectionKind::ReleasableTree, rootModelIndex, partIndex );
-}
-
-
 } // namespace
 
 
@@ -361,6 +266,113 @@ GameModelCollection::GameModelCollection()
     // vector, so preserving deterministic order matters even when the work is
     // delegated to renderer/physics helper classes.
     m_gameModels.reserve( ActiveGameModelCapacity() );
+    m_sceneObjectGroups.reserve( ActiveGameModelCapacity() );
+}
+
+
+GameModelCollection::SceneObjectGroupRecord
+GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel& gameModel, int newModelIndex )
+{
+    assert( m_sceneObjectGroups.size() == m_gameModels.size() );
+    SceneObjectGroupRecord group;
+
+    const char* sourceName = gameModel.GetName();
+    size_t sourcePrefixLength = 0;
+    int sourcePartIndex = -1;
+    if ( TryGetSimpleRagdollInstancePrefixLength( sourceName, sourcePrefixLength, sourcePartIndex ) )
+    {
+        group.kind = GameModelCollectionKind::SimpleRagdoll;
+        group.rootModelIndex = sourcePartIndex == 0 ? newModelIndex : -1;
+        group.partIndex = sourcePartIndex;
+
+        for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
+        {
+            SceneObjectGroupRecord& existingGroup = m_sceneObjectGroups[static_cast<std::size_t>( i )];
+            if ( existingGroup.kind != GameModelCollectionKind::SimpleRagdoll )
+            {
+                continue;
+            }
+
+            size_t existingPrefixLength = 0;
+            int existingPartIndex = -1;
+            const char* existingName = m_gameModels[static_cast<std::size_t>( i )].GetName();
+            if ( !TryGetSimpleRagdollInstancePrefixLength( existingName, existingPrefixLength, existingPartIndex ) ||
+                 !SimpleRagdollPrefixMatches( sourceName, sourcePrefixLength, existingName, existingPrefixLength ) )
+            {
+                continue;
+            }
+
+            int existingRoot = existingGroup.rootModelIndex;
+            if ( existingRoot < 0 || existingRoot >= newModelIndex )
+            {
+                existingRoot = i;
+            }
+            if ( group.rootModelIndex < 0 || existingPartIndex == 0 )
+            {
+                group.rootModelIndex = existingRoot;
+            }
+            if ( sourcePartIndex == 0 )
+            {
+                // Why: legacy scenes can stream parts in any model order. When the
+                // torso arrives late, move earlier siblings to the torso root so the
+                // editor sees one collection instead of one group per early limb.
+                existingGroup.rootModelIndex = newModelIndex;
+            }
+            if ( existingPartIndex == 0 )
+            {
+                break;
+            }
+        }
+        if ( group.rootModelIndex < 0 )
+        {
+            group.rootModelIndex = newModelIndex;
+        }
+        return group;
+    }
+
+    if ( !TryGetEditorTreeInstancePrefixLength( sourceName, sourcePrefixLength ) )
+    {
+        return group;
+    }
+
+    group.kind = GameModelCollectionKind::ReleasableTree;
+    group.rootModelIndex = newModelIndex;
+    group.partIndex = 0;
+    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
+    {
+        const SceneObjectGroupRecord& existingGroup = m_sceneObjectGroups[static_cast<std::size_t>( i )];
+        if ( existingGroup.kind != GameModelCollectionKind::ReleasableTree )
+        {
+            continue;
+        }
+
+        size_t existingPrefixLength = 0;
+        const char* existingName = m_gameModels[static_cast<std::size_t>( i )].GetName();
+        if ( !TryGetEditorTreeInstancePrefixLength( existingName, existingPrefixLength ) ||
+             existingPrefixLength != sourcePrefixLength ||
+             strncmp( existingName, sourceName, sourcePrefixLength ) != 0 )
+        {
+            continue;
+        }
+
+        group.rootModelIndex = existingGroup.rootModelIndex;
+        if ( group.rootModelIndex < 0 || group.rootModelIndex >= newModelIndex )
+        {
+            group.rootModelIndex = i;
+        }
+        group.partIndex = (std::max)( group.partIndex, existingGroup.partIndex + 1 );
+    }
+    return group;
+}
+
+
+GameModelCollection::SceneObjectGroupRecord GameModelCollection::GroupRecordAt( int modelIndex ) const
+{
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_sceneObjectGroups.size() ) )
+    {
+        return SceneObjectGroupRecord{};
+    }
+    return m_sceneObjectGroups[static_cast<std::size_t>( modelIndex )];
 }
 
 
@@ -427,15 +439,8 @@ std::vector<int> GameModelCollection::BuildFixedTreeReleaseRootsForReload() cons
 
 int GameModelCollection::FixedTreeReleaseRootForModelIndex( int modelIndex ) const
 {
-    if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_gameModels.size() ) )
-    {
-        return -1;
-    }
-
-    const GameModel& model = m_gameModels[static_cast<std::size_t>( modelIndex )];
-    return model.GetRuntimeCollectionKind() == GameModelCollectionKind::ReleasableTree
-               ? model.GetRuntimeCollectionRootModelIndex()
-               : -1;
+    const SceneObjectGroupRecord group = GroupRecordAt( modelIndex );
+    return group.kind == GameModelCollectionKind::ReleasableTree ? group.rootModelIndex : -1;
 }
 
 
@@ -510,7 +515,8 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
         throw std::runtime_error(
             "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." );
     }
-    AssignRuntimeCollectionFromConstructionName( gameModel, m_gameModels, static_cast<int>( m_gameModels.size() ) );
+    const int modelIndex = static_cast<int>( m_gameModels.size() );
+    const SceneObjectGroupRecord groupRecord = BuildSceneObjectGroupForAppend( gameModel, modelIndex );
     if ( !sceneObjectId.IsValid() )
     {
         throw std::runtime_error( "Cannot append model without a scene object id." );
@@ -530,7 +536,7 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
         throw std::runtime_error( "Cannot append model while physics collider rows are missing." );
     }
     m_gameModels.push_back( std::move( gameModel ) );
-    const int modelIndex = static_cast<int>( m_gameModels.size() ) - 1;
+    m_sceneObjectGroups.push_back( groupRecord );
     const PhysicsBodyHandle bodyHandle = m_physicsEngine.RegisterAuthoredBody(
         MakeBodyRecordFromAuthoredModel( m_gameModels.back(),
                                          sceneObjectId,
@@ -563,6 +569,7 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
 void GameModelCollection::Clear()
 {
     m_gameModels.clear();
+    m_sceneObjectGroups.clear();
     m_physicsEngine.Clear();
     m_replayRenderPoseOverrides.clear();
 }
@@ -806,6 +813,124 @@ const GameModel* GameModelCollection::TryGetModel( int index ) const
 }
 
 
+GameModelCollectionKind GameModelCollection::GroupKindAt( int modelIndex ) const
+{
+    return GroupRecordAt( modelIndex ).kind;
+}
+
+
+int GameModelCollection::GroupRootModelIndexAt( int modelIndex ) const
+{
+    return GroupRecordAt( modelIndex ).rootModelIndex;
+}
+
+
+int GameModelCollection::GroupPartIndexAt( int modelIndex ) const
+{
+    return GroupRecordAt( modelIndex ).partIndex;
+}
+
+
+bool GameModelCollection::IsSimpleRagdollPart( int modelIndex ) const
+{
+    return GroupKindAt( modelIndex ) == GameModelCollectionKind::SimpleRagdoll;
+}
+
+
+bool GameModelCollection::IsSimpleRagdollTorso( int modelIndex ) const
+{
+    return IsSimpleRagdollPart( modelIndex ) && GroupPartIndexAt( modelIndex ) == 0;
+}
+
+
+int GameModelCollection::RagdollRootModelIndexForPart( int modelIndex ) const
+{
+    const SceneObjectGroupRecord group = GroupRecordAt( modelIndex );
+    if ( group.kind != GameModelCollectionKind::SimpleRagdoll )
+    {
+        return modelIndex;
+    }
+
+    if ( group.rootModelIndex >= 0 && group.rootModelIndex < GetModelCount() &&
+         IsSimpleRagdollPart( group.rootModelIndex ) )
+    {
+        return group.rootModelIndex;
+    }
+    return modelIndex;
+}
+
+
+bool GameModelCollection::TryFindSimpleRagdollPart( int selectedModelIndex, int partIndex, int& outModelIndex ) const
+{
+    outModelIndex = -1;
+    if ( !IsSimpleRagdollPart( selectedModelIndex ) )
+    {
+        return false;
+    }
+
+    const int rootModelIndex = GroupRootModelIndexAt( selectedModelIndex );
+    for ( int i = 0; i < GetModelCount(); ++i )
+    {
+        const SceneObjectGroupRecord group = GroupRecordAt( i );
+        if ( group.kind == GameModelCollectionKind::SimpleRagdoll && group.rootModelIndex == rootModelIndex &&
+             group.partIndex == partIndex )
+        {
+            outModelIndex = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+
+int GameModelCollection::GatherGroupMemberIndices( int selectedModelIndex, int* outIndices, int maxIndices ) const
+{
+    if ( outIndices && maxIndices > 0 )
+    {
+        for ( int i = 0; i < maxIndices; ++i )
+        {
+            outIndices[i] = -1;
+        }
+    }
+    if ( !outIndices || maxIndices <= 0 || selectedModelIndex < 0 || selectedModelIndex >= GetModelCount() )
+    {
+        return 0;
+    }
+
+    const SceneObjectGroupRecord selectedGroup = GroupRecordAt( selectedModelIndex );
+    if ( selectedGroup.kind != GameModelCollectionKind::SimpleRagdoll )
+    {
+        outIndices[0] = selectedModelIndex;
+        return 1;
+    }
+
+    const int selectedRootIndex = selectedGroup.rootModelIndex;
+    if ( selectedRootIndex < 0 || selectedRootIndex >= GetModelCount() )
+    {
+        outIndices[0] = selectedModelIndex;
+        return 1;
+    }
+
+    int count = 0;
+    for ( int i = 0; i < GetModelCount() && count < maxIndices; ++i )
+    {
+        const SceneObjectGroupRecord group = GroupRecordAt( i );
+        if ( group.kind == selectedGroup.kind && group.rootModelIndex == selectedRootIndex )
+        {
+            outIndices[count] = i;
+            ++count;
+        }
+    }
+
+    if ( count <= 0 )
+    {
+        outIndices[0] = selectedModelIndex;
+        return 1;
+    }
+    return count;
+}
+
+
 #ifdef _DEBUG
 bool GameModelCollection::TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const
 {
@@ -1035,8 +1160,9 @@ MainMemoryGameObjectStats GameModelCollection::CollectMemoryStats() const
     stats.renderStoreBytes = VectorCapacityBytes( renderStore.Records() );
     stats.physicsWorldBytes = m_physicsEngine.CollectPhysicsWorldMemoryBytes();
     stats.debugAndBroadphaseBytes = m_physicsEngine.CollectDebugAndBroadphaseMemoryBytes();
-    stats.totalBytes = stats.modelVectorBytes + stats.physicsStoreBytes + stats.colliderStoreBytes +
-                       stats.renderStoreBytes + stats.physicsWorldBytes;
+    const uint64_t sceneObjectGroupBytes = VectorCapacityBytes( m_sceneObjectGroups );
+    stats.totalBytes = stats.modelVectorBytes + sceneObjectGroupBytes + stats.physicsStoreBytes +
+                       stats.colliderStoreBytes + stats.renderStoreBytes + stats.physicsWorldBytes;
     return stats;
 }
 
@@ -1060,6 +1186,8 @@ bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
     if ( targetCount < m_gameModels.size() )
     {
         m_gameModels.erase( m_gameModels.begin() + static_cast<std::ptrdiff_t>( targetCount ), m_gameModels.end() );
+        m_sceneObjectGroups.erase( m_sceneObjectGroups.begin() + static_cast<std::ptrdiff_t>( targetCount ),
+                                   m_sceneObjectGroups.end() );
     }
     return true;
 }

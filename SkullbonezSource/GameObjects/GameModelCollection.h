@@ -24,6 +24,8 @@ Glossary:
     so draw code can read physics-owned transforms without GameModel pose copies.
   Topology drift: A body/collider/model count mismatch that means compatibility
     stores must import model-owned construction data before stepping.
+  Scene-object group: Cold metadata that maps multi-part authored objects, such
+    as ragdolls or releasable trees, back to a root model slot.
   Collider descriptor: Value packet containing shape/material facts that
     PhysicsScene turns into a live ColliderStore row.
   Fixed-tree release: Compatibility rule that lets authored tree parts become
@@ -38,6 +40,8 @@ Glossary:
 Invariants:
   - m_gameModels is the stable scene-order owner; collaborators mirror or view
     that order rather than replacing it.
+  - m_sceneObjectGroups is a same-length sidecar keyed by m_gameModels slot.
+    GameModel does not own runtime grouping fields.
   - Replay identity lives in PhysicsBodyStore rows after creation. Collection
     code receives scene-owned ids at creation and does not allocate them.
   - Collider shape/material data is imported into ColliderStore at create,
@@ -108,6 +112,13 @@ namespace GameObjects
 {
 class GameModelRenderer;
 
+enum class GameModelCollectionKind : uint8_t
+{
+    None = 0,
+    SimpleRagdoll,
+    ReleasableTree
+};
+
 /* -- Game Model Collection
 --------------------------------------------------------------------------------------------------------------------------------------
 
@@ -129,7 +140,18 @@ class GameModelCollection
         Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     };
 
+    struct SceneObjectGroupRecord
+    {
+        GameModelCollectionKind kind = GameModelCollectionKind::None;
+        int rootModelIndex = -1;
+        int partIndex = -1;
+    };
+
     std::vector<GameModel> m_gameModels;
+    // Dense sidecar for cold scene-object grouping. Keeping this metadata out
+    // of GameModel preserves the model vector for authored presentation data
+    // while collection-order systems still get O(1) group lookup by model slot.
+    std::vector<SceneObjectGroupRecord> m_sceneObjectGroups;
     Physics::PhysicsEngine m_physicsEngine;
     // Cached physics policy applied to existing and newly added models whenever
     // runtime config changes.
@@ -141,6 +163,8 @@ class GameModelCollection
     bool m_shadowParallelPrep = false;                                 // Cached worker-prep toggle copied from EngineConfig.
     std::vector<ReplayRenderPoseOverride> m_replayRenderPoseOverrides; // Single-frame replay draw-pose requests.
 
+    SceneObjectGroupRecord BuildSceneObjectGroupForAppend( const GameModel& gameModel, int newModelIndex );
+    SceneObjectGroupRecord GroupRecordAt( int modelIndex ) const;
     std::vector<uint32_t> BuildReplayBodyIdsForReload( const Physics::PhysicsBodyStore& bodyStore );
     // Owner boundary: fixed-tree grouping is collection metadata. Body-store
     // import receives only the scalar root, never collection-kind accessors.
@@ -217,6 +241,16 @@ class GameModelCollection
     // Lifetime: returned model pointers are stable only until collection
     // mutation. Null means the caller held a stale model index.
     const GameModel* TryGetModel( int index ) const;
+    // Scene-object grouping belongs to the collection because model order is the
+    // compatibility key shared by editor, replay, snapshots, and physics import.
+    GameModelCollectionKind GroupKindAt( int modelIndex ) const;
+    int GroupRootModelIndexAt( int modelIndex ) const;
+    int GroupPartIndexAt( int modelIndex ) const;
+    bool IsSimpleRagdollPart( int modelIndex ) const;
+    bool IsSimpleRagdollTorso( int modelIndex ) const;
+    int RagdollRootModelIndexForPart( int modelIndex ) const;
+    bool TryFindSimpleRagdollPart( int selectedModelIndex, int partIndex, int& outModelIndex ) const;
+    int GatherGroupMemberIndices( int selectedModelIndex, int* outIndices, int maxIndices ) const;
 #ifdef _DEBUG
     bool TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const;
     void FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const;

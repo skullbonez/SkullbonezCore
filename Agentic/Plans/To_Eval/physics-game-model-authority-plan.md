@@ -3,14 +3,33 @@
 Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
-Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_physics.bat` passed on 2026-07-05 after moving fixed-tree
-release metadata import out of `PhysicsBodyStore`. Runtime boundaries reported
-0 errors, Profile/Debug builds were 0 warnings/errors, standalone/runtime
-physics smoke passed, and `physics_regression_solver.csv` was byte-exact.
+Validation for latest source slice: `tools\validate_full.bat` passed on
+2026-07-05 after deleting `GameModel` runtime collection metadata and moving
+scene-object grouping into a dense `GameModelCollection` sidecar. Runtime
+boundaries reported 0 errors, Profile/Debug builds were 0 warnings/errors, DX12
+InfoQueue reported 0 errors with screenshots matching baselines, and
+`physics_regression_solver.csv` was byte-exact.
 
 ## Completed Slices
 
+- [x] 2026-07-05: Deleted `GameModel` runtime collection fields/accessors and
+  moved scene-object grouping into `GameModelCollection`.
+  `GameModelCollection` now owns a same-length `SceneObjectGroupRecord` sidecar
+  keyed by model slot; ragdoll creation no longer writes metadata into
+  `GameModel`, and editor/replay/attached-camera/snapshot code asks the
+  collection for group kind, root, part, and simple-ragdoll membership. Owner:
+  `GameModelCollection` owns cold scene-object grouping until the broader
+  scene/entity identity work replaces model-order grouping entirely. Reason:
+  runtime kind/root/part fields on every `GameModel` were compatibility payload
+  and encouraged cold metadata reads from replay/editor/input code. Deletion
+  condition: `GameModel.h/cpp` contain no runtime collection fields or
+  `SetRuntimeCollection` / `GetRuntimeCollection*` accessors. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects the deleted GameModel runtime
+  collection fields/accessors source-wide with old/allowed/comment self-tests.
+  Validation: `tools\validate_full.bat` passed project filters/runtime
+  boundaries, Profile/Debug builds at 0 warnings/errors, DX12 InfoQueue 0
+  errors, screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`.
 - [x] 2026-07-05: Moved fixed-tree release root metadata lookup out of
   `PhysicsBodyStore`. `GameModelCollection` now converts legacy runtime
   collection grouping into a plain `fixedTreeReleaseRootIndex` scalar at append,

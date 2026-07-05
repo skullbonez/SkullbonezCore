@@ -83,9 +83,9 @@ Attach submodes
   or limb should be meaningful.
 - Simple ragdolls are deterministic body groups. In
   `SkullbonezSource/Physics/Ragdoll.cpp`, part index `0` is torso and part
-  index `1` is head. `GameModel::GetRuntimeCollectionKind()`,
-  `GetRuntimeCollectionRootModelIndex()`, and
-  `GetRuntimeCollectionPartIndex()` identify ragdoll membership.
+  index `1` is head. `GameModelCollection::IsSimpleRagdollPart()` and
+  `TryFindSimpleRagdollPart(..., 1, ...)` identify ragdoll membership from the
+  collection-owned scene-object grouping sidecar.
 - `GameModel` exposes the data needed for camera solving:
   `GetPosition()`, `GetVelocity()`, `GetAngularVelocity()`,
   `GetOrientation()`, and `GetCollisionShape()`.

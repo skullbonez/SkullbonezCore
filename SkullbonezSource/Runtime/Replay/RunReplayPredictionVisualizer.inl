@@ -275,7 +275,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 
 
 bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
-                                  const std::vector<GameModel>& models,
+                                  const SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
                                   const ColliderStore& colliderStore,
                                   RunEditorTracer& tracer,
                                   const std::chrono::steady_clock::time_point& budgetStart,
@@ -294,7 +294,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         if ( replayRuntime.Prediction().ragdollVisualsEnabled )
         {
             DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
-                                                    models,
+                                                    modelCollection,
                                                     tracer,
                                                     budgetStart,
                                                     budgetMilliseconds );
@@ -349,7 +349,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         UpdateReplayPredictionFutureNodeCache( replayRuntime.Prediction(),
                                                activePredictionFrames,
                                                usingBuildFrames,
-                                               models,
+                                               modelCollection,
                                                replayRuntime.PathVisualizer().targetId,
                                                buildBudgetStart,
                                                budgetMilliseconds );
@@ -477,7 +477,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
          !ReplayPredictionBudgetExpired( childDrawBudgetStart, budgetMilliseconds ) )
     {
         DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
-                                                models,
+                                                modelCollection,
                                                 tracer,
                                                 childDrawBudgetStart,
                                                 budgetMilliseconds );
@@ -540,7 +540,6 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
             return;
         }
     }
-    const std::vector<GameModel>& models = modelCollection.Models();
     const ColliderStore& colliderStore = modelCollection.GetPhysicsEngine().Colliders();
     if ( replayRuntime.Prediction().building )
     {
@@ -563,7 +562,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
     // budget. Start a fresh draw-only timer so the overlay degrades by detail
     // instead of disappearing for a frame.
     DrawReplayPredictionOverlay( replayRuntime,
-                                 models,
+                                 modelCollection,
                                  colliderStore,
                                  tracer,
                                  std::chrono::steady_clock::now(),
