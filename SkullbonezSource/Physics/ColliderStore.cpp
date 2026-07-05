@@ -40,6 +40,7 @@ using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PHYSICS_HANDLE_INITIAL_GENERATION;
+using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 
@@ -204,33 +205,42 @@ void ColliderStore::Refresh( GameModel* models, int modelCount, const PhysicsBod
         // Invariant: collider identity follows the body row imported by
         // PhysicsBodyStore. GameModel still supplies authoring shape/material
         // data here, but it must not approve replay id or body-handle identity.
-        const uint32_t replayBodyId = body ? body->replayBodyId : 0u;
+        record = body ? MakeColliderRecordFromAuthoredModel( model, *body ) : ColliderRecord{};
+        const uint32_t replayBodyId = record.replayBodyId;
         record.handle = ResolveHandleForModelIndex( i, replayBodyId, assignedHandleSlots );
-        record.body = body ? body->handle : PhysicsBodyHandle{};
-        record.replayBodyId = replayBodyId;
-        record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
-        record.shape = model.GetCollisionShape();
-        record.boundingRadius = model.GetBoundingRadius();
-        record.restitution = model.GetCoefficientRestitution();
-        record.friction = model.GetFrictionCoefficient();
-        record.contactMaterialId = model.GetContactMaterialId();
-        record.projectedSurfaceArea = model.GetProjectedSurfaceArea();
-        record.dragCoefficient = model.GetDragCoefficient();
-        if ( model.IsBox() )
-        {
-            record.shapeKind = ColliderShapeKind::Box;
-        }
-        else if ( model.IsConvexHull() )
-        {
-            record.shapeKind = ColliderShapeKind::ConvexHull;
-        }
-        else
-        {
-            record.shapeKind = ColliderShapeKind::Sphere;
-        }
         m_modelColliderHandles[static_cast<std::size_t>( i )] = record.handle;
     }
     RetireUnassignedHandles( assignedHandleSlots );
+}
+
+
+ColliderRecord SkullbonezCore::Physics::MakeColliderRecordFromAuthoredModel( GameModel& model,
+                                                                             const PhysicsBodyRecord& body )
+{
+    ColliderRecord record;
+    record.body = body.handle;
+    record.replayBodyId = body.replayBodyId;
+    record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
+    record.shape = model.GetCollisionShape();
+    record.boundingRadius = model.GetBoundingRadius();
+    record.restitution = model.GetCoefficientRestitution();
+    record.friction = model.GetFrictionCoefficient();
+    record.contactMaterialId = model.GetContactMaterialId();
+    record.projectedSurfaceArea = model.GetProjectedSurfaceArea();
+    record.dragCoefficient = model.GetDragCoefficient();
+    if ( model.IsBox() )
+    {
+        record.shapeKind = ColliderShapeKind::Box;
+    }
+    else if ( model.IsConvexHull() )
+    {
+        record.shapeKind = ColliderShapeKind::ConvexHull;
+    }
+    else
+    {
+        record.shapeKind = ColliderShapeKind::Sphere;
+    }
+    return record;
 }
 
 

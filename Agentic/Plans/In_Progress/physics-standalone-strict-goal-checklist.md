@@ -408,6 +408,8 @@ Target: `ColliderStore` owns the standalone collision shape and metadata surface
 - [x] Add or confirm `PhysicsColliderUpdateDesc` masks for shape, material
   response, broadphase values, and local offsets.
 - [x] Make standalone collider creation attach to a live `PhysicsBodyHandle`.
+- [x] Make compatibility append-time model creation register the paired
+  `ColliderStore` row immediately after the new `PhysicsBodyStore` row.
 - [x] Make collider deletion and body deletion tombstone collider handles in one
   deterministic path.
 - [x] Move broadphase candidate generation to `ColliderStore` plus body-store
@@ -432,15 +434,16 @@ Current Phase 3 progress: standalone collider creation/update/delete, raycast,
 and broadphase queries now use `ColliderStore` records directly. Sphere/sphere
 and sphere/box contact generation now read collider-record shape/material rows
 and body-store transforms, then expose public contact views with material,
-restitution, and friction evidence. Remaining shape pairs are future contact
-coverage, not blockers for the Phase 3 smoke row. Prior slice evidence:
-`python tools\check_runtime_boundaries.py --repo .` passed with 0 errors, and
-`tools\validate_physics.bat` passed with byte-exact
-`physics_regression_solver.csv`. Latest sphere/box slice evidence: standalone
-smoke reports `contacts=2` and `contact_hash=0x5DBDF5257E90EA9B`; repeated
-smoke reports were byte-identical; boundary checker passed with 0 errors; and
-`tools\validate_physics.bat` passed with byte-exact
-`physics_regression_solver.csv`.
+restitution, and friction evidence. Compatibility appends now create one body
+row and one paired collider row at `GameModelCollection::AddGameModel()` instead
+of waiting for a later collider topology refresh. Remaining shape pairs and the
+final move of `GameModel` shape/material authoring into collider descriptors are
+future contact/authoring coverage, not blockers for the Phase 3 smoke row.
+Latest append-time collider evidence: runtime-boundary checker passed with 0
+errors, `tools\validate_fast.bat` passed, standalone smoke reported
+`contacts=2` and `contact_hash=0x5DBDF5257E90EA9B`, runtime handle smoke
+reported `collider_refresh=pass`, and `tools\validate_physics.bat` passed with
+byte-exact `physics_regression_solver.csv`.
 - [ ] Validation for this phase:
   - [x] `tools\validate_physics.bat`
   - [ ] `tools\validate_physics_deep.bat` if SkullScope/query baselines change.

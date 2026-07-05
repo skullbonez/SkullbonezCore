@@ -45,6 +45,7 @@ class GameModel;
 namespace Physics
 {
 class PhysicsBodyStore;
+struct PhysicsBodyRecord;
 
 enum class ColliderShapeKind : uint8_t
 {
@@ -68,6 +69,17 @@ struct ColliderRecord
     float projectedSurfaceArea = 0.0f;                       // Fluid-drag area mirrored from collision shape.
     float dragCoefficient = 0.0f;                            // Shape drag coefficient used by fluid forces.
 };
+
+// Construction/refresh edge while GameModelCollection still authors collider
+// shape/material rows.
+// Owner: ColliderStore append-time import.
+// Reason: AddGameModel can append the paired collider row once, without waiting
+// for a later model-order refresh to rebuild collider topology.
+// Deletion condition: scene/entity creation writes PhysicsColliderCreateDesc
+// directly and no ColliderStore helper accepts GameModel.
+// Checker budget: tools/check_runtime_boundaries.py requires AddGameModel to
+// call RegisterAuthoredCollider and blocks the body-only repair shape.
+ColliderRecord MakeColliderRecordFromAuthoredModel( GameObjects::GameModel& model, const PhysicsBodyRecord& body );
 
 class ColliderStore
 {

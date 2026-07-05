@@ -69,6 +69,9 @@ class PhysicsScene
     // model-order reload. Owner is GameModelCollection until scene creation
     // writes body descriptors directly.
     PhysicsBodyHandle RegisterAuthoredBody( const PhysicsBodyRecord& record );
+    // Construction edge: registers the collider paired with a newly authored
+    // body without forcing a collider snapshot refresh through GameModel order.
+    PhysicsColliderHandle RegisterAuthoredCollider( const ColliderRecord& record );
     void ClearPendingBodyImpulses();
     // Replay restore trims the authoritative body store directly; callers must
     // not force a model-to-store refresh after this succeeds.

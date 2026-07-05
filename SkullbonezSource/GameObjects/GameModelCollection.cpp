@@ -69,6 +69,7 @@ using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::MakeBodyRecordFromAuthoredModel;
+using SkullbonezCore::Physics::MakeColliderRecordFromAuthoredModel;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
@@ -425,13 +426,29 @@ PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel, uint32
     gameModel.ApplyPhysicsMaterial( m_physicsMaterial );
     gameModel.ApplyBodySimulationLimits( m_bodySimulationLimits );
     gameModel.ApplyContactPolicy( m_contactPolicy );
-    // Hazard: append-time body registration assumes the existing model/body
-    // rows are aligned. Repair only pre-existing count drift; the newly
-    // pushed model then appends one body record instead of reloading all rows.
-    RepairPhysicsBodyTopology();
+    // Hazard: append-time body/collider registration assumes existing rows are
+    // aligned. Repair only pre-existing count drift; the newly pushed model
+    // then appends one body row and one collider row instead of reloading all
+    // rows through the compatibility model view.
+    RepairPhysicsBodyAndColliderTopology();
     m_gameModels.push_back( std::move( gameModel ) );
     m_replayBodyIds.push_back( replayBodyId );
-    return m_physicsEngine.RegisterAuthoredBody( MakeBodyRecordFromAuthoredModel( m_gameModels.back(), replayBodyId ) );
+    const PhysicsBodyHandle bodyHandle =
+        m_physicsEngine.RegisterAuthoredBody( MakeBodyRecordFromAuthoredModel( m_gameModels.back(), replayBodyId ) );
+    const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForHandle( bodyHandle );
+    assert( bodyRecord != nullptr );
+    if ( !bodyRecord )
+    {
+        throw std::runtime_error( "Failed to resolve newly authored physics body record." );
+    }
+    const auto colliderHandle = m_physicsEngine.RegisterAuthoredCollider(
+        MakeColliderRecordFromAuthoredModel( m_gameModels.back(), *bodyRecord ) );
+    assert( colliderHandle.IsValid() );
+    if ( !colliderHandle.IsValid() )
+    {
+        throw std::runtime_error( "Failed to register newly authored physics collider record." );
+    }
+    return bodyHandle;
 }
 
 

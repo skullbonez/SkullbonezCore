@@ -105,6 +105,12 @@ PhysicsBodyHandle PhysicsScene::RegisterAuthoredBody( const PhysicsBodyRecord& r
 }
 
 
+PhysicsColliderHandle PhysicsScene::RegisterAuthoredCollider( const ColliderRecord& record )
+{
+    return m_colliderStore.CreateColliderRecord( record );
+}
+
+
 void PhysicsScene::ClearPendingBodyImpulses()
 {
     m_bodyStore.ClearPendingImpulses();

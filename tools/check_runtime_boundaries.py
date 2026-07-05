@@ -452,6 +452,21 @@ GAME_MODEL_COLLECTION_COLLIDER_SNAPSHOT_REFRESH_PATTERN = re.compile(
 GAME_MODEL_COLLECTION_COLLIDER_STORE_COUNT_GATE_PATTERN = re.compile(
     r"\bm_physicsEngine\s*\.\s*Colliders\s*\(\s*\)\s*\.\s*Count\s*\(\s*\)\s*!=\s*ModelCount\s*\(\s*\)"
 )
+# Why: append-time construction should create the body and paired collider rows
+# once. Falling back to body-only repair plus later collider snapshot refresh
+# reintroduces hidden model-order work for every scene/object spawn path.
+GAME_MODEL_COLLECTION_ADD_GAME_MODEL_FUNCTION_PATTERN = re.compile(
+    r"\bPhysicsBodyHandle\s+GameModelCollection::AddGameModel\s*\("
+)
+GAME_MODEL_COLLECTION_ADD_GAME_MODEL_BODY_ONLY_REPAIR_PATTERN = re.compile(
+    r"\bRepairPhysicsBodyTopology\s*\("
+)
+GAME_MODEL_COLLECTION_ADD_GAME_MODEL_REGISTER_COLLIDER_PATTERN = re.compile(
+    r"\bRegisterAuthoredCollider\s*\("
+)
+GAME_MODEL_COLLECTION_ADD_GAME_MODEL_DIRECT_COLLIDER_REFRESH_PATTERN = re.compile(
+    r"\bRefreshColliderSnapshot\s*\("
+)
 # Why: scene saves are live simulation snapshots. If the writer reads body facts
 # from GameModel, bulk post-step writeback remains required just to make saving
 # correct. Cold metadata such as names and render materials may still come from
@@ -4248,6 +4263,70 @@ def check_collider_store_identity_authority_guardrails_text(path: Path, text: st
 def check_collider_store_identity_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / COLLIDER_STORE_SOURCE
     return check_collider_store_identity_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_game_model_collection_append_collider_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != GAME_MODEL_COLLECTION_SOURCE.name:
+        return []
+
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    bounds = _function_body_bounds(stripped, GAME_MODEL_COLLECTION_ADD_GAME_MODEL_FUNCTION_PATTERN)
+    if not bounds:
+        return errors
+
+    open_brace, close_brace = bounds
+    function_body = stripped[open_brace:close_brace]
+    if not GAME_MODEL_COLLECTION_ADD_GAME_MODEL_REGISTER_COLLIDER_PATTERN.search(function_body):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, open_brace),
+                "AddGameModel must register collider directly",
+                (
+                    "Append-time construction must create the paired ColliderStore row from the newly "
+                    "created PhysicsBodyStore row instead of waiting for a later model-order refresh."
+                ),
+            )
+        )
+    for match in GAME_MODEL_COLLECTION_ADD_GAME_MODEL_BODY_ONLY_REPAIR_PATTERN.finditer(
+        stripped,
+        open_brace,
+        close_brace,
+    ):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "AddGameModel body-only topology repair is blocked",
+                (
+                    "AddGameModel must repair body and collider count drift together before appending "
+                    "one new body row and one new collider row."
+                ),
+            )
+        )
+    for match in GAME_MODEL_COLLECTION_ADD_GAME_MODEL_DIRECT_COLLIDER_REFRESH_PATTERN.finditer(
+        stripped,
+        open_brace,
+        close_brace,
+    ):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "AddGameModel collider refresh is blocked",
+                (
+                    "Newly authored objects should register their ColliderRecord directly; collider "
+                    "snapshot refresh is only for repairing pre-existing topology drift."
+                ),
+            )
+        )
+    return errors
+
+
+def check_game_model_collection_append_collider_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / GAME_MODEL_COLLECTION_SOURCE
+    return check_game_model_collection_append_collider_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_game_model_replay_id_mirror_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -13730,6 +13809,47 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("store-owned ColliderStore replay identity synthetic surface was rejected")
 
+    old_add_model_body_only_append = """
+    PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel, uint32_t replayBodyId )
+    {
+        RepairPhysicsBodyTopology();
+        m_gameModels.push_back( std::move( gameModel ) );
+        m_replayBodyIds.push_back( replayBodyId );
+        return m_physicsEngine.RegisterAuthoredBody( MakeBodyRecordFromAuthoredModel( m_gameModels.back(), replayBodyId ) );
+    }
+    """
+    old_add_model_errors = check_game_model_collection_append_collider_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        old_add_model_body_only_append,
+    )
+    if not any(
+        error.message == "AddGameModel must register collider directly" for error in old_add_model_errors
+    ):
+        failures.append("old AddGameModel missing collider registration synthetic surface was not rejected")
+    if not any(
+        error.message == "AddGameModel body-only topology repair is blocked" for error in old_add_model_errors
+    ):
+        failures.append("old AddGameModel body-only repair synthetic surface was not rejected")
+
+    allowed_add_model_direct_collider_append = """
+    PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel, uint32_t replayBodyId )
+    {
+        RepairPhysicsBodyAndColliderTopology();
+        m_gameModels.push_back( std::move( gameModel ) );
+        m_replayBodyIds.push_back( replayBodyId );
+        const PhysicsBodyHandle bodyHandle =
+            m_physicsEngine.RegisterAuthoredBody( MakeBodyRecordFromAuthoredModel( m_gameModels.back(), replayBodyId ) );
+        const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForHandle( bodyHandle );
+        m_physicsEngine.RegisterAuthoredCollider( MakeColliderRecordFromAuthoredModel( m_gameModels.back(), *bodyRecord ) );
+        return bodyHandle;
+    }
+    """
+    if check_game_model_collection_append_collider_authority_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_add_model_direct_collider_append,
+    ):
+        failures.append("direct AddGameModel collider registration synthetic surface was rejected")
+
     old_game_model_replay_id_mirror = """
     class GameModel
     {
@@ -17724,6 +17844,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_replay_prediction_ghost_render_store_authority_guardrails(repo))
     errors.extend(check_replay_restore_store_authority_guardrails(repo))
     errors.extend(check_collider_store_identity_authority_guardrails(repo))
+    errors.extend(check_game_model_collection_append_collider_authority_guardrails(repo))
     errors.extend(check_game_model_replay_id_mirror_guardrails(repo))
     errors.extend(check_physics_body_store_model_index_command_guardrails(repo))
     errors.extend(check_replay_render_pose_value_override_guardrails(repo))

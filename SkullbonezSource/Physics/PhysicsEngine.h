@@ -56,6 +56,9 @@ class PhysicsEngine
     // Scene/model construction receives a body handle at append time instead of
     // resolving a just-created model index through the compatibility adapter.
     PhysicsBodyHandle RegisterAuthoredBody( const PhysicsBodyRecord& record );
+    // Scene/model construction receives a collider handle from the same append
+    // edge, so new bodies do not need a later collider topology refresh.
+    PhysicsColliderHandle RegisterAuthoredCollider( const ColliderRecord& record );
     void ClearPendingBodyImpulses();
     // Replay restore trims the authoritative body store directly; callers must
     // not force a model-to-store refresh after this succeeds.

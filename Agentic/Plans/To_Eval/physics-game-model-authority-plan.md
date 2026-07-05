@@ -4,15 +4,39 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_full.bat` passed on 2026-07-05 after deleting the `GameModel`
-replay-id mirror and moving creation/import replay identity to
-`GameModelCollection` sidecar metadata plus `PhysicsBodyStore` rows; DX12
-InfoQueue reported 0 validation errors, screenshots matched committed
-baselines, standalone/runtime physics smoke passed, and
+`tools\validate_physics.bat` passed on 2026-07-05 after making
+`GameModelCollection::AddGameModel()` register the paired `ColliderStore` row
+at the same append-time boundary as the new `PhysicsBodyStore` row. Runtime
+boundaries reported 0 errors, standalone/runtime physics smoke passed, and
 `physics_regression_solver.csv` was a byte-exact 20,001-line match.
 
 ## Completed Slices
 
+- [x] 2026-07-05: Registered append-time collider rows directly from
+  `GameModelCollection::AddGameModel()`. The collection now repairs any
+  pre-existing body/collider count drift once, appends the model and replay id,
+  registers the new body row, resolves the just-created `PhysicsBodyRecord`,
+  and registers the paired `ColliderRecord` immediately through
+  `PhysicsEngine::RegisterAuthoredCollider()`. `ColliderStore::Refresh()` and
+  the append path share `MakeColliderRecordFromAuthoredModel()` so the
+  remaining `GameModel` authoring read is one explicit construction/refresh
+  edge, not a hidden topology dependency. Owner: `GameModelCollection`
+  construction boundary plus `ColliderStore` append-time import. Reason: a new
+  object should not require a later model-order collider refresh before the
+  body/collider mapping is live; the store keeps the dense rows and handle maps
+  authoritative immediately. Deletion condition:
+  `AddGameModel()` calls `RegisterAuthoredCollider()` after
+  `RegisterAuthoredBody()`, contains no body-only
+  `RepairPhysicsBodyTopology()` call, and the temporary authored-model collider
+  helper disappears once scene/entity creation writes collider descriptors
+  directly. Checker budget: `tools/check_runtime_boundaries.py` rejects
+  `AddGameModel()` bodies that omit `RegisterAuthoredCollider()`, use the
+  body-only topology repair, or call collider snapshot refresh directly, with
+  self-tests for old and allowed shapes. Validation: focused Profile build,
+  `git diff --check`, `python -m py_compile tools/check_runtime_boundaries.py`,
+  `python tools/check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and `tools\validate_physics.bat` passed on
+  2026-07-05.
 - [x] 2026-07-05: Deleted the `GameModel` replay-id mirror. `GameModel` no
   longer stores, sets, or exposes replay identity; `GameModelCollection`
   assigns/preserves ids in the dense `m_replayBodyIds` sidecar, passes the id

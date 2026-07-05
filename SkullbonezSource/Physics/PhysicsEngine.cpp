@@ -28,10 +28,12 @@ Related:
 #include "PhysicsEngine.h"
 
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
+using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsModelAccess;
@@ -64,6 +66,12 @@ void PhysicsEngine::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int m
 PhysicsBodyHandle PhysicsEngine::RegisterAuthoredBody( const PhysicsBodyRecord& record )
 {
     return m_scene.RegisterAuthoredBody( record );
+}
+
+
+PhysicsColliderHandle PhysicsEngine::RegisterAuthoredCollider( const ColliderRecord& record )
+{
+    return m_scene.RegisterAuthoredCollider( record );
 }
 
 
