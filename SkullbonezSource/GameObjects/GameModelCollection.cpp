@@ -928,12 +928,6 @@ double GameModelCollection::GetSceneKineticEnergy()
 }
 
 
-void GameModelCollection::WriteBackPhysicsBodies( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
-{
-    bodyStore.WriteBackToModels( m_gameModels );
-}
-
-
 void GameModelCollection::ReloadPhysicsBodies( SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
                                                const std::vector<uint8_t>& sleepStates )
 {

@@ -19,8 +19,9 @@
 #   attached-camera overlay, replay marker radii, or editor wake/sleep commands
 #   have store-handle fences. The deleted collection step wrapper has its own
 #   fence, replay render-pose overrides have their own value-override fence,
-#   and per-body model writeback has its own fence, so count allowances do not
-#   silently approve a new compatibility location.
+#   per-body model writeback, and the deleted bulk model mirror have their own
+#   fences, so count allowances do not silently approve a new compatibility
+#   location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -74,6 +75,8 @@
 #     PhysicsBodyStore handle lookup instead of a legacy external adapter.
 #   Per-body writeback fence: Static rule that keeps command paths from copying
 #     one PhysicsBodyStore row back into GameModel as a convenience mirror.
+#   Bulk model-mirror fence: Static rule that keeps normal physics steps from
+#     copying every PhysicsBodyStore row back into GameModel after stepping.
 #   Replay prediction writeback fence: Static rule that keeps temporary future
 #     preview steps from copying every store row back into GameModel.
 #   Replay render-pose value-override fence: Static rule that keeps scrub and
@@ -776,6 +779,11 @@ DELETED_PER_BODY_MODEL_WRITEBACK_PATTERN = re.compile(
     r"\b(?:(?:void|bool)\s+)?(?:(?:GameModelCollection|PhysicsBodyStore)\s*::\s*)?"
     r"(?:WriteBackPhysicsBody|WriteBackToModelAt)\s*\("
     r"|\bm_fixedTreeReleaseWriteBackBodies\b"
+)
+DELETED_BULK_MODEL_WRITEBACK_PATTERN = re.compile(
+    r"\b(?:(?:void|bool)\s+)?(?:(?:GameModelCollection|PhysicsBodyStore)\s*::\s*)?"
+    r"(?:WriteBackPhysicsBodies|WriteBackToModels)\s*\("
+    r"|\b(?:modelCollection|m_cGameModelCollection)\s*\.\s*WriteBackPhysicsBodies\s*\("
 )
 FIXED_TREE_RELEASE_OUTPUT_VECTOR_PATTERN = re.compile(
     r"\bReleaseFixedBodyAndAttachedTreeParts\s*\([^;{}]*std\s*::\s*vector\s*<\s*int\s*>\s*&",
@@ -5184,8 +5192,8 @@ def check_deleted_per_body_model_writeback_guardrails_text(path: Path, text: str
                 line_for_offset(stripped, match.start()),
                 "deleted per-body model writeback is blocked",
                 (
-                    "Per-body GameModel projection reintroduces copy-back churn. Keep only the explicit bulk "
-                    "compatibility writeback until remaining model-mirror readers move to store snapshots."
+                    "Per-body GameModel projection reintroduces copy-back churn. Use PhysicsBodyStore, "
+                    "ColliderStore, RenderInstanceStore, or diagnostics views instead of model mirrors."
                 ),
             )
         )
@@ -5201,6 +5209,38 @@ def check_deleted_per_body_model_writeback_guardrails_text(path: Path, text: str
                 ),
             )
         )
+    return errors
+
+
+def check_deleted_bulk_model_writeback_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in DELETED_BULK_MODEL_WRITEBACK_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "deleted bulk model writeback is blocked",
+                (
+                    "Normal physics steps must not copy the solved PhysicsBodyStore back into GameModel. "
+                    "Post-step readers should use the body, collider, render, or diagnostics stores."
+                ),
+            )
+        )
+    return errors
+
+
+def check_deleted_bulk_model_writeback_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in (
+        GAME_MODEL_COLLECTION_HEADER,
+        GAME_MODEL_COLLECTION_SOURCE,
+        PHYSICS_ROOT / "PhysicsBodyStore.h",
+        PHYSICS_ROOT / "PhysicsBodyStore.cpp",
+        RUN_FRAME_SOURCE,
+    ):
+        path = repo / relative_path
+        errors.extend(check_deleted_bulk_model_writeback_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -14801,6 +14841,72 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("fixed-tree release no-writeback synthetic surface was rejected")
 
+    old_normal_step_bulk_model_writeback = """
+    void StepRuntimePhysicsTick( GameModelCollection& modelCollection )
+    {
+        PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
+        physicsEngine.Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
+        modelCollection.WriteBackPhysicsBodies( physicsEngine.BodyStore() );
+    }
+    """
+    if not any(
+        error.message == "deleted bulk model writeback is blocked"
+        for error in check_deleted_bulk_model_writeback_guardrails_text(
+            Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+            old_normal_step_bulk_model_writeback,
+        )
+    ):
+        failures.append("old normal-step bulk model writeback synthetic surface was not rejected")
+
+    old_collection_bulk_model_writeback_surface = """
+    class GameModelCollection
+    {
+        void WriteBackPhysicsBodies( const PhysicsBodyStore& bodyStore );
+    };
+    void GameModelCollection::WriteBackPhysicsBodies( const PhysicsBodyStore& bodyStore )
+    {
+        bodyStore.WriteBackToModels( m_gameModels );
+    }
+    """
+    if not any(
+        error.message == "deleted bulk model writeback is blocked"
+        for error in check_deleted_bulk_model_writeback_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_collection_bulk_model_writeback_surface,
+        )
+    ):
+        failures.append("old collection bulk writeback surface synthetic text was not rejected")
+
+    allowed_normal_step_store_owned_surface = """
+    void StepRuntimePhysicsTick( GameModelCollection& modelCollection )
+    {
+        PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
+        physicsEngine.Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
+        for ( int index : physicsEngine.GetFixedContactHighlightBodies() )
+        {
+            modelCollection.NotifyFixedContact( index, 0.5f );
+        }
+    }
+    """
+    if check_deleted_bulk_model_writeback_guardrails_text(
+        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+        allowed_normal_step_store_owned_surface,
+    ):
+        failures.append("store-owned normal step synthetic surface was rejected")
+
+    commented_bulk_model_writeback = """
+    void DocumentDeletedBulkMirror()
+    {
+        // modelCollection.WriteBackPhysicsBodies( physicsEngine.BodyStore() ) used to mirror every body.
+        // PhysicsBodyStore::WriteBackToModels(models) is intentionally gone.
+    }
+    """
+    if check_deleted_bulk_model_writeback_guardrails_text(
+        Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+        commented_bulk_model_writeback,
+    ):
+        failures.append("comment-only bulk model writeback synthetic text was rejected")
+
     commented_per_body_model_writeback = """
     void DocumentDeletedReleaseMirror()
     {
@@ -15376,6 +15482,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_ragdoll_model_index_physics_command_guardrails(repo))
     errors.extend(check_deleted_game_model_collection_physics_wrapper_guardrails(repo))
     errors.extend(check_game_model_collection_fixed_tree_release_adapter_guardrails(repo))
+    errors.extend(check_deleted_bulk_model_writeback_guardrails(repo))
     errors.extend(check_deleted_per_body_model_writeback_guardrails(repo))
     errors.extend(check_deleted_game_model_collection_physics_adapter_command_guardrails(repo))
     errors.extend(check_physics_hot_path_inheritance_guardrails(repo))

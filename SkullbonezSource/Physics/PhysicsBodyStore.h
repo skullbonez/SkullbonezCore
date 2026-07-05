@@ -25,10 +25,10 @@ Invariants:
     current dense row.
   - Public body handles are allocator-owned identities; model-order arrays use
     explicit maps instead of encoding model index inside the handle.
-  - Store refreshes load compatibility GameModel state into the physics-owned
-    body records before a step.
-  - Store writeback is a named compatibility bridge for remaining legacy
-    model-side readers; per-command projection must not be reintroduced.
+  - Store refreshes load compatibility GameModel authoring state into the
+    physics-owned body records before a step or explicit editor/replay commit.
+  - Steady-frame pose, velocity, and sleep state do not copy back to GameModel;
+    readers must use the body, collider, render, or diagnostics stores.
 
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.cpp
@@ -142,7 +142,6 @@ class PhysicsBodyStore
                                  float inverseMass,
                                  const Math::Vector::Vector3& rotationalInertia,
                                  const Math::Vector::Vector3& inverseRotationalInertia );
-    void WriteBackToModels( std::vector<GameObjects::GameModel>& models ) const;
     void CaptureMutableStateFromModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex );
     void CopySleepStatesFrom( const std::vector<uint8_t>& sleepStates );
     void CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) const;

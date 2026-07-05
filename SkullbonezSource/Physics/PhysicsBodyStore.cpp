@@ -920,15 +920,6 @@ void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record )
             : -1;
 }
 
-void WriteRecordToCompatibilityModel( const PhysicsBodyRecord& record, GameModel& model )
-{
-    model.SetFixed( record.isFixed );
-    model.SetPosition( record.position );
-    model.SetOrientation( record.orientation );
-    model.SetLinearVelocity( record.linearVelocity );
-    model.SetAngularVelocity( record.angularVelocity );
-}
-
 } // namespace
 
 
@@ -1284,17 +1275,6 @@ bool PhysicsBodyStore::RestoreReplayBodyState( int modelIndex,
     record->pendingImpulseApplicationPoint = ZERO_VECTOR;
     record->hasPendingImpulse = false;
     return true;
-}
-
-
-void PhysicsBodyStore::WriteBackToModels( std::vector<GameModel>& models ) const
-{
-    const int modelCount = (std::min)( static_cast<int>( models.size() ), Count() );
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        WriteRecordToCompatibilityModel( m_bodies[static_cast<std::size_t>( i )],
-                                         models[static_cast<std::size_t>( i )] );
-    }
 }
 
 

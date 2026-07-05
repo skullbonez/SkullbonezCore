@@ -261,7 +261,6 @@ class GameModelCollection
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();
     GameModel& GetModelAtIndex( int index );
     double GetSceneKineticEnergy();
-    void WriteBackPhysicsBodies( const Physics::PhysicsBodyStore& bodyStore );
     void ReloadPhysicsBodies( Physics::PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
     void RefreshPhysicsBodyFromModel( Physics::PhysicsBodyStore& bodyStore, int modelIndex );
     void RefreshPhysicsColliders( Physics::ColliderStore& colliderStore, const Physics::PhysicsBodyStore& bodyStore );

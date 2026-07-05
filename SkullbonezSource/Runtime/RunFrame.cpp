@@ -146,9 +146,9 @@ constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED
 // Concept: fixed-step edge.
 //
 // PhysicsEngine::Step owns the store-backed solve. GameModelCollection still
-// owns topology repair, model highlight timers, Debug presentation names, and
-// the temporary compatibility body mirror, so the runtime frame applies those
-// owner-side edges explicitly around the engine step.
+// owns topology repair, model highlight timers, and Debug presentation names,
+// so the runtime frame applies those owner-side edges explicitly around the
+// store-owned engine step.
 void StepRuntimePhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
                              float fixedDt,
                              const EngineConfig& config,
@@ -180,14 +180,13 @@ void StepRuntimePhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& m
 #endif
     physicsEngine.Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
 
-    // Why: fixed-contact highlights and compatibility body mirrors are
-    // presentation edges. Keeping them here makes the normal step call visibly
-    // store-owned instead of buried in GameModelCollection.
+    // Why: fixed-contact highlights are presentation feedback, not solver
+    // state. Keeping this edge here leaves the normal step visibly store-owned
+    // instead of hiding side effects in GameModelCollection.
     for ( int index : physicsEngine.GetFixedContactHighlightBodies() )
     {
         modelCollection.NotifyFixedContact( index, 0.5f );
     }
-    modelCollection.WriteBackPhysicsBodies( physicsEngine.BodyStore() );
 }
 
 void CompareLatestReplaySamples( ReplayRuntime& replayRuntime, RunReplayMismatchState& mismatchState )

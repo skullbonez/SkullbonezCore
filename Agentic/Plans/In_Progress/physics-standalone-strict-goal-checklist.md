@@ -58,10 +58,10 @@ Import-Csv Agentic\Plans\In_Progress\physics-standalone-agent-workqueue.csv |
 
 ## Current Blocking Facts
 
-- The normal runtime and replay prediction fixed-step edges now call
-  `PhysicsEngine::Step()` directly, but they still apply model-owner topology
-  repair, contact-highlight presentation, diagnostics name tables, and temporary
-  compatibility body writeback around that store-owned step.
+- The normal runtime and replay prediction fixed-step edges call
+  `PhysicsEngine::Step()` directly. The normal step now keeps topology repair,
+  contact-highlight presentation, and Debug diagnostics name tables at the
+  runtime edge without copying solved body rows back into `GameModel`.
   Evidence: `SkullbonezSource/Runtime/RunFrame.cpp`,
   `SkullbonezSource/Runtime/Replay/RunReplayTools.cpp`.
 - `PhysicsScene::RunPhysics()` now steps `PhysicsBodyStore`/`ColliderStore`
@@ -237,6 +237,24 @@ passed with 0 errors; focused Debug build passed in 4.4s with 0 warnings/errors;
 `tools\validate_fast.bat` passed in 24.9s; `tools\validate_physics.bat` passed in
 14.2s with byte-exact `physics_regression_solver.csv`; `tools\validate_perf.bat`
 passed in 22.6s with no DX12 or PHYSICS_BENCH regressions.
+
+Strict-step authority slice `PHY-1053`: the remaining normal-step bulk
+`PhysicsBodyStore`-to-`GameModel` mirror is deleted. `StepRuntimePhysicsTick()`
+now steps the store, applies fixed-contact presentation feedback, and leaves
+post-step pose/velocity/sleep state in the body, collider, render, and
+diagnostics stores. `GameModelCollection::WriteBackPhysicsBodies()`,
+`PhysicsBodyStore::WriteBackToModels()`, and the compatibility record writer
+are removed; the checker blocks those deleted bulk mirror surfaces from
+returning to runtime/physics source. Evidence: residue scan, diff check,
+py_compile, runtime-boundary checks with 0 errors, and focused Debug build with
+0 warnings/errors. Final gate passed: `tools\validate_full.bat` passed in
+42.9s with Project Filters/runtime boundaries clean, Profile/Debug builds at 0
+warnings/errors, DX12 InfoQueue 0 errors, DX12 screenshots matching baselines,
+and byte-exact `physics_regression_solver.csv`; intermittent
+`tools\validate_physics.bat` passed in about 12.6s with standalone/runtime
+handle smoke and byte-exact solver CSV; `tools\validate_perf.bat` completed in
+21.4s with absolute DX12/PHYSICS_BENCH budgets passing, no perf regressions, and
+DX12 `Frame/Physics` improving from 0.4347ms to 0.2444ms.
 
 Strict-step authority slice `PHY-0207K`: fixed-contact highlight
 notification moved out of `PhysicsWorld` side-effect application. The persistent
@@ -1154,7 +1172,8 @@ post-step `GameModel` body mirrors. `GetPhysicsBodyStore()` now repairs topology
 only when body count drift is detected; same-count reads preserve
 `PhysicsBodyStore` authority. Object-follow camera focus and UI scene-energy
 sampling read body records directly, so those presentation paths no longer need
-the bulk compatibility writeback to keep `GameModel` physics fields fresh.
+the now-deleted bulk compatibility writeback to keep `GameModel` physics fields
+fresh.
 
 - [x] Make `GetPhysicsBodyStore()` count-gated instead of unconditionally
   reloading body rows from `GameModel`.
@@ -1909,8 +1928,8 @@ prediction.
 - [x] Move the normal runtime fixed-step edge to
   `RunFrame.cpp::StepRuntimePhysicsTick()`: count-gated topology repair,
   contact-highlight ticking, Debug name-table setup, direct
-  `PhysicsEngine::Step()`, fixed-contact presentation, and explicit temporary
-  body mirror writeback.
+  `PhysicsEngine::Step()`, fixed-contact presentation, and, after `PHY-1053`,
+  no bulk body mirror writeback.
 - [x] Move replay prediction stepping to a local
   `StepReplayPredictionPhysicsTick()` helper with the same explicit edge.
 - [x] Add runtime-boundary guardrails and self-tests blocking wrapper
