@@ -66,13 +66,6 @@ namespace Physics
 
 namespace GameObjects
 {
-enum class GameModelCollectionKind : uint8_t
-{
-    None = 0,
-    SimpleRagdoll,
-    ReleasableTree
-};
-
 /* -- Game Model
 -------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -106,7 +99,7 @@ class GameModel
     Math::CollisionDetection::CollisionShape
         m_boundingVolume;                                                   // Inline shape variant; narrowphase dispatch owns exact geometry here.
     BallPhysicsCache m_ballPhysics;                                         // Immutable scalar cache read by broadphase, buoyancy, and drag loops.
-    Physics::RigidBody m_physicsInfo;                                       // Integrator state: position, velocity, orientation, forces, and impulses.
+    Physics::RigidBody m_physicsInfo;                                       // Compatibility pose/velocity state mirrored from PhysicsBodyStore.
     Environment::WorldEnvironment* m_worldEnvironment;                      // Borrowed world force/fluid settings; owning scene keeps it alive.
     Geometry::Terrain* m_terrain;                                           // Borrowed terrain used for height samples and terrain contacts.
     float m_projectedSurfaceArea;                                           // Drag area in square meters after collision-shape updates.
@@ -128,10 +121,6 @@ class GameModel
     bool m_isFixed;                                                         // True for immovable collision bodies such as floating ramps
     bool m_releasesFromFixedOnContact;                                      // Fixed decorative pieces can become dynamic after a real hit.
     float m_contactReleaseImpulseThreshold;                                 // Minimum solved normal impulse before fixed-contact release.
-    uint32_t m_replayBodyId;                                                // Stable replay-facing id assigned by GameModelCollection.
-    GameModelCollectionKind m_collectionKind;                               // Runtime grouping metadata; names stay diagnostic-only after construction.
-    int m_collectionRootModelIndex;                                         // Model index that represents this runtime collection, or -1.
-    int m_collectionPartIndex;                                              // Collection-local part index, or -1 when not part of a collection.
     char m_name[64];                                                        // Optional name for logging (empty = unnamed)
 
     void BuildSpherePhysicsCache(
@@ -141,7 +130,6 @@ class GameModel
     Math::CollisionDetection::BoundingSphere&
     GetBoundingSphere();                                                    // Mutable sphere fast path; caller owns the shape-kind precondition.
     void CalculateVolume();                                                 // Refreshes cached collision volume after shape changes.
-    void ApplyWorldForces( float changeInTime );
     void UpdateModelInfo();                                                 // Refreshes derived physics/render scalars after object-list mutations.
 
   public:
@@ -192,29 +180,10 @@ class GameModel
     const Math::Vector::Vector3& GetVelocity() const;
     const Math::Vector::Vector3& GetAngularVelocity();
     const Math::Vector::Vector3& GetAngularVelocity() const;
-    void ApplyForces( float changeInTime );
     void SetTerrain( Geometry::Terrain* pTerrain );                         // Borrowed scene terrain; caller keeps it alive for this model.
-    void SetImpulseForce( const Math::Vector::Vector3& vForce,
-                          const Math::Vector::Vector3&
-                              vApplicationPoint );                          // Stages a one-shot impulse at a world-space application point.
-    void ClearImpulseForce();                                               // Clears consumed one-shot impulse state during replay restore.
     void SetCoefficientRestitution( float fCoefficientRestitution );
-    void SetWorldForce(
-        const Math::Vector::Vector3& vWorldForce,
-        const Math::Vector::Vector3& vWorldTorque );                        // Continuous environment force/torque consumed during integration.
-    void SetInitialOrientation( float fEulerXDeg,
-                                float fEulerYDeg,
-                                float fEulerZDeg );                         // Input angles are degrees in the engine's Euler order.
     void SetName( const char* name );                                       // Diagnostic name is capped at 63 bytes for deterministic logs.
     const char* GetName() const;
-    void SetReplayBodyId( uint32_t id );                                    // Replay ids are scene-local and assigned once by the owning collection.
-    uint32_t GetReplayBodyId() const;
-    void SetRuntimeCollection( GameModelCollectionKind kind,
-                               int rootModelIndex,
-                               int partIndex );                             // Integer identity for grouped runtime objects.
-    GameModelCollectionKind GetRuntimeCollectionKind() const;
-    int GetRuntimeCollectionRootModelIndex() const;
-    int GetRuntimeCollectionPartIndex() const;
     void SetRenderTint( float tintR,
                         float tintG,
                         float tintB,
@@ -242,7 +211,9 @@ class GameModel
     bool ScaleCollisionShapeAxisFromBase(
         const Math::CollisionDetection::CollisionShape& baseShape,
         int axis,
-        float factor );                                                     // Rebuilds this model shape from a base copy scaled along one axis.
+        float factor,
+        Math::CollisionDetection::CollisionShape* outScaledShape =
+            nullptr );                                                      // Rebuilds this model shape and optionally returns the exact scaled shape.
     bool IsSphere() const;
     bool IsBox() const;
     bool IsConvexHull() const;

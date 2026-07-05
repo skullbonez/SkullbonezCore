@@ -172,17 +172,8 @@
     <ClCompile Include="SkullbonezSource\GameObjects\GameModelCollection.cpp">
       <Filter>Source Files\GameObjects</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\GameObjects\GameModelCollectionPhysicsAdapter.cpp">
-      <Filter>Source Files\GameObjects</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\GameModelRenderer.cpp">
       <Filter>Source Files\Rendering</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\GameObjects\GameModelStreams.cpp">
-      <Filter>Source Files\GameObjects</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\GameObjects\GameModelSoACache.cpp">
-      <Filter>Source Files\GameObjects</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp">
       <Filter>Source Files\Physics</Filter>
@@ -668,17 +659,8 @@
     <ClInclude Include="SkullbonezSource\GameObjects\GameModelCollection.h">
       <Filter>Header Files\GameObjects</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\GameObjects\GameModelCollectionPhysicsAdapter.h">
-      <Filter>Header Files\GameObjects</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\GameModelRenderer.h">
       <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\GameObjects\GameModelStreams.h">
-      <Filter>Header Files\GameObjects</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\GameObjects\GameModelSoACache.h">
-      <Filter>Header Files\GameObjects</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PersistentContactSolver.h">
       <Filter>Header Files\Physics</Filter>

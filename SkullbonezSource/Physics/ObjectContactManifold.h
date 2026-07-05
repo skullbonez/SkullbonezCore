@@ -43,18 +43,13 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
-{
-class GameModel;
-} // namespace GameObjects
-
 namespace Physics
 {
 struct ObjectContactBodyView
 {
     // Narrowphase contact geometry needs pose plus shape, not the whole
-    // GameModel. PhysicsBodyRecord callers fill this view directly; legacy model
-    // overloads below adapt at the boundary until the remaining callers migrate.
+    // GameModel. PhysicsBodyRecord callers fill this view directly while
+    // ColliderRecord owns the exact shape snapshot.
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation;
 };
@@ -106,20 +101,6 @@ ObjectContactSweepResult SweepObjectContact( const ObjectContactBodyView& a,
                                              const Math::CollisionDetection::CollisionShape& shapeB,
                                              const Math::Vector::Vector3& linearVelocityB,
                                              float changeInTime );
-bool BuildObjectContactManifold( const GameObjects::GameModel& a,
-                                 const GameObjects::GameModel& b,
-                                 int bodyA,
-                                 int bodyB,
-                                 float contactSkin,
-                                 ObjectContactManifold& out );
-bool BuildObjectContactManifold( const GameObjects::GameModel& a,
-                                 const Math::CollisionDetection::CollisionShape& shapeA,
-                                 const GameObjects::GameModel& b,
-                                 const Math::CollisionDetection::CollisionShape& shapeB,
-                                 int bodyA,
-                                 int bodyB,
-                                 float contactSkin,
-                                 ObjectContactManifold& out );
 bool BuildObjectContactManifold( const ObjectContactBodyView& a,
                                  const Math::CollisionDetection::CollisionShape& shapeA,
                                  const ObjectContactBodyView& b,

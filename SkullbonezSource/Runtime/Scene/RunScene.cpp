@@ -13,12 +13,16 @@ Glossary:
   validation and tooling paths.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
+  Required scene contact: Authored pair gate that marks a scenario objective
+    once two bodies have produced an exact contact.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
-  surface.
+    surface.
+  - Required contact checks read PhysicsBodyStore and ColliderStore snapshots;
+    they must not require the post-step GameModel body mirror to be fresh.
 
 Related:
   - Agentic/Reference/runtime-reference.md
@@ -31,7 +35,9 @@ Related:
 #include "SceneRuntimeStyle.h"
 #include "SceneRuntimeUiOptions.h"
 #include "../Editor/EditorHullAssets.h"
+#include "../../Physics/ColliderStore.h"
 #include "../../Physics/ObjectContactManifold.h"
+#include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/Ragdoll.h"
 #include "../../Core/WorkerPool.h"
 
@@ -51,6 +57,14 @@ namespace
 {
 using Json = nlohmann::ordered_json;
 constexpr float SCENE_EDITOR_TEXTURE_MODE_INVERTED = -2.0f;
+
+ObjectContactBodyView SceneContactBodyView( const PhysicsBodyRecord& body )
+{
+    ObjectContactBodyView view;
+    view.position = body.position;
+    view.orientation = body.orientation;
+    return view;
+}
 
 void ApplySceneWorkerThreadSetting( EngineConfig& config,
                                     SkullbonezCore::Threading::WorkerPool& workerPool,
@@ -420,17 +434,29 @@ void Run::UpdateRequiredSceneContacts()
         return;
     }
 
-    const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+    const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
+    const std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.Records();
+    const std::vector<ColliderRecord>& colliderRecords = colliderStore.Records();
+    const int contactModelCount =
+        (std::min)( bodyStore.Count(), static_cast<int>( (std::min)( bodyRecords.size(), colliderRecords.size() ) ) );
     for ( RunRequiredContactState& required : m_requiredSceneContacts )
     {
-        if ( required.touched || required.bodyA < 0 || required.bodyB < 0 )
+        if ( required.touched || required.bodyA < 0 || required.bodyB < 0 || required.bodyA >= contactModelCount ||
+             required.bodyB >= contactModelCount )
         {
             continue;
         }
 
+        const PhysicsBodyRecord& bodyA = bodyRecords[static_cast<size_t>( required.bodyA )];
+        const PhysicsBodyRecord& bodyB = bodyRecords[static_cast<size_t>( required.bodyB )];
+        const ColliderRecord& colliderA = colliderRecords[static_cast<size_t>( required.bodyA )];
+        const ColliderRecord& colliderB = colliderRecords[static_cast<size_t>( required.bodyB )];
         ObjectContactManifold manifold;
-        if ( BuildObjectContactManifold( models[static_cast<size_t>( required.bodyA )],
-                                         models[static_cast<size_t>( required.bodyB )],
+        if ( BuildObjectContactManifold( SceneContactBodyView( bodyA ),
+                                         colliderA.shape,
+                                         SceneContactBodyView( bodyB ),
+                                         colliderB.shape,
                                          required.bodyA,
                                          required.bodyB,
                                          m_config.contactEpsilon + 0.25f,

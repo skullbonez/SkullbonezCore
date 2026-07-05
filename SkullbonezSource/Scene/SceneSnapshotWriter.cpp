@@ -4,17 +4,26 @@ Purpose:
   Serializes the current scene state back into a JSON scene file.
 
 Mental model:
-  Runtime code connects authored scene data, input, simulation, render
-  backends, and validation-oriented launch modes. Follow who owns state and
-  when that state changes.
+  Scene snapshots serialize a live, editable scene. Cold presentation metadata
+  still comes from GameModel order, while live physics state is sampled from the
+  physics stores that own the current simulation frame.
 
 Glossary:
+  Scene snapshot: JSON scene emitted from current runtime state rather than the
+    original authored file.
+  Cold metadata: Names, render materials, and collection grouping that identify
+    objects but do not drive physics integration.
+  Scene object group: JSON metadata that lets multi-part object grouping
+    round-trip without parsing display-name suffixes at collection append time.
   Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+    commit or PR.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
   surface.
+  - Saved body pose, velocity, sleep, mass, inertia, and shape data come from
+    PhysicsBodyStore/ColliderStore so scene saving does not depend on post-step
+    GameModel body writeback.
 
 Related:
   - SkullbonezSource/Scene/SceneSnapshotWriter.h
@@ -25,6 +34,7 @@ Related:
 
 #include "../Physics/BoundingBox.h"
 #include "../Physics/BoundingSphere.h"
+#include "../Physics/ColliderStore.h"
 #include "../Physics/ConvexHullShape.h"
 #include "../Physics/PhysicsBodyStore.h"
 #include "../Runtime/Editor/EditorHullAssets.h"
@@ -53,7 +63,12 @@ using SkullbonezCore::Basics::RuntimeFileWriter;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
+using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::PhysicsBodyRecord;
+using SkullbonezCore::Physics::PhysicsBodyStore;
 
 namespace
 {
@@ -69,13 +84,13 @@ Json Vec3Json( float x, float y, float z )
     return Json::array( { x, y, z } );
 }
 
-Json OrientationJson( const GameModel& model )
+Json OrientationJson( const Quaternion& orientation )
 {
     float qx = 0.0f;
     float qy = 0.0f;
     float qz = 0.0f;
     float qw = 1.0f;
-    model.GetOrientation().GetComponents( qx, qy, qz, qw );
+    orientation.GetComponents( qx, qy, qz, qw );
     return Json::array( { qx, qy, qz, qw } );
 }
 
@@ -138,6 +153,29 @@ Json RenderMaterialJson( const char* target, const SkullbonezCore::Rendering::Re
     }
     return materialJson;
 }
+
+void AddSceneObjectGroupJson( Json& object,
+                              const GameModelCollection& collection,
+                              const std::vector<GameModel>& gameModels,
+                              int modelIndex )
+{
+    if ( collection.GroupKindAt( modelIndex ) != GameModelCollectionKind::ReleasableTree )
+    {
+        return;
+    }
+
+    const int rootModelIndex = collection.GroupRootModelIndexAt( modelIndex );
+    if ( rootModelIndex < 0 || rootModelIndex >= static_cast<int>( gameModels.size() ) )
+    {
+        return;
+    }
+
+    object["objectGroup"] = {
+        { "kind", "releasableTree" },
+        { "root", gameModels[static_cast<std::size_t>( rootModelIndex )].GetName() },
+        { "part", collection.GroupPartIndexAt( modelIndex ) },
+    };
+}
 } // namespace
 
 
@@ -162,7 +200,8 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
     // velocities, sleeping flags, and materials can round-trip through
     // TestSceneParser without reinterpreting authored placement offsets.
     const std::vector<GameModel>& m_gameModels = collection.Models();
-    const std::vector<uint8_t>& sleepStates = collection.GetSleepStates();
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
+    const ColliderStore& colliderStore = collection.GetColliderStore();
 
     std::ofstream output;
     if ( !RuntimeFileWriter::OpenTextFile( path, output ) )
@@ -227,13 +266,25 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
             name = safeName;
         }
 
-        const Vector3& pos = m_gameModels[i].GetPosition();
-        const Vector3& vel = m_gameModels[i].GetVelocity();
-        const Vector3& avel = m_gameModels[i].GetAngularVelocity();
-        const Vector3& ri = m_gameModels[i].GetRotationalInertia();
-        const auto& shape = m_gameModels[i].GetCollisionShape();
-        float mass = m_gameModels[i].GetMass();
-        float rest = m_gameModels[i].GetCoefficientRestitution();
+        // Invariant: the vector index is only the compatibility row key here.
+        // Live physics values must come from the stores so saving does not need
+        // the post-step GameModel mirror to be fresh.
+        const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( i );
+        const ColliderRecord* collider = colliderStore.RecordForHandle( colliderStore.HandleForModelIndex( i ) );
+        if ( !body || !collider || collider->body != body->handle )
+        {
+            continue;
+        }
+
+        const Vector3& pos = body->position;
+        const Vector3& vel = body->linearVelocity;
+        const Vector3& avel = body->angularVelocity;
+        const Vector3& ri = body->rotationalInertia;
+        const auto& shape = collider->shape;
+        const float mass = body->mass;
+        const float rest = collider->restitution;
+        const bool fixed = body->isFixed;
+        const bool sleeping = body->isSleeping;
 
         if ( std::holds_alternative<BoundingSphere>( shape ) )
         {
@@ -244,15 +295,15 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
                 { "position", Vec3Json( pos ) },
                 { "velocity", Vec3Json( vel ) },
                 { "angularVelocity", Vec3Json( avel ) },
-                { "orientation", OrientationJson( m_gameModels[i] ) },
+                { "orientation", OrientationJson( body->orientation ) },
                 { "radius", sphere.GetRadius() },
                 { "mass", mass },
                 { "restitution", rest },
                 { "contactMaterial", m_gameModels[i].GetContactMaterialName() },
                 { "inertia", Vec3Json( ri ) },
-                { "fixed", m_gameModels[i].IsFixed() },
+                { "fixed", fixed },
             } );
-            if ( i < static_cast<int>( sleepStates.size() ) && sleepStates[i] != 0 && !m_gameModels[i].IsFixed() )
+            if ( sleeping && !fixed )
             {
                 scene["objects"].back()["sleeping"] = true;
             }
@@ -267,15 +318,15 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
                 { "position", Vec3Json( pos ) },
                 { "velocity", Vec3Json( vel ) },
                 { "angularVelocity", Vec3Json( avel ) },
-                { "orientation", OrientationJson( m_gameModels[i] ) },
+                { "orientation", OrientationJson( body->orientation ) },
                 { "halfExtents", Vec3Json( halfExtents ) },
                 { "mass", mass },
                 { "restitution", rest },
                 { "contactMaterial", m_gameModels[i].GetContactMaterialName() },
                 { "inertia", Vec3Json( ri ) },
-                { "fixed", m_gameModels[i].IsFixed() },
+                { "fixed", fixed },
             } );
-            if ( i < static_cast<int>( sleepStates.size() ) && sleepStates[i] != 0 && !m_gameModels[i].IsFixed() )
+            if ( sleeping && !fixed )
             {
                 scene["objects"].back()["sleeping"] = true;
             }
@@ -293,27 +344,28 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
                 { "position", Vec3Json( pos ) },
                 { "velocity", Vec3Json( vel ) },
                 { "angularVelocity", Vec3Json( avel ) },
-                { "orientation", OrientationJson( m_gameModels[i] ) },
+                { "orientation", OrientationJson( body->orientation ) },
                 { "mass", mass },
                 { "restitution", rest },
                 { "contactMaterial", m_gameModels[i].GetContactMaterialName() },
                 { "inertia", Vec3Json( ri ) },
-                { "fixed", m_gameModels[i].IsFixed() },
+                { "fixed", fixed },
             };
-            if ( m_gameModels[i].ReleasesFromFixedOnContact() )
+            if ( body->releasesFromFixedOnContact )
             {
                 hullState["contactReleaseOnImpact"] = true;
-                hullState["contactReleaseImpulseThreshold"] = m_gameModels[i].GetContactReleaseImpulseThreshold();
+                hullState["contactReleaseImpulseThreshold"] = body->contactReleaseImpulseThreshold;
             }
-            if ( i < static_cast<int>( sleepStates.size() ) && sleepStates[i] != 0 && !m_gameModels[i].IsFixed() )
+            if ( sleeping && !fixed )
             {
                 hullState["sleeping"] = true;
             }
+            AddSceneObjectGroupJson( hullState, collection, m_gameModels, i );
             scene["objects"].push_back( hullState );
         }
 
         const SkullbonezCore::Rendering::RenderMaterial& material = m_gameModels[i].GetRenderMaterial();
-        if ( m_gameModels[i].GetRuntimeCollectionKind() != GameModelCollectionKind::SimpleRagdoll &&
+        if ( collection.GroupKindAt( i ) != GameModelCollectionKind::SimpleRagdoll &&
              ShouldSaveRenderMaterial( material ) )
         {
             objectMaterials.push_back( RenderMaterialJson( name, material ) );
@@ -327,7 +379,6 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
 
     const std::vector<SkullbonezCore::Physics::PointJointConstraint>& pointJoints =
         collection.GetPointJointConstraints();
-    const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
     if ( !pointJoints.empty() )
     {
         scene["ragdollJoints"] = Json::array();

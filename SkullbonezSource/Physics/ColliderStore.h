@@ -4,24 +4,25 @@ Purpose:
   Owns deterministic collider records and stable collider-handle identity.
 
 Mental model:
-  Runtime compatibility can refresh records from GameModel order, while the
-  standalone API creates dense live records directly. Handles are allocator
+  ColliderStore owns the dense live collider rows. Runtime compatibility code
+  may replace a row at explicit create/edit boundaries, while topology repair
+  only refreshes body identity from PhysicsBodyStore. Handles are allocator
   identity; record order is only an iteration/detail surface.
 
 Glossary:
   Collider: Shape metadata used to choose sphere, box, or convex-hull tests.
+  Physics material: Runtime policy for collider friction and sphere drag.
   Narrowphase: Precise collision pass that computes actual contact points.
   Convex hull: Collision shape made from a closed convex set of authored points.
   Replay body id: Stable per-scene id paired with a body for replay diagnostics.
 
 Invariants:
-  - Compatibility refresh keeps store row order aligned to GameModelCollection
-    physics order.
+  - Compatibility refresh keeps store row order aligned to scene physics order.
   - Standalone creation keeps rows dense for cache-friendly scans; handles map
     back to the current row after deletions move the last record down.
   - Collider handles are allocator-owned; model-order arrays use explicit maps
     instead of encoding model index inside the handle.
-  - Refresh must not mutate GameModel state; it is a snapshot boundary only.
+  - Body-binding refresh must not recapture shape/material authoring data.
 
 Related:
   - SkullbonezSource/Physics/ColliderStore.cpp
@@ -37,14 +38,11 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
-{
-class GameModel;
-}
-
 namespace Physics
 {
 class PhysicsBodyStore;
+struct PhysicsBodyRecord;
+struct PhysicsMaterial;
 
 enum class ColliderShapeKind : uint8_t
 {
@@ -75,10 +73,18 @@ class ColliderStore
     ColliderStore();
 
     void Clear();
-    void Refresh( std::vector<GameObjects::GameModel>& models, const PhysicsBodyStore& bodyStore );
-    void Refresh( GameObjects::GameModel* models, int modelCount, const PhysicsBodyStore& bodyStore );
+    bool RefreshBodyBindings( const PhysicsBodyStore& bodyStore );
     PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord );
+    // Authoring edits replace row contents through the stable collider handle,
+    // so callers do not need to expose model-order slots at the physics facade
+    // boundary.
+    bool UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record );
+    bool UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record );
+    // Runtime config updates material scalars in-place instead of rebuilding
+    // shape records from the GameModel mirror.
+    void ApplyPhysicsMaterial( const PhysicsMaterial& material );
     bool DestroyColliderRecord( PhysicsColliderHandle handle );
+    bool TrimToCount( int colliderCount );
 
     const ColliderRecord* Data() const;
     int Count() const;

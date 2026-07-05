@@ -14,10 +14,16 @@ Glossary:
     inspection and rollback.
   Cause tree: Replay contact graph used by the tool UI to explain which body or
     contact caused another replay body to matter.
+  Body store: Physics-owned live body records used for pose and velocity
+    authority while legacy GameModel mirrors are retired.
+  Collider store: Physics-owned shape, material, and radius records paired with
+    body handles.
   UI (User Interface): Runtime controls and overlays that expose replay state
     to the player or debugging workflow.
   Velocity edit: Replay tool that displays and edits linear/angular velocity on
     the current path target.
+  Render pose override: One-frame draw-pose request consumed by
+    RenderInstanceStore during replay scrub or prediction preview.
   Runtime state: UI and tool state that belongs to replay but is still consumed
     by Run while the subsystem is being separated.
   Prediction cache: Incremental future-path data built from predicted solver
@@ -25,6 +31,8 @@ Glossary:
 
 Invariants:
   - Stored indices are hints; ReplayBodyId remains the identity check.
+  - Scrub/prediction draw poses are presentation-only value overrides; replay
+    must not backup or mutate live GameModel pose for rendering.
   - Prediction cache cursors must be reset whenever target, ragdoll mode, or
     sample storage changes.
 
@@ -39,6 +47,7 @@ Related:
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/Common.h"
 #include "../../Maths/Quaternion.h"
+#include "../../Physics/PhysicsHandles.h"
 
 namespace SkullbonezCore
 {
@@ -47,6 +56,12 @@ namespace GameObjects
 class GameModel;
 class GameModelCollection;
 } // namespace GameObjects
+
+namespace Physics
+{
+class ColliderStore;
+class PhysicsBodyStore;
+} // namespace Physics
 
 namespace Basics
 {
@@ -227,6 +242,10 @@ struct RunReplayPredictionBodyBackup
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
+    float mass = 0.0f;
+    float inverseMass = 0.0f;
+    Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 inverseRotationalInertia = Math::Vector::ZERO_VECTOR;
     float fixedContactHighlightSeconds = 0.0f;
     bool fixed = false;
 };
@@ -441,7 +460,7 @@ class ReplayRuntime
     bool ApplySolverSampleForRender( GameObjects::GameModelCollection& models, const ReplaySolverFrameSample& sample );
     bool ApplyPredictionFrameForRender( GameObjects::GameModelCollection& models,
                                         const RunReplayPredictionFrame& frame );
-    void RestoreRenderPose( GameObjects::GameModelCollection& models );
+    void ClearRenderPoseOverrides( GameObjects::GameModelCollection& models );
     bool HasLoadedPresentation() const;
     const ReplayPresentationSample* LoadedPresentationSampleAtNormalized( float normalized ) const;
     const ReplayPresentationSample* LoadedPresentationLatestSample() const;
@@ -449,15 +468,22 @@ class ReplayRuntime
     const ReplayPresentationSample* CurrentScrubSample() const;
     const ReplaySolverFrameSample* CurrentSolverScrubSample() const;
     const RunReplayPredictionFrame* CurrentPredictionScrubFrame() const;
+    // Resolves camera-focus pose/radius from replay samples or live physics
+    // stores; GameModel metadata remains outside this body-authority query.
     bool ResolveCauseTreeBodyPosition( ReplayBodyId id,
-                                       const std::vector<GameObjects::GameModel>& models,
+                                       const Physics::PhysicsBodyStore& bodyStore,
+                                       const Physics::ColliderStore& colliderStore,
                                        Math::Vector::Vector3& outPosition,
                                        float* outRadius ) const;
-    int ResolveVelocityEditModelIndex( const std::vector<GameObjects::GameModel>& models ) const;
-    bool BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models );
-    bool BuildPredictionGhostDrawRequests( const std::vector<GameObjects::GameModel>& models );
+    // Resolves the current velocity-edit target to live physics authority. The
+    // stored model index is a staleable hint, not identity.
+    Physics::PhysicsBodyHandle ResolveVelocityEditBodyHandle( const Physics::PhysicsBodyStore& bodyStore ) const;
+    bool BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models,
+                             const Physics::PhysicsBodyStore& bodyStore );
+    bool BuildPredictionGhostDrawRequests( const GameObjects::GameModelCollection& collection,
+                                           const Physics::PhysicsBodyStore& bodyStore );
     const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const;
-    bool BuildFocusModelMask( const GameObjects::GameModelCollection& models );
+    bool BuildFocusModelMask( const Physics::PhysicsBodyStore& bodyStore, int modelCount );
     std::vector<uint8_t>& FocusModelMask();
     const std::vector<uint8_t>& FocusModelMask() const;
     bool HasLauncherVisualBackup() const;
@@ -495,9 +521,13 @@ class ReplayRuntime
                                  const Math::Vector::Vector3& terrainPoint,
                                  const Math::Vector::Vector3& placementScale,
                                  float placementYawRadians );
+    // Records exact transform payload values supplied by the caller; replay must
+    // not reread GameModel pose after physics store authority has the body row.
     void RecordEditorTransformEvent( int modelIndex,
                                      uint32_t changedFlags,
-                                     const GameObjects::GameModel& model,
+                                     uint32_t replayBodyId,
+                                     const Math::Vector::Vector3& position,
+                                     const Math::Orientation::Quaternion& orientation,
                                      int modelCount,
                                      int scaleAxis,
                                      float scaleFactor );
@@ -505,14 +535,6 @@ class ReplayRuntime
     bool SavePresentationWithSolverHashes( const char* path, ReplayV2SaveResult* result = nullptr ) const;
 
   private:
-    struct RenderPoseBackup
-    {
-        int modelIndex = -1;
-        uint32_t replayBodyId = 0;
-        Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
-        Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
-    };
-
     ReplayRecorder m_presentation; // Bounded replay presentation recorder for recent-frame inspection.
     ReplaySolverRecorder m_solver; // Same-tick solver-state recorder kept in tandem with presentation replay.
     ReplayEventRecorder m_events;  // Bounded intent/event stream kept beside v2 replay tracks.
@@ -524,7 +546,6 @@ class ReplayRuntime
     RunReplayPredictionState m_prediction;
     RunReplayCauseTreeState m_causeTree;
     RunReplayVelocityEditState m_velocityEdit;
-    std::vector<RenderPoseBackup> m_renderPoseBackups;
     std::vector<ReplayPredictionGhostDrawRequest> m_predictionGhostDrawRequests;
     std::vector<uint8_t> m_focusModelMask;
     ReplayLauncherVisualSample m_launcherVisualBackup;

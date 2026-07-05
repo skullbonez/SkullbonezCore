@@ -37,11 +37,17 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         Vector3 targetPosition = row.point;
         float targetRadius = 2.0f;
         RunReplayCameraFocusKind focusKind = RunReplayCameraFocusKind::Body;
+        // Lifetime: GetColliderStore repairs both body and collider topology on
+        // count drift. Take that broader repair first, then borrow the body
+        // store so the references stay valid for this focus action.
+        const auto& colliderStore = m_cGameModelCollection.GetColliderStore();
+        const auto& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
         switch ( row.kind )
         {
         case RunReplayCauseTreeRowKind::Body:
             if ( !m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
-                                                                m_cGameModelCollection.Models(),
+                                                                bodyStore,
+                                                                colliderStore,
                                                                 targetPosition,
                                                                 &targetRadius ) )
             {
@@ -51,7 +57,8 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
             break;
         case RunReplayCauseTreeRowKind::Manifold:
             m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
-                                                          m_cGameModelCollection.Models(),
+                                                          bodyStore,
+                                                          colliderStore,
                                                           targetPosition,
                                                           &targetRadius );
             targetPosition = row.point;
@@ -60,7 +67,8 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
             break;
         case RunReplayCauseTreeRowKind::SolverRow:
             m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
-                                                          m_cGameModelCollection.Models(),
+                                                          bodyStore,
+                                                          colliderStore,
                                                           targetPosition,
                                                           &targetRadius );
             targetPosition = row.point;
@@ -69,7 +77,8 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
             break;
         case RunReplayCauseTreeRowKind::PredictionContact:
             m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
-                                                          m_cGameModelCollection.Models(),
+                                                          bodyStore,
+                                                          colliderStore,
                                                           targetPosition,
                                                           &targetRadius );
             targetPosition = row.point;
@@ -137,8 +146,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
 
     const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
     const int screenH = RuntimeWindowScreenHeight( m_systems, m_config );
-    if ( m_runtimeTools.Editor().editorModeEnabled || screenW <= 0 || screenH <= 0 ||
-         !m_replayRuntime.BuildCauseTreeRows( m_cGameModelCollection.Models() ) )
+    const auto endCauseTreeDragIfReleased = [&]()
     {
         if ( leftReleased &&
              ( m_replayRuntime.CauseTree().draggingWindow || m_replayRuntime.CauseTree().resizingWindow ) )
@@ -148,6 +156,17 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
             m_replayRuntime.CauseTree().draggingWindow = false;
             m_replayRuntime.CauseTree().resizingWindow = false;
         }
+    };
+    if ( m_runtimeTools.Editor().editorModeEnabled || screenW <= 0 || screenH <= 0 )
+    {
+        endCauseTreeDragIfReleased();
+        return false;
+    }
+
+    const auto& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+    if ( !m_replayRuntime.BuildCauseTreeRows( m_cGameModelCollection.Models(), bodyStore ) )
+    {
+        endCauseTreeDragIfReleased();
         return false;
     }
 

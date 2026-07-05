@@ -15,8 +15,10 @@ Glossary:
     scene objects; the container itself is not a physics body.
   Asset primitive: Single collision shape inside an asset, such as a box,
     sphere, or convex hull.
+  Scene object group: Parsed metadata that ties multi-part authored objects,
+    such as releasable trees, to one root object before runtime construction.
   Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+    commit or PR.
 
 Invariants:
   - Scene, style, and suite files are JSON documents.
@@ -140,6 +142,66 @@ bool IsSceneNameDigit( char c )
 }
 
 
+bool IsSceneTreePartNameSuffix( const char* suffix )
+{
+    if ( !suffix || suffix[0] == '\0' )
+    {
+        return false;
+    }
+    return strcmp( suffix, "trunk" ) == 0 || strcmp( suffix, "low" ) == 0 || strcmp( suffix, "mid" ) == 0 ||
+           strcmp( suffix, "top" ) == 0 || strncmp( suffix, "needle_", 7 ) == 0;
+}
+
+
+bool TryGetSceneTreeInstancePrefixLength( const char* name, size_t& outPrefixLength )
+{
+    outPrefixLength = 0;
+    if ( !name || name[0] == '\0' )
+    {
+        return false;
+    }
+
+    if ( strstr( name, "_tree_" ) == nullptr && strncmp( name, "tree_", 5 ) != 0 )
+    {
+        return false;
+    }
+
+    const size_t nameLength = strlen( name );
+    size_t marker = nameLength;
+    for ( size_t i = 0; i + 5 < nameLength; ++i )
+    {
+        if ( name[i] == '_' && IsSceneNameDigit( name[i + 1] ) && IsSceneNameDigit( name[i + 2] ) &&
+             IsSceneNameDigit( name[i + 3] ) && name[i + 4] == '_' )
+        {
+            marker = i;
+        }
+    }
+
+    if ( marker != nameLength )
+    {
+        const size_t prefixLength = marker + 5;
+        if ( !IsSceneTreePartNameSuffix( name + prefixLength ) )
+        {
+            return false;
+        }
+
+        outPrefixLength = prefixLength;
+        return true;
+    }
+
+    for ( size_t i = 0; i + 1 < nameLength; ++i )
+    {
+        if ( name[i] == '_' && IsSceneTreePartNameSuffix( name + i + 1 ) )
+        {
+            outPrefixLength = i + 1;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
 bool TryGetEditorTreeInstancePrefixLengthAnyPart( const char* name, size_t& outPrefixLength )
 {
     outPrefixLength = 0;
@@ -172,6 +234,84 @@ bool TryGetEditorTreeInstancePrefixLengthAnyPart( const char* name, size_t& outP
 bool EditorTreeNamesShareInstancePrefix( const char* a, const char* b, size_t prefixLength )
 {
     return a && b && strncmp( a, b, prefixLength ) == 0;
+}
+
+
+bool IsReleasableTreeSceneHull( const char* hullPath )
+{
+    return SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease(
+        SkullbonezCore::Assets::EditorHullAssetFromToken( hullPath ) );
+}
+
+
+template <typename THull> void AssignReleasableTreeGroupsToHulls( std::vector<THull>& hulls )
+{
+    for ( int i = 0; i < static_cast<int>( hulls.size() ); ++i )
+    {
+        THull& hull = hulls[static_cast<std::size_t>( i )];
+        if ( hull.group.kind == SceneObjectGroupKind::None || hull.group.rootObjectName[0] == '\0' )
+        {
+            continue;
+        }
+
+        for ( int candidateIndex = 0; candidateIndex < static_cast<int>( hulls.size() ); ++candidateIndex )
+        {
+            const THull& candidate = hulls[static_cast<std::size_t>( candidateIndex )];
+            if ( strcmp( candidate.name, hull.group.rootObjectName ) == 0 )
+            {
+                hull.group.rootObjectIndex = candidateIndex;
+                break;
+            }
+        }
+    }
+
+    for ( int i = 0; i < static_cast<int>( hulls.size() ); ++i )
+    {
+        THull& hull = hulls[static_cast<std::size_t>( i )];
+        if ( hull.group.kind != SceneObjectGroupKind::None )
+        {
+            continue;
+        }
+
+        // Why: legacy scene files encoded tree grouping through generated
+        // display names. Parse that compatibility surface once during scene
+        // import, then runtime construction can pass explicit group descriptors
+        // into the model collection without a collection-side name scan.
+        size_t sourcePrefixLength = 0;
+        if ( !IsReleasableTreeSceneHull( hull.hullPath ) ||
+             !TryGetSceneTreeInstancePrefixLength( hull.name, sourcePrefixLength ) )
+        {
+            continue;
+        }
+
+        SceneObjectGroupMetadata group;
+        group.kind = SceneObjectGroupKind::ReleasableTree;
+        group.rootObjectIndex = i;
+        group.partIndex = 0;
+
+        for ( int previousIndex = 0; previousIndex < i; ++previousIndex )
+        {
+            const THull& previous = hulls[static_cast<std::size_t>( previousIndex )];
+            if ( previous.group.kind != SceneObjectGroupKind::ReleasableTree )
+            {
+                continue;
+            }
+
+            size_t previousPrefixLength = 0;
+            if ( !TryGetSceneTreeInstancePrefixLength( previous.name, previousPrefixLength ) ||
+                 previousPrefixLength != sourcePrefixLength ||
+                 !EditorTreeNamesShareInstancePrefix( previous.name, hull.name, sourcePrefixLength ) )
+            {
+                continue;
+            }
+
+            group.rootObjectIndex =
+                previous.group.rootObjectIndex >= 0 ? previous.group.rootObjectIndex : previousIndex;
+            group.partIndex = (std::max)( group.partIndex, previous.group.partIndex + 1 );
+        }
+
+        hull.group = group;
+    }
 }
 
 
@@ -429,6 +569,50 @@ void ReadRequiredStringField( char ( &out )[N],
                               const char* key )
 {
     CopyStringField( out, ReadString( RequireMember( object, path, context, key ), path, key ) );
+}
+
+SceneObjectGroupKind ReadSceneObjectGroupKind( const Json& value, const std::string& path, const char* context )
+{
+    const std::string kind = Lowercase( ReadString( value, path, context ) );
+    if ( kind == "releasabletree" || kind == "releasable_tree" )
+    {
+        return SceneObjectGroupKind::ReleasableTree;
+    }
+    if ( kind == "none" )
+    {
+        return SceneObjectGroupKind::None;
+    }
+    Fail( path, "Unknown scene object group kind: " + kind );
+}
+
+void ReadOptionalSceneObjectGroup( SceneObjectGroupMetadata& group,
+                                   const Json& object,
+                                   const std::string& path,
+                                   const char* objectContext )
+{
+    // Concept: objectGroup JSON uses the authored root name as the stable scene
+    // reference. The parser resolves that name to a section-local index only
+    // after includes, objects, and asset instances have all expanded.
+    const Json* groupJson = FindMember( object, "objectGroup" );
+    if ( !groupJson )
+    {
+        return;
+    }
+
+    RequireObject( *groupJson, path, "objectGroup" );
+    group.kind =
+        ReadSceneObjectGroupKind( RequireMember( *groupJson, path, "objectGroup", "kind" ), path, "objectGroup.kind" );
+    if ( group.kind == SceneObjectGroupKind::None )
+    {
+        return;
+    }
+    ReadRequiredStringField( group.rootObjectName, *groupJson, path, "objectGroup", "root" );
+    group.partIndex =
+        (std::max)( 0, ReadInt( RequireMember( *groupJson, path, "objectGroup", "part" ), path, "objectGroup.part" ) );
+    if ( group.rootObjectName[0] == '\0' )
+    {
+        Fail( path, std::string( objectContext ) + ".objectGroup.root must not be empty" );
+    }
 }
 
 void ReadVec3( const Json& value, const std::string& path, const char* context, float& x, float& y, float& z )
@@ -2317,6 +2501,7 @@ class TestSceneParser
         SceneConvexHull hull = {};
         ReadRequiredStringField( hull.name, object, path, "convexHull", "name" );
         ReadRequiredStringField( hull.hullPath, object, path, "convexHull", "hull" );
+        ReadOptionalSceneObjectGroup( hull.group, object, path, "convexHull" );
         ReadVec3( RequireMember( object, path, "convexHull", "position" ),
                   path,
                   "convexHull.position",
@@ -2482,6 +2667,7 @@ class TestSceneParser
         SceneConvexHullState state = {};
         ReadRequiredStringField( state.name, object, path, "convexHullState", "name" );
         ReadRequiredStringField( state.hullPath, object, path, "convexHullState", "hull" );
+        ReadOptionalSceneObjectGroup( state.group, object, path, "convexHullState" );
         ReadVec3( RequireMember( object, path, "convexHullState", "position" ),
                   path,
                   "convexHullState.position",
@@ -2899,6 +3085,8 @@ class TestSceneParser
         ApplyAssetInstances( root, path );
         ApplyRootedTreeCompatibilityClearanceToHulls( m_scene.m_convexHulls );
         ApplyRootedTreeCompatibilityClearanceToHulls( m_scene.m_convexHullStates );
+        AssignReleasableTreeGroupsToHulls( m_scene.m_convexHulls );
+        AssignReleasableTreeGroupsToHulls( m_scene.m_convexHullStates );
         if ( const Json* objectMaterials = FindMember( root, "objectMaterials" ) )
         {
             RequireArray( *objectMaterials, path, "objectMaterials" );

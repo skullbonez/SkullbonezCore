@@ -10,10 +10,17 @@ Mental model:
 Glossary:
   Future node: Body discovered by following retained or predicted contacts away from a target.
   Prediction frame: Temporary replay frame captured while fast-forwarding live physics.
+  Body record: Physics-owned row holding pose, velocity, mass, inertia, and
+    fixed/dynamic state for one replay body.
+  Scene-object group: Collection-owned metadata that folds ragdoll parts to
+    their presentation root for replay path visualization.
 
 Invariants:
   - Prediction helpers must honor the shared replay visualizer time budget.
   - This file must only be included from RunReplayTools.cpp inside the anonymous namespace.
+  - Prediction backups and frame samples read simulation state from body records;
+    ragdoll grouping comes from GameModelCollection, while GameModel remains
+    only for presentation-owned timers.
 
 Related:
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
@@ -181,34 +188,15 @@ ReplayBodyId ReplayPredictionBodyIdForModelIndex( const RunReplayPredictionFrame
     return id;
 }
 
-bool ReplayModelIndexIsRagdollPart( const std::vector<GameModel>& models, int modelIndex )
+bool ReplayModelIndexIsRagdollPart( const SkullbonezCore::GameObjects::GameModelCollection& collection, int modelIndex )
 {
-    return modelIndex >= 0 && modelIndex < static_cast<int>( models.size() ) &&
-           ReplayModelIsRagdollPart( models[static_cast<std::size_t>( modelIndex )] );
+    return ReplayModelIsRagdollPart( collection, modelIndex );
 }
 
-int ReplayRagdollTorsoModelIndexForPart( const std::vector<GameModel>& models, int modelIndex )
+int ReplayRagdollTorsoModelIndexForPart( const SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                         int modelIndex )
 {
-    if ( modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) )
-    {
-        return modelIndex;
-    }
-
-    const GameModel& model = models[static_cast<std::size_t>( modelIndex )];
-    if ( model.GetRuntimeCollectionKind() != GameModelCollectionKind::SimpleRagdoll )
-    {
-        return modelIndex;
-    }
-
-    const int rootModelIndex = model.GetRuntimeCollectionRootModelIndex();
-    if ( rootModelIndex >= 0 && rootModelIndex < static_cast<int>( models.size() ) &&
-         models[static_cast<std::size_t>( rootModelIndex )].GetRuntimeCollectionKind() ==
-             GameModelCollectionKind::SimpleRagdoll )
-    {
-        return rootModelIndex;
-    }
-
-    return modelIndex;
+    return collection.RagdollRootModelIndexForPart( modelIndex );
 }
 
 Vector3 ReplayNormalizeOr( Vector3 value, const Vector3& fallback )
@@ -373,7 +361,7 @@ void CaptureReplayPathBounds( const ReplaySolverFrameSample& sample, void* userD
 struct ReplayPathFutureContext
 {
     RunReplayPathVisualizerState* visualizer = nullptr;
-    const std::vector<GameModel>* models = nullptr;
+    const SkullbonezCore::GameObjects::GameModelCollection* collection = nullptr;
     const std::chrono::steady_clock::time_point* budgetStart = nullptr;
     ReplayBodyId rootId;
     ReplayFrameIndex presentFrame = 0;
@@ -501,12 +489,14 @@ void BuildReplayFutureNodes( const ReplaySolverFrameSample& sample, void* userDa
             return;
         }
 
-        const bool ragdollA = context.models && ReplayModelIndexIsRagdollPart( *context.models, contact.bodyA );
-        const bool ragdollB = context.models && ReplayModelIndexIsRagdollPart( *context.models, contact.bodyB );
-        const int modelIndexA =
-            context.models ? ReplayRagdollTorsoModelIndexForPart( *context.models, contact.bodyA ) : contact.bodyA;
-        const int modelIndexB =
-            context.models ? ReplayRagdollTorsoModelIndexForPart( *context.models, contact.bodyB ) : contact.bodyB;
+        const bool ragdollA = context.collection && ReplayModelIndexIsRagdollPart( *context.collection, contact.bodyA );
+        const bool ragdollB = context.collection && ReplayModelIndexIsRagdollPart( *context.collection, contact.bodyB );
+        const int modelIndexA = context.collection ? ReplayRagdollTorsoModelIndexForPart( *context.collection,
+                                                                                          contact.bodyA )
+                                                   : contact.bodyA;
+        const int modelIndexB = context.collection ? ReplayRagdollTorsoModelIndexForPart( *context.collection,
+                                                                                          contact.bodyB )
+                                                   : contact.bodyB;
         const ReplayBodyId idA = ReplayBodyIdForModelIndex( sample, modelIndexA );
         const ReplayBodyId idB = ReplayBodyIdForModelIndex( sample, modelIndexB );
         int depthA = -1;
@@ -633,7 +623,7 @@ struct ReplayPathChildDrawState
 struct ReplayPathChildDrawContext
 {
     RunEditorTracer* tracer = nullptr;
-    const std::vector<GameModel>* models = nullptr;
+    const ColliderStore* colliderStore = nullptr;
     const std::chrono::steady_clock::time_point* budgetStart = nullptr;
     std::array<ReplayPathChildDrawState, REPLAY_PATH_MAX_FUTURE_NODES> nodes = {};
     std::size_t nodeCount = 0;
@@ -656,11 +646,15 @@ bool ReplayPathChildDrawBudgetExpired( ReplayPathChildDrawContext& context )
     return context.budgetExpired;
 }
 
-float ReplayFutureMarkerRadiusForModelIndex( const std::vector<GameModel>* models, int modelIndex )
+float ReplayFutureMarkerRadiusForModelIndex( const ColliderStore* colliderStore, int modelIndex )
 {
-    if ( models && modelIndex >= 0 && modelIndex < static_cast<int>( models->size() ) )
+    if ( colliderStore )
     {
-        return EditorModelRadius( ( *models )[static_cast<std::size_t>( modelIndex )] ) * 1.18f;
+        float radius = 1.0f;
+        if ( TryReplayColliderRadiusForModelIndex( *colliderStore, modelIndex, radius ) )
+        {
+            return radius * 1.18f;
+        }
     }
     return 1.25f;
 }
@@ -683,26 +677,27 @@ void ReplayChildFutureColor( int depth, float t, float& r, float& g, float& b )
 }
 
 void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredictionFrame>& frames,
-                                             const std::vector<GameModel>& models,
+                                             const SkullbonezCore::GameObjects::GameModelCollection& collection,
                                              RunEditorTracer& tracer,
                                              const std::chrono::steady_clock::time_point& budgetStart,
                                              double budgetMilliseconds )
 {
-    if ( frames.size() < 2 || models.empty() )
+    const int modelCount = collection.GetModelCount();
+    if ( frames.size() < 2 || modelCount <= 0 )
     {
         return;
     }
 
     const ReplayFrameIndex lastFrame = frames.back().frameIndex;
     const std::size_t sampleStride = ReplayPathStrideForSampleCount( frames.size() );
-    for ( int modelIndex = 0; modelIndex < static_cast<int>( models.size() ); ++modelIndex )
+    for ( int modelIndex = 0; modelIndex < modelCount; ++modelIndex )
     {
         if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
         {
             return;
         }
 
-        if ( !ReplayModelIsRagdollTorso( models[static_cast<std::size_t>( modelIndex )] ) )
+        if ( !ReplayModelIsRagdollTorso( collection, modelIndex ) )
         {
             continue;
         }
@@ -785,7 +780,8 @@ void DrawReplayChildPaths( const ReplaySolverFrameSample& sample, void* userData
         {
             if ( !drawState.markerDrawn )
             {
-                const float radius = ReplayFutureMarkerRadiusForModelIndex( context.models, body->modelIndex );
+                const float radius =
+                    ReplayFutureMarkerRadiusForModelIndex( context.colliderStore, body->modelIndex );
                 context.tracer->AddReplayFutureTargetMarker( body->position, radius, drawState.node.depth );
                 drawState.markerDrawn = true;
             }
@@ -850,7 +846,7 @@ struct ReplayPredictionFutureContext
 {
     RunReplayPredictionState* prediction = nullptr;
     std::vector<RunReplayPathTraceNode>* nodes = nullptr;
-    const std::vector<GameModel>* models = nullptr;
+    const SkullbonezCore::GameObjects::GameModelCollection* collection = nullptr;
     ReplayBodyId rootId;
     bool includeRagdollVisuals = true;
 };
@@ -943,12 +939,14 @@ bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
         }
 
         const PhysicsDebugContact& contact = frame.debugContacts[contactIndex];
-        const bool ragdollA = context.models && ReplayModelIndexIsRagdollPart( *context.models, contact.bodyA );
-        const bool ragdollB = context.models && ReplayModelIndexIsRagdollPart( *context.models, contact.bodyB );
-        const int modelIndexA =
-            context.models ? ReplayRagdollTorsoModelIndexForPart( *context.models, contact.bodyA ) : contact.bodyA;
-        const int modelIndexB =
-            context.models ? ReplayRagdollTorsoModelIndexForPart( *context.models, contact.bodyB ) : contact.bodyB;
+        const bool ragdollA = context.collection && ReplayModelIndexIsRagdollPart( *context.collection, contact.bodyA );
+        const bool ragdollB = context.collection && ReplayModelIndexIsRagdollPart( *context.collection, contact.bodyB );
+        const int modelIndexA = context.collection ? ReplayRagdollTorsoModelIndexForPart( *context.collection,
+                                                                                          contact.bodyA )
+                                                   : contact.bodyA;
+        const int modelIndexB = context.collection ? ReplayRagdollTorsoModelIndexForPart( *context.collection,
+                                                                                          contact.bodyB )
+                                                   : contact.bodyB;
         const ReplayBodyId idA = ReplayPredictionBodyIdForModelIndex( frame, modelIndexA );
         const ReplayBodyId idB = ReplayPredictionBodyIdForModelIndex( frame, modelIndexB );
         int depthA = -1;
@@ -988,7 +986,7 @@ bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
 void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction,
                                             const std::vector<RunReplayPredictionFrame>& frames,
                                             bool usingBuildFrames,
-                                            const std::vector<GameModel>& models,
+                                            const SkullbonezCore::GameObjects::GameModelCollection& collection,
                                             ReplayBodyId rootId,
                                             const std::chrono::steady_clock::time_point& budgetStart,
                                             double budgetMilliseconds )
@@ -1041,7 +1039,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
     ReplayPredictionFutureContext futureContext;
     futureContext.prediction = &prediction;
     futureContext.nodes = &prediction.futureNodeBuildScratch;
-    futureContext.models = &models;
+    futureContext.collection = &collection;
     futureContext.rootId = rootId;
     futureContext.includeRagdollVisuals = prediction.ragdollVisualsEnabled;
 
@@ -1086,6 +1084,12 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureBodyState" );
     const int modelCount = modelCollection.GetModelCount();
+    const std::vector<PhysicsBodyRecord>& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
+    if ( static_cast<int>( bodyRecords.size() ) < modelCount )
+    {
+        return false;
+    }
+
     outBodies.clear();
     outBodies.resize( static_cast<std::size_t>( modelCount ) );
 
@@ -1097,21 +1101,26 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
             return;
         }
 
+        const PhysicsBodyRecord& body = bodyRecords[static_cast<std::size_t>( i )];
         RunReplayPredictionBodyBackup backup;
-        backup.id.value = model->GetReplayBodyId();
+        backup.id.value = body.replayBodyId;
         backup.modelIndex = i;
-        backup.position = model->GetPosition();
-        backup.orientation = model->GetOrientation();
-        backup.linearVelocity = model->GetVelocity();
-        backup.angularVelocity = model->GetAngularVelocity();
+        backup.position = body.position;
+        backup.orientation = body.orientation;
+        backup.linearVelocity = body.linearVelocity;
+        backup.angularVelocity = body.angularVelocity;
+        backup.mass = body.mass;
+        backup.inverseMass = body.invMass;
+        backup.rotationalInertia = body.rotationalInertia;
+        backup.inverseRotationalInertia = body.invRotationalInertia;
         backup.fixedContactHighlightSeconds = model->GetFixedContactHighlightSeconds();
-        backup.fixed = model->IsFixed();
+        backup.fixed = body.isFixed;
         outBodies[static_cast<std::size_t>( i )] = backup;
     };
 
-    // Invariant: this loop is read-only and writes one output slot per body, so
-    // it is deterministic under fork-join. Applying backups remains serial
-    // because it mutates live GameModel state.
+    // Invariant: this loop reads authoritative body records and one
+    // presentation timer, then writes one output slot per body. Applying
+    // backups remains serial because it mutates live GameModel state.
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
         workerPool.ParallelFor( 0,
@@ -1150,6 +1159,10 @@ bool ApplyReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelColle
                                                                    backup.orientation,
                                                                    backup.linearVelocity,
                                                                    backup.angularVelocity,
+                                                                   backup.mass,
+                                                                   backup.inverseMass,
+                                                                   backup.rotationalInertia,
+                                                                   backup.inverseRotationalInertia,
                                                                    backup.fixedContactHighlightSeconds ) )
         {
             return false;
@@ -1166,6 +1179,12 @@ void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
     const int modelCount = modelCollection.GetModelCount();
+    const std::vector<PhysicsBodyRecord>& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
+    if ( static_cast<int>( bodyRecords.size() ) < modelCount )
+    {
+        return;
+    }
+
     RunReplayPredictionFrame frame;
     frame.frameIndex = frameIndex;
     frame.simulationSeconds = replayRuntime.Prediction().sourceSimulationSeconds +
@@ -1175,22 +1194,18 @@ void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
 
     const auto captureBody = [&]( int i )
     {
-        const GameModel* model = modelCollection.TryGetModel( i );
-        if ( !model )
-        {
-            return;
-        }
-
+        const PhysicsBodyRecord& source = bodyRecords[static_cast<std::size_t>( i )];
         RunReplayPredictionBodySample body;
-        body.id.value = model->GetReplayBodyId();
+        body.id.value = source.replayBodyId;
         body.modelIndex = i;
-        body.position = model->GetPosition();
-        body.orientation = model->GetOrientation();
+        body.position = source.position;
+        body.orientation = source.orientation;
         frame.bodies[static_cast<std::size_t>( i )] = body;
     };
 
-    // Why: a 4000-body prediction frame is hundreds of kilobytes of pose copy.
-    // Parallel capture pays off there, but small scenes stay serial by threshold.
+    // Invariant: capture reads the store rows advanced by the prediction step.
+    // A replay-only GameModel writeback would copy every temporary pose just so
+    // this loop could read the same values back into prediction samples.
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
         workerPool.ParallelFor( 0,

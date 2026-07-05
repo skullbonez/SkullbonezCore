@@ -30,14 +30,30 @@ Related:
 
 #include "../Core/SkullScope.h"
 
+#ifdef _DEBUG
+#include "PhysicsDiagnosticsModel.h"
+#endif
+
 namespace SkullbonezCore
 {
 namespace Physics
 {
 class ColliderStore;
 class PhysicsBodyStore;
-class PhysicsModelAccess;
-class PhysicsWorld;
+struct PhysicsDiagnosticsView;
+
+#ifdef _DEBUG
+// Immutable inputs for one diagnostics emission pass. Body/collider/world facts
+// are already owned by physics; only names remain a presentation overlay.
+struct PhysicsDiagnosticsFrameInput
+{
+    const PhysicsDiagnosticsView& world;
+    const PhysicsBodyStore& bodyStore;
+    const ColliderStore& colliderStore;
+    PhysicsDiagnosticsNameView names;
+    float deltaSeconds = 0.0f;
+};
+#endif
 
 class PhysicsDiagnosticsSink
 {
@@ -47,17 +63,15 @@ class PhysicsDiagnosticsSink
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );
     void SetPhysicsDiagnosticsRunId( const char* runId );
-    void EmitRegressionLog( PhysicsWorld& world,
-                            PhysicsModelAccess& modelAccess,
-                            const PhysicsBodyStore& bodyStore,
-                            const ColliderStore& colliderStore );
+    bool IsCollisionTimeLogEnabled() const;
+    bool IsRegressionLogEnabled() const;
+    void EmitRegressionLog( const PhysicsDiagnosticsFrameInput& frame );
     void IncrementCollisionTimeFrameIfEnabled();
-    void EmitFrame( PhysicsModelAccess& modelAccess,
-                    const PhysicsBodyStore& bodyStore,
-                    const ColliderStore& colliderStore,
-                    float dt );
+    bool IsFrameLogEnabled() const;
+    void EmitFrame( const PhysicsDiagnosticsFrameInput& frame );
 #endif
-    void EmitCollisionTime( PhysicsModelAccess& modelAccess,
+    void EmitCollisionTime( const char* const* diagnosticNames,
+                            int diagnosticNameCount,
                             const char* type,
                             int bodyA,
                             int bodyB,

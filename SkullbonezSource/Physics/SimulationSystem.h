@@ -12,15 +12,12 @@ Glossary:
   Fixed-step: Deterministic mode that advances physics by one fixed delta per
   requested tick instead of wall-clock time.
   Accumulator: Stored fractional tick state that carries time across frames.
-  PhysicsModelAccess: Stack-owned owner facade that lets the physics world step
-    model-backed storage without making GameModelCollection inherit physics APIs.
-  World-force snapshot: Tick-local gravity/fluid values handed to physics so
-    solver work does not reach back into WorldEnvironment.
+  Commit count: Number of fixed physics ticks the runtime owner must execute
+    after the scheduler has updated accumulator state.
 
 Invariants:
-  - SimulationTickInput borrows physics step context only for the duration of Tick.
-  - SimulationSystem must not know which runtime object owns the concrete
-    physics world; Run supplies that owner facade through PhysicsModelAccess.
+  - SimulationSystem decides tick counts only; it does not borrow model owners,
+    physics stores, world forces, worker pools, or presentation callbacks.
   - Result deltas report what was committed this call; accumulator state remains
     private to SimulationSystem.
 
@@ -35,43 +32,10 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Physics
-{
-class PhysicsEngine;
-class PhysicsModelAccess;
-struct PhysicsWorldForces;
-} // namespace Physics
-
-namespace Threading
-{
-class WorkerPool;
-} // namespace Threading
-
 namespace Basics
 {
-class EngineConfig;
-
-struct SimulationPhysicsStep
-{
-    Physics::PhysicsEngine* engine = nullptr;
-    Physics::PhysicsModelAccess* modelAccess = nullptr;
-    const EngineConfig* config = nullptr;
-    Threading::WorkerPool* workerPool = nullptr;
-    // Borrowed gravity/fluid inputs for this fixed step.
-    const Physics::PhysicsWorldForces* worldForces = nullptr;
-
-    // Returns true when every borrowed physics-step service is present.
-    bool IsBound() const;
-
-    // Advances one fixed physics step through the current engine,
-    // compatibility model access, world-force snapshot, and Run-owned services.
-    void Run( float deltaSeconds ) const;
-};
-
 struct SimulationTickInput
 {
-    using PhysicsStepCallback = void ( * )( void* userData );
-
     double secondsPerFrame = 0.0;
     float timeScale = 1.0f;
     bool isSceneMode = false;
@@ -79,11 +43,9 @@ struct SimulationTickInput
     bool isFixedStep = false;
     PhysicsAdvanceState physicsAdvance = PhysicsAdvanceState::Running;
     bool isStepRequested = false;
-    SimulationPhysicsStep physicsStep;
-    PhysicsStepCallback beforePhysicsStep = nullptr;
-    void* beforePhysicsStepUserData = nullptr;
-    PhysicsStepCallback afterPhysicsStep = nullptr;
-    void* afterPhysicsStepUserData = nullptr;
+    // True only when the runtime owner has a valid physics target for the
+    // returned commit count.
+    bool canStepPhysics = false;
 };
 
 struct SimulationTickResult

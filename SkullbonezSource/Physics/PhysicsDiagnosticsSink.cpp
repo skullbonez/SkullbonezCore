@@ -31,18 +31,74 @@ Related:
 #endif
 #include "ColliderStore.h"
 #include "PhysicsBodyStore.h"
-#include "PhysicsModelAccess.h"
 #include "PhysicsWorld.h"
 
 #include <cmath>
 #include <cstring>
+#include <type_traits>
+#include <variant>
 
-using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Math::Vector::Vector3;
+namespace Math = SkullbonezCore::Math;
 
 
 #ifdef _DEBUG
+bool SkullbonezCore::Physics::TryBuildPhysicsDiagnosticsModelRecord( int index,
+                                                                     const PhysicsBodyStore& bodyStore,
+                                                                     const ColliderStore& colliderStore,
+                                                                     const PhysicsDiagnosticsNameView& names,
+                                                                     PhysicsDiagnosticsModelRecord& outRecord )
+{
+    if ( index < 0 || index >= bodyStore.Count() || index >= colliderStore.Count() )
+    {
+        return false;
+    }
+
+    const PhysicsBodyRecord& bodyRecord = bodyStore.Records()[static_cast<std::size_t>( index )];
+    const ColliderRecord& colliderRecord = colliderStore.Records()[static_cast<std::size_t>( index )];
+    outRecord = PhysicsDiagnosticsModelRecord{};
+    outRecord.name = names.NameFor( index );
+    outRecord.position = bodyRecord.position;
+    outRecord.velocity = bodyRecord.linearVelocity;
+    outRecord.angularVelocity = bodyRecord.angularVelocity;
+    outRecord.rotationalInertia = bodyRecord.rotationalInertia;
+    bodyRecord.orientation.GetComponents( outRecord.qx, outRecord.qy, outRecord.qz, outRecord.qw );
+    outRecord.mass = bodyRecord.mass;
+    outRecord.inverseMass = bodyRecord.invMass;
+
+    // Why: regression CSV diagnostics are emitted after the solver, so body and
+    // shape state must come from the stores just written by the step. GameModel
+    // is allowed to contribute only the cold presentation name.
+    std::visit(
+        [&]( const auto& shape )
+        {
+            using ShapeT = std::decay_t<decltype( shape )>;
+            if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingSphere> )
+            {
+                outRecord.shapeName = "sphere";
+                outRecord.radius = shape.GetRadius();
+            }
+            else if constexpr ( std::is_same_v<ShapeT, Math::CollisionDetection::BoundingBox> )
+            {
+                outRecord.shapeName = "box";
+                outRecord.halfExtents = shape.GetHalfExtents();
+            }
+            else
+            {
+                outRecord.shapeName = "convex_hull";
+                outRecord.radius = shape.GetBoundingRadius();
+                outRecord.hullName = shape.GetName();
+                outRecord.hullVertices = shape.GetVertexCount();
+                outRecord.hullFaces = shape.GetFaceCount();
+                outRecord.hullEdges = shape.GetEdgeCount();
+            }
+        },
+        colliderRecord.shape );
+    return true;
+}
+
+
 void PhysicsDiagnosticsSink::SetPhysicsRegressionLogPath( const char* path )
 {
     strcpy_s( m_physicsRegressionLogPath, sizeof( m_physicsRegressionLogPath ), path );
@@ -70,22 +126,31 @@ void PhysicsDiagnosticsSink::SetPhysicsDiagnosticsRunId( const char* runId )
 }
 
 
-void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world,
-                                                PhysicsModelAccess& modelAccess,
-                                                const PhysicsBodyStore& bodyStore,
-                                                const ColliderStore& colliderStore )
+bool PhysicsDiagnosticsSink::IsCollisionTimeLogEnabled() const
 {
-    const PhysicsDiagnosticsView diagnosticsView = world.GetDiagnosticsView();
-    const auto& m_sleepSupportedThisFrame = diagnosticsView.sleepSupportedThisFrame;
-    const auto& m_sleepState = diagnosticsView.sleepState;
-    const auto& m_sleepInhibitedThisFrame = diagnosticsView.sleepInhibitedThisFrame;
+    return m_physicsCollisionTimeLogPath[0] != '\0';
+}
 
-    if ( m_physicsRegressionLogPath[0] == '\0' )
+
+bool PhysicsDiagnosticsSink::IsRegressionLogEnabled() const
+{
+    return m_physicsRegressionLogPath[0] != '\0';
+}
+
+
+void PhysicsDiagnosticsSink::EmitRegressionLog( const PhysicsDiagnosticsFrameInput& frame )
+{
+    if ( !IsRegressionLogEnabled() )
     {
         return;
     }
 
-    const int modelCount = bodyStore.Count();
+    const PhysicsDiagnosticsView& diagnosticsView = frame.world;
+    const auto& m_sleepSupportedThisFrame = diagnosticsView.sleepSupportedThisFrame;
+    const auto& m_sleepState = diagnosticsView.sleepState;
+    const auto& m_sleepInhibitedThisFrame = diagnosticsView.sleepInhibitedThisFrame;
+
+    const int modelCount = frame.bodyStore.Count();
     if ( m_physicsRegressionLogFrame == 0 )
     {
         Log().Writef( m_physicsRegressionLogPath,
@@ -95,7 +160,7 @@ void PhysicsDiagnosticsSink::EmitRegressionLog( PhysicsWorld& world,
     for ( int i = 0; i < modelCount; ++i )
     {
         PhysicsDiagnosticsModelRecord model;
-        if ( !modelAccess.TryGetPhysicsDiagnosticsModel( i, bodyStore, colliderStore, model ) )
+        if ( !TryBuildPhysicsDiagnosticsModelRecord( i, frame.bodyStore, frame.colliderStore, frame.names, model ) )
         {
             continue;
         }
@@ -146,17 +211,21 @@ void PhysicsDiagnosticsSink::IncrementCollisionTimeFrameIfEnabled()
 }
 
 
-void PhysicsDiagnosticsSink::EmitFrame( PhysicsModelAccess& modelAccess,
-                                        const PhysicsBodyStore& bodyStore,
-                                        const ColliderStore& colliderStore,
-                                        float dt )
+bool PhysicsDiagnosticsSink::IsFrameLogEnabled() const
 {
-    m_skullScope.EmitFrame( modelAccess, bodyStore, colliderStore, dt );
+    return m_skullScope.IsFrameEnabled();
+}
+
+
+void PhysicsDiagnosticsSink::EmitFrame( const PhysicsDiagnosticsFrameInput& frame )
+{
+    m_skullScope.EmitFrame( frame );
 }
 #endif
 
 
-void PhysicsDiagnosticsSink::EmitCollisionTime( PhysicsModelAccess& modelAccess,
+void PhysicsDiagnosticsSink::EmitCollisionTime( const char* const* diagnosticNames,
+                                                int diagnosticNameCount,
                                                 const char* type,
                                                 int bodyA,
                                                 int bodyB,
@@ -174,10 +243,11 @@ void PhysicsDiagnosticsSink::EmitCollisionTime( PhysicsModelAccess& modelAccess,
                       "frame,type,bodyA,bodyB,nameA,nameB,collisionTime,availableTime\n" );
         m_physicsCollisionTimeHeaderWritten = true;
     }
-    const char* modelNameA = "";
-    const char* modelNameB = "";
-    const char* nameA = modelAccess.TryGetPhysicsDiagnosticsModelName( bodyA, modelNameA ) ? modelNameA : "terrain";
-    const char* nameB = modelAccess.TryGetPhysicsDiagnosticsModelName( bodyB, modelNameB ) ? modelNameB : "terrain";
+    const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
+    const auto collisionNameFor = [&]( int bodyIndex ) -> const char*
+    { return ( bodyIndex >= 0 && bodyIndex < names.count ) ? names.NameFor( bodyIndex ) : "terrain"; };
+    const char* nameA = collisionNameFor( bodyA );
+    const char* nameB = collisionNameFor( bodyB );
     Log().Writef( m_physicsCollisionTimeLogPath,
                   "%d,%s,%d,%d,%s,%s,%.6f,%.6f\n",
                   m_physicsCollisionTimeLogFrame,
@@ -189,7 +259,8 @@ void PhysicsDiagnosticsSink::EmitCollisionTime( PhysicsModelAccess& modelAccess,
                   collisionTime,
                   availableTime );
 #else
-    (void)modelAccess;
+    (void)diagnosticNames;
+    (void)diagnosticNameCount;
     (void)type;
     (void)bodyA;
     (void)bodyB;

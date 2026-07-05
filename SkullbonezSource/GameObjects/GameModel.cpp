@@ -161,10 +161,6 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_isFixed = false;
     m_releasesFromFixedOnContact = false;
     m_contactReleaseImpulseThreshold = 1.0f;
-    m_replayBodyId = 0;
-    m_collectionKind = GameModelCollectionKind::None;
-    m_collectionRootModelIndex = -1;
-    m_collectionPartIndex = -1;
     m_name[0] = '\0';
 }
 
@@ -249,8 +245,6 @@ void GameModel::SetFixed( bool isFixed )
         // shown in debug visuals, but they do not accumulate forces or velocity.
         m_physicsInfo.SetLinearVelocity( Vector::ZERO_VECTOR );
         m_physicsInfo.SetAngularVelocity( Vector::ZERO_VECTOR );
-        m_physicsInfo.SetWorldForce( Vector::ZERO_VECTOR, Vector::ZERO_VECTOR );
-        m_physicsInfo.ZeroForce();
     }
 }
 
@@ -282,7 +276,7 @@ float GameModel::GetContactReleaseImpulseThreshold() const
 
 void GameModel::NotifyFixedContact( float highlightSeconds )
 {
-    if ( m_isFixed && highlightSeconds > m_fixedContactHighlightSeconds )
+    if ( highlightSeconds > m_fixedContactHighlightSeconds )
     {
         m_fixedContactHighlightSeconds = highlightSeconds;
     }
@@ -331,57 +325,9 @@ void GameModel::SetFixedContactHighlightSeconds( float seconds )
 }
 
 
-void GameModel::SetImpulseForce( const Vector3& vForce, const Vector3& vApplicationPoint )
-{
-    if ( m_isFixed )
-    {
-        return;
-    }
-    m_physicsInfo.SetImpulseForce( vForce, vApplicationPoint );
-}
-
-
-void GameModel::ClearImpulseForce()
-{
-    m_physicsInfo.ClearImpulseForce();
-}
-
-
-void GameModel::SetWorldForce( const Vector3& vWorldForce, const Vector3& vWorldTorque )
-{
-    if ( m_isFixed )
-    {
-        m_physicsInfo.SetWorldForce( Vector::ZERO_VECTOR, Vector::ZERO_VECTOR );
-        return;
-    }
-    m_physicsInfo.SetWorldForce( vWorldForce, vWorldTorque );
-}
-
-
 void GameModel::SetCoefficientRestitution( float fCoefficientRestitution )
 {
     m_physicsInfo.SetCoefficientRestitution( fCoefficientRestitution );
-}
-
-
-void GameModel::SetInitialOrientation( float fEulerXDeg, float fEulerYDeg, float fEulerZDeg )
-{
-    static constexpr float DEG2RAD = 3.14159265f / 180.0f;
-    float x = fEulerXDeg * DEG2RAD;
-    float y = fEulerYDeg * DEG2RAD;
-    float z = fEulerZDeg * DEG2RAD;
-    float xHalf = x * 0.5f;
-    float yHalf = y * 0.5f;
-    float zHalf = z * 0.5f;
-
-    Quaternion xRotation( sinf( xHalf ), 0.0f, 0.0f, cosf( xHalf ) );
-    Quaternion yRotation( 0.0f, sinf( yHalf ), 0.0f, cosf( yHalf ) );
-    Quaternion zRotation( 0.0f, 0.0f, sinf( zHalf ), cosf( zHalf ) );
-
-    Quaternion q;
-    q *= xRotation * yRotation * zRotation;
-    q.Normalise();
-    m_physicsInfo.SetOrientation( q );
 }
 
 
@@ -394,44 +340,6 @@ void GameModel::SetName( const char* name )
 const char* GameModel::GetName() const
 {
     return m_name;
-}
-
-
-void GameModel::SetReplayBodyId( uint32_t id )
-{
-    m_replayBodyId = id;
-}
-
-
-uint32_t GameModel::GetReplayBodyId() const
-{
-    return m_replayBodyId;
-}
-
-
-void GameModel::SetRuntimeCollection( GameModelCollectionKind kind, int rootModelIndex, int partIndex )
-{
-    m_collectionKind = kind;
-    m_collectionRootModelIndex = rootModelIndex;
-    m_collectionPartIndex = partIndex;
-}
-
-
-GameModelCollectionKind GameModel::GetRuntimeCollectionKind() const
-{
-    return m_collectionKind;
-}
-
-
-int GameModel::GetRuntimeCollectionRootModelIndex() const
-{
-    return m_collectionRootModelIndex;
-}
-
-
-int GameModel::GetRuntimeCollectionPartIndex() const
-{
-    return m_collectionPartIndex;
 }
 
 
@@ -646,7 +554,10 @@ void GameModel::AddConvexHull( const ConvexHullShape& hull )
 }
 
 
-bool GameModel::ScaleCollisionShapeAxisFromBase( const CollisionShape& baseShape, int axis, float factor )
+bool GameModel::ScaleCollisionShapeAxisFromBase( const CollisionShape& baseShape,
+                                                 int axis,
+                                                 float factor,
+                                                 CollisionShape* outScaledShape )
 {
     if ( axis < 0 || axis > 2 || !std::isfinite( factor ) || factor <= 0.0f )
     {
@@ -655,13 +566,21 @@ bool GameModel::ScaleCollisionShapeAxisFromBase( const CollisionShape& baseShape
 
     factor = std::clamp( factor, 0.05f, 20.0f );
     const float mass = m_physicsInfo.GetMass();
+    // Why: editor/replay scale commits need the exact variant that this cache
+    // rebuild produced. Returning it here avoids a later GameModelCollection
+    // reread just to reconstruct the same collider descriptor.
 
     if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &baseShape ) )
     {
         const float radius = (std::max)( 0.25f, sphere->GetRadius() * factor );
         const float moment = 0.4f * mass * radius * radius;
         const Vector3 inertia( moment, moment, moment );
-        m_boundingVolume = BoundingSphere( radius, sphere->GetPosition(), sphere->GetDragCoefficient() );
+        const BoundingSphere scaledSphere( radius, sphere->GetPosition(), sphere->GetDragCoefficient() );
+        m_boundingVolume = scaledSphere;
+        if ( outScaledShape )
+        {
+            *outScaledShape = scaledSphere;
+        }
         BuildSpherePhysicsCache( radius );
         m_ballPhysics.mass = mass;
         m_ballPhysics.invMass = 1.0f / mass;
@@ -708,7 +627,12 @@ bool GameModel::ScaleCollisionShapeAxisFromBase( const CollisionShape& baseShape
         m_ballPhysics.rotationalInertia = inertia;
         m_ballPhysics.invRotationalInertia = Vector3( 1.0f / inertia.x, 1.0f / inertia.y, 1.0f / inertia.z );
         m_physicsInfo.SetRotationalInertia( inertia );
-        m_boundingVolume = BoundingBox( halfExtents, box->GetPosition() );
+        const BoundingBox scaledBox( halfExtents, box->GetPosition() );
+        m_boundingVolume = scaledBox;
+        if ( outScaledShape )
+        {
+            *outScaledShape = scaledBox;
+        }
         UpdateModelInfo();
         return true;
     }
@@ -736,6 +660,10 @@ bool GameModel::ScaleCollisionShapeAxisFromBase( const CollisionShape& baseShape
         m_ballPhysics.invRotationalInertia = Vector3( 1.0f / inertia.x, 1.0f / inertia.y, 1.0f / inertia.z );
         m_physicsInfo.SetRotationalInertia( inertia );
         m_boundingVolume = hull;
+        if ( outScaledShape )
+        {
+            *outScaledShape = hull;
+        }
         UpdateModelInfo();
         return true;
     }
@@ -784,30 +712,6 @@ Matrix4 GameModel::GetModelMatrix()
     Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() );
     Vector3 pos = m_physicsInfo.GetPosition();
     return std::visit( [&]( auto& shape ) { return shape.GetModelMatrix( pos, rotation ); }, m_boundingVolume );
-}
-
-
-void GameModel::ApplyForces( float changeInTime )
-{
-    if ( m_isFixed )
-    {
-        m_physicsInfo.SetLinearVelocity( Vector::ZERO_VECTOR );
-        m_physicsInfo.SetAngularVelocity( Vector::ZERO_VECTOR );
-        return;
-    }
-
-    // throttle the angular velocity
-    m_physicsInfo.ThrottleAngularVelocity();
-
-    ApplyWorldForces( changeInTime );
-
-    m_physicsInfo.ApplyForces();
-}
-
-
-void GameModel::ApplyWorldForces( float changeInTime )
-{
-    m_worldEnvironment->AddWorldForces( *this, changeInTime );
 }
 
 

@@ -16,8 +16,6 @@ Glossary:
   Future node tree: Contact-derived graph of bodies that the selected replay path is predicted
     to affect after the root body hits something.
   Mutation window: Period where live physics stores temporarily contain prediction state.
-  PhysicsModelAccess: Stack-owned owner facade used during prediction steps so
-    temporary physics mutation does not depend on GameModelCollection inheritance.
   Stable overlay pass: Short pre-step draw that keeps current world-space lines visible while
     heavy prediction jobs continue building fresher samples.
   Visualizer budget: Millisecond cap applied to each bounded prediction or overlay work slice.
@@ -78,22 +76,17 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     {
         int targetIndex = -1;
         const int modelCount = modelCollection.GetModelCount();
-        for ( int i = 0; i < modelCount; ++i )
+        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
         {
-            if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-            {
-                replayRuntime.Prediction().dirty = true;
-                return false;
-            }
-
-            const GameModel* model = modelCollection.TryGetModel( i );
-            if ( model && model->GetReplayBodyId() == replayRuntime.PathVisualizer().targetId.value )
-            {
-                targetIndex = i;
-                break;
-            }
+            replayRuntime.Prediction().dirty = true;
+            return false;
         }
-        if ( targetIndex < 0 )
+        const PhysicsBodyStore& bodyStore = modelCollection.GetPhysicsBodyStore();
+        if ( !TryResolveReplayBodyModelIndex( bodyStore,
+                                              replayRuntime.PathVisualizer().targetId,
+                                              replayRuntime.PathVisualizer().targetModelIndex,
+                                              modelCount,
+                                              targetIndex ) )
         {
             return false;
         }
@@ -196,7 +189,6 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
             ApplyReplayPredictionBodyState( modelCollection, replayRuntime.Prediction().predictionBodies ) &&
             modelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld,
                                                                             modelCollection.GetModelCount() );
-        modelCollection.InvalidatePhysicsStreams();
     }
 
     if ( jobApplied )
@@ -212,13 +204,11 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 
                 {
                     PROFILE_SCOPED( "Frame/Replay/Prediction/StepPhysics" );
-                    PhysicsModelAccess physicsModelAccess( modelCollection );
-                    SimulationPhysicsStep{ &modelCollection.GetPhysicsEngine(),
-                                           &physicsModelAccess,
-                                           &config,
-                                           &workerPool,
-                                           &worldForces }
-                        .Run( PHYSICS_FIXED_DT );
+                    StepReplayPredictionPhysicsTick( modelCollection,
+                                                     PHYSICS_FIXED_DT,
+                                                     config,
+                                                     worldForces,
+                                                     workerPool );
                 }
                 CaptureReplayPredictionFrame( replayRuntime,
                                               modelCollection,
@@ -259,7 +249,6 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
             ApplyReplayPredictionBodyState( modelCollection, replayRuntime.Prediction().liveRestoreBodies ) &&
             modelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot( replayRuntime.Prediction().liveRestoreWorld,
                                                                             modelCollection.GetModelCount() );
-        modelCollection.InvalidatePhysicsStreams();
     }
 
     if ( !jobApplied || !jobStateCaptured || !liveRestored )
@@ -286,7 +275,8 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 
 
 bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
-                                  const std::vector<GameModel>& models,
+                                  const SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                  const ColliderStore& colliderStore,
                                   RunEditorTracer& tracer,
                                   const std::chrono::steady_clock::time_point& budgetStart,
                                   double budgetMilliseconds )
@@ -304,7 +294,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         if ( replayRuntime.Prediction().ragdollVisualsEnabled )
         {
             DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
-                                                    models,
+                                                    modelCollection,
                                                     tracer,
                                                     budgetStart,
                                                     budgetMilliseconds );
@@ -359,7 +349,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         UpdateReplayPredictionFutureNodeCache( replayRuntime.Prediction(),
                                                activePredictionFrames,
                                                usingBuildFrames,
-                                               models,
+                                               modelCollection,
                                                replayRuntime.PathVisualizer().targetId,
                                                buildBudgetStart,
                                                budgetMilliseconds );
@@ -373,7 +363,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawChildren" );
         ReplayPathChildDrawContext childDraw;
         childDraw.tracer = &tracer;
-        childDraw.models = &models;
+        childDraw.colliderStore = &colliderStore;
         childDraw.presentFrame = 0;
         childDraw.lastFrame = lastFrame;
         childDraw.sampleStride = sampleStride;
@@ -426,7 +416,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                     if ( !drawState.markerDrawn )
                     {
                         const float radius =
-                            ReplayFutureMarkerRadiusForModelIndex( childDraw.models, body->modelIndex );
+                            ReplayFutureMarkerRadiusForModelIndex( childDraw.colliderStore, body->modelIndex );
                         tracer.AddReplayFutureTargetMarker( body->position, radius, drawState.node.depth );
                         drawState.markerDrawn = true;
                     }
@@ -487,7 +477,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
          !ReplayPredictionBudgetExpired( childDrawBudgetStart, budgetMilliseconds ) )
     {
         DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
-                                                models,
+                                                modelCollection,
                                                 tracer,
                                                 childDrawBudgetStart,
                                                 budgetMilliseconds );
@@ -550,7 +540,7 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
             return;
         }
     }
-    const std::vector<GameModel>& models = modelCollection.Models();
+    const ColliderStore& colliderStore = modelCollection.GetPhysicsEngine().Colliders();
     if ( replayRuntime.Prediction().building )
     {
         const double remainingMilliseconds = ReplayPredictionRemainingMilliseconds( budgetStart, budgetMilliseconds );
@@ -571,5 +561,10 @@ void RenderReplayPredictionVisualizer( ReplayRuntime& replayRuntime,
     // lines need a draw chance even on frames where stepping consumes that
     // budget. Start a fresh draw-only timer so the overlay degrades by detail
     // instead of disappearing for a frame.
-    DrawReplayPredictionOverlay( replayRuntime, models, tracer, std::chrono::steady_clock::now(), budgetMilliseconds );
+    DrawReplayPredictionOverlay( replayRuntime,
+                                 modelCollection,
+                                 colliderStore,
+                                 tracer,
+                                 std::chrono::steady_clock::now(),
+                                 budgetMilliseconds );
 }

@@ -30,8 +30,8 @@ Related:
 
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
+#include "../Physics/PhysicsDiagnosticsSink.h"
 #include "../Physics/PhysicsDiagnosticsModel.h"
-#include "../Physics/PhysicsModelAccess.h"
 #include "../Physics/PhysicsWorld.h"
 #include <algorithm>
 #include <cmath>
@@ -129,26 +129,31 @@ void SkullScope::ResetPenetrationState()
 }
 
 
-void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess,
-                            const Physics::PhysicsBodyStore& bodyStore,
-                            const Physics::ColliderStore& colliderStore,
-                            float dt )
+bool SkullScope::IsFrameEnabled() const
 {
-    if ( m_physicsDiagnosticsPath[0] == '\0' || m_physicsDiagnosticsRunId[0] == '\0' )
+    return m_physicsDiagnosticsPath[0] != '\0' && m_physicsDiagnosticsRunId[0] != '\0';
+}
+
+
+void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameInput )
+{
+    if ( !IsFrameEnabled() )
     {
         return;
     }
 
-    const int modelCount = bodyStore.Count();
+    const float dt = frameInput.deltaSeconds;
+    const int modelCount = frameInput.bodyStore.Count();
     std::vector<Physics::PhysicsDiagnosticsModelRecord> modelDiagnostics( static_cast<std::size_t>( modelCount ) );
-    // Lifetime: records may borrow name strings from the collection; keeping
-    // them inside this frame emission avoids caching diagnostics-owned aliases.
+    // Lifetime: records may borrow presentation name strings from the frame
+    // name view; keeping them inside this emission avoids caching aliases.
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( !modelAccess.TryGetPhysicsDiagnosticsModel( i,
-                                                         bodyStore,
-                                                         colliderStore,
-                                                         modelDiagnostics[static_cast<std::size_t>( i )] ) )
+        if ( !Physics::TryBuildPhysicsDiagnosticsModelRecord( i,
+                                                              frameInput.bodyStore,
+                                                              frameInput.colliderStore,
+                                                              frameInput.names,
+                                                              modelDiagnostics[static_cast<std::size_t>( i )] ) )
         {
             // Invariant: PhysicsBodyStore defines dense diagnostics row count.
             // A rejected index keeps its default record so later arrays retain
@@ -157,7 +162,7 @@ void SkullScope::EmitFrame( Physics::PhysicsModelAccess& modelAccess,
         }
     }
 
-    const auto physicsDiagnostics = modelAccess.GetPhysicsDiagnosticsView();
+    const Physics::PhysicsDiagnosticsView& physicsDiagnostics = frameInput.world;
     const auto& m_persistentContacts = physicsDiagnostics.persistentContacts;
     const auto& m_persistentContactSolverStats = physicsDiagnostics.persistentContactSolverStats;
     const auto& m_sleepIslandParent = physicsDiagnostics.sleepIslandParent;

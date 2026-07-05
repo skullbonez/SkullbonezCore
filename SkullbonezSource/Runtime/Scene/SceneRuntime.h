@@ -30,12 +30,17 @@ Related:
 #pragma once
 
 #include "../../Core/Config.h"
+#include "../../Physics/PhysicsHandles.h"
 
 #include <string>
 #include <vector>
 
 namespace SkullbonezCore
 {
+namespace Physics
+{
+class PhysicsBodyStore;
+}
 namespace Basics
 {
 // Concept: Lifecycle events mark scene-owned load boundaries so policy can move
@@ -56,6 +61,9 @@ struct RunSceneState
 {
     void ResetForLoad( const CinematicRenderConfig&
                            cinematicDefaults ); // Resets per-load state while preserving queue/manual-run ownership.
+    Physics::PhysicsSceneObjectId AllocateSceneObjectId();
+    Physics::PhysicsSceneObjectId AllocateSceneObjectIdRange( int count );
+    void ResetSceneObjectIdCursor( const Physics::PhysicsBodyStore& bodyStore );
 
     int currentSceneIndex = -1;                 // Index into scene queue (-1 = not yet loaded)
     int loadCount = 0;                          // Number of scene/generated loads since startup
@@ -70,6 +78,7 @@ struct RunSceneState
     int solverBoxCount = 0;                     // Exact solver box count when generated through solver_boxes
     unsigned int rngSeed = 0;                   // Effective RNG seed used to build the current scene
     unsigned int rngState = 1;                  // Local deterministic generator state for scene object setup
+    uint32_t nextSceneObjectId = 1;             // Next per-load body/collider id assigned by scene creation.
     float timeScale = 1.0f;                     // Physics time multiplier
     bool isFixedStep = false;                   // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
     bool isExitOnComplete = false;              // Exit automatically when targetFrameCount is reached

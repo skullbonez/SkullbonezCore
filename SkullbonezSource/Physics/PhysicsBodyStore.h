@@ -16,6 +16,8 @@ Glossary:
     so buoyancy jitter does not repeatedly wake them.
   Inverse mass: Reciprocal mass value; zero means an immovable body.
   Replay body id: Stable per-scene id used by replay and diagnostics.
+  Fixed-tree release: Authored structure rule where one released fixed prop can
+    release higher parts in the same tree group.
 
 Invariants:
   - Compatibility body records stay in GameModelCollection physics model order.
@@ -23,10 +25,10 @@ Invariants:
     current dense row.
   - Public body handles are allocator-owned identities; model-order arrays use
     explicit maps instead of encoding model index inside the handle.
-  - Store refreshes load compatibility GameModel state into the physics-owned
-    body records before a step.
-  - Store writeback is a named compatibility bridge for legacy render, replay,
-    tool, terrain, and shape code that still reads GameModel state.
+  - Store refreshes load compatibility GameModel authoring state into the
+    physics-owned body records before a step or explicit editor/replay commit.
+  - Steady-frame pose, velocity, and sleep state do not copy back to GameModel;
+    readers must use the body, collider, render, or diagnostics stores.
 
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.cpp
@@ -59,11 +61,20 @@ namespace Physics
 class ColliderStore;
 struct PhysicsWorldForces;
 
+// Describes one fixed-tree release source. Solver and tornado code pass this
+// value to the store so released parts inherit deterministic seed velocities.
+struct PhysicsFixedTreeReleaseEvent
+{
+    int sourceIndex = -1;                              // Body row whose release triggers same-tree propagation.
+    Math::Vector::Vector3 seedLinearVelocity = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 seedAngularVelocity = Math::Vector::ZERO_VECTOR;
+};
+
 struct PhysicsBodyRecord
 {
     PhysicsBodyHandle handle;                          // Stable body handle resolved through the store maps.
-    PhysicsSceneObjectId sceneObjectId;                // Scene-local id currently mirrored from replay body id.
-    uint32_t replayBodyId = 0;                         // Stable replay-facing body id for this scene.
+    PhysicsSceneObjectId sceneObjectId;                // Scene-local id supplied once by the creation owner.
+    uint32_t replayBodyId = 0;                         // Legacy replay id derived from sceneObjectId for traces/replay.
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
@@ -83,6 +94,7 @@ struct PhysicsBodyRecord
     float contactReleaseImpulseThreshold = 1.0f;       // Minimum contact impulse before authored fixed props release.
     float angularVelocityLimit = 5.0f;                 // Per-body spin cap applied before force integration.
     float contactEpsilon = 0.05f;                      // Terrain proximity tolerance used by buoyancy support damping.
+    int fixedTreeReleaseRootIndex = -1;                // Authored release group root; -1 means no fixed-tree group.
     bool isFixed = false;                              // True for immovable collision bodies.
     bool isSleeping = false;                           // Physics-owned sleep flag mirrored to diagnostics by model index.
     bool usesWorldInertia = false;                     // Non-sphere bodies rotate inertia through orientation.
@@ -90,14 +102,28 @@ struct PhysicsBodyRecord
     bool hasPendingImpulse = false;                    // One-shot impulse waiting for the next body integration pass.
 };
 
+// Construction edge: GameModelCollection still owns model-order append, while
+// scene/editor creation owns identity and shape facts. This converts the
+// just-appended model to a value record so PhysicsEngine receives data, not a
+// GameModel reference. Delete this when creation writes PhysicsBodyCreateDesc
+// records directly.
+PhysicsBodyRecord MakeBodyRecordFromAuthoredModel( GameObjects::GameModel& model,
+                                                   PhysicsSceneObjectId sceneObjectId,
+                                                   int fixedTreeReleaseRootIndex );
+
 class PhysicsBodyStore
 {
   public:
     PhysicsBodyStore();
 
     void Clear();
-    void Refresh( std::vector<GameObjects::GameModel>& models, const std::vector<uint8_t>& sleepStates );
-    void LoadFromModels( std::vector<GameObjects::GameModel>& models, const std::vector<uint8_t>& sleepStates );
+    // Cold topology repair imports mutable model authoring data. Replay ids and
+    // fixed-tree roots are scratch streams produced by the collection owner; they
+    // are not persistent collection authority inside PhysicsBodyStore.
+    void LoadFromModels( std::vector<GameObjects::GameModel>& models,
+                         const std::vector<uint32_t>& replayBodyIds,
+                         const std::vector<int>& fixedTreeReleaseRootIndices,
+                         const std::vector<uint8_t>& sleepStates );
     // Creates a physics-owned body row without consulting GameModel. The store
     // assigns the handle and keeps the row dense; callers supply authored state.
     PhysicsBodyHandle CreateBodyRecord( const PhysicsBodyRecord& record );
@@ -111,8 +137,8 @@ class PhysicsBodyStore
     // current store range.
     bool TrimToCount( int bodyCount );
     // Restores sampled replay values into the authoritative body record. The
-    // replay id must match so stale samples cannot mutate a reused model slot.
-    bool RestoreReplayBodyState( int modelIndex,
+    // replay id must match so stale handles cannot mutate a reused body slot.
+    bool RestoreReplayBodyState( PhysicsBodyHandle body,
                                  uint32_t replayBodyId,
                                  bool fixed,
                                  const Math::Vector::Vector3& position,
@@ -123,16 +149,29 @@ class PhysicsBodyStore
                                  float inverseMass,
                                  const Math::Vector::Vector3& rotationalInertia,
                                  const Math::Vector::Vector3& inverseRotationalInertia );
-    void WriteBackToModels( std::vector<GameObjects::GameModel>& models ) const;
-    void WriteBackToModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex ) const;
-    void CaptureMutableStateFromModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex );
+    void CaptureMutableStateFromModelAt( std::vector<GameObjects::GameModel>& models,
+                                         int modelIndex,
+                                         int fixedTreeReleaseRootIndex );
     void CopySleepStatesFrom( const std::vector<uint8_t>& sleepStates );
     void CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) const;
+    // Converts an authored fixed body record into a dynamic body without
+    // reloading through GameModel. Release-on-impact paths call this while they
+    // already own the live store row.
+    static void ReleaseFixedRecord( PhysicsBodyRecord& record,
+                                    const Math::Vector::Vector3& seedLinearVelocity,
+                                    const Math::Vector::Vector3& seedAngularVelocity );
+    // Releases higher same-tree fixed parts using release-group metadata already
+    // copied into body rows. outReleasedBodyIndices is caller-owned scratch.
+    void ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event,
+                                        std::vector<int>& outReleasedBodyIndices );
 
     const PhysicsBodyRecord* Data() const;
     int Count() const;
     bool Empty() const;
     PhysicsBodyHandle HandleForModelIndex( int modelIndex ) const;
+    // Resolves stable replay identity to the live body handle. modelIndexHint
+    // is a fast path only; stale hints fall back to the handle replay-id table.
+    PhysicsBodyHandle HandleForReplayBodyId( uint32_t replayBodyId, int modelIndexHint = -1 ) const;
     int ModelIndexForHandle( PhysicsBodyHandle handle ) const;
     bool Contains( PhysicsBodyHandle handle ) const;
     const std::vector<PhysicsBodyRecord>& Records() const;
@@ -141,21 +180,21 @@ class PhysicsBodyStore
     const PhysicsBodyRecord* RecordForHandle( PhysicsBodyHandle handle ) const;
     PhysicsBodyRecord* MutableRecordForModelIndex( int modelIndex );
     const PhysicsBodyRecord* RecordForModelIndex( int modelIndex ) const;
-    // Handle-keyed commands are the store-owned path. Model-index overloads below
-    // are compatibility wrappers for callers not yet migrated to body handles.
+    // Handle-keyed commands are the store-owned public path. Solver helpers that
+    // already walk dense rows mutate PhysicsBodyRecord directly instead of
+    // paying a row-index-to-handle round trip.
     bool WakeBody( PhysicsBodyHandle body );
-    bool WakeBody( int modelIndex );
-    bool SeedBodyAsleep( int modelIndex );
+    bool SeedBodyAsleep( PhysicsBodyHandle body );
+    // Edits live velocity through the handle-owned body record. The command is
+    // intentionally handle-only so replay/editor tools do not regain model-index
+    // physics authority while dragging.
+    bool SetBodyVelocity( PhysicsBodyHandle body,
+                          const Math::Vector::Vector3& linearVelocity,
+                          const Math::Vector::Vector3& angularVelocity );
     bool SetPendingBodyImpulse( PhysicsBodyHandle body,
                                 const Math::Vector::Vector3& impulse,
                                 const Math::Vector::Vector3& localApplicationPoint );
-    bool SetPendingBodyImpulse( int modelIndex,
-                                const Math::Vector::Vector3& impulse,
-                                const Math::Vector::Vector3& localApplicationPoint );
     bool ApplyBodyImpulse( PhysicsBodyHandle body,
-                           const Math::Vector::Vector3& impulse,
-                           const Math::Vector::Vector3& localApplicationPoint );
-    bool ApplyBodyImpulse( int modelIndex,
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
     static bool ConsumePendingBodyImpulse( PhysicsBodyRecord& record );

@@ -116,14 +116,14 @@ inline void SyncTornadoRuntimeSettingsToPhysics( GameObjects::GameModelCollectio
     modelCollection.SetTornadoSystemConfig( runtimeSettings.tornadoSystem );
 }
 
-inline bool ReplayModelIsRagdollPart( const GameModel& model )
+inline bool ReplayModelIsRagdollPart( const GameObjects::GameModelCollection& collection, int modelIndex )
 {
-    return model.GetRuntimeCollectionKind() == SkullbonezCore::GameObjects::GameModelCollectionKind::SimpleRagdoll;
+    return collection.IsSimpleRagdollPart( modelIndex );
 }
 
-inline bool ReplayModelIsRagdollTorso( const GameModel& model )
+inline bool ReplayModelIsRagdollTorso( const GameObjects::GameModelCollection& collection, int modelIndex )
 {
-    return ReplayModelIsRagdollPart( model ) && model.GetRuntimeCollectionPartIndex() == 0;
+    return collection.IsSimpleRagdollTorso( modelIndex );
 }
 
 inline void DrawUITestPattern( Rendering::IRenderCommandContext& renderCommands, int screenW, int screenH )

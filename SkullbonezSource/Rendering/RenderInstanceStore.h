@@ -16,6 +16,9 @@ Glossary:
     selection.
   Contact highlight: Render-only feedback alpha for red fixed-body hits or
     white contact-audio flashes.
+  Bounds radius: Conservative sphere radius used by shadow fitting and other
+    render culling without borrowing the physics/model body stream.
+  Shape kind: Cheap render-facing discriminator copied from collider metadata.
   RenderSceneSnapshot: Future immutable frame input consumed by render passes.
   Replay body id: Stable per-scene id shared with physics/replay records.
 
@@ -37,6 +40,18 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Math
+{
+namespace Orientation
+{
+class Quaternion;
+}
+namespace Vector
+{
+class Vector3;
+}
+} // namespace Math
+
 namespace GameObjects
 {
 class GameModel;
@@ -82,15 +97,24 @@ inline bool operator!=( const RenderInstanceHandle& lhs, const RenderInstanceHan
     return !( lhs == rhs );
 }
 
+enum class RenderInstanceShapeKind : uint8_t
+{
+    Sphere,
+    Box,
+    ConvexHull
+};
+
 struct RenderInstanceRecord
 {
-    RenderInstanceHandle handle;                              // Stable render handle paired with the legacy model slot.
-    uint32_t replayBodyId = 0;                                // Stable replay-facing body id paired with this instance.
-    Math::Transformation::Matrix4 modelMatrix;                // World transform used by object rendering.
-    RenderMaterial material;                                  // Backend-neutral material intent.
-    bool isFixed = false;                                     // Fixed bodies can receive contact-highlight tinting.
-    float fixedContactAlpha = 0.0f;                           // Render-only red contact feedback strength.
-    float audioContactAlpha = 0.0f;                           // Render-only white audio-emitter feedback strength.
+    RenderInstanceHandle handle;                                         // Stable render handle paired with the legacy model slot.
+    uint32_t replayBodyId = 0;                                           // Stable replay-facing body id paired with this instance.
+    Math::Transformation::Matrix4 modelMatrix;                           // World transform used by object rendering.
+    RenderMaterial material;                                             // Backend-neutral material intent.
+    float boundingRadius = 0.0f;                                         // Conservative render/shadow bounds radius.
+    RenderInstanceShapeKind shapeKind = RenderInstanceShapeKind::Sphere; // Cheap draw-path shape discriminator.
+    bool isFixed = false;                                                // Fixed bodies can receive contact-highlight tinting.
+    float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
+    float audioContactAlpha = 0.0f;                                      // Render-only white audio-emitter feedback strength.
 };
 
 class RenderInstanceStore
@@ -99,8 +123,6 @@ class RenderInstanceStore
     RenderInstanceStore();
 
     void Clear();
-    void Refresh( std::vector<GameObjects::GameModel>& models );
-    void Refresh( GameObjects::GameModel* models, int modelCount );
     void Refresh( std::vector<GameObjects::GameModel>& models,
                   const Physics::PhysicsBodyStore& bodyStore,
                   const Physics::ColliderStore& colliderStore );
@@ -108,6 +130,13 @@ class RenderInstanceStore
                   int modelCount,
                   const Physics::PhysicsBodyStore& bodyStore,
                   const Physics::ColliderStore& colliderStore );
+    // Applies a one-frame presentation pose, such as replay scrub/prediction,
+    // without writing that pose into PhysicsBodyStore or GameModel.
+    bool OverridePose( int modelIndex,
+                       uint32_t replayBodyId,
+                       const Math::Vector::Vector3& position,
+                       const Math::Orientation::Quaternion& orientation,
+                       const Physics::ColliderStore& colliderStore );
 
     const RenderInstanceRecord* Data() const;
     int Count() const;
@@ -118,8 +147,8 @@ class RenderInstanceStore
     const std::vector<RenderInstanceRecord>& Records() const;
 
   private:
-    std::vector<RenderInstanceRecord> m_instances;            // Render records in GameModelCollection index order.
-    std::vector<RenderInstanceHandle> m_modelInstanceHandles; // Legacy model index to render handle map.
+    std::vector<RenderInstanceRecord> m_instances;                       // Render records in GameModelCollection index order.
+    std::vector<RenderInstanceHandle> m_modelInstanceHandles;            // Legacy model index to render handle map.
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

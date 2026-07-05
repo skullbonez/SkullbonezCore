@@ -23,8 +23,8 @@ Glossary:
   Sleep island: Connected body group that may deactivate only as a unit.
   Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
     so buoyancy jitter does not repeatedly wake them.
-  PhysicsModelAccess: Stack-owned owner facade used for model-order writeback,
-    diagnostics, and post-solver events after compact physics work finishes.
+  PhysicsScene: Step owner that supplies stores and handles model-order
+    writeback after compact physics work finishes.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -39,7 +39,6 @@ Related:
 
 #include "../Core/Config.h"
 #include "PhysicsApi.h"
-#include "PhysicsModelAccess.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsWorldForces.h"
 #include "ColliderStore.h"
@@ -55,7 +54,6 @@ Related:
 #include <cstring>
 #include <variant>
 
-using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Basics::ReplaySolverContactCacheSample;
 using SkullbonezCore::Basics::ReplaySolverPersistentContactSample;
@@ -151,6 +149,7 @@ PhysicsWorld::PhysicsWorld()
     m_sleepIslandPointJointsRelaxed.reserve( MAX_GAME_MODELS );
     m_sleepVisualIslandIds.reserve( MAX_GAME_MODELS );
     m_sleepVisualIslandBodies.reserve( MAX_GAME_MODELS );
+    m_tornadoFixedTreeReleaseWakeBodies.reserve( MAX_GAME_MODELS );
     m_persistentContacts.reserve( MAX_GAME_MODELS * 4 );
     m_persistentContactCache.reserve( MAX_GAME_MODELS * 4 );
     m_persistentContactCounts.reserve( MAX_GAME_MODELS );
@@ -188,6 +187,7 @@ void PhysicsWorld::Clear()
     m_underwaterSleepLocked.clear();
     m_tornadoCaptureSeconds.clear();
     m_tornadoEjectCooldownSeconds.clear();
+    m_tornadoFixedTreeReleaseWakeBodies.clear();
     m_tornadoSystem.SetConfig( TornadoSystemConfig() );
     m_tornadoSystem.ResetElapsedSeconds();
     m_collisionVisualContacts.clear();
@@ -670,8 +670,7 @@ void PhysicsWorld::PreparePersistentContactSideEffects( int modelCount )
 }
 
 
-void PhysicsWorld::ApplyPersistentContactSideEffects( PhysicsModelAccess& modelAccess,
-                                                      PhysicsBodyStore& bodyStore,
+void PhysicsWorld::ApplyPersistentContactSideEffects( PhysicsBodyStore& bodyStore,
                                                       const ColliderStore& colliderStore,
                                                       const PhysicsWorldForces& worldForces )
 {
@@ -685,17 +684,9 @@ void PhysicsWorld::ApplyPersistentContactSideEffects( PhysicsModelAccess& modelA
         MarkCollisionVisualContact( index );
     }
 
-    for ( int index : effects.fixedContactBodies )
-    {
-        modelAccess.NotifyFixedContact( index, 0.5f );
-    }
     for ( int index : effects.releaseWakeBodies )
     {
-        WakeModel( modelAccess, bodyStore, colliderStore, worldForces, index );
-    }
-    for ( const PhysicsFixedTreeReleaseEvent& event : effects.fixedTreeReleases )
-    {
-        modelAccess.ReleaseAttachedFixedTreeParts( event );
+        WakeModel( bodyStore, colliderStore, worldForces, index );
     }
 }
 
@@ -762,13 +753,14 @@ const std::vector<PointJointConstraint>& PhysicsWorld::GetPointJointConstraints(
 }
 
 
-void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
-                               PhysicsBodyStore& bodyStore,
+void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                float fChangeInTime,
                                const Basics::EngineConfig& config,
                                const PhysicsWorldForces& worldForces,
-                               Threading::WorkerPool& workerPool )
+                               Threading::WorkerPool& workerPool,
+                               const char* const* diagnosticNames,
+                               int diagnosticNameCount )
 {
     // Concept: one fixed physics tick has a predictable data flow.
     //
@@ -776,10 +768,9 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
     // 2. Reset debug, sleep-support, pipeline, and terrain-manifold output.
     // 3. Run broadphase, swept movement, terrain manifold generation, and the
     //    persistent Catto-style contact solver.
-    // 4. Mirror the finished store once for remaining GameModel-owned replay
-    //    and editor consumers.
-    // 5. Emit bounded Debug diagnostics, then invalidate cached render/physics
-    //    SoA data because solver writeback may have changed body state.
+    // 4. Emit bounded Debug diagnostics before PhysicsScene mirrors the solved
+    //    store and invalidates cached model SoA data at the compatibility
+    //    boundary.
     //
     // Determinism note: changing this ordering can change byte-exact physics
     // baselines even when the final scene "looks" similar.
@@ -797,8 +788,6 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
     m_physicsPipelineTrace.clear();
     m_terrainContactManifolds.clear();
     m_sleepSupportEdges.clear();
-
-    modelAccess.TickContactHighlights( modelCount, fChangeInTime );
 
     if ( static_cast<int>( m_sleepState.size() ) != modelCount )
     {
@@ -832,133 +821,94 @@ void PhysicsWorld::RunPhysics( PhysicsModelAccess& modelAccess,
         }
     }
 
-    RunSolverPhysics( modelAccess, bodyStore, colliderStore, fChangeInTime, config, worldForces, workerPool );
+    RunSolverPhysics( bodyStore,
+                      colliderStore,
+                      fChangeInTime,
+                      config,
+                      worldForces,
+                      workerPool,
+                      diagnosticNames,
+                      diagnosticNameCount );
     bodyStore.CopySleepStatesFrom( m_sleepState );
+}
 
-    // Compatibility owner: PhysicsScene/PhysicsWorld boundary.
-    // Reason: editor and replay compatibility consumers still read GameModel
-    // pose/state after the store-owned solver has finished.
-    // Deletion condition: those consumers read PhysicsBodyStore or
-    // handle-addressed physics commands directly. Checker budget: boundary grep
-    // keeps per-body solver writeback out of the hot step.
-    modelAccess.WriteBackPhysicsBodies( bodyStore );
 
+bool PhysicsWorld::ShouldEmitStepDiagnostics() const
+{
+#ifdef _DEBUG
+    return !m_diagnosticsSuppressed && ( m_diagnostics.IsRegressionLogEnabled() || m_diagnostics.IsFrameLogEnabled() );
+#else
+    return false;
+#endif
+}
+
+
+bool PhysicsWorld::ShouldEmitCollisionTimeDiagnostics() const
+{
+#ifdef _DEBUG
+    return !m_diagnosticsSuppressed && m_diagnostics.IsCollisionTimeLogEnabled();
+#else
+    return false;
+#endif
+}
+
+
+void PhysicsWorld::EmitStepDiagnostics( const PhysicsBodyStore& bodyStore,
+                                        const ColliderStore& colliderStore,
+                                        float fChangeInTime,
+                                        const char* const* diagnosticNames,
+                                        int diagnosticNameCount )
+{
 #ifdef _DEBUG
     if ( !m_diagnosticsSuppressed )
     {
-        m_diagnostics.EmitRegressionLog( *this, modelAccess, bodyStore, colliderStore );
+        const bool regressionLogEnabled = m_diagnostics.IsRegressionLogEnabled();
+        const bool frameLogEnabled = m_diagnostics.IsFrameLogEnabled();
+        if ( regressionLogEnabled || frameLogEnabled )
+        {
+            const PhysicsDiagnosticsNameView names{ diagnosticNames, diagnosticNameCount };
+            const PhysicsDiagnosticsView diagnosticsView = GetDiagnosticsView();
+            const PhysicsDiagnosticsFrameInput frame{ diagnosticsView, bodyStore, colliderStore, names, fChangeInTime };
+            if ( regressionLogEnabled )
+            {
+                m_diagnostics.EmitRegressionLog( frame );
+            }
+            if ( frameLogEnabled )
+            {
+                m_diagnostics.EmitFrame( frame );
+            }
+        }
         m_diagnostics.IncrementCollisionTimeFrameIfEnabled();
-        m_diagnostics.EmitFrame( modelAccess, bodyStore, colliderStore, fChangeInTime );
     }
+#else
+    (void)bodyStore;
+    (void)colliderStore;
+    (void)fChangeInTime;
+    (void)diagnosticNames;
+    (void)diagnosticNameCount;
 #endif
-
-    modelAccess.InvalidatePhysicsStreams();
 }
 
 
-void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, int index )
+void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore, int index )
 {
-    const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
-    WakeModel( modelAccess, bodyStream, nullptr, nullptr, nullptr, index );
+    WakeModel( bodyStore.Count(), bodyStore.Records(), &bodyStore, nullptr, nullptr, index );
 }
 
 
-void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess, PhysicsBodyStore& bodyStore, int index )
-{
-    WakeModel( modelAccess, bodyStore.Count(), bodyStore.Records(), &bodyStore, nullptr, nullptr, index );
-}
-
-
-void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess,
-                              PhysicsBodyStore& bodyStore,
+void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore,
                               const ColliderStore& colliderStore,
                               const PhysicsWorldForces& worldForces,
                               int index )
 {
-    WakeModel( modelAccess, bodyStore.Count(), bodyStore.Records(), &bodyStore, &colliderStore, &worldForces, index );
-}
-
-
-void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess,
-                              const GameModelBodyStream& bodyStream,
-                              PhysicsBodyStore* bodyStore,
-                              const ColliderStore* colliderStore,
-                              const PhysicsWorldForces* worldForces,
-                              int index )
-{
-    const std::vector<PhysicsBodyRecord>* bodyRecords = bodyStore ? &bodyStore->Records() : nullptr;
-    if ( index >= 0 && index < bodyStream.count )
-    {
-        const bool isFixed = bodyRecords && index < static_cast<int>( bodyRecords->size() )
-                                 ? ( *bodyRecords )[static_cast<size_t>( index )].isFixed
-                                 : bodyStream.isFixed[index];
-        if ( isFixed )
-        {
-            return;
-        }
-    }
-    else if ( index >= 0 )
-    {
-        return;
-    }
-
-    const int modelCount = bodyStream.count;
-    if ( static_cast<int>( m_sleepState.size() ) < modelCount )
-    {
-        m_sleepState.resize( modelCount, 0 );
-        m_sleepCounter.resize( modelCount, 0 );
-    }
-    else if ( static_cast<int>( m_sleepState.size() ) > modelCount )
-    {
-        m_sleepState.assign( modelCount, 0 );
-        m_sleepCounter.assign( modelCount, 0 );
-    }
-    EnsureUnderwaterSleepLockBuffer( modelCount );
-    if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
-    {
-        if ( bodyStore && !m_underwaterSleepLocked[index] && m_sleepState[index] )
-        {
-            bool refreshedSubmersion = false;
-            if ( colliderStore && worldForces )
-            {
-                refreshedSubmersion =
-                    RefreshUnderwaterSubmersionForBall( *worldForces, *bodyStore, *colliderStore, index );
-            }
-            const PhysicsBodyRecord* record = bodyStore->RecordForModelIndex( index );
-            if ( record && ( refreshedSubmersion || record->submergedVolumePercent > 0.0f ) )
-            {
-                if ( colliderStore && IsFullySubmergedBall( *record, *colliderStore, index ) )
-                {
-                    m_underwaterSleepLocked[index] = 1;
-                    if ( index < static_cast<int>( m_timeRemaining.size() ) )
-                    {
-                        m_timeRemaining[index] = 0.0f;
-                    }
-                    return;
-                }
-            }
-        }
-        if ( IsUnderwaterSleepLocked( bodyStream.count, index ) )
-        {
-            return;
-        }
-    }
-    if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
-    {
-        modelAccess.InvalidatePhysicsStreams();
-        WakeSleepVisualIsland( modelAccess, bodyStream, bodyStore, index, 0.0f, false );
-        WakePointJointIsland( modelAccess, bodyStream, bodyStore, index, 0.0f, false );
-        WakeRestingContactIsland( modelAccess, bodyStream, bodyStore, index, 0.0f, false );
-    }
+    WakeModel( bodyStore.Count(), bodyStore.Records(), &bodyStore, &colliderStore, &worldForces, index );
 }
 
 
 // Why: callers that already hold PhysicsBodyStore should not refresh the
-// GameModelBodyStream just to wake a body. Keep the model-stream overload for
-// explicit legacy commands, but make store-owned step side effects stay on dense
-// body records.
-void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess,
-                              int bodyCount,
+// model owner just to wake a body. Store-owned wake commands stay on dense body
+// records; PhysicsScene owns any compatibility writeback/cache invalidation.
+void PhysicsWorld::WakeModel( int bodyCount,
                               const std::vector<PhysicsBodyRecord>& bodyRecords,
                               PhysicsBodyStore* bodyStore,
                               const ColliderStore* colliderStore,
@@ -1020,52 +970,35 @@ void PhysicsWorld::WakeModel( PhysicsModelAccess& modelAccess,
     }
     if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
     {
-        modelAccess.InvalidatePhysicsStreams();
-        WakeSleepVisualIsland( modelAccess, modelCount, bodyRecords, bodyStore, index, 0.0f, false );
-        WakePointJointIsland( modelAccess, modelCount, bodyRecords, bodyStore, index, 0.0f, false );
-        WakeRestingContactIsland( modelAccess, modelCount, bodyRecords, bodyStore, index, 0.0f, false );
+        WakeSleepVisualIsland( modelCount, bodyRecords, bodyStore, index, 0.0f, false );
+        WakePointJointIsland( modelCount, bodyRecords, bodyStore, index, 0.0f, false );
+        WakeRestingContactIsland( modelCount, bodyRecords, bodyStore, index, 0.0f, false );
     }
 }
 
 
-void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, int index )
+void PhysicsWorld::SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index )
 {
-    const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
-    SeedModelAsleep( modelAccess, bodyStream, nullptr, index );
+    SeedModelAsleep( bodyStore.Count(), bodyStore.Records(), index );
 }
 
 
-void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess, const PhysicsBodyStore& bodyStore, int index )
-{
-    const GameModelBodyStream bodyStream = modelAccess.GetBodyStream();
-    SeedModelAsleep( modelAccess, bodyStream, &bodyStore, index );
-}
-
-
-void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess,
-                                    const GameModelBodyStream& bodyStream,
-                                    const PhysicsBodyStore* bodyStore,
-                                    int index )
+// Why: store-owned seed commands already have dense body records. Avoid
+// rebuilding model-owner streams or invalidating GameModel caches from inside
+// PhysicsWorld; compatibility projection belongs to PhysicsScene.
+void PhysicsWorld::SeedModelAsleep( int bodyCount, const std::vector<PhysicsBodyRecord>& bodyRecords, int index )
 {
     if ( !m_sleepEnabled )
     {
         return;
     }
 
-    const std::vector<PhysicsBodyRecord>* bodyRecords = bodyStore ? &bodyStore->Records() : nullptr;
-    if ( index < 0 || index >= bodyStream.count )
-    {
-        return;
-    }
-    const bool isFixed = bodyRecords && index < static_cast<int>( bodyRecords->size() )
-                             ? ( *bodyRecords )[static_cast<size_t>( index )].isFixed
-                             : bodyStream.isFixed[index];
-    if ( isFixed )
+    const int modelCount = (std::min)( bodyCount, static_cast<int>( bodyRecords.size() ) );
+    if ( index < 0 || index >= modelCount || bodyRecords[static_cast<size_t>( index )].isFixed )
     {
         return;
     }
 
-    const int modelCount = bodyStream.count;
     if ( static_cast<int>( m_sleepState.size() ) < modelCount )
     {
         m_sleepState.resize( modelCount, 0 );
@@ -1086,7 +1019,6 @@ void PhysicsWorld::SeedModelAsleep( PhysicsModelAccess& modelAccess,
     }
     EnsureUnderwaterSleepLockBuffer( modelCount );
 
-    modelAccess.InvalidatePhysicsStreams();
     m_sleepState[index] = 1;
     m_sleepCounter[index] = m_seedSleepFrameCount;
     m_underwaterSleepLocked[index] = 0;
@@ -1117,8 +1049,13 @@ void PhysicsWorld::SetPhysicsSleepEnabled( bool enabled )
 }
 
 
-void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
-                                      PhysicsBodyStore& bodyStore,
+bool PhysicsWorld::IsPhysicsSleepEnabled() const
+{
+    return m_sleepEnabled;
+}
+
+
+void PhysicsWorld::ApplyTornadoField( PhysicsBodyStore& bodyStore,
                                       const ColliderStore& colliderStore,
                                       const PhysicsWorldForces& worldForces,
                                       float dt,
@@ -1168,7 +1105,6 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
         return acceleration;
     };
 
-    bool releasedFixedParts = false;
     if ( useSystem )
     {
         for ( int i = 0; i < bodyStore.Count(); ++i )
@@ -1191,22 +1127,20 @@ void PhysicsWorld::ApplyTornadoField( PhysicsModelAccess& modelAccess,
 
             const Vector3 seedLinearVelocity =
                 ClampVectorMagnitude( acceleration * 0.08f, (std::max)( 10.0f, bestConfig.maxDeltaVelocity * 1.5f ) );
-            record.isFixed = false;
-            record.linearVelocity = seedLinearVelocity;
-            record.angularVelocity = Vector3( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f );
-            modelAccess.WriteBackPhysicsBody( bodyStore, i );
-            WakeModel( modelAccess, bodyStore, colliderStore, worldForces, i );
-            modelAccess.ReleaseAttachedFixedTreeParts( PhysicsFixedTreeReleaseEvent{
-                i,
-                seedLinearVelocity,
-                Vector3( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f ) } );
-            releasedFixedParts = true;
+            const Vector3 seedAngularVelocity( seedLinearVelocity.z * 0.08f, 0.0f, -seedLinearVelocity.x * 0.08f );
+            // Why: tornado release runs before broadphase and the parallel
+            // tornado pass. Mutate the body store directly so later fixed checks
+            // see dynamic bodies without bouncing through GameModel caches.
+            PhysicsBodyStore::ReleaseFixedRecord( record, seedLinearVelocity, seedAngularVelocity );
+            WakeModel( bodyStore, colliderStore, worldForces, i );
+            bodyStore.ReleaseAttachedFixedTreeParts(
+                PhysicsFixedTreeReleaseEvent{ i, seedLinearVelocity, seedAngularVelocity },
+                m_tornadoFixedTreeReleaseWakeBodies );
+            for ( int releasedIndex : m_tornadoFixedTreeReleaseWakeBodies )
+            {
+                WakeModel( bodyStore, colliderStore, worldForces, releasedIndex );
+            }
         }
-    }
-    if ( releasedFixedParts )
-    {
-        modelAccess.ReloadPhysicsBodies( bodyStore, m_sleepState );
-        modelAccess.InvalidatePhysicsStreams();
     }
 
     const int modelCount =
@@ -1402,21 +1336,11 @@ bool PhysicsWorld::SetDiagnosticsSuppressed( bool suppressed )
 }
 
 
-void PhysicsWorld::EmitPhysicsDiagnosticsFrame( PhysicsModelAccess& modelAccess,
-                                                const PhysicsBodyStore& bodyStore,
-                                                const ColliderStore& colliderStore,
-                                                float dt )
-{
-    if ( m_diagnosticsSuppressed )
-    {
-        return;
-    }
-    m_diagnostics.EmitFrame( modelAccess, bodyStore, colliderStore, dt );
-}
 #endif
 
 
-void PhysicsWorld::EmitPhysicsCollisionTime( PhysicsModelAccess& modelAccess,
+void PhysicsWorld::EmitPhysicsCollisionTime( const char* const* diagnosticNames,
+                                             int diagnosticNameCount,
                                              const char* type,
                                              int bodyA,
                                              int bodyB,
@@ -1429,7 +1353,8 @@ void PhysicsWorld::EmitPhysicsCollisionTime( PhysicsModelAccess& modelAccess,
         return;
     }
 #endif
-    m_diagnostics.EmitCollisionTime( modelAccess, type, bodyA, bodyB, collisionTime, availableTime );
+    m_diagnostics
+        .EmitCollisionTime( diagnosticNames, diagnosticNameCount, type, bodyA, bodyB, collisionTime, availableTime );
 }
 
 
@@ -1492,72 +1417,10 @@ void PhysicsWorld::ForgetPersistentContactCacheForBody( int bodyIndex )
 }
 
 
-bool PhysicsWorld::WakeDynamicBodyState( const GameModelBodyStream& bodyStream,
-                                         PhysicsBodyStore* bodyStore,
-                                         int index,
-                                         float dt,
-                                         bool applyForces,
-                                         const PhysicsWorldForces* worldForces,
-                                         const ColliderStore* colliderStore )
-{
-    const std::vector<PhysicsBodyRecord>* bodyRecords = bodyStore ? &bodyStore->Records() : nullptr;
-    if ( index < 0 || index >= bodyStream.count || index >= static_cast<int>( m_sleepState.size() ) )
-    {
-        return false;
-    }
-    const bool isFixed = bodyRecords && index < static_cast<int>( bodyRecords->size() )
-                             ? ( *bodyRecords )[static_cast<size_t>( index )].isFixed
-                             : bodyStream.isFixed[index];
-    if ( isFixed )
-    {
-        return false;
-    }
-
-    const bool wasSleeping = m_sleepState[index] != 0;
-    const bool hadCounter = index < static_cast<int>( m_sleepCounter.size() ) && m_sleepCounter[index] != 0;
-    const bool hadSleepVisual =
-        index < static_cast<int>( m_sleepIslandVisualId.size() ) && m_sleepIslandVisualId[index] != 0;
-    const bool wasUnderwaterLocked =
-        index < static_cast<int>( m_underwaterSleepLocked.size() ) && m_underwaterSleepLocked[index] != 0;
-
-    m_sleepState[index] = 0;
-    if ( bodyStore )
-    {
-        bodyStore->WakeBody( index );
-    }
-    if ( index < static_cast<int>( m_sleepCounter.size() ) )
-    {
-        m_sleepCounter[index] = 0;
-    }
-    if ( index < static_cast<int>( m_underwaterSleepLocked.size() ) )
-    {
-        m_underwaterSleepLocked[index] = 0;
-    }
-    if ( index < static_cast<int>( m_sleepIslandVisualId.size() ) )
-    {
-        m_sleepIslandVisualId[index] = 0;
-    }
-    if ( dt > 0.0f && index < static_cast<int>( m_timeRemaining.size() ) )
-    {
-        m_timeRemaining[index] = dt;
-    }
-    if ( applyForces && wasSleeping && dt > TOLERANCE && bodyStore && worldForces && colliderStore )
-    {
-        (void)bodyStore->ApplyForces( *worldForces, *colliderStore, index, dt );
-    }
-    // Hazard: waking a body must also forget any cached contact impulses that
-    // involve that body. Warm-start impulses are great for resting contact, but
-    // stale impulses after a manual wake or external force can push the body as
-    // if an old support contact still existed.
-    ForgetPersistentContactCacheForBody( index );
-
-    return wasSleeping || hadCounter || hadSleepVisual || wasUnderwaterLocked;
-}
-
-
 // Why: store-owned wake propagation uses the same sleep-state mutation as the
-// legacy stream path, but fixed-state authority comes from PhysicsBodyRecord.
-// This keeps solver-triggered wakeups off the GameModel SoA cache.
+// deleted legacy stream path, but fixed-state authority comes from
+// PhysicsBodyRecord. This keeps solver-triggered wakeups off the GameModel SoA
+// cache.
 bool PhysicsWorld::WakeDynamicBodyState( int bodyCount,
                                          const std::vector<PhysicsBodyRecord>& bodyRecords,
                                          PhysicsBodyStore* bodyStore,
@@ -1587,7 +1450,14 @@ bool PhysicsWorld::WakeDynamicBodyState( int bodyCount,
     m_sleepState[index] = 0;
     if ( bodyStore )
     {
-        bodyStore->WakeBody( index );
+        // Why: wake propagation already walks dense solver rows. Mutating the
+        // row directly avoids converting the row index through handle maps on
+        // an island-wake path.
+        PhysicsBodyRecord* record = bodyStore->MutableRecordForModelIndex( index );
+        if ( record && !record->isFixed )
+        {
+            record->isSleeping = false;
+        }
     }
     if ( index < static_cast<int>( m_sleepCounter.size() ) )
     {
@@ -1615,54 +1485,9 @@ bool PhysicsWorld::WakeDynamicBodyState( int bodyCount,
 }
 
 
-void PhysicsWorld::WakeSleepVisualIsland( PhysicsModelAccess& modelAccess,
-                                          const GameModelBodyStream& bodyStream,
-                                          PhysicsBodyStore* bodyStore,
-                                          int index,
-                                          float dt,
-                                          bool applyForces,
-                                          const PhysicsWorldForces* worldForces,
-                                          const ColliderStore* colliderStore )
-{
-    // Concept: m_sleepIslandVisualId is the persisted identity of a group that
-    // deactivated together. Contacts may be pruned while the group sleeps, so
-    // this id is the cheap way to wake the whole resting pile again.
-    if ( index < 0 || index >= static_cast<int>( m_sleepState.size() ) )
-    {
-        return;
-    }
-
-    const int visualId = index < static_cast<int>( m_sleepIslandVisualId.size() ) ? m_sleepIslandVisualId[index] : 0;
-    bool changed = false;
-    if ( visualId > 0 )
-    {
-        const int count = (std::min)( static_cast<int>( m_sleepIslandVisualId.size() ), bodyStream.count );
-        for ( int i = 0; i < count; ++i )
-        {
-            if ( m_sleepIslandVisualId[i] == visualId )
-            {
-                changed =
-                    WakeDynamicBodyState( bodyStream, bodyStore, i, dt, applyForces, worldForces, colliderStore ) ||
-                    changed;
-            }
-        }
-    }
-    else
-    {
-        changed = WakeDynamicBodyState( bodyStream, bodyStore, index, dt, applyForces, worldForces, colliderStore );
-    }
-
-    if ( changed )
-    {
-        modelAccess.InvalidatePhysicsStreams();
-    }
-}
-
-
 // Why: sleep visual islands are persisted as model-order indices, but the fixed
 // and sleep-state facts needed to wake them are already in PhysicsBodyStore.
-void PhysicsWorld::WakeSleepVisualIsland( PhysicsModelAccess& modelAccess,
-                                          int bodyCount,
+void PhysicsWorld::WakeSleepVisualIsland( int bodyCount,
                                           const std::vector<PhysicsBodyRecord>& bodyRecords,
                                           PhysicsBodyStore* bodyStore,
                                           int index,
@@ -1677,7 +1502,6 @@ void PhysicsWorld::WakeSleepVisualIsland( PhysicsModelAccess& modelAccess,
     }
 
     const int visualId = index < static_cast<int>( m_sleepIslandVisualId.size() ) ? m_sleepIslandVisualId[index] : 0;
-    bool changed = false;
     if ( visualId > 0 )
     {
         const int count = (std::min)( { static_cast<int>( m_sleepIslandVisualId.size() ),
@@ -1687,137 +1511,20 @@ void PhysicsWorld::WakeSleepVisualIsland( PhysicsModelAccess& modelAccess,
         {
             if ( m_sleepIslandVisualId[i] == visualId )
             {
-                changed = WakeDynamicBodyState( bodyCount,
-                                                bodyRecords,
-                                                bodyStore,
-                                                i,
-                                                dt,
-                                                applyForces,
-                                                worldForces,
-                                                colliderStore ) ||
-                          changed;
+                WakeDynamicBodyState( bodyCount,
+                                      bodyRecords,
+                                      bodyStore,
+                                      i,
+                                      dt,
+                                      applyForces,
+                                      worldForces,
+                                      colliderStore );
             }
         }
     }
     else
     {
-        changed = WakeDynamicBodyState( bodyCount,
-                                        bodyRecords,
-                                        bodyStore,
-                                        index,
-                                        dt,
-                                        applyForces,
-                                        worldForces,
-                                        colliderStore );
-    }
-
-    if ( changed )
-    {
-        modelAccess.InvalidatePhysicsStreams();
-    }
-}
-
-
-void PhysicsWorld::WakePointJointIsland( PhysicsModelAccess& modelAccess,
-                                         const GameModelBodyStream& bodyStream,
-                                         PhysicsBodyStore* bodyStore,
-                                         int index,
-                                         float dt,
-                                         bool applyForces,
-                                         const PhysicsWorldForces* worldForces,
-                                         const ColliderStore* colliderStore )
-{
-    // Hazard: solving a ragdoll with one awake piece and several sleeping pieces
-    // treats the sleepers as temporary static anchors. Wake the whole constraint
-    // component so later point-joint impulses are applied to the same live island.
-    const int modelCount = bodyStore ? (std::min)( bodyStream.count, bodyStore->Count() ) : bodyStream.count;
-    if ( m_pointJointConstraints.empty() || index < 0 || index >= modelCount ||
-         index >= static_cast<int>( m_sleepState.size() ) )
-    {
-        return;
-    }
-
-    m_sleepIslandParent.assign( modelCount, 0 );
-    m_sleepIslandRank.assign( modelCount, 0 );
-    m_sleepPointJointBody.assign( modelCount, 0 );
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        m_sleepIslandParent[i] = i;
-    }
-
-    auto findIsland = [&]( int bodyIndex ) -> int
-    {
-        int root = bodyIndex;
-        while ( m_sleepIslandParent[root] != root )
-        {
-            root = m_sleepIslandParent[root];
-        }
-        while ( m_sleepIslandParent[bodyIndex] != bodyIndex )
-        {
-            int parent = m_sleepIslandParent[bodyIndex];
-            m_sleepIslandParent[bodyIndex] = root;
-            bodyIndex = parent;
-        }
-        return root;
-    };
-
-    auto unionIslands = [&]( int a, int b )
-    {
-        int rootA = findIsland( a );
-        int rootB = findIsland( b );
-        if ( rootA == rootB )
-        {
-            return;
-        }
-
-        if ( m_sleepIslandRank[rootA] < m_sleepIslandRank[rootB] )
-        {
-            std::swap( rootA, rootB );
-        }
-        m_sleepIslandParent[rootB] = rootA;
-        if ( m_sleepIslandRank[rootA] == m_sleepIslandRank[rootB] )
-        {
-            ++m_sleepIslandRank[rootA];
-        }
-    };
-
-    for ( const PointJointConstraint& constraint : m_pointJointConstraints )
-    {
-        // Point-joint constraints are sleep-island edges. This keeps the current
-        // ragdoll behavior aligned with the future generic constraint system:
-        // constraints decide connectivity, contacts decide physical impulses.
-        const int a = constraint.BodyAIndex( *bodyStore );
-        const int b = constraint.BodyBIndex( *bodyStore );
-        if ( a < 0 || b < 0 || a == b || a >= modelCount || b >= modelCount )
-        {
-            continue;
-        }
-
-        m_sleepPointJointBody[a] = 1;
-        m_sleepPointJointBody[b] = 1;
-        unionIslands( a, b );
-    }
-
-    if ( m_sleepPointJointBody[index] == 0 )
-    {
-        return;
-    }
-
-    const int root = findIsland( index );
-    bool changed = false;
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        if ( m_sleepPointJointBody[i] == 0 || findIsland( i ) != root )
-        {
-            continue;
-        }
-        changed =
-            WakeDynamicBodyState( bodyStream, bodyStore, i, dt, applyForces, worldForces, colliderStore ) || changed;
-    }
-
-    if ( changed )
-    {
-        modelAccess.InvalidatePhysicsStreams();
+        WakeDynamicBodyState( bodyCount, bodyRecords, bodyStore, index, dt, applyForces, worldForces, colliderStore );
     }
 }
 
@@ -1825,8 +1532,7 @@ void PhysicsWorld::WakePointJointIsland( PhysicsModelAccess& modelAccess,
 // Why: point-joint wake propagation is part of simulation correctness, so the
 // store path preserves the existing island walk while avoiding a model-stream
 // refresh inside the fixed step.
-void PhysicsWorld::WakePointJointIsland( PhysicsModelAccess& modelAccess,
-                                         int bodyCount,
+void PhysicsWorld::WakePointJointIsland( int bodyCount,
                                          const std::vector<PhysicsBodyRecord>& bodyRecords,
                                          PhysicsBodyStore* bodyStore,
                                          int index,
@@ -1911,135 +1617,21 @@ void PhysicsWorld::WakePointJointIsland( PhysicsModelAccess& modelAccess,
     }
 
     const int root = findIsland( index );
-    bool changed = false;
     for ( int i = 0; i < modelCount; ++i )
     {
         if ( m_sleepPointJointBody[i] == 0 || findIsland( i ) != root )
         {
             continue;
         }
-        changed = WakeDynamicBodyState( modelCount,
-                                        bodyRecords,
-                                        bodyStore,
-                                        i,
-                                        dt,
-                                        applyForces,
-                                        worldForces,
-                                        colliderStore ) ||
-                  changed;
-    }
-
-    if ( changed )
-    {
-        modelAccess.InvalidatePhysicsStreams();
-    }
-}
-
-
-void PhysicsWorld::WakeRestingContactIsland( PhysicsModelAccess& modelAccess,
-                                             const GameModelBodyStream& bodyStream,
-                                             PhysicsBodyStore* bodyStore,
-                                             int index,
-                                             float dt,
-                                             bool applyForces,
-                                             const PhysicsWorldForces* worldForces,
-                                             const ColliderStore* colliderStore )
-{
-    const std::vector<PhysicsBodyRecord>* bodyRecords = bodyStore ? &bodyStore->Records() : nullptr;
-    const int modelCount =
-        bodyRecords ? (std::min)( bodyStream.count, static_cast<int>( bodyRecords->size() ) ) : bodyStream.count;
-    if ( index < 0 || index >= modelCount || index >= static_cast<int>( m_sleepState.size() ) )
-    {
-        return;
-    }
-
-    std::vector<uint8_t> visited( static_cast<size_t>( modelCount ), 0 );
-    std::vector<int> wakeQueue;
-    wakeQueue.reserve( static_cast<size_t>( modelCount ) );
-    visited[static_cast<size_t>( index )] = 1;
-    wakeQueue.push_back( index );
-
-    auto hasPersistentContactEdge = [&]( int a, int b ) -> bool
-    {
-        for ( const PersistentContact& contact : m_persistentContacts )
-        {
-            if ( ( contact.bodyA == a && contact.bodyB == b ) || ( contact.bodyA == b && contact.bodyB == a ) )
-            {
-                return true;
-            }
-        }
-        return false;
-    };
-
-    auto isLikelyRestingNeighbor = [&]( int a, int b ) -> bool
-    {
-        const bool hasRecordA = bodyRecords && a < static_cast<int>( bodyRecords->size() );
-        const bool hasRecordB = bodyRecords && b < static_cast<int>( bodyRecords->size() );
-        const Vector3 posA = hasRecordA ? ( *bodyRecords )[static_cast<size_t>( a )].position : bodyStream.positions[a];
-        const Vector3 posB = hasRecordB ? ( *bodyRecords )[static_cast<size_t>( b )].position : bodyStream.positions[b];
-        const float radiusA = (std::max)( 0.01f,
-                                          hasRecordA ? ( *bodyRecords )[static_cast<size_t>( a )].boundingRadius
-                                                     : bodyStream.boundingRadii[a] );
-        const float radiusB = (std::max)( 0.01f,
-                                          hasRecordB ? ( *bodyRecords )[static_cast<size_t>( b )].boundingRadius
-                                                     : bodyStream.boundingRadii[b] );
-        if ( posB.y + radiusB + EXPLICIT_WAKE_VERTICAL_SLOP < posA.y - radiusA )
-        {
-            return false;
-        }
-
-        const float range = radiusA + radiusB + EXPLICIT_WAKE_NEIGHBOR_SLOP;
-        const Vector3 delta = posB - posA;
-        return delta * delta <= range * range;
-    };
-
-    bool changed = false;
-    for ( size_t cursor = 0; cursor < wakeQueue.size(); ++cursor )
-    {
-        const int current = wakeQueue[cursor];
-        for ( int candidate = 0; candidate < modelCount; ++candidate )
-        {
-            if ( visited[static_cast<size_t>( candidate )] || candidate >= static_cast<int>( m_sleepState.size() ) ||
-                 m_sleepState[candidate] == 0 )
-            {
-                continue;
-            }
-            const bool candidateFixed = bodyRecords && candidate < static_cast<int>( bodyRecords->size() )
-                                            ? ( *bodyRecords )[static_cast<size_t>( candidate )].isFixed
-                                            : bodyStream.isFixed[candidate];
-            if ( candidateFixed )
-            {
-                continue;
-            }
-            if ( IsUnderwaterSleepLocked( bodyStream.count, candidate ) )
-            {
-                continue;
-            }
-            if ( !hasPersistentContactEdge( current, candidate ) && !isLikelyRestingNeighbor( current, candidate ) )
-            {
-                continue;
-            }
-
-            visited[static_cast<size_t>( candidate )] = 1;
-            wakeQueue.push_back( candidate );
-            changed =
-                WakeDynamicBodyState( bodyStream, bodyStore, candidate, dt, applyForces, worldForces, colliderStore ) ||
-                changed;
-        }
-    }
-
-    if ( changed )
-    {
-        modelAccess.InvalidatePhysicsStreams();
+        WakeDynamicBodyState( modelCount, bodyRecords, bodyStore, i, dt, applyForces, worldForces, colliderStore );
     }
 }
 
 
 // Why: explicit wake still needs to fan out through resting contacts. The store
-// path uses body-record position/radius snapshots instead of GameModelBodyStream
-// so solver side effects do not rebuild the model SoA cache.
-void PhysicsWorld::WakeRestingContactIsland( PhysicsModelAccess& modelAccess,
-                                             int bodyCount,
+// path uses body-record position/radius snapshots so solver side effects do not
+// rebuild the model SoA cache.
+void PhysicsWorld::WakeRestingContactIsland( int bodyCount,
                                              const std::vector<PhysicsBodyRecord>& bodyRecords,
                                              PhysicsBodyStore* bodyStore,
                                              int index,
@@ -2088,7 +1680,6 @@ void PhysicsWorld::WakeRestingContactIsland( PhysicsModelAccess& modelAccess,
         return delta * delta <= range * range;
     };
 
-    bool changed = false;
     for ( size_t cursor = 0; cursor < wakeQueue.size(); ++cursor )
     {
         const int current = wakeQueue[cursor];
@@ -2114,21 +1705,15 @@ void PhysicsWorld::WakeRestingContactIsland( PhysicsModelAccess& modelAccess,
 
             visited[static_cast<size_t>( candidate )] = 1;
             wakeQueue.push_back( candidate );
-            changed = WakeDynamicBodyState( modelCount,
-                                            bodyRecords,
-                                            bodyStore,
-                                            candidate,
-                                            dt,
-                                            applyForces,
-                                            worldForces,
-                                            colliderStore ) ||
-                      changed;
+            WakeDynamicBodyState( modelCount,
+                                  bodyRecords,
+                                  bodyStore,
+                                  candidate,
+                                  dt,
+                                  applyForces,
+                                  worldForces,
+                                  colliderStore );
         }
-    }
-
-    if ( changed )
-    {
-        modelAccess.InvalidatePhysicsStreams();
     }
 }
 
@@ -2164,8 +1749,7 @@ bool PhysicsWorld::IsPointJointPair( const PhysicsBodyStore& bodyStore, int body
 }
 
 
-void PhysicsWorld::WakePointJointConnectedBodies( PhysicsModelAccess& modelAccess,
-                                                  PhysicsBodyStore& bodyStore,
+void PhysicsWorld::WakePointJointConnectedBodies( PhysicsBodyStore& bodyStore,
                                                   const ColliderStore& colliderStore,
                                                   const PhysicsWorldForces& worldForces,
                                                   float dt )
@@ -2259,7 +1843,6 @@ void PhysicsWorld::WakePointJointConnectedBodies( PhysicsModelAccess& modelAcces
         }
     }
 
-    bool changed = false;
     for ( int i = 0; i < modelCount; ++i )
     {
         if ( m_sleepPointJointBody[i] == 0 || bodyRecords[static_cast<size_t>( i )].isFixed ||
@@ -2271,32 +1854,20 @@ void PhysicsWorld::WakePointJointConnectedBodies( PhysicsModelAccess& modelAcces
         const int root = findIsland( i );
         if ( m_sleepIslandHasAwake[root] != 0 && m_sleepIslandCanSleep[root] != 0 )
         {
-            changed = WakeDynamicBodyState( modelCount,
-                                            bodyRecords,
-                                            &bodyStore,
-                                            i,
-                                            dt,
-                                            true,
-                                            &worldForces,
-                                            &colliderStore ) ||
-                      changed;
+            WakeDynamicBodyState( modelCount, bodyRecords, &bodyStore, i, dt, true, &worldForces, &colliderStore );
         }
-    }
-
-    if ( changed )
-    {
-        modelAccess.InvalidatePhysicsStreams();
     }
 }
 
 
-void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
-                                     PhysicsBodyStore& bodyStore,
+void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
                                      float dt,
                                      const Basics::EngineConfig& config,
                                      const PhysicsWorldForces& worldForces,
-                                     Threading::WorkerPool& workerPool )
+                                     Threading::WorkerPool& workerPool,
+                                     const char* const* diagnosticNames,
+                                     int diagnosticNameCount )
 {
     std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
     const std::vector<ColliderRecord>& colliderRecords = colliderStore.Records();
@@ -2369,7 +1940,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     }
     PROFILE_END( "Frame/Physics/ApplyForces" );
 
-    ApplyTornadoField( modelAccess, bodyStore, colliderStore, worldForces, dt, config, workerPool );
+    ApplyTornadoField( bodyStore, colliderStore, worldForces, dt, config, workerPool );
 
     // Broadphase: build spatial grid from all object positions (include sleeping for wake detection)
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
@@ -2958,7 +2529,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
         }
         if ( event.emitCollisionTime )
         {
-            EmitPhysicsCollisionTime( modelAccess,
+            EmitPhysicsCollisionTime( diagnosticNames,
+                                      diagnosticNameCount,
                                       "object",
                                       event.collisionTimeBodyA,
                                       event.collisionTimeBodyB,
@@ -3388,7 +2960,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
             record.scalarB = hasManifold && manifold.supportsRestingPolicy ? 1.0f : 0.0f;
             record.scalarC = hasManifold ? static_cast<float>( manifold.pointCount ) : 0.0f;
             RecordPhysicsPipelineStage( record );
-            EmitPhysicsCollisionTime( modelAccess, "terrain", x, -1, colTime, availableTime );
+            EmitPhysicsCollisionTime( diagnosticNames, diagnosticNameCount, "terrain", x, -1, colTime, availableTime );
 
             if ( hasManifold )
             {
@@ -3444,8 +3016,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsModelAccess& modelAccess,
     PersistentContactSolverContext solverContext =
         CreatePersistentContactSolverContext( bodyStore, colliderStore, config );
     m_contactSolver.Solve( solverContext, dt );
-    ApplyPersistentContactSideEffects( modelAccess, bodyStore, colliderStore, worldForces );
-    WakePointJointConnectedBodies( modelAccess, bodyStore, colliderStore, worldForces, dt );
+    ApplyPersistentContactSideEffects( bodyStore, colliderStore, worldForces );
+    WakePointJointConnectedBodies( bodyStore, colliderStore, worldForces, dt );
     (void)Ragdoll::SolvePointJoints( bodyStore, m_pointJointConstraints, m_sleepState, dt );
     AppendPointJointSupportEdges( bodyStore, modelCount );
     // Object contacts are converted into stack support only after terrain
@@ -3885,6 +3457,7 @@ PhysicsDiagnosticsView PhysicsWorld::GetDiagnosticsView() const
                                    m_sleepCounter,
                                    m_sleepIslandEligible,
                                    m_sleepIslandCanSleep,
+                                   m_pointJointConstraints,
                                    m_spatialGrid,
                                    m_candidatePairs,
                                    m_collisionCellKeys,
@@ -3906,6 +3479,7 @@ uint64_t PhysicsWorld::CollectMemoryBytes() const
     bytes += VectorCapacityBytes( m_underwaterSleepLocked );
     bytes += VectorCapacityBytes( m_tornadoCaptureSeconds );
     bytes += VectorCapacityBytes( m_tornadoEjectCooldownSeconds );
+    bytes += VectorCapacityBytes( m_tornadoFixedTreeReleaseWakeBodies );
     bytes += VectorCapacityBytes( m_collisionVisualContacts );
     bytes += VectorCapacityBytes( m_sleepIslandVisualId );
     bytes += VectorCapacityBytes( m_sleepIslandAssignedVisualId );
@@ -3975,6 +3549,18 @@ const std::vector<int64_t>& PhysicsWorld::GetCollisionCellKeys() const
 const std::vector<uint8_t>& PhysicsWorld::GetCollisionVisualContacts() const
 {
     return m_collisionVisualContacts;
+}
+
+
+const std::vector<int>& PhysicsWorld::GetFixedContactHighlightBodies() const
+{
+    return m_persistentContactSideEffects.fixedContactBodies;
+}
+
+
+const std::vector<PhysicsFixedTreeReleaseEvent>& PhysicsWorld::GetFixedTreeReleaseEvents() const
+{
+    return m_persistentContactSideEffects.fixedTreeReleases;
 }
 
 

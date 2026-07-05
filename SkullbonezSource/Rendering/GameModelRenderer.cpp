@@ -1,11 +1,15 @@
 /*
 File: SkullbonezSource/Rendering/GameModelRenderer.cpp
 Purpose:
-  Converts GameModel data into backend draw calls for normal and shadow rendering.
+  Converts model-order render snapshots into backend draw calls for normal and
+  shadow rendering.
 
 Mental model:
   Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  calls, shader bindings, and validation artifacts. Draw transforms come from
+  RenderInstanceStore and hull geometry comes from ColliderStore so
+  physics-owned pose/shape data does not have to be copied back into every
+  GameModel merely for rendering.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -17,7 +21,7 @@ Glossary:
     sound actually submits, independent of physics state.
 
 Invariants:
-  - GameModelRenderer consumes collection render streams; GameModelCollection
+  - GameModelRenderer consumes collection render instances; GameModelCollection
     remains the owner of model order and lifetime.
   - Shadow caster preparation may run worker-side, but draw submission remains
     on the render thread through RenderHelper command/resource contexts.
@@ -30,8 +34,10 @@ Related:
 
 #include "../Core/Config.h"
 #include "../GameObjects/GameModelCollection.h"
+#include "../Physics/ColliderStore.h"
 #include "Helper.h"
 #include "IRenderBackend.h"
+#include "RenderInstanceStore.h"
 #include "../Core/Profiler.h"
 #include "../Core/WorkerPool.h"
 
@@ -45,6 +51,10 @@ using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Rendering::RenderInstanceRecord;
+using SkullbonezCore::Rendering::RenderInstanceShapeKind;
+using SkullbonezCore::Rendering::RenderInstanceStore;
 using SkullbonezCore::Rendering::RenderMaterial;
 using SkullbonezCore::Rendering::RenderMaterialKind;
 using SkullbonezCore::Rendering::ShadowCasterBatches;
@@ -63,12 +73,12 @@ bool IsPineVisualMaterial( const RenderMaterial& material )
              static_cast<int>( std::floor( material.textureMode + 0.5f ) ) == PINE_VISUAL_MATERIAL_MODE );
 }
 
-RenderMaterial MaterialWithContactHighlights( const GameModel& model, bool applyFixedHighlight, bool box )
+RenderMaterial MaterialWithContactHighlights( const RenderInstanceRecord& instance, bool box )
 {
     // Why: contact highlights are render-only feedback. They must not mutate
     // the model's stored material, physics release policy, or audio decisions.
-    RenderMaterial material = model.GetRenderMaterial();
-    const float hit = applyFixedHighlight ? model.GetFixedContactHighlightAlpha() : 0.0f;
+    RenderMaterial material = instance.material;
+    const float hit = instance.isFixed ? instance.fixedContactAlpha : 0.0f;
     if ( hit > 0.0f )
     {
         if ( box && material.textureMode <= 0.5f && material.textureMode >= -0.5f )
@@ -88,7 +98,7 @@ RenderMaterial MaterialWithContactHighlights( const GameModel& model, bool apply
         }
     }
 
-    const float audioHit = model.GetAudioContactHighlightAlpha();
+    const float audioHit = instance.audioContactAlpha;
     if ( audioHit <= 0.0f )
     {
         return material;
@@ -114,15 +124,15 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
                                       const std::vector<uint8_t>* modelMask,
                                       bool drawMaskedModels )
 {
-    const std::vector<GameModel>& models = collection.Models();
+    const RenderInstanceStore& renderStore = collection.RenderInstances();
+    const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
 
-    if ( models.empty() )
+    if ( instances.empty() )
     {
         return;
     }
 
-    const GameModelRenderStream renderStream = collection.GetRenderStream();
-    const int modelCount = renderStream.count;
+    const int modelCount = static_cast<int>( instances.size() );
     const float clampedMaterialAlpha = std::clamp( materialAlpha, 0.0f, 1.0f );
     const bool alphaBlendedPass = collection.ShouldRenderCollisionVolumes() || clampedMaterialAlpha < 1.0f;
     const auto shouldDrawModel = [&]( int index ) -> bool
@@ -155,10 +165,11 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
             {
                 continue;
             }
-            if ( models[x].IsSphere() )
+            const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( x )];
+            if ( instance.shapeKind == RenderInstanceShapeKind::Sphere )
             {
-                RenderMaterial material = MaterialWithContactHighlights( models[x], renderStream.isFixed[x], false );
-                RenderHelper::DrawSphereBatchModel( renderStream.modelMatrices[x], material );
+                RenderMaterial material = MaterialWithContactHighlights( instance, false );
+                RenderHelper::DrawSphereBatchModel( instance.modelMatrix, material );
             }
         }
         RenderHelper::DrawSphereBatchEnd( helperContext );
@@ -173,9 +184,10 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
             {
                 continue;
             }
-            if ( renderStream.isBox[x] )
+            const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( x )];
+            if ( instance.shapeKind == RenderInstanceShapeKind::Box )
             {
-                RenderMaterial material = MaterialWithContactHighlights( models[x], renderStream.isFixed[x], true );
+                RenderMaterial material = MaterialWithContactHighlights( instance, true );
                 const bool isPineVisual = IsPineVisualMaterial( material );
                 if ( isPineVisual )
                 {
@@ -187,11 +199,11 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
                 }
                 if ( pineVisualPass )
                 {
-                    RenderHelper::DrawPineBatchModel( renderStream.modelMatrices[x], material );
+                    RenderHelper::DrawPineBatchModel( instance.modelMatrix, material );
                 }
                 else
                 {
-                    RenderHelper::DrawBoxBatchModel( renderStream.modelMatrices[x], material );
+                    RenderHelper::DrawBoxBatchModel( instance.modelMatrix, material );
                 }
             }
         }
@@ -228,29 +240,38 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
 
     {
         DRAW_CALL_TRACE_SCOPE( "ConvexHulls" );
+        const std::vector<ColliderRecord>* colliders = nullptr;
         for ( int x = 0; x < modelCount; ++x )
         {
             if ( !shouldDrawModel( x ) )
             {
                 continue;
             }
-            if ( !models[x].IsConvexHull() )
+            const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( x )];
+            if ( instance.shapeKind != RenderInstanceShapeKind::ConvexHull )
+            {
+                continue;
+            }
+            if ( !colliders )
+            {
+                colliders = &collection.Colliders().Records();
+            }
+            if ( static_cast<std::size_t>( x ) >= colliders->size() )
             {
                 continue;
             }
 
-            const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &models[x].GetCollisionShape() );
+            const ColliderRecord& collider = ( *colliders )[static_cast<std::size_t>( x )];
+            const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
             if ( !hull )
             {
                 continue;
             }
 
-            const Matrix4 bodyModel =
-                Matrix4::Translate( models[x].GetPosition() ) * Matrix4::FromQuaternion( models[x].GetOrientation() );
-            const RenderMaterial material = MaterialWithContactHighlights( models[x], renderStream.isFixed[x], false );
+            const RenderMaterial material = MaterialWithContactHighlights( instance, false );
             RenderHelper::DrawConvexHullModel( helperContext,
                                                *hull,
-                                               bodyModel,
+                                               instance.modelMatrix,
                                                material,
                                                view,
                                                proj,
@@ -268,16 +289,16 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches" );
 
-    const std::vector<GameModel>& models = collection.Models();
+    const RenderInstanceStore& renderStore = collection.RenderInstances();
+    const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
     outBatches.Clear();
 
-    if ( models.empty() )
+    if ( instances.empty() )
     {
         return;
     }
 
-    const GameModelRenderStream renderStream = collection.GetRenderStream();
-    const int modelCount = renderStream.count;
+    const int modelCount = static_cast<int>( instances.size() );
 
     auto appendRange = [&]( int begin, int end, ShadowCasterBatches& batches )
     {
@@ -286,34 +307,46 @@ void GameModelRenderer::BuildShadowCasterBatches( GameModelCollection& collectio
         batches.boxes.reserve( static_cast<size_t>( end - begin ) );
         batches.pines.reserve( static_cast<size_t>( end - begin ) );
         batches.convexHulls.reserve( static_cast<size_t>( end - begin ) );
+        const std::vector<ColliderRecord>* colliders = nullptr;
         for ( int x = begin; x < end; ++x )
         {
-            if ( models[x].IsSphere() )
+            const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( x )];
+            if ( instance.shapeKind == RenderInstanceShapeKind::Sphere )
             {
-                batches.spheres.push_back( renderStream.modelMatrices[x] );
+                batches.spheres.push_back( instance.modelMatrix );
                 continue;
             }
 
-            if ( models[x].IsConvexHull() )
+            if ( instance.shapeKind == RenderInstanceShapeKind::ConvexHull )
             {
-                const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &models[x].GetCollisionShape() );
+                if ( !colliders )
+                {
+                    colliders = &collection.Colliders().Records();
+                }
+                if ( static_cast<std::size_t>( x ) >= colliders->size() )
+                {
+                    continue;
+                }
+                const ColliderRecord& collider = ( *colliders )[static_cast<std::size_t>( x )];
+                // Lifetime: shadow batches hold pointers into ColliderStore
+                // records and are submitted in the same frame before the store
+                // is refreshed or compacted.
+                const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
                 if ( hull )
                 {
-                    const Matrix4 bodyModel = Matrix4::Translate( models[x].GetPosition() ) *
-                                              Matrix4::FromQuaternion( models[x].GetOrientation() );
-                    batches.convexHulls.push_back( { hull, bodyModel } );
+                    batches.convexHulls.push_back( { hull, instance.modelMatrix } );
                 }
                 continue;
             }
 
-            const bool isPineVisual = IsPineVisualMaterial( models[x].GetRenderMaterial() );
+            const bool isPineVisual = IsPineVisualMaterial( instance.material );
             if ( isPineVisual )
             {
-                batches.pines.push_back( renderStream.modelMatrices[x] );
+                batches.pines.push_back( instance.modelMatrix );
             }
             else
             {
-                batches.boxes.push_back( renderStream.modelMatrices[x] );
+                batches.boxes.push_back( instance.modelMatrix );
             }
         }
     };
@@ -436,15 +469,16 @@ bool GameModelRenderer::GetObjectShadowBounds( GameModelCollection& collection,
 {
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds" );
 
-    const GameModelBodyStream bodyStream = collection.GetBodyStream();
+    const RenderInstanceStore& renderStore = collection.RenderInstances();
+    const std::vector<RenderInstanceRecord>& instances = renderStore.Records();
 
-    if ( bodyStream.Empty() )
+    if ( instances.empty() )
     {
         return false;
     }
 
     const float queryDistance = (std::max)( maxDistance, 1.0f );
-    const int modelCount = bodyStream.count;
+    const int modelCount = static_cast<int>( instances.size() );
     struct BoundsAccumulator
     {
         float minX = FLT_MAX;
@@ -461,8 +495,10 @@ bool GameModelRenderer::GetObjectShadowBounds( GameModelCollection& collection,
         bounds = BoundsAccumulator();
         for ( int i = begin; i < end; ++i )
         {
-            const Vector3& pos = bodyStream.positions[i];
-            const float radius = bodyStream.boundingRadii[i];
+            const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( i )];
+            const Matrix4& model = instance.modelMatrix;
+            const Vector3 pos( model.m[12], model.m[13], model.m[14] );
+            const float radius = instance.boundingRadius;
             const float includeDistance = queryDistance + radius;
             const float dx = pos.x - focus.x;
             const float dz = pos.z - focus.z;

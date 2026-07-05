@@ -44,7 +44,6 @@ Related:
 
 #include "../Core/Common.h"
 #include "../Core/Config.h"
-#include "../GameObjects/GameModel.h"
 #include "../Maths/Vector3.h"
 #include "../Maths/Matrix4.h"
 #include "../Physics/PhysicsWorldForces.h"
@@ -58,11 +57,6 @@ namespace Assets
 {
 class AssetSystem;
 }
-
-namespace GameObjects
-{
-class GameModel;
-} // namespace GameObjects
 
 namespace Rendering
 {
@@ -115,8 +109,8 @@ struct WaterStyleParams
 /* -- World Environment
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-    Encapsulates the physical properties of the simulation world and applies
-    environmental forces to every dynamic object each frame via AddWorldForces().
+    Encapsulates world fluid/gravity settings and exposes scalar force inputs
+    consumed by the physics body store each fixed step.
 
     Forces applied:
       1. Gravity:       F_g = m * g  (constant downward force, g < 0 in config)
@@ -182,8 +176,6 @@ class WorldEnvironment
     float GetFluidDensity() const;                                         // Fluid density in kg/m^3 for buoyancy and drag.
     void SetFluidDensity( float density );                                 // Updates fluid density for future force integration ticks.
     Physics::PhysicsWorldForces GetPhysicsWorldForces() const;             // Tick-local force inputs for physics-owned integration.
-    void AddWorldForces( GameObjects::GameModel& target,
-                         float changeInTime );                             // Adds world forces to the referenced game model
 
   private:
     struct WaterRenderStyleSettings
@@ -234,15 +226,6 @@ class WorldEnvironment
     void BindCalmWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style ) const;
     void
     BindOceanWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style, float time, bool flatWater ) const;
-
-    float CalculateGravity( float objectMass );                            // F_g = m * g  (returns negative Y Newtons = downward)
-    float CalculateBuoyancy(
-        float submergedObjectVolume );                                     // F_b = -g * ρ_fluid * V_sub  (returns positive Y = upward lift, Archimedes)
-    Math::Vector::Vector3
-    CalculateViscousDrag( Math::Vector::Vector3 velocityVector,
-                          float submergedVolumePercent,
-                          float dragCoefficient,
-                          float projectedSurfaceArea );                    // F_d = -v̂ * 0.5 * ρ_avg * v² * C_d * A  (opposes motion)
 };
 } // namespace Environment
 } // namespace SkullbonezCore

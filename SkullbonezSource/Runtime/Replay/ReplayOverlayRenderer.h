@@ -39,6 +39,11 @@ namespace SkullbonezCore::Rendering
 class IRenderCommandContext;
 }
 
+namespace SkullbonezCore::Physics
+{
+class PhysicsBodyStore;
+}
+
 namespace SkullbonezCore::Basics::ReplayOverlay
 {
 struct ReplayOverlayRenderContext
@@ -48,6 +53,7 @@ struct ReplayOverlayRenderContext
     Rendering::IRenderCommandContext& renderCommands;
     ReplayRuntime& replayRuntime;
     const std::vector<GameObjects::GameModel>& models;
+    const Physics::PhysicsBodyStore& bodyStore;
     bool editorModeEnabled = false;
     bool uiVisible = false;
     bool uiMinimized = false;

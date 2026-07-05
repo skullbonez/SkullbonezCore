@@ -4,9 +4,8 @@ Purpose:
   Owns transient runtime tool state while tool behavior moves out of Run.
 
 Mental model:
-  RuntimeTools is the Phase 6 compatibility boundary. Existing Run methods can
-  still execute launcher/tool behavior, but launcher state and render feedback
-  ownership live here instead of directly on Run.
+  RuntimeTools owns short-lived interaction state for launcher/tool behavior and
+  render feedback instead of storing that state directly on Run.
 
 Glossary:
   Asset system: Runtime-owned registry borrowed by editor ghost tracing when a
@@ -15,8 +14,18 @@ Glossary:
     data that persists between frames.
   Replay visual sample: Compact snapshot of tool visuals restored while replay
     scrubbing so debug feedback follows recorded frames.
+  Replay target marker: Debug overlay outline/ring drawn around a replay body
+    from live body/collider store values.
   Gizmo drag group: Bounded set of selected model indices transformed as one
     editor gesture.
+  Body store: Physics-owned dense body rows borrowed by tool hit tests and
+    command paths without reading mirrored GameModel body state.
+  Collider store: Physics-owned dense collider rows borrowed for shape-derived
+    hit-test bounds.
+  Physics body handle: Generational id for a live simulation body row; runtime
+    tools store it when they need to issue physics commands.
+  Model index: Dense model-order row used for UI and replay identity, validated
+    before use because collection edits can change it.
   Ring buffer: Fixed-size history where new launcher/raycast entries overwrite
     the oldest slots.
 
@@ -26,6 +35,8 @@ Invariants:
   - Fixed-capacity arrays must stay bounded and replay-restorable.
   - Stored model indices are frame-local references and must be validated before
     use after model collection edits.
+  - Mouse pickup stores a physics body handle for command paths; its model index
+    is interaction identity only.
 
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
@@ -41,6 +52,7 @@ Related:
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/CollisionShape.h"
+#include "../../Physics/PhysicsHandles.h"
 #include "../../UI/UITabEditor.h"
 
 #include <array>
@@ -50,9 +62,14 @@ Related:
 
 namespace SkullbonezCore::GameObjects
 {
-class GameModel;
 class GameModelCollection;
 } // namespace SkullbonezCore::GameObjects
+
+namespace SkullbonezCore::Physics
+{
+class ColliderStore;
+class PhysicsBodyStore;
+} // namespace SkullbonezCore::Physics
 
 namespace SkullbonezCore::Assets
 {
@@ -136,6 +153,7 @@ struct RunMousePickupState
     bool active = false;
     bool mouseCaptured = false;
     int modelIndex = -1;
+    Physics::PhysicsBodyHandle body;
     Math::Vector::Vector3 planePoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 planeNormal = Math::Vector::Vector3( 0.0f, 0.0f, 1.0f );
     float cameraPlaneDistance = 0.0f;                                       // World units from camera eye to the camera-facing pickup plane.
@@ -165,7 +183,11 @@ struct RunEditorPlacementState
     bool tildeShortcutWasDown = false;
     int objectType = UI::EditorTab::OBJECT_BOX;
     int placedObjectSerial = 0;
+    // Lifetime: selectedBody/selectedCollider are live store identities. The
+    // model index is only the editor/UI row hint paired with those handles.
     int selectedModelIndex = -1;
+    Physics::PhysicsBodyHandle selectedBody;
+    Physics::PhysicsColliderHandle selectedCollider;
     int hotGizmoAxis = -1;
     int hotRotationAxis = -1;
     int activeGizmoAxis = -1;
@@ -241,9 +263,24 @@ class RunEditorTracer
                                  float g,
                                  float b );
     void AddReplayFutureTargetMarker( const Math::Vector::Vector3& center, float radius, int depth );
-    void AddReplayTargetMarker( const GameObjects::GameModel& model );
-    void AddAttachedCameraTargetMarker( const GameObjects::GameModel& model, bool activeFollow );
-    void AddSelectionOutline( const GameObjects::GameModel& model );
+    // Draws a replay target marker from explicit store values. Replay may still
+    // resolve identity by model order, but marker geometry must not read the
+    // post-step GameModel body mirror.
+    void AddReplayTargetMarker( const Math::Vector::Vector3& position,
+                                const Math::Orientation::Quaternion& orientation,
+                                const Math::CollisionDetection::CollisionShape& shape,
+                                float radius );
+    void AddAttachedCameraTargetMarker( const Math::Vector::Vector3& position,
+                                        const Math::Orientation::Quaternion& orientation,
+                                        const Math::CollisionDetection::CollisionShape& shape,
+                                        float radius,
+                                        bool activeFollow );
+    // Draws a shape-accurate outline from explicit pose/shape values. Replay
+    // velocity edit uses this so overlay drawing does not need the post-step
+    // GameModel body mirror.
+    void AddSelectionOutline( const Math::Vector::Vector3& position,
+                              const Math::Orientation::Quaternion& orientation,
+                              const Math::CollisionDetection::CollisionShape& shape );
     void AddGizmo( const Math::Vector::Vector3& origin,
                    float radius,
                    int hotTranslateAxis,
@@ -252,7 +289,12 @@ class RunEditorTracer
                    bool activeRotation,
                    bool scaleMode,
                    bool activeScale );
-    void AddReplayVelocityGizmo( const GameObjects::GameModel& model,
+    void AddReplayVelocityGizmo( const Math::Vector::Vector3& origin,
+                                 const Math::Orientation::Quaternion& orientation,
+                                 const Math::CollisionDetection::CollisionShape& shape,
+                                 float radius,
+                                 const Math::Vector::Vector3& linearVelocity,
+                                 const Math::Vector::Vector3& angularVelocity,
                                  int hotLinearAxis,
                                  int hotAngularAxis,
                                  int activeAxis,
@@ -275,7 +317,8 @@ class RuntimeTools
     const char* LauncherFireModeLabel() const;
     void BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& outSample ) const;
     void RestoreReplayLauncherVisualSample( const ReplayLauncherVisualSample& sample );
-    bool TryRayCastTestHit( const std::vector<GameObjects::GameModel>& models,
+    bool TryRayCastTestHit( const Physics::PhysicsBodyStore& bodyStore,
+                            const Physics::ColliderStore& colliderStore,
                             const Math::Vector::Vector3& rayOrigin,
                             const Math::Vector::Vector3& rayDirection,
                             float maxDistance,
@@ -291,6 +334,7 @@ class RuntimeTools
                                     Math::Vector::Vector3& outDirection,
                                     Math::Vector::Vector3& outCameraUp ) const;
     bool FireLauncherRay( GameObjects::GameModelCollection& collection,
+                          RunSceneState& scene,
                           Environment::WorldEnvironment& world,
                           Geometry::Terrain* terrain,
                           int activeModelCapacity,
@@ -303,6 +347,7 @@ class RuntimeTools
                             const Math::Vector::Vector3& rayDirection,
                             const Math::Vector::Vector3& cameraUp );
     bool FireLauncherProjectile( GameObjects::GameModelCollection& collection,
+                                 RunSceneState& scene,
                                  Environment::WorldEnvironment& world,
                                  Geometry::Terrain* terrain,
                                  int activeModelCapacity,

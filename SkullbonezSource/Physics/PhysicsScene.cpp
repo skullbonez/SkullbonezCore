@@ -13,11 +13,26 @@ Glossary:
     impulses.
   Store: Ordered snapshot of one ownership concern such as bodies, colliders,
     or render instances.
+  Pending impulse: One-shot velocity edit queued on a body record and consumed
+    by the next solver step.
+  Physics material: Runtime policy for collider friction and sphere drag.
+  Velocity edit: Replay-authored command that changes live body velocity before
+    prediction or the next step samples the body store.
+  Fixed-tree release: Store-owned command that turns authored fixed props into
+    dynamic bodies and wakes same-tree parts after an accepted impulse.
+  Sleep: Solver optimization that stops integrating stable bodies until an
+    explicit wake or contact event reactivates them.
   Determinism: Same inputs produce byte-exact validation artifacts.
 
 Invariants:
   - Store refresh order must preserve deterministic model-view order.
   - RunPhysics delegates to PhysicsWorld without changing floating-point order.
+  - Pending impulses stay store-owned until consumed; render projection refresh
+    is separate from solver sleep/island mutation.
+  - Velocity edits stay store-owned until the normal step boundary projects
+    body state for presentation.
+  - Wake commands update solver sleep/island state without rebuilding render
+    projection records.
 
 Related:
   - SkullbonezSource/Physics/PhysicsScene.h
@@ -25,24 +40,81 @@ Related:
 #include "PhysicsScene.h"
 #include "PhysicsApi.h"
 
+#include "../Core/Common.h"
+
 #include <cassert>
 #include <cstddef>
+#include <variant>
 
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
+using SkullbonezCore::Math::CollisionDetection::BoundingBox;
+using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
+using SkullbonezCore::Physics::PhysicsMaterial;
 using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Physics::PhysicsScene;
+
+
+namespace
+{
+ColliderShapeKind ShapeKindForColliderDesc( const SkullbonezCore::Math::CollisionDetection::CollisionShape& shape )
+{
+    if ( std::holds_alternative<BoundingBox>( shape ) )
+    {
+        return ColliderShapeKind::Box;
+    }
+    if ( std::holds_alternative<ConvexHullShape>( shape ) )
+    {
+        return ColliderShapeKind::ConvexHull;
+    }
+    return ColliderShapeKind::Sphere;
+}
+
+
+// Why: descriptor import is a cold authoring boundary. The dense row shape and
+// cheap collider discriminator are derived inside PhysicsScene so GameModel
+// collection code cannot become a second ColliderStore layout owner.
+ColliderRecord MakeColliderRecordFromDesc( const PhysicsColliderCreateDesc& desc, const PhysicsBodyRecord& body )
+{
+    ColliderRecord record;
+    record.body = body.handle;
+    record.sceneObjectId = desc.sceneObjectId.IsValid() ? desc.sceneObjectId : body.sceneObjectId;
+    record.replayBodyId = body.replayBodyId;
+    record.shape = desc.shape;
+    record.shapeKind = ShapeKindForColliderDesc( desc.shape );
+    record.boundingRadius = desc.boundingRadius;
+    record.restitution = desc.restitution;
+    record.friction = desc.friction;
+    record.contactMaterialId = desc.contactMaterialId;
+    record.projectedSurfaceArea = desc.projectedSurfaceArea;
+    record.dragCoefficient = desc.dragCoefficient;
+    return record;
+}
+} // namespace
+
+
+PhysicsScene::PhysicsScene()
+{
+}
 
 
 void PhysicsScene::ApplyRuntimeConfig( const Basics::EngineConfig& config )
 {
     m_world.ApplyRuntimeConfig( config );
+}
+
+
+void PhysicsScene::ApplyColliderMaterial( const PhysicsMaterial& material )
+{
+    m_colliderStore.ApplyPhysicsMaterial( material );
 }
 
 
@@ -61,20 +133,41 @@ void PhysicsScene::RefreshBodyStore( PhysicsModelAccess& modelAccess )
 }
 
 
-void PhysicsScene::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex )
+void PhysicsScene::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex, int expectedModelCount )
 {
-    const int modelCount = modelAccess.ModelCount();
-    if ( modelIndex < 0 || modelIndex >= modelCount )
+    if ( modelIndex < 0 || modelIndex >= expectedModelCount )
     {
         return;
     }
-    if ( m_bodyStore.Count() != modelCount )
+    if ( m_bodyStore.Count() != expectedModelCount )
     {
         RefreshBodyStore( modelAccess );
         return;
     }
 
     modelAccess.RefreshPhysicsBodyFromModel( m_bodyStore, modelIndex );
+}
+
+
+PhysicsBodyHandle PhysicsScene::RegisterAuthoredBody( const PhysicsBodyRecord& record )
+{
+    return m_bodyStore.CreateBodyRecord( record );
+}
+
+
+PhysicsColliderHandle PhysicsScene::RegisterAuthoredCollider( const PhysicsColliderCreateDesc& desc )
+{
+    const PhysicsBodyRecord* body = m_bodyStore.RecordForHandle( desc.body );
+    assert( body != nullptr );
+    return body ? m_colliderStore.CreateColliderRecord( MakeColliderRecordFromDesc( desc, *body ) )
+                : PhysicsColliderHandle{};
+}
+
+
+bool PhysicsScene::UpdateAuthoredCollider( PhysicsColliderHandle collider, const PhysicsColliderCreateDesc& desc )
+{
+    const PhysicsBodyRecord* body = m_bodyStore.RecordForHandle( desc.body );
+    return body && m_colliderStore.UpdateRecordForHandle( collider, MakeColliderRecordFromDesc( desc, *body ) );
 }
 
 
@@ -90,7 +183,13 @@ bool PhysicsScene::TrimBodyStoreToCount( int bodyCount )
 }
 
 
-bool PhysicsScene::RestoreReplayBodyState( int modelIndex,
+bool PhysicsScene::TrimColliderStoreToCount( int colliderCount )
+{
+    return m_colliderStore.TrimToCount( colliderCount );
+}
+
+
+bool PhysicsScene::RestoreReplayBodyState( PhysicsBodyHandle body,
                                            uint32_t replayBodyId,
                                            bool fixed,
                                            const Math::Vector::Vector3& position,
@@ -102,7 +201,7 @@ bool PhysicsScene::RestoreReplayBodyState( int modelIndex,
                                            const Math::Vector::Vector3& rotationalInertia,
                                            const Math::Vector::Vector3& inverseRotationalInertia )
 {
-    return m_bodyStore.RestoreReplayBodyState( modelIndex,
+    return m_bodyStore.RestoreReplayBodyState( body,
                                                replayBodyId,
                                                fixed,
                                                position,
@@ -116,33 +215,51 @@ bool PhysicsScene::RestoreReplayBodyState( int modelIndex,
 }
 
 
-void PhysicsScene::RefreshColliderStore( PhysicsModelAccess& modelAccess )
+bool PhysicsScene::RefreshColliderSnapshot()
 {
-    RefreshBodyStore( modelAccess );
-    modelAccess.RefreshPhysicsColliders( m_colliderStore, m_bodyStore );
+    return m_colliderStore.RefreshBodyBindings( m_bodyStore );
 }
 
 
-void PhysicsScene::RefreshRenderStore( PhysicsModelAccess& modelAccess )
+bool PhysicsScene::PrepareRenderStoreRefresh( PhysicsModelAccess& modelAccess, int expectedModelCount )
 {
-    const int modelCount = modelAccess.ModelCount();
-    if ( m_bodyStore.Count() != modelCount )
+    if ( m_bodyStore.Count() != expectedModelCount )
     {
         RefreshBodyStore( modelAccess );
     }
-    if ( m_colliderStore.Count() != modelCount )
+    if ( !RefreshColliderSnapshot() )
     {
-        modelAccess.RefreshPhysicsColliders( m_colliderStore, m_bodyStore );
+        // Hazard: render rows consume collider shape/material data. If topology
+        // drift has removed collider rows, do not manufacture a partial render
+        // snapshot from stale model-owned shape fields.
+        m_renderInstanceStore.Clear();
+        return false;
     }
-    modelAccess.RefreshRenderInstances( m_renderInstanceStore, m_bodyStore, m_colliderStore );
+    if ( m_bodyStore.Count() != expectedModelCount || m_colliderStore.Count() != expectedModelCount )
+    {
+        m_renderInstanceStore.Clear();
+        return false;
+    }
 #ifdef _DEBUG
-    ValidatePhysicsStoreMappings( modelCount );
-    ValidateRenderStoreMappings( modelCount );
+    ValidatePhysicsStoreMappings( expectedModelCount );
 #endif
+    return true;
+}
+
+
+SkullbonezCore::Rendering::RenderInstanceStore& PhysicsScene::MutableRenderInstances()
+{
+    return m_renderInstanceStore;
 }
 
 
 #ifdef _DEBUG
+void PhysicsScene::ValidateRenderStore( int expectedModelCount ) const
+{
+    ValidateRenderStoreMappings( expectedModelCount );
+}
+
+
 void PhysicsScene::ValidatePhysicsStoreMappings( int modelCount ) const
 {
     assert( m_bodyStore.Count() == modelCount );
@@ -191,48 +308,125 @@ void PhysicsScene::ValidateRenderStoreMappings( int modelCount ) const
 #endif
 
 
-void PhysicsScene::RunPhysics( PhysicsModelAccess& modelAccess,
-                               float fChangeInTime,
+void PhysicsScene::RunPhysics( float fChangeInTime,
                                const Basics::EngineConfig& config,
                                const PhysicsWorldForces& worldForces,
-                               Threading::WorkerPool& workerPool )
+                               Threading::WorkerPool& workerPool,
+                               const char* const* diagnosticNames,
+                               int diagnosticNameCount )
 {
-    const int modelCount = modelAccess.ModelCount();
-
-    // Invariant: PhysicsBodyStore is the per-tick body authority. GameModel is
-    // imported only when model/body topology changes; same-count editor or replay
-    // mutations must use explicit commit paths before the step reads the store.
-    if ( m_bodyStore.Count() != modelCount )
-    {
-        modelAccess.ReloadPhysicsBodies( m_bodyStore, m_world.GetSleepStates() );
-    }
-    // Why: collider metadata is construction/authoring state, not per-tick
-    // solver state. Scene setup and explicit refresh calls rebuild the snapshot;
-    // the hot step only needs to catch topology changes.
-    if ( m_colliderStore.Count() != modelCount )
-    {
-        modelAccess.RefreshPhysicsColliders( m_colliderStore, m_bodyStore );
-    }
     m_lastWorldForces = worldForces;
     m_hasLastWorldForces = true;
-    m_world.RunPhysics( modelAccess, m_bodyStore, m_colliderStore, fChangeInTime, config, worldForces, workerPool );
+
+    m_world.RunPhysics( m_bodyStore,
+                        m_colliderStore,
+                        fChangeInTime,
+                        config,
+                        worldForces,
+                        workerPool,
+                        diagnosticNames,
+                        diagnosticNameCount );
+
+    ApplyFixedTreeReleaseEvents( worldForces );
+
+    m_world.EmitStepDiagnostics( m_bodyStore, m_colliderStore, fChangeInTime, diagnosticNames, diagnosticNameCount );
+
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
 }
 
 
-// Invariant: steady-state commands mutate PhysicsBodyStore records selected by
-// handles. GameModel body data is imported here only when topology/count changed.
-void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+void PhysicsScene::ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& worldForces )
 {
-    const int modelCount = modelAccess.ModelCount();
-    if ( m_bodyStore.Count() != modelCount )
+    const std::vector<PhysicsFixedTreeReleaseEvent>& releaseEvents = m_world.GetFixedTreeReleaseEvents();
+    if ( releaseEvents.empty() )
     {
-        RefreshBodyStore( modelAccess );
+        return;
     }
-    if ( m_colliderStore.Count() != modelCount )
+
+    // Why: fixed-tree release changes live simulation state, then wake
+    // propagation may touch neighbouring bodies. Keep both operations on the
+    // body store before Debug diagnostics or compatibility writeback sample it.
+    m_fixedTreeReleaseWakeBodies.reserve( static_cast<std::size_t>( m_bodyStore.Count() ) );
+    for ( const PhysicsFixedTreeReleaseEvent& event : releaseEvents )
     {
-        RefreshColliderStore( modelAccess );
+        m_bodyStore.ReleaseAttachedFixedTreeParts( event, m_fixedTreeReleaseWakeBodies );
+        for ( int index : m_fixedTreeReleaseWakeBodies )
+        {
+            m_world.WakeModel( m_bodyStore, m_colliderStore, worldForces, index );
+        }
     }
+}
+
+
+bool PhysicsScene::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,
+                                                         float releaseImpulseStrength,
+                                                         const Math::Vector::Vector3& seedLinearVelocity,
+                                                         const Math::Vector::Vector3& seedAngularVelocity )
+{
+    const int sourceIndex = m_bodyStore.ModelIndexForHandle( sourceBody );
+    PhysicsBodyRecord* sourceRecord = m_bodyStore.MutableRecordForHandle( sourceBody );
+    if ( sourceIndex < 0 || !sourceRecord )
+    {
+        return false;
+    }
+
+    const std::size_t bodyCapacity = static_cast<std::size_t>( m_bodyStore.Count() );
+    m_fixedTreeReleaseWakeBodies.reserve( bodyCapacity );
+
+    bool sourceReleased = false;
+    if ( sourceRecord->isFixed )
+    {
+        // Hazard: authored fixed props only become dynamic when their store
+        // policy accepts the tool impulse. The source body receives the actual
+        // launcher impulse separately, so its release preserves current velocity
+        // while attached parts inherit the seeded breakaway velocity.
+        if ( !sourceRecord->releasesFromFixedOnContact ||
+             releaseImpulseStrength < sourceRecord->contactReleaseImpulseThreshold )
+        {
+            return false;
+        }
+        const Math::Vector::Vector3 sourceLinearVelocity = sourceRecord->linearVelocity;
+        const Math::Vector::Vector3 sourceAngularVelocity = sourceRecord->angularVelocity;
+        PhysicsBodyStore::ReleaseFixedRecord( *sourceRecord, sourceLinearVelocity, sourceAngularVelocity );
+        sourceReleased = true;
+    }
+
+    const PhysicsFixedTreeReleaseEvent event = { sourceIndex, seedLinearVelocity, seedAngularVelocity };
+    m_bodyStore.ReleaseAttachedFixedTreeParts( event, m_fixedTreeReleaseWakeBodies );
+
+    const auto wakeReleasedIndex = [&]( int index )
+    {
+        if ( m_hasLastWorldForces )
+        {
+            m_world.WakeModel( m_bodyStore, m_colliderStore, m_lastWorldForces, index );
+        }
+        else
+        {
+            m_world.WakeModel( m_bodyStore, index );
+        }
+    };
+
+    if ( sourceReleased )
+    {
+        wakeReleasedIndex( sourceIndex );
+    }
+    for ( int index : m_fixedTreeReleaseWakeBodies )
+    {
+        wakeReleasedIndex( index );
+    }
+    if ( sourceReleased || !m_fixedTreeReleaseWakeBodies.empty() )
+    {
+        m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+    }
+    return true;
+}
+
+
+// Invariant: steady-state wake commands mutate PhysicsBodyStore records
+// selected by handles. Legacy model-index callers must refresh topology before
+// they enter this handle-owned command.
+void PhysicsScene::WakeBody( PhysicsBodyHandle body )
+{
     const int index = m_bodyStore.ModelIndexForHandle( body );
     if ( index < 0 )
     {
@@ -240,68 +434,87 @@ void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle 
     }
     if ( m_hasLastWorldForces )
     {
-        m_world.WakeModel( modelAccess, m_bodyStore, m_colliderStore, m_lastWorldForces, index );
+        m_world.WakeModel( m_bodyStore, m_colliderStore, m_lastWorldForces, index );
     }
     else
     {
-        m_world.WakeModel( modelAccess, m_bodyStore, index );
+        m_world.WakeModel( m_bodyStore, index );
     }
     m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    modelAccess.WriteBackPhysicsBody( m_bodyStore, index );
+    // Why: wake is solver sleep/island state. Rebuilding render projection here
+    // would add work without changing pose; the normal step boundary owns later
+    // presentation updates that actually change body state.
 }
 
 
-void PhysicsScene::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+bool PhysicsScene::SetBodyVelocity( PhysicsBodyHandle body,
+                                    const Math::Vector::Vector3& linearVelocity,
+                                    const Math::Vector::Vector3& angularVelocity,
+                                    bool wakeIfMoving )
 {
-    const int modelCount = modelAccess.ModelCount();
-    if ( m_bodyStore.Count() != modelCount )
-    {
-        RefreshBodyStore( modelAccess );
-    }
     const int index = m_bodyStore.ModelIndexForHandle( body );
-    if ( index < 0 )
+    if ( index < 0 || !m_bodyStore.SetBodyVelocity( body, linearVelocity, angularVelocity ) )
+    {
+        return false;
+    }
+
+    const bool shouldWake = wakeIfMoving && ( !linearVelocity.IsCloseToZero() || !angularVelocity.IsCloseToZero() );
+    if ( shouldWake )
+    {
+        if ( m_hasLastWorldForces )
+        {
+            m_world.WakeModel( m_bodyStore, m_colliderStore, m_lastWorldForces, index );
+        }
+        else
+        {
+            m_world.WakeModel( m_bodyStore, index );
+        }
+        m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+    }
+
+    // Invariant: callers that start from model indices perform any count-gated
+    // topology refresh before resolving the handle. This command does not borrow
+    // GameModel state or reload same-count body rows on the edit path.
+    return true;
+}
+
+
+void PhysicsScene::SeedBodyAsleep( PhysicsBodyHandle body )
+{
+    const int index = m_bodyStore.ModelIndexForHandle( body );
+    if ( index < 0 || !m_world.IsPhysicsSleepEnabled() )
     {
         return;
     }
-    m_world.SeedModelAsleep( modelAccess, m_bodyStore, index );
-    m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
-    modelAccess.WriteBackPhysicsBody( m_bodyStore, index );
+
+    // Why: sleep seeding is solver state, not presentation. Seed both the
+    // dense body store and PhysicsWorld's sleep counters, then leave GameModel
+    // projection to the next normal step boundary.
+    if ( m_bodyStore.SeedBodyAsleep( body ) )
+    {
+        m_world.SeedModelAsleep( m_bodyStore, index );
+        m_bodyStore.CopySleepStatesFrom( m_world.GetSleepStates() );
+    }
 }
 
 
-void PhysicsScene::ApplyBodyImpulse( PhysicsModelAccess& modelAccess,
-                                     PhysicsBodyHandle body,
-                                     const Math::Vector::Vector3& impulse,
-                                     const Math::Vector::Vector3& localApplicationPoint )
-{
-    SetPendingBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
-    WakeBody( modelAccess, body );
-}
-
-
-void PhysicsScene::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
-                                          PhysicsBodyHandle body,
+void PhysicsScene::SetPendingBodyImpulse( PhysicsBodyHandle body,
                                           const Math::Vector::Vector3& impulse,
                                           const Math::Vector::Vector3& localApplicationPoint )
 {
-    const int modelCount = modelAccess.ModelCount();
-    if ( m_bodyStore.Count() != modelCount )
-    {
-        RefreshBodyStore( modelAccess );
-    }
-    if ( !m_bodyStore.SetPendingBodyImpulse( body, impulse, localApplicationPoint ) )
-    {
-        return;
-    }
+    // Why: initial authored/generated impulses are one-shot physics state.
+    // Writing them into the body store avoids routing setup through the
+    // GameModelCollection model-index command wrappers.
+    m_bodyStore.SetPendingBodyImpulse( body, impulse, localApplicationPoint );
+}
 
-    // Why: the mutation above is handle-keyed store authority; this model index
-    // is only the remaining legacy projection for model-backed presentation.
-    const int bodyIndex = m_bodyStore.ModelIndexForHandle( body );
-    if ( bodyIndex >= 0 )
-    {
-        modelAccess.WriteBackPhysicsBody( m_bodyStore, bodyIndex );
-        modelAccess.InvalidatePhysicsStreams();
-    }
+
+void PhysicsScene::ApplyBodyImpulse( PhysicsBodyHandle body,
+                                     const Math::Vector::Vector3& impulse,
+                                     const Math::Vector::Vector3& localApplicationPoint )
+{
+    SetPendingBodyImpulse( body, impulse, localApplicationPoint );
+    WakeBody( body );
 }
 
 
@@ -410,6 +623,24 @@ uint64_t PhysicsScene::CollectPhysicsWorldMemoryBytes() const
 uint64_t PhysicsScene::CollectDebugAndBroadphaseMemoryBytes() const
 {
     return m_world.CollectDebugAndBroadphaseMemoryBytes();
+}
+
+
+bool PhysicsScene::ShouldEmitStepDiagnostics() const
+{
+    return m_world.ShouldEmitStepDiagnostics();
+}
+
+
+bool PhysicsScene::ShouldEmitCollisionTimeDiagnostics() const
+{
+    return m_world.ShouldEmitCollisionTimeDiagnostics();
+}
+
+
+const std::vector<int>& PhysicsScene::GetFixedContactHighlightBodies() const
+{
+    return m_world.GetFixedContactHighlightBodies();
 }
 
 

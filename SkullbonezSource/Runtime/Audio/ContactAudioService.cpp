@@ -138,7 +138,8 @@ float ContactImpactScore( const ContactAudioEvent& event )
 
 float ContactCandidateRank( const ContactAudioEvent& event )
 {
-    return event.simpleLinear ? event.linearEnergy : ( event.hasMotionData ? ContactImpactScore( event ) : event.normalImpulse );
+    return event.simpleLinear ? event.linearEnergy
+                              : ( event.hasMotionData ? ContactImpactScore( event ) : event.normalImpulse );
 }
 
 float ContactStrength( const ContactAudioEvent& event )
@@ -1192,8 +1193,8 @@ struct ContactAudioService::Impl
                                 const Vector3& linearVelocity,
                                 float mass )
     {
-        if ( bodyIndex < 0 || !IsFiniteVector( position ) || !IsFiniteVector( linearVelocity ) || !std::isfinite( mass ) ||
-             mass <= 0.0f )
+        if ( bodyIndex < 0 || !IsFiniteVector( position ) || !IsFiniteVector( linearVelocity ) ||
+             !std::isfinite( mass ) || mass <= 0.0f )
         {
             return;
         }
@@ -1500,13 +1501,14 @@ struct ContactAudioService::Impl
         const float impulseGain = Clamp01( ( eventStrength - minImpulse ) / impulseRange );
         const float scoreRange = event.simpleLinear ? (std::max)( 0.001f, simpleLinearEnergyRange )
                                                     : (std::max)( 0.001f, impulseRange * impactScoreRangeSeconds );
-        const float motionGain = event.hasMotionData
-                                     ? ( event.simpleLinear
-                                             ? 0.25f + 0.75f * Clamp01( ( impactScore - minImpactScoreForSet ) / scoreRange )
-                                             : Clamp01( ( impactScore - minImpactScoreForSet ) / scoreRange ) )
-                                     : impulseGain;
-        const float impactGain =
-            event.simpleLinear ? motionGain : ( event.hasMotionData ? (std::min)( impulseGain, motionGain ) : impulseGain );
+        const float motionGain =
+            event.hasMotionData
+                ? ( event.simpleLinear ? 0.25f + 0.75f * Clamp01( ( impactScore - minImpactScoreForSet ) / scoreRange )
+                                       : Clamp01( ( impactScore - minImpactScoreForSet ) / scoreRange ) )
+                : impulseGain;
+        const float impactGain = event.simpleLinear
+                                     ? motionGain
+                                     : ( event.hasMotionData ? (std::min)( impulseGain, motionGain ) : impulseGain );
         const float gain = Clamp01( masterGain * baseGain * distanceGain * impactGain );
         decision.distanceGain = distanceGain;
         decision.impactGain = impactGain;

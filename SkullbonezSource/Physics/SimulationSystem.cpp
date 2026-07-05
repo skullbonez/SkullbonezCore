@@ -11,14 +11,16 @@ Glossary:
   Fixed-step: Deterministic mode that advances physics by one fixed delta per
   requested tick instead of wall-clock time.
   Accumulator: Stored fractional tick state that carries time across frames.
-  World-force snapshot: Tick-local gravity/fluid values handed to physics so
-    solver work does not reach back into WorldEnvironment.
+  Commit count: Number of fixed physics ticks the runtime owner must execute
+    after accumulator state is updated.
 
 Invariants:
   - Fixed-step mode ignores wall-clock accumulation and commits whole
     PHYSICS_FIXED_DT ticks from the time-scale accumulator.
   - Variable-time scenes still run physics in fixed-size steps capped by
     PHYSICS_MAX_STEPS_PER_FRAME to avoid runaway catch-up.
+  - This scheduler never touches model owners, physics stores, world forces, or
+    worker pools; callers execute the returned committed tick count.
 
 Related:
   - SkullbonezSource/Physics/SimulationSystem.h
@@ -27,10 +29,6 @@ Related:
 #include "SimulationSystem.h"
 
 #include "../Core/Common.h"
-#include "../Core/Profiler.h"
-#include "PhysicsEngine.h"
-#include "PhysicsModelAccess.h"
-#include "PhysicsWorldForces.h"
 
 #include <algorithm>
 #include <cmath>
@@ -41,20 +39,6 @@ namespace
 {
 constexpr int FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME = 32;
 }
-
-bool SimulationPhysicsStep::IsBound() const
-{
-    return engine != nullptr && modelAccess != nullptr && config != nullptr && workerPool != nullptr &&
-           worldForces != nullptr;
-}
-
-
-void SimulationPhysicsStep::Run( float deltaSeconds ) const
-{
-    assert( IsBound() );
-    engine->Step( *modelAccess, deltaSeconds, *config, *worldForces, *workerPool );
-}
-
 
 void SimulationSystem::Reset()
 {
@@ -79,7 +63,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
     const bool shouldStepPhysics =
         input.physicsAdvance == PhysicsAdvanceState::Running ||
         ( input.physicsAdvance == PhysicsAdvanceState::RunWhileStepHeld && input.isStepRequested );
-    const bool canStepPhysics = shouldStepPhysics && input.physicsStep.IsBound();
+    const bool canStepPhysics = shouldStepPhysics && input.canStepPhysics;
     if ( input.isFixedStep )
     {
         if ( !canStepPhysics )
@@ -99,25 +83,7 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
         // validation frames. Leftover fractional ticks remain deterministic.
         m_fixedStepTickAccumulator -= static_cast<float>( ticksThisFrame );
 
-        if ( ticksThisFrame > 0 )
-        {
-            PROFILE_BEGIN( "Frame/Physics" );
-            for ( int tick = 0; tick < ticksThisFrame; ++tick )
-            {
-                PROFILE_SCOPED( "Frame/Physics/Step" );
-                if ( input.beforePhysicsStep )
-                {
-                    input.beforePhysicsStep( input.beforePhysicsStepUserData );
-                }
-                input.physicsStep.Run( PHYSICS_FIXED_DT );
-                ++result.committedPhysicsTicks;
-                if ( input.afterPhysicsStep )
-                {
-                    input.afterPhysicsStep( input.afterPhysicsStepUserData );
-                }
-            }
-            PROFILE_END( "Frame/Physics" );
-        }
+        result.committedPhysicsTicks = ticksThisFrame;
 
         result.simulationDt = PHYSICS_FIXED_DT * static_cast<float>( ticksThisFrame );
         return result;
@@ -126,35 +92,23 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
     const float scaledDt = static_cast<float>( input.secondsPerFrame ) * input.timeScale;
     if ( canStepPhysics )
     {
-        PROFILE_BEGIN( "Frame/Physics" );
         // The impulse solver uses discrete overlap tests and needs small fixed
-        // steps for stability. Only RunPhysics runs in this loop; camera and
-        // miscellaneous UI updates use one frame-level dt from the result.
+        // steps for stability. The runtime owner executes the returned count;
+        // camera and miscellaneous UI updates use one frame-level dt.
         m_physicsAccumulator += scaledDt;
 
         int steps = 0;
         while ( m_physicsAccumulator >= PHYSICS_FIXED_DT && steps < PHYSICS_MAX_STEPS_PER_FRAME )
         {
-            PROFILE_SCOPED( "Frame/Physics/Step" );
-            if ( input.beforePhysicsStep )
-            {
-                input.beforePhysicsStep( input.beforePhysicsStepUserData );
-            }
-            input.physicsStep.Run( PHYSICS_FIXED_DT );
-            ++result.committedPhysicsTicks;
-            if ( input.afterPhysicsStep )
-            {
-                input.afterPhysicsStep( input.afterPhysicsStepUserData );
-            }
             m_physicsAccumulator -= PHYSICS_FIXED_DT;
             ++steps;
         }
+        result.committedPhysicsTicks = steps;
 
         if ( steps == PHYSICS_MAX_STEPS_PER_FRAME )
         {
             m_physicsAccumulator = 0.0f;
         }
-        PROFILE_END( "Frame/Physics" );
     }
     else
     {

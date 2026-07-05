@@ -19,6 +19,9 @@ Glossary:
     commit or PR.
   Standalone physics smoke: Early-exit validation mode that exercises public
     physics API construction without runtime/window/renderer ownership.
+  Runtime handle smoke: Early-exit validation mode that uses runtime
+    GameModelCollection construction but proves returned physics handles stay
+    aligned with body, collider, constraint, and render mirrors.
 
 Invariants:
   - DX12 is the only runtime renderer; retired renderer flags are parsed only
@@ -43,7 +46,6 @@ Related:
 #include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../GameObjects/GameModel.h"
 #include "../GameObjects/GameModelCollection.h"
-#include "../GameObjects/GameModelCollectionPhysicsAdapter.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
 #include "../Physics/PhysicsApi.h"
@@ -618,13 +620,14 @@ struct PhysicsRuntimeHandleSmokeResult
 
 PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
 {
-    // Why: this smoke proves the runtime compatibility adapter can turn scene
-    // objects into physics handles and that body/collider/render mirrors stay
-    // aligned without opening the window or renderer. WinMain runs the normal
-    // command-line/config bootstrap before this helper so collection capacity
-    // uses the same config snapshot as a regular runtime launch.
+    // Why: this smoke proves runtime-created bodies keep their returned physics
+    // handles aligned with body/collider/render mirrors without opening the
+    // window or renderer. WinMain runs the normal command-line/config bootstrap
+    // before this helper so collection capacity uses the same config snapshot
+    // as a regular runtime launch.
     auto world = std::make_unique<SkullbonezCore::Environment::WorldEnvironment>();
     auto collection = std::make_unique<SkullbonezCore::GameObjects::GameModelCollection>();
+    PhysicsBodyHandle createdBodies[2];
 
     for ( int i = 0; i < 2; ++i )
     {
@@ -637,12 +640,20 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         char name[32] = {};
         sprintf_s( name, sizeof( name ), "runtime_smoke_%d", i );
         model.SetName( name );
-        collection->AddGameModel( std::move( model ) );
+        PhysicsSceneObjectId sceneObjectId;
+        sceneObjectId.value = static_cast<uint32_t>( i + 1 );
+        createdBodies[i] = collection->AddGameModel(
+            std::move( model ),
+            MakeColliderCreateDesc( SkullbonezCore::Math::CollisionDetection::BoundingSphere(
+                                        0.75f,
+                                        SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) ),
+                                    0.0f,
+                                    HashStr( "default" ) ),
+            sceneObjectId );
     }
 
-    SkullbonezCore::GameObjects::GameModelCollectionPhysicsAdapter adapter( *collection );
-    const PhysicsBodyHandle bodyA = adapter.BodyHandleForModelIndex( 0 );
-    const PhysicsBodyHandle bodyB = adapter.BodyHandleForModelIndex( 1 );
+    const PhysicsBodyHandle bodyA = createdBodies[0];
+    const PhysicsBodyHandle bodyB = createdBodies[1];
 
     PhysicsPointJointCreateDesc jointDesc;
     jointDesc.bodyA = bodyA;
@@ -659,14 +670,23 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const ColliderRecord initialCollider = colliderStore.Records()[0];
 
     SkullbonezCore::GameObjects::GameModel& editedModel = collection->GetModelAtIndex( 0 );
-    editedModel.AddBoundingBox( SkullbonezCore::Math::Vector::Vector3( 0.25f, 1.25f, 0.5f ) );
-    editedModel.SetCoefficientRestitution( 0.42f );
+    const SkullbonezCore::Math::Vector::Vector3 editedHalfExtents( 0.25f, 1.25f, 0.5f );
+    constexpr float EDITED_RESTITUTION = 0.42f;
+    editedModel.AddBoundingBox( editedHalfExtents );
+    editedModel.SetCoefficientRestitution( EDITED_RESTITUTION );
+    collection->CommitEditedModelColliderState(
+        0,
+        MakeColliderCreateDesc( SkullbonezCore::Math::CollisionDetection::BoundingBox(
+                                    editedHalfExtents,
+                                    SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) ),
+                                EDITED_RESTITUTION,
+                                HashStr( "default" ) ) );
     const ColliderStore& refreshedColliderStore = collection->GetColliderStore();
     const ColliderRecord& refreshedCollider = refreshedColliderStore.Records()[0];
     const float expectedBoxRadius = sqrtf( 0.25f * 0.25f + 1.25f * 1.25f + 0.5f * 0.5f );
     // Invariant: same-count authoring edits must be visible through the explicit
-    // collider-store refresh boundary. The physics hot step only auto-refreshes
-    // topology changes, so tools and scene edits need this accessor to be fresh.
+    // collider edit commit. Store reads only auto-repair topology changes, so
+    // tools and scene edits must commit before asking for collider records.
     const bool colliderRefreshMatches =
         initialCollider.shapeKind == ColliderShapeKind::Sphere &&
         refreshedCollider.shapeKind == ColliderShapeKind::Box &&
@@ -692,8 +712,12 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                   pointJoints[0].bodyB == bodyB && pointJoints[0].BodyAIndex( bodyStore ) == 0 &&
                                   pointJoints[0].BodyBIndex( bodyStore ) == 1;
 
+    constexpr uint32_t REORDER_BODY_A_REPLAY_ID = 100u;
+    constexpr uint32_t REORDER_BODY_B_REPLAY_ID = 101u;
     PhysicsBodyStore reorderBodyStore;
     std::vector<SkullbonezCore::GameObjects::GameModel> reorderModels;
+    std::vector<uint32_t> reorderReplayBodyIds;
+    std::vector<int> reorderFixedTreeReleaseRoots;
     for ( int i = 0; i < 2; ++i )
     {
         SkullbonezCore::GameObjects::GameModel model(
@@ -702,20 +726,28 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
             SkullbonezCore::Math::Vector::Vector3( 1.0f, 1.0f, 1.0f ),
             3.0f + static_cast<float>( i ) );
         model.AddBoundingSphere( 0.5f );
-        model.SetReplayBodyId( 100u + static_cast<uint32_t>( i ) );
         reorderModels.push_back( std::move( model ) );
+        reorderReplayBodyIds.push_back( REORDER_BODY_A_REPLAY_ID + static_cast<uint32_t>( i ) );
+        reorderFixedTreeReleaseRoots.push_back( -1 );
     }
-    reorderBodyStore.LoadFromModels( reorderModels, std::vector<uint8_t>{} );
+    reorderBodyStore.LoadFromModels( reorderModels,
+                                     reorderReplayBodyIds,
+                                     reorderFixedTreeReleaseRoots,
+                                     std::vector<uint8_t>{} );
     const PhysicsBodyHandle reorderedOriginalBody = reorderBodyStore.HandleForModelIndex( 0 );
-    const uint32_t reorderBodyAReplayId = reorderModels[0].GetReplayBodyId();
-    const uint32_t reorderBodyBReplayId = reorderModels[1].GetReplayBodyId();
+    const uint32_t reorderBodyAReplayId = REORDER_BODY_A_REPLAY_ID;
+    const uint32_t reorderBodyBReplayId = REORDER_BODY_B_REPLAY_ID;
     const SkullbonezCore::Math::Vector::Vector3 pendingImpulse( 0.0f, 2.0f, 0.0f );
     const SkullbonezCore::Math::Vector::Vector3 pendingImpulsePoint( 0.25f, 0.0f, 0.0f );
-    reorderBodyStore.SetPendingBodyImpulse( 0, pendingImpulse, pendingImpulsePoint );
-    reorderBodyStore.SeedBodyAsleep( 0 );
-    reorderModels[0].SetReplayBodyId( reorderBodyBReplayId );
-    reorderModels[1].SetReplayBodyId( reorderBodyAReplayId );
-    reorderBodyStore.LoadFromModels( reorderModels, std::vector<uint8_t>{} );
+    const bool seededReorderState =
+        reorderBodyStore.SetPendingBodyImpulse( reorderedOriginalBody, pendingImpulse, pendingImpulsePoint ) &&
+        reorderBodyStore.SeedBodyAsleep( reorderedOriginalBody );
+    reorderReplayBodyIds[0] = reorderBodyBReplayId;
+    reorderReplayBodyIds[1] = reorderBodyAReplayId;
+    reorderBodyStore.LoadFromModels( reorderModels,
+                                     reorderReplayBodyIds,
+                                     reorderFixedTreeReleaseRoots,
+                                     std::vector<uint8_t>{} );
     const int reorderedBodyAIndex = reorderBodyStore.ModelIndexForHandle( reorderedOriginalBody );
     const PhysicsBodyRecord* reorderedBodyARecord =
         reorderedBodyAIndex >= 0 ? reorderBodyStore.RecordForModelIndex( reorderedBodyAIndex ) : nullptr;
@@ -723,8 +755,9 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     // state through a same-scene reorder. Otherwise the handle identity is only
     // nominally independent from model order.
     const bool reorderPreservesHandleState =
-        reorderedBodyAIndex == 1 && reorderedBodyARecord && reorderedBodyARecord->handle == reorderedOriginalBody &&
-        reorderedBodyARecord->hasPendingImpulse && reorderedBodyARecord->isSleeping &&
+        seededReorderState && reorderedBodyAIndex == 1 && reorderedBodyARecord &&
+        reorderedBodyARecord->handle == reorderedOriginalBody && reorderedBodyARecord->hasPendingImpulse &&
+        reorderedBodyARecord->isSleeping &&
         fabsf( reorderedBodyARecord->pendingImpulse.y - pendingImpulse.y ) < 0.0001f &&
         fabsf( reorderedBodyARecord->pendingImpulseApplicationPoint.x - pendingImpulsePoint.x ) < 0.0001f;
 

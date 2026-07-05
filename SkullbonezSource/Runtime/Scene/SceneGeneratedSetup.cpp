@@ -14,6 +14,8 @@ Glossary:
   RNG (Random Number Generator): Local MSVC-compatible generator used for
     stable object placement.
   Solver object: Exact-count generated ball or box used by solver validation.
+  Collider descriptor: Value packet carrying generated shape and contact
+    material facts into the physics collider store.
 
 Invariants:
   - RNG consumption is part of generated scene determinism.
@@ -29,9 +31,12 @@ Related:
 #include "SceneGeneratedSetup.h"
 #include "SceneRuntime.h"
 #include "../CameraCollection.h"
+#include "../../Core/Common.h"
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Maths/Vector3.h"
+#include "../../Physics/CollisionShape.h"
+#include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
@@ -45,7 +50,13 @@ namespace Basics
 {
 namespace
 {
+using SkullbonezCore::Math::CollisionDetection::BoundingBox;
+using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
+using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::MakeColliderCreateDesc;
+using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 
 int NextSceneRand( unsigned int& state )
 {
@@ -53,6 +64,24 @@ int NextSceneRand( unsigned int& state )
     // stable while avoiding global RNG state.
     state = state * 214013u + 2531011u;
     return static_cast<int>( ( state >> 16 ) & 0x7fffu );
+}
+
+PhysicsColliderCreateDesc MakeGeneratedColliderDesc( CollisionShape shape, float restitution )
+{
+    // Why: generated setup already owns the exact shape parameters at spawn
+    // time. Passing this value into physics avoids a cold GameModel collider
+    // recapture and keeps store rows descriptor-owned.
+    return MakeColliderCreateDesc( std::move( shape ), restitution, HashStr( "default" ) );
+}
+
+PhysicsColliderCreateDesc MakeGeneratedSphereColliderDesc( float radius, float restitution )
+{
+    return MakeGeneratedColliderDesc( BoundingSphere( radius, Vector3( 0.0f, 0.0f, 0.0f ) ), restitution );
+}
+
+PhysicsColliderCreateDesc MakeGeneratedBoxColliderDesc( const Vector3& halfExtents, float restitution )
+{
+    return MakeGeneratedColliderDesc( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ), restitution );
 }
 } // namespace
 
@@ -99,7 +128,6 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
         return ( NextSceneRand( context.scene.rngState ) % 2 == 0 ) ? mag : -mag;
     };
     auto randSign = [&]() -> float { return ( NextSceneRand( context.scene.rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
-
     for ( int x = 0; x < context.scene.modelCount; ++x )
     {
         float posX = randFloat( cfg.spawnXBase, cfg.spawnXRange );
@@ -149,9 +177,11 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
             gameModel.SetTerrain( context.terrain );
             gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
 
-            const int modelIndex = context.models.GetModelCount();
-            context.models.AddGameModel( std::move( gameModel ) );
-            context.models.SetPendingBodyImpulse( modelIndex, force, forcePos );
+            const PhysicsBodyHandle body =
+                context.models.AddGameModel( std::move( gameModel ),
+                                             MakeGeneratedBoxColliderDesc( Vector3( hx, hy, hz ), restitution ),
+                                             context.scene.AllocateSceneObjectId() );
+            context.physics.SetPendingBodyImpulse( body, force, forcePos );
         }
         else
         {
@@ -167,9 +197,11 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
             gameModel.SetTerrain( context.terrain );
             gameModel.AddBoundingSphere( radius );
 
-            const int modelIndex = context.models.GetModelCount();
-            context.models.AddGameModel( std::move( gameModel ) );
-            context.models.SetPendingBodyImpulse( modelIndex, force, forcePos );
+            const PhysicsBodyHandle body =
+                context.models.AddGameModel( std::move( gameModel ),
+                                             MakeGeneratedSphereColliderDesc( radius, restitution ),
+                                             context.scene.AllocateSceneObjectId() );
+            context.physics.SetPendingBodyImpulse( body, force, forcePos );
         }
     }
 }
@@ -205,7 +237,6 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         return ( NextSceneRand( context.scene.rngState ) % 2 == 0 ) ? mag : -mag;
     };
     auto randSign = [&]() -> float { return ( NextSceneRand( context.scene.rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
-
     // --- Sphere pass ---
     for ( int i = 0; i < balls; ++i )
     {
@@ -231,9 +262,11 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         gameModel.SetCoefficientRestitution( restitution );
         gameModel.SetTerrain( context.terrain );
         gameModel.AddBoundingSphere( radius );
-        const int modelIndex = context.models.GetModelCount();
-        context.models.AddGameModel( std::move( gameModel ) );
-        context.models.SetPendingBodyImpulse( modelIndex, force, forcePos );
+        const PhysicsBodyHandle body =
+            context.models.AddGameModel( std::move( gameModel ),
+                                         MakeGeneratedSphereColliderDesc( radius, restitution ),
+                                         context.scene.AllocateSceneObjectId() );
+        context.physics.SetPendingBodyImpulse( body, force, forcePos );
     }
 
     // --- Box pass ---
@@ -268,9 +301,11 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         gameModel.SetCoefficientRestitution( restitution );
         gameModel.SetTerrain( context.terrain );
         gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
-        const int modelIndex = context.models.GetModelCount();
-        context.models.AddGameModel( std::move( gameModel ) );
-        context.models.SetPendingBodyImpulse( modelIndex, force, forcePos );
+        const PhysicsBodyHandle body =
+            context.models.AddGameModel( std::move( gameModel ),
+                                         MakeGeneratedBoxColliderDesc( Vector3( hx, hy, hz ), restitution ),
+                                         context.scene.AllocateSceneObjectId() );
+        context.physics.SetPendingBodyImpulse( body, force, forcePos );
     }
 
     context.scene.modelCount = balls + boxes;

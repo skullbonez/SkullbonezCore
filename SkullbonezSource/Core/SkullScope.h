@@ -29,9 +29,7 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
-class ColliderStore;
-class PhysicsBodyStore;
-class PhysicsModelAccess;
+struct PhysicsDiagnosticsFrameInput;
 } // namespace Physics
 
 namespace GameObjects
@@ -42,10 +40,12 @@ class SkullScope final
 #ifdef _DEBUG
     void SetPath( const char* path );
     void SetRunId( const char* runId );
-    void EmitFrame( Physics::PhysicsModelAccess& modelAccess,
-                    const Physics::PhysicsBodyStore& bodyStore,
-                    const Physics::ColliderStore& colliderStore,
-                    float dt );
+    // Returns whether a frame trace has both an output path and run id. Callers
+    // can use this to avoid gathering cold presentation data when tracing is off.
+    bool IsFrameEnabled() const;
+    // Emits one bounded trace frame from physics-owned stores and diagnostics
+    // views. The frame input must outlive the call but is never retained.
+    void EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frame );
 #endif
 
   private:

@@ -2024,10 +2024,12 @@ void DrawMainMemoryPanel( const UIDrawContext& draw,
     draw.Text( subX, row0 + 18.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
 
     DrawMemoryRow( draw, x, row0 + 36.0f, labelW, "Objects", memory.gameObjects.totalBytes, 0.70f, 0.90f, 0.54f );
+    const uint64_t gameObjectStoreBytes = memory.gameObjects.physicsStoreBytes + memory.gameObjects.colliderStoreBytes +
+                                          memory.gameObjects.renderStoreBytes;
     FormatMemoryMiB( memory.gameObjects.modelVectorBytes, a, sizeof( a ) );
-    FormatMemoryMiB( memory.gameObjects.soaCacheBytes, b, sizeof( b ) );
+    FormatMemoryMiB( gameObjectStoreBytes, b, sizeof( b ) );
     FormatMemoryMiB( memory.gameObjects.physicsWorldBytes, c, sizeof( c ) );
-    snprintf( text, sizeof( text ), "Models %s  SoA %s  World %s", a, b, c );
+    snprintf( text, sizeof( text ), "Models %s  Stores %s  World %s", a, b, c );
     draw.Text( subX, row0 + 36.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
 
     DrawMemoryRow( draw, x, row0 + 54.0f, labelW, "Unattrib", memory.unattributedProcessBytes, 0.82f, 0.74f, 0.55f );

@@ -15,6 +15,8 @@ Glossary:
     terrain point.
   Asset primitive: Single spawned collision body inside a placeable asset
     container, such as a box, sphere, or convex hull.
+  Scene-object group: Collection sidecar metadata that keeps multi-part editor
+    prefabs, such as releasable trees, tied to one root model slot.
 
 Invariants:
   - Preflight and commit must use matching geometry decisions.
@@ -30,6 +32,15 @@ namespace Basics
 {
 namespace RunInternal
 {
+PhysicsColliderCreateDesc MakeEditorColliderDesc( CollisionShape shape, float restitution )
+{
+    // Why: placement commit already owns the primitive geometry selected by the
+    // editor. Pass that value into physics at append time so the collider store
+    // receives exact shape facts without a GameModel readback.
+    return MakeColliderCreateDesc( std::move( shape ), restitution, HashStr( "default" ) );
+}
+
+
 static bool TryResolveEditorObjectPlacementPreflight( EditorObjectPlacementContext context,
                                                       EditorObjectPlacementRequest request,
                                                       int& outType,
@@ -116,24 +127,37 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                                                         building || ragdollStartsAsleep
                                                     ? "sleeping"
                                                     : "dynamic" );
+    // Invariant: placement selection preserves the last added row to keep the
+    // existing multi-part object behavior while carrying store-owned identity.
+    Physics::PhysicsBodyHandle lastPlacedBody;
+    int lastPlacedModelIndex = -1;
 
-    auto addModel = [&]( GameModel model, bool modelFixed, bool modelStartsAsleep = false )
+    auto addModel = [&]( GameModel model,
+                         PhysicsColliderCreateDesc colliderDesc,
+                         bool modelFixed,
+                         bool modelStartsAsleep = false,
+                         GameObjects::SceneObjectGroupCreateDesc groupDesc = {} )
     {
         // Lifetime: The new model becomes owned by GameModelCollection here.
         // Physics sleep state must be seeded immediately, while the returned
         // placement result reports only the before/after count.
         model.SetFixed( modelFixed );
         const int index = context.models.GetModelCount();
-        context.models.AddGameModel( std::move( model ) );
+        lastPlacedBody = context.models.AddGameModel(
+            std::move( model ),
+            std::move( colliderDesc ),
+            context.scene.AllocateSceneObjectId(),
+            groupDesc );
+        lastPlacedModelIndex = index;
         if ( !modelFixed )
         {
             if ( modelStartsAsleep )
             {
-                context.models.SeedModelAsleep( index );
+                SeedEditorPhysicsBodyAsleep( context.models, index );
             }
             else
             {
-                context.models.WakeModel( index );
+                WakeEditorPhysicsBody( context.models, index );
             }
         }
     };
@@ -153,7 +177,9 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
         model.SetName( name );
-        addModel( std::move( model ), placementFixed );
+        addModel( std::move( model ),
+                  MakeEditorColliderDesc( BoundingSphere( radius, Vector3( 0.0f, 0.0f, 0.0f ) ), restitution ),
+                  placementFixed );
     };
 
     auto addBox = [&]()
@@ -182,7 +208,9 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_box_%03d", modePrefix, serial );
         model.SetName( name );
-        addModel( std::move( model ), placementFixed );
+        addModel( std::move( model ),
+                  MakeEditorColliderDesc( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ), 0.25f ),
+                  placementFixed );
     };
 
     auto addHull = [&]( EditorHullAsset asset )
@@ -228,11 +256,12 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_%s_%03d", modePrefix, label, serial );
         model.SetName( name );
-        addModel( std::move( model ), placementFixed );
+        addModel( std::move( model ), MakeEditorColliderDesc( scaledHull, 0.25f ), placementFixed );
     };
 
     auto addTree = [&]( const EditorTreeDefinition& treeDefinition )
     {
+        const int treeRootModelIndex = context.models.GetModelCount();
         for ( int partIndex = 0; partIndex < treeDefinition.partCount; ++partIndex )
         {
             const EditorTreePartDefinition& part = treeDefinition.parts[partIndex];
@@ -271,7 +300,18 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             sprintf_s( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, treeDefinition.label, serial, part.suffix );
             model.SetName( name );
             const bool partFixed = treeDefinition.forceFixed || part.startsFixed || placementFixed;
-            addModel( std::move( model ), partFixed, treeDefinition.seedAsleep && !partFixed );
+            // Invariant: editor tree grouping is prefab metadata known before
+            // append. Pass it directly instead of making the collection recover
+            // group identity from display-name suffixes.
+            GameObjects::SceneObjectGroupCreateDesc groupDesc;
+            groupDesc.kind = GameObjects::GameModelCollectionKind::ReleasableTree;
+            groupDesc.rootModelIndex = treeRootModelIndex;
+            groupDesc.partIndex = partIndex;
+            addModel( std::move( model ),
+                      MakeEditorColliderDesc( hull, part.restitution ),
+                      partFixed,
+                      treeDefinition.seedAsleep && !partFixed,
+                      groupDesc );
         }
     };
 
@@ -293,7 +333,11 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
             char name[64];
             sprintf_s( name, sizeof( name ), "%s_%s_%03d_%s", modePrefix, houseDefinition.label, serial, part.suffix );
             model.SetName( name );
-            addModel( std::move( model ), placementFixed, houseDefinition.seedAsleep && !placementFixed );
+            addModel(
+                std::move( model ),
+                MakeEditorColliderDesc( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ), part.restitution ),
+                placementFixed,
+                houseDefinition.seedAsleep && !placementFixed );
         }
     };
 
@@ -317,7 +361,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                 const RotationMatrix partRotation = partCopy.GetOrientationMatrix();
                 const Vector3 authoredOrigin = base + placementRotation * offset;
                 const std::string primitiveType = EditorAssetPrimitiveType( part );
-                auto finishPartModel = [&]( GameModel&& model )
+                auto finishPartModel = [&]( GameModel&& model, PhysicsColliderCreateDesc colliderDesc )
                 {
                     model.SetTerrain( context.terrain );
                     model.SetCoefficientRestitution( restitution );
@@ -356,7 +400,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                     model.SetName( name );
                     const bool partFixed = placementFixed || EditorJsonBoolOr( part, "fixed", false );
                     const bool partSleeping = EditorJsonBoolOr( part, "sleeping", true );
-                    addModel( std::move( model ), partFixed, partSleeping && !partFixed );
+                    addModel( std::move( model ), std::move( colliderDesc ), partFixed, partSleeping && !partFixed );
                 };
 
                 if ( primitiveType == "convexHull" )
@@ -375,7 +419,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                     const Vector3 center = authoredOrigin + partRotation * hull.GetAuthoredCenterOfMass();
                     GameModel model( &context.world, center, hull.ComputeBoxApproxInertia( mass ), mass );
                     model.AddConvexHull( hull );
-                    finishPartModel( std::move( model ) );
+                    finishPartModel( std::move( model ), MakeEditorColliderDesc( hull, restitution ) );
                     return;
                 }
                 if ( primitiveType == "box" )
@@ -392,7 +436,9 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                                      CalculateBoxInertiaForHalfExtents( halfExtents, mass ),
                                      mass );
                     model.AddBoundingBox( halfExtents );
-                    finishPartModel( std::move( model ) );
+                    finishPartModel( std::move( model ),
+                                     MakeEditorColliderDesc( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ),
+                                                             restitution ) );
                     return;
                 }
                 if ( primitiveType == "sphere" )
@@ -406,7 +452,9 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                     const float mass = EditorJsonFloatOr( part, "mass", CalculateSphereMass( radius ) );
                     GameModel model( &context.world, authoredOrigin, CalculateSphereInertia( radius, mass ), mass );
                     model.AddBoundingSphere( radius );
-                    finishPartModel( std::move( model ) );
+                    finishPartModel(
+                        std::move( model ),
+                        MakeEditorColliderDesc( BoundingSphere( radius, Vector3( 0.0f, 0.0f, 0.0f ) ), restitution ) );
                     return;
                 }
                 failed = true;
@@ -428,6 +476,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         options.scale = placementScale.x;
         options.fixed = placementFixed;
         options.startsAsleep = ragdollStartsAsleep && !placementFixed;
+        options.firstSceneObjectId = context.scene.AllocateSceneObjectIdRange( Ragdoll::SIMPLE_PART_COUNT );
         Ragdoll::AddSimpleHumanoid( context.models,
                                     context.models.GetPhysicsEngine(),
                                     context.world,
@@ -530,6 +579,11 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
     outResult.placed = placed;
     outResult.modelCountBefore = modelCount;
     outResult.modelCountAfter = context.scene.modelCount;
+    outResult.placedBody = lastPlacedBody;
+    if ( placed && lastPlacedModelIndex >= 0 )
+    {
+        outResult.placedCollider = context.models.GetColliderStore().HandleForModelIndex( lastPlacedModelIndex );
+    }
     outResult.objectType = type;
     outResult.fixedObject = fixedObject;
     outResult.autoTerrainAlign = context.editor.autoTerrainAlign;

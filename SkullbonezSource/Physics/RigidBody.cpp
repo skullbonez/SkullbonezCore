@@ -91,17 +91,9 @@ RigidBody::RigidBody()
     m_coefficientRestitution = 0.9f;
     m_mass = 1.0f;
     m_volume = 1.0f;
-    m_isForceApplied = false;
     m_position = Vector::ZERO_VECTOR;
     m_linearVelocity = Vector::ZERO_VECTOR;
-    m_linearAcceleration = Vector::ZERO_VECTOR;
-    m_appliedForce = Vector::ZERO_VECTOR;
-    m_forceApplicationPoint = Vector::ZERO_VECTOR;
     m_angularVelocity = Vector::ZERO_VECTOR;
-    m_angularAcceleration = Vector::ZERO_VECTOR;
-    m_torque = Vector::ZERO_VECTOR;
-    m_worldForce = Vector::ZERO_VECTOR;
-    m_worldTorque = Vector::ZERO_VECTOR;
     m_changeInAngularVelocity = Vector::ZERO_VECTOR;
     m_rotationalInertia = Vector3( 1.0f, 1.0f, 1.0f );
     m_angularVelocityLimit = 5.0f;
@@ -111,84 +103,6 @@ RigidBody::RigidBody()
 
 RigidBody::~RigidBody()
 {
-}
-
-
-// Persistent world-space forces, such as gravity, affect the body every tick.
-// These forces act continuously every frame (unlike impulse forces which are one-shot).
-//
-// Newton's 2nd Law: F = m·a  →  a = F/m
-// After computing acceleration, we add it directly to velocity (semi-implicit Euler).
-// The same applies to angular: torque/inertia = angular acceleration.
-void RigidBody::ApplyWorldForce()
-{
-    // Linear: a = F/m, then v += a
-    Vector3 worldLinearAcceleration = m_worldForce / m_mass;
-    m_linearVelocity += worldLinearAcceleration;
-
-    // World torque must use the rotated inertia tensor for boxes and hulls.
-    RotationMatrix orientation = m_orientation.GetOrientationMatrix();
-    Vector3 localAngularImpulse = orientation.TransposeMultiply( m_worldTorque ) / m_rotationalInertia;
-    m_angularVelocity += orientation * localAngularImpulse;
-}
-
-
-// One-shot linear impulse forces are consumed on the first integration pass.
-// Used for collision responses — the force is applied once and then consumed.
-//
-// --- Newton's 2nd Law ---
-//
-//  force = mass × acceleration
-//  1 Newton = force needed to accelerate 1 kg at 1 m/s²
-//
-//  Rearranging: acceleration = force / mass
-//
-//  Example: A 2 kg ball hit with 10 N force → accelerates at 5 m/s²
-//
-void RigidBody::ApplyLinearForce()
-{
-    m_linearAcceleration = m_appliedForce / m_mass;
-    m_linearVelocity += m_linearAcceleration;
-}
-
-
-// One-shot angular impulse torque is consumed on the first integration pass.
-//
-// --- How Torque Works ---
-//
-//  Torque is the ROTATIONAL equivalent of force. It's computed as:
-//  τ = r × F  (cross product of application point and force)
-//
-//  The cross product gives a vector where:
-//  - DIRECTION = the axis the body will rotate around
-//  - MAGNITUDE = the rotational strength
-//
-//  Example: pushing a door at the handle (far from hinge) creates more torque
-//  than pushing near the hinge, even with the same force.
-//
-//  ASCII diagram — torque from off-center force:
-//
-//     Force →→→→ applied here (off-center)
-//         ↗
-//        ⊙────────── center of mass
-//        ↑
-//    r (lever arm)
-//
-//  τ = r × F → body spins about the axis perpendicular to both r and F
-//
-//  Then angular acceleration: α = τ / I  (Newton's 2nd law, rotational form)
-//
-void RigidBody::ApplyAngularForce()
-{
-    // Torque = cross product of lever arm × force.
-    // Direction = rotation axis; magnitude = rotational strength.
-    m_torque = Vector::CrossProduct( m_forceApplicationPoint, m_appliedForce );
-
-    // Angular acceleration = torque / inertia (rotational Newton's 2nd law: T = I·α → α = T/I)
-    m_angularAcceleration = m_torque / m_rotationalInertia;
-
-    // Accumulate angular velocity from this impulse
-    m_angularVelocity += m_angularAcceleration;
 }
 
 
@@ -242,32 +156,6 @@ void RigidBody::ApplyChangeInLinearVelocity()
 {
     m_linearVelocity += m_changeInLinearVelocity;
     m_changeInLinearVelocity.Zero();
-}
-
-
-void RigidBody::ApplyForces()
-{
-    ApplyWorldForce();
-
-    ApplyImpulseForce();
-}
-
-
-void RigidBody::ApplyImpulseForce()
-{
-    // only apply an inpulse force once
-    if ( m_isForceApplied )
-    {
-        return;
-    }
-    else
-    {
-        m_isForceApplied = true;
-    }
-
-    ApplyLinearForce();
-
-    ApplyAngularForce();
 }
 
 
@@ -336,13 +224,6 @@ void RigidBody::UpdatePosition( float changeInTime )
 }
 
 
-void RigidBody::ZeroForce()
-{
-    m_appliedForce.Zero();
-    m_forceApplicationPoint.Zero();
-}
-
-
 // Compute the orientation matrix at a future time (for rendering interpolation).
 // If fTime=0, returns current orientation. Otherwise, predicts where the body
 // will be oriented after fTime seconds of rotation at current angular velocity.
@@ -385,32 +266,6 @@ void RigidBody::SetRotationalInertia( const Vector3& vRotationalInertia )
     }
 
     m_rotationalInertia = vRotationalInertia;
-}
-
-
-void RigidBody::SetWorldForce( const Vector3& vWorldForce, const Vector3& vWorldTorque )
-{
-    m_worldForce = vWorldForce;
-    m_worldTorque = vWorldTorque;
-}
-
-
-void RigidBody::SetImpulseForce( const Vector3& vImpulseForce, const Vector3& vApplicationPoint )
-{
-    m_appliedForce = vImpulseForce;
-    m_forceApplicationPoint = vApplicationPoint;
-    m_isForceApplied = false;
-}
-
-
-void RigidBody::ClearImpulseForce()
-{
-    m_appliedForce.Zero();
-    m_forceApplicationPoint.Zero();
-    m_torque.Zero();
-    m_linearAcceleration.Zero();
-    m_angularAcceleration.Zero();
-    m_isForceApplied = true;
 }
 
 

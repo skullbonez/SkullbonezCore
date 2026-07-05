@@ -8,6 +8,10 @@ Mental model:
   world queries, transient visuals, physics impulses, and debug repro output.
 
 Glossary:
+  Body store: Physics-owned live body records used for pose and velocity
+    authority while legacy GameModel mirrors are retired.
+  Collider store: Physics-owned shape, material, and radius records paired with
+    body handles.
   Repro snapshot: Debug-only text dump of the object under the launcher
   crosshair, including enough scene and physics state to recreate the issue.
   Validation gate: Repository script that proves a class of changes before
@@ -25,6 +29,8 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../RunInternal.h"
+#include "../../Physics/ColliderStore.h"
+#include "../../Physics/PhysicsBodyStore.h"
 
 #include <cfloat>
 #include <memory>
@@ -39,6 +45,44 @@ using namespace SkullbonezCore::Basics::RunInternal;
 using SkullbonezCore::GameObjects::GameModelCollection;
 
 #ifdef _DEBUG
+namespace
+{
+const char* LauncherReproShapeName( ColliderShapeKind kind )
+{
+    switch ( kind )
+    {
+    case ColliderShapeKind::Box:
+        return "box";
+    case ColliderShapeKind::ConvexHull:
+        return "convex_hull";
+    case ColliderShapeKind::Sphere:
+    default:
+        return "sphere";
+    }
+}
+
+
+float LauncherReproRadius( const ColliderRecord& collider )
+{
+    return collider.boundingRadius > 0.0f ? collider.boundingRadius : GetShapeBoundingRadius( collider.shape );
+}
+
+
+const ColliderRecord* LauncherReproColliderForModelIndex( const ColliderStore& colliderStore, int modelIndex )
+{
+    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
+    return colliderStore.RecordForHandle( colliderHandle );
+}
+
+
+const PhysicsBodyRecord* LauncherReproBodyForCollider( const PhysicsBodyStore& bodyStore,
+                                                       const ColliderRecord& collider )
+{
+    return bodyStore.RecordForHandle( collider.body );
+}
+} // namespace
+
+
 bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection,
                                             CameraCollection* cameras,
                                             int& outIndex,
@@ -68,13 +112,27 @@ bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection,
     int bestIndex = -1;
 
     // Concept: Repro target picking approximates each model as a bounding
-    // sphere around its current position, then chooses the nearest sphere
-    // pierced by the camera ray.
-    int count = collection.GetModelCount();
-    for ( int i = 0; i < count; ++i )
+    // sphere around its current physics body position, then chooses the nearest
+    // sphere pierced by the camera ray. GameModel remains only the cold identity
+    // table for the eventual snapshot row.
+    const ColliderStore& colliderStore = collection.GetColliderStore();
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
+    const std::vector<ColliderRecord>& colliders = colliderStore.Records();
+    for ( const ColliderRecord& collider : colliders )
     {
-        GameModel& model = collection.GetModelAtIndex( i );
-        Vector3 toModel = model.GetPosition() - camPos;
+        const PhysicsBodyRecord* body = LauncherReproBodyForCollider( bodyStore, collider );
+        if ( !body )
+        {
+            continue;
+        }
+
+        const int modelIndex = colliderStore.ModelIndexForHandle( collider.handle );
+        if ( modelIndex < 0 )
+        {
+            continue;
+        }
+
+        Vector3 toModel = body->position - camPos;
         float rayT = toModel * rayDir;
         if ( rayT <= 0.0f )
         {
@@ -88,7 +146,7 @@ bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection,
             crosshairDistSq = 0.0f;
         }
 
-        float radius = GetShapeBoundingRadius( model.GetCollisionShape() );
+        float radius = LauncherReproRadius( collider );
         if ( crosshairDistSq > radius * radius )
         {
             continue;
@@ -105,7 +163,7 @@ bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection,
         {
             bestT = hitT;
             bestCrosshairDist = sqrtf( crosshairDistSq );
-            bestIndex = i;
+            bestIndex = modelIndex;
         }
     }
 
@@ -132,6 +190,20 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
         return LauncherReproSnapshotStatus::NoTarget;
     }
 
+    GameModel& model = context.collection.GetModelAtIndex( targetIndex );
+    const ColliderStore& colliderStore = context.collection.GetColliderStore();
+    const PhysicsBodyStore& bodyStore = context.collection.GetPhysicsBodyStore();
+    const ColliderRecord* collider = LauncherReproColliderForModelIndex( colliderStore, targetIndex );
+    if ( !collider )
+    {
+        return LauncherReproSnapshotStatus::NoTarget;
+    }
+    const PhysicsBodyRecord* body = LauncherReproBodyForCollider( bodyStore, *collider );
+    if ( !body )
+    {
+        return LauncherReproSnapshotStatus::NoTarget;
+    }
+
     CreateDirectoryA( "Debug", nullptr );
     FILE* rawFile = nullptr;
     if ( fopen_s( &rawFile, LAUNCHER_REPRO_SNAPSHOT_PATH, "a" ) != 0 || !rawFile )
@@ -141,23 +213,25 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     std::unique_ptr<FILE, decltype( &fclose )> file( rawFile, fclose );
     FILE* f = file.get();
 
-    GameModel& model = context.collection.GetModelAtIndex( targetIndex );
-    const Vector3& pos = model.GetPosition();
-    const Vector3& vel = model.GetVelocity();
-    const Vector3& omega = model.GetAngularVelocity();
-    const Vector3& inertia = model.GetRotationalInertia();
-    const Vector3& invInertia = model.GetInvertedRotationalInertia();
+    const Vector3& pos = body->position;
+    const Vector3& vel = body->linearVelocity;
+    const Vector3& omega = body->angularVelocity;
+    const Vector3& inertia = body->rotationalInertia;
+    const Vector3& invInertia = body->invRotationalInertia;
     float qx = 0.0f, qy = 0.0f, qz = 0.0f, qw = 1.0f;
-    model.GetOrientation().GetComponents( qx, qy, qz, qw );
+    Quaternion orientation = body->orientation;
+    orientation.GetComponents( qx, qy, qz, qw );
 
-    const CollisionShape& shape = model.GetCollisionShape();
+    const CollisionShape& shape = collider->shape;
     bool isSphere = std::holds_alternative<BoundingSphere>( shape );
     bool isBox = std::holds_alternative<BoundingBox>( shape );
-    const char* shapeName = model.GetShapeName();
-    float boundingRadius = GetShapeBoundingRadius( shape );
+    const char* shapeName = LauncherReproShapeName( collider->shapeKind );
+    float boundingRadius = LauncherReproRadius( *collider );
     float shapeVolume = GetShapeVolume( shape );
-    float shapeArea = GetShapeProjectedSurfaceArea( shape );
-    float shapeDrag = GetShapeDragCoefficient( shape );
+    float shapeArea = collider->projectedSurfaceArea;
+    float shapeDrag = collider->dragCoefficient;
+    float mass = body->mass;
+    float restitution = collider->restitution;
     const char* name = model.GetName();
     if ( !name || name[0] == '\0' )
     {
@@ -238,7 +312,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     if ( std::holds_alternative<BoundingBox>( shape ) && context.terrain )
     {
         const BoundingBox& box = std::get<BoundingBox>( shape );
-        Quaternion qCopy = model.GetOrientation();
+        Quaternion qCopy = body->orientation;
         RotationMatrix orientMat = qCopy.GetOrientationMatrix();
         const BoxTerrainVertexSupportProbe supportProbe =
             ProbeBoxTerrainVertices( box, pos, orientMat, *context.terrain, Cfg().contactEpsilon, false );
@@ -327,8 +401,8 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     fprintf( f, "speed,%.6f\n", sqrtf( VectorMagSquared( vel ) ) );
     fprintf( f, "omega_mag,%.6f\n", sqrtf( VectorMagSquared( omega ) ) );
     fprintf( f, "orientation_q,%.8f,%.8f,%.8f,%.8f\n", qx, qy, qz, qw );
-    fprintf( f, "mass,%.6f\n", model.GetMass() );
-    fprintf( f, "restitution,%.6f\n", model.GetCoefficientRestitution() );
+    fprintf( f, "mass,%.6f\n", mass );
+    fprintf( f, "restitution,%.6f\n", restitution );
     fprintf( f, "rotational_inertia,%.6f,%.6f,%.6f\n", inertia.x, inertia.y, inertia.z );
     fprintf( f, "inverse_rotational_inertia,%.6f,%.6f,%.6f\n", invInertia.x, invInertia.y, invInertia.z );
     fprintf( f, "shape_bounding_radius,%.6f\n", boundingRadius );
@@ -375,23 +449,13 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     if ( isSphere )
     {
         const BoundingSphere& sphere = std::get<BoundingSphere>( shape );
-        fprintf( f,
-                 " radius=%.6f mass=%.6f restitution=%.6f",
-                 sphere.GetRadius(),
-                 model.GetMass(),
-                 model.GetCoefficientRestitution() );
+        fprintf( f, " radius=%.6f mass=%.6f restitution=%.6f", sphere.GetRadius(), mass, restitution );
     }
     else if ( isBox )
     {
         const BoundingBox& box = std::get<BoundingBox>( shape );
         const Vector3& he = box.GetHalfExtents();
-        fprintf( f,
-                 " halfExtents=%.6f,%.6f,%.6f mass=%.6f restitution=%.6f",
-                 he.x,
-                 he.y,
-                 he.z,
-                 model.GetMass(),
-                 model.GetCoefficientRestitution() );
+        fprintf( f, " halfExtents=%.6f,%.6f,%.6f mass=%.6f restitution=%.6f", he.x, he.y, he.z, mass, restitution );
     }
     else
     {
@@ -402,8 +466,8 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
                  static_cast<unsigned>( hull.GetVertexCount() ),
                  static_cast<unsigned>( hull.GetFaceCount() ),
                  static_cast<unsigned>( hull.GetEdgeCount() ),
-                 model.GetMass(),
-                 model.GetCoefficientRestitution() );
+                 mass,
+                 restitution );
     }
     fprintf( f, "\n" );
     fprintf( f, "=== END LAUNCHER REPRO SNAPSHOT ===\n" );

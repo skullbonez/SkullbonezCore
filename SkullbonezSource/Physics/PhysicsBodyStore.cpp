@@ -8,8 +8,7 @@ Mental model:
   LoadFromModels copies legacy construction/runtime state into compatibility
   rows. Standalone creation appends dense rows directly. PhysicsWorld or the
   standalone step mutates records, then named compatibility writeback keeps
-  older render, replay, tool, terrain, and shape callers working until they move
-  to store-backed views.
+  remaining model-side readers working until they move to store-backed views.
 
 Glossary:
   Body: Simulated object state such as position, orientation, velocity, mass,
@@ -34,11 +33,11 @@ Related:
 */
 #include "PhysicsBodyStore.h"
 #include "ColliderStore.h"
-#include "PhysicsModelAccess.h"
 #include "PhysicsWorldForces.h"
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <type_traits>
@@ -68,6 +67,7 @@ using SkullbonezCore::Physics::PHYSICS_HANDLE_INITIAL_GENERATION;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Physics::PhysicsWorldForces;
 
 namespace
@@ -92,6 +92,18 @@ struct PreservedRefreshState
     bool isSleeping = false;
     bool hasState = false;
 };
+
+float PositiveInverseOrZero( float value )
+{
+    return value > 0.000001f ? 1.0f / value : 0.0f;
+}
+
+Vector3 PositiveComponentInverseOrZero( const Vector3& value )
+{
+    return Vector3( PositiveInverseOrZero( value.x ),
+                    PositiveInverseOrZero( value.y ),
+                    PositiveInverseOrZero( value.z ) );
+}
 
 const ColliderRecord* ColliderRecordForModelIndex( const ColliderStore& colliderStore, int modelIndex )
 {
@@ -880,7 +892,7 @@ void IntegrateBodyRecordPose( PhysicsBodyRecord& record, float deltaSeconds )
     }
 }
 
-void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record )
+void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record, int fixedTreeReleaseRootIndex )
 {
     record.position = model.GetPosition();
     record.orientation = model.GetOrientation();
@@ -904,23 +916,7 @@ void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record )
     record.isFixed = model.IsFixed();
     record.usesWorldInertia = model.UsesWorldInertia();
     record.releasesFromFixedOnContact = model.ReleasesFromFixedOnContact();
-}
-
-void WriteRecordToCompatibilityModel( const PhysicsBodyRecord& record, GameModel& model )
-{
-    model.SetFixed( record.isFixed );
-    model.SetPosition( record.position );
-    model.SetOrientation( record.orientation );
-    model.SetLinearVelocity( record.linearVelocity );
-    model.SetAngularVelocity( record.angularVelocity );
-    if ( record.hasPendingImpulse )
-    {
-        model.SetImpulseForce( record.pendingImpulse, record.pendingImpulseApplicationPoint );
-    }
-    else
-    {
-        model.ClearImpulseForce();
-    }
+    record.fixedTreeReleaseRootIndex = fixedTreeReleaseRootIndex;
 }
 
 } // namespace
@@ -1058,14 +1054,17 @@ void PhysicsBodyStore::Clear()
 }
 
 
-void PhysicsBodyStore::Refresh( std::vector<GameModel>& models, const std::vector<uint8_t>& sleepStates )
+void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models,
+                                       const std::vector<uint32_t>& replayBodyIds,
+                                       const std::vector<int>& fixedTreeReleaseRootIndices,
+                                       const std::vector<uint8_t>& sleepStates )
 {
-    LoadFromModels( models, sleepStates );
-}
-
-
-void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std::vector<uint8_t>& sleepStates )
-{
+    assert( replayBodyIds.size() == models.size() );
+    assert( fixedTreeReleaseRootIndices.size() == models.size() );
+    // Invariant: GameModel no longer owns replay identity. The model array is
+    // only the compatibility source for mutable body authoring data; replay ids
+    // and fixed-tree release roots arrive as cold scratch streams rebuilt by the
+    // collection owner edge, not by physics querying model metadata.
     const std::vector<PreservedRefreshState> preservedStateByHandle =
         CapturePreservedRefreshState( m_bodies, m_handleGenerations.size() );
     std::vector<uint8_t> assignedHandleSlots( m_handleGenerations.size(), 0 );
@@ -1075,7 +1074,7 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std
     {
         GameModel& model = models[i];
         PhysicsBodyRecord& record = m_bodies[i];
-        const uint32_t replayBodyId = model.GetReplayBodyId();
+        const uint32_t replayBodyId = replayBodyIds[i];
         const PhysicsBodyHandle handle =
             ResolveHandleForModelIndex( static_cast<int>( i ), replayBodyId, assignedHandleSlots );
         // Why: refresh copies live compatibility state every frame, but a
@@ -1086,7 +1085,7 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std
         record.handle = handle;
         record.replayBodyId = replayBodyId;
         record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
-        CaptureMutableBodyState( model, record );
+        CaptureMutableBodyState( model, record, fixedTreeReleaseRootIndices[i] );
         if ( preservedState && preservedState->hasPendingImpulse )
         {
             record.pendingImpulse = preservedState->pendingImpulse;
@@ -1104,6 +1103,18 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models, const std
         m_modelBodyHandles[i] = record.handle;
     }
     RetireUnassignedHandles( assignedHandleSlots );
+}
+
+
+PhysicsBodyRecord SkullbonezCore::Physics::MakeBodyRecordFromAuthoredModel( GameModel& model,
+                                                                            PhysicsSceneObjectId sceneObjectId,
+                                                                            int fixedTreeReleaseRootIndex )
+{
+    PhysicsBodyRecord record;
+    record.sceneObjectId = sceneObjectId;
+    record.replayBodyId = sceneObjectId.value;
+    CaptureMutableBodyState( model, record, fixedTreeReleaseRootIndex );
+    return record;
 }
 
 
@@ -1237,7 +1248,7 @@ bool PhysicsBodyStore::TrimToCount( int bodyCount )
 //
 // GameModel may still be updated for presentation compatibility, but the body
 // record must not reload pose, velocity, mass, or inertia from that mirror.
-bool PhysicsBodyStore::RestoreReplayBodyState( int modelIndex,
+bool PhysicsBodyStore::RestoreReplayBodyState( PhysicsBodyHandle body,
                                                uint32_t replayBodyId,
                                                bool fixed,
                                                const Vector3& position,
@@ -1249,7 +1260,7 @@ bool PhysicsBodyStore::RestoreReplayBodyState( int modelIndex,
                                                const Vector3& rotationalInertia,
                                                const Vector3& inverseRotationalInertia )
 {
-    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
+    PhysicsBodyRecord* record = MutableRecordForHandle( body );
     if ( !record || record->replayBodyId != replayBodyId )
     {
         return false;
@@ -1271,30 +1282,9 @@ bool PhysicsBodyStore::RestoreReplayBodyState( int modelIndex,
 }
 
 
-void PhysicsBodyStore::WriteBackToModels( std::vector<GameModel>& models ) const
-{
-    const int modelCount = (std::min)( static_cast<int>( models.size() ), Count() );
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        WriteBackToModelAt( models, i );
-    }
-}
-
-
-void PhysicsBodyStore::WriteBackToModelAt( std::vector<GameModel>& models, int modelIndex ) const
-{
-    if ( modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) ||
-         modelIndex >= static_cast<int>( m_bodies.size() ) )
-    {
-        return;
-    }
-
-    WriteRecordToCompatibilityModel( m_bodies[static_cast<std::size_t>( modelIndex )],
-                                     models[static_cast<std::size_t>( modelIndex )] );
-}
-
-
-void PhysicsBodyStore::CaptureMutableStateFromModelAt( std::vector<GameModel>& models, int modelIndex )
+void PhysicsBodyStore::CaptureMutableStateFromModelAt( std::vector<GameModel>& models,
+                                                       int modelIndex,
+                                                       int fixedTreeReleaseRootIndex )
 {
     PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
     if ( !record || modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) )
@@ -1302,7 +1292,7 @@ void PhysicsBodyStore::CaptureMutableStateFromModelAt( std::vector<GameModel>& m
         return;
     }
 
-    CaptureMutableBodyState( models[static_cast<std::size_t>( modelIndex )], *record );
+    CaptureMutableBodyState( models[static_cast<std::size_t>( modelIndex )], *record, fixedTreeReleaseRootIndex );
 }
 
 
@@ -1323,6 +1313,75 @@ void PhysicsBodyStore::CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) co
     for ( std::size_t i = 0; i < m_bodies.size(); ++i )
     {
         sleepStates[i] = m_bodies[i].isSleeping ? 1 : 0;
+    }
+}
+
+
+// Why: fixed records keep their authored mass and inertia even while solver
+// reciprocals are zero. Release paths must restore those reciprocals in-place
+// so they do not need a GameModel writeback plus full body-store reload.
+void PhysicsBodyStore::ReleaseFixedRecord( PhysicsBodyRecord& record,
+                                           const Vector3& seedLinearVelocity,
+                                           const Vector3& seedAngularVelocity )
+{
+    record.isFixed = false;
+    record.isSleeping = false;
+    record.invMass = PositiveInverseOrZero( record.mass );
+    record.invRotationalInertia = PositiveComponentInverseOrZero( record.rotationalInertia );
+    record.linearVelocity = seedLinearVelocity;
+    record.angularVelocity = seedAngularVelocity;
+}
+
+
+void PhysicsBodyStore::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event,
+                                                      std::vector<int>& outReleasedBodyIndices )
+{
+    outReleasedBodyIndices.clear();
+    const int sourceIndex = event.sourceIndex;
+    if ( sourceIndex < 0 || sourceIndex >= Count() )
+    {
+        return;
+    }
+
+    const PhysicsBodyRecord& sourceRecord = m_bodies[static_cast<std::size_t>( sourceIndex )];
+    const int sourceRootModelIndex = sourceRecord.fixedTreeReleaseRootIndex;
+    if ( sourceRootModelIndex < 0 )
+    {
+        return;
+    }
+
+    // Why: fixed-tree grouping is copied into the body row during refresh, so
+    // same-frame releases do not borrow GameModelCollection while the solver is
+    // mutating live body state.
+    const float sourceY = sourceRecord.position.y;
+    const int bodyCount = Count();
+    for ( int i = 0; i < bodyCount; ++i )
+    {
+        if ( i == sourceIndex )
+        {
+            continue;
+        }
+
+        PhysicsBodyRecord& record = m_bodies[static_cast<std::size_t>( i )];
+        if ( record.fixedTreeReleaseRootIndex != sourceRootModelIndex )
+        {
+            continue;
+        }
+        if ( record.position.y + 0.05f < sourceY )
+        {
+            continue;
+        }
+
+        if ( record.isFixed )
+        {
+            if ( !record.releasesFromFixedOnContact )
+            {
+                continue;
+            }
+            ReleaseFixedRecord( record, event.seedLinearVelocity, event.seedAngularVelocity );
+        }
+
+        outReleasedBodyIndices.push_back( i );
     }
 }
 
@@ -1353,6 +1412,45 @@ PhysicsBodyHandle PhysicsBodyStore::HandleForModelIndex( int modelIndex ) const
     }
 
     return m_modelBodyHandles[static_cast<std::size_t>( modelIndex )];
+}
+
+
+PhysicsBodyHandle PhysicsBodyStore::HandleForReplayBodyId( uint32_t replayBodyId, int modelIndexHint ) const
+{
+    if ( replayBodyId == 0 )
+    {
+        return PhysicsBodyHandle{};
+    }
+
+    const PhysicsBodyHandle hintedHandle = HandleForModelIndex( modelIndexHint );
+    if ( Contains( hintedHandle ) )
+    {
+        const std::size_t hintedSlot = static_cast<std::size_t>( hintedHandle.index );
+        if ( hintedSlot < m_handleReplayBodyIds.size() && m_handleReplayBodyIds[hintedSlot] == replayBodyId )
+        {
+            return hintedHandle;
+        }
+    }
+
+    const std::size_t slotCount =
+        (std::min)( m_handleGenerations.size(), (std::min)( m_handleAlive.size(), m_handleReplayBodyIds.size() ) );
+    for ( std::size_t slot = 0; slot < slotCount; ++slot )
+    {
+        if ( m_handleAlive[slot] == 0 || m_handleReplayBodyIds[slot] != replayBodyId )
+        {
+            continue;
+        }
+
+        PhysicsBodyHandle handle;
+        handle.index = static_cast<uint32_t>( slot );
+        handle.generation = m_handleGenerations[slot];
+        if ( Contains( handle ) )
+        {
+            return handle;
+        }
+    }
+
+    return PhysicsBodyHandle{};
 }
 
 
@@ -1454,15 +1552,9 @@ bool PhysicsBodyStore::WakeBody( PhysicsBodyHandle body )
 }
 
 
-bool PhysicsBodyStore::WakeBody( int modelIndex )
+bool PhysicsBodyStore::SeedBodyAsleep( PhysicsBodyHandle body )
 {
-    return WakeBody( HandleForModelIndex( modelIndex ) );
-}
-
-
-bool PhysicsBodyStore::SeedBodyAsleep( int modelIndex )
-{
-    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
+    PhysicsBodyRecord* record = MutableRecordForHandle( body );
     if ( !record || record->isFixed )
     {
         return false;
@@ -1471,6 +1563,22 @@ bool PhysicsBodyStore::SeedBodyAsleep( int modelIndex )
     record->linearVelocity = ZERO_VECTOR;
     record->angularVelocity = ZERO_VECTOR;
     record->isSleeping = true;
+    return true;
+}
+
+
+bool PhysicsBodyStore::SetBodyVelocity( PhysicsBodyHandle body,
+                                        const Vector3& linearVelocity,
+                                        const Vector3& angularVelocity )
+{
+    PhysicsBodyRecord* record = MutableRecordForHandle( body );
+    if ( !record || record->isFixed )
+    {
+        return false;
+    }
+
+    record->linearVelocity = linearVelocity;
+    record->angularVelocity = angularVelocity;
     return true;
 }
 
@@ -1492,14 +1600,6 @@ bool PhysicsBodyStore::SetPendingBodyImpulse( PhysicsBodyHandle body,
 }
 
 
-bool PhysicsBodyStore::SetPendingBodyImpulse( int modelIndex,
-                                              const Vector3& impulse,
-                                              const Vector3& localApplicationPoint )
-{
-    return SetPendingBodyImpulse( HandleForModelIndex( modelIndex ), impulse, localApplicationPoint );
-}
-
-
 bool PhysicsBodyStore::ApplyBodyImpulse( PhysicsBodyHandle body,
                                          const Vector3& impulse,
                                          const Vector3& localApplicationPoint )
@@ -1507,12 +1607,6 @@ bool PhysicsBodyStore::ApplyBodyImpulse( PhysicsBodyHandle body,
     const bool pending = SetPendingBodyImpulse( body, impulse, localApplicationPoint );
     WakeBody( body );
     return pending;
-}
-
-
-bool PhysicsBodyStore::ApplyBodyImpulse( int modelIndex, const Vector3& impulse, const Vector3& localApplicationPoint )
-{
-    return ApplyBodyImpulse( HandleForModelIndex( modelIndex ), impulse, localApplicationPoint );
 }
 
 

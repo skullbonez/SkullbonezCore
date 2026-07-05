@@ -38,6 +38,8 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
     }
 
     const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+    const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
     ReplayBodyId pickedId;
     int pickedIndex = -1;
     char pickedName[64] = {};
@@ -49,7 +51,7 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
             float radius = 1.0f;
             if ( body.modelIndex >= 0 && body.modelIndex < static_cast<int>( models.size() ) )
             {
-                radius = EditorModelRadius( models[static_cast<std::size_t>( body.modelIndex )] ) + 1.0f;
+                radius = ReplayColliderRadiusForModelIndex( colliderStore, body.modelIndex ) + 1.0f;
             }
             float rayT = 0.0f;
             if ( IntersectRaySphere( rayOrigin, rayDirection, body.position, radius, rayT ) && rayT < bestT )
@@ -69,7 +71,8 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
     {
         RuntimePickRequest request;
         request.purpose = RuntimePickPurpose::ReplayPathTarget;
-        request.models = &models;
+        request.bodyStore = &bodyStore;
+        request.colliderStore = &colliderStore;
         request.rayOrigin = rayOrigin;
         request.rayDirection = rayDirection;
 
@@ -79,7 +82,7 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
         {
             pickedIndex = result.modelIndex;
             const GameModel& model = models[static_cast<std::size_t>( pickedIndex )];
-            pickedId.value = model.GetReplayBodyId();
+            pickedId = ReplayBodyIdForModelIndex( bodyStore, pickedIndex );
             const char* modelName = model.GetName();
             if ( modelName && modelName[0] != '\0' )
             {
@@ -90,13 +93,13 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
 
     if ( pickedIndex >= 0 && pickedIndex < static_cast<int>( models.size() ) )
     {
-        const int collectionIndex = ReplayRagdollTorsoModelIndexForPart( models, pickedIndex );
+        const int collectionIndex = ReplayRagdollTorsoModelIndexForPart( m_cGameModelCollection, pickedIndex );
         if ( collectionIndex >= 0 && collectionIndex < static_cast<int>( models.size() ) &&
              collectionIndex != pickedIndex )
         {
             const GameModel& rootModel = models[static_cast<std::size_t>( collectionIndex )];
             pickedIndex = collectionIndex;
-            pickedId.value = rootModel.GetReplayBodyId();
+            pickedId = ReplayBodyIdForModelIndex( bodyStore, collectionIndex );
             pickedName[0] = '\0';
             const char* rootName = rootModel.GetName();
             if ( rootName && rootName[0] != '\0' )

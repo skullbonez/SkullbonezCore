@@ -4,11 +4,392 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_full.bat` passed on
-2026-07-03 after deleting the physics inheritance/event-sink surface and
-turning `PhysicsModelAccess` into a concrete stack-owned facade.
+2026-07-05 after deleting `GameModel` runtime collection metadata and moving
+scene-object grouping into a dense `GameModelCollection` sidecar. Runtime
+boundaries reported 0 errors, Profile/Debug builds were 0 warnings/errors, DX12
+InfoQueue reported 0 errors with screenshots matching baselines, and
+`physics_regression_solver.csv` was byte-exact.
 
 ## Completed Slices
 
+- [x] 2026-07-05: Deleted `GameModel` runtime collection fields/accessors and
+  moved scene-object grouping into `GameModelCollection`.
+  `GameModelCollection` now owns a same-length `SceneObjectGroupRecord` sidecar
+  keyed by model slot; ragdoll creation no longer writes metadata into
+  `GameModel`, and editor/replay/attached-camera/snapshot code asks the
+  collection for group kind, root, part, and simple-ragdoll membership. Owner:
+  `GameModelCollection` owns cold scene-object grouping until the broader
+  scene/entity identity work replaces model-order grouping entirely. Reason:
+  runtime kind/root/part fields on every `GameModel` were compatibility payload
+  and encouraged cold metadata reads from replay/editor/input code. Deletion
+  condition: `GameModel.h/cpp` contain no runtime collection fields or
+  `SetRuntimeCollection` / `GetRuntimeCollection*` accessors. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects the deleted GameModel runtime
+  collection fields/accessors source-wide with old/allowed/comment self-tests.
+  Validation: `tools\validate_full.bat` passed project filters/runtime
+  boundaries, Profile/Debug builds at 0 warnings/errors, DX12 InfoQueue 0
+  errors, screenshots matching baselines, and byte-exact
+  `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved fixed-tree release root metadata lookup out of
+  `PhysicsBodyStore`. `GameModelCollection` now converts legacy runtime
+  collection grouping into a plain `fixedTreeReleaseRootIndex` scalar at append,
+  topology repair, and single-body refresh; `PhysicsBodyStore` consumes that
+  scalar while importing mutable body data and no longer reads
+  `GameModelCollectionKind` or `GetRuntimeCollection*`. Owner:
+  `GameModelCollection` owns the remaining grouping metadata until scene/entity
+  identity replaces the legacy `GameModel` fields. Reason: fixed-tree grouping
+  is scene/entity metadata, not body-store import authority, and a hidden model
+  metadata read inside `PhysicsBodyStore` would keep the old boundary alive.
+  Deletion condition: `PhysicsBodyStore.h/cpp` contain no runtime collection
+  metadata tokens. Checker budget: `tools/check_runtime_boundaries.py` rejects
+  `GameModelCollectionKind`, `GetRuntimeCollection*`, and
+  `SetRuntimeCollection` inside `PhysicsBodyStore`, with old/allowed/comment
+  self-tests. Validation: residue scan found no blocked tokens in
+  `PhysicsBodyStore`; `git diff --check`, boundary-checker Python compile,
+  runtime boundaries with 0 errors, and touched-source comment audit passed;
+  `tools\validate_fast.bat` passed format/project filters/runtime boundaries
+  plus Profile/Debug builds at 0 warnings/errors; `tools\validate_physics.bat`
+  passed standalone/runtime handle smoke and byte-exact
+  `physics_regression_solver.csv`.
+- [x] 2026-07-05: Deleted the `PhysicsModelAccess::RefreshRenderInstances()`
+  facade. `GameModelCollection` now owns the one cold render projection fill
+  because material/highlight presentation facts still live with model order;
+  `PhysicsScene`/`PhysicsEngine` only prepare body/collider rows before that
+  owner-side fill. Owner: `GameModelCollection` owns the remaining
+  model-order presentation projection; `PhysicsScene` owns store preparation and
+  validation. Reason: a render refresh method on `PhysicsModelAccess` made the
+  compatibility facade look like a general render bridge and encouraged a
+  callback/adapter shape in the render path. Deletion condition:
+  `PhysicsModelAccess.h` and its definitions expose no
+  `RefreshRenderInstances()` method; `GameModelCollection::RefreshRenderInstances()`
+  is private; mutable render-store access remains limited to
+  `GameModelCollection`, `PhysicsEngine`, and `PhysicsScene`. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects the deleted render refresh facade
+  and any new `MutableRenderInstances()` caller outside those owner/forwarding
+  files. Validation: CodeGraph traced the old render refresh path; residue scan
+  found no deleted source calls; `git diff --check`, boundary-checker Python
+  compile, runtime boundaries with 0 errors, and touched-source comment audit
+  passed; `tools\validate_full.bat` passed project filters, runtime boundaries,
+  Profile/Debug builds at 0 warnings/errors, DX12 InfoQueue 0 errors, DX12
+  screenshots matching baselines, and byte-exact 20,001-line
+  `physics_regression_solver.csv`.
+- [x] 2026-07-05: Deleted the generic `PhysicsModelAccess::ModelCount()` query.
+  `GameModelCollection` now computes model count at the owner boundary and
+  passes the expected count into `PhysicsEngine::RefreshBodyFromModel()` and
+  render-projection preparation. `PhysicsScene` compares body/collider store
+  counts against that caller-owned value before requesting model-owner
+  refreshes, so `PhysicsModelAccess` remains a narrow refresh facade instead of
+  a model-order query surface. Owner: `GameModelCollection` owns model order;
+  `PhysicsScene` owns store count validation. Reason: a count query on the
+  compatibility facade made it too easy for future physics code to treat the
+  model owner as a general view again. Deletion condition:
+  `PhysicsModelAccess.h` and `GameModelCollection.cpp` contain no
+  `PhysicsModelAccess::ModelCount` declaration or definition, and refresh
+  callers pass explicit expected counts. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects `ModelCount`, `Count`, and `size`
+  style queries on `PhysicsModelAccess`. Validation: CodeGraph traced the body
+  and render refresh call paths; residue scan found no deleted source calls;
+  `git diff --check`, boundary-checker Python compile, runtime boundaries with 0
+  errors, focused Profile build with 0 warnings/errors, and touched-source
+  comment audit passed; `tools\validate_fast.bat` passed formatting, project
+  filters, runtime boundaries, and Profile/Debug builds with 0 warnings/errors;
+  `tools\validate_physics.bat` passed standalone/runtime smoke and byte-exact
+  20,001-line `physics_regression_solver.csv`.
+- [x] 2026-07-05: Deleted the remaining `GameModelCollection` replay-id
+  allocator. Scene/editor/runtime creation now allocates
+  `PhysicsSceneObjectId` values from `RunSceneState` and passes them into
+  `GameModelCollection::AddGameModel()`; ragdoll reserves a caller-owned
+  contiguous range, launcher projectiles allocate from scene state, and replay
+  restore re-bases the scene cursor from `PhysicsBodyStore` rows after trimming.
+  `GameModelCollection` no longer has `m_nextReplayBodyId`,
+  `ReserveReplayBodyId()`, `RebuildNextReplayBodyIdFromBodyStore()`, or an
+  optional replay-id append signature. It appends model order and forwards the
+  caller-supplied scene id into body/collider rows. Owner: `RunSceneState` owns
+  per-load creation identity; `PhysicsBodyStore` owns stored scene/replay ids
+  after append; `GameModelCollection` owns neither allocator. Reason: collection
+  allocation was a contrived migration artifact that hid scene object identity
+  behind the model container and made replay rewind cursor drift likely.
+  Deletion condition: source contains no collection replay-id cursor, reserve
+  helper, rebuild helper, or optional `AddGameModel(..., uint32_t replayBodyId)`
+  shape; local cold reload scratch remains local to topology repair. Checker
+  budget: `tools/check_runtime_boundaries.py` rejects the deleted allocator and
+  old append signature while allowing local reload scratch. Validation:
+  `git diff --check`, boundary-checker Python compile, workqueue CSV parse,
+  runtime boundaries with 0 errors, focused Profile build with 0 warnings/errors,
+  `tools\validate_format.bat`, and touched-source comment audit passed;
+  `tools\validate_full.bat` passed Project Filters/runtime boundaries,
+  Profile/Debug builds at 0 warnings/errors, DX12 InfoQueue 0 errors, screenshots
+  matching baselines, and byte-exact 20,001-line `physics_regression_solver.csv`.
+- [x] 2026-07-05: Deleted the persistent `GameModelCollection` replay-id
+  sidecar. Replay identity now lives in `PhysicsBodyStore` rows after append;
+  the follow-up scene-owned creation slice deleted the temporary collection
+  allocator, leaving only a local scratch id stream during cold body
+  reload/topology repair by reading existing body-store rows plus assigning ids
+  for genuinely missing legacy rows. Main-memory diagnostics no longer report
+  collection replay-id bytes.
+  Owner: `PhysicsBodyStore` owns persistent body replay identity after
+  creation; `RunSceneState` owns live creation id allocation after the follow-up
+  slice. Reason: the old dense sidecar duplicated a store-owned scalar in
+  scene order and made it easy to keep a cache-hostile migration artifact alive
+  under a compatibility name. Deletion condition: `SkullbonezSource` contains no
+  persistent collection replay-id sidecar or replay-id memory-stat field, and
+  reload scratch stays local to the cold topology repair path. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects the deleted sidecar/stat spellings
+  and includes a positive self-test for the allowed local reload scratch.
+  Validation: residue scan found no deleted sidecar/stat names under
+  `SkullbonezSource`; `git diff --check`, boundary-checker Python compile,
+  workqueue CSV parse, runtime boundaries with 0 errors, focused Profile build
+  with 0 warnings/errors, touched-file comment audit, and
+  `tools\validate_format.bat` passed; `tools\validate_fast.bat` passed in
+  38.4s; `tools\validate_physics.bat` passed in 13.9s with
+  `collider_refresh=pass` and byte-exact 20,001-line
+  `physics_regression_solver.csv`.
+- [x] 2026-07-05: Removed runtime-config collider descriptor recapture from
+  `GameModelCollection::ApplyRuntimeConfig()`. The collection still updates
+  `GameModel` scalar compatibility policy for editor/presentation callers, but
+  physics now applies `PhysicsMaterial` directly to existing `ColliderStore`
+  rows through `PhysicsEngine::ApplyColliderMaterial()` and
+  `ColliderStore::ApplyPhysicsMaterial()`. That dense pass touches only friction
+  and sphere drag, preserving exact shape records, stable collider handles, and
+  body/collider mappings. Owner: `GameModelCollection` owns compatibility
+  config application; `ColliderStore` owns live collider response and drag
+  scalars. Reason: config changes material policy, not shape authoring, so
+  rebuilding every collider descriptor from `GameModel` was extra copying and
+  duplicate authority. Deletion condition: same-count editor shape edits and
+  topology drift no longer recapture model-field collider facts; descriptor
+  commands and fail-closed collider rebinding own those paths. Checker
+  budget: `tools/check_runtime_boundaries.py` rejects
+  `UpdateColliderStoreFromModel()` inside `ApplyRuntimeConfig()` with negative
+  and positive self-tests. Validation: `git diff --check`,
+  boundary-checker Python compile, runtime boundaries with 0 errors, focused
+  Profile build with 0 warnings/errors, and touched-file comment audit passed;
+  `tools\validate_fast.bat` passed formatting, project filters, runtime
+  boundaries, Profile build, and Debug build with 0 warnings/errors;
+  `tools\validate_physics.bat` passed standalone/runtime smoke with
+  `collider_refresh=pass` and byte-exact 20,001-line
+  `physics_regression_solver.csv`.
+- [x] 2026-07-05: Removed the public bare append path from
+  `GameModelCollection::AddGameModel()` and made every creation caller pass a
+  `PhysicsColliderCreateDesc`. `Physics::MakeColliderCreateDesc()` now derives
+  bounding radius, projected area, and drag once from caller-owned shape facts;
+  ragdoll parts, editor placement, runtime handle smoke bodies, launcher
+  projectiles, authored scenes, and generated scenes all pass descriptors at
+  append. `GameModelCollection` moves that descriptor through append, fills the
+  new body handle and scene object id, applies collection material policy, and
+  registers the collider without recapturing from `GameModel`. Owner:
+  construction callers own primitive facts; `PhysicsScene` owns live collider
+  rows. Reason: every append site already has radius, half-extents, hull,
+  restitution, and contact-material facts before model handoff; rereading them
+  from `GameModel` adds cold copies and keeps the old mirror authoritative.
+  Deletion condition: `CaptureAuthoredColliderDesc()` remains only for
+  same-count editor shape edits and topology drift until explicit collider
+  update commands replace model-field recapture. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects bare
+  `AddGameModel(std::move(...))` in scene, editor, launcher, runtime smoke, and
+  ragdoll construction files, with self-tests for old and allowed shapes.
+  Validation: `git diff --check`, boundary-checker Python compile, runtime
+  boundaries with 0 errors, focused Profile build with 0 warnings/errors, and
+  touched-file comment audit passed; `tools\validate_fast.bat` passed
+  formatting, project filters, runtime boundaries, Profile build, and Debug
+  build with 0 warnings/errors; `tools\validate_physics.bat` passed
+  standalone/runtime smoke with `collider_refresh=pass` and byte-exact
+  20,001-line `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved authored/generated scene primitive and hull creation to
+  direct `PhysicsColliderCreateDesc` submission at `AddGameModel()`.
+  `SceneAuthoredSetup` and `SceneGeneratedSetup` now build descriptors from the
+  parsed/generated radius, half-extents, hull, restitution, and contact material
+  already present at the scene boundary. `GameModelCollection` fills the new
+  body handle, scene object id, and current collection physics material policy
+  before registering the collider, so friction and sphere drag behavior remain
+  unchanged while those scene paths stop rereading shape/material facts from
+  `GameModel`. Owner: scene setup authored facts plus `PhysicsScene` live
+  collider row import. Reason: primitive/hull scene setup already owns the
+  values needed to create collider rows; recapturing them from `GameModel`
+  added duplicate authority and a pointless compatibility hop. Deletion
+  condition: ragdoll/editor creation also passes descriptors, runtime config no
+  longer recaptures descriptors, and `CaptureAuthoredColliderDesc()` is deleted
+  from `GameModelCollection`.
+  Checker budget: `tools/check_runtime_boundaries.py` rejects bare scene
+  `AddGameModel(std::move(...))` calls and follows
+  `AppendGameModelAndPhysicsRows()` for append-time collider registration.
+  Validation: `git diff --check`, `python -m py_compile
+  tools/check_runtime_boundaries.py`, and `python
+  tools/check_runtime_boundaries.py --repo .` passed; focused Profile build
+  passed with 0 warnings/errors; `tools\validate_format.bat` passed after a
+  targeted header alignment fix; touched-source comment audit inspected all
+  touched source/tool files; `tools\validate_fast.bat` passed formatting,
+  project filters, runtime boundaries, and Profile/Debug builds with 0
+  warnings/errors; `tools\validate_physics.bat` passed standalone/runtime smoke
+  with `collider_refresh=pass` and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved the remaining cold authored-collider import from
+  collection-built `ColliderRecord` rows to `PhysicsColliderCreateDesc`.
+  `GameModelCollection` now captures only descriptor values at append, edit,
+  config, and topology-repair boundaries; `PhysicsScene` owns
+  descriptor-to-`ColliderRecord` conversion and shape-kind derivation; and
+  `PhysicsEngine::UpdateAuthoredCollider()` updates by `PhysicsColliderHandle`
+  instead of exposing a model slot through the physics facade. `ColliderStore`
+  exposes `UpdateRecordForHandle()` and keeps the existing model-index updater
+  as a local compatibility delegate. Owner: `PhysicsScene` descriptor import
+  plus `ColliderStore` dense row replacement. Reason: collection code should
+  not construct live collider rows or know row layout; authored updates should
+  replace a store row through stable handle identity without adding sidecar
+  copies. Deletion condition: scene/entity creation writes
+  `PhysicsColliderCreateDesc` directly and the topology-drift
+  `CaptureAuthoredColliderDesc()` fallback disappears from
+  `GameModelCollection`. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects `BuildColliderRecordFromModel`
+  and collection-side live `ColliderRecord` construction, and its public
+  descriptor model-index rule now ignores forward declarations so only real
+  descriptor bodies are scanned. Validation: focused Profile build passed with
+  0 warnings/errors; `git diff --check`, `python -m py_compile
+  tools/check_runtime_boundaries.py`, and `python
+  tools/check_runtime_boundaries.py --repo .` passed; touched-source comment
+  audit inspected all touched source/tool files; `tools\validate_fast.bat`
+  passed after targeted `PhysicsScene.cpp` formatting; `tools\validate_physics.bat`
+  passed standalone/runtime handle smoke with `collider_refresh=pass` and
+  byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Made same-count collider refresh store-owned and deleted the
+  proposed collection-side collider authoring cache. `ColliderStore` now keeps
+  the dense live `ColliderRecord` rows, exposes `RefreshBodyBindings()` for
+  body-handle/replay-id rebasing without touching shape/material fields, and
+  preserves stable collider handles when `UpdateRecordForModelIndex()` replaces
+  one row after an editor authoring or topology change. `GameModelCollection`
+  builds a `ColliderRecord` from the compatibility `GameModel` only at append,
+  edit, or topology-repair boundaries; topology drift is the only path
+  that rebuilds all collider fields from `GameModel`. Owner:
+  `ColliderStore` live collider rows plus `GameModelCollection` cold
+  compatibility import. Reason: avoid a duplicate scene-order authoring array,
+  avoid same-count `GameModel` scans, and keep cache-visible collider state in
+  one dense store. Deletion condition: scene/entity creation writes collider
+  descriptors directly and the local `BuildColliderRecordFromModel()` import
+  disappears. Checker budget: `tools/check_runtime_boundaries.py` rejects
+  `ColliderStore` references to `GameModel`, rejects
+  `m_colliderAuthoringRows`/`ColliderAuthoringRecord`/`MakeColliderRecordFromAuthoring`
+  in live collection source, and rejects passing `m_gameModels` to collider
+  refresh. Validation: targeted residue scan found no deleted sidecar or
+  `colliderStore.Refresh(` spellings under `SkullbonezSource`; `git diff
+  --check`, `python -m py_compile tools/check_runtime_boundaries.py`, and
+  `python tools/check_runtime_boundaries.py --repo .` passed; touched-source
+  comment audit inspected all touched source/tool files; `tools\validate_fast.bat`
+  passed formatting, project filters, runtime boundaries, and Profile/Debug
+  builds with 0 warnings/errors; `tools\validate_physics.bat` passed
+  standalone/runtime handle smoke and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Registered append-time collider rows directly from
+  `GameModelCollection::AddGameModel()`. The collection now repairs any
+  pre-existing body/collider count drift once, appends the model and replay id,
+  registers the new body row, resolves the just-created `PhysicsBodyRecord`,
+  and registers the paired `ColliderRecord` immediately through
+  `PhysicsEngine::RegisterAuthoredCollider()`. The later same-count refresh
+  slice keeps `ColliderStore` as the single live collider copy and limits
+  `GameModel` authoring reads to append/edit/topology boundaries. Config
+  material updates now stay in `ColliderStore`. Owner:
+  `GameModelCollection`
+  construction boundary plus `ColliderStore` append-time import. Reason: a new
+  object should not require a later model-order collider refresh before the
+  body/collider mapping is live; the store keeps the dense rows and handle maps
+  authoritative immediately. Deletion condition:
+  `AddGameModel()` calls `RegisterAuthoredCollider()` after
+  `RegisterAuthoredBody()`, contains no body-only
+  `RepairPhysicsBodyTopology()` call, and the temporary authored-model collider
+  helper disappears once scene/entity creation writes collider descriptors
+  directly. Checker budget: `tools/check_runtime_boundaries.py` rejects
+  `AddGameModel()` bodies that omit `RegisterAuthoredCollider()`, use the
+  body-only topology repair, or call collider snapshot refresh directly, with
+  self-tests for old and allowed shapes. Validation: focused Profile build,
+  `git diff --check`, `python -m py_compile tools/check_runtime_boundaries.py`,
+  `python tools/check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and `tools\validate_physics.bat` passed on
+  2026-07-05.
+- [x] 2026-07-05: Deleted the `GameModel` replay-id mirror. `GameModel` no
+  longer stores, sets, or exposes replay identity; `GameModelCollection`
+  passes a replay id directly into `MakeBodyRecordFromAuthoredModel()` instead
+  of mutating models, and `PhysicsBodyStore` stores that id on the body row.
+  The follow-up replay-identity store-authority slice deletes the temporary
+  collection sidecar and memory stat that originally carried this metadata
+  stream. Owner: `PhysicsBodyStore` body identity import plus the temporary
+  collection construction boundary. Reason: the old mirror made every body
+  import and body-record creation prove stable identity by reading a mutable
+  `GameModel` row; the store path now receives identity once and keeps body
+  rows authoritative. Deletion condition: `SkullbonezSource` contains no
+  `GameModel::GetReplayBodyId()`, `GameModel::SetReplayBodyId()`, or
+  `m_replayBodyId`, and `PhysicsBodyStore` import contains no replay-id reads
+  from `GameModel`. Checker budget: `tools/check_runtime_boundaries.py` rejects
+  the deleted mirror symbols anywhere under `SkullbonezSource` and the later
+  sidecar guardrail blocks the temporary collection stream from returning.
+  Validation: focused Profile build,
+  `git diff --check`, `python -m py_compile tools/check_runtime_boundaries.py`,
+  `python tools/check_runtime_boundaries.py --repo .`, `tools\validate_fast.bat`,
+  and `tools\validate_full.bat` passed on 2026-07-05.
+- [x] 2026-07-05: Moved `ColliderStore::Refresh()` replay/body identity off the
+  `GameModel` replay-id mirror. The refresh still imports cold authoring
+  collider data from `GameModel` for shape/material fields that have not moved
+  yet, but it resolves the matching `PhysicsBodyStore` row once and uses
+  `PhysicsBodyRecord::replayBodyId` plus `PhysicsBodyRecord::handle` for
+  collider handle reuse, scene id derivation, and body linking. Owner:
+  `ColliderStore` compatibility refresh. Reason: body rows already own stable
+  replay identity and live body handles, so re-reading the mutable model mirror
+  added duplicate authority and cache-hostile work to every collider refresh.
+  Deletion condition: `ColliderStore::Refresh(GameModel*, ...)` contains no
+  `GameModel::GetReplayBodyId()` reads. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects old ColliderStore model replay-id
+  reads and self-tests the store-owned form. Validation: focused Profile build,
+  `git diff --check`, `python -m py_compile tools/check_runtime_boundaries.py`,
+  `python tools/check_runtime_boundaries.py --repo .`, `tools\validate_fast.bat`,
+  and `tools\validate_physics.bat` passed on 2026-07-05.
+- [x] 2026-07-05: Moved the remaining runtime replay-id validation paths off
+  the `GameModel` replay-id mirror. `RunInput.cpp` now validates attached-camera
+  cached and stale replay targets against dense `PhysicsBodyStore` records while
+  preserving the duplicate-id fail-closed behavior; `Run::ApplyReplaySolverSampleState()`
+  preflights sampled ids against `PhysicsEngine::BodyStore()` records before
+  restore; and the runtime handle smoke keeps authored reorder replay ids as
+  constants instead of reading them back from `GameModel`. Owner: runtime
+  replay/attached-camera identity validation. Reason: these paths were using a
+  compatibility mirror to approve body identity even though the body store
+  already owns the stable replay id and live handle mapping. Deletion condition:
+  live runtime validation outside creation/import contains no
+  `GameModel::GetReplayBodyId()` reads for attached-camera recovery, solver
+  sample restore, or runtime handle smoke. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects those old shapes and self-tests
+  their store-owned replacements. Validation: focused Profile build,
+  `git diff --check`, `python -m py_compile tools/check_runtime_boundaries.py`,
+  `python tools/check_runtime_boundaries.py --repo .`, `tools\validate_fast.bat`,
+  and `tools\validate_full.bat` passed on 2026-07-05.
+- [x] 2026-07-05: Moved replay render apply and prediction ghost identity off
+  the `GameModel` replay-id mirror. `ReplayRuntime` now resolves
+  presentation, solver, and prediction scrub bodies through
+  `PhysicsBodyStore::HandleForReplayBodyId()` before queueing value-only render
+  pose overrides, and prediction ghost request building takes
+  `PhysicsBodyStore` so `GameModel` is used only for ragdoll display metadata.
+  `GameModelCollection::TryQueueReplayRenderPoseOverride()` also validates
+  replay ids against body records instead of `GameModel::GetReplayBodyId()`.
+  Owner: replay presentation projection. Reason: replay samples persist model
+  indices only as staleable hints, while stable identity belongs to body-store
+  replay ids. Deletion condition: replay render apply, prediction ghost, and
+  render-pose queue paths contain no `GameModel::GetReplayBodyId()` validation.
+  Checker budget: `tools/check_runtime_boundaries.py` rejects GameModel
+  replay-id lookups in those paths and self-tests old model-id shapes.
+  Validation: focused Profile build, `git diff --check`,
+  `python -m py_compile tools/check_runtime_boundaries.py`,
+  `python tools/check_runtime_boundaries.py --repo .`,
+  `tools\validate_full.bat`, and `tools\validate_perf.bat` passed on
+  2026-07-05.
+- [x] 2026-07-05: Moved replay restore identity validation off the `GameModel`
+  replay-id mirror. `GameModelCollection::TryRestoreReplayBodyState()` and
+  `TryRestoreReplayPredictionBodyState()` now validate `replayBodyId` through
+  `PhysicsBodyStore` records before calling the handle-keyed physics restore
+  command and before projecting restored pose/velocity/fixed state back to the
+  temporary `GameModel` mirror. Owner: `GameModelCollection` replay restore
+  presentation edge. Reason: replay restore state is body-store authority; the
+  model mirror is a compatibility projection for legacy render/editor readers,
+  not the authority that approves which body is restored. Deletion condition:
+  collection replay restore functions contain no `GameModel::GetReplayBodyId()`
+  validation, model-to-store refresh, or model-index physics restore API.
+  Checker budget: `tools/check_runtime_boundaries.py` rejects model-id replay
+  validation in both restore functions and keeps the existing handle-keyed
+  restore/API guardrails. Validation: focused Profile build, `git diff --check`,
+  `python -m py_compile tools/check_runtime_boundaries.py`,
+  `python tools/check_runtime_boundaries.py --repo .`, `tools\validate_fast.bat`,
+  and intermittent `tools\validate_physics.bat` passed on 2026-07-05.
 - [x] 2026-06-27: Deleted `GameModelCollection::MakePhysicsModelView()` and `SkullbonezSource/Physics/PhysicsModelView.h`.
 - [x] 2026-06-27: Replaced per-call `PhysicsModelView` construction with persistent `PhysicsModelAccess` ranges plus explicit body-store handle mapping.
 - [x] 2026-06-27: Converted store refresh, step, wake, seed-asleep, immediate impulse, pending impulse, diagnostics, ragdoll, and sleep-island call paths away from `PhysicsModelView`.
@@ -43,6 +424,514 @@ turning `PhysicsModelAccess` into a concrete stack-owned facade.
   replay stepping now construct a stack-owned `PhysicsModelAccess` facade, and
   `PhysicsWorld` calls explicit owner commands for fixed-contact highlights and
   fixed-tree release instead of virtual event callbacks.
+- [x] 2026-07-05: Removed the launcher projectile wake adapter round-trip.
+  `RuntimeTools::FireLauncherProjectile()` now uses the `PhysicsBodyHandle`
+  returned by `GameModelCollection::AddGameModel()` and wakes that body directly
+  through `PhysicsEngine`. Owner: runtime launcher projectile spawn. Reason:
+  newly created bodies already have a store-owned handle, so converting the new
+  model index back through `GameModelCollectionPhysicsAdapter` was wasted
+  compatibility work. Deletion condition: no projectile path obtains a model
+  index solely to wake a just-created body. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks `AddGameModel()` followed by
+  projectile adapter wake conversion in `RuntimeTools.cpp` and includes
+  rejecting/allowing self-tests. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and `tools\validate_physics.bat` passed on
+  2026-07-05; physics regression reported standalone/runtime handle smoke pass
+  and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Removed the runtime handle smoke adapter lookup.
+  `RunPhysicsRuntimeHandleSmokeSample()` now keeps the
+  `PhysicsBodyHandle`s returned by `GameModelCollection::AddGameModel()` and
+  uses those handles for point-joint, body-store, collider-store, and render
+  mirror checks. Owner: runtime physics handle smoke in `Init.cpp`. Reason: a
+  handle-authority smoke should prove append-time handles stay authoritative,
+  not create bodies and rediscover them by model index through
+  `GameModelCollectionPhysicsAdapter`. Deletion condition: the smoke contains
+  no `GameModelCollectionPhysicsAdapter` or `BodyHandleForModelIndex` use.
+  Checker budget: `tools/check_runtime_boundaries.py` blocks adapter/model-index
+  lookup inside `RunPhysicsRuntimeHandleSmokeSample()` and self-tests the old
+  adapter lookup against the allowed returned-handle shape. Validation:
+  `git diff --check`, `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and `tools\validate_physics.bat` passed on
+  2026-07-05; physics regression reported standalone/runtime handle smoke pass
+  and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Removed the fixed-tree release adapter lookup inside
+  `GameModelCollection`. `ReleaseAttachedFixedTreeParts()` now repairs
+  body/collider topology once at the model-owner edge and resolves
+  `PhysicsBodyHandle`s directly from `PhysicsBodyStore` instead of constructing
+  `GameModelCollectionPhysicsAdapter` and rerunning wake-ready handle conversion
+  per released part. Owner: `GameModelCollection` fixed-tree compatibility
+  release path. Reason: the collection already owns model order and the physics
+  engine, so using the legacy external identity adapter there added indirection
+  without improving authority. Deletion condition: the function contains no
+  `GameModelCollectionPhysicsAdapter`, `BodyHandleForVelocityCommand`, or
+  `BodyHandleForModelIndex` use. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks those names inside
+  `GameModelCollection::ReleaseAttachedFixedTreeParts()` and self-tests the old
+  adapter shape against direct body-store handle lookup. Validation:
+  `git diff --check`, `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Removed the replay editor-transform adapter wake lookup.
+  `Run::RestoreReplayV2ArtifactTargetState()` now lets
+  `CommitEditedModelPhysicsState()` refresh the edited body/collider rows, then
+  wakes the body directly through
+  `PhysicsBodyStore::HandleForModelIndex(event.value0)`. Owner: replay v2
+  editor-transform restore. Reason: replay events still persist model identity,
+  but after the edited model has been committed there is no need to construct
+  `GameModelCollectionPhysicsAdapter` and redo wake-ready model-index
+  conversion. Deletion condition: `RunFrame.cpp` contains no
+  `GameModelCollectionPhysicsAdapter`, `BodyHandleForVelocityCommand`, or
+  `BodyHandleForModelIndex` use. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks those names in `RunFrame.cpp` and
+  self-tests the old variable-form adapter resolver against the allowed
+  body-store handle lookup. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Removed the replay velocity-edit adapter lookup.
+  `ApplyReplayVelocityEditToModel()` now resolves the selected live body with
+  `PhysicsBodyStore::HandleForModelIndex(modelIndex)` and then calls the
+  handle-keyed `PhysicsEngine::SetBodyVelocity()` command. Owner: replay
+  velocity-edit tool. Reason: replay selection still persists model-order
+  identity, but the edit already targets a validated live row and does not need
+  to construct `GameModelCollectionPhysicsAdapter` before issuing a store-owned
+  velocity command. Deletion condition: replay velocity-edit source contains no
+  `GameModelCollectionPhysicsAdapter`, `BodyHandleForVelocityCommand`, or
+  `BodyHandleForModelIndex` use. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks those names in
+  `RunReplayVelocityEdit.inl` and self-tests the old adapter resolver against
+  the allowed direct body-store handle lookup. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Removed the launcher ray-hit adapter lookup.
+  `ApplyLauncherPhysicsImpulse()` now validates the ray-hit model index,
+  preserves the old count-drift collider/body refresh behavior at the tool
+  boundary, resolves the hit body through
+  `PhysicsBodyStore::HandleForModelIndex(modelIndex)`, and then calls
+  `PhysicsEngine::ApplyBodyImpulse()` by handle. Owner: runtime launcher ray-hit
+  tool. Reason: the raycast still reports legacy model-order identity, but the
+  impulse should not construct `GameModelCollectionPhysicsAdapter` when the tool
+  can repair topology and ask the body store for the current row directly.
+  Deletion condition: `RuntimeTools.cpp` contains no
+  `GameModelCollectionPhysicsAdapter`, `BodyHandleForVelocityCommand`, or
+  `BodyHandleForModelIndex` use. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks those names in launcher runtime
+  source and self-tests the old adapter resolver against the allowed direct
+  body-store handle lookup. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Removed editor wake/sleep adapter lookups.
+  `WakeEditorPhysicsBody()` now preserves the old wake-ready count-drift
+  collider/body refresh behavior at the editor boundary, resolves the selected
+  live body through `PhysicsBodyStore::HandleForModelIndex(modelIndex)`, and
+  calls `PhysicsEngine::WakeBody()` by handle. `SeedEditorPhysicsBodyAsleep()`
+  preserves the old body-count refresh behavior before resolving the same store
+  handle and calling `PhysicsEngine::SeedBodyAsleep()`. Owner: runtime editor
+  transform/placement commands. Reason: editor selection and replay gesture
+  identity still use model-order slots, but after validation/topology repair the
+  command target is the body-store row and does not need to construct
+  `GameModelCollectionPhysicsAdapter`. Deletion condition: `RunEditorTools.cpp`
+  contains no `GameModelCollectionPhysicsAdapter`,
+  `BodyHandleForVelocityCommand`, or `BodyHandleForModelIndex` use. Checker
+  budget: `tools/check_runtime_boundaries.py` blocks those names in editor
+  command sources and self-tests the old adapter resolver against the allowed
+  direct body-store handle lookup. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Deleted `GameModelCollectionPhysicsAdapter` after all live
+  callers moved to append-time handles or direct `PhysicsBodyStore` lookups.
+  Owner: physics/GameModel authority migration. Reason: the adapter no longer
+  had production callers, and keeping it preserved an attractive, cache-hostile
+  model-index bridge back into physics command code. Deletion condition:
+  `SkullbonezSource`, `SKULLBONEZ_CORE.vcxproj`, and
+  `SKULLBONEZ_CORE.vcxproj.filters` contain no
+  `GameModelCollectionPhysicsAdapter`, `BodyHandleForModelIndex`,
+  `BodyHandleForSceneObjectId`, `BodyHandleForVelocityCommand`, or
+  `BodyHandleForWakeCommand` live source/project references. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks the deleted adapter type/resolver
+  names from source and blocks stale Visual Studio project entries; self-tests
+  cover source, project, and comment-only cases. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Gated collider-store read refreshes on topology drift and
+  narrowed explicit collider edit commits. Owner: `GameModelCollection`
+  convenience readers and edit commits. Reason: `GetColliderStore()` was
+  rebuilding collider metadata from `GameModel` on every read, and
+  `CommitEditedModelPhysicsState(..., true)` still used the full body+collider
+  refresh path for same-count collider edits. Deletion condition:
+  `GetColliderStore()` has no unconditional `PhysicsModelAccess` construction
+  or `RefreshColliderSnapshot()` call, and collider edit commits do not call
+  `RefreshColliderStore()`. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks unconditional read-side collider
+  snapshot refreshes and full collider edit commits, with rejecting/allowing
+  self-tests. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass including `collider_refresh=pass` and byte-exact
+  `physics_regression_solver.csv`.
+- [x] 2026-07-05: Deleted the full `RefreshColliderStore()` facade after the
+  final live callers moved to explicit body topology repair plus collider
+  snapshot refresh. Owner: `PhysicsEngine`/`PhysicsScene` public refresh
+  surface and the remaining runtime/editor topology-repair callers. Reason:
+  the facade always reloaded body rows before rebuilding collider records, so
+  callers that had already checked or refreshed body topology could still pay a
+  second model-owned body import. Deletion condition: `SkullbonezSource`
+  contains no live `RefreshColliderStore()` declaration, definition, or call.
+  Checker budget: `tools/check_runtime_boundaries.py` blocks the deleted name
+  as a migration artifact and self-tests source and comment-only cases.
+  Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved contact-audio Simple Mode motion reads from the
+  compatibility `GameModel` mirror to `PhysicsBodyStore`. Owner:
+  `Run::AfterPhysicsStep()` contact-audio post-step scan. Reason: the simple
+  audio reducer runs after physics ticks and only needs fixed state, position,
+  linear velocity, and mass for motion classification; those values are already
+  authoritative in dense body records, while `GameModel` should remain a
+  material lookup only until material ownership moves. Deletion condition:
+  Simple Mode contains no `GameModel` `IsFixed()`, `GetPosition()`,
+  `GetVelocity()`, or `GetMass()` motion reads. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks those calls inside the
+  `m_contactAudio.SimpleModeEnabled()` branch and self-tests reject, allow, and
+  comment-only cases. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved launcher fixed-tree release policy, source fixed-state
+  mutation, and launcher hit mass/position reads to `PhysicsBodyStore`. Owner:
+  runtime launcher ray-hit release path. Reason: the previous path could flip
+  the compatibility `GameModel` fixed flag, then apply an impulse through the
+  still-fixed body-store row; that split authority was both cache-hostile and
+  behaviorally suspect. `PhysicsScene::ReleaseFixedBodyAndAttachedTreeParts()`
+  now releases the source body and same-tree parts through dense body records,
+  wakes solver sleep state, and returns only touched rows for compatibility
+  writeback. Deletion condition: `RuntimeTools::FireLauncherLaser()` contains
+  no `GameModel` fixed/mass/position/release-policy reads, and
+  `GameModelCollection::ReleaseAttachedFixedTreeParts()` contains no
+  `GameModel` fixed/position/tree release rebuild. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks both old shapes and self-tests
+  reject `GameModel` body reads while allowing store-owned handle/record reads.
+  Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_format.bat`, `tools\validate_fast.bat`, and intermittent
+  `tools\validate_physics.bat` passed on 2026-07-05; physics regression
+  reported standalone/runtime handle smoke pass and byte-exact
+  `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved launcher ray-hit broad picking from the `GameModel`
+  compatibility mirror to `PhysicsBodyStore` and `ColliderStore`. Owner:
+  runtime launcher ray and projectile aim tools. Reason: the previous
+  `TryRayCastTestHit(collection.Models(), ...)` scan read `GameModel`
+  positions and collision shapes before the tool ever resolved a body handle,
+  preserving the mirror as a hidden input to launcher physics. The ray test now
+  repairs count drift once, scans dense body positions plus collider bounding
+  radii, and keeps `GameModel` out of the hit-selection path. Deletion
+  condition: `RuntimeTools::TryRayCastTestHit()` takes body/collider stores,
+  and launcher code contains no `TryRayCastTestHit(collection.Models(), ...)`,
+  `std::vector<GameModel>` raycast signature, `LauncherModelRadius()`, or
+  raycast `GameModel` position/shape read. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks those old shapes in
+  `RuntimeTools.cpp` and `RuntimeTools.h` with reject/allow/comment-only
+  self-tests. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved attached-camera follow target state from the
+  `GameModel` compatibility mirror to `PhysicsBodyStore` and `ColliderStore`.
+  Owner: runtime attached-camera input and follow solve. Reason: camera follow
+  runs after physics and previously read `GameModel` position, velocity,
+  orientation, and collision shape, preserving the post-step model mirror as a
+  hidden input to normal runtime camera motion. The follow solve now resolves an
+  `AttachedCameraPhysicsTarget` from dense body/collider records and leaves
+  `GameModel` as cold selection/name/replay/ragdoll metadata. Deletion
+  condition: attached-camera capture/orbit/tick code in `RunInput.cpp` contains
+  no `GameModel` `GetPosition()`, `GetVelocity()`, `GetOrientation()`, or
+  `GetCollisionShape()` body reads and no deleted helper names
+  `ModelRotation`, `ModelToWorldVector`, `WorldToModelVector`, or
+  `AttachedCameraModelRadius`. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks the deleted helper names and
+  `GameModel` body reads inside attached-camera follow functions with
+  reject/allow/comment-only self-tests. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Deleted the `GameModel` object-contact manifold overloads and
+  moved required scene-contact exact checks to store snapshots. Owner:
+  object/object narrowphase API plus runtime required scene-contact gates.
+  Reason: the solver already builds manifolds from `ObjectContactBodyView` and
+  `ColliderRecord::shape`, but the public `BuildObjectContactManifold(GameModel
+  ...)` overload kept a stale shape/pose path alive and let scene automation
+  depend on the post-step model mirror. Deletion condition:
+  `ObjectContactManifold.h/.cpp` contain no `GameModel` manifold overload,
+  `MakeObjectContactBodyView`, or `GameModel::GetCollisionShape()` access, and
+  `Run::UpdateRequiredSceneContacts()` contains no `Models()`/`models[]`
+  manifold path. Checker budget: `tools/check_runtime_boundaries.py` blocks the
+  deleted manifold overload/helper and blocks required scene-contact `GameModel`
+  body/shape reads with reject/allow/comment-only self-tests. Validation:
+  `git diff --check`, `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved runtime/editor topology repair off tool-side
+  `PhysicsModelAccess` construction. Owner: `GameModelCollection` model-order
+  topology repair boundary plus launcher/editor command helpers. Reason:
+  launcher and editor tools only need count-gated body/collider topology repair
+  before resolving a `PhysicsBodyHandle`; constructing `PhysicsModelAccess` in
+  tool code spread the model-owner import facade outside its owner and made the
+  old refresh path easier to re-grow. Deletion condition:
+  `RuntimeTools.cpp` and `RunEditorTools.cpp` contain no `PhysicsModelAccess`,
+  `RefreshBodyStore(modelAccess)`, or `RefreshColliderSnapshot(modelAccess)`
+  topology repair. Checker budget: `tools/check_runtime_boundaries.py` blocks
+  runtime/editor tool-side `PhysicsModelAccess` repair with
+  reject/allow/comment-only self-tests. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved replay velocity-edit body reads to store records.
+  Owner: replay velocity edit input and overlay drawing. Reason: replay
+  velocity edits already command `PhysicsEngine` by handle, but hit testing,
+  drag-start values, and gizmo drawing still read fixed state, pose, linear
+  velocity, angular velocity, shape, and radius from the post-step `GameModel`
+  mirror. Deletion condition: `RunReplayVelocityEdit.inl` contains no live
+  `GameModel` `IsFixed()`, `GetPosition()`, `GetVelocity()`, or
+  `GetAngularVelocity()` body reads and no `ApplyReplayVelocityEditToModel`
+  helper name. Checker budget: `tools/check_runtime_boundaries.py` blocks
+  replay velocity `GameModel` body reads and the stale helper name with
+  reject/allow/comment-only self-tests. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Deleted the `GameModelCollection::RunPhysics()` fixed-step
+  wrapper. Owner: runtime frame stepping and replay prediction stepping. Reason:
+  the store-owned step should visibly enter `PhysicsEngine::Step()` after
+  explicit model-owner topology repair, contact-highlight ticking, Debug
+  diagnostic name-table setup, and temporary compatibility writeback, instead
+  of hiding those edges behind a collection method. Deletion condition:
+  `GameModelCollection` exposes no `RunPhysics` declaration/definition and
+  runtime/replay prediction code contains no collection `RunPhysics()` call.
+  Checker budget: `tools/check_runtime_boundaries.py` blocks wrapper
+  declarations, definitions, and call sites with reject/allow/comment-only
+  self-tests. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+  `tools\validate_fast.bat`, and intermittent
+  `tools\validate_physics.bat` passed on 2026-07-05; physics regression reported
+  standalone/runtime handle smoke pass and byte-exact
+  `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved editor selection frame, overlay, and gizmo
+  selected-member resolution to stored body/collider handles. Owner: runtime
+  editor selection/gizmo frame helpers. Reason: the previous store-backed
+  helpers still rediscovered the selected object through
+  `HandleForModelIndex(selectedModelIndex)`, which kept model order as hidden
+  physics identity for hit testing, drag-start snapshots, and overlay outlines.
+  Deletion condition: selected-member frame/overlay helpers receive
+  `selectedBody`/`selectedCollider`, validate those handles against the model
+  hint before reading store rows, and use model-index lookup only for unselected
+  group members whose grouping metadata still lives in `GameModel`. Checker
+  budget: `tools/check_runtime_boundaries.py` blocks helper signatures/calls
+  that omit selected handles and self-tests the old handleless store path.
+  Validation: `git diff --check`, `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved editor ragdoll transform grouping off per-frame name
+  parsing. Owner: runtime editor transform grouping plus
+  `GameModelCollection` cold construction metadata import. Reason:
+  `GatherSelectedEditorTransformGroup()` inferred simple-ragdoll membership by
+  scanning display-name suffixes every time gizmo frame/drag state was built,
+  while ragdolls already have integer collection kind/root/part metadata.
+  Deletion condition: editor grouping consumes collection metadata only; legacy
+  saved scenes that only have part names are converted to `SimpleRagdoll`
+  metadata once during `AddGameModel()`, including repairing earlier limbs to
+  the torso root if the legacy stream loads the torso late; that cold parser can
+  be deleted when scene/entity grouping metadata serializes and loads directly. Checker
+  budget: `tools/check_runtime_boundaries.py` blocks name/suffix parsing inside
+  editor transform grouping and self-tests reject/allow/comment-only surfaces.
+  Validation: `git diff --check`, `python -m py_compile
+  tools\check_runtime_boundaries.py`, `python tools\check_runtime_boundaries.py
+  --repo .`, focused Debug build, `tools\validate_fast.bat`, and intermittent
+  `tools\validate_physics.bat` passed on 2026-07-05; physics regression reported
+  standalone/runtime smoke pass and byte-exact 20,001-line
+  `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved replay save/restore probe body-state reads off
+  `GameModel`. Owner: replay save probe and replay editor-transform restore in
+  `RunFrame.cpp`. Reason: the probe had a newly placed `PhysicsBodyHandle` but
+  still read the just-created model's pose/orientation before applying its
+  synthetic transform, and replay restore committed the edited row to
+  `PhysicsBodyStore` before asking `GameModel::IsFixed()` whether to wake it.
+  Deletion condition: replay save/restore probe functions read pose,
+  orientation, and fixed state from `PhysicsBodyRecord`; `GameModel` remains
+  only the temporary editor-authoring mutation target until editor/replay writes
+  direct body/collider commands. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks body-state getters inside replay
+  probe functions and blocks `model.IsFixed()` in the replay editor-transform
+  wake path, with reject/allow/comment-only self-tests.
+  Validation: `git diff --check`, `python -m py_compile
+  tools\check_runtime_boundaries.py`, `python tools\check_runtime_boundaries.py
+  --repo .`, `tools\validate_fast.bat`, and `tools\validate_full.bat` passed on
+  2026-07-05; full gate reported DX12 InfoQueue errors 0, DX12 screenshots
+  matched committed baselines, standalone/runtime physics smoke passed, and
+  `physics_regression_solver.csv` was a byte-exact 20,001-line match.
+- [x] 2026-07-05: Deleted `GameModel::SetInitialOrientation()` and moved
+  authored startup Euler conversion into `SceneAuthoredSetup`. Owner: authored
+  scene model construction for balls, boxes, and convex hulls. Reason: scene
+  JSON owns the degree units and Euler-order interpretation; routing that value
+  through `GameModel`, then reading `GameModel::GetOrientation()` back for hull
+  center-of-mass placement, kept a body-state mirror in the construction path
+  and did duplicate quaternion work. Deletion condition:
+  `SkullbonezSource` has no `SetInitialOrientation()` declaration, definition,
+  or call, and `SceneAuthoredSetup.cpp` has no `GameModel::GetOrientation()`
+  readback. Checker budget: `tools/check_runtime_boundaries.py` blocks the
+  deleted setter name as a migration artifact and rejects scene setup
+  `GameModel` orientation readbacks while allowing local
+  `MakeSceneEulerQuaternion()` plus `GameModel::SetOrientation()`. Validation:
+  `git diff --check`, `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, `tools\validate_fast.bat`,
+  and `tools\validate_full.bat` passed on 2026-07-05; full gate reported DX12
+  InfoQueue errors 0, DX12 screenshots matched committed baselines,
+  standalone/runtime physics smoke passed, and `physics_regression_solver.csv`
+  was a byte-exact 20,001-line match.
+- [x] 2026-07-05: Moved editor transform reset wake eligibility to
+  `PhysicsBodyStore`. Owner: runtime editor gizmo transform reset path in
+  `RunEditorTools.cpp`. Reason: `ResetEditorModelMotionAndWake()` commits the
+  editor-authored row into `PhysicsBodyStore`, but still asked the mutable
+  `GameModel` mirror whether the body was fixed before deciding to wake it.
+  The path now clears model-owned authoring velocities, commits the row, reads
+  `PhysicsBodyRecord::isFixed` directly from `PhysicsEngine::BodyStore()`, and
+  only wakes dynamic rows. Deletion condition: the reset helper has no
+  `model.IsFixed()` read and does not call the body-store convenience accessor
+  that can perform a topology repair pass after the row was just committed.
+  Checker budget: `tools/check_runtime_boundaries.py` rejects
+  `model.IsFixed()` inside `ResetEditorModelMotionAndWake()` and self-tests
+  the old/readback and allowed body-store forms. Validation: `git diff
+  --check`, `python -m py_compile tools\check_runtime_boundaries.py`, `python
+  tools\check_runtime_boundaries.py --repo .`, `tools\validate_fast.bat`, and
+  `tools\validate_full.bat` passed on 2026-07-05; full gate reported DX12
+  InfoQueue errors 0, DX12 screenshots matched committed baselines,
+  standalone/runtime physics smoke passed, and `physics_regression_solver.csv`
+  was a byte-exact 20,001-line match.
+- [x] 2026-07-05: Moved fixed-contact highlight fixed-state gating to
+  `PhysicsBodyStore`. Owner: `GameModelCollection::NotifyFixedContact()` and
+  the `GameModel` presentation timer it updates. Reason: persistent-contact
+  side effects already identify fixed-contact body rows from physics-owned
+  state, but the final presentation edge still asked the mutable `GameModel`
+  mirror whether the body was fixed, then asked `GameModel::NotifyFixedContact()`
+  to repeat the same mirror check internally. The collection now reads
+  `PhysicsBodyRecord::isFixed` directly from the dense body store and
+  `GameModel::NotifyFixedContact()` only updates its render/debug timer.
+  Deletion condition: the fixed-contact highlight path contains no
+  `GameModel::IsFixed()` or `m_isFixed` read. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects `GameModel` fixed-state reads
+  inside `GameModelCollection::NotifyFixedContact()` and
+  `GameModel::NotifyFixedContact()`, with reject/allow/comment-only self-tests.
+  Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and `tools\validate_full.bat` passed on
+  2026-07-05; full gate reported DX12 InfoQueue errors 0, DX12 screenshots
+  matched committed baselines, standalone/runtime physics smoke passed, and
+  `physics_regression_solver.csv` was a byte-exact 20,001-line match.
+- [x] 2026-07-05: Moved replay prediction ghost draw shape/material reads to
+  `ColliderStore` and `RenderInstanceStore` snapshots. Owner:
+  `RuntimeRenderHost::RenderReplayPredictionGhosts()`. Reason: replay ghost
+  request construction still uses `GameModel` for cold ragdoll membership and
+  replay metadata, but the draw pass should not reopen `GameModel` collider
+  shapes or render materials after the stores already hold frame snapshots.
+  The render loop now indexes `ColliderRecord::shape` and
+  `RenderInstanceRecord::material` directly, with no per-ghost model mirror
+  refresh or copied side table. Deletion condition:
+  `RuntimeRenderHost::RenderReplayPredictionGhosts()` contains no
+  `GameModel::GetCollisionShape()` or `GameModel::GetRenderMaterial()` render
+  reads. Checker budget: `tools/check_runtime_boundaries.py` rejects those
+  calls inside the function and self-tests old, allowed, and comment-only
+  forms. Validation: `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, and `tools\validate_full.bat` passed on
+  2026-07-05; full gate reported DX12 InfoQueue errors 0, DX12 screenshots
+  matched committed baselines, standalone/runtime physics smoke passed, and
+  `physics_regression_solver.csv` was a byte-exact 20,001-line match.
+- [x] 2026-07-05: Moved convex-hull render geometry reads to prepared
+  `ColliderStore` snapshots. Owner: `GameModelRenderer::RenderModels()` and
+  `GameModelRenderer::BuildShadowCasterBatches()`. Reason: sphere/box/pine
+  rendering already consumed `RenderInstanceStore`, but convex hulls still
+  reopened `models[x].GetCollisionShape()` in normal and shadow render paths.
+  `GameModelCollection::Colliders()` now exposes the already-prepared collider
+  snapshot without topology repair, and the renderer lazily borrows collider
+  rows only after a render instance identifies a convex-hull draw. Deletion
+  condition: `GameModelRenderer.cpp` contains no `GameModel`
+  `GetCollisionShape()`, `GetRenderMaterial()`, or `GetColliderStore()` render
+  reads. Checker budget: `tools/check_runtime_boundaries.py` rejects those
+  renderer reads and self-tests old, allowed, and comment-only forms.
+  Validation: focused Profile build passed at 0 warnings/errors;
+  `git diff --check`, `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`,
+  `tools\validate_fast.bat`, `tools\validate_dx12_renderer.bat`, and
+  `tools\validate_perf.bat` passed on 2026-07-05; DX12 InfoQueue errors were
+  0, screenshots matched baselines, and the final perf run reported no
+  regressions after the renderer stopped touching collider storage for
+  sphere/box/pine-only passes.
+- [x] 2026-07-05: Moved editor/replay transform-scale base-shape reads to
+  `ColliderStore`. Owner: `Run::TickReplaySaveProbe()` and the
+  `ReplayEventKind::EditorTransform` restore path in
+  `Run::RestoreReplayV2ArtifactTargetState()`. Reason: editor scaling still
+  needs to mutate the authoring `GameModel` until direct body/collider commands
+  exist, but the current base shape for replay save/restore is already
+  `ColliderStore` state, not `GameModel::GetCollisionShape()`. The local
+  `TryGetEditorTransformColliderRecord()` helper resolves the current collider
+  row by placed collider handle or model-index handle, validates the expected
+  replay body id when supplied, then the existing
+  `CommitEditedModelPhysicsState(..., true)` imports the edited authoring model
+  once. The same slice also moved `RunFrame` replay-id topology checks in these
+  paths from `GameModel::GetReplayBodyId()` to `PhysicsBodyStore` rows. Deletion
+  condition: `RunFrame.cpp` contains no live `GameModel::GetCollisionShape()` or
+  `GameModel::GetReplayBodyId()` reads. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects replay probe/save/restore
+  `GameModel` collision-shape and replay-id reads with old/allowed self-tests.
+  Validation: focused Profile build passed at 0 warnings/errors;
+  `tools\validate_format.bat`, `git diff --check`,
+  `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, and
+  `tools\validate_full.bat` passed on 2026-07-05; full gate reported DX12
+  InfoQueue errors 0, screenshots matched committed baselines,
+  standalone/runtime physics smoke passed, and
+  `physics_regression_solver.csv` was a byte-exact 20,001-line match.
 
 ## Goal
 
@@ -109,7 +998,7 @@ Deleted-view call-site table from the completed first slice:
 | Deleted call site | Classification | Replacement |
 | --- | --- | --- |
 | `RefreshBodyStore()` | body store refresh | `PhysicsModelAccess` passed directly to `PhysicsEngine::RefreshBodyStore()` |
-| `RefreshColliderStore()` | collider store refresh | `PhysicsModelAccess` passed directly to `PhysicsEngine::RefreshColliderStore()` |
+| `RefreshColliderStore()` | collider store refresh | Deleted; callers now repair body topology explicitly and call `RefreshColliderSnapshot()` |
 | `RefreshRenderStore()` | render store refresh | `PhysicsModelAccess` passed directly to `PhysicsEngine::RefreshRenderStore()` |
 | `RunPhysics()` | physics step | `PhysicsEngine::Step(PhysicsModelAccess&, dt)` |
 | `WakeModel()` | wake command | `PhysicsBodyHandle` plus `PhysicsModelAccess` |
@@ -200,12 +1089,52 @@ Create durable handles before moving ownership. The stores cannot be authoritati
 - [ ] Add generation or validity checks where handles can outlive removed objects.
 - [ ] Preserve deterministic iteration order for physics stepping and replay output.
 - [ ] Replace new or touched model-index APIs with stable handles.
-- [ ] Keep temporary model-index adapters only at old call boundaries.
+- [x] 2026-07-05 launcher projectile creation wakes the returned
+  `PhysicsBodyHandle` directly instead of deriving a model index, appending the
+  model, and resolving that index through `GameModelCollectionPhysicsAdapter`.
+- [x] 2026-07-05 runtime handle smoke retains the two `PhysicsBodyHandle`s
+  returned by `AddGameModel()` instead of using `BodyHandleForModelIndex()` as a
+  compatibility proof step.
+- [x] 2026-07-05 `GameModelCollection::ReleaseAttachedFixedTreeParts()`
+  resolves released body handles directly from `PhysicsBodyStore` after one
+  local topology repair instead of calling the adapter from inside the model
+  owner.
+- [x] 2026-07-05 replay editor-transform restore wakes the committed body row
+  directly from `PhysicsBodyStore` instead of rediscovering the edited model
+  through `GameModelCollectionPhysicsAdapter`.
+- [x] 2026-07-05 replay velocity edit resolves the selected body directly from
+  `PhysicsBodyStore` before calling the handle-keyed velocity command.
+- [x] 2026-07-05 launcher ray-hit impulse resolves the selected body directly
+  from `PhysicsBodyStore` before calling the handle-keyed impulse command.
+- [x] 2026-07-05 editor wake/sleep commands resolve the selected body directly
+  from `PhysicsBodyStore` before calling handle-keyed commands.
+- [x] 2026-07-05 editor selection commands now carry
+  `PhysicsBodyHandle`/`PhysicsColliderHandle` from picking, placement creation,
+  and attached-camera inspect selection; `RunEditorPlacementState` stores those
+  handles beside the model-index UI hint, and preview clearing rejects stale
+  handle/index pairings before gizmo code can touch them.
+- [x] 2026-07-05 editor selection frame, overlay, and gizmo helpers use the
+  stored selected body/collider handles for the selected member instead of
+  rediscovering it from `selectedModelIndex`; group siblings still resolve from
+  model-order grouping metadata until Phase 5 moves grouping to scene/entity
+  metadata.
+- [x] 2026-07-05 editor ragdoll transform grouping compares
+  `GameModelCollectionKind::SimpleRagdoll` plus collection root metadata instead
+  of parsing display names on the gizmo frame path; legacy scene names are
+  imported into that metadata once at append/load time.
+- [x] Delete the temporary model-index adapter once old call boundaries move to
+  append-time handles or owner-side body-store lookup.
   - [x] 2026-06-28 adapter slice keeps the temporary model-index command bridge
     at the old `GameModelCollection` entry points instead of adding another
     physics-facing model-index API.
-- [ ] Add comments documenting handle lifetime, ownership, and invalidation rules.
-- [ ] Add focused tests or assertions for stale handle rejection if the codebase has a suitable local test path.
+  - [x] 2026-07-05 `GameModelCollectionPhysicsAdapter` was deleted after the
+    old editor, replay, launcher, scene setup, runtime smoke, and fixed-tree
+    callers stopped using it.
+- [x] Add comments documenting handle lifetime, ownership, and invalidation rules.
+- [x] Add focused tests or assertions for stale handle rejection if the codebase has a suitable local test path.
+  - [x] 2026-07-05 `tools/check_runtime_boundaries.py` self-tests reject
+    model-index-only selection commands, executor-side model-index handle
+    rediscovery, and selection callers that drop picked/attached handles.
 
 Done when:
 
@@ -221,7 +1150,34 @@ Move one body-state group at a time. Keep compatibility writeback narrow and tem
 - [ ] Make `PhysicsBodyStore` the authoritative owner of linear and angular velocity.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of mass, inverse mass, inertia, and inverse inertia.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of fixed/dynamic state.
+- [x] 2026-07-05 contact-audio Simple Mode reads post-step pose, linear
+  velocity, fixed state, and mass from `PhysicsBodyStore` records instead of
+  the `GameModel` compatibility mirror.
+- [x] 2026-07-05 launcher fixed-release policy/source mutation and hit
+  mass/position reads use `PhysicsBodyStore` records; `GameModelCollection`
+  only performs bounded topology repair and touched-row compatibility writeback.
+- [x] 2026-07-05 launcher ray-hit broad picking uses `PhysicsBodyStore` body
+  positions instead of `GameModel::GetPosition()`.
+- [x] 2026-07-05 attached-camera follow reads target pose, orientation, and
+  linear velocity from `PhysicsBodyStore` records instead of the post-step
+  `GameModel` compatibility mirror.
+- [x] 2026-07-05 required scene-contact exact manifold checks build
+  `ObjectContactBodyView` values from `PhysicsBodyStore` records instead of
+  `GameModel` pose/orientation overloads.
+- [x] 2026-07-05 replay save/restore probes read starting pose, orientation,
+  and fixed state from `PhysicsBodyStore` records instead of the `GameModel`
+  compatibility mirror.
+- [x] 2026-07-05 authored scene startup orientation converts Euler-degree
+  values locally and writes a `Quaternion` through `GameModel::SetOrientation()`;
+  convex-hull COM placement reuses that value instead of reading
+  `GameModel::GetOrientation()` back out.
+- [x] 2026-07-05 editor transform reset wake eligibility reads
+  `PhysicsBodyRecord::isFixed` from the committed body row instead of
+  `GameModel::IsFixed()`.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of sleep and wake state.
+- [x] 2026-07-05 body-store creation/import receives replay ids from
+  `GameModelCollection`'s dense sidecar metadata instead of the deleted
+  `GameModel` replay-id mirror.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of accumulated forces and impulses.
 - [ ] Change physics stepping to consume body handles/store views rather than `GameModelCollection&`.
   - [x] 2026-07-03 production stepping signatures no longer accept
@@ -258,9 +1214,47 @@ Colliders should own exact collision data. `GameModel` must not remain the hidde
 - [ ] Make `ColliderStore` own collision shape handles or value records.
 - [ ] Make `ColliderStore` own material/contact parameters such as friction, restitution, density, and collision flags.
 - [ ] Make `ColliderStore` own broadphase bounds and dirty flags.
-- [ ] Make `ColliderStore` own body-to-collider and collider-to-body mapping.
+- [x] 2026-07-05 launcher ray-hit broad picking uses `ColliderStore`
+  `boundingRadius` records instead of reading `GameModel` collision shapes for
+  tool hit radii.
+- [x] 2026-07-05 attached-camera orbit and ragdoll-eyes distance/radius math
+  uses `ColliderStore` `boundingRadius` records instead of `GameModel`
+  collision shapes.
+- [x] 2026-07-05 object/object manifold public API and required scene-contact
+  gates consume `ColliderStore` shape snapshots instead of `GameModel`
+  collision shapes.
+- [x] 2026-07-05 `ColliderStore::Refresh()` derives replay identity and body
+  links from `PhysicsBodyStore` rows instead of re-importing
+  `GameModel::GetReplayBodyId()`; shape/material authoring remains `GameModel`
+  compatibility input pending explicit collider registration.
+- [ ] Make `ColliderStore` own body-to-collider and collider-to-body mapping
+  without requiring a `GameModel` refresh input.
+  - [x] 2026-07-05 `ColliderStore::RefreshBodyBindings()` now rebinds existing
+    collider rows from `PhysicsBodyStore` and fails closed if dense collider rows
+    are missing; `PhysicsScene::RefreshColliderSnapshot()` no longer takes
+    `PhysicsModelAccess`.
 - [ ] Move shape creation from `GameModel` construction into a collider registration path.
+  - [x] 2026-07-05 all `AddGameModel()` append paths now require
+    `PhysicsColliderCreateDesc`; ragdoll, editor placement, runtime smoke,
+    launcher projectile, authored scenes, and generated scenes pass descriptors
+    from construction-time shape facts, and the public bare append overload is
+    deleted. Later slices removed same-count editor shape recapture and the
+    topology-drift model-field fallback.
+  - [x] 2026-07-05 authored/generated scene balls, boxes, and convex hulls now
+    pass `PhysicsColliderCreateDesc` directly at append. Superseded by the next
+    slice above: every append path now passes descriptors; later slices remove
+    same-count editor shape edit recapture and topology-drift recapture.
 - [ ] Move shape mutation into explicit collider update commands.
+  - [x] 2026-07-05 same-count editor/replay scale edits now pass
+    `PhysicsColliderCreateDesc` values into
+    `GameModelCollection::CommitEditedModelColliderState()`; the deleted
+    `CommitEditedModelPhysicsState(..., true)` bool path is guarded against
+    returning. The topology-drift `CaptureAuthoredColliderDesc()` fallback is
+    removed by the follow-up fail-closed collider topology slice.
+  - [x] 2026-07-05 topology-drift collider repair no longer reconstructs
+    descriptors from `GameModel`; `CaptureAuthoredColliderDesc`,
+    `UpdateColliderStoreFromModel`, `GameModelCollection::RefreshPhysicsColliders`,
+    and `PhysicsModelAccess::RefreshPhysicsColliders` are deleted.
 - [ ] Update broadphase code to read collider bounds from `ColliderStore`.
 - [ ] Update narrowphase code to read exact shapes from `ColliderStore`.
 - [ ] Preserve persistent contact keys across the migration where possible.
@@ -310,13 +1304,45 @@ Scene/editor/replay metadata should not force physics or render ownership to sta
 - [ ] Identify all metadata fields in `GameModel` that are not required for physics stepping.
 - [ ] Move object names and labels to scene/entity metadata.
 - [ ] Move collection grouping and hierarchy/root information to scene/entity metadata.
+  - [x] 2026-07-05 editor simple-ragdoll transform grouping no longer parses
+    names per frame; `GameModelCollection` reconstructs the current metadata
+    from legacy names only at cold append/load boundaries.
 - [ ] Move asset instance identity to scene/entity metadata.
-- [ ] Move editor selection identity to stable entity or render handles.
+- [x] Move editor selection identity to stable body/collider handles.
+  - [x] 2026-07-05 editor selection frame and overlay reads validate the stored
+    body/collider handles for the selected member before touching store rows.
+  - [ ] Move editor selection metadata to stable scene/entity identity once
+    object names, grouping, duplication, and save/load metadata leave
+    `GameModel`.
 - [ ] Move replay identity to stable entity/body handles.
+  - [x] 2026-07-05 attached-camera target recovery and solver-sample restore
+    preflight now validate replay ids from `PhysicsBodyStore` rows; model index
+    remains only a staleable replay/UI hint until scene/entity ids move out of
+    `GameModel`.
+  - [x] 2026-07-05 creation/import replay identity no longer lives in
+    `GameModel`; the temporary collection sidecar was later deleted, so
+    persistent replay ids now live on `PhysicsBodyStore` rows after append.
+  - [x] 2026-07-05 live creation identity no longer lives in
+    `GameModelCollection`; `RunSceneState` allocates `PhysicsSceneObjectId`
+    values for scene/editor/runtime append paths and re-bases its cursor from
+    `PhysicsBodyStore` rows after replay restore trims.
 - [ ] Update scene load to create metadata, body, collider, and render records through one coordinated creation path.
+  - [x] 2026-07-05 authored scene load no longer asks `GameModel` to interpret
+    scene Euler degrees or return a cached orientation for hull setup; this is
+    still a construction facade until body/collider registration moves behind
+    one coordinated creation path.
 - [ ] Update scene save to serialize from authoritative stores and metadata, not stale compatibility fields.
 - [ ] Update replay capture to read from body handles and stable replay ids.
 - [ ] Update replay playback or diagnostics to resolve through stable handles.
+  - [x] 2026-07-05 replay save/restore probes now resolve pose/orientation and
+    fixed-state decisions through body-store records while preserving saved
+    model index only as replay event identity.
+  - [x] 2026-07-05 replay solver-sample restore preflight compares sampled
+    replay ids against live `PhysicsBodyStore` records before applying sampled
+    body state.
+  - [x] 2026-07-05 editor transform reset/wake now resolves fixed-state
+    decisions from the committed body-store row while preserving model index
+    only as the editor selection/replay gesture token.
 - [ ] Preserve old file compatibility where required by existing scene assets.
 
 Do-not-miss checklist:
@@ -334,11 +1360,28 @@ Only remove compatibility after callers have moved and validation has covered th
 - [x] Verify `MakePhysicsModelView()` was already deleted by the required first slice.
 - [x] Verify `PhysicsModelView` was already deleted by the required first slice.
 - [x] Delete `GameModelCollection::PhysicsModels()` after production physics no longer uses it. The vector compatibility seam remains under explicit `*PhysicsModelsForCompatibility()` accessors.
+- [x] Delete `GameModelCollectionPhysicsAdapter` after model-index command
+  callers moved to append-time handles or owner-side `PhysicsBodyStore` lookup.
 - [ ] Delete compatibility writeback from body store to `GameModel` after final reader migrates.
   - [x] 2026-07-03 persistent contact solver writeback is no longer a solver
     callback or virtual sink; the remaining model mirror update is an owner-side
     post-solve application step. Full deletion is still pending final reader
     migration.
+  - [x] 2026-07-05 launcher fixed-tree release no longer performs a per-release
+    `GameModel` row projection. `PhysicsScene` wakes released store rows
+    internally, `GameModelCollection::WriteBackPhysicsBody` and
+    `PhysicsBodyStore::WriteBackToModelAt` are deleted, and the checker rejects
+    those per-body writeback names plus the released-row output-vector shape.
+- [x] Delete `GameModel::SetInitialOrientation()` after authored scene setup
+  became the sole owner of scene Euler-degree startup conversion.
+- [x] Delete `GameModel` replay-id mirror after body creation/import and
+  compatibility refreshes consume collection/body-store replay identity instead.
+    The explicit bulk step compatibility writeback remains pending final reader
+    migration.
+- [x] Move fixed-tree release root metadata import out of `PhysicsBodyStore`.
+  The remaining `GameModel` grouping fields are converted to an explicit scalar
+  by `GameModelCollection` during cold append/topology repair until scene/entity
+  metadata owns the grouping directly.
 - [ ] Delete compatibility collider fields from `GameModel` after final reader migrates.
 - [ ] Delete production render reliance on concrete `GameModelCollection` after
   render callers migrate to `RenderInstanceStore`.
@@ -359,6 +1402,7 @@ Searches to run before declaring compatibility gone:
 - [x] `rg "PhysicsModels\(" SkullbonezSource`
 - [x] `rg "PhysicsModelView" SkullbonezSource`
 - [x] `rg "GameModelCollection.*IRenderSceneView|IRenderSceneView" SkullbonezSource`
+- [x] `rg "GameModelCollectionPhysicsAdapter|BodyHandleForModelIndex|BodyHandleForSceneObjectId|BodyHandleForVelocityCommand|BodyHandleForWakeCommand" SkullbonezSource SKULLBONEZ_CORE.vcxproj SKULLBONEZ_CORE.vcxproj.filters`
 - [ ] `rg "GetModelAtIndex|model index|modelIndex|ModelIndex" SkullbonezSource`
 - [ ] `rg "GameModel" SkullbonezSource/Physics SkullbonezSource/Runtime SkullbonezSource/Rendering`
 

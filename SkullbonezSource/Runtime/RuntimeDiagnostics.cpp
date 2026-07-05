@@ -10,6 +10,8 @@ Mental model:
 Glossary:
   CSV (Comma-Separated Values): Text table format used for perf and physics
   regression output.
+  Perf pass: One validation scene run appended to a perf CSV before the next
+    restart or exit.
   SkullScope: Queryable physics diagnostics trace workflow used instead of
   loading raw traces into model context.
   Side-channel log: Artifact written for diagnostics without changing runtime
@@ -313,6 +315,12 @@ void RuntimeDiagnostics::OpenScenePerfLog( RunPerfLogState& perfLog, const char*
     if ( perfLog.perfLogFile )
     {
         perfLog.perfLogWritesSinceFlush = 0;
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+        // Why: validation appends multiple scene passes in one process. Reset
+        // the profiler pass state so the existing warmup skips restart rows
+        // before CSV output represents steady-state frame costs.
+        PROFILE_SCHEDULE_RESET();
+#endif
         LogPerfMemory( perfLog, pass + 1, "start" );
     }
 }

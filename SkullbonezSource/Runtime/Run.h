@@ -9,6 +9,8 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Attached camera target: Runtime follow selection where Run owns the selected
+    identity while physics stores own live target pose and motion.
   DX11/OpenGL: Retired runtime renderers. Their source backends have been
   removed; old command-line values now fail early.
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
@@ -19,6 +21,8 @@ Invariants:
   - Run is the composition root for process-lifetime runtime systems.
   - Public startup code should configure Run through the small launch surface
     below instead of reaching into runtime-owned state.
+  - Camera follow helpers should take store-sampled body state instead of
+    reopening GameModel as a live physics mirror.
 
 Related:
   - SkullbonezSource/Runtime/Run.cpp
@@ -158,7 +162,7 @@ class Run
     void ClearInteractionAutomationInput();                                // Releases input overrides after completion or failure.
     void WriteInteractionAutomationReport();                               // Writes JSON result for --interaction-report.
     bool TryFindInteractionAutomationModel( const char* name, int& outIndex ) const;
-    bool TryProjectInteractionAutomationModel( const char* name, POINT& outMouse ) const;
+    bool TryProjectInteractionAutomationModel( const char* name, POINT& outMouse );
     bool DrainRuntimeCommands();                                           // Applies queued runtime/tool command intents at the frame boundary.
     void StepPhysicsPipelineStage( int direction );                        // direction is a left/right cursor step for pipeline visualization.
     void UpdateRuntimeInputModeAfterAction(
@@ -231,8 +235,7 @@ class Run
     void CaptureAttachedCameraReturnState(
         RunCameraMode previousMode );                                      // Saves the camera mode/pose Attach should restore on exit.
     void RestoreAttachedCameraReturnState();                               // Smoothly restores the saved pre-Attach pose when returning to that mode.
-    bool TryResolveAttachedCameraTarget(
-        int& outModelIndex );                                              // Revalidates/recover target by index, replay id, or exact name.
+    bool TryResolveAttachedCameraTarget( int& outModelIndex );             // Revalidates handle-owned target; model index is a UI hint.
     void SetAttachedCameraTarget( int modelIndex );                        // Stores exact clicked/seeded model identity and captures offset.
     void ClearAttachedCameraTarget();                                      // Clears follow target but preserves current camera world pose.
     void SeedAttachedCameraTargetFromSelection();                          // Initializes Attach from replay/editor selection when possible.
@@ -244,9 +247,11 @@ class Run
     void ToggleAttachedCameraPin();                                        // Enter pins/unpins camera follow while in Attach.
     void TickAttachedCameraOrbitInput( int unhandledWheelDelta );          // Mouse wheel adjusts Attach orbit distance.
     void TickAttachedCamera();                                             // Applies the active follow solve to CameraCollection.
-    void CaptureAttachedCameraFixedOffset( const GameObjects::GameModel& model );
-    void CaptureAttachedCameraOrbit(
-        const GameObjects::GameModel& model );                             // Seeds upright Attach orbit from the current camera pose.
+    void CaptureAttachedCameraFixedOffset( const Math::Vector::Vector3& targetPosition,
+                                           const Math::Transformation::RotationMatrix& targetRotation,
+                                           float targetRadius );
+    void CaptureAttachedCameraOrbit( const Math::Vector::Vector3& targetPosition,
+                                     float targetRadius );                 // Seeds upright Attach orbit from the current camera pose.
     bool TryResolveAttachedCameraRagdollHead( int selectedModelIndex, int& outHeadModelIndex ) const;
     void UpdateRequiredSceneContacts();                                    // Scene automation waits for authored contact gates to appear in live physics
                                         // contacts.
@@ -290,10 +295,8 @@ class Run
     void ResetReplayTimelineForActiveScene(
         bool preserveBranchMetadata = false );                             // Scene/model rebuilds start a fresh in-memory replay branch.
     void AfterPhysicsStep();                                               // Post-step hooks that must see committed physics state.
-    static void AfterPhysicsStepThunk( void* userData );
     void ApplyMousePickupPhysicsStep();                                    // Manipulator spring impulse before one fixed physics step.
     void RestoreMousePickupAngularVelocity();                              // Holds grabbed body angular velocity stable during drag.
-    static void ApplyMousePickupPhysicsStepThunk( void* userData );
     bool TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss );
     // Prediction work shares the replay visualizer deadline. These calls may
     // leave prediction dirty/building so a later frame can resume without

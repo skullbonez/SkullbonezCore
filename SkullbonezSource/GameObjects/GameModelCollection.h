@@ -9,8 +9,6 @@ Mental model:
   when that state changes.
 
 Glossary:
-  SoA (Structure of Arrays): Cache layout that stores each field in its own
-  contiguous array for faster iteration.
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
   output and local queries.
   Physics material: Per-object friction and drag coefficients cached by the
@@ -19,18 +17,39 @@ Glossary:
     velocity state to RigidBody integration.
   Contact policy: Terrain and contact thresholds cached by the collection so
     existing and newly added models receive the same physics policy.
-  PhysicsModelAccess: Stack-owned facade that forwards allowed physics sync
-    commands to this collection without making it inherit physics interfaces.
-  Replay body id: Per-collection identity saved in replay samples so restore
-    paths can reject stale model slots.
+  PhysicsModelAccess: Stack-owned refresh facade that lets physics stores import
+    model-owned authoring without making this collection inherit physics
+    interfaces.
+  Render instance store: Renderer-facing snapshot built once before frame passes
+    so draw code can read physics-owned transforms without GameModel pose copies.
+  Topology drift: A body/collider/model count mismatch that means compatibility
+    stores must import model-owned construction data before stepping.
+  Scene-object group: Cold metadata that maps multi-part authored objects, such
+    as ragdolls or releasable trees, back to a root model slot.
+  Collider descriptor: Value packet containing shape/material facts that
+    PhysicsScene turns into a live ColliderStore row.
+  Fixed-tree release: Compatibility rule that lets authored tree parts become
+    dynamic when a related fixed part is hit strongly enough.
+  Replay render pose override: One-frame presentation pose used when replay
+    scrubbing or prediction draws historical/future bodies without mutating physics.
+  Replay body id: PhysicsBodyStore row identity saved in replay samples so
+    restore paths can reject stale model slots.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
 Invariants:
   - m_gameModels is the stable scene-order owner; collaborators mirror or view
     that order rather than replacing it.
-  - Replay body ids are assigned monotonically per collection so diagnostics can
-    identify bodies across frames.
+  - m_sceneObjectGroups is a same-length sidecar keyed by m_gameModels slot.
+    GameModel does not own runtime grouping fields.
+  - Replay identity lives in PhysicsBodyStore rows after creation. Collection
+    code receives scene-owned ids at creation and does not allocate them.
+  - Collider shape/material data is imported into ColliderStore at create,
+    edit, config, or topology-repair boundaries; the collection does not keep a
+    second collider-authoring cache.
+  - Replay body ids are derived from scene object ids at creation and stored on
+    PhysicsBodyStore rows so diagnostics can identify bodies without reopening
+    GameModel.
 
 Related:
   - SkullbonezSource/GameObjects/GameModelCollection.cpp
@@ -43,7 +62,6 @@ Related:
 #include <vector>
 
 #include "GameModel.h"
-#include "GameModelStreams.h"
 #include "../Maths/Matrix4.h"
 #include "../Physics/PhysicsEngine.h"
 #include "../Physics/PhysicsModelAccess.h"
@@ -76,12 +94,14 @@ class ColliderStore;
 class PhysicsBodyStore;
 class CollisionVisualizer;
 class PhysicsDebugVisualizer;
+struct PhysicsColliderCreateDesc;
 } // namespace Physics
 
 namespace Rendering
 {
 class IRenderResourceFactory;
-}
+class RenderInstanceStore;
+} // namespace Rendering
 
 namespace Threading
 {
@@ -91,37 +111,84 @@ class WorkerPool;
 namespace GameObjects
 {
 class GameModelRenderer;
-class GameModelCollectionPhysicsAdapter;
+
+enum class GameModelCollectionKind : uint8_t
+{
+    None = 0,
+    SimpleRagdoll,
+    ReleasableTree
+};
+
+// Creation-only metadata for multi-part authored objects. Callers that already
+// know root/part order pass it once; the collection copies it into the dense
+// sidecar instead of deriving grouping from display names.
+struct SceneObjectGroupCreateDesc
+{
+    GameModelCollectionKind kind = GameModelCollectionKind::None;
+    int rootModelIndex = -1;
+    int partIndex = -1;
+};
 
 /* -- Game Model Collection
 --------------------------------------------------------------------------------------------------------------------------------------
 
     Owns the scene's GameModel storage and exposes stable model-facing calls.
-    Physics, rendering, hot SoA streams, and scene serialization sit behind
-    dedicated collaborators. Some runtime tools still use model-indexed calls
-    because scene files, replay streams, and editor picks preserve model order.
+    Physics, rendering, and scene serialization sit behind dedicated
+    collaborators. Some runtime tools still use model-indexed calls because
+    scene files, replay streams, and editor picks preserve model order.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class GameModelCollection
 {
-    // Why: the adapter is the named model-order boundary while old callers
-    // migrate from model indices to durable physics handles.
-    friend class GameModelCollectionPhysicsAdapter;
-
   private:
+    // Queued replay draw pose, keyed by the model slot plus stable replay id so
+    // stale samples cannot paint over a different live body.
+    struct ReplayRenderPoseOverride
+    {
+        int modelIndex = -1;
+        uint32_t replayBodyId = 0;
+        Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
+        Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
+    };
+
+    struct SceneObjectGroupRecord
+    {
+        GameModelCollectionKind kind = GameModelCollectionKind::None;
+        int rootModelIndex = -1;
+        int partIndex = -1;
+    };
+
     std::vector<GameModel> m_gameModels;
-    GameModelSoACache m_soaCache;
+    // Dense sidecar for cold scene-object grouping. Keeping this metadata out
+    // of GameModel preserves the model vector for authored presentation data
+    // while collection-order systems still get O(1) group lookup by model slot.
+    std::vector<SceneObjectGroupRecord> m_sceneObjectGroups;
     Physics::PhysicsEngine m_physicsEngine;
     // Cached physics policy applied to existing and newly added models whenever
     // runtime config changes.
     Physics::PhysicsMaterial m_physicsMaterial;
     Physics::BodySimulationLimits m_bodySimulationLimits;
     Physics::ContactPolicy m_contactPolicy;
-    Threading::WorkerPool* m_workerPool = nullptr; // Borrowed startup worker pool for render/physics parallel helpers.
-    bool m_renderCollisionVolumes = false;         // Cached render debug toggle copied from EngineConfig.
-    bool m_shadowParallelPrep = false;             // Cached worker-prep toggle copied from EngineConfig.
-    uint32_t m_nextReplayBodyId = 1;
+    Threading::WorkerPool* m_workerPool = nullptr;                     // Borrowed startup worker pool for render/physics parallel helpers.
+    bool m_renderCollisionVolumes = false;                             // Cached render debug toggle copied from EngineConfig.
+    bool m_shadowParallelPrep = false;                                 // Cached worker-prep toggle copied from EngineConfig.
+    std::vector<ReplayRenderPoseOverride> m_replayRenderPoseOverrides; // Single-frame replay draw-pose requests.
 
-    void InvalidateSoA();
+    SceneObjectGroupRecord BuildSceneObjectGroupForAppend( const GameModel& gameModel,
+                                                           int newModelIndex,
+                                                           SceneObjectGroupCreateDesc groupDesc );
+    SceneObjectGroupRecord GroupRecordAt( int modelIndex ) const;
+    std::vector<uint32_t> BuildReplayBodyIdsForReload( const Physics::PhysicsBodyStore& bodyStore );
+    // Owner boundary: fixed-tree grouping is collection metadata. Body-store
+    // import receives only the scalar root, never collection-kind accessors.
+    std::vector<int> BuildFixedTreeReleaseRootsForReload() const;
+    int FixedTreeReleaseRootForModelIndex( int modelIndex ) const;
+    void ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore,
+                                         const Physics::ColliderStore& colliderStore );
+    void RefreshRenderInstances();
+    Physics::PhysicsBodyHandle AppendGameModelAndPhysicsRows( GameModel gameModel,
+                                                              Physics::PhysicsSceneObjectId sceneObjectId,
+                                                              Physics::PhysicsColliderCreateDesc colliderDesc,
+                                                              SceneObjectGroupCreateDesc groupDesc );
 
   public:
     GameModelCollection();
@@ -132,12 +199,13 @@ class GameModelCollection
     bool ShouldRenderCollisionVolumes() const;
     bool ShouldUseShadowParallelPrep() const;
     Threading::WorkerPool* RenderWorkerPool() const;
-    void AddGameModel( GameModel gameModel );
+    // Appends model storage while importing caller-owned collider shape/material
+    // facts and any explicit scene-object grouping directly into owner stores.
+    Physics::PhysicsBodyHandle AddGameModel( GameModel gameModel,
+                                             Physics::PhysicsColliderCreateDesc colliderDesc,
+                                             Physics::PhysicsSceneObjectId sceneObjectId,
+                                             SceneObjectGroupCreateDesc groupDesc = {} );
     void Clear();
-    void RunPhysics( float fChangeInTime,
-                     const Basics::EngineConfig& config,
-                     const Physics::PhysicsWorldForces& worldForces,
-                     Threading::WorkerPool& workerPool );
     int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount );
     void RenderModels( const Basics::RenderHelperContext& helperContext,
                        const Math::Transformation::Matrix4& view,
@@ -158,7 +226,7 @@ class GameModelCollection
                               const Math::Transformation::Matrix4& view,
                               const Math::Transformation::Matrix4& proj,
                               const Basics::CinematicRenderConfig* cinematic = nullptr );
-    void PrepareRenderStreams();
+    void PrepareRenderInstances();
     bool GetObjectShadowBounds( const Math::Vector::Vector3& focus,
                                 float maxDistance,
                                 Math::Vector::Vector3& outCenter,
@@ -187,15 +255,19 @@ class GameModelCollection
     // Lifetime: returned model pointers are stable only until collection
     // mutation. Null means the caller held a stale model index.
     const GameModel* TryGetModel( int index ) const;
+    // Scene-object grouping belongs to the collection because model order is the
+    // compatibility key shared by editor, replay, snapshots, and physics import.
+    GameModelCollectionKind GroupKindAt( int modelIndex ) const;
+    int GroupRootModelIndexAt( int modelIndex ) const;
+    int GroupPartIndexAt( int modelIndex ) const;
+    bool IsSimpleRagdollPart( int modelIndex ) const;
+    bool IsSimpleRagdollTorso( int modelIndex ) const;
+    int RagdollRootModelIndexForPart( int modelIndex ) const;
+    bool TryFindSimpleRagdollPart( int selectedModelIndex, int partIndex, int& outModelIndex ) const;
+    int GatherGroupMemberIndices( int selectedModelIndex, int* outIndices, int maxIndices ) const;
 #ifdef _DEBUG
     bool TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const;
-    // Builds one diagnostics record from model-owned display names plus
-    // physics-owned body/collider stores, without handing debug sinks a mutable
-    // or indexable GameModel range.
-    bool TryGetPhysicsDiagnosticsModel( int index,
-                                        const Physics::PhysicsBodyStore& bodyStore,
-                                        const Physics::ColliderStore& colliderStore,
-                                        Physics::PhysicsDiagnosticsModelRecord& outRecord ) const;
+    void FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const;
 #endif
     // Replays restore saved body state through the collection so cache
     // invalidation and replay-id validation stay with the model owner. The
@@ -220,57 +292,64 @@ class GameModelCollection
                                               const Math::Orientation::Quaternion& orientation,
                                               const Math::Vector::Vector3& linearVelocity,
                                               const Math::Vector::Vector3& angularVelocity,
+                                              float mass,
+                                              float inverseMass,
+                                              const Math::Vector::Vector3& rotationalInertia,
+                                              const Math::Vector::Vector3& inverseRotationalInertia,
                                               float fixedContactHighlightSeconds );
     // Replay scrub rendering may override only the draw pose for a frame. The
-    // replay id check prevents stale sample indices from moving the wrong body.
-    bool TrySetReplayRenderPose( int index,
-                                 uint32_t replayBodyId,
-                                 const Math::Vector::Vector3& position,
-                                 const Math::Orientation::Quaternion& orientation );
-    // Mutates angular velocity through the collection so derived body streams
-    // cannot keep a stale copy.
+    // replay id check prevents stale sample indices from drawing the wrong body.
+    bool TryQueueReplayRenderPoseOverride( int index,
+                                           uint32_t replayBodyId,
+                                           const Math::Vector::Vector3& position,
+                                           const Math::Orientation::Quaternion& orientation );
+    void ClearReplayRenderPoseOverrides();
+    // Mutates angular velocity through the collection so PhysicsBodyStore is
+    // refreshed through the same owner-checked path as replay/editor edits.
     bool TrySetModelAngularVelocity( int index, const Math::Vector::Vector3& angularVelocity );
     Basics::MainMemoryGameObjectStats CollectMemoryStats() const;
     bool TrimModelsForReplayRestore( int modelCount );
     void CaptureReplaySolverWorldSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot ) const;
     bool RestoreReplaySolverWorldSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot );
-    GameModelBodyStream GetBodyStream();
-    GameModelRenderStream GetRenderStream();
     Physics::PhysicsEngine& GetPhysicsEngine();
     const Physics::PhysicsEngine& GetPhysicsEngine() const;
     const Physics::PhysicsBodyStore& GetPhysicsBodyStore();
     const Physics::ColliderStore& GetColliderStore();
+    // Repairs model/body count drift at the model-owner edge. Same-count body
+    // edits remain PhysicsBodyStore authority and must commit through explicit
+    // commands instead of reopening a model refresh.
+    bool RepairPhysicsBodyTopology();
+    // Repairs model/body/collider count drift before tool or picker code asks
+    // for body handles and collider bounds.
+    bool RepairPhysicsBodyAndColliderTopology();
+    // Current prepared collider snapshot. Hot render passes use this after
+    // PrepareRenderInstances() instead of invoking topology repair mid-submit.
+    const Physics::ColliderStore& Colliders() const;
+    // Current prepared render snapshot. Call PrepareRenderInstances() before frame
+    // passes; cold callers that need an ensured snapshot use GetRenderInstanceStore().
+    const Rendering::RenderInstanceStore& RenderInstances() const;
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();
     GameModel& GetModelAtIndex( int index );
     double GetSceneKineticEnergy();
-    GameModelBodyStream GetPhysicsBodyStream();
-    void InvalidatePhysicsStreams();
-    void WriteBackPhysicsBodies( const Physics::PhysicsBodyStore& bodyStore );
-    void WriteBackPhysicsBody( const Physics::PhysicsBodyStore& bodyStore, int modelIndex );
     void ReloadPhysicsBodies( Physics::PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
     void RefreshPhysicsBodyFromModel( Physics::PhysicsBodyStore& bodyStore, int modelIndex );
-    void RefreshPhysicsColliders( Physics::ColliderStore& colliderStore, const Physics::PhysicsBodyStore& bodyStore );
-    void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
-                                 const Physics::PhysicsBodyStore& bodyStore,
-                                 const Physics::ColliderStore& colliderStore );
-    void CommitEditedModelPhysicsState( int modelIndex, bool colliderChanged );
-    Physics::PhysicsDiagnosticsView GetPhysicsDiagnosticsView() const;
+    // Commits an editor/replay body-only mutation from the model authoring cache
+    // into PhysicsBodyStore after the caller has validated the model index.
+    void CommitEditedModelBodyState( int modelIndex );
+    // Commits an editor/replay shape mutation from a caller-built collider
+    // descriptor; the collection fills body identity and current material policy.
+    void CommitEditedModelColliderState( int modelIndex, Physics::PhysicsColliderCreateDesc colliderDesc );
     void NotifyFixedContact( int modelIndex, float highlightSeconds );
     void TickContactHighlights( int modelCount, float deltaSeconds );
     void NotifyAudioContact( int modelIndex, float highlightSeconds );
-    void ReleaseAttachedFixedTreeParts( const Physics::PhysicsFixedTreeReleaseEvent& event );
-    void ReleaseAttachedFixedTreeParts( int sourceIndex,
+    // Runtime-tool edge: ray tools release authored fixed tree props through
+    // PhysicsBodyStore; presentation reads the store/render snapshot instead of
+    // forcing a per-release GameModel mirror.
+    bool ReleaseAttachedFixedTreeParts( int sourceIndex,
+                                        float releaseImpulseStrength,
                                         const Math::Vector::Vector3& seedLinearVelocity,
                                         const Math::Vector::Vector3& seedAngularVelocity );
 
-    void WakeModel( int index );
-    void SeedModelAsleep( int index );
-    void ApplyBodyImpulse( int index,
-                           const Math::Vector::Vector3& impulse,
-                           const Math::Vector::Vector3& localApplicationPoint );
-    void SetPendingBodyImpulse( int index,
-                                const Math::Vector::Vector3& impulse,
-                                const Math::Vector::Vector3& localApplicationPoint );
     void SetPhysicsSleepEnabled( bool enabled );
     void ClearPointJointConstraints();
     void BeginCollisionVisualFrame();

@@ -95,6 +95,7 @@ struct RagdollBuildOptions
     float scale = 1.0f;
     bool fixed = false;
     bool startsAsleep = false;
+    PhysicsSceneObjectId firstSceneObjectId; // First id in caller-owned contiguous body range.
 };
 
 class Ragdoll

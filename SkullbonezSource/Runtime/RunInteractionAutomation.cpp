@@ -596,7 +596,7 @@ bool Run::TryFindInteractionAutomationModel( const char* name, int& outIndex ) c
     return false;
 }
 
-bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMouse ) const
+bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMouse )
 {
     int modelIndex = -1;
     if ( !TryFindInteractionAutomationModel( name, modelIndex ) || !m_systems.cameras || !m_systems.window )
@@ -625,7 +625,8 @@ bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMous
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.models = &m_cGameModelCollection.Models();
+                    request.bodyStore = &m_cGameModelCollection.GetPhysicsBodyStore();
+                    request.colliderStore = &m_cGameModelCollection.GetColliderStore();
                     request.rayOrigin = rayOrigin;
                     request.rayDirection = rayDirection;
 

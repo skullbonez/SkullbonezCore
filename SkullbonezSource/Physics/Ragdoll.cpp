@@ -16,12 +16,14 @@ Glossary:
   Neck swing limit: Special angular clamp applied to the head/torso joint.
   Body record: Physics-owned snapshot of pose, velocity, mass, and inertia used
     by the joint solver.
+  Scene-object group: Collection sidecar row that keeps simple-ragdoll parts
+    tied to one root model without asking runtime tools to parse display names.
 
 Invariants:
   - Body and constraint creation order must stay deterministic.
   - Constraint solving must not allocate per row while physics is stepping.
-  - Joint inertia math reads body-record flags; GameModel is only the temporary
-    compatibility writeback target for this slice.
+  - Ragdoll sleep seeding targets PhysicsBodyStore/PhysicsWorld by handle;
+    GameModel remains only the construction/presentation owner for this path.
 
 Related:
   - SkullbonezSource/Physics/Ragdoll.h
@@ -29,6 +31,7 @@ Related:
 */
 #include "Ragdoll.h"
 
+#include "../Core/Common.h"
 #include "../GameObjects/GameModel.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "ContactSolverCommon.h"
@@ -42,6 +45,7 @@ Related:
 #include <cfloat>
 #include <cstdio>
 #include <cstring>
+#include <stdexcept>
 
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::GameObjects;
@@ -49,6 +53,7 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
+using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 
 namespace
 {
@@ -433,6 +438,12 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
     const Vector3 base = options.terrainPoint + rotation * Vector3( 0.0f, RAGDOLL_SURFACE_EPSILON, 0.0f );
     const char* prefix = options.namePrefix && options.namePrefix[0] ? options.namePrefix : "ragdoll";
     const SimplePartDef* parts = SimpleParts();
+    // Invariant: the caller reserves SIMPLE_PART_COUNT ids as one range so
+    // ragdoll parts append with deterministic, gap-free scene identity.
+    if ( !options.firstSceneObjectId.IsValid() )
+    {
+        throw std::runtime_error( "Ragdoll build requires a scene object id range." );
+    }
 
     for ( int i = 0; i < PART_COUNT; ++i )
     {
@@ -450,10 +461,22 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
         char name[64];
         sprintf_s( name, sizeof( name ), "%s_%s", prefix, parts[i].suffix );
         model.SetName( name );
-        model.SetRuntimeCollection( GameModelCollectionKind::SimpleRagdoll, firstBody + PART_TORSO, i );
         model.SetFixed( options.fixed );
+        PhysicsSceneObjectId partSceneObjectId;
+        partSceneObjectId.value = options.firstSceneObjectId.value + static_cast<uint32_t>( i );
+        SceneObjectGroupCreateDesc groupDesc;
+        groupDesc.kind = GameModelCollectionKind::SimpleRagdoll;
+        groupDesc.rootModelIndex = firstBody;
+        groupDesc.partIndex = i;
 
-        collection.AddGameModel( std::move( model ) );
+        // Invariant: ragdoll grouping is prefab metadata. Pass root/part facts
+        // directly so collection append never parses display names to recover it.
+        collection.AddGameModel( std::move( model ),
+                                 MakeColliderCreateDesc( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ),
+                                                         parts[i].restitution,
+                                                         HashStr( "default" ) ),
+                                 partSceneObjectId,
+                                 groupDesc );
     }
 
     int jointCount = 0;
@@ -478,7 +501,10 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
     {
         for ( int i = 0; i < PART_COUNT; ++i )
         {
-            collection.SeedModelAsleep( firstBody + i );
+            // Why: ragdoll construction already resolves body handles for
+            // joints. Seed sleep through the same physics boundary instead of
+            // reopening the collection's model-index command wrapper.
+            physics.SeedBodyAsleep( bodyStore.HandleForModelIndex( firstBody + i ) );
         }
     }
 }

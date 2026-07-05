@@ -20,6 +20,8 @@ Glossary:
   Manifold: Set of contact points and normals describing one colliding pair.
   Contact body view: Pose-only body input used by narrowphase so contact
   geometry can be built from PhysicsBodyRecord state instead of GameModel.
+  Collider shape snapshot: Exact shape value copied into ColliderStore and read
+    by narrowphase instead of asking GameModel during contact generation.
   Contact sweep: Conservative object/object time-of-impact query that advances
   fast bodies to a candidate contact before exact manifolds solve the response.
 
@@ -40,11 +42,9 @@ Related:
 #include "CollisionShape.h"
 #include "ConvexHullShape.h"
 #include "../Core/Profiler.h"
-#include "../GameObjects/GameModel.h"
 #include "../Maths/GeometricStructures.h"
 #include "../Maths/Quaternion.h"
 
-using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
@@ -187,17 +187,6 @@ float ClampFloat( float value, float lo, float hi )
     //   Narrowphase helpers use scalar clamps for closest-point and clipping
     //   math. Keeping the helper local avoids adding broad utility API surface.
     return (std::max)( lo, (std::min)( value, hi ) );
-}
-
-ObjectContactBodyView MakeObjectContactBodyView( const GameModel& model )
-{
-    // Legacy callers still arrive with GameModel storage. Convert at the public
-    // boundary so the narrowphase internals speak the same pose-only contract as
-    // physics-store callers.
-    ObjectContactBodyView body;
-    body.position = model.GetPosition();
-    body.orientation = model.GetOrientation();
-    return body;
 }
 
 BoxWorld MakeBoxWorld( const ObjectContactBodyView& body, const BoundingBox& box )
@@ -1917,47 +1906,9 @@ ObjectContactSweepResult SkullbonezCore::Physics::SweepObjectContact( const Obje
 //   Public entry point that returns the contact rows Catto's iterative solver
 //   expects: normal, rA/rB, penetration, and stable contact IDs.
 // ENGINE-SPECIFIC:
-//   Dispatches Skullbonez collision shapes to the local 3D manifold builders.
-//   The normal is always oriented from body A toward body B so the solver can use
-//   one impulse sign convention for every pair.
-bool SkullbonezCore::Physics::BuildObjectContactManifold( const GameModel& a,
-                                                          const GameModel& b,
-                                                          int bodyA,
-                                                          int bodyB,
-                                                          float contactSkin,
-                                                          ObjectContactManifold& out )
-{
-    return BuildObjectContactManifold( a,
-                                       a.GetCollisionShape(),
-                                       b,
-                                       b.GetCollisionShape(),
-                                       bodyA,
-                                       bodyB,
-                                       contactSkin,
-                                       out );
-}
-
-
-bool SkullbonezCore::Physics::BuildObjectContactManifold( const GameModel& a,
-                                                          const CollisionShape& shapeA,
-                                                          const GameModel& b,
-                                                          const CollisionShape& shapeB,
-                                                          int bodyA,
-                                                          int bodyB,
-                                                          float contactSkin,
-                                                          ObjectContactManifold& out )
-{
-    return BuildObjectContactManifold( MakeObjectContactBodyView( a ),
-                                       shapeA,
-                                       MakeObjectContactBodyView( b ),
-                                       shapeB,
-                                       bodyA,
-                                       bodyB,
-                                       contactSkin,
-                                       out );
-}
-
-
+//   Dispatches Skullbonez collision shapes from ColliderStore snapshots to the
+//   local 3D manifold builders. The normal is always oriented from body A toward
+//   body B so the solver can use one impulse sign convention for every pair.
 bool SkullbonezCore::Physics::BuildObjectContactManifold( const ObjectContactBodyView& a,
                                                           const CollisionShape& shapeA,
                                                           const ObjectContactBodyView& b,

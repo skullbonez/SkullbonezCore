@@ -12,8 +12,12 @@ Glossary:
     models.
   Placement preflight: Capacity and asset-availability check shared by the
     "can place" query and the actual placement commit.
+  Body-store row: Physics-owned record that receives editor wake/sleep commands
+    after a model-index selection has been validated.
+  Topology drift: Temporary mismatch between editor model count and physics
+    store rows after scene/editor construction or deletion.
   Validation gate: Repository script that proves a class of changes before
-  commit or PR.
+    commit or PR.
 
 Invariants:
   - Preview, preflight, and placement commit must use the same object-type,
@@ -35,6 +39,9 @@ Related:
 #include "../InputController.h"
 #include "../RuntimeInteractionCommands.h"
 #include "../RuntimePickService.h"
+#include "../../Physics/ColliderStore.h"
+#include "../../Physics/PhysicsBodyStore.h"
+#include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
@@ -52,7 +59,6 @@ Related:
 #include <cstdint>
 #include <cctype>
 #include <cstdio>
-#include <cstring>
 #include <fstream>
 #include <string>
 #include <utility>
@@ -72,6 +78,7 @@ using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
+using SkullbonezCore::GameObjects::GameModelCollection;
 using Json = nlohmann::ordered_json;
 
 namespace
@@ -79,6 +86,8 @@ namespace
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
+constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SUPPORTED =
+    REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
 constexpr float EDITOR_PLACEMENT_YAW_STEP_RADIANS = _PI / 12.0f;
 
 // Concept: Clip-space mouse coordinates become editor rays by unprojecting two
@@ -103,6 +112,41 @@ bool TransformClipPointToWorld( const Matrix4& inverseViewProjection, float x, f
     outWorld = Vector3( worldX * invW, worldY * invW, worldZ * invW );
     return true;
 }
+
+
+bool RecordEditorTransformEventFromBodyStore( ReplayRuntime& replayRuntime,
+                                              SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                              int modelIndex,
+                                              uint32_t changedFlags,
+                                              int scaleAxis,
+                                              float scaleFactor )
+{
+    // Why: editor gizmos still mutate the model-owned authoring edge, then commit
+    // into PhysicsBodyStore. Replay event bytes must come from that authoritative
+    // body row so model-mirror writeback is not required before recording.
+    changedFlags &= REPLAY_EDITOR_TRANSFORM_SUPPORTED;
+    if ( changedFlags == 0 )
+    {
+        return false;
+    }
+
+    const PhysicsBodyRecord* body = collection.GetPhysicsBodyStore().RecordForModelIndex( modelIndex );
+    if ( !body || body->replayBodyId == 0 )
+    {
+        return false;
+    }
+
+    replayRuntime.RecordEditorTransformEvent( modelIndex,
+                                              changedFlags,
+                                              body->replayBodyId,
+                                              body->position,
+                                              body->orientation,
+                                              collection.GetModelCount(),
+                                              scaleAxis,
+                                              scaleFactor );
+    return true;
+}
+
 
 Vector3 HullAuthoredLocalOffset( const ConvexHullShape& hull )
 {
@@ -327,10 +371,13 @@ Vector3 EditorAxisVector( int axis )
 }
 
 
-float EditorModelRadius( const GameModel& model )
+float EditorColliderRadius( const ColliderRecord& collider )
 {
-    return (std::max)( GetShapeBoundingRadius( model.GetCollisionShape() ), 1.0f );
+    return (std::max)( collider.boundingRadius > 0.0f ? collider.boundingRadius
+                                                      : GetShapeBoundingRadius( collider.shape ),
+                       1.0f );
 }
+
 
 float EditorShapeAxisExtent( const CollisionShape& shape, int axis )
 {
@@ -407,95 +454,86 @@ float EditorGizmoRotationRadius( float modelRadius )
 
 using EditorGizmoGroupIndices = std::array<int, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY>;
 
-bool TryGetEditorRagdollInstancePrefixLength( const GameModel& model, std::size_t& outPrefixLength )
-{
-    static constexpr const char* RAGDOLL_SUFFIXES[] = { "torso",
-                                                        "head",
-                                                        "upper_arm_l",
-                                                        "lower_arm_l",
-                                                        "upper_arm_r",
-                                                        "lower_arm_r",
-                                                        "upper_leg_l",
-                                                        "lower_leg_l",
-                                                        "upper_leg_r",
-                                                        "lower_leg_r" };
-
-    const char* name = model.GetName();
-    if ( !name || name[0] == '\0' )
-    {
-        return false;
-    }
-
-    const std::size_t nameLength = std::strlen( name );
-    for ( const char* suffix : RAGDOLL_SUFFIXES )
-    {
-        const std::size_t suffixLength = std::strlen( suffix );
-        if ( nameLength <= suffixLength + 1 )
-        {
-            continue;
-        }
-
-        const std::size_t suffixStart = nameLength - suffixLength;
-        if ( name[suffixStart - 1] != '_' || std::strncmp( name + suffixStart, suffix, suffixLength ) != 0 )
-        {
-            continue;
-        }
-
-        outPrefixLength = suffixStart - 1;
-        return outPrefixLength > 0;
-    }
-    return false;
-}
-
-
-bool EditorRagdollPrefixMatches( const char* a, std::size_t aLength, const char* b, std::size_t bLength )
-{
-    return aLength == bLength && std::strncmp( a, b, aLength ) == 0;
-}
-
-
-int GatherSelectedEditorTransformGroup( const std::vector<GameModel>& models,
+// Why: editor transform grouping is scene-object metadata, not physics state.
+// The collection owns a dense grouping row beside model order, so gizmo grouping
+// does not parse display names or read metadata from GameModel body records.
+int GatherSelectedEditorTransformGroup( const GameModelCollection& collection,
                                         int selectedIndex,
                                         EditorGizmoGroupIndices& outIndices )
 {
     outIndices.fill( -1 );
-    if ( selectedIndex < 0 || selectedIndex >= static_cast<int>( models.size() ) )
-    {
-        return 0;
-    }
-
-    std::size_t selectedPrefixLength = 0;
-    if ( !TryGetEditorRagdollInstancePrefixLength( models[static_cast<std::size_t>( selectedIndex )],
-                                                   selectedPrefixLength ) )
-    {
-        outIndices[0] = selectedIndex;
-        return 1;
-    }
-
-    const char* selectedName = models[static_cast<std::size_t>( selectedIndex )].GetName();
-    int count = 0;
-    for ( int i = 0; i < static_cast<int>( models.size() ) && count < static_cast<int>( outIndices.size() ); ++i )
-    {
-        const GameModel& candidate = models[static_cast<std::size_t>( i )];
-        std::size_t prefixLength = 0;
-        if ( TryGetEditorRagdollInstancePrefixLength( candidate, prefixLength ) &&
-             EditorRagdollPrefixMatches( selectedName, selectedPrefixLength, candidate.GetName(), prefixLength ) )
-        {
-            outIndices[static_cast<std::size_t>( count )] = i;
-            ++count;
-        }
-    }
-
-    if ( count <= 0 )
-    {
-        outIndices[0] = selectedIndex;
-        return 1;
-    }
-    return count;
+    return collection.GatherGroupMemberIndices( selectedIndex,
+                                                outIndices.data(),
+                                                static_cast<int>( outIndices.size() ) );
 }
 
 
-bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
+const PhysicsBodyRecord*
+TryResolveEditorBodyRecord( const PhysicsBodyStore& bodyStore, PhysicsBodyHandle bodyHandle, int modelIndex )
+{
+    // Invariant: editor selection carries the handle as live physics identity.
+    // The model index is a UI/grouping hint and must agree before callers read
+    // the dense store row.
+    const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
+    if ( !body || bodyStore.ModelIndexForHandle( bodyHandle ) != modelIndex )
+    {
+        return nullptr;
+    }
+    return body;
+}
+
+
+const PhysicsBodyRecord* TryResolveEditorBodyRecord( const PhysicsBodyStore& bodyStore, int modelIndex )
+{
+    return TryResolveEditorBodyRecord( bodyStore, bodyStore.HandleForModelIndex( modelIndex ), modelIndex );
+}
+
+
+bool TryResolveEditorBodyCollider( const PhysicsBodyStore& bodyStore,
+                                   const ColliderStore& colliderStore,
+                                   PhysicsBodyHandle bodyHandle,
+                                   PhysicsColliderHandle colliderHandle,
+                                   int modelIndex,
+                                   const PhysicsBodyRecord*& outBody,
+                                   const ColliderRecord*& outCollider )
+{
+    const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
+    const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+    if ( !body || !collider || bodyStore.ModelIndexForHandle( bodyHandle ) != modelIndex ||
+         colliderStore.ModelIndexForHandle( colliderHandle ) != modelIndex || collider->body != bodyHandle )
+    {
+        outBody = nullptr;
+        outCollider = nullptr;
+        return false;
+    }
+
+    outBody = body;
+    outCollider = collider;
+    return true;
+}
+
+
+bool TryResolveEditorBodyCollider( const PhysicsBodyStore& bodyStore,
+                                   const ColliderStore& colliderStore,
+                                   int modelIndex,
+                                   const PhysicsBodyRecord*& outBody,
+                                   const ColliderRecord*& outCollider )
+{
+    return TryResolveEditorBodyCollider( bodyStore,
+                                         colliderStore,
+                                         bodyStore.HandleForModelIndex( modelIndex ),
+                                         colliderStore.HandleForModelIndex( modelIndex ),
+                                         modelIndex,
+                                         outBody,
+                                         outCollider );
+}
+
+
+bool TryGetEditorSelectionFrame( const GameModelCollection& collection,
+                                 const PhysicsBodyStore& bodyStore,
+                                 const ColliderStore& colliderStore,
+                                 PhysicsBodyHandle selectedBodyHandle,
+                                 PhysicsColliderHandle selectedColliderHandle,
                                  int selectedIndex,
                                  Vector3& outOrigin,
                                  float& outRadius,
@@ -503,24 +541,50 @@ bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
                                  int* outGroupCount = nullptr )
 {
     EditorGizmoGroupIndices indices = {};
-    const int count = GatherSelectedEditorTransformGroup( models, selectedIndex, indices );
+    const int count = GatherSelectedEditorTransformGroup( collection, selectedIndex, indices );
     if ( count <= 0 )
     {
         return false;
     }
 
+    // Invariant: editor selection may group by GameModel name metadata, but the
+    // interactive frame itself must use live body/collider rows so stale
+    // compatibility pose mirrors do not steer hit testing or drag math.
+    std::array<const PhysicsBodyRecord*, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY> bodies = {};
+    std::array<const ColliderRecord*, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY> colliders = {};
     Vector3 origin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     for ( int i = 0; i < count; ++i )
     {
-        origin += models[static_cast<std::size_t>( indices[static_cast<std::size_t>( i )] )].GetPosition();
+        const int modelIndex = indices[static_cast<std::size_t>( i )];
+        const PhysicsBodyRecord* body = nullptr;
+        const ColliderRecord* collider = nullptr;
+        const bool selectedMember = modelIndex == selectedIndex;
+        const PhysicsBodyHandle bodyHandle =
+            selectedMember ? selectedBodyHandle : bodyStore.HandleForModelIndex( modelIndex );
+        const PhysicsColliderHandle colliderHandle =
+            selectedMember ? selectedColliderHandle : colliderStore.HandleForModelIndex( modelIndex );
+        if ( !TryResolveEditorBodyCollider( bodyStore,
+                                            colliderStore,
+                                            bodyHandle,
+                                            colliderHandle,
+                                            modelIndex,
+                                            body,
+                                            collider ) )
+        {
+            return false;
+        }
+        bodies[static_cast<std::size_t>( i )] = body;
+        colliders[static_cast<std::size_t>( i )] = collider;
+        origin += body->position;
     }
     origin /= static_cast<float>( count );
 
     float radius = 1.0f;
     for ( int i = 0; i < count; ++i )
     {
-        const GameModel& model = models[static_cast<std::size_t>( indices[static_cast<std::size_t>( i )] )];
-        radius = (std::max)( radius, Distance( model.GetPosition(), origin ) + EditorModelRadius( model ) );
+        const PhysicsBodyRecord& body = *bodies[static_cast<std::size_t>( i )];
+        const ColliderRecord& collider = *colliders[static_cast<std::size_t>( i )];
+        radius = (std::max)( radius, Distance( body.position, origin ) + EditorColliderRadius( collider ) );
     }
 
     outOrigin = origin;
@@ -537,16 +601,83 @@ bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
 }
 
 
+bool TryTraceEditorSelectionOverlayFromStores( const GameModelCollection& collection,
+                                               const PhysicsBodyStore& bodyStore,
+                                               const ColliderStore& colliderStore,
+                                               PhysicsBodyHandle selectedBodyHandle,
+                                               PhysicsColliderHandle selectedColliderHandle,
+                                               int selectedIndex,
+                                               RunEditorTracer& tracer,
+                                               Vector3& outOrigin,
+                                               float& outRadius )
+{
+    EditorGizmoGroupIndices indices = {};
+    const int count = GatherSelectedEditorTransformGroup( collection, selectedIndex, indices );
+    if ( count <= 0 )
+    {
+        return false;
+    }
+
+    // Invariant: overlay tracing uses bounded pointer scratch only. Do not copy
+    // CollisionShape values or allocate per selected body just to draw lines.
+    std::array<const PhysicsBodyRecord*, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY> bodies = {};
+    std::array<const ColliderRecord*, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY> colliders = {};
+    Vector3 origin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    for ( int i = 0; i < count; ++i )
+    {
+        const int modelIndex = indices[static_cast<std::size_t>( i )];
+        const PhysicsBodyRecord* body = nullptr;
+        const ColliderRecord* collider = nullptr;
+        const bool selectedMember = modelIndex == selectedIndex;
+        const PhysicsBodyHandle bodyHandle =
+            selectedMember ? selectedBodyHandle : bodyStore.HandleForModelIndex( modelIndex );
+        const PhysicsColliderHandle colliderHandle =
+            selectedMember ? selectedColliderHandle : colliderStore.HandleForModelIndex( modelIndex );
+        if ( !TryResolveEditorBodyCollider( bodyStore,
+                                            colliderStore,
+                                            bodyHandle,
+                                            colliderHandle,
+                                            modelIndex,
+                                            body,
+                                            collider ) )
+        {
+            return false;
+        }
+        bodies[static_cast<std::size_t>( i )] = body;
+        colliders[static_cast<std::size_t>( i )] = collider;
+        origin += body->position;
+    }
+    origin /= static_cast<float>( count );
+
+    // Why: selection grouping still uses model-owned editor identity, but the
+    // visible overlay follows the live body/collider rows so GameModel pose and
+    // shape mirrors are not required for presentation.
+    float radius = 1.0f;
+    for ( int i = 0; i < count; ++i )
+    {
+        const PhysicsBodyRecord& body = *bodies[static_cast<std::size_t>( i )];
+        const ColliderRecord& collider = *colliders[static_cast<std::size_t>( i )];
+        radius = (std::max)( radius, Distance( body.position, origin ) + EditorColliderRadius( collider ) );
+        tracer.AddSelectionOutline( body.position, body.orientation, collider.shape );
+    }
+
+    outOrigin = origin;
+    outRadius = radius;
+    return true;
+}
+
+
 void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
-                                       const std::vector<GameModel>& models,
+                                       const GameModelCollection& collection,
+                                       const PhysicsBodyStore& bodyStore,
                                        bool allowRagdollGroup )
 {
-    // Lifetime: Drag state stores model indices and starting transforms for the
-    // current gesture only. A changed model count invalidates the group before
-    // movement, scale, or rotation applies.
+    // Lifetime: Drag state stores model indices plus store-sourced starting
+    // transforms for the current gesture only. A changed model/body topology
+    // invalidates the group before movement, scale, or rotation applies.
     editor.gizmoDragGroupCount = 0;
     editor.gizmoDragGroupIndices.fill( -1 );
-    if ( editor.selectedModelIndex < 0 || editor.selectedModelIndex >= static_cast<int>( models.size() ) )
+    if ( editor.selectedModelIndex < 0 || editor.selectedModelIndex >= collection.GetModelCount() )
     {
         return;
     }
@@ -556,7 +687,7 @@ void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
     indices[0] = editor.selectedModelIndex;
     if ( allowRagdollGroup )
     {
-        count = GatherSelectedEditorTransformGroup( models, editor.selectedModelIndex, indices );
+        count = GatherSelectedEditorTransformGroup( collection, editor.selectedModelIndex, indices );
     }
 
     editor.gizmoDragGroupCount =
@@ -565,9 +696,17 @@ void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
     {
         const int index = indices[static_cast<std::size_t>( i )];
         editor.gizmoDragGroupIndices[static_cast<std::size_t>( i )] = index;
-        const GameModel& model = models[static_cast<std::size_t>( index )];
-        editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( i )] = model.GetPosition();
-        editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( i )] = model.GetOrientation();
+        const PhysicsBodyHandle bodyHandle =
+            index == editor.selectedModelIndex ? editor.selectedBody : bodyStore.HandleForModelIndex( index );
+        const PhysicsBodyRecord* body = TryResolveEditorBodyRecord( bodyStore, bodyHandle, index );
+        if ( !body )
+        {
+            editor.gizmoDragGroupCount = 0;
+            editor.gizmoDragGroupIndices.fill( -1 );
+            return;
+        }
+        editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( i )] = body->position;
+        editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( i )] = body->orientation;
     }
 }
 
@@ -591,21 +730,92 @@ int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, i
 }
 
 
+// Why: editor/runtime tools still speak model indices for selection and replay
+// gesture identity, but command mutation can enter PhysicsEngine through the
+// current body-store row once topology drift is repaired at this boundary.
+void WakeEditorPhysicsBody( SkullbonezCore::GameObjects::GameModelCollection& collection, int modelIndex )
+{
+    const int modelCount = collection.GetModelCount();
+    if ( modelIndex < 0 || modelIndex >= modelCount )
+    {
+        return;
+    }
+
+    PhysicsEngine& physics = collection.GetPhysicsEngine();
+    if ( !collection.RepairPhysicsBodyAndColliderTopology() )
+    {
+        return;
+    }
+
+    const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelIndex );
+    if ( !body.IsValid() )
+    {
+        return;
+    }
+
+    physics.WakeBody( body );
+}
+
+
+void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollection& collection, int modelIndex )
+{
+    const int modelCount = collection.GetModelCount();
+    if ( modelIndex < 0 || modelIndex >= modelCount )
+    {
+        return;
+    }
+
+    PhysicsEngine& physics = collection.GetPhysicsEngine();
+    if ( !collection.RepairPhysicsBodyTopology() )
+    {
+        return;
+    }
+
+    const PhysicsBodyHandle body = physics.BodyStore().HandleForModelIndex( modelIndex );
+    if ( !body.IsValid() )
+    {
+        return;
+    }
+
+    physics.SeedBodyAsleep( body );
+}
+
+
 void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollection& collection,
-                                    SkullbonezCore::Physics::PhysicsEngine&,
                                     int index,
-                                    GameModel& model,
-                                    bool colliderChanged = false )
+                                    GameModel& model )
 {
     // Why: Direct editor transforms teleport the body. Clearing velocities and
     // waking dynamic bodies prevents stale solver momentum from immediately
     // dragging the authored pose away.
     model.SetLinearVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
     model.SetAngularVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
-    collection.CommitEditedModelPhysicsState( index, colliderChanged );
-    if ( !model.IsFixed() )
+    collection.CommitEditedModelBodyState( index );
+    const PhysicsBodyRecord* body = collection.GetPhysicsEngine().BodyStore().RecordForModelIndex( index );
+    // Why: CommitEditedModelBodyState just imported the editor-authored row;
+    // wake eligibility should now follow PhysicsBodyStore, not the model mirror.
+    if ( body && !body->isFixed )
     {
-        collection.WakeModel( index );
+        WakeEditorPhysicsBody( collection, index );
+    }
+}
+
+
+void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                    int index,
+                                    GameModel& model,
+                                    PhysicsColliderCreateDesc colliderDesc )
+{
+    // Why: scale edits change the model authoring cache and the physics collider
+    // row. Commit them together so wake decisions, picks, and replay recording
+    // all see one coherent body/collider state.
+    model.SetLinearVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    model.SetAngularVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    collection.CommitEditedModelColliderState( index, std::move( colliderDesc ) );
+    const PhysicsBodyRecord* body = collection.GetPhysicsEngine().BodyStore().RecordForModelIndex( index );
+    if ( body && !body->isFixed )
+    {
+        WakeEditorPhysicsBody( collection, index );
     }
 }
 
@@ -942,15 +1152,28 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
     Vector3 previewRayDirection;
     const bool hasPreviewMouseRay =
         previewNeedsMouseRay && TryBuildMouseWorldRay( previewRayOrigin, previewRayDirection );
+    const PhysicsBodyStore* previewBodyStore = nullptr;
+    const ColliderStore* previewColliderStore = nullptr;
+    if ( m_runtimeTools.Editor().selectedModelIndex >= 0 )
+    {
+        previewBodyStore = &m_cGameModelCollection.GetPhysicsBodyStore();
+        previewColliderStore = &m_cGameModelCollection.GetColliderStore();
+    }
 
-    const EditorInteractionPreviewResult previewResult = UpdateEditorInteractionPreview(
-        { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction, m_systems.terrain.get(), m_systems.assets },
-        { m_UI.BlocksCameraMouse(),
-          previewInspectGizmoActive,
-          hasPreviewMouseRay,
-          previewRayOrigin,
-          previewRayDirection,
-          Input::IsKeyDown( VK_CONTROL ) } );
+    const EditorInteractionPreviewResult previewResult =
+        UpdateEditorInteractionPreview( { m_runtimeTools.Editor(),
+                                          m_cGameModelCollection,
+                                          previewBodyStore,
+                                          previewColliderStore,
+                                          m_interaction,
+                                          m_systems.terrain.get(),
+                                          m_systems.assets },
+                                        { m_UI.BlocksCameraMouse(),
+                                          previewInspectGizmoActive,
+                                          hasPreviewMouseRay,
+                                          previewRayOrigin,
+                                          previewRayDirection,
+                                          Input::IsKeyDown( VK_CONTROL ) } );
 
     if ( previewResult.clearInvalidSelection )
     {
@@ -1004,6 +1227,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                         RuntimeInteractionCommand command;
                         command.type = RuntimeInteractionCommandType::SetEditorSelection;
                         command.modelIndex = placementResult.modelCountAfter - 1;
+                        command.body = placementResult.placedBody;
+                        command.collider = placementResult.placedCollider;
                         command.claimSelectionOwner = false;
                         ExecuteRuntimeInteractionCommand( command );
                     }
@@ -1053,25 +1278,37 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             if ( leftReleased && !suppressWorldActionThisFrame && m_runtimeTools.Editor().selectedModelIndex >= 0 &&
                  m_runtimeTools.Editor().selectedModelIndex < m_cGameModelCollection.GetModelCount() )
             {
-                const GameModel& model =
-                    m_cGameModelCollection.GetModelAtIndex( m_runtimeTools.Editor().selectedModelIndex );
+                const int selectedModelIndex = m_runtimeTools.Editor().selectedModelIndex;
+                const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+                const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
                 if ( m_runtimeTools.Editor().gizmoDragIsScale )
                 {
                     int scaleAxis = m_runtimeTools.Editor().activeGizmoAxis;
                     float scaleFactor = 1.0f;
-                    const uint32_t changedFlags =
-                        TryEditorScaleFactorFromShapes( m_runtimeTools.Editor().gizmoDragStartShape,
-                                                        model.GetCollisionShape(),
-                                                        scaleAxis,
-                                                        scaleFactor )
-                            ? REPLAY_EDITOR_TRANSFORM_SCALE
-                            : 0u;
-                    m_replayRuntime.RecordEditorTransformEvent( m_runtimeTools.Editor().selectedModelIndex,
-                                                                changedFlags,
-                                                                model,
-                                                                m_cGameModelCollection.GetModelCount(),
-                                                                scaleAxis,
-                                                                scaleFactor );
+                    const PhysicsBodyRecord* selectedBody = nullptr;
+                    const ColliderRecord* selectedCollider = nullptr;
+                    if ( TryResolveEditorBodyCollider( bodyStore,
+                                                       colliderStore,
+                                                       m_runtimeTools.Editor().selectedBody,
+                                                       m_runtimeTools.Editor().selectedCollider,
+                                                       selectedModelIndex,
+                                                       selectedBody,
+                                                       selectedCollider ) )
+                    {
+                        const uint32_t changedFlags =
+                            TryEditorScaleFactorFromShapes( m_runtimeTools.Editor().gizmoDragStartShape,
+                                                            selectedCollider->shape,
+                                                            scaleAxis,
+                                                            scaleFactor )
+                                ? REPLAY_EDITOR_TRANSFORM_SCALE
+                                : 0u;
+                        RecordEditorTransformEventFromBodyStore( m_replayRuntime,
+                                                                 m_cGameModelCollection,
+                                                                 selectedModelIndex,
+                                                                 changedFlags,
+                                                                 scaleAxis,
+                                                                 scaleFactor );
+                    }
                 }
                 else
                 {
@@ -1083,47 +1320,63 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                         {
                             const int modelIndex =
                                 m_runtimeTools.Editor().gizmoDragGroupIndices[static_cast<std::size_t>( groupIndex )];
-                            const GameModel& groupModel = m_cGameModelCollection.GetModelAtIndex( modelIndex );
+                            const PhysicsBodyRecord* groupBody = TryResolveEditorBodyRecord( bodyStore, modelIndex );
+                            if ( !groupBody )
+                            {
+                                continue;
+                            }
                             uint32_t changedFlags = 0;
                             changedFlags |=
                                 EditorPositionsDiffer(
-                                    groupModel.GetPosition(),
+                                    groupBody->position,
                                     m_runtimeTools.Editor()
                                         .gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] )
                                     ? REPLAY_EDITOR_TRANSFORM_TRANSLATE
                                     : 0u;
                             changedFlags |=
                                 EditorOrientationsDiffer(
-                                    groupModel.GetOrientation(),
+                                    groupBody->orientation,
                                     m_runtimeTools.Editor()
                                         .gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )] )
                                     ? REPLAY_EDITOR_TRANSFORM_ROTATE
                                     : 0u;
-                            m_replayRuntime.RecordEditorTransformEvent( modelIndex,
-                                                                        changedFlags,
-                                                                        groupModel,
-                                                                        m_cGameModelCollection.GetModelCount(),
-                                                                        -1,
-                                                                        1.0f );
+                            RecordEditorTransformEventFromBodyStore( m_replayRuntime,
+                                                                     m_cGameModelCollection,
+                                                                     modelIndex,
+                                                                     changedFlags,
+                                                                     -1,
+                                                                     1.0f );
                         }
                     }
                     else
                     {
+                        const PhysicsBodyRecord* selectedBody =
+                            TryResolveEditorBodyRecord( bodyStore,
+                                                        m_runtimeTools.Editor().selectedBody,
+                                                        selectedModelIndex );
+                        if ( !selectedBody )
+                        {
+                            CancelEditorGizmoDragState(
+                                { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction } );
+                            UpdateRuntimeInputModeAfterAction( RuntimeInputAction::EndEditorGizmoDrag,
+                                                               RuntimeInputActionSource::Mouse );
+                            return consumedWorldClick;
+                        }
                         uint32_t changedFlags = 0;
-                        changedFlags |=
-                            EditorPositionsDiffer( model.GetPosition(), m_runtimeTools.Editor().gizmoDragStartPosition )
-                                ? REPLAY_EDITOR_TRANSFORM_TRANSLATE
-                                : 0u;
-                        changedFlags |= EditorOrientationsDiffer( model.GetOrientation(),
+                        changedFlags |= EditorPositionsDiffer( selectedBody->position,
+                                                               m_runtimeTools.Editor().gizmoDragStartPosition )
+                                            ? REPLAY_EDITOR_TRANSFORM_TRANSLATE
+                                            : 0u;
+                        changedFlags |= EditorOrientationsDiffer( selectedBody->orientation,
                                                                   m_runtimeTools.Editor().gizmoDragStartOrientation )
                                             ? REPLAY_EDITOR_TRANSFORM_ROTATE
                                             : 0u;
-                        m_replayRuntime.RecordEditorTransformEvent( m_runtimeTools.Editor().selectedModelIndex,
-                                                                    changedFlags,
-                                                                    model,
-                                                                    m_cGameModelCollection.GetModelCount(),
-                                                                    -1,
-                                                                    1.0f );
+                        RecordEditorTransformEventFromBodyStore( m_replayRuntime,
+                                                                 m_cGameModelCollection,
+                                                                 selectedModelIndex,
+                                                                 changedFlags,
+                                                                 -1,
+                                                                 1.0f );
                     }
                 }
             }
@@ -1160,6 +1413,20 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                                             rayDirection,
                                             axisT ) )
             {
+                const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+                const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
+                const PhysicsBodyRecord* selectedBody = nullptr;
+                const ColliderRecord* selectedCollider = nullptr;
+                if ( !TryResolveEditorBodyCollider( bodyStore,
+                                                    colliderStore,
+                                                    m_runtimeTools.Editor().selectedBody,
+                                                    m_runtimeTools.Editor().selectedCollider,
+                                                    m_runtimeTools.Editor().selectedModelIndex,
+                                                    selectedBody,
+                                                    selectedCollider ) )
+                {
+                    return consumedWorldClick;
+                }
                 EnterInteractiveSceneRun();
                 SetWorldInteractionOwnerAfterInteractionTransition( transformOwner, transformReason );
                 if ( !BeginEditorGizmoDragGesture( gizmoContext,
@@ -1169,16 +1436,15 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 {
                     return consumedWorldClick;
                 }
-                GameModel& model = m_cGameModelCollection.GetModelAtIndex( m_runtimeTools.Editor().selectedModelIndex );
                 m_runtimeTools.Editor().gizmoDragActive = true;
                 m_runtimeTools.Editor().gizmoDragIsRotation = false;
                 m_runtimeTools.Editor().gizmoDragIsScale = true;
                 m_runtimeTools.Editor().activeGizmoAxis = m_runtimeTools.Editor().hotGizmoAxis;
                 m_runtimeTools.Editor().gizmoDragStartAxisT = axisT;
-                m_runtimeTools.Editor().gizmoDragStartShape = model.GetCollisionShape();
-                m_runtimeTools.Editor().gizmoDragStartPosition = model.GetPosition();
-                m_runtimeTools.Editor().gizmoDragStartOrientation = model.GetOrientation();
-                CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(), m_cGameModelCollection.Models(), false );
+                m_runtimeTools.Editor().gizmoDragStartShape = selectedCollider->shape;
+                m_runtimeTools.Editor().gizmoDragStartPosition = selectedBody->position;
+                m_runtimeTools.Editor().gizmoDragStartOrientation = selectedBody->orientation;
+                CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(), m_cGameModelCollection, bodyStore, false );
                 consumedWorldClick = true;
                 UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoScale,
                                                    RuntimeInputActionSource::Mouse );
@@ -1213,18 +1479,34 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 m_runtimeTools.Editor().gizmoDragIsScale = false;
                 m_runtimeTools.Editor().activeGizmoAxis = m_runtimeTools.Editor().hotRotationAxis;
                 m_runtimeTools.Editor().gizmoDragStartRotationAngle = startAngle;
-                const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-                Vector3 selectionOrigin =
-                    models[static_cast<size_t>( m_runtimeTools.Editor().selectedModelIndex )].GetPosition();
+                const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+                const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
+                const PhysicsBodyRecord* selectedBody =
+                    TryResolveEditorBodyRecord( bodyStore,
+                                                m_runtimeTools.Editor().selectedBody,
+                                                m_runtimeTools.Editor().selectedModelIndex );
+                if ( !selectedBody )
+                {
+                    CancelEditorGizmoDragState( gizmoContext );
+                    return consumedWorldClick;
+                }
+                Vector3 selectionOrigin = selectedBody->position;
                 float selectionRadius = 1.0f;
-                TryGetEditorSelectionFrame( models,
-                                            m_runtimeTools.Editor().selectedModelIndex,
-                                            selectionOrigin,
-                                            selectionRadius );
+                if ( !TryGetEditorSelectionFrame( m_cGameModelCollection,
+                                                  bodyStore,
+                                                  colliderStore,
+                                                  m_runtimeTools.Editor().selectedBody,
+                                                  m_runtimeTools.Editor().selectedCollider,
+                                                  m_runtimeTools.Editor().selectedModelIndex,
+                                                  selectionOrigin,
+                                                  selectionRadius ) )
+                {
+                    CancelEditorGizmoDragState( gizmoContext );
+                    return consumedWorldClick;
+                }
                 m_runtimeTools.Editor().gizmoDragStartPosition = selectionOrigin;
-                m_runtimeTools.Editor().gizmoDragStartOrientation =
-                    models[static_cast<size_t>( m_runtimeTools.Editor().selectedModelIndex )].GetOrientation();
-                CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(), models, true );
+                m_runtimeTools.Editor().gizmoDragStartOrientation = selectedBody->orientation;
+                CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(), m_cGameModelCollection, bodyStore, true );
                 consumedWorldClick = true;
                 UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoRotate,
                                                    RuntimeInputActionSource::Mouse );
@@ -1238,14 +1520,23 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             Vector3 rayDirection;
             float axisT = 0.0f;
             EditorGizmoContext gizmoContext{ m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction };
-            const std::vector<GameModel>& models = m_cGameModelCollection.Models();
+            const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+            const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
+            const PhysicsBodyRecord* selectedBody =
+                TryResolveEditorBodyRecord( bodyStore,
+                                            m_runtimeTools.Editor().selectedBody,
+                                            m_runtimeTools.Editor().selectedModelIndex );
             Vector3 selectionOrigin;
             float selectionRadius = 1.0f;
-            const bool haveSelectionFrame = TryGetEditorSelectionFrame( models,
+            const bool haveSelectionFrame = TryGetEditorSelectionFrame( m_cGameModelCollection,
+                                                                        bodyStore,
+                                                                        colliderStore,
+                                                                        m_runtimeTools.Editor().selectedBody,
+                                                                        m_runtimeTools.Editor().selectedCollider,
                                                                         m_runtimeTools.Editor().selectedModelIndex,
                                                                         selectionOrigin,
                                                                         selectionRadius );
-            if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) && haveSelectionFrame )
+            if ( TryBuildMouseWorldRay( rayOrigin, rayDirection ) && haveSelectionFrame && selectedBody )
             {
                 const Vector3 planeNormal =
                     EditorAxisDragPlaneNormal( m_runtimeTools.Editor().hotGizmoAxis, rayDirection );
@@ -1272,9 +1563,11 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                     m_runtimeTools.Editor().gizmoDragStartAxisT = axisT;
                     m_runtimeTools.Editor().gizmoDragStartPosition = selectionOrigin;
                     m_runtimeTools.Editor().gizmoDragPlaneNormal = planeNormal;
-                    m_runtimeTools.Editor().gizmoDragStartOrientation =
-                        models[static_cast<size_t>( m_runtimeTools.Editor().selectedModelIndex )].GetOrientation();
-                    CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(), models, true );
+                    m_runtimeTools.Editor().gizmoDragStartOrientation = selectedBody->orientation;
+                    CaptureEditorGizmoDragGroupState( m_runtimeTools.Editor(),
+                                                      m_cGameModelCollection,
+                                                      bodyStore,
+                                                      true );
                     consumedWorldClick = true;
                     UpdateRuntimeInputModeAfterAction( RuntimeInputAction::BeginEditorGizmoTranslate,
                                                        RuntimeInputActionSource::Mouse );
@@ -1311,7 +1604,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.models = &m_cGameModelCollection.Models();
+                    request.bodyStore = &m_cGameModelCollection.GetPhysicsBodyStore();
+                    request.colliderStore = &m_cGameModelCollection.GetColliderStore();
                     request.rayOrigin = rayOrigin;
                     request.rayDirection = rayDirection;
                     RuntimePickService::TryPickModel( request, result );
@@ -1322,6 +1616,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                     RuntimeInteractionCommand command;
                     command.type = RuntimeInteractionCommandType::SetEditorSelection;
                     command.modelIndex = result.modelIndex;
+                    command.body = result.body;
+                    command.collider = result.collider;
                     command.selectionScope = inspectGizmoActive ? RuntimeInteractionSelectionScope::Inspect
                                                                 : RuntimeInteractionSelectionScope::Editor;
                     consumedWorldClick = ExecuteRuntimeInteractionCommand( command );

@@ -9,6 +9,8 @@ Mental model:
   when that state changes.
 
 Glossary:
+  Warmup frame: Completed frame intentionally excluded from profiler stats and
+    perf CSV rows while a scene/pass settles.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -574,13 +576,20 @@ void Profiler::InvalidateGpuQueries()
         m.gpuRingHead = 0;
         std::memset( m.gpuRingMs, 0, sizeof( m.gpuRingMs ) );
     }
-    // +1 because FrameBegin decrements before the frame runs
-    m_warmupFrames = WARMUP_FRAMES + 1;
+    RestartWarmup();
 
     if ( IsGfxReady() )
     {
         Gfx().GpuTimerInvalidate();
     }
+}
+
+
+void Profiler::RestartWarmup()
+{
+    // Invariant: FrameBegin consumes one warmup tick before frame work runs, so
+    // +1 keeps exactly WARMUP_FRAMES completed frames out of stats and CSV rows.
+    m_warmupFrames = WARMUP_FRAMES + 1;
 }
 
 

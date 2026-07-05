@@ -196,7 +196,11 @@ The v2 artifact gate builds Debug, launches `replay_v2_solver_one.scene.json` wi
 
 `SceneRuntime` lives in `SkullbonezSource/Runtime/Scene/SceneRuntime.h/.cpp` and owns the active `RunSceneState` plus the scene queue. `SimulationSystem` lives in `SkullbonezSource/Physics/SimulationSystem.h/.cpp` and owns timestep policy plus the fixed-step/variable-step physics accumulators. `ReplayRecorder` lives in `SkullbonezSource/Runtime/Replay/ReplayRecorder.h/.cpp` and owns the bounded presentation sample ring plus hash logging. `CaptureSystem` lives in `SkullbonezSource/Runtime/CaptureSystem.h/.cpp` and owns BMP readback plus scene screenshot/autocycle capture policy. `RuntimeDiagnostics` lives in `SkullbonezSource/Runtime/RuntimeDiagnostics.h/.cpp` and owns perf CSV, scene-finished, and SkullScope run logging policy. `InputController` lives in `SkullbonezSource/Runtime/InputController.h/.cpp` and owns runtime key-edge capture plus mouse-look reset/delta policy. `Run` still coordinates the broad scene load/reset side effects: object construction, terrain swaps, camera setup, UI override application, diagnostics context, input command application, capture completion actions, replay capture/scrub callbacks, and render/backend setup. Treat these as runtime subsystem extraction slices, not the final runtime split.
 
-`GameModelStreamProvider` lives in `SkullbonezSource/GameObjects/GameModelStreams.h/.cpp` and builds `GameModelBodyStream` and `GameModelRenderStream` as borrowed views over `GameModelCollection`'s `GameModelSoACache`. The provider owns stream construction and cache-validation policy, but the authoritative storage is still the existing `GameModel` vector plus derived SoA cache. Treat this as a model-data boundary marker for future data separation, not as the final physics/render storage split.
+The old `GameModelStreamProvider` / `GameModelSoACache` boundary has been
+deleted. Runtime rendering now prepares the physics-backed `RenderInstanceStore`
+once per frame through `GameModelCollection::PrepareRenderInstances()`, while
+physics-facing readers use `PhysicsBodyStore` and `ColliderStore` records rather
+than borrowed `GameModel` SoA streams.
 
 ## Scene JSON Fields
 

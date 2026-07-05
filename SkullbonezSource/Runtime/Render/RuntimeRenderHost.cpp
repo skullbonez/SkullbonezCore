@@ -31,8 +31,10 @@ Related:
 #include "../../Assets/TextureCollection.h"
 #include "../../Core/Profiler.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../Physics/ColliderStore.h"
 #include "../../Rendering/Helper.h"
 #include "../../Rendering/IRenderBackend.h"
+#include "../../Rendering/RenderInstanceStore.h"
 #include "../RunInternal.h"
 
 #include <cassert>
@@ -148,6 +150,7 @@ RuntimeRenderHost::BuildReplayOverlayRenderContext( const UI::UIRenderContext& u
     return { *uiRender.commands,
              m_replayRuntime,
              m_cGameModelCollection.Models(),
+             m_cGameModelCollection.GetPhysicsBodyStore(),
              m_editor.editorModeEnabled,
              m_UI.IsVisible(),
              m_UI.IsMinimized(),
@@ -155,6 +158,12 @@ RuntimeRenderHost::BuildReplayOverlayRenderContext( const UI::UIRenderContext& u
              WindowScreenWidth(),
              WindowScreenHeight(),
              m_timers.simulationTimer.GetTotalTime() };
+}
+
+bool RuntimeRenderHost::BuildReplayFocusModelMask() const
+{
+    const auto& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+    return m_replayRuntime.BuildFocusModelMask( bodyStore, m_cGameModelCollection.GetModelCount() );
 }
 
 void RuntimeRenderHost::RenderReplayScrubberOverlay( const UI::UIRenderContext& uiRender ) const
@@ -192,11 +201,18 @@ void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& 
                                                       const Rendering::ShadowFrameData* shadow ) const
 {
     PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
-    const std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.Models();
-    if ( !m_replayRuntime.BuildPredictionGhostDrawRequests( models ) )
+    if ( !m_replayRuntime.BuildPredictionGhostDrawRequests( m_cGameModelCollection,
+                                                            m_cGameModelCollection.GetPhysicsEngine().BodyStore() ) )
     {
         return;
     }
+
+    // Why: ghost drawing is a render projection path. Shape and material come
+    // from the prepared store snapshots so replay visualization does not need
+    // the GameModel collider mirror to stay fresh after physics steps.
+    const std::vector<Physics::ColliderRecord>& colliders = m_cGameModelCollection.GetColliderStore().Records();
+    const std::vector<Rendering::RenderInstanceRecord>& renderInstances =
+        m_cGameModelCollection.RenderInstances().Records();
 
     SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
     assert( frame.renderResources && frame.renderCommands && frame.assets );
@@ -212,20 +228,22 @@ void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& 
 
     for ( const ReplayPredictionGhostDrawRequest& request : m_replayRuntime.PredictionGhostDrawRequests() )
     {
-        if ( request.modelIndex < 0 || request.modelIndex >= static_cast<int>( models.size() ) )
+        if ( request.modelIndex < 0 || request.modelIndex >= static_cast<int>( colliders.size() ) ||
+             request.modelIndex >= static_cast<int>( renderInstances.size() ) )
         {
             continue;
         }
 
-        const GameObjects::GameModel& model = models[static_cast<std::size_t>( request.modelIndex )];
+        const std::size_t modelIndex = static_cast<std::size_t>( request.modelIndex );
+        const Physics::ColliderRecord& collider = colliders[modelIndex];
         const Math::CollisionDetection::BoundingBox* box =
-            std::get_if<Math::CollisionDetection::BoundingBox>( &model.GetCollisionShape() );
+            std::get_if<Math::CollisionDetection::BoundingBox>( &collider.shape );
         if ( !box )
         {
             continue;
         }
 
-        Rendering::RenderMaterial material = model.GetRenderMaterial();
+        Rendering::RenderMaterial material = renderInstances[modelIndex].material;
         material.baseColor[3] = request.alpha;
         const Math::Transformation::Matrix4 modelMatrix =
             box->GetModelMatrix( request.position,

@@ -4,16 +4,21 @@ Purpose:
   Implements manipulator-mode mouse pickup capture, target tracking, and physics impulse application.
 
 Mental model:
-  Mouse pickup is a runtime tool owner distinct from editor placement. It borrows camera rays
-  and physics models, captures the pointer while active, and releases cleanly at mode changes.
+  Mouse pickup is a runtime tool owner distinct from editor placement. It
+  borrows camera rays, stores the picked physics body handle for commands,
+  captures the pointer while active, and releases cleanly at mode changes.
 
 Glossary:
   Mouse pickup: Manipulator tool that drags a dynamic body toward a camera-facing target plane.
   Grab offset: World-space offset from body center to the point initially picked by the ray.
+  Physics body handle: Generational id for the picked body-store row.
+  Model index: Transient interaction identity kept only to detect stale handle
+    and collection-row mismatches during a drag.
 
 Invariants:
   - Pointer capture and interaction gesture state must end whenever pickup is canceled.
-  - Body indices are revalidated through GameModelCollection before applying impulses.
+  - Picked handles are revalidated through PhysicsBodyStore before every
+    velocity edit or impulse.
   - This file must only be included from RunEditorTools.cpp after terrain-placement helpers.
 
 Related:
@@ -114,7 +119,8 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
 
     RuntimePickRequest request;
     request.purpose = RuntimePickPurpose::ManipulatorPickup;
-    request.models = &m_cGameModelCollection.Models();
+    request.bodyStore = &m_cGameModelCollection.GetPhysicsBodyStore();
+    request.colliderStore = &m_cGameModelCollection.GetColliderStore();
     request.rayOrigin = rayOrigin;
     request.rayDirection = rayDirection;
 
@@ -124,9 +130,10 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
         return true;
     }
 
-    const int pickedIndex = result.modelIndex;
-    const GameModel* picked = m_cGameModelCollection.TryGetModel( pickedIndex );
-    if ( !picked )
+    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+    const PhysicsBodyRecord* pickedBody = bodyStore.RecordForHandle( result.body );
+    const int pickedIndex = bodyStore.ModelIndexForHandle( result.body );
+    if ( !pickedBody || pickedIndex != result.modelIndex )
     {
         return true;
     }
@@ -148,12 +155,13 @@ bool Run::TickMousePickupInput( HWND hwnd, const RuntimeMouseEdges& mouseEdges, 
     m_runtimeTools.MousePickup().active = true;
     m_runtimeTools.MousePickup().mouseCaptured = true;
     m_runtimeTools.MousePickup().modelIndex = pickedIndex;
+    m_runtimeTools.MousePickup().body = result.body;
     m_runtimeTools.MousePickup().planePoint = grabPoint;
     m_runtimeTools.MousePickup().planeNormal = cameraNormal;
     m_runtimeTools.MousePickup().cameraPlaneDistance = cameraPlaneDistance;
-    m_runtimeTools.MousePickup().grabOffset = grabPoint - picked->GetPosition();
+    m_runtimeTools.MousePickup().grabOffset = grabPoint - pickedBody->position;
     m_runtimeTools.MousePickup().targetPoint = grabPoint;
-    m_runtimeTools.MousePickup().preservedAngularVelocity = picked->GetAngularVelocity();
+    m_runtimeTools.MousePickup().preservedAngularVelocity = pickedBody->angularVelocity;
     m_runtimeTools.MousePickup().lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     UI::InputControl::BeginMouseCapture( hwnd );
     const POINT mouse = Input::GetClientMouseCoordinates();
@@ -179,47 +187,53 @@ void Run::ApplyMousePickupPhysicsStep()
         return;
     }
 
-    // Hazard: Pickup stores a frame-local model index. Revalidate through the
-    // collection on every step before restoring angular velocity or
-    // applying the spring-like impulse.
-    const int modelIndex = m_runtimeTools.MousePickup().modelIndex;
-    const GameModel* model = m_cGameModelCollection.TryGetModel( modelIndex );
-    if ( !model )
+    // Hazard: Pickup stores a frame-local handle and model index. Revalidate
+    // both so deleted/reused body slots cannot receive a stale tool impulse.
+    RunMousePickupState& pickup = m_runtimeTools.MousePickup();
+    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+    const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
+    if ( !bodyRecord || bodyStore.ModelIndexForHandle( pickup.body ) != pickup.modelIndex )
     {
         CancelMousePickup();
         return;
     }
 
-    if ( model->IsFixed() )
+    if ( bodyRecord->isFixed )
     {
         CancelMousePickup();
         return;
     }
-    if ( !m_cGameModelCollection.TrySetModelAngularVelocity( modelIndex,
-                                                             m_runtimeTools.MousePickup().preservedAngularVelocity ) )
+    const Vector3 bodyPosition = bodyRecord->position;
+    const Vector3 linearVelocity = bodyRecord->linearVelocity;
+    if ( !m_cGameModelCollection.GetPhysicsEngine().SetBodyVelocity( pickup.body,
+                                                                     linearVelocity,
+                                                                     pickup.preservedAngularVelocity,
+                                                                     false ) )
     {
         CancelMousePickup();
         return;
     }
 
-    const Vector3 grabPoint = model->GetPosition() + m_runtimeTools.MousePickup().grabOffset;
-    const Vector3 pull = m_runtimeTools.MousePickup().targetPoint - grabPoint;
+    const Vector3 grabPoint = bodyPosition + pickup.grabOffset;
+    const Vector3 pull = pickup.targetPoint - grabPoint;
     const float pullLenSq = VectorMagSquared( pull );
     if ( pullLenSq <= MOUSE_PICKUP_DEAD_ZONE * MOUSE_PICKUP_DEAD_ZONE )
     {
-        m_runtimeTools.MousePickup().lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        pickup.lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
         return;
     }
 
-    Vector3 impulse = pull * MOUSE_PICKUP_STIFFNESS - model->GetVelocity() * MOUSE_PICKUP_DAMPING;
+    Vector3 impulse = pull * MOUSE_PICKUP_STIFFNESS - linearVelocity * MOUSE_PICKUP_DAMPING;
     const float impulseLenSq = VectorMagSquared( impulse );
     if ( impulseLenSq > MOUSE_PICKUP_MAX_IMPULSE * MOUSE_PICKUP_MAX_IMPULSE )
     {
         impulse *= MOUSE_PICKUP_MAX_IMPULSE / sqrtf( impulseLenSq );
     }
 
-    m_cGameModelCollection.ApplyBodyImpulse( modelIndex, impulse, SkullbonezCore::Math::Vector::ZERO_VECTOR );
-    m_runtimeTools.MousePickup().lastImpulse = impulse;
+    m_cGameModelCollection.GetPhysicsEngine().ApplyBodyImpulse( pickup.body,
+                                                                impulse,
+                                                                SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    pickup.lastImpulse = impulse;
 }
 
 
@@ -230,22 +244,25 @@ void Run::RestoreMousePickupAngularVelocity()
         return;
     }
 
-    const int modelIndex = m_runtimeTools.MousePickup().modelIndex;
-    const GameModel* model = m_cGameModelCollection.TryGetModel( modelIndex );
-    if ( !model )
+    RunMousePickupState& pickup = m_runtimeTools.MousePickup();
+    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+    const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
+    if ( !bodyRecord || bodyStore.ModelIndexForHandle( pickup.body ) != pickup.modelIndex )
     {
         CancelMousePickup();
         return;
     }
 
-    if ( model->IsFixed() )
+    if ( bodyRecord->isFixed )
     {
         CancelMousePickup();
         return;
     }
 
-    if ( !m_cGameModelCollection.TrySetModelAngularVelocity( modelIndex,
-                                                             m_runtimeTools.MousePickup().preservedAngularVelocity ) )
+    if ( !m_cGameModelCollection.GetPhysicsEngine().SetBodyVelocity( pickup.body,
+                                                                     bodyRecord->linearVelocity,
+                                                                     pickup.preservedAngularVelocity,
+                                                                     false ) )
     {
         CancelMousePickup();
     }

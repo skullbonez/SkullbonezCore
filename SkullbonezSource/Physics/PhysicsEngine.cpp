@@ -4,12 +4,16 @@ Purpose:
   Forwards the public PhysicsEngine facade to the existing deterministic PhysicsScene.
 
 Mental model:
-  This file is intentionally boring migration glue. It gives runtime code one
-  physics owner without changing PhysicsScene or PhysicsWorld execution order.
+  This file is intentionally thin facade code. Runtime callers enter one physics
+  owner, while PhysicsScene keeps store coordination and PhysicsWorld keeps
+  solver execution order.
 
 Glossary:
   Facade: Narrow public boundary that forwards commands while hiding solver
   internals.
+  Fixed-tree release: Store-owned command that turns authored fixed props into
+    dynamic bodies and wakes same-tree parts after an accepted impulse.
+  Physics material: Runtime policy for collider friction and sphere drag.
   Store refresh: Deterministic copy between compatibility model-view state and
   physics-owned body/collider/render stores.
   Replay restore: Replacement of live solver state from a saved replay sample.
@@ -27,15 +31,25 @@ Related:
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
+using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsEngine;
+using SkullbonezCore::Physics::PhysicsMaterial;
 using SkullbonezCore::Physics::PhysicsModelAccess;
 
 
 void PhysicsEngine::ApplyRuntimeConfig( const Basics::EngineConfig& config )
 {
     m_scene.ApplyRuntimeConfig( config );
+}
+
+
+void PhysicsEngine::ApplyColliderMaterial( const PhysicsMaterial& material )
+{
+    m_scene.ApplyColliderMaterial( material );
 }
 
 
@@ -51,9 +65,27 @@ void PhysicsEngine::RefreshBodyStore( PhysicsModelAccess& modelAccess )
 }
 
 
-void PhysicsEngine::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex )
+void PhysicsEngine::RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex, int expectedModelCount )
 {
-    m_scene.RefreshBodyFromModel( modelAccess, modelIndex );
+    m_scene.RefreshBodyFromModel( modelAccess, modelIndex, expectedModelCount );
+}
+
+
+PhysicsBodyHandle PhysicsEngine::RegisterAuthoredBody( const PhysicsBodyRecord& record )
+{
+    return m_scene.RegisterAuthoredBody( record );
+}
+
+
+PhysicsColliderHandle PhysicsEngine::RegisterAuthoredCollider( const PhysicsColliderCreateDesc& desc )
+{
+    return m_scene.RegisterAuthoredCollider( desc );
+}
+
+
+bool PhysicsEngine::UpdateAuthoredCollider( PhysicsColliderHandle collider, const PhysicsColliderCreateDesc& desc )
+{
+    return m_scene.UpdateAuthoredCollider( collider, desc );
 }
 
 
@@ -69,7 +101,13 @@ bool PhysicsEngine::TrimBodyStoreToCount( int bodyCount )
 }
 
 
-bool PhysicsEngine::RestoreReplayBodyState( int modelIndex,
+bool PhysicsEngine::TrimColliderStoreToCount( int colliderCount )
+{
+    return m_scene.TrimColliderStoreToCount( colliderCount );
+}
+
+
+bool PhysicsEngine::RestoreReplayBodyState( PhysicsBodyHandle body,
                                             uint32_t replayBodyId,
                                             bool fixed,
                                             const Math::Vector::Vector3& position,
@@ -81,7 +119,7 @@ bool PhysicsEngine::RestoreReplayBodyState( int modelIndex,
                                             const Math::Vector::Vector3& rotationalInertia,
                                             const Math::Vector::Vector3& inverseRotationalInertia )
 {
-    return m_scene.RestoreReplayBodyState( modelIndex,
+    return m_scene.RestoreReplayBodyState( body,
                                            replayBodyId,
                                            fixed,
                                            position,
@@ -95,58 +133,81 @@ bool PhysicsEngine::RestoreReplayBodyState( int modelIndex,
 }
 
 
-void PhysicsEngine::RefreshColliderStore( PhysicsModelAccess& modelAccess )
+bool PhysicsEngine::RefreshColliderSnapshot()
 {
-    m_scene.RefreshColliderStore( modelAccess );
+    return m_scene.RefreshColliderSnapshot();
 }
 
 
-void PhysicsEngine::RefreshRenderStore( PhysicsModelAccess& modelAccess )
+bool PhysicsEngine::PrepareRenderStoreRefresh( PhysicsModelAccess& modelAccess, int expectedModelCount )
 {
-    m_scene.RefreshRenderStore( modelAccess );
+    return m_scene.PrepareRenderStoreRefresh( modelAccess, expectedModelCount );
 }
 
 
-void PhysicsEngine::Step( PhysicsModelAccess& modelAccess,
-                          float deltaSeconds,
+SkullbonezCore::Rendering::RenderInstanceStore& PhysicsEngine::MutableRenderInstances()
+{
+    return m_scene.MutableRenderInstances();
+}
+
+
+void PhysicsEngine::Step( float deltaSeconds,
                           const Basics::EngineConfig& config,
                           const PhysicsWorldForces& worldForces,
-                          Threading::WorkerPool& workerPool )
+                          Threading::WorkerPool& workerPool,
+                          const char* const* diagnosticNames,
+                          int diagnosticNameCount )
 {
-    // Compatibility: runtime stepping still borrows model-backed access until
-    // scene creation and runtime commands migrate to store-owned physics handles.
-    // Delete this path when PhysicsScene steps owned stores directly.
-    m_scene.RunPhysics( modelAccess, deltaSeconds, config, worldForces, workerPool );
+    m_scene.RunPhysics( deltaSeconds, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount );
 }
 
 
-void PhysicsEngine::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+void PhysicsEngine::WakeBody( PhysicsBodyHandle body )
 {
-    m_scene.WakeBody( modelAccess, body );
+    m_scene.WakeBody( body );
 }
 
 
-void PhysicsEngine::SeedBodyAsleep( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
+bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,
+                                                          float releaseImpulseStrength,
+                                                          const Math::Vector::Vector3& seedLinearVelocity,
+                                                          const Math::Vector::Vector3& seedAngularVelocity )
 {
-    m_scene.SeedBodyAsleep( modelAccess, body );
+    return m_scene.ReleaseFixedBodyAndAttachedTreeParts( sourceBody,
+                                                         releaseImpulseStrength,
+                                                         seedLinearVelocity,
+                                                         seedAngularVelocity );
 }
 
 
-void PhysicsEngine::ApplyBodyImpulse( PhysicsModelAccess& modelAccess,
-                                      PhysicsBodyHandle body,
-                                      const Math::Vector::Vector3& impulse,
-                                      const Math::Vector::Vector3& localApplicationPoint )
+bool PhysicsEngine::SetBodyVelocity( PhysicsBodyHandle body,
+                                     const Math::Vector::Vector3& linearVelocity,
+                                     const Math::Vector::Vector3& angularVelocity,
+                                     bool wakeIfMoving )
 {
-    m_scene.ApplyBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
+    return m_scene.SetBodyVelocity( body, linearVelocity, angularVelocity, wakeIfMoving );
 }
 
 
-void PhysicsEngine::SetPendingBodyImpulse( PhysicsModelAccess& modelAccess,
-                                           PhysicsBodyHandle body,
+void PhysicsEngine::SeedBodyAsleep( PhysicsBodyHandle body )
+{
+    m_scene.SeedBodyAsleep( body );
+}
+
+
+void PhysicsEngine::SetPendingBodyImpulse( PhysicsBodyHandle body,
                                            const Math::Vector::Vector3& impulse,
                                            const Math::Vector::Vector3& localApplicationPoint )
 {
-    m_scene.SetPendingBodyImpulse( modelAccess, body, impulse, localApplicationPoint );
+    m_scene.SetPendingBodyImpulse( body, impulse, localApplicationPoint );
+}
+
+
+void PhysicsEngine::ApplyBodyImpulse( PhysicsBodyHandle body,
+                                      const Math::Vector::Vector3& impulse,
+                                      const Math::Vector::Vector3& localApplicationPoint )
+{
+    m_scene.ApplyBodyImpulse( body, impulse, localApplicationPoint );
 }
 
 
@@ -245,6 +306,24 @@ uint64_t PhysicsEngine::CollectDebugAndBroadphaseMemoryBytes() const
 }
 
 
+bool PhysicsEngine::ShouldEmitStepDiagnostics() const
+{
+    return m_scene.ShouldEmitStepDiagnostics();
+}
+
+
+bool PhysicsEngine::ShouldEmitCollisionTimeDiagnostics() const
+{
+    return m_scene.ShouldEmitCollisionTimeDiagnostics();
+}
+
+
+const std::vector<int>& PhysicsEngine::GetFixedContactHighlightBodies() const
+{
+    return m_scene.GetFixedContactHighlightBodies();
+}
+
+
 const PhysicsBodyStore& PhysicsEngine::BodyStore() const
 {
     return m_scene.BodyStore();
@@ -261,6 +340,14 @@ const SkullbonezCore::Rendering::RenderInstanceStore& PhysicsEngine::RenderInsta
 {
     return m_scene.RenderInstances();
 }
+
+
+#ifdef _DEBUG
+void PhysicsEngine::ValidateRenderStore( int expectedModelCount ) const
+{
+    m_scene.ValidateRenderStore( expectedModelCount );
+}
+#endif
 
 
 const SkullbonezCore::Math::CollisionDetection::SpatialGrid& PhysicsEngine::GetSpatialGrid() const
