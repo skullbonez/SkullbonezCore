@@ -110,6 +110,9 @@ class ColliderStore
     std::vector<int> m_handleModelIndices;                     // Handle slot to current dense row/model index, or -1.
     std::vector<uint32_t> m_handleReplayBodyIds;               // Replay id paired with each live handle slot.
     std::vector<uint32_t> m_freeHandleSlots;                   // Retired slots available for deterministic reuse.
+    // Runtime allocation policy: refresh reuses this handle-slot mask rather
+    // than allocating a per-frame temporary in topology repair.
+    std::vector<uint8_t> m_assignedHandleScratch;
 };
 } // namespace Physics
 } // namespace SkullbonezCore

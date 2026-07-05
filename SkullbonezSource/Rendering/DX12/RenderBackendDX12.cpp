@@ -200,7 +200,7 @@ RenderMemoryStats RenderBackendDX12::GetRenderMemoryStats() const
     stats.dynamicVertexBufferCapacity = m_dynamicVBs.capacity();
     stats.instancedMeshCount = m_instancedMeshes.size();
     stats.instancedMeshCapacity = m_instancedMeshes.capacity();
-    stats.psoCacheCount = m_psoCache.size();
+    stats.psoCacheCount = m_psoCacheCount;
     stats.graphTransientCount = m_graphTransientResources.size();
     stats.graphTransientCapacity = m_graphTransientResources.capacity();
 
@@ -486,11 +486,10 @@ void RenderBackendDX12::RecordLiveBarrier( const char* source,
         return;
     }
 
-    // This is barrier telemetry, not a hot-path render feature. Keep a
-    // bounded sample of barriers so long validation runs cannot grow the vector
-    // without limit. The first records are the most useful because they show
-    // the frame's graph-owned transition path in execution order.
-    constexpr size_t MAX_LIVE_BARRIER_RECORDS = 4096;
+    // This is barrier telemetry, not a hot-path render feature. Keep a bounded
+    // sample in fixed storage so long validation runs cannot grow frame memory.
+    // The first records are the most useful because they show the frame's
+    // graph-owned transition path in execution order.
     if ( m_liveBarrierRecords.size() >= MAX_LIVE_BARRIER_RECORDS )
     {
         return;
@@ -516,7 +515,6 @@ void RenderBackendDX12::RecordLiveUavBarrier( const char* source, const char* re
         return;
     }
 
-    constexpr size_t MAX_LIVE_BARRIER_RECORDS = 4096;
     if ( m_liveUavBarrierRecords.size() >= MAX_LIVE_BARRIER_RECORDS )
     {
         return;
@@ -904,7 +902,7 @@ RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
         std::snprintf( slot->resourceName,
                        sizeof( slot->resourceName ),
                        "%s",
-                       resource.name.empty() ? "UnnamedGraphTransient" : resource.name.c_str() );
+                       ( resource.name && resource.name[0] != '\0' ) ? resource.name : "UnnamedGraphTransient" );
         if ( desc.descriptors.shaderResource && slot->textureHandle == 0 && slot->srvIndex != UINT_MAX )
         {
             slot->textureHandle = RegisterSRV( slot->srvIndex );
@@ -1240,7 +1238,8 @@ void RenderBackendDX12::DumpFrameGraphSkeleton()
         ExecuteDx12RenderGraphTransitions( graph, compiled, graphDryRunDesc );
 
     out << "\nGraphDryRunTransitionBarriers:\n";
-    out << "  candidate_count=" << graphDryRun.barriers.size() << "\n";
+    out << "  candidate_count=" << graphDryRun.barrierCount << "\n";
+    out << "  candidate_overflow=" << ( graphDryRun.barrierOverflow ? "true" : "false" ) << "\n";
     out << "  concrete_transition_count=" << graphDryRun.transitionBarrierCount << "\n";
     out << "  emitted_transition_count=" << graphDryRun.emittedTransitionBarrierCount << "\n";
     out << "  skipped_same_state_count=" << graphDryRun.skippedSameStateCount << "\n";
@@ -1248,7 +1247,7 @@ void RenderBackendDX12::DumpFrameGraphSkeleton()
     out << "  missing_native_resource_count=" << graphDryRun.missingNativeResourceTransitionCount << "\n";
     out << "  missing_command_list_emit_count=" << graphDryRun.missingCommandListEmissionCount << "\n";
     out << "  uav_access_transition_count=" << graphDryRun.uavAccessTransitionCount << "\n";
-    for ( size_t i = 0; i < graphDryRun.barriers.size(); ++i )
+    for ( size_t i = 0; i < graphDryRun.barrierCount; ++i )
     {
         const Dx12RenderGraphBarrierRecord& barrier = graphDryRun.barriers[i];
         out << "  [" << i << "] source=" << barrier.source << " pass=" << barrier.passName
@@ -1350,7 +1349,7 @@ void RenderBackendDX12::DumpFrameGraphSkeleton()
                 ++matchedResourcePairs;
                 break;
             }
-            if ( !liveBarrierMatched[liveIndex] && label && std::strcmp( label, resource.name.c_str() ) == 0 &&
+            if ( !liveBarrierMatched[liveIndex] && label && resource.name && std::strcmp( label, resource.name ) == 0 &&
                  live.before == graphBefore && live.after == graphAfter )
             {
                 liveBarrierMatched[liveIndex] = true;
@@ -2111,19 +2110,27 @@ void RenderBackendDX12::Shutdown()
 
     // Cached PSOs are backend-owned COM objects. They are shared across draws
     // while the backend lives, then released as one cache at shutdown.
-    for ( auto& pair : m_psoCache )
+    for ( size_t i = 0; i < m_psoCacheCount; ++i )
     {
-        pair.second->Release();
+        if ( m_psoCache[i].pso )
+        {
+            m_psoCache[i].pso->Release();
+            m_psoCache[i].pso = nullptr;
+        }
     }
-    m_psoCache.clear();
+    m_psoCacheCount = 0;
 
     // Grid line overlay resources. These PSOs are keyed by RTV format because
     // cinematic HDR and ordinary swapchain draws bind different color formats.
-    for ( auto& pair : m_gridLinePSOs )
+    for ( size_t i = 0; i < m_gridLinePSOCount; ++i )
     {
-        pair.second->Release();
+        if ( m_gridLinePSOs[i].pso )
+        {
+            m_gridLinePSOs[i].pso->Release();
+            m_gridLinePSOs[i].pso = nullptr;
+        }
     }
-    m_gridLinePSOs.clear();
+    m_gridLinePSOCount = 0;
     m_gridLineShader.reset();
     m_transientColorShader.reset();
 

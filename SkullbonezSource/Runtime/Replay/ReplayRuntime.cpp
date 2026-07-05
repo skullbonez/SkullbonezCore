@@ -322,6 +322,18 @@ bool ReplayRuntimeQueueRenderPoseOverride( Physics::PhysicsEngine& physicsEngine
 }
 
 
+bool ReplayRuntimePrepareBodyMatchedMask( std::array<uint8_t, MAX_GAME_MODELS>& mask, int modelCount )
+{
+    if ( modelCount < 0 || modelCount > MAX_GAME_MODELS )
+    {
+        return false;
+    }
+
+    std::fill( mask.begin(), mask.begin() + modelCount, uint8_t{ 0 } );
+    return true;
+}
+
+
 const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample, ReplayBodyId id )
 {
     for ( const ReplaySolverBodySample& body : sample.bodies )
@@ -534,6 +546,13 @@ std::string SolverReplayHashLogPath( const std::string& presentationPath )
     return presentationPath + ".solver";
 }
 } // namespace
+
+
+ReplayRuntime::ReplayRuntime()
+{
+    m_renderPoseBodyMatched.fill( uint8_t{ 0 } );
+}
+
 
 ReplayRecorder& ReplayRuntime::Presentation()
 {
@@ -962,13 +981,16 @@ void ReplayRuntime::ClearCameraFocusForRestore()
     m_camera.ownsSimulationPause = false;
 }
 
-ReplayRuntime::RecordingConfigResult
-ReplayRuntime::ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath )
+ReplayRuntime::RecordingConfigResult ReplayRuntime::ConfigureRecording( bool enabled,
+                                                                        int retentionSeconds,
+                                                                        const char* hashLogPath,
+                                                                        int runtimeBodyCapacity )
 {
     ReplayRecorderConfig replayConfig;
     replayConfig.enabled = enabled || ( hashLogPath && hashLogPath[0] != '\0' );
     replayConfig.retentionSeconds = (std::max)( 1, retentionSeconds );
     replayConfig.checkpointIntervalFrames = 30;
+    replayConfig.runtimeBodyCapacity = runtimeBodyCapacity;
     if ( hashLogPath && hashLogPath[0] != '\0' )
     {
         replayConfig.hashLogPath = hashLogPath;
@@ -1082,7 +1104,10 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( Physics::PhysicsEngine& ph
 {
     const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
     const int modelCount = physicsEngine.RenderInstances().Count();
-    std::vector<uint8_t> bodyMatched( static_cast<std::size_t>( modelCount ), 0 );
+    if ( !ReplayRuntimePrepareBodyMatchedMask( m_renderPoseBodyMatched, modelCount ) )
+    {
+        return false;
+    }
     bool queuedAny = false;
 
     for ( const ReplayBodyPresentationSample& body : sample.bodies )
@@ -1104,7 +1129,7 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( Physics::PhysicsEngine& ph
                                                    body.position,
                                                    orientation ) )
         {
-            bodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
+            m_renderPoseBodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
             queuedAny = true;
         }
     }
@@ -1113,7 +1138,7 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( Physics::PhysicsEngine& ph
     for ( int i = 0; i < modelCount; ++i )
     {
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
-        if ( bodyMatched[bodyIndex] )
+        if ( m_renderPoseBodyMatched[bodyIndex] )
         {
             continue;
         }
@@ -1144,7 +1169,10 @@ bool ReplayRuntime::ApplySolverSampleForRender( Physics::PhysicsEngine& physicsE
 {
     const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
     const int modelCount = physicsEngine.RenderInstances().Count();
-    std::vector<uint8_t> bodyMatched( static_cast<std::size_t>( modelCount ), 0 );
+    if ( !ReplayRuntimePrepareBodyMatchedMask( m_renderPoseBodyMatched, modelCount ) )
+    {
+        return false;
+    }
     bool queuedAny = false;
 
     for ( const ReplaySolverBodySample& body : sample.bodies )
@@ -1166,7 +1194,7 @@ bool ReplayRuntime::ApplySolverSampleForRender( Physics::PhysicsEngine& physicsE
                                                    body.position,
                                                    orientation ) )
         {
-            bodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
+            m_renderPoseBodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
             queuedAny = true;
         }
     }
@@ -1175,7 +1203,7 @@ bool ReplayRuntime::ApplySolverSampleForRender( Physics::PhysicsEngine& physicsE
     for ( int i = 0; i < modelCount; ++i )
     {
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
-        if ( bodyMatched[bodyIndex] )
+        if ( m_renderPoseBodyMatched[bodyIndex] )
         {
             continue;
         }
@@ -1203,7 +1231,10 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( Physics::PhysicsEngine& physi
 {
     const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
     const int modelCount = physicsEngine.RenderInstances().Count();
-    std::vector<uint8_t> bodyMatched( static_cast<std::size_t>( modelCount ), 0 );
+    if ( !ReplayRuntimePrepareBodyMatchedMask( m_renderPoseBodyMatched, modelCount ) )
+    {
+        return false;
+    }
     bool queuedAny = false;
 
     for ( const RunReplayPredictionBodySample& body : frame.bodies )
@@ -1222,7 +1253,7 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( Physics::PhysicsEngine& physi
                                                    body.position,
                                                    orientation ) )
         {
-            bodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
+            m_renderPoseBodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
             queuedAny = true;
         }
     }
@@ -1231,7 +1262,7 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( Physics::PhysicsEngine& physi
     for ( int i = 0; i < modelCount; ++i )
     {
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
-        if ( bodyMatched[bodyIndex] )
+        if ( m_renderPoseBodyMatched[bodyIndex] )
         {
             continue;
         }

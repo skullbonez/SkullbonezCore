@@ -31,6 +31,7 @@ Related:
 #pragma once
 
 #include "Fence.h"
+#include "Profiler.h"
 
 #include <cstdio>
 #include <condition_variable>
@@ -40,6 +41,8 @@ Related:
 #include <functional>
 #include <mutex>
 #include <thread>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace SkullbonezCore
@@ -79,7 +82,16 @@ class WorkerPool
                       int minParallelItems,
                       const char* workerMarkerPath,
                       uint32_t workerMarkerHash );
+    template <typename IndexFunctionT>
+    void ParallelForNoAlloc( int begin,
+                             int end,
+                             IndexFunctionT&& fn,
+                             int minParallelItems,
+                             const char* workerMarkerPath,
+                             uint32_t workerMarkerHash );
     void ParallelForChunks( const std::vector<WorkerChunkRange>& chunks, const ChunkFunction& fn );
+    template <typename ChunkFunctionT>
+    void ParallelForChunksNoAlloc( const WorkerChunkRange* chunks, int chunkCount, ChunkFunctionT&& fn );
     std::vector<WorkerChunkRange> MakeChunks( int begin, int end, int minParallelItems = 0 ) const;
 
     int GetThreadCount() const;
@@ -99,12 +111,14 @@ class WorkerPool
                                  MergeChunk mergeChunk,
                                  int minParallelItems = 0 )
     {
-        const std::vector<WorkerChunkRange> chunks = MakeChunks( begin, end, minParallelItems );
+        WorkerChunkRange chunks[WORKER_PARALLEL_TASK_CAPACITY];
+        const int chunkCount = BuildChunks( begin, end, minParallelItems, chunks, WORKER_PARALLEL_TASK_CAPACITY );
         chunkOutputs.clear();
-        chunkOutputs.resize( chunks.size() );
+        chunkOutputs.resize( static_cast<size_t>( chunkCount ) );
 
-        ParallelForChunks(
+        ParallelForChunksNoAlloc(
             chunks,
+            chunkCount,
             [&]( int chunkIndex, int chunkBegin, int chunkEnd )
             { buildChunk( chunkIndex, chunkBegin, chunkEnd, chunkOutputs[static_cast<size_t>( chunkIndex )] ); } );
 
@@ -115,16 +129,169 @@ class WorkerPool
     }
 
   private:
+    using ParallelTaskDispatcher = void ( * )( void* dispatchState, const WorkerChunkRange& chunk );
+
+    struct ParallelTaskRecord
+    {
+        void* dispatchState;
+        ParallelTaskDispatcher dispatch;
+        WorkerChunkRange chunk;
+    };
+
+    static constexpr int WORKER_PARALLEL_TASK_CAPACITY = 256;
+
+    template <typename ChunkFunctionT> struct ParallelForChunksState
+    {
+        using Function = typename std::remove_reference<ChunkFunctionT>::type;
+
+        ParallelForChunksState( int taskCount, Function& function ) : fence( taskCount ), fn( &function )
+        {
+        }
+
+        void CaptureCurrentException()
+        {
+            std::lock_guard<std::mutex> lock( exceptionMutex );
+            if ( !firstException )
+            {
+                firstException = std::current_exception();
+            }
+        }
+
+        Fence fence;
+        Function* fn;
+        std::mutex exceptionMutex;
+        std::exception_ptr firstException;
+    };
+
+    template <typename ChunkFunctionT>
+    static void ExecuteParallelChunkTask( void* dispatchState, const WorkerChunkRange& chunk );
+
     void WorkerLoop( int workerIndex );
     bool ShouldRunInline( int itemCount, int minParallelItems ) const;
+    int BuildChunks( int begin, int end, int minParallelItems, WorkerChunkRange* outChunks, int outCapacity ) const;
+    void ParallelForChunks( const WorkerChunkRange* chunks, int chunkCount, const ChunkFunction& fn );
+    void SubmitParallelChunk( void* dispatchState, ParallelTaskDispatcher dispatch, const WorkerChunkRange& chunk );
 
     mutable std::mutex m_mutex;
     std::condition_variable m_workAvailable;
     std::deque<Task> m_tasks;
+    // Runtime allocation policy:
+    //   Preallocated as inline WorkerPool storage for worker-count bounded
+    //   parallel dispatch. Steady gameplay must not grow task records; overflow
+    //   throws with the worker queue capacity instead of allocating.
+    ParallelTaskRecord m_parallelTasks[WORKER_PARALLEL_TASK_CAPACITY];
+    int m_parallelTaskHead;
+    int m_parallelTaskCount;
     std::vector<std::thread> m_threads;
     bool m_stopping;
     int m_minParallelItems;
 };
+
+template <typename IndexFunctionT>
+void WorkerPool::ParallelForNoAlloc( int begin,
+                                     int end,
+                                     IndexFunctionT&& fn,
+                                     int minParallelItems,
+                                     const char* workerMarkerPath,
+                                     uint32_t workerMarkerHash )
+{
+    const int itemCount = end - begin;
+    if ( itemCount <= 0 )
+    {
+        return;
+    }
+
+    IndexFunctionT& indexFn = fn;
+    const char* markerPath = workerMarkerPath ? workerMarkerPath : "Frame/Workers/ParallelFor";
+    const uint32_t markerHash = workerMarkerPath ? workerMarkerHash : HashStr( "Frame/Workers/ParallelFor" );
+    const auto runChunk = [&]( int, int chunkBegin, int chunkEnd )
+    {
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+        ::SkullbonezCore::Basics::WorkerProfilerScope workerScope( markerPath, markerHash );
+#else
+        static_cast<void>( markerPath );
+        static_cast<void>( markerHash );
+#endif
+        for ( int index = chunkBegin; index < chunkEnd; ++index )
+        {
+            indexFn( index );
+        }
+    };
+
+    if ( ShouldRunInline( itemCount, minParallelItems ) )
+    {
+        runChunk( 0, begin, end );
+        return;
+    }
+
+    WorkerChunkRange chunks[WORKER_PARALLEL_TASK_CAPACITY];
+    const int chunkCount = BuildChunks( begin, end, minParallelItems, chunks, WORKER_PARALLEL_TASK_CAPACITY );
+    ParallelForChunksNoAlloc( chunks, chunkCount, runChunk );
+}
+
+
+template <typename ChunkFunctionT>
+void WorkerPool::ParallelForChunksNoAlloc( const WorkerChunkRange* chunks, int chunkCount, ChunkFunctionT&& fn )
+{
+    if ( !chunks || chunkCount <= 0 )
+    {
+        return;
+    }
+
+    typename std::remove_reference<ChunkFunctionT>::type& chunkFn = fn;
+    if ( GetThreadCount() == 0 || IsCurrentThreadWorker() )
+    {
+        for ( int index = 0; index < chunkCount; ++index )
+        {
+            const WorkerChunkRange& chunk = chunks[index];
+            chunkFn( chunk.chunkIndex, chunk.begin, chunk.end );
+        }
+        return;
+    }
+
+    ParallelForChunksState<ChunkFunctionT> state( chunkCount, chunkFn );
+
+    for ( int index = 0; index < chunkCount; ++index )
+    {
+        const WorkerChunkRange& chunk = chunks[index];
+        try
+        {
+            SubmitParallelChunk( &state, &WorkerPool::ExecuteParallelChunkTask<ChunkFunctionT>, chunk );
+        }
+        catch ( ... )
+        {
+            state.CaptureCurrentException();
+            state.fence.Signal();
+        }
+    }
+
+    state.fence.Wait();
+    if ( state.firstException )
+    {
+        std::rethrow_exception( state.firstException );
+    }
+}
+
+
+template <typename ChunkFunctionT>
+void WorkerPool::ExecuteParallelChunkTask( void* dispatchState, const WorkerChunkRange& chunk )
+{
+    auto* state = static_cast<ParallelForChunksState<ChunkFunctionT>*>( dispatchState );
+    if ( !state )
+    {
+        return;
+    }
+
+    try
+    {
+        ( *state->fn )( chunk.chunkIndex, chunk.begin, chunk.end );
+    }
+    catch ( ... )
+    {
+        state->CaptureCurrentException();
+    }
+    state->fence.Signal();
+}
 
 bool RunWorkerSystemSelfTest( FILE* out );
 

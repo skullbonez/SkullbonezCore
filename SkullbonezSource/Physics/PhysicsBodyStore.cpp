@@ -41,6 +41,7 @@ Related:
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <stdexcept>
 #include <type_traits>
 
 #include "../Core/Common.h"
@@ -948,6 +949,7 @@ PhysicsBodyStore::PhysicsBodyStore()
     m_handleModelIndices.reserve( MAX_GAME_MODELS );
     m_handleReplayBodyIds.reserve( MAX_GAME_MODELS );
     m_freeHandleSlots.reserve( MAX_GAME_MODELS );
+    m_assignedHandleScratch.reserve( MAX_GAME_MODELS );
 }
 
 
@@ -1076,7 +1078,13 @@ void PhysicsBodyStore::LoadFromDescriptors( const std::vector<PhysicsBodyCreateD
 {
     const std::vector<PreservedRefreshState> preservedStateByHandle =
         CapturePreservedRefreshState( m_bodies, m_handleGenerations.size() );
-    std::vector<uint8_t> assignedHandleSlots( m_handleGenerations.size(), 0 );
+    assert( m_handleGenerations.size() <= m_assignedHandleScratch.capacity() );
+    if ( m_handleGenerations.size() > m_assignedHandleScratch.capacity() )
+    {
+        throw std::runtime_error( "PhysicsBodyStore assigned-handle scratch reserve exhausted" );
+    }
+    m_assignedHandleScratch.assign( m_handleGenerations.size(), 0 );
+    std::vector<uint8_t>& assignedHandleSlots = m_assignedHandleScratch;
     m_bodies.resize( bodyDescs.size() );
     m_modelBodyHandles.resize( bodyDescs.size() );
     for ( std::size_t i = 0; i < bodyDescs.size(); ++i )
@@ -1222,7 +1230,13 @@ bool PhysicsBodyStore::TrimToCount( int bodyCount )
         return false;
     }
 
-    std::vector<uint8_t> assignedHandleSlots( m_handleGenerations.size(), 0 );
+    assert( m_handleGenerations.size() <= m_assignedHandleScratch.capacity() );
+    if ( m_handleGenerations.size() > m_assignedHandleScratch.capacity() )
+    {
+        throw std::runtime_error( "PhysicsBodyStore trim scratch reserve exhausted" );
+    }
+    m_assignedHandleScratch.assign( m_handleGenerations.size(), 0 );
+    std::vector<uint8_t>& assignedHandleSlots = m_assignedHandleScratch;
     for ( int i = 0; i < bodyCount; ++i )
     {
         const PhysicsBodyRecord& record = m_bodies[static_cast<std::size_t>( i )];

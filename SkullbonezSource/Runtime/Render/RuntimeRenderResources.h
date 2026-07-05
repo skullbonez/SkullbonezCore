@@ -29,6 +29,7 @@ Related:
 */
 #pragma once
 
+#include "../../Core/Common.h"
 #include "../../Rendering/IFramebuffer.h"
 #include "../../Rendering/IShader.h"
 #include "../../Rendering/Shadow.h"
@@ -94,6 +95,15 @@ struct FullscreenPassResources
 
 struct ShadowPassResources
 {
+    ShadowPassResources()
+    {
+        // Why: object shadow caster streams are frame-rebuilt, but their
+        // capacity is a startup/runtime-resource contract sized to the maximum
+        // scene model pool. Exhaustion means the scene capacity budget changed,
+        // not that render should grow during the shadow pass.
+        objectCasterBatches.ReserveForModelCapacity( MAX_GAME_MODELS );
+    }
+
     // Terrain target: broad map centered on terrain bounds. Object target:
     // tighter map centered near the camera so nearby body shadows keep detail.
     std::unique_ptr<Rendering::IFramebuffer> terrainTarget;

@@ -127,6 +127,8 @@ class Run
     AttachedCameraState m_attachedCamera;                                  // Non-serialized object-follow camera state for Attach mode.
     SimulationController m_simulation;                                     // Simulation timestep policy and physics accumulators
     ReplayRuntime m_replayRuntime;                                         // Owns replay recorders, branch provenance, and replay interaction state.
+    ReplayLauncherVisualSample
+        m_replayLauncherVisualScratch;                                     // Reused replay capture payload; capacity is kept outside gameplay.
     Runtime::Audio::ContactAudioService m_contactAudio;                    // Presentation-only material impact playback sink.
     RunReplayMismatchState m_solverReplayMismatch;                         // Throttles repeated live-vs-solver replay mismatch reports.
     RunLiveStyleControlState m_liveStyle;                                  // Live style tweak/capture harness state

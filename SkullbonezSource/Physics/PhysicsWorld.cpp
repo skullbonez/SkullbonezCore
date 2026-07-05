@@ -52,6 +52,7 @@ Related:
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <stdexcept>
 #include <variant>
 
 using namespace SkullbonezCore::Physics;
@@ -94,6 +95,8 @@ constexpr float POINT_JOINT_SLEEP_ANGULAR_SPEED_SCALE = 6.0f;
 constexpr float BROADPHASE_MIN_CELL_SIZE = 0.5f;
 constexpr float DEFAULT_BROADPHASE_CELL = 24.0f;
 constexpr uint8_t DEFAULT_PHYSICS_SLEEP_FRAMES = 30;
+constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = MAX_GAME_MODELS * 4;
+constexpr int PHYSICS_COLLISION_VISUAL_BODY_RESERVE = PHYSICS_CANDIDATE_PAIR_RESERVE * 2;
 constexpr uint32_t PHYSICS_TORNADO_WORKER_HASH = HashStr( "Frame/Physics/TornadoField/WorkerBodies" );
 constexpr uint32_t PHYSICS_APPLY_FORCES_WORKER_HASH = HashStr( "Frame/Physics/ApplyForces/WorkerBodies" );
 constexpr uint32_t PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH =
@@ -129,8 +132,14 @@ PhysicsWorld::PhysicsWorld()
     : m_spatialGrid( DEFAULT_BROADPHASE_CELL ), m_seedSleepFrameCount( DEFAULT_PHYSICS_SLEEP_FRAMES )
 {
     m_timeRemaining.reserve( MAX_GAME_MODELS );
+    // Runtime allocation policy: broadphase candidate-pair storage is sized at
+    // setup and SpatialGrid asserts on cap exhaustion instead of growing during
+    // the fixed-step physics pass.
+    m_candidatePairs.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
     m_sleepSupportedThisFrame.reserve( MAX_GAME_MODELS );
     m_sleepInhibitedThisFrame.reserve( MAX_GAME_MODELS );
+    m_sleepState.reserve( MAX_GAME_MODELS );
+    m_sleepCounter.reserve( MAX_GAME_MODELS );
     m_underwaterSleepLocked.reserve( MAX_GAME_MODELS );
     m_tornadoCaptureSeconds.reserve( MAX_GAME_MODELS );
     m_tornadoEjectCooldownSeconds.reserve( MAX_GAME_MODELS );
@@ -157,14 +166,24 @@ PhysicsWorld::PhysicsWorld()
     m_solverBodies.reserve( MAX_GAME_MODELS );
     m_physicsDebugContacts.reserve( MAX_GAME_MODELS * 4 );
     m_physicsPipelineTrace.reserve( MAX_PIPELINE_TRACE_RECORDS );
+    m_persistentContactSideEffects.pipelineRecords.reserve( MAX_PIPELINE_TRACE_RECORDS );
+    m_persistentContactSideEffects.collisionVisualBodies.reserve( PHYSICS_COLLISION_VISUAL_BODY_RESERVE );
+    m_persistentContactSideEffects.fixedContactBodies.reserve( MAX_GAME_MODELS );
+    m_persistentContactSideEffects.releaseWakeBodies.reserve( 8 );
+    m_persistentContactSideEffects.fixedTreeReleases.reserve( 8 );
     m_terrainContactManifolds.reserve( MAX_GAME_MODELS );
     m_terrainDetectionCandidates.reserve( MAX_GAME_MODELS );
     m_objectNarrowphaseEvents.reserve( MAX_GAME_MODELS * 4 );
     m_objectNarrowphaseIslands.reserve( MAX_GAME_MODELS );
+    m_objectNarrowphaseIslandPairIndices.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
+    m_objectNarrowphaseIslandWriteOffsets.reserve( MAX_GAME_MODELS );
     m_objectNarrowphaseParent.reserve( MAX_GAME_MODELS );
     m_objectNarrowphaseRank.reserve( MAX_GAME_MODELS );
     m_objectNarrowphaseRootToIsland.reserve( MAX_GAME_MODELS );
+    m_restingWakeVisitedScratch.reserve( MAX_GAME_MODELS );
+    m_restingWakeQueueScratch.reserve( MAX_GAME_MODELS );
     m_pointJointConstraints.reserve( MAX_GAME_MODELS );
+    m_collisionCellKeys.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
 }
 
 
@@ -219,6 +238,8 @@ void PhysicsWorld::Clear()
     m_terrainDetectionCandidates.clear();
     m_objectNarrowphaseEvents.clear();
     m_objectNarrowphaseIslands.clear();
+    m_objectNarrowphaseIslandPairIndices.clear();
+    m_objectNarrowphaseIslandWriteOffsets.clear();
     m_objectNarrowphaseParent.clear();
     m_objectNarrowphaseRank.clear();
     m_objectNarrowphaseRootToIsland.clear();
@@ -229,7 +250,36 @@ void PhysicsWorld::Clear()
 
 void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const
 {
-    outSnapshot = ReplaySolverWorldSnapshot();
+    // Runtime allocation policy: replay recorder slots pre-reserve these
+    // payload vectors outside gameplay. Capture clears the retained slot in
+    // place so solver replay does not discard capacity and reallocate per tick.
+    outSnapshot.timeRemaining.clear();
+    outSnapshot.sleepSupportedThisFrame.clear();
+    outSnapshot.sleepInhibitedThisFrame.clear();
+    outSnapshot.sleepState.clear();
+    outSnapshot.sleepCounter.clear();
+    outSnapshot.underwaterSleepLocked.clear();
+    outSnapshot.tornadoCaptureSeconds.clear();
+    outSnapshot.tornadoEjectCooldownSeconds.clear();
+    outSnapshot.collisionVisualContacts.clear();
+    outSnapshot.sleepIslandVisualId.clear();
+    outSnapshot.sleepIslandAssignedVisualId.clear();
+    outSnapshot.sleepSupportEdges.clear();
+    outSnapshot.sleepIslandParent.clear();
+    outSnapshot.sleepIslandRank.clear();
+    outSnapshot.sleepIslandHasAwake.clear();
+    outSnapshot.sleepIslandHasSupportAnchor.clear();
+    outSnapshot.sleepIslandEligible.clear();
+    outSnapshot.sleepIslandCanSleep.clear();
+    outSnapshot.persistentContacts.clear();
+    outSnapshot.persistentContactCache.clear();
+    outSnapshot.persistentContactCounts.clear();
+    outSnapshot.persistentRestingContactCounts.clear();
+    outSnapshot.debugContacts.clear();
+    outSnapshot.pipelineTrace.clear();
+    outSnapshot.collisionCellKeys.clear();
+    outSnapshot.solverStats = ReplaySolverStatsSample();
+
     outSnapshot.version = 2;
     outSnapshot.modelCount = modelCount;
     outSnapshot.nextSleepIslandVisualId = m_nextSleepIslandVisualId;
@@ -420,6 +470,8 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
     m_terrainDetectionCandidates.clear();
     m_objectNarrowphaseEvents.clear();
     m_objectNarrowphaseIslands.clear();
+    m_objectNarrowphaseIslandPairIndices.clear();
+    m_objectNarrowphaseIslandWriteOffsets.clear();
     m_objectNarrowphaseParent.clear();
     m_objectNarrowphaseRank.clear();
     m_objectNarrowphaseRootToIsland.clear();
@@ -655,17 +707,21 @@ void PhysicsWorld::PreparePersistentContactSideEffects( int modelCount )
     effects.releaseWakeBodies.clear();
     effects.fixedTreeReleases.clear();
 
-    // Why: the solver appends compact output queues during the contact pass.
-    // Reserving from existing frame scale avoids allocator noise in the hot path
-    // without promising exact counts for position-correction duplicates.
-    effects.collisionVisualBodies.reserve( m_candidatePairs.size() * 2 );
-    effects.fixedContactBodies.reserve( static_cast<std::size_t>( modelCount ) );
-    effects.releaseWakeBodies.reserve( 8 );
-    effects.fixedTreeReleases.reserve( 8 );
     const int pipelineCapacity = (std::max)( 0,
                                              static_cast<int>( MAX_PIPELINE_TRACE_RECORDS ) -
                                                  static_cast<int>( m_physicsPipelineTrace.size() ) );
-    effects.pipelineRecords.reserve( static_cast<std::size_t>( pipelineCapacity ) );
+    assert( effects.collisionVisualBodies.capacity() >= m_candidatePairs.size() * 2 );
+    assert( effects.fixedContactBodies.capacity() >= static_cast<std::size_t>( modelCount ) );
+    assert( effects.releaseWakeBodies.capacity() >= 8 );
+    assert( effects.fixedTreeReleases.capacity() >= 8 );
+    assert( effects.pipelineRecords.capacity() >= static_cast<std::size_t>( pipelineCapacity ) );
+    if ( effects.collisionVisualBodies.capacity() < m_candidatePairs.size() * 2 ||
+         effects.fixedContactBodies.capacity() < static_cast<std::size_t>( modelCount ) ||
+         effects.releaseWakeBodies.capacity() < 8 || effects.fixedTreeReleases.capacity() < 8 ||
+         effects.pipelineRecords.capacity() < static_cast<std::size_t>( pipelineCapacity ) )
+    {
+        throw std::runtime_error( "Physics persistent-contact side-effect capacity exhausted." );
+    }
 }
 
 
@@ -1234,12 +1290,12 @@ void PhysicsWorld::ApplyTornadoField( PhysicsBodyStore& bodyStore,
 
     if ( runtimeConfig.physicsParallel && runtimeConfig.physicsParallelTornadoField )
     {
-        workerPool.ParallelFor( 0,
-                                modelCount,
-                                applyTornadoAt,
-                                PHYSICS_PARALLEL_MIN_BODIES,
-                                "Frame/Physics/TornadoField/WorkerBodies",
-                                PHYSICS_TORNADO_WORKER_HASH );
+        workerPool.ParallelForNoAlloc( 0,
+                                       modelCount,
+                                       applyTornadoAt,
+                                       PHYSICS_PARALLEL_MIN_BODIES,
+                                       "Frame/Physics/TornadoField/WorkerBodies",
+                                       PHYSICS_TORNADO_WORKER_HASH );
     }
     else
     {
@@ -1644,11 +1700,16 @@ void PhysicsWorld::WakeRestingContactIsland( int bodyCount,
         return;
     }
 
-    std::vector<uint8_t> visited( static_cast<size_t>( modelCount ), 0 );
-    std::vector<int> wakeQueue;
-    wakeQueue.reserve( static_cast<size_t>( modelCount ) );
-    visited[static_cast<size_t>( index )] = 1;
-    wakeQueue.push_back( index );
+    if ( modelCount > static_cast<int>( m_restingWakeVisitedScratch.capacity() ) ||
+         modelCount > static_cast<int>( m_restingWakeQueueScratch.capacity() ) )
+    {
+        assert( false && "Physics resting-wake scratch capacity exceeded" );
+        throw std::runtime_error( "Physics resting-wake scratch capacity exceeded" );
+    }
+    m_restingWakeVisitedScratch.assign( static_cast<size_t>( modelCount ), 0 );
+    m_restingWakeQueueScratch.clear();
+    m_restingWakeVisitedScratch[static_cast<size_t>( index )] = 1;
+    m_restingWakeQueueScratch.push_back( index );
 
     auto hasPersistentContactEdge = [&]( int a, int b ) -> bool
     {
@@ -1678,13 +1739,13 @@ void PhysicsWorld::WakeRestingContactIsland( int bodyCount,
         return delta * delta <= range * range;
     };
 
-    for ( size_t cursor = 0; cursor < wakeQueue.size(); ++cursor )
+    for ( size_t cursor = 0; cursor < m_restingWakeQueueScratch.size(); ++cursor )
     {
-        const int current = wakeQueue[cursor];
+        const int current = m_restingWakeQueueScratch[cursor];
         for ( int candidate = 0; candidate < modelCount; ++candidate )
         {
-            if ( visited[static_cast<size_t>( candidate )] || candidate >= static_cast<int>( m_sleepState.size() ) ||
-                 m_sleepState[candidate] == 0 )
+            if ( m_restingWakeVisitedScratch[static_cast<size_t>( candidate )] ||
+                 candidate >= static_cast<int>( m_sleepState.size() ) || m_sleepState[candidate] == 0 )
             {
                 continue;
             }
@@ -1701,8 +1762,8 @@ void PhysicsWorld::WakeRestingContactIsland( int bodyCount,
                 continue;
             }
 
-            visited[static_cast<size_t>( candidate )] = 1;
-            wakeQueue.push_back( candidate );
+            m_restingWakeVisitedScratch[static_cast<size_t>( candidate )] = 1;
+            m_restingWakeQueueScratch.push_back( candidate );
             WakeDynamicBodyState( modelCount,
                                   bodyRecords,
                                   bodyStore,
@@ -1922,12 +1983,12 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     if ( config.physicsParallel && config.physicsParallelApplyForces )
     {
-        workerPool.ParallelFor( 0,
-                                modelCount,
-                                applyForcesAt,
-                                PHYSICS_PARALLEL_MIN_BODIES,
-                                "Frame/Physics/ApplyForces/WorkerBodies",
-                                PHYSICS_APPLY_FORCES_WORKER_HASH );
+        workerPool.ParallelForNoAlloc( 0,
+                                       modelCount,
+                                       applyForcesAt,
+                                       PHYSICS_PARALLEL_MIN_BODIES,
+                                       "Frame/Physics/ApplyForces/WorkerBodies",
+                                       PHYSICS_APPLY_FORCES_WORKER_HASH );
     }
     else
     {
@@ -2542,6 +2603,11 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         }
         if ( event.hasCollisionCellKey )
         {
+            if ( m_collisionCellKeys.size() >= m_collisionCellKeys.capacity() )
+            {
+                assert( false && "Physics collision-cell key capacity exceeded" );
+                throw std::runtime_error( "Physics collision-cell key capacity exceeded" );
+            }
             m_collisionCellKeys.push_back( event.collisionCellKey );
         }
     };
@@ -2749,8 +2815,10 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     auto processObjectNarrowphaseIsland = [&]( int islandIndex )
     {
         const ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[static_cast<size_t>( islandIndex )];
-        for ( int pairIndex : island.pairIndices )
+        const size_t pairEnd = island.firstPairOffset + island.pairCount;
+        for ( size_t pairCursor = island.firstPairOffset; pairCursor < pairEnd; ++pairCursor )
         {
+            const int pairIndex = m_objectNarrowphaseIslandPairIndices[pairCursor];
             processObjectNarrowphasePair( pairIndex, m_objectNarrowphaseEvents[static_cast<size_t>( pairIndex )] );
         }
     };
@@ -2826,6 +2894,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         }
 
         m_objectNarrowphaseIslands.clear();
+        m_objectNarrowphaseIslandPairIndices.clear();
+        m_objectNarrowphaseIslandWriteOffsets.clear();
         m_objectNarrowphaseRootToIsland.assign( static_cast<size_t>( modelCount ), -1 );
         for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
         {
@@ -2842,13 +2912,56 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             {
                 islandIndex = static_cast<int>( m_objectNarrowphaseIslands.size() );
                 m_objectNarrowphaseRootToIsland[static_cast<size_t>( root )] = islandIndex;
+                if ( m_objectNarrowphaseIslands.size() >= m_objectNarrowphaseIslands.capacity() )
+                {
+                    assert( false && "Physics object narrowphase island capacity exceeded" );
+                    throw std::runtime_error( "Physics object narrowphase island capacity exceeded" );
+                }
                 m_objectNarrowphaseIslands.push_back( ObjectNarrowphaseIsland() );
                 m_objectNarrowphaseIslands.back().minPairIndex = INT_MAX;
             }
 
             ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[static_cast<size_t>( islandIndex )];
             island.minPairIndex = (std::min)( island.minPairIndex, pairIndex );
-            island.pairIndices.push_back( pairIndex );
+            ++island.pairCount;
+        }
+        if ( m_objectNarrowphaseIslandWriteOffsets.capacity() < m_objectNarrowphaseIslands.size() )
+        {
+            assert( false && "Physics object narrowphase island write-offset capacity exceeded" );
+            throw std::runtime_error( "Physics object narrowphase island write-offset capacity exceeded" );
+        }
+        m_objectNarrowphaseIslandWriteOffsets.assign( m_objectNarrowphaseIslands.size(), 0 );
+        size_t pairOffset = 0;
+        for ( size_t islandIndex = 0; islandIndex < m_objectNarrowphaseIslands.size(); ++islandIndex )
+        {
+            ObjectNarrowphaseIsland& island = m_objectNarrowphaseIslands[islandIndex];
+            island.firstPairOffset = pairOffset;
+            m_objectNarrowphaseIslandWriteOffsets[islandIndex] = pairOffset;
+            pairOffset += island.pairCount;
+        }
+        if ( pairOffset > m_objectNarrowphaseIslandPairIndices.capacity() )
+        {
+            assert( false && "Physics object narrowphase island pair capacity exceeded" );
+            throw std::runtime_error( "Physics object narrowphase island pair capacity exceeded" );
+        }
+        m_objectNarrowphaseIslandPairIndices.resize( pairOffset, 0 );
+        for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
+        {
+            const int x = candidatePairs[static_cast<size_t>( pairIndex )].first;
+            const int y = candidatePairs[static_cast<size_t>( pairIndex )].second;
+            if ( x < 0 || y < 0 || x >= modelCount || y >= modelCount )
+            {
+                continue;
+            }
+
+            const int root = findObjectNarrowphaseRoot( x );
+            const int islandIndex = m_objectNarrowphaseRootToIsland[static_cast<size_t>( root )];
+            if ( islandIndex < 0 )
+            {
+                continue;
+            }
+            size_t& writeOffset = m_objectNarrowphaseIslandWriteOffsets[static_cast<size_t>( islandIndex )];
+            m_objectNarrowphaseIslandPairIndices[writeOffset++] = pairIndex;
         }
         std::sort( m_objectNarrowphaseIslands.begin(),
                    m_objectNarrowphaseIslands.end(),
@@ -2857,6 +2970,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     };
 
     m_objectNarrowphaseIslands.clear();
+    m_objectNarrowphaseIslandPairIndices.clear();
+    m_objectNarrowphaseIslandWriteOffsets.clear();
     bool ranParallelNarrowphase = false;
     const bool mayBenefitFromIslandDispatch =
         PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED && config.physicsParallel && config.physicsParallelNarrowphase &&
@@ -2876,12 +2991,12 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             m_objectNarrowphaseEvents.assign( candidatePairs.size(), ObjectNarrowphaseEvent() );
             {
                 PROFILE_SCOPED( "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
-                workerPool.ParallelFor( 0,
-                                        islandCount,
-                                        processObjectNarrowphaseIsland,
-                                        PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS,
-                                        "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands",
-                                        PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH );
+                workerPool.ParallelForNoAlloc( 0,
+                                               islandCount,
+                                               processObjectNarrowphaseIsland,
+                                               PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS,
+                                               "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands",
+                                               PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH );
             }
             {
                 PROFILE_SCOPED( "Frame/Physics/Narrowphase/CommitEvents" );
@@ -2984,12 +3099,12 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     m_terrainDetectionCandidates.assign( static_cast<size_t>( modelCount ), TerrainDetectionCandidate() );
     if ( config.physicsParallel && config.physicsParallelTerrainDetect )
     {
-        workerPool.ParallelFor( 0,
-                                modelCount,
-                                detectTerrainAt,
-                                PHYSICS_PARALLEL_MIN_BODIES,
-                                "Frame/Physics/Terrain/Detect/WorkerBodies",
-                                PHYSICS_TERRAIN_DETECT_WORKER_HASH );
+        workerPool.ParallelForNoAlloc( 0,
+                                       modelCount,
+                                       detectTerrainAt,
+                                       PHYSICS_PARALLEL_MIN_BODIES,
+                                       "Frame/Physics/Terrain/Detect/WorkerBodies",
+                                       PHYSICS_TERRAIN_DETECT_WORKER_HASH );
     }
     else
     {
@@ -3043,12 +3158,12 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     if ( config.physicsParallel && config.physicsParallelIntegrate )
     {
-        workerPool.ParallelFor( 0,
-                                modelCount,
-                                integrateRemainingAt,
-                                PHYSICS_PARALLEL_MIN_BODIES,
-                                "Frame/Physics/Integrate/WorkerBodies",
-                                PHYSICS_INTEGRATE_WORKER_HASH );
+        workerPool.ParallelForNoAlloc( 0,
+                                       modelCount,
+                                       integrateRemainingAt,
+                                       PHYSICS_PARALLEL_MIN_BODIES,
+                                       "Frame/Physics/Integrate/WorkerBodies",
+                                       PHYSICS_INTEGRATE_WORKER_HASH );
     }
     else
     {
@@ -3504,13 +3619,13 @@ uint64_t PhysicsWorld::CollectMemoryBytes() const
     bytes += VectorCapacityBytes( m_terrainDetectionCandidates );
     bytes += VectorCapacityBytes( m_objectNarrowphaseEvents );
     bytes += VectorCapacityBytes( m_objectNarrowphaseIslands );
-    for ( const ObjectNarrowphaseIsland& island : m_objectNarrowphaseIslands )
-    {
-        bytes += VectorCapacityBytes( island.pairIndices );
-    }
+    bytes += VectorCapacityBytes( m_objectNarrowphaseIslandPairIndices );
+    bytes += VectorCapacityBytes( m_objectNarrowphaseIslandWriteOffsets );
     bytes += VectorCapacityBytes( m_objectNarrowphaseParent );
     bytes += VectorCapacityBytes( m_objectNarrowphaseRank );
     bytes += VectorCapacityBytes( m_objectNarrowphaseRootToIsland );
+    bytes += VectorCapacityBytes( m_restingWakeVisitedScratch );
+    bytes += VectorCapacityBytes( m_restingWakeQueueScratch );
     bytes += VectorCapacityBytes( m_pointJointConstraints );
     bytes += VectorCapacityBytes( m_collisionCellKeys );
     bytes += static_cast<uint64_t>( m_tornadoField.DynamicMemoryBytes() );

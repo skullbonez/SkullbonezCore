@@ -72,6 +72,17 @@ static constexpr int HULL_MAX_TRIANGLE_VERTICES =
 static constexpr int HULL_DYNAMIC_FLOATS_PER_VERTEX = 3 + 3 + COLLISION_INSTANCE_FLOATS;
 static std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> sHullDebugVertexData = {};
 
+CollisionVisualizer::CollisionVisualizer()
+{
+    // Runtime allocation policy: the debug visualizer mirrors model state every
+    // frame when enabled. Reserve its per-model and instance staging buffers up
+    // front so diagnostics cannot grow heap storage during steady gameplay.
+    m_models.reserve( MAX_GAME_MODELS );
+    m_sleepGroupSizes.reserve( MAX_GAME_MODELS );
+    m_sphereInstanceData.reserve( static_cast<std::size_t>( MAX_GAME_MODELS ) * INSTANCE_FLOATS );
+    m_boxInstanceData.reserve( static_cast<std::size_t>( MAX_GAME_MODELS ) * INSTANCE_FLOATS );
+}
+
 CollisionVisualizer::~CollisionVisualizer()
 {
     ResetResources();

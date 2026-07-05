@@ -205,6 +205,9 @@ class PhysicsBodyStore
     std::vector<int> m_handleModelIndices;             // Handle slot to current model index, or -1.
     std::vector<uint32_t> m_handleReplayBodyIds;       // Replay id paired with each live handle slot.
     std::vector<uint32_t> m_freeHandleSlots;           // Retired slots available for deterministic reuse.
+    // Runtime allocation policy: topology repair reuses this handle-slot mask
+    // instead of constructing a temporary vector in steady gameplay.
+    std::vector<uint8_t> m_assignedHandleScratch;
 };
 } // namespace Physics
 } // namespace SkullbonezCore

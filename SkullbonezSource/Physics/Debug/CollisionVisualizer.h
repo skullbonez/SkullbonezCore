@@ -129,7 +129,7 @@ class CollisionVisualizer
                            const Color& color );
 
   public:
-    CollisionVisualizer() = default;
+    CollisionVisualizer();
     ~CollisionVisualizer();
 
     void SetEnabled( bool enabled )

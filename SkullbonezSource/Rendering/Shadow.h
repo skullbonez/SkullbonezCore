@@ -56,6 +56,22 @@ struct ShadowCasterBatches
     std::vector<Math::Transformation::Matrix4> pines;
     std::vector<ShadowConvexHullCaster> convexHulls;
 
+    void ReserveForModelCapacity( int capacity )
+    {
+        const std::size_t count = static_cast<std::size_t>( (std::max)( 0, capacity ) );
+        spheres.reserve( count );
+        boxes.reserve( count );
+        pines.reserve( count );
+        convexHulls.reserve( count );
+    }
+
+    bool HasCapacityForModelCount( int modelCount ) const
+    {
+        const std::size_t count = static_cast<std::size_t>( (std::max)( 0, modelCount ) );
+        return spheres.capacity() >= count && boxes.capacity() >= count && pines.capacity() >= count &&
+               convexHulls.capacity() >= count;
+    }
+
     void Clear()
     {
         spheres.clear();

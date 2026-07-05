@@ -3303,11 +3303,19 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         CleanupWindow( window, hInstance );
     }
     RuntimeAllocation::PrintRuntimeAllocationSummary( stdout );
+    int finalExitCode = runExitCode;
+    if ( RuntimeAllocation::GetRuntimeAllocationGuardMode() ==
+             RuntimeAllocation::RuntimeAllocationGuardMode::Gameplay &&
+         RuntimeAllocation::RuntimeAllocationGuardHasGameplayViolations() && finalExitCode == 0 )
+    {
+        fprintf( stdout, "[allocation-guard] FAIL: gameplay allocation guard detected policy violations.\n" );
+        finalExitCode = 9;
+    }
 
     CoUninitialize();
 
     // Write memory leaks to output window
     // _CrtDumpMemoryLeaks();
 
-    return runExitCode;
+    return finalExitCode;
 }

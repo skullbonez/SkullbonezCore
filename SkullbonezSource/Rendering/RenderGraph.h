@@ -30,10 +30,11 @@ Related:
 */
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <cstddef>
+#include <stdexcept>
 #include <string>
-#include <vector>
 
 namespace SkullbonezCore
 {
@@ -41,6 +42,12 @@ namespace Rendering
 {
 
 inline constexpr uint32_t RENDER_GRAPH_ALL_SUBRESOURCES = 0xFFFFFFFFu;
+inline constexpr size_t RENDER_GRAPH_MAX_RESOURCES = 24;
+inline constexpr size_t RENDER_GRAPH_MAX_PASSES = 24;
+inline constexpr size_t RENDER_GRAPH_MAX_PASS_RESOURCE_USES = 8;
+inline constexpr size_t RENDER_GRAPH_MAX_SUBRESOURCE_STATES_PER_RESOURCE = 8;
+inline constexpr size_t RENDER_GRAPH_MAX_TRANSITIONS = 96;
+inline constexpr size_t RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS = 16;
 
 /* -- RenderGraph: first DX12 render-architecture contract
 -----------------------------------------------------------------------------------------------
@@ -276,7 +283,7 @@ struct RenderGraphTextureBinding
 // release that object.
 struct RenderGraphResourceDesc
 {
-    std::string name;
+    const char* name = "UnnamedResource";
     bool external = true;
     RenderGraphResourceAccess initialAccess = RenderGraphResourceAccess::Unknown;
     const void* nativeResource = nullptr;
@@ -293,6 +300,39 @@ struct RenderGraphResourceUse
     uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES;
 };
 
+struct RenderGraphResourceUseList
+{
+    bool empty() const
+    {
+        return count == 0;
+    }
+
+    size_t size() const
+    {
+        return count;
+    }
+
+    const RenderGraphResourceUse* begin() const
+    {
+        return uses.data();
+    }
+
+    const RenderGraphResourceUse* end() const
+    {
+        return uses.data() + count;
+    }
+
+    void clear()
+    {
+        count = 0;
+    }
+
+    void push_back( const RenderGraphResourceUse& use );
+
+    std::array<RenderGraphResourceUse, RENDER_GRAPH_MAX_PASS_RESOURCE_USES> uses = {};
+    size_t count = 0;
+};
+
 // A pass is one named phase of the frame.
 //
 // A pass declaration answers three questions:
@@ -306,16 +346,16 @@ struct RenderGraphResourceUse
 // before the graph invokes their command-recording body.
 struct RenderGraphPassDesc
 {
-    std::string name;
-    std::string debugLabel;
+    const char* name = "UnnamedPass";
+    const char* debugLabel = "UnnamedPass";
     RenderGraphQueueType queue = RenderGraphQueueType::Graphics;
     RenderGraphBarrierPolicy barrierPolicy = RenderGraphBarrierPolicy::DiagnosticOnly;
     RenderGraphPassExecutionOwner executionOwner = RenderGraphPassExecutionOwner::DeclarationOnly;
     RenderGraphPassCallback callback = nullptr;
     void* callbackUserData = nullptr;
     bool callbackEnabled = true;
-    std::vector<RenderGraphResourceUse> reads;
-    std::vector<RenderGraphResourceUse> writes;
+    RenderGraphResourceUseList reads;
+    RenderGraphResourceUseList writes;
 };
 
 // A graph transition is the API-neutral version of a future DX12 resource
@@ -374,6 +414,116 @@ struct RenderGraphTransientMaterializationStats
     size_t descriptorRowsOwned = 0;
 };
 
+template <typename T, size_t Capacity> struct RenderGraphFixedList
+{
+    bool empty() const
+    {
+        return m_count == 0;
+    }
+
+    size_t size() const
+    {
+        return m_count;
+    }
+
+    constexpr size_t capacity() const
+    {
+        return Capacity;
+    }
+
+    void reserve( size_t requested )
+    {
+        if ( requested > Capacity )
+        {
+            throw std::runtime_error( "RenderGraph fixed-list reserve capacity exceeded" );
+        }
+    }
+
+    void clear()
+    {
+        for ( size_t index = 0; index < m_count; ++index )
+        {
+            m_values[index] = T();
+        }
+        m_count = 0;
+    }
+
+    void resize( size_t count )
+    {
+        if ( count > Capacity )
+        {
+            throw std::runtime_error( "RenderGraph fixed-list resize capacity exceeded" );
+        }
+        if ( count < m_count )
+        {
+            for ( size_t index = count; index < m_count; ++index )
+            {
+                m_values[index] = T();
+            }
+        }
+        else
+        {
+            for ( size_t index = m_count; index < count; ++index )
+            {
+                m_values[index] = T();
+            }
+        }
+        m_count = count;
+    }
+
+    void push_back( const T& value )
+    {
+        if ( m_count >= Capacity )
+        {
+            throw std::runtime_error( "RenderGraph fixed-list push capacity exceeded" );
+        }
+        m_values[m_count++] = value;
+    }
+
+    T& operator[]( size_t index )
+    {
+        return m_values[index];
+    }
+
+    const T& operator[]( size_t index ) const
+    {
+        return m_values[index];
+    }
+
+    T* begin()
+    {
+        return m_values.data();
+    }
+
+    T* end()
+    {
+        return m_values.data() + m_count;
+    }
+
+    const T* begin() const
+    {
+        return m_values.data();
+    }
+
+    const T* end() const
+    {
+        return m_values.data() + m_count;
+    }
+
+    T* data()
+    {
+        return m_values.data();
+    }
+
+    const T* data() const
+    {
+        return m_values.data();
+    }
+
+    std::array<T, Capacity> m_values = {};
+    size_t m_count = 0;
+};
+
 // Result of the first simple graph compile step.
 //
 // This is intentionally only a transition list for now. The DX12 graph executor
@@ -383,9 +533,13 @@ struct RenderGraphTransientMaterializationStats
 // order without changing the pass/resource declarations.
 struct RenderGraphCompileResult
 {
-    std::vector<RenderGraphTransitionDesc> transitions;
-    std::vector<RenderGraphResourceLifetimeDesc> resourceLifetimes;
-    std::vector<RenderGraphTransientAllocationDesc> transientAllocations;
+    void Clear();
+    void ReserveForRuntimePassGraph();
+
+    RenderGraphFixedList<RenderGraphTransitionDesc, RENDER_GRAPH_MAX_TRANSITIONS> transitions;
+    RenderGraphFixedList<RenderGraphResourceLifetimeDesc, RENDER_GRAPH_MAX_RESOURCES> resourceLifetimes;
+    RenderGraphFixedList<RenderGraphTransientAllocationDesc, RENDER_GRAPH_MAX_TRANSIENT_ALLOCATIONS>
+        transientAllocations;
     RenderGraphTransientAllocationDiagnostics transientDiagnostics;
 };
 
@@ -404,6 +558,7 @@ class RenderGraph
 {
   public:
     void Clear();
+    void ReserveForRuntimePassGraph();
 
     RenderGraphResourceHandle AddExternalResource( const char* name,
                                                    RenderGraphResourceAccess initialAccess,
@@ -430,18 +585,19 @@ class RenderGraph
                           bool enabled = true,
                           const char* debugLabel = nullptr );
 
-    const std::vector<RenderGraphResourceDesc>& Resources() const
+    const RenderGraphFixedList<RenderGraphResourceDesc, RENDER_GRAPH_MAX_RESOURCES>& Resources() const
     {
         return m_resources;
     }
 
-    const std::vector<RenderGraphPassDesc>& Passes() const
+    const RenderGraphFixedList<RenderGraphPassDesc, RENDER_GRAPH_MAX_PASSES>& Passes() const
     {
         return m_passes;
     }
 
     std::string DumpText() const;
     RenderGraphCompileResult Compile() const;
+    void Compile( RenderGraphCompileResult& result ) const;
     RenderGraphCallbackExecutionResult ExecuteCallbacks( RenderGraphCallbackExecutionMode mode ) const;
 
   private:
@@ -449,8 +605,8 @@ class RenderGraph
     RenderGraphPassDesc& CheckedPass( uint32_t passIndex );
     void CheckedConcreteAccess( RenderGraphResourceAccess access ) const;
 
-    std::vector<RenderGraphResourceDesc> m_resources;
-    std::vector<RenderGraphPassDesc> m_passes;
+    RenderGraphFixedList<RenderGraphResourceDesc, RENDER_GRAPH_MAX_RESOURCES> m_resources;
+    RenderGraphFixedList<RenderGraphPassDesc, RENDER_GRAPH_MAX_PASSES> m_passes;
 };
 
 const char* ToString( RenderGraphQueueType queue );

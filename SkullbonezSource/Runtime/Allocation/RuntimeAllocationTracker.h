@@ -46,6 +46,7 @@ enum class RuntimeAllocationPhase
     Render,
     Replay,
     Capture,
+    Diagnostics,
     Shutdown,
     Count
 };

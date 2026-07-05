@@ -1,7 +1,7 @@
 # Runtime Static Allocation Policy Plan
 
 Date: 2026-06-27 (policy revised 2026-07-05)
-Status: In progress - first enforcement slice landed 2026-07-05
+Status: In progress - strict ordinary/replay-capture enforcement landed 2026-07-06
 Impact area: performance, runtime, physics, renderer, UI/diagnostics, tooling
 Validation note: plan-only edits require no validation. Implementation touches
 hot runtime paths, so PR-bound work should use `tools\validate_perf.bat` plus
@@ -111,7 +111,7 @@ source of truth, and use this checklist as the Carmack-test acceptance overlay.
 - [x] Add runtime phase transitions for startup, scene load/reset,
   backend/resource init, steady gameplay, replay, screenshot/capture, and
   shutdown.
-- [ ] Implement `RuntimeReserveAllocator` owner registration with owner name,
+- [x] Implement `RuntimeReserveAllocator` owner registration with owner name,
   phase, capacity source, hard cap, replay-only growth allowance, and
   diagnostic counters.
 - [ ] Define runtime memory budgets and backing arenas by subsystem, with
@@ -120,12 +120,12 @@ source of truth, and use this checklist as the Carmack-test acceptance overlay.
 - [ ] Convert runtime growable owners to fixed storage or preallocated pools;
   replay owners alone may keep registered allocator-approved growth.
 - [ ] Add policy comments beside every runtime growable storage owner.
-- [ ] Make ordinary steady gameplay fail on any nonzero allocation; pool
+- [x] Make ordinary steady gameplay fail on any nonzero allocation; pool
   exhaustion asserts instead of growing, with no registered-owner exception
   outside replay phases.
 - [ ] Make replay scenarios fail on unregistered replay allocations while still
   allowing registered replay-phase reserve bumps within cap.
-- [ ] Print owner-level allocation summaries with allocation count, bytes,
+- [x] Print owner-level allocation summaries with allocation count, bytes,
   high-water, replay growth count, frame, and phase.
 - [x] Ensure the allocation tracker itself cannot allocate while reporting.
 
@@ -223,6 +223,97 @@ Final first-slice validation on 2026-07-05/06:
 - `tools\validate_full.bat` passed the broad gate
   (`Agentic\Temp\validate_full_plan1_plan2_final_after_duck_fixes.log`,
   elapsed 38.72s).
+
+### 2026-07-06 Strict Ordinary And Replay-Capture Enforcement Slice
+
+Landed the strict allocation-stability slice on branch `nightrunner-5th-july`:
+
+- `RuntimeReserveAllocator` now records owner-scoped and unregistered
+  allocations, prints owner-level counters, and counts unregistered replay
+  allocations as gameplay policy violations. The allocation checker self-test
+  continues to cover the allowed registered replay reserve-bump shape.
+- `--allocation-guard gameplay` now returns a nonzero process exit after the
+  summary when any steady gameplay, physics, render, or replay allocation
+  violation is present. `tools\validate_perf.bat` now keys the guard smoke on
+  the clean PASS marker instead of requiring a nonzero steady-gameplay phase
+  row.
+- WorkerPool dispatch, fixed-step physics scratch, object narrowphase island
+  pair storage, DX12/render-graph telemetry, shadow warmup, contact-audio
+  simple-linear history, and replay capture storage now reserve before steady
+  gameplay and reuse capacity during guarded frames.
+- Replay capture preallocates recorder sample slots from the run body-capacity
+  budget, preserves nested solver snapshot/launcher visual capacity, and avoids
+  per-frame temporary copies that would allocate under the replay phase.
+
+Strict proof launches from the final Profile build:
+
+```text
+Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --fixed-step --no-contact-audio --allocation-guard gameplay --frames 60 --scene SkullbonezData\scenes\perf_1000.scene.json
+[allocation-guard] mode=gameplay total_allocations=19038 total_bytes=168001367 gameplay_violations=0
+[runtime-reserve] policy_violations=0 registered_owners=0
+[allocation-guard] PASS: no steady gameplay allocations recorded by the guard.
+```
+
+```text
+Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --frames 150 --replay on --replay-seconds 2 --fixed-step --vsync off --allocation-guard gameplay
+[replay] Captured 150 physics samples, retained 150/240, checkpoints 5/10, latest_hash=0xF3CBF7B67BEFA683
+[replay] Solver track captured 150 physics samples, retained 150/240, checkpoints 3/6, latest_solver_hash=0xAE907E531317312D
+[allocation-guard] mode=gameplay total_allocations=25692 total_bytes=1603677590 gameplay_violations=0
+[runtime-reserve] policy_violations=0 registered_owners=0
+[allocation-guard] PASS: no steady gameplay allocations recorded by the guard.
+```
+
+Negative proof:
+
+```text
+Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\replay_prediction_click.json --interaction-report TestOutput\interaction\replay_prediction_click_report.json --frames 150 --replay on --replay-seconds 2 --fixed-step --vsync off --allocation-guard gameplay
+[allocation-guard] mode=gameplay ... gameplay_violations=3166
+[runtime-reserve] policy_violations=3166 registered_owners=0
+[allocation-guard] VIOLATION: gameplay allocation guard detected policy violations; strict mode will fail after the summary.
+[allocation-guard] FAIL: gameplay allocation guard detected policy violations.
+interaction_exit=9
+```
+
+The negative proof is intentional evidence that strict mode now fails on the
+broader replay interaction/prediction/report harness instead of silently
+warning. That harness still exercises JSON report writing, screenshot capture,
+replay prediction scratch, and replay path-query UI buffers; those are left as
+open conversion work under the remaining growable-owner, policy-comment, and
+capacity-diagnostics checklist rows rather than being hidden by an owner scope.
+The approved registered replay reserve-bump exception remains open: the current
+runtime proof demonstrates zero replay allocations, not a positive allocator-
+approved growth path. Do not mark the replay-growth row complete until a
+registered owner can request a bounded replay bump and `--allocation-guard
+gameplay` permits only that approved bump while still failing unregistered
+replay allocation.
+
+Final strict-slice validation on 2026-07-06:
+
+- `python -m py_compile tools\check_runtime_boundaries.py tools\check_allocation_policy.py tools\validate_project_filters.py`
+  passed, and both runtime-boundary and allocation-policy self-tests passed.
+- `tools\validate_fast.bat` passed format, project filters, runtime boundaries,
+  and Profile/Debug builds with 0 warnings/errors
+  (`Agentic\Temp\validate_fast_plan2_strict_enforcement_final.log`, elapsed
+  26.39s).
+- `tools\validate_perf.bat` completed with clean allocation-guard evidence for
+  `perf_1000`, `gameplay_violations=0`, `policy_violations=0`, passing DX12
+  and physics-bench perf budgets, and Profile/Debug builds with 0 warnings/
+  errors (`Agentic\Temp\validate_perf_plan2_strict_enforcement_final.log`,
+  elapsed 39.74s).
+- `tools\validate_full.bat` passed the broad default gate, including project
+  filters, runtime boundaries, DX12 screenshots/InfoQueue, and byte-exact
+  physics regression
+  (`Agentic\Temp\validate_full_plan2_strict_enforcement_final.log`, elapsed
+  36.95s).
+- The final replay-capture proof recorded 150 retained replay samples,
+  `gameplay_violations=0`, `policy_violations=0`, `PASS`, and exit 0
+  (`Agentic\Temp\allocation_guard_replay_no_interaction_final.log`, elapsed
+  3.04s).
+- The refreshed expected-fail replay interaction probe recorded
+  `gameplay_violations=3166`, `policy_violations=3166`, `VIOLATION`, `FAIL`,
+  and `interaction_exit=9`
+  (`Agentic\Temp\allocation_guard_interaction_expected_fail_final.log`, elapsed
+  3.05s).
 
 ### 2026-06-28 Evidence Baseline
 

@@ -74,7 +74,7 @@ if not exist "%REPO%\TestOutput\validation\agent_logs" mkdir "%REPO%\TestOutput\
 set "ALLOC_GUARD_EXIT=!errorlevel!"
 type "%ALLOC_GUARD_LOG%"
 if not "!ALLOC_GUARD_EXIT!"=="0" (
-    echo FAIL: allocation guard perf_1000 smoke crashed.
+    echo FAIL: allocation guard perf_1000 smoke failed.
     exit /b 9
 )
 findstr /C:"[allocation-guard] mode=gameplay" "%ALLOC_GUARD_LOG%" >nul
@@ -82,9 +82,9 @@ if errorlevel 1 (
     echo FAIL: allocation guard summary marker missing.
     exit /b 9
 )
-findstr /C:"[allocation-guard] phase=steady_gameplay" "%ALLOC_GUARD_LOG%" >nul
+findstr /C:"[allocation-guard] PASS:" "%ALLOC_GUARD_LOG%" >nul
 if errorlevel 1 (
-    echo FAIL: allocation guard steady gameplay phase marker missing.
+    echo FAIL: allocation guard clean PASS marker missing.
     exit /b 9
 )
 findstr /C:"[allocation-guard] WARNING" "%ALLOC_GUARD_LOG%" >nul

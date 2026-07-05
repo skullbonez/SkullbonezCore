@@ -224,6 +224,22 @@ void Terrain::EnsureRenderResources( const SkullbonezCore::Basics::EngineConfig&
 }
 
 
+void Terrain::EnsureShadowDepthResources()
+{
+    if ( m_shadowDepthShader )
+    {
+        return;
+    }
+
+    // Runtime allocation policy: terrain's non-instanced shadow caster shader is
+    // a backend resource. Create it during the explicit shadow backend-init step
+    // so the first live shadow draw does not compile HLSL in the render phase.
+    assert( m_assets );
+    assert( m_resources );
+    m_shadowDepthShader = m_assets->CreateShader( *m_resources, "shader.shadow_depth" );
+}
+
+
 void Terrain::ReleaseRenderResources()
 {
     m_terrainMesh.reset();
@@ -653,13 +669,7 @@ void Terrain::RenderShadowDepth( const Matrix4& lightView,
 
     if ( !m_shadowDepthShader )
     {
-        // Terrain is not instanced, so it uses the non-instanced shadow_depth
-        // shader. It still writes into the same framebuffer/depth map as object
-        // casters, which lets hills self-shadow and lets balls/boxes disappear
-        // behind terrain from the light's point of view.
-        assert( m_assets );
-        assert( m_resources );
-        m_shadowDepthShader = m_assets->CreateShader( *m_resources, "shader.shadow_depth" );
+        EnsureShadowDepthResources();
     }
 
     m_shadowDepthShader->Use();

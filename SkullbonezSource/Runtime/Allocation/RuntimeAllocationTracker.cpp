@@ -29,15 +29,27 @@ Related:
 */
 #include "RuntimeAllocationTracker.h"
 
+#include "RuntimeReserveAllocator.h"
+
 #include <atomic>
 #include <cstddef>
 #include <cstdlib>
 #include <new>
 
+#if defined( _MSC_VER )
+#include <intrin.h>
+#endif
+#if defined( _WIN32 )
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#endif
+
 namespace
 {
 using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardMode;
 using SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase;
+using SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator;
+using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerHandle;
 
 struct PhaseCounters
 {
@@ -55,11 +67,28 @@ struct AllocationHeader
     uint64_t size;
     uint32_t phase;
     uint32_t flags;
+    uint16_t owner;
+    uint16_t reserved;
     uint32_t magic;
+};
+
+struct CallsiteCounters
+{
+    std::atomic<uintptr_t> address;
+    std::atomic<uintptr_t> parentAddress;
+    std::atomic<uintptr_t> grandparentAddress;
+    std::atomic<uintptr_t> caller3Address;
+    std::atomic<uintptr_t> caller4Address;
+    std::atomic<int> phaseIndex;
+    std::atomic<uint32_t> owner;
+    std::atomic<uint64_t> allocations;
+    std::atomic<uint64_t> bytes;
 };
 
 constexpr uint32_t ALLOCATION_HEADER_MAGIC = 0xA110CA7Eu;
 constexpr uint32_t ALLOCATION_HEADER_RECORDED = 0x1u;
+constexpr int MAX_ALLOCATION_CALLSITES = 256;
+constexpr int MAX_PRINTED_CALLSITES = 24;
 constexpr std::size_t DEFAULT_ALIGNMENT = alignof( std::max_align_t );
 
 std::atomic<int> s_guardMode{ static_cast<int>( RuntimeAllocationGuardMode::Off ) };
@@ -68,7 +97,17 @@ std::atomic<uint64_t> s_gameplayViolations{ 0 };
 std::atomic<uint64_t> s_totalAllocations{ 0 };
 std::atomic<uint64_t> s_totalBytes{ 0 };
 PhaseCounters s_phaseCounters[static_cast<int>( RuntimeAllocationPhase::Count )] = {};
+CallsiteCounters s_callsiteCounters[MAX_ALLOCATION_CALLSITES] = {};
 thread_local bool s_insideAllocationHook = false;
+
+uintptr_t ProcessImageBase() noexcept
+{
+#if defined( _WIN32 )
+    return reinterpret_cast<uintptr_t>( GetModuleHandleW( nullptr ) );
+#else
+    return 0u;
+#endif
+}
 
 std::size_t NormalizeAlignment( std::size_t alignment ) noexcept
 {
@@ -116,7 +155,7 @@ void SubtractActiveBytes( std::atomic<uint64_t>& activeBytes, uint64_t size ) no
 bool IsGameplayViolationPhase( RuntimeAllocationPhase phase ) noexcept
 {
     return phase == RuntimeAllocationPhase::SteadyGameplay || phase == RuntimeAllocationPhase::Physics ||
-           phase == RuntimeAllocationPhase::Render;
+           phase == RuntimeAllocationPhase::Render || phase == RuntimeAllocationPhase::Replay;
 }
 
 RuntimeAllocationPhase CurrentPhase() noexcept
@@ -140,7 +179,59 @@ RuntimeAllocationGuardMode CurrentMode() noexcept
     return static_cast<RuntimeAllocationGuardMode>( mode );
 }
 
-bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size ) noexcept
+void RecordCallsite( RuntimeAllocationPhase phase,
+                     RuntimeReserveOwnerHandle owner,
+                     uintptr_t callsite,
+                     uintptr_t parent,
+                     uintptr_t grandparent,
+                     uintptr_t caller3,
+                     uintptr_t caller4,
+                     uint64_t size ) noexcept
+{
+    if ( callsite == 0u )
+    {
+        return;
+    }
+
+    const int phaseIndex = static_cast<int>( phase );
+    const int start = static_cast<int>( ( callsite >> 4u ) % MAX_ALLOCATION_CALLSITES );
+    for ( int probe = 0; probe < MAX_ALLOCATION_CALLSITES; ++probe )
+    {
+        CallsiteCounters& counters = s_callsiteCounters[( start + probe ) % MAX_ALLOCATION_CALLSITES];
+        uintptr_t observed = counters.address.load( std::memory_order_acquire );
+        if ( observed == callsite && counters.parentAddress.load( std::memory_order_relaxed ) == parent &&
+             counters.phaseIndex.load( std::memory_order_relaxed ) == phaseIndex )
+        {
+            counters.grandparentAddress.store( grandparent, std::memory_order_relaxed );
+            counters.caller3Address.store( caller3, std::memory_order_relaxed );
+            counters.caller4Address.store( caller4, std::memory_order_relaxed );
+            counters.owner.store( owner, std::memory_order_relaxed );
+            counters.allocations.fetch_add( 1u, std::memory_order_relaxed );
+            counters.bytes.fetch_add( size, std::memory_order_relaxed );
+            return;
+        }
+        if ( observed == 0u && counters.address.compare_exchange_strong( observed,
+                                                                         callsite,
+                                                                         std::memory_order_acq_rel,
+                                                                         std::memory_order_acquire ) )
+        {
+            counters.parentAddress.store( parent, std::memory_order_relaxed );
+            counters.grandparentAddress.store( grandparent, std::memory_order_relaxed );
+            counters.caller3Address.store( caller3, std::memory_order_relaxed );
+            counters.caller4Address.store( caller4, std::memory_order_relaxed );
+            counters.phaseIndex.store( phaseIndex, std::memory_order_relaxed );
+            counters.owner.store( owner, std::memory_order_relaxed );
+            counters.allocations.store( 1u, std::memory_order_relaxed );
+            counters.bytes.store( size, std::memory_order_relaxed );
+            return;
+        }
+    }
+}
+
+bool RecordAllocation( RuntimeAllocationPhase phase,
+                       uint64_t size,
+                       RuntimeReserveOwnerHandle owner,
+                       uintptr_t callsite ) noexcept
 {
     if ( CurrentMode() == RuntimeAllocationGuardMode::Off )
     {
@@ -155,6 +246,22 @@ bool RecordAllocation( RuntimeAllocationPhase phase, uint64_t size ) noexcept
     UpdateHighWater( counters.highWaterBytes, activeAfter );
     s_totalAllocations.fetch_add( 1u, std::memory_order_relaxed );
     s_totalBytes.fetch_add( size, std::memory_order_relaxed );
+    RuntimeReserveAllocator::RecordAllocation( owner, phaseIndex, size );
+
+    uintptr_t stackFrames[5] = {};
+#if defined( _WIN32 )
+    void* capturedFrames[6] = {};
+    const USHORT capturedCount = CaptureStackBackTrace( 2u, 6u, capturedFrames, nullptr );
+    for ( USHORT index = 0; index < capturedCount && index < 5u; ++index )
+    {
+        stackFrames[index] = reinterpret_cast<uintptr_t>( capturedFrames[index] );
+    }
+#endif
+    const uintptr_t parent = stackFrames[1] != 0u ? stackFrames[1] : stackFrames[0];
+    const uintptr_t grandparent = stackFrames[2];
+    const uintptr_t caller3 = stackFrames[3];
+    const uintptr_t caller4 = stackFrames[4];
+    RecordCallsite( phase, owner, callsite, parent, grandparent, caller3, caller4, size );
 
     if ( CurrentMode() == RuntimeAllocationGuardMode::Gameplay && IsGameplayViolationPhase( phase ) )
     {
@@ -185,9 +292,10 @@ void RecordFree( const AllocationHeader& header ) noexcept
     counters.frees.fetch_add( 1u, std::memory_order_relaxed );
     counters.freedBytes.fetch_add( header.size, std::memory_order_relaxed );
     SubtractActiveBytes( counters.activeBytes, header.size );
+    SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::RecordFree( header.owner, header.size );
 }
 
-void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAlignment ) noexcept
+void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAlignment, void* callsite ) noexcept
 {
     const std::size_t size = requestedSize == 0u ? 1u : requestedSize;
     const std::size_t alignment = NormalizeAlignment( requestedAlignment );
@@ -208,6 +316,9 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
     header->size = static_cast<uint64_t>( size );
     header->phase = static_cast<uint32_t>( CurrentPhase() );
     header->flags = 0u;
+    const RuntimeReserveOwnerHandle owner = RuntimeReserveAllocator::CurrentOwner();
+    header->owner = static_cast<uint16_t>( owner );
+    header->reserved = 0u;
     header->magic = ALLOCATION_HEADER_MAGIC;
 
     // Hazard: recording must never allocate through this same hook. The
@@ -216,7 +327,10 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
     if ( !s_insideAllocationHook )
     {
         s_insideAllocationHook = true;
-        if ( RecordAllocation( static_cast<RuntimeAllocationPhase>( header->phase ), header->size ) )
+        if ( RecordAllocation( static_cast<RuntimeAllocationPhase>( header->phase ),
+                               header->size,
+                               owner,
+                               reinterpret_cast<uintptr_t>( callsite ) ) )
         {
             header->flags |= ALLOCATION_HEADER_RECORDED;
         }
@@ -260,9 +374,9 @@ void FreeTrackedMemory( void* pointer ) noexcept
     std::free( raw );
 }
 
-void* AllocateOrThrow( std::size_t size, std::size_t alignment )
+void* AllocateOrThrow( std::size_t size, std::size_t alignment, void* callsite )
 {
-    if ( void* pointer = AllocateTrackedMemory( size, alignment ) )
+    if ( void* pointer = AllocateTrackedMemory( size, alignment, callsite ) )
     {
         return pointer;
     }
@@ -340,6 +454,8 @@ const char* RuntimeAllocationPhaseName( RuntimeAllocationPhase phase ) noexcept
         return "replay";
     case RuntimeAllocationPhase::Capture:
         return "capture";
+    case RuntimeAllocationPhase::Diagnostics:
+        return "diagnostics";
     case RuntimeAllocationPhase::Shutdown:
         return "shutdown";
     default:
@@ -377,6 +493,7 @@ void ResetRuntimeAllocationCounters() noexcept
     s_gameplayViolations.store( 0u, std::memory_order_relaxed );
     s_totalAllocations.store( 0u, std::memory_order_relaxed );
     s_totalBytes.store( 0u, std::memory_order_relaxed );
+    RuntimeReserveAllocator::ResetCounters();
     for ( PhaseCounters& counters : s_phaseCounters )
     {
         counters.allocations.store( 0u, std::memory_order_relaxed );
@@ -385,6 +502,18 @@ void ResetRuntimeAllocationCounters() noexcept
         counters.freedBytes.store( 0u, std::memory_order_relaxed );
         counters.activeBytes.store( 0u, std::memory_order_relaxed );
         counters.highWaterBytes.store( 0u, std::memory_order_relaxed );
+    }
+    for ( CallsiteCounters& counters : s_callsiteCounters )
+    {
+        counters.address.store( 0u, std::memory_order_relaxed );
+        counters.parentAddress.store( 0u, std::memory_order_relaxed );
+        counters.grandparentAddress.store( 0u, std::memory_order_relaxed );
+        counters.caller3Address.store( 0u, std::memory_order_relaxed );
+        counters.caller4Address.store( 0u, std::memory_order_relaxed );
+        counters.phaseIndex.store( -1, std::memory_order_relaxed );
+        counters.owner.store( 0u, std::memory_order_relaxed );
+        counters.allocations.store( 0u, std::memory_order_relaxed );
+        counters.bytes.store( 0u, std::memory_order_relaxed );
     }
 }
 
@@ -425,11 +554,78 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
                  static_cast<unsigned long long>( activeBytes ),
                  static_cast<unsigned long long>( highWaterBytes ) );
     }
+    RuntimeReserveAllocator::PrintSummary( out );
+    const uintptr_t imageBase = ProcessImageBase();
+    const CallsiteCounters* topCallsites[MAX_PRINTED_CALLSITES] = {};
+    uint64_t topCounts[MAX_PRINTED_CALLSITES] = {};
+    for ( const CallsiteCounters& counters : s_callsiteCounters )
+    {
+        const uintptr_t address = counters.address.load( std::memory_order_acquire );
+        const uint64_t allocations = counters.allocations.load( std::memory_order_relaxed );
+        const int phaseIndex = counters.phaseIndex.load( std::memory_order_relaxed );
+        if ( address == 0u || allocations == 0u || phaseIndex < 0 ||
+             phaseIndex >= static_cast<int>( RuntimeAllocationPhase::Count ) ||
+             !IsGameplayViolationPhase( static_cast<RuntimeAllocationPhase>( phaseIndex ) ) )
+        {
+            continue;
+        }
+
+        for ( int rank = 0; rank < MAX_PRINTED_CALLSITES; ++rank )
+        {
+            if ( allocations <= topCounts[rank] )
+            {
+                continue;
+            }
+            for ( int move = MAX_PRINTED_CALLSITES - 1; move > rank; --move )
+            {
+                topCounts[move] = topCounts[move - 1];
+                topCallsites[move] = topCallsites[move - 1];
+            }
+            topCounts[rank] = allocations;
+            topCallsites[rank] = &counters;
+            break;
+        }
+    }
+    for ( int rank = 0; rank < MAX_PRINTED_CALLSITES; ++rank )
+    {
+        const CallsiteCounters* counters = topCallsites[rank];
+        if ( !counters )
+        {
+            continue;
+        }
+        const uintptr_t address = counters->address.load( std::memory_order_relaxed );
+        const uintptr_t parent = counters->parentAddress.load( std::memory_order_relaxed );
+        const uintptr_t grandparent = counters->grandparentAddress.load( std::memory_order_relaxed );
+        const uintptr_t caller3 = counters->caller3Address.load( std::memory_order_relaxed );
+        const uintptr_t caller4 = counters->caller4Address.load( std::memory_order_relaxed );
+        const uintptr_t rva = imageBase != 0u && address >= imageBase ? address - imageBase : address;
+        const uintptr_t parentRva = imageBase != 0u && parent >= imageBase ? parent - imageBase : parent;
+        const uintptr_t grandparentRva =
+            imageBase != 0u && grandparent >= imageBase ? grandparent - imageBase : grandparent;
+        const uintptr_t caller3Rva = imageBase != 0u && caller3 >= imageBase ? caller3 - imageBase : caller3;
+        const uintptr_t caller4Rva = imageBase != 0u && caller4 >= imageBase ? caller4 - imageBase : caller4;
+        const int phaseIndex = counters->phaseIndex.load( std::memory_order_relaxed );
+        fprintf( out,
+                 "[allocation-guard] callsite rank=%d phase=%s owner=%u rva=0x%llx parent_rva=0x%llx "
+                 "grandparent_rva=0x%llx caller3_rva=0x%llx caller4_rva=0x%llx address=0x%llx "
+                 "allocations=%llu bytes=%llu\n",
+                 rank + 1,
+                 RuntimeAllocationPhaseName( static_cast<RuntimeAllocationPhase>( phaseIndex ) ),
+                 counters->owner.load( std::memory_order_relaxed ),
+                 static_cast<unsigned long long>( rva ),
+                 static_cast<unsigned long long>( parentRva ),
+                 static_cast<unsigned long long>( grandparentRva ),
+                 static_cast<unsigned long long>( caller3Rva ),
+                 static_cast<unsigned long long>( caller4Rva ),
+                 static_cast<unsigned long long>( address ),
+                 static_cast<unsigned long long>( counters->allocations.load( std::memory_order_relaxed ) ),
+                 static_cast<unsigned long long>( counters->bytes.load( std::memory_order_relaxed ) ) );
+    }
     if ( RuntimeAllocationGuardHasGameplayViolations() )
     {
         fprintf( out,
-                 "[allocation-guard] WARNING: steady gameplay allocation evidence is warning-bearing; "
-                 "owner conversion is still required before strict enforcement.\n" );
+                 "[allocation-guard] VIOLATION: gameplay allocation guard detected policy violations; strict mode "
+                 "will fail after the summary.\n" );
     }
     else
     {
@@ -441,27 +637,33 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
 } // namespace Runtime
 } // namespace SkullbonezCore
 
+#if defined( _MSC_VER )
+#define SKULLBONEZ_ALLOCATION_CALLSITE() _ReturnAddress()
+#else
+#define SKULLBONEZ_ALLOCATION_CALLSITE() nullptr
+#endif
+
 // Concept: every global C++ allocation/deallocation overload funnels through
 // AllocateTrackedMemory/FreeTrackedMemory so sized, aligned, array, and nothrow
 // forms produce one phase-accounting path instead of partial blind spots.
 void* operator new( std::size_t size )
 {
-    return AllocateOrThrow( size, DEFAULT_ALIGNMENT );
+    return AllocateOrThrow( size, DEFAULT_ALIGNMENT, SKULLBONEZ_ALLOCATION_CALLSITE() );
 }
 
 void* operator new[]( std::size_t size )
 {
-    return AllocateOrThrow( size, DEFAULT_ALIGNMENT );
+    return AllocateOrThrow( size, DEFAULT_ALIGNMENT, SKULLBONEZ_ALLOCATION_CALLSITE() );
 }
 
 void* operator new( std::size_t size, const std::nothrow_t& ) noexcept
 {
-    return AllocateTrackedMemory( size, DEFAULT_ALIGNMENT );
+    return AllocateTrackedMemory( size, DEFAULT_ALIGNMENT, SKULLBONEZ_ALLOCATION_CALLSITE() );
 }
 
 void* operator new[]( std::size_t size, const std::nothrow_t& ) noexcept
 {
-    return AllocateTrackedMemory( size, DEFAULT_ALIGNMENT );
+    return AllocateTrackedMemory( size, DEFAULT_ALIGNMENT, SKULLBONEZ_ALLOCATION_CALLSITE() );
 }
 
 void operator delete( void* pointer ) noexcept
@@ -496,22 +698,22 @@ void operator delete[]( void* pointer, const std::nothrow_t& ) noexcept
 
 void* operator new( std::size_t size, std::align_val_t alignment )
 {
-    return AllocateOrThrow( size, static_cast<std::size_t>( alignment ) );
+    return AllocateOrThrow( size, static_cast<std::size_t>( alignment ), SKULLBONEZ_ALLOCATION_CALLSITE() );
 }
 
 void* operator new[]( std::size_t size, std::align_val_t alignment )
 {
-    return AllocateOrThrow( size, static_cast<std::size_t>( alignment ) );
+    return AllocateOrThrow( size, static_cast<std::size_t>( alignment ), SKULLBONEZ_ALLOCATION_CALLSITE() );
 }
 
 void* operator new( std::size_t size, std::align_val_t alignment, const std::nothrow_t& ) noexcept
 {
-    return AllocateTrackedMemory( size, static_cast<std::size_t>( alignment ) );
+    return AllocateTrackedMemory( size, static_cast<std::size_t>( alignment ), SKULLBONEZ_ALLOCATION_CALLSITE() );
 }
 
 void* operator new[]( std::size_t size, std::align_val_t alignment, const std::nothrow_t& ) noexcept
 {
-    return AllocateTrackedMemory( size, static_cast<std::size_t>( alignment ) );
+    return AllocateTrackedMemory( size, static_cast<std::size_t>( alignment ), SKULLBONEZ_ALLOCATION_CALLSITE() );
 }
 
 void operator delete( void* pointer, std::align_val_t ) noexcept
@@ -543,3 +745,5 @@ void operator delete[]( void* pointer, std::align_val_t, const std::nothrow_t& )
 {
     FreeTrackedMemory( pointer );
 }
+
+#undef SKULLBONEZ_ALLOCATION_CALLSITE

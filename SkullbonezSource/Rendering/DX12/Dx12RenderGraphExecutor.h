@@ -30,9 +30,9 @@ Related:
 #include "../RenderGraph.h"
 
 #include <d3d12.h>
+#include <array>
 #include <cstddef>
 #include <string>
-#include <vector>
 
 namespace SkullbonezCore
 {
@@ -54,9 +54,9 @@ struct Dx12RenderGraphExecutionDesc
 
 struct Dx12RenderGraphBarrierRecord
 {
-    std::string source;
-    std::string passName;
-    std::string resourceName;
+    char source[64] = {};
+    char passName[64] = {};
+    char resourceName[64] = {};
     const void* nativeResource = nullptr;
     RenderGraphResourceAccess beforeAccess = RenderGraphResourceAccess::Unknown;
     RenderGraphResourceAccess afterAccess = RenderGraphResourceAccess::Unknown;
@@ -71,7 +71,8 @@ struct Dx12RenderGraphBarrierRecord
 
 struct Dx12RenderGraphExecutionResult
 {
-    std::vector<Dx12RenderGraphBarrierRecord> barriers;
+    std::array<Dx12RenderGraphBarrierRecord, RENDER_GRAPH_MAX_TRANSITIONS> barriers = {};
+    size_t barrierCount = 0;
     size_t transitionBarrierCount = 0;
     size_t emittedTransitionBarrierCount = 0;
     size_t skippedSameStateCount = 0;
@@ -79,6 +80,17 @@ struct Dx12RenderGraphExecutionResult
     size_t missingNativeResourceTransitionCount = 0;
     size_t missingCommandListEmissionCount = 0;
     size_t uavAccessTransitionCount = 0;
+    bool barrierOverflow = false;
+
+    void AddBarrier( const Dx12RenderGraphBarrierRecord& record )
+    {
+        if ( barrierCount >= barriers.size() )
+        {
+            barrierOverflow = true;
+            return;
+        }
+        barriers[barrierCount++] = record;
+    }
 };
 
 struct Dx12RenderGraphSingleTransitionDesc

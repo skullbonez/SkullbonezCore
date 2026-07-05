@@ -29,6 +29,7 @@ Related:
 */
 #include "DiagnosticsRuntime.h"
 
+#include "../Allocation/RuntimeAllocationTracker.h"
 #include "../Replay/ReplayRuntime.h"
 #include "../Scene/SceneRuntime.h"
 #include "../../Scene/TestScene.h"
@@ -202,6 +203,8 @@ const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayR
                                                                    double nowSeconds,
                                                                    bool force )
 {
+    SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope allocationScope(
+        SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase::Diagnostics );
     return RefreshMainMemoryStats( replay, models.CollectMemoryStats(), nowSeconds, force );
 }
 
@@ -217,6 +220,9 @@ const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayR
     {
         return m_mainMemoryStats;
     }
+
+    SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope allocationScope(
+        SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase::Diagnostics );
 
     // Concept: The UI wants cheap repeated reads, while shutdown dumps need a
     // fresh sample. Build one reconciled snapshot, then cache it with the sample

@@ -117,6 +117,7 @@ class Terrain
     EnsureRenderResources( const Basics::EngineConfig& config,
                            Assets::AssetSystem& assets,
                            Rendering::IRenderResourceFactory& resources ); // Lazily rebuilds missing backend resources.
+    void EnsureShadowDepthResources();                                     // Prewarms the terrain shadow caster shader.
     void ResetRenderResources();                                           // Rebuild backend-specific mesh/shader resources after a device reset or resize
     void ReleaseRenderResources();                                         // Releases backend-specific mesh/shader resources without rebuilding.
     // Borrowed mesh pointer for DXR BLAS construction; Terrain retains ownership.

@@ -550,21 +550,42 @@ void ShaderDX12::ReportUniformNotReflected( const char* name, const char* setter
 }
 #endif
 
+const ShaderDX12::UniformInfo* ShaderDX12::FindUniformInfo( const char* name ) const
+{
+    if ( !name )
+    {
+        return nullptr;
+    }
+
+    // Why: std::unordered_map<std::string, ...>::find(const char*) constructs a
+    // temporary std::string in C++17. Uniform tables are small and populated at
+    // shader compile time, so a direct compare keeps per-draw setters allocation
+    // free while preserving the reflected-name contract.
+    for ( const auto& entry : m_uniformMap )
+    {
+        if ( std::strcmp( entry.first.c_str(), name ) == 0 )
+        {
+            return &entry.second;
+        }
+    }
+    return nullptr;
+}
+
 
 void ShaderDX12::SetInt( const char* name, int value ) const
 {
 #ifdef _DEBUG
     MarkContractUniformSet( name, "SetInt" );
 #endif
-    auto it = m_uniformMap.find( name );
-    if ( it == m_uniformMap.end() )
+    const UniformInfo* uniform = FindUniformInfo( name );
+    if ( !uniform )
     {
 #ifdef _DEBUG
         ReportUniformNotReflected( name, "SetInt" );
 #endif
         return;
     }
-    memcpy( m_cbData.data() + it->second.offset, &value, sizeof( int ) );
+    memcpy( m_cbData.data() + uniform->offset, &value, sizeof( int ) );
     m_cbDirty = true;
 }
 
@@ -574,15 +595,15 @@ void ShaderDX12::SetFloat( const char* name, float value ) const
 #ifdef _DEBUG
     MarkContractUniformSet( name, "SetFloat" );
 #endif
-    auto it = m_uniformMap.find( name );
-    if ( it == m_uniformMap.end() )
+    const UniformInfo* uniform = FindUniformInfo( name );
+    if ( !uniform )
     {
 #ifdef _DEBUG
         ReportUniformNotReflected( name, "SetFloat" );
 #endif
         return;
     }
-    memcpy( m_cbData.data() + it->second.offset, &value, sizeof( float ) );
+    memcpy( m_cbData.data() + uniform->offset, &value, sizeof( float ) );
     m_cbDirty = true;
 }
 
@@ -592,8 +613,8 @@ void ShaderDX12::SetVec3( const char* name, float x, float y, float z ) const
 #ifdef _DEBUG
     MarkContractUniformSet( name, "SetVec3" );
 #endif
-    auto it = m_uniformMap.find( name );
-    if ( it == m_uniformMap.end() )
+    const UniformInfo* uniform = FindUniformInfo( name );
+    if ( !uniform )
     {
 #ifdef _DEBUG
         ReportUniformNotReflected( name, "SetVec3" );
@@ -601,7 +622,7 @@ void ShaderDX12::SetVec3( const char* name, float x, float y, float z ) const
         return;
     }
     float v[3] = { x, y, z };
-    memcpy( m_cbData.data() + it->second.offset, v, sizeof( v ) );
+    memcpy( m_cbData.data() + uniform->offset, v, sizeof( v ) );
     m_cbDirty = true;
 }
 
@@ -617,8 +638,8 @@ void ShaderDX12::SetVec4( const char* name, float x, float y, float z, float w )
 #ifdef _DEBUG
     MarkContractUniformSet( name, "SetVec4" );
 #endif
-    auto it = m_uniformMap.find( name );
-    if ( it == m_uniformMap.end() )
+    const UniformInfo* uniform = FindUniformInfo( name );
+    if ( !uniform )
     {
 #ifdef _DEBUG
         ReportUniformNotReflected( name, "SetVec4" );
@@ -626,7 +647,7 @@ void ShaderDX12::SetVec4( const char* name, float x, float y, float z, float w )
         return;
     }
     float v[4] = { x, y, z, w };
-    memcpy( m_cbData.data() + it->second.offset, v, sizeof( v ) );
+    memcpy( m_cbData.data() + uniform->offset, v, sizeof( v ) );
     m_cbDirty = true;
 }
 
@@ -636,8 +657,8 @@ void ShaderDX12::SetMat4( const char* name, const Matrix4& m ) const
 #ifdef _DEBUG
     MarkContractUniformSet( name, "SetMat4" );
 #endif
-    auto it = m_uniformMap.find( name );
-    if ( it == m_uniformMap.end() )
+    const UniformInfo* uniform = FindUniformInfo( name );
+    if ( !uniform )
     {
 #ifdef _DEBUG
         ReportUniformNotReflected( name, "SetMat4" );
@@ -645,7 +666,7 @@ void ShaderDX12::SetMat4( const char* name, const Matrix4& m ) const
         return;
     }
     // HLSL uses #pragma pack_matrix(column_major) — send data as-is
-    memcpy( m_cbData.data() + it->second.offset, m.Data(), 64 );
+    memcpy( m_cbData.data() + uniform->offset, m.Data(), 64 );
     m_cbDirty = true;
 }
 

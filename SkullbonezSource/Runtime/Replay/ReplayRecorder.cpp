@@ -27,6 +27,7 @@ Related:
 #include "ReplayRecorder.h"
 
 #include "../CameraCollection.h"
+#include "../../Core/Common.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -52,8 +53,88 @@ namespace
 constexpr int REPLAY_TICKS_PER_SECOND = 120;
 constexpr int REPLAY_MIN_SECONDS = 1;
 constexpr int REPLAY_MAX_SECONDS = 600;
+constexpr std::size_t REPLAY_LAUNCHER_RAY_LINE_CAPACITY = 64;
+constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
+constexpr std::size_t REPLAY_PIPELINE_TRACE_CAPACITY = 4096;
 constexpr uint64_t FNV64_OFFSET = 14695981039346656037ull;
 constexpr uint64_t FNV64_PRIME = 1099511628211ull;
+
+int ReplayRuntimeBodyCapacity( const ReplayRecorderConfig& config )
+{
+    return std::clamp( config.runtimeBodyCapacity, 1, MAX_GAME_MODELS );
+}
+
+std::size_t ReplayPairCapacity( int bodyCapacity )
+{
+    return static_cast<std::size_t>( bodyCapacity ) * 4u;
+}
+
+void ReserveReplayLauncherVisualSample( ReplayLauncherVisualSample& visual )
+{
+    // Runtime allocation policy: launcher rays and laser shots are fixed-size
+    // visual rings in RuntimeTools/LauncherLaser, so replay reserves matching
+    // payload capacity before capture starts.
+    visual.rayLines.reserve( REPLAY_LAUNCHER_RAY_LINE_CAPACITY );
+    visual.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );
+}
+
+void ReserveReplaySolverWorldSnapshot( ReplaySolverWorldSnapshot& snapshot, int bodyCapacity )
+{
+    const std::size_t bodyCapacitySize = static_cast<std::size_t>( bodyCapacity );
+    const std::size_t pairCapacity = ReplayPairCapacity( bodyCapacity );
+
+    // Runtime allocation policy: retained solver snapshots are copied every
+    // replay frame, so every nested vector keeps scene-capacity storage from
+    // Configure() and capture only clears/refills it.
+    snapshot.timeRemaining.reserve( bodyCapacitySize );
+    snapshot.sleepSupportedThisFrame.reserve( bodyCapacitySize );
+    snapshot.sleepInhibitedThisFrame.reserve( bodyCapacitySize );
+    snapshot.sleepState.reserve( bodyCapacitySize );
+    snapshot.sleepCounter.reserve( bodyCapacitySize );
+    snapshot.underwaterSleepLocked.reserve( bodyCapacitySize );
+    snapshot.tornadoCaptureSeconds.reserve( bodyCapacitySize );
+    snapshot.tornadoEjectCooldownSeconds.reserve( bodyCapacitySize );
+    snapshot.collisionVisualContacts.reserve( bodyCapacitySize );
+    snapshot.sleepIslandVisualId.reserve( bodyCapacitySize );
+    snapshot.sleepIslandAssignedVisualId.reserve( bodyCapacitySize );
+    snapshot.sleepSupportEdges.reserve( pairCapacity );
+    snapshot.sleepIslandParent.reserve( bodyCapacitySize );
+    snapshot.sleepIslandRank.reserve( bodyCapacitySize );
+    snapshot.sleepIslandHasAwake.reserve( bodyCapacitySize );
+    snapshot.sleepIslandHasSupportAnchor.reserve( bodyCapacitySize );
+    snapshot.sleepIslandEligible.reserve( bodyCapacitySize );
+    snapshot.sleepIslandCanSleep.reserve( bodyCapacitySize );
+    snapshot.persistentContacts.reserve( pairCapacity );
+    snapshot.persistentContactCache.reserve( pairCapacity );
+    snapshot.persistentContactCounts.reserve( bodyCapacitySize );
+    snapshot.persistentRestingContactCounts.reserve( bodyCapacitySize );
+    snapshot.debugContacts.reserve( pairCapacity );
+    snapshot.pipelineTrace.reserve( REPLAY_PIPELINE_TRACE_CAPACITY );
+    snapshot.collisionCellKeys.reserve( pairCapacity );
+}
+
+void ReserveReplayPresentationSample( ReplayPresentationSample& sample, int bodyCapacity )
+{
+    sample.bodies.reserve( static_cast<std::size_t>( bodyCapacity ) );
+}
+
+void ReserveReplaySolverFrameSample( ReplaySolverFrameSample& sample, int bodyCapacity )
+{
+    ReserveReplayLauncherVisualSample( sample.launcherVisual );
+    ReserveReplaySolverWorldSnapshot( sample.worldSnapshot, bodyCapacity );
+    sample.bodies.reserve( static_cast<std::size_t>( bodyCapacity ) );
+}
+
+void ReserveReplayRecorderScratch( std::vector<uint16_t>& contactCountScratch,
+                                   std::vector<float>& maxPenetrationScratch,
+                                   std::vector<float>& normalImpulseSumScratch,
+                                   int bodyCapacity )
+{
+    const std::size_t bodyCapacitySize = static_cast<std::size_t>( bodyCapacity );
+    contactCountScratch.reserve( bodyCapacitySize );
+    maxPenetrationScratch.reserve( bodyCapacitySize );
+    normalImpulseSumScratch.reserve( bodyCapacitySize );
+}
 
 template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
 {
@@ -681,6 +762,7 @@ bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
     m_config = config;
     m_config.retentionSeconds = std::clamp( m_config.retentionSeconds, REPLAY_MIN_SECONDS, REPLAY_MAX_SECONDS );
     m_config.checkpointIntervalFrames = (std::max)( 1, m_config.checkpointIntervalFrames );
+    m_config.runtimeBodyCapacity = ReplayRuntimeBodyCapacity( m_config );
     m_config.enabled = m_config.enabled || !m_config.hashLogPath.empty();
 
     m_hashLog.close();
@@ -705,6 +787,14 @@ bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
 
     m_samples.resize( SampleCapacityFromConfig() );
     m_checkpoints.resize( CheckpointCapacityFromConfig() );
+    ReserveReplayRecorderScratch( m_contactCountScratch,
+                                  m_maxPenetrationScratch,
+                                  m_normalImpulseSumScratch,
+                                  m_config.runtimeBodyCapacity );
+    for ( ReplayPresentationSample& sample : m_samples )
+    {
+        ReserveReplayPresentationSample( sample, m_config.runtimeBodyCapacity );
+    }
 
     if ( !m_config.hashLogPath.empty() )
     {
@@ -1117,6 +1207,7 @@ bool ReplaySolverRecorder::Configure( const ReplayRecorderConfig& config )
     m_config = config;
     m_config.retentionSeconds = std::clamp( m_config.retentionSeconds, REPLAY_MIN_SECONDS, REPLAY_MAX_SECONDS );
     m_config.checkpointIntervalFrames = (std::max)( 1, m_config.checkpointIntervalFrames );
+    m_config.runtimeBodyCapacity = ReplayRuntimeBodyCapacity( m_config );
     m_config.enabled = m_config.enabled || !m_config.hashLogPath.empty();
 
     m_hashLog.close();
@@ -1141,6 +1232,14 @@ bool ReplaySolverRecorder::Configure( const ReplayRecorderConfig& config )
 
     m_samples.resize( SampleCapacityFromConfig() );
     m_checkpoints.resize( CheckpointCapacityFromConfig() );
+    ReserveReplayRecorderScratch( m_contactCountScratch,
+                                  m_maxPenetrationScratch,
+                                  m_normalImpulseSumScratch,
+                                  m_config.runtimeBodyCapacity );
+    for ( ReplaySolverFrameSample& sample : m_samples )
+    {
+        ReserveReplaySolverFrameSample( sample, m_config.runtimeBodyCapacity );
+    }
 
     if ( !m_config.hashLogPath.empty() )
     {
@@ -1194,7 +1293,21 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     sample.world.terrainHidden = input.terrainHidden;
     sample.contactCount = 0;
     sample.pipelineRecordCount = 0;
-    sample.launcherVisual = input.launcherVisual ? *input.launcherVisual : ReplayLauncherVisualSample();
+    if ( input.launcherVisual )
+    {
+        sample.launcherVisual = *input.launcherVisual;
+    }
+    else
+    {
+        sample.launcherVisual.rayLines.clear();
+        sample.launcherVisual.laserShots.clear();
+        sample.launcherVisual.nextRayLine = 0;
+        sample.launcherVisual.nextLaserShot = 0;
+        sample.launcherVisual.fireMode = ReplayLauncherFireMode::Laser;
+        sample.launcherVisual.visualizeRays = false;
+        sample.launcherVisual.impulseStrength = 0.0f;
+        sample.launcherVisual.projectileSpeed = 0.0f;
+    }
     sample.checkpointBoundary =
         ( sample.frameIndex == 0 ) ||
         ( sample.frameIndex % static_cast<ReplayFrameIndex>( m_config.checkpointIntervalFrames ) == 0 );

@@ -56,6 +56,7 @@ constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
 constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
+constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
 constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
 
@@ -739,8 +740,14 @@ void Run::SetGraphicsStressOverride( unsigned int seed,
 
 void Run::SetReplayRecording( bool enabled, int retentionSeconds, const char* hashLogPath )
 {
+    // Runtime allocation policy: launcher replay visuals are copied every
+    // captured physics tick, so keep their scratch vectors reserved before the
+    // replay phase begins.
+    m_replayLauncherVisualScratch.rayLines.reserve( RunRayCastTestState::MAX_LINES );
+    m_replayLauncherVisualScratch.laserShots.reserve( REPLAY_LAUNCHER_LASER_SHOT_CAPACITY );
+
     const ReplayRuntime::RecordingConfigResult replayConfig =
-        m_replayRuntime.ConfigureRecording( enabled, retentionSeconds, hashLogPath );
+        m_replayRuntime.ConfigureRecording( enabled, retentionSeconds, hashLogPath, m_startup.gameModelCapacity );
     if ( m_replayRuntime.ResetScrubberState() )
     {
         ExitReplayInspectionCamera();

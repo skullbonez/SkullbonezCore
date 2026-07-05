@@ -456,13 +456,16 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
     // copy texture descriptors, and update output targets.
     if ( psoChanged )
     {
-        auto it = m_psoCache.find( psoHash );
-        ID3D12PipelineState* pso;
-        if ( it != m_psoCache.end() )
+        ID3D12PipelineState* pso = nullptr;
+        for ( size_t i = 0; i < m_psoCacheCount; ++i )
         {
-            pso = it->second;
+            if ( m_psoCache[i].hash == psoHash )
+            {
+                pso = m_psoCache[i].pso;
+                break;
+            }
         }
-        else
+        if ( !pso )
         {
             // Diagnostics: a cache miss means the renderer discovered a new
             // pipeline shape. That is expected during warm-up, but unexpected
@@ -473,7 +476,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
                                "ps_hash=%llu format=%u instanced=%d blend=%d depth=%d depth_write=%d cull=%d "
                                "rtv_format=%u",
                                static_cast<unsigned long long>( psoHash ),
-                               static_cast<unsigned long long>( m_psoCache.size() ),
+                               static_cast<unsigned long long>( m_psoCacheCount ),
                                key.rootSignature,
                                static_cast<unsigned long long>( key.shaderVSHash ),
                                static_cast<unsigned long long>( key.shaderPSHash ),
@@ -484,8 +487,28 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format,
                                key.depthWriteEnabled ? 1 : 0,
                                key.cullEnabled ? 1 : 0,
                                static_cast<unsigned int>( key.rtvFormat ) );
+            if ( m_psoCacheCount >= m_psoCache.size() )
+            {
+                fprintf( stderr,
+                         "FATAL: DX12 graphics PSO cache exhausted (capacity=%zu hash=%llu format=%u instanced=%d)\n",
+                         m_psoCache.size(),
+                         static_cast<unsigned long long>( psoHash ),
+                         static_cast<unsigned int>( key.format ),
+                         key.isInstanced ? 1 : 0 );
+                fprintf( stdout,
+                         "FATAL: DX12 graphics PSO cache exhausted (capacity=%zu hash=%llu format=%u instanced=%d)\n",
+                         m_psoCache.size(),
+                         static_cast<unsigned long long>( psoHash ),
+                         static_cast<unsigned int>( key.format ),
+                         key.isInstanced ? 1 : 0 );
+                fflush( stderr );
+                fflush( stdout );
+                throw std::runtime_error( "DX12 graphics PSO cache exhausted" );
+            }
             pso = CreatePSO( format, instanced, im, dvb );
-            m_psoCache[psoHash] = pso;
+            m_psoCache[m_psoCacheCount].hash = psoHash;
+            m_psoCache[m_psoCacheCount].pso = pso;
+            ++m_psoCacheCount;
         }
 
         // Bind the PSO. This sets the whole GPU pipeline recipe (shaders,

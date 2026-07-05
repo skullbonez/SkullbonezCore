@@ -1095,6 +1095,8 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
 
     const auto captureBody = [&]( int i )
     {
+        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+            RuntimeAllocation::RuntimeAllocationPhase::Replay );
         const GameModel* model = modelCollection.TryGetModel( i );
         if ( !model )
         {
@@ -1123,7 +1125,7 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
     // backups remains serial because it mutates live GameModel state.
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
-        workerPool.ParallelFor( 0,
+        workerPool.ParallelForNoAlloc( 0,
                                 modelCount,
                                 captureBody,
                                 REPLAY_PREDICTION_PARALLEL_BODY_MIN,
@@ -1194,6 +1196,8 @@ void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
 
     const auto captureBody = [&]( int i )
     {
+        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+            RuntimeAllocation::RuntimeAllocationPhase::Replay );
         const PhysicsBodyRecord& source = bodyRecords[static_cast<std::size_t>( i )];
         RunReplayPredictionBodySample body;
         body.id.value = source.replayBodyId;
@@ -1208,7 +1212,7 @@ void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
     // this loop could read the same values back into prediction samples.
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
-        workerPool.ParallelFor( 0,
+        workerPool.ParallelForNoAlloc( 0,
                                 modelCount,
                                 captureBody,
                                 REPLAY_PREDICTION_PARALLEL_BODY_MIN,

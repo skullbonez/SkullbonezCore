@@ -24,6 +24,7 @@ Related:
 */
 #include "Dx12RenderGraphExecutor.h"
 
+#include <cstdio>
 #include <sstream>
 
 namespace SkullbonezCore
@@ -50,12 +51,19 @@ void AppendDx12StateFlag( std::ostringstream& out,
     }
 }
 
-std::string MakeBarrierSource( const char* prefix, const RenderGraphPassDesc& pass )
+template <size_t N> void CopyLabel( char ( &destination )[N], const char* value )
 {
-    std::ostringstream out;
-    out << ( ( prefix && prefix[0] != '\0' ) ? prefix : "Graph" );
-    out << ":" << pass.name;
-    return out.str();
+    snprintf( destination, N, "%s", ( value && value[0] != '\0' ) ? value : "unknown" );
+}
+
+template <size_t N>
+void MakeBarrierSource( char ( &destination )[N], const char* prefix, const RenderGraphPassDesc& pass )
+{
+    snprintf( destination,
+              N,
+              "%s:%s",
+              ( prefix && prefix[0] != '\0' ) ? prefix : "Graph",
+              ( pass.name && pass.name[0] != '\0' ) ? pass.name : "UnnamedPass" );
 }
 
 } // namespace
@@ -218,9 +226,9 @@ Dx12RenderGraphExecutionResult ExecuteDx12RenderGraphTransitions( const RenderGr
         const RenderGraphPassDesc& pass = graph.Passes()[transition.passIndex];
 
         Dx12RenderGraphBarrierRecord record;
-        record.source = MakeBarrierSource( desc.sourcePrefix, pass );
-        record.passName = pass.name;
-        record.resourceName = resource.name;
+        MakeBarrierSource( record.source, desc.sourcePrefix, pass );
+        CopyLabel( record.passName, pass.name );
+        CopyLabel( record.resourceName, resource.name );
         record.nativeResource = transition.nativeResource;
         record.beforeAccess = transition.before;
         record.afterAccess = transition.after;
@@ -238,19 +246,19 @@ Dx12RenderGraphExecutionResult ExecuteDx12RenderGraphTransitions( const RenderGr
         if ( !record.hasConcreteStates )
         {
             ++result.unknownStateTransitionCount;
-            result.barriers.push_back( record );
+            result.AddBarrier( record );
             continue;
         }
         if ( record.beforeState == record.afterState )
         {
             ++result.skippedSameStateCount;
-            result.barriers.push_back( record );
+            result.AddBarrier( record );
             continue;
         }
         if ( !record.hasNativeResource )
         {
             ++result.missingNativeResourceTransitionCount;
-            result.barriers.push_back( record );
+            result.AddBarrier( record );
             continue;
         }
 
@@ -276,7 +284,7 @@ Dx12RenderGraphExecutionResult ExecuteDx12RenderGraphTransitions( const RenderGr
             }
         }
 
-        result.barriers.push_back( record );
+        result.AddBarrier( record );
     }
 
     return result;

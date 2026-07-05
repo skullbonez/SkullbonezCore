@@ -2,17 +2,6 @@
   "schema": 1,
   "allowed": [
     {
-      "path": "SkullbonezSource/Core/WorkerPool.cpp",
-      "patterns": [
-        "std::make_shared<ParallelForChunksState>"
-      ],
-      "owner": "WorkerPool fork-join dispatch",
-      "phase": "steady_gameplay_pending_conversion",
-      "reason": "ParallelForChunks still allocates one shared completion state for parallel dispatch; the runtime allocation guard measures this as hot-path debt.",
-      "cap": "One shared task state per parallel dispatch, plus queue storage owned by WorkerPool.",
-      "removal_or_wrapper_plan": "Replace with fixed per-dispatch state and preallocated task queue storage before strict gameplay allocation enforcement."
-    },
-    {
       "path": "SkullbonezSource/Runtime/Init.cpp",
       "patterns": [
         "std::make_unique<SkullbonezCore::Environment::WorldEnvironment>",
@@ -83,6 +72,17 @@
       "reason": "The global C++ allocation hook needs one raw CRT backing call pair so it can wrap allocations with fixed tracker metadata.",
       "cap": "One backing allocation per intercepted C++ allocation, sized exactly from the caller request plus fixed header/alignment padding.",
       "removal_or_wrapper_plan": "Keep raw heap calls isolated in this wrapper; future arena work should replace this implementation without adding raw calls elsewhere."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.cpp",
+      "patterns": [
+        "RuntimeReserveAllocator::RequestGrowth("
+      ],
+      "owner": "Runtime reserve allocator policy gate",
+      "phase": "allocator_wrapper",
+      "reason": "The allocator implementation owns the single approved replay reserve-bump API; callsites outside this file still require owner metadata and phase checks.",
+      "cap": "One function definition for the replay growth policy gate; runtime grants remain bounded per registered owner.",
+      "removal_or_wrapper_plan": "Keep growth approval isolated here and reject any new reserve-bump callsite unless it routes through registered owner wrappers."
     },
     {
       "path": "SkullbonezSource/Runtime/Init.cpp",

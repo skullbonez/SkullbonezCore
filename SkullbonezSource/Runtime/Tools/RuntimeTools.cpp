@@ -228,7 +228,8 @@ void RuntimeTools::BuildReplayLauncherVisualSample( ReplayLauncherVisualSample& 
     // Concept: Replay captures visible launcher/tool feedback separately from
     // physics state so scrubbed frames can redraw rays and laser afterimages
     // without re-firing the tool.
-    outSample = ReplayLauncherVisualSample();
+    outSample.rayLines.clear();
+    outSample.laserShots.clear();
     outSample.nextRayLine = m_rayCastTest.nextLine;
     outSample.fireMode = m_rayCastTest.fireMode == RunLauncherFireMode::Projectile ? ReplayLauncherFireMode::Projectile
                                                                                    : ReplayLauncherFireMode::Laser;

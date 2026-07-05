@@ -409,24 +409,29 @@ void RenderPipeline::DumpExecutedFrameGraphIfChanged( const RenderSceneSnapshot&
 {
     static bool hasLastSnapshot = false;
     static RenderSceneSnapshot lastSnapshot;
-    if ( hasLastSnapshot && IsSameSnapshot( snapshot, lastSnapshot ) && FrameGraphDumpExists() )
+    if ( hasLastSnapshot && IsSameSnapshot( snapshot, lastSnapshot ) )
     {
         return;
     }
 
     const std::string dumpText = BuildExecutedFrameGraphText( snapshot );
     static std::string lastDumpText;
-    if ( dumpText == lastDumpText && FrameGraphDumpExists() )
+    // Runtime allocation policy: the aggregate graph text is diagnostic state.
+    // Cache the snapshot even when the file cannot be written so a missing Debug
+    // folder never turns the string/graph builder into per-frame render work.
+    lastSnapshot = snapshot;
+    hasLastSnapshot = true;
+    if ( dumpText == lastDumpText )
     {
         return;
     }
 
+    std::error_code ec;
+    std::filesystem::create_directories( "Debug", ec );
     std::ofstream file( "Debug/dx12_frame_graph_actual.txt", std::ios::binary );
     if ( file.is_open() )
     {
         file << dumpText << "\n";
-        lastSnapshot = snapshot;
-        hasLastSnapshot = true;
         lastDumpText = dumpText;
     }
 }

@@ -965,8 +965,7 @@ void Run::AfterPhysicsStep()
     {
         RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Replay );
         PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
-        ReplayLauncherVisualSample launcherVisual;
-        m_runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+        m_runtimeTools.BuildReplayLauncherVisualSample( m_replayLauncherVisualScratch );
 
         ReplayCaptureInput input;
         input.sceneFrame = SceneState().currentFrame;
@@ -982,7 +981,7 @@ void Run::AfterPhysicsStep()
         input.models = &m_cGameModelCollection;
         input.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
         input.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
-        input.launcherVisual = &launcherVisual;
+        input.launcherVisual = &m_replayLauncherVisualScratch;
         m_replayRuntime.CaptureFrame( input );
         CompareLatestReplaySamples( m_replayRuntime, m_solverReplayMismatch );
 #ifdef _DEBUG

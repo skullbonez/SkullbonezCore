@@ -32,6 +32,7 @@ Related:
 #include "RuntimeRenderHost.h"
 #include "RuntimeRenderInputs.h"
 #include "RuntimeRenderPasses.h"
+#include "../../Rendering/RenderGraph.h"
 
 #include <cstdint>
 #include <vector>
@@ -102,6 +103,8 @@ class RuntimeRenderer
                                                 const CinematicRenderConfig& renderConfig ) const;
     RenderResourceContext BuildRenderResourceContext( const RuntimeRenderInputs& renderInputs,
                                                       bool cinematicRender ) const;
+    Rendering::RenderGraph& BeginRenderPassGraph();
+    const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
     ShadowGraphResult ExecuteShadowThroughRenderGraph( const RenderFrameContext& frame,
                                                        const CinematicRenderConfig* activeShadowConfig );
     bool ExecuteSkyboxThroughRenderGraph( const RenderFrameContext& frame );
@@ -163,6 +166,11 @@ class RuntimeRenderer
     VolumetricPass m_volumetricPass;          // Half-resolution cinematic light-shaft pass.
     TonemapPass m_tonemapPass;                // HDR-to-backbuffer resolve pass.
     UiTextPass m_uiTextPass;                  // HUD/UI/text pass.
+    // Runtime allocation policy: graph wrapper passes reuse this owner scratch
+    // storage. Pass labels are borrowed literals and per-pass reads/writes are
+    // bounded, so steady render frames do not create per-wrapper graph heaps.
+    Rendering::RenderGraph m_renderPassGraphScratch;
+    Rendering::RenderGraphCompileResult m_renderPassCompileScratch;
     // Lifetime: borrowed only for the next UI pass after world rendering, then
     // refreshed or cleared before backend release and text-only frames.
     Rendering::IRenderRayTracing* m_uiTextRayTracing = nullptr;

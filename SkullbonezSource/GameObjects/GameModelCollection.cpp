@@ -147,14 +147,21 @@ void RefreshBodyDescFromStoreBodyState( const PhysicsBodyRecord& record,
 
 GameModelCollection::GameModelCollection()
 {
-    // The collection is the stable owner of model order. Physics arrays,
-    // render batches, debug overlays, and scene snapshots all index into this
-    // vector, so preserving deterministic order matters even when the work is
-    // delegated to renderer/physics helper classes.
-    m_gameModels.reserve( ActiveGameModelCapacity() );
-    m_sceneObjectGroups.reserve( ActiveGameModelCapacity() );
-    m_authoredBodyDescs.reserve( ActiveGameModelCapacity() );
-    m_renderPresentationRecords.reserve( ActiveGameModelCapacity() );
+    ReserveForActiveGameModelCapacity();
+}
+
+
+void GameModelCollection::ReserveForActiveGameModelCapacity()
+{
+    // Invariant: model-order storage must be fully sized before steady frames.
+    // Config can raise the active model capacity after construction, so each
+    // setup/config boundary repeats the reserve instead of letting render-time
+    // append paths discover the new capacity by reallocating.
+    const std::size_t capacity = static_cast<std::size_t>( ActiveGameModelCapacity() );
+    m_gameModels.reserve( capacity );
+    m_sceneObjectGroups.reserve( capacity );
+    m_authoredBodyDescs.reserve( capacity );
+    m_renderPresentationRecords.reserve( capacity );
 }
 
 
@@ -299,6 +306,7 @@ void GameModelCollection::BindWorkerPool( SkullbonezCore::Threading::WorkerPool&
 
 void GameModelCollection::ApplyRuntimeConfig( const Basics::EngineConfig& config )
 {
+    ReserveForActiveGameModelCapacity();
     m_physicsMaterial = Physics::PhysicsMaterial::FromConfig( config );
     m_bodySimulationLimits = Physics::BodySimulationLimits::FromConfig( config );
     m_contactPolicy = Physics::ContactPolicy::FromConfig( config );
@@ -970,21 +978,9 @@ bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
     }
 
     m_gameModels[static_cast<std::size_t>( index )].SetFixedContactHighlightSeconds( fixedContactHighlightSeconds );
-    if ( index < static_cast<int>( m_authoredBodyDescs.size() ) )
-    {
-        PhysicsBodyCreateDesc& desc = m_authoredBodyDescs[static_cast<std::size_t>( index )];
-        desc.sceneObjectId = bodyRecord->sceneObjectId;
-        desc.position = position;
-        desc.orientation = orientation;
-        desc.linearVelocity = linearVelocity;
-        desc.angularVelocity = angularVelocity;
-        desc.rotationalInertia = rotationalInertia;
-        desc.mass = mass;
-        desc.motionKind = fixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
-        desc.diagnosticName = m_gameModels[static_cast<std::size_t>( index )].GetName();
-        desc.fixedTreeReleaseRootIndex = FixedTreeReleaseRootForModelIndex( index );
-        ApplyCollectionPhysicsPolicyToBodyDesc( desc, m_physicsMaterial, m_bodySimulationLimits, m_contactPolicy );
-    }
+    // Why: prediction restore is a scratch/live-state swap used for preview and
+    // prediction jobs. Authored descriptors represent editor/replay commits and
+    // must not be churned every render frame just to apply a temporary body row.
     return true;
 }
 

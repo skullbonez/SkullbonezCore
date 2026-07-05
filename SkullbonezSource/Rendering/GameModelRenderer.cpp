@@ -63,7 +63,7 @@ namespace
 {
 constexpr int PINE_VISUAL_MATERIAL_MODE = 13;
 constexpr int SHADOW_PARALLEL_PREP_MIN_CASTERS = 512;
-constexpr bool SHADOW_PARALLEL_PREP_WORKER_ENABLED = true;
+constexpr bool SHADOW_PARALLEL_PREP_WORKER_ENABLED = false;
 
 bool IsPineVisualMaterial( const RenderMaterial& material )
 {
@@ -302,14 +302,15 @@ void GameModelRenderer::BuildShadowCasterBatches( const RenderInstanceStore& ren
     }
 
     const int modelCount = static_cast<int>( instances.size() );
+    assert( outBatches.HasCapacityForModelCount( modelCount ) );
+    if ( !outBatches.HasCapacityForModelCount( modelCount ) )
+    {
+        throw std::runtime_error( "Shadow caster batch reserve exhausted" );
+    }
 
     auto appendRange = [&]( int begin, int end, ShadowCasterBatches& batches )
     {
         batches.Clear();
-        batches.spheres.reserve( static_cast<size_t>( end - begin ) );
-        batches.boxes.reserve( static_cast<size_t>( end - begin ) );
-        batches.pines.reserve( static_cast<size_t>( end - begin ) );
-        batches.convexHulls.reserve( static_cast<size_t>( end - begin ) );
         const std::vector<ColliderRecord>* colliders = nullptr;
         for ( int x = begin; x < end; ++x )
         {

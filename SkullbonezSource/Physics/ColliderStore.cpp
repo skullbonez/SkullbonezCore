@@ -34,6 +34,7 @@ Related:
 
 #include <cassert>
 #include <cstddef>
+#include <stdexcept>
 #include <variant>
 
 #include "../Core/Common.h"
@@ -65,6 +66,7 @@ ColliderStore::ColliderStore()
     m_handleModelIndices.reserve( MAX_GAME_MODELS );
     m_handleReplayBodyIds.reserve( MAX_GAME_MODELS );
     m_freeHandleSlots.reserve( MAX_GAME_MODELS );
+    m_assignedHandleScratch.reserve( MAX_GAME_MODELS );
 }
 
 
@@ -195,7 +197,13 @@ bool ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
         assert( false && "ColliderStore body-binding refresh requires existing collider rows." );
         return false;
     }
-    std::vector<uint8_t> assignedHandleSlots( m_handleGenerations.size(), 0 );
+    assert( m_handleGenerations.size() <= m_assignedHandleScratch.capacity() );
+    if ( m_handleGenerations.size() > m_assignedHandleScratch.capacity() )
+    {
+        throw std::runtime_error( "ColliderStore assigned-handle scratch reserve exhausted" );
+    }
+    m_assignedHandleScratch.assign( m_handleGenerations.size(), 0 );
+    std::vector<uint8_t>& assignedHandleSlots = m_assignedHandleScratch;
     for ( int i = 0; i < bodyCount; ++i )
     {
         ColliderRecord& record = m_colliders[static_cast<std::size_t>( i )];

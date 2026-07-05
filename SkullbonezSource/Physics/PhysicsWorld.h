@@ -249,7 +249,8 @@ class PhysicsWorld
     struct ObjectNarrowphaseIsland
     {
         int minPairIndex = 0;
-        std::vector<int> pairIndices;
+        size_t firstPairOffset = 0;
+        size_t pairCount = 0;
     };
 
     // Persistent rows and diagnostics produced during the current fixed tick.
@@ -268,9 +269,13 @@ class PhysicsWorld
     std::vector<TerrainDetectionCandidate> m_terrainDetectionCandidates;
     std::vector<ObjectNarrowphaseEvent> m_objectNarrowphaseEvents;
     std::vector<ObjectNarrowphaseIsland> m_objectNarrowphaseIslands;
+    std::vector<int> m_objectNarrowphaseIslandPairIndices;
+    std::vector<size_t> m_objectNarrowphaseIslandWriteOffsets;
     std::vector<int> m_objectNarrowphaseParent;
     std::vector<uint8_t> m_objectNarrowphaseRank;
     std::vector<int> m_objectNarrowphaseRootToIsland;
+    std::vector<uint8_t> m_restingWakeVisitedScratch;
+    std::vector<int> m_restingWakeQueueScratch;
     std::vector<PointJointConstraint> m_pointJointConstraints;
     std::vector<int64_t> m_collisionCellKeys;
     std::array<uint8_t, MAX_GAME_MODELS> m_terrainRestApplied = {};

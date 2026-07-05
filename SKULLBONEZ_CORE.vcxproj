@@ -146,6 +146,7 @@
     <ClCompile Include="SkullbonezSource\Physics\ColliderStore.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\ConvexHullShape.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Debug\BroadphaseVisualizer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp" />
@@ -303,6 +304,7 @@
     <ClInclude Include="SkullbonezSource\Physics\ColliderStore.h" />
     <ClInclude Include="SkullbonezSource\Physics\ConvexHullShape.h" />
     <ClInclude Include="SkullbonezSource\Physics\Debug\BroadphaseVisualizer.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CaptureController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CaptureSystem.h" />

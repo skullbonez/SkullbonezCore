@@ -37,10 +37,10 @@ Related:
 #include "Replay/ReplayRecorder.h"
 #include "Scene/SceneRuntime.h"
 
+#include <array>
 #include <cstring>
 #include <psapi.h>
 #include <string>
-#include <vector>
 
 namespace SkullbonezCore
 {
@@ -68,30 +68,33 @@ void FlushPendingPerfLogWrites( RunPerfLogState& perfLog )
 }
 
 bool FlushWorkingSetQueryBatch( HANDLE process,
-                                std::vector<PSAPI_WORKING_SET_EX_INFORMATION>& pages,
+                                const PSAPI_WORKING_SET_EX_INFORMATION* pages,
+                                std::size_t pageCount,
                                 uint64_t& privateWorkingSetBytes,
                                 uint64_t pageSize )
 {
     // Hazard: QueryWorkingSetEx can fail for a region without invalidating the
     // whole sample. The caller tracks success separately from the byte count.
-    if ( pages.empty() )
+    if ( !pages || pageCount == 0 )
     {
         return true;
     }
 
-    const SIZE_T byteCount = pages.size() * sizeof( PSAPI_WORKING_SET_EX_INFORMATION );
-    const bool queried = QueryWorkingSetEx( process, pages.data(), static_cast<DWORD>( byteCount ) ) != FALSE;
+    const SIZE_T byteCount = pageCount * sizeof( PSAPI_WORKING_SET_EX_INFORMATION );
+    const bool queried = QueryWorkingSetEx( process,
+                                            const_cast<PSAPI_WORKING_SET_EX_INFORMATION*>( pages ),
+                                            static_cast<DWORD>( byteCount ) ) != FALSE;
     if ( queried )
     {
-        for ( const PSAPI_WORKING_SET_EX_INFORMATION& page : pages )
+        for ( std::size_t pageIndex = 0; pageIndex < pageCount; ++pageIndex )
         {
+            const PSAPI_WORKING_SET_EX_INFORMATION& page = pages[pageIndex];
             if ( page.VirtualAttributes.Valid && !page.VirtualAttributes.Shared )
             {
                 privateWorkingSetBytes += pageSize;
             }
         }
     }
-    pages.clear();
     return queried;
 }
 
@@ -106,8 +109,8 @@ bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
     }
 
     constexpr std::size_t QUERY_BATCH_PAGES = 4096;
-    std::vector<PSAPI_WORKING_SET_EX_INFORMATION> pages;
-    pages.reserve( QUERY_BATCH_PAGES );
+    std::array<PSAPI_WORKING_SET_EX_INFORMATION, QUERY_BATCH_PAGES> pages = {};
+    std::size_t pageCount = 0;
 
     uintptr_t address = reinterpret_cast<uintptr_t>( systemInfo.lpMinimumApplicationAddress );
     const uintptr_t maxAddress = reinterpret_cast<uintptr_t>( systemInfo.lpMaximumApplicationAddress );
@@ -148,12 +151,16 @@ bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
             {
                 PSAPI_WORKING_SET_EX_INFORMATION page = {};
                 page.VirtualAddress = reinterpret_cast<void*>( pageAddress );
-                pages.push_back( page );
-                if ( pages.size() >= QUERY_BATCH_PAGES )
+                pages[pageCount++] = page;
+                if ( pageCount >= QUERY_BATCH_PAGES )
                 {
-                    allQueriesSucceeded =
-                        FlushWorkingSetQueryBatch( process, pages, privateWorkingSetBytes, pageSize ) &&
-                        allQueriesSucceeded;
+                    allQueriesSucceeded = FlushWorkingSetQueryBatch( process,
+                                                                     pages.data(),
+                                                                     pageCount,
+                                                                     privateWorkingSetBytes,
+                                                                     pageSize ) &&
+                                          allQueriesSucceeded;
+                    pageCount = 0;
                 }
             }
         }
@@ -162,7 +169,8 @@ bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
     }
 
     allQueriesSucceeded =
-        FlushWorkingSetQueryBatch( process, pages, privateWorkingSetBytes, pageSize ) && allQueriesSucceeded;
+        FlushWorkingSetQueryBatch( process, pages.data(), pageCount, privateWorkingSetBytes, pageSize ) &&
+        allQueriesSucceeded;
     outBytes = privateWorkingSetBytes;
     return allQueriesSucceeded;
 }

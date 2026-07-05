@@ -159,12 +159,15 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     }
 
     ID3D12PipelineState* gridLinePSO = nullptr;
-    auto psoIt = m_gridLinePSOs.find( m_currentRTVFormat );
-    if ( psoIt != m_gridLinePSOs.end() )
+    for ( size_t i = 0; i < m_gridLinePSOCount; ++i )
     {
-        gridLinePSO = psoIt->second;
+        if ( m_gridLinePSOs[i].format == m_currentRTVFormat )
+        {
+            gridLinePSO = m_gridLinePSOs[i].pso;
+            break;
+        }
     }
-    else
+    if ( !gridLinePSO )
     {
         ShaderDX12* shader = static_cast<ShaderDX12*>( m_gridLineShader.get() );
 
@@ -203,7 +206,23 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
             throw std::runtime_error( "CreateGraphicsPipelineState failed for debug lines" );
         }
         NameDx12Object( gridLinePSO, L"Skullbonez DX12 Debug Line PSO" );
-        m_gridLinePSOs[m_currentRTVFormat] = gridLinePSO;
+        if ( m_gridLinePSOCount >= m_gridLinePSOs.size() )
+        {
+            fprintf( stderr,
+                     "FATAL: DX12 grid-line PSO cache exhausted (capacity=%zu format=%u)\n",
+                     m_gridLinePSOs.size(),
+                     static_cast<unsigned int>( m_currentRTVFormat ) );
+            fprintf( stdout,
+                     "FATAL: DX12 grid-line PSO cache exhausted (capacity=%zu format=%u)\n",
+                     m_gridLinePSOs.size(),
+                     static_cast<unsigned int>( m_currentRTVFormat ) );
+            fflush( stderr );
+            fflush( stdout );
+            throw std::runtime_error( "DX12 grid-line PSO cache exhausted" );
+        }
+        m_gridLinePSOs[m_gridLinePSOCount].format = m_currentRTVFormat;
+        m_gridLinePSOs[m_gridLinePSOCount].pso = gridLinePSO;
+        ++m_gridLinePSOCount;
     }
 
     // Upload vertex data to the shared upload buffer. Debug-line vertex data is

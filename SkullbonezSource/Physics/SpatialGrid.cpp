@@ -437,6 +437,11 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                     {
                         continue;
                     }
+                    assert( outPairs.size() < outPairs.capacity() && "SpatialGrid candidate pair reserve exhausted" );
+                    if ( outPairs.size() >= outPairs.capacity() )
+                    {
+                        throw std::runtime_error( "SpatialGrid candidate pair reserve exhausted" );
+                    }
                     outPairs.emplace_back( a, bIdx );
                 }
             }

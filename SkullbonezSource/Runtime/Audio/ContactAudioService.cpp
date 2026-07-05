@@ -49,6 +49,7 @@ Related:
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -368,6 +369,10 @@ struct ContactAudioService::Impl
         decisions.reserve( MAX_STEP_DECISIONS );
         cooldowns.reserve( MAX_COOLDOWN_ENTRIES );
         bodySubmissionCounts.reserve( 256 );
+        // Runtime allocation policy: simple linear contact audio runs inside the
+        // physics step, so its body-history rows are reserved at startup and
+        // capped to the engine model limit instead of growing on first replay use.
+        simpleLinearBodies.reserve( MAX_GAME_MODELS );
     }
 
     bool InitializeBackend()
@@ -1171,7 +1176,14 @@ struct ContactAudioService::Impl
 
     void BeginSimpleLinearStep( int bodyCount )
     {
-        const std::size_t desiredCount = static_cast<std::size_t>( (std::max)( bodyCount, 0 ) );
+        std::size_t desiredCount = static_cast<std::size_t>( (std::max)( bodyCount, 0 ) );
+        const std::size_t historyCapacity = simpleLinearBodies.capacity();
+        if ( desiredCount > historyCapacity )
+        {
+            assert( false && "ContactAudioService simple linear history exceeded startup reserve" );
+            CountCandidateOverflow();
+            desiredCount = historyCapacity;
+        }
         if ( simpleLinearBodies.size() != desiredCount )
         {
             // Why: body indices are scene-local array positions. A scene load or
@@ -1202,6 +1214,10 @@ struct ContactAudioService::Impl
         if ( index >= simpleLinearBodies.size() )
         {
             BeginSimpleLinearStep( bodyIndex + 1 );
+            if ( index >= simpleLinearBodies.size() )
+            {
+                return;
+            }
         }
 
         SimpleLinearBody& body = simpleLinearBodies[index];

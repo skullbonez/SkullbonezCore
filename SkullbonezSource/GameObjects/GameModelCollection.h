@@ -184,6 +184,7 @@ class GameModelCollection
     std::vector<Rendering::RenderInstancePresentationRecord>
         m_renderPresentationRecords;               // Render-facing material/highlight values keyed by model slot.
 
+    void ReserveForActiveGameModelCapacity();
     SceneObjectGroupRecord BuildSceneObjectGroupForAppend( const GameModel& gameModel,
                                                            int newModelIndex,
                                                            SceneObjectGroupCreateDesc groupDesc );

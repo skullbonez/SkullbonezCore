@@ -50,6 +50,8 @@ Related:
 #include "../../Physics/PhysicsHandles.h"
 #include "../../Rendering/RenderInstanceStore.h"
 
+#include <array>
+
 namespace SkullbonezCore
 {
 namespace Physics
@@ -375,6 +377,8 @@ class ReplayRuntime
         ReplayEventRecorderStats eventStats;
     };
 
+    ReplayRuntime();
+
     ReplayRecorder& Presentation();
     const ReplayRecorder& Presentation() const;
 
@@ -440,7 +444,10 @@ class ReplayRuntime
     bool ArmLoadedPresentationScrubber( float normalized, double now );
     void ClearCameraFocusForRestore();
 
-    RecordingConfigResult ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath );
+    // Configures bounded recorder storage. runtimeBodyCapacity must be the
+    // scene/run body cap known before capture so replay frames do not allocate.
+    RecordingConfigResult
+    ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath, int runtimeBodyCapacity );
     void FlushHashLogs();
     void ResetBranch();
     void ResetTimeline( const char* sceneLabel );
@@ -544,6 +551,10 @@ class ReplayRuntime
     std::vector<ReplayPredictionGhostDrawRequest> m_predictionGhostDrawRequests;
     std::vector<uint8_t> m_focusModelMask;
     ReplayLauncherVisualSample m_launcherVisualBackup;
+    // Invariant: replay render pose matching is a per-frame mark table capped by
+    // the live model budget. It must not allocate while scrub/prediction views
+    // are applied during rendering.
+    std::array<uint8_t, MAX_GAME_MODELS> m_renderPoseBodyMatched = {};
     bool m_launcherVisualBackupActive = false;
 };
 } // namespace Basics

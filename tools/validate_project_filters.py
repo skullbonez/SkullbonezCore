@@ -228,6 +228,7 @@ RUNTIME_AUDIO_PREFIXES = (
 
 RUNTIME_ALLOCATION_PREFIXES = (
     "RuntimeAllocationTracker",
+    "RuntimeReserveAllocator",
 )
 
 RUNTIME_REPLAY_PREFIXES = (

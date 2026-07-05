@@ -45,6 +45,7 @@ Related:
 #include "../InputController.h"
 #include "ReplayOverlayLayout.h"
 #include "../RuntimePickService.h"
+#include "../Allocation/RuntimeAllocationTracker.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsMass.h"
@@ -77,6 +78,7 @@ using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
+namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
@@ -263,6 +265,8 @@ void StepReplayPredictionPhysicsTick( SkullbonezCore::GameObjects::GameModelColl
                                       const PhysicsWorldForces& worldForces,
                                       SkullbonezCore::Threading::WorkerPool& workerPool )
 {
+    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+        RuntimeAllocation::RuntimeAllocationPhase::Replay );
     const int modelCount = modelCollection.ModelCount();
     // Invariant: prediction steps mutate PhysicsBodyStore, then restore live
     // state from captured store records. Model topology repair remains the
