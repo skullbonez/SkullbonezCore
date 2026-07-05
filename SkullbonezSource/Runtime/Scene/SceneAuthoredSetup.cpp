@@ -334,7 +334,8 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
             !ball.isFixed && ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f );
         const PhysicsBodyHandle body = context.models.AddGameModel(
             std::move( gameModel ),
-            MakeSceneSphereColliderDesc( ball.m_radius, ball.restitution, ball.contactMaterial ) );
+            MakeSceneSphereColliderDesc( ball.m_radius, ball.restitution, ball.contactMaterial ),
+            context.sceneState.AllocateSceneObjectId() );
         if ( hasInitialImpulse )
         {
             context.physics.SetPendingBodyImpulse( body,
@@ -366,7 +367,8 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
 
         const PhysicsBodyHandle body =
             context.models.AddGameModel( std::move( gameModel ),
-                                         MakeSceneSphereColliderDesc( bs.radius, bs.restitution, bs.contactMaterial ) );
+                                         MakeSceneSphereColliderDesc( bs.radius, bs.restitution, bs.contactMaterial ),
+                                         context.sceneState.AllocateSceneObjectId() );
         if ( bs.isSleeping && !bs.isFixed )
         {
             context.physics.SeedBodyAsleep( body );
@@ -408,7 +410,8 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         context.models.AddGameModel( std::move( gameModel ),
                                      MakeSceneBoxColliderDesc( Vector3( box.halfX, box.halfY, box.halfZ ),
                                                                box.restitution,
-                                                               box.contactMaterial ) );
+                                                               box.contactMaterial ),
+                                     context.sceneState.AllocateSceneObjectId() );
     }
 
     // box_state entries: full dynamic state from an editable scene snapshot
@@ -435,7 +438,8 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
             context.models.AddGameModel( std::move( gameModel ),
                                          MakeSceneBoxColliderDesc( Vector3( box.halfX, box.halfY, box.halfZ ),
                                                                    box.restitution,
-                                                                   box.contactMaterial ) );
+                                                                   box.contactMaterial ),
+                                         context.sceneState.AllocateSceneObjectId() );
         if ( box.isSleeping && !box.isFixed )
         {
             context.physics.SeedBodyAsleep( body );
@@ -483,7 +487,8 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
 
         const PhysicsBodyHandle body = context.models.AddGameModel(
             std::move( gameModel ),
-            MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ) );
+            MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ),
+            context.sceneState.AllocateSceneObjectId() );
         if ( hullScene.isSleeping && !hullScene.isFixed )
         {
             context.physics.SeedBodyAsleep( body );
@@ -517,7 +522,8 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         gameModel.SetFixed( hullScene.isFixed );
         const PhysicsBodyHandle body = context.models.AddGameModel(
             std::move( gameModel ),
-            MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ) );
+            MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ),
+            context.sceneState.AllocateSceneObjectId() );
         if ( hullScene.isSleeping && !hullScene.isFixed )
         {
             context.physics.SeedBodyAsleep( body );
@@ -533,6 +539,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         options.scale = ragdollScene.scale;
         options.fixed = ragdollScene.isFixed;
         options.startsAsleep = ragdollScene.startsAsleep;
+        options.firstSceneObjectId = context.sceneState.AllocateSceneObjectIdRange( Ragdoll::SIMPLE_PART_COUNT );
         if ( ragdollScene.hasInitOrient )
         {
             options.orientation =

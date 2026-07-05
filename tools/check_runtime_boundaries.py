@@ -623,6 +623,11 @@ GAME_MODEL_REPLAY_ID_MIRROR_PATTERN = re.compile(
 GAME_MODEL_COLLECTION_REPLAY_ID_SIDECAR_PATTERN = re.compile(
     r"\bm_replayBodyIds\b|\bmodelReplayIdBytes\b|\bmodel_replay_id_bytes\b"
 )
+GAME_MODEL_COLLECTION_REPLAY_ID_ALLOCATOR_PATTERN = re.compile(
+    r"\bm_nextReplayBodyId\b|\bReserveReplayBodyId\s*\(|\bRebuildNextReplayBodyIdFromBodyStore\s*\("
+    r"|\bAddGameModel\s*\([^;{}]*\buint32_t\s+replayBodyId\b",
+    re.S,
+)
 REPLAY_RESTORE_MODEL_INDEX_PHYSICS_API_PATTERN = re.compile(
     r"\b(?:PhysicsEngine|PhysicsScene|PhysicsBodyStore)?(?:::)?RestoreReplayBodyState\s*\(\s*int\s+"
     r"(?:modelIndex|index)\b"
@@ -1152,6 +1157,15 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "GameModelCollection replay-id sidecar",
         re.compile(r"\bm_replayBodyIds\b|\bmodelReplayIdBytes\b|\bmodel_replay_id_bytes\b"),
         "Replay ids are stored on PhysicsBodyStore rows after append; do not keep duplicate collection-side replay-id storage or memory stats.",
+    ),
+    (
+        "GameModelCollection replay-id allocator",
+        re.compile(
+            r"\bm_nextReplayBodyId\b|\bReserveReplayBodyId\s*\(|\bRebuildNextReplayBodyIdFromBodyStore\s*\("
+            r"|\bAddGameModel\s*\([^;{}]*\buint32_t\s+replayBodyId\b",
+            re.S,
+        ),
+        "Scene/runtime creation owns PhysicsSceneObjectId allocation; GameModelCollection must not allocate replay ids.",
     ),
     (
         "RefreshColliderSnapshot model access parameter",
@@ -4599,6 +4613,18 @@ def check_game_model_replay_id_mirror_guardrails_text(path: Path, text: str) -> 
                 (
                     "Replay identity belongs in PhysicsBodyStore rows after append. Collection reload code may build "
                     "a cold local id stream, but must not keep persistent scene-order replay-id storage or stats."
+                ),
+            )
+        )
+    for match in GAME_MODEL_COLLECTION_REPLAY_ID_ALLOCATOR_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "GameModelCollection replay-id allocator is deleted",
+                (
+                    "Scene/runtime creation must allocate PhysicsSceneObjectId and pass it into AddGameModel; "
+                    "GameModelCollection must not keep a replay-id cursor or optional replay-id append API."
                 ),
             )
         )
@@ -11526,7 +11552,9 @@ def run_self_tests() -> list[str]:
     PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     {
         PhysicsBodyHandle createdBodies[2];
-        createdBodies[0] = collection->AddGameModel( std::move( model ) );
+        PhysicsSceneObjectId sceneObjectId;
+        sceneObjectId.value = 1u;
+        createdBodies[0] = collection->AddGameModel( std::move( model ), MakeSmokeColliderDesc(), sceneObjectId );
         constexpr uint32_t REORDER_BODY_A_REPLAY_ID = 100u;
         const uint32_t replayBodyId = REORDER_BODY_A_REPLAY_ID;
         const PhysicsBodyHandle bodyA = createdBodies[0];
@@ -11576,6 +11604,9 @@ def run_self_tests() -> list[str]:
     collection.UpdateColliderStoreFromModel( index );
     modelAccess.RefreshColliderSnapshot( modelAccess );
     std::vector<uint32_t> m_replayBodyIds;
+    uint32_t m_nextReplayBodyId = 1;
+    uint32_t ReserveReplayBodyId( uint32_t replayBodyId );
+    PhysicsBodyHandle AddGameModel( GameModel gameModel, PhysicsColliderCreateDesc colliderDesc, uint32_t replayBodyId );
     stats.gameObjects.modelReplayIdBytes = 0;
     auto mirror = sideEffects.bodyMirrorWritebacks;
     QueueBodyMirrorWriteback( index );
@@ -11610,6 +11641,11 @@ def run_self_tests() -> list[str]:
         for error in deleted_migration_artifact_errors
     ):
         failures.append("deleted collection replay-id sidecar synthetic surface was not rejected")
+    if not any(
+        error.message == "deleted migration artifact is blocked: GameModelCollection replay-id allocator"
+        for error in deleted_migration_artifact_errors
+    ):
+        failures.append("deleted collection replay-id allocator synthetic surface was not rejected")
 
     deleted_game_model_initial_orientation_text = """
     class GameModel
@@ -14305,17 +14341,16 @@ def run_self_tests() -> list[str]:
 
     allowed_add_model_direct_collider_append = """
     PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel,
-                                                         uint32_t replayBodyId,
-                                                         PhysicsColliderCreateDesc colliderDesc )
+                                                         PhysicsColliderCreateDesc colliderDesc,
+                                                         PhysicsSceneObjectId sceneObjectId )
     {
         if ( !RepairPhysicsBodyAndColliderTopology() )
         {
             throw std::runtime_error( "Cannot append model while physics collider rows are missing." );
         }
         m_gameModels.push_back( std::move( gameModel ) );
-        m_replayBodyIds.push_back( replayBodyId );
         const PhysicsBodyHandle bodyHandle =
-            m_physicsEngine.RegisterAuthoredBody( MakeBodyRecordFromAuthoredModel( m_gameModels.back(), replayBodyId ) );
+            m_physicsEngine.RegisterAuthoredBody( MakeBodyRecordFromAuthoredModel( m_gameModels.back(), sceneObjectId ) );
         const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForHandle( bodyHandle );
         colliderDesc.body = bodyRecord->handle;
         m_physicsEngine.RegisterAuthoredCollider( colliderDesc );
@@ -14350,6 +14385,7 @@ def run_self_tests() -> list[str]:
     {
         std::vector<uint32_t> m_replayBodyIds;
         uint32_t m_nextReplayBodyId = 1;
+        uint32_t ReserveReplayBodyId( uint32_t replayBodyId );
     };
     void GameModelCollection::ReloadPhysicsBodies( PhysicsBodyStore& bodyStore,
                                                    const std::vector<uint8_t>& sleepStates )
@@ -14365,11 +14401,18 @@ def run_self_tests() -> list[str]:
         )
     ):
         failures.append("old collection replay-id sidecar synthetic surface was not rejected")
+    if not any(
+        error.message == "GameModelCollection replay-id allocator is deleted"
+        for error in check_game_model_replay_id_mirror_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
+            old_collection_replay_id_sidecar,
+        )
+    ):
+        failures.append("old collection replay-id allocator synthetic surface was not rejected")
 
     allowed_collection_replay_reload_scratch = """
     class GameModelCollection
     {
-        uint32_t m_nextReplayBodyId = 1;
         std::vector<uint32_t> BuildReplayBodyIdsForReload( const PhysicsBodyStore& bodyStore );
     };
     void GameModelCollection::ReloadPhysicsBodies( PhysicsBodyStore& bodyStore,
@@ -15560,7 +15603,10 @@ def run_self_tests() -> list[str]:
     void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
     {
         const PhysicsBodyHandle body =
-            context.models.AddGameModel( std::move( gameModel ), MakeSceneSphereColliderDesc( radius, restitution, material ) );
+            context.models.AddGameModel(
+                std::move( gameModel ),
+                MakeSceneSphereColliderDesc( radius, restitution, material ),
+                context.sceneState.AllocateSceneObjectId() );
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
         context.physics.SeedBodyAsleep( body );
     }
@@ -15623,7 +15669,8 @@ def run_self_tests() -> list[str]:
     {
         lastPlacedBody = context.models.AddGameModel(
             std::move( model ),
-            MakeEditorColliderDesc( BoundingSphere( radius, Vector3( 0.0f, 0.0f, 0.0f ) ), restitution ) );
+            MakeEditorColliderDesc( BoundingSphere( radius, Vector3( 0.0f, 0.0f, 0.0f ) ), restitution ),
+            context.scene.AllocateSceneObjectId() );
     }
     """
     if check_add_game_model_collider_desc_guardrails_text(
@@ -17076,10 +17123,13 @@ def run_self_tests() -> list[str]:
         failures.append("old launcher projectile adapter wake synthetic surface was not rejected")
 
     allowed_launcher_projectile_handle_wake = """
-    bool RuntimeTools::FireLauncherProjectile( GameModelCollection& collection )
+    bool RuntimeTools::FireLauncherProjectile( GameModelCollection& collection, RunSceneState& scene )
     {
         const PhysicsBodyHandle projectileBody =
-            collection.AddGameModel( std::move( projectile ), MakeLauncherProjectileColliderDesc() );
+            collection.AddGameModel(
+                std::move( projectile ),
+                MakeLauncherProjectileColliderDesc(),
+                scene.AllocateSceneObjectId() );
         if ( projectileBody.IsValid() )
         {
             collection.GetPhysicsEngine().WakeBody( projectileBody );

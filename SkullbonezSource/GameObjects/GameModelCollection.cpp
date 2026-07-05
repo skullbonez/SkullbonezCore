@@ -63,6 +63,7 @@ Related:
 #include <cstddef>
 #include <cmath>
 #include <cstring>
+#include <limits>
 #include <stdexcept>
 #include <utility>
 #include <variant>
@@ -81,6 +82,7 @@ using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsMaterial;
 using SkullbonezCore::Physics::PhysicsModelAccess;
+using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Rendering::ShadowFrameData;
 
 namespace SkullbonezCore
@@ -373,15 +375,22 @@ GameModelCollection::GameModelCollection()
 }
 
 
-uint32_t GameModelCollection::ReserveReplayBodyId( uint32_t requestedReplayBodyId )
+static uint32_t NextReplayBodyIdAfter( const PhysicsBodyStore& bodyStore )
 {
-    if ( requestedReplayBodyId == 0 )
+    uint32_t nextReplayBodyId = 1;
+    const uint32_t maxReplayBodyId = ( std::numeric_limits<uint32_t>::max )();
+    for ( const PhysicsBodyRecord& body : bodyStore.Records() )
     {
-        return m_nextReplayBodyId++;
+        if ( body.replayBodyId == maxReplayBodyId )
+        {
+            return maxReplayBodyId;
+        }
+        if ( body.replayBodyId != 0 )
+        {
+            nextReplayBodyId = (std::max)( nextReplayBodyId, body.replayBodyId + 1u );
+        }
     }
-
-    m_nextReplayBodyId = (std::max)( m_nextReplayBodyId, requestedReplayBodyId + 1u );
-    return requestedReplayBodyId;
+    return nextReplayBodyId;
 }
 
 
@@ -390,6 +399,7 @@ GameModelCollection::BuildReplayBodyIdsForReload( const SkullbonezCore::Physics:
 {
     std::vector<uint32_t> replayBodyIds;
     replayBodyIds.reserve( m_gameModels.size() );
+    uint32_t nextReplayBodyId = NextReplayBodyIdAfter( bodyStore );
     for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
     {
         uint32_t replayBodyId = 0;
@@ -399,24 +409,18 @@ GameModelCollection::BuildReplayBodyIdsForReload( const SkullbonezCore::Physics:
         }
         // Why: body topology repair is cold. Existing rows preserve their
         // PhysicsBodyStore-owned replay id; only genuinely missing rows allocate
-        // a fresh id rather than keeping a duplicate scene-order sidecar alive.
-        replayBodyIds.push_back( ReserveReplayBodyId( replayBodyId ) );
+        // a fresh local scratch id rather than keeping collection authority.
+        if ( replayBodyId == 0 )
+        {
+            if ( nextReplayBodyId == ( std::numeric_limits<uint32_t>::max )() )
+            {
+                throw std::runtime_error( "Replay body id scratch range exhausted." );
+            }
+            replayBodyId = nextReplayBodyId++;
+        }
+        replayBodyIds.push_back( replayBodyId );
     }
     return replayBodyIds;
-}
-
-
-void GameModelCollection::RebuildNextReplayBodyIdFromBodyStore(
-    const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
-{
-    m_nextReplayBodyId = 1;
-    for ( const PhysicsBodyRecord& body : bodyStore.Records() )
-    {
-        if ( body.replayBodyId != 0 )
-        {
-            m_nextReplayBodyId = (std::max)( m_nextReplayBodyId, body.replayBodyId + 1u );
-        }
-    }
 }
 
 
@@ -472,15 +476,16 @@ SkullbonezCore::Threading::WorkerPool* GameModelCollection::RenderWorkerPool() c
 }
 
 
-PhysicsBodyHandle
-GameModelCollection::AddGameModel( GameModel gameModel, PhysicsColliderCreateDesc colliderDesc, uint32_t replayBodyId )
+PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel,
+                                                     PhysicsColliderCreateDesc colliderDesc,
+                                                     PhysicsSceneObjectId sceneObjectId )
 {
-    return AppendGameModelAndPhysicsRows( std::move( gameModel ), replayBodyId, std::move( colliderDesc ) );
+    return AppendGameModelAndPhysicsRows( std::move( gameModel ), sceneObjectId, std::move( colliderDesc ) );
 }
 
 
 PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel gameModel,
-                                                                      uint32_t replayBodyId,
+                                                                      PhysicsSceneObjectId sceneObjectId,
                                                                       PhysicsColliderCreateDesc colliderDesc )
 {
     const int activeCapacity = ActiveGameModelCapacity();
@@ -491,10 +496,13 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
             "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." );
     }
     AssignRuntimeCollectionFromConstructionName( gameModel, m_gameModels, static_cast<int>( m_gameModels.size() ) );
-    // Invariant: replay identity is body-store metadata, not a GameModel field
-    // or persistent collection sidecar. Append allocates the id once, then the
-    // body/collider/render stores carry it through their dense rows.
-    replayBodyId = ReserveReplayBodyId( replayBodyId );
+    if ( !sceneObjectId.IsValid() )
+    {
+        throw std::runtime_error( "Cannot append model without a scene object id." );
+    }
+    // Invariant: creation identity is scene-owned. Collection appends the model
+    // row and forwards the id once; body/collider/render stores then carry it
+    // through their dense rows without a collection-side allocator or sidecar.
     gameModel.ApplyPhysicsMaterial( m_physicsMaterial );
     gameModel.ApplyBodySimulationLimits( m_bodySimulationLimits );
     gameModel.ApplyContactPolicy( m_contactPolicy );
@@ -508,7 +516,7 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
     }
     m_gameModels.push_back( std::move( gameModel ) );
     const PhysicsBodyHandle bodyHandle =
-        m_physicsEngine.RegisterAuthoredBody( MakeBodyRecordFromAuthoredModel( m_gameModels.back(), replayBodyId ) );
+        m_physicsEngine.RegisterAuthoredBody( MakeBodyRecordFromAuthoredModel( m_gameModels.back(), sceneObjectId ) );
     const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForHandle( bodyHandle );
     assert( bodyRecord != nullptr );
     if ( !bodyRecord )
@@ -539,7 +547,6 @@ void GameModelCollection::Clear()
     m_gameModels.clear();
     m_physicsEngine.Clear();
     m_replayRenderPoseOverrides.clear();
-    m_nextReplayBodyId = 1;
 }
 
 
@@ -1038,7 +1045,6 @@ bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
     {
         m_gameModels.erase( m_gameModels.begin() + static_cast<std::ptrdiff_t>( targetCount ), m_gameModels.end() );
     }
-    RebuildNextReplayBodyIdFromBodyStore( m_physicsEngine.BodyStore() );
     return true;
 }
 

@@ -26,8 +26,12 @@ Related:
 */
 #include "SceneRuntime.h"
 
+#include "../../Physics/PhysicsBodyStore.h"
+
 #include <algorithm>
 #include <cstring>
+#include <limits>
+#include <stdexcept>
 #include <utility>
 
 using namespace SkullbonezCore::Basics;
@@ -98,6 +102,7 @@ void RunSceneState::ResetForLoad( const CinematicRenderConfig& cinematicDefaults
     currentFrame = 0;
     solverBallCount = 0;
     solverBoxCount = 0;
+    nextSceneObjectId = 1;
     timeScale = 1.0f;
     isFixedStep = false;
     isExitOnComplete = false;
@@ -118,6 +123,61 @@ void RunSceneState::ResetForLoad( const CinematicRenderConfig& cinematicDefaults
     cinematicOverrideMask = 0;
     uiCinematicOverrideMask = 0;
     cinematicRender = cinematicDefaults;
+}
+
+
+SkullbonezCore::Physics::PhysicsSceneObjectId RunSceneState::AllocateSceneObjectId()
+{
+    return AllocateSceneObjectIdRange( 1 );
+}
+
+
+SkullbonezCore::Physics::PhysicsSceneObjectId RunSceneState::AllocateSceneObjectIdRange( int count )
+{
+    // Invariant: scene object id 0 means "not assigned." Compound creators
+    // reserve one contiguous range before appending any child bodies so partial
+    // failure cannot interleave another object's replay-facing identity.
+    if ( count <= 0 )
+    {
+        return SkullbonezCore::Physics::PhysicsSceneObjectId{};
+    }
+
+    const uint32_t countValue = static_cast<uint32_t>( count );
+    const uint32_t maxSceneObjectId = ( std::numeric_limits<uint32_t>::max )();
+    if ( nextSceneObjectId == 0 || nextSceneObjectId == maxSceneObjectId ||
+         countValue > maxSceneObjectId - nextSceneObjectId )
+    {
+        throw std::runtime_error( "Scene object id range exhausted." );
+    }
+
+    SkullbonezCore::Physics::PhysicsSceneObjectId first;
+    first.value = nextSceneObjectId;
+    nextSceneObjectId += countValue;
+    return first;
+}
+
+
+void RunSceneState::ResetSceneObjectIdCursor( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
+{
+    // Why: replay restore can trim runtime-spawned bodies, then replay their
+    // creation events. Rebase the scene-owned cursor from live body rows so the
+    // next spawn receives the same id it had in the original timeline.
+    uint32_t nextId = 1;
+    const uint32_t maxSceneObjectId = ( std::numeric_limits<uint32_t>::max )();
+    for ( const SkullbonezCore::Physics::PhysicsBodyRecord& body : bodyStore.Records() )
+    {
+        const uint32_t id = body.sceneObjectId.IsValid() ? body.sceneObjectId.value : body.replayBodyId;
+        if ( id == maxSceneObjectId )
+        {
+            nextId = maxSceneObjectId;
+            break;
+        }
+        if ( id != 0 )
+        {
+            nextId = (std::max)( nextId, id + 1u );
+        }
+    }
+    nextSceneObjectId = nextId;
 }
 
 

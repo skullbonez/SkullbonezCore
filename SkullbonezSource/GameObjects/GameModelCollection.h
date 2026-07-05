@@ -39,14 +39,13 @@ Invariants:
   - m_gameModels is the stable scene-order owner; collaborators mirror or view
     that order rather than replacing it.
   - Replay identity lives in PhysicsBodyStore rows after creation. Collection
-    code owns only the next-id allocator until scene/entity metadata owns body
-    creation directly.
+    code receives scene-owned ids at creation and does not allocate them.
   - Collider shape/material data is imported into ColliderStore at create,
     edit, config, or topology-repair boundaries; the collection does not keep a
     second collider-authoring cache.
-  - Replay body ids are assigned monotonically at the collection boundary and
-    stored on PhysicsBodyStore rows so diagnostics can identify bodies without
-    reopening GameModel.
+  - Replay body ids are derived from scene object ids at creation and stored on
+    PhysicsBodyStore rows so diagnostics can identify bodies without reopening
+    GameModel.
 
 Related:
   - SkullbonezSource/GameObjects/GameModelCollection.cpp
@@ -140,16 +139,13 @@ class GameModelCollection
     Threading::WorkerPool* m_workerPool = nullptr;                     // Borrowed startup worker pool for render/physics parallel helpers.
     bool m_renderCollisionVolumes = false;                             // Cached render debug toggle copied from EngineConfig.
     bool m_shadowParallelPrep = false;                                 // Cached worker-prep toggle copied from EngineConfig.
-    uint32_t m_nextReplayBodyId = 1;                                   // Next stable replay id for newly authored bodies.
     std::vector<ReplayRenderPoseOverride> m_replayRenderPoseOverrides; // Single-frame replay draw-pose requests.
 
-    uint32_t ReserveReplayBodyId( uint32_t requestedReplayBodyId );
     std::vector<uint32_t> BuildReplayBodyIdsForReload( const Physics::PhysicsBodyStore& bodyStore );
-    void RebuildNextReplayBodyIdFromBodyStore( const Physics::PhysicsBodyStore& bodyStore );
     void ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore,
                                          const Physics::ColliderStore& colliderStore );
     Physics::PhysicsBodyHandle AppendGameModelAndPhysicsRows( GameModel gameModel,
-                                                              uint32_t replayBodyId,
+                                                              Physics::PhysicsSceneObjectId sceneObjectId,
                                                               Physics::PhysicsColliderCreateDesc colliderDesc );
 
   public:
@@ -163,8 +159,9 @@ class GameModelCollection
     Threading::WorkerPool* RenderWorkerPool() const;
     // Appends model storage while importing caller-owned collider shape/material
     // facts directly into physics, avoiding a GameModel collider recapture.
-    Physics::PhysicsBodyHandle
-    AddGameModel( GameModel gameModel, Physics::PhysicsColliderCreateDesc colliderDesc, uint32_t replayBodyId = 0 );
+    Physics::PhysicsBodyHandle AddGameModel( GameModel gameModel,
+                                             Physics::PhysicsColliderCreateDesc colliderDesc,
+                                             Physics::PhysicsSceneObjectId sceneObjectId );
     void Clear();
     int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount );
     void RenderModels( const Basics::RenderHelperContext& helperContext,

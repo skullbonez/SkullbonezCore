@@ -43,6 +43,7 @@ Related:
 #include <cfloat>
 #include <cstdio>
 #include <cstring>
+#include <stdexcept>
 
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::GameObjects;
@@ -435,6 +436,12 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
     const Vector3 base = options.terrainPoint + rotation * Vector3( 0.0f, RAGDOLL_SURFACE_EPSILON, 0.0f );
     const char* prefix = options.namePrefix && options.namePrefix[0] ? options.namePrefix : "ragdoll";
     const SimplePartDef* parts = SimpleParts();
+    // Invariant: the caller reserves SIMPLE_PART_COUNT ids as one range so
+    // ragdoll parts append with deterministic, gap-free scene identity.
+    if ( !options.firstSceneObjectId.IsValid() )
+    {
+        throw std::runtime_error( "Ragdoll build requires a scene object id range." );
+    }
 
     for ( int i = 0; i < PART_COUNT; ++i )
     {
@@ -454,11 +461,14 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
         model.SetName( name );
         model.SetRuntimeCollection( GameModelCollectionKind::SimpleRagdoll, firstBody + PART_TORSO, i );
         model.SetFixed( options.fixed );
+        PhysicsSceneObjectId partSceneObjectId;
+        partSceneObjectId.value = options.firstSceneObjectId.value + static_cast<uint32_t>( i );
 
         collection.AddGameModel( std::move( model ),
                                  MakeColliderCreateDesc( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ),
                                                          parts[i].restitution,
-                                                         HashStr( "default" ) ) );
+                                                         HashStr( "default" ) ),
+                                 partSceneObjectId );
     }
 
     int jointCount = 0;

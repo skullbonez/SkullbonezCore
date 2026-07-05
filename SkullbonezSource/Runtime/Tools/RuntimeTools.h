@@ -334,6 +334,7 @@ class RuntimeTools
                                     Math::Vector::Vector3& outDirection,
                                     Math::Vector::Vector3& outCameraUp ) const;
     bool FireLauncherRay( GameObjects::GameModelCollection& collection,
+                          RunSceneState& scene,
                           Environment::WorldEnvironment& world,
                           Geometry::Terrain* terrain,
                           int activeModelCapacity,
@@ -346,6 +347,7 @@ class RuntimeTools
                             const Math::Vector::Vector3& rayDirection,
                             const Math::Vector::Vector3& cameraUp );
     bool FireLauncherProjectile( GameObjects::GameModelCollection& collection,
+                                 RunSceneState& scene,
                                  Environment::WorldEnvironment& world,
                                  Geometry::Terrain* terrain,
                                  int activeModelCapacity,

@@ -73,8 +73,8 @@ struct PhysicsFixedTreeReleaseEvent
 struct PhysicsBodyRecord
 {
     PhysicsBodyHandle handle;                          // Stable body handle resolved through the store maps.
-    PhysicsSceneObjectId sceneObjectId;                // Scene-local id currently mirrored from replay body id.
-    uint32_t replayBodyId = 0;                         // Stable replay-facing body id for this scene.
+    PhysicsSceneObjectId sceneObjectId;                // Scene-local id supplied once by the creation owner.
+    uint32_t replayBodyId = 0;                         // Legacy replay id derived from sceneObjectId for traces/replay.
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
@@ -102,11 +102,12 @@ struct PhysicsBodyRecord
     bool hasPendingImpulse = false;                    // One-shot impulse waiting for the next body integration pass.
 };
 
-// Construction edge: GameModelCollection still authors scene rows, but it
-// supplies replay identity once and converts the just-appended model to this
-// value record so PhysicsEngine receives data, not a GameModel reference.
-// Delete this when scene creation writes PhysicsBodyCreateDesc records directly.
-PhysicsBodyRecord MakeBodyRecordFromAuthoredModel( GameObjects::GameModel& model, uint32_t replayBodyId );
+// Construction edge: GameModelCollection still owns model-order append, while
+// scene/editor creation owns identity and shape facts. This converts the
+// just-appended model to a value record so PhysicsEngine receives data, not a
+// GameModel reference. Delete this when creation writes PhysicsBodyCreateDesc
+// records directly.
+PhysicsBodyRecord MakeBodyRecordFromAuthoredModel( GameObjects::GameModel& model, PhysicsSceneObjectId sceneObjectId );
 
 class PhysicsBodyStore
 {

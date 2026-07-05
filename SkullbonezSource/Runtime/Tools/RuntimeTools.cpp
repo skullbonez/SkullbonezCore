@@ -50,6 +50,7 @@ Related:
 #include "../../Physics/PhysicsEngine.h"
 #include "../CameraCollection.h"
 #include "../Replay/ReplayRecorder.h"
+#include "../Scene/SceneRuntime.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
 
@@ -408,6 +409,7 @@ bool RuntimeTools::TryBuildLauncherCameraRay( Environment::CameraCollection* cam
 }
 
 bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection,
+                                    RunSceneState& scene,
                                     Environment::WorldEnvironment& world,
                                     Geometry::Terrain* terrain,
                                     int activeModelCapacity,
@@ -418,6 +420,7 @@ bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection
     if ( m_rayCastTest.fireMode == RunLauncherFireMode::Projectile )
     {
         return FireLauncherProjectile( collection,
+                                       scene,
                                        world,
                                        terrain,
                                        activeModelCapacity,
@@ -490,6 +493,7 @@ void RuntimeTools::FireLauncherLaser( GameObjects::GameModelCollection& collecti
 }
 
 bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& collection,
+                                           RunSceneState& scene,
                                            Environment::WorldEnvironment& world,
                                            Geometry::Terrain* terrain,
                                            int activeModelCapacity,
@@ -561,7 +565,8 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
             Math::CollisionDetection::BoundingSphere( LAUNCHER_PROJECTILE_RADIUS,
                                                       Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) ),
             LAUNCHER_PROJECTILE_RESTITUTION,
-            HashStr( "default" ) ) );
+            HashStr( "default" ) ),
+        scene.AllocateSceneObjectId() );
     if ( projectileBody.IsValid() )
     {
         collection.GetPhysicsEngine().WakeBody( projectileBody );

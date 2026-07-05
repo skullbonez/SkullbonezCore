@@ -138,7 +138,10 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         // placement result reports only the before/after count.
         model.SetFixed( modelFixed );
         const int index = context.models.GetModelCount();
-        lastPlacedBody = context.models.AddGameModel( std::move( model ), std::move( colliderDesc ) );
+        lastPlacedBody = context.models.AddGameModel(
+            std::move( model ),
+            std::move( colliderDesc ),
+            context.scene.AllocateSceneObjectId() );
         lastPlacedModelIndex = index;
         if ( !modelFixed )
         {
@@ -458,6 +461,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         options.scale = placementScale.x;
         options.fixed = placementFixed;
         options.startsAsleep = ragdollStartsAsleep && !placementFixed;
+        options.firstSceneObjectId = context.scene.AllocateSceneObjectIdRange( Ragdoll::SIMPLE_PART_COUNT );
         Ragdoll::AddSimpleHumanoid( context.models,
                                     context.models.GetPhysicsEngine(),
                                     context.world,

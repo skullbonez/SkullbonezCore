@@ -179,7 +179,8 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
 
             const PhysicsBodyHandle body =
                 context.models.AddGameModel( std::move( gameModel ),
-                                             MakeGeneratedBoxColliderDesc( Vector3( hx, hy, hz ), restitution ) );
+                                             MakeGeneratedBoxColliderDesc( Vector3( hx, hy, hz ), restitution ),
+                                             context.scene.AllocateSceneObjectId() );
             context.physics.SetPendingBodyImpulse( body, force, forcePos );
         }
         else
@@ -198,7 +199,8 @@ void SceneGeneratedSetup::SetUpGameModels( SceneGeneratedModelContext context, i
 
             const PhysicsBodyHandle body =
                 context.models.AddGameModel( std::move( gameModel ),
-                                             MakeGeneratedSphereColliderDesc( radius, restitution ) );
+                                             MakeGeneratedSphereColliderDesc( radius, restitution ),
+                                             context.scene.AllocateSceneObjectId() );
             context.physics.SetPendingBodyImpulse( body, force, forcePos );
         }
     }
@@ -262,7 +264,8 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         gameModel.AddBoundingSphere( radius );
         const PhysicsBodyHandle body =
             context.models.AddGameModel( std::move( gameModel ),
-                                         MakeGeneratedSphereColliderDesc( radius, restitution ) );
+                                         MakeGeneratedSphereColliderDesc( radius, restitution ),
+                                         context.scene.AllocateSceneObjectId() );
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
     }
 
@@ -300,7 +303,8 @@ void SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context
         gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
         const PhysicsBodyHandle body =
             context.models.AddGameModel( std::move( gameModel ),
-                                         MakeGeneratedBoxColliderDesc( Vector3( hx, hy, hz ), restitution ) );
+                                         MakeGeneratedBoxColliderDesc( Vector3( hx, hy, hz ), restitution ),
+                                         context.scene.AllocateSceneObjectId() );
         context.physics.SetPendingBodyImpulse( body, force, forcePos );
     }
 

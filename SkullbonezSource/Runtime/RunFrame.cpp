@@ -1281,6 +1281,7 @@ void Run::TickReplaySaveProbe()
                 m_runtimeTools.RayCastTest().projectileSpeed,
                 m_cGameModelCollection.GetModelCount() );
             if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
+                                                 SceneState(),
                                                  m_cWorldEnvironment,
                                                  m_systems.terrain.get(),
                                                  ActiveGameModelCapacity(),
@@ -1806,6 +1807,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             m_runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value1 );
             m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value2 );
             if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
+                                                 SceneState(),
                                                  m_cWorldEnvironment,
                                                  m_systems.terrain.get(),
                                                  ActiveGameModelCapacity(),

@@ -67,6 +67,7 @@ using SkullbonezCore::Physics::PHYSICS_HANDLE_INITIAL_GENERATION;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Physics::PhysicsWorldForces;
 
 namespace
@@ -1105,11 +1106,12 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models,
 }
 
 
-PhysicsBodyRecord SkullbonezCore::Physics::MakeBodyRecordFromAuthoredModel( GameModel& model, uint32_t replayBodyId )
+PhysicsBodyRecord SkullbonezCore::Physics::MakeBodyRecordFromAuthoredModel( GameModel& model,
+                                                                            PhysicsSceneObjectId sceneObjectId )
 {
     PhysicsBodyRecord record;
-    record.replayBodyId = replayBodyId;
-    record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
+    record.sceneObjectId = sceneObjectId;
+    record.replayBodyId = sceneObjectId.value;
     CaptureMutableBodyState( model, record );
     return record;
 }

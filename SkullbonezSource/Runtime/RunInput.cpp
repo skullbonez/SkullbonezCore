@@ -679,6 +679,7 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
                 m_runtimeTools.RayCastTest().projectileSpeed,
                 m_cGameModelCollection.GetModelCount() );
             if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
+                                                 SceneState(),
                                                  m_cWorldEnvironment,
                                                  m_systems.terrain.get(),
                                                  ActiveGameModelCapacity(),

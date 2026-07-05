@@ -3,25 +3,50 @@
 Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
-Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_physics.bat` passed on 2026-07-05 after deleting the persistent
-`GameModelCollection` replay-id sidecar and keeping stable replay identity on
-`PhysicsBodyStore` rows. Runtime boundaries reported 0 errors,
-standalone/runtime physics smoke passed with `collider_refresh=pass`, and
-`physics_regression_solver.csv` was a byte-exact 20,001-line match.
+Validation for latest source slice: `tools\validate_full.bat` passed on
+2026-07-05 after moving creation identity to `RunSceneState` and deleting the
+remaining `GameModelCollection` replay-id allocator. Runtime boundaries reported
+0 errors, Profile/Debug builds were 0 warnings/errors, DX12 InfoQueue reported
+0 errors, screenshots matched baselines, and `physics_regression_solver.csv` was
+a byte-exact 20,001-line match.
 
 ## Completed Slices
 
+- [x] 2026-07-05: Deleted the remaining `GameModelCollection` replay-id
+  allocator. Scene/editor/runtime creation now allocates
+  `PhysicsSceneObjectId` values from `RunSceneState` and passes them into
+  `GameModelCollection::AddGameModel()`; ragdoll reserves a caller-owned
+  contiguous range, launcher projectiles allocate from scene state, and replay
+  restore re-bases the scene cursor from `PhysicsBodyStore` rows after trimming.
+  `GameModelCollection` no longer has `m_nextReplayBodyId`,
+  `ReserveReplayBodyId()`, `RebuildNextReplayBodyIdFromBodyStore()`, or an
+  optional replay-id append signature. It appends model order and forwards the
+  caller-supplied scene id into body/collider rows. Owner: `RunSceneState` owns
+  per-load creation identity; `PhysicsBodyStore` owns stored scene/replay ids
+  after append; `GameModelCollection` owns neither allocator. Reason: collection
+  allocation was a contrived migration artifact that hid scene object identity
+  behind the model container and made replay rewind cursor drift likely.
+  Deletion condition: source contains no collection replay-id cursor, reserve
+  helper, rebuild helper, or optional `AddGameModel(..., uint32_t replayBodyId)`
+  shape; local cold reload scratch remains local to topology repair. Checker
+  budget: `tools/check_runtime_boundaries.py` rejects the deleted allocator and
+  old append signature while allowing local reload scratch. Validation:
+  `git diff --check`, boundary-checker Python compile, workqueue CSV parse,
+  runtime boundaries with 0 errors, focused Profile build with 0 warnings/errors,
+  `tools\validate_format.bat`, and touched-source comment audit passed;
+  `tools\validate_full.bat` passed Project Filters/runtime boundaries,
+  Profile/Debug builds at 0 warnings/errors, DX12 InfoQueue 0 errors, screenshots
+  matching baselines, and byte-exact 20,001-line `physics_regression_solver.csv`.
 - [x] 2026-07-05: Deleted the persistent `GameModelCollection` replay-id
   sidecar. Replay identity now lives in `PhysicsBodyStore` rows after append;
-  the collection keeps only the next-id allocator for newly authored bodies and
-  builds a local scratch id stream during cold body reload/topology repair by
-  reading existing body-store rows plus allocating ids for genuinely missing
-  rows. Main-memory diagnostics no longer report collection replay-id bytes.
+  the follow-up scene-owned creation slice deleted the temporary collection
+  allocator, leaving only a local scratch id stream during cold body
+  reload/topology repair by reading existing body-store rows plus assigning ids
+  for genuinely missing legacy rows. Main-memory diagnostics no longer report
+  collection replay-id bytes.
   Owner: `PhysicsBodyStore` owns persistent body replay identity after
-  creation; `GameModelCollection` temporarily owns id allocation at the
-  construction/reload boundary until scene/entity metadata owns body creation
-  directly. Reason: the old dense sidecar duplicated a store-owned scalar in
+  creation; `RunSceneState` owns live creation id allocation after the follow-up
+  slice. Reason: the old dense sidecar duplicated a store-owned scalar in
   scene order and made it easy to keep a cache-hostile migration artifact alive
   under a compatibility name. Deletion condition: `SkullbonezSource` contains no
   persistent collection replay-id sidecar or replay-id memory-stat field, and
@@ -1213,8 +1238,11 @@ Scene/editor/replay metadata should not force physics or render ownership to sta
     `GameModel`.
   - [x] 2026-07-05 creation/import replay identity no longer lives in
     `GameModel`; the temporary collection sidecar was later deleted, so
-    persistent replay ids now live on `PhysicsBodyStore` rows after append while
-    collection code only allocates ids at creation/reload boundaries.
+    persistent replay ids now live on `PhysicsBodyStore` rows after append.
+  - [x] 2026-07-05 live creation identity no longer lives in
+    `GameModelCollection`; `RunSceneState` allocates `PhysicsSceneObjectId`
+    values for scene/editor/runtime append paths and re-bases its cursor from
+    `PhysicsBodyStore` rows after replay restore trims.
 - [ ] Update scene load to create metadata, body, collider, and render records through one coordinated creation path.
   - [x] 2026-07-05 authored scene load no longer asks `GameModel` to interpret
     scene Euler degrees or return a cached orientation for hull setup; this is

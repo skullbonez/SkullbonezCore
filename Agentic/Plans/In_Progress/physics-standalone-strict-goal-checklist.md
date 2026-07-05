@@ -2265,8 +2265,9 @@ and
 Slice `PHY-1068`: persistent replay identity now belongs to
 `PhysicsBodyStore` rows after append instead of a `GameModelCollection`
 scene-order sidecar. Owner: `PhysicsBodyStore` owns stored replay ids and
-`GameModelCollection` owns only temporary id allocation at creation/reload
-boundaries; reason: the deleted sidecar duplicated a store-owned scalar, added
+`GameModelCollection` retained only the explicit follow-up allocator/reload
+scratch that `PHY-1069` removes; reason: the deleted sidecar duplicated a
+store-owned scalar, added
 memory/stat surface area, and made the migration look cleaner than it was while
 still carrying collection-order authority; deletion condition:
 `SkullbonezSource` has no persistent collection replay-id sidecar or replay-id
@@ -2291,6 +2292,31 @@ standalone/runtime handle smoke with `collider_refresh=pass` and byte-exact
 `TestOutput\validation\physics_store_authority\validate_fast_replay_id_store_authority.log`
 and
 `TestOutput\validation\physics_store_authority\validate_physics_replay_id_store_authority.log`.
+
+Slice `PHY-1069`: scene/editor/runtime creation now owns body/collider scene
+identity, and `GameModelCollection` no longer has a replay-id allocator. Owner:
+`RunSceneState` owns the per-load `PhysicsSceneObjectId` cursor and re-bases it
+from `PhysicsBodyStore` rows after replay restore trims; `GameModelCollection`
+only appends model order and forwards the caller-supplied id to the body and
+collider rows. Reason: collection-side `ReserveReplayBodyId` was a migration
+artifact that kept creation identity hidden behind the model container and could
+drift after replay rewinds if moved naively. Deletion condition:
+`SkullbonezSource` has no `m_nextReplayBodyId`,
+`ReserveReplayBodyId`, `RebuildNextReplayBodyIdFromBodyStore`, or optional
+`AddGameModel(..., uint32_t replayBodyId)` shape; ragdoll consumes a caller
+reserved contiguous id range; runtime projectiles allocate from scene state; and
+checker budget: `tools/check_runtime_boundaries.py` rejects the deleted allocator
+and old append signature while allowing local cold reload scratch.
+
+Evidence: `git diff --check`, boundary-checker Python compile, workqueue CSV
+parse, and runtime-boundary validation passed with 0 errors; focused Profile
+build passed with 0 warnings/errors after one namespace fix; `tools\validate_format.bat`
+passed after targeted formatting/header alignment; touched-source comment audit
+inspected all touched source/tool files; `tools\validate_full.bat` passed Project
+Filters/runtime boundaries, Profile and Debug builds at 0 warnings/errors, DX12
+InfoQueue 0 errors, DX12 screenshots matching baselines, and byte-exact
+20,001-line `physics_regression_solver.csv`. Log:
+`TestOutput\validation\physics_store_authority\validate_full_scene_owned_identity.log`.
 
 ## Required Evidence For Each Source Slice
 

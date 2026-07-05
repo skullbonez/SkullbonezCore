@@ -998,6 +998,7 @@ bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, c
         writeReason( "failed to trim live model list" );
         return false;
     }
+    SceneState().ResetSceneObjectIdCursor( m_cGameModelCollection.GetPhysicsEngine().BodyStore() );
 
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
