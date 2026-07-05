@@ -5,9 +5,9 @@ Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
 intermittent `tools\validate_physics.bat` passed on 2026-07-05 after moving
-editor selection commands and editor state to carry `PhysicsBodyHandle` /
-`PhysicsColliderHandle` identity, with stale-handle clearing and a boundary
-checker that blocks model-index-only selection from returning.
+editor selection frame, overlay, and gizmo selected-member reads to stored
+`PhysicsBodyHandle` / `PhysicsColliderHandle` identity. Ragdoll/group siblings
+still use model-order metadata until scene/entity grouping leaves `GameModel`.
 
 ## Completed Slices
 
@@ -374,6 +374,23 @@ checker that blocks model-index-only selection from returning.
   `tools\validate_physics.bat` passed on 2026-07-05; physics regression reported
   standalone/runtime handle smoke pass and byte-exact
   `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved editor selection frame, overlay, and gizmo
+  selected-member resolution to stored body/collider handles. Owner: runtime
+  editor selection/gizmo frame helpers. Reason: the previous store-backed
+  helpers still rediscovered the selected object through
+  `HandleForModelIndex(selectedModelIndex)`, which kept model order as hidden
+  physics identity for hit testing, drag-start snapshots, and overlay outlines.
+  Deletion condition: selected-member frame/overlay helpers receive
+  `selectedBody`/`selectedCollider`, validate those handles against the model
+  hint before reading store rows, and use model-index lookup only for unselected
+  group members whose grouping metadata still lives in `GameModel`. Checker
+  budget: `tools/check_runtime_boundaries.py` blocks helper signatures/calls
+  that omit selected handles and self-tests the old handleless store path.
+  Validation: `git diff --check`, `python -m py_compile tools\check_runtime_boundaries.py`,
+  `python tools\check_runtime_boundaries.py --repo .`, focused Debug build,
+  `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
+  passed on 2026-07-05; physics regression reported standalone/runtime handle
+  smoke pass and byte-exact `physics_regression_solver.csv`.
 
 ## Goal
 
@@ -555,6 +572,11 @@ Create durable handles before moving ownership. The stores cannot be authoritati
   and attached-camera inspect selection; `RunEditorPlacementState` stores those
   handles beside the model-index UI hint, and preview clearing rejects stale
   handle/index pairings before gizmo code can touch them.
+- [x] 2026-07-05 editor selection frame, overlay, and gizmo helpers use the
+  stored selected body/collider handles for the selected member instead of
+  rediscovering it from `selectedModelIndex`; group siblings still resolve from
+  model-order grouping metadata until Phase 5 moves grouping to scene/entity
+  metadata.
 - [x] Delete the temporary model-index adapter once old call boundaries move to
   append-time handles or owner-side body-store lookup.
   - [x] 2026-06-28 adapter slice keeps the temporary model-index command bridge
@@ -697,6 +719,8 @@ Scene/editor/replay metadata should not force physics or render ownership to sta
 - [ ] Move collection grouping and hierarchy/root information to scene/entity metadata.
 - [ ] Move asset instance identity to scene/entity metadata.
 - [x] Move editor selection identity to stable body/collider handles.
+  - [x] 2026-07-05 editor selection frame and overlay reads validate the stored
+    body/collider handles for the selected member before touching store rows.
   - [ ] Move editor selection metadata to stable scene/entity identity once
     object names, grouping, duplication, and save/load metadata leave
     `GameModel`.

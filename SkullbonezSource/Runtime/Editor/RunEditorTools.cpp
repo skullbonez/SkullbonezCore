@@ -541,9 +541,12 @@ int GatherSelectedEditorTransformGroup( const std::vector<GameModel>& models,
 }
 
 
-const PhysicsBodyRecord* TryResolveEditorBodyRecord( const PhysicsBodyStore& bodyStore, int modelIndex )
+const PhysicsBodyRecord*
+TryResolveEditorBodyRecord( const PhysicsBodyStore& bodyStore, PhysicsBodyHandle bodyHandle, int modelIndex )
 {
-    const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
+    // Invariant: editor selection carries the handle as live physics identity.
+    // The model index is a UI/grouping hint and must agree before callers read
+    // the dense store row.
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
     if ( !body || bodyStore.ModelIndexForHandle( bodyHandle ) != modelIndex )
     {
@@ -553,18 +556,24 @@ const PhysicsBodyRecord* TryResolveEditorBodyRecord( const PhysicsBodyStore& bod
 }
 
 
+const PhysicsBodyRecord* TryResolveEditorBodyRecord( const PhysicsBodyStore& bodyStore, int modelIndex )
+{
+    return TryResolveEditorBodyRecord( bodyStore, bodyStore.HandleForModelIndex( modelIndex ), modelIndex );
+}
+
+
 bool TryResolveEditorBodyCollider( const PhysicsBodyStore& bodyStore,
                                    const ColliderStore& colliderStore,
+                                   PhysicsBodyHandle bodyHandle,
+                                   PhysicsColliderHandle colliderHandle,
                                    int modelIndex,
                                    const PhysicsBodyRecord*& outBody,
                                    const ColliderRecord*& outCollider )
 {
-    const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
-    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
     const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
     if ( !body || !collider || bodyStore.ModelIndexForHandle( bodyHandle ) != modelIndex ||
-         collider->body != bodyHandle )
+         colliderStore.ModelIndexForHandle( colliderHandle ) != modelIndex || collider->body != bodyHandle )
     {
         outBody = nullptr;
         outCollider = nullptr;
@@ -577,9 +586,27 @@ bool TryResolveEditorBodyCollider( const PhysicsBodyStore& bodyStore,
 }
 
 
+bool TryResolveEditorBodyCollider( const PhysicsBodyStore& bodyStore,
+                                   const ColliderStore& colliderStore,
+                                   int modelIndex,
+                                   const PhysicsBodyRecord*& outBody,
+                                   const ColliderRecord*& outCollider )
+{
+    return TryResolveEditorBodyCollider( bodyStore,
+                                         colliderStore,
+                                         bodyStore.HandleForModelIndex( modelIndex ),
+                                         colliderStore.HandleForModelIndex( modelIndex ),
+                                         modelIndex,
+                                         outBody,
+                                         outCollider );
+}
+
+
 bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
                                  const PhysicsBodyStore& bodyStore,
                                  const ColliderStore& colliderStore,
+                                 PhysicsBodyHandle selectedBodyHandle,
+                                 PhysicsColliderHandle selectedColliderHandle,
                                  int selectedIndex,
                                  Vector3& outOrigin,
                                  float& outRadius,
@@ -604,7 +631,18 @@ bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
         const int modelIndex = indices[static_cast<std::size_t>( i )];
         const PhysicsBodyRecord* body = nullptr;
         const ColliderRecord* collider = nullptr;
-        if ( !TryResolveEditorBodyCollider( bodyStore, colliderStore, modelIndex, body, collider ) )
+        const bool selectedMember = modelIndex == selectedIndex;
+        const PhysicsBodyHandle bodyHandle =
+            selectedMember ? selectedBodyHandle : bodyStore.HandleForModelIndex( modelIndex );
+        const PhysicsColliderHandle colliderHandle =
+            selectedMember ? selectedColliderHandle : colliderStore.HandleForModelIndex( modelIndex );
+        if ( !TryResolveEditorBodyCollider( bodyStore,
+                                            colliderStore,
+                                            bodyHandle,
+                                            colliderHandle,
+                                            modelIndex,
+                                            body,
+                                            collider ) )
         {
             return false;
         }
@@ -639,6 +677,8 @@ bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
 bool TryTraceEditorSelectionOverlayFromStores( const std::vector<GameModel>& models,
                                                const PhysicsBodyStore& bodyStore,
                                                const ColliderStore& colliderStore,
+                                               PhysicsBodyHandle selectedBodyHandle,
+                                               PhysicsColliderHandle selectedColliderHandle,
                                                int selectedIndex,
                                                RunEditorTracer& tracer,
                                                Vector3& outOrigin,
@@ -661,7 +701,18 @@ bool TryTraceEditorSelectionOverlayFromStores( const std::vector<GameModel>& mod
         const int modelIndex = indices[static_cast<std::size_t>( i )];
         const PhysicsBodyRecord* body = nullptr;
         const ColliderRecord* collider = nullptr;
-        if ( !TryResolveEditorBodyCollider( bodyStore, colliderStore, modelIndex, body, collider ) )
+        const bool selectedMember = modelIndex == selectedIndex;
+        const PhysicsBodyHandle bodyHandle =
+            selectedMember ? selectedBodyHandle : bodyStore.HandleForModelIndex( modelIndex );
+        const PhysicsColliderHandle colliderHandle =
+            selectedMember ? selectedColliderHandle : colliderStore.HandleForModelIndex( modelIndex );
+        if ( !TryResolveEditorBodyCollider( bodyStore,
+                                            colliderStore,
+                                            bodyHandle,
+                                            colliderHandle,
+                                            modelIndex,
+                                            body,
+                                            collider ) )
         {
             return false;
         }
@@ -718,7 +769,9 @@ void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
     {
         const int index = indices[static_cast<std::size_t>( i )];
         editor.gizmoDragGroupIndices[static_cast<std::size_t>( i )] = index;
-        const PhysicsBodyRecord* body = TryResolveEditorBodyRecord( bodyStore, index );
+        const PhysicsBodyHandle bodyHandle =
+            index == editor.selectedModelIndex ? editor.selectedBody : bodyStore.HandleForModelIndex( index );
+        const PhysicsBodyRecord* body = TryResolveEditorBodyRecord( bodyStore, bodyHandle, index );
         if ( !body )
         {
             editor.gizmoDragGroupCount = 0;
@@ -1288,6 +1341,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                     const ColliderRecord* selectedCollider = nullptr;
                     if ( TryResolveEditorBodyCollider( bodyStore,
                                                        colliderStore,
+                                                       m_runtimeTools.Editor().selectedBody,
+                                                       m_runtimeTools.Editor().selectedCollider,
                                                        selectedModelIndex,
                                                        selectedBody,
                                                        selectedCollider ) )
@@ -1348,7 +1403,9 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                     else
                     {
                         const PhysicsBodyRecord* selectedBody =
-                            TryResolveEditorBodyRecord( bodyStore, selectedModelIndex );
+                            TryResolveEditorBodyRecord( bodyStore,
+                                                        m_runtimeTools.Editor().selectedBody,
+                                                        selectedModelIndex );
                         if ( !selectedBody )
                         {
                             CancelEditorGizmoDragState(
@@ -1414,6 +1471,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 const ColliderRecord* selectedCollider = nullptr;
                 if ( !TryResolveEditorBodyCollider( bodyStore,
                                                     colliderStore,
+                                                    m_runtimeTools.Editor().selectedBody,
+                                                    m_runtimeTools.Editor().selectedCollider,
                                                     m_runtimeTools.Editor().selectedModelIndex,
                                                     selectedBody,
                                                     selectedCollider ) )
@@ -1479,7 +1538,9 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
                 const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
                 const PhysicsBodyRecord* selectedBody =
-                    TryResolveEditorBodyRecord( bodyStore, m_runtimeTools.Editor().selectedModelIndex );
+                    TryResolveEditorBodyRecord( bodyStore,
+                                                m_runtimeTools.Editor().selectedBody,
+                                                m_runtimeTools.Editor().selectedModelIndex );
                 if ( !selectedBody )
                 {
                     CancelEditorGizmoDragState( gizmoContext );
@@ -1490,6 +1551,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                 if ( !TryGetEditorSelectionFrame( models,
                                                   bodyStore,
                                                   colliderStore,
+                                                  m_runtimeTools.Editor().selectedBody,
+                                                  m_runtimeTools.Editor().selectedCollider,
                                                   m_runtimeTools.Editor().selectedModelIndex,
                                                   selectionOrigin,
                                                   selectionRadius ) )
@@ -1517,12 +1580,16 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
             const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
             const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
             const PhysicsBodyRecord* selectedBody =
-                TryResolveEditorBodyRecord( bodyStore, m_runtimeTools.Editor().selectedModelIndex );
+                TryResolveEditorBodyRecord( bodyStore,
+                                            m_runtimeTools.Editor().selectedBody,
+                                            m_runtimeTools.Editor().selectedModelIndex );
             Vector3 selectionOrigin;
             float selectionRadius = 1.0f;
             const bool haveSelectionFrame = TryGetEditorSelectionFrame( models,
                                                                         bodyStore,
                                                                         colliderStore,
+                                                                        m_runtimeTools.Editor().selectedBody,
+                                                                        m_runtimeTools.Editor().selectedCollider,
                                                                         m_runtimeTools.Editor().selectedModelIndex,
                                                                         selectionOrigin,
                                                                         selectionRadius );

@@ -81,7 +81,8 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
                                 collider->body == context.editor.selectedBody;
     }
 
-    if ( context.editor.selectedModelIndex >= context.models.GetModelCount() || ( hasSelection && !selectionHandlesValid ) )
+    if ( context.editor.selectedModelIndex >= context.models.GetModelCount() ||
+         ( hasSelection && !selectionHandlesValid ) )
     {
         // Invariant: Selection stores handles plus a model-index hint. If
         // topology invalidates either side, clear through the interaction
@@ -143,6 +144,8 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
         if ( TryTraceEditorSelectionOverlayFromStores( models,
                                                        context.bodyStore,
                                                        context.colliderStore,
+                                                       context.editor.selectedBody,
+                                                       context.editor.selectedCollider,
                                                        context.editor.selectedModelIndex,
                                                        context.tracer,
                                                        gizmoOrigin,
@@ -199,7 +202,8 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
         const PhysicsColliderHandle colliderHandle =
             context.colliderStore.HandleForModelIndex( input.attachedCameraTargetIndex );
         const ColliderRecord* collider = context.colliderStore.RecordForHandle( colliderHandle );
-        if ( body && collider && context.bodyStore.ModelIndexForHandle( bodyHandle ) == input.attachedCameraTargetIndex &&
+        if ( body && collider &&
+             context.bodyStore.ModelIndexForHandle( bodyHandle ) == input.attachedCameraTargetIndex &&
              collider->body == bodyHandle )
         {
             // Why: attached-camera follow is already store-backed; its overlay

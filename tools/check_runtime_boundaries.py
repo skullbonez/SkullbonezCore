@@ -695,6 +695,7 @@ SELECTION_OVERLAY_MODEL_FRAME_PATTERN = re.compile(
     r"(?:models\s*\[|context\s*\.\s*models\s*\.\s*Models\s*\(\s*\)\s*\[|(?:model|selected|target)\b)"
 )
 EDITOR_SELECTION_FRAME_FUNCTION_PATTERN = re.compile(r"\bbool\s+TryGetEditorSelectionFrame\s*\(")
+EDITOR_SELECTION_OVERLAY_FUNCTION_PATTERN = re.compile(r"\bbool\s+TryTraceEditorSelectionOverlayFromStores\s*\(")
 EDITOR_GIZMO_DRAG_CAPTURE_FUNCTION_PATTERN = re.compile(r"\bvoid\s+CaptureEditorGizmoDragGroupState\s*\(")
 EDITOR_SELECTION_FRAME_MODEL_ONLY_SIGNATURE_PATTERN = re.compile(
     r"\bbool\s+TryGetEditorSelectionFrame\s*\(\s*const\s+std\s*::\s*vector\s*<\s*"
@@ -711,6 +712,11 @@ EDITOR_SELECTION_FRAME_MODEL_ONLY_CALL_PATTERN = re.compile(
     r"\s*,\s*"
     r"(?:context\s*\.\s*editor\s*\.\s*selectedModelIndex|"
     r"m_runtimeTools\s*\.\s*Editor\s*\(\s*\)\s*\.\s*selectedModelIndex)",
+    re.DOTALL,
+)
+EDITOR_SELECTION_FRAME_HANDLELESS_STORE_CALL_PATTERN = re.compile(
+    r"\b(?:TryGetEditorSelectionFrame|TryTraceEditorSelectionOverlayFromStores)\s*\("
+    r"(?P<call>[^;]*?selectedModelIndex[^;]*?)\)",
     re.DOTALL,
 )
 RUNTIME_INTERACTION_EXECUTE_COMMAND_PATTERN = re.compile(r"\bbool\s+Run\s*::\s*ExecuteRuntimeInteractionCommand\s*\(")
@@ -4846,6 +4852,32 @@ def check_editor_selection_frame_store_authority_guardrails_text(path: Path, tex
 
         for function_pattern in (
             EDITOR_SELECTION_FRAME_FUNCTION_PATTERN,
+            EDITOR_SELECTION_OVERLAY_FUNCTION_PATTERN,
+        ):
+            function_match = function_pattern.search(stripped)
+            if not function_match:
+                continue
+            open_brace = stripped.find("{", function_match.end())
+            if open_brace < 0:
+                continue
+            signature = stripped[function_match.start():open_brace]
+            if "PhysicsBodyHandle selectedBodyHandle" not in signature or (
+                "PhysicsColliderHandle selectedColliderHandle" not in signature
+            ):
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, function_match.start()),
+                        "editor selection frame must receive selected handles",
+                        (
+                            "Selection frame and overlay helpers must receive the selected body/collider handles "
+                            "and only use model-index lookup for unselected group members."
+                        ),
+                    )
+                )
+
+        for function_pattern in (
+            EDITOR_SELECTION_FRAME_FUNCTION_PATTERN,
             EDITOR_GIZMO_DRAG_CAPTURE_FUNCTION_PATTERN,
         ):
             bounds = _function_body_bounds(stripped, function_pattern)
@@ -4877,6 +4909,21 @@ def check_editor_selection_frame_store_authority_guardrails_text(path: Path, tex
                 ),
             )
         )
+
+    for match in EDITOR_SELECTION_FRAME_HANDLELESS_STORE_CALL_PATTERN.finditer(stripped):
+        call = match.group("call")
+        if "selectedBody" not in call or "selectedCollider" not in call:
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "editor selection frame call must pass selected handles",
+                    (
+                        "Store-backed selection frame calls must pass selectedBody and selectedCollider so the "
+                        "selected object is validated through its live handles, not rediscovered from model order."
+                    ),
+                )
+            )
 
     return errors
 
@@ -14444,7 +14491,7 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old editor gizmo model-only frame call synthetic surface was not rejected")
 
-    allowed_editor_selection_frame_store_reads = """
+    old_editor_frame_store_without_handles = """
     bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
                                      const PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
@@ -14453,7 +14500,47 @@ def run_self_tests() -> list[str]:
                                      float& outRadius )
     {
         const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( selectedIndex );
-        const ColliderRecord* collider = colliderStore.RecordForHandle( colliderStore.HandleForModelIndex( selectedIndex ) );
+        outOrigin = body->position;
+        return true;
+    }
+    int HitEditorGizmoAxis( EditorGizmoContext context, const Vector3& rayOrigin, const Vector3& rayDirection )
+    {
+        Vector3 origin;
+        float radius = 1.0f;
+        if ( !TryGetEditorSelectionFrame( context.models.Models(), bodyStore, colliderStore, context.editor.selectedModelIndex, origin, radius ) )
+        {
+            return -1;
+        }
+        return 0;
+    }
+    """
+    old_editor_frame_handle_errors = check_editor_selection_frame_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+        old_editor_frame_store_without_handles,
+    )
+    if not any(
+        error.message == "editor selection frame must receive selected handles"
+        for error in old_editor_frame_handle_errors
+    ):
+        failures.append("old editor selection frame store-only signature synthetic surface was not rejected")
+    if not any(
+        error.message == "editor selection frame call must pass selected handles"
+        for error in old_editor_frame_handle_errors
+    ):
+        failures.append("old editor selection frame store-only call synthetic surface was not rejected")
+
+    allowed_editor_selection_frame_store_reads = """
+    bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
+                                     const PhysicsBodyStore& bodyStore,
+                                     const ColliderStore& colliderStore,
+                                     PhysicsBodyHandle selectedBodyHandle,
+                                     PhysicsColliderHandle selectedColliderHandle,
+                                     int selectedIndex,
+                                     Vector3& outOrigin,
+                                     float& outRadius )
+    {
+        const PhysicsBodyRecord* body = bodyStore.RecordForHandle( selectedBodyHandle );
+        const ColliderRecord* collider = colliderStore.RecordForHandle( selectedColliderHandle );
         outOrigin = body->position;
         outRadius = EditorColliderRadius( *collider );
         return true;
@@ -14466,7 +14553,14 @@ def run_self_tests() -> list[str]:
         const ColliderStore& colliderStore = context.models.GetColliderStore();
         Vector3 origin;
         float radius = 1.0f;
-        if ( !TryGetEditorSelectionFrame( models, bodyStore, colliderStore, context.editor.selectedModelIndex, origin, radius ) )
+        if ( !TryGetEditorSelectionFrame( models,
+                                          bodyStore,
+                                          colliderStore,
+                                          context.editor.selectedBody,
+                                          context.editor.selectedCollider,
+                                          context.editor.selectedModelIndex,
+                                          origin,
+                                          radius ) )
         {
             return -1;
         }
