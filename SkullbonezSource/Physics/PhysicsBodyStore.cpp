@@ -62,6 +62,7 @@ using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::VectorMagSquared;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
 using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderRecordList;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PHYSICS_HANDLE_INITIAL_GENERATION;
@@ -69,7 +70,10 @@ using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
+using SkullbonezCore::Physics::PhysicsBodyRecordList;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsFixedList;
+using SkullbonezCore::Physics::PhysicsHandleAssignmentMask;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Physics::PhysicsWorldForces;
 
@@ -96,6 +100,8 @@ struct PreservedRefreshState
     bool hasState = false;
 };
 
+using PreservedRefreshStateList = PhysicsFixedList<PreservedRefreshState, MAX_GAME_MODELS>;
+
 float PositiveInverseOrZero( float value )
 {
     return value > 0.000001f ? 1.0f / value : 0.0f;
@@ -110,7 +116,7 @@ Vector3 PositiveComponentInverseOrZero( const Vector3& value )
 
 const ColliderRecord* ColliderRecordForModelIndex( const ColliderStore& colliderStore, int modelIndex )
 {
-    const std::vector<ColliderRecord>& colliders = colliderStore.Records();
+    const ColliderRecordList& colliders = colliderStore.Records();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( colliders.size() ) )
     {
         return nullptr;
@@ -283,10 +289,11 @@ uint32_t NextHandleGeneration( uint32_t generation )
     return generation == 0u ? PHYSICS_HANDLE_INITIAL_GENERATION : generation;
 }
 
-std::vector<PreservedRefreshState> CapturePreservedRefreshState( const std::vector<PhysicsBodyRecord>& bodies,
-                                                                 std::size_t handleSlotCount )
+PreservedRefreshStateList CapturePreservedRefreshState( const PhysicsBodyRecordList& bodies,
+                                                        std::size_t handleSlotCount )
 {
-    std::vector<PreservedRefreshState> preserved( handleSlotCount );
+    PreservedRefreshStateList preserved( "PhysicsBodyStore.preservedRefreshStateByHandle" );
+    preserved.resize( handleSlotCount );
     for ( const PhysicsBodyRecord& record : bodies )
     {
         if ( !record.handle.IsValid() || record.handle.index >= preserved.size() )
@@ -304,7 +311,7 @@ std::vector<PreservedRefreshState> CapturePreservedRefreshState( const std::vect
     return preserved;
 }
 
-const PreservedRefreshState* PreservedStateForHandle( const std::vector<PreservedRefreshState>& preserved,
+const PreservedRefreshState* PreservedStateForHandle( const PreservedRefreshStateList& preserved,
                                                       PhysicsBodyHandle handle )
 {
     if ( !handle.IsValid() || handle.index >= preserved.size() )
@@ -940,17 +947,7 @@ PhysicsBodyRecord MakeBodyRecord( const PhysicsBodyCreateDesc& desc, bool sleepE
 } // namespace
 
 
-PhysicsBodyStore::PhysicsBodyStore()
-{
-    m_bodies.reserve( MAX_GAME_MODELS );
-    m_modelBodyHandles.reserve( MAX_GAME_MODELS );
-    m_handleGenerations.reserve( MAX_GAME_MODELS );
-    m_handleAlive.reserve( MAX_GAME_MODELS );
-    m_handleModelIndices.reserve( MAX_GAME_MODELS );
-    m_handleReplayBodyIds.reserve( MAX_GAME_MODELS );
-    m_freeHandleSlots.reserve( MAX_GAME_MODELS );
-    m_assignedHandleScratch.reserve( MAX_GAME_MODELS );
-}
+PhysicsBodyStore::PhysicsBodyStore() = default;
 
 
 // Concept: body handles identify allocator slots, not legacy model positions.
@@ -960,7 +957,7 @@ PhysicsBodyStore::PhysicsBodyStore()
 // reuse so stale handles fail Contains/ModelIndexForHandle deterministically.
 PhysicsBodyHandle PhysicsBodyStore::ResolveHandleForModelIndex( int modelIndex,
                                                                 uint32_t replayBodyId,
-                                                                std::vector<uint8_t>& assignedHandleSlots )
+                                                                PhysicsHandleAssignmentMask& assignedHandleSlots )
 {
     auto assignSlot = [&]( uint32_t slot ) -> PhysicsBodyHandle
     {
@@ -1025,7 +1022,7 @@ PhysicsBodyHandle PhysicsBodyStore::ResolveHandleForModelIndex( int modelIndex,
 }
 
 
-void PhysicsBodyStore::RetireUnassignedHandles( const std::vector<uint8_t>& assignedHandleSlots )
+void PhysicsBodyStore::RetireUnassignedHandles( const PhysicsHandleAssignmentMask& assignedHandleSlots )
 {
     for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleAlive.size() ); ++slot )
     {
@@ -1076,15 +1073,10 @@ void PhysicsBodyStore::Clear()
 void PhysicsBodyStore::LoadFromDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs,
                                             const std::vector<uint8_t>& sleepStates )
 {
-    const std::vector<PreservedRefreshState> preservedStateByHandle =
+    const PreservedRefreshStateList preservedStateByHandle =
         CapturePreservedRefreshState( m_bodies, m_handleGenerations.size() );
-    assert( m_handleGenerations.size() <= m_assignedHandleScratch.capacity() );
-    if ( m_handleGenerations.size() > m_assignedHandleScratch.capacity() )
-    {
-        throw std::runtime_error( "PhysicsBodyStore assigned-handle scratch reserve exhausted" );
-    }
     m_assignedHandleScratch.assign( m_handleGenerations.size(), 0 );
-    std::vector<uint8_t>& assignedHandleSlots = m_assignedHandleScratch;
+    PhysicsHandleAssignmentMask& assignedHandleSlots = m_assignedHandleScratch;
     m_bodies.resize( bodyDescs.size() );
     m_modelBodyHandles.resize( bodyDescs.size() );
     for ( std::size_t i = 0; i < bodyDescs.size(); ++i )
@@ -1230,13 +1222,8 @@ bool PhysicsBodyStore::TrimToCount( int bodyCount )
         return false;
     }
 
-    assert( m_handleGenerations.size() <= m_assignedHandleScratch.capacity() );
-    if ( m_handleGenerations.size() > m_assignedHandleScratch.capacity() )
-    {
-        throw std::runtime_error( "PhysicsBodyStore trim scratch reserve exhausted" );
-    }
     m_assignedHandleScratch.assign( m_handleGenerations.size(), 0 );
-    std::vector<uint8_t>& assignedHandleSlots = m_assignedHandleScratch;
+    PhysicsHandleAssignmentMask& assignedHandleSlots = m_assignedHandleScratch;
     for ( int i = 0; i < bodyCount; ++i )
     {
         const PhysicsBodyRecord& record = m_bodies[static_cast<std::size_t>( i )];
@@ -1499,13 +1486,13 @@ bool PhysicsBodyStore::Contains( PhysicsBodyHandle handle ) const
 }
 
 
-const std::vector<PhysicsBodyRecord>& PhysicsBodyStore::Records() const
+const PhysicsBodyRecordList& PhysicsBodyStore::Records() const
 {
     return m_bodies;
 }
 
 
-std::vector<PhysicsBodyRecord>& PhysicsBodyStore::MutableRecords()
+PhysicsBodyRecordList& PhysicsBodyStore::MutableRecords()
 {
     return m_bodies;
 }

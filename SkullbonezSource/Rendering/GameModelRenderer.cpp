@@ -51,6 +51,7 @@ using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderRecordList;
 using SkullbonezCore::Rendering::RenderInstanceRecord;
 using SkullbonezCore::Rendering::RenderInstanceShapeKind;
 using SkullbonezCore::Rendering::RenderInstanceStore;
@@ -240,7 +241,7 @@ void GameModelRenderer::RenderModels( const RenderHelperContext& helperContext,
 
     {
         DRAW_CALL_TRACE_SCOPE( "ConvexHulls" );
-        const std::vector<ColliderRecord>* colliders = nullptr;
+        const ColliderRecordList* colliders = nullptr;
         for ( int x = 0; x < modelCount; ++x )
         {
             if ( !shouldDrawModel( x ) )
@@ -311,7 +312,7 @@ void GameModelRenderer::BuildShadowCasterBatches( const RenderInstanceStore& ren
     auto appendRange = [&]( int begin, int end, ShadowCasterBatches& batches )
     {
         batches.Clear();
-        const std::vector<ColliderRecord>* colliders = nullptr;
+        const ColliderRecordList* colliders = nullptr;
         for ( int x = begin; x < end; ++x )
         {
             const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( x )];

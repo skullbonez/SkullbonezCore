@@ -269,8 +269,8 @@ void PhysicsScene::ValidatePhysicsStoreMappings( int modelCount ) const
     assert( m_bodyStore.Count() == modelCount );
     assert( m_colliderStore.Count() == modelCount );
 
-    const std::vector<PhysicsBodyRecord>& bodies = m_bodyStore.Records();
-    const std::vector<ColliderRecord>& colliders = m_colliderStore.Records();
+    const auto& bodies = m_bodyStore.Records();
+    const auto& colliders = m_colliderStore.Records();
     for ( int i = 0; i < modelCount; ++i )
     {
         const std::size_t index = static_cast<std::size_t>( i );

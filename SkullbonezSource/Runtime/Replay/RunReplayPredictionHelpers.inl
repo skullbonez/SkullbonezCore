@@ -1198,7 +1198,7 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureBodyState" );
     const int modelCount = modelCollection.GetModelCount();
-    const std::vector<PhysicsBodyRecord>& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
+    const auto& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
         return false;
@@ -1299,7 +1299,7 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
     const int modelCount = modelCollection.GetModelCount();
-    const std::vector<PhysicsBodyRecord>& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
+    const auto& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
         return false;

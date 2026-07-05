@@ -295,8 +295,8 @@ void PhysicsDebugVisualizer::EmitRingXZ( const Vector3& center,
 
 void PhysicsDebugVisualizer::EmitObjectAxes( const PhysicsDebugFrameView& view )
 {
-    const std::vector<PhysicsBodyRecord>& bodies = view.bodies.Records();
-    const std::vector<ColliderRecord>& colliders = view.colliders.Records();
+    const auto& bodies = view.bodies.Records();
+    const auto& colliders = view.colliders.Records();
     const int count =
         (std::min)( view.modelCount,
                     (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
@@ -321,8 +321,8 @@ void PhysicsDebugVisualizer::EmitObjectAxes( const PhysicsDebugFrameView& view )
 
 void PhysicsDebugVisualizer::EmitConvexHullWireframes( const PhysicsDebugFrameView& view )
 {
-    const std::vector<PhysicsBodyRecord>& bodies = view.bodies.Records();
-    const std::vector<ColliderRecord>& colliders = view.colliders.Records();
+    const auto& bodies = view.bodies.Records();
+    const auto& colliders = view.colliders.Records();
     const int count =
         (std::min)( view.modelCount,
                     (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
@@ -365,7 +365,7 @@ void PhysicsDebugVisualizer::EmitContacts( const PhysicsDebugFrameView& view )
         EmitArrow( contact.point, contact.point + contact.normal * normalLen, 0.0f, 0.9f * fade, 1.0f * fade );
         EmitLine( contact.point, contact.point + contact.tangent1 * 1.25f, 1.0f * fade, 0.45f * fade, 0.05f * fade );
         EmitLine( contact.point, contact.point + contact.tangent2 * 1.25f, 1.0f * fade, 0.45f * fade, 0.05f * fade );
-        const std::vector<PhysicsBodyRecord>& bodies = view.bodies.Records();
+        const auto& bodies = view.bodies.Records();
         if ( contact.bodyA >= 0 && contact.bodyB >= 0 && contact.bodyA < static_cast<int>( bodies.size() ) &&
              contact.bodyB < static_cast<int>( bodies.size() ) )
         {
@@ -384,8 +384,8 @@ void PhysicsDebugVisualizer::EmitSleepState( const PhysicsDebugFrameView& view )
     const std::vector<uint8_t>& sleepStates = view.sleepStates;
     const std::vector<uint8_t>& supportedStates = view.sleepSupportedStates;
     const std::vector<uint8_t>& inhibitedStates = view.sleepInhibitedStates;
-    const std::vector<PhysicsBodyRecord>& bodies = view.bodies.Records();
-    const std::vector<ColliderRecord>& colliders = view.colliders.Records();
+    const auto& bodies = view.bodies.Records();
+    const auto& colliders = view.colliders.Records();
     const int count =
         (std::min)( view.modelCount,
                     (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
@@ -440,7 +440,7 @@ void PhysicsDebugVisualizer::EmitPipelineStage( const PhysicsDebugFrameView& vie
     PipelineStageColor( selectedStage, r, g, b );
 
     int emitted = 0;
-    const std::vector<PhysicsBodyRecord>& bodies = view.bodies.Records();
+    const auto& bodies = view.bodies.Records();
     for ( const PhysicsPipelineRecord& record : records )
     {
         if ( record.stage != selectedStage )
@@ -486,8 +486,8 @@ void PhysicsDebugVisualizer::EmitTerrainContactProbe( const PhysicsDebugFrameVie
         return;
     }
 
-    const std::vector<PhysicsBodyRecord>& bodies = view.bodies.Records();
-    const std::vector<ColliderRecord>& colliders = view.colliders.Records();
+    const auto& bodies = view.bodies.Records();
+    const auto& colliders = view.colliders.Records();
     const int count =
         (std::min)( view.modelCount,
                     (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );

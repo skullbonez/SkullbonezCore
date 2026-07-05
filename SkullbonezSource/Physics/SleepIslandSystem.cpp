@@ -37,7 +37,7 @@ using namespace SkullbonezCore::Physics;
 
 
 void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& context,
-                                          const std::vector<PhysicsBodyRecord>& bodyRecords )
+                                          const PhysicsBodyRecordList& bodyRecords )
 {
     // Concept: support propagates upward through a stack.
     //

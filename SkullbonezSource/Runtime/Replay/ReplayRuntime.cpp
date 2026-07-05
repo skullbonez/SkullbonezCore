@@ -376,7 +376,7 @@ float ReplayRuntimeColliderRadiusForModelIndex( const ColliderStore& colliderSto
         return ReplayRuntimeColliderRadius( *collider );
     }
 
-    const std::vector<ColliderRecord>& colliders = colliderStore.Records();
+    const auto& colliders = colliderStore.Records();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( colliders.size() ) )
     {
         return 1.0f;
@@ -1462,7 +1462,7 @@ bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
         }
     }
 
-    const std::vector<PhysicsBodyRecord>& bodies = bodyStore.Records();
+    const auto& bodies = bodyStore.Records();
     for ( int i = 0; i < static_cast<int>( bodies.size() ); ++i )
     {
         const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( i )];

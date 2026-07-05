@@ -248,7 +248,7 @@ bool TryResolveAttachedCameraTargetIdentity( SkullbonezCore::GameObjects::GameMo
     if ( target.replayBodyId != 0 )
     {
         int match = -1;
-        const std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.Records();
+        const auto& bodyRecords = bodyStore.Records();
         // Invariant: duplicate replay ids are corruption, not an arbitrary
         // first match. Scan the dense body rows so stale camera targets fail
         // closed without touching authoring/presentation data.

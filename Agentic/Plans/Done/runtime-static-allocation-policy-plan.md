@@ -307,6 +307,62 @@ Final strict-slice validation on 2026-07-06:
   exit 0 (`Agentic\Temp\allocation_guard_interaction_plan2_final.log`, elapsed
   ~2s).
 
+### 2026-07-06 Store Dynamic Container Correction
+
+Post-completion review caught that `PhysicsBodyStore` and `ColliderStore` still
+owned `std::vector` record, handle, and scratch arrays even though the runtime
+policy bans dynamically growing standard-library containers in hot physics and
+gameplay storage. The correction replaces those store-owned containers with
+`PhysicsFixedList`, a fixed-capacity list that owns raw storage, constructs only
+the live prefix, and hard-fails on capacity overflow instead of growing.
+
+Implementation notes:
+
+- `PhysicsBodyStore` and `ColliderStore` record access now returns
+  `PhysicsBodyRecordList` and `ColliderRecordList`; call sites that only borrow
+  the rows use `auto&`, while physics contracts such as sleep support and the
+  persistent-contact solver context spell the fixed-list types explicitly.
+- The checker now emits `dynamic_stl_member_findings` and rejects
+  store-owned dynamic standard-library members in `PhysicsBodyStore.h` and
+  `ColliderStore.h`, including direct, multiline, and alias-hidden members.
+  This finding class is not hidden by the direct-heap allowlist.
+- An initial eager `std::array<T, MAX_GAME_MODELS>` version removed dynamic
+  containers but failed `tools\validate_perf.bat` by increasing private working
+  set by roughly 60 MB. The final raw-storage `PhysicsFixedList` keeps the
+  static cap without eagerly touching every maximum-capacity slot.
+- Final rubber-duck review found two blocking issues in the first fixed-list
+  version: placement construction laundered unconstructed slots, and capacity
+  exhaustion aborted without enough owner diagnostics. The fixed list now
+  constructs through raw slot addresses, launders only live objects, tracks
+  high-water count, and prints owner/request/capacity/count/high-water before
+  aborting on capacity failure.
+
+Final correction validation on 2026-07-06:
+
+- `python -m py_compile tools\check_allocation_policy.py tools\validate_project_filters.py`
+  passed.
+- `python tools\check_allocation_policy.py --self-test` passed
+  (`Agentic\Temp\allocation_policy_self_test_fixed_store_vector_ban_duck_fixes.log`).
+- `python tools\check_allocation_policy.py` reported
+  `scanned=261 direct_heap_findings=29 dynamic_stl_member_findings=0 allowlist_errors=0`.
+- `python tools\validate_project_filters.py` passed with 0 errors and 541
+  project/filter items.
+- `git diff --check` passed.
+- `tools\validate_fast.bat` passed
+  (`Agentic\Temp\validate_fast_fixed_store_vector_ban_final.log`), including format,
+  project filters, runtime boundaries, and Profile/Debug builds with 0
+  warnings/errors.
+- `tools\validate_perf.bat` passed
+  (`Agentic\Temp\validate_perf_fixed_store_vector_ban_final_retry.log`), including clean
+  allocation-guard evidence for `perf_1000`
+  (`gameplay_violations=0`, `policy_violations=0`), allocation policy
+  `dynamic_stl_member_findings=0`, no DX12 or physics-bench perf regressions,
+  and Profile/Debug builds with 0 warnings/errors.
+- `tools\validate_full.bat` passed
+  (`Agentic\Temp\validate_full_fixed_store_vector_ban_final.log`), including project
+  filters, runtime boundaries, DX12 InfoQueue 0, DX12 screenshots matching
+  baselines, and byte-exact `physics_regression_solver.csv`.
+
 Final rubber-duck follow-up: the reviewer found that reserve-policy denials
 could increment `policy_violations` without creating a heap allocation, which
 left a possible strict false-pass path. The allocation guard now folds

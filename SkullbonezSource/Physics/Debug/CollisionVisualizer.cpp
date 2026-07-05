@@ -347,7 +347,7 @@ CollisionVisualizer::Color CollisionVisualizer::ComputeModelColor( int modelInde
     const bool sleeping = modelIndex < static_cast<int>( sleepStates.size() ) && sleepStates[modelIndex] != 0;
     if ( sleeping )
     {
-        const std::vector<ColliderRecord>& colliders = view.colliders.Records();
+        const auto& colliders = view.colliders.Records();
         const bool isBox = modelIndex < static_cast<int>( colliders.size() ) &&
                            colliders[static_cast<std::size_t>( modelIndex )].shapeKind == ColliderShapeKind::Box;
         if ( !isBox && modelIndex < static_cast<int>( m_sleepGroupSizes.size() ) && m_sleepGroupSizes[modelIndex] <= 1 )
@@ -469,7 +469,7 @@ void CollisionVisualizer::Render( Assets::AssetSystem& assets,
     // Build primitive streams from the authoritative collision shape. Hulls are
     // drawn after shader constants are bound because each hull emits transient
     // triangle data instead of reusing a cached static mesh.
-    const std::vector<ColliderRecord>& colliders = view.colliders.Records();
+    const auto& colliders = view.colliders.Records();
     const std::vector<RenderInstanceRecord>& instances = view.renderInstances.Records();
     const int modelCount =
         (std::min)( view.modelCount,

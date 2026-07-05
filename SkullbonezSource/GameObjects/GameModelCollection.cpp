@@ -94,9 +94,9 @@ using SkullbonezCore::Rendering::ShadowFrameData;
 
 namespace
 {
-template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
+template <typename T> uint64_t VectorCapacityBytes( const T& values )
 {
-    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
 }
 
 
@@ -1191,7 +1191,7 @@ double GameModelCollection::GetSceneKineticEnergy()
     constexpr double REST_ANGULAR_SPEED_SQ = 0.3 * 0.3;
     double totalEnergy = 0.0;
     const PhysicsBodyStore& bodyStore = GetPhysicsBodyStore();
-    const std::vector<PhysicsBodyRecord>& bodies = bodyStore.Records();
+    const auto& bodies = bodyStore.Records();
     for ( const PhysicsBodyRecord& body : bodies )
     {
         if ( body.isFixed )

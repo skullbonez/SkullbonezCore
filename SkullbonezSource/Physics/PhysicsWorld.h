@@ -38,6 +38,7 @@ Related:
 #include <utility>
 #include <vector>
 
+#include "ColliderStore.h"
 #include "PersistentContactSolver.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsDiagnosticsSink.h"
@@ -333,18 +334,18 @@ class PhysicsWorld
                             float dt,
                             const Basics::EngineConfig& runtimeConfig,
                             Threading::WorkerPool& workerPool );
-    void PropagateSleepSupport( const std::vector<PhysicsBodyRecord>& bodyRecords );
+    void PropagateSleepSupport( const PhysicsBodyRecordList& bodyRecords );
     void AppendPointJointSupportEdges( const PhysicsBodyStore& bodyStore, int modelCount );
     void ForgetPersistentContactCacheForBody( int bodyIndex );
     void WakeModel( int bodyCount,
-                    const std::vector<PhysicsBodyRecord>& bodyRecords,
+                    const PhysicsBodyRecordList& bodyRecords,
                     PhysicsBodyStore* bodyStore,
                     const ColliderStore* colliderStore,
                     const PhysicsWorldForces* worldForces,
                     int index );
-    void SeedModelAsleep( int bodyCount, const std::vector<PhysicsBodyRecord>& bodyRecords, int index );
+    void SeedModelAsleep( int bodyCount, const PhysicsBodyRecordList& bodyRecords, int index );
     bool WakeDynamicBodyState( int bodyCount,
-                               const std::vector<PhysicsBodyRecord>& bodyRecords,
+                               const PhysicsBodyRecordList& bodyRecords,
                                PhysicsBodyStore* bodyStore,
                                int index,
                                float dt,
@@ -352,7 +353,7 @@ class PhysicsWorld
                                const PhysicsWorldForces* worldForces = nullptr,
                                const ColliderStore* colliderStore = nullptr );
     void WakeSleepVisualIsland( int bodyCount,
-                                const std::vector<PhysicsBodyRecord>& bodyRecords,
+                                const PhysicsBodyRecordList& bodyRecords,
                                 PhysicsBodyStore* bodyStore,
                                 int index,
                                 float dt,
@@ -360,7 +361,7 @@ class PhysicsWorld
                                 const PhysicsWorldForces* worldForces = nullptr,
                                 const ColliderStore* colliderStore = nullptr );
     void WakePointJointIsland( int bodyCount,
-                               const std::vector<PhysicsBodyRecord>& bodyRecords,
+                               const PhysicsBodyRecordList& bodyRecords,
                                PhysicsBodyStore* bodyStore,
                                int index,
                                float dt,
@@ -368,7 +369,7 @@ class PhysicsWorld
                                const PhysicsWorldForces* worldForces = nullptr,
                                const ColliderStore* colliderStore = nullptr );
     void WakeRestingContactIsland( int bodyCount,
-                                   const std::vector<PhysicsBodyRecord>& bodyRecords,
+                                   const PhysicsBodyRecordList& bodyRecords,
                                    PhysicsBodyStore* bodyStore,
                                    int index,
                                    float dt,
@@ -493,8 +494,8 @@ struct PersistentContactSolverContext
     std::array<uint8_t, MAX_GAME_MODELS>& terrainRestApplied;
     std::vector<uint8_t>& sleepSupportedThisFrame;
     PersistentContactSolverSideEffects& sideEffects;
-    std::vector<PhysicsBodyRecord>& bodyRecords;
-    const std::vector<ColliderRecord>& colliderRecords;
+    PhysicsBodyRecordList& bodyRecords;
+    const ColliderRecordList& colliderRecords;
     int bodyStoreCount = 0;
     int pipelineRecordCapacity = 0;
     const Basics::EngineConfig& config;

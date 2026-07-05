@@ -736,7 +736,7 @@ void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context, con
         // and exact-name targets can hit authored objects, generated ragdolls,
         // and snapshot bodies uniformly.
         const SceneObjectMaterialOverride& material = scene.GetObjectMaterialOverride( materialIndex );
-        const std::vector<Physics::ColliderRecord>& colliders = context.models.GetColliderStore().Records();
+        const auto& colliders = context.models.GetColliderStore().Records();
         for ( int modelIndex = 0; modelIndex < context.models.GetModelCount(); ++modelIndex )
         {
             const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() )

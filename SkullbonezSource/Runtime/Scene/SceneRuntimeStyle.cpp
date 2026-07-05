@@ -126,7 +126,7 @@ void ResetObjectMaterials( GameModelCollection& models )
 void ApplyObjectMaterials( GameModelCollection& models, const TestScene& styleScene )
 {
     ResetObjectMaterials( models );
-    const std::vector<Physics::ColliderRecord>& colliders = models.GetColliderStore().Records();
+    const auto& colliders = models.GetColliderStore().Records();
     for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
     {
         const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );

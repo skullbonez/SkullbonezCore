@@ -54,8 +54,8 @@ bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, Runtim
         return false;
     }
 
-    const std::vector<Physics::PhysicsBodyRecord>& bodies = request.bodyStore->Records();
-    const std::vector<Physics::ColliderRecord>& colliders = request.colliderStore->Records();
+    const auto& bodies = request.bodyStore->Records();
+    const auto& colliders = request.colliderStore->Records();
     const int candidateCount = static_cast<int>( (std::min)( bodies.size(), colliders.size() ) );
     const bool skipFixedBodies = request.purpose == RuntimePickPurpose::ManipulatorPickup;
     for ( int i = 0; i < candidateCount; ++i )

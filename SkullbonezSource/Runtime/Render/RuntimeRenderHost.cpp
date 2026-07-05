@@ -222,7 +222,7 @@ void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& 
     {
         return;
     }
-    const std::vector<Physics::ColliderRecord>& colliders = frame.colliders->Records();
+    const auto& colliders = frame.colliders->Records();
     const std::vector<Rendering::RenderInstanceRecord>& renderInstances = frame.renderInstances->Records();
 
     SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );

@@ -94,6 +94,7 @@ PHYSICS_PREFIXES = (
     "PhysicsDiagnosticsModel",
     "PhysicsDiagnosticsSink",
     "PhysicsEngine",
+    "PhysicsFixedList",
     "PhysicsHandles",
     "PhysicsMass",
     "PhysicsModelAccess",

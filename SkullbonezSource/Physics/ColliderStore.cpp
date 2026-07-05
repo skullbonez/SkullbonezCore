@@ -39,7 +39,9 @@ Related:
 
 #include "../Core/Common.h"
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
+using SkullbonezCore::Physics::ColliderHandleAssignmentMask;
 using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderRecordList;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PHYSICS_HANDLE_INITIAL_GENERATION;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
@@ -57,17 +59,7 @@ uint32_t NextHandleGeneration( uint32_t generation )
 } // namespace
 
 
-ColliderStore::ColliderStore()
-{
-    m_colliders.reserve( MAX_GAME_MODELS );
-    m_modelColliderHandles.reserve( MAX_GAME_MODELS );
-    m_handleGenerations.reserve( MAX_GAME_MODELS );
-    m_handleAlive.reserve( MAX_GAME_MODELS );
-    m_handleModelIndices.reserve( MAX_GAME_MODELS );
-    m_handleReplayBodyIds.reserve( MAX_GAME_MODELS );
-    m_freeHandleSlots.reserve( MAX_GAME_MODELS );
-    m_assignedHandleScratch.reserve( MAX_GAME_MODELS );
-}
+ColliderStore::ColliderStore() = default;
 
 
 // Concept: handle slots are stable identities, not model indices.
@@ -77,7 +69,7 @@ ColliderStore::ColliderStore()
 // retiring a slot bumps its generation so stale collider handles stop resolving.
 PhysicsColliderHandle ColliderStore::ResolveHandleForModelIndex( int modelIndex,
                                                                  uint32_t replayBodyId,
-                                                                 std::vector<uint8_t>& assignedHandleSlots )
+                                                                 ColliderHandleAssignmentMask& assignedHandleSlots )
 {
     auto assignSlot = [&]( uint32_t slot ) -> PhysicsColliderHandle
     {
@@ -142,7 +134,7 @@ PhysicsColliderHandle ColliderStore::ResolveHandleForModelIndex( int modelIndex,
 }
 
 
-void ColliderStore::RetireUnassignedHandles( const std::vector<uint8_t>& assignedHandleSlots )
+void ColliderStore::RetireUnassignedHandles( const ColliderHandleAssignmentMask& assignedHandleSlots )
 {
     for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleAlive.size() ); ++slot )
     {
@@ -197,13 +189,8 @@ bool ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
         assert( false && "ColliderStore body-binding refresh requires existing collider rows." );
         return false;
     }
-    assert( m_handleGenerations.size() <= m_assignedHandleScratch.capacity() );
-    if ( m_handleGenerations.size() > m_assignedHandleScratch.capacity() )
-    {
-        throw std::runtime_error( "ColliderStore assigned-handle scratch reserve exhausted" );
-    }
     m_assignedHandleScratch.assign( m_handleGenerations.size(), 0 );
-    std::vector<uint8_t>& assignedHandleSlots = m_assignedHandleScratch;
+    ColliderHandleAssignmentMask& assignedHandleSlots = m_assignedHandleScratch;
     for ( int i = 0; i < bodyCount; ++i )
     {
         ColliderRecord& record = m_colliders[static_cast<std::size_t>( i )];
@@ -439,13 +426,13 @@ bool ColliderStore::Contains( PhysicsColliderHandle handle ) const
 }
 
 
-const std::vector<ColliderRecord>& ColliderStore::Records() const
+const ColliderRecordList& ColliderStore::Records() const
 {
     return m_colliders;
 }
 
 
-std::vector<ColliderRecord>& ColliderStore::MutableRecords()
+ColliderRecordList& ColliderStore::MutableRecords()
 {
     return m_colliders;
 }

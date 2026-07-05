@@ -438,8 +438,8 @@ void Run::UpdateRequiredSceneContacts()
 
     const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
     const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
-    const std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.Records();
-    const std::vector<ColliderRecord>& colliderRecords = colliderStore.Records();
+    const auto& bodyRecords = bodyStore.Records();
+    const auto& colliderRecords = colliderStore.Records();
     const int contactModelCount =
         (std::min)( bodyStore.Count(), static_cast<int>( (std::min)( bodyRecords.size(), colliderRecords.size() ) ) );
     for ( RunRequiredContactState& required : m_requiredSceneContacts )

@@ -781,7 +781,7 @@ void PhysicsStandaloneWorld::ClearIslands()
 
 void PhysicsStandaloneWorld::GenerateStandaloneContacts()
 {
-    const std::vector<ColliderRecord>& colliders = m_colliderStore.Records();
+    const auto& colliders = m_colliderStore.Records();
     for ( std::size_t a = 0; a < colliders.size(); ++a )
     {
         const ColliderRecord& colliderA = colliders[a];
@@ -958,7 +958,7 @@ void PhysicsStandaloneWorld::GenerateStandaloneIslands()
 {
     ClearIslands();
 
-    const std::vector<PhysicsBodyRecord>& bodies = m_bodyStore.Records();
+    const auto& bodies = m_bodyStore.Records();
     if ( bodies.empty() )
     {
         return;
@@ -1197,7 +1197,7 @@ PhysicsStandaloneWorld::QueryBroadphaseCells( const PhysicsBroadphaseCellQueryDe
 {
     m_broadphaseQueryScratch.clear();
 
-    const std::vector<PhysicsBodyRecord>& bodies = m_bodyStore.Records();
+    const auto& bodies = m_bodyStore.Records();
     for ( const PhysicsBodyRecord& body : bodies )
     {
         if ( !BodyPassesQueryFilters( body, desc.includeFixedBodies, desc.includeSleepingBodies, m_sleepEnabled ) )

@@ -722,7 +722,7 @@ bool PhysicsWorld::IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord,
                                          const ColliderStore& colliderStore,
                                          int index )
 {
-    const std::vector<ColliderRecord>& colliders = colliderStore.Records();
+    const auto& colliders = colliderStore.Records();
     if ( index < 0 || index >= static_cast<int>( colliders.size() ) || bodyRecord.isFixed ||
          colliders[static_cast<size_t>( index )].shapeKind != ColliderShapeKind::Sphere )
     {
@@ -745,7 +745,7 @@ bool PhysicsWorld::RefreshUnderwaterSubmersionForBall( const PhysicsWorldForces&
     }
 
     bodyRecord->submergedVolumePercent = 0.0f;
-    const std::vector<ColliderRecord>& colliders = colliderStore.Records();
+    const auto& colliders = colliderStore.Records();
     if ( index < 0 || index >= static_cast<int>( colliders.size() ) )
     {
         return false;
@@ -1029,7 +1029,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
     // Determinism note: changing this ordering can change byte-exact physics
     // baselines even when the final scene "looks" similar.
     const int modelCount = bodyStore.Count();
-    const std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.Records();
+    const auto& bodyRecords = bodyStore.Records();
     EnsureCollisionVisualBuffers( modelCount );
     if ( !m_collisionVisualFrameActive )
     {
@@ -1163,7 +1163,7 @@ void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore,
 // model owner just to wake a body. Store-owned wake commands stay on dense body
 // records; PhysicsScene owns any owner-side cache invalidation.
 void PhysicsWorld::WakeModel( int bodyCount,
-                              const std::vector<PhysicsBodyRecord>& bodyRecords,
+                              const PhysicsBodyRecordList& bodyRecords,
                               PhysicsBodyStore* bodyStore,
                               const ColliderStore* colliderStore,
                               const PhysicsWorldForces* worldForces,
@@ -1240,7 +1240,7 @@ void PhysicsWorld::SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index
 // Why: store-owned seed commands already have dense body records. Avoid
 // rebuilding presentation streams from inside PhysicsWorld; owner-side
 // projection belongs to PhysicsScene.
-void PhysicsWorld::SeedModelAsleep( int bodyCount, const std::vector<PhysicsBodyRecord>& bodyRecords, int index )
+void PhysicsWorld::SeedModelAsleep( int bodyCount, const PhysicsBodyRecordList& bodyRecords, int index )
 {
     if ( !m_sleepEnabled )
     {
@@ -1330,7 +1330,7 @@ void PhysicsWorld::ApplyTornadoField( PhysicsBodyStore& bodyStore,
     }
 
     PROFILE_SCOPED( "Frame/Physics/TornadoField" );
-    std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
+    auto& bodyRecords = bodyStore.MutableRecords();
     auto sampleAcceleration =
         [&]( const Vector3& position, TornadoFieldConfig& outBestConfig, float& outBestAccelerationSq ) -> Vector3
     {
@@ -1612,7 +1612,7 @@ void PhysicsWorld::EmitPhysicsCollisionTime( const char* const* diagnosticNames,
 }
 
 
-void PhysicsWorld::PropagateSleepSupport( const std::vector<PhysicsBodyRecord>& bodyRecords )
+void PhysicsWorld::PropagateSleepSupport( const PhysicsBodyRecordList& bodyRecords )
 {
     SleepSupportPropagationContext context = CreateSleepSupportPropagationContext();
     m_sleepIslandSystem.PropagateSupport( context, bodyRecords );
@@ -1675,7 +1675,7 @@ void PhysicsWorld::ForgetPersistentContactCacheForBody( int bodyIndex )
 // deleted legacy stream path, but fixed-state authority comes from
 // PhysicsBodyRecord. This keeps solver-triggered wakeups on physics-owned rows.
 bool PhysicsWorld::WakeDynamicBodyState( int bodyCount,
-                                         const std::vector<PhysicsBodyRecord>& bodyRecords,
+                                         const PhysicsBodyRecordList& bodyRecords,
                                          PhysicsBodyStore* bodyStore,
                                          int index,
                                          float dt,
@@ -1741,7 +1741,7 @@ bool PhysicsWorld::WakeDynamicBodyState( int bodyCount,
 // Why: sleep visual islands are persisted as model-order indices, but the fixed
 // and sleep-state facts needed to wake them are already in PhysicsBodyStore.
 void PhysicsWorld::WakeSleepVisualIsland( int bodyCount,
-                                          const std::vector<PhysicsBodyRecord>& bodyRecords,
+                                          const PhysicsBodyRecordList& bodyRecords,
                                           PhysicsBodyStore* bodyStore,
                                           int index,
                                           float dt,
@@ -1786,7 +1786,7 @@ void PhysicsWorld::WakeSleepVisualIsland( int bodyCount,
 // store path preserves the existing island walk while avoiding a model-stream
 // refresh inside the fixed step.
 void PhysicsWorld::WakePointJointIsland( int bodyCount,
-                                         const std::vector<PhysicsBodyRecord>& bodyRecords,
+                                         const PhysicsBodyRecordList& bodyRecords,
                                          PhysicsBodyStore* bodyStore,
                                          int index,
                                          float dt,
@@ -1885,7 +1885,7 @@ void PhysicsWorld::WakePointJointIsland( int bodyCount,
 // path uses body-record position/radius snapshots so solver side effects do not
 // rebuild the model SoA cache.
 void PhysicsWorld::WakeRestingContactIsland( int bodyCount,
-                                             const std::vector<PhysicsBodyRecord>& bodyRecords,
+                                             const PhysicsBodyRecordList& bodyRecords,
                                              PhysicsBodyStore* bodyStore,
                                              int index,
                                              float dt,
@@ -2017,7 +2017,7 @@ void PhysicsWorld::WakePointJointConnectedBodies( PhysicsBodyStore& bodyStore,
         return;
     }
 
-    const std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.Records();
+    const auto& bodyRecords = bodyStore.Records();
     const int modelCount = (std::min)( bodyStore.Count(), static_cast<int>( bodyRecords.size() ) );
     m_sleepIslandParent.assign( modelCount, 0 );
     m_sleepIslandRank.assign( modelCount, 0 );
@@ -2127,8 +2127,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const char* const* diagnosticNames,
                                      int diagnosticNameCount )
 {
-    std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.MutableRecords();
-    const std::vector<ColliderRecord>& colliderRecords = colliderStore.Records();
+    auto& bodyRecords = bodyStore.MutableRecords();
+    const auto& colliderRecords = colliderStore.Records();
     const int modelCount = (std::min)( { bodyStore.Count(),
                                          static_cast<int>( bodyRecords.size() ),
                                          static_cast<int>( colliderRecords.size() ) } );
@@ -2213,8 +2213,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     // fixed tick; the relative-motion segment covers CCD and wakeup cases.
     struct BroadphaseCandidateFilterContext
     {
-        const std::vector<PhysicsBodyRecord>& bodyRecords;
-        const std::vector<ColliderRecord>& colliderRecords;
+        const PhysicsBodyRecordList& bodyRecords;
+        const ColliderRecordList& colliderRecords;
         int modelCount;
         float dt;
         float contactSkin;

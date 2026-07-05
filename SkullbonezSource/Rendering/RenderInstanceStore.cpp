@@ -131,8 +131,8 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
     }
     assert( presentation != nullptr || presentationCount == 0 );
 
-    const std::vector<PhysicsBodyRecord>& bodies = bodyStore.Records();
-    const std::vector<ColliderRecord>& colliders = colliderStore.Records();
+    const auto& bodies = bodyStore.Records();
+    const auto& colliders = colliderStore.Records();
 
     // Invariant: render instance handles intentionally mirror model slots until
     // a future renderer-facing allocation owner replaces them with render ids.
@@ -171,7 +171,7 @@ bool RenderInstanceStore::OverridePose( int modelIndex,
         return false;
     }
 
-    const std::vector<ColliderRecord>& colliders = colliderStore.Records();
+    const auto& colliders = colliderStore.Records();
     if ( modelIndex >= static_cast<int>( colliders.size() ) )
     {
         return false;
