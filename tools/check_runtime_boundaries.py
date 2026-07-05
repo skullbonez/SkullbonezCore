@@ -15,11 +15,12 @@
 #   and required scene contacts have store-authority fences, runtime handle
 #   smoke has a handle-authority fence, contact-audio simple mode has a
 #   body-store motion fence, and fixed-tree, replay-restore wake, replay
-#   velocity-edit, launcher ray-hit, mouse-pickup overlay, or editor wake/sleep
-#   commands have store-handle fences. The deleted collection step wrapper has
-#   its own fence, replay render-pose overrides have their own value-override
-#   fence, and per-body model writeback has its own fence, so count allowances
-#   do not silently approve a new compatibility location.
+#   velocity-edit, launcher ray-hit, mouse-pickup overlay, attached-camera
+#   overlay, or editor wake/sleep commands have store-handle fences. The
+#   deleted collection step wrapper has its own fence, replay render-pose
+#   overrides have their own value-override fence, and per-body model writeback
+#   has its own fence, so count allowances do not silently approve a new
+#   compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -56,6 +57,8 @@
 #     body fields.
 #   Mouse-pickup overlay fence: Static rule that keeps drag-line and outline
 #     projection on the picked PhysicsBodyStore/ColliderStore rows.
+#   Attached-camera overlay fence: Static rule that keeps the camera-target
+#     marker on PhysicsBodyStore pose and ColliderStore shape/radius rows.
 #   Replay velocity body-read fence: Static rule that keeps velocity-edit hit
 #     testing and gizmo drawing on PhysicsBodyStore/ColliderStore rows.
 #   Handle-authority fence: Static rule that keeps a validation smoke on handles
@@ -623,6 +626,16 @@ MOUSE_PICKUP_OVERLAY_MODEL_BODY_PATTERN = re.compile(
     r"\b(?:grabbed|model|context\s*\.\s*models\s*\.\s*Models\s*\(\s*\)\s*\[[^\]]+\])"
     r"\s*(?:\.|->)\s*(?:GetPosition|GetOrientation|GetCollisionShape|GetVelocity|GetAngularVelocity)\s*\("
     r"|\bcontext\s*\.\s*tracer\s*\.\s*AddSelectionOutline\s*\(\s*(?:grabbed|model)\s*\)"
+)
+ATTACHED_CAMERA_OVERLAY_MODEL_MARKER_PATTERN = re.compile(
+    r"\bcontext\s*\.\s*tracer\s*\.\s*AddAttachedCameraTargetMarker\s*\(\s*"
+    r"(?:target|model|attachedCameraTarget|cameraTarget)\s*,"
+    r"|\b(?:target|model|attachedCameraTarget|cameraTarget)\s*(?:\.|->)\s*"
+    r"(?:GetPosition|GetOrientation|GetCollisionShape)\s*\("
+)
+ATTACHED_CAMERA_MARKER_MODEL_OVERLOAD_PATTERN = re.compile(
+    r"\bAddAttachedCameraTargetMarker\s*\(\s*const\s+"
+    r"(?:(?:GameObjects|SkullbonezCore\s*::\s*GameObjects)\s*::\s*)?GameModel\s*&"
 )
 LAUNCHER_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\bcollection\s*\.\s*"
@@ -4542,6 +4555,59 @@ def check_mouse_pickup_overlay_store_authority_guardrails_text(path: Path, text:
 def check_mouse_pickup_overlay_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / EDITOR_OVERLAY_TOOLS_SOURCE
     return check_mouse_pickup_overlay_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_attached_camera_overlay_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+
+    for match in ATTACHED_CAMERA_MARKER_MODEL_OVERLOAD_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "attached camera overlay marker must use store values",
+                (
+                    "The tracer marker should accept explicit body/collider values so overlay drawing cannot "
+                    "pull pose or shape through the GameModel compatibility mirror."
+                ),
+            )
+        )
+
+    if path.name != "RunEditorOverlayTools.inl":
+        return errors
+
+    bounds = _function_body_bounds(stripped, MOUSE_PICKUP_OVERLAY_FUNCTION_PATTERN)
+    if not bounds:
+        return errors
+    open_brace, close_brace = bounds
+    for match in ATTACHED_CAMERA_OVERLAY_MODEL_MARKER_PATTERN.finditer(stripped, open_brace, close_brace):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "attached camera overlay marker must use store values",
+                (
+                    "Attached-camera target overlay should resolve PhysicsBodyStore and ColliderStore rows for "
+                    "pose, shape, and radius instead of keeping a GameModel marker path alive."
+                ),
+            )
+        )
+    return errors
+
+
+def check_attached_camera_overlay_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in (
+        EDITOR_OVERLAY_TOOLS_SOURCE,
+        Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h"),
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTracer.inl"),
+    ):
+        path = repo / relative_path
+        errors.extend(
+            check_attached_camera_overlay_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+        )
+    return errors
 
 
 def check_launcher_model_index_physics_command_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -13353,6 +13419,71 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only mouse pickup overlay model read synthetic text was rejected")
 
+    old_attached_camera_marker_overload = """
+    class RunEditorTracer
+    {
+        void AddAttachedCameraTargetMarker( const GameObjects::GameModel& model, bool activeFollow );
+    };
+    """
+    if not any(
+        error.message == "attached camera overlay marker must use store values"
+        for error in check_attached_camera_overlay_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h"),
+            old_attached_camera_marker_overload,
+        )
+    ):
+        failures.append("old attached-camera marker GameModel overload synthetic surface was not rejected")
+
+    old_attached_camera_overlay_marker = """
+    void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
+    {
+        const GameModel& target = context.models.Models()[static_cast<size_t>( input.attachedCameraTargetIndex )];
+        context.tracer.AddAttachedCameraTargetMarker( target, input.attachedCameraActiveFollow );
+    }
+    """
+    if not any(
+        error.message == "attached camera overlay marker must use store values"
+        for error in check_attached_camera_overlay_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
+            old_attached_camera_overlay_marker,
+        )
+    ):
+        failures.append("old attached-camera overlay GameModel marker synthetic surface was not rejected")
+
+    allowed_attached_camera_overlay_store_marker = """
+    void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
+    {
+        const PhysicsBodyRecord* body = context.bodyStore.RecordForHandle( bodyHandle );
+        const ColliderRecord* collider = context.colliderStore.RecordForHandle( colliderHandle );
+        if ( body && collider && collider->body == bodyHandle )
+        {
+            context.tracer.AddAttachedCameraTargetMarker( body->position,
+                                                          body->orientation,
+                                                          collider->shape,
+                                                          collider->boundingRadius,
+                                                          input.attachedCameraActiveFollow );
+        }
+    }
+    """
+    if check_attached_camera_overlay_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
+        allowed_attached_camera_overlay_store_marker,
+    ):
+        failures.append("store-backed attached-camera overlay marker synthetic surface was rejected")
+
+    commented_attached_camera_overlay_marker = """
+    void DocumentOldAttachedCameraOverlay()
+    {
+        // The overlay used AddAttachedCameraTargetMarker(target, activeFollow).
+        // It now passes body->position, body->orientation, and collider->shape.
+    }
+    """
+    if check_attached_camera_overlay_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
+        commented_attached_camera_overlay_marker,
+    ):
+        failures.append("comment-only attached-camera overlay marker synthetic text was rejected")
+
     old_launcher_model_index_command = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
     {
@@ -14742,6 +14873,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_editor_model_index_physics_command_guardrails(repo))
     errors.extend(check_mouse_pickup_model_index_physics_command_guardrails(repo))
     errors.extend(check_mouse_pickup_overlay_store_authority_guardrails(repo))
+    errors.extend(check_attached_camera_overlay_store_authority_guardrails(repo))
     errors.extend(check_launcher_model_index_physics_command_guardrails(repo))
     errors.extend(check_replay_velocity_model_state_physics_command_guardrails(repo))
     errors.extend(check_run_frame_replay_editor_transform_wake_guardrails(repo))

@@ -403,15 +403,19 @@ void RunEditorTracer::AddReplayTargetMarker( const GameModel& model )
 }
 
 
-void RunEditorTracer::AddAttachedCameraTargetMarker( const GameModel& model, bool activeFollow )
+void RunEditorTracer::AddAttachedCameraTargetMarker( const Vector3& position,
+                                                     const Quaternion& orientation,
+                                                     const CollisionShape& shape,
+                                                     float radius,
+                                                     bool activeFollow )
 {
-    AddSelectionOutline( model );
-    const float radius = (std::max)( 1.0f, EditorModelRadius( model ) * 1.24f );
+    AddSelectionOutline( position, orientation, shape );
+    radius = (std::max)( 1.0f, radius );
     const float r = activeFollow ? 0.16f : 1.0f;
     const float g = activeFollow ? 1.0f : 0.72f;
     const float b = activeFollow ? 0.92f : 0.24f;
-    EmitRing( model.GetPosition(), 1, radius, r, g, b );
-    EmitRing( model.GetPosition(), 0, radius * 0.68f, r, g, b );
+    EmitRing( position, 1, radius, r, g, b );
+    EmitRing( position, 0, radius * 0.68f, r, g, b );
 }
 
 

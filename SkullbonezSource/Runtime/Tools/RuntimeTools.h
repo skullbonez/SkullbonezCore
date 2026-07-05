@@ -259,7 +259,11 @@ class RunEditorTracer
                                  float b );
     void AddReplayFutureTargetMarker( const Math::Vector::Vector3& center, float radius, int depth );
     void AddReplayTargetMarker( const GameObjects::GameModel& model );
-    void AddAttachedCameraTargetMarker( const GameObjects::GameModel& model, bool activeFollow );
+    void AddAttachedCameraTargetMarker( const Math::Vector::Vector3& position,
+                                        const Math::Orientation::Quaternion& orientation,
+                                        const Math::CollisionDetection::CollisionShape& shape,
+                                        float radius,
+                                        bool activeFollow );
     void AddSelectionOutline( const GameObjects::GameModel& model );
     // Draws a shape-accurate outline from explicit pose/shape values. Replay
     // velocity edit uses this so overlay drawing does not need the post-step

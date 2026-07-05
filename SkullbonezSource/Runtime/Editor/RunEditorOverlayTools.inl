@@ -183,8 +183,27 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
 
     if ( input.attachedCameraTargetIndex >= 0 && input.attachedCameraTargetIndex < context.models.GetModelCount() )
     {
-        const GameModel& target = context.models.Models()[static_cast<size_t>( input.attachedCameraTargetIndex )];
-        context.tracer.AddAttachedCameraTargetMarker( target, input.attachedCameraActiveFollow );
+        const PhysicsBodyHandle bodyHandle = context.bodyStore.HandleForModelIndex( input.attachedCameraTargetIndex );
+        const PhysicsBodyRecord* body = context.bodyStore.RecordForHandle( bodyHandle );
+        const PhysicsColliderHandle colliderHandle =
+            context.colliderStore.HandleForModelIndex( input.attachedCameraTargetIndex );
+        const ColliderRecord* collider = context.colliderStore.RecordForHandle( colliderHandle );
+        if ( body && collider && context.bodyStore.ModelIndexForHandle( bodyHandle ) == input.attachedCameraTargetIndex &&
+             collider->body == bodyHandle )
+        {
+            // Why: attached-camera follow is already store-backed; its overlay
+            // marker should read the same live body/collider rows instead of
+            // keeping GameModel pose and shape mirrors hot for presentation.
+            const float markerRadius =
+                (std::max)( 1.0f, ( collider->boundingRadius > 0.0f ? collider->boundingRadius
+                                                                    : GetShapeBoundingRadius( collider->shape ) ) *
+                                      1.24f );
+            context.tracer.AddAttachedCameraTargetMarker( body->position,
+                                                          body->orientation,
+                                                          collider->shape,
+                                                          markerRadius,
+                                                          input.attachedCameraActiveFollow );
+        }
     }
 }
 } // namespace RunInternal
