@@ -717,6 +717,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     PhysicsBodyStore reorderBodyStore;
     std::vector<SkullbonezCore::GameObjects::GameModel> reorderModels;
     std::vector<uint32_t> reorderReplayBodyIds;
+    std::vector<int> reorderFixedTreeReleaseRoots;
     for ( int i = 0; i < 2; ++i )
     {
         SkullbonezCore::GameObjects::GameModel model(
@@ -727,8 +728,12 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         model.AddBoundingSphere( 0.5f );
         reorderModels.push_back( std::move( model ) );
         reorderReplayBodyIds.push_back( REORDER_BODY_A_REPLAY_ID + static_cast<uint32_t>( i ) );
+        reorderFixedTreeReleaseRoots.push_back( -1 );
     }
-    reorderBodyStore.LoadFromModels( reorderModels, reorderReplayBodyIds, std::vector<uint8_t>{} );
+    reorderBodyStore.LoadFromModels( reorderModels,
+                                     reorderReplayBodyIds,
+                                     reorderFixedTreeReleaseRoots,
+                                     std::vector<uint8_t>{} );
     const PhysicsBodyHandle reorderedOriginalBody = reorderBodyStore.HandleForModelIndex( 0 );
     const uint32_t reorderBodyAReplayId = REORDER_BODY_A_REPLAY_ID;
     const uint32_t reorderBodyBReplayId = REORDER_BODY_B_REPLAY_ID;
@@ -739,7 +744,10 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         reorderBodyStore.SeedBodyAsleep( reorderedOriginalBody );
     reorderReplayBodyIds[0] = reorderBodyBReplayId;
     reorderReplayBodyIds[1] = reorderBodyAReplayId;
-    reorderBodyStore.LoadFromModels( reorderModels, reorderReplayBodyIds, std::vector<uint8_t>{} );
+    reorderBodyStore.LoadFromModels( reorderModels,
+                                     reorderReplayBodyIds,
+                                     reorderFixedTreeReleaseRoots,
+                                     std::vector<uint8_t>{} );
     const int reorderedBodyAIndex = reorderBodyStore.ModelIndexForHandle( reorderedOriginalBody );
     const PhysicsBodyRecord* reorderedBodyARecord =
         reorderedBodyAIndex >= 0 ? reorderBodyStore.RecordForModelIndex( reorderedBodyAIndex ) : nullptr;

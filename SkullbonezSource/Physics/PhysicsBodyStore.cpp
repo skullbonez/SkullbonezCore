@@ -892,7 +892,7 @@ void IntegrateBodyRecordPose( PhysicsBodyRecord& record, float deltaSeconds )
     }
 }
 
-void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record )
+void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record, int fixedTreeReleaseRootIndex )
 {
     record.position = model.GetPosition();
     record.orientation = model.GetOrientation();
@@ -916,10 +916,7 @@ void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record )
     record.isFixed = model.IsFixed();
     record.usesWorldInertia = model.UsesWorldInertia();
     record.releasesFromFixedOnContact = model.ReleasesFromFixedOnContact();
-    record.fixedTreeReleaseRootIndex =
-        model.GetRuntimeCollectionKind() == SkullbonezCore::GameObjects::GameModelCollectionKind::ReleasableTree
-            ? model.GetRuntimeCollectionRootModelIndex()
-            : -1;
+    record.fixedTreeReleaseRootIndex = fixedTreeReleaseRootIndex;
 }
 
 } // namespace
@@ -1059,12 +1056,15 @@ void PhysicsBodyStore::Clear()
 
 void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models,
                                        const std::vector<uint32_t>& replayBodyIds,
+                                       const std::vector<int>& fixedTreeReleaseRootIndices,
                                        const std::vector<uint8_t>& sleepStates )
 {
     assert( replayBodyIds.size() == models.size() );
+    assert( fixedTreeReleaseRootIndices.size() == models.size() );
     // Invariant: GameModel no longer owns replay identity. The model array is
     // only the compatibility source for mutable body authoring data; replay ids
-    // arrive as a cold scratch stream rebuilt from existing body rows.
+    // and fixed-tree release roots arrive as cold scratch streams rebuilt by the
+    // collection owner edge, not by physics querying model metadata.
     const std::vector<PreservedRefreshState> preservedStateByHandle =
         CapturePreservedRefreshState( m_bodies, m_handleGenerations.size() );
     std::vector<uint8_t> assignedHandleSlots( m_handleGenerations.size(), 0 );
@@ -1085,7 +1085,7 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models,
         record.handle = handle;
         record.replayBodyId = replayBodyId;
         record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
-        CaptureMutableBodyState( model, record );
+        CaptureMutableBodyState( model, record, fixedTreeReleaseRootIndices[i] );
         if ( preservedState && preservedState->hasPendingImpulse )
         {
             record.pendingImpulse = preservedState->pendingImpulse;
@@ -1107,12 +1107,13 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models,
 
 
 PhysicsBodyRecord SkullbonezCore::Physics::MakeBodyRecordFromAuthoredModel( GameModel& model,
-                                                                            PhysicsSceneObjectId sceneObjectId )
+                                                                            PhysicsSceneObjectId sceneObjectId,
+                                                                            int fixedTreeReleaseRootIndex )
 {
     PhysicsBodyRecord record;
     record.sceneObjectId = sceneObjectId;
     record.replayBodyId = sceneObjectId.value;
-    CaptureMutableBodyState( model, record );
+    CaptureMutableBodyState( model, record, fixedTreeReleaseRootIndex );
     return record;
 }
 
@@ -1281,7 +1282,9 @@ bool PhysicsBodyStore::RestoreReplayBodyState( PhysicsBodyHandle body,
 }
 
 
-void PhysicsBodyStore::CaptureMutableStateFromModelAt( std::vector<GameModel>& models, int modelIndex )
+void PhysicsBodyStore::CaptureMutableStateFromModelAt( std::vector<GameModel>& models,
+                                                       int modelIndex,
+                                                       int fixedTreeReleaseRootIndex )
 {
     PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
     if ( !record || modelIndex < 0 || modelIndex >= static_cast<int>( models.size() ) )
@@ -1289,7 +1292,7 @@ void PhysicsBodyStore::CaptureMutableStateFromModelAt( std::vector<GameModel>& m
         return;
     }
 
-    CaptureMutableBodyState( models[static_cast<std::size_t>( modelIndex )], *record );
+    CaptureMutableBodyState( models[static_cast<std::size_t>( modelIndex )], *record, fixedTreeReleaseRootIndex );
 }
 
 

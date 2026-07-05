@@ -2376,6 +2376,35 @@ errors, DX12 screenshots matching baselines, and byte-exact 20,001-line
 `physics_regression_solver.csv`. Log:
 `TestOutput\validation\physics_store_authority\validate_full_render_projection_facade_shrink.log`.
 
+Slice `PHY-1072`: fixed-tree release metadata import no longer reads
+collection metadata inside `PhysicsBodyStore`. Owner: `GameModelCollection`
+still owns the legacy runtime collection grouping facts during this migration
+and converts them to a plain `fixedTreeReleaseRootIndex` scalar at append,
+topology repair, and single-body refresh. Reason: fixed-tree grouping is
+scene/entity metadata; letting `PhysicsBodyStore` ask `GameModel` whether a row
+is a releasable tree makes the body importer a hidden model-owner reader.
+Deletion condition: `PhysicsBodyStore.h/cpp` contain no
+`GameModelCollectionKind`, `GetRuntimeCollection*`, or `SetRuntimeCollection`
+tokens; future scene/entity metadata work moves the grouping owner out of
+`GameModel` entirely. Checker budget: `tools/check_runtime_boundaries.py`
+rejects runtime collection metadata tokens inside `PhysicsBodyStore` and covers
+old, allowed scalar, and comment-only synthetic cases.
+
+Evidence: CodeGraph and targeted source checks confirmed `ReloadPhysicsBodies`
+is still topology/count gated before the per-tick step; residue scan found no
+blocked runtime collection metadata tokens in `PhysicsBodyStore`; `git diff --check`,
+boundary-checker Python compile, and runtime-boundary validation
+passed with 0 errors; touched-source comment audit inspected
+`GameModelCollection.cpp`, `GameModelCollection.h`, `PhysicsBodyStore.cpp`,
+`PhysicsBodyStore.h`, `Runtime/Init.cpp`, and `check_runtime_boundaries.py`;
+`tools\validate_fast.bat` passed formatting, project filters, runtime
+boundaries, and Profile/Debug builds with 0 warnings/errors;
+`tools\validate_physics.bat` passed standalone/runtime handle smoke and
+byte-exact `physics_regression_solver.csv`. Logs:
+`TestOutput\validation\physics_store_authority\validate_fast_fixed_tree_metadata_import.log`
+and
+`TestOutput\validation\physics_store_authority\validate_physics_fixed_tree_metadata_import.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

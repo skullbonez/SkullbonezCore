@@ -3,14 +3,35 @@
 Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
-Validation for latest source slice: `tools\validate_full.bat` passed on
-2026-07-05 after deleting the `PhysicsModelAccess::RefreshRenderInstances()`
-facade. Runtime boundaries reported 0 errors, Profile/Debug builds were 0
-warnings/errors, DX12 InfoQueue errors were 0, screenshots matched baselines,
-and `physics_regression_solver.csv` was a byte-exact 20,001-line match.
+Validation for latest source slice: `tools\validate_fast.bat` and
+`tools\validate_physics.bat` passed on 2026-07-05 after moving fixed-tree
+release metadata import out of `PhysicsBodyStore`. Runtime boundaries reported
+0 errors, Profile/Debug builds were 0 warnings/errors, standalone/runtime
+physics smoke passed, and `physics_regression_solver.csv` was byte-exact.
 
 ## Completed Slices
 
+- [x] 2026-07-05: Moved fixed-tree release root metadata lookup out of
+  `PhysicsBodyStore`. `GameModelCollection` now converts legacy runtime
+  collection grouping into a plain `fixedTreeReleaseRootIndex` scalar at append,
+  topology repair, and single-body refresh; `PhysicsBodyStore` consumes that
+  scalar while importing mutable body data and no longer reads
+  `GameModelCollectionKind` or `GetRuntimeCollection*`. Owner:
+  `GameModelCollection` owns the remaining grouping metadata until scene/entity
+  identity replaces the legacy `GameModel` fields. Reason: fixed-tree grouping
+  is scene/entity metadata, not body-store import authority, and a hidden model
+  metadata read inside `PhysicsBodyStore` would keep the old boundary alive.
+  Deletion condition: `PhysicsBodyStore.h/cpp` contain no runtime collection
+  metadata tokens. Checker budget: `tools/check_runtime_boundaries.py` rejects
+  `GameModelCollectionKind`, `GetRuntimeCollection*`, and
+  `SetRuntimeCollection` inside `PhysicsBodyStore`, with old/allowed/comment
+  self-tests. Validation: residue scan found no blocked tokens in
+  `PhysicsBodyStore`; `git diff --check`, boundary-checker Python compile,
+  runtime boundaries with 0 errors, and touched-source comment audit passed;
+  `tools\validate_fast.bat` passed format/project filters/runtime boundaries
+  plus Profile/Debug builds at 0 warnings/errors; `tools\validate_physics.bat`
+  passed standalone/runtime handle smoke and byte-exact
+  `physics_regression_solver.csv`.
 - [x] 2026-07-05: Deleted the `PhysicsModelAccess::RefreshRenderInstances()`
   facade. `GameModelCollection` now owns the one cold render projection fill
   because material/highlight presentation facts still live with model order;
@@ -1338,6 +1359,10 @@ Only remove compatibility after callers have moved and validation has covered th
   compatibility refreshes consume collection/body-store replay identity instead.
     The explicit bulk step compatibility writeback remains pending final reader
     migration.
+- [x] Move fixed-tree release root metadata import out of `PhysicsBodyStore`.
+  The remaining `GameModel` grouping fields are converted to an explicit scalar
+  by `GameModelCollection` during cold append/topology repair until scene/entity
+  metadata owns the grouping directly.
 - [ ] Delete compatibility collider fields from `GameModel` after final reader migrates.
 - [ ] Delete production render reliance on concrete `GameModelCollection` after
   render callers migrate to `RenderInstanceStore`.

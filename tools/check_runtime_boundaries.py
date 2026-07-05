@@ -1051,6 +1051,9 @@ GAME_MODEL_COLLECTION_FIXED_TREE_RELEASE_MODEL_BODY_PATTERN = re.compile(
     r"(?:GetRuntimeCollectionKind|GetRuntimeCollectionRootModelIndex|GetPosition|IsFixed|"
     r"ReleasesFromFixedOnContact|SetFixed|SetLinearVelocity|SetAngularVelocity)\s*\("
 )
+PHYSICS_BODY_STORE_RUNTIME_COLLECTION_METADATA_PATTERN = re.compile(
+    r"\b(?:GameModelCollectionKind|GetRuntimeCollection(?:Kind|PartIndex|RootModelIndex)|SetRuntimeCollection)\b"
+)
 DELETED_PER_BODY_MODEL_WRITEBACK_PATTERN = re.compile(
     r"\b(?:(?:void|bool)\s+)?(?:(?:GameModelCollection|PhysicsBodyStore)\s*::\s*)?"
     r"(?:WriteBackPhysicsBody|WriteBackToModelAt)\s*\("
@@ -6483,6 +6486,41 @@ def check_game_model_collection_fixed_tree_release_adapter_guardrails_text(
 def check_game_model_collection_fixed_tree_release_adapter_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / GAME_MODEL_COLLECTION_SOURCE
     return check_game_model_collection_fixed_tree_release_adapter_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_physics_body_store_runtime_collection_metadata_guardrails_text(
+    path: Path,
+    text: str,
+) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_BODY_STORE_RUNTIME_COLLECTION_METADATA_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "PhysicsBodyStore runtime collection metadata read is blocked",
+                (
+                    "Fixed-tree release roots are GameModelCollection-owned cold import scalars. Pass "
+                    "fixedTreeReleaseRootIndex into body-record construction instead of reading GameModel "
+                    "runtime collection metadata inside PhysicsBodyStore."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_body_store_runtime_collection_metadata_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in ( PHYSICS_ROOT / "PhysicsBodyStore.cpp", PHYSICS_ROOT / "PhysicsBodyStore.h" ):
+        path = repo / relative_path
+        errors.extend(
+            check_physics_body_store_runtime_collection_metadata_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+            )
+        )
+    return errors
 
 
 def check_game_model_fixed_contact_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -17915,6 +17953,51 @@ def run_self_tests() -> list[str]:
         allowed_game_model_collection_fixed_tree_store_release,
     ):
         failures.append("fixed-tree release store-owned synthetic surface was rejected")
+    old_body_store_runtime_collection_metadata_import = """
+    void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record )
+    {
+        record.fixedTreeReleaseRootIndex =
+            model.GetRuntimeCollectionKind() == GameModelCollectionKind::ReleasableTree
+                ? model.GetRuntimeCollectionRootModelIndex()
+                : -1;
+    }
+    """
+    if not any(
+        error.message == "PhysicsBodyStore runtime collection metadata read is blocked"
+        for error in check_physics_body_store_runtime_collection_metadata_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"),
+            old_body_store_runtime_collection_metadata_import,
+        )
+    ):
+        failures.append("old PhysicsBodyStore runtime collection metadata synthetic surface was not rejected")
+
+    allowed_body_store_fixed_tree_scalar_import = """
+    void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record, int fixedTreeReleaseRootIndex )
+    {
+        record.position = model.GetPosition();
+        record.fixedTreeReleaseRootIndex = fixedTreeReleaseRootIndex;
+    }
+    """
+    if check_physics_body_store_runtime_collection_metadata_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"),
+        allowed_body_store_fixed_tree_scalar_import,
+    ):
+        failures.append("fixed-tree root scalar body-store import synthetic surface was rejected")
+
+    commented_body_store_runtime_collection_metadata = """
+    // Old import read model.GetRuntimeCollectionKind() and GameModelCollectionKind here.
+    void CaptureMutableBodyState( GameModel& model, PhysicsBodyRecord& record, int fixedTreeReleaseRootIndex )
+    {
+        record.position = model.GetPosition();
+        record.fixedTreeReleaseRootIndex = fixedTreeReleaseRootIndex;
+    }
+    """
+    if check_physics_body_store_runtime_collection_metadata_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"),
+        commented_body_store_runtime_collection_metadata,
+    ):
+        failures.append("comment-only PhysicsBodyStore runtime collection metadata synthetic text was rejected")
+
     if check_deleted_per_body_model_writeback_guardrails_text(
         Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
         allowed_game_model_collection_fixed_tree_store_release,
@@ -18635,6 +18718,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_deleted_game_model_collection_physics_wrapper_guardrails(repo))
     errors.extend(check_game_model_fixed_contact_store_authority_guardrails(repo))
     errors.extend(check_game_model_collection_fixed_tree_release_adapter_guardrails(repo))
+    errors.extend(check_physics_body_store_runtime_collection_metadata_guardrails(repo))
     errors.extend(check_deleted_bulk_model_writeback_guardrails(repo))
     errors.extend(check_deleted_per_body_model_writeback_guardrails(repo))
     errors.extend(check_deleted_game_model_collection_physics_adapter_command_guardrails(repo))

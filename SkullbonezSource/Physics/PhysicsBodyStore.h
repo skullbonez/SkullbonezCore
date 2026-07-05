@@ -107,7 +107,9 @@ struct PhysicsBodyRecord
 // just-appended model to a value record so PhysicsEngine receives data, not a
 // GameModel reference. Delete this when creation writes PhysicsBodyCreateDesc
 // records directly.
-PhysicsBodyRecord MakeBodyRecordFromAuthoredModel( GameObjects::GameModel& model, PhysicsSceneObjectId sceneObjectId );
+PhysicsBodyRecord MakeBodyRecordFromAuthoredModel( GameObjects::GameModel& model,
+                                                   PhysicsSceneObjectId sceneObjectId,
+                                                   int fixedTreeReleaseRootIndex );
 
 class PhysicsBodyStore
 {
@@ -115,11 +117,12 @@ class PhysicsBodyStore
     PhysicsBodyStore();
 
     void Clear();
-    // Cold topology repair imports mutable model authoring data. The replay-id
-    // vector is scratch produced from existing PhysicsBodyStore rows plus any new
-    // ids allocated for missing rows; it is not persistent collection authority.
+    // Cold topology repair imports mutable model authoring data. Replay ids and
+    // fixed-tree roots are scratch streams produced by the collection owner; they
+    // are not persistent collection authority inside PhysicsBodyStore.
     void LoadFromModels( std::vector<GameObjects::GameModel>& models,
                          const std::vector<uint32_t>& replayBodyIds,
+                         const std::vector<int>& fixedTreeReleaseRootIndices,
                          const std::vector<uint8_t>& sleepStates );
     // Creates a physics-owned body row without consulting GameModel. The store
     // assigns the handle and keeps the row dense; callers supply authored state.
@@ -146,7 +149,9 @@ class PhysicsBodyStore
                                  float inverseMass,
                                  const Math::Vector::Vector3& rotationalInertia,
                                  const Math::Vector::Vector3& inverseRotationalInertia );
-    void CaptureMutableStateFromModelAt( std::vector<GameObjects::GameModel>& models, int modelIndex );
+    void CaptureMutableStateFromModelAt( std::vector<GameObjects::GameModel>& models,
+                                         int modelIndex,
+                                         int fixedTreeReleaseRootIndex );
     void CopySleepStatesFrom( const std::vector<uint8_t>& sleepStates );
     void CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) const;
     // Converts an authored fixed body record into a dynamic body without

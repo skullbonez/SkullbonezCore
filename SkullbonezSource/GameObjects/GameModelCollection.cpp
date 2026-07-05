@@ -413,6 +413,32 @@ GameModelCollection::BuildReplayBodyIdsForReload( const SkullbonezCore::Physics:
 }
 
 
+std::vector<int> GameModelCollection::BuildFixedTreeReleaseRootsForReload() const
+{
+    std::vector<int> fixedTreeReleaseRoots;
+    fixedTreeReleaseRoots.reserve( m_gameModels.size() );
+    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
+    {
+        fixedTreeReleaseRoots.push_back( FixedTreeReleaseRootForModelIndex( i ) );
+    }
+    return fixedTreeReleaseRoots;
+}
+
+
+int GameModelCollection::FixedTreeReleaseRootForModelIndex( int modelIndex ) const
+{
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_gameModels.size() ) )
+    {
+        return -1;
+    }
+
+    const GameModel& model = m_gameModels[static_cast<std::size_t>( modelIndex )];
+    return model.GetRuntimeCollectionKind() == GameModelCollectionKind::ReleasableTree
+               ? model.GetRuntimeCollectionRootModelIndex()
+               : -1;
+}
+
+
 void GameModelCollection::BindWorkerPool( SkullbonezCore::Threading::WorkerPool& workerPool )
 {
     m_workerPool = &workerPool;
@@ -504,8 +530,11 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
         throw std::runtime_error( "Cannot append model while physics collider rows are missing." );
     }
     m_gameModels.push_back( std::move( gameModel ) );
-    const PhysicsBodyHandle bodyHandle =
-        m_physicsEngine.RegisterAuthoredBody( MakeBodyRecordFromAuthoredModel( m_gameModels.back(), sceneObjectId ) );
+    const int modelIndex = static_cast<int>( m_gameModels.size() ) - 1;
+    const PhysicsBodyHandle bodyHandle = m_physicsEngine.RegisterAuthoredBody(
+        MakeBodyRecordFromAuthoredModel( m_gameModels.back(),
+                                         sceneObjectId,
+                                         FixedTreeReleaseRootForModelIndex( modelIndex ) ) );
     const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForHandle( bodyHandle );
     assert( bodyRecord != nullptr );
     if ( !bodyRecord )
@@ -1181,17 +1210,21 @@ void GameModelCollection::ReloadPhysicsBodies( SkullbonezCore::Physics::PhysicsB
                                                const std::vector<uint8_t>& sleepStates )
 {
     // Invariant: body reload may import mutable model authoring data, but stable
-    // replay identity remains in PhysicsBodyStore rows. The id stream below is
-    // cold scratch for topology repair, not a persistent model-order sidecar.
+    // replay identity and fixed-tree release groups remain store/owner facts.
+    // The streams below are cold scratch for topology repair, not persistent
+    // model-order sidecars.
     std::vector<uint32_t> replayBodyIds = BuildReplayBodyIdsForReload( bodyStore );
-    bodyStore.LoadFromModels( m_gameModels, replayBodyIds, sleepStates );
+    std::vector<int> fixedTreeReleaseRoots = BuildFixedTreeReleaseRootsForReload();
+    bodyStore.LoadFromModels( m_gameModels, replayBodyIds, fixedTreeReleaseRoots, sleepStates );
 }
 
 
 void GameModelCollection::RefreshPhysicsBodyFromModel( SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
                                                        int modelIndex )
 {
-    bodyStore.CaptureMutableStateFromModelAt( m_gameModels, modelIndex );
+    bodyStore.CaptureMutableStateFromModelAt( m_gameModels,
+                                              modelIndex,
+                                              FixedTreeReleaseRootForModelIndex( modelIndex ) );
 }
 
 

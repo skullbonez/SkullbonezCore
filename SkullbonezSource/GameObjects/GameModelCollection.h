@@ -142,6 +142,10 @@ class GameModelCollection
     std::vector<ReplayRenderPoseOverride> m_replayRenderPoseOverrides; // Single-frame replay draw-pose requests.
 
     std::vector<uint32_t> BuildReplayBodyIdsForReload( const Physics::PhysicsBodyStore& bodyStore );
+    // Owner boundary: fixed-tree grouping is collection metadata. Body-store
+    // import receives only the scalar root, never collection-kind accessors.
+    std::vector<int> BuildFixedTreeReleaseRootsForReload() const;
+    int FixedTreeReleaseRootForModelIndex( int modelIndex ) const;
     void ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore,
                                          const Physics::ColliderStore& colliderStore );
     void RefreshRenderInstances();
