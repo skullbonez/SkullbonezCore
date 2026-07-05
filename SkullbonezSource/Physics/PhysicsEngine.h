@@ -13,6 +13,7 @@ Glossary:
   internals.
   Fixed-tree release: Store-owned command that turns authored fixed props into
     dynamic bodies and wakes same-tree parts after an accepted impulse.
+  Physics material: Runtime policy for collider friction and sphere drag.
   Diagnostics view: Borrowed read-only solver/debug state exposed for tooling.
   Compatibility view: Transitional model-order view used while stores migrate.
 
@@ -45,6 +46,7 @@ class WorkerPool;
 namespace Physics
 {
 struct PhysicsColliderCreateDesc;
+struct PhysicsMaterial;
 
 class PhysicsEngine
 {
@@ -52,6 +54,9 @@ class PhysicsEngine
     PhysicsEngine() = default;
 
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
+    // Applies config material policy to live collider rows without rebuilding
+    // shape descriptors from model-order storage.
+    void ApplyColliderMaterial( const PhysicsMaterial& material );
     void Clear();
     void RefreshBodyStore( PhysicsModelAccess& modelAccess );
     void RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex );

@@ -75,10 +75,12 @@ Import-Csv Agentic\Plans\In_Progress\physics-standalone-agent-workqueue.csv |
   `SkullbonezSource/Physics/PhysicsBodyStore.cpp:266`.
 - `ColliderStore` owns dense live collider rows and only refreshes body
   identity from `PhysicsBodyStore`; every `AddGameModel()` append path now
-  passes `PhysicsColliderCreateDesc` directly at creation. The remaining cold
-  compatibility edge captures descriptors from `GameModel` only for same-count
-  editor/config edits or topology drift until explicit collider update commands
-  replace model-field recapture. Evidence: `PHY-1062`, `PHY-1063`, `PHY-1064`,
+  passes `PhysicsColliderCreateDesc` directly at creation, and runtime config
+  applies material scalars directly to existing collider rows. The remaining
+  cold compatibility edge captures descriptors from `GameModel` only for
+  same-count editor shape edits or topology drift until explicit collider update
+  commands replace model-field recapture. Evidence: `PHY-1062`, `PHY-1063`,
+  `PHY-1064`, `PHY-1065`,
   `SkullbonezSource/Physics/PhysicsScene.cpp`,
   `SkullbonezSource/Physics/ColliderStore.cpp`,
   `SkullbonezSource/GameObjects/GameModelCollection.cpp`.
@@ -418,8 +420,9 @@ Target: `ColliderStore` owns the standalone collision shape and metadata surface
 - [x] Make compatibility append-time model creation register the paired
   `ColliderStore` row immediately after the new `PhysicsBodyStore` row.
 - [x] Make same-count collider refresh store-owned: `ColliderStore` now
-  preserves dense shape/material rows during body-binding refresh, editor/config
-  changes replace one row in place, and topology drift is the only path that
+  preserves dense shape/material rows during body-binding refresh, editor shape
+  changes replace one row in place, runtime config updates material scalars in
+  place, and topology drift is the only path that
   rebuilds collider fields from `GameModel`.
 - [x] Route compatibility authored collider registration/update through
   `PhysicsColliderCreateDesc` so `PhysicsScene`, not `GameModelCollection`,
@@ -452,10 +455,11 @@ restitution, and friction evidence. Compatibility appends now create one body
 row and one paired collider row at `GameModelCollection::AddGameModel()` instead
 of waiting for a later collider topology refresh. Same-count collider refresh no
 longer scans `GameModel` or a duplicate authoring sidecar: `ColliderStore`
-rebases body identity only, while append/edit/config/topology boundaries capture
-a `PhysicsColliderCreateDesc` and let `PhysicsScene` derive the live
-`ColliderRecord`. Remaining shape pairs and the final move of `GameModel`
-shape/material authoring into scene/entity collider descriptors are future
+rebases body identity only, runtime config updates material scalars in place,
+and append/edit/topology boundaries capture a `PhysicsColliderCreateDesc` and
+let `PhysicsScene` derive the live `ColliderRecord`. Remaining shape pairs and
+the final move of `GameModel` shape/material authoring into scene/entity collider
+descriptors are future
 contact/authoring coverage, not blockers for the Phase 3 smoke row. Latest
 collider-store authority evidence: runtime-boundary checker passed with 0
 errors, `tools\validate_fast.bat` passed, standalone smoke reported
@@ -2129,8 +2133,9 @@ Owner: scene setup owns parsed/generated shape facts while `PhysicsScene` owns
 live collider rows; reason: scene setup already knows radius, half-extents,
 hull, restitution, and contact material, so rereading those values from
 `GameModel` only preserves migration work and cache-hostile authority drift;
-deletion condition: ragdoll/editor/config creation also supply descriptors and
-`CaptureAuthoredColliderDesc()` disappears from `GameModelCollection`; checker
+deletion condition: ragdoll/editor creation also supplies descriptors, runtime
+config no longer recaptures descriptors, and `CaptureAuthoredColliderDesc()`
+disappears from `GameModelCollection`; checker
 budget: `tools/check_runtime_boundaries.py` rejects bare scene setup
 `AddGameModel(std::move(...))` calls and checks the append helper for direct
 collider registration.
@@ -2155,7 +2160,7 @@ Owner: ragdoll/editor/runtime/scene creation owns primitive shape facts while
 radius, half-extents, hull, restitution, and contact-material facts before
 model handoff, so keeping a public bare append path made `GameModel` a redundant
 collider fact cache; deletion condition: `CaptureAuthoredColliderDesc()` is now
-restricted to same-count editor/config edits and topology drift until explicit
+restricted to same-count editor shape edits and topology drift until explicit
 collider update commands replace model-field recapture; checker budget:
 `tools/check_runtime_boundaries.py` rejects bare `AddGameModel(std::move(...))`
 in scene, editor, launcher, runtime smoke, and ragdoll construction files.
@@ -2171,6 +2176,33 @@ typo fix; touched-file comment audit inspected `GameModelCollection.h`,
 project filters, runtime boundaries, and Profile/Debug builds with 0
 warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle
 smoke with `collider_refresh=pass` and byte-exact 20,001-line
+`physics_regression_solver.csv`.
+
+Slice `PHY-1065`: runtime config collider material now updates dense
+`ColliderStore` rows directly instead of recapturing full collider descriptors
+from `GameModel`. Owner: `GameModelCollection` owns compatibility policy
+application, while `ColliderStore` owns live collider friction and sphere-drag
+scalars; reason: config changes material policy, not shape authoring, so
+rebuilding every shape descriptor from the model mirror is unnecessary copying
+and keeps the wrong authority alive; deletion condition:
+`GameModelCollection::ApplyRuntimeConfig()` contains no
+`UpdateColliderStoreFromModel()` call, and `CaptureAuthoredColliderDesc()`
+remains only for same-count editor shape edits or topology drift until explicit
+collider update commands replace it; checker budget:
+`tools/check_runtime_boundaries.py` rejects config-time
+`UpdateColliderStoreFromModel()` recapture with negative and positive self-tests.
+
+Evidence: CodeGraph mapped the old
+`ApplyRuntimeConfig -> UpdateColliderStoreFromModel -> CaptureAuthoredColliderDesc`
+path; `git diff --check`, boundary-checker Python compile, and
+runtime-boundary validation passed with 0 errors; focused Profile build passed
+with 0 warnings/errors; touched-file comment audit inspected
+`GameModelCollection.cpp`, `ColliderStore.h/cpp`, `PhysicsEngine.h/cpp`,
+`PhysicsScene.h/cpp`, and `check_runtime_boundaries.py`;
+`tools\validate_fast.bat` passed formatting, project filters, runtime
+boundaries, and Profile/Debug builds with 0 warnings/errors;
+`tools\validate_physics.bat` passed standalone/runtime handle smoke with
+`collider_refresh=pass` and byte-exact 20,001-line
 `physics_regression_solver.csv`.
 
 ## Required Evidence For Each Source Slice

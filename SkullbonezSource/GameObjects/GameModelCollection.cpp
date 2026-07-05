@@ -134,11 +134,11 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
 
 
 // Why: this is the remaining cold collider-authoring import for same-count
-// editor/config edits and topology drift. It returns a descriptor, not a live
-// ColliderStore row, so physics remains the owner of row layout and handle
-// identity. Deletion: explicit collider update commands replace model-field
-// recapture. Checker: runtime boundaries reject GameModelCollection building
-// ColliderRecord values from GameModel.
+// editor shape edits and topology drift. Runtime config updates material
+// scalars directly in ColliderStore, so descriptor recapture stays limited to
+// actual shape-authoring boundaries. Deletion: explicit collider update commands
+// replace model-field recapture. Checker: runtime boundaries reject
+// GameModelCollection building ColliderRecord values from GameModel.
 PhysicsColliderCreateDesc CaptureAuthoredColliderDesc( GameModel& model, const PhysicsBodyRecord& body )
 {
     PhysicsColliderCreateDesc desc;
@@ -416,12 +416,13 @@ bool GameModelCollection::UpdateColliderStoreFromModel( int modelIndex )
     }
 
     // Owner: GameModelCollection still owns the compatibility import because
-    // editor/config authoring can mutate GameModel collider fields today.
-    // Reason: replace one dense ColliderStore row at explicit edit/config
-    // boundaries instead of keeping a second authoring array or rescanning every
-    // model on steady frames. Deletion: scene/entity creation writes collider
-    // descriptors directly. Checker: runtime boundaries block ColliderStore
-    // from accepting GameModel and block the deleted authoring sidecar names.
+    // editor authoring can mutate GameModel collider fields today.
+    // Reason: replace one dense ColliderStore row at explicit shape-edit or
+    // topology-repair boundaries instead of keeping a second authoring array or
+    // rescanning every model on steady frames. Deletion: explicit collider
+    // update commands carry shape edits directly. Checker: runtime boundaries
+    // block ColliderStore from accepting GameModel and block config refresh from
+    // reopening this import path.
     const PhysicsColliderHandle collider = m_physicsEngine.Colliders().HandleForModelIndex( modelIndex );
     return m_physicsEngine.UpdateAuthoredCollider(
         collider,
@@ -451,10 +452,10 @@ void GameModelCollection::ApplyRuntimeConfig( const Basics::EngineConfig& config
         model.ApplyPhysicsMaterial( m_physicsMaterial );
         model.ApplyBodySimulationLimits( m_bodySimulationLimits );
         model.ApplyContactPolicy( m_contactPolicy );
-        if ( colliderRowsReady )
-        {
-            (void)UpdateColliderStoreFromModel( i );
-        }
+    }
+    if ( colliderRowsReady )
+    {
+        m_physicsEngine.ApplyColliderMaterial( m_physicsMaterial );
     }
     if ( !colliderRowsReady )
     {

@@ -13,6 +13,7 @@ Glossary:
   internals.
   Fixed-tree release: Store-owned command that turns authored fixed props into
     dynamic bodies and wakes same-tree parts after an accepted impulse.
+  Physics material: Runtime policy for collider friction and sphere drag.
   Store refresh: Deterministic copy between compatibility model-view state and
   physics-owned body/collider/render stores.
   Replay restore: Replacement of live solver state from a saved replay sample.
@@ -36,12 +37,19 @@ using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsEngine;
+using SkullbonezCore::Physics::PhysicsMaterial;
 using SkullbonezCore::Physics::PhysicsModelAccess;
 
 
 void PhysicsEngine::ApplyRuntimeConfig( const Basics::EngineConfig& config )
 {
     m_scene.ApplyRuntimeConfig( config );
+}
+
+
+void PhysicsEngine::ApplyColliderMaterial( const PhysicsMaterial& material )
+{
+    m_scene.ApplyColliderMaterial( material );
 }
 
 

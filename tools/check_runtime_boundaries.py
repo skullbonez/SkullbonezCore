@@ -25,9 +25,9 @@
 #   after their owner-side store commits. The deleted
 #   collection step wrapper has its own fence, replay render-pose overrides and
 #   prediction ghost identity have their own value-override/store-authority fence,
-#   per-body model writeback, and the deleted bulk model mirror have their own
-#   fences, so count allowances do not silently approve a new compatibility
-#   location.
+#   runtime config has a collider-material fence, per-body model writeback, and
+#   the deleted bulk model mirror have their own fences, so count allowances do
+#   not silently approve a new compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -462,6 +462,9 @@ GAME_MODEL_COLLECTION_ADD_GAME_MODEL_FUNCTION_PATTERN = re.compile(
 GAME_MODEL_COLLECTION_APPEND_MODEL_ROWS_FUNCTION_PATTERN = re.compile(
     r"\bPhysicsBodyHandle\s+GameModelCollection::AppendGameModelAndPhysicsRows\s*\("
 )
+GAME_MODEL_COLLECTION_APPLY_RUNTIME_CONFIG_FUNCTION_PATTERN = re.compile(
+    r"\bvoid\s+GameModelCollection::ApplyRuntimeConfig\s*\("
+)
 GAME_MODEL_COLLECTION_ADD_GAME_MODEL_BODY_ONLY_REPAIR_PATTERN = re.compile(
     r"\bRepairPhysicsBodyTopology\s*\("
 )
@@ -587,6 +590,9 @@ COLLECTION_COLLIDER_RECORD_IMPORT_PATTERN = re.compile(
     r"\bBuildColliderRecordFromModel\b"
     r"|\bRegisterAuthoredCollider\s*\(\s*BuildColliderRecordFromModel\s*\("
     r"|\bUpdateAuthoredCollider\s*\([^;{}]*BuildColliderRecordFromModel\s*\("
+)
+GAME_MODEL_COLLECTION_CONFIG_COLLIDER_RECAPTURE_PATTERN = re.compile(
+    r"\bUpdateColliderStoreFromModel\s*\("
 )
 GAME_MODEL_REPLAY_ID_MIRROR_PATTERN = re.compile(
     r"\b(?:GetReplayBodyId|SetReplayBodyId)\s*\(|\bm_replayBodyId\b"
@@ -4333,6 +4339,26 @@ def check_game_model_collection_collider_authoring_guardrails_text(path: Path, t
         )
     if path.name != GAME_MODEL_COLLECTION_SOURCE.name:
         return errors
+
+    bounds = _function_body_bounds(stripped, GAME_MODEL_COLLECTION_APPLY_RUNTIME_CONFIG_FUNCTION_PATTERN)
+    if bounds:
+        open_brace, close_brace = bounds
+        for match in GAME_MODEL_COLLECTION_CONFIG_COLLIDER_RECAPTURE_PATTERN.finditer(
+            stripped,
+            open_brace,
+            close_brace,
+        ):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "runtime config collider recapture is blocked",
+                    (
+                        "Runtime config changes material policy; apply those scalars to ColliderStore rows "
+                        "without rebuilding shape descriptors from GameModel."
+                    ),
+                )
+            )
 
     bounds = _function_body_bounds(stripped, GAME_MODEL_COLLECTION_REFRESH_COLLIDERS_FUNCTION_PATTERN)
     if not bounds:
@@ -13978,6 +14004,41 @@ def run_self_tests() -> list[str]:
         )
     ):
         failures.append("collection collider record import synthetic surface was not rejected")
+
+    old_runtime_config_collider_recapture = """
+    void GameModelCollection::ApplyRuntimeConfig( const Basics::EngineConfig& config )
+    {
+        for ( int i = 0; i < ModelCount(); ++i )
+        {
+            UpdateColliderStoreFromModel( i );
+        }
+    }
+    """
+    if not any(
+        error.message == "runtime config collider recapture is blocked"
+        for error in check_game_model_collection_collider_authoring_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_runtime_config_collider_recapture,
+        )
+    ):
+        failures.append("runtime config collider recapture synthetic surface was not rejected")
+
+    allowed_runtime_config_collider_material = """
+    void GameModelCollection::ApplyRuntimeConfig( const Basics::EngineConfig& config )
+    {
+        m_physicsMaterial = Physics::PhysicsMaterial::FromConfig( config );
+        for ( GameModel& model : m_gameModels )
+        {
+            model.ApplyPhysicsMaterial( m_physicsMaterial );
+        }
+        m_physicsEngine.ApplyColliderMaterial( m_physicsMaterial );
+    }
+    """
+    if check_game_model_collection_collider_authoring_guardrails_text(
+        Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+        allowed_runtime_config_collider_material,
+    ):
+        failures.append("store-owned runtime config collider material synthetic surface was rejected")
 
     allowed_collection_collider_refresh_authoring = """
     void GameModelCollection::RefreshPhysicsColliders( ColliderStore& colliderStore,

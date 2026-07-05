@@ -15,6 +15,7 @@ Glossary:
     or render instances.
   Pending impulse: One-shot velocity edit queued on a body record and consumed
     by the next solver step.
+  Physics material: Runtime policy for collider friction and sphere drag.
   Velocity edit: Replay-authored command that changes live body velocity before
     prediction or the next step samples the body store.
   Fixed-tree release: Store-owned command that turns authored fixed props into
@@ -57,6 +58,7 @@ using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
+using SkullbonezCore::Physics::PhysicsMaterial;
 using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Physics::PhysicsScene;
 
@@ -107,6 +109,12 @@ PhysicsScene::PhysicsScene()
 void PhysicsScene::ApplyRuntimeConfig( const Basics::EngineConfig& config )
 {
     m_world.ApplyRuntimeConfig( config );
+}
+
+
+void PhysicsScene::ApplyColliderMaterial( const PhysicsMaterial& material )
+{
+    m_colliderStore.ApplyPhysicsMaterial( material );
 }
 
 

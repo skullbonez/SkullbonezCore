@@ -5,12 +5,13 @@ Purpose:
 
 Mental model:
   ColliderStore owns the dense live collider rows. Runtime compatibility code
-  may replace a row at explicit create/edit/config boundaries, while topology
-  repair only refreshes body identity from PhysicsBodyStore. Handles are
-  allocator identity; record order is only an iteration/detail surface.
+  may replace a row at explicit create/edit boundaries, while topology repair
+  only refreshes body identity from PhysicsBodyStore. Handles are allocator
+  identity; record order is only an iteration/detail surface.
 
 Glossary:
   Collider: Shape metadata used to choose sphere, box, or convex-hull tests.
+  Physics material: Runtime policy for collider friction and sphere drag.
   Narrowphase: Precise collision pass that computes actual contact points.
   Convex hull: Collision shape made from a closed convex set of authored points.
   Replay body id: Stable per-scene id paired with a body for replay diagnostics.
@@ -41,6 +42,7 @@ namespace Physics
 {
 class PhysicsBodyStore;
 struct PhysicsBodyRecord;
+struct PhysicsMaterial;
 
 enum class ColliderShapeKind : uint8_t
 {
@@ -73,11 +75,14 @@ class ColliderStore
     void Clear();
     void RefreshBodyBindings( const PhysicsBodyStore& bodyStore );
     PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord );
-    // Authoring/config edits replace row contents through the stable collider
-    // handle, so callers do not need to expose model-order slots at the physics
-    // facade boundary.
+    // Authoring edits replace row contents through the stable collider handle,
+    // so callers do not need to expose model-order slots at the physics facade
+    // boundary.
     bool UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record );
     bool UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record );
+    // Runtime config updates material scalars in-place instead of rebuilding
+    // shape records from the GameModel mirror.
+    void ApplyPhysicsMaterial( const PhysicsMaterial& material );
     bool DestroyColliderRecord( PhysicsColliderHandle handle );
     bool TrimToCount( int colliderCount );
 

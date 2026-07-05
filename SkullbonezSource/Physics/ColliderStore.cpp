@@ -5,12 +5,14 @@ Purpose:
 
 Mental model:
   Collider shape/material values live in dense ColliderRecord rows. Runtime
-  compatibility code can replace a row at cold authoring edges, while topology
-  repair only rebases body identity and handle maps against PhysicsBodyStore.
-  Queries scan compact data and stale handles fail through generation checks.
+  compatibility code can replace a row at cold authoring edges, while config
+  changes update material scalars in-place and topology repair only rebases body
+  identity and handle maps against PhysicsBodyStore. Queries scan compact data
+  and stale handles fail through generation checks.
 
 Glossary:
   Collider: Shape metadata used to decide what precise collision test applies.
+  Physics material: Runtime policy for collider friction and sphere drag.
   Narrowphase: Precise collision pass that builds contacts for candidate pairs.
   Replay body id: Stable per-scene id used when replay and diagnostics name a
     physics body across frames.
@@ -28,17 +30,21 @@ Related:
 */
 #include "ColliderStore.h"
 #include "PhysicsBodyStore.h"
+#include "PhysicsObjectPolicy.h"
 
 #include <cassert>
 #include <cstddef>
+#include <variant>
 
 #include "../Core/Common.h"
+using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PHYSICS_HANDLE_INITIAL_GENERATION;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
+using SkullbonezCore::Physics::PhysicsMaterial;
 
 namespace
 {
@@ -271,6 +277,23 @@ bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const C
     m_handleModelIndices[static_cast<std::size_t>( handle.index )] = recordIndex;
     m_handleReplayBodyIds[static_cast<std::size_t>( handle.index )] = updated.replayBodyId;
     return true;
+}
+
+
+void ColliderStore::ApplyPhysicsMaterial( const PhysicsMaterial& material )
+{
+    // Concept: runtime material config is scalar policy, not shape authoring.
+    // Keep the existing exact shape variants in place and touch only the fields
+    // consumed by contact response and fluid drag.
+    for ( ColliderRecord& record : m_colliders )
+    {
+        record.friction = material.frictionCoefficient;
+        if ( BoundingSphere* sphere = std::get_if<BoundingSphere>( &record.shape ) )
+        {
+            sphere->SetDragCoefficient( material.sphereDragCoefficient );
+            record.dragCoefficient = material.sphereDragCoefficient;
+        }
+    }
 }
 
 

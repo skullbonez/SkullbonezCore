@@ -14,6 +14,7 @@ Glossary:
   Solver: Physics step that integrates bodies and resolves contacts.
   Store: Ordered snapshot for one concern, such as bodies, colliders, or render
     instances.
+  Physics material: Runtime policy for collider friction and sphere drag.
   Fixed-tree release: Store-owned command that turns authored fixed props into
     dynamic bodies and wakes same-tree parts after an accepted impulse.
   Sleep: Solver optimization that stops integrating stable bodies until an
@@ -57,6 +58,7 @@ class WorkerPool;
 namespace Physics
 {
 struct PhysicsColliderCreateDesc;
+struct PhysicsMaterial;
 
 class PhysicsScene
 {
@@ -64,6 +66,9 @@ class PhysicsScene
     PhysicsScene();
 
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
+    // Applies collection-wide material config to live collider rows without
+    // reopening the GameModel authoring mirror.
+    void ApplyColliderMaterial( const PhysicsMaterial& material );
     void Clear();
     void RefreshBodyStore( PhysicsModelAccess& modelAccess );
     void RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex );
