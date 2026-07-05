@@ -17,9 +17,9 @@
 #   handle-authority fence, contact-audio simple mode has a body-store motion
 #   fence, and fixed-tree, replay-restore wake, replay
 #   velocity-edit, launcher ray-hit, selection overlay, editor selection-frame,
-#   mouse-pickup overlay, attached-camera overlay, replay marker radii, replay
-#   path target identity, editor selection identity, or editor wake/sleep
-#   commands have store-handle fences. The deleted
+#   editor transform grouping, mouse-pickup overlay, attached-camera overlay,
+#   replay marker radii, replay path target identity, editor selection identity,
+#   or editor wake/sleep commands have store-handle fences. The deleted
 #   collection step wrapper has its own fence, replay render-pose overrides have
 #   their own value-override fence,
 #   per-body model writeback, and the deleted bulk model mirror have their own
@@ -67,6 +67,8 @@
 #   Editor selection-frame fence: Static rule that keeps gizmo hit testing,
 #     drag-start snapshots, and transform-change detection on PhysicsBodyStore
 #     pose and ColliderStore shape/radius rows.
+#   Editor transform grouping fence: Static rule that keeps ragdoll gizmo groups
+#     on collection metadata instead of per-frame display-name suffix parsing.
 #   Editor selection identity fence: Static rule that keeps selection commands
 #     and editor state paired with PhysicsBodyHandle/PhysicsColliderHandle
 #     instead of allowing model-index-only selection to regain physics authority.
@@ -718,6 +720,13 @@ EDITOR_SELECTION_FRAME_HANDLELESS_STORE_CALL_PATTERN = re.compile(
     r"\b(?:TryGetEditorSelectionFrame|TryTraceEditorSelectionOverlayFromStores)\s*\("
     r"(?P<call>[^;]*?selectedModelIndex[^;]*?)\)",
     re.DOTALL,
+)
+EDITOR_TRANSFORM_GROUP_FUNCTION_PATTERN = re.compile(r"\bint\s+GatherSelectedEditorTransformGroup\s*\(")
+EDITOR_TRANSFORM_GROUP_NAME_PARSE_PATTERN = re.compile(
+    r"\b(?:TryGetEditorRagdollInstancePrefixLength|EditorRagdollPrefixMatches|RAGDOLL_SUFFIXES)\b"
+)
+EDITOR_TRANSFORM_GROUP_NAME_READ_PATTERN = re.compile(
+    r"\.\s*GetName\s*\(\s*\)|\bstd\s*::\s*(?:strlen|strncmp)\s*\("
 )
 RUNTIME_INTERACTION_EXECUTE_COMMAND_PATTERN = re.compile(r"\bbool\s+Run\s*::\s*ExecuteRuntimeInteractionCommand\s*\(")
 ATTACHED_CAMERA_OVERLAY_MODEL_MARKER_PATTERN = re.compile(
@@ -4891,8 +4900,37 @@ def check_editor_selection_frame_store_authority_guardrails_text(path: Path, tex
                         line_for_offset(stripped, match.start()),
                         "editor selection frame GameModel body read is blocked",
                         (
-                            "Selection grouping may use GameModel names, but live pose, orientation, shape, and "
+                            "Selection grouping may use collection metadata, but live pose, orientation, shape, and "
                             "radius for gizmo frames and drag snapshots must come from PhysicsBodyStore/ColliderStore."
+                        ),
+                    )
+                )
+
+        for match in EDITOR_TRANSFORM_GROUP_NAME_PARSE_PATTERN.finditer(stripped):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "editor transform grouping must use collection metadata",
+                    (
+                        "Editor ragdoll grouping should use the existing runtime collection kind/root metadata; "
+                        "name suffix parsing is cold compatibility debt and should not return to transform code."
+                    ),
+                )
+            )
+
+        bounds = _function_body_bounds(stripped, EDITOR_TRANSFORM_GROUP_FUNCTION_PATTERN)
+        if bounds:
+            open_brace, close_brace = bounds
+            for match in EDITOR_TRANSFORM_GROUP_NAME_READ_PATTERN.finditer(stripped, open_brace, close_brace):
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, match.start()),
+                        "editor transform grouping must use collection metadata",
+                        (
+                            "GatherSelectedEditorTransformGroup should compare integer collection metadata instead "
+                            "of reading GameModel names or scanning suffix strings per gizmo frame."
                         ),
                     )
                 )
@@ -14577,6 +14615,77 @@ def run_self_tests() -> list[str]:
         allowed_editor_selection_frame_store_reads,
     ):
         failures.append("store-backed editor gizmo selection frame call synthetic surface was rejected")
+
+    old_editor_transform_group_name_parse = """
+    bool TryGetEditorRagdollInstancePrefixLength( const GameModel& model, std::size_t& outPrefixLength )
+    {
+        static constexpr const char* RAGDOLL_SUFFIXES[] = { "torso", "head" };
+        const char* name = model.GetName();
+        const std::size_t nameLength = std::strlen( name );
+        return nameLength > 0;
+    }
+
+    int GatherSelectedEditorTransformGroup( const std::vector<GameModel>& models,
+                                            int selectedIndex,
+                                            EditorGizmoGroupIndices& outIndices )
+    {
+        const char* selectedName = models[static_cast<std::size_t>( selectedIndex )].GetName();
+        return std::strncmp( selectedName, models[0].GetName(), 4 ) == 0 ? 2 : 1;
+    }
+    """
+    if not any(
+        error.message == "editor transform grouping must use collection metadata"
+        for error in check_editor_selection_frame_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+            old_editor_transform_group_name_parse,
+        )
+    ):
+        failures.append("old editor transform group name-parse synthetic surface was not rejected")
+
+    allowed_editor_transform_group_metadata = """
+    int GatherSelectedEditorTransformGroup( const std::vector<GameModel>& models,
+                                            int selectedIndex,
+                                            EditorGizmoGroupIndices& outIndices )
+    {
+        const GameModel& selected = models[static_cast<std::size_t>( selectedIndex )];
+        if ( selected.GetRuntimeCollectionKind() != GameModelCollectionKind::SimpleRagdoll )
+        {
+            outIndices[0] = selectedIndex;
+            return 1;
+        }
+        const int root = selected.GetRuntimeCollectionRootModelIndex();
+        int count = 0;
+        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        {
+            const GameModel& candidate = models[static_cast<std::size_t>( i )];
+            if ( candidate.GetRuntimeCollectionKind() == GameModelCollectionKind::SimpleRagdoll &&
+                 candidate.GetRuntimeCollectionRootModelIndex() == root )
+            {
+                outIndices[static_cast<std::size_t>( count )] = i;
+                ++count;
+            }
+        }
+        return count;
+    }
+    """
+    if check_editor_selection_frame_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+        allowed_editor_transform_group_metadata,
+    ):
+        failures.append("editor transform group metadata synthetic surface was rejected")
+
+    commented_editor_transform_group_name_parse = """
+    void DocumentOldEditorTransformGroup()
+    {
+        // The old grouping parsed GetName() suffixes with TryGetEditorRagdollInstancePrefixLength.
+        // It now uses runtime collection metadata.
+    }
+    """
+    if check_editor_selection_frame_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+        commented_editor_transform_group_name_parse,
+    ):
+        failures.append("comment-only editor transform group name-parse synthetic text was rejected")
 
     commented_editor_selection_frame_model_reads = """
     void DocumentOldEditorSelectionFrame()

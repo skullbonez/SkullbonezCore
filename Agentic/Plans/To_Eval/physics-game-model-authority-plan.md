@@ -5,9 +5,9 @@ Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
 intermittent `tools\validate_physics.bat` passed on 2026-07-05 after moving
-editor selection frame, overlay, and gizmo selected-member reads to stored
-`PhysicsBodyHandle` / `PhysicsColliderHandle` identity. Ragdoll/group siblings
-still use model-order metadata until scene/entity grouping leaves `GameModel`.
+editor ragdoll transform grouping from per-frame name/suffix parsing to integer
+collection metadata, with legacy scene-name compatibility kept at the cold
+`GameModelCollection::AddGameModel()` import boundary.
 
 ## Completed Slices
 
@@ -391,6 +391,25 @@ still use model-order metadata until scene/entity grouping leaves `GameModel`.
   `tools\validate_fast.bat`, and intermittent `tools\validate_physics.bat`
   passed on 2026-07-05; physics regression reported standalone/runtime handle
   smoke pass and byte-exact `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved editor ragdoll transform grouping off per-frame name
+  parsing. Owner: runtime editor transform grouping plus
+  `GameModelCollection` cold construction metadata import. Reason:
+  `GatherSelectedEditorTransformGroup()` inferred simple-ragdoll membership by
+  scanning display-name suffixes every time gizmo frame/drag state was built,
+  while ragdolls already have integer collection kind/root/part metadata.
+  Deletion condition: editor grouping consumes collection metadata only; legacy
+  saved scenes that only have part names are converted to `SimpleRagdoll`
+  metadata once during `AddGameModel()`, including repairing earlier limbs to
+  the torso root if the legacy stream loads the torso late; that cold parser can
+  be deleted when scene/entity grouping metadata serializes and loads directly. Checker
+  budget: `tools/check_runtime_boundaries.py` blocks name/suffix parsing inside
+  editor transform grouping and self-tests reject/allow/comment-only surfaces.
+  Validation: `git diff --check`, `python -m py_compile
+  tools\check_runtime_boundaries.py`, `python tools\check_runtime_boundaries.py
+  --repo .`, focused Debug build, `tools\validate_fast.bat`, and intermittent
+  `tools\validate_physics.bat` passed on 2026-07-05; physics regression reported
+  standalone/runtime smoke pass and byte-exact 20,001-line
+  `physics_regression_solver.csv`.
 
 ## Goal
 
@@ -577,6 +596,10 @@ Create durable handles before moving ownership. The stores cannot be authoritati
   rediscovering it from `selectedModelIndex`; group siblings still resolve from
   model-order grouping metadata until Phase 5 moves grouping to scene/entity
   metadata.
+- [x] 2026-07-05 editor ragdoll transform grouping compares
+  `GameModelCollectionKind::SimpleRagdoll` plus collection root metadata instead
+  of parsing display names on the gizmo frame path; legacy scene names are
+  imported into that metadata once at append/load time.
 - [x] Delete the temporary model-index adapter once old call boundaries move to
   append-time handles or owner-side body-store lookup.
   - [x] 2026-06-28 adapter slice keeps the temporary model-index command bridge
@@ -717,6 +740,9 @@ Scene/editor/replay metadata should not force physics or render ownership to sta
 - [ ] Identify all metadata fields in `GameModel` that are not required for physics stepping.
 - [ ] Move object names and labels to scene/entity metadata.
 - [ ] Move collection grouping and hierarchy/root information to scene/entity metadata.
+  - [x] 2026-07-05 editor simple-ragdoll transform grouping no longer parses
+    names per frame; `GameModelCollection` reconstructs the current metadata
+    from legacy names only at cold append/load boundaries.
 - [ ] Move asset instance identity to scene/entity metadata.
 - [x] Move editor selection identity to stable body/collider handles.
   - [x] 2026-07-05 editor selection frame and overlay reads validate the stored

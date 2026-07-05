@@ -58,7 +58,6 @@ Related:
 #include <cstdint>
 #include <cctype>
 #include <cstdio>
-#include <cstring>
 #include <fstream>
 #include <string>
 #include <utility>
@@ -78,6 +77,7 @@ using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
+using SkullbonezCore::GameObjects::GameModelCollectionKind;
 using Json = nlohmann::ordered_json;
 
 namespace
@@ -453,53 +453,12 @@ float EditorGizmoRotationRadius( float modelRadius )
 
 using EditorGizmoGroupIndices = std::array<int, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY>;
 
-bool TryGetEditorRagdollInstancePrefixLength( const GameModel& model, std::size_t& outPrefixLength )
-{
-    static constexpr const char* RAGDOLL_SUFFIXES[] = { "torso",
-                                                        "head",
-                                                        "upper_arm_l",
-                                                        "lower_arm_l",
-                                                        "upper_arm_r",
-                                                        "lower_arm_r",
-                                                        "upper_leg_l",
-                                                        "lower_leg_l",
-                                                        "upper_leg_r",
-                                                        "lower_leg_r" };
-
-    const char* name = model.GetName();
-    if ( !name || name[0] == '\0' )
-    {
-        return false;
-    }
-
-    const std::size_t nameLength = std::strlen( name );
-    for ( const char* suffix : RAGDOLL_SUFFIXES )
-    {
-        const std::size_t suffixLength = std::strlen( suffix );
-        if ( nameLength <= suffixLength + 1 )
-        {
-            continue;
-        }
-
-        const std::size_t suffixStart = nameLength - suffixLength;
-        if ( name[suffixStart - 1] != '_' || std::strncmp( name + suffixStart, suffix, suffixLength ) != 0 )
-        {
-            continue;
-        }
-
-        outPrefixLength = suffixStart - 1;
-        return outPrefixLength > 0;
-    }
-    return false;
-}
-
-
-bool EditorRagdollPrefixMatches( const char* a, std::size_t aLength, const char* b, std::size_t bLength )
-{
-    return aLength == bLength && std::strncmp( a, b, aLength ) == 0;
-}
-
-
+// Why: editor transform grouping is metadata, not physics state. Simple
+// ragdolls stamp integer collection kind/root values at construction, so gizmo
+// grouping can compare those fields instead of parsing display-name suffixes.
+// Owner: runtime editor transform grouping. Deletion condition: Phase 5 moves
+// grouping to scene/entity metadata. Checker budget: runtime boundaries block
+// name/suffix parsing in this helper.
 int GatherSelectedEditorTransformGroup( const std::vector<GameModel>& models,
                                         int selectedIndex,
                                         EditorGizmoGroupIndices& outIndices )
@@ -510,22 +469,26 @@ int GatherSelectedEditorTransformGroup( const std::vector<GameModel>& models,
         return 0;
     }
 
-    std::size_t selectedPrefixLength = 0;
-    if ( !TryGetEditorRagdollInstancePrefixLength( models[static_cast<std::size_t>( selectedIndex )],
-                                                   selectedPrefixLength ) )
+    const GameModel& selected = models[static_cast<std::size_t>( selectedIndex )];
+    if ( selected.GetRuntimeCollectionKind() != GameModelCollectionKind::SimpleRagdoll )
     {
         outIndices[0] = selectedIndex;
         return 1;
     }
 
-    const char* selectedName = models[static_cast<std::size_t>( selectedIndex )].GetName();
+    const int selectedRootIndex = selected.GetRuntimeCollectionRootModelIndex();
+    if ( selectedRootIndex < 0 || selectedRootIndex >= static_cast<int>( models.size() ) )
+    {
+        outIndices[0] = selectedIndex;
+        return 1;
+    }
+
     int count = 0;
     for ( int i = 0; i < static_cast<int>( models.size() ) && count < static_cast<int>( outIndices.size() ); ++i )
     {
         const GameModel& candidate = models[static_cast<std::size_t>( i )];
-        std::size_t prefixLength = 0;
-        if ( TryGetEditorRagdollInstancePrefixLength( candidate, prefixLength ) &&
-             EditorRagdollPrefixMatches( selectedName, selectedPrefixLength, candidate.GetName(), prefixLength ) )
+        if ( candidate.GetRuntimeCollectionKind() == GameModelCollectionKind::SimpleRagdoll &&
+             candidate.GetRuntimeCollectionRootModelIndex() == selectedRootIndex )
         {
             outIndices[static_cast<std::size_t>( count )] = i;
             ++count;

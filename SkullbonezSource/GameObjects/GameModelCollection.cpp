@@ -188,8 +188,66 @@ bool TryGetEditorTreeInstancePrefixLength( const char* name, size_t& outPrefixLe
     return false;
 }
 
+
+// Why: older saved scenes only preserve simple-ragdoll membership in part names.
+// Convert that string compatibility into integer collection metadata once, at
+// append/load time, so per-frame editor and replay code can stay off name scans.
+// Owner: GameModelCollection construction metadata import. Deletion condition:
+// scene/entity metadata serializes and loads collection groups directly. Checker
+// budget: runtime boundaries block name/suffix parsing in editor transform code.
+bool TryGetSimpleRagdollInstancePrefixLength( const char* name, size_t& outPrefixLength, int& outPartIndex )
+{
+    static constexpr const char* SIMPLE_RAGDOLL_SUFFIXES[] = { "torso",
+                                                               "head",
+                                                               "upper_arm_l",
+                                                               "lower_arm_l",
+                                                               "upper_arm_r",
+                                                               "lower_arm_r",
+                                                               "upper_leg_l",
+                                                               "lower_leg_l",
+                                                               "upper_leg_r",
+                                                               "lower_leg_r" };
+
+    outPrefixLength = 0;
+    outPartIndex = -1;
+    if ( !name || name[0] == '\0' )
+    {
+        return false;
+    }
+
+    const size_t nameLength = strlen( name );
+    for ( int i = 0; i < static_cast<int>( sizeof( SIMPLE_RAGDOLL_SUFFIXES ) / sizeof( SIMPLE_RAGDOLL_SUFFIXES[0] ) );
+          ++i )
+    {
+        const char* suffix = SIMPLE_RAGDOLL_SUFFIXES[static_cast<size_t>( i )];
+        const size_t suffixLength = strlen( suffix );
+        if ( nameLength <= suffixLength + 1 )
+        {
+            continue;
+        }
+
+        const size_t suffixStart = nameLength - suffixLength;
+        if ( name[suffixStart - 1] != '_' || strncmp( name + suffixStart, suffix, suffixLength ) != 0 )
+        {
+            continue;
+        }
+
+        outPrefixLength = suffixStart - 1;
+        outPartIndex = i;
+        return outPrefixLength > 0;
+    }
+    return false;
+}
+
+
+bool SimpleRagdollPrefixMatches( const char* a, size_t aLength, const char* b, size_t bLength )
+{
+    return aLength == bLength && strncmp( a, b, aLength ) == 0;
+}
+
+
 void AssignRuntimeCollectionFromConstructionName( GameModel& gameModel,
-                                                  const std::vector<GameModel>& existingModels,
+                                                  std::vector<GameModel>& existingModels,
                                                   int newModelIndex )
 {
     if ( gameModel.GetRuntimeCollectionKind() != GameModelCollectionKind::None )
@@ -199,6 +257,58 @@ void AssignRuntimeCollectionFromConstructionName( GameModel& gameModel,
 
     const char* sourceName = gameModel.GetName();
     size_t sourcePrefixLength = 0;
+    int sourcePartIndex = -1;
+    if ( TryGetSimpleRagdollInstancePrefixLength( sourceName, sourcePrefixLength, sourcePartIndex ) )
+    {
+        int rootModelIndex = sourcePartIndex == 0 ? newModelIndex : -1;
+        for ( int i = 0; i < static_cast<int>( existingModels.size() ); ++i )
+        {
+            GameModel& existing = existingModels[static_cast<size_t>( i )];
+            if ( existing.GetRuntimeCollectionKind() != GameModelCollectionKind::SimpleRagdoll )
+            {
+                continue;
+            }
+
+            size_t existingPrefixLength = 0;
+            int existingPartIndex = -1;
+            const char* existingName = existing.GetName();
+            if ( !TryGetSimpleRagdollInstancePrefixLength( existingName, existingPrefixLength, existingPartIndex ) ||
+                 !SimpleRagdollPrefixMatches( sourceName, sourcePrefixLength, existingName, existingPrefixLength ) )
+            {
+                continue;
+            }
+
+            int existingRoot = existing.GetRuntimeCollectionRootModelIndex();
+            if ( existingRoot < 0 || existingRoot >= newModelIndex )
+            {
+                existingRoot = i;
+            }
+            if ( rootModelIndex < 0 || existingPartIndex == 0 )
+            {
+                rootModelIndex = existingRoot;
+            }
+            if ( sourcePartIndex == 0 )
+            {
+                // Why: legacy scenes can stream parts in any model order. When the
+                // torso arrives late, move earlier siblings to the torso root so the
+                // editor sees one collection instead of one group per early limb.
+                existing.SetRuntimeCollection( GameModelCollectionKind::SimpleRagdoll,
+                                               newModelIndex,
+                                               existing.GetRuntimeCollectionPartIndex() );
+            }
+            if ( existingPartIndex == 0 )
+            {
+                break;
+            }
+        }
+        if ( rootModelIndex < 0 )
+        {
+            rootModelIndex = newModelIndex;
+        }
+        gameModel.SetRuntimeCollection( GameModelCollectionKind::SimpleRagdoll, rootModelIndex, sourcePartIndex );
+        return;
+    }
+
     if ( !TryGetEditorTreeInstancePrefixLength( sourceName, sourcePrefixLength ) )
     {
         return;
