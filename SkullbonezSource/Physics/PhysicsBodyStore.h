@@ -103,8 +103,8 @@ struct PhysicsBodyRecord
 };
 
 // Construction edge: GameModelCollection still authors scene rows, but it
-// supplies replay identity separately and converts the just-appended model to
-// this value record so PhysicsEngine receives data, not a GameModel reference.
+// supplies replay identity once and converts the just-appended model to this
+// value record so PhysicsEngine receives data, not a GameModel reference.
 // Delete this when scene creation writes PhysicsBodyCreateDesc records directly.
 PhysicsBodyRecord MakeBodyRecordFromAuthoredModel( GameObjects::GameModel& model, uint32_t replayBodyId );
 
@@ -114,6 +114,9 @@ class PhysicsBodyStore
     PhysicsBodyStore();
 
     void Clear();
+    // Cold topology repair imports mutable model authoring data. The replay-id
+    // vector is scratch produced from existing PhysicsBodyStore rows plus any new
+    // ids allocated for missing rows; it is not persistent collection authority.
     void LoadFromModels( std::vector<GameObjects::GameModel>& models,
                          const std::vector<uint32_t>& replayBodyIds,
                          const std::vector<uint8_t>& sleepStates );

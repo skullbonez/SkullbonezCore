@@ -4,14 +4,38 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_physics.bat` passed on 2026-07-05 after routing runtime config
-collider material updates through dense `ColliderStore` rows instead of
-recapturing descriptors from `GameModel`. Runtime boundaries reported 0 errors,
+`tools\validate_physics.bat` passed on 2026-07-05 after deleting the persistent
+`GameModelCollection` replay-id sidecar and keeping stable replay identity on
+`PhysicsBodyStore` rows. Runtime boundaries reported 0 errors,
 standalone/runtime physics smoke passed with `collider_refresh=pass`, and
 `physics_regression_solver.csv` was a byte-exact 20,001-line match.
 
 ## Completed Slices
 
+- [x] 2026-07-05: Deleted the persistent `GameModelCollection` replay-id
+  sidecar. Replay identity now lives in `PhysicsBodyStore` rows after append;
+  the collection keeps only the next-id allocator for newly authored bodies and
+  builds a local scratch id stream during cold body reload/topology repair by
+  reading existing body-store rows plus allocating ids for genuinely missing
+  rows. Main-memory diagnostics no longer report collection replay-id bytes.
+  Owner: `PhysicsBodyStore` owns persistent body replay identity after
+  creation; `GameModelCollection` temporarily owns id allocation at the
+  construction/reload boundary until scene/entity metadata owns body creation
+  directly. Reason: the old dense sidecar duplicated a store-owned scalar in
+  scene order and made it easy to keep a cache-hostile migration artifact alive
+  under a compatibility name. Deletion condition: `SkullbonezSource` contains no
+  persistent collection replay-id sidecar or replay-id memory-stat field, and
+  reload scratch stays local to the cold topology repair path. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects the deleted sidecar/stat spellings
+  and includes a positive self-test for the allowed local reload scratch.
+  Validation: residue scan found no deleted sidecar/stat names under
+  `SkullbonezSource`; `git diff --check`, boundary-checker Python compile,
+  workqueue CSV parse, runtime boundaries with 0 errors, focused Profile build
+  with 0 warnings/errors, touched-file comment audit, and
+  `tools\validate_format.bat` passed; `tools\validate_fast.bat` passed in
+  38.4s; `tools\validate_physics.bat` passed in 13.9s with
+  `collider_refresh=pass` and byte-exact 20,001-line
+  `physics_regression_solver.csv`.
 - [x] 2026-07-05: Removed runtime-config collider descriptor recapture from
   `GameModelCollection::ApplyRuntimeConfig()`. The collection still updates
   `GameModel` scalar compatibility policy for editor/presentation callers, but
@@ -170,21 +194,21 @@ standalone/runtime physics smoke passed with `collider_refresh=pass`, and
   2026-07-05.
 - [x] 2026-07-05: Deleted the `GameModel` replay-id mirror. `GameModel` no
   longer stores, sets, or exposes replay identity; `GameModelCollection`
-  assigns/preserves ids in the dense `m_replayBodyIds` sidecar, passes the id
-  directly into `MakeBodyRecordFromAuthoredModel()`, and feeds the same sidecar
-  into `PhysicsBodyStore::LoadFromModels()`. The runtime handle reorder smoke
-  now swaps replay ids in the metadata stream instead of mutating models, and
-  main-memory diagnostics count the sidecar bytes explicitly. Owner:
-  `GameModelCollection` scene-order replay metadata and `PhysicsBodyStore` body
-  identity import. Reason: the old mirror made every body import and body-record
-  creation prove stable identity by reading a mutable `GameModel` row; the
-  store path now receives identity as compact owner metadata and keeps body rows
-  authoritative. Deletion condition: `SkullbonezSource` contains no
+  passes a replay id directly into `MakeBodyRecordFromAuthoredModel()` instead
+  of mutating models, and `PhysicsBodyStore` stores that id on the body row.
+  The follow-up replay-identity store-authority slice deletes the temporary
+  collection sidecar and memory stat that originally carried this metadata
+  stream. Owner: `PhysicsBodyStore` body identity import plus the temporary
+  collection construction boundary. Reason: the old mirror made every body
+  import and body-record creation prove stable identity by reading a mutable
+  `GameModel` row; the store path now receives identity once and keeps body
+  rows authoritative. Deletion condition: `SkullbonezSource` contains no
   `GameModel::GetReplayBodyId()`, `GameModel::SetReplayBodyId()`, or
   `m_replayBodyId`, and `PhysicsBodyStore` import contains no replay-id reads
   from `GameModel`. Checker budget: `tools/check_runtime_boundaries.py` rejects
-  the deleted mirror symbols anywhere under `SkullbonezSource` and self-tests
-  the allowed collection-owned sidecar. Validation: focused Profile build,
+  the deleted mirror symbols anywhere under `SkullbonezSource` and the later
+  sidecar guardrail blocks the temporary collection stream from returning.
+  Validation: focused Profile build,
   `git diff --check`, `python -m py_compile tools/check_runtime_boundaries.py`,
   `python tools/check_runtime_boundaries.py --repo .`, `tools\validate_fast.bat`,
   and `tools\validate_full.bat` passed on 2026-07-05.
@@ -1188,8 +1212,9 @@ Scene/editor/replay metadata should not force physics or render ownership to sta
     remains only a staleable replay/UI hint until scene/entity ids move out of
     `GameModel`.
   - [x] 2026-07-05 creation/import replay identity no longer lives in
-    `GameModel`; `GameModelCollection` owns the current dense sidecar until
-    scene/entity metadata owns replay ids directly.
+    `GameModel`; the temporary collection sidecar was later deleted, so
+    persistent replay ids now live on `PhysicsBodyStore` rows after append while
+    collection code only allocates ids at creation/reload boundaries.
 - [ ] Update scene load to create metadata, body, collider, and render records through one coordinated creation path.
   - [x] 2026-07-05 authored scene load no longer asks `GameModel` to interpret
     scene Euler degrees or return a cached orientation for hull setup; this is

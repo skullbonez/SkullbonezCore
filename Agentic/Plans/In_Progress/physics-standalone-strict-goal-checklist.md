@@ -2262,6 +2262,36 @@ smoke with `collider_refresh=pass` and byte-exact 20,001-line
 and
 `TestOutput\validation\physics_store_authority\validate_physics_collider_topology_fail_closed.log`.
 
+Slice `PHY-1068`: persistent replay identity now belongs to
+`PhysicsBodyStore` rows after append instead of a `GameModelCollection`
+scene-order sidecar. Owner: `PhysicsBodyStore` owns stored replay ids and
+`GameModelCollection` owns only temporary id allocation at creation/reload
+boundaries; reason: the deleted sidecar duplicated a store-owned scalar, added
+memory/stat surface area, and made the migration look cleaner than it was while
+still carrying collection-order authority; deletion condition:
+`SkullbonezSource` has no persistent collection replay-id sidecar or replay-id
+memory stat, append passes the reserved id directly into
+`RegisterAuthoredBody`, and body reload builds only a local cold scratch id
+stream from existing body-store rows plus new ids for missing rows; checker
+budget: `tools/check_runtime_boundaries.py` blocks the deleted sidecar/stat
+spellings and self-tests the allowed reload scratch.
+
+Evidence: residue scan found no deleted sidecar/stat names under
+`SkullbonezSource`; `git diff --check`, boundary-checker Python compile,
+workqueue CSV parse, and runtime-boundary validation passed with 0 errors;
+focused Profile build passed with 0 warnings/errors; `tools\validate_format.bat`
+passed; touched-file comment audit inspected `MainMemoryStats.h`,
+`GameModelCollection.cpp`, `GameModelCollection.h`, `PhysicsBodyStore.cpp`,
+`PhysicsBodyStore.h`, `DiagnosticsRuntime.cpp`, and
+`check_runtime_boundaries.py`; `tools\validate_fast.bat` passed formatting,
+project filters, runtime boundaries, and Profile/Debug builds with 0
+warnings/errors in 38.4s; `tools\validate_physics.bat` passed
+standalone/runtime handle smoke with `collider_refresh=pass` and byte-exact
+20,001-line `physics_regression_solver.csv` in 13.9s. Logs:
+`TestOutput\validation\physics_store_authority\validate_fast_replay_id_store_authority.log`
+and
+`TestOutput\validation\physics_store_authority\validate_physics_replay_id_store_authority.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

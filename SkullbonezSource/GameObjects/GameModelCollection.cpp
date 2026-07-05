@@ -26,15 +26,15 @@ Glossary:
     stores must import model-owned construction data before stepping.
   Fixed-tree release: Compatibility rule that lets authored tree parts become
     dynamic when a related fixed part is hit strongly enough.
-  Replay body id: Per-collection identity saved in replay samples so restore
-    paths can reject stale model slots.
+  Replay body id: PhysicsBodyStore-owned identity saved in replay samples so
+    restore paths can reject stale model slots.
   Validation gate: Repository script that proves a class of changes before
     commit or PR.
 
 Invariants:
-  - Model vector order is stable subsystem identity for physics stores, render
-    batches, replay ids, and scene snapshots; m_replayBodyIds is lockstep with
-    m_gameModels and is the replay-id owner during this compatibility phase.
+  - Model vector order remains the compatibility alignment key for physics
+    stores, render batches, and scene snapshots. Replay ids live in
+    PhysicsBodyStore rows after append.
   - Render prep imports store-backed snapshots once before frame passes; render
     code must not rebuild GameModel-derived pose streams.
   - Owner-side compatibility release paths repair topology once before resolving
@@ -370,7 +370,53 @@ GameModelCollection::GameModelCollection()
     // vector, so preserving deterministic order matters even when the work is
     // delegated to renderer/physics helper classes.
     m_gameModels.reserve( ActiveGameModelCapacity() );
-    m_replayBodyIds.reserve( ActiveGameModelCapacity() );
+}
+
+
+uint32_t GameModelCollection::ReserveReplayBodyId( uint32_t requestedReplayBodyId )
+{
+    if ( requestedReplayBodyId == 0 )
+    {
+        return m_nextReplayBodyId++;
+    }
+
+    m_nextReplayBodyId = (std::max)( m_nextReplayBodyId, requestedReplayBodyId + 1u );
+    return requestedReplayBodyId;
+}
+
+
+std::vector<uint32_t>
+GameModelCollection::BuildReplayBodyIdsForReload( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
+{
+    std::vector<uint32_t> replayBodyIds;
+    replayBodyIds.reserve( m_gameModels.size() );
+    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
+    {
+        uint32_t replayBodyId = 0;
+        if ( const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( i ) )
+        {
+            replayBodyId = body->replayBodyId;
+        }
+        // Why: body topology repair is cold. Existing rows preserve their
+        // PhysicsBodyStore-owned replay id; only genuinely missing rows allocate
+        // a fresh id rather than keeping a duplicate scene-order sidecar alive.
+        replayBodyIds.push_back( ReserveReplayBodyId( replayBodyId ) );
+    }
+    return replayBodyIds;
+}
+
+
+void GameModelCollection::RebuildNextReplayBodyIdFromBodyStore(
+    const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
+{
+    m_nextReplayBodyId = 1;
+    for ( const PhysicsBodyRecord& body : bodyStore.Records() )
+    {
+        if ( body.replayBodyId != 0 )
+        {
+            m_nextReplayBodyId = (std::max)( m_nextReplayBodyId, body.replayBodyId + 1u );
+        }
+    }
 }
 
 
@@ -445,18 +491,10 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
             "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." );
     }
     AssignRuntimeCollectionFromConstructionName( gameModel, m_gameModels, static_cast<int>( m_gameModels.size() ) );
-    assert( m_replayBodyIds.size() == m_gameModels.size() );
-    // Invariant: replay identity is collection metadata, not a GameModel field.
-    // Body/collider/render stores import explicit values at owner boundaries
-    // while GameModel remains only the temporary source for unmigrated authoring.
-    if ( replayBodyId == 0 )
-    {
-        replayBodyId = m_nextReplayBodyId++;
-    }
-    else
-    {
-        m_nextReplayBodyId = (std::max)( m_nextReplayBodyId, replayBodyId + 1u );
-    }
+    // Invariant: replay identity is body-store metadata, not a GameModel field
+    // or persistent collection sidecar. Append allocates the id once, then the
+    // body/collider/render stores carry it through their dense rows.
+    replayBodyId = ReserveReplayBodyId( replayBodyId );
     gameModel.ApplyPhysicsMaterial( m_physicsMaterial );
     gameModel.ApplyBodySimulationLimits( m_bodySimulationLimits );
     gameModel.ApplyContactPolicy( m_contactPolicy );
@@ -469,7 +507,6 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
         throw std::runtime_error( "Cannot append model while physics collider rows are missing." );
     }
     m_gameModels.push_back( std::move( gameModel ) );
-    m_replayBodyIds.push_back( replayBodyId );
     const PhysicsBodyHandle bodyHandle =
         m_physicsEngine.RegisterAuthoredBody( MakeBodyRecordFromAuthoredModel( m_gameModels.back(), replayBodyId ) );
     const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForHandle( bodyHandle );
@@ -500,7 +537,6 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
 void GameModelCollection::Clear()
 {
     m_gameModels.clear();
-    m_replayBodyIds.clear();
     m_physicsEngine.Clear();
     m_replayRenderPoseOverrides.clear();
     m_nextReplayBodyId = 1;
@@ -971,14 +1007,13 @@ MainMemoryGameObjectStats GameModelCollection::CollectMemoryStats() const
     stats.colliderStoreCapacity = colliderStore.Records().capacity();
     stats.renderStoreCapacity = renderStore.Records().capacity();
     stats.modelVectorBytes = VectorCapacityBytes( m_gameModels );
-    stats.modelReplayIdBytes = VectorCapacityBytes( m_replayBodyIds );
     stats.physicsStoreBytes = VectorCapacityBytes( bodyStore.Records() );
     stats.colliderStoreBytes = VectorCapacityBytes( colliderStore.Records() );
     stats.renderStoreBytes = VectorCapacityBytes( renderStore.Records() );
     stats.physicsWorldBytes = m_physicsEngine.CollectPhysicsWorldMemoryBytes();
     stats.debugAndBroadphaseBytes = m_physicsEngine.CollectDebugAndBroadphaseMemoryBytes();
-    stats.totalBytes = stats.modelVectorBytes + stats.modelReplayIdBytes + stats.physicsStoreBytes +
-                       stats.colliderStoreBytes + stats.renderStoreBytes + stats.physicsWorldBytes;
+    stats.totalBytes = stats.modelVectorBytes + stats.physicsStoreBytes + stats.colliderStoreBytes +
+                       stats.renderStoreBytes + stats.physicsWorldBytes;
     return stats;
 }
 
@@ -991,11 +1026,6 @@ bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
     }
 
     const std::size_t targetCount = static_cast<std::size_t>( modelCount );
-    assert( m_replayBodyIds.size() == m_gameModels.size() );
-    if ( m_replayBodyIds.size() != m_gameModels.size() )
-    {
-        return false;
-    }
     if ( !m_physicsEngine.TrimBodyStoreToCount( modelCount ) )
     {
         return false;
@@ -1007,14 +1037,8 @@ bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
     if ( targetCount < m_gameModels.size() )
     {
         m_gameModels.erase( m_gameModels.begin() + static_cast<std::ptrdiff_t>( targetCount ), m_gameModels.end() );
-        m_replayBodyIds.erase( m_replayBodyIds.begin() + static_cast<std::ptrdiff_t>( targetCount ),
-                               m_replayBodyIds.end() );
     }
-    m_nextReplayBodyId = 1;
-    for ( const uint32_t replayBodyId : m_replayBodyIds )
-    {
-        m_nextReplayBodyId = (std::max)( m_nextReplayBodyId, replayBodyId + 1u );
-    }
+    RebuildNextReplayBodyIdFromBodyStore( m_physicsEngine.BodyStore() );
     return true;
 }
 
@@ -1164,11 +1188,11 @@ double GameModelCollection::GetSceneKineticEnergy()
 void GameModelCollection::ReloadPhysicsBodies( SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
                                                const std::vector<uint8_t>& sleepStates )
 {
-    assert( m_replayBodyIds.size() == m_gameModels.size() );
-    // Invariant: the replay-id sidecar and model rows advance together. A body
-    // reload may import mutable model authoring data, but stable identity stays
-    // in the sidecar and PhysicsBodyStore handle maps.
-    bodyStore.LoadFromModels( m_gameModels, m_replayBodyIds, sleepStates );
+    // Invariant: body reload may import mutable model authoring data, but stable
+    // replay identity remains in PhysicsBodyStore rows. The id stream below is
+    // cold scratch for topology repair, not a persistent model-order sidecar.
+    std::vector<uint32_t> replayBodyIds = BuildReplayBodyIdsForReload( bodyStore );
+    bodyStore.LoadFromModels( m_gameModels, replayBodyIds, sleepStates );
 }
 
 

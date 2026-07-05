@@ -25,7 +25,8 @@
 #   after their owner-side store commits. The deleted
 #   collection step wrapper has its own fence, replay render-pose overrides and
 #   prediction ghost identity have their own value-override/store-authority fence,
-#   runtime config has a collider-material fence, the deleted edited-model bool
+#   runtime config has a collider-material fence, the deleted collection
+#   replay-id sidecar has a source-wide fence, the deleted edited-model bool
 #   commit has a source-wide fence, and per-body model writeback plus the
 #   deleted bulk model mirror have their own fences, so count allowances do not
 #   silently approve a new compatibility location.
@@ -55,6 +56,9 @@
 #     render passes instead of rebuilding GameModel pose/material streams.
 #   Store-authority fence: Static rule that keeps a migrated reader on physics
 #     body/collider records instead of reopening a GameModel mirror path.
+#   Replay-id sidecar fence: Static rule that keeps persistent replay identity
+#     on PhysicsBodyStore rows instead of regrowing collection-order storage or
+#     memory stats under a compatibility name.
 #   Object contact manifold: Exact narrowphase contact report built from
 #     PhysicsBodyStore pose and ColliderStore shape snapshots.
 #   Attached-camera follow: Runtime camera mode that tracks a selected body.
@@ -616,6 +620,9 @@ DELETED_EDITED_MODEL_PHYSICS_STATE_PATTERN = re.compile(
 GAME_MODEL_REPLAY_ID_MIRROR_PATTERN = re.compile(
     r"\b(?:GetReplayBodyId|SetReplayBodyId)\s*\(|\bm_replayBodyId\b"
 )
+GAME_MODEL_COLLECTION_REPLAY_ID_SIDECAR_PATTERN = re.compile(
+    r"\bm_replayBodyIds\b|\bmodelReplayIdBytes\b|\bmodel_replay_id_bytes\b"
+)
 REPLAY_RESTORE_MODEL_INDEX_PHYSICS_API_PATTERN = re.compile(
     r"\b(?:PhysicsEngine|PhysicsScene|PhysicsBodyStore)?(?:::)?RestoreReplayBodyState\s*\(\s*int\s+"
     r"(?:modelIndex|index)\b"
@@ -1140,6 +1147,11 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
             r"|\b(?:GameModelCollection|PhysicsModelAccess)::RefreshPhysicsColliders\s*\("
         ),
         "Collider shape/material rows are created or edited by explicit descriptors; topology repair must not recapture them from GameModel.",
+    ),
+    (
+        "GameModelCollection replay-id sidecar",
+        re.compile(r"\bm_replayBodyIds\b|\bmodelReplayIdBytes\b|\bmodel_replay_id_bytes\b"),
+        "Replay ids are stored on PhysicsBodyStore rows after append; do not keep duplicate collection-side replay-id storage or memory stats.",
     ),
     (
         "RefreshColliderSnapshot model access parameter",
@@ -4575,6 +4587,18 @@ def check_game_model_replay_id_mirror_guardrails_text(path: Path, text: str) -> 
                 (
                     "Replay identity must live in GameModelCollection/PhysicsBodyStore rows. Do not restore "
                     "GameModel replay-id storage or GameModel getter/setter access."
+                ),
+            )
+        )
+    for match in GAME_MODEL_COLLECTION_REPLAY_ID_SIDECAR_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "GameModelCollection replay-id sidecar is deleted",
+                (
+                    "Replay identity belongs in PhysicsBodyStore rows after append. Collection reload code may build "
+                    "a cold local id stream, but must not keep persistent scene-order replay-id storage or stats."
                 ),
             )
         )
@@ -11551,6 +11575,8 @@ def run_self_tests() -> list[str]:
     PhysicsColliderCreateDesc desc = CaptureAuthoredColliderDesc( model, body );
     collection.UpdateColliderStoreFromModel( index );
     modelAccess.RefreshColliderSnapshot( modelAccess );
+    std::vector<uint32_t> m_replayBodyIds;
+    stats.gameObjects.modelReplayIdBytes = 0;
     auto mirror = sideEffects.bodyMirrorWritebacks;
     QueueBodyMirrorWriteback( index );
     PhysicsBodyWritebackSink* writebackSink = nullptr;
@@ -11579,6 +11605,11 @@ def run_self_tests() -> list[str]:
         for error in deleted_migration_artifact_errors
     ):
         failures.append("deleted RefreshColliderSnapshot modelAccess synthetic surface was not rejected")
+    if not any(
+        error.message == "deleted migration artifact is blocked: GameModelCollection replay-id sidecar"
+        for error in deleted_migration_artifact_errors
+    ):
+        failures.append("deleted collection replay-id sidecar synthetic surface was not rejected")
 
     deleted_game_model_initial_orientation_text = """
     class GameModel
@@ -14314,7 +14345,7 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old GameModel replay-id mirror synthetic surface was not rejected")
 
-    allowed_collection_replay_ids = """
+    old_collection_replay_id_sidecar = """
     class GameModelCollection
     {
         std::vector<uint32_t> m_replayBodyIds;
@@ -14326,11 +14357,33 @@ def run_self_tests() -> list[str]:
         bodyStore.LoadFromModels( m_gameModels, m_replayBodyIds, sleepStates );
     }
     """
+    if not any(
+        error.message == "GameModelCollection replay-id sidecar is deleted"
+        for error in check_game_model_replay_id_mirror_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
+            old_collection_replay_id_sidecar,
+        )
+    ):
+        failures.append("old collection replay-id sidecar synthetic surface was not rejected")
+
+    allowed_collection_replay_reload_scratch = """
+    class GameModelCollection
+    {
+        uint32_t m_nextReplayBodyId = 1;
+        std::vector<uint32_t> BuildReplayBodyIdsForReload( const PhysicsBodyStore& bodyStore );
+    };
+    void GameModelCollection::ReloadPhysicsBodies( PhysicsBodyStore& bodyStore,
+                                                   const std::vector<uint8_t>& sleepStates )
+    {
+        std::vector<uint32_t> replayBodyIds = BuildReplayBodyIdsForReload( bodyStore );
+        bodyStore.LoadFromModels( m_gameModels, replayBodyIds, sleepStates );
+    }
+    """
     if check_game_model_replay_id_mirror_guardrails_text(
         Path("SkullbonezSource/GameObjects/GameModelCollection.h"),
-        allowed_collection_replay_ids,
+        allowed_collection_replay_reload_scratch,
     ):
-        failures.append("collection-owned replay-id synthetic surface was rejected")
+        failures.append("collection replay-id reload scratch synthetic surface was rejected")
 
     old_collection_replay_restore_model_refresh = """
     bool GameModelCollection::TryRestoreReplayBodyState( int index,

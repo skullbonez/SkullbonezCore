@@ -1063,7 +1063,7 @@ void PhysicsBodyStore::LoadFromModels( std::vector<GameModel>& models,
     assert( replayBodyIds.size() == models.size() );
     // Invariant: GameModel no longer owns replay identity. The model array is
     // only the compatibility source for mutable body authoring data; replay ids
-    // arrive as the owner-side dense metadata stream.
+    // arrive as a cold scratch stream rebuilt from existing body rows.
     const std::vector<PreservedRefreshState> preservedStateByHandle =
         CapturePreservedRefreshState( m_bodies, m_handleGenerations.size() );
     std::vector<uint8_t> assignedHandleSlots( m_handleGenerations.size(), 0 );
