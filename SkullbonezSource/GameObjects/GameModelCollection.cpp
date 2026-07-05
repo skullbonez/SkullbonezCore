@@ -726,12 +726,6 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
         return false;
     }
 
-    GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
-    if ( model.GetReplayBodyId() != replayBodyId )
-    {
-        return false;
-    }
-
     // Invariant: model index verifies the presentation slot only. The current
     // body handle and replay id must prove the live physics row before either
     // side of the compatibility restore mutates.
@@ -758,6 +752,10 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
         return false;
     }
 
+    GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+    // Why: legacy render/editor readers still observe the GameModel body mirror
+    // after replay restore. Keep this projection after the store-owned restore
+    // succeeds so the mirror cannot decide which body is restored.
     model.SetFixed( fixed );
     model.SetPosition( position );
     model.SetOrientation( orientation );
@@ -781,12 +779,6 @@ bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
                                                                float fixedContactHighlightSeconds )
 {
     if ( index < 0 || index >= GetModelCount() )
-    {
-        return false;
-    }
-
-    GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
-    if ( model.GetReplayBodyId() != replayBodyId )
     {
         return false;
     }
@@ -819,6 +811,10 @@ bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
         return false;
     }
 
+    GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+    // Why: prediction preview restore still mirrors state for legacy
+    // presentation readers, but live replay identity is proved by
+    // PhysicsBodyStore before any GameModel field is touched.
     model.SetFixed( fixed );
     model.SetPosition( position );
     model.SetOrientation( orientation );

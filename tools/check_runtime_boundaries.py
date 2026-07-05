@@ -117,6 +117,9 @@
 #     of approving sampled model slots through GameModel replay ids.
 #   Replay restore handle fence: Static rule that keeps replay restore commands
 #     handle-keyed below the GameModelCollection presentation edge.
+#   Replay restore identity fence: Static rule that keeps collection-side
+#     replay restore validation on PhysicsBodyStore replay ids instead of the
+#     compatibility GameModel mirror.
 #   Authored scene orientation fence: Static rule that keeps Euler-degree scene
 #     data converted at the scene boundary instead of reading a cached GameModel
 #     body mirror back out during construction.
@@ -553,6 +556,9 @@ GAME_MODEL_COLLECTION_REPLAY_PREDICTION_RESTORE_FUNCTION_PATTERN = re.compile(
 )
 GAME_MODEL_COLLECTION_REPLAY_RESTORE_MODEL_REFRESH_PATTERN = re.compile(
     r"\b(?:CommitEditedModelPhysicsState|RefreshBodyFromModel|GetPhysicsBodyStore)\s*\("
+)
+GAME_MODEL_COLLECTION_REPLAY_RESTORE_MODEL_ID_PATTERN = re.compile(
+    r"\b(?:model|m_gameModels\s*\[[^\]]+\])\s*(?:\.|->)\s*GetReplayBodyId\s*\("
 )
 GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_FUNCTION_PATTERN = re.compile(
     r"\bbool\s+GameModelCollection::TryQueueReplayRenderPoseOverride\s*\("
@@ -4190,6 +4196,22 @@ def check_game_model_collection_replay_restore_store_authority_guardrails_text(p
                     (
                         f"{function_name} should call the store-owned replay restore command; "
                         "do not refresh PhysicsBodyStore from GameModel for restored body state."
+                    ),
+                )
+            )
+        for match in GAME_MODEL_COLLECTION_REPLAY_RESTORE_MODEL_ID_PATTERN.finditer(
+            stripped,
+            open_brace,
+            close_brace,
+        ):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "replay restore GameModel replay-id validation is blocked",
+                    (
+                        f"{function_name} must validate replay identity through PhysicsBodyStore records; "
+                        "GameModel replay ids are compatibility mirror data after restore succeeds."
                     ),
                 )
             )
@@ -13523,6 +13545,32 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only replay restore model-refresh synthetic text was rejected")
 
+    old_collection_replay_restore_model_id_validation = """
+    bool GameModelCollection::TryRestoreReplayBodyState( int index,
+                                                         uint32_t replayBodyId,
+                                                         bool fixed,
+                                                         const Vector3& position,
+                                                         const Quaternion& orientation,
+                                                         const Vector3& linearVelocity,
+                                                         const Vector3& angularVelocity )
+    {
+        GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+        if ( model.GetReplayBodyId() != replayBodyId )
+        {
+            return false;
+        }
+        return m_physicsEngine.RestoreReplayBodyState( body, replayBodyId, fixed, position, orientation, linearVelocity, angularVelocity, mass, inverseMass, rotationalInertia, inverseRotationalInertia );
+    }
+    """
+    if not any(
+        error.message == "replay restore GameModel replay-id validation is blocked"
+        for error in check_game_model_collection_replay_restore_store_authority_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_collection_replay_restore_model_id_validation,
+        )
+    ):
+        failures.append("old replay restore model-id validation synthetic surface was not rejected")
+
     old_collection_replay_prediction_restore_model_refresh = """
     bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
                                                                    uint32_t replayBodyId,
@@ -13545,6 +13593,32 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old replay prediction restore model-refresh synthetic surface was not rejected")
 
+    old_collection_replay_prediction_restore_model_id_validation = """
+    bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
+                                                                   uint32_t replayBodyId,
+                                                                   bool fixed,
+                                                                   const Vector3& position,
+                                                                   const Quaternion& orientation,
+                                                                   const Vector3& linearVelocity,
+                                                                   const Vector3& angularVelocity )
+    {
+        GameModel& model = m_gameModels[static_cast<std::size_t>( index )];
+        if ( model.GetReplayBodyId() != replayBodyId )
+        {
+            return false;
+        }
+        return m_physicsEngine.RestoreReplayBodyState( body, replayBodyId, fixed, position, orientation, linearVelocity, angularVelocity, mass, inverseMass, rotationalInertia, inverseRotationalInertia );
+    }
+    """
+    if not any(
+        error.message == "replay restore GameModel replay-id validation is blocked"
+        for error in check_game_model_collection_replay_restore_store_authority_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_collection_replay_prediction_restore_model_id_validation,
+        )
+    ):
+        failures.append("old replay prediction restore model-id validation synthetic surface was not rejected")
+
     allowed_collection_replay_prediction_restore = """
     bool GameModelCollection::TryRestoreReplayPredictionBodyState( int index,
                                                                    uint32_t replayBodyId,
@@ -13555,7 +13629,17 @@ def run_self_tests() -> list[str]:
                                                                    const Vector3& angularVelocity )
     {
         const PhysicsBodyHandle body = m_physicsEngine.BodyStore().HandleForModelIndex( index );
-        return m_physicsEngine.RestoreReplayBodyState( body, replayBodyId, fixed, position, orientation, linearVelocity, angularVelocity, mass, inverseMass, rotationalInertia, inverseRotationalInertia );
+        const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForHandle( body );
+        if ( !bodyRecord || bodyRecord->replayBodyId != replayBodyId )
+        {
+            return false;
+        }
+        if ( !m_physicsEngine.RestoreReplayBodyState( body, replayBodyId, fixed, position, orientation, linearVelocity, angularVelocity, mass, inverseMass, rotationalInertia, inverseRotationalInertia ) )
+        {
+            return false;
+        }
+        model.SetPosition( position );
+        return true;
     }
     """
     if check_game_model_collection_replay_restore_store_authority_guardrails_text(

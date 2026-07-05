@@ -3,14 +3,49 @@
 Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
-Validation for latest source slice: `tools\validate_full.bat` passed on
-2026-07-05 after moving editor/replay transform-scale base-shape reads to
-`ColliderStore`; DX12 InfoQueue errors were 0, screenshots matched baselines,
-standalone/runtime physics smoke passed, and `physics_regression_solver.csv`
-was a byte-exact 20,001-line match.
+Validation for latest source slice: `tools\validate_fast.bat` and
+`tools\validate_physics.bat` passed on 2026-07-05 after moving replay restore
+identity validation to `PhysicsBodyStore`; standalone/runtime physics smoke
+passed, and `physics_regression_solver.csv` was a byte-exact 20,001-line match.
 
 ## Completed Slices
 
+- [x] 2026-07-05: Moved replay render apply and prediction ghost identity off
+  the `GameModel` replay-id mirror. `ReplayRuntime` now resolves
+  presentation, solver, and prediction scrub bodies through
+  `PhysicsBodyStore::HandleForReplayBodyId()` before queueing value-only render
+  pose overrides, and prediction ghost request building takes
+  `PhysicsBodyStore` so `GameModel` is used only for ragdoll display metadata.
+  `GameModelCollection::TryQueueReplayRenderPoseOverride()` also validates
+  replay ids against body records instead of `GameModel::GetReplayBodyId()`.
+  Owner: replay presentation projection. Reason: replay samples persist model
+  indices only as staleable hints, while stable identity belongs to body-store
+  replay ids. Deletion condition: replay render apply, prediction ghost, and
+  render-pose queue paths contain no `GameModel::GetReplayBodyId()` validation.
+  Checker budget: `tools/check_runtime_boundaries.py` rejects GameModel
+  replay-id lookups in those paths and self-tests old model-id shapes.
+  Validation: focused Profile build, `git diff --check`,
+  `python -m py_compile tools/check_runtime_boundaries.py`,
+  `python tools/check_runtime_boundaries.py --repo .`,
+  `tools\validate_full.bat`, and `tools\validate_perf.bat` passed on
+  2026-07-05.
+- [x] 2026-07-05: Moved replay restore identity validation off the `GameModel`
+  replay-id mirror. `GameModelCollection::TryRestoreReplayBodyState()` and
+  `TryRestoreReplayPredictionBodyState()` now validate `replayBodyId` through
+  `PhysicsBodyStore` records before calling the handle-keyed physics restore
+  command and before projecting restored pose/velocity/fixed state back to the
+  temporary `GameModel` mirror. Owner: `GameModelCollection` replay restore
+  presentation edge. Reason: replay restore state is body-store authority; the
+  model mirror is a compatibility projection for legacy render/editor readers,
+  not the authority that approves which body is restored. Deletion condition:
+  collection replay restore functions contain no `GameModel::GetReplayBodyId()`
+  validation, model-to-store refresh, or model-index physics restore API.
+  Checker budget: `tools/check_runtime_boundaries.py` rejects model-id replay
+  validation in both restore functions and keeps the existing handle-keyed
+  restore/API guardrails. Validation: focused Profile build, `git diff --check`,
+  `python -m py_compile tools/check_runtime_boundaries.py`,
+  `python tools/check_runtime_boundaries.py --repo .`, `tools\validate_fast.bat`,
+  and intermittent `tools\validate_physics.bat` passed on 2026-07-05.
 - [x] 2026-06-27: Deleted `GameModelCollection::MakePhysicsModelView()` and `SkullbonezSource/Physics/PhysicsModelView.h`.
 - [x] 2026-06-27: Replaced per-call `PhysicsModelView` construction with persistent `PhysicsModelAccess` ranges plus explicit body-store handle mapping.
 - [x] 2026-06-27: Converted store refresh, step, wake, seed-asleep, immediate impulse, pending impulse, diagnostics, ragdoll, and sleep-island call paths away from `PhysicsModelView`.
