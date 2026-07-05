@@ -40,10 +40,12 @@ Related:
 */
 #include "RuntimeTools.h"
 
+#include "../../Core/Common.h"
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/CollisionShape.h"
+#include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../CameraCollection.h"
@@ -553,7 +555,13 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
     projectile.SetRenderTint( 0.72f, 0.88f, 1.0f, 1.0f );
     projectile.SetName( "launcher_projectile" );
 
-    const Physics::PhysicsBodyHandle projectileBody = collection.AddGameModel( std::move( projectile ) );
+    const Physics::PhysicsBodyHandle projectileBody = collection.AddGameModel(
+        std::move( projectile ),
+        Physics::MakeColliderCreateDesc(
+            Math::CollisionDetection::BoundingSphere( LAUNCHER_PROJECTILE_RADIUS,
+                                                      Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) ),
+            LAUNCHER_PROJECTILE_RESTITUTION,
+            HashStr( "default" ) ) );
     if ( projectileBody.IsValid() )
     {
         collection.GetPhysicsEngine().WakeBody( projectileBody );

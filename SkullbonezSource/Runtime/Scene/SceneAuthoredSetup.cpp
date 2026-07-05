@@ -64,12 +64,10 @@ using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
-using SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius;
-using SkullbonezCore::Math::CollisionDetection::GetShapeDragCoefficient;
-using SkullbonezCore::Math::CollisionDetection::GetShapeProjectedSurfaceArea;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::RotationMatrix;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::MakeColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
@@ -111,14 +109,7 @@ PhysicsColliderCreateDesc MakeSceneColliderDesc( CollisionShape shape, float res
     // Why: authored scene setup owns the parsed shape/material facts. Importing
     // them as a collider descriptor keeps PhysicsScene/ColliderStore authoritative
     // for row layout instead of asking GameModelCollection to rediscover them.
-    PhysicsColliderCreateDesc desc;
-    desc.shape = std::move( shape );
-    desc.boundingRadius = GetShapeBoundingRadius( desc.shape );
-    desc.restitution = restitution;
-    desc.contactMaterialId = SceneContactMaterialId( materialName );
-    desc.projectedSurfaceArea = GetShapeProjectedSurfaceArea( desc.shape );
-    desc.dragCoefficient = GetShapeDragCoefficient( desc.shape );
-    return desc;
+    return MakeColliderCreateDesc( std::move( shape ), restitution, SceneContactMaterialId( materialName ) );
 }
 
 PhysicsColliderCreateDesc MakeSceneSphereColliderDesc( float radius, float restitution, const char* materialName )

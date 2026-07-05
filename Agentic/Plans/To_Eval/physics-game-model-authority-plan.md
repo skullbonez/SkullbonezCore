@@ -4,14 +4,40 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_physics.bat` passed on 2026-07-05 after moving authored and
-generated scene primitive/hull creation to pass `PhysicsColliderCreateDesc`
-directly into `GameModelCollection::AddGameModel()`. Runtime boundaries reported
-0 errors, standalone/runtime physics smoke passed with `collider_refresh=pass`,
-and `physics_regression_solver.csv` was a byte-exact 20,001-line match.
+`tools\validate_physics.bat` passed on 2026-07-05 after making every
+`GameModelCollection::AddGameModel()` append path pass
+`PhysicsColliderCreateDesc`. Runtime boundaries reported 0 errors,
+standalone/runtime physics smoke passed with `collider_refresh=pass`, and
+`physics_regression_solver.csv` was a byte-exact 20,001-line match.
 
 ## Completed Slices
 
+- [x] 2026-07-05: Removed the public bare append path from
+  `GameModelCollection::AddGameModel()` and made every creation caller pass a
+  `PhysicsColliderCreateDesc`. `Physics::MakeColliderCreateDesc()` now derives
+  bounding radius, projected area, and drag once from caller-owned shape facts;
+  ragdoll parts, editor placement, runtime handle smoke bodies, launcher
+  projectiles, authored scenes, and generated scenes all pass descriptors at
+  append. `GameModelCollection` moves that descriptor through append, fills the
+  new body handle and scene object id, applies collection material policy, and
+  registers the collider without recapturing from `GameModel`. Owner:
+  construction callers own primitive facts; `PhysicsScene` owns live collider
+  rows. Reason: every append site already has radius, half-extents, hull,
+  restitution, and contact-material facts before model handoff; rereading them
+  from `GameModel` adds cold copies and keeps the old mirror authoritative.
+  Deletion condition: `CaptureAuthoredColliderDesc()` remains only for
+  same-count editor/config edits and topology drift until explicit collider
+  update commands replace model-field recapture. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects bare
+  `AddGameModel(std::move(...))` in scene, editor, launcher, runtime smoke, and
+  ragdoll construction files, with self-tests for old and allowed shapes.
+  Validation: `git diff --check`, boundary-checker Python compile, runtime
+  boundaries with 0 errors, focused Profile build with 0 warnings/errors, and
+  touched-file comment audit passed; `tools\validate_fast.bat` passed
+  formatting, project filters, runtime boundaries, Profile build, and Debug
+  build with 0 warnings/errors; `tools\validate_physics.bat` passed
+  standalone/runtime smoke with `collider_refresh=pass` and byte-exact
+  20,001-line `physics_regression_solver.csv`.
 - [x] 2026-07-05: Moved authored/generated scene primitive and hull creation to
   direct `PhysicsColliderCreateDesc` submission at `AddGameModel()`.
   `SceneAuthoredSetup` and `SceneGeneratedSetup` now build descriptors from the
@@ -1045,10 +1071,18 @@ Colliders should own exact collision data. `GameModel` must not remain the hidde
 - [ ] Make `ColliderStore` own body-to-collider and collider-to-body mapping
   without requiring a `GameModel` refresh input.
 - [ ] Move shape creation from `GameModel` construction into a collider registration path.
+  - [x] 2026-07-05 all `AddGameModel()` append paths now require
+    `PhysicsColliderCreateDesc`; ragdoll, editor placement, runtime smoke,
+    launcher projectile, authored scenes, and generated scenes pass descriptors
+    from construction-time shape facts, and the public bare append overload is
+    deleted. `CaptureAuthoredColliderDesc()` remains only for same-count
+    edit/config/topology-drift refresh until explicit collider update commands
+    replace model-field recapture.
   - [x] 2026-07-05 authored/generated scene balls, boxes, and convex hulls now
-    pass `PhysicsColliderCreateDesc` directly at append. Ragdoll, editor,
-    config, and legacy append paths still use the explicit
-    `CaptureAuthoredColliderDesc()` fallback until their creation facts move.
+    pass `PhysicsColliderCreateDesc` directly at append. Superseded by the next
+    slice above: every append path now passes descriptors; only same-count
+    edit/config/topology refresh still uses the explicit
+    `CaptureAuthoredColliderDesc()` fallback.
 - [ ] Move shape mutation into explicit collider update commands.
 - [ ] Update broadphase code to read collider bounds from `ColliderStore`.
 - [ ] Update narrowphase code to read exact shapes from `ColliderStore`.

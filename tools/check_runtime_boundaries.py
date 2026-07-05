@@ -760,12 +760,20 @@ SCENE_SETUP_ADAPTER_BODY_LOOKUP_PATTERN = re.compile(
 SCENE_SETUP_GAME_MODEL_ORIENTATION_READBACK_PATTERN = re.compile(
     r"\b[A-Za-z_]\w*\s*\.\s*GetOrientation\s*\("
 )
-# Why: authored/generated scene setup already owns primitive and hull shape
-# facts. A bare AddGameModel call forces GameModelCollection to recapture
-# collider data from the model mirror instead of importing a physics descriptor.
-SCENE_SETUP_COLLIDER_DESC_IMPORT_PATTERN = re.compile(
-    r"\bcontext\s*\.\s*models\s*\.\s*AddGameModel\s*\(\s*"
+# Why: creation paths already own primitive and hull shape facts. A bare
+# AddGameModel call forces GameModelCollection to recapture collider data from
+# the model mirror instead of importing a physics descriptor.
+ADD_GAME_MODEL_COLLIDER_DESC_IMPORT_PATTERN = re.compile(
+    r"\b(?:[A-Za-z_]\w*\s*(?:->|\.)\s*)+AddGameModel\s*\(\s*"
     r"std\s*::\s*move\s*\(\s*[A-Za-z_]\w*\s*\)\s*\)"
+)
+ADD_GAME_MODEL_COLLIDER_DESC_IMPORT_SOURCES = (
+    SCENE_AUTHORED_SETUP_SOURCE,
+    SCENE_GENERATED_SETUP_SOURCE,
+    EDITOR_OBJECT_PLACEMENT_SOURCE,
+    RUNTIME_TOOLS_SOURCE,
+    INIT_SOURCE,
+    PHYSICS_ROOT / "Ragdoll.cpp",
 )
 SCENE_SETUP_PHYSICS_COMMAND_SOURCES = (
     SCENE_AUTHORED_SETUP_SOURCE,
@@ -5141,16 +5149,21 @@ def check_scene_setup_model_index_physics_command_guardrails_text(path: Path, te
                 ),
             )
         )
-    for match in SCENE_SETUP_COLLIDER_DESC_IMPORT_PATTERN.finditer(stripped):
+    return errors
+
+
+def check_add_game_model_collider_desc_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in ADD_GAME_MODEL_COLLIDER_DESC_IMPORT_PATTERN.finditer(stripped):
         errors.append(
             BoundaryError(
                 path,
                 line_for_offset(stripped, match.start()),
-                "scene setup collider descriptor import is required",
+                "AddGameModel collider descriptor import is required",
                 (
-                    "Authored/generated primitive and hull setup owns the shape/material facts. Pass a "
-                    "PhysicsColliderCreateDesc into AddGameModel so GameModelCollection does not recapture "
-                    "collider rows from GameModel."
+                    "Creation code owns the shape/material facts. Pass a PhysicsColliderCreateDesc into "
+                    "AddGameModel so GameModelCollection does not recapture collider rows from GameModel."
                 ),
             )
         )
@@ -5162,6 +5175,14 @@ def check_scene_setup_model_index_physics_command_guardrails(repo: Path) -> list
     for relative_path in SCENE_SETUP_PHYSICS_COMMAND_SOURCES:
         path = repo / relative_path
         errors.extend(check_scene_setup_model_index_physics_command_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_add_game_model_collider_desc_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in ADD_GAME_MODEL_COLLIDER_DESC_IMPORT_SOURCES:
+        path = repo / relative_path
+        errors.extend(check_add_game_model_collider_desc_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -15247,13 +15268,57 @@ def run_self_tests() -> list[str]:
     }
     """
     if not any(
-        error.message == "scene setup collider descriptor import is required"
-        for error in check_scene_setup_model_index_physics_command_guardrails_text(
+        error.message == "AddGameModel collider descriptor import is required"
+        for error in check_add_game_model_collider_desc_guardrails_text(
             Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp"),
             old_scene_setup_collider_recapture,
         )
     ):
         failures.append("old scene setup collider recapture synthetic surface was not rejected")
+
+    old_editor_collider_recapture = """
+    void PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context )
+    {
+        lastPlacedBody = context.models.AddGameModel( std::move( model ) );
+    }
+    """
+    if not any(
+        error.message == "AddGameModel collider descriptor import is required"
+        for error in check_add_game_model_collider_desc_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"),
+            old_editor_collider_recapture,
+        )
+    ):
+        failures.append("old editor collider recapture synthetic surface was not rejected")
+
+    old_ragdoll_collider_recapture = """
+    void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection )
+    {
+        collection.AddGameModel( std::move( model ) );
+    }
+    """
+    if not any(
+        error.message == "AddGameModel collider descriptor import is required"
+        for error in check_add_game_model_collider_desc_guardrails_text(
+            Path("SkullbonezSource/Physics/Ragdoll.cpp"),
+            old_ragdoll_collider_recapture,
+        )
+    ):
+        failures.append("old ragdoll collider recapture synthetic surface was not rejected")
+
+    allowed_descriptor_append = """
+    void PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context )
+    {
+        lastPlacedBody = context.models.AddGameModel(
+            std::move( model ),
+            MakeEditorColliderDesc( BoundingSphere( radius, Vector3( 0.0f, 0.0f, 0.0f ) ), restitution ) );
+    }
+    """
+    if check_add_game_model_collider_desc_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"),
+        allowed_descriptor_append,
+    ):
+        failures.append("descriptor-owned AddGameModel synthetic surface was rejected")
 
     old_scene_setup_orientation_readback = """
     void SceneAuthoredSetup::SetUpGameModels( SceneAuthoredModelContext context )
@@ -16701,7 +16766,8 @@ def run_self_tests() -> list[str]:
     allowed_launcher_projectile_handle_wake = """
     bool RuntimeTools::FireLauncherProjectile( GameModelCollection& collection )
     {
-        const PhysicsBodyHandle projectileBody = collection.AddGameModel( std::move( projectile ) );
+        const PhysicsBodyHandle projectileBody =
+            collection.AddGameModel( std::move( projectile ), MakeLauncherProjectileColliderDesc() );
         if ( projectileBody.IsValid() )
         {
             collection.GetPhysicsEngine().WakeBody( projectileBody );
@@ -17985,6 +18051,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_scene_runtime_coordinator_callback_guardrails(repo))
     errors.extend(check_run_ui_text_pass_replay_overlay_guardrails(repo))
     errors.extend(check_interaction_guardrails(repo))
+    errors.extend(check_add_game_model_collider_desc_guardrails(repo))
     errors.extend(check_physics_game_model_collection_guardrails(repo))
     errors.extend(check_public_physics_facade_game_object_guardrails(repo))
     errors.extend(check_public_physics_descriptor_model_index_guardrails(repo))

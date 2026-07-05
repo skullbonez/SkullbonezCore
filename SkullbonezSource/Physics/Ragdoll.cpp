@@ -29,6 +29,7 @@ Related:
 */
 #include "Ragdoll.h"
 
+#include "../Core/Common.h"
 #include "../GameObjects/GameModel.h"
 #include "../GameObjects/GameModelCollection.h"
 #include "ContactSolverCommon.h"
@@ -49,6 +50,7 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
+using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 
 namespace
 {
@@ -453,7 +455,10 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
         model.SetRuntimeCollection( GameModelCollectionKind::SimpleRagdoll, firstBody + PART_TORSO, i );
         model.SetFixed( options.fixed );
 
-        collection.AddGameModel( std::move( model ) );
+        collection.AddGameModel( std::move( model ),
+                                 MakeColliderCreateDesc( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ),
+                                                         parts[i].restitution,
+                                                         HashStr( "default" ) ) );
     }
 
     int jointCount = 0;

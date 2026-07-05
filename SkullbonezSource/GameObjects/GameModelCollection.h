@@ -147,7 +147,7 @@ class GameModelCollection
                                          const Physics::ColliderStore& colliderStore );
     Physics::PhysicsBodyHandle AppendGameModelAndPhysicsRows( GameModel gameModel,
                                                               uint32_t replayBodyId,
-                                                              const Physics::PhysicsColliderCreateDesc* colliderDesc );
+                                                              Physics::PhysicsColliderCreateDesc colliderDesc );
 
   public:
     GameModelCollection();
@@ -158,14 +158,10 @@ class GameModelCollection
     bool ShouldRenderCollisionVolumes() const;
     bool ShouldUseShadowParallelPrep() const;
     Threading::WorkerPool* RenderWorkerPool() const;
-    // Appends scene-authored model storage and the matching body-store row in
-    // one owner step so construction commands can use the returned body handle.
-    Physics::PhysicsBodyHandle AddGameModel( GameModel gameModel, uint32_t replayBodyId = 0 );
-    // Appends model storage while importing scene-owned collider shape/material
-    // facts directly into physics, avoiding a GameModel collider readback.
-    Physics::PhysicsBodyHandle AddGameModel( GameModel gameModel,
-                                             const Physics::PhysicsColliderCreateDesc& colliderDesc,
-                                             uint32_t replayBodyId = 0 );
+    // Appends model storage while importing caller-owned collider shape/material
+    // facts directly into physics, avoiding a GameModel collider recapture.
+    Physics::PhysicsBodyHandle
+    AddGameModel( GameModel gameModel, Physics::PhysicsColliderCreateDesc colliderDesc, uint32_t replayBodyId = 0 );
     void Clear();
     int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount );
     void RenderModels( const Basics::RenderHelperContext& helperContext,

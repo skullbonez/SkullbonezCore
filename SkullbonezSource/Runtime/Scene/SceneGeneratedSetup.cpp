@@ -53,10 +53,8 @@ namespace
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
-using SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius;
-using SkullbonezCore::Math::CollisionDetection::GetShapeDragCoefficient;
-using SkullbonezCore::Math::CollisionDetection::GetShapeProjectedSurfaceArea;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::MakeColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 
@@ -73,14 +71,7 @@ PhysicsColliderCreateDesc MakeGeneratedColliderDesc( CollisionShape shape, float
     // Why: generated setup already owns the exact shape parameters at spawn
     // time. Passing this value into physics avoids a cold GameModel collider
     // recapture and keeps store rows descriptor-owned.
-    PhysicsColliderCreateDesc desc;
-    desc.shape = std::move( shape );
-    desc.boundingRadius = GetShapeBoundingRadius( desc.shape );
-    desc.restitution = restitution;
-    desc.contactMaterialId = HashStr( "default" );
-    desc.projectedSurfaceArea = GetShapeProjectedSurfaceArea( desc.shape );
-    desc.dragCoefficient = GetShapeDragCoefficient( desc.shape );
-    return desc;
+    return MakeColliderCreateDesc( std::move( shape ), restitution, HashStr( "default" ) );
 }
 
 PhysicsColliderCreateDesc MakeGeneratedSphereColliderDesc( float radius, float restitution )

@@ -640,7 +640,13 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         char name[32] = {};
         sprintf_s( name, sizeof( name ), "runtime_smoke_%d", i );
         model.SetName( name );
-        createdBodies[i] = collection->AddGameModel( std::move( model ) );
+        createdBodies[i] = collection->AddGameModel(
+            std::move( model ),
+            MakeColliderCreateDesc( SkullbonezCore::Math::CollisionDetection::BoundingSphere(
+                                        0.75f,
+                                        SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) ),
+                                    0.0f,
+                                    HashStr( "default" ) ) );
     }
 
     const PhysicsBodyHandle bodyA = createdBodies[0];

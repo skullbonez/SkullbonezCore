@@ -63,6 +63,7 @@ Related:
 #pragma once
 
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "ColliderStore.h"
@@ -181,6 +182,22 @@ struct PhysicsColliderCreateDesc
     float projectedSurfaceArea = 0.0f;
     float dragCoefficient = 0.0f;
 };
+
+inline PhysicsColliderCreateDesc
+MakeColliderCreateDesc( Math::CollisionDetection::CollisionShape shape, float restitution, uint32_t contactMaterialId )
+{
+    // Why: creation paths already know the exact primitive facts. Build the
+    // collider import packet once there so PhysicsScene owns the live row and
+    // GameModelCollection does not rediscover shape metrics on append.
+    PhysicsColliderCreateDesc desc;
+    desc.shape = std::move( shape );
+    desc.boundingRadius = Math::CollisionDetection::GetShapeBoundingRadius( desc.shape );
+    desc.restitution = restitution;
+    desc.contactMaterialId = contactMaterialId;
+    desc.projectedSurfaceArea = Math::CollisionDetection::GetShapeProjectedSurfaceArea( desc.shape );
+    desc.dragCoefficient = Math::CollisionDetection::GetShapeDragCoefficient( desc.shape );
+    return desc;
+}
 
 struct PhysicsColliderUpdateDesc
 {

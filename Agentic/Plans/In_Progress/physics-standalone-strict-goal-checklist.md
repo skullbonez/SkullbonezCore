@@ -74,12 +74,11 @@ Import-Csv Agentic\Plans\In_Progress\physics-standalone-agent-workqueue.csv |
   Evidence: `SkullbonezSource/Physics/PhysicsBodyStore.cpp:192`,
   `SkullbonezSource/Physics/PhysicsBodyStore.cpp:266`.
 - `ColliderStore` owns dense live collider rows and only refreshes body
-  identity from `PhysicsBodyStore`; authored/generated scene primitives and
-  hulls now pass `PhysicsColliderCreateDesc` directly at creation. The remaining
-  cold compatibility edge captures descriptors from `GameModel` for
-  ragdoll/editor/config/legacy append paths, edits, config, or topology drift
-  until scene/entity metadata writes every collider descriptor directly.
-  Evidence: `PHY-1062`, `PHY-1063`,
+  identity from `PhysicsBodyStore`; every `AddGameModel()` append path now
+  passes `PhysicsColliderCreateDesc` directly at creation. The remaining cold
+  compatibility edge captures descriptors from `GameModel` only for same-count
+  editor/config edits or topology drift until explicit collider update commands
+  replace model-field recapture. Evidence: `PHY-1062`, `PHY-1063`, `PHY-1064`,
   `SkullbonezSource/Physics/PhysicsScene.cpp`,
   `SkullbonezSource/Physics/ColliderStore.cpp`,
   `SkullbonezSource/GameObjects/GameModelCollection.cpp`.
@@ -2143,6 +2142,31 @@ format pass plus `tools\validate_format.bat` passed after the first
 `validate_fast` attempt stopped on header alignment; touched-file comment audit
 inspected `GameModelCollection.h`, `GameModelCollection.cpp`,
 `SceneAuthoredSetup.cpp`, `SceneGeneratedSetup.cpp`, and
+`check_runtime_boundaries.py`; `tools\validate_fast.bat` passed formatting,
+project filters, runtime boundaries, and Profile/Debug builds with 0
+warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle
+smoke with `collider_refresh=pass` and byte-exact 20,001-line
+`physics_regression_solver.csv`.
+
+Slice `PHY-1064`: all append-time creation paths now pass
+`PhysicsColliderCreateDesc` into `GameModelCollection::AddGameModel()`.
+Owner: ragdoll/editor/runtime/scene creation owns primitive shape facts while
+`PhysicsScene` owns live collider rows; reason: every append site already has
+radius, half-extents, hull, restitution, and contact-material facts before
+model handoff, so keeping a public bare append path made `GameModel` a redundant
+collider fact cache; deletion condition: `CaptureAuthoredColliderDesc()` is now
+restricted to same-count editor/config edits and topology drift until explicit
+collider update commands replace model-field recapture; checker budget:
+`tools/check_runtime_boundaries.py` rejects bare `AddGameModel(std::move(...))`
+in scene, editor, launcher, runtime smoke, and ragdoll construction files.
+
+Evidence: `git diff --check`, boundary-checker Python compile, CSV parse check,
+and runtime-boundary validation passed with runtime-boundary summary reporting 0
+errors; focused Profile build passed with 0 warnings/errors after one namespace
+typo fix; touched-file comment audit inspected `GameModelCollection.h`,
+`GameModelCollection.cpp`, `PhysicsApi.h`, `Ragdoll.cpp`,
+`RunEditorObjectPlacement.inl`, `RunEditorTools.cpp`, `Init.cpp`,
+`SceneAuthoredSetup.cpp`, `SceneGeneratedSetup.cpp`, `RuntimeTools.cpp`, and
 `check_runtime_boundaries.py`; `tools\validate_fast.bat` passed formatting,
 project filters, runtime boundaries, and Profile/Debug builds with 0
 warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle

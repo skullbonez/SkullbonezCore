@@ -133,11 +133,11 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
 }
 
 
-// Why: this is the remaining cold collider-authoring import while scene and
-// editor code still mutate GameModel fields. It returns a descriptor, not a
-// live ColliderStore row, so physics remains the owner of row layout and handle
-// identity. Deletion: scene/entity metadata writes PhysicsColliderCreateDesc
-// directly. Checker: runtime boundaries reject GameModelCollection building
+// Why: this is the remaining cold collider-authoring import for same-count
+// editor/config edits and topology drift. It returns a descriptor, not a live
+// ColliderStore row, so physics remains the owner of row layout and handle
+// identity. Deletion: explicit collider update commands replace model-field
+// recapture. Checker: runtime boundaries reject GameModelCollection building
 // ColliderRecord values from GameModel.
 PhysicsColliderCreateDesc CaptureAuthoredColliderDesc( GameModel& model, const PhysicsBodyRecord& body )
 {
@@ -416,7 +416,7 @@ bool GameModelCollection::UpdateColliderStoreFromModel( int modelIndex )
     }
 
     // Owner: GameModelCollection still owns the compatibility import because
-    // scene/editor construction mutates GameModel collider fields today.
+    // editor/config authoring can mutate GameModel collider fields today.
     // Reason: replace one dense ColliderStore row at explicit edit/config
     // boundaries instead of keeping a second authoring array or rescanning every
     // model on steady frames. Deletion: scene/entity creation writes collider
@@ -481,23 +481,16 @@ SkullbonezCore::Threading::WorkerPool* GameModelCollection::RenderWorkerPool() c
 }
 
 
-PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel, uint32_t replayBodyId )
+PhysicsBodyHandle
+GameModelCollection::AddGameModel( GameModel gameModel, PhysicsColliderCreateDesc colliderDesc, uint32_t replayBodyId )
 {
-    return AppendGameModelAndPhysicsRows( std::move( gameModel ), replayBodyId, nullptr );
-}
-
-
-PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel,
-                                                     const PhysicsColliderCreateDesc& colliderDesc,
-                                                     uint32_t replayBodyId )
-{
-    return AppendGameModelAndPhysicsRows( std::move( gameModel ), replayBodyId, &colliderDesc );
+    return AppendGameModelAndPhysicsRows( std::move( gameModel ), replayBodyId, std::move( colliderDesc ) );
 }
 
 
 PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel gameModel,
                                                                       uint32_t replayBodyId,
-                                                                      const PhysicsColliderCreateDesc* colliderDesc )
+                                                                      PhysicsColliderCreateDesc colliderDesc )
 {
     const int activeCapacity = ActiveGameModelCapacity();
     assert( static_cast<int>( m_gameModels.size() ) < activeCapacity && "Exceeded active game model capacity" );
@@ -537,14 +530,12 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
     {
         throw std::runtime_error( "Failed to resolve newly authored physics body record." );
     }
-    // Owner: scene/editor creation provides shape facts; PhysicsScene owns live
-    // collider rows. Reason: scene setup already has the radius/extents/hull
-    // values, so recapturing them from GameModel only preserves migration debt.
-    // Deletion: when all creation callers pass descriptors, remove the fallback
-    // CaptureAuthoredColliderDesc path. Checker: scene setup guardrails reject
-    // primitive/hull AddGameModel calls that omit a collider descriptor.
-    PhysicsColliderCreateDesc authoredCollider =
-        colliderDesc ? *colliderDesc : CaptureAuthoredColliderDesc( m_gameModels.back(), *bodyRecord );
+    // Owner: creation callers provide shape facts; PhysicsScene owns live
+    // collider rows. Reason: radius/extents/hull values exist before append, so
+    // recapturing them from GameModel preserves old ownership and extra work.
+    // Checker: runtime boundaries reject bare AddGameModel calls that omit a
+    // collider descriptor.
+    PhysicsColliderCreateDesc authoredCollider = std::move( colliderDesc );
     authoredCollider.body = bodyRecord->handle;
     authoredCollider.sceneObjectId = bodyRecord->sceneObjectId;
     ApplyCollectionPhysicsMaterialToColliderDesc( authoredCollider, m_physicsMaterial );
