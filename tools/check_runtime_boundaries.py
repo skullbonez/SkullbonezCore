@@ -16,9 +16,9 @@
 #   smoke has a handle-authority fence, attached-camera target identity has a
 #   handle-authority fence, contact-audio simple mode has a body-store motion
 #   fence, and fixed-tree, replay-restore wake, replay
-#   velocity-edit, launcher ray-hit, selection overlay, mouse-pickup overlay,
-#   attached-camera overlay, replay marker radii, replay path target identity,
-#   or editor wake/sleep commands have store-handle fences. The deleted
+#   velocity-edit, launcher ray-hit, selection overlay, editor selection-frame,
+#   mouse-pickup overlay, attached-camera overlay, replay marker radii, replay
+#   path target identity, or editor wake/sleep commands have store-handle fences. The deleted
 #   collection step wrapper has its own fence, replay render-pose overrides have
 #   their own value-override fence,
 #   per-body model writeback, and the deleted bulk model mirror have their own
@@ -63,6 +63,9 @@
 #     projection on the picked PhysicsBodyStore/ColliderStore rows.
 #   Selection overlay fence: Static rule that keeps editor selection outlines
 #     and gizmo presentation on PhysicsBodyStore/ColliderStore rows.
+#   Editor selection-frame fence: Static rule that keeps gizmo hit testing,
+#     drag-start snapshots, and transform-change detection on PhysicsBodyStore
+#     pose and ColliderStore shape/radius rows.
 #   Attached-camera overlay fence: Static rule that keeps the camera-target
 #     marker on PhysicsBodyStore pose and ColliderStore shape/radius rows.
 #   Replay target marker fence: Static rule that keeps replay target markers on
@@ -178,6 +181,7 @@ SCENE_AUTHORED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneAuthored
 SCENE_GENERATED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp")
 EDITOR_OBJECT_PLACEMENT_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl")
 EDITOR_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp")
+EDITOR_GIZMO_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl")
 EDITOR_OVERLAY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl")
 LAUNCHER_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/LauncherTools.cpp")
 MOUSE_PICKUP_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl")
@@ -683,6 +687,25 @@ SELECTION_OVERLAY_MODEL_FRAME_PATTERN = re.compile(
     r"\bTryGetEditorSelectionFrame\s*\(\s*(?:models|context\s*\.\s*models\s*\.\s*Models\s*\(\s*\))"
     r"|\bcontext\s*\.\s*tracer\s*\.\s*AddSelectionOutline\s*\(\s*"
     r"(?:models\s*\[|context\s*\.\s*models\s*\.\s*Models\s*\(\s*\)\s*\[|(?:model|selected|target)\b)"
+)
+EDITOR_SELECTION_FRAME_FUNCTION_PATTERN = re.compile(r"\bbool\s+TryGetEditorSelectionFrame\s*\(")
+EDITOR_GIZMO_DRAG_CAPTURE_FUNCTION_PATTERN = re.compile(r"\bvoid\s+CaptureEditorGizmoDragGroupState\s*\(")
+EDITOR_SELECTION_FRAME_MODEL_ONLY_SIGNATURE_PATTERN = re.compile(
+    r"\bbool\s+TryGetEditorSelectionFrame\s*\(\s*const\s+std\s*::\s*vector\s*<\s*"
+    r"(?:(?:GameObjects|SkullbonezCore\s*::\s*GameObjects)\s*::\s*)?GameModel\s*>\s*&\s*\w+\s*,\s*"
+    r"int\s+selectedIndex"
+)
+EDITOR_SELECTION_FRAME_MODEL_BODY_PATTERN = re.compile(
+    r"\.\s*(?:GetPosition|GetOrientation|GetCollisionShape)\s*\("
+    r"|\bEditorModelRadius\s*\("
+)
+EDITOR_SELECTION_FRAME_MODEL_ONLY_CALL_PATTERN = re.compile(
+    r"\bTryGetEditorSelectionFrame\s*\(\s*"
+    r"(?:models|context\s*\.\s*models\s*\.\s*Models\s*\(\s*\)|m_cGameModelCollection\s*\.\s*Models\s*\(\s*\))"
+    r"\s*,\s*"
+    r"(?:context\s*\.\s*editor\s*\.\s*selectedModelIndex|"
+    r"m_runtimeTools\s*\.\s*Editor\s*\(\s*\)\s*\.\s*selectedModelIndex)",
+    re.DOTALL,
 )
 ATTACHED_CAMERA_OVERLAY_MODEL_MARKER_PATTERN = re.compile(
     r"\bcontext\s*\.\s*tracer\s*\.\s*AddAttachedCameraTargetMarker\s*\(\s*"
@@ -4781,8 +4804,8 @@ def check_selection_overlay_store_authority_guardrails_text(path: Path, text: st
                 "selection overlay GameModel frame read is blocked",
                 (
                     "Editor selection outlines and gizmo presentation should resolve body/collider store rows for "
-                    "pose, shape, and radius; TryGetEditorSelectionFrame(models, ...) remains only for editor "
-                    "input/drag math."
+                    "pose, shape, and radius; editor input/drag math must call the store-backed selection frame "
+                    "helper too."
                 ),
             )
         )
@@ -4792,6 +4815,71 @@ def check_selection_overlay_store_authority_guardrails_text(path: Path, text: st
 def check_selection_overlay_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / EDITOR_OVERLAY_TOOLS_SOURCE
     return check_selection_overlay_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_editor_selection_frame_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name not in { EDITOR_TOOLS_SOURCE.name, EDITOR_GIZMO_TOOLS_SOURCE.name }:
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+
+    if path.name == EDITOR_TOOLS_SOURCE.name:
+        for match in EDITOR_SELECTION_FRAME_MODEL_ONLY_SIGNATURE_PATTERN.finditer(stripped):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "editor selection frame must use store rows",
+                    (
+                        "TryGetEditorSelectionFrame must take PhysicsBodyStore and ColliderStore so gizmo "
+                        "hit-testing, drag starts, and replay transform recording do not read GameModel body mirrors."
+                    ),
+                )
+            )
+
+        for function_pattern in (
+            EDITOR_SELECTION_FRAME_FUNCTION_PATTERN,
+            EDITOR_GIZMO_DRAG_CAPTURE_FUNCTION_PATTERN,
+        ):
+            bounds = _function_body_bounds(stripped, function_pattern)
+            if not bounds:
+                continue
+            open_brace, close_brace = bounds
+            for match in EDITOR_SELECTION_FRAME_MODEL_BODY_PATTERN.finditer(stripped, open_brace, close_brace):
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, match.start()),
+                        "editor selection frame GameModel body read is blocked",
+                        (
+                            "Selection grouping may use GameModel names, but live pose, orientation, shape, and "
+                            "radius for gizmo frames and drag snapshots must come from PhysicsBodyStore/ColliderStore."
+                        ),
+                    )
+                )
+
+    for match in EDITOR_SELECTION_FRAME_MODEL_ONLY_CALL_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "editor selection frame must use store rows",
+                (
+                    "Call TryGetEditorSelectionFrame with PhysicsBodyStore and ColliderStore; the model-only call "
+                    "shape reopens stale pose/shape reads in editor gizmo math."
+                ),
+            )
+        )
+
+    return errors
+
+
+def check_editor_selection_frame_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in ( EDITOR_TOOLS_SOURCE, EDITOR_GIZMO_TOOLS_SOURCE ):
+        path = repo / relative_path
+        errors.extend(check_editor_selection_frame_store_authority_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_attached_camera_overlay_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -14151,6 +14239,113 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only selection overlay synthetic text was rejected")
 
+    old_editor_selection_frame_model_reads = """
+    bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
+                                     int selectedIndex,
+                                     Vector3& outOrigin,
+                                     float& outRadius )
+    {
+        outOrigin = models[static_cast<std::size_t>( selectedIndex )].GetPosition();
+        outRadius = EditorModelRadius( models[static_cast<std::size_t>( selectedIndex )] );
+        return true;
+    }
+
+    void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
+                                           const std::vector<GameModel>& models,
+                                           bool allowRagdollGroup )
+    {
+        const GameModel& model = models[static_cast<std::size_t>( editor.selectedModelIndex )];
+        editor.gizmoDragGroupStartPositions[0] = model.GetPosition();
+        editor.gizmoDragGroupStartOrientations[0] = model.GetOrientation();
+    }
+    """
+    old_editor_selection_errors = check_editor_selection_frame_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+        old_editor_selection_frame_model_reads,
+    )
+    if not any(error.message == "editor selection frame must use store rows" for error in old_editor_selection_errors):
+        failures.append("old editor selection frame model-only signature synthetic surface was not rejected")
+    if not any(
+        error.message == "editor selection frame GameModel body read is blocked"
+        for error in old_editor_selection_errors
+    ):
+        failures.append("old editor selection frame GameModel body-read synthetic surface was not rejected")
+
+    old_editor_gizmo_model_only_call = """
+    int HitEditorGizmoAxis( EditorGizmoContext context, const Vector3& rayOrigin, const Vector3& rayDirection )
+    {
+        const std::vector<GameModel>& models = context.models.Models();
+        Vector3 origin;
+        float radius = 1.0f;
+        if ( !TryGetEditorSelectionFrame( models, context.editor.selectedModelIndex, origin, radius ) )
+        {
+            return -1;
+        }
+        return 0;
+    }
+    """
+    if not any(
+        error.message == "editor selection frame must use store rows"
+        for error in check_editor_selection_frame_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"),
+            old_editor_gizmo_model_only_call,
+        )
+    ):
+        failures.append("old editor gizmo model-only frame call synthetic surface was not rejected")
+
+    allowed_editor_selection_frame_store_reads = """
+    bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
+                                     const PhysicsBodyStore& bodyStore,
+                                     const ColliderStore& colliderStore,
+                                     int selectedIndex,
+                                     Vector3& outOrigin,
+                                     float& outRadius )
+    {
+        const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( selectedIndex );
+        const ColliderRecord* collider = colliderStore.RecordForHandle( colliderStore.HandleForModelIndex( selectedIndex ) );
+        outOrigin = body->position;
+        outRadius = EditorColliderRadius( *collider );
+        return true;
+    }
+
+    int HitEditorGizmoAxis( EditorGizmoContext context, const Vector3& rayOrigin, const Vector3& rayDirection )
+    {
+        const std::vector<GameModel>& models = context.models.Models();
+        const PhysicsBodyStore& bodyStore = context.models.GetPhysicsBodyStore();
+        const ColliderStore& colliderStore = context.models.GetColliderStore();
+        Vector3 origin;
+        float radius = 1.0f;
+        if ( !TryGetEditorSelectionFrame( models, bodyStore, colliderStore, context.editor.selectedModelIndex, origin, radius ) )
+        {
+            return -1;
+        }
+        return 0;
+    }
+    """
+    if check_editor_selection_frame_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+        allowed_editor_selection_frame_store_reads,
+    ):
+        failures.append("store-backed editor selection frame synthetic surface was rejected")
+    if check_editor_selection_frame_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"),
+        allowed_editor_selection_frame_store_reads,
+    ):
+        failures.append("store-backed editor gizmo selection frame call synthetic surface was rejected")
+
+    commented_editor_selection_frame_model_reads = """
+    void DocumentOldEditorSelectionFrame()
+    {
+        // The old helper called TryGetEditorSelectionFrame(models, context.editor.selectedModelIndex, ...)
+        // and then read model.GetPosition() plus EditorModelRadius(model).
+    }
+    """
+    if check_editor_selection_frame_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+        commented_editor_selection_frame_model_reads,
+    ):
+        failures.append("comment-only editor selection frame synthetic text was rejected")
+
     old_attached_camera_marker_overload = """
     class RunEditorTracer
     {
@@ -16042,6 +16237,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_mouse_pickup_model_index_physics_command_guardrails(repo))
     errors.extend(check_mouse_pickup_overlay_store_authority_guardrails(repo))
     errors.extend(check_selection_overlay_store_authority_guardrails(repo))
+    errors.extend(check_editor_selection_frame_store_authority_guardrails(repo))
     errors.extend(check_attached_camera_overlay_store_authority_guardrails(repo))
     errors.extend(check_replay_target_marker_store_authority_guardrails(repo))
     errors.extend(check_replay_marker_radius_store_authority_guardrails(repo))

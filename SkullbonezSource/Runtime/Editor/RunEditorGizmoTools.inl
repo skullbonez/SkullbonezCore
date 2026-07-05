@@ -37,9 +37,16 @@ int HitEditorGizmoAxis( EditorGizmoContext context, const Vector3& rayOrigin, co
     }
 
     const std::vector<GameModel>& models = context.models.Models();
+    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsBodyStore();
+    const ColliderStore& colliderStore = context.models.GetColliderStore();
     Vector3 origin;
     float radius = 1.0f;
-    if ( !TryGetEditorSelectionFrame( models, context.editor.selectedModelIndex, origin, radius ) )
+    if ( !TryGetEditorSelectionFrame( models,
+                                      bodyStore,
+                                      colliderStore,
+                                      context.editor.selectedModelIndex,
+                                      origin,
+                                      radius ) )
     {
         return -1;
     }
@@ -72,9 +79,16 @@ int HitEditorRotationGizmoAxis( EditorGizmoContext context, const Vector3& rayOr
     }
 
     const std::vector<GameModel>& models = context.models.Models();
+    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsBodyStore();
+    const ColliderStore& colliderStore = context.models.GetColliderStore();
     Vector3 origin;
     float radius = 1.0f;
-    if ( !TryGetEditorSelectionFrame( models, context.editor.selectedModelIndex, origin, radius ) )
+    if ( !TryGetEditorSelectionFrame( models,
+                                      bodyStore,
+                                      colliderStore,
+                                      context.editor.selectedModelIndex,
+                                      origin,
+                                      radius ) )
     {
         return -1;
     }
@@ -126,7 +140,14 @@ bool TryEditorAxisRayParameter( EditorGizmoContext context,
 
     Vector3 axisOrigin;
     float radius = 1.0f;
-    if ( !TryGetEditorSelectionFrame( context.models.Models(), context.editor.selectedModelIndex, axisOrigin, radius ) )
+    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsBodyStore();
+    const ColliderStore& colliderStore = context.models.GetColliderStore();
+    if ( !TryGetEditorSelectionFrame( context.models.Models(),
+                                      bodyStore,
+                                      colliderStore,
+                                      context.editor.selectedModelIndex,
+                                      axisOrigin,
+                                      radius ) )
     {
         return false;
     }
@@ -219,7 +240,14 @@ bool TryEditorRotationRayAngle( EditorGizmoContext context,
 
     Vector3 origin;
     float radius = 1.0f;
-    if ( !TryGetEditorSelectionFrame( context.models.Models(), context.editor.selectedModelIndex, origin, radius ) )
+    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsBodyStore();
+    const ColliderStore& colliderStore = context.models.GetColliderStore();
+    if ( !TryGetEditorSelectionFrame( context.models.Models(),
+                                      bodyStore,
+                                      colliderStore,
+                                      context.editor.selectedModelIndex,
+                                      origin,
+                                      radius ) )
     {
         return false;
     }

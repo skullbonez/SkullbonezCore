@@ -5,9 +5,9 @@ Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
 intermittent `tools\validate_physics.bat` passed on 2026-07-05 after moving
-the normal runtime and replay prediction fixed-step edges off
-`GameModelCollection::RunPhysics()` and onto direct `PhysicsEngine::Step()`
-calls with explicit model-owner prep/writeback.
+editor selection/gizmo frame math, drag-start snapshots, and replay
+transform-change detection off `GameModel` body mirrors and onto
+`PhysicsBodyStore`/`ColliderStore` rows.
 
 ## Completed Slices
 

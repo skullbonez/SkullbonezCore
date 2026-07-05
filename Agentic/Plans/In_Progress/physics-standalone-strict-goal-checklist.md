@@ -2076,6 +2076,32 @@ boundaries, and Profile/Debug builds with 0 warnings/errors; intermittent
 `tools\validate_physics.bat` passed standalone/runtime handle smoke and
 byte-exact 20,001-line `physics_regression_solver.csv`.
 
+Slice `PHY-1060`: editor selection/gizmo frame math now uses
+`PhysicsBodyStore` and `ColliderStore` rows for live pose, orientation, shape,
+and radius instead of `GameModel` pose/shape mirrors. Owner: runtime editor
+selection frame, transform gizmo hit testing, drag-start snapshots, and replay
+transform-change recording; reason: the editor can still use model-order slots
+and `GameModel` names for UI identity/grouping, but interactive physics geometry
+should be sourced from the store rows the solver and renderer already trust;
+deletion condition: `TryGetEditorSelectionFrame` has no model-only signature,
+`RunEditorGizmoTools.inl` passes body/collider stores when building selection
+frames, and `CaptureEditorGizmoDragGroupState` contains no live
+`GameModel::GetPosition()`, `GetOrientation()`, or `GetCollisionShape()` reads;
+checker budget: `tools/check_runtime_boundaries.py` blocks the old model-only
+helper/call shape and scoped GameModel body reads with rejecting, allowing, and
+comment-only self-tests.
+
+Evidence: residue scan found no old editor selection-frame GameModel body reads
+outside checker self-tests; `git diff --check`, boundary-checker Python compile,
+and runtime-boundary validation passed with runtime-boundary summary reporting 0
+errors; focused Debug build passed with 0 warnings/errors; touched-file comment
+audit inspected `RunEditorTools.cpp`, `RunEditorGizmoTools.inl`, and
+`check_runtime_boundaries.py`; `tools\validate_fast.bat` passed formatting,
+project filters, runtime boundaries, and Profile/Debug builds with 0
+warnings/errors; intermittent `tools\validate_physics.bat` passed
+standalone/runtime handle smoke and byte-exact 20,001-line
+`physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.
