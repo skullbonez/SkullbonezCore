@@ -18,9 +18,10 @@
 #   fence, fixed-contact presentation highlights have a body-store fixed-state
 #   fence, and fixed-tree, replay-restore wake, replay
 #   velocity-edit, launcher ray-hit, selection overlay, editor selection-frame,
-#   editor transform grouping, mouse-pickup overlay, attached-camera overlay,
-#   replay marker radii, replay path target identity, editor selection identity,
-#   or editor wake/sleep commands have store-handle fences. Editor transform
+#   editor transform grouping, editor tree placement grouping, mouse-pickup
+#   overlay, attached-camera overlay, replay marker radii, replay path target
+#   identity, editor selection identity, or editor wake/sleep commands have
+#   store-handle fences. Editor transform
 #   reset wake and authored scene setup also block GameModel body readbacks
 #   after their owner-side store commits. The deleted
 #   collection step wrapper has its own fence, replay render-pose overrides and
@@ -907,6 +908,12 @@ EDITOR_TRANSFORM_GROUP_NAME_PARSE_PATTERN = re.compile(
 )
 EDITOR_TRANSFORM_GROUP_NAME_READ_PATTERN = re.compile(
     r"\.\s*GetName\s*\(\s*\)|\bstd\s*::\s*(?:strlen|strncmp)\s*\("
+)
+EDITOR_TREE_PLACEMENT_UNGROUPED_APPEND_PATTERN = re.compile(
+    r"addModel\s*\(\s*std\s*::\s*move\s*\(\s*model\s*\)\s*,\s*"
+    r"MakeEditorColliderDesc\s*\(\s*hull\s*,\s*part\s*\.\s*restitution\s*\)\s*,\s*"
+    r"partFixed\s*,\s*treeDefinition\s*\.\s*seedAsleep\s*&&\s*!partFixed\s*\)",
+    re.S,
 )
 RUNTIME_INTERACTION_EXECUTE_COMMAND_PATTERN = re.compile(r"\bbool\s+Run\s*::\s*ExecuteRuntimeInteractionCommand\s*\(")
 ATTACHED_CAMERA_OVERLAY_MODEL_MARKER_PATTERN = re.compile(
@@ -5770,6 +5777,31 @@ def check_editor_selection_frame_store_authority_guardrails(repo: Path) -> list[
         path = repo / relative_path
         errors.extend(check_editor_selection_frame_store_authority_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
+
+
+def check_editor_tree_group_descriptor_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != EDITOR_OBJECT_PLACEMENT_SOURCE.name:
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in EDITOR_TREE_PLACEMENT_UNGROUPED_APPEND_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "editor tree grouping descriptor is required",
+                (
+                    "Editor tree placement already owns tree root and part order; pass SceneObjectGroupCreateDesc "
+                    "into AddGameModel instead of making GameModelCollection recover releasable-tree groups from names."
+                ),
+            )
+        )
+    return errors
+
+
+def check_editor_tree_group_descriptor_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / EDITOR_OBJECT_PLACEMENT_SOURCE
+    return check_editor_tree_group_descriptor_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_editor_selection_identity_handle_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -16498,6 +16530,75 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("store-backed editor gizmo selection frame call synthetic surface was rejected")
 
+    old_editor_tree_group_append = """
+    void PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context )
+    {
+        auto addTree = [&]( const EditorTreeDefinition& treeDefinition )
+        {
+            for ( int partIndex = 0; partIndex < treeDefinition.partCount; ++partIndex )
+            {
+                addModel( std::move( model ),
+                          MakeEditorColliderDesc( hull, part.restitution ),
+                          partFixed,
+                          treeDefinition.seedAsleep && !partFixed );
+            }
+        };
+    }
+    """
+    if not any(
+        error.message == "editor tree grouping descriptor is required"
+        for error in check_editor_tree_group_descriptor_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"),
+            old_editor_tree_group_append,
+        )
+    ):
+        failures.append("old editor tree ungrouped append synthetic surface was not rejected")
+
+    allowed_editor_tree_group_descriptor = """
+    void PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context )
+    {
+        auto addTree = [&]( const EditorTreeDefinition& treeDefinition )
+        {
+            const int treeRootModelIndex = context.models.GetModelCount();
+            for ( int partIndex = 0; partIndex < treeDefinition.partCount; ++partIndex )
+            {
+                SceneObjectGroupCreateDesc groupDesc;
+                groupDesc.kind = GameModelCollectionKind::ReleasableTree;
+                groupDesc.rootModelIndex = treeRootModelIndex;
+                groupDesc.partIndex = partIndex;
+                addModel( std::move( model ),
+                          MakeEditorColliderDesc( hull, part.restitution ),
+                          partFixed,
+                          treeDefinition.seedAsleep && !partFixed,
+                          groupDesc );
+            }
+        };
+    }
+    """
+    if check_editor_tree_group_descriptor_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"),
+        allowed_editor_tree_group_descriptor,
+    ):
+        failures.append("editor tree group descriptor synthetic surface was rejected")
+
+    commented_editor_tree_group_append = """
+    // Old tree placement used addModel(std::move(model), MakeEditorColliderDesc(hull, part.restitution), partFixed, treeDefinition.seedAsleep && !partFixed).
+    void PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context )
+    {
+        SceneObjectGroupCreateDesc groupDesc;
+        addModel( std::move( model ),
+                  MakeEditorColliderDesc( hull, part.restitution ),
+                  partFixed,
+                  treeDefinition.seedAsleep && !partFixed,
+                  groupDesc );
+    }
+    """
+    if check_editor_tree_group_descriptor_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl"),
+        commented_editor_tree_group_append,
+    ):
+        failures.append("comment-only editor tree ungrouped append synthetic text was rejected")
+
     old_editor_transform_group_name_parse = """
     bool TryGetEditorRagdollInstancePrefixLength( const GameModel& model, std::size_t& outPrefixLength )
     {
@@ -18849,6 +18950,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_mouse_pickup_overlay_store_authority_guardrails(repo))
     errors.extend(check_selection_overlay_store_authority_guardrails(repo))
     errors.extend(check_editor_selection_frame_store_authority_guardrails(repo))
+    errors.extend(check_editor_tree_group_descriptor_guardrails(repo))
     errors.extend(check_editor_selection_identity_handle_guardrails(repo))
     errors.extend(check_attached_camera_overlay_store_authority_guardrails(repo))
     errors.extend(check_replay_target_marker_store_authority_guardrails(repo))

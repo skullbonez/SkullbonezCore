@@ -2464,6 +2464,34 @@ byte-exact 20,001-line `physics_regression_solver.csv` in 13.7s. Logs:
 and
 `TestOutput\validation\physics_store_authority\validate_physics_ragdoll_group_desc.log`.
 
+Slice `PHY-1075`: editor-created releasable trees pass explicit
+`SceneObjectGroupCreateDesc` metadata for each part instead of depending on
+collection name recovery. Owner: `PlaceEditorObjectAtTerrainPoint` owns
+`EditorTreeDefinition` part order and the first model index for the just-created
+tree; `GameModelCollection` owns the copied sidecar rows after append. Reason:
+editor placement already has the tree root and part index before each append,
+so making collection append recover the group from display names is extra cold
+work and weakens the construction boundary. Deletion condition: the editor tree
+placement `addModel` call includes explicit `ReleasableTree` root/part metadata;
+legacy authored scene name recovery in `GameModelCollection` remains only until
+scene/entity metadata loading owns the same facts. Checker budget:
+`tools/check_runtime_boundaries.py` rejects the old editor-tree ungrouped append
+shape and covers old, allowed descriptor, and comment-only synthetic cases.
+
+Evidence: `git diff --check`, boundary-checker Python compile,
+runtime-boundary validation, and workqueue CSV parse passed; focused Profile
+build passed with 0 warnings/errors after a namespace qualification fix;
+touched-source comment audit inspected
+`RunEditorObjectPlacement.inl` and `check_runtime_boundaries.py`;
+`tools\validate_fast.bat` passed formatting, project filters, runtime
+boundaries, Profile build, and Debug build in about 28s; and
+`tools\validate_physics.bat` passed standalone/runtime handle smoke and
+byte-exact 20,001-line `physics_regression_solver.csv` in about 14s. Logs:
+`TestOutput\validation\physics_store_authority\validate_build_profile_editor_tree_group_desc.log`,
+`TestOutput\validation\physics_store_authority\validate_fast_editor_tree_group_desc.log`,
+and
+`TestOutput\validation\physics_store_authority\validate_physics_editor_tree_group_desc.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.
