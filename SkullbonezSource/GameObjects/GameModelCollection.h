@@ -119,6 +119,16 @@ enum class GameModelCollectionKind : uint8_t
     ReleasableTree
 };
 
+// Creation-only metadata for multi-part authored objects. Callers that already
+// know root/part order pass it once; the collection copies it into the dense
+// sidecar instead of deriving grouping from display names.
+struct SceneObjectGroupCreateDesc
+{
+    GameModelCollectionKind kind = GameModelCollectionKind::None;
+    int rootModelIndex = -1;
+    int partIndex = -1;
+};
+
 /* -- Game Model Collection
 --------------------------------------------------------------------------------------------------------------------------------------
 
@@ -163,7 +173,9 @@ class GameModelCollection
     bool m_shadowParallelPrep = false;                                 // Cached worker-prep toggle copied from EngineConfig.
     std::vector<ReplayRenderPoseOverride> m_replayRenderPoseOverrides; // Single-frame replay draw-pose requests.
 
-    SceneObjectGroupRecord BuildSceneObjectGroupForAppend( const GameModel& gameModel, int newModelIndex );
+    SceneObjectGroupRecord BuildSceneObjectGroupForAppend( const GameModel& gameModel,
+                                                           int newModelIndex,
+                                                           SceneObjectGroupCreateDesc groupDesc );
     SceneObjectGroupRecord GroupRecordAt( int modelIndex ) const;
     std::vector<uint32_t> BuildReplayBodyIdsForReload( const Physics::PhysicsBodyStore& bodyStore );
     // Owner boundary: fixed-tree grouping is collection metadata. Body-store
@@ -175,7 +187,8 @@ class GameModelCollection
     void RefreshRenderInstances();
     Physics::PhysicsBodyHandle AppendGameModelAndPhysicsRows( GameModel gameModel,
                                                               Physics::PhysicsSceneObjectId sceneObjectId,
-                                                              Physics::PhysicsColliderCreateDesc colliderDesc );
+                                                              Physics::PhysicsColliderCreateDesc colliderDesc,
+                                                              SceneObjectGroupCreateDesc groupDesc );
 
   public:
     GameModelCollection();
@@ -187,10 +200,11 @@ class GameModelCollection
     bool ShouldUseShadowParallelPrep() const;
     Threading::WorkerPool* RenderWorkerPool() const;
     // Appends model storage while importing caller-owned collider shape/material
-    // facts directly into physics, avoiding a GameModel collider recapture.
+    // facts and any explicit scene-object grouping directly into owner stores.
     Physics::PhysicsBodyHandle AddGameModel( GameModel gameModel,
                                              Physics::PhysicsColliderCreateDesc colliderDesc,
-                                             Physics::PhysicsSceneObjectId sceneObjectId );
+                                             Physics::PhysicsSceneObjectId sceneObjectId,
+                                             SceneObjectGroupCreateDesc groupDesc = {} );
     void Clear();
     int CopyDxrModelMatrices( float* outMatrixFloats, int maxModelCount );
     void RenderModels( const Basics::RenderHelperContext& helperContext,

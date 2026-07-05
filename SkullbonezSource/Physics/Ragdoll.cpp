@@ -16,6 +16,8 @@ Glossary:
   Neck swing limit: Special angular clamp applied to the head/torso joint.
   Body record: Physics-owned snapshot of pose, velocity, mass, and inertia used
     by the joint solver.
+  Scene-object group: Collection sidecar row that keeps simple-ragdoll parts
+    tied to one root model without asking runtime tools to parse display names.
 
 Invariants:
   - Body and constraint creation order must stay deterministic.
@@ -462,12 +464,19 @@ void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection,
         model.SetFixed( options.fixed );
         PhysicsSceneObjectId partSceneObjectId;
         partSceneObjectId.value = options.firstSceneObjectId.value + static_cast<uint32_t>( i );
+        SceneObjectGroupCreateDesc groupDesc;
+        groupDesc.kind = GameModelCollectionKind::SimpleRagdoll;
+        groupDesc.rootModelIndex = firstBody;
+        groupDesc.partIndex = i;
 
+        // Invariant: ragdoll grouping is prefab metadata. Pass root/part facts
+        // directly so collection append never parses display names to recover it.
         collection.AddGameModel( std::move( model ),
                                  MakeColliderCreateDesc( BoundingBox( halfExtents, Vector3( 0.0f, 0.0f, 0.0f ) ),
                                                          parts[i].restitution,
                                                          HashStr( "default" ) ),
-                                 partSceneObjectId );
+                                 partSceneObjectId,
+                                 groupDesc );
     }
 
     int jointCount = 0;

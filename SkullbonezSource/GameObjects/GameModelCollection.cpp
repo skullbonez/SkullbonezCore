@@ -198,64 +198,6 @@ bool TryGetEditorTreeInstancePrefixLength( const char* name, size_t& outPrefixLe
     return false;
 }
 
-
-// Why: older saved scenes only preserve simple-ragdoll membership in part names.
-// Convert that string compatibility into integer collection metadata once, at
-// append/load time, so per-frame editor and replay code can stay off name scans.
-// Owner: GameModelCollection construction metadata import. Deletion condition:
-// scene/entity metadata serializes and loads collection groups directly. Checker
-// budget: runtime boundaries block name/suffix parsing in editor transform code.
-bool TryGetSimpleRagdollInstancePrefixLength( const char* name, size_t& outPrefixLength, int& outPartIndex )
-{
-    static constexpr const char* SIMPLE_RAGDOLL_SUFFIXES[] = { "torso",
-                                                               "head",
-                                                               "upper_arm_l",
-                                                               "lower_arm_l",
-                                                               "upper_arm_r",
-                                                               "lower_arm_r",
-                                                               "upper_leg_l",
-                                                               "lower_leg_l",
-                                                               "upper_leg_r",
-                                                               "lower_leg_r" };
-
-    outPrefixLength = 0;
-    outPartIndex = -1;
-    if ( !name || name[0] == '\0' )
-    {
-        return false;
-    }
-
-    const size_t nameLength = strlen( name );
-    for ( int i = 0; i < static_cast<int>( sizeof( SIMPLE_RAGDOLL_SUFFIXES ) / sizeof( SIMPLE_RAGDOLL_SUFFIXES[0] ) );
-          ++i )
-    {
-        const char* suffix = SIMPLE_RAGDOLL_SUFFIXES[static_cast<size_t>( i )];
-        const size_t suffixLength = strlen( suffix );
-        if ( nameLength <= suffixLength + 1 )
-        {
-            continue;
-        }
-
-        const size_t suffixStart = nameLength - suffixLength;
-        if ( name[suffixStart - 1] != '_' || strncmp( name + suffixStart, suffix, suffixLength ) != 0 )
-        {
-            continue;
-        }
-
-        outPrefixLength = suffixStart - 1;
-        outPartIndex = i;
-        return outPrefixLength > 0;
-    }
-    return false;
-}
-
-
-bool SimpleRagdollPrefixMatches( const char* a, size_t aLength, const char* b, size_t bLength )
-{
-    return aLength == bLength && strncmp( a, b, aLength ) == 0;
-}
-
-
 } // namespace
 
 
@@ -271,65 +213,31 @@ GameModelCollection::GameModelCollection()
 
 
 GameModelCollection::SceneObjectGroupRecord
-GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel& gameModel, int newModelIndex )
+GameModelCollection::BuildSceneObjectGroupForAppend( const GameModel& gameModel,
+                                                     int newModelIndex,
+                                                     SceneObjectGroupCreateDesc groupDesc )
 {
     assert( m_sceneObjectGroups.size() == m_gameModels.size() );
     SceneObjectGroupRecord group;
 
-    const char* sourceName = gameModel.GetName();
-    size_t sourcePrefixLength = 0;
-    int sourcePartIndex = -1;
-    if ( TryGetSimpleRagdollInstancePrefixLength( sourceName, sourcePrefixLength, sourcePartIndex ) )
+    if ( groupDesc.kind != GameModelCollectionKind::None )
     {
-        group.kind = GameModelCollectionKind::SimpleRagdoll;
-        group.rootModelIndex = sourcePartIndex == 0 ? newModelIndex : -1;
-        group.partIndex = sourcePartIndex;
-
-        for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
+        // Invariant: explicit grouping is creation metadata, not a discovery
+        // task for collection append. Bad root/part input means the owner passed
+        // an impossible group, so fail closed before rows diverge.
+        if ( groupDesc.rootModelIndex < 0 || groupDesc.rootModelIndex > newModelIndex || groupDesc.partIndex < 0 )
         {
-            SceneObjectGroupRecord& existingGroup = m_sceneObjectGroups[static_cast<std::size_t>( i )];
-            if ( existingGroup.kind != GameModelCollectionKind::SimpleRagdoll )
-            {
-                continue;
-            }
-
-            size_t existingPrefixLength = 0;
-            int existingPartIndex = -1;
-            const char* existingName = m_gameModels[static_cast<std::size_t>( i )].GetName();
-            if ( !TryGetSimpleRagdollInstancePrefixLength( existingName, existingPrefixLength, existingPartIndex ) ||
-                 !SimpleRagdollPrefixMatches( sourceName, sourcePrefixLength, existingName, existingPrefixLength ) )
-            {
-                continue;
-            }
-
-            int existingRoot = existingGroup.rootModelIndex;
-            if ( existingRoot < 0 || existingRoot >= newModelIndex )
-            {
-                existingRoot = i;
-            }
-            if ( group.rootModelIndex < 0 || existingPartIndex == 0 )
-            {
-                group.rootModelIndex = existingRoot;
-            }
-            if ( sourcePartIndex == 0 )
-            {
-                // Why: legacy scenes can stream parts in any model order. When the
-                // torso arrives late, move earlier siblings to the torso root so the
-                // editor sees one collection instead of one group per early limb.
-                existingGroup.rootModelIndex = newModelIndex;
-            }
-            if ( existingPartIndex == 0 )
-            {
-                break;
-            }
+            throw std::runtime_error( "Invalid scene-object group descriptor supplied during model append." );
         }
-        if ( group.rootModelIndex < 0 )
-        {
-            group.rootModelIndex = newModelIndex;
-        }
+
+        group.kind = groupDesc.kind;
+        group.rootModelIndex = groupDesc.rootModelIndex;
+        group.partIndex = groupDesc.partIndex;
         return group;
     }
 
+    const char* sourceName = gameModel.GetName();
+    size_t sourcePrefixLength = 0;
     if ( !TryGetEditorTreeInstancePrefixLength( sourceName, sourcePrefixLength ) )
     {
         return group;
@@ -498,15 +406,17 @@ SkullbonezCore::Threading::WorkerPool* GameModelCollection::RenderWorkerPool() c
 
 PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel,
                                                      PhysicsColliderCreateDesc colliderDesc,
-                                                     PhysicsSceneObjectId sceneObjectId )
+                                                     PhysicsSceneObjectId sceneObjectId,
+                                                     SceneObjectGroupCreateDesc groupDesc )
 {
-    return AppendGameModelAndPhysicsRows( std::move( gameModel ), sceneObjectId, std::move( colliderDesc ) );
+    return AppendGameModelAndPhysicsRows( std::move( gameModel ), sceneObjectId, std::move( colliderDesc ), groupDesc );
 }
 
 
 PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel gameModel,
                                                                       PhysicsSceneObjectId sceneObjectId,
-                                                                      PhysicsColliderCreateDesc colliderDesc )
+                                                                      PhysicsColliderCreateDesc colliderDesc,
+                                                                      SceneObjectGroupCreateDesc groupDesc )
 {
     const int activeCapacity = ActiveGameModelCapacity();
     assert( static_cast<int>( m_gameModels.size() ) < activeCapacity && "Exceeded active game model capacity" );
@@ -516,7 +426,7 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
             "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." );
     }
     const int modelIndex = static_cast<int>( m_gameModels.size() );
-    const SceneObjectGroupRecord groupRecord = BuildSceneObjectGroupForAppend( gameModel, modelIndex );
+    const SceneObjectGroupRecord groupRecord = BuildSceneObjectGroupForAppend( gameModel, modelIndex, groupDesc );
     if ( !sceneObjectId.IsValid() )
     {
         throw std::runtime_error( "Cannot append model without a scene object id." );

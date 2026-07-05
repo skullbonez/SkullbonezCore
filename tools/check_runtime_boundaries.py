@@ -28,9 +28,9 @@
 #   runtime config has a collider-material fence, the deleted collection
 #   replay-id sidecar has a source-wide fence, the deleted edited-model bool
 #   commit has a source-wide fence, and per-body model writeback plus the
-#   deleted bulk model mirror and deleted GameModel runtime grouping metadata
-#   have their own fences, so count allowances do not silently approve a new
-#   compatibility location.
+#   deleted bulk model mirror, deleted GameModel runtime grouping metadata, and
+#   deleted simple-ragdoll name grouping inference have their own fences, so
+#   count allowances do not silently approve a new compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -1190,6 +1190,16 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
             re.S,
         ),
         "Scene/runtime creation owns PhysicsSceneObjectId allocation; GameModelCollection must not allocate replay ids.",
+    ),
+    (
+        "simple-ragdoll name grouping inference",
+        re.compile(
+            r"\b(?:TryGetSimpleRagdollInstancePrefixLength|SimpleRagdollPrefixMatches|SIMPLE_RAGDOLL_SUFFIXES)\b"
+        ),
+        (
+            "Ragdoll construction must pass SceneObjectGroupCreateDesc root/part metadata; "
+            "collection append must not parse display names for grouping."
+        ),
     ),
     (
         "RefreshColliderSnapshot model access parameter",
@@ -18084,6 +18094,53 @@ def run_self_tests() -> list[str]:
         commented_game_model_runtime_collection_metadata,
     ):
         failures.append("comment-only GameModel runtime collection metadata synthetic text was rejected")
+
+    old_simple_ragdoll_name_grouping_inference = """
+    bool TryGetSimpleRagdollInstancePrefixLength( const char* name, size_t& outPrefixLength, int& outPartIndex )
+    {
+        static constexpr const char* SIMPLE_RAGDOLL_SUFFIXES[] = { "torso", "head" };
+        return SimpleRagdollPrefixMatches( name, outPrefixLength, "ragdoll", 7 );
+    }
+    """
+    if not any(
+        error.message == "deleted migration artifact is blocked: simple-ragdoll name grouping inference"
+        for error in check_deleted_migration_artifact_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_simple_ragdoll_name_grouping_inference,
+        )
+    ):
+        failures.append("old simple-ragdoll name grouping inference synthetic surface was not rejected")
+
+    allowed_simple_ragdoll_group_descriptor = """
+    void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection )
+    {
+        SceneObjectGroupCreateDesc groupDesc;
+        groupDesc.kind = GameModelCollectionKind::SimpleRagdoll;
+        groupDesc.rootModelIndex = firstBody;
+        groupDesc.partIndex = i;
+        collection.AddGameModel( std::move( model ), colliderDesc, partSceneObjectId, groupDesc );
+    }
+    """
+    if check_deleted_migration_artifact_guardrails_text(
+        Path("SkullbonezSource/Physics/Ragdoll.cpp"),
+        allowed_simple_ragdoll_group_descriptor,
+    ):
+        failures.append("explicit simple-ragdoll group descriptor synthetic surface was rejected")
+
+    commented_simple_ragdoll_name_grouping_inference = """
+    // TryGetSimpleRagdollInstancePrefixLength and SIMPLE_RAGDOLL_SUFFIXES used to run here.
+    void Ragdoll::AddSimpleHumanoid( GameModelCollection& collection )
+    {
+        SceneObjectGroupCreateDesc groupDesc;
+        groupDesc.kind = GameModelCollectionKind::SimpleRagdoll;
+        collection.AddGameModel( std::move( model ), colliderDesc, partSceneObjectId, groupDesc );
+    }
+    """
+    if check_deleted_migration_artifact_guardrails_text(
+        Path("SkullbonezSource/Physics/Ragdoll.cpp"),
+        commented_simple_ragdoll_name_grouping_inference,
+    ):
+        failures.append("comment-only simple-ragdoll name grouping inference synthetic text was rejected")
 
     if check_deleted_per_body_model_writeback_guardrails_text(
         Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),

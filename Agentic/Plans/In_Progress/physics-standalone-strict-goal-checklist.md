@@ -2436,6 +2436,34 @@ errors, DX12 screenshots matching baselines, and byte-exact 20,001-line
 and
 `TestOutput\validation\physics_store_authority\validate_full_scene_group_sidecar.log`.
 
+Slice `PHY-1074`: simple-ragdoll grouping is explicit prefab metadata at append
+time instead of name/suffix inference inside `GameModelCollection`. Owner:
+`Ragdoll::AddSimpleHumanoid` owns simple-ragdoll part order and root selection
+while `GameModelCollection` owns the dense sidecar row once appended. Reason:
+the collection already receives deterministic part order, scene object ids, and
+collider descriptors at construction; scanning existing model names to rediscover
+the same group is cold extra work and a fragile compatibility trick. Deletion
+condition: source contains no `TryGetSimpleRagdollInstancePrefixLength`,
+`SimpleRagdollPrefixMatches`, or `SIMPLE_RAGDOLL_SUFFIXES`, and ragdoll creation
+passes `SceneObjectGroupCreateDesc` with `rootModelIndex`/`partIndex`.
+Checker budget: `tools/check_runtime_boundaries.py` treats the old name-based
+ragdoll grouping helpers and suffix table as deleted migration artifacts and
+covers old, allowed descriptor, and comment-only synthetic cases.
+
+Evidence: source residue scan found no deleted ragdoll inference tokens under
+`SkullbonezSource`; `git diff --check`, boundary-checker Python compile,
+runtime-boundary validation, and workqueue CSV parse passed; focused Profile
+build passed with 0 warnings/errors in 9.7s; touched-source comment audit
+inspected `GameModelCollection.cpp`, `GameModelCollection.h`, `Ragdoll.cpp`,
+and `check_runtime_boundaries.py`; `tools\validate_fast.bat` passed formatting,
+project filters, runtime boundaries, Profile build, and Debug build in 35.2s;
+`tools\validate_physics.bat` passed standalone/runtime handle smoke and
+byte-exact 20,001-line `physics_regression_solver.csv` in 13.7s. Logs:
+`TestOutput\validation\physics_store_authority\validate_build_profile_ragdoll_group_desc.log`,
+`TestOutput\validation\physics_store_authority\validate_fast_ragdoll_group_desc.log`,
+and
+`TestOutput\validation\physics_store_authority\validate_physics_ragdoll_group_desc.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.
