@@ -493,6 +493,15 @@ REPLAY_RESTORE_MODEL_INDEX_PHYSICS_API_PATTERN = re.compile(
     r"\b(?:PhysicsEngine|PhysicsScene|PhysicsBodyStore)?(?:::)?RestoreReplayBodyState\s*\(\s*int\s+"
     r"(?:modelIndex|index)\b"
 )
+# Why: once command callers resolve handles at their owner boundary, body-store
+# int overloads only preserve the old model-order authority spelling. Dense
+# solver paths should mutate PhysicsBodyRecord rows directly; public command
+# edges should pass PhysicsBodyHandle.
+PHYSICS_BODY_STORE_MODEL_INDEX_COMMAND_PATTERN = re.compile(
+    r"\b(?:bool\s+)?(?:PhysicsBodyStore\s*::\s*)?"
+    r"(?:WakeBody|SeedBodyAsleep|SetPendingBodyImpulse|ApplyBodyImpulse)\s*\(\s*int\s+"
+    r"(?:modelIndex|index)\b"
+)
 GAME_MODEL_COLLECTION_REPLAY_RESTORE_FUNCTION_PATTERN = re.compile(
     r"\bbool\s+GameModelCollection::TryRestoreReplayBodyState\s*\("
 )
@@ -4027,6 +4036,34 @@ def check_replay_restore_handle_authority_guardrails_text(path: Path, text: str)
                 ),
             )
         )
+    return errors
+
+
+def check_physics_body_store_model_index_command_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name not in { "PhysicsBodyStore.h", "PhysicsBodyStore.cpp" }:
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in PHYSICS_BODY_STORE_MODEL_INDEX_COMMAND_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "PhysicsBodyStore model-index command overload is blocked",
+                (
+                    "Resolve a PhysicsBodyHandle at the owner boundary, or mutate an already-selected "
+                    "PhysicsBodyRecord row directly inside dense solver code."
+                ),
+            )
+        )
+    return errors
+
+
+def check_physics_body_store_model_index_command_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in ( PHYSICS_ROOT / "PhysicsBodyStore.h", PHYSICS_ROOT / "PhysicsBodyStore.cpp" ):
+        path = repo / relative_path
+        errors.extend(check_physics_body_store_model_index_command_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -15136,6 +15173,66 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only GameModelCollectionPhysicsAdapter command synthetic text was rejected")
 
+    allowed_body_store_handle_commands = """
+    class PhysicsBodyStore
+    {
+      public:
+        bool WakeBody( PhysicsBodyHandle body );
+        bool SeedBodyAsleep( PhysicsBodyHandle body );
+        bool SetPendingBodyImpulse( PhysicsBodyHandle body,
+                                    const Vector3& impulse,
+                                    const Vector3& localApplicationPoint );
+        bool ApplyBodyImpulse( PhysicsBodyHandle body,
+                               const Vector3& impulse,
+                               const Vector3& localApplicationPoint );
+    };
+    bool PhysicsBodyStore::WakeBody( PhysicsBodyHandle body )
+    {
+        return MutableRecordForHandle( body ) != nullptr;
+    }
+    """
+    if check_physics_body_store_model_index_command_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsBodyStore.h"),
+        allowed_body_store_handle_commands,
+    ):
+        failures.append("allowed PhysicsBodyStore handle commands synthetic surface was rejected")
+
+    deleted_body_store_int_commands = """
+    class PhysicsBodyStore
+    {
+      public:
+        bool WakeBody( int modelIndex );
+        bool SeedBodyAsleep( int index );
+        bool SetPendingBodyImpulse( int modelIndex, const Vector3& impulse, const Vector3& point );
+        bool ApplyBodyImpulse( int index, const Vector3& impulse, const Vector3& point );
+    };
+    bool PhysicsBodyStore::WakeBody( int modelIndex )
+    {
+        return WakeBody( HandleForModelIndex( modelIndex ) );
+    }
+    """
+    if not any(
+        error.message == "PhysicsBodyStore model-index command overload is blocked"
+        for error in check_physics_body_store_model_index_command_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsBodyStore.h"),
+            deleted_body_store_int_commands,
+        )
+    ):
+        failures.append("deleted PhysicsBodyStore model-index command synthetic surface was not rejected")
+
+    commented_body_store_int_commands = """
+    // bool PhysicsBodyStore::WakeBody(int modelIndex) was deleted with the other int command overloads.
+    bool PhysicsBodyStore::WakeBody( PhysicsBodyHandle body )
+    {
+        return MutableRecordForHandle( body ) != nullptr;
+    }
+    """
+    if check_physics_body_store_model_index_command_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsBodyStore.cpp"),
+        commented_body_store_int_commands,
+    ):
+        failures.append("comment-only PhysicsBodyStore model-index command synthetic text was rejected")
+
     allowed_physics_hot_path_values = """
     struct SolverBodyState
     {
@@ -15587,6 +15684,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_replay_prediction_body_capture_store_authority_guardrails(repo))
     errors.extend(check_replay_prediction_step_writeback_guardrails(repo))
     errors.extend(check_replay_restore_store_authority_guardrails(repo))
+    errors.extend(check_physics_body_store_model_index_command_guardrails(repo))
     errors.extend(check_replay_render_pose_value_override_guardrails(repo))
     errors.extend(check_run_frame_replay_probe_body_store_guardrails(repo))
     errors.extend(check_physics_scene_step_body_reload_guardrails(repo))

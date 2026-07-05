@@ -558,7 +558,7 @@ model indices stop entering physics commands directly.
 - [x] Delete `GameModelCollectionPhysicsAdapter` after all live model-index
   physics command callers move to append-time handles or owner-side
   `PhysicsBodyStore` lookup.
-- [ ] For each legacy model-index physics command, migrate one caller group:
+- [x] For each legacy model-index physics command, migrate one caller group:
   - [x] scene setup,
   - [x] editor tools,
   - [x] mouse pickup tools,
@@ -697,6 +697,23 @@ focused Debug build, `tools\validate_fast.bat`, `tools\validate_physics.bat`,
 and `tools\validate_full.bat` all passed; the full gate reported DX12 InfoQueue
 0 errors, screenshots matching committed baselines, and byte-exact
 `physics_regression_solver.csv`.
+
+`PhysicsBodyStore` command wrappers are now handle-only: `WakeBody`,
+`SeedBodyAsleep`, `SetPendingBodyImpulse`, and `ApplyBodyImpulse` no longer
+provide `int modelIndex` overloads. The runtime handle smoke seeds reorder state
+through the saved `PhysicsBodyHandle`, and `PhysicsWorld` wake propagation writes
+the already-selected dense `PhysicsBodyRecord` row directly instead of bouncing
+through `HandleForModelIndex`. The boundary checker rejects those deleted
+`PhysicsBodyStore` int command overloads from returning. Evidence for this
+slice: CodeGraph traced wrappers/callers; residue scan found no deleted int
+command overloads in `PhysicsBodyStore.h/.cpp`; `git diff --check`,
+`python -m py_compile tools\check_runtime_boundaries.py`, and
+`python tools\check_runtime_boundaries.py --repo .` passed; focused Debug build
+passed with 0 warnings/errors in 9.1s; touched-file comment audit inspected
+`Init.cpp`, `PhysicsBodyStore.h/.cpp`, `PhysicsWorld.cpp`, and
+`check_runtime_boundaries.py`; `tools\validate_fast.bat` passed in 30.9s; and
+`tools\validate_physics.bat` passed in 13.4s with standalone/runtime handle
+smoke and byte-exact `physics_regression_solver.csv`.
 
 ## Phase 8 - Diagnostics And SkullScope
 

@@ -714,8 +714,9 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const uint32_t reorderBodyBReplayId = reorderModels[1].GetReplayBodyId();
     const SkullbonezCore::Math::Vector::Vector3 pendingImpulse( 0.0f, 2.0f, 0.0f );
     const SkullbonezCore::Math::Vector::Vector3 pendingImpulsePoint( 0.25f, 0.0f, 0.0f );
-    reorderBodyStore.SetPendingBodyImpulse( 0, pendingImpulse, pendingImpulsePoint );
-    reorderBodyStore.SeedBodyAsleep( 0 );
+    const bool seededReorderState =
+        reorderBodyStore.SetPendingBodyImpulse( reorderedOriginalBody, pendingImpulse, pendingImpulsePoint ) &&
+        reorderBodyStore.SeedBodyAsleep( reorderedOriginalBody );
     reorderModels[0].SetReplayBodyId( reorderBodyBReplayId );
     reorderModels[1].SetReplayBodyId( reorderBodyAReplayId );
     reorderBodyStore.LoadFromModels( reorderModels, std::vector<uint8_t>{} );
@@ -726,8 +727,9 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     // state through a same-scene reorder. Otherwise the handle identity is only
     // nominally independent from model order.
     const bool reorderPreservesHandleState =
-        reorderedBodyAIndex == 1 && reorderedBodyARecord && reorderedBodyARecord->handle == reorderedOriginalBody &&
-        reorderedBodyARecord->hasPendingImpulse && reorderedBodyARecord->isSleeping &&
+        seededReorderState && reorderedBodyAIndex == 1 && reorderedBodyARecord &&
+        reorderedBodyARecord->handle == reorderedOriginalBody && reorderedBodyARecord->hasPendingImpulse &&
+        reorderedBodyARecord->isSleeping &&
         fabsf( reorderedBodyARecord->pendingImpulse.y - pendingImpulse.y ) < 0.0001f &&
         fabsf( reorderedBodyARecord->pendingImpulseApplicationPoint.x - pendingImpulsePoint.x ) < 0.0001f;
 

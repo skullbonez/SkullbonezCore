@@ -168,12 +168,11 @@ class PhysicsBodyStore
     const PhysicsBodyRecord* RecordForHandle( PhysicsBodyHandle handle ) const;
     PhysicsBodyRecord* MutableRecordForModelIndex( int modelIndex );
     const PhysicsBodyRecord* RecordForModelIndex( int modelIndex ) const;
-    // Handle-keyed commands are the store-owned path. Model-index overloads below
-    // are compatibility wrappers for callers not yet migrated to body handles.
+    // Handle-keyed commands are the store-owned public path. Solver helpers that
+    // already walk dense rows mutate PhysicsBodyRecord directly instead of
+    // paying a row-index-to-handle round trip.
     bool WakeBody( PhysicsBodyHandle body );
-    bool WakeBody( int modelIndex );
     bool SeedBodyAsleep( PhysicsBodyHandle body );
-    bool SeedBodyAsleep( int modelIndex );
     // Edits live velocity through the handle-owned body record. The command is
     // intentionally handle-only so replay/editor tools do not regain model-index
     // physics authority while dragging.
@@ -183,13 +182,7 @@ class PhysicsBodyStore
     bool SetPendingBodyImpulse( PhysicsBodyHandle body,
                                 const Math::Vector::Vector3& impulse,
                                 const Math::Vector::Vector3& localApplicationPoint );
-    bool SetPendingBodyImpulse( int modelIndex,
-                                const Math::Vector::Vector3& impulse,
-                                const Math::Vector::Vector3& localApplicationPoint );
     bool ApplyBodyImpulse( PhysicsBodyHandle body,
-                           const Math::Vector::Vector3& impulse,
-                           const Math::Vector::Vector3& localApplicationPoint );
-    bool ApplyBodyImpulse( int modelIndex,
                            const Math::Vector::Vector3& impulse,
                            const Math::Vector::Vector3& localApplicationPoint );
     static bool ConsumePendingBodyImpulse( PhysicsBodyRecord& record );

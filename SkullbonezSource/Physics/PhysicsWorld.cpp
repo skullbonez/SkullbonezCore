@@ -1450,7 +1450,14 @@ bool PhysicsWorld::WakeDynamicBodyState( int bodyCount,
     m_sleepState[index] = 0;
     if ( bodyStore )
     {
-        bodyStore->WakeBody( index );
+        // Why: wake propagation already walks dense solver rows. Mutating the
+        // row directly avoids converting the row index through handle maps on
+        // an island-wake path.
+        PhysicsBodyRecord* record = bodyStore->MutableRecordForModelIndex( index );
+        if ( record && !record->isFixed )
+        {
+            record->isSleeping = false;
+        }
     }
     if ( index < static_cast<int>( m_sleepCounter.size() ) )
     {

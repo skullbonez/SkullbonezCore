@@ -1507,12 +1507,6 @@ bool PhysicsBodyStore::WakeBody( PhysicsBodyHandle body )
 }
 
 
-bool PhysicsBodyStore::WakeBody( int modelIndex )
-{
-    return WakeBody( HandleForModelIndex( modelIndex ) );
-}
-
-
 bool PhysicsBodyStore::SeedBodyAsleep( PhysicsBodyHandle body )
 {
     PhysicsBodyRecord* record = MutableRecordForHandle( body );
@@ -1525,12 +1519,6 @@ bool PhysicsBodyStore::SeedBodyAsleep( PhysicsBodyHandle body )
     record->angularVelocity = ZERO_VECTOR;
     record->isSleeping = true;
     return true;
-}
-
-
-bool PhysicsBodyStore::SeedBodyAsleep( int modelIndex )
-{
-    return SeedBodyAsleep( HandleForModelIndex( modelIndex ) );
 }
 
 
@@ -1567,14 +1555,6 @@ bool PhysicsBodyStore::SetPendingBodyImpulse( PhysicsBodyHandle body,
 }
 
 
-bool PhysicsBodyStore::SetPendingBodyImpulse( int modelIndex,
-                                              const Vector3& impulse,
-                                              const Vector3& localApplicationPoint )
-{
-    return SetPendingBodyImpulse( HandleForModelIndex( modelIndex ), impulse, localApplicationPoint );
-}
-
-
 bool PhysicsBodyStore::ApplyBodyImpulse( PhysicsBodyHandle body,
                                          const Vector3& impulse,
                                          const Vector3& localApplicationPoint )
@@ -1582,12 +1562,6 @@ bool PhysicsBodyStore::ApplyBodyImpulse( PhysicsBodyHandle body,
     const bool pending = SetPendingBodyImpulse( body, impulse, localApplicationPoint );
     WakeBody( body );
     return pending;
-}
-
-
-bool PhysicsBodyStore::ApplyBodyImpulse( int modelIndex, const Vector3& impulse, const Vector3& localApplicationPoint )
-{
-    return ApplyBodyImpulse( HandleForModelIndex( modelIndex ), impulse, localApplicationPoint );
 }
 
 
