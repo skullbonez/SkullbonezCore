@@ -553,8 +553,8 @@ RUN_FRAME_REPLAY_PROBE_FUNCTION_PATTERNS = (
     re.compile(r"\bbool\s+Run::RestoreReplayV2ArtifactTargetState\s*\("),
 )
 RUN_FRAME_REPLAY_PROBE_MODEL_BODY_READ_PATTERN = re.compile(
-    r"\b(?:probedModel|appliedModel|restoredModel)\s*(?:->|\.)"
-    r"(?:GetPosition|GetVelocity|GetOrientation)\s*\("
+    r"\b[A-Za-z_]\w*\s*(?:->|\.)"
+    r"(?:GetPosition|GetVelocity|GetAngularVelocity|GetOrientation|GetMass|IsFixed)\s*\("
 )
 PHYSICS_SCENE_RUN_PHYSICS_FUNCTION_PATTERN = re.compile(r"\bvoid\s+PhysicsScene::RunPhysics\s*\(")
 PHYSICS_SCENE_STEP_BODY_RELOAD_PATTERN = re.compile(r"\bmodelAccess\s*\.\s*ReloadPhysicsBodies\s*\(")
@@ -834,6 +834,9 @@ RUN_FRAME_REPLAY_EDITOR_TRANSFORM_WAKE_PATTERN = re.compile(
 )
 RUN_FRAME_REPLAY_EDITOR_TRANSFORM_ADAPTER_WAKE_PATTERN = re.compile(
     r"\b(?:GameModelCollectionPhysicsAdapter|BodyHandleForVelocityCommand|BodyHandleForModelIndex)\b"
+)
+RUN_FRAME_REPLAY_EDITOR_TRANSFORM_MODEL_FIXED_PATTERN = re.compile(
+    r"\bmodel\s*\.\s*IsFixed\s*\("
 )
 RUN_FRAME_CONTACT_AUDIO_SIMPLE_MODE_PATTERN = re.compile(
     r"\bm_contactAudio\s*\.\s*SimpleModeEnabled\s*\(\s*\)\s*"
@@ -5539,6 +5542,19 @@ def check_run_frame_replay_editor_transform_wake_guardrails_text(path: Path, tex
                     "Replay editor-transform restore should resolve a wake-ready PhysicsBodyHandle at the replay "
                     "boundary, then call PhysicsEngine directly instead of hiding mutation behind the adapter "
                     "model-index wake command wrapper."
+                ),
+            )
+        )
+    for match in RUN_FRAME_REPLAY_EDITOR_TRANSFORM_MODEL_FIXED_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "RunFrame replay editor transform wake must use body-store fixed state",
+                (
+                    "After CommitEditedModelPhysicsState refreshes the edited row, replay restore should read "
+                    "PhysicsBodyRecord::isFixed and wake the PhysicsBodyHandle directly instead of consulting "
+                    "GameModel::IsFixed."
                 ),
             )
         )
@@ -13441,12 +13457,32 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("store-owned RunFrame replay probe synthetic surface was rejected")
 
-    allowed_run_frame_replay_save_probe_editor_authoring = """
+    old_run_frame_replay_save_probe_editor_authoring_pose_read = """
     void Run::TickReplaySaveProbe()
     {
         GameModel& placedModel = m_cGameModelCollection.GetModelAtIndex( modelCountBeforePlace );
         placedModel.SetPosition( placedModel.GetPosition() + Vector3( 4.0f, 0.0f, 0.0f ) );
         Quaternion placedOrientation = placedModel.GetOrientation();
+        placedModel.SetOrientation( placedOrientation );
+    }
+    """
+    if not any(
+        error.message == "replay probe body state must use PhysicsBodyStore"
+        for error in check_run_frame_replay_probe_body_store_guardrails_text(
+            RUN_FRAME_SOURCE,
+            old_run_frame_replay_save_probe_editor_authoring_pose_read,
+        )
+    ):
+        failures.append("old RunFrame replay save probe model-pose read synthetic surface was not rejected")
+
+    allowed_run_frame_replay_save_probe_editor_authoring = """
+    void Run::TickReplaySaveProbe()
+    {
+        GameModel& placedModel = m_cGameModelCollection.GetModelAtIndex( modelCountBeforePlace );
+        const PhysicsBodyRecord* placedBodyBeforeEdit =
+            m_cGameModelCollection.GetPhysicsBodyStore().RecordForHandle( placementResult.placedBody );
+        placedModel.SetPosition( placedBodyBeforeEdit->position + Vector3( 4.0f, 0.0f, 0.0f ) );
+        Quaternion placedOrientation = placedBodyBeforeEdit->orientation;
         placedModel.SetOrientation( placedOrientation );
     }
     """
@@ -15681,14 +15717,38 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old RunFrame replay editor transform adapter resolver synthetic surface was not rejected")
 
-    allowed_run_frame_replay_editor_transform_wake = """
+    old_run_frame_replay_editor_transform_model_fixed_state = """
     bool ApplyReplayEditorTransformEvent()
     {
         const PhysicsBodyHandle body =
             m_cGameModelCollection.GetPhysicsEngine().BodyStore().HandleForModelIndex( event.value0 );
-        if ( body.IsValid() )
+        if ( !model.IsFixed() && body.IsValid() )
         {
             m_cGameModelCollection.GetPhysicsEngine().WakeBody( body );
+        }
+        return true;
+    }
+    """
+    if not any(
+        error.message == "RunFrame replay editor transform wake must use body-store fixed state"
+        for error in check_run_frame_replay_editor_transform_wake_guardrails_text(
+            Path("SkullbonezSource/Runtime/RunFrame.cpp"),
+            old_run_frame_replay_editor_transform_model_fixed_state,
+        )
+    ):
+        failures.append("old RunFrame replay editor transform model fixed-state synthetic surface was not rejected")
+
+    allowed_run_frame_replay_editor_transform_wake = """
+    bool ApplyReplayEditorTransformEvent()
+    {
+        PhysicsEngine& physics = m_cGameModelCollection.GetPhysicsEngine();
+        const PhysicsBodyStore& bodyStore = physics.BodyStore();
+        const PhysicsBodyHandle body =
+            bodyStore.HandleForModelIndex( event.value0 );
+        const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
+        if ( bodyRecord && !bodyRecord->isFixed )
+        {
+            physics.WakeBody( body );
         }
         return true;
     }

@@ -1173,8 +1173,17 @@ void Run::TickReplaySaveProbe()
                                                     placementResult.placementScale,
                                                     placementResult.placementYawRadians );
             GameModel& placedModel = m_cGameModelCollection.GetModelAtIndex( modelCountBeforePlace );
-            placedModel.SetPosition( placedModel.GetPosition() + Vector3( 4.0f, 0.0f, 0.0f ) );
-            Quaternion placedOrientation = placedModel.GetOrientation();
+            const PhysicsBodyRecord* placedBodyBeforeEdit =
+                m_cGameModelCollection.GetPhysicsBodyStore().RecordForHandle( placementResult.placedBody );
+            if ( !placedBodyBeforeEdit )
+            {
+                throw std::runtime_error( "replay save probe failed to resolve placed body record" );
+            }
+            // Why: placement has already registered a PhysicsBodyHandle. Use the
+            // authoritative body row as the starting transform, then commit the
+            // edited authoring model back into the stores below.
+            placedModel.SetPosition( placedBodyBeforeEdit->position + Vector3( 4.0f, 0.0f, 0.0f ) );
+            Quaternion placedOrientation = placedBodyBeforeEdit->orientation;
             placedOrientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), 0.25f );
             placedModel.SetOrientation( placedOrientation );
             const CollisionShape placedShapeBeforeScale = placedModel.GetCollisionShape();
@@ -1189,18 +1198,18 @@ void Run::TickReplaySaveProbe()
             placedModel.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             placedModel.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             m_cGameModelCollection.CommitEditedModelPhysicsState( modelCountBeforePlace, true );
-            const PhysicsBodyRecord* placedBody =
+            const PhysicsBodyRecord* placedBodyAfterEdit =
                 m_cGameModelCollection.GetPhysicsBodyStore().RecordForModelIndex( modelCountBeforePlace );
-            if ( !placedBody || placedBody->replayBodyId == 0 )
+            if ( !placedBodyAfterEdit || placedBodyAfterEdit->replayBodyId == 0 )
             {
                 throw std::runtime_error( "replay save probe failed to capture edited body record" );
             }
             m_replayRuntime.RecordEditorTransformEvent(
                 modelCountBeforePlace,
                 REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE,
-                placedBody->replayBodyId,
-                placedBody->position,
-                placedBody->orientation,
+                placedBodyAfterEdit->replayBodyId,
+                placedBodyAfterEdit->position,
+                placedBodyAfterEdit->orientation,
                 m_cGameModelCollection.GetModelCount(),
                 PROBE_SCALE_AXIS,
                 PROBE_SCALE_FACTOR );
@@ -1897,17 +1906,16 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             m_cGameModelCollection.CommitEditedModelPhysicsState(
                 event.value0,
                 ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE ) != 0 );
-            if ( !model.IsFixed() )
+            // Why: CommitEditedModelPhysicsState() has already refreshed the
+            // edited body row. The wake decision should read the committed
+            // PhysicsBodyStore record, not the compatibility GameModel mirror.
+            PhysicsEngine& physics = m_cGameModelCollection.GetPhysicsEngine();
+            const PhysicsBodyStore& bodyStore = physics.BodyStore();
+            const PhysicsBodyHandle body = bodyStore.HandleForModelIndex( event.value0 );
+            const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
+            if ( bodyRecord && !bodyRecord->isFixed )
             {
-                // Why: CommitEditedModelPhysicsState() has already refreshed the
-                // edited body row, so replay restore can wake the store handle
-                // directly instead of rediscovering it through the adapter.
-                const PhysicsBodyHandle body =
-                    m_cGameModelCollection.GetPhysicsEngine().BodyStore().HandleForModelIndex( event.value0 );
-                if ( body.IsValid() )
-                {
-                    m_cGameModelCollection.GetPhysicsEngine().WakeBody( body );
-                }
+                physics.WakeBody( body );
             }
             WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied editor transform" );
             return true;

@@ -4,10 +4,9 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-intermittent `tools\validate_physics.bat` passed on 2026-07-05 after moving
-editor ragdoll transform grouping from per-frame name/suffix parsing to integer
-collection metadata, with legacy scene-name compatibility kept at the cold
-`GameModelCollection::AddGameModel()` import boundary.
+`tools\validate_full.bat` passed on 2026-07-05 after moving replay
+save/restore probe pose and fixed-state decisions from the `GameModel`
+compatibility mirror to `PhysicsBodyStore` records.
 
 ## Completed Slices
 
@@ -410,6 +409,25 @@ collection metadata, with legacy scene-name compatibility kept at the cold
   `tools\validate_physics.bat` passed on 2026-07-05; physics regression reported
   standalone/runtime smoke pass and byte-exact 20,001-line
   `physics_regression_solver.csv`.
+- [x] 2026-07-05: Moved replay save/restore probe body-state reads off
+  `GameModel`. Owner: replay save probe and replay editor-transform restore in
+  `RunFrame.cpp`. Reason: the probe had a newly placed `PhysicsBodyHandle` but
+  still read the just-created model's pose/orientation before applying its
+  synthetic transform, and replay restore committed the edited row to
+  `PhysicsBodyStore` before asking `GameModel::IsFixed()` whether to wake it.
+  Deletion condition: replay save/restore probe functions read pose,
+  orientation, and fixed state from `PhysicsBodyRecord`; `GameModel` remains
+  only the temporary editor-authoring mutation target until editor/replay writes
+  direct body/collider commands. Checker budget:
+  `tools/check_runtime_boundaries.py` blocks body-state getters inside replay
+  probe functions and blocks `model.IsFixed()` in the replay editor-transform
+  wake path, with reject/allow/comment-only self-tests.
+  Validation: `git diff --check`, `python -m py_compile
+  tools\check_runtime_boundaries.py`, `python tools\check_runtime_boundaries.py
+  --repo .`, `tools\validate_fast.bat`, and `tools\validate_full.bat` passed on
+  2026-07-05; full gate reported DX12 InfoQueue errors 0, DX12 screenshots
+  matched committed baselines, standalone/runtime physics smoke passed, and
+  `physics_regression_solver.csv` was a byte-exact 20,001-line match.
 
 ## Goal
 
@@ -642,6 +660,9 @@ Move one body-state group at a time. Keep compatibility writeback narrow and tem
 - [x] 2026-07-05 required scene-contact exact manifold checks build
   `ObjectContactBodyView` values from `PhysicsBodyStore` records instead of
   `GameModel` pose/orientation overloads.
+- [x] 2026-07-05 replay save/restore probes read starting pose, orientation,
+  and fixed state from `PhysicsBodyStore` records instead of the `GameModel`
+  compatibility mirror.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of sleep and wake state.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of accumulated forces and impulses.
 - [ ] Change physics stepping to consume body handles/store views rather than `GameModelCollection&`.
@@ -755,6 +776,9 @@ Scene/editor/replay metadata should not force physics or render ownership to sta
 - [ ] Update scene save to serialize from authoritative stores and metadata, not stale compatibility fields.
 - [ ] Update replay capture to read from body handles and stable replay ids.
 - [ ] Update replay playback or diagnostics to resolve through stable handles.
+  - [x] 2026-07-05 replay save/restore probes now resolve pose/orientation and
+    fixed-state decisions through body-store records while preserving saved
+    model index only as replay event identity.
 - [ ] Preserve old file compatibility where required by existing scene assets.
 
 Do-not-miss checklist:
