@@ -85,6 +85,39 @@
       "removal_or_wrapper_plan": "Keep growth approval isolated here and reject any new reserve-bump callsite unless it routes through registered owner wrappers."
     },
     {
+      "path": "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
+      "patterns": [
+        "RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
+      ],
+      "owner": "Replay prediction working set",
+      "phase": "replay",
+      "reason": "Replay prediction uses this helper as the single registered growth gate for top-level prediction, path, and body-state vectors.",
+      "cap": "Registered owner replay_prediction_working_set, hard cap REPLAY_PREDICTION_FRAME_CAPACITY * MAX_GAME_MODELS, bounded growth count.",
+      "removal_or_wrapper_plan": "Keep prediction growth behind ReserveReplayPredictionVector or replace it with a fixed prediction arena; do not add direct vector reserve callsites."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl",
+      "patterns": [
+        "RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
+      ],
+      "owner": "Replay prediction frame payload pool",
+      "phase": "replay",
+      "reason": "Batched prediction-frame payload reserves need one registered approval so validation does not see one growth request per future frame.",
+      "cap": "The requested payload capacity is frames times per-frame body/contact capacity and must stay within replay_prediction_working_set hard cap.",
+      "removal_or_wrapper_plan": "Move prediction frame payloads to a flat fixed arena if prediction memory is centralized; keep approvals batched until then."
+    },
+    {
+      "path": "SkullbonezSource/Physics/PhysicsWorld.cpp",
+      "patterns": [
+        "RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
+      ],
+      "owner": "Replay solver snapshot reserve",
+      "phase": "replay",
+      "reason": "Solver replay snapshots batch many typed vector payload reserves into one byte-budget approval before copying physics state.",
+      "cap": "Registered owner replay_solver_snapshot, hard cap REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES.",
+      "removal_or_wrapper_plan": "Replace snapshot vectors with an arena-backed snapshot record if replay solver storage is flattened."
+    },
+    {
       "path": "SkullbonezSource/Runtime/Init.cpp",
       "patterns": [
         "free( envPlatformProfilerValue )",

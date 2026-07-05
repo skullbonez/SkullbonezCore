@@ -428,7 +428,9 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX };
     UINT m_nullTextureSRVIndex = UINT_MAX;                         // Static null Texture2D SRV copied into cleared texture slots.
 
-    // Grid line overlay (lazy-init in DrawLinesColored)
+    // Runtime allocation policy: debug-line shader and PSOs are warmed during
+    // backend setup for every engine RTV format, so overlay draws do not compile
+    // shaders or grow GPU object caches inside the render phase.
     std::unique_ptr<IShader> m_gridLineShader;
     std::array<GridLinePSODX12, MAX_GRID_LINE_PSOS> m_gridLinePSOs = {};
     size_t m_gridLinePSOCount = 0;
@@ -505,6 +507,7 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     size_t HashPSOKey( const PSOKey12& key );
     ID3D12PipelineState*
     CreatePSO( VertexFormat12 format, bool instanced, const InstancedMeshDX12* im, const DynamicVBDX12* dvb );
+    ID3D12PipelineState* EnsureGridLinePipeline( DXGI_FORMAT rtvFormat );
     void CheckDXRSupport();
     void CreateRTRootSignature();
     void CreateRTPipeline();

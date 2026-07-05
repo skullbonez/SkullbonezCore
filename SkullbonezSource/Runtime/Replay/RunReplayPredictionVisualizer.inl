@@ -72,10 +72,10 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     }
     replayRuntime.Prediction().lastBuildTime = simulationTotalSeconds;
 
+    const int modelCount = modelCollection.GetModelCount();
     if ( replayRuntime.PathVisualizer().hasTarget && replayRuntime.PathVisualizer().targetId.value != 0 )
     {
         int targetIndex = -1;
-        const int modelCount = modelCollection.GetModelCount();
         if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
         {
             replayRuntime.Prediction().dirty = true;
@@ -101,7 +101,36 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         (std::max)( 1, static_cast<int>( std::ceil( replayRuntime.Prediction().horizonSeconds / PHYSICS_FIXED_DT ) ) );
     replayRuntime.Prediction().targetTickCount = predictionTicks;
     replayRuntime.Prediction().nextTick = 1;
-    replayRuntime.Prediction().buildFrames.reserve( static_cast<std::size_t>( predictionTicks + 1 ) );
+    const std::size_t buildFrameCapacity = static_cast<std::size_t>( predictionTicks + 1 );
+    if ( !ReserveReplayPredictionVector( replayRuntime.Prediction().buildFrames, buildFrameCapacity, 0 ) )
+    {
+        replayRuntime.CancelPredictionJob( true );
+        replayRuntime.Prediction().dirty = true;
+        return false;
+    }
+    replayRuntime.Prediction().buildFrames.resize( buildFrameCapacity );
+    replayRuntime.Prediction().buildFrameCount = 0;
+    if ( !ReserveReplayPredictionFramePayloadVectors( replayRuntime.Prediction().buildFrames,
+                                                      buildFrameCapacity,
+                                                      static_cast<std::size_t>( modelCount ),
+                                                      0,
+                                                      &RunReplayPredictionFrame::bodies ) )
+    {
+        replayRuntime.CancelPredictionJob( true );
+        replayRuntime.Prediction().dirty = true;
+        return false;
+    }
+    const std::size_t debugContactCapacityPerFrame = modelCollection.GetPhysicsDebugContacts().size();
+    if ( !ReserveReplayPredictionFramePayloadVectors( replayRuntime.Prediction().buildFrames,
+                                                      buildFrameCapacity,
+                                                      debugContactCapacityPerFrame,
+                                                      0,
+                                                      &RunReplayPredictionFrame::debugContacts ) )
+    {
+        replayRuntime.CancelPredictionJob( true );
+        replayRuntime.Prediction().dirty = true;
+        return false;
+    }
 
     if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
     {
@@ -130,7 +159,12 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    CaptureReplayPredictionFrame( replayRuntime, modelCollection, workerPool, 0 );
+    if ( !CaptureReplayPredictionFrame( replayRuntime, modelCollection, workerPool, 0 ) )
+    {
+        replayRuntime.CancelPredictionJob( true );
+        replayRuntime.Prediction().dirty = true;
+        return false;
+    }
     replayRuntime.Prediction().building = true;
 
     return !replayRuntime.Prediction().buildFrames.empty();
@@ -210,10 +244,16 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
                                                      worldForces,
                                                      workerPool );
                 }
-                CaptureReplayPredictionFrame( replayRuntime,
-                                              modelCollection,
-                                              workerPool,
-                                              static_cast<ReplayFrameIndex>( replayRuntime.Prediction().nextTick ) );
+                if ( !CaptureReplayPredictionFrame(
+                         replayRuntime,
+                         modelCollection,
+                         workerPool,
+                         static_cast<ReplayFrameIndex>( replayRuntime.Prediction().nextTick ) ) )
+                {
+                    replayRuntime.CancelPredictionJob( true );
+                    replayRuntime.Prediction().dirty = true;
+                    return false;
+                }
                 ++replayRuntime.Prediction().nextTick;
                 progressed = true;
 
@@ -264,6 +304,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         replayRuntime.Prediction().complete = true;
         replayRuntime.Prediction().frames.swap( replayRuntime.Prediction().buildFrames );
         replayRuntime.Prediction().buildFrames.clear();
+        replayRuntime.Prediction().buildFrameCount = 0;
         // Why: future-node scratch was built from buildFrames. After this swap
         // those samples are the final frames, so keeping the cache preserves
         // progressively revealed child paths through the completion frame.

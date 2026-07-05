@@ -164,6 +164,26 @@ polymorphic service objects, callback chains, handle lookups, scattered
   guardrail in `tools/check_runtime_boundaries.py` whenever the regression can
   be detected textually. Include a self-test and rerun the boundary checker.
 
+## Runtime Static Allocation Gate
+
+Dynamically growing STL types and direct heap calls are banned in physics and
+gameplay runtime code. Gameplay storage must be fixed or preallocated before
+steady gameplay begins, and pool exhaustion must assert in Profile/Debug or
+fail fatally in Release with owner, capacity, high-water, and phase diagnostics;
+there is no gameplay growth fallback.
+
+Replay is the only runtime subsystem allowed to grow after steady gameplay
+starts, and that growth must be approved by `RuntimeReserveAllocator` through a
+registered owner, replay phase check, hard cap, logged growth counter, and
+policy comment. Unregistered replay allocations are allocation-guard failures.
+
+`new`, `delete`, `malloc`, `free`, STL reserve/growth, `std::make_unique`,
+`std::make_shared`, and equivalent heap paths are banned at runtime outside
+pre-gameplay phases, allocator/wrapper internals, and explicit cold utility
+actions such as screenshot/readback, file save/load, replay artifact IO,
+diagnostics dumps, and editor mutation actions. Violations are lint, validation,
+and review failures.
+
 ## After Editing
 
 Do not run validation scripts automatically after every edit. Formal repository

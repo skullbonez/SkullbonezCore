@@ -24,7 +24,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h
-  - Agentic/Plans/In_Progress/runtime-static-allocation-policy-plan.md
+  - Agentic/Plans/Done/runtime-static-allocation-policy-plan.md
 */
 #pragma once
 
@@ -98,6 +98,24 @@ struct RuntimeReserveGrowthResult
     int growthCount;
 };
 
+class RuntimeReserveGrowthScope
+{
+  public:
+    RuntimeReserveGrowthScope( RuntimeReserveOwnerHandle owner,
+                               RuntimeReservePhase phase,
+                               const RuntimeReserveGrowthResult& result ) noexcept;
+    ~RuntimeReserveGrowthScope() noexcept;
+
+    RuntimeReserveGrowthScope( const RuntimeReserveGrowthScope& ) = delete;
+    RuntimeReserveGrowthScope& operator=( const RuntimeReserveGrowthScope& ) = delete;
+
+  private:
+    RuntimeReserveOwnerHandle m_previousOwner;
+    RuntimeReservePhase m_previousPhase;
+    int m_previousDepth;
+    bool m_active;
+};
+
 class RuntimeReserveOwnerScope
 {
   public:
@@ -120,6 +138,7 @@ class RuntimeReserveAllocator
 
     static RuntimeReserveOwnerHandle CurrentOwner() noexcept;
     static void SetCurrentOwner( RuntimeReserveOwnerHandle owner ) noexcept;
+    static bool IsApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept;
 
     static void RecordAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes ) noexcept;
     static void RecordFree( RuntimeReserveOwnerHandle owner, uint64_t bytes ) noexcept;

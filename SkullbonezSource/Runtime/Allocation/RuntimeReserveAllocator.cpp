@@ -78,6 +78,9 @@ std::atomic<int> s_registeredOwnerCount{ 1 };
 std::atomic<uint64_t> s_policyViolations{ 0 };
 OwnerRecord s_owners[MAX_RUNTIME_RESERVE_OWNERS] = {};
 thread_local RuntimeReserveOwnerHandle s_currentOwner = UNREGISTERED_OWNER;
+thread_local RuntimeReserveOwnerHandle s_approvedReplayGrowthOwner = UNREGISTERED_OWNER;
+thread_local RuntimeReservePhase s_approvedReplayGrowthPhase = RuntimeReservePhase::SteadyGameplay;
+thread_local int s_approvedReplayGrowthDepth = 0;
 
 bool IsGameplayPhaseIndex( int phaseIndex ) noexcept
 {
@@ -208,6 +211,32 @@ namespace Runtime
 {
 namespace Allocation
 {
+RuntimeReserveGrowthScope::RuntimeReserveGrowthScope( RuntimeReserveOwnerHandle owner,
+                                                      RuntimeReservePhase phase,
+                                                      const RuntimeReserveGrowthResult& result ) noexcept
+    : m_previousOwner( s_approvedReplayGrowthOwner ), m_previousPhase( s_approvedReplayGrowthPhase ),
+      m_previousDepth( s_approvedReplayGrowthDepth ), m_active( false )
+{
+    const RuntimeReserveOwnerHandle normalizedOwner = NormalizeOwnerHandle( owner );
+    if ( result.granted && normalizedOwner != UNREGISTERED_OWNER && phase == RuntimeReservePhase::Replay )
+    {
+        s_approvedReplayGrowthOwner = normalizedOwner;
+        s_approvedReplayGrowthPhase = phase;
+        s_approvedReplayGrowthDepth = m_previousDepth + 1;
+        m_active = true;
+    }
+}
+
+RuntimeReserveGrowthScope::~RuntimeReserveGrowthScope() noexcept
+{
+    if ( m_active )
+    {
+        s_approvedReplayGrowthOwner = m_previousOwner;
+        s_approvedReplayGrowthPhase = m_previousPhase;
+        s_approvedReplayGrowthDepth = m_previousDepth;
+    }
+}
+
 RuntimeReserveOwnerScope::RuntimeReserveOwnerScope( RuntimeReserveOwnerHandle owner ) noexcept
     : m_previous( RuntimeReserveAllocator::CurrentOwner() )
 {
@@ -315,6 +344,14 @@ RuntimeReserveOwnerHandle RuntimeReserveAllocator::CurrentOwner() noexcept
 void RuntimeReserveAllocator::SetCurrentOwner( RuntimeReserveOwnerHandle owner ) noexcept
 {
     s_currentOwner = NormalizeOwnerHandle( owner );
+}
+
+bool RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner,
+                                                                int phaseIndex ) noexcept
+{
+    const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( owner );
+    return phaseIndex == 6 && ownerIndex != UNREGISTERED_OWNER && ownerIndex == s_approvedReplayGrowthOwner &&
+           s_approvedReplayGrowthDepth > 0 && s_approvedReplayGrowthPhase == RuntimeReservePhase::Replay;
 }
 
 void RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ownerHandle,

@@ -184,6 +184,7 @@ const std::vector<RunReplayPredictionFrame>&
 ReplayRuntimeActivePredictionFrames( const RunReplayPredictionState& prediction )
 {
     if ( prediction.building && prediction.buildFrames.size() >= 2 &&
+         prediction.buildFrameCount >= prediction.buildFrames.size() &&
          ( prediction.frames.empty() || prediction.buildFrames.size() >= prediction.frames.size() ) )
     {
         return prediction.buildFrames;
@@ -550,6 +551,7 @@ std::string SolverReplayHashLogPath( const std::string& presentationPath )
 
 ReplayRuntime::ReplayRuntime()
 {
+    m_causeTree.rows.reserve( REPLAY_CAUSE_TREE_ROW_CAPACITY );
     m_renderPoseBodyMatched.fill( uint8_t{ 0 } );
 }
 
@@ -673,6 +675,7 @@ void ReplayRuntime::CancelPredictionJob( bool clearSamples )
     m_prediction.predictionWorld = ReplaySolverWorldSnapshot();
     m_prediction.liveRestoreWorld = ReplaySolverWorldSnapshot();
     m_prediction.buildFrames.clear();
+    m_prediction.buildFrameCount = 0;
     if ( clearSamples )
     {
         m_prediction.frames.clear();
@@ -1509,13 +1512,25 @@ bool ReplayRuntime::BuildCauseTreeRows(
     const std::size_t solverContactCount =
         solverSample ? solverSample->worldSnapshot.persistentContacts.size() : static_cast<std::size_t>( 0 );
     const std::size_t estimatedRows = 1 + nodes.size() + solverContactCount * 3;
-    if ( m_causeTree.rows.capacity() < estimatedRows )
+    if ( estimatedRows > m_causeTree.rows.capacity() )
     {
-        // Why: the renderer calls this every frame while the window is visible.
-        // Reserve for the current graph shape so row rebuilds do not turn the
-        // inspection overlay into an allocation-heavy hot path.
-        m_causeTree.rows.reserve( estimatedRows );
+        // Hazard: this path runs from input/render. If a future scene exceeds
+        // the preallocated explanation budget, hide the overlay for the frame
+        // instead of growing row storage on the hot path.
+        m_causeTree.selectedRow = -1;
+        return false;
     }
+    bool rowOverflow = false;
+    auto appendCauseTreeRow = [&]( const RunReplayCauseTreeRow& row ) -> bool
+    {
+        if ( m_causeTree.rows.size() >= m_causeTree.rows.capacity() )
+        {
+            rowOverflow = true;
+            return false;
+        }
+        m_causeTree.rows.push_back( row );
+        return true;
+    };
 
     // Invariant: cause-tree rows keep model indices only for UI row selection
     // and solver-artifact contact matching. ReplayBodyId identity resolves
@@ -1622,7 +1637,10 @@ bool ReplayRuntime::BuildCauseTreeRows(
                            contactRow.normal.x,
                            contactRow.normal.y,
                            contactRow.normal.z );
-                m_causeTree.rows.push_back( contactRow );
+                if ( !appendCauseTreeRow( contactRow ) )
+                {
+                    return;
+                }
             }
             return;
         }
@@ -1637,8 +1655,8 @@ bool ReplayRuntime::BuildCauseTreeRows(
             int otherModelIndex = -1;
             bool terrain = false;
         };
-        std::vector<ManifoldGroup> groups;
-        groups.reserve( solverSample->worldSnapshot.persistentContacts.size() );
+        std::array<ManifoldGroup, REPLAY_CAUSE_TREE_CONTACT_CAPACITY> groups = {};
+        std::size_t groupCount = 0;
         for ( const ReplaySolverPersistentContactSample& contact : solverSample->worldSnapshot.persistentContacts )
         {
             if ( !ReplayContactHasModelIndex( contact, bodyRow.modelIndex ) )
@@ -1648,8 +1666,9 @@ bool ReplayRuntime::BuildCauseTreeRows(
             const int otherModelIndex = ReplayContactOtherModelIndex( contact, bodyRow.modelIndex );
             const bool terrain = contact.isTerrain || otherModelIndex < 0;
             bool exists = false;
-            for ( const ManifoldGroup& group : groups )
+            for ( std::size_t groupIndex = 0; groupIndex < groupCount; ++groupIndex )
             {
+                const ManifoldGroup& group = groups[groupIndex];
                 if ( group.otherModelIndex == otherModelIndex && group.terrain == terrain )
                 {
                     exists = true;
@@ -1658,12 +1677,19 @@ bool ReplayRuntime::BuildCauseTreeRows(
             }
             if ( !exists )
             {
-                groups.push_back( { otherModelIndex, terrain } );
+                if ( groupCount >= groups.size() )
+                {
+                    rowOverflow = true;
+                    return;
+                }
+                groups[groupCount] = { otherModelIndex, terrain };
+                ++groupCount;
             }
         }
 
-        for ( const ManifoldGroup& group : groups )
+        for ( std::size_t groupIndex = 0; groupIndex < groupCount; ++groupIndex )
         {
+            const ManifoldGroup& group = groups[groupIndex];
             Vector3 centroid = SkullbonezCore::Math::Vector::ZERO_VECTOR;
             Vector3 normalSum = SkullbonezCore::Math::Vector::ZERO_VECTOR;
             float maxPenetration = 0.0f;
@@ -1734,7 +1760,10 @@ bool ReplayRuntime::BuildCauseTreeRows(
                        pointCount,
                        pointCount == 1 ? "" : "s",
                        maxPenetration );
-            m_causeTree.rows.push_back( manifoldRow );
+            if ( !appendCauseTreeRow( manifoldRow ) )
+            {
+                return;
+            }
 
             for ( int i = 0; i < static_cast<int>( solverSample->worldSnapshot.persistentContacts.size() ); ++i )
             {
@@ -1796,7 +1825,10 @@ bool ReplayRuntime::BuildCauseTreeRows(
                            contact.warmStarted ? "warm" : "cold",
                            solverRow.pipelineIndex >= 0 ? "  " : "",
                            traceStage );
-                m_causeTree.rows.push_back( solverRow );
+                if ( !appendCauseTreeRow( solverRow ) )
+                {
+                    return;
+                }
             }
         }
     };
@@ -1841,17 +1873,25 @@ bool ReplayRuntime::BuildCauseTreeRows(
                        "first affected frame %llu",
                        static_cast<unsigned long long>( firstFrame ) );
         }
-        m_causeTree.rows.push_back( row );
+        if ( !appendCauseTreeRow( row ) )
+        {
+            return false;
+        }
         appendSolverRowsForBody( m_causeTree.rows.back() );
-        return true;
+        return !rowOverflow;
     };
 
-    addBodyRow( m_pathVisualizer.targetId,
-                ReplayBodyId{},
-                0,
-                0,
-                m_pathVisualizer.targetModelIndex,
-                m_pathVisualizer.targetName );
+    if ( !addBodyRow( m_pathVisualizer.targetId,
+                      ReplayBodyId{},
+                      0,
+                      0,
+                      m_pathVisualizer.targetModelIndex,
+                      m_pathVisualizer.targetName ) )
+    {
+        m_causeTree.rows.clear();
+        m_causeTree.selectedRow = -1;
+        return false;
+    }
 
     auto addChildren = [&]( auto&& self, ReplayBodyId parentId, int fallbackDepth ) -> void
     {
@@ -1874,6 +1914,12 @@ bool ReplayRuntime::BuildCauseTreeRows(
         }
     };
     addChildren( addChildren, m_pathVisualizer.targetId, 1 );
+    if ( rowOverflow )
+    {
+        m_causeTree.rows.clear();
+        m_causeTree.selectedRow = -1;
+        return false;
+    }
 
     m_causeTree.selectedRow = -1;
     if ( m_camera.focusKind != RunReplayCameraFocusKind::None )

@@ -205,7 +205,7 @@ while keeping DX12-specific emission inside the backend executor.
 - `Agentic/Plans/IN PROGRESS/carmack-render-backend-capability-plan.md` covers
   capability-interface narrowing. This plan covers production pass execution,
   transient resource lifetime, descriptor lifetime, and barrier ownership.
-- `Agentic/Plans/runtime-static-allocation-policy-plan.md` owns the allocation
+- `Agentic/Plans/Done/runtime-static-allocation-policy-plan.md` owns the allocation
   policy that graph transient-resource work must satisfy.
 
 ## Implementation Checklist

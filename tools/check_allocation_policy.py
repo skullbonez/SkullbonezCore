@@ -21,7 +21,7 @@ Invariants:
   - The tool does not mutate the repository.
 
 Related:
-  - Agentic/Plans/In_Progress/runtime-static-allocation-policy-plan.md
+  - Agentic/Plans/Done/runtime-static-allocation-policy-plan.md
   - tools/allocation_policy_allowlist.json
 """
 

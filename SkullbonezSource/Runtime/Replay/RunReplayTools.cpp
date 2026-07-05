@@ -46,6 +46,7 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "../RuntimePickService.h"
 #include "../Allocation/RuntimeAllocationTracker.h"
+#include "../Allocation/RuntimeReserveAllocator.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsMass.h"
@@ -497,6 +498,12 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
 
     if ( m_replayRuntime.PathVisualizer().targets.empty() && m_replayRuntime.PathVisualizer().targetId.value != 0 )
     {
+        if ( !ReserveReplayPredictionVector( m_replayRuntime.PathVisualizer().targets,
+                                             REPLAY_PATH_MAX_ROOT_TARGETS,
+                                             SceneState().currentFrame ) )
+        {
+            return;
+        }
         RunReplayPathTarget target;
         target.id = m_replayRuntime.PathVisualizer().targetId;
         target.modelIndex = m_replayRuntime.PathVisualizer().targetModelIndex;

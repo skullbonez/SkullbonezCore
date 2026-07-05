@@ -27,6 +27,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 */
 #include "RunInternal.h"
+#include "Allocation/RuntimeAllocationTracker.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "RuntimeFileWriter.h"
 #include "RuntimePickService.h"
@@ -43,6 +44,7 @@ using namespace SkullbonezCore::Basics::ReplayOverlay;
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
+namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
@@ -528,6 +530,8 @@ std::string BoolString( bool value )
 
 bool LoadScript( RunInteractionAutomationState& state )
 {
+    RuntimeAllocation::RuntimeAllocationScope diagnosticsScope(
+        RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
     state.scriptLoaded = true;
     std::ifstream input( state.scriptPath );
     if ( !input.is_open() )
@@ -554,6 +558,12 @@ bool LoadScript( RunInteractionAutomationState& state )
         FailAutomation( state, "interaction script requires an actions array" );
         return false;
     }
+
+    const std::size_t actionCount = root["actions"].size();
+    state.actions.reserve( actionCount );
+    state.actionReports.reserve( actionCount + 8u );
+    state.assertionReports.reserve( actionCount + 8u );
+    state.screenshots.reserve( actionCount );
 
     for ( const Json& entry : root["actions"] )
     {
@@ -834,6 +844,8 @@ void Run::TickInteractionAutomationAfterRender()
         return;
     }
 
+    RuntimeAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
+        RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
     const int frame = SceneState().currentFrame;
     for ( RunInteractionAutomationAction& action : state.actions )
     {
@@ -984,6 +996,8 @@ void Run::TickInteractionAutomationAfterRender()
 
 void Run::WriteInteractionAutomationReport()
 {
+    RuntimeAllocation::RuntimeAllocationScope diagnosticsScope(
+        RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
     RunInteractionAutomationState& state = m_interactionAutomation;
     if ( state.reportWritten )
     {

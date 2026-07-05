@@ -58,6 +58,120 @@ bool ReplayPredictionMutationReserveSpent( const std::chrono::steady_clock::time
     return ReplayPredictionBudgetExpired( start, budgetMilliseconds - REPLAY_PREDICTION_MUTATION_RESERVE_MILLISECONDS );
 }
 
+constexpr const char* REPLAY_PREDICTION_RESERVE_OWNER = "replay_prediction_working_set";
+constexpr int REPLAY_PREDICTION_FRAME_CAPACITY =
+    static_cast<int>( REPLAY_PREDICTION_MAX_SECONDS / PHYSICS_FIXED_DT ) + 2;
+constexpr int REPLAY_PREDICTION_RESERVE_HARD_CAPACITY = REPLAY_PREDICTION_FRAME_CAPACITY * MAX_GAME_MODELS;
+constexpr int REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT = 32;
+
+RuntimeAllocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner()
+{
+    static const RuntimeAllocation::RuntimeReserveOwnerHandle owner =
+        RuntimeAllocation::RuntimeReserveAllocator::RegisterOwner(
+            { REPLAY_PREDICTION_RESERVE_OWNER,
+              RuntimeAllocation::RuntimeReserveSubsystem::Replay,
+              RuntimeAllocation::RuntimeReservePhase::Replay,
+              0,
+              REPLAY_PREDICTION_RESERVE_HARD_CAPACITY,
+              REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT,
+              true,
+              "replay prediction bodies, frames, and future-node scratch grow only under replay approval" } );
+    return owner;
+}
+
+template<typename T>
+bool ReserveReplayPredictionVector( std::vector<T>& values, std::size_t requestedCapacity, int frameNumber )
+{
+    if ( requestedCapacity <= values.capacity() )
+    {
+        return true;
+    }
+    if ( requestedCapacity > static_cast<std::size_t>( REPLAY_PREDICTION_RESERVE_HARD_CAPACITY ) )
+    {
+        return false;
+    }
+
+    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
+    const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_PREDICTION_RESERVE_OWNER,
+                                                                     RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                                     frameNumber,
+                                                                     static_cast<int>( values.capacity() ),
+                                                                     static_cast<int>( requestedCapacity ),
+                                                                     static_cast<int>( sizeof( T ) ) };
+    const RuntimeAllocation::RuntimeReserveGrowthResult result =
+        RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+    if ( !result.granted )
+    {
+        return false;
+    }
+
+    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+        RuntimeAllocation::RuntimeAllocationPhase::Replay );
+    RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+    RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
+                                                              RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                              result );
+    values.reserve( static_cast<std::size_t>( result.grantedCapacity ) );
+    return requestedCapacity <= values.capacity();
+}
+
+template<typename T>
+bool ReserveReplayPredictionFramePayloadVectors( std::vector<RunReplayPredictionFrame>& frames,
+                                                 std::size_t requestedFrameCount,
+                                                 std::size_t requestedCapacityPerFrame,
+                                                 int frameNumber,
+                                                 std::vector<T> RunReplayPredictionFrame::*member )
+{
+    // Runtime allocation policy: prediction captures many future frames. Batch
+    // the per-frame payload reserves under one replay approval so validation
+    // sees one setup event instead of one growth request per future frame.
+    if ( requestedCapacityPerFrame == 0 )
+    {
+        return true;
+    }
+
+    std::size_t oldCapacity = 0;
+    for ( std::size_t i = 0; i < requestedFrameCount; ++i )
+    {
+        oldCapacity += ( frames[i].*member ).capacity();
+    }
+    const std::size_t requestedCapacity = requestedFrameCount * requestedCapacityPerFrame;
+    if ( requestedCapacity <= oldCapacity )
+    {
+        return true;
+    }
+    if ( requestedCapacity > static_cast<std::size_t>( REPLAY_PREDICTION_RESERVE_HARD_CAPACITY ) )
+    {
+        return false;
+    }
+
+    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
+    const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_PREDICTION_RESERVE_OWNER,
+                                                                     RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                                     frameNumber,
+                                                                     static_cast<int>( oldCapacity ),
+                                                                     static_cast<int>( requestedCapacity ),
+                                                                     static_cast<int>( sizeof( T ) ) };
+    const RuntimeAllocation::RuntimeReserveGrowthResult result =
+        RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+    if ( !result.granted )
+    {
+        return false;
+    }
+
+    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+        RuntimeAllocation::RuntimeAllocationPhase::Replay );
+    RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+    RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
+                                                              RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                              result );
+    for ( std::size_t i = 0; i < requestedFrameCount; ++i )
+    {
+        ( frames[i].*member ).reserve( requestedCapacityPerFrame );
+    }
+    return true;
+}
+
 // Concept: future-node building is an incremental cache.
 //
 // Prediction can hold thousands of future frames. Clearing and rebuilding the
@@ -1091,6 +1205,10 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
     }
 
     outBodies.clear();
+    if ( !ReserveReplayPredictionVector( outBodies, static_cast<std::size_t>( modelCount ), 0 ) )
+    {
+        return false;
+    }
     outBodies.resize( static_cast<std::size_t>( modelCount ) );
 
     const auto captureBody = [&]( int i )
@@ -1174,7 +1292,7 @@ bool ApplyReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelColle
 }
 
 
-void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
+bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
                                    SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
                                    SkullbonezCore::Threading::WorkerPool& workerPool,
                                    ReplayFrameIndex frameIndex )
@@ -1184,14 +1302,25 @@ void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
     const std::vector<PhysicsBodyRecord>& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
-        return;
+        return false;
     }
 
-    RunReplayPredictionFrame frame;
+    RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    const std::size_t frameSlot = static_cast<std::size_t>( frameIndex );
+    if ( frameSlot >= prediction.buildFrames.size() )
+    {
+        return false;
+    }
+
+    RunReplayPredictionFrame& frame = prediction.buildFrames[frameSlot];
     frame.frameIndex = frameIndex;
-    frame.simulationSeconds = replayRuntime.Prediction().sourceSimulationSeconds +
+    frame.simulationSeconds = prediction.sourceSimulationSeconds +
                               static_cast<double>( frameIndex ) * static_cast<double>( PHYSICS_FIXED_DT );
     frame.tornadoSystemElapsedSeconds = modelCollection.GetTornadoSystemElapsedSeconds();
+    if ( static_cast<std::size_t>( modelCount ) > frame.bodies.capacity() )
+    {
+        return false;
+    }
     frame.bodies.resize( static_cast<std::size_t>( modelCount ) );
 
     const auto captureBody = [&]( int i )
@@ -1226,6 +1355,12 @@ void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
             captureBody( i );
         }
     }
-    frame.debugContacts = modelCollection.GetPhysicsDebugContacts();
-    replayRuntime.Prediction().buildFrames.push_back( std::move( frame ) );
+    const std::vector<PhysicsDebugContact>& debugContacts = modelCollection.GetPhysicsDebugContacts();
+    if ( debugContacts.size() > frame.debugContacts.capacity() )
+    {
+        return false;
+    }
+    frame.debugContacts = debugContacts;
+    prediction.buildFrameCount = (std::max)( prediction.buildFrameCount, frameSlot + 1 );
+    return true;
 }

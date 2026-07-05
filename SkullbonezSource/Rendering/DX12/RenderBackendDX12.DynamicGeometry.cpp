@@ -74,6 +74,84 @@ static inline void ThrowIfFailed( HRESULT hr, const char* msg )
 // --- RenderBackendDX12 DynamicGeometry methods ---
 
 
+ID3D12PipelineState* RenderBackendDX12::EnsureGridLinePipeline( DXGI_FORMAT rtvFormat )
+{
+    // Runtime allocation policy: PSO cache misses are legal only during
+    // backend/resource warm-up. DrawLinesColored calls this too so an unexpected
+    // future RTV format fails visibly under the allocation guard.
+    if ( !m_gridLineShader )
+    {
+        m_gridLineShader = CreateShader( "shaders/grid_line" );
+    }
+
+    for ( size_t i = 0; i < m_gridLinePSOCount; ++i )
+    {
+        if ( m_gridLinePSOs[i].format == rtvFormat )
+        {
+            return m_gridLinePSOs[i].pso;
+        }
+    }
+
+    ShaderDX12* shader = static_cast<ShaderDX12*>( m_gridLineShader.get() );
+
+    // Input layout: POSITION (float3) + TEXCOORD0 (float3)
+    D3D12_INPUT_ELEMENT_DESC elements[2] = {};
+    elements[0].SemanticName = "POSITION";
+    elements[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+    elements[0].AlignedByteOffset = 0;
+    elements[1].SemanticName = "TEXCOORD";
+    elements[1].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+    elements[1].AlignedByteOffset = 12;
+
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
+    psoDesc.InputLayout.pInputElementDescs = elements;
+    psoDesc.InputLayout.NumElements = 2;
+    psoDesc.pRootSignature = m_rootSignature;
+    psoDesc.VS.pShaderBytecode = shader->GetVSBytecode();
+    psoDesc.VS.BytecodeLength = shader->GetVSBytecodeSize();
+    psoDesc.PS.pShaderBytecode = shader->GetPSBytecode();
+    psoDesc.PS.BytecodeLength = shader->GetPSBytecodeSize();
+    psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+    psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+    psoDesc.RasterizerState.DepthClipEnable = TRUE;
+    psoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+    psoDesc.DepthStencilState.DepthEnable = FALSE;
+    psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+    psoDesc.SampleMask = UINT_MAX;
+    psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+    psoDesc.NumRenderTargets = 1;
+    psoDesc.RTVFormats[0] = rtvFormat;
+    psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+    psoDesc.SampleDesc.Count = 1;
+
+    ID3D12PipelineState* gridLinePSO = nullptr;
+    HRESULT hr = m_device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &gridLinePSO ) );
+    if ( FAILED( hr ) )
+    {
+        throw std::runtime_error( "CreateGraphicsPipelineState failed for debug lines" );
+    }
+    NameDx12Object( gridLinePSO, L"Skullbonez DX12 Debug Line PSO" );
+    if ( m_gridLinePSOCount >= m_gridLinePSOs.size() )
+    {
+        fprintf( stderr,
+                 "FATAL: DX12 grid-line PSO cache exhausted (capacity=%zu format=%u)\n",
+                 m_gridLinePSOs.size(),
+                 static_cast<unsigned int>( rtvFormat ) );
+        fprintf( stdout,
+                 "FATAL: DX12 grid-line PSO cache exhausted (capacity=%zu format=%u)\n",
+                 m_gridLinePSOs.size(),
+                 static_cast<unsigned int>( rtvFormat ) );
+        fflush( stderr );
+        fflush( stdout );
+        throw std::runtime_error( "DX12 grid-line PSO cache exhausted" );
+    }
+    m_gridLinePSOs[m_gridLinePSOCount].format = rtvFormat;
+    m_gridLinePSOs[m_gridLinePSOCount].pso = gridLinePSO;
+    ++m_gridLinePSOCount;
+    return gridLinePSO;
+}
+
+
 uint32_t RenderBackendDX12::CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices )
 {
     DynamicVBDX12 dvb = {};
@@ -150,80 +228,7 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
 
     EnsureCommandListOpen();
 
-    // Lazy-init shader and LINE_LIST PSO. The PSO must match the active render
-    // target format; cinematic mode draws these lines into the HDR scene target
-    // instead of the ordinary swapchain backbuffer.
-    if ( !m_gridLineShader )
-    {
-        m_gridLineShader = CreateShader( "shaders/grid_line" );
-    }
-
-    ID3D12PipelineState* gridLinePSO = nullptr;
-    for ( size_t i = 0; i < m_gridLinePSOCount; ++i )
-    {
-        if ( m_gridLinePSOs[i].format == m_currentRTVFormat )
-        {
-            gridLinePSO = m_gridLinePSOs[i].pso;
-            break;
-        }
-    }
-    if ( !gridLinePSO )
-    {
-        ShaderDX12* shader = static_cast<ShaderDX12*>( m_gridLineShader.get() );
-
-        // Input layout: POSITION (float3) + TEXCOORD0 (float3)
-        D3D12_INPUT_ELEMENT_DESC elements[2] = {};
-        elements[0].SemanticName = "POSITION";
-        elements[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
-        elements[0].AlignedByteOffset = 0;
-        elements[1].SemanticName = "TEXCOORD";
-        elements[1].Format = DXGI_FORMAT_R32G32B32_FLOAT;
-        elements[1].AlignedByteOffset = 12;
-
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-        psoDesc.InputLayout.pInputElementDescs = elements;
-        psoDesc.InputLayout.NumElements = 2;
-        psoDesc.pRootSignature = m_rootSignature;
-        psoDesc.VS.pShaderBytecode = shader->GetVSBytecode();
-        psoDesc.VS.BytecodeLength = shader->GetVSBytecodeSize();
-        psoDesc.PS.pShaderBytecode = shader->GetPSBytecode();
-        psoDesc.PS.BytecodeLength = shader->GetPSBytecodeSize();
-        psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-        psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-        psoDesc.RasterizerState.DepthClipEnable = TRUE;
-        psoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-        psoDesc.DepthStencilState.DepthEnable = FALSE;
-        psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
-        psoDesc.SampleMask = UINT_MAX;
-        psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
-        psoDesc.NumRenderTargets = 1;
-        psoDesc.RTVFormats[0] = m_currentRTVFormat;
-        psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
-        psoDesc.SampleDesc.Count = 1;
-        HRESULT hr = m_device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &gridLinePSO ) );
-        if ( FAILED( hr ) )
-        {
-            throw std::runtime_error( "CreateGraphicsPipelineState failed for debug lines" );
-        }
-        NameDx12Object( gridLinePSO, L"Skullbonez DX12 Debug Line PSO" );
-        if ( m_gridLinePSOCount >= m_gridLinePSOs.size() )
-        {
-            fprintf( stderr,
-                     "FATAL: DX12 grid-line PSO cache exhausted (capacity=%zu format=%u)\n",
-                     m_gridLinePSOs.size(),
-                     static_cast<unsigned int>( m_currentRTVFormat ) );
-            fprintf( stdout,
-                     "FATAL: DX12 grid-line PSO cache exhausted (capacity=%zu format=%u)\n",
-                     m_gridLinePSOs.size(),
-                     static_cast<unsigned int>( m_currentRTVFormat ) );
-            fflush( stderr );
-            fflush( stdout );
-            throw std::runtime_error( "DX12 grid-line PSO cache exhausted" );
-        }
-        m_gridLinePSOs[m_gridLinePSOCount].format = m_currentRTVFormat;
-        m_gridLinePSOs[m_gridLinePSOCount].pso = gridLinePSO;
-        ++m_gridLinePSOCount;
-    }
+    ID3D12PipelineState* gridLinePSO = EnsureGridLinePipeline( m_currentRTVFormat );
 
     // Upload vertex data to the shared upload buffer. Debug-line vertex data is
     // read as vertex-buffer bytes, so 4-byte alignment is sufficient here; the

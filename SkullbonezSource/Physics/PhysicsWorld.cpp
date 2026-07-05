@@ -46,10 +46,14 @@ Related:
 #include "TerrainContactManifold.h"
 #include "../Core/Profiler.h"
 #include "../Core/WorkerPool.h"
+#include "../Runtime/Allocation/RuntimeAllocationTracker.h"
+#include "../Runtime/Allocation/RuntimeReserveAllocator.h"
 
 #include <algorithm>
+#include <cassert>
 #include <climits>
 #include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -65,6 +69,7 @@ using SkullbonezCore::Math::Vector::ZERO_VECTOR;
 namespace Math = SkullbonezCore::Math;
 namespace Physics = SkullbonezCore::Physics;
 namespace Vector = SkullbonezCore::Math::Vector;
+namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
@@ -97,6 +102,9 @@ constexpr float DEFAULT_BROADPHASE_CELL = 24.0f;
 constexpr uint8_t DEFAULT_PHYSICS_SLEEP_FRAMES = 30;
 constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = MAX_GAME_MODELS * 4;
 constexpr int PHYSICS_COLLISION_VISUAL_BODY_RESERVE = PHYSICS_CANDIDATE_PAIR_RESERVE * 2;
+constexpr const char* REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER = "replay_solver_snapshot";
+constexpr int REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES = 64 * 1024 * 1024;
+constexpr int REPLAY_SOLVER_SNAPSHOT_RESERVE_GROWTH_LIMIT = 8;
 constexpr uint32_t PHYSICS_TORNADO_WORKER_HASH = HashStr( "Frame/Physics/TornadoField/WorkerBodies" );
 constexpr uint32_t PHYSICS_APPLY_FORCES_WORKER_HASH = HashStr( "Frame/Physics/ApplyForces/WorkerBodies" );
 constexpr uint32_t PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH =
@@ -107,6 +115,62 @@ constexpr uint32_t PHYSICS_INTEGRATE_WORKER_HASH = HashStr( "Frame/Physics/Integ
 template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
 {
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
+}
+
+RuntimeAllocation::RuntimeReserveOwnerHandle ReplaySolverSnapshotReserveOwner()
+{
+    static const RuntimeAllocation::RuntimeReserveOwnerHandle owner =
+        RuntimeAllocation::RuntimeReserveAllocator::RegisterOwner(
+            { REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER,
+              RuntimeAllocation::RuntimeReserveSubsystem::Replay,
+              RuntimeAllocation::RuntimeReservePhase::Replay,
+              0,
+              REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
+              REPLAY_SOLVER_SNAPSHOT_RESERVE_GROWTH_LIMIT,
+              true,
+              "solver replay snapshots reserve vector payload bytes through replay-only growth approval" } );
+    return owner;
+}
+
+void ReportReplaySolverSnapshotReserveFailure( const char* label, std::size_t requestedCapacity )
+{
+    std::fprintf( stderr,
+                  "FATAL: Replay solver snapshot reserve denied for %s (requested_capacity=%zu).\n",
+                  label ? label : "unknown",
+                  requestedCapacity );
+    std::fprintf( stdout,
+                  "FATAL: Replay solver snapshot reserve denied for %s (requested_capacity=%zu).\n",
+                  label ? label : "unknown",
+                  requestedCapacity );
+    std::fflush( stderr );
+    std::fflush( stdout );
+    assert( false && "Replay solver snapshot reserve denied." );
+    std::abort();
+}
+
+template <typename T>
+uint64_t ReplaySolverSnapshotRequestedBytes( const std::vector<T>& values, std::size_t requestedCapacity )
+{
+    const std::size_t capacity = (std::max)( values.capacity(), requestedCapacity );
+    return static_cast<uint64_t>( capacity ) * static_cast<uint64_t>( sizeof( T ) );
+}
+
+template <typename T>
+void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requestedCapacity, const char* label )
+{
+    if ( requestedCapacity <= values.capacity() )
+    {
+        return;
+    }
+    if ( requestedCapacity > static_cast<std::size_t>( PHYSICS_COLLISION_VISUAL_BODY_RESERVE ) )
+    {
+        ReportReplaySolverSnapshotReserveFailure( label, requestedCapacity );
+    }
+    values.reserve( requestedCapacity );
+    if ( requestedCapacity > values.capacity() )
+    {
+        ReportReplaySolverSnapshotReserveFailure( label, requestedCapacity );
+    }
 }
 
 Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
@@ -288,6 +352,143 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
     outSnapshot.tornadoConfig = m_tornadoField.GetConfig();
     outSnapshot.tornadoSystemConfig = m_tornadoSystem.GetConfig();
     outSnapshot.tornadoSystemElapsedSeconds = m_tornadoSystem.GetElapsedSeconds();
+    // Runtime allocation policy: a solver snapshot owns many typed vectors.
+    // Batch their byte budget into one replay approval, then reserve individual
+    // vectors inside that owner scope so replay diagnostics stay readable.
+    uint64_t oldSnapshotBytes = 0;
+    uint64_t requestedSnapshotBytes = 0;
+    bool snapshotNeedsGrowth = false;
+    const auto includeSnapshotReserve = [&]( const auto& values, std::size_t requestedCapacity )
+    {
+        oldSnapshotBytes += VectorCapacityBytes( values );
+        requestedSnapshotBytes += ReplaySolverSnapshotRequestedBytes( values, requestedCapacity );
+        snapshotNeedsGrowth = snapshotNeedsGrowth || requestedCapacity > values.capacity();
+    };
+    includeSnapshotReserve( outSnapshot.timeRemaining, m_timeRemaining.size() );
+    includeSnapshotReserve( outSnapshot.sleepSupportedThisFrame, m_sleepSupportedThisFrame.size() );
+    includeSnapshotReserve( outSnapshot.sleepInhibitedThisFrame, m_sleepInhibitedThisFrame.size() );
+    includeSnapshotReserve( outSnapshot.sleepState, m_sleepState.size() );
+    includeSnapshotReserve( outSnapshot.sleepCounter, m_sleepCounter.size() );
+    includeSnapshotReserve( outSnapshot.underwaterSleepLocked, m_underwaterSleepLocked.size() );
+    includeSnapshotReserve( outSnapshot.tornadoCaptureSeconds, m_tornadoCaptureSeconds.size() );
+    includeSnapshotReserve( outSnapshot.tornadoEjectCooldownSeconds, m_tornadoEjectCooldownSeconds.size() );
+    includeSnapshotReserve( outSnapshot.collisionVisualContacts, m_collisionVisualContacts.size() );
+    includeSnapshotReserve( outSnapshot.sleepIslandVisualId, m_sleepIslandVisualId.size() );
+    includeSnapshotReserve( outSnapshot.sleepIslandAssignedVisualId, m_sleepIslandAssignedVisualId.size() );
+    includeSnapshotReserve( outSnapshot.sleepSupportEdges, m_sleepSupportEdges.size() );
+    includeSnapshotReserve( outSnapshot.sleepIslandParent, m_sleepIslandParent.size() );
+    includeSnapshotReserve( outSnapshot.sleepIslandRank, m_sleepIslandRank.size() );
+    includeSnapshotReserve( outSnapshot.sleepIslandHasAwake, m_sleepIslandHasAwake.size() );
+    includeSnapshotReserve( outSnapshot.sleepIslandHasSupportAnchor, m_sleepIslandHasSupportAnchor.size() );
+    includeSnapshotReserve( outSnapshot.sleepIslandEligible, m_sleepIslandEligible.size() );
+    includeSnapshotReserve( outSnapshot.sleepIslandCanSleep, m_sleepIslandCanSleep.size() );
+    includeSnapshotReserve( outSnapshot.persistentContactCounts, m_persistentContactCounts.size() );
+    includeSnapshotReserve( outSnapshot.persistentRestingContactCounts, m_persistentRestingContactCounts.size() );
+    includeSnapshotReserve( outSnapshot.debugContacts, m_physicsDebugContacts.size() );
+    includeSnapshotReserve( outSnapshot.pipelineTrace, m_physicsPipelineTrace.size() );
+    includeSnapshotReserve( outSnapshot.collisionCellKeys, m_collisionCellKeys.size() );
+    includeSnapshotReserve( outSnapshot.persistentContacts, m_persistentContacts.size() );
+    includeSnapshotReserve( outSnapshot.persistentContactCache, m_persistentContactCache.size() );
+
+    const auto reserveSnapshotVectors = [&]()
+    {
+        ReserveReplaySolverSnapshotVector( outSnapshot.timeRemaining, m_timeRemaining.size(), "timeRemaining" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.sleepSupportedThisFrame,
+                                           m_sleepSupportedThisFrame.size(),
+                                           "sleepSupportedThisFrame" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.sleepInhibitedThisFrame,
+                                           m_sleepInhibitedThisFrame.size(),
+                                           "sleepInhibitedThisFrame" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.sleepState, m_sleepState.size(), "sleepState" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.sleepCounter, m_sleepCounter.size(), "sleepCounter" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.underwaterSleepLocked,
+                                           m_underwaterSleepLocked.size(),
+                                           "underwaterSleepLocked" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.tornadoCaptureSeconds,
+                                           m_tornadoCaptureSeconds.size(),
+                                           "tornadoCaptureSeconds" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.tornadoEjectCooldownSeconds,
+                                           m_tornadoEjectCooldownSeconds.size(),
+                                           "tornadoEjectCooldownSeconds" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.collisionVisualContacts,
+                                           m_collisionVisualContacts.size(),
+                                           "collisionVisualContacts" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.sleepIslandVisualId,
+                                           m_sleepIslandVisualId.size(),
+                                           "sleepIslandVisualId" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.sleepIslandAssignedVisualId,
+                                           m_sleepIslandAssignedVisualId.size(),
+                                           "sleepIslandAssignedVisualId" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.sleepSupportEdges,
+                                           m_sleepSupportEdges.size(),
+                                           "sleepSupportEdges" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.sleepIslandParent,
+                                           m_sleepIslandParent.size(),
+                                           "sleepIslandParent" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.sleepIslandRank, m_sleepIslandRank.size(), "sleepIslandRank" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.sleepIslandHasAwake,
+                                           m_sleepIslandHasAwake.size(),
+                                           "sleepIslandHasAwake" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.sleepIslandHasSupportAnchor,
+                                           m_sleepIslandHasSupportAnchor.size(),
+                                           "sleepIslandHasSupportAnchor" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.sleepIslandEligible,
+                                           m_sleepIslandEligible.size(),
+                                           "sleepIslandEligible" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.sleepIslandCanSleep,
+                                           m_sleepIslandCanSleep.size(),
+                                           "sleepIslandCanSleep" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.persistentContactCounts,
+                                           m_persistentContactCounts.size(),
+                                           "persistentContactCounts" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.persistentRestingContactCounts,
+                                           m_persistentRestingContactCounts.size(),
+                                           "persistentRestingContactCounts" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.debugContacts, m_physicsDebugContacts.size(), "debugContacts" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.pipelineTrace, m_physicsPipelineTrace.size(), "pipelineTrace" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.collisionCellKeys,
+                                           m_collisionCellKeys.size(),
+                                           "collisionCellKeys" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.persistentContacts,
+                                           m_persistentContacts.size(),
+                                           "persistentContacts" );
+        ReserveReplaySolverSnapshotVector( outSnapshot.persistentContactCache,
+                                           m_persistentContactCache.size(),
+                                           "persistentContactCache" );
+    };
+    if ( snapshotNeedsGrowth )
+    {
+        if ( requestedSnapshotBytes > static_cast<uint64_t>( REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES ) )
+        {
+            ReportReplaySolverSnapshotReserveFailure( "solverSnapshotBytes",
+                                                      static_cast<std::size_t>( requestedSnapshotBytes ) );
+        }
+        const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplaySolverSnapshotReserveOwner();
+        const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER,
+                                                                         RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                                         modelCount,
+                                                                         static_cast<int>( oldSnapshotBytes ),
+                                                                         static_cast<int>( requestedSnapshotBytes ),
+                                                                         1 };
+        const RuntimeAllocation::RuntimeReserveGrowthResult result =
+            RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+        if ( !result.granted )
+        {
+            ReportReplaySolverSnapshotReserveFailure( "solverSnapshotBytes",
+                                                      static_cast<std::size_t>( requestedSnapshotBytes ) );
+        }
+        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+            RuntimeAllocation::RuntimeAllocationPhase::Replay );
+        RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+        RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
+                                                                  RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                                  result );
+        reserveSnapshotVectors();
+    }
+    else
+    {
+        reserveSnapshotVectors();
+    }
     outSnapshot.timeRemaining = m_timeRemaining;
     outSnapshot.sleepSupportedThisFrame = m_sleepSupportedThisFrame;
     outSnapshot.sleepInhibitedThisFrame = m_sleepInhibitedThisFrame;
@@ -312,7 +513,6 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
     outSnapshot.pipelineTrace = m_physicsPipelineTrace;
     outSnapshot.collisionCellKeys = m_collisionCellKeys;
 
-    outSnapshot.persistentContacts.reserve( m_persistentContacts.size() );
     for ( const PersistentContact& contact : m_persistentContacts )
     {
         ReplaySolverPersistentContactSample sample;
@@ -346,7 +546,6 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
         outSnapshot.persistentContacts.push_back( sample );
     }
 
-    outSnapshot.persistentContactCache.reserve( m_persistentContactCache.size() );
     for ( const PersistentContactCacheEntry& cache : m_persistentContactCache )
     {
         ReplaySolverContactCacheSample sample;

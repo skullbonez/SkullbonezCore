@@ -1747,6 +1747,8 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // Root signature
     CreateRootSignature();
     InitGenMipsPipeline();
+    EnsureGridLinePipeline( DXGI_FORMAT_R8G8B8A8_UNORM );
+    EnsureGridLinePipeline( DXGI_FORMAT_R16G16B16A16_FLOAT );
 
     // GPU timestamp query heap — used for GPU-side performance profiling. The GPU writes
     // timestamps at specific points in the command stream, which we later read back to

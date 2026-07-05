@@ -66,6 +66,9 @@ namespace Basics
 struct ReplayV2SaveResult;
 
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_MAX_FRAMES = 24;
+inline constexpr std::size_t REPLAY_CAUSE_TREE_CONTACT_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS ) * 4u;
+inline constexpr std::size_t REPLAY_CAUSE_TREE_ROW_CAPACITY =
+    1u + static_cast<std::size_t>( MAX_GAME_MODELS ) + REPLAY_CAUSE_TREE_CONTACT_CAPACITY * 3u;
 
 enum class RunReplayTrack
 {
@@ -201,6 +204,9 @@ struct RunReplayCauseTreeRow
 
 struct RunReplayCauseTreeState
 {
+    // Runtime allocation policy: replay cause rows are rebuilt during input and
+    // render, so the vector reserves its full replay/physics budget at startup
+    // and builders fail closed instead of growing on a frame.
     std::vector<RunReplayCauseTreeRow> rows;
     int hoveredRow = -1;
     int selectedRow = -1;
@@ -300,7 +306,11 @@ struct RunReplayPredictionState
     std::vector<RunReplayPredictionBodyBackup> predictionBodies;
     std::vector<RunReplayPredictionBodyBackup> liveRestoreBodies;
     std::vector<RunReplayPredictionFrame> frames;
+    // Runtime allocation policy: prediction buildFrames can be pre-sized for a
+    // whole horizon while only buildFrameCount rows are populated. Render reads
+    // frames, not the pre-sized build vector, until completion swaps them.
     std::vector<RunReplayPredictionFrame> buildFrames;
+    std::size_t buildFrameCount = 0;
     // Renderable future-contact topology. Build work publishes coherent prefixes
     // here so the draw path never reads the scratch vector while it is mid-frame.
     std::vector<RunReplayPathTraceNode> futureNodes;
