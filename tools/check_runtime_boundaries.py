@@ -15,11 +15,11 @@
 #   and required scene contacts have store-authority fences, runtime handle
 #   smoke has a handle-authority fence, contact-audio simple mode has a
 #   body-store motion fence, and fixed-tree, replay-restore wake, replay
-#   velocity-edit, launcher ray-hit, or editor wake/sleep commands have
-#   store-handle fences. The deleted collection step wrapper has its own fence,
-#   replay render-pose overrides have their own value-override fence, and
-#   per-body model writeback has its own fence, so count allowances do not
-#   silently approve a new compatibility location.
+#   velocity-edit, launcher ray-hit, mouse-pickup overlay, or editor wake/sleep
+#   commands have store-handle fences. The deleted collection step wrapper has
+#   its own fence, replay render-pose overrides have their own value-override
+#   fence, and per-body model writeback has its own fence, so count allowances
+#   do not silently approve a new compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -54,6 +54,8 @@
 #   Body-store motion fence: Static rule that keeps post-step motion
 #     classification on PhysicsBodyStore records instead of mirrored GameModel
 #     body fields.
+#   Mouse-pickup overlay fence: Static rule that keeps drag-line and outline
+#     projection on the picked PhysicsBodyStore/ColliderStore rows.
 #   Replay velocity body-read fence: Static rule that keeps velocity-edit hit
 #     testing and gizmo drawing on PhysicsBodyStore/ColliderStore rows.
 #   Handle-authority fence: Static rule that keeps a validation smoke on handles
@@ -149,6 +151,7 @@ SCENE_AUTHORED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneAuthored
 SCENE_GENERATED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.cpp")
 EDITOR_OBJECT_PLACEMENT_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.inl")
 EDITOR_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp")
+EDITOR_OVERLAY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl")
 LAUNCHER_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/LauncherTools.cpp")
 MOUSE_PICKUP_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunMousePickupTools.inl")
 RUNTIME_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp")
@@ -612,6 +615,14 @@ MOUSE_PICKUP_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
 )
 MOUSE_PICKUP_GAME_MODEL_BODY_READ_PATTERN = re.compile(
     r"\b[A-Za-z_]\w*\s*(?:->|\.)\s*(?:GetPosition|GetVelocity|GetAngularVelocity|IsFixed)\s*\("
+)
+MOUSE_PICKUP_OVERLAY_FUNCTION_PATTERN = re.compile(
+    r"\bvoid\s+BuildEditorToolOverlayTrace\s*\("
+)
+MOUSE_PICKUP_OVERLAY_MODEL_BODY_PATTERN = re.compile(
+    r"\b(?:grabbed|model|context\s*\.\s*models\s*\.\s*Models\s*\(\s*\)\s*\[[^\]]+\])"
+    r"\s*(?:\.|->)\s*(?:GetPosition|GetOrientation|GetCollisionShape|GetVelocity|GetAngularVelocity)\s*\("
+    r"|\bcontext\s*\.\s*tracer\s*\.\s*AddSelectionOutline\s*\(\s*(?:grabbed|model)\s*\)"
 )
 LAUNCHER_MODEL_INDEX_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\bcollection\s*\.\s*"
@@ -4504,6 +4515,33 @@ def check_mouse_pickup_model_index_physics_command_guardrails_text(path: Path, t
 def check_mouse_pickup_model_index_physics_command_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / MOUSE_PICKUP_TOOLS_SOURCE
     return check_mouse_pickup_model_index_physics_command_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_mouse_pickup_overlay_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    bounds = _function_body_bounds(stripped, MOUSE_PICKUP_OVERLAY_FUNCTION_PATTERN)
+    if not bounds:
+        return errors
+    open_brace, close_brace = bounds
+    for match in MOUSE_PICKUP_OVERLAY_MODEL_BODY_PATTERN.finditer(stripped, open_brace, close_brace):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "mouse pickup overlay GameModel body read is blocked",
+                (
+                    "Mouse-pickup overlay geometry should resolve the picked PhysicsBodyHandle and collider row "
+                    "for live pose/shape data; GameModel mirrors should not be needed for the drag outline or line."
+                ),
+            )
+        )
+    return errors
+
+
+def check_mouse_pickup_overlay_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / EDITOR_OVERLAY_TOOLS_SOURCE
+    return check_mouse_pickup_overlay_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_launcher_model_index_physics_command_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -13266,6 +13304,55 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only mouse pickup GameModel body read synthetic text was rejected")
 
+    old_mouse_pickup_overlay_model_body_read = """
+    void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
+    {
+        const GameModel& grabbed = context.models.Models()[static_cast<size_t>( context.mousePickup.modelIndex )];
+        const Vector3 grabPoint = grabbed.GetPosition() + context.mousePickup.grabOffset;
+        context.tracer.AddSelectionOutline( grabbed );
+    }
+    """
+    if not any(
+        error.message == "mouse pickup overlay GameModel body read is blocked"
+        for error in check_mouse_pickup_overlay_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
+            old_mouse_pickup_overlay_model_body_read,
+        )
+    ):
+        failures.append("old mouse pickup overlay GameModel body read synthetic surface was not rejected")
+
+    allowed_mouse_pickup_overlay_store_read = """
+    void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
+    {
+        const PhysicsBodyRecord* body = context.bodyStore.RecordForHandle( context.mousePickup.body );
+        const ColliderRecord* collider = context.colliderStore.RecordForHandle( colliderHandle );
+        if ( body && collider )
+        {
+            const Vector3 grabPoint = body->position + context.mousePickup.grabOffset;
+            context.tracer.AddSelectionOutline( body->position, body->orientation, collider->shape );
+            context.tracer.AddReplayPathSegment( grabPoint, context.mousePickup.targetPoint, 0.1f, 0.95f, 1.0f );
+        }
+    }
+    """
+    if check_mouse_pickup_overlay_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
+        allowed_mouse_pickup_overlay_store_read,
+    ):
+        failures.append("store-backed mouse pickup overlay synthetic surface was rejected")
+
+    commented_mouse_pickup_overlay_model_body_read = """
+    void DocumentOldMousePickupOverlay()
+    {
+        // The overlay used grabbed.GetPosition() and AddSelectionOutline(grabbed).
+        // It now reads body->position and collider->shape.
+    }
+    """
+    if check_mouse_pickup_overlay_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
+        commented_mouse_pickup_overlay_model_body_read,
+    ):
+        failures.append("comment-only mouse pickup overlay model read synthetic text was rejected")
+
     old_launcher_model_index_command = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
     {
@@ -14654,6 +14741,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_scene_setup_model_index_physics_command_guardrails(repo))
     errors.extend(check_editor_model_index_physics_command_guardrails(repo))
     errors.extend(check_mouse_pickup_model_index_physics_command_guardrails(repo))
+    errors.extend(check_mouse_pickup_overlay_store_authority_guardrails(repo))
     errors.extend(check_launcher_model_index_physics_command_guardrails(repo))
     errors.extend(check_replay_velocity_model_state_physics_command_guardrails(repo))
     errors.extend(check_run_frame_replay_editor_transform_wake_guardrails(repo))

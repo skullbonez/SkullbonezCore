@@ -151,16 +151,34 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
     if ( context.mousePickup.active && context.mousePickup.modelIndex >= 0 &&
          context.mousePickup.modelIndex < context.models.GetModelCount() )
     {
-        const GameModel& grabbed = context.models.Models()[static_cast<size_t>( context.mousePickup.modelIndex )];
-        const Vector3 grabPoint = grabbed.GetPosition() + context.mousePickup.grabOffset;
-        context.tracer.AddSelectionOutline( grabbed );
-        context.tracer.AddReplayPathSegment( grabPoint, context.mousePickup.targetPoint, 0.1f, 0.95f, 1.0f );
-        context.tracer.AddReplayContactMarker( context.mousePickup.targetPoint,
-                                               context.mousePickup.planeNormal,
-                                               0.1f,
-                                               0.95f,
-                                               1.0f );
-        context.tracer.AddReplayImpulseVector( grabPoint, context.mousePickup.lastImpulse, 0.1f, 0.95f, 1.0f );
+        const PhysicsBodyRecord* body = context.bodyStore.RecordForHandle( context.mousePickup.body );
+        const PhysicsColliderHandle colliderHandle =
+            context.colliderStore.HandleForModelIndex( context.mousePickup.modelIndex );
+        const ColliderRecord* collider = context.colliderStore.RecordForHandle( colliderHandle );
+        if ( !body || !collider ||
+             context.bodyStore.ModelIndexForHandle( context.mousePickup.body ) != context.mousePickup.modelIndex ||
+             collider->body != context.mousePickup.body )
+        {
+            // Stale drag state can happen after editor deletion or scene reload.
+            // Leave cancellation to the input/physics owner and just omit the
+            // presentation trace for this frame.
+        }
+        else
+        {
+            // Why: Mouse pickup stores a body handle when the drag begins.
+            // Overlay drawing should follow that live store row instead of
+            // requiring the post-step GameModel compatibility mirror to be
+            // current.
+            const Vector3 grabPoint = body->position + context.mousePickup.grabOffset;
+            context.tracer.AddSelectionOutline( body->position, body->orientation, collider->shape );
+            context.tracer.AddReplayPathSegment( grabPoint, context.mousePickup.targetPoint, 0.1f, 0.95f, 1.0f );
+            context.tracer.AddReplayContactMarker( context.mousePickup.targetPoint,
+                                                   context.mousePickup.planeNormal,
+                                                   0.1f,
+                                                   0.95f,
+                                                   1.0f );
+            context.tracer.AddReplayImpulseVector( grabPoint, context.mousePickup.lastImpulse, 0.1f, 0.95f, 1.0f );
+        }
     }
 
     if ( input.attachedCameraTargetIndex >= 0 && input.attachedCameraTargetIndex < context.models.GetModelCount() )

@@ -18,6 +18,8 @@ Glossary:
     inspect, raycast, and mouse-pickup feedback.
   UI (User Interface): Runtime panels that can claim mouse input before editor
     tools see it.
+  Body store: Physics-owned body rows used for tool overlay pose authority.
+  Collider store: Physics-owned shape records used for shape-accurate overlays.
 
 Invariants:
   - Helpers borrow all mutable state through context structs; they do not cache
@@ -48,6 +50,11 @@ namespace Geometry
 {
 class Terrain;
 }
+namespace Physics
+{
+class ColliderStore;
+class PhysicsBodyStore;
+} // namespace Physics
 namespace Basics
 {
 class RuntimeInteractionController;
@@ -89,6 +96,8 @@ struct EditorToolOverlayTraceContext
     const RunRayCastTestState& rayCastTest;
     const RunMousePickupState& mousePickup;
     const GameObjects::GameModelCollection& models;
+    const Physics::PhysicsBodyStore& bodyStore;
+    const Physics::ColliderStore& colliderStore;
     const Assets::AssetSystem& assets;
     RunEditorTracer& tracer;
 };

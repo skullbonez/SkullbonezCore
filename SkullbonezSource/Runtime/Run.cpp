@@ -155,6 +155,8 @@ RuntimeRenderHostCallbacks Run::BuildRuntimeRenderHostCallbacks()
                                        run->m_runtimeTools.RayCastTest(),
                                        run->m_runtimeTools.MousePickup(),
                                        run->m_cGameModelCollection,
+                                       run->m_cGameModelCollection.GetPhysicsEngine().BodyStore(),
+                                       run->m_cGameModelCollection.GetPhysicsEngine().Colliders(),
                                        run->m_systems.assets,
                                        tracer },
                                      { run->m_debug.physicsDebugContactLinger,
