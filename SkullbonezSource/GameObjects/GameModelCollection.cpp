@@ -50,6 +50,7 @@ Related:
 #include "../Physics/Debug/CollisionVisualizer.h"
 #include "../Physics/Debug/PhysicsDebugVisualizer.h"
 #include "../Physics/ColliderStore.h"
+#include "../Physics/PhysicsApi.h"
 #include "../Physics/PhysicsBodyStore.h"
 #include "../Rendering/GameModelRenderer.h"
 #include "../Rendering/RenderInstanceStore.h"
@@ -68,12 +69,12 @@ using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
-using SkullbonezCore::Physics::ColliderRecord;
-using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::MakeBodyRecordFromAuthoredModel;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
+using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Rendering::ShadowFrameData;
 
@@ -127,38 +128,25 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
 }
 
 
-ColliderShapeKind ColliderShapeKindFromModel( const GameModel& model )
-{
-    if ( model.IsBox() )
-    {
-        return ColliderShapeKind::Box;
-    }
-    if ( model.IsConvexHull() )
-    {
-        return ColliderShapeKind::ConvexHull;
-    }
-    return ColliderShapeKind::Sphere;
-}
-
-
 // Why: this is the remaining cold collider-authoring import while scene and
-// editor code still mutate GameModel fields. It returns a store row immediately
-// so physics keeps one dense collider copy instead of a persistent sidecar.
-ColliderRecord BuildColliderRecordFromModel( GameModel& model, const PhysicsBodyRecord& body )
+// editor code still mutate GameModel fields. It returns a descriptor, not a
+// live ColliderStore row, so physics remains the owner of row layout and handle
+// identity. Deletion: scene/entity metadata writes PhysicsColliderCreateDesc
+// directly. Checker: runtime boundaries reject GameModelCollection building
+// ColliderRecord values from GameModel.
+PhysicsColliderCreateDesc CaptureAuthoredColliderDesc( GameModel& model, const PhysicsBodyRecord& body )
 {
-    ColliderRecord record;
-    record.body = body.handle;
-    record.sceneObjectId = body.sceneObjectId;
-    record.replayBodyId = body.replayBodyId;
-    record.shape = model.GetCollisionShape();
-    record.shapeKind = ColliderShapeKindFromModel( model );
-    record.boundingRadius = model.GetBoundingRadius();
-    record.restitution = model.GetCoefficientRestitution();
-    record.friction = model.GetFrictionCoefficient();
-    record.contactMaterialId = model.GetContactMaterialId();
-    record.projectedSurfaceArea = model.GetProjectedSurfaceArea();
-    record.dragCoefficient = model.GetDragCoefficient();
-    return record;
+    PhysicsColliderCreateDesc desc;
+    desc.body = body.handle;
+    desc.sceneObjectId = body.sceneObjectId;
+    desc.shape = model.GetCollisionShape();
+    desc.boundingRadius = model.GetBoundingRadius();
+    desc.restitution = model.GetCoefficientRestitution();
+    desc.friction = model.GetFrictionCoefficient();
+    desc.contactMaterialId = model.GetContactMaterialId();
+    desc.projectedSurfaceArea = model.GetProjectedSurfaceArea();
+    desc.dragCoefficient = model.GetDragCoefficient();
+    return desc;
 }
 
 
@@ -418,9 +406,10 @@ bool GameModelCollection::UpdateColliderStoreFromModel( int modelIndex )
     // model on steady frames. Deletion: scene/entity creation writes collider
     // descriptors directly. Checker: runtime boundaries block ColliderStore
     // from accepting GameModel and block the deleted authoring sidecar names.
+    const PhysicsColliderHandle collider = m_physicsEngine.Colliders().HandleForModelIndex( modelIndex );
     return m_physicsEngine.UpdateAuthoredCollider(
-        modelIndex,
-        BuildColliderRecordFromModel( m_gameModels[static_cast<std::size_t>( modelIndex )], *bodyRecord ) );
+        collider,
+        CaptureAuthoredColliderDesc( m_gameModels[static_cast<std::size_t>( modelIndex )], *bodyRecord ) );
 }
 
 
@@ -517,7 +506,7 @@ PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel, uint32
         throw std::runtime_error( "Failed to resolve newly authored physics body record." );
     }
     const auto colliderHandle =
-        m_physicsEngine.RegisterAuthoredCollider( BuildColliderRecordFromModel( m_gameModels.back(), *bodyRecord ) );
+        m_physicsEngine.RegisterAuthoredCollider( CaptureAuthoredColliderDesc( m_gameModels.back(), *bodyRecord ) );
     assert( colliderHandle.IsValid() );
     if ( !colliderHandle.IsValid() )
     {
@@ -1223,13 +1212,7 @@ void GameModelCollection::RefreshPhysicsColliders( SkullbonezCore::Physics::Coll
 
     for ( int i = 0; i < modelCount; ++i )
     {
-        const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForModelIndex( i );
-        assert( bodyRecord != nullptr );
-        const bool updated =
-            bodyRecord &&
-            colliderStore.UpdateRecordForModelIndex(
-                i,
-                BuildColliderRecordFromModel( m_gameModels[static_cast<std::size_t>( i )], *bodyRecord ) );
+        const bool updated = UpdateColliderStoreFromModel( i );
         assert( updated );
         (void)updated;
     }

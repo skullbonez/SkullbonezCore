@@ -4,13 +4,40 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_physics.bat` passed on 2026-07-05 after making
-same-count collider refresh store-owned. Runtime boundaries reported 0 errors,
+`tools\validate_physics.bat` passed on 2026-07-05 after moving authored collider
+registration/update through `PhysicsColliderCreateDesc` descriptors and
+handle-keyed collider updates. Runtime boundaries reported 0 errors,
 standalone/runtime physics smoke passed with `collider_refresh=pass`, and
 `physics_regression_solver.csv` was a byte-exact 20,001-line match.
 
 ## Completed Slices
 
+- [x] 2026-07-05: Moved the remaining cold authored-collider import from
+  collection-built `ColliderRecord` rows to `PhysicsColliderCreateDesc`.
+  `GameModelCollection` now captures only descriptor values at append, edit,
+  config, and topology-repair boundaries; `PhysicsScene` owns
+  descriptor-to-`ColliderRecord` conversion and shape-kind derivation; and
+  `PhysicsEngine::UpdateAuthoredCollider()` updates by `PhysicsColliderHandle`
+  instead of exposing a model slot through the physics facade. `ColliderStore`
+  exposes `UpdateRecordForHandle()` and keeps the existing model-index updater
+  as a local compatibility delegate. Owner: `PhysicsScene` descriptor import
+  plus `ColliderStore` dense row replacement. Reason: collection code should
+  not construct live collider rows or know row layout; authored updates should
+  replace a store row through stable handle identity without adding sidecar
+  copies. Deletion condition: scene/entity creation writes
+  `PhysicsColliderCreateDesc` directly and `CaptureAuthoredColliderDesc()`
+  disappears from `GameModelCollection`. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects `BuildColliderRecordFromModel`
+  and collection-side live `ColliderRecord` construction, and its public
+  descriptor model-index rule now ignores forward declarations so only real
+  descriptor bodies are scanned. Validation: focused Profile build passed with
+  0 warnings/errors; `git diff --check`, `python -m py_compile
+  tools/check_runtime_boundaries.py`, and `python
+  tools/check_runtime_boundaries.py --repo .` passed; touched-source comment
+  audit inspected all touched source/tool files; `tools\validate_fast.bat`
+  passed after targeted `PhysicsScene.cpp` formatting; `tools\validate_physics.bat`
+  passed standalone/runtime handle smoke with `collider_refresh=pass` and
+  byte-exact `physics_regression_solver.csv`.
 - [x] 2026-07-05: Made same-count collider refresh store-owned and deleted the
   proposed collection-side collider authoring cache. `ColliderStore` now keeps
   the dense live `ColliderRecord` rows, exposes `RefreshBodyBindings()` for

@@ -247,18 +247,13 @@ PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord&
 }
 
 
-bool ColliderStore::UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record )
+bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record )
 {
-    if ( modelIndex < 0 || modelIndex >= Count() || modelIndex >= static_cast<int>( m_modelColliderHandles.size() ) )
-    {
-        return false;
-    }
-
-    const PhysicsColliderHandle handle = m_modelColliderHandles[static_cast<std::size_t>( modelIndex )];
     if ( !Contains( handle ) )
     {
         return false;
     }
+    const int recordIndex = m_handleModelIndices[static_cast<std::size_t>( handle.index )];
 
     ColliderRecord updated = record;
     // Invariant: authoring edits replace collider contents, not identity. The
@@ -272,10 +267,21 @@ bool ColliderStore::UpdateRecordForModelIndex( int modelIndex, const ColliderRec
                                     : PhysicsSceneObjectId{ handle.index + 1u };
     }
 
-    m_colliders[static_cast<std::size_t>( modelIndex )] = updated;
-    m_handleModelIndices[static_cast<std::size_t>( handle.index )] = modelIndex;
+    m_colliders[static_cast<std::size_t>( recordIndex )] = updated;
+    m_handleModelIndices[static_cast<std::size_t>( handle.index )] = recordIndex;
     m_handleReplayBodyIds[static_cast<std::size_t>( handle.index )] = updated.replayBodyId;
     return true;
+}
+
+
+bool ColliderStore::UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record )
+{
+    if ( modelIndex < 0 || modelIndex >= Count() || modelIndex >= static_cast<int>( m_modelColliderHandles.size() ) )
+    {
+        return false;
+    }
+
+    return UpdateRecordForHandle( m_modelColliderHandles[static_cast<std::size_t>( modelIndex )], record );
 }
 
 

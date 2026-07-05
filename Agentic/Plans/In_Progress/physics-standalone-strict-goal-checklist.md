@@ -74,10 +74,12 @@ Import-Csv Agentic\Plans\In_Progress\physics-standalone-agent-workqueue.csv |
   Evidence: `SkullbonezSource/Physics/PhysicsBodyStore.cpp:192`,
   `SkullbonezSource/Physics/PhysicsBodyStore.cpp:266`.
 - `ColliderStore` owns dense live collider rows and only refreshes body
-  identity from `PhysicsBodyStore`; `GameModelCollection` still has the cold
-  compatibility edge that builds a collider row from `GameModel` on append,
-  edit, config, or topology drift until scene/entity collider descriptors exist.
-  Evidence: `PHY-1061`, `SkullbonezSource/Physics/ColliderStore.cpp`,
+  identity from `PhysicsBodyStore`; `GameModelCollection` still has a cold
+  compatibility edge that captures `PhysicsColliderCreateDesc` from `GameModel`
+  on append, edit, config, or topology drift until scene/entity metadata writes
+  collider descriptors directly. Evidence: `PHY-1062`,
+  `SkullbonezSource/Physics/PhysicsScene.cpp`,
+  `SkullbonezSource/Physics/ColliderStore.cpp`,
   `SkullbonezSource/GameObjects/GameModelCollection.cpp`.
 - `PhysicsStandaloneWorld::Contacts()` and `PhysicsStandaloneWorld::Islands()`
   return real public rows for the current standalone smoke coverage, but
@@ -101,7 +103,7 @@ Import-Csv Agentic\Plans\In_Progress\physics-standalone-agent-workqueue.csv |
   `PhysicsModelAccess`, `GameModelCollection`, or `GameModel`.
 - [ ] `PhysicsBodyStore` owns pose, velocity, mass, inertia, sleep, force, and
   impulse state for the standalone path.
-- [ ] `ColliderStore` owns shapes, material response, broadphase radius,
+- [x] `ColliderStore` owns shapes, material response, broadphase radius,
   collision metadata, and body/collider mapping for the standalone path.
 - [ ] Public contact and island views return real standalone data for a
   collision/sleep sample, not only empty views.
@@ -416,6 +418,9 @@ Target: `ColliderStore` owns the standalone collision shape and metadata surface
   preserves dense shape/material rows during body-binding refresh, editor/config
   changes replace one row in place, and topology drift is the only path that
   rebuilds collider fields from `GameModel`.
+- [x] Route compatibility authored collider registration/update through
+  `PhysicsColliderCreateDesc` so `PhysicsScene`, not `GameModelCollection`,
+  owns descriptor-to-`ColliderRecord` conversion and shape-kind derivation.
 - [x] Make collider deletion and body deletion tombstone collider handles in one
   deterministic path.
 - [x] Move broadphase candidate generation to `ColliderStore` plus body-store
@@ -444,8 +449,9 @@ restitution, and friction evidence. Compatibility appends now create one body
 row and one paired collider row at `GameModelCollection::AddGameModel()` instead
 of waiting for a later collider topology refresh. Same-count collider refresh no
 longer scans `GameModel` or a duplicate authoring sidecar: `ColliderStore`
-rebases body identity only, while append/edit/config/topology boundaries replace
-store rows explicitly. Remaining shape pairs and the final move of `GameModel`
+rebases body identity only, while append/edit/config/topology boundaries capture
+a `PhysicsColliderCreateDesc` and let `PhysicsScene` derive the live
+`ColliderRecord`. Remaining shape pairs and the final move of `GameModel`
 shape/material authoring into scene/entity collider descriptors are future
 contact/authoring coverage, not blockers for the Phase 3 smoke row. Latest
 collider-store authority evidence: runtime-boundary checker passed with 0

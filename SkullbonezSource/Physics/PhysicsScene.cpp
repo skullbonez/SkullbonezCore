@@ -43,17 +43,60 @@ Related:
 
 #include <cassert>
 #include <cstddef>
+#include <variant>
 
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
+using SkullbonezCore::Math::CollisionDetection::BoundingBox;
+using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsModelAccess;
 using SkullbonezCore::Physics::PhysicsScene;
+
+
+namespace
+{
+ColliderShapeKind ShapeKindForColliderDesc( const SkullbonezCore::Math::CollisionDetection::CollisionShape& shape )
+{
+    if ( std::holds_alternative<BoundingBox>( shape ) )
+    {
+        return ColliderShapeKind::Box;
+    }
+    if ( std::holds_alternative<ConvexHullShape>( shape ) )
+    {
+        return ColliderShapeKind::ConvexHull;
+    }
+    return ColliderShapeKind::Sphere;
+}
+
+
+// Why: descriptor import is a cold authoring boundary. The dense row shape and
+// cheap collider discriminator are derived inside PhysicsScene so GameModel
+// collection code cannot become a second ColliderStore layout owner.
+ColliderRecord MakeColliderRecordFromDesc( const PhysicsColliderCreateDesc& desc, const PhysicsBodyRecord& body )
+{
+    ColliderRecord record;
+    record.body = body.handle;
+    record.sceneObjectId = desc.sceneObjectId.IsValid() ? desc.sceneObjectId : body.sceneObjectId;
+    record.replayBodyId = body.replayBodyId;
+    record.shape = desc.shape;
+    record.shapeKind = ShapeKindForColliderDesc( desc.shape );
+    record.boundingRadius = desc.boundingRadius;
+    record.restitution = desc.restitution;
+    record.friction = desc.friction;
+    record.contactMaterialId = desc.contactMaterialId;
+    record.projectedSurfaceArea = desc.projectedSurfaceArea;
+    record.dragCoefficient = desc.dragCoefficient;
+    return record;
+}
+} // namespace
 
 
 PhysicsScene::PhysicsScene()
@@ -105,15 +148,19 @@ PhysicsBodyHandle PhysicsScene::RegisterAuthoredBody( const PhysicsBodyRecord& r
 }
 
 
-PhysicsColliderHandle PhysicsScene::RegisterAuthoredCollider( const ColliderRecord& record )
+PhysicsColliderHandle PhysicsScene::RegisterAuthoredCollider( const PhysicsColliderCreateDesc& desc )
 {
-    return m_colliderStore.CreateColliderRecord( record );
+    const PhysicsBodyRecord* body = m_bodyStore.RecordForHandle( desc.body );
+    assert( body != nullptr );
+    return body ? m_colliderStore.CreateColliderRecord( MakeColliderRecordFromDesc( desc, *body ) )
+                : PhysicsColliderHandle{};
 }
 
 
-bool PhysicsScene::UpdateAuthoredCollider( int modelIndex, const ColliderRecord& record )
+bool PhysicsScene::UpdateAuthoredCollider( PhysicsColliderHandle collider, const PhysicsColliderCreateDesc& desc )
 {
-    return m_colliderStore.UpdateRecordForModelIndex( modelIndex, record );
+    const PhysicsBodyRecord* body = m_bodyStore.RecordForHandle( desc.body );
+    return body && m_colliderStore.UpdateRecordForHandle( collider, MakeColliderRecordFromDesc( desc, *body ) );
 }
 
 

@@ -580,6 +580,11 @@ GAME_MODEL_COLLECTION_REFRESH_COLLIDERS_MODELS_PATTERN = re.compile(
 COLLIDER_AUTHORING_SIDECAR_PATTERN = re.compile(
     r"\b(?:ColliderAuthoringRecord|m_colliderAuthoringRows|MakeColliderRecordFromAuthoring)\b"
 )
+COLLECTION_COLLIDER_RECORD_IMPORT_PATTERN = re.compile(
+    r"\bBuildColliderRecordFromModel\b"
+    r"|\bRegisterAuthoredCollider\s*\(\s*BuildColliderRecordFromModel\s*\("
+    r"|\bUpdateAuthoredCollider\s*\([^;{}]*BuildColliderRecordFromModel\s*\("
+)
 GAME_MODEL_REPLAY_ID_MIRROR_PATTERN = re.compile(
     r"\b(?:GetReplayBodyId|SetReplayBodyId)\s*\(|\bm_replayBodyId\b"
 )
@@ -1143,7 +1148,7 @@ PUBLIC_PHYSICS_FACADE_GAME_OBJECT_PATTERN = re.compile(
 )
 # Why: a descriptor field named around model indices quietly reintroduces the
 # old vector-order authority even when the surrounding type avoids GameModel.
-PUBLIC_PHYSICS_DESC_PATTERN = re.compile(r"\bstruct\s+[A-Za-z_]\w*Desc\b(?P<body>.*?)\n\s*\};", re.S)
+PUBLIC_PHYSICS_DESC_PATTERN = re.compile(r"\bstruct\s+[A-Za-z_]\w*Desc\b[^{;]*\{(?P<body>.*?)\n\s*\};", re.S)
 PUBLIC_PHYSICS_DESC_MODEL_INDEX_FIELD_PATTERN = re.compile(
     r"\b(?:int|uint32_t|uint64_t|std\s*::\s*size_t|size_t)\s+\w*modelIndex\w*\b",
     re.I,
@@ -4293,6 +4298,18 @@ def check_game_model_collection_collider_authoring_guardrails_text(path: Path, t
                 (
                     "Do not keep a second scene-order collider authoring array; update ColliderStore rows "
                     "at append/edit/config/topology-repair boundaries instead."
+                ),
+            )
+        )
+    for match in COLLECTION_COLLIDER_RECORD_IMPORT_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "collection collider record construction is blocked",
+                (
+                    "GameModelCollection may capture PhysicsColliderCreateDesc at the remaining authoring edge, "
+                    "but live ColliderRecord construction belongs below PhysicsScene/ColliderStore."
                 ),
             )
         )
@@ -13899,6 +13916,23 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("collection collider authoring sidecar synthetic surface was not rejected")
 
+    old_collection_collider_record_import = """
+    bool GameModelCollection::UpdateColliderStoreFromModel( int modelIndex )
+    {
+        m_physicsEngine.UpdateAuthoredCollider(
+            modelIndex,
+            BuildColliderRecordFromModel( m_gameModels[modelIndex], *bodyRecord ) );
+    }
+    """
+    if not any(
+        error.message == "collection collider record construction is blocked"
+        for error in check_game_model_collection_collider_authoring_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_collection_collider_record_import,
+        )
+    ):
+        failures.append("collection collider record import synthetic surface was not rejected")
+
     allowed_collection_collider_refresh_authoring = """
     void GameModelCollection::RefreshPhysicsColliders( ColliderStore& colliderStore,
                                                        const PhysicsBodyStore& bodyStore )
@@ -13907,7 +13941,7 @@ def run_self_tests() -> list[str]:
         colliderStore.RefreshBodyBindings( bodyStore );
         if ( colliderTopologyChanged )
         {
-            colliderStore.UpdateRecordForModelIndex( i, BuildColliderRecordFromModel( m_gameModels[i], *bodyRecord ) );
+            UpdateColliderStoreFromModel( i );
         }
     }
     """
@@ -13948,7 +13982,7 @@ def run_self_tests() -> list[str]:
         const PhysicsBodyHandle bodyHandle =
             m_physicsEngine.RegisterAuthoredBody( MakeBodyRecordFromAuthoredModel( m_gameModels.back(), replayBodyId ) );
         const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForHandle( bodyHandle );
-        m_physicsEngine.RegisterAuthoredCollider( BuildColliderRecordFromModel( m_gameModels.back(), *bodyRecord ) );
+        m_physicsEngine.RegisterAuthoredCollider( CaptureAuthoredColliderDesc( m_gameModels.back(), *bodyRecord ) );
         return bodyHandle;
     }
     """

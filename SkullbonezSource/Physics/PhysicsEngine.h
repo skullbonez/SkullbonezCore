@@ -44,6 +44,8 @@ class WorkerPool;
 
 namespace Physics
 {
+struct PhysicsColliderCreateDesc;
+
 class PhysicsEngine
 {
   public:
@@ -54,13 +56,14 @@ class PhysicsEngine
     void RefreshBodyStore( PhysicsModelAccess& modelAccess );
     void RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex );
     // Scene/model construction receives a body handle at append time instead of
-    // resolving a just-created model index through the compatibility adapter.
+    // resolving the just-created row through the compatibility adapter.
     PhysicsBodyHandle RegisterAuthoredBody( const PhysicsBodyRecord& record );
-    // Scene/model construction receives a collider handle from the same append
-    // edge, so new bodies do not need a later collider topology refresh.
-    PhysicsColliderHandle RegisterAuthoredCollider( const ColliderRecord& record );
-    // Replaces one authored collider row without moving its stable handle.
-    bool UpdateAuthoredCollider( int modelIndex, const ColliderRecord& record );
+    // Scene/model construction submits a collider descriptor at the append
+    // edge; PhysicsScene owns conversion into the dense ColliderStore row.
+    PhysicsColliderHandle RegisterAuthoredCollider( const PhysicsColliderCreateDesc& desc );
+    // Replaces one authored collider descriptor without moving its stable
+    // ColliderStore handle.
+    bool UpdateAuthoredCollider( PhysicsColliderHandle collider, const PhysicsColliderCreateDesc& desc );
     void ClearPendingBodyImpulses();
     // Replay restore trims the authoritative body store directly; callers must
     // not force a model-to-store refresh after this succeeds.

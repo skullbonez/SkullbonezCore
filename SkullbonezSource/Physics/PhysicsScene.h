@@ -56,6 +56,8 @@ class WorkerPool;
 
 namespace Physics
 {
+struct PhysicsColliderCreateDesc;
+
 class PhysicsScene
 {
   public:
@@ -66,15 +68,16 @@ class PhysicsScene
     void RefreshBodyStore( PhysicsModelAccess& modelAccess );
     void RefreshBodyFromModel( PhysicsModelAccess& modelAccess, int modelIndex );
     // Construction edge: registers one newly authored body value without a full
-    // model-order reload. Owner is GameModelCollection until scene creation
+    // compatibility reload. Owner is GameModelCollection until scene creation
     // writes body descriptors directly.
     PhysicsBodyHandle RegisterAuthoredBody( const PhysicsBodyRecord& record );
-    // Construction edge: registers the collider paired with a newly authored
-    // body without forcing a collider snapshot refresh through GameModel order.
-    PhysicsColliderHandle RegisterAuthoredCollider( const ColliderRecord& record );
-    // Authoring/config edge: replaces one live collider row while preserving
-    // the allocator-owned collider handle for that model slot.
-    bool UpdateAuthoredCollider( int modelIndex, const ColliderRecord& record );
+    // Construction edge: registers the collider descriptor paired with a newly
+    // authored body without forcing a collider snapshot refresh through the
+    // model container.
+    PhysicsColliderHandle RegisterAuthoredCollider( const PhysicsColliderCreateDesc& desc );
+    // Authoring/config edge: replaces one live collider row from a descriptor
+    // while preserving the allocator-owned collider handle.
+    bool UpdateAuthoredCollider( PhysicsColliderHandle collider, const PhysicsColliderCreateDesc& desc );
     void ClearPendingBodyImpulses();
     // Replay restore trims the authoritative body store directly; callers must
     // not force a model-to-store refresh after this succeeds.
