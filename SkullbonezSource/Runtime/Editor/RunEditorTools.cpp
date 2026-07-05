@@ -375,6 +375,15 @@ float EditorModelRadius( const GameModel& model )
     return (std::max)( GetShapeBoundingRadius( model.GetCollisionShape() ), 1.0f );
 }
 
+
+float EditorColliderRadius( const ColliderRecord& collider )
+{
+    return (std::max)( collider.boundingRadius > 0.0f ? collider.boundingRadius
+                                                      : GetShapeBoundingRadius( collider.shape ),
+                       1.0f );
+}
+
+
 float EditorShapeAxisExtent( const CollisionShape& shape, int axis )
 {
     if ( axis < 0 || axis > 2 )
@@ -576,6 +585,83 @@ bool TryGetEditorSelectionFrame( const std::vector<GameModel>& models,
     {
         *outGroupCount = count;
     }
+    return true;
+}
+
+
+bool TryResolveEditorOverlayBodyCollider( const PhysicsBodyStore& bodyStore,
+                                          const ColliderStore& colliderStore,
+                                          int modelIndex,
+                                          const PhysicsBodyRecord*& outBody,
+                                          const ColliderRecord*& outCollider )
+{
+    const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
+    const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
+    const PhysicsColliderHandle colliderHandle = colliderStore.HandleForModelIndex( modelIndex );
+    const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+    if ( !body || !collider || bodyStore.ModelIndexForHandle( bodyHandle ) != modelIndex ||
+         collider->body != bodyHandle )
+    {
+        outBody = nullptr;
+        outCollider = nullptr;
+        return false;
+    }
+
+    outBody = body;
+    outCollider = collider;
+    return true;
+}
+
+
+bool TryTraceEditorSelectionOverlayFromStores( const std::vector<GameModel>& models,
+                                               const PhysicsBodyStore& bodyStore,
+                                               const ColliderStore& colliderStore,
+                                               int selectedIndex,
+                                               RunEditorTracer& tracer,
+                                               Vector3& outOrigin,
+                                               float& outRadius )
+{
+    EditorGizmoGroupIndices indices = {};
+    const int count = GatherSelectedEditorTransformGroup( models, selectedIndex, indices );
+    if ( count <= 0 )
+    {
+        return false;
+    }
+
+    // Invariant: overlay tracing uses bounded pointer scratch only. Do not copy
+    // CollisionShape values or allocate per selected body just to draw lines.
+    std::array<const PhysicsBodyRecord*, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY> bodies = {};
+    std::array<const ColliderRecord*, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY> colliders = {};
+    Vector3 origin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    for ( int i = 0; i < count; ++i )
+    {
+        const int modelIndex = indices[static_cast<std::size_t>( i )];
+        const PhysicsBodyRecord* body = nullptr;
+        const ColliderRecord* collider = nullptr;
+        if ( !TryResolveEditorOverlayBodyCollider( bodyStore, colliderStore, modelIndex, body, collider ) )
+        {
+            return false;
+        }
+        bodies[static_cast<std::size_t>( i )] = body;
+        colliders[static_cast<std::size_t>( i )] = collider;
+        origin += body->position;
+    }
+    origin /= static_cast<float>( count );
+
+    // Why: selection grouping still uses model-owned editor identity, but the
+    // visible overlay follows the live body/collider rows so GameModel pose and
+    // shape mirrors are not required for presentation.
+    float radius = 1.0f;
+    for ( int i = 0; i < count; ++i )
+    {
+        const PhysicsBodyRecord& body = *bodies[static_cast<std::size_t>( i )];
+        const ColliderRecord& collider = *colliders[static_cast<std::size_t>( i )];
+        radius = (std::max)( radius, Distance( body.position, origin ) + EditorColliderRadius( collider ) );
+        tracer.AddSelectionOutline( body.position, body.orientation, collider.shape );
+    }
+
+    outOrigin = origin;
+    outRadius = radius;
     return true;
 }
 

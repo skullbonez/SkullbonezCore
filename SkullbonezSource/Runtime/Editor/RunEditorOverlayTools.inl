@@ -10,6 +10,8 @@ Mental model:
 Glossary:
   Preview: Non-authoritative placement or selection feedback before a click.
   Overlay trace: Frame-local line/shape instructions consumed by RunEditorTracer.
+  Body store: Physics-owned live pose rows used for selection and tool markers.
+  Collider store: Physics-owned shape rows used for shape-accurate outlines.
 
 Invariants:
   - Overlay building must not mutate scene objects.
@@ -122,21 +124,15 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
         const std::vector<GameModel>& models = context.models.Models();
         Vector3 gizmoOrigin;
         float radius = 1.0f;
-        EditorGizmoGroupIndices groupIndices = {};
-        int groupCount = 0;
         const bool scaleMode = context.editor.gizmoDragIsScale || input.scaleMode;
-        if ( TryGetEditorSelectionFrame( models,
-                                         context.editor.selectedModelIndex,
-                                         gizmoOrigin,
-                                         radius,
-                                         &groupIndices,
-                                         &groupCount ) )
+        if ( TryTraceEditorSelectionOverlayFromStores( models,
+                                                       context.bodyStore,
+                                                       context.colliderStore,
+                                                       context.editor.selectedModelIndex,
+                                                       context.tracer,
+                                                       gizmoOrigin,
+                                                       radius ) )
         {
-            for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
-            {
-                context.tracer.AddSelectionOutline(
-                    models[static_cast<std::size_t>( groupIndices[static_cast<std::size_t>( groupIndex )] )] );
-            }
             context.tracer.AddGizmo( gizmoOrigin,
                                      radius,
                                      context.editor.hotGizmoAxis,
@@ -194,10 +190,7 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
             // Why: attached-camera follow is already store-backed; its overlay
             // marker should read the same live body/collider rows instead of
             // keeping GameModel pose and shape mirrors hot for presentation.
-            const float markerRadius =
-                (std::max)( 1.0f, ( collider->boundingRadius > 0.0f ? collider->boundingRadius
-                                                                    : GetShapeBoundingRadius( collider->shape ) ) *
-                                      1.24f );
+            const float markerRadius = EditorColliderRadius( *collider ) * 1.24f;
             context.tracer.AddAttachedCameraTargetMarker( body->position,
                                                           body->orientation,
                                                           collider->shape,

@@ -15,12 +15,12 @@
 #   and required scene contacts have store-authority fences, runtime handle
 #   smoke has a handle-authority fence, contact-audio simple mode has a
 #   body-store motion fence, and fixed-tree, replay-restore wake, replay
-#   velocity-edit, launcher ray-hit, mouse-pickup overlay, attached-camera
-#   overlay, or editor wake/sleep commands have store-handle fences. The
-#   deleted collection step wrapper has its own fence, replay render-pose
-#   overrides have their own value-override fence, and per-body model writeback
-#   has its own fence, so count allowances do not silently approve a new
-#   compatibility location.
+#   velocity-edit, launcher ray-hit, selection overlay, mouse-pickup overlay,
+#   attached-camera overlay, or editor wake/sleep commands have store-handle
+#   fences. The deleted collection step wrapper has its own fence, replay
+#   render-pose overrides have their own value-override fence, and per-body
+#   model writeback has its own fence, so count allowances do not silently
+#   approve a new compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -57,6 +57,8 @@
 #     body fields.
 #   Mouse-pickup overlay fence: Static rule that keeps drag-line and outline
 #     projection on the picked PhysicsBodyStore/ColliderStore rows.
+#   Selection overlay fence: Static rule that keeps editor selection outlines
+#     and gizmo presentation on PhysicsBodyStore/ColliderStore rows.
 #   Attached-camera overlay fence: Static rule that keeps the camera-target
 #     marker on PhysicsBodyStore pose and ColliderStore shape/radius rows.
 #   Replay velocity body-read fence: Static rule that keeps velocity-edit hit
@@ -626,6 +628,11 @@ MOUSE_PICKUP_OVERLAY_MODEL_BODY_PATTERN = re.compile(
     r"\b(?:grabbed|model|context\s*\.\s*models\s*\.\s*Models\s*\(\s*\)\s*\[[^\]]+\])"
     r"\s*(?:\.|->)\s*(?:GetPosition|GetOrientation|GetCollisionShape|GetVelocity|GetAngularVelocity)\s*\("
     r"|\bcontext\s*\.\s*tracer\s*\.\s*AddSelectionOutline\s*\(\s*(?:grabbed|model)\s*\)"
+)
+SELECTION_OVERLAY_MODEL_FRAME_PATTERN = re.compile(
+    r"\bTryGetEditorSelectionFrame\s*\(\s*(?:models|context\s*\.\s*models\s*\.\s*Models\s*\(\s*\))"
+    r"|\bcontext\s*\.\s*tracer\s*\.\s*AddSelectionOutline\s*\(\s*"
+    r"(?:models\s*\[|context\s*\.\s*models\s*\.\s*Models\s*\(\s*\)\s*\[|(?:model|selected|target)\b)"
 )
 ATTACHED_CAMERA_OVERLAY_MODEL_MARKER_PATTERN = re.compile(
     r"\bcontext\s*\.\s*tracer\s*\.\s*AddAttachedCameraTargetMarker\s*\(\s*"
@@ -4555,6 +4562,36 @@ def check_mouse_pickup_overlay_store_authority_guardrails_text(path: Path, text:
 def check_mouse_pickup_overlay_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / EDITOR_OVERLAY_TOOLS_SOURCE
     return check_mouse_pickup_overlay_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_selection_overlay_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != "RunEditorOverlayTools.inl":
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    bounds = _function_body_bounds(stripped, MOUSE_PICKUP_OVERLAY_FUNCTION_PATTERN)
+    if not bounds:
+        return errors
+    open_brace, close_brace = bounds
+    for match in SELECTION_OVERLAY_MODEL_FRAME_PATTERN.finditer(stripped, open_brace, close_brace):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "selection overlay GameModel frame read is blocked",
+                (
+                    "Editor selection outlines and gizmo presentation should resolve body/collider store rows for "
+                    "pose, shape, and radius; TryGetEditorSelectionFrame(models, ...) remains only for editor "
+                    "input/drag math."
+                ),
+            )
+        )
+    return errors
+
+
+def check_selection_overlay_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / EDITOR_OVERLAY_TOOLS_SOURCE
+    return check_selection_overlay_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_attached_camera_overlay_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -13419,6 +13456,63 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only mouse pickup overlay model read synthetic text was rejected")
 
+    old_selection_overlay_model_frame = """
+    void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
+    {
+        const std::vector<GameModel>& models = context.models.Models();
+        Vector3 gizmoOrigin;
+        float radius = 1.0f;
+        if ( TryGetEditorSelectionFrame( models, context.editor.selectedModelIndex, gizmoOrigin, radius ) )
+        {
+            context.tracer.AddSelectionOutline( models[static_cast<std::size_t>( 0 )] );
+        }
+    }
+    """
+    if not any(
+        error.message == "selection overlay GameModel frame read is blocked"
+        for error in check_selection_overlay_store_authority_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
+            old_selection_overlay_model_frame,
+        )
+    ):
+        failures.append("old selection overlay GameModel frame synthetic surface was not rejected")
+
+    allowed_selection_overlay_store_frame = """
+    void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
+    {
+        Vector3 gizmoOrigin;
+        float radius = 1.0f;
+        if ( TryTraceEditorSelectionOverlayFromStores( context.models.Models(),
+                                                       context.bodyStore,
+                                                       context.colliderStore,
+                                                       context.editor.selectedModelIndex,
+                                                       context.tracer,
+                                                       gizmoOrigin,
+                                                       radius ) )
+        {
+            context.tracer.AddGizmo( gizmoOrigin, radius, 0, 1, 2, false, false, false );
+        }
+    }
+    """
+    if check_selection_overlay_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
+        allowed_selection_overlay_store_frame,
+    ):
+        failures.append("store-backed selection overlay synthetic surface was rejected")
+
+    commented_selection_overlay_model_frame = """
+    void DocumentOldSelectionOverlay()
+    {
+        // The overlay used TryGetEditorSelectionFrame(models, ...) and AddSelectionOutline(models[i]).
+        // It now traces from body/collider store rows.
+    }
+    """
+    if check_selection_overlay_store_authority_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorOverlayTools.inl"),
+        commented_selection_overlay_model_frame,
+    ):
+        failures.append("comment-only selection overlay synthetic text was rejected")
+
     old_attached_camera_marker_overload = """
     class RunEditorTracer
     {
@@ -14873,6 +14967,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_editor_model_index_physics_command_guardrails(repo))
     errors.extend(check_mouse_pickup_model_index_physics_command_guardrails(repo))
     errors.extend(check_mouse_pickup_overlay_store_authority_guardrails(repo))
+    errors.extend(check_selection_overlay_store_authority_guardrails(repo))
     errors.extend(check_attached_camera_overlay_store_authority_guardrails(repo))
     errors.extend(check_launcher_model_index_physics_command_guardrails(repo))
     errors.extend(check_replay_velocity_model_state_physics_command_guardrails(repo))
