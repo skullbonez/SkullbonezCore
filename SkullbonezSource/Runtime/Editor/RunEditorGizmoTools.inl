@@ -370,11 +370,37 @@ void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
     const float factor = targetExtent / startExtent;
 
     GameModel& model = context.models.GetModelAtIndex( index );
+    // Invariant: scale starts from the ColliderStore shape captured at drag
+    // begin. The descriptor below preserves that store-owned material identity
+    // while replacing only the edited shape facts.
+    const PhysicsBodyStore& bodyStore = context.models.GetPhysicsBodyStore();
+    const ColliderStore& colliderStore = context.models.GetColliderStore();
+    const PhysicsBodyRecord* selectedBody = nullptr;
+    const ColliderRecord* selectedCollider = nullptr;
+    if ( !TryResolveEditorBodyCollider( bodyStore,
+                                        colliderStore,
+                                        context.editor.selectedBody,
+                                        context.editor.selectedCollider,
+                                        index,
+                                        selectedBody,
+                                        selectedCollider ) )
+    {
+        return;
+    }
+
+    CollisionShape scaledShape;
     if ( model.ScaleCollisionShapeAxisFromBase( context.editor.gizmoDragStartShape,
                                                 context.editor.activeGizmoAxis,
-                                                factor ) )
+                                                factor,
+                                                &scaledShape ) )
     {
-        ResetEditorModelMotionAndWake( context.models, index, model, true );
+        ResetEditorModelMotionAndWake(
+            context.models,
+            index,
+            model,
+            MakeColliderCreateDesc( std::move( scaledShape ),
+                                    selectedCollider->restitution,
+                                    selectedCollider->contactMaterialId ) );
     }
 }
 

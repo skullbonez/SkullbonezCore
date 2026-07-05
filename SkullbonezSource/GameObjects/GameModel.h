@@ -227,7 +227,9 @@ class GameModel
     bool ScaleCollisionShapeAxisFromBase(
         const Math::CollisionDetection::CollisionShape& baseShape,
         int axis,
-        float factor );                                                     // Rebuilds this model shape from a base copy scaled along one axis.
+        float factor,
+        Math::CollisionDetection::CollisionShape* outScaledShape =
+            nullptr );                                                      // Rebuilds this model shape and optionally returns the exact scaled shape.
     bool IsSphere() const;
     bool IsBox() const;
     bool IsConvexHull() const;

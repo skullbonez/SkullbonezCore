@@ -1110,6 +1110,12 @@ Colliders should own exact collision data. `GameModel` must not remain the hidde
     editor shape edit/topology refresh still uses the explicit
     `CaptureAuthoredColliderDesc()` fallback.
 - [ ] Move shape mutation into explicit collider update commands.
+  - [x] 2026-07-05 same-count editor/replay scale edits now pass
+    `PhysicsColliderCreateDesc` values into
+    `GameModelCollection::CommitEditedModelColliderState()`; the deleted
+    `CommitEditedModelPhysicsState(..., true)` bool path is guarded against
+    returning. Topology drift still uses `CaptureAuthoredColliderDesc()` until
+    durable scene/entity collider metadata replaces the model-field fallback.
 - [ ] Update broadphase code to read collider bounds from `ColliderStore`.
 - [ ] Update narrowphase code to read exact shapes from `ColliderStore`.
 - [ ] Preserve persistent contact keys across the migration where possible.

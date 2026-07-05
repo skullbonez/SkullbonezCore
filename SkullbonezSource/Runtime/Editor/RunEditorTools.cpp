@@ -820,18 +820,36 @@ void SeedEditorPhysicsBodyAsleep( SkullbonezCore::GameObjects::GameModelCollecti
 
 void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollection& collection,
                                     int index,
-                                    GameModel& model,
-                                    bool colliderChanged = false )
+                                    GameModel& model )
 {
     // Why: Direct editor transforms teleport the body. Clearing velocities and
     // waking dynamic bodies prevents stale solver momentum from immediately
     // dragging the authored pose away.
     model.SetLinearVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
     model.SetAngularVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
-    collection.CommitEditedModelPhysicsState( index, colliderChanged );
+    collection.CommitEditedModelBodyState( index );
     const PhysicsBodyRecord* body = collection.GetPhysicsEngine().BodyStore().RecordForModelIndex( index );
-    // Why: CommitEditedModelPhysicsState just imported the editor-authored row;
+    // Why: CommitEditedModelBodyState just imported the editor-authored row;
     // wake eligibility should now follow PhysicsBodyStore, not the model mirror.
+    if ( body && !body->isFixed )
+    {
+        WakeEditorPhysicsBody( collection, index );
+    }
+}
+
+
+void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                    int index,
+                                    GameModel& model,
+                                    PhysicsColliderCreateDesc colliderDesc )
+{
+    // Why: scale edits change the model authoring cache and the physics collider
+    // row. Commit them together so wake decisions, picks, and replay recording
+    // all see one coherent body/collider state.
+    model.SetLinearVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    model.SetAngularVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    collection.CommitEditedModelColliderState( index, std::move( colliderDesc ) );
+    const PhysicsBodyRecord* body = collection.GetPhysicsEngine().BodyStore().RecordForModelIndex( index );
     if ( body && !body->isFixed )
     {
         WakeEditorPhysicsBody( collection, index );

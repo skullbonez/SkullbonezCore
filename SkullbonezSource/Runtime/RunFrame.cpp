@@ -45,6 +45,7 @@ Related:
 #include "Scene/SceneRuntimeStyle.h"
 
 #include "../Physics/ColliderStore.h"
+#include "../Physics/PhysicsApi.h"
 #include "../Rendering/RenderInstanceStore.h"
 
 #include <cmath>
@@ -53,6 +54,7 @@ Related:
 #include <cstring>
 #include <limits>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 using namespace SkullbonezCore::Basics;
@@ -1228,15 +1230,23 @@ void Run::TickReplaySaveProbe()
             const CollisionShape placedShapeBeforeScale = placedColliderBeforeEdit->shape;
             constexpr int PROBE_SCALE_AXIS = 0;
             constexpr float PROBE_SCALE_FACTOR = 1.5f;
+            CollisionShape placedShapeAfterScale;
             if ( !placedModel.ScaleCollisionShapeAxisFromBase( placedShapeBeforeScale,
                                                                PROBE_SCALE_AXIS,
-                                                               PROBE_SCALE_FACTOR ) )
+                                                               PROBE_SCALE_FACTOR,
+                                                               &placedShapeAfterScale ) )
             {
                 throw std::runtime_error( "replay save probe failed to apply editor transform scale" );
             }
             placedModel.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             placedModel.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
-            m_cGameModelCollection.CommitEditedModelPhysicsState( modelCountBeforePlace, true );
+            // Invariant: the replay probe exercises the same explicit collider
+            // edit command as the editor instead of relying on a model recapture.
+            m_cGameModelCollection.CommitEditedModelColliderState(
+                modelCountBeforePlace,
+                MakeColliderCreateDesc( std::move( placedShapeAfterScale ),
+                                        placedColliderBeforeEdit->restitution,
+                                        placedColliderBeforeEdit->contactMaterialId ) );
             const PhysicsBodyRecord* placedBodyAfterEdit =
                 m_cGameModelCollection.GetPhysicsBodyStore().RecordForModelIndex( modelCountBeforePlace );
             if ( !placedBodyAfterEdit || placedBodyAfterEdit->replayBodyId == 0 )
@@ -1933,6 +1943,8 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             {
                 model.SetOrientation( orientation );
             }
+            PhysicsColliderCreateDesc editedColliderDesc;
+            bool hasEditedColliderDesc = false;
             if ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE )
             {
                 const ColliderRecord* colliderBeforeScale =
@@ -1946,20 +1958,33 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                     return false;
                 }
                 const CollisionShape baseShape = colliderBeforeScale->shape;
-                if ( !model.ScaleCollisionShapeAxisFromBase( baseShape, event.value3, scaleFactor ) )
+                CollisionShape scaledShape;
+                if ( !model.ScaleCollisionShapeAxisFromBase( baseShape, event.value3, scaleFactor, &scaledShape ) )
                 {
                     WriteReplayProbeReason( eventOutReason,
                                             eventReasonSize,
                                             "failed to replay editor transform scale" );
                     return false;
                 }
+                // Invariant: restore reuses the previous collider material and
+                // replaces only the decoded scale shape, keeping replay payload
+                // semantics independent from GameModel mirror recapture.
+                editedColliderDesc = MakeColliderCreateDesc( std::move( scaledShape ),
+                                                             colliderBeforeScale->restitution,
+                                                             colliderBeforeScale->contactMaterialId );
+                hasEditedColliderDesc = true;
             }
             model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
             model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
-            m_cGameModelCollection.CommitEditedModelPhysicsState(
-                event.value0,
-                ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE ) != 0 );
-            // Why: CommitEditedModelPhysicsState() has already refreshed the
+            if ( hasEditedColliderDesc )
+            {
+                m_cGameModelCollection.CommitEditedModelColliderState( event.value0, std::move( editedColliderDesc ) );
+            }
+            else
+            {
+                m_cGameModelCollection.CommitEditedModelBodyState( event.value0 );
+            }
+            // Why: the edited-state commit has already refreshed the
             // edited body row. The wake decision should read the committed
             // PhysicsBodyStore record, not the compatibility GameModel mirror.
             PhysicsEngine& physics = m_cGameModelCollection.GetPhysicsEngine();

@@ -2205,6 +2205,34 @@ boundaries, and Profile/Debug builds with 0 warnings/errors;
 `collider_refresh=pass` and byte-exact 20,001-line
 `physics_regression_solver.csv`.
 
+Slice `PHY-1066`: same-count editor/replay collider shape edits now pass an
+explicit `PhysicsColliderCreateDesc` into `CommitEditedModelColliderState()`
+instead of using `CommitEditedModelPhysicsState(..., true)` to recapture shape
+facts from `GameModelCollection`. Owner: editor/replay scale code owns the edited
+shape value; `GameModelCollection` fills body identity and current material
+policy before updating the stable `ColliderStore` handle; reason: the old bool
+commit hid body-vs-collider ownership and let same-count editor shape edits
+reopen `CaptureAuthoredColliderDesc()`; deletion condition:
+`CommitEditedModelPhysicsState` is absent from `SkullbonezSource`, editor/replay
+scale commits pass descriptors, and `CaptureAuthoredColliderDesc()` remains only
+for topology drift; checker budget: `tools/check_runtime_boundaries.py` rejects
+the deleted bool API source-wide and still rejects full collider-store refresh
+inside the explicit collider edit command.
+
+Evidence: CodeGraph traced the old same-count editor recapture path; residue
+scan found no `CommitEditedModelPhysicsState` under `SkullbonezSource`;
+`git diff --check`, boundary-checker Python compile, CSV parse check, and
+runtime-boundary validation passed with 0 errors; focused Profile build passed
+with 0 warnings/errors; touched-file comment audit inspected `GameModel.cpp`,
+`GameModel.h`, `GameModelCollection.cpp`, `GameModelCollection.h`,
+`RunEditorTools.cpp`, `RunEditorGizmoTools.inl`, `RunFrame.cpp`, `Init.cpp`,
+and `check_runtime_boundaries.py`; targeted clang-format/header alignment fixed
+`Init.cpp` and `GameModel.h`; `tools\validate_fast.bat` passed formatting,
+project filters, runtime boundaries, and Profile/Debug builds with 0
+warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle
+smoke with `collider_refresh=pass` and byte-exact 20,001-line
+`physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

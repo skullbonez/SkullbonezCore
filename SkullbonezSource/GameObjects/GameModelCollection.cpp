@@ -133,12 +133,12 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
 }
 
 
-// Why: this is the remaining cold collider-authoring import for same-count
-// editor shape edits and topology drift. Runtime config updates material
-// scalars directly in ColliderStore, so descriptor recapture stays limited to
-// actual shape-authoring boundaries. Deletion: explicit collider update commands
-// replace model-field recapture. Checker: runtime boundaries reject
-// GameModelCollection building ColliderRecord values from GameModel.
+// Why: this is the remaining cold collider-authoring import for topology drift
+// when store rows are missing. Normal append/config/editor shape paths now pass
+// descriptors or scalar policy directly, so model-field recapture stays out of
+// same-count edits. Deletion: durable entity collider metadata replaces the
+// topology fallback. Checker: runtime boundaries reject collection-side
+// ColliderRecord construction and deleted same-count commit APIs.
 PhysicsColliderCreateDesc CaptureAuthoredColliderDesc( GameModel& model, const PhysicsBodyRecord& body )
 {
     PhysicsColliderCreateDesc desc;
@@ -415,14 +415,15 @@ bool GameModelCollection::UpdateColliderStoreFromModel( int modelIndex )
         return false;
     }
 
-    // Owner: GameModelCollection still owns the compatibility import because
-    // editor authoring can mutate GameModel collider fields today.
-    // Reason: replace one dense ColliderStore row at explicit shape-edit or
-    // topology-repair boundaries instead of keeping a second authoring array or
-    // rescanning every model on steady frames. Deletion: explicit collider
-    // update commands carry shape edits directly. Checker: runtime boundaries
-    // block ColliderStore from accepting GameModel and block config refresh from
-    // reopening this import path.
+    // Owner: GameModelCollection still owns topology repair while model order is
+    // the construction ledger.
+    // Reason: count drift means one or more collider rows do not exist, so the
+    // cold repair path reconstructs missing descriptors without touching
+    // same-count editor/config updates. Deletion: durable entity collider
+    // metadata replaces this model-field fallback. Checker: runtime boundaries
+    // block ColliderStore from accepting GameModel, config refresh from
+    // reopening this import path, and the deleted bool edit commit from
+    // returning.
     const PhysicsColliderHandle collider = m_physicsEngine.Colliders().HandleForModelIndex( modelIndex );
     return m_physicsEngine.UpdateAuthoredCollider(
         collider,
@@ -1006,7 +1007,7 @@ bool GameModelCollection::TrySetModelAngularVelocity( int index, const Vector3& 
     }
 
     m_gameModels[static_cast<std::size_t>( index )].SetAngularVelocity( angularVelocity );
-    CommitEditedModelPhysicsState( index, false );
+    CommitEditedModelBodyState( index );
     return true;
 }
 
@@ -1106,8 +1107,8 @@ const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysics
 const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
 {
     // Invariant: convenience reads repair topology only. Shape/material edits
-    // commit through CommitEditedModelPhysicsState(..., true) so picks, saves,
-    // and queries do not rebuild collider metadata just to inspect it.
+    // commit through CommitEditedModelColliderState() so picks, saves, and
+    // queries do not rebuild collider metadata just to inspect it.
     RepairPhysicsBodyAndColliderTopology();
     return m_physicsEngine.Colliders();
 }
@@ -1262,43 +1263,69 @@ void GameModelCollection::RefreshRenderInstances( SkullbonezCore::Rendering::Ren
 }
 
 
-void GameModelCollection::CommitEditedModelPhysicsState( int modelIndex, bool colliderChanged )
+void GameModelCollection::CommitEditedModelBodyState( int modelIndex )
 {
-    // Owner: GameModelCollection still owns editor/replay model mutations.
-    // Reason: render records now read physics stores for pose/shape, so direct
-    // edits must commit changed body data before the next draw snapshot.
-    // Deletion: remove this when editor/replay writes PhysicsBodyHandle-backed
-    // body and collider commands directly instead of mutating GameModel first.
-    // Checker: tools/check_runtime_boundaries.py blocks the old render refresh
-    // path from depending on GameModel::GetModelMatrix again.
     if ( modelIndex < 0 || modelIndex >= GetModelCount() )
     {
         return;
     }
 
     PhysicsModelAccess modelAccess( *this );
-    if ( colliderChanged )
+    // Owner: GameModelCollection still owns editor/replay model mutations.
+    // Reason: body-only edits enter through model authoring APIs today, but the
+    // committed physics row must be explicit before rendering, replay capture,
+    // or wake decisions read PhysicsBodyStore.
+    // Deletion: replace this when editor/replay writes PhysicsBodyHandle-backed
+    // body commands directly. Checker: the boundary script rejects the deleted
+    // bool collider/body commit API from returning.
+    if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
     {
-        if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
-        {
-            m_physicsEngine.RefreshBodyStore( modelAccess );
-        }
-        if ( m_physicsEngine.Colliders().Count() != ModelCount() )
-        {
-            m_physicsEngine.RefreshColliderSnapshot( modelAccess );
-        }
-        else
-        {
-            // Why: same-count collider edits replace exactly one dense store
-            // row. That avoids a full model-order scan and keeps the existing
-            // collider handle stable for editor, render, and query callers.
-            (void)UpdateColliderStoreFromModel( modelIndex );
-        }
+        m_physicsEngine.RefreshBodyStore( modelAccess );
     }
     else
     {
         m_physicsEngine.RefreshBodyFromModel( modelAccess, modelIndex );
     }
+}
+
+
+void GameModelCollection::CommitEditedModelColliderState( int modelIndex, PhysicsColliderCreateDesc colliderDesc )
+{
+    if ( modelIndex < 0 || modelIndex >= GetModelCount() )
+    {
+        return;
+    }
+
+    PhysicsModelAccess modelAccess( *this );
+    // Invariant: editor/replay scale edits are cold authoring events. Commit the
+    // body row first, then replace exactly one collider row by stable handle.
+    // Count drift still goes through topology repair because missing rows cannot
+    // be patched by a single descriptor.
+    if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
+    {
+        m_physicsEngine.RefreshBodyStore( modelAccess );
+    }
+    else
+    {
+        m_physicsEngine.RefreshBodyFromModel( modelAccess, modelIndex );
+    }
+
+    if ( m_physicsEngine.Colliders().Count() != ModelCount() )
+    {
+        m_physicsEngine.RefreshColliderSnapshot( modelAccess );
+    }
+
+    const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForModelIndex( modelIndex );
+    if ( !bodyRecord || m_physicsEngine.Colliders().Count() != ModelCount() )
+    {
+        return;
+    }
+
+    colliderDesc.body = bodyRecord->handle;
+    colliderDesc.sceneObjectId = bodyRecord->sceneObjectId;
+    ApplyCollectionPhysicsMaterialToColliderDesc( colliderDesc, m_physicsMaterial );
+    const PhysicsColliderHandle collider = m_physicsEngine.Colliders().HandleForModelIndex( modelIndex );
+    (void)m_physicsEngine.UpdateAuthoredCollider( collider, colliderDesc );
 }
 
 

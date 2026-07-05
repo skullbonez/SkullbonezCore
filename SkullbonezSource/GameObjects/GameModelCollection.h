@@ -284,7 +284,12 @@ class GameModelCollection
     void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
                                  const Physics::PhysicsBodyStore& bodyStore,
                                  const Physics::ColliderStore& colliderStore );
-    void CommitEditedModelPhysicsState( int modelIndex, bool colliderChanged );
+    // Commits an editor/replay body-only mutation from the model authoring cache
+    // into PhysicsBodyStore after the caller has validated the model index.
+    void CommitEditedModelBodyState( int modelIndex );
+    // Commits an editor/replay shape mutation from a caller-built collider
+    // descriptor; the collection fills body identity and current material policy.
+    void CommitEditedModelColliderState( int modelIndex, Physics::PhysicsColliderCreateDesc colliderDesc );
     void NotifyFixedContact( int modelIndex, float highlightSeconds );
     void TickContactHighlights( int modelCount, float deltaSeconds );
     void NotifyAudioContact( int modelIndex, float highlightSeconds );

@@ -583,7 +583,10 @@ void GameModel::AddConvexHull( const ConvexHullShape& hull )
 }
 
 
-bool GameModel::ScaleCollisionShapeAxisFromBase( const CollisionShape& baseShape, int axis, float factor )
+bool GameModel::ScaleCollisionShapeAxisFromBase( const CollisionShape& baseShape,
+                                                 int axis,
+                                                 float factor,
+                                                 CollisionShape* outScaledShape )
 {
     if ( axis < 0 || axis > 2 || !std::isfinite( factor ) || factor <= 0.0f )
     {
@@ -592,13 +595,21 @@ bool GameModel::ScaleCollisionShapeAxisFromBase( const CollisionShape& baseShape
 
     factor = std::clamp( factor, 0.05f, 20.0f );
     const float mass = m_physicsInfo.GetMass();
+    // Why: editor/replay scale commits need the exact variant that this cache
+    // rebuild produced. Returning it here avoids a later GameModelCollection
+    // reread just to reconstruct the same collider descriptor.
 
     if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &baseShape ) )
     {
         const float radius = (std::max)( 0.25f, sphere->GetRadius() * factor );
         const float moment = 0.4f * mass * radius * radius;
         const Vector3 inertia( moment, moment, moment );
-        m_boundingVolume = BoundingSphere( radius, sphere->GetPosition(), sphere->GetDragCoefficient() );
+        const BoundingSphere scaledSphere( radius, sphere->GetPosition(), sphere->GetDragCoefficient() );
+        m_boundingVolume = scaledSphere;
+        if ( outScaledShape )
+        {
+            *outScaledShape = scaledSphere;
+        }
         BuildSpherePhysicsCache( radius );
         m_ballPhysics.mass = mass;
         m_ballPhysics.invMass = 1.0f / mass;
@@ -645,7 +656,12 @@ bool GameModel::ScaleCollisionShapeAxisFromBase( const CollisionShape& baseShape
         m_ballPhysics.rotationalInertia = inertia;
         m_ballPhysics.invRotationalInertia = Vector3( 1.0f / inertia.x, 1.0f / inertia.y, 1.0f / inertia.z );
         m_physicsInfo.SetRotationalInertia( inertia );
-        m_boundingVolume = BoundingBox( halfExtents, box->GetPosition() );
+        const BoundingBox scaledBox( halfExtents, box->GetPosition() );
+        m_boundingVolume = scaledBox;
+        if ( outScaledShape )
+        {
+            *outScaledShape = scaledBox;
+        }
         UpdateModelInfo();
         return true;
     }
@@ -673,6 +689,10 @@ bool GameModel::ScaleCollisionShapeAxisFromBase( const CollisionShape& baseShape
         m_ballPhysics.invRotationalInertia = Vector3( 1.0f / inertia.x, 1.0f / inertia.y, 1.0f / inertia.z );
         m_physicsInfo.SetRotationalInertia( inertia );
         m_boundingVolume = hull;
+        if ( outScaledShape )
+        {
+            *outScaledShape = hull;
+        }
         UpdateModelInfo();
         return true;
     }

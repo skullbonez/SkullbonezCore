@@ -667,9 +667,17 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const ColliderRecord initialCollider = colliderStore.Records()[0];
 
     SkullbonezCore::GameObjects::GameModel& editedModel = collection->GetModelAtIndex( 0 );
-    editedModel.AddBoundingBox( SkullbonezCore::Math::Vector::Vector3( 0.25f, 1.25f, 0.5f ) );
-    editedModel.SetCoefficientRestitution( 0.42f );
-    collection->CommitEditedModelPhysicsState( 0, true );
+    const SkullbonezCore::Math::Vector::Vector3 editedHalfExtents( 0.25f, 1.25f, 0.5f );
+    constexpr float EDITED_RESTITUTION = 0.42f;
+    editedModel.AddBoundingBox( editedHalfExtents );
+    editedModel.SetCoefficientRestitution( EDITED_RESTITUTION );
+    collection->CommitEditedModelColliderState(
+        0,
+        MakeColliderCreateDesc( SkullbonezCore::Math::CollisionDetection::BoundingBox(
+                                    editedHalfExtents,
+                                    SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) ),
+                                EDITED_RESTITUTION,
+                                HashStr( "default" ) ) );
     const ColliderStore& refreshedColliderStore = collection->GetColliderStore();
     const ColliderRecord& refreshedCollider = refreshedColliderStore.Records()[0];
     const float expectedBoxRadius = sqrtf( 0.25f * 0.25f + 1.25f * 1.25f + 0.5f * 0.5f );

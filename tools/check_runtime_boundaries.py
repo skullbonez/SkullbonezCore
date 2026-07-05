@@ -25,9 +25,10 @@
 #   after their owner-side store commits. The deleted
 #   collection step wrapper has its own fence, replay render-pose overrides and
 #   prediction ghost identity have their own value-override/store-authority fence,
-#   runtime config has a collider-material fence, per-body model writeback, and
-#   the deleted bulk model mirror have their own fences, so count allowances do
-#   not silently approve a new compatibility location.
+#   runtime config has a collider-material fence, the deleted edited-model bool
+#   commit has a source-wide fence, and per-body model writeback plus the
+#   deleted bulk model mirror have their own fences, so count allowances do not
+#   silently approve a new compatibility location.
 #
 # Mental model:
 #   Runtime decomposition is easy to regress by adding one convenient field or
@@ -594,6 +595,9 @@ COLLECTION_COLLIDER_RECORD_IMPORT_PATTERN = re.compile(
 GAME_MODEL_COLLECTION_CONFIG_COLLIDER_RECAPTURE_PATTERN = re.compile(
     r"\bUpdateColliderStoreFromModel\s*\("
 )
+DELETED_EDITED_MODEL_PHYSICS_STATE_PATTERN = re.compile(
+    r"\bCommitEditedModelPhysicsState\s*\("
+)
 GAME_MODEL_REPLAY_ID_MIRROR_PATTERN = re.compile(
     r"\b(?:GetReplayBodyId|SetReplayBodyId)\s*\(|\bm_replayBodyId\b"
 )
@@ -617,7 +621,7 @@ GAME_MODEL_COLLECTION_REPLAY_PREDICTION_RESTORE_FUNCTION_PATTERN = re.compile(
     r"\bbool\s+GameModelCollection::TryRestoreReplayPredictionBodyState\s*\("
 )
 GAME_MODEL_COLLECTION_REPLAY_RESTORE_MODEL_REFRESH_PATTERN = re.compile(
-    r"\b(?:CommitEditedModelPhysicsState|RefreshBodyFromModel|GetPhysicsBodyStore)\s*\("
+    r"\b(?:CommitEditedModelBodyState|CommitEditedModelColliderState|RefreshBodyFromModel|GetPhysicsBodyStore)\s*\("
 )
 GAME_MODEL_COLLECTION_REPLAY_RESTORE_MODEL_ID_PATTERN = re.compile(
     r"\b(?:model|m_gameModels\s*\[[^\]]+\])\s*(?:\.|->)\s*GetReplayBodyId\s*\("
@@ -626,7 +630,8 @@ GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_FUNCTION_PATTERN = re.compile(
     r"\bbool\s+GameModelCollection::TryQueueReplayRenderPoseOverride\s*\("
 )
 GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_MODEL_MUTATION_PATTERN = re.compile(
-    r"\b(?:CommitEditedModelPhysicsState|RefreshBodyFromModel|GetPhysicsBodyStore|SetPosition|SetOrientation)\s*\("
+    r"\b(?:CommitEditedModelBodyState|CommitEditedModelColliderState|RefreshBodyFromModel|"
+    r"GetPhysicsBodyStore|SetPosition|SetOrientation)\s*\("
 )
 GAME_MODEL_COLLECTION_REPLAY_RENDER_POSE_MODEL_ID_PATTERN = re.compile(
     r"\b(?:model|m_gameModels\s*\[[^\]]+\])\s*(?:\.|->)\s*GetReplayBodyId\s*\("
@@ -940,7 +945,8 @@ LAUNCHER_PROJECTILE_ADAPTER_WAKE_PATTERN = re.compile(
 REPLAY_VELOCITY_MODEL_STATE_PHYSICS_COMMAND_PATTERN = re.compile(
     r"\b(?:"
     r"model\s*\.\s*(?:SetLinearVelocity|SetAngularVelocity)|"
-    r"(?:modelCollection|m_cGameModelCollection)\s*\.\s*(?:CommitEditedModelPhysicsState|WakeModel)|"
+    r"(?:modelCollection|m_cGameModelCollection)\s*\.\s*"
+    r"(?:CommitEditedModelBodyState|CommitEditedModelColliderState|WakeModel)|"
     r"ApplyReplayVelocityEditToModel"
     r")\s*\("
 )
@@ -3692,7 +3698,7 @@ def check_game_model_collection_body_store_read_authority_guardrails_text(path: 
             )
 
     commit_function_pattern = re.compile(
-        r"\bvoid\s+GameModelCollection::CommitEditedModelPhysicsState\s*\([^{}]*\)\s*\{",
+        r"\bvoid\s+GameModelCollection::CommitEditedModelColliderState\s*\([^{}]*\)\s*\{",
         re.S,
     )
     for function_match in commit_function_pattern.finditer(stripped):
@@ -3707,8 +3713,9 @@ def check_game_model_collection_body_store_read_authority_guardrails_text(path: 
                     line_for_offset(stripped, match.start()),
                     "collider edit commit must not reload same-count body rows",
                     (
-                        "CommitEditedModelPhysicsState(..., true) should repair body topology only when counts drift, "
-                        "then refresh collider metadata without calling the full body+collider reload path."
+                        "CommitEditedModelColliderState should repair body/collider topology only when counts drift, "
+                        "then update the edited collider from the caller's descriptor instead of calling the full "
+                        "body+collider reload path."
                     ),
                 )
             )
@@ -3738,6 +3745,35 @@ def check_game_model_collection_body_store_read_authority_guardrails_text(path: 
 def check_game_model_collection_body_store_read_authority_guardrails(repo: Path) -> list[BoundaryError]:
     path = repo / GAME_MODEL_COLLECTION_SOURCE
     return check_game_model_collection_body_store_read_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+
+
+def check_deleted_edited_model_physics_state_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in DELETED_EDITED_MODEL_PHYSICS_STATE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "deleted edited-model physics bool commit is blocked",
+                (
+                    "CommitEditedModelPhysicsState hid body vs collider ownership behind a bool. Use "
+                    "CommitEditedModelBodyState for body-only edits or CommitEditedModelColliderState with an explicit "
+                    "PhysicsColliderCreateDesc for shape edits."
+                ),
+            )
+        )
+    return errors
+
+
+def check_deleted_edited_model_physics_state_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    source_root = repo / "SkullbonezSource"
+    for path in source_root.rglob("*"):
+        if path.suffix.lower() not in { ".cpp", ".h", ".hpp", ".inl", ".hlsl" }:
+            continue
+        errors.extend(check_deleted_edited_model_physics_state_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
 
 
 def check_game_model_collection_run_physics_model_access_guardrails_text(
@@ -5276,7 +5312,7 @@ def check_editor_model_index_physics_command_guardrails_text(path: Path, text: s
                         line_for_offset(stripped, match.start()),
                         "editor reset wake must use body-store fixed state",
                         (
-                            "After CommitEditedModelPhysicsState imports an editor transform into "
+                            "After the edited-state commit imports an editor transform into "
                             "PhysicsBodyStore, wake eligibility should read PhysicsBodyRecord::isFixed instead "
                             "of consulting GameModel::IsFixed."
                         ),
@@ -6096,7 +6132,7 @@ def check_run_frame_replay_editor_transform_wake_guardrails_text(path: Path, tex
                 line_for_offset(stripped, match.start()),
                 "RunFrame replay editor transform wake must use body-store fixed state",
                 (
-                    "After CommitEditedModelPhysicsState refreshes the edited row, replay restore should read "
+                    "After the edited-state commit refreshes the row, replay restore should read "
                     "PhysicsBodyRecord::isFixed and wake the PhysicsBodyHandle directly instead of consulting "
                     "GameModel::IsFixed."
                 ),
@@ -13034,18 +13070,39 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only collider-store refresh synthetic text was rejected")
 
+    old_deleted_bool_edit_commit = """
+    void ApplyEditorScale( GameModelCollection& collection, int index )
+    {
+        collection.CommitEditedModelPhysicsState( index, true );
+    }
+    """
+    if not any(
+        error.message == "deleted edited-model physics bool commit is blocked"
+        for error in check_deleted_edited_model_physics_state_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"),
+            old_deleted_bool_edit_commit,
+        )
+    ):
+        failures.append("deleted edited-model physics bool commit synthetic surface was not rejected")
+
+    allowed_split_edited_state_commit = """
+    void ApplyEditorScale( GameModelCollection& collection, int index, PhysicsColliderCreateDesc desc )
+    {
+        collection.CommitEditedModelBodyState( index );
+        collection.CommitEditedModelColliderState( index, desc );
+    }
+    """
+    if check_deleted_edited_model_physics_state_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorGizmoTools.inl"),
+        allowed_split_edited_state_commit,
+    ):
+        failures.append("split edited-state commit synthetic surface was rejected")
+
     old_full_collider_edit_commit = """
-    void GameModelCollection::CommitEditedModelPhysicsState( int modelIndex, bool colliderChanged )
+    void GameModelCollection::CommitEditedModelColliderState( int modelIndex, PhysicsColliderCreateDesc colliderDesc )
     {
         PhysicsModelAccess modelAccess( *this );
-        if ( colliderChanged )
-        {
-            m_physicsEngine.RefreshColliderStore( modelAccess );
-        }
-        else
-        {
-            m_physicsEngine.RefreshBodyFromModel( modelAccess, modelIndex );
-        }
+        m_physicsEngine.RefreshColliderStore( modelAccess );
     }
     """
     if not any(
@@ -13058,21 +13115,16 @@ def run_self_tests() -> list[str]:
         failures.append("old full collider edit commit synthetic surface was not rejected")
 
     allowed_narrow_collider_edit_commit = """
-    void GameModelCollection::CommitEditedModelPhysicsState( int modelIndex, bool colliderChanged )
+    void GameModelCollection::CommitEditedModelColliderState( int modelIndex, PhysicsColliderCreateDesc colliderDesc )
     {
         PhysicsModelAccess modelAccess( *this );
-        if ( colliderChanged )
+        if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
         {
-            if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
-            {
-                m_physicsEngine.RefreshBodyStore( modelAccess );
-            }
-            m_physicsEngine.RefreshColliderSnapshot( modelAccess );
+            m_physicsEngine.RefreshBodyStore( modelAccess );
         }
-        else
-        {
-            m_physicsEngine.RefreshBodyFromModel( modelAccess, modelIndex );
-        }
+        m_physicsEngine.RefreshBodyFromModel( modelAccess, modelIndex );
+        m_physicsEngine.RefreshColliderSnapshot( modelAccess );
+        m_physicsEngine.UpdateAuthoredCollider( collider, colliderDesc );
     }
     """
     if check_game_model_collection_body_store_read_authority_guardrails_text(
@@ -14143,7 +14195,7 @@ def run_self_tests() -> list[str]:
                                                          const Vector3& linearVelocity,
                                                          const Vector3& angularVelocity )
     {
-        CommitEditedModelPhysicsState( index, false );
+        CommitEditedModelBodyState( index );
         return true;
     }
     """
@@ -14210,7 +14262,7 @@ def run_self_tests() -> list[str]:
                                                                    const Vector3& linearVelocity,
                                                                    const Vector3& angularVelocity )
     {
-        CommitEditedModelPhysicsState( index, false );
+        CommitEditedModelBodyState( index );
         return true;
     }
     """
@@ -15457,7 +15509,7 @@ def run_self_tests() -> list[str]:
     old_editor_reset_model_index_command = """
     void ResetEditorModelMotionAndWake( GameModelCollection& collection, PhysicsEngine&, int index )
     {
-        collection.CommitEditedModelPhysicsState( index, false );
+        collection.CommitEditedModelBodyState( index );
         collection.WakeModel( index );
     }
     """
@@ -15473,7 +15525,7 @@ def run_self_tests() -> list[str]:
     old_editor_reset_model_fixed_read = """
     void ResetEditorModelMotionAndWake( GameModelCollection& collection, int index, GameModel& model )
     {
-        collection.CommitEditedModelPhysicsState( index, false );
+        collection.CommitEditedModelBodyState( index );
         if ( !model.IsFixed() )
         {
             WakeEditorPhysicsBody( collection, index );
@@ -15492,7 +15544,7 @@ def run_self_tests() -> list[str]:
     allowed_editor_reset_body_fixed_read = """
     void ResetEditorModelMotionAndWake( GameModelCollection& collection, int index, GameModel& model )
     {
-        collection.CommitEditedModelPhysicsState( index, false );
+        collection.CommitEditedModelBodyState( index );
         const PhysicsBodyRecord* body = collection.GetPhysicsEngine().BodyStore().RecordForModelIndex( index );
         if ( body && !body->isFixed )
         {
@@ -16848,7 +16900,7 @@ def run_self_tests() -> list[str]:
         GameModel& model = modelCollection.GetModelAtIndex( modelIndex );
         model.SetLinearVelocity( clampedLinear );
         model.SetAngularVelocity( clampedAngular );
-        modelCollection.CommitEditedModelPhysicsState( modelIndex, false );
+        modelCollection.CommitEditedModelBodyState( modelIndex );
         modelCollection.WakeModel( modelIndex );
     }
     """
@@ -18145,6 +18197,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_deleted_game_model_stream_project_guardrails(repo))
     errors.extend(check_deleted_game_model_collection_physics_adapter_project_guardrails(repo))
     errors.extend(check_game_model_collection_body_store_read_authority_guardrails(repo))
+    errors.extend(check_deleted_edited_model_physics_state_guardrails(repo))
     errors.extend(check_game_model_collection_run_physics_model_access_guardrails(repo))
     errors.extend(check_attached_camera_store_authority_guardrails(repo))
     errors.extend(check_object_contact_manifold_store_authority_guardrails(repo))
