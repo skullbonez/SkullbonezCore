@@ -142,7 +142,6 @@ class GameModelCollection
     uint32_t m_nextReplayBodyId = 1;
     std::vector<ReplayRenderPoseOverride> m_replayRenderPoseOverrides; // Single-frame replay draw-pose requests.
 
-    bool UpdateColliderStoreFromModel( int modelIndex );
     void ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore,
                                          const Physics::ColliderStore& colliderStore );
     Physics::PhysicsBodyHandle AppendGameModelAndPhysicsRows( GameModel gameModel,
@@ -280,7 +279,6 @@ class GameModelCollection
     double GetSceneKineticEnergy();
     void ReloadPhysicsBodies( Physics::PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
     void RefreshPhysicsBodyFromModel( Physics::PhysicsBodyStore& bodyStore, int modelIndex );
-    void RefreshPhysicsColliders( Physics::ColliderStore& colliderStore, const Physics::PhysicsBodyStore& bodyStore );
     void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
                                  const Physics::PhysicsBodyStore& bodyStore,
                                  const Physics::ColliderStore& colliderStore );

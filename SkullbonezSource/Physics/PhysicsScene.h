@@ -101,10 +101,9 @@ class PhysicsScene
                                  float inverseMass,
                                  const Math::Vector::Vector3& rotationalInertia,
                                  const Math::Vector::Vector3& inverseRotationalInertia );
-    // Refreshes collider body bindings against the already-current body store.
-    // Count-gated topology repair may rebuild collider fields at the collection
-    // owner boundary, but same-count refresh keeps ColliderStore values.
-    void RefreshColliderSnapshot( PhysicsModelAccess& modelAccess );
+    // Rebinds existing collider rows against the already-current body store.
+    // Count drift must be fixed by the creator/editor path that owns shape data.
+    bool RefreshColliderSnapshot();
     void RefreshRenderStore( PhysicsModelAccess& modelAccess );
     void RunPhysics( float fChangeInTime,
                      const Basics::EngineConfig& config,

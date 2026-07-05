@@ -2134,8 +2134,9 @@ live collider rows; reason: scene setup already knows radius, half-extents,
 hull, restitution, and contact material, so rereading those values from
 `GameModel` only preserves migration work and cache-hostile authority drift;
 deletion condition: ragdoll/editor creation also supplies descriptors, runtime
-config no longer recaptures descriptors, and `CaptureAuthoredColliderDesc()`
-disappears from `GameModelCollection`; checker
+config no longer recaptures descriptors, and the topology-drift
+`CaptureAuthoredColliderDesc()` fallback is deleted from `GameModelCollection`;
+checker
 budget: `tools/check_runtime_boundaries.py` rejects bare scene setup
 `AddGameModel(std::move(...))` calls and checks the append helper for direct
 collider registration.
@@ -2159,9 +2160,8 @@ Owner: ragdoll/editor/runtime/scene creation owns primitive shape facts while
 `PhysicsScene` owns live collider rows; reason: every append site already has
 radius, half-extents, hull, restitution, and contact-material facts before
 model handoff, so keeping a public bare append path made `GameModel` a redundant
-collider fact cache; deletion condition: `CaptureAuthoredColliderDesc()` is now
-restricted to same-count editor shape edits and topology drift until explicit
-collider update commands replace model-field recapture; checker budget:
+collider fact cache; deletion condition: later slices remove same-count editor
+shape recapture and topology-drift model-field recapture; checker budget:
 `tools/check_runtime_boundaries.py` rejects bare `AddGameModel(std::move(...))`
 in scene, editor, launcher, runtime smoke, and ragdoll construction files.
 
@@ -2214,8 +2214,8 @@ policy before updating the stable `ColliderStore` handle; reason: the old bool
 commit hid body-vs-collider ownership and let same-count editor shape edits
 reopen `CaptureAuthoredColliderDesc()`; deletion condition:
 `CommitEditedModelPhysicsState` is absent from `SkullbonezSource`, editor/replay
-scale commits pass descriptors, and `CaptureAuthoredColliderDesc()` remains only
-for topology drift; checker budget: `tools/check_runtime_boundaries.py` rejects
+scale commits pass descriptors, and the next slice deletes the topology-drift
+`CaptureAuthoredColliderDesc()` fallback; checker budget: `tools/check_runtime_boundaries.py` rejects
 the deleted bool API source-wide and still rejects full collider-store refresh
 inside the explicit collider edit command.
 
@@ -2232,6 +2232,35 @@ project filters, runtime boundaries, and Profile/Debug builds with 0
 warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle
 smoke with `collider_refresh=pass` and byte-exact 20,001-line
 `physics_regression_solver.csv`.
+
+Slice `PHY-1067`: collider topology drift now fails closed instead of
+recapturing shape/material facts from `GameModel`. Owner: `ColliderStore` owns
+live dense collider rows and `PhysicsScene` owns body-to-collider rebinding;
+reason: missing collider rows mean a creation/editor command failed to create
+shape data, so resizing rows and rereading model fields creates hidden copies,
+default rows, and cache-hostile authority drift; deletion condition:
+`CaptureAuthoredColliderDesc`, `UpdateColliderStoreFromModel`,
+`GameModelCollection::RefreshPhysicsColliders`, and
+`PhysicsModelAccess::RefreshPhysicsColliders` are absent from
+`SkullbonezSource`; checker budget: `tools/check_runtime_boundaries.py` blocks
+the deleted names, `RefreshColliderSnapshot(modelAccess)`, and
+`ColliderStore::RefreshBodyBindings()` resizing/creating collider rows.
+
+Evidence: residue scan found no deleted source spellings; `git diff --check`,
+boundary-checker Python compile, CSV parse check, and runtime-boundary validation
+passed with 0 errors; focused Profile build passed with 0 warnings/errors;
+`tools\validate_format.bat` passed; touched-file comment audit inspected
+`GameModelCollection.cpp`, `GameModelCollection.h`, `ColliderStore.cpp`,
+`ColliderStore.h`, `PhysicsEngine.cpp`, `PhysicsEngine.h`,
+`PhysicsModelAccess.h`, `PhysicsScene.cpp`, `PhysicsScene.h`, and
+`check_runtime_boundaries.py`; `tools\validate_fast.bat` passed formatting,
+project filters, runtime boundaries, and Profile/Debug builds with 0
+warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle
+smoke with `collider_refresh=pass` and byte-exact 20,001-line
+`physics_regression_solver.csv`. Logs:
+`TestOutput\validation\physics_store_authority\validate_fast_collider_topology_fail_closed.log`
+and
+`TestOutput\validation\physics_store_authority\validate_physics_collider_topology_fail_closed.log`.
 
 ## Required Evidence For Each Source Slice
 

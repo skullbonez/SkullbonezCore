@@ -187,11 +187,14 @@ void ColliderStore::Clear()
 }
 
 
-void ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
+bool ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
 {
     const int bodyCount = bodyStore.Count();
-    m_colliders.resize( static_cast<std::size_t>( bodyCount ) );
-    m_modelColliderHandles.resize( static_cast<std::size_t>( bodyCount ) );
+    if ( Count() != bodyCount || static_cast<int>( m_modelColliderHandles.size() ) != bodyCount )
+    {
+        assert( false && "ColliderStore body-binding refresh requires existing collider rows." );
+        return false;
+    }
     std::vector<uint8_t> assignedHandleSlots( m_handleGenerations.size(), 0 );
     for ( int i = 0; i < bodyCount; ++i )
     {
@@ -200,18 +203,21 @@ void ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
         assert( body != nullptr );
         // Invariant: topology repair updates identity only. Shape, material,
         // and broadphase fields stay in this dense row until an explicit
-        // authoring/config command replaces the row.
-        if ( body )
+        // authoring/config command replaces the row. Missing body rows mean the
+        // owner must repair PhysicsBodyStore before asking ColliderStore to bind.
+        if ( !body )
         {
-            record.body = body->handle;
-            record.replayBodyId = body->replayBodyId;
-            record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
+            return false;
         }
+        record.body = body->handle;
+        record.replayBodyId = body->replayBodyId;
+        record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
         const uint32_t replayBodyId = record.replayBodyId;
         record.handle = ResolveHandleForModelIndex( i, replayBodyId, assignedHandleSlots );
         m_modelColliderHandles[static_cast<std::size_t>( i )] = record.handle;
     }
     RetireUnassignedHandles( assignedHandleSlots );
+    return true;
 }
 
 

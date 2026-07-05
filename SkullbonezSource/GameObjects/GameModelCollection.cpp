@@ -110,12 +110,6 @@ void PhysicsModelAccess::RefreshPhysicsBodyFromModel( PhysicsBodyStore& bodyStor
 }
 
 
-void PhysicsModelAccess::RefreshPhysicsColliders( ColliderStore& colliderStore, const PhysicsBodyStore& bodyStore )
-{
-    m_collection.RefreshPhysicsColliders( colliderStore, bodyStore );
-}
-
-
 void PhysicsModelAccess::RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
                                                  const PhysicsBodyStore& bodyStore,
                                                  const ColliderStore& colliderStore )
@@ -130,28 +124,6 @@ namespace
 template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
 {
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
-}
-
-
-// Why: this is the remaining cold collider-authoring import for topology drift
-// when store rows are missing. Normal append/config/editor shape paths now pass
-// descriptors or scalar policy directly, so model-field recapture stays out of
-// same-count edits. Deletion: durable entity collider metadata replaces the
-// topology fallback. Checker: runtime boundaries reject collection-side
-// ColliderRecord construction and deleted same-count commit APIs.
-PhysicsColliderCreateDesc CaptureAuthoredColliderDesc( GameModel& model, const PhysicsBodyRecord& body )
-{
-    PhysicsColliderCreateDesc desc;
-    desc.body = body.handle;
-    desc.sceneObjectId = body.sceneObjectId;
-    desc.shape = model.GetCollisionShape();
-    desc.boundingRadius = model.GetBoundingRadius();
-    desc.restitution = model.GetCoefficientRestitution();
-    desc.friction = model.GetFrictionCoefficient();
-    desc.contactMaterialId = model.GetContactMaterialId();
-    desc.projectedSurfaceArea = model.GetProjectedSurfaceArea();
-    desc.dragCoefficient = model.GetDragCoefficient();
-    return desc;
 }
 
 
@@ -402,35 +374,6 @@ GameModelCollection::GameModelCollection()
 }
 
 
-bool GameModelCollection::UpdateColliderStoreFromModel( int modelIndex )
-{
-    if ( modelIndex < 0 || modelIndex >= GetModelCount() )
-    {
-        return false;
-    }
-    const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForModelIndex( modelIndex );
-    assert( bodyRecord != nullptr );
-    if ( !bodyRecord )
-    {
-        return false;
-    }
-
-    // Owner: GameModelCollection still owns topology repair while model order is
-    // the construction ledger.
-    // Reason: count drift means one or more collider rows do not exist, so the
-    // cold repair path reconstructs missing descriptors without touching
-    // same-count editor/config updates. Deletion: durable entity collider
-    // metadata replaces this model-field fallback. Checker: runtime boundaries
-    // block ColliderStore from accepting GameModel, config refresh from
-    // reopening this import path, and the deleted bool edit commit from
-    // returning.
-    const PhysicsColliderHandle collider = m_physicsEngine.Colliders().HandleForModelIndex( modelIndex );
-    return m_physicsEngine.UpdateAuthoredCollider(
-        collider,
-        CaptureAuthoredColliderDesc( m_gameModels[static_cast<std::size_t>( modelIndex )], *bodyRecord ) );
-}
-
-
 void GameModelCollection::BindWorkerPool( SkullbonezCore::Threading::WorkerPool& workerPool )
 {
     m_workerPool = &workerPool;
@@ -518,10 +461,13 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
     gameModel.ApplyBodySimulationLimits( m_bodySimulationLimits );
     gameModel.ApplyContactPolicy( m_contactPolicy );
     // Hazard: append-time body/collider registration assumes existing rows are
-    // aligned. Repair only pre-existing count drift; the newly pushed model
-    // then appends one body row and one collider row instead of reloading all
-    // rows through the compatibility model view.
-    RepairPhysicsBodyAndColliderTopology();
+    // aligned. Missing collider rows mean a caller skipped the creation command
+    // that owns shape data; do not recapture old GameModel fields to paper over
+    // the topology bug.
+    if ( !RepairPhysicsBodyAndColliderTopology() )
+    {
+        throw std::runtime_error( "Cannot append model while physics collider rows are missing." );
+    }
     m_gameModels.push_back( std::move( gameModel ) );
     m_replayBodyIds.push_back( replayBodyId );
     const PhysicsBodyHandle bodyHandle =
@@ -1109,7 +1055,9 @@ const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderSt
     // Invariant: convenience reads repair topology only. Shape/material edits
     // commit through CommitEditedModelColliderState() so picks, saves, and
     // queries do not rebuild collider metadata just to inspect it.
-    RepairPhysicsBodyAndColliderTopology();
+    const bool repaired = RepairPhysicsBodyAndColliderTopology();
+    assert( repaired );
+    (void)repaired;
     return m_physicsEngine.Colliders();
 }
 
@@ -1135,17 +1083,18 @@ bool GameModelCollection::RepairPhysicsBodyAndColliderTopology()
     const bool colliderTopologyChanged = m_physicsEngine.Colliders().Count() != modelCount;
     if ( bodyTopologyChanged || colliderTopologyChanged )
     {
-        // Why: one owner-side facade handles construction drift for both stores.
-        // Equal-count body and collider state stays store-owned on steady frames.
-        PhysicsModelAccess modelAccess( *this );
+        // Why: body rows still have a temporary model-owner repair path during
+        // migration, but collider shape/material rows are store-owned once
+        // created. Count drift in ColliderStore is a construction bug, not a
+        // reason to rebuild descriptors from GameModel.
         if ( bodyTopologyChanged )
         {
+            PhysicsModelAccess modelAccess( *this );
             m_physicsEngine.RefreshBodyStore( modelAccess );
         }
-        if ( colliderTopologyChanged )
-        {
-            m_physicsEngine.RefreshColliderSnapshot( modelAccess );
-        }
+        const bool colliderBindingsReady = m_physicsEngine.RefreshColliderSnapshot();
+        return m_physicsEngine.BodyStore().Count() == modelCount && m_physicsEngine.Colliders().Count() == modelCount &&
+               colliderBindingsReady;
     }
     return m_physicsEngine.BodyStore().Count() == modelCount && m_physicsEngine.Colliders().Count() == modelCount;
 }
@@ -1230,30 +1179,6 @@ void GameModelCollection::RefreshPhysicsBodyFromModel( SkullbonezCore::Physics::
 }
 
 
-void GameModelCollection::RefreshPhysicsColliders( SkullbonezCore::Physics::ColliderStore& colliderStore,
-                                                   const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
-{
-    const int modelCount = ModelCount();
-    assert( bodyStore.Count() == modelCount );
-    const bool colliderTopologyChanged = colliderStore.Count() != modelCount;
-    // Invariant: same-count refresh is identity repair only. Shape/material
-    // data is rebuilt from GameModel below only when topology count drift means
-    // some ColliderStore rows do not exist yet.
-    colliderStore.RefreshBodyBindings( bodyStore );
-    if ( !colliderTopologyChanged || bodyStore.Count() != modelCount )
-    {
-        return;
-    }
-
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        const bool updated = UpdateColliderStoreFromModel( i );
-        assert( updated );
-        (void)updated;
-    }
-}
-
-
 void GameModelCollection::RefreshRenderInstances( SkullbonezCore::Rendering::RenderInstanceStore& renderInstanceStore,
                                                   const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
                                                   const SkullbonezCore::Physics::ColliderStore& colliderStore )
@@ -1310,13 +1235,10 @@ void GameModelCollection::CommitEditedModelColliderState( int modelIndex, Physic
         m_physicsEngine.RefreshBodyFromModel( modelAccess, modelIndex );
     }
 
-    if ( m_physicsEngine.Colliders().Count() != ModelCount() )
-    {
-        m_physicsEngine.RefreshColliderSnapshot( modelAccess );
-    }
+    const bool colliderBindingsReady = m_physicsEngine.RefreshColliderSnapshot();
 
     const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForModelIndex( modelIndex );
-    if ( !bodyRecord || m_physicsEngine.Colliders().Count() != ModelCount() )
+    if ( !bodyRecord || !colliderBindingsReady || m_physicsEngine.Colliders().Count() != ModelCount() )
     {
         return;
     }

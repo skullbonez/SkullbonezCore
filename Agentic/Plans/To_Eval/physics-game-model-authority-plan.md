@@ -23,9 +23,9 @@ standalone/runtime physics smoke passed with `collider_refresh=pass`, and
   config application; `ColliderStore` owns live collider response and drag
   scalars. Reason: config changes material policy, not shape authoring, so
   rebuilding every collider descriptor from `GameModel` was extra copying and
-  duplicate authority. Deletion condition: `CaptureAuthoredColliderDesc()`
-  remains only for same-count editor shape edits and topology drift until
-  explicit collider update commands replace model-field recapture. Checker
+  duplicate authority. Deletion condition: same-count editor shape edits and
+  topology drift no longer recapture model-field collider facts; descriptor
+  commands and fail-closed collider rebinding own those paths. Checker
   budget: `tools/check_runtime_boundaries.py` rejects
   `UpdateColliderStoreFromModel()` inside `ApplyRuntimeConfig()` with negative
   and positive self-tests. Validation: `git diff --check`,
@@ -102,8 +102,9 @@ standalone/runtime physics smoke passed with `collider_refresh=pass`, and
   not construct live collider rows or know row layout; authored updates should
   replace a store row through stable handle identity without adding sidecar
   copies. Deletion condition: scene/entity creation writes
-  `PhysicsColliderCreateDesc` directly and `CaptureAuthoredColliderDesc()`
-  disappears from `GameModelCollection`. Checker budget:
+  `PhysicsColliderCreateDesc` directly and the topology-drift
+  `CaptureAuthoredColliderDesc()` fallback disappears from
+  `GameModelCollection`. Checker budget:
   `tools/check_runtime_boundaries.py` rejects `BuildColliderRecordFromModel`
   and collection-side live `ColliderRecord` construction, and its public
   descriptor model-index rule now ignores forward declarations so only real
@@ -1096,26 +1097,32 @@ Colliders should own exact collision data. `GameModel` must not remain the hidde
   compatibility input pending explicit collider registration.
 - [ ] Make `ColliderStore` own body-to-collider and collider-to-body mapping
   without requiring a `GameModel` refresh input.
+  - [x] 2026-07-05 `ColliderStore::RefreshBodyBindings()` now rebinds existing
+    collider rows from `PhysicsBodyStore` and fails closed if dense collider rows
+    are missing; `PhysicsScene::RefreshColliderSnapshot()` no longer takes
+    `PhysicsModelAccess`.
 - [ ] Move shape creation from `GameModel` construction into a collider registration path.
   - [x] 2026-07-05 all `AddGameModel()` append paths now require
     `PhysicsColliderCreateDesc`; ragdoll, editor placement, runtime smoke,
     launcher projectile, authored scenes, and generated scenes pass descriptors
     from construction-time shape facts, and the public bare append overload is
-    deleted. `CaptureAuthoredColliderDesc()` remains only for same-count
-    editor shape edit/topology-drift refresh until explicit collider update commands
-    replace model-field recapture.
+    deleted. Later slices removed same-count editor shape recapture and the
+    topology-drift model-field fallback.
   - [x] 2026-07-05 authored/generated scene balls, boxes, and convex hulls now
     pass `PhysicsColliderCreateDesc` directly at append. Superseded by the next
-    slice above: every append path now passes descriptors; only same-count
-    editor shape edit/topology refresh still uses the explicit
-    `CaptureAuthoredColliderDesc()` fallback.
+    slice above: every append path now passes descriptors; later slices remove
+    same-count editor shape edit recapture and topology-drift recapture.
 - [ ] Move shape mutation into explicit collider update commands.
   - [x] 2026-07-05 same-count editor/replay scale edits now pass
     `PhysicsColliderCreateDesc` values into
     `GameModelCollection::CommitEditedModelColliderState()`; the deleted
     `CommitEditedModelPhysicsState(..., true)` bool path is guarded against
-    returning. Topology drift still uses `CaptureAuthoredColliderDesc()` until
-    durable scene/entity collider metadata replaces the model-field fallback.
+    returning. The topology-drift `CaptureAuthoredColliderDesc()` fallback is
+    removed by the follow-up fail-closed collider topology slice.
+  - [x] 2026-07-05 topology-drift collider repair no longer reconstructs
+    descriptors from `GameModel`; `CaptureAuthoredColliderDesc`,
+    `UpdateColliderStoreFromModel`, `GameModelCollection::RefreshPhysicsColliders`,
+    and `PhysicsModelAccess::RefreshPhysicsColliders` are deleted.
 - [ ] Update broadphase code to read collider bounds from `ColliderStore`.
 - [ ] Update narrowphase code to read exact shapes from `ColliderStore`.
 - [ ] Preserve persistent contact keys across the migration where possible.

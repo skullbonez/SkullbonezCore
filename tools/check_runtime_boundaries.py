@@ -318,6 +318,12 @@ PHYSICS_MODEL_ACCESS_DELETED_STEP_FACADE_DEFINITION_PATTERN = re.compile(
     r"NotifyFixedContact|TickContactHighlights|TryGetPhysicsDiagnosticsModelName|FillPhysicsDiagnosticsNames|"
     r"Count|size)\s*\("
 )
+PHYSICS_MODEL_ACCESS_DELETED_COLLIDER_REFRESH_PATTERN = re.compile(
+    r"\bRefreshPhysicsColliders\s*\("
+)
+PHYSICS_MODEL_ACCESS_DELETED_COLLIDER_REFRESH_DEFINITION_PATTERN = re.compile(
+    r"\bPhysicsModelAccess::RefreshPhysicsColliders\s*\("
+)
 PHYSICS_WORLD_STORE_SEED_MODEL_ACCESS_PATTERN = re.compile(
     r"\b(?:GameModelBodyStream|GetBodyStream)\b|\bmodelAccess\s*\.\s*InvalidatePhysicsStreams\s*\("
 )
@@ -578,11 +584,20 @@ COLLIDER_STORE_GAME_MODEL_AUTHORING_PATTERN = re.compile(
     r"GetFrictionCoefficient|GetContactMaterialId|GetProjectedSurfaceArea|GetDragCoefficient|"
     r"IsBox|IsConvexHull)\s*\("
 )
+COLLIDER_STORE_REFRESH_BODY_BINDINGS_FUNCTION_PATTERN = re.compile(
+    r"\b(?:bool|void)\s+ColliderStore::RefreshBodyBindings\s*\("
+)
+COLLIDER_STORE_BODY_BINDING_RESIZE_PATTERN = re.compile(
+    r"\bm_(?:colliders|modelColliderHandles)\s*\.\s*resize\s*\("
+)
 GAME_MODEL_COLLECTION_REFRESH_COLLIDERS_FUNCTION_PATTERN = re.compile(
     r"\bvoid\s+GameModelCollection::RefreshPhysicsColliders\s*\("
 )
 GAME_MODEL_COLLECTION_REFRESH_COLLIDERS_MODELS_PATTERN = re.compile(
     r"\bcolliderStore\s*\.\s*Refresh\s*\(\s*m_gameModels\s*,"
+)
+GAME_MODEL_COLLECTION_DELETED_COLLIDER_RECAPTURE_PATTERN = re.compile(
+    r"\b(?:CaptureAuthoredColliderDesc|UpdateColliderStoreFromModel|RefreshPhysicsColliders)\b"
 )
 COLLIDER_AUTHORING_SIDECAR_PATTERN = re.compile(
     r"\b(?:ColliderAuthoringRecord|m_colliderAuthoringRows|MakeColliderRecordFromAuthoring)\b"
@@ -1117,6 +1132,19 @@ DELETED_MIGRATION_ARTIFACT_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...
         "RefreshColliderStore full body reload facade",
         re.compile(r"\bRefreshColliderStore\s*\("),
         "Refresh body topology explicitly when counts drift, then call RefreshColliderSnapshot; do not revive a collider refresh facade that also reloads body rows.",
+    ),
+    (
+        "GameModel collider topology recapture",
+        re.compile(
+            r"\b(?:CaptureAuthoredColliderDesc|UpdateColliderStoreFromModel)\b"
+            r"|\b(?:GameModelCollection|PhysicsModelAccess)::RefreshPhysicsColliders\s*\("
+        ),
+        "Collider shape/material rows are created or edited by explicit descriptors; topology repair must not recapture them from GameModel.",
+    ),
+    (
+        "RefreshColliderSnapshot model access parameter",
+        re.compile(r"\bRefreshColliderSnapshot\s*\(\s*(?:PhysicsModelAccess\s*&|modelAccess\s*\))"),
+        "Collider rebinding is PhysicsBodyStore to ColliderStore; do not route it through PhysicsModelAccess.",
     ),
     (
         "GameModel SoA memory stat",
@@ -3188,6 +3216,23 @@ def check_physics_model_access_deleted_step_facade_guardrails_text(path: Path, t
                 ),
             )
         )
+    collider_refresh_pattern = (
+        PHYSICS_MODEL_ACCESS_DELETED_COLLIDER_REFRESH_DEFINITION_PATTERN
+        if path.name == "GameModelCollection.cpp"
+        else PHYSICS_MODEL_ACCESS_DELETED_COLLIDER_REFRESH_PATTERN
+    )
+    for match in collider_refresh_pattern.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "deleted PhysicsModelAccess collider refresh facade is blocked",
+                (
+                    "Collider rebinding is now a PhysicsBodyStore-to-ColliderStore operation; do not route "
+                    "shape/material topology repair through the model-owner facade."
+                ),
+            )
+        )
     return errors
 
 
@@ -4332,6 +4377,22 @@ def check_collider_store_identity_authority_guardrails_text(path: Path, text: st
                 ),
             )
         )
+    if path.name == COLLIDER_STORE_SOURCE.name:
+        bounds = _function_body_bounds(stripped, COLLIDER_STORE_REFRESH_BODY_BINDINGS_FUNCTION_PATTERN)
+        if bounds:
+            open_brace, close_brace = bounds
+            for match in COLLIDER_STORE_BODY_BINDING_RESIZE_PATTERN.finditer(stripped, open_brace, close_brace):
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, match.start()),
+                        "ColliderStore body-binding refresh must not create collider rows",
+                        (
+                            "RefreshBodyBindings may update body identity on existing dense rows; missing collider "
+                            "rows must fail closed so shape/material facts are created only by explicit descriptors."
+                        ),
+                    )
+                )
     return errors
 
 
@@ -4349,6 +4410,18 @@ def check_game_model_collection_collider_authoring_guardrails_text(path: Path, t
 
     stripped = strip_cpp_comments_and_string_literals(text)
     errors: list[BoundaryError] = []
+    for match in GAME_MODEL_COLLECTION_DELETED_COLLIDER_RECAPTURE_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "collection collider topology recapture is blocked",
+                (
+                    "GameModelCollection must not keep a model-field collider recapture fallback; creation and "
+                    "editor paths pass PhysicsColliderCreateDesc, while topology repair only rebinds existing rows."
+                ),
+            )
+        )
     for match in COLLIDER_AUTHORING_SIDECAR_PATTERN.finditer(stripped):
         errors.append(
             BoundaryError(
@@ -11475,6 +11548,9 @@ def run_self_tests() -> list[str]:
     auto rawRange = modelAccess.Models();
     auto borrowedRange = BorrowMutableModels( modelAccess );
     physics.RefreshColliderStore( modelAccess );
+    PhysicsColliderCreateDesc desc = CaptureAuthoredColliderDesc( model, body );
+    collection.UpdateColliderStoreFromModel( index );
+    modelAccess.RefreshColliderSnapshot( modelAccess );
     auto mirror = sideEffects.bodyMirrorWritebacks;
     QueueBodyMirrorWriteback( index );
     PhysicsBodyWritebackSink* writebackSink = nullptr;
@@ -11489,6 +11565,20 @@ def run_self_tests() -> list[str]:
         )
     ):
         failures.append("deleted migration artifact synthetic surface was not rejected")
+    deleted_migration_artifact_errors = check_deleted_migration_artifact_guardrails_text(
+        Path("SkullbonezSource/Runtime/SyntheticDeletedArtifacts.cpp"),
+        deleted_migration_artifact_text,
+    )
+    if not any(
+        error.message == "deleted migration artifact is blocked: GameModel collider topology recapture"
+        for error in deleted_migration_artifact_errors
+    ):
+        failures.append("deleted collider topology recapture synthetic surface was not rejected")
+    if not any(
+        error.message == "deleted migration artifact is blocked: RefreshColliderSnapshot model access parameter"
+        for error in deleted_migration_artifact_errors
+    ):
+        failures.append("deleted RefreshColliderSnapshot modelAccess synthetic surface was not rejected")
 
     deleted_game_model_initial_orientation_text = """
     class GameModel
@@ -12388,7 +12478,6 @@ def run_self_tests() -> list[str]:
         int ModelCount() const;
         void ReloadPhysicsBodies( PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
         void RefreshPhysicsBodyFromModel( PhysicsBodyStore& bodyStore, int modelIndex );
-        void RefreshPhysicsColliders( ColliderStore& colliderStore, const PhysicsBodyStore& bodyStore );
         void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
                                      const PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore );
@@ -12399,6 +12488,21 @@ def run_self_tests() -> list[str]:
         allowed_physics_model_access_refresh_facade,
     ):
         failures.append("refresh-only PhysicsModelAccess synthetic surface was rejected")
+
+    old_physics_model_access_collider_refresh = """
+    class PhysicsModelAccess
+    {
+        void RefreshPhysicsColliders( ColliderStore& colliderStore, const PhysicsBodyStore& bodyStore );
+    };
+    """
+    if not any(
+        error.message == "deleted PhysicsModelAccess collider refresh facade is blocked"
+        for error in check_physics_model_access_deleted_step_facade_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsModelAccess.h"),
+            old_physics_model_access_collider_refresh,
+        )
+    ):
+        failures.append("old PhysicsModelAccess collider refresh synthetic surface was not rejected")
 
     commented_physics_model_access_step_facade = """
     class PhysicsModelAccess
@@ -13041,12 +13145,9 @@ def run_self_tests() -> list[str]:
     allowed_count_gated_collider_snapshot_refresh = """
     const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
     {
-        GetPhysicsBodyStore();
-        if ( m_physicsEngine.Colliders().Count() != ModelCount() )
-        {
-            PhysicsModelAccess modelAccess( *this );
-            m_physicsEngine.RefreshColliderSnapshot( modelAccess );
-        }
+        const bool repaired = RepairPhysicsBodyAndColliderTopology();
+        assert( repaired );
+        (void)repaired;
         return m_physicsEngine.Colliders();
     }
     """
@@ -13993,14 +14094,32 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old ColliderStore GameModel authoring synthetic surface was not rejected")
 
-    allowed_collider_store_authoring_identity = """
+    old_collider_store_body_binding_resize = """
     void ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
+    {
+        const int bodyCount = bodyStore.Count();
+        m_colliders.resize( bodyCount );
+        m_modelColliderHandles.resize( bodyCount );
+    }
+    """
+    if not any(
+        error.message == "ColliderStore body-binding refresh must not create collider rows"
+        for error in check_collider_store_identity_authority_guardrails_text(
+            Path("SkullbonezSource/Physics/ColliderStore.cpp"),
+            old_collider_store_body_binding_resize,
+        )
+    ):
+        failures.append("old ColliderStore body-binding resize synthetic surface was not rejected")
+
+    allowed_collider_store_authoring_identity = """
+    bool ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
     {
         const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( i );
         record.body = body->handle;
         record.replayBodyId = body->replayBodyId;
         const uint32_t replayBodyId = record.replayBodyId;
         record.handle = ResolveHandleForModelIndex( i, replayBodyId, assignedHandleSlots );
+        return true;
     }
     """
     if check_collider_store_identity_authority_guardrails_text(
@@ -14092,7 +14211,7 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("store-owned runtime config collider material synthetic surface was rejected")
 
-    allowed_collection_collider_refresh_authoring = """
+    old_collection_collider_refresh_authoring = """
     void GameModelCollection::RefreshPhysicsColliders( ColliderStore& colliderStore,
                                                        const PhysicsBodyStore& bodyStore )
     {
@@ -14104,11 +14223,32 @@ def run_self_tests() -> list[str]:
         }
     }
     """
+    if not any(
+        error.message == "collection collider topology recapture is blocked"
+        for error in check_game_model_collection_collider_authoring_guardrails_text(
+            Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
+            old_collection_collider_refresh_authoring,
+        )
+    ):
+        failures.append("old collection authored-collider refresh synthetic surface was not rejected")
+
+    allowed_collection_collider_rebind = """
+    bool GameModelCollection::RepairPhysicsBodyAndColliderTopology()
+    {
+        if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
+        {
+            PhysicsModelAccess modelAccess( *this );
+            m_physicsEngine.RefreshBodyStore( modelAccess );
+        }
+        const bool colliderBindingsReady = m_physicsEngine.RefreshColliderSnapshot();
+        return colliderBindingsReady;
+    }
+    """
     if check_game_model_collection_collider_authoring_guardrails_text(
         Path("SkullbonezSource/GameObjects/GameModelCollection.cpp"),
-        allowed_collection_collider_refresh_authoring,
+        allowed_collection_collider_rebind,
     ):
-        failures.append("collection authored-collider refresh synthetic surface was rejected")
+        failures.append("collection collider rebind synthetic surface was rejected")
 
     old_add_model_body_only_append = """
     PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel, uint32_t replayBodyId )
@@ -14133,15 +14273,21 @@ def run_self_tests() -> list[str]:
         failures.append("old AddGameModel body-only repair synthetic surface was not rejected")
 
     allowed_add_model_direct_collider_append = """
-    PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel, uint32_t replayBodyId )
+    PhysicsBodyHandle GameModelCollection::AddGameModel( GameModel gameModel,
+                                                         uint32_t replayBodyId,
+                                                         PhysicsColliderCreateDesc colliderDesc )
     {
-        RepairPhysicsBodyAndColliderTopology();
+        if ( !RepairPhysicsBodyAndColliderTopology() )
+        {
+            throw std::runtime_error( "Cannot append model while physics collider rows are missing." );
+        }
         m_gameModels.push_back( std::move( gameModel ) );
         m_replayBodyIds.push_back( replayBodyId );
         const PhysicsBodyHandle bodyHandle =
             m_physicsEngine.RegisterAuthoredBody( MakeBodyRecordFromAuthoredModel( m_gameModels.back(), replayBodyId ) );
         const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForHandle( bodyHandle );
-        m_physicsEngine.RegisterAuthoredCollider( CaptureAuthoredColliderDesc( m_gameModels.back(), *bodyRecord ) );
+        colliderDesc.body = bodyRecord->handle;
+        m_physicsEngine.RegisterAuthoredCollider( colliderDesc );
         return bodyHandle;
     }
     """

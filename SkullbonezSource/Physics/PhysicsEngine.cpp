@@ -133,9 +133,9 @@ bool PhysicsEngine::RestoreReplayBodyState( PhysicsBodyHandle body,
 }
 
 
-void PhysicsEngine::RefreshColliderSnapshot( PhysicsModelAccess& modelAccess )
+bool PhysicsEngine::RefreshColliderSnapshot()
 {
-    m_scene.RefreshColliderSnapshot( modelAccess );
+    return m_scene.RefreshColliderSnapshot();
 }
 
 

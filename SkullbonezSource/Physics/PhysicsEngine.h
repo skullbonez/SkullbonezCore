@@ -87,9 +87,9 @@ class PhysicsEngine
                                  float inverseMass,
                                  const Math::Vector::Vector3& rotationalInertia,
                                  const Math::Vector::Vector3& inverseRotationalInertia );
-    // Refreshes collider body bindings from PhysicsBodyStore; topology repair
-    // may rebuild collider fields at the GameModelCollection owner boundary.
-    void RefreshColliderSnapshot( PhysicsModelAccess& modelAccess );
+    // Rebinds existing collider rows from PhysicsBodyStore. Missing collider
+    // rows are a topology bug, not a cue to rebuild shape facts from GameModel.
+    bool RefreshColliderSnapshot();
     void RefreshRenderStore( PhysicsModelAccess& modelAccess );
     // Steps the owned stores. Model-order import/export lives with
     // GameModelCollection so the solver path does not borrow PhysicsModelAccess.

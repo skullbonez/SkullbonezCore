@@ -12,8 +12,8 @@ Mental model:
 Glossary:
   Model-owner access: Narrow command/query facade over GameModelCollection
     state that physics stores still need for model-order sync.
-  Authoring refresh: Model-owner import that rebuilds body, collider, or render
-    store rows after scene/editor/replay code changes model-owned authoring data.
+  Authoring refresh: Model-owner import that rebuilds body or render store rows
+    after scene/editor/replay code changes model-owned authoring data.
   Model order: Deterministic vector order still used to align compatibility
     rows until durable entity/body/collider handles own every caller.
 
@@ -29,8 +29,7 @@ Boundary budget:
   Reason: scene, editor, and replay paths still mutate model-owned authoring
     data before durable body/collider/render handles own those facts directly.
   Deletion condition: remove this facade when physics and rendering stores can
-    refresh body, collider, material, and feedback rows without model-order
-    imports.
+    refresh body, material, and feedback rows without model-order imports.
   Checker budget: tools/check_runtime_boundaries.py rejects step writeback,
     presentation feedback, diagnostic-name, and body-stream methods here.
 
@@ -72,11 +71,11 @@ class PhysicsModelAccess
     void ReloadPhysicsBodies( PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
     // Store refreshes still read model-owned authoring/presentation state. Body
     // and collider stores provide physics-owned pose/shape for render records;
-    // GameModel supplies material and feedback alpha until rendering owns them.
+    // GameModel supplies render material and feedback alpha until rendering owns
+    // them.
     // Captures one editor/replay-edited body into PhysicsBodyStore without
     // forcing every render refresh to reload the full model mirror.
     void RefreshPhysicsBodyFromModel( PhysicsBodyStore& bodyStore, int modelIndex );
-    void RefreshPhysicsColliders( ColliderStore& colliderStore, const PhysicsBodyStore& bodyStore );
     void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
                                  const PhysicsBodyStore& bodyStore,
                                  const ColliderStore& colliderStore );

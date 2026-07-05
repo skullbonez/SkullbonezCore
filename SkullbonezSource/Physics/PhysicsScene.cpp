@@ -216,9 +216,9 @@ bool PhysicsScene::RestoreReplayBodyState( PhysicsBodyHandle body,
 }
 
 
-void PhysicsScene::RefreshColliderSnapshot( PhysicsModelAccess& modelAccess )
+bool PhysicsScene::RefreshColliderSnapshot()
 {
-    modelAccess.RefreshPhysicsColliders( m_colliderStore, m_bodyStore );
+    return m_colliderStore.RefreshBodyBindings( m_bodyStore );
 }
 
 
@@ -229,9 +229,13 @@ void PhysicsScene::RefreshRenderStore( PhysicsModelAccess& modelAccess )
     {
         RefreshBodyStore( modelAccess );
     }
-    if ( m_colliderStore.Count() != modelCount )
+    if ( !RefreshColliderSnapshot() )
     {
-        modelAccess.RefreshPhysicsColliders( m_colliderStore, m_bodyStore );
+        // Hazard: render rows consume collider shape/material data. If topology
+        // drift has removed collider rows, do not manufacture a partial render
+        // snapshot from stale model-owned shape fields.
+        m_renderInstanceStore.Clear();
+        return;
     }
     modelAccess.RefreshRenderInstances( m_renderInstanceStore, m_bodyStore, m_colliderStore );
 #ifdef _DEBUG

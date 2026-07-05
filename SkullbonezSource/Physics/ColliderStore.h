@@ -73,7 +73,7 @@ class ColliderStore
     ColliderStore();
 
     void Clear();
-    void RefreshBodyBindings( const PhysicsBodyStore& bodyStore );
+    bool RefreshBodyBindings( const PhysicsBodyStore& bodyStore );
     PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord );
     // Authoring edits replace row contents through the stable collider handle,
     // so callers do not need to expose model-order slots at the physics facade
