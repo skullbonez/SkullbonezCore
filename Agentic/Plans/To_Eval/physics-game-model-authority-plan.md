@@ -4,14 +4,29 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_full.bat` passed on 2026-07-05 after moving runtime replay-id
-validation to `PhysicsBodyStore` rows; DX12 InfoQueue reported 0 validation
-errors, screenshots matched committed baselines, standalone/runtime physics
-smoke passed, and `physics_regression_solver.csv` was a byte-exact
-20,001-line match.
+`tools\validate_physics.bat` passed on 2026-07-05 after moving
+`ColliderStore` refresh replay/body identity to `PhysicsBodyStore` rows;
+standalone/runtime physics smoke passed, and `physics_regression_solver.csv`
+was a byte-exact 20,001-line match.
 
 ## Completed Slices
 
+- [x] 2026-07-05: Moved `ColliderStore::Refresh()` replay/body identity off the
+  `GameModel` replay-id mirror. The refresh still imports cold authoring
+  collider data from `GameModel` for shape/material fields that have not moved
+  yet, but it resolves the matching `PhysicsBodyStore` row once and uses
+  `PhysicsBodyRecord::replayBodyId` plus `PhysicsBodyRecord::handle` for
+  collider handle reuse, scene id derivation, and body linking. Owner:
+  `ColliderStore` compatibility refresh. Reason: body rows already own stable
+  replay identity and live body handles, so re-reading the mutable model mirror
+  added duplicate authority and cache-hostile work to every collider refresh.
+  Deletion condition: `ColliderStore::Refresh(GameModel*, ...)` contains no
+  `GameModel::GetReplayBodyId()` reads. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects old ColliderStore model replay-id
+  reads and self-tests the store-owned form. Validation: focused Profile build,
+  `git diff --check`, `python -m py_compile tools/check_runtime_boundaries.py`,
+  `python tools/check_runtime_boundaries.py --repo .`, `tools\validate_fast.bat`,
+  and `tools\validate_physics.bat` passed on 2026-07-05.
 - [x] 2026-07-05: Moved the remaining runtime replay-id validation paths off
   the `GameModel` replay-id mirror. `RunInput.cpp` now validates attached-camera
   cached and stale replay targets against dense `PhysicsBodyStore` records while
@@ -896,7 +911,12 @@ Colliders should own exact collision data. `GameModel` must not remain the hidde
 - [x] 2026-07-05 object/object manifold public API and required scene-contact
   gates consume `ColliderStore` shape snapshots instead of `GameModel`
   collision shapes.
-- [ ] Make `ColliderStore` own body-to-collider and collider-to-body mapping.
+- [x] 2026-07-05 `ColliderStore::Refresh()` derives replay identity and body
+  links from `PhysicsBodyStore` rows instead of re-importing
+  `GameModel::GetReplayBodyId()`; shape/material authoring remains `GameModel`
+  compatibility input pending explicit collider registration.
+- [ ] Make `ColliderStore` own body-to-collider and collider-to-body mapping
+  without requiring a `GameModel` refresh input.
 - [ ] Move shape creation from `GameModel` construction into a collider registration path.
 - [ ] Move shape mutation into explicit collider update commands.
 - [ ] Update broadphase code to read collider bounds from `ColliderStore`.

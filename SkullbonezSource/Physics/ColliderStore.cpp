@@ -29,6 +29,7 @@ Related:
 #include "ColliderStore.h"
 #include "PhysicsBodyStore.h"
 
+#include <cassert>
 #include <cstddef>
 
 #include "../Core/Common.h"
@@ -198,9 +199,15 @@ void ColliderStore::Refresh( GameModel* models, int modelCount, const PhysicsBod
     {
         GameModel& model = models[i];
         ColliderRecord& record = m_colliders[static_cast<std::size_t>( i )];
-        record.handle = ResolveHandleForModelIndex( i, model.GetReplayBodyId(), assignedHandleSlots );
-        record.body = bodyStore.HandleForModelIndex( i );
-        record.replayBodyId = model.GetReplayBodyId();
+        const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( i );
+        assert( body != nullptr );
+        // Invariant: collider identity follows the body row imported by
+        // PhysicsBodyStore. GameModel still supplies authoring shape/material
+        // data here, but it must not approve replay id or body-handle identity.
+        const uint32_t replayBodyId = body ? body->replayBodyId : 0u;
+        record.handle = ResolveHandleForModelIndex( i, replayBodyId, assignedHandleSlots );
+        record.body = body ? body->handle : PhysicsBodyHandle{};
+        record.replayBodyId = replayBodyId;
         record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
         record.shape = model.GetCollisionShape();
         record.boundingRadius = model.GetBoundingRadius();

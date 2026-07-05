@@ -191,6 +191,7 @@ PHYSICS_WORLD_SOURCE = PHYSICS_ROOT / "PhysicsWorld.cpp"
 PHYSICS_WORLD_HEADER = PHYSICS_ROOT / "PhysicsWorld.h"
 PHYSICS_SCENE_SOURCE = PHYSICS_ROOT / "PhysicsScene.cpp"
 PHYSICS_SCENE_HEADER = PHYSICS_ROOT / "PhysicsScene.h"
+COLLIDER_STORE_SOURCE = PHYSICS_ROOT / "ColliderStore.cpp"
 PHYSICS_DIAGNOSTICS_SINK_SOURCE = PHYSICS_ROOT / "PhysicsDiagnosticsSink.cpp"
 PHYSICS_DIAGNOSTICS_SINK_HEADER = PHYSICS_ROOT / "PhysicsDiagnosticsSink.h"
 RAGDOLL_SOURCE = PHYSICS_ROOT / "Ragdoll.cpp"
@@ -539,6 +540,12 @@ RUN_REPLAY_RESTORE_BODY_STORE_REFRESH_PATTERN = re.compile(
     r"\bm_cGameModelCollection\s*\.\s*GetPhysicsBodyStore\s*\("
 )
 RUN_REPLAY_RESTORE_MODEL_ID_PATTERN = re.compile(
+    r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*GetReplayBodyId\s*\("
+)
+COLLIDER_STORE_REFRESH_FUNCTION_PATTERN = re.compile(
+    r"\bvoid\s+ColliderStore::Refresh\s*\(\s*GameModel\s*\*\s+models\s*,"
+)
+COLLIDER_STORE_REFRESH_MODEL_REPLAY_ID_PATTERN = re.compile(
     r"\b[A-Za-z_]\w*(?:\s*\[[^\]]+\])?\s*(?:->|\.)\s*GetReplayBodyId\s*\("
 )
 REPLAY_RESTORE_MODEL_INDEX_PHYSICS_API_PATTERN = re.compile(
@@ -4205,6 +4212,37 @@ def check_run_replay_restore_store_authority_guardrails_text(path: Path, text: s
                 )
             )
     return errors
+
+
+def check_collider_store_identity_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    if path.name != COLLIDER_STORE_SOURCE.name:
+        return []
+
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    bounds = _function_body_bounds(stripped, COLLIDER_STORE_REFRESH_FUNCTION_PATTERN)
+    if not bounds:
+        return errors
+
+    open_brace, close_brace = bounds
+    for match in COLLIDER_STORE_REFRESH_MODEL_REPLAY_ID_PATTERN.finditer(stripped, open_brace, close_brace):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "ColliderStore refresh replay identity must use PhysicsBodyStore",
+                (
+                    "ColliderStore refresh may still import GameModel shape/material authoring data, but collider "
+                    "replay id and body handle identity must come from the matching PhysicsBodyStore row."
+                ),
+            )
+        )
+    return errors
+
+
+def check_collider_store_identity_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    path = repo / COLLIDER_STORE_SOURCE
+    return check_collider_store_identity_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
 
 
 def check_game_model_collection_replay_restore_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
@@ -13624,6 +13662,42 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("store-owned replay restore synthetic surface was rejected")
 
+    old_collider_store_model_replay_id = """
+    void ColliderStore::Refresh( GameModel* models, int modelCount, const PhysicsBodyStore& bodyStore )
+    {
+        GameModel& model = models[i];
+        record.handle = ResolveHandleForModelIndex( i, model.GetReplayBodyId(), assignedHandleSlots );
+        record.body = bodyStore.HandleForModelIndex( i );
+        record.replayBodyId = model.GetReplayBodyId();
+    }
+    """
+    if not any(
+        error.message == "ColliderStore refresh replay identity must use PhysicsBodyStore"
+        for error in check_collider_store_identity_authority_guardrails_text(
+            Path("SkullbonezSource/Physics/ColliderStore.cpp"),
+            old_collider_store_model_replay_id,
+        )
+    ):
+        failures.append("old ColliderStore model replay-id synthetic surface was not rejected")
+
+    allowed_collider_store_body_identity = """
+    void ColliderStore::Refresh( GameModel* models, int modelCount, const PhysicsBodyStore& bodyStore )
+    {
+        GameModel& model = models[i];
+        const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( i );
+        const uint32_t replayBodyId = body ? body->replayBodyId : 0u;
+        record.handle = ResolveHandleForModelIndex( i, replayBodyId, assignedHandleSlots );
+        record.body = body ? body->handle : PhysicsBodyHandle{};
+        record.replayBodyId = replayBodyId;
+        record.shape = model.GetCollisionShape();
+    }
+    """
+    if check_collider_store_identity_authority_guardrails_text(
+        Path("SkullbonezSource/Physics/ColliderStore.cpp"),
+        allowed_collider_store_body_identity,
+    ):
+        failures.append("store-owned ColliderStore replay identity synthetic surface was rejected")
+
     old_collection_replay_restore_model_refresh = """
     bool GameModelCollection::TryRestoreReplayBodyState( int index,
                                                          uint32_t replayBodyId,
@@ -17582,6 +17656,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_replay_prediction_step_writeback_guardrails(repo))
     errors.extend(check_replay_prediction_ghost_render_store_authority_guardrails(repo))
     errors.extend(check_replay_restore_store_authority_guardrails(repo))
+    errors.extend(check_collider_store_identity_authority_guardrails(repo))
     errors.extend(check_physics_body_store_model_index_command_guardrails(repo))
     errors.extend(check_replay_render_pose_value_override_guardrails(repo))
     errors.extend(check_run_frame_replay_probe_body_store_guardrails(repo))
