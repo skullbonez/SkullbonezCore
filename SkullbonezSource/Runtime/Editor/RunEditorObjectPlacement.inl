@@ -116,6 +116,10 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
                                                         building || ragdollStartsAsleep
                                                     ? "sleeping"
                                                     : "dynamic" );
+    // Invariant: placement selection preserves the last added row to keep the
+    // existing multi-part object behavior while carrying store-owned identity.
+    Physics::PhysicsBodyHandle lastPlacedBody;
+    int lastPlacedModelIndex = -1;
 
     auto addModel = [&]( GameModel model, bool modelFixed, bool modelStartsAsleep = false )
     {
@@ -124,7 +128,8 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         // placement result reports only the before/after count.
         model.SetFixed( modelFixed );
         const int index = context.models.GetModelCount();
-        context.models.AddGameModel( std::move( model ) );
+        lastPlacedBody = context.models.AddGameModel( std::move( model ) );
+        lastPlacedModelIndex = index;
         if ( !modelFixed )
         {
             if ( modelStartsAsleep )
@@ -530,6 +535,11 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
     outResult.placed = placed;
     outResult.modelCountBefore = modelCount;
     outResult.modelCountAfter = context.scene.modelCount;
+    outResult.placedBody = lastPlacedBody;
+    if ( placed && lastPlacedModelIndex >= 0 )
+    {
+        outResult.placedCollider = context.models.GetColliderStore().HandleForModelIndex( lastPlacedModelIndex );
+    }
     outResult.objectType = type;
     outResult.fixedObject = fixedObject;
     outResult.autoTerrainAlign = context.editor.autoTerrainAlign;

@@ -12,9 +12,12 @@ Glossary:
   Command: A synchronous runtime mutation request emitted by routed input.
   Event: A lightweight observation record published after a command succeeds.
   Selection scope: Which workspace, editor or inspect, owns a selected model.
+  Selection body: Store-owned body/collider handles for the selected object;
+    the model index is only the UI/order hint paired with those handles.
 
 Invariants:
-  - Commands carry model indices in frame-local GameModelCollection order.
+  - Selection commands carry physics handles when the caller already has them.
+  - Model indices remain frame-local UI hints, not physics authority.
   - Events must not mutate world state; they describe completed mutations.
 
 Related:
@@ -23,6 +26,8 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
+
+#include "../Physics/PhysicsHandles.h"
 
 namespace SkullbonezCore
 {
@@ -46,6 +51,8 @@ struct RuntimeInteractionCommand
 {
     RuntimeInteractionCommandType type = RuntimeInteractionCommandType::None;
     int modelIndex = -1;
+    Physics::PhysicsBodyHandle body;
+    Physics::PhysicsColliderHandle collider;
     RuntimeInteractionSelectionScope selectionScope = RuntimeInteractionSelectionScope::Editor;
     bool claimSelectionOwner = true;
 };
@@ -61,6 +68,10 @@ struct RuntimeInteractionEvent
     RuntimeInteractionEventType type = RuntimeInteractionEventType::None;
     int previousModelIndex = -1;
     int modelIndex = -1;
+    Physics::PhysicsBodyHandle previousBody;
+    Physics::PhysicsBodyHandle body;
+    Physics::PhysicsColliderHandle previousCollider;
+    Physics::PhysicsColliderHandle collider;
     RuntimeInteractionSelectionScope selectionScope = RuntimeInteractionSelectionScope::Editor;
 };
 

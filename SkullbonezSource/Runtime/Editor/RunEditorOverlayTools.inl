@@ -66,11 +66,26 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
                                              terrainPlacementForPreview );
     }
 
-    if ( context.editor.selectedModelIndex >= context.models.GetModelCount() )
+    const bool hasSelection = context.editor.selectedModelIndex >= 0;
+    bool selectionHandlesValid = false;
+    if ( hasSelection && context.bodyStore && context.colliderStore && context.editor.selectedBody.IsValid() &&
+         context.editor.selectedCollider.IsValid() )
     {
-        // Invariant: Selection stores model indices. If the model array shrinks
-        // under editor or inspect mode, clear through the interaction command
-        // path instead of letting later gizmo code read a stale index.
+        const PhysicsBodyRecord* body = context.bodyStore->RecordForHandle( context.editor.selectedBody );
+        const ColliderRecord* collider = context.colliderStore->RecordForHandle( context.editor.selectedCollider );
+        selectionHandlesValid = body && collider &&
+                                context.bodyStore->ModelIndexForHandle( context.editor.selectedBody ) ==
+                                    context.editor.selectedModelIndex &&
+                                context.colliderStore->ModelIndexForHandle( context.editor.selectedCollider ) ==
+                                    context.editor.selectedModelIndex &&
+                                collider->body == context.editor.selectedBody;
+    }
+
+    if ( context.editor.selectedModelIndex >= context.models.GetModelCount() || ( hasSelection && !selectionHandlesValid ) )
+    {
+        // Invariant: Selection stores handles plus a model-index hint. If
+        // topology invalidates either side, clear through the interaction
+        // command path instead of letting later gizmo code read a stale row.
         result.clearInvalidSelection = true;
         result.inspectSelectionScope = input.inspectGizmoActive;
         return result;

@@ -18,7 +18,8 @@
 #   fence, and fixed-tree, replay-restore wake, replay
 #   velocity-edit, launcher ray-hit, selection overlay, editor selection-frame,
 #   mouse-pickup overlay, attached-camera overlay, replay marker radii, replay
-#   path target identity, or editor wake/sleep commands have store-handle fences. The deleted
+#   path target identity, editor selection identity, or editor wake/sleep
+#   commands have store-handle fences. The deleted
 #   collection step wrapper has its own fence, replay render-pose overrides have
 #   their own value-override fence,
 #   per-body model writeback, and the deleted bulk model mirror have their own
@@ -66,6 +67,9 @@
 #   Editor selection-frame fence: Static rule that keeps gizmo hit testing,
 #     drag-start snapshots, and transform-change detection on PhysicsBodyStore
 #     pose and ColliderStore shape/radius rows.
+#   Editor selection identity fence: Static rule that keeps selection commands
+#     and editor state paired with PhysicsBodyHandle/PhysicsColliderHandle
+#     instead of allowing model-index-only selection to regain physics authority.
 #   Attached-camera overlay fence: Static rule that keeps the camera-target
 #     marker on PhysicsBodyStore pose and ColliderStore shape/radius rows.
 #   Replay target marker fence: Static rule that keeps replay target markers on
@@ -174,6 +178,8 @@ IRENDER_BACKEND_HEADER = Path("SkullbonezSource/Rendering/IRenderBackend.h")
 RUN_RENDER_SOURCE = Path("SkullbonezSource/Runtime/RunRender.cpp")
 RENDER_PIPELINE_SOURCE = Path("SkullbonezSource/Rendering/RenderPipeline.cpp")
 RUN_INPUT_SOURCE = Path("SkullbonezSource/Runtime/RunInput.cpp")
+RUNTIME_INTERACTION_COMMANDS_HEADER = Path("SkullbonezSource/Runtime/RuntimeInteractionCommands.h")
+RUNTIME_PICK_SERVICE_SOURCE = Path("SkullbonezSource/Runtime/RuntimePickService.cpp")
 RUN_PASSES_SOURCE = Path("SkullbonezSource/Runtime/RunPasses.cpp")
 RUN_UI_TEXT_PASS_SOURCE = Path("SkullbonezSource/Runtime/RunUiTextPass.cpp")
 RUN_SCENE_SOURCE = Path("SkullbonezSource/Runtime/Scene/RunScene.cpp")
@@ -707,6 +713,7 @@ EDITOR_SELECTION_FRAME_MODEL_ONLY_CALL_PATTERN = re.compile(
     r"m_runtimeTools\s*\.\s*Editor\s*\(\s*\)\s*\.\s*selectedModelIndex)",
     re.DOTALL,
 )
+RUNTIME_INTERACTION_EXECUTE_COMMAND_PATTERN = re.compile(r"\bbool\s+Run\s*::\s*ExecuteRuntimeInteractionCommand\s*\(")
 ATTACHED_CAMERA_OVERLAY_MODEL_MARKER_PATTERN = re.compile(
     r"\bcontext\s*\.\s*tracer\s*\.\s*AddAttachedCameraTargetMarker\s*\(\s*"
     r"(?:target|model|attachedCameraTarget|cameraTarget)\s*,"
@@ -4879,6 +4886,150 @@ def check_editor_selection_frame_store_authority_guardrails(repo: Path) -> list[
     for relative_path in ( EDITOR_TOOLS_SOURCE, EDITOR_GIZMO_TOOLS_SOURCE ):
         path = repo / relative_path
         errors.extend(check_editor_selection_frame_store_authority_guardrails_text(path, path.read_text(encoding="utf-8")))
+    return errors
+
+
+def check_editor_selection_identity_handle_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+
+    if path.name == RUNTIME_INTERACTION_COMMANDS_HEADER.name:
+        command = extract_struct_body(stripped, "RuntimeInteractionCommand")
+        if not command:
+            return errors
+        body_start, body = command
+        for required in (
+            "Physics::PhysicsBodyHandle body",
+            "Physics::PhysicsColliderHandle collider",
+        ):
+            if required not in body:
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_struct_offset(stripped, body_start, 0),
+                        "editor selection command must carry store handles",
+                        (
+                            "SetEditorSelection may keep modelIndex as a UI hint, but the command itself must carry "
+                            "PhysicsBodyHandle and PhysicsColliderHandle so selection does not rediscover physics "
+                            "identity through model order."
+                        ),
+                    )
+                )
+
+    if path.name == RUNTIME_TOOLS_HEADER.name:
+        editor = extract_struct_body(stripped, "RunEditorPlacementState")
+        if not editor:
+            return errors
+        body_start, body = editor
+        for required in (
+            "Physics::PhysicsBodyHandle selectedBody",
+            "Physics::PhysicsColliderHandle selectedCollider",
+        ):
+            if required not in body:
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_struct_offset(stripped, body_start, 0),
+                        "editor selection state must keep store handles",
+                        (
+                            "Editor state should keep the selected body/collider handles beside the model-order "
+                            "UI hint so later gizmo and overlay code can stay on store authority."
+                        ),
+                    )
+                )
+
+    if path.name == RUNTIME_PICK_SERVICE_SOURCE.name and "outResult.collider = collider.handle" not in stripped:
+        errors.append(
+            BoundaryError(
+                path,
+                1,
+                "runtime picking must return collider identity",
+                "RuntimePickResult must preserve the collider handle paired with the picked body.",
+            )
+        )
+
+    if path.name == RUN_INPUT_SOURCE.name:
+        bounds = _function_body_bounds(stripped, RUNTIME_INTERACTION_EXECUTE_COMMAND_PATTERN)
+        if bounds:
+            open_brace, close_brace = bounds
+            body = stripped[open_brace:close_brace]
+            if "selectedBody = command.body" not in body or "selectedCollider = command.collider" not in body:
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, open_brace),
+                        "SetEditorSelection must use command handles",
+                        (
+                            "The command executor should validate command.body/command.collider directly; resolving "
+                            "selection identity from command.modelIndex reopens model-order physics authority."
+                        ),
+                    )
+                )
+            if "HandleForModelIndex( command.modelIndex" in body:
+                lookup_offset = body.find("HandleForModelIndex( command.modelIndex")
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, open_brace + lookup_offset),
+                        "SetEditorSelection must not rediscover body handles from modelIndex",
+                        (
+                            "Positive selection commands already carry body/collider handles. Do not fall back to "
+                            "PhysicsBodyStore::HandleForModelIndex(command.modelIndex) inside the command executor."
+                        ),
+                    )
+                )
+        if "command.modelIndex = modelIndex" in stripped and "RuntimeInteractionSelectionScope::Inspect" in stripped:
+            if "command.body = m_attachedCamera.target.body" not in stripped or (
+                "command.collider = m_attachedCamera.target.collider" not in stripped
+            ):
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, stripped.find("command.modelIndex = modelIndex")),
+                        "attached-camera inspect selection must forward store handles",
+                        "Attach/inspect selection should pass the camera target body/collider handles to SetEditorSelection.",
+                    )
+                )
+
+    if path.name == EDITOR_TOOLS_SOURCE.name:
+        if "command.modelIndex = result.modelIndex" in stripped and (
+            "command.body = result.body" not in stripped or "command.collider = result.collider" not in stripped
+        ):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, stripped.find("command.modelIndex = result.modelIndex")),
+                    "editor pick selection must forward store handles",
+                    "RuntimePickResult body/collider handles must be forwarded with SetEditorSelection.",
+                )
+            )
+        if "command.modelIndex = placementResult.modelCountAfter - 1" in stripped and (
+            "command.body = placementResult.placedBody" not in stripped
+            or "command.collider = placementResult.placedCollider" not in stripped
+        ):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, stripped.find("command.modelIndex = placementResult.modelCountAfter - 1")),
+                    "editor placement selection must forward store handles",
+                    "Placement-created selection should preserve the body/collider handles returned at construction time.",
+                )
+            )
+
+    return errors
+
+
+def check_editor_selection_identity_handle_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in (
+        RUNTIME_INTERACTION_COMMANDS_HEADER,
+        RUNTIME_TOOLS_HEADER,
+        RUNTIME_PICK_SERVICE_SOURCE,
+        RUN_INPUT_SOURCE,
+        EDITOR_TOOLS_SOURCE,
+    ):
+        path = repo / relative_path
+        errors.extend(check_editor_selection_identity_handle_guardrails_text(path, path.read_text(encoding="utf-8")))
     return errors
 
 
@@ -14346,6 +14497,122 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only editor selection frame synthetic text was rejected")
 
+    old_selection_command_model_only = """
+    struct RuntimeInteractionCommand
+    {
+        RuntimeInteractionCommandType type = RuntimeInteractionCommandType::None;
+        int modelIndex = -1;
+    };
+    """
+    if not any(
+        error.message == "editor selection command must carry store handles"
+        for error in check_editor_selection_identity_handle_guardrails_text(
+            Path("SkullbonezSource/Runtime/RuntimeInteractionCommands.h"),
+            old_selection_command_model_only,
+        )
+    ):
+        failures.append("old model-index-only selection command synthetic surface was not rejected")
+
+    old_selection_executor_model_index_fallback = """
+    bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& command )
+    {
+        const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+        const PhysicsBodyHandle selectedBody = bodyStore.HandleForModelIndex( command.modelIndex );
+        m_runtimeTools.Editor().selectedModelIndex = command.modelIndex;
+        m_runtimeTools.Editor().selectedBody = selectedBody;
+        return true;
+    }
+    """
+    if not any(
+        error.message == "SetEditorSelection must not rediscover body handles from modelIndex"
+        for error in check_editor_selection_identity_handle_guardrails_text(
+            Path("SkullbonezSource/Runtime/RunInput.cpp"),
+            old_selection_executor_model_index_fallback,
+        )
+    ):
+        failures.append("old selection executor model-index handle lookup synthetic surface was not rejected")
+
+    old_pick_selection_drops_handles = """
+    void Run::TickEditorWorldClick()
+    {
+        RuntimePickResult result;
+        RuntimeInteractionCommand command;
+        command.type = RuntimeInteractionCommandType::SetEditorSelection;
+        command.modelIndex = result.modelIndex;
+        consumedWorldClick = ExecuteRuntimeInteractionCommand( command );
+    }
+    """
+    if not any(
+        error.message == "editor pick selection must forward store handles"
+        for error in check_editor_selection_identity_handle_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+            old_pick_selection_drops_handles,
+        )
+    ):
+        failures.append("old editor pick selection handle-drop synthetic surface was not rejected")
+
+    old_attach_selection_drops_handles = """
+    void Run::SetAttachedCameraTarget( int modelIndex )
+    {
+        RuntimeInteractionCommand command;
+        command.type = RuntimeInteractionCommandType::SetEditorSelection;
+        command.modelIndex = modelIndex;
+        command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
+        ExecuteRuntimeInteractionCommand( command );
+    }
+    """
+    if not any(
+        error.message == "attached-camera inspect selection must forward store handles"
+        for error in check_editor_selection_identity_handle_guardrails_text(
+            Path("SkullbonezSource/Runtime/RunInput.cpp"),
+            old_attach_selection_drops_handles,
+        )
+    ):
+        failures.append("old attach-camera selection handle-drop synthetic surface was not rejected")
+
+    allowed_selection_identity_handles = """
+    struct RuntimeInteractionCommand
+    {
+        RuntimeInteractionCommandType type = RuntimeInteractionCommandType::None;
+        int modelIndex = -1;
+        Physics::PhysicsBodyHandle body;
+        Physics::PhysicsColliderHandle collider;
+    };
+    bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& command )
+    {
+        PhysicsBodyHandle selectedBody = command.body;
+        PhysicsColliderHandle selectedCollider = command.collider;
+        m_runtimeTools.Editor().selectedBody = selectedBody;
+        m_runtimeTools.Editor().selectedCollider = selectedCollider;
+        return true;
+    }
+    void Run::TickEditorWorldClick()
+    {
+        RuntimePickResult result;
+        RuntimeInteractionCommand command;
+        command.type = RuntimeInteractionCommandType::SetEditorSelection;
+        command.modelIndex = result.modelIndex;
+        command.body = result.body;
+        command.collider = result.collider;
+        consumedWorldClick = ExecuteRuntimeInteractionCommand( command );
+    }
+    """
+    if check_editor_selection_identity_handle_guardrails_text(
+        Path("SkullbonezSource/Runtime/RuntimeInteractionCommands.h"),
+        allowed_selection_identity_handles,
+    ):
+        failures.append("store-handle selection command synthetic surface was rejected")
+    if check_editor_selection_identity_handle_guardrails_text(
+        Path("SkullbonezSource/Runtime/RunInput.cpp"),
+        allowed_selection_identity_handles,
+    ):
+        failures.append("store-handle selection executor synthetic surface was rejected")
+    if check_editor_selection_identity_handle_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+        allowed_selection_identity_handles,
+    ):
+        failures.append("store-handle editor selection caller synthetic surface was rejected")
+
     old_attached_camera_marker_overload = """
     class RunEditorTracer
     {
@@ -16238,6 +16505,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_mouse_pickup_overlay_store_authority_guardrails(repo))
     errors.extend(check_selection_overlay_store_authority_guardrails(repo))
     errors.extend(check_editor_selection_frame_store_authority_guardrails(repo))
+    errors.extend(check_editor_selection_identity_handle_guardrails(repo))
     errors.extend(check_attached_camera_overlay_store_authority_guardrails(repo))
     errors.extend(check_replay_target_marker_store_authority_guardrails(repo))
     errors.extend(check_replay_marker_radius_store_authority_guardrails(repo))

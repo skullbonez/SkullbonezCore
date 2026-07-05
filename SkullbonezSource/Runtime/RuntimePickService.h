@@ -19,6 +19,7 @@ Invariants:
   - RuntimePickRequest borrows physics stores for one call; the service does
     not retain them.
   - RuntimePickResult.body is the physics-store handle for command paths.
+  - RuntimePickResult.collider is the collider-store handle paired with body.
   - RuntimePickResult.modelIndex is the dense row/model index for UI identity
     in the same store snapshot and frame that produced the result.
 
@@ -63,6 +64,7 @@ struct RuntimePickRequest
 struct RuntimePickResult
 {
     Physics::PhysicsBodyHandle body;
+    Physics::PhysicsColliderHandle collider;
     int modelIndex = -1;
     float rayT = FLT_MAX;
 };

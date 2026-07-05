@@ -35,6 +35,7 @@ Related:
 #include "../RuntimeInteractionController.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
+#include "../../Physics/PhysicsHandles.h"
 
 namespace SkullbonezCore
 {
@@ -112,6 +113,9 @@ struct EditorObjectPlacementResult
     bool placed = false;
     int modelCountBefore = 0;
     int modelCountAfter = 0;
+    // Construction identity for the selected model row after placement commits.
+    Physics::PhysicsBodyHandle placedBody;
+    Physics::PhysicsColliderHandle placedCollider;
     int objectType = 0;
     bool fixedObject = false;
     bool autoTerrainAlign = false;

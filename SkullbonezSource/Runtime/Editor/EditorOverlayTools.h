@@ -69,6 +69,10 @@ struct EditorInteractionPreviewContext
 {
     RunEditorPlacementState& editor;
     GameObjects::GameModelCollection& models;
+    // Lifetime: preview validation borrows stores only when a selection exists;
+    // null means the frame has no live selection identity to validate.
+    const Physics::PhysicsBodyStore* bodyStore = nullptr;
+    const Physics::ColliderStore* colliderStore = nullptr;
     RuntimeInteractionController& interaction;
     Geometry::Terrain* terrain;
     const Assets::AssetSystem& assets;

@@ -183,7 +183,11 @@ struct RunEditorPlacementState
     bool tildeShortcutWasDown = false;
     int objectType = UI::EditorTab::OBJECT_BOX;
     int placedObjectSerial = 0;
+    // Lifetime: selectedBody/selectedCollider are live store identities. The
+    // model index is only the editor/UI row hint paired with those handles.
     int selectedModelIndex = -1;
+    Physics::PhysicsBodyHandle selectedBody;
+    Physics::PhysicsColliderHandle selectedCollider;
     int hotGizmoAxis = -1;
     int hotRotationAxis = -1;
     int activeGizmoAxis = -1;

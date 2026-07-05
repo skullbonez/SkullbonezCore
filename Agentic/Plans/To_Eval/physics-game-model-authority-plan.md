@@ -5,9 +5,9 @@ Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
 intermittent `tools\validate_physics.bat` passed on 2026-07-05 after moving
-editor selection/gizmo frame math, drag-start snapshots, and replay
-transform-change detection off `GameModel` body mirrors and onto
-`PhysicsBodyStore`/`ColliderStore` rows.
+editor selection commands and editor state to carry `PhysicsBodyHandle` /
+`PhysicsColliderHandle` identity, with stale-handle clearing and a boundary
+checker that blocks model-index-only selection from returning.
 
 ## Completed Slices
 
@@ -550,6 +550,11 @@ Create durable handles before moving ownership. The stores cannot be authoritati
   from `PhysicsBodyStore` before calling the handle-keyed impulse command.
 - [x] 2026-07-05 editor wake/sleep commands resolve the selected body directly
   from `PhysicsBodyStore` before calling handle-keyed commands.
+- [x] 2026-07-05 editor selection commands now carry
+  `PhysicsBodyHandle`/`PhysicsColliderHandle` from picking, placement creation,
+  and attached-camera inspect selection; `RunEditorPlacementState` stores those
+  handles beside the model-index UI hint, and preview clearing rejects stale
+  handle/index pairings before gizmo code can touch them.
 - [x] Delete the temporary model-index adapter once old call boundaries move to
   append-time handles or owner-side body-store lookup.
   - [x] 2026-06-28 adapter slice keeps the temporary model-index command bridge
@@ -558,8 +563,11 @@ Create durable handles before moving ownership. The stores cannot be authoritati
   - [x] 2026-07-05 `GameModelCollectionPhysicsAdapter` was deleted after the
     old editor, replay, launcher, scene setup, runtime smoke, and fixed-tree
     callers stopped using it.
-- [ ] Add comments documenting handle lifetime, ownership, and invalidation rules.
-- [ ] Add focused tests or assertions for stale handle rejection if the codebase has a suitable local test path.
+- [x] Add comments documenting handle lifetime, ownership, and invalidation rules.
+- [x] Add focused tests or assertions for stale handle rejection if the codebase has a suitable local test path.
+  - [x] 2026-07-05 `tools/check_runtime_boundaries.py` self-tests reject
+    model-index-only selection commands, executor-side model-index handle
+    rediscovery, and selection callers that drop picked/attached handles.
 
 Done when:
 
@@ -688,7 +696,10 @@ Scene/editor/replay metadata should not force physics or render ownership to sta
 - [ ] Move object names and labels to scene/entity metadata.
 - [ ] Move collection grouping and hierarchy/root information to scene/entity metadata.
 - [ ] Move asset instance identity to scene/entity metadata.
-- [ ] Move editor selection identity to stable entity or render handles.
+- [x] Move editor selection identity to stable body/collider handles.
+  - [ ] Move editor selection metadata to stable scene/entity identity once
+    object names, grouping, duplication, and save/load metadata leave
+    `GameModel`.
 - [ ] Move replay identity to stable entity/body handles.
 - [ ] Update scene load to create metadata, body, collider, and render records through one coordinated creation path.
 - [ ] Update scene save to serialize from authoritative stores and metadata, not stale compatibility fields.

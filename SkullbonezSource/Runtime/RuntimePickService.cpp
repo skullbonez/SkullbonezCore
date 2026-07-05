@@ -83,6 +83,7 @@ bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, Runtim
              rayT + PICK_TIE_EPSILON < outResult.rayT )
         {
             outResult.body = body.handle;
+            outResult.collider = collider.handle;
             outResult.rayT = rayT;
             outResult.modelIndex = i;
         }

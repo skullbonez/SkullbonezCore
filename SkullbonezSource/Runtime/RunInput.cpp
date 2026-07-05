@@ -1032,6 +1032,28 @@ bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& com
 
         const int previousModelIndex = m_runtimeTools.Editor().selectedModelIndex;
         const bool selectionHit = command.modelIndex >= 0;
+        PhysicsBodyHandle selectedBody;
+        PhysicsColliderHandle selectedCollider;
+        if ( selectionHit )
+        {
+            // Invariant: positive selection commands prove identity with
+            // handles. The model index only checks the paired UI row.
+            const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+            const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
+            selectedBody = command.body;
+            selectedCollider = command.collider;
+            const PhysicsBodyRecord* body = bodyStore.RecordForHandle( selectedBody );
+            const ColliderRecord* collider = colliderStore.RecordForHandle( selectedCollider );
+            if ( !body || !collider || bodyStore.ModelIndexForHandle( selectedBody ) != command.modelIndex ||
+                 colliderStore.ModelIndexForHandle( selectedCollider ) != command.modelIndex ||
+                 collider->body != selectedBody )
+            {
+                return false;
+            }
+        }
+
+        const PhysicsBodyHandle previousBody = m_runtimeTools.Editor().selectedBody;
+        const PhysicsColliderHandle previousCollider = m_runtimeTools.Editor().selectedCollider;
         const bool inspectSelection = command.selectionScope == RuntimeInteractionSelectionScope::Inspect;
         if ( command.claimSelectionOwner )
         {
@@ -1043,12 +1065,19 @@ bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& com
             SetWorldInteractionOwnerAfterInteractionTransition( owner, reason );
         }
         m_runtimeTools.Editor().selectedModelIndex = command.modelIndex;
-        if ( previousModelIndex != command.modelIndex )
+        m_runtimeTools.Editor().selectedBody = selectedBody;
+        m_runtimeTools.Editor().selectedCollider = selectedCollider;
+        if ( previousModelIndex != command.modelIndex || previousBody != selectedBody ||
+             previousCollider != selectedCollider )
         {
             RuntimeInteractionEvent event;
             event.type = RuntimeInteractionEventType::SelectionChanged;
             event.previousModelIndex = previousModelIndex;
             event.modelIndex = command.modelIndex;
+            event.previousBody = previousBody;
+            event.body = selectedBody;
+            event.previousCollider = previousCollider;
+            event.collider = selectedCollider;
             event.selectionScope = command.selectionScope;
             PublishRuntimeInteractionEvent( event );
         }
@@ -1338,6 +1367,8 @@ void Run::SetAttachedCameraTarget( int modelIndex )
     RuntimeInteractionCommand command;
     command.type = RuntimeInteractionCommandType::SetEditorSelection;
     command.modelIndex = modelIndex;
+    command.body = m_attachedCamera.target.body;
+    command.collider = m_attachedCamera.target.collider;
     command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
     command.claimSelectionOwner = false;
     ExecuteRuntimeInteractionCommand( command );

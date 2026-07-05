@@ -1151,15 +1151,28 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
     Vector3 previewRayDirection;
     const bool hasPreviewMouseRay =
         previewNeedsMouseRay && TryBuildMouseWorldRay( previewRayOrigin, previewRayDirection );
+    const PhysicsBodyStore* previewBodyStore = nullptr;
+    const ColliderStore* previewColliderStore = nullptr;
+    if ( m_runtimeTools.Editor().selectedModelIndex >= 0 )
+    {
+        previewBodyStore = &m_cGameModelCollection.GetPhysicsBodyStore();
+        previewColliderStore = &m_cGameModelCollection.GetColliderStore();
+    }
 
-    const EditorInteractionPreviewResult previewResult = UpdateEditorInteractionPreview(
-        { m_runtimeTools.Editor(), m_cGameModelCollection, m_interaction, m_systems.terrain.get(), m_systems.assets },
-        { m_UI.BlocksCameraMouse(),
-          previewInspectGizmoActive,
-          hasPreviewMouseRay,
-          previewRayOrigin,
-          previewRayDirection,
-          Input::IsKeyDown( VK_CONTROL ) } );
+    const EditorInteractionPreviewResult previewResult =
+        UpdateEditorInteractionPreview( { m_runtimeTools.Editor(),
+                                          m_cGameModelCollection,
+                                          previewBodyStore,
+                                          previewColliderStore,
+                                          m_interaction,
+                                          m_systems.terrain.get(),
+                                          m_systems.assets },
+                                        { m_UI.BlocksCameraMouse(),
+                                          previewInspectGizmoActive,
+                                          hasPreviewMouseRay,
+                                          previewRayOrigin,
+                                          previewRayDirection,
+                                          Input::IsKeyDown( VK_CONTROL ) } );
 
     if ( previewResult.clearInvalidSelection )
     {
@@ -1213,6 +1226,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                         RuntimeInteractionCommand command;
                         command.type = RuntimeInteractionCommandType::SetEditorSelection;
                         command.modelIndex = placementResult.modelCountAfter - 1;
+                        command.body = placementResult.placedBody;
+                        command.collider = placementResult.placedCollider;
                         command.claimSelectionOwner = false;
                         ExecuteRuntimeInteractionCommand( command );
                     }
@@ -1588,6 +1603,8 @@ bool Run::TickEditorWorldClick( const RuntimeMouseEdges& mouseEdges, bool suppre
                     RuntimeInteractionCommand command;
                     command.type = RuntimeInteractionCommandType::SetEditorSelection;
                     command.modelIndex = result.modelIndex;
+                    command.body = result.body;
+                    command.collider = result.collider;
                     command.selectionScope = inspectGizmoActive ? RuntimeInteractionSelectionScope::Inspect
                                                                 : RuntimeInteractionSelectionScope::Editor;
                     consumedWorldClick = ExecuteRuntimeInteractionCommand( command );
