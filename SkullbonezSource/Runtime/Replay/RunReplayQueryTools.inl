@@ -38,7 +38,8 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
     }
 
     const std::vector<GameModel>& models = m_cGameModelCollection.Models();
-    const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
+    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+    const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
     ReplayBodyId pickedId;
     int pickedIndex = -1;
     char pickedName[64] = {};
@@ -70,8 +71,8 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
     {
         RuntimePickRequest request;
         request.purpose = RuntimePickPurpose::ReplayPathTarget;
-        request.bodyStore = &m_cGameModelCollection.GetPhysicsBodyStore();
-        request.colliderStore = &m_cGameModelCollection.GetColliderStore();
+        request.bodyStore = &bodyStore;
+        request.colliderStore = &colliderStore;
         request.rayOrigin = rayOrigin;
         request.rayDirection = rayDirection;
 
@@ -81,7 +82,7 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
         {
             pickedIndex = result.modelIndex;
             const GameModel& model = models[static_cast<std::size_t>( pickedIndex )];
-            pickedId.value = model.GetReplayBodyId();
+            pickedId = ReplayBodyIdForModelIndex( bodyStore, pickedIndex );
             const char* modelName = model.GetName();
             if ( modelName && modelName[0] != '\0' )
             {
@@ -98,7 +99,7 @@ bool Run::TryPickReplayPathTargetFromMouse( bool additive, bool clearOnMiss )
         {
             const GameModel& rootModel = models[static_cast<std::size_t>( collectionIndex )];
             pickedIndex = collectionIndex;
-            pickedId.value = rootModel.GetReplayBodyId();
+            pickedId = ReplayBodyIdForModelIndex( bodyStore, collectionIndex );
             pickedName[0] = '\0';
             const char* rootName = rootModel.GetName();
             if ( rootName && rootName[0] != '\0' )

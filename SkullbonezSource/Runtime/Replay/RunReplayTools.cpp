@@ -132,6 +132,44 @@ float ReplayColliderRadiusForModelIndex( const ColliderStore& colliderStore, int
 }
 
 
+// Why: replay target UI code may still carry a model-index hint for names,
+// ragdoll grouping, or draw ordering, but stable replay identity belongs to the
+// body store. Keeping id recovery here prevents new GameModel replay-id scans in
+// the pick, prediction, and marker paths.
+ReplayBodyId ReplayBodyIdForModelIndex( const PhysicsBodyStore& bodyStore, int modelIndex )
+{
+    ReplayBodyId id;
+    if ( const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex ) )
+    {
+        id.value = body->replayBodyId;
+    }
+    return id;
+}
+
+
+bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
+                                     ReplayBodyId id,
+                                     int modelIndexHint,
+                                     int modelCount,
+                                     int& outModelIndex )
+{
+    if ( id.value == 0 )
+    {
+        return false;
+    }
+
+    const PhysicsBodyHandle body = bodyStore.HandleForReplayBodyId( id.value, modelIndexHint );
+    const int modelIndex = bodyStore.ModelIndexForHandle( body );
+    if ( modelIndex < 0 || modelIndex >= modelCount )
+    {
+        return false;
+    }
+
+    outModelIndex = modelIndex;
+    return true;
+}
+
+
 bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
                                          const PhysicsBodyStore& bodyStore,
                                          const ColliderStore& colliderStore,
@@ -147,9 +185,9 @@ bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
         return false;
     }
 
-    // Invariant: replay target identity may still be found by model order, but
-    // visible marker facts are read from store rows. This avoids copying shape
-    // state back through GameModel just so the tracer can read it again.
+    // Invariant: replay target identity resolves through body handles before
+    // markers read store rows. This avoids scanning the GameModel mirror just
+    // to recover a stable ReplayBodyId that PhysicsBodyStore already owns.
     const float radius = (std::max)( 1.0f, (std::max)( body->boundingRadius, collider->boundingRadius ) ) * 1.18f;
     tracer.AddReplayTargetMarker( body->position, body->orientation, collider->shape, radius );
     return true;
@@ -585,27 +623,18 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
                 return;
             }
 
-            int markerIndex = target.modelIndex;
-            if ( markerIndex < 0 || markerIndex >= static_cast<int>( models.size() ) ||
-                 models[static_cast<std::size_t>( markerIndex )].GetReplayBodyId() != target.id.value )
+            int markerIndex = -1;
+            if ( TryResolveReplayBodyModelIndex( bodyStore,
+                                                 target.id,
+                                                 target.modelIndex,
+                                                 static_cast<int>( models.size() ),
+                                                 markerIndex ) )
             {
-                markerIndex = -1;
-                for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+                target.modelIndex = markerIndex;
+                if ( target.id.value == m_replayRuntime.PathVisualizer().targetId.value )
                 {
-                    if ( models[static_cast<std::size_t>( i )].GetReplayBodyId() == target.id.value )
-                    {
-                        markerIndex = i;
-                        target.modelIndex = i;
-                        if ( target.id.value == m_replayRuntime.PathVisualizer().targetId.value )
-                        {
-                            m_replayRuntime.PathVisualizer().targetModelIndex = i;
-                        }
-                        break;
-                    }
+                    m_replayRuntime.PathVisualizer().targetModelIndex = markerIndex;
                 }
-            }
-            if ( markerIndex >= 0 && markerIndex < static_cast<int>( models.size() ) )
-            {
                 TryAddReplayTargetMarkerFromStores( tracer, bodyStore, colliderStore, markerIndex );
             }
         }
@@ -622,17 +651,18 @@ void Run::RenderReplayCauseFocusOverlay( RunEditorTracer& tracer )
 
     if ( m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::Body )
     {
-        const std::vector<GameModel>& models = m_cGameModelCollection.Models();
         const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
         const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
-        for ( int i = 0; i < static_cast<int>( models.size() ); ++i )
+        int focusedModelIndex = -1;
+        if ( TryResolveReplayBodyModelIndex( bodyStore,
+                                             m_replayRuntime.Camera().focusedId,
+                                             m_replayRuntime.Camera().focusModelIndex,
+                                             bodyStore.Count(),
+                                             focusedModelIndex ) )
         {
-            const GameModel& model = models[static_cast<std::size_t>( i )];
-            if ( model.GetReplayBodyId() == m_replayRuntime.Camera().focusedId.value )
-            {
-                TryAddReplayTargetMarkerFromStores( tracer, bodyStore, colliderStore, i );
-                return;
-            }
+            m_replayRuntime.Camera().focusModelIndex = focusedModelIndex;
+            TryAddReplayTargetMarkerFromStores( tracer, bodyStore, colliderStore, focusedModelIndex );
+            return;
         }
     }
 

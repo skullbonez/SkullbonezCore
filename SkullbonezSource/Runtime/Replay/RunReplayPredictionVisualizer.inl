@@ -76,22 +76,17 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     {
         int targetIndex = -1;
         const int modelCount = modelCollection.GetModelCount();
-        for ( int i = 0; i < modelCount; ++i )
+        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
         {
-            if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-            {
-                replayRuntime.Prediction().dirty = true;
-                return false;
-            }
-
-            const GameModel* model = modelCollection.TryGetModel( i );
-            if ( model && model->GetReplayBodyId() == replayRuntime.PathVisualizer().targetId.value )
-            {
-                targetIndex = i;
-                break;
-            }
+            replayRuntime.Prediction().dirty = true;
+            return false;
         }
-        if ( targetIndex < 0 )
+        const PhysicsBodyStore& bodyStore = modelCollection.GetPhysicsBodyStore();
+        if ( !TryResolveReplayBodyModelIndex( bodyStore,
+                                              replayRuntime.PathVisualizer().targetId,
+                                              replayRuntime.PathVisualizer().targetModelIndex,
+                                              modelCount,
+                                              targetIndex ) )
         {
             return false;
         }

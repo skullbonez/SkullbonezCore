@@ -2052,6 +2052,30 @@ formatting, project filters, runtime boundaries, and Profile/Debug builds with
 0 warnings/errors; `tools\validate_physics.bat` passed standalone/runtime handle
 smoke and byte-exact 20,001-line `physics_regression_solver.csv`.
 
+Slice `PHY-1059`: replay path/query/prediction target identity now resolves
+`ReplayBodyId` through `PhysicsBodyStore` rows and
+`PhysicsBodyStore::HandleForReplayBodyId()` instead of reading
+`GameModel::GetReplayBodyId()` from replay target UI code. Owner: replay path
+target picking, replay prediction target setup, retained path markers, focus
+markers, and the body store handle maps; reason: replay identity should use the
+store-owned id table while `GameModel` stays limited to display names and
+ragdoll presentation grouping; deletion condition: `RunReplayQueryTools.inl`,
+`RunReplayPredictionVisualizer.inl`, and the retained/focus marker sections of
+`RunReplayTools.cpp` contain no live `GameModel` replay-id lookup or
+`TryGetModel()` target scan; checker budget:
+`tools/check_runtime_boundaries.py` blocks deleted GameModel replay-id reads in
+those replay target files while allowing direct body-store record/handle lookup.
+
+Evidence: residue scan found no `GetReplayBodyId()` or `TryGetModel()` in the
+touched replay target source files outside checker self-tests; diff-check,
+boundary-checker Python compile, and runtime-boundary validation passed with
+runtime-boundary summary reporting 0 errors; focused Debug build passed with 0
+warnings/errors; touched-file comment audit inspected all touched source/tool
+files; `tools\validate_fast.bat` passed formatting, project filters, runtime
+boundaries, and Profile/Debug builds with 0 warnings/errors; intermittent
+`tools\validate_physics.bat` passed standalone/runtime handle smoke and
+byte-exact 20,001-line `physics_regression_solver.csv`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

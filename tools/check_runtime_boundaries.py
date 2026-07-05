@@ -17,9 +17,10 @@
 #   handle-authority fence, contact-audio simple mode has a body-store motion
 #   fence, and fixed-tree, replay-restore wake, replay
 #   velocity-edit, launcher ray-hit, selection overlay, mouse-pickup overlay,
-#   attached-camera overlay, replay marker radii, or editor wake/sleep commands
-#   have store-handle fences. The deleted collection step wrapper has its own
-#   fence, replay render-pose overrides have their own value-override fence,
+#   attached-camera overlay, replay marker radii, replay path target identity,
+#   or editor wake/sleep commands have store-handle fences. The deleted
+#   collection step wrapper has its own fence, replay render-pose overrides have
+#   their own value-override fence,
 #   per-body model writeback, and the deleted bulk model mirror have their own
 #   fences, so count allowances do not silently approve a new compatibility
 #   location.
@@ -69,6 +70,9 @@
 #   Replay marker radius fence: Static rule that keeps retained and predicted
 #     replay path marker radii on ColliderStore rows instead of GameModel shape
 #     mirrors.
+#   Replay path target identity fence: Static rule that keeps path picking,
+#     prediction setup, and retained marker repair on PhysicsBodyStore replay-id
+#     rows/handles instead of GameModel replay-id scans.
 #   Replay velocity body-read fence: Static rule that keeps velocity-edit hit
 #     testing and gizmo drawing on PhysicsBodyStore/ColliderStore rows.
 #   Replay velocity identity fence: Static rule that keeps velocity-edit target
@@ -703,6 +707,9 @@ REPLAY_MARKER_RADIUS_MODEL_READ_PATTERN = re.compile(
     r"(?:(?:GameObjects|SkullbonezCore\s*::\s*GameObjects)\s*::\s*)?GameModel\s*>\s*\*"
     r"|\bEditorModelRadius\s*\("
     r"|\bGetCollisionShape\s*\("
+)
+REPLAY_PATH_TARGET_IDENTITY_MODEL_READ_PATTERN = re.compile(
+    r"\b(?:models\s*\[[^\]]+\]|model|rootModel|selected|target)\s*(?:\.|->)\s*GetReplayBodyId\s*\("
 )
 SELECTION_OUTLINE_MODEL_OVERLOAD_PATTERN = re.compile(
     r"\bAddSelectionOutline\s*\(\s*const\s+"
@@ -4932,6 +4939,38 @@ def check_replay_marker_radius_store_authority_guardrails(repo: Path) -> list[Bo
         path = repo / relative_path
         errors.extend(
             check_replay_marker_radius_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
+        )
+    return errors
+
+
+def check_replay_path_target_identity_store_authority_guardrails_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in REPLAY_PATH_TARGET_IDENTITY_MODEL_READ_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "replay path target GameModel replay-id lookup is blocked",
+                (
+                    "Replay path/query/prediction target identity should resolve through PhysicsBodyStore "
+                    "replay-id handles or body records. GameModel may remain only for display metadata."
+                ),
+            )
+        )
+    return errors
+
+
+def check_replay_path_target_identity_store_authority_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for relative_path in (
+        RUN_REPLAY_TOOLS_SOURCE,
+        REPLAY_QUERY_TOOLS_SOURCE,
+        REPLAY_PREDICTION_VISUALIZER_SOURCE,
+    ):
+        path = repo / relative_path
+        errors.extend(
+            check_replay_path_target_identity_store_authority_guardrails_text(path, path.read_text(encoding="utf-8"))
         )
     return errors
 
@@ -14333,6 +14372,108 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("comment-only replay marker radius synthetic text was rejected")
 
+    old_replay_query_target_identity = """
+    bool Run::TryPickReplayPathTargetFromMouse()
+    {
+        const GameModel& model = models[static_cast<std::size_t>( pickedIndex )];
+        pickedId.value = model.GetReplayBodyId();
+        const GameModel& rootModel = models[static_cast<std::size_t>( collectionIndex )];
+        pickedId.value = rootModel.GetReplayBodyId();
+        return pickedId.value != 0;
+    }
+    """
+    if not any(
+        error.message == "replay path target GameModel replay-id lookup is blocked"
+        for error in check_replay_path_target_identity_store_authority_guardrails_text(
+            REPLAY_QUERY_TOOLS_SOURCE,
+            old_replay_query_target_identity,
+        )
+    ):
+        failures.append("old replay query GameModel replay-id lookup synthetic surface was not rejected")
+
+    old_replay_prediction_target_identity = """
+    bool BeginReplayPredictionJob( GameModelCollection& modelCollection )
+    {
+        const GameModel* model = modelCollection.TryGetModel( i );
+        if ( model && model->GetReplayBodyId() == replayRuntime.PathVisualizer().targetId.value )
+        {
+            targetIndex = i;
+        }
+        return targetIndex >= 0;
+    }
+    """
+    if not any(
+        error.message == "replay path target GameModel replay-id lookup is blocked"
+        for error in check_replay_path_target_identity_store_authority_guardrails_text(
+            REPLAY_PREDICTION_VISUALIZER_SOURCE,
+            old_replay_prediction_target_identity,
+        )
+    ):
+        failures.append("old replay prediction GameModel replay-id lookup synthetic surface was not rejected")
+
+    old_replay_marker_target_identity = """
+    void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
+    {
+        if ( models[static_cast<std::size_t>( markerIndex )].GetReplayBodyId() != target.id.value )
+        {
+            markerIndex = -1;
+        }
+        if ( model.GetReplayBodyId() == m_replayRuntime.Camera().focusedId.value )
+        {
+            TryAddReplayTargetMarkerFromStores( tracer, bodyStore, colliderStore, i );
+        }
+    }
+    """
+    if not any(
+        error.message == "replay path target GameModel replay-id lookup is blocked"
+        for error in check_replay_path_target_identity_store_authority_guardrails_text(
+            RUN_REPLAY_TOOLS_SOURCE,
+            old_replay_marker_target_identity,
+        )
+    ):
+        failures.append("old replay marker GameModel replay-id lookup synthetic surface was not rejected")
+
+    allowed_replay_path_target_identity = """
+    ReplayBodyId ReplayBodyIdForModelIndex( const PhysicsBodyStore& bodyStore, int modelIndex )
+    {
+        ReplayBodyId id;
+        if ( const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex ) )
+        {
+            id.value = body->replayBodyId;
+        }
+        return id;
+    }
+
+    bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
+                                         ReplayBodyId id,
+                                         int modelIndexHint,
+                                         int modelCount,
+                                         int& outModelIndex )
+    {
+        const PhysicsBodyHandle body = bodyStore.HandleForReplayBodyId( id.value, modelIndexHint );
+        outModelIndex = bodyStore.ModelIndexForHandle( body );
+        return outModelIndex >= 0 && outModelIndex < modelCount;
+    }
+    """
+    if check_replay_path_target_identity_store_authority_guardrails_text(
+        RUN_REPLAY_TOOLS_SOURCE,
+        allowed_replay_path_target_identity,
+    ):
+        failures.append("store-owned replay path target identity synthetic surface was rejected")
+
+    commented_replay_path_target_identity = """
+    void DocumentOldReplayTargetIdentity()
+    {
+        // The old replay path target code used model.GetReplayBodyId().
+        // It now resolves through PhysicsBodyStore::HandleForReplayBodyId.
+    }
+    """
+    if check_replay_path_target_identity_store_authority_guardrails_text(
+        RUN_REPLAY_TOOLS_SOURCE,
+        commented_replay_path_target_identity,
+    ):
+        failures.append("comment-only replay path target identity synthetic text was rejected")
+
     old_launcher_model_index_command = """
     void RuntimeTools::FireLauncherLaser( GameModelCollection& collection )
     {
@@ -15904,6 +16045,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_attached_camera_overlay_store_authority_guardrails(repo))
     errors.extend(check_replay_target_marker_store_authority_guardrails(repo))
     errors.extend(check_replay_marker_radius_store_authority_guardrails(repo))
+    errors.extend(check_replay_path_target_identity_store_authority_guardrails(repo))
     errors.extend(check_launcher_model_index_physics_command_guardrails(repo))
     errors.extend(check_replay_velocity_model_state_physics_command_guardrails(repo))
     errors.extend(check_run_frame_replay_editor_transform_wake_guardrails(repo))
