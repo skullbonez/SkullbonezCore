@@ -6,14 +6,15 @@ Purpose:
 Mental model:
   Physics hot paths use body, collider, and render stores. GameModelCollection
   still owns model-order authoring data during migration. This concrete facade
-  is now restricted to importing model-owned authoring/topology facts into
-  stores; step writeback and presentation feedback stay with GameModelCollection.
+  is now restricted to importing model-owned body authoring/topology facts into
+  body stores; render projection and presentation feedback stay with
+  GameModelCollection.
 
 Glossary:
   Model-owner access: Narrow refresh facade over GameModelCollection state that
     physics stores still need for model-order sync.
-  Authoring refresh: Model-owner import that rebuilds body or render store rows
-    after scene/editor/replay code changes model-owned authoring data.
+  Authoring refresh: Model-owner import that rebuilds body store rows after
+    scene/editor/replay code changes model-owned authoring data.
   Model order: Deterministic vector order still used to align compatibility
     rows until durable entity/body/collider handles own every caller.
 
@@ -75,9 +76,6 @@ class PhysicsModelAccess
     // Captures one editor/replay-edited body into PhysicsBodyStore without
     // exposing model-order queries through this facade.
     void RefreshPhysicsBodyFromModel( PhysicsBodyStore& bodyStore, int modelIndex );
-    void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
-                                 const PhysicsBodyStore& bodyStore,
-                                 const ColliderStore& colliderStore );
 
   private:
     GameObjects::GameModelCollection& m_collection;

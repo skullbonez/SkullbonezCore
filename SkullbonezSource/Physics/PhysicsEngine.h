@@ -92,7 +92,11 @@ class PhysicsEngine
     // Rebinds existing collider rows from PhysicsBodyStore. Missing collider
     // rows are a topology bug, not a cue to rebuild shape facts from GameModel.
     bool RefreshColliderSnapshot();
-    void RefreshRenderStore( PhysicsModelAccess& modelAccess, int expectedModelCount );
+    // Prepares body/collider rows for the owner-side render projection refresh.
+    // GameModelCollection fills material/highlight facts after this returns.
+    bool PrepareRenderStoreRefresh( PhysicsModelAccess& modelAccess, int expectedModelCount );
+    // Mutable only for the cold GameModelCollection render projection owner edge.
+    Rendering::RenderInstanceStore& MutableRenderInstances();
     // Steps the owned stores. Model-order import/export lives with
     // GameModelCollection so the solver path does not borrow PhysicsModelAccess.
     void Step( float deltaSeconds,
@@ -166,6 +170,7 @@ class PhysicsEngine
     const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
 
 #ifdef _DEBUG
+    void ValidateRenderStore( int expectedModelCount ) const;
     void SetPhysicsRegressionLogPath( const char* path );
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );

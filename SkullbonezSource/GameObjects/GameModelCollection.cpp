@@ -74,6 +74,7 @@ using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::MakeBodyRecordFromAuthoredModel;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
@@ -106,12 +107,6 @@ void PhysicsModelAccess::RefreshPhysicsBodyFromModel( PhysicsBodyStore& bodyStor
 }
 
 
-void PhysicsModelAccess::RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
-                                                 const PhysicsBodyStore& bodyStore,
-                                                 const ColliderStore& colliderStore )
-{
-    m_collection.RefreshRenderInstances( renderInstanceStore, bodyStore, colliderStore );
-}
 } // namespace Physics
 } // namespace SkullbonezCore
 
@@ -578,8 +573,7 @@ void GameModelCollection::PrepareRenderInstances()
     // Why: object rendering now reads the render instance store for transforms.
     // Preparing it once here prevents each render pass from re-importing the
     // same physics pose repeatedly.
-    PhysicsModelAccess modelAccess( *this );
-    m_physicsEngine.RefreshRenderStore( modelAccess, ModelCount() );
+    RefreshRenderInstances();
 }
 
 
@@ -596,8 +590,7 @@ int GameModelCollection::CopyDxrModelMatrices( float* outMatrixFloats, int maxMo
         // Hazard: normal render frames call PrepareRenderInstances() first. This
         // cold path keeps standalone DXR callers on the render-instance
         // authority instead of falling back to GameModel pose recomputation.
-        PhysicsModelAccess modelAccess( *this );
-        m_physicsEngine.RefreshRenderStore( modelAccess, ModelCount() );
+        RefreshRenderInstances();
     }
 
     const std::vector<Rendering::RenderInstanceRecord>& instances = m_physicsEngine.RenderInstances().Records();
@@ -1138,8 +1131,7 @@ const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::Rende
 
 const SkullbonezCore::Rendering::RenderInstanceStore& GameModelCollection::GetRenderInstanceStore()
 {
-    PhysicsModelAccess modelAccess( *this );
-    m_physicsEngine.RefreshRenderStore( modelAccess, ModelCount() );
+    RefreshRenderInstances();
     return m_physicsEngine.RenderInstances();
 }
 
@@ -1203,12 +1195,25 @@ void GameModelCollection::RefreshPhysicsBodyFromModel( SkullbonezCore::Physics::
 }
 
 
-void GameModelCollection::RefreshRenderInstances( SkullbonezCore::Rendering::RenderInstanceStore& renderInstanceStore,
-                                                  const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore,
-                                                  const SkullbonezCore::Physics::ColliderStore& colliderStore )
+void GameModelCollection::RefreshRenderInstances()
 {
+    const int modelCount = ModelCount();
+    PhysicsModelAccess modelAccess( *this );
+    if ( !m_physicsEngine.PrepareRenderStoreRefresh( modelAccess, modelCount ) )
+    {
+        return;
+    }
+    // Owner boundary: model material and presentation highlight values still
+    // live in GameModelCollection. Physics prepares body/collider rows; this
+    // cold projection edge copies the remaining render-facing facts once.
+    Rendering::RenderInstanceStore& renderInstanceStore = m_physicsEngine.MutableRenderInstances();
+    const PhysicsBodyStore& bodyStore = m_physicsEngine.BodyStore();
+    const ColliderStore& colliderStore = m_physicsEngine.Colliders();
     renderInstanceStore.Refresh( m_gameModels, bodyStore, colliderStore );
     ApplyReplayRenderPoseOverrides( renderInstanceStore, colliderStore );
+#ifdef _DEBUG
+    m_physicsEngine.ValidateRenderStore( modelCount );
+#endif
 }
 
 

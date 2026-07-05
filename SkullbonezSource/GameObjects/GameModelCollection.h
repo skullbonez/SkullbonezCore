@@ -144,6 +144,7 @@ class GameModelCollection
     std::vector<uint32_t> BuildReplayBodyIdsForReload( const Physics::PhysicsBodyStore& bodyStore );
     void ApplyReplayRenderPoseOverrides( Rendering::RenderInstanceStore& renderInstanceStore,
                                          const Physics::ColliderStore& colliderStore );
+    void RefreshRenderInstances();
     Physics::PhysicsBodyHandle AppendGameModelAndPhysicsRows( GameModel gameModel,
                                                               Physics::PhysicsSceneObjectId sceneObjectId,
                                                               Physics::PhysicsColliderCreateDesc colliderDesc );
@@ -280,9 +281,6 @@ class GameModelCollection
     double GetSceneKineticEnergy();
     void ReloadPhysicsBodies( Physics::PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
     void RefreshPhysicsBodyFromModel( Physics::PhysicsBodyStore& bodyStore, int modelIndex );
-    void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
-                                 const Physics::PhysicsBodyStore& bodyStore,
-                                 const Physics::ColliderStore& colliderStore );
     // Commits an editor/replay body-only mutation from the model authoring cache
     // into PhysicsBodyStore after the caller has validated the model index.
     void CommitEditedModelBodyState( int modelIndex );

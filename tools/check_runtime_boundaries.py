@@ -328,6 +328,22 @@ PHYSICS_MODEL_ACCESS_DELETED_COLLIDER_REFRESH_PATTERN = re.compile(
 PHYSICS_MODEL_ACCESS_DELETED_COLLIDER_REFRESH_DEFINITION_PATTERN = re.compile(
     r"\bPhysicsModelAccess::RefreshPhysicsColliders\s*\("
 )
+PHYSICS_MODEL_ACCESS_DELETED_RENDER_REFRESH_PATTERN = re.compile(
+    r"\bRefreshRenderInstances\s*\("
+)
+PHYSICS_MODEL_ACCESS_DELETED_RENDER_REFRESH_DEFINITION_PATTERN = re.compile(
+    r"\bPhysicsModelAccess::RefreshRenderInstances\s*\("
+)
+RENDER_INSTANCE_MUTABLE_ACCESS_PATTERN = re.compile(
+    r"\bMutableRenderInstances\s*\("
+)
+RENDER_INSTANCE_MUTABLE_ACCESS_ALLOWED_SOURCES = {
+    GAME_MODEL_COLLECTION_SOURCE,
+    PHYSICS_ENGINE_SOURCE,
+    PHYSICS_ENGINE_HEADER,
+    PHYSICS_SCENE_SOURCE,
+    PHYSICS_SCENE_HEADER,
+}
 PHYSICS_WORLD_STORE_SEED_MODEL_ACCESS_PATTERN = re.compile(
     r"\b(?:GameModelBodyStream|GetBodyStream)\b|\bmodelAccess\s*\.\s*InvalidatePhysicsStreams\s*\("
 )
@@ -3259,6 +3275,23 @@ def check_physics_model_access_deleted_step_facade_guardrails_text(path: Path, t
                 ),
             )
         )
+    render_refresh_pattern = (
+        PHYSICS_MODEL_ACCESS_DELETED_RENDER_REFRESH_DEFINITION_PATTERN
+        if path.name == "GameModelCollection.cpp"
+        else PHYSICS_MODEL_ACCESS_DELETED_RENDER_REFRESH_PATTERN
+    )
+    for match in render_refresh_pattern.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "deleted PhysicsModelAccess render refresh facade is blocked",
+                (
+                    "Render projection is owned by GameModelCollection's cold refresh edge; do not route "
+                    "render-instance fill through the model-owner physics facade."
+                ),
+            )
+        )
     return errors
 
 
@@ -3270,6 +3303,47 @@ def check_physics_model_access_deleted_step_facade_guardrails(repo: Path) -> lis
             check_physics_model_access_deleted_step_facade_guardrails_text(
                 path,
                 path.read_text(encoding="utf-8"),
+            )
+        )
+    return errors
+
+
+def check_render_instance_mutable_access_guardrails_text(
+    path: Path,
+    text: str,
+    relative_path: Path,
+) -> list[BoundaryError]:
+    if relative_path in RENDER_INSTANCE_MUTABLE_ACCESS_ALLOWED_SOURCES:
+        return []
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in RENDER_INSTANCE_MUTABLE_ACCESS_PATTERN.finditer(stripped):
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "mutable render-instance store access is owner-boundary only",
+                (
+                    "RenderInstanceStore mutation is restricted to PhysicsEngine/PhysicsScene forwarding and "
+                    "GameModelCollection's cold projection fill. Add a domain command instead of borrowing "
+                    "the mutable store elsewhere."
+                ),
+            )
+        )
+    return errors
+
+
+def check_render_instance_mutable_access_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    for path in sorted((repo / SOURCE_ROOT).rglob("*")):
+        if path.suffix not in SOURCE_FILE_SUFFIXES:
+            continue
+        relative_path = path.relative_to(repo)
+        errors.extend(
+            check_render_instance_mutable_access_guardrails_text(
+                path,
+                path.read_text(encoding="utf-8"),
+                relative_path,
             )
         )
     return errors
@@ -12544,9 +12618,6 @@ def run_self_tests() -> list[str]:
     {
         void ReloadPhysicsBodies( PhysicsBodyStore& bodyStore, const std::vector<uint8_t>& sleepStates );
         void RefreshPhysicsBodyFromModel( PhysicsBodyStore& bodyStore, int modelIndex );
-        void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
-                                     const PhysicsBodyStore& bodyStore,
-                                     const ColliderStore& colliderStore );
     };
     """
     if check_physics_model_access_deleted_step_facade_guardrails_text(
@@ -12573,6 +12644,59 @@ def run_self_tests() -> list[str]:
         )
     ):
         failures.append("old PhysicsModelAccess ModelCount synthetic surface was not rejected")
+
+    old_physics_model_access_render_refresh = """
+    class PhysicsModelAccess
+    {
+        void RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
+                                     const PhysicsBodyStore& bodyStore,
+                                     const ColliderStore& colliderStore );
+    };
+    void PhysicsModelAccess::RefreshRenderInstances( Rendering::RenderInstanceStore& renderInstanceStore,
+                                                     const PhysicsBodyStore& bodyStore,
+                                                     const ColliderStore& colliderStore )
+    {
+        m_collection.RefreshRenderInstances( renderInstanceStore, bodyStore, colliderStore );
+    }
+    """
+    if not any(
+        error.message == "deleted PhysicsModelAccess render refresh facade is blocked"
+        for error in check_physics_model_access_deleted_step_facade_guardrails_text(
+            Path("SkullbonezSource/Physics/PhysicsModelAccess.h"),
+            old_physics_model_access_render_refresh,
+        )
+    ):
+        failures.append("old PhysicsModelAccess render refresh synthetic surface was not rejected")
+
+    allowed_mutable_render_instances = """
+    Rendering::RenderInstanceStore& PhysicsEngine::MutableRenderInstances()
+    {
+        return m_scene.MutableRenderInstances();
+    }
+    """
+    if check_render_instance_mutable_access_guardrails_text(
+        Path("SkullbonezSource/Physics/PhysicsEngine.cpp"),
+        allowed_mutable_render_instances,
+        Path("SkullbonezSource/Physics/PhysicsEngine.cpp"),
+    ):
+        failures.append("owner-boundary mutable render-instance synthetic surface was rejected")
+
+    old_mutable_render_instances_caller = """
+    void Run::Render()
+    {
+        Rendering::RenderInstanceStore& instances = m_physicsEngine.MutableRenderInstances();
+        instances.Clear();
+    }
+    """
+    if not any(
+        error.message == "mutable render-instance store access is owner-boundary only"
+        for error in check_render_instance_mutable_access_guardrails_text(
+            Path("SkullbonezSource/Runtime/RunRender.cpp"),
+            old_mutable_render_instances_caller,
+            Path("SkullbonezSource/Runtime/RunRender.cpp"),
+        )
+    ):
+        failures.append("outside mutable render-instance synthetic caller was not rejected")
 
     old_physics_model_access_collider_refresh = """
     class PhysicsModelAccess
@@ -18458,6 +18582,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_physics_world_run_diagnostics_guardrails(repo))
     errors.extend(check_physics_world_step_diagnostics_model_access_guardrails(repo))
     errors.extend(check_render_instance_store_authority_guardrails(repo))
+    errors.extend(check_render_instance_mutable_access_guardrails(repo))
     errors.extend(check_game_model_renderer_render_instance_authority_guardrails(repo))
     errors.extend(check_dxr_render_instance_matrix_authority_guardrails(repo))
     errors.extend(check_deleted_game_model_stream_project_guardrails(repo))

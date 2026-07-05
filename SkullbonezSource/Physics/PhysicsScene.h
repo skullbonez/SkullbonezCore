@@ -106,7 +106,11 @@ class PhysicsScene
     // Rebinds existing collider rows against the already-current body store.
     // Count drift must be fixed by the creator/editor path that owns shape data.
     bool RefreshColliderSnapshot();
-    void RefreshRenderStore( PhysicsModelAccess& modelAccess, int expectedModelCount );
+    // Prepares body/collider rows for the owner-side render projection refresh.
+    // GameModelCollection fills material/highlight facts after this returns.
+    bool PrepareRenderStoreRefresh( PhysicsModelAccess& modelAccess, int expectedModelCount );
+    // Mutable only for the cold GameModelCollection render projection owner edge.
+    Rendering::RenderInstanceStore& MutableRenderInstances();
     void RunPhysics( float fChangeInTime,
                      const Basics::EngineConfig& config,
                      const PhysicsWorldForces& worldForces,
@@ -174,6 +178,7 @@ class PhysicsScene
     const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
 
 #ifdef _DEBUG
+    void ValidateRenderStore( int expectedModelCount ) const;
     void SetPhysicsRegressionLogPath( const char* path );
     void SetPhysicsCollisionTimeLogPath( const char* path );
     void SetPhysicsDiagnosticsPath( const char* path );

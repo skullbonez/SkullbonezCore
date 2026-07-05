@@ -221,7 +221,7 @@ bool PhysicsScene::RefreshColliderSnapshot()
 }
 
 
-void PhysicsScene::RefreshRenderStore( PhysicsModelAccess& modelAccess, int expectedModelCount )
+bool PhysicsScene::PrepareRenderStoreRefresh( PhysicsModelAccess& modelAccess, int expectedModelCount )
 {
     if ( m_bodyStore.Count() != expectedModelCount )
     {
@@ -233,17 +233,33 @@ void PhysicsScene::RefreshRenderStore( PhysicsModelAccess& modelAccess, int expe
         // drift has removed collider rows, do not manufacture a partial render
         // snapshot from stale model-owned shape fields.
         m_renderInstanceStore.Clear();
-        return;
+        return false;
     }
-    modelAccess.RefreshRenderInstances( m_renderInstanceStore, m_bodyStore, m_colliderStore );
+    if ( m_bodyStore.Count() != expectedModelCount || m_colliderStore.Count() != expectedModelCount )
+    {
+        m_renderInstanceStore.Clear();
+        return false;
+    }
 #ifdef _DEBUG
     ValidatePhysicsStoreMappings( expectedModelCount );
-    ValidateRenderStoreMappings( expectedModelCount );
 #endif
+    return true;
+}
+
+
+SkullbonezCore::Rendering::RenderInstanceStore& PhysicsScene::MutableRenderInstances()
+{
+    return m_renderInstanceStore;
 }
 
 
 #ifdef _DEBUG
+void PhysicsScene::ValidateRenderStore( int expectedModelCount ) const
+{
+    ValidateRenderStoreMappings( expectedModelCount );
+}
+
+
 void PhysicsScene::ValidatePhysicsStoreMappings( int modelCount ) const
 {
     assert( m_bodyStore.Count() == modelCount );

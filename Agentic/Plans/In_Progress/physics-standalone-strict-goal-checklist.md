@@ -2345,6 +2345,37 @@ byte-exact 20,001-line `physics_regression_solver.csv`. Logs:
 and
 `TestOutput\validation\physics_store_authority\validate_physics_model_access_count_query.log`.
 
+Slice `PHY-1071`: render projection no longer routes through
+`PhysicsModelAccess`. Owner: `GameModelCollection` owns the remaining
+model-order presentation facts (`m_gameModels`, material, and highlight state)
+and performs the one cold `RenderInstanceStore` fill after `PhysicsScene` and
+`PhysicsEngine` prepare body/collider rows. Reason: putting
+`RefreshRenderInstances()` on `PhysicsModelAccess` made the model-owner facade
+look like a general render bridge and invited a generic callback/adapter shape
+back into the render path. Deletion condition: `PhysicsModelAccess.h` and its
+definitions expose no `RefreshRenderInstances()` method; render projection uses
+`GameModelCollection::RefreshRenderInstances()` privately, and the mutable
+render-store accessor is only accepted in the collection owner edge plus
+`PhysicsEngine`/`PhysicsScene` forwarding. Checker budget:
+`tools/check_runtime_boundaries.py` rejects the deleted
+`PhysicsModelAccess::RefreshRenderInstances()` facade and any
+`MutableRenderInstances()` caller outside the approved owner/forwarding files.
+
+Evidence: CodeGraph traced the old
+`GameModelCollection::PrepareRenderInstances()` ->
+`PhysicsEngine::RefreshRenderStore()` -> `PhysicsScene::RefreshRenderStore()` ->
+`PhysicsModelAccess::RefreshRenderInstances()` path; residue scan found no
+`PhysicsModelAccess::RefreshRenderInstances` in source; `git diff --check`,
+boundary-checker Python compile, and runtime-boundary validation passed with 0
+errors; touched-source comment audit inspected `GameModelCollection.cpp`,
+`GameModelCollection.h`, `PhysicsModelAccess.h`, `PhysicsEngine.cpp`,
+`PhysicsEngine.h`, `PhysicsScene.cpp`, `PhysicsScene.h`, and
+`check_runtime_boundaries.py`; `tools\validate_full.bat` passed project filters,
+runtime boundaries, Profile/Debug builds at 0 warnings/errors, DX12 InfoQueue 0
+errors, DX12 screenshots matching baselines, and byte-exact 20,001-line
+`physics_regression_solver.csv`. Log:
+`TestOutput\validation\physics_store_authority\validate_full_render_projection_facade_shrink.log`.
+
 ## Required Evidence For Each Source Slice
 
 - [ ] Exact source files touched.

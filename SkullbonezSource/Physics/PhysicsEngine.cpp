@@ -139,9 +139,15 @@ bool PhysicsEngine::RefreshColliderSnapshot()
 }
 
 
-void PhysicsEngine::RefreshRenderStore( PhysicsModelAccess& modelAccess, int expectedModelCount )
+bool PhysicsEngine::PrepareRenderStoreRefresh( PhysicsModelAccess& modelAccess, int expectedModelCount )
 {
-    m_scene.RefreshRenderStore( modelAccess, expectedModelCount );
+    return m_scene.PrepareRenderStoreRefresh( modelAccess, expectedModelCount );
+}
+
+
+SkullbonezCore::Rendering::RenderInstanceStore& PhysicsEngine::MutableRenderInstances()
+{
+    return m_scene.MutableRenderInstances();
 }
 
 
@@ -334,6 +340,14 @@ const SkullbonezCore::Rendering::RenderInstanceStore& PhysicsEngine::RenderInsta
 {
     return m_scene.RenderInstances();
 }
+
+
+#ifdef _DEBUG
+void PhysicsEngine::ValidateRenderStore( int expectedModelCount ) const
+{
+    m_scene.ValidateRenderStore( expectedModelCount );
+}
+#endif
 
 
 const SkullbonezCore::Math::CollisionDetection::SpatialGrid& PhysicsEngine::GetSpatialGrid() const

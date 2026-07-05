@@ -3,19 +3,41 @@
 Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
-Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_physics.bat` passed on 2026-07-05 after deleting the generic
-`PhysicsModelAccess::ModelCount()` query. Runtime boundaries reported 0 errors,
-Profile/Debug builds were 0 warnings/errors, standalone/runtime physics smoke
-passed, and `physics_regression_solver.csv` was a byte-exact 20,001-line match.
+Validation for latest source slice: `tools\validate_full.bat` passed on
+2026-07-05 after deleting the `PhysicsModelAccess::RefreshRenderInstances()`
+facade. Runtime boundaries reported 0 errors, Profile/Debug builds were 0
+warnings/errors, DX12 InfoQueue errors were 0, screenshots matched baselines,
+and `physics_regression_solver.csv` was a byte-exact 20,001-line match.
 
 ## Completed Slices
 
+- [x] 2026-07-05: Deleted the `PhysicsModelAccess::RefreshRenderInstances()`
+  facade. `GameModelCollection` now owns the one cold render projection fill
+  because material/highlight presentation facts still live with model order;
+  `PhysicsScene`/`PhysicsEngine` only prepare body/collider rows before that
+  owner-side fill. Owner: `GameModelCollection` owns the remaining
+  model-order presentation projection; `PhysicsScene` owns store preparation and
+  validation. Reason: a render refresh method on `PhysicsModelAccess` made the
+  compatibility facade look like a general render bridge and encouraged a
+  callback/adapter shape in the render path. Deletion condition:
+  `PhysicsModelAccess.h` and its definitions expose no
+  `RefreshRenderInstances()` method; `GameModelCollection::RefreshRenderInstances()`
+  is private; mutable render-store access remains limited to
+  `GameModelCollection`, `PhysicsEngine`, and `PhysicsScene`. Checker budget:
+  `tools/check_runtime_boundaries.py` rejects the deleted render refresh facade
+  and any new `MutableRenderInstances()` caller outside those owner/forwarding
+  files. Validation: CodeGraph traced the old render refresh path; residue scan
+  found no deleted source calls; `git diff --check`, boundary-checker Python
+  compile, runtime boundaries with 0 errors, and touched-source comment audit
+  passed; `tools\validate_full.bat` passed project filters, runtime boundaries,
+  Profile/Debug builds at 0 warnings/errors, DX12 InfoQueue 0 errors, DX12
+  screenshots matching baselines, and byte-exact 20,001-line
+  `physics_regression_solver.csv`.
 - [x] 2026-07-05: Deleted the generic `PhysicsModelAccess::ModelCount()` query.
   `GameModelCollection` now computes model count at the owner boundary and
   passes the expected count into `PhysicsEngine::RefreshBodyFromModel()` and
-  `PhysicsEngine::RefreshRenderStore()`. `PhysicsScene` compares body/render
-  store counts against that caller-owned value before requesting model-owner
+  render-projection preparation. `PhysicsScene` compares body/collider store
+  counts against that caller-owned value before requesting model-owner
   refreshes, so `PhysicsModelAccess` remains a narrow refresh facade instead of
   a model-order query surface. Owner: `GameModelCollection` owns model order;
   `PhysicsScene` owns store count validation. Reason: a count query on the
