@@ -828,7 +828,10 @@ void ResetEditorModelMotionAndWake( SkullbonezCore::GameObjects::GameModelCollec
     model.SetLinearVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
     model.SetAngularVelocity( SkullbonezCore::Math::Vector::ZERO_VECTOR );
     collection.CommitEditedModelPhysicsState( index, colliderChanged );
-    if ( !model.IsFixed() )
+    const PhysicsBodyRecord* body = collection.GetPhysicsEngine().BodyStore().RecordForModelIndex( index );
+    // Why: CommitEditedModelPhysicsState just imported the editor-authored row;
+    // wake eligibility should now follow PhysicsBodyStore, not the model mirror.
+    if ( body && !body->isFixed )
     {
         WakeEditorPhysicsBody( collection, index );
     }

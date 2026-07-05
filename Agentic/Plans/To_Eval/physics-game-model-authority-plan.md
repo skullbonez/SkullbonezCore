@@ -4,10 +4,9 @@ Date: 2026-06-27
 Status: In progress
 Impact areas: physics, game model data ownership, scene system, replay, rendering projection, tests
 Validation for latest source slice: `tools\validate_fast.bat` and
-`tools\validate_full.bat` passed on 2026-07-05 after moving authored scene
-Euler-degree startup orientation conversion out of `GameModel`, deleting
-`GameModel::SetInitialOrientation()`, and blocking scene setup orientation
-readbacks.
+`tools\validate_full.bat` passed on 2026-07-05 after moving editor transform
+reset wake eligibility from `GameModel::IsFixed()` to the freshly committed
+`PhysicsBodyStore` record.
 
 ## Completed Slices
 
@@ -448,6 +447,25 @@ readbacks.
   InfoQueue errors 0, DX12 screenshots matched committed baselines,
   standalone/runtime physics smoke passed, and `physics_regression_solver.csv`
   was a byte-exact 20,001-line match.
+- [x] 2026-07-05: Moved editor transform reset wake eligibility to
+  `PhysicsBodyStore`. Owner: runtime editor gizmo transform reset path in
+  `RunEditorTools.cpp`. Reason: `ResetEditorModelMotionAndWake()` commits the
+  editor-authored row into `PhysicsBodyStore`, but still asked the mutable
+  `GameModel` mirror whether the body was fixed before deciding to wake it.
+  The path now clears model-owned authoring velocities, commits the row, reads
+  `PhysicsBodyRecord::isFixed` directly from `PhysicsEngine::BodyStore()`, and
+  only wakes dynamic rows. Deletion condition: the reset helper has no
+  `model.IsFixed()` read and does not call the body-store convenience accessor
+  that can perform a topology repair pass after the row was just committed.
+  Checker budget: `tools/check_runtime_boundaries.py` rejects
+  `model.IsFixed()` inside `ResetEditorModelMotionAndWake()` and self-tests
+  the old/readback and allowed body-store forms. Validation: `git diff
+  --check`, `python -m py_compile tools\check_runtime_boundaries.py`, `python
+  tools\check_runtime_boundaries.py --repo .`, `tools\validate_fast.bat`, and
+  `tools\validate_full.bat` passed on 2026-07-05; full gate reported DX12
+  InfoQueue errors 0, DX12 screenshots matched committed baselines,
+  standalone/runtime physics smoke passed, and `physics_regression_solver.csv`
+  was a byte-exact 20,001-line match.
 
 ## Goal
 
@@ -687,6 +705,9 @@ Move one body-state group at a time. Keep compatibility writeback narrow and tem
   values locally and writes a `Quaternion` through `GameModel::SetOrientation()`;
   convex-hull COM placement reuses that value instead of reading
   `GameModel::GetOrientation()` back out.
+- [x] 2026-07-05 editor transform reset wake eligibility reads
+  `PhysicsBodyRecord::isFixed` from the committed body row instead of
+  `GameModel::IsFixed()`.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of sleep and wake state.
 - [ ] Make `PhysicsBodyStore` the authoritative owner of accumulated forces and impulses.
 - [ ] Change physics stepping to consume body handles/store views rather than `GameModelCollection&`.
@@ -807,6 +828,9 @@ Scene/editor/replay metadata should not force physics or render ownership to sta
   - [x] 2026-07-05 replay save/restore probes now resolve pose/orientation and
     fixed-state decisions through body-store records while preserving saved
     model index only as replay event identity.
+  - [x] 2026-07-05 editor transform reset/wake now resolves fixed-state
+    decisions from the committed body-store row while preserving model index
+    only as the editor selection/replay gesture token.
 - [ ] Preserve old file compatibility where required by existing scene assets.
 
 Do-not-miss checklist:

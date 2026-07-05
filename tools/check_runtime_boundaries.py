@@ -19,9 +19,9 @@
 #   velocity-edit, launcher ray-hit, selection overlay, editor selection-frame,
 #   editor transform grouping, mouse-pickup overlay, attached-camera overlay,
 #   replay marker radii, replay path target identity, editor selection identity,
-#   or editor wake/sleep commands have store-handle fences. Authored scene
-#   setup also blocks GameModel orientation readbacks after local authoring
-#   conversion. The deleted
+#   or editor wake/sleep commands have store-handle fences. Editor transform
+#   reset wake and authored scene setup also block GameModel body readbacks
+#   after their owner-side store commits. The deleted
 #   collection step wrapper has its own fence, replay render-pose overrides have
 #   their own value-override fence,
 #   per-body model writeback, and the deleted bulk model mirror have their own
@@ -74,6 +74,9 @@
 #   Editor selection identity fence: Static rule that keeps selection commands
 #     and editor state paired with PhysicsBodyHandle/PhysicsColliderHandle
 #     instead of allowing model-index-only selection to regain physics authority.
+#   Editor reset wake fence: Static rule that keeps editor transform wake
+#     decisions on the committed PhysicsBodyStore row instead of the GameModel
+#     mirror.
 #   Attached-camera overlay fence: Static rule that keeps the camera-target
 #     marker on PhysicsBodyStore pose and ColliderStore shape/radius rows.
 #   Replay target marker fence: Static rule that keeps replay target markers on
@@ -676,6 +679,8 @@ EDITOR_ADAPTER_COMMAND_WRAPPER_PATTERN = re.compile(
 EDITOR_ADAPTER_LOOKUP_PATTERN = re.compile(
     r"\b(?:GameModelCollectionPhysicsAdapter|BodyHandleForVelocityCommand|BodyHandleForModelIndex)\b"
 )
+EDITOR_RESET_MODEL_MOTION_FUNCTION_PATTERN = re.compile(r"\bvoid\s+ResetEditorModelMotionAndWake\s*\(")
+EDITOR_RESET_MODEL_FIXED_READ_PATTERN = re.compile(r"\bmodel\s*\.\s*IsFixed\s*\(")
 RUNTIME_TOOL_MODEL_ACCESS_TOPOLOGY_PATTERN = re.compile(
     r"\b(?:Physics\s*::\s*)?PhysicsModelAccess\b"
     r"|\bRefresh(?:BodyStore|ColliderSnapshot)\s*\(\s*modelAccess\s*\)"
@@ -4764,6 +4769,22 @@ def check_editor_model_index_physics_command_guardrails_text(path: Path, text: s
                     ),
                 )
             )
+        bounds = _function_body_bounds(stripped, EDITOR_RESET_MODEL_MOTION_FUNCTION_PATTERN)
+        if bounds:
+            open_brace, close_brace = bounds
+            for match in EDITOR_RESET_MODEL_FIXED_READ_PATTERN.finditer(stripped, open_brace, close_brace):
+                errors.append(
+                    BoundaryError(
+                        path,
+                        line_for_offset(stripped, match.start()),
+                        "editor reset wake must use body-store fixed state",
+                        (
+                            "After CommitEditedModelPhysicsState imports an editor transform into "
+                            "PhysicsBodyStore, wake eligibility should read PhysicsBodyRecord::isFixed instead "
+                            "of consulting GameModel::IsFixed."
+                        ),
+                    )
+                )
     return errors
 
 
@@ -14271,6 +14292,42 @@ def run_self_tests() -> list[str]:
     ):
         failures.append("old editor reset model-index command synthetic surface was not rejected")
 
+    old_editor_reset_model_fixed_read = """
+    void ResetEditorModelMotionAndWake( GameModelCollection& collection, int index, GameModel& model )
+    {
+        collection.CommitEditedModelPhysicsState( index, false );
+        if ( !model.IsFixed() )
+        {
+            WakeEditorPhysicsBody( collection, index );
+        }
+    }
+    """
+    if not any(
+        error.message == "editor reset wake must use body-store fixed state"
+        for error in check_editor_model_index_physics_command_guardrails_text(
+            Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+            old_editor_reset_model_fixed_read,
+        )
+    ):
+        failures.append("old editor reset model fixed-state synthetic surface was not rejected")
+
+    allowed_editor_reset_body_fixed_read = """
+    void ResetEditorModelMotionAndWake( GameModelCollection& collection, int index, GameModel& model )
+    {
+        collection.CommitEditedModelPhysicsState( index, false );
+        const PhysicsBodyRecord* body = collection.GetPhysicsEngine().BodyStore().RecordForModelIndex( index );
+        if ( body && !body->isFixed )
+        {
+            WakeEditorPhysicsBody( collection, index );
+        }
+    }
+    """
+    if check_editor_model_index_physics_command_guardrails_text(
+        Path("SkullbonezSource/Runtime/Editor/RunEditorTools.cpp"),
+        allowed_editor_reset_body_fixed_read,
+    ):
+        failures.append("body-store editor reset wake synthetic surface was rejected")
+
     old_editor_tool_model_access = """
     void WakeEditorPhysicsBody( GameModelCollection& collection, int modelIndex )
     {
@@ -14317,6 +14374,7 @@ def run_self_tests() -> list[str]:
     {
         // PhysicsModelAccess modelAccess(collection) used to repair topology here.
         // physics.RefreshBodyStore(modelAccess) is historical debt, not live code.
+        // ResetEditorModelMotionAndWake used to call model.IsFixed() before waking.
         collection.RepairPhysicsBodyAndColliderTopology();
     }
     """
