@@ -46,6 +46,7 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
+class CollisionVisualizer;
 class ColliderStore;
 class PhysicsEngine;
 class PhysicsBodyStore;
@@ -513,7 +514,8 @@ class ReflectionPass
 class ObjectPass
 {
   public:
-    explicit ObjectPass( RuntimeRenderHost& host ) : m_host( host )
+    ObjectPass( Physics::CollisionVisualizer& collisionVisualizer, const EngineConfig& config )
+        : m_collisionVisualizer( collisionVisualizer ), m_config( config )
     {
     }
 
@@ -522,7 +524,8 @@ class ObjectPass
     void Render( const ObjectPassInputs& inputs );
 
   private:
-    RuntimeRenderHost& m_host;
+    Physics::CollisionVisualizer& m_collisionVisualizer;
+    const EngineConfig& m_config;
 };
 
 /* -- TerrainPass

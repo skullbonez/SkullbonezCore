@@ -1216,14 +1216,14 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         if ( HasCollisionVisualizerFrameView( inputs.frame ) )
         {
             const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.frame );
-            m_host.m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
-            m_host.m_collisionVisualizer.Render( RenderAssets( inputs.frame ),
-                                                 RenderResources( inputs.frame ),
-                                                 frameView,
-                                                 inputs.frame.baseView,
-                                                 inputs.frame.projection,
-                                                 inputs.frame.lightPosition );
-            m_host.m_collisionVisualizer.SetAlphaOverride( -1.0f );
+            m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
+            m_collisionVisualizer.Render( RenderAssets( inputs.frame ),
+                                          RenderResources( inputs.frame ),
+                                          frameView,
+                                          inputs.frame.baseView,
+                                          inputs.frame.projection,
+                                          inputs.frame.lightPosition );
+            m_collisionVisualizer.SetAlphaOverride( -1.0f );
         }
     }
     else
@@ -1236,7 +1236,7 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         RenderTextures( inputs.frame ).SelectTexture( TEXTURE_BOUNDING_SPHERE );
         if ( inputs.frame.renderInstances && inputs.frame.colliders )
         {
-            GameObjects::GameModelRenderer::RenderModels( RenderHelperServices( inputs.frame, m_host.m_config ),
+            GameObjects::GameModelRenderer::RenderModels( RenderHelperServices( inputs.frame, m_config ),
                                                           *inputs.frame.renderInstances,
                                                           *inputs.frame.colliders,
                                                           inputs.frame.renderCollisionVolumes,

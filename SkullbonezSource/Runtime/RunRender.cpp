@@ -1238,7 +1238,7 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderHost& host )
                  host.m_systems.skyBox,
                  host.m_config ),
       m_sceneTargetPass( host.m_systems.renderPasses.cinematicScene ), m_shadowPass( host ), m_reflectionPass( host ),
-      m_objectPass( host ), m_terrainPass( host.m_systems.terrain, host.m_config ),
+      m_objectPass( host.m_collisionVisualizer, host.m_config ), m_terrainPass( host.m_systems.terrain, host.m_config ),
       m_waterPass( host.m_cWorldEnvironment, host.m_config ), m_tornadoVisualPass( host ), m_debugOverlayPass( host ),
       m_volumetricPass( host.m_systems.renderPasses.cinematicScene,
                         host.m_systems.renderPasses.volumetricLight,
