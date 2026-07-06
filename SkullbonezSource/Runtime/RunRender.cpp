@@ -145,6 +145,7 @@ struct WaterGraphCallbackData
     bool noReflection = false;
     bool freezeTime = false;
     float frozenTime = 0.0f;
+    float liveWaterTime = 0.0f;
 };
 
 struct DebugOverlayGraphCallbackData
@@ -267,7 +268,8 @@ void ExecuteWaterGraphCallback( const SkullbonezCore::Rendering::RenderGraphPass
                                data->flatWater,
                                data->noReflection,
                                data->freezeTime,
-                               data->frozenTime } );
+                               data->frozenTime,
+                               data->liveWaterTime } );
 }
 
 void ExecuteTornadoVisualGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
@@ -814,7 +816,8 @@ bool RuntimeRenderer::ExecuteWaterThroughRenderGraph( const RenderFrameContext& 
                                                       bool flatWater,
                                                       bool noReflection,
                                                       bool freezeTime,
-                                                      float frozenTime )
+                                                      float frozenTime,
+                                                      float liveWaterTime )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     if ( reflection.reflectionTextureHandle != 0u && !noReflection )
@@ -838,6 +841,7 @@ bool RuntimeRenderer::ExecuteWaterThroughRenderGraph( const RenderFrameContext& 
         callbackData.noReflection = noReflection;
         callbackData.freezeTime = freezeTime;
         callbackData.frozenTime = frozenTime;
+        callbackData.liveWaterTime = liveWaterTime;
         graph.SetPassCallback( waterPass, ExecuteWaterGraphCallback, &callbackData, true, "Frame/Render/Water" );
 
         CompileRenderPassGraph( graph );
@@ -862,6 +866,7 @@ bool RuntimeRenderer::ExecuteWaterThroughRenderGraph( const RenderFrameContext& 
     callbackData.noReflection = noReflection;
     callbackData.freezeTime = freezeTime;
     callbackData.frozenTime = frozenTime;
+    callbackData.liveWaterTime = liveWaterTime;
     graph.SetPassCallback( waterPass, ExecuteWaterGraphCallback, &callbackData, true, "Frame/Render/Water" );
 
     // Invariant: WaterPass may decide to draw the no-reflection shader path or
@@ -1233,8 +1238,8 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderHost& host )
                  host.m_systems.skyBox,
                  host.m_config ),
       m_sceneTargetPass( host.m_systems.renderPasses.cinematicScene ), m_shadowPass( host ), m_reflectionPass( host ),
-      m_objectPass( host ), m_terrainPass( host.m_systems.terrain, host.m_config ), m_waterPass( host ),
-      m_tornadoVisualPass( host ), m_debugOverlayPass( host ),
+      m_objectPass( host ), m_terrainPass( host.m_systems.terrain, host.m_config ),
+      m_waterPass( host.m_cWorldEnvironment, host.m_config ), m_tornadoVisualPass( host ), m_debugOverlayPass( host ),
       m_volumetricPass( host.m_systems.renderPasses.cinematicScene,
                         host.m_systems.renderPasses.volumetricLight,
                         host.m_systems.renderPasses.fullscreen,
@@ -1459,15 +1464,17 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 
     // Water is deliberately downstream of ReflectionPass; it samples the
     // reflection texture but never rebuilds it.
-    const bool waterCallbackOwned = ExecuteWaterThroughRenderGraph( frame,
-                                                                    reflection,
-                                                                    useCinematicTarget,
-                                                                    activeCinematic,
-                                                                    host.m_debug.isWaterHidden,
-                                                                    host.m_debug.isWaterFlatDebug,
-                                                                    host.m_debug.isWaterNoReflect,
-                                                                    host.m_debug.isWaterFreezeDebug,
-                                                                    host.m_debug.frozenWaterTime );
+    const bool waterCallbackOwned =
+        ExecuteWaterThroughRenderGraph( frame,
+                                        reflection,
+                                        useCinematicTarget,
+                                        activeCinematic,
+                                        host.m_debug.isWaterHidden,
+                                        host.m_debug.isWaterFlatDebug,
+                                        host.m_debug.isWaterNoReflect,
+                                        host.m_debug.isWaterFreezeDebug,
+                                        host.m_debug.frozenWaterTime,
+                                        static_cast<float>( host.m_timers.simulationTimer.GetTimeSinceLastStart() ) );
 
     const GraphPassResult tornadoVisualGraph = ExecuteTornadoVisualThroughRenderGraph( frame, useCinematicTarget );
 

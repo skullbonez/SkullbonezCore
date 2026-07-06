@@ -1335,8 +1335,7 @@ void WaterPass::Render( const WaterPassInputs& inputs )
     // Pass contract: water samples only the reflection texture in slot 1.
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
     ClearRenderTextureSlotsExcept( renderCommands, RENDER_TEXTURE_SLOT_1 );
-    float waterTime = inputs.freezeTime ? inputs.frozenTime
-                                        : static_cast<float>( m_host.m_timers.simulationTimer.GetTimeSinceLastStart() );
+    float waterTime = inputs.freezeTime ? inputs.frozenTime : inputs.liveWaterTime;
     m_debugInfo.rendered = true;
     m_debugInfo.waterTime = waterTime;
     SkullbonezCore::Environment::WaterReflectionInput reflectionInput;
@@ -1355,15 +1354,15 @@ void WaterPass::Render( const WaterPassInputs& inputs )
     renderCommands.SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::OneMinusSrcAlpha );
     renderCommands.SetDepthTest( true );
     renderCommands.SetDepthWrite( false );
-    m_host.m_cWorldEnvironment.RenderFluid( inputs.frame.baseView,
-                                            inputs.frame.projection,
-                                            inputs.frame.eye,
-                                            renderCommands,
-                                            reflectionInput,
-                                            waterTime,
-                                            inputs.flatWater,
-                                            inputs.frame.cinematicEnabled,
-                                            inputs.cinematic );
+    m_world.RenderFluid( inputs.frame.baseView,
+                         inputs.frame.projection,
+                         inputs.frame.eye,
+                         renderCommands,
+                         reflectionInput,
+                         waterTime,
+                         inputs.flatWater,
+                         inputs.frame.cinematicEnabled,
+                         inputs.cinematic );
     renderCommands.SetDepthWrite( depthWriteWasEnabled );
     renderCommands.SetDepthTest( depthTestWasEnabled );
     renderCommands.SetBlendFunc( blendSrc, blendDst );
@@ -1376,7 +1375,7 @@ void WaterPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
     // Water shader/mesh resources are owned by WorldEnvironment; this pass
     // makes reflection input explicit and keeps water downstream of reflection.
-    m_host.m_cWorldEnvironment.EnsureRenderResources( m_host.m_config, resources.assets, RenderResources( resources ) );
+    m_world.EnsureRenderResources( m_config, resources.assets, RenderResources( resources ) );
 }
 
 

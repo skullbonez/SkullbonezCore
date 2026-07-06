@@ -53,6 +53,11 @@ struct PhysicsDebugContact;
 struct PhysicsPipelineRecord;
 } // namespace Physics
 
+namespace Environment
+{
+class WorldEnvironment;
+} // namespace Environment
+
 namespace Rendering
 {
 class IRenderCommandContext;
@@ -272,6 +277,7 @@ struct WaterPassInputs
     bool noReflection;                      // Debug override: keep water visible but force the no-reflection shader path.
     bool freezeTime;                        // Debug override: hold wave animation at frozenTime.
     float frozenTime;                       // Simulation time captured when water animation was frozen.
+    float liveWaterTime;                    // Current simulation time used when water animation is not frozen.
 };
 
 struct ReplayOverlayFrameState
@@ -553,7 +559,7 @@ class TerrainPass
 class WaterPass
 {
   public:
-    explicit WaterPass( RuntimeRenderHost& host ) : m_host( host )
+    WaterPass( Environment::WorldEnvironment& world, const EngineConfig& config ) : m_world( world ), m_config( config )
     {
     }
 
@@ -566,7 +572,8 @@ class WaterPass
     }
 
   private:
-    RuntimeRenderHost& m_host;
+    Environment::WorldEnvironment& m_world;
+    const EngineConfig& m_config;
     WaterPassDebugInfo m_debugInfo;
 };
 

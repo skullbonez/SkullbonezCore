@@ -144,7 +144,8 @@ class RuntimeRenderer
                                          bool flatWater,
                                          bool noReflection,
                                          bool freezeTime,
-                                         float frozenTime );
+                                         float frozenTime,
+                                         float liveWaterTime );
     GraphPassResult ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget );
     bool ExecuteReplayGhostsThroughRenderGraph( const RenderFrameContext& frame,
                                                 bool useCinematicTarget,
