@@ -42,6 +42,7 @@ Related:
 #include "../../Physics/Ragdoll.h"
 #include "../../Core/WorkerPool.h"
 #include "../../Rendering/IRenderBackend.h"
+#include "../../Rendering/IRenderRayTracing.h"
 
 #pragma warning( push, 0 )
 #include "../../../ThirdPtySource/nlohmann/json.hpp"

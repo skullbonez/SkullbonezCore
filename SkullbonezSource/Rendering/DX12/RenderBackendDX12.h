@@ -49,6 +49,7 @@ Related:
 
 
 #include "../IRenderBackend.h"
+#include "../IRenderRayTracing.h"
 #include "RenderGraphTransientDX12.h"
 #include "RenderDeviceDX12.h"
 #include "MeshDX12.h"

@@ -35,6 +35,7 @@ Related:
 #include "Replay/ReplayOverlayRenderer.h"
 #include "Replay/ReplayRuntime.h"
 #include "../Core/WorkerPool.h"
+#include "../Rendering/IRenderRayTracing.h"
 #include "../UI/UIDraw.h"
 #include "../UI/UIStyle.h"
 

@@ -46,7 +46,6 @@ Related:
 #include "IRenderCommandContext.h"
 #include "IRenderDeviceLifecycle.h"
 #include "IRenderDiagnostics.h"
-#include "IRenderRayTracing.h"
 #include "IRenderResourceFactory.h"
 
 
@@ -76,11 +75,8 @@ class IRenderBackend : public IRenderDeviceLifecycle,
 // --- Global Render Backend Accessor ---
 
 IRenderBackend& Gfx();
-IRenderRayTracing& GfxRayTracing();
 bool IsGfxReady();
-bool IsGfxRayTracingReady();
 void SetGfxBackend( std::unique_ptr<IRenderBackend> backend );
-void SetGfxRayTracingBackend( IRenderRayTracing* backend );
 void DestroyGfxBackend();
 
 class DrawCallTraceScope
