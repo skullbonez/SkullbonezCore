@@ -21,6 +21,8 @@
 #   Store-authority fence: Rule that keeps migrated callers on body/collider/
 #     render stores instead of reopening model mirrors.
 #   Inheritance budget: Approved list of stable runtime-polymorphism boundaries.
+#   Run member census: Counted private `m_` fields in Run.h so the composition
+#     root cannot silently collect another subsystem owner.
 #   Throw-site census: Textual count of source `throw` tokens used as a ratchet
 #     against adding new exception paths without an owning cleanup row.
 #   Host-field census: Counted `m_host.m_` render-pass references that should
@@ -46,6 +48,8 @@
 #     dependencies must choose a narrow render capability or lower the ratchet.
 #   - Physics GameModelCollection budget records current Plan 02 debt; new
 #     physics dependencies must choose body/collider/render stores or lower the ratchet.
+#   - Run private member budget records current Plan 01 composition-root debt;
+#     new subsystem state must choose an existing owner or lower the ratchet.
 #   - Checker self-tests run before repo scans.
 #   - Comment-only historical mentions of deleted names are allowed; live code is
 #     scanned after comments and string literals are stripped where needed.
@@ -1625,6 +1629,12 @@ MUTABLE_PROCESS_GLOBAL_PATTERN = re.compile(r"\bg_[A-Za-z_]\w*\b")
 # Per-file rows classify remaining debt; this total blocks stale row slack from
 # approving growth while later rows drain the explicit-service surface.
 MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 157
+# RUN-001: current Run.h private `m_` field census on 2026-07-07.
+# This is not approval for growth. Run remains the composition root, but new
+# feature state should enter through one of the narrower owners below instead
+# of expanding the top-level lifetime bag.
+MAX_RUN_PRIVATE_MEMBER_FIELDS = 41
+RUN_PRIVATE_MEMBER_FIELD_PATTERN = re.compile(r"\bm_[A-Za-z_]\w*\b")
 MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 129
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
@@ -2766,6 +2776,31 @@ def extract_run_private_section(stripped: str) -> tuple[int, str] | None:
         else close_brace_offset
     )
     return private_start, stripped[private_start:private_end]
+
+
+def check_run_private_member_count_text(
+    path: Path,
+    text: str,
+    max_allowed: int = MAX_RUN_PRIVATE_MEMBER_FIELDS,
+) -> list[BoundaryError]:
+    stripped = strip_cpp_comments(text)
+    private_section = extract_run_private_section(stripped)
+    if private_section is None:
+        return []
+
+    private_start, private_body = private_section
+    member_count = len(RUN_PRIVATE_MEMBER_FIELD_PATTERN.findall(private_body))
+    if member_count <= max_allowed:
+        return []
+
+    return [
+        BoundaryError(
+            path,
+            line_for_offset(stripped, private_start),
+            "Run.h private member count exceeds ratchet",
+            f"Found {member_count}; maximum is {max_allowed}. Move new state behind an existing subsystem owner or update the ratchet intentionally.",
+        )
+    ]
 
 
 def check_run_private_method_count_text(
@@ -9146,6 +9181,30 @@ def run_self_tests() -> list[str]:
     expect_clean(
         "allowed Run.h private method count synthetic surface failed",
         check_run_private_method_count_text(run_header_path, allowed_run_header, max_allowed=1),
+    )
+
+    allowed_run_member_header = """
+    class Run
+    {
+      private:
+        RuntimeTools m_runtimeTools;
+      public:
+        void Execute();
+    };
+    """
+    expect_clean(
+        "budget-matched Run.h private member synthetic surface was rejected",
+        check_run_private_member_count_text(run_header_path, allowed_run_member_header, max_allowed=1),
+    )
+
+    grown_run_member_header = allowed_run_member_header.replace(
+        "RuntimeTools m_runtimeTools;",
+        "RuntimeTools m_runtimeTools;\n        RunDebugState m_debug;",
+    )
+    expect_error(
+        "grown Run.h private member synthetic surface was not rejected",
+        check_run_private_member_count_text(run_header_path, grown_run_member_header, max_allowed=1),
+        "Run.h private member count exceeds ratchet",
     )
 
     old_run_dxr_reflection_state = allowed_run_header.replace(
@@ -15785,8 +15844,10 @@ def check_interaction_guardrails(repo: Path) -> list[BoundaryError]:
 
 def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     run_header = repo / RUN_HEADER
-    errors = check_text_rules(run_header, run_header.read_text(encoding="utf-8"), RUN_HEADER_RULES)
-    errors.extend(check_run_private_method_count_text(run_header, run_header.read_text(encoding="utf-8")))
+    run_header_text = run_header.read_text(encoding="utf-8")
+    errors = check_text_rules(run_header, run_header_text, RUN_HEADER_RULES)
+    errors.extend(check_run_private_member_count_text(run_header, run_header_text))
+    errors.extend(check_run_private_method_count_text(run_header, run_header_text))
     errors.extend(check_throw_site_count(repo))
     errors.extend(check_run_internal_scrubber_guardrails(repo))
     errors.extend(check_run_internal_replay_layout_guardrails(repo))
