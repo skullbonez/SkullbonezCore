@@ -1944,6 +1944,92 @@ RuntimeRenderer::BuildModelFrameView( SkullbonezCore::GameObjects::GameModelColl
 }
 
 
+void RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
+{
+    m_uiTextRayTracing = nullptr;
+
+    const auto restoreReplayLauncherVisualForRender = [&]()
+    {
+        if ( !m_replayRuntime.HasLauncherVisualBackup() )
+        {
+            return;
+        }
+
+        m_runtimeTools.RestoreReplayLauncherVisualSample( m_replayRuntime.LauncherVisualBackup() );
+        m_replayRuntime.ClearLauncherVisualBackup();
+    };
+
+    const auto applyReplayLauncherVisualSampleForRender = [&]( const ReplayLauncherVisualSample& sample )
+    {
+        if ( m_replayRuntime.HasLauncherVisualBackup() )
+        {
+            return;
+        }
+
+        ReplayLauncherVisualSample liveSample;
+        m_runtimeTools.BuildReplayLauncherVisualSample( liveSample );
+        m_replayRuntime.StoreLauncherVisualBackup( liveSample );
+        m_runtimeTools.RestoreReplayLauncherVisualSample( sample );
+    };
+
+    const auto applyReplayRenderStateForFrame = [&]()
+    {
+        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+            RuntimeAllocation::RuntimeAllocationPhase::Replay );
+        if ( const RunReplayPredictionFrame* predictionFrame = m_replayRuntime.CurrentPredictionScrubFrame() )
+        {
+            m_replayRuntime.ApplyPredictionFrameForRender( context.renderModels.physicsEngine, *predictionFrame );
+        }
+        else if ( const ReplayPresentationSample* replaySample = m_replayRuntime.CurrentScrubSample() )
+        {
+            m_replayRuntime.ApplyPresentationSampleForRender( context.renderModels.physicsEngine, *replaySample );
+        }
+        else if ( const ReplaySolverFrameSample* solverSample = m_replayRuntime.CurrentSolverScrubSample() )
+        {
+            m_replayRuntime.ApplySolverSampleForRender( context.renderModels.physicsEngine, *solverSample );
+            applyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
+        }
+    };
+
+    if ( m_debug.isTextOnly )
+    {
+        return;
+    }
+
+    SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = context.backend.renderCommands;
+    SkullbonezCore::Rendering::IRenderResourceFactory* renderResources = context.backend.renderResources;
+    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = context.backend.renderDiagnostics;
+    const bool renderReady = renderCommands != nullptr && renderResources != nullptr && renderDiagnostics != nullptr;
+    if ( !renderReady )
+    {
+        restoreReplayLauncherVisualForRender();
+        return;
+    }
+
+    // Invariant: backend readiness gates model prep and replay render overrides.
+    // Missing renderer facets should leave live render state untouched.
+    SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = context.backend.rayTracingBackend;
+    PROFILE_BEGIN( "Frame/Render/PrepareModels" );
+    context.renderModelOwner.PrepareRenderInstances();
+    PROFILE_END( "Frame/Render/PrepareModels" );
+    applyReplayRenderStateForFrame();
+
+    const bool cinematicRender = context.cinematicRequested && renderReady && !m_debug.isTextOnly;
+    RenderFrame( BuildRuntimeRenderInputs( m_systems,
+                                           context.renderModels,
+                                           m_world,
+                                           context.ui,
+                                           *renderCommands,
+                                           *renderResources,
+                                           *renderDiagnostics,
+                                           renderRayTracing,
+                                           context.cinematic,
+                                           cinematicRender,
+                                           renderReady ) );
+    restoreReplayLauncherVisualForRender();
+}
+
+
 void Run::Render( const RuntimeRenderModelFrameView& renderModels )
 {
     m_renderer.SetUiTextRayTracingCapability( nullptr );
@@ -1962,86 +2048,18 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     // reads one coherent eye/view/up triple for this frame.
     m_systems.cameras->SetCamera();
 
-    const auto applyReplayLauncherVisualSampleForRender = [&]( const ReplayLauncherVisualSample& sample )
-    {
-        if ( m_replayRuntime.HasLauncherVisualBackup() )
-        {
-            return;
-        }
-
-        ReplayLauncherVisualSample liveSample;
-        m_runtimeTools.BuildReplayLauncherVisualSample( liveSample );
-        m_replayRuntime.StoreLauncherVisualBackup( liveSample );
-        m_runtimeTools.RestoreReplayLauncherVisualSample( sample );
-    };
-
-    const auto restoreReplayLauncherVisualForRender = [&]()
-    {
-        if ( !m_replayRuntime.HasLauncherVisualBackup() )
-        {
-            return;
-        }
-
-        m_runtimeTools.RestoreReplayLauncherVisualSample( m_replayRuntime.LauncherVisualBackup() );
-        m_replayRuntime.ClearLauncherVisualBackup();
-    };
-
-    const auto applyReplayRenderStateForFrame = [&]()
-    {
-        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Replay );
-        if ( const RunReplayPredictionFrame* predictionFrame = m_replayRuntime.CurrentPredictionScrubFrame() )
-        {
-            m_replayRuntime.ApplyPredictionFrameForRender( renderModels.physicsEngine, *predictionFrame );
-        }
-        else if ( const ReplayPresentationSample* replaySample = m_replayRuntime.CurrentScrubSample() )
-        {
-            m_replayRuntime.ApplyPresentationSampleForRender( renderModels.physicsEngine, *replaySample );
-        }
-        else if ( const ReplaySolverFrameSample* solverSample = m_replayRuntime.CurrentSolverScrubSample() )
-        {
-            m_replayRuntime.ApplySolverSampleForRender( renderModels.physicsEngine, *solverSample );
-            applyReplayLauncherVisualSampleForRender( solverSample->launcherVisual );
-        }
-    };
-
-    const auto restoreReplayRenderStateForFrame = [&]() { restoreReplayLauncherVisualForRender(); };
-
-    SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = m_renderBackendView.renderCommands;
-    SkullbonezCore::Rendering::IRenderResourceFactory* renderResources = m_renderBackendView.renderResources;
-    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = m_renderBackendView.renderDiagnostics;
-    const bool renderReady = renderCommands != nullptr && renderResources != nullptr && renderDiagnostics != nullptr;
-    if ( !renderReady )
-    {
-        restoreReplayRenderStateForFrame();
-        return;
-    }
-
-    // Invariant: render inputs only borrow command capabilities after the
-    // startup-owned backend view is ready. The captured flag records that guard
-    // for frame decisions without making the command context nullable.
-    SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = m_renderBackendView.rayTracingBackend;
-    m_renderer.SetUiTextRayTracingCapability( renderRayTracing );
-    PROFILE_BEGIN( "Frame/Render/PrepareModels" );
-    m_cGameModelCollection.PrepareRenderInstances();
-    PROFILE_END( "Frame/Render/PrepareModels" );
-    applyReplayRenderStateForFrame();
-
     const CinematicRenderConfig& activeCinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
-    const bool cinematicRender =
-        RuntimeCinematicRenderingEnabled( SceneState(), m_config, m_launchOptions, m_debug, renderReady );
-    m_renderer.RenderFrame( BuildRuntimeRenderInputs( m_systems,
-                                                      renderModels,
-                                                      m_cWorldEnvironment,
-                                                      m_UI,
-                                                      *renderCommands,
-                                                      *renderResources,
-                                                      *renderDiagnostics,
-                                                      renderRayTracing,
-                                                      activeCinematic,
-                                                      cinematicRender,
-                                                      renderReady ) );
-    restoreReplayRenderStateForFrame();
+    // Why: RuntimeRenderer now owns backend-readiness gating. Run still samples
+    // scene/launch/debug policy, then the renderer combines the request with
+    // live backend facets before drawing.
+    const bool cinematicRequested =
+        RuntimeCinematicRenderingEnabled( SceneState(), m_config, m_launchOptions, m_debug, true );
+    m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ m_renderBackendView,
+                                                                     renderModels,
+                                                                     m_cGameModelCollection,
+                                                                     m_UI,
+                                                                     activeCinematic,
+                                                                     cinematicRequested } );
 }
 
 

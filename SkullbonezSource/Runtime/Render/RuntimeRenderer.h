@@ -68,6 +68,21 @@ class RuntimeRenderer
         const EngineConfig& config;
     };
 
+    struct FrameEntryContext
+    {
+        RuntimeRenderBackendView backend;
+        const RuntimeRenderModelFrameView& renderModels;
+        // Owner: RuntimeRenderer. Reason: render-instance preparation must stay
+        // after backend readiness and before replay render overrides until model
+        // presentation prep has its own renderer snapshot owner. Deletion
+        // condition: remove this borrow when model prep moves behind that owner.
+        // Checker budget: RenderFrameEntry may use it only for PrepareRenderInstances().
+        GameObjects::GameModelCollection& renderModelOwner;
+        UI::InGameUI& ui;
+        const CinematicRenderConfig& cinematic;
+        bool cinematicRequested = false;
+    };
+
     RuntimeRenderer( const RuntimeRendererBindings& bindings,
                      RenderResourceLifecycleLogFn lifecycleLog,
                      RenderEditorOverlayFn editorOverlay,
@@ -76,6 +91,7 @@ class RuntimeRenderer
     void EnsureFrameResources( const RenderResourceContext& resources );
     // Packages model-owned render/debug views before the frame passes consume them.
     RuntimeRenderModelFrameView BuildModelFrameView( GameObjects::GameModelCollection& models ) const;
+    void RenderFrameEntry( const FrameEntryContext& context );
     void RenderFrame( const RuntimeRenderInputs& renderInputs );
     void ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources );
     void ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context );
