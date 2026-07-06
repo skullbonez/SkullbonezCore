@@ -70,14 +70,11 @@ constexpr float LAUNCHER_PROJECTILE_RESTITUTION = 0.42f;
 constexpr float LAUNCHER_PROJECTILE_SPAWN_LEAD = 3.2f;
 constexpr float LAUNCHER_PROJECTILE_SPAWN_DOWN_OFFSET = 0.28f;
 
-// Why: ray hits preserve model-index identity for picking, but same-count body
-// state must remain PhysicsBodyStore authority. This imports only construction
-// topology drift before the tool resolves a handle.
-bool RepairLauncherPhysicsStores( GameObjects::GameModelCollection& collection,
-                                  const Physics::PhysicsEngine& physics,
-                                  int modelCount )
+// Why: launcher tools borrow already-prepared physics stores from the Run owner.
+// A count mismatch means the caller has not completed the cold topology repair
+// edge, so tool code fails closed instead of rebuilding model-owned descriptors.
+bool LauncherPhysicsStoresReady( const Physics::PhysicsEngine& physics, int modelCount )
 {
-    collection.RepairPhysicsBodyAndColliderTopology();
     return physics.BodyStore().Count() == modelCount && physics.Colliders().Count() == modelCount;
 }
 
@@ -417,40 +414,46 @@ bool RuntimeTools::FireLauncherRay( GameObjects::GameModelCollection& collection
                                     const Math::Vector::Vector3& rayDirection,
                                     const Math::Vector::Vector3& cameraUp )
 {
+    const int modelCount = collection.GetModelCount();
+    Physics::PhysicsEngine& physics = collection.GetPhysicsEngine();
+    if ( !LauncherPhysicsStoresReady( physics, modelCount ) )
+    {
+        return false;
+    }
+
     if ( m_rayCastTest.fireMode == RunLauncherFireMode::Projectile )
     {
         return FireLauncherProjectile( collection,
+                                       physics,
                                        scene,
                                        terrain,
                                        activeModelCapacity,
+                                       modelCount,
                                        rayOrigin,
                                        rayDirection,
                                        cameraUp );
     }
 
-    FireLauncherLaser( collection, terrain, rayOrigin, rayDirection, cameraUp );
+    FireLauncherLaser( physics, modelCount, terrain, rayOrigin, rayDirection, cameraUp );
     return false;
 }
 
-void RuntimeTools::FireLauncherLaser( GameObjects::GameModelCollection& collection,
+void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics,
+                                      int modelCount,
                                       Geometry::Terrain* terrain,
                                       const Math::Vector::Vector3& rayOrigin,
                                       const Math::Vector::Vector3& rayDirection,
                                       const Math::Vector::Vector3& cameraUp )
 {
-    const int modelCount = collection.GetModelCount();
-    Physics::PhysicsEngine& physics = collection.GetPhysicsEngine();
-    const bool storesReady = RepairLauncherPhysicsStores( collection, physics, modelCount );
-
     int modelHitIndex = -1;
     float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool modelHit = storesReady && TryRayCastTestHit( physics.BodyStore(),
-                                                            physics.Colliders(),
-                                                            rayOrigin,
-                                                            rayDirection,
-                                                            RAY_CAST_TEST_MAX_DISTANCE,
-                                                            modelHitIndex,
-                                                            modelHitT );
+    const bool modelHit = TryRayCastTestHit( physics.BodyStore(),
+                                             physics.Colliders(),
+                                             rayOrigin,
+                                             rayDirection,
+                                             RAY_CAST_TEST_MAX_DISTANCE,
+                                             modelHitIndex,
+                                             modelHitT );
 
     float terrainHitT = RAY_CAST_TEST_MAX_DISTANCE;
     const bool terrainHit =
@@ -481,10 +484,10 @@ void RuntimeTools::FireLauncherLaser( GameObjects::GameModelCollection& collecti
     const Math::Vector::Vector3 localApplicationPoint = hitPoint - bodyRecord->position;
     const float mass = (std::max)( 0.001f, bodyRecord->mass );
     const float releaseSpeed = std::clamp( m_rayCastTest.impulseStrength / mass, 1.5f, 36.0f );
-    if ( !collection.ReleaseAttachedFixedTreeParts( modelHitIndex,
-                                                    m_rayCastTest.impulseStrength,
-                                                    rayDirection * releaseSpeed,
-                                                    Math::Vector::ZERO_VECTOR ) )
+    if ( !physics.ReleaseFixedBodyAndAttachedTreeParts( body,
+                                                        m_rayCastTest.impulseStrength,
+                                                        rayDirection * releaseSpeed,
+                                                        Math::Vector::ZERO_VECTOR ) )
     {
         return;
     }
@@ -492,31 +495,29 @@ void RuntimeTools::FireLauncherLaser( GameObjects::GameModelCollection& collecti
 }
 
 bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& collection,
+                                           Physics::PhysicsEngine& physics,
                                            RunSceneState& scene,
                                            Geometry::Terrain* terrain,
                                            int activeModelCapacity,
+                                           int modelCount,
                                            const Math::Vector::Vector3& rayOrigin,
                                            const Math::Vector::Vector3& rayDirection,
                                            const Math::Vector::Vector3& cameraUp )
 {
-    const int modelCount = collection.GetModelCount();
     if ( !terrain || modelCount >= activeModelCapacity )
     {
         return false;
     }
 
-    Physics::PhysicsEngine& physics = collection.GetPhysicsEngine();
-    const bool storesReady = RepairLauncherPhysicsStores( collection, physics, modelCount );
-
     int modelHitIndex = -1;
     float modelHitT = RAY_CAST_TEST_MAX_DISTANCE;
-    const bool modelHit = storesReady && TryRayCastTestHit( physics.BodyStore(),
-                                                            physics.Colliders(),
-                                                            rayOrigin,
-                                                            rayDirection,
-                                                            RAY_CAST_TEST_MAX_DISTANCE,
-                                                            modelHitIndex,
-                                                            modelHitT );
+    const bool modelHit = TryRayCastTestHit( physics.BodyStore(),
+                                             physics.Colliders(),
+                                             rayOrigin,
+                                             rayDirection,
+                                             RAY_CAST_TEST_MAX_DISTANCE,
+                                             modelHitIndex,
+                                             modelHitT );
 
     float terrainHitT = RAY_CAST_TEST_MAX_DISTANCE;
     const bool terrainHit =
@@ -571,7 +572,7 @@ bool RuntimeTools::FireLauncherProjectile( GameObjects::GameModelCollection& col
         sceneObjectId );
     if ( projectileBody.IsValid() )
     {
-        collection.GetPhysicsEngine().WakeBody( projectileBody );
+        physics.WakeBody( projectileBody );
     }
     return true;
 }

@@ -68,6 +68,7 @@ class GameModelCollection;
 namespace SkullbonezCore::Physics
 {
 class ColliderStore;
+class PhysicsEngine;
 class PhysicsBodyStore;
 } // namespace SkullbonezCore::Physics
 
@@ -409,15 +410,18 @@ class RuntimeTools
                           const Math::Vector::Vector3& rayOrigin,
                           const Math::Vector::Vector3& rayDirection,
                           const Math::Vector::Vector3& cameraUp );
-    void FireLauncherLaser( GameObjects::GameModelCollection& collection,
+    void FireLauncherLaser( Physics::PhysicsEngine& physics,
+                            int modelCount,
                             Geometry::Terrain* terrain,
                             const Math::Vector::Vector3& rayOrigin,
                             const Math::Vector::Vector3& rayDirection,
                             const Math::Vector::Vector3& cameraUp );
     bool FireLauncherProjectile( GameObjects::GameModelCollection& collection,
+                                 Physics::PhysicsEngine& physics,
                                  RunSceneState& scene,
                                  Geometry::Terrain* terrain,
                                  int activeModelCapacity,
+                                 int modelCount,
                                  const Math::Vector::Vector3& rayOrigin,
                                  const Math::Vector::Vector3& rayDirection,
                                  const Math::Vector::Vector3& cameraUp );

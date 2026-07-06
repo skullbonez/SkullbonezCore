@@ -657,13 +657,16 @@ bool Run::RouteRuntimePointerInput( const RuntimeInputSnapshot& inputSnapshot, c
                 m_runtimeTools.RayCastTest().impulseStrength,
                 m_runtimeTools.RayCastTest().projectileSpeed,
                 m_cGameModelCollection.GetModelCount() );
-            if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
-                                                 SceneState(),
-                                                 m_systems.terrain.get(),
-                                                 m_startup.gameModelCapacity,
-                                                 rayOrigin,
-                                                 rayDirection,
-                                                 cameraUp ) )
+            // Why: RuntimeTools now fails closed unless Run has completed the
+            // cold collection-to-store topology repair at the owner boundary.
+            const bool launcherStoresReady = m_cGameModelCollection.RepairPhysicsBodyAndColliderTopology();
+            if ( launcherStoresReady && m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
+                                                                        SceneState(),
+                                                                        m_systems.terrain.get(),
+                                                                        m_startup.gameModelCapacity,
+                                                                        rayOrigin,
+                                                                        rayDirection,
+                                                                        cameraUp ) )
             {
                 SceneState().modelCount = m_cGameModelCollection.GetModelCount();
             }
