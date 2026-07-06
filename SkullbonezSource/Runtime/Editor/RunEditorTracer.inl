@@ -459,6 +459,24 @@ void RunEditorTracer::AddReplayFutureTargetMarker( const Vector3& position,
 }
 
 
+void RunEditorTracer::AddReplayCausalEntryMarker( const Vector3& position,
+                                                  const Quaternion& orientation,
+                                                  const CollisionShape& shape )
+{
+    // Why: entry and rest form a fixed two-color vocabulary. Yellow always
+    // means "joined the causal tree here", so no depth fade is applied.
+    EmitShapeOutline( position, orientation, shape, 1.0f, 0.85f, 0.25f );
+}
+
+
+void RunEditorTracer::AddReplayCausalRestMarker( const Vector3& position,
+                                                 const Quaternion& orientation,
+                                                 const CollisionShape& shape )
+{
+    EmitShapeOutline( position, orientation, shape, 0.58f, 0.58f, 0.62f );
+}
+
+
 void RunEditorTracer::AddReplayTargetMarker( const Vector3& position,
                                              const Quaternion& orientation,
                                              const CollisionShape& shape,

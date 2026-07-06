@@ -446,15 +446,21 @@ constexpr float REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ = 8.0f * 8.0f;
 // few kilobytes.
 constexpr int REPLAY_PREDICTION_PARALLEL_BODY_MIN = 2048;
 
-// Concept: the prediction overlay is a looping causal animation, not a static
-// plot. A wall-clock reveal cursor sweeps the predicted frames so the root line
-// grows first and each child line starts only when its causing frame is
-// revealed. Rate is predicted seconds revealed per real second; 1.0 means the
+// Concept: the prediction overlay is a play-once causal animation, not a
+// static plot. A wall-clock reveal cursor sweeps the predicted frames so the
+// root line grows first and each child line starts only when its causing frame
+// is revealed; after the sweep the finished tree holds until the prediction is
+// rebuilt. Rate is predicted seconds revealed per real second; 1.0 means the
 // future unfolds at the same pace it would actually happen.
 constexpr double REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND = 1.0;
-// Why: after the full horizon is revealed, hold the complete tree briefly so
-// the final outcome stays readable before the unfold loops back to the root.
-constexpr double REPLAY_PREDICTION_REVEAL_HOLD_SECONDS = 1.2;
+// Why: "at rest" for the causal overlay is decided from the END of the
+// completed prediction, never from a momentary pause. A body rests only when
+// the final frame shows no visible motion and it has not drifted across the
+// final grace window; otherwise it has no resting pose and gets no grey box.
+constexpr double REPLAY_PREDICTION_REST_GRACE_SECONDS = 0.4;
+constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES =
+    static_cast<ReplayFrameIndex>( REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
+constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
 
 // Hazard: prediction temporarily swaps live model/solver state. Keep a small
 // reserve so we do not enter a mutation section after spending the whole visual

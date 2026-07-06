@@ -275,6 +275,18 @@ class RunEditorTracer
                                       const Math::Orientation::Quaternion& orientation,
                                       const Math::CollisionDetection::CollisionShape& shape,
                                       int depth );
+    // Draws the yellow causal-entry outline: a predicted body's in-place pose
+    // at the prediction start (perfect formation for a wall brick). Pose comes
+    // from prediction samples, never from live model state.
+    void AddReplayCausalEntryMarker( const Math::Vector::Vector3& position,
+                                     const Math::Orientation::Quaternion& orientation,
+                                     const Math::CollisionDetection::CollisionShape& shape );
+    // Draws the grey causal-rest outline: a predicted body's final resting
+    // pose. Callers place it only when the completed prediction ends with the
+    // body at rest; bodies still moving at the horizon get no grey box.
+    void AddReplayCausalRestMarker( const Math::Vector::Vector3& position,
+                                    const Math::Orientation::Quaternion& orientation,
+                                    const Math::CollisionDetection::CollisionShape& shape );
     // Draws a replay target marker from explicit store values. Replay may still
     // resolve identity by model order, but marker geometry must not read legacy
     // model-side body state.

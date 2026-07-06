@@ -8,6 +8,10 @@ Mental model:
   samples and prediction samples share body-id lookup, path-budget, and contact-tree helpers.
 
 Glossary:
+  Causal markers: Yellow outline fixed at a body's in-place prediction-start
+    pose plus a grey outline drawn only at its final resting pose when the
+    completed prediction ends at rest — the two-box story of each body. Once
+    shown, neither box ever leaves until the prediction is rebuilt.
   Future node: Body discovered by following predicted contact records or, while
     those records are still sparse, by pose divergence away from a target.
   Prediction frame: Temporary replay frame captured while fast-forwarding live physics.
@@ -66,8 +70,10 @@ bool ReplayPredictionMutationReserveSpent( const std::chrono::steady_clock::time
 // happened to finish. While the job is still building, the cursor also clamps
 // to the populated prefix and re-anchors at that edge, so a slow build paces
 // the unfold without banking "reveal debt" that would snap the animation
-// forward the moment the job completes. Once the buffer is complete, the
-// cursor loops: full unfold, short hold on the finished tree, restart.
+// forward the moment the job completes.
+// Invariant: the cursor is MONOTONIC per prediction. It plays 0 -> horizon
+// exactly once and then holds there, so every revealed line and causal box
+// stays on screen; only a rebuild (new future) resets it via the anchor.
 ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction,
                                                    ReplayFrameIndex lastAvailableFrame )
 {
@@ -83,21 +89,12 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
     const double elapsedSeconds =
         (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealAnchor ).count() );
     double revealSeconds = elapsedSeconds * REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND;
-    if ( prediction.building )
+    if ( prediction.building && revealSeconds > availableSeconds )
     {
-        if ( revealSeconds > availableSeconds )
-        {
-            revealSeconds = availableSeconds;
-            prediction.revealAnchor =
-                now - std::chrono::duration_cast<std::chrono::steady_clock::duration>( std::chrono::duration<double>(
-                          availableSeconds / REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND ) );
-        }
-    }
-    else if ( availableSeconds > 0.0 )
-    {
-        const double loopSeconds =
-            availableSeconds / REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND + REPLAY_PREDICTION_REVEAL_HOLD_SECONDS;
-        revealSeconds = std::fmod( elapsedSeconds, loopSeconds ) * REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND;
+        revealSeconds = availableSeconds;
+        prediction.revealAnchor =
+            now - std::chrono::duration_cast<std::chrono::steady_clock::duration>( std::chrono::duration<double>(
+                      availableSeconds / REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND ) );
     }
 
     const double revealFrame = revealSeconds / static_cast<double>( PHYSICS_FIXED_DT );
@@ -504,6 +501,50 @@ bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySa
     return VectorMagSquared( body.linearVelocity ) >= REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ;
 }
 
+// Concept: rest is decided by how the story ends, never by a momentary pause.
+//
+// A body has a resting pose only when the COMPLETED prediction ends with it
+// visibly still and it has not drifted across the final grace window. Bodies
+// still moving at the horizon end return false: they get a travel line and no
+// grey box, because any resting pose we could draw for them would be a guess.
+// Invariant: callers must pass a completed frame buffer; a growing build
+// prefix has no authoritative final frame.
+bool ReplayPredictionBodyRestingPose( const std::vector<RunReplayPredictionFrame>& frames,
+                                      std::size_t frameCount,
+                                      ReplayBodyId id,
+                                      int modelIndexHint,
+                                      Vector3& outPosition,
+                                      Quaternion& outOrientation )
+{
+    frameCount = (std::min)( frameCount, frames.size() );
+    if ( frameCount < 2 || id.value == 0 )
+    {
+        return false;
+    }
+
+    const RunReplayPredictionBodySample* finalBody =
+        FindReplayPredictionBodyByIdWithHint( frames[frameCount - 1], id, modelIndexHint );
+    if ( !finalBody || ReplayPredictionBodyHasVisibleLinearMotion( *finalBody ) )
+    {
+        return false;
+    }
+
+    const std::size_t graceSlots =
+        (std::min)( static_cast<std::size_t>( REPLAY_PREDICTION_REST_GRACE_FRAMES ), frameCount - 1 );
+    const RunReplayPredictionBodySample* graceBody =
+        FindReplayPredictionBodyByIdWithHint( frames[frameCount - 1 - graceSlots], id, modelIndexHint );
+    if ( !graceBody || ReplayPredictionBodyHasVisibleLinearMotion( *graceBody ) ||
+         VectorMagSquared( finalBody->position - graceBody->position ) >
+             REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ )
+    {
+        return false;
+    }
+
+    outPosition = finalBody->position;
+    outOrientation = finalBody->orientation;
+    return true;
+}
+
 bool ReplayContactHasModelIndex( const ReplaySolverPersistentContactSample& contact, int modelIndex )
 {
     return modelIndex >= 0 && ( contact.bodyA == modelIndex || contact.bodyB == modelIndex );
@@ -882,6 +923,15 @@ struct ReplayPathChildDrawState
     Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     Vector3 markerPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     Quaternion markerOrientation = IDENTITY_QUATERNION;
+    // Concept: the two-box causal story. Entry is the body's IN-PLACE pose
+    // from prediction frame 0 — the wall exactly as the live scene knows it.
+    // It is drawn yellow the moment the body visibly moves and never slides.
+    // lastMotionFrame times when the grey resting box may pop in.
+    bool hasEntryPose = false;
+    int entryModelIndex = -1;
+    ReplayFrameIndex lastMotionFrame = 0;
+    Vector3 entryPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Quaternion entryOrientation = IDENTITY_QUATERNION;
 };
 
 struct ReplayPathChildDrawContext
@@ -964,6 +1014,68 @@ void DrawReplayChildFinalMarkers( ReplayPathChildDrawContext& context )
                                                          drawState.markerOrientation,
                                                          collider->shape,
                                                          drawState.node.depth );
+        }
+    }
+}
+
+// Concept: causal markers are the two-box story of each affected body.
+//
+// Yellow is fixed at the body's last still pose before it visibly moved — for
+// a wall brick, its perfect-formation pose. Grey pops in ONLY at the body's
+// final resting pose, and only when the completed prediction actually ends
+// with it at rest; a body still moving at the horizon end gets a travel line
+// and nothing else. Neither box ever slides.
+void DrawReplayPredictionCausalMarkers( ReplayPathChildDrawContext& context,
+                                        ReplayFrameIndex revealFrame,
+                                        const std::vector<RunReplayPredictionFrame>* completeFrames,
+                                        std::size_t completeFrameCount )
+{
+    for ( std::size_t i = 0; i < context.nodeCount; ++i )
+    {
+        if ( ReplayPathChildDrawBudgetExpired( context ) )
+        {
+            return;
+        }
+
+        const ReplayPathChildDrawState& drawState = context.nodes[i];
+        if ( drawState.hasEntryPose )
+        {
+            if ( const ColliderRecord* collider =
+                     ReplayColliderRecordForModelIndex( context.colliderStore, drawState.entryModelIndex ) )
+            {
+                context.tracer->AddReplayCausalEntryMarker( drawState.entryPosition,
+                                                            drawState.entryOrientation,
+                                                            collider->shape );
+            }
+        }
+
+        // Why: completeFrames is null while the job is still building — a
+        // growing prefix has no authoritative ending, so no grey box may
+        // exist yet. The reveal timing check keeps the grey pop causal: it
+        // appears only after the cursor has watched the body stop.
+        if ( !drawState.active || !completeFrames )
+        {
+            continue;
+        }
+        if ( revealFrame < drawState.lastMotionFrame + REPLAY_PREDICTION_REST_GRACE_FRAMES )
+        {
+            continue;
+        }
+        Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        Quaternion restOrientation = IDENTITY_QUATERNION;
+        if ( !ReplayPredictionBodyRestingPose( *completeFrames,
+                                               completeFrameCount,
+                                               drawState.node.id,
+                                               drawState.node.modelIndex,
+                                               restPosition,
+                                               restOrientation ) )
+        {
+            continue;
+        }
+        if ( const ColliderRecord* collider =
+                 ReplayColliderRecordForModelIndex( context.colliderStore, drawState.node.modelIndex ) )
+        {
+            context.tracer->AddReplayCausalRestMarker( restPosition, restOrientation, collider->shape );
         }
     }
 }
@@ -1061,10 +1173,14 @@ struct ReplayPredictionAffectedBodyTrail
     int modelIndex = -1;
     std::size_t firstFrameSlot = 0;
     ReplayFrameIndex firstFrame = 0;
+    // Concept: same two-box causal story as ReplayPathChildDrawState. Entry is
+    // the body's in-place pose from prediction frame 0 (yellow, fixed);
+    // lastMotionFrame times when the grey resting box may pop in. The grey
+    // pose itself always comes from the completed buffer's final frame.
+    ReplayFrameIndex lastMotionFrame = 0;
     Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    Vector3 markerPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    Quaternion markerOrientation = IDENTITY_QUATERNION;
-    bool hasMarkerPose = false;
+    Vector3 entryPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Quaternion entryOrientation = IDENTITY_QUATERNION;
 };
 
 bool ReplayPredictionIdInFutureNodes( const std::vector<RunReplayPathTraceNode>& nodes, ReplayBodyId id )
@@ -1091,6 +1207,7 @@ void DrawReplayPredictionAffectedBodyTrails(
     const std::vector<RunReplayPredictionFrame>& frames,
     std::size_t frameCount,
     ReplayFrameIndex revealFrame,
+    bool bufferComplete,
     ReplayBodyId rootId,
     int rootModelIndex,
     const std::vector<RunReplayPathTraceNode>& futureNodes,
@@ -1114,12 +1231,20 @@ void DrawReplayPredictionAffectedBodyTrails(
     // motion-derived nodes.
     std::array<ReplayPredictionAffectedBodyTrail, REPLAY_PATH_MAX_FUTURE_NODES> trails = {};
     std::size_t trailCount = 0;
+    // Why: budget exhaustion may stop SCANNING, never marker drawing. Bailing
+    // out of the whole pass made yellow boxes flicker under load; instead the
+    // scan stops early and whatever trails exist still get their markers.
+    bool scanBudgetExhausted = false;
     const RunReplayPredictionFrame& firstFrame = frames.front();
     for ( const RunReplayPredictionBodySample& initialBody : firstFrame.bodies )
     {
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) ||
-             trailCount >= REPLAY_PATH_MAX_FUTURE_NODES )
+        if ( scanBudgetExhausted || trailCount >= REPLAY_PATH_MAX_FUTURE_NODES )
         {
+            break;
+        }
+        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+        {
+            scanBudgetExhausted = true;
             break;
         }
         if ( initialBody.id.value == 0 || initialBody.id.value == rootId.value ||
@@ -1144,7 +1269,8 @@ void DrawReplayPredictionAffectedBodyTrails(
             }
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
-                return;
+                scanBudgetExhausted = true;
+                break;
             }
 
             const RunReplayPredictionBodySample* body =
@@ -1158,16 +1284,19 @@ void DrawReplayPredictionAffectedBodyTrails(
                 continue;
             }
 
+            // Why: entry is the body's IN-PLACE pose from prediction frame 0 —
+            // the wall exactly as the live scene knows it. Never a sampled
+            // pose from after the impulse arrived.
             ReplayPredictionAffectedBodyTrail& trail = trails[trailCount++];
             trail.id = initialBody.id;
             trail.modelIndex = body->modelIndex;
             trail.firstFrameSlot = frameSlot;
             trail.firstFrame = frames[frameSlot].frameIndex;
-            trail.previous = body->position;
-            trail.markerPosition = body->position;
-            trail.markerOrientation = body->orientation;
-            trail.markerOrientation.Normalise();
-            trail.hasMarkerPose = true;
+            trail.lastMotionFrame = frames[frameSlot].frameIndex;
+            trail.previous = initialBody.position;
+            trail.entryPosition = initialBody.position;
+            trail.entryOrientation = initialBody.orientation;
+            trail.entryOrientation.Normalise();
             break;
         }
     }
@@ -1179,7 +1308,7 @@ void DrawReplayPredictionAffectedBodyTrails(
 
     const ReplayFrameIndex lastFrame = frames[frameCount - 1].frameIndex;
     const std::size_t sampleStride = ReplayPathStrideForSampleCount( frameCount );
-    for ( std::size_t trailIndex = 0; trailIndex < trailCount; ++trailIndex )
+    for ( std::size_t trailIndex = 0; trailIndex < trailCount && !scanBudgetExhausted; ++trailIndex )
     {
         ReplayPredictionAffectedBodyTrail& trail = trails[trailIndex];
         for ( std::size_t frameSlot = trail.firstFrameSlot + 1; frameSlot < frameCount; ++frameSlot )
@@ -1190,7 +1319,8 @@ void DrawReplayPredictionAffectedBodyTrails(
             }
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
-                return;
+                scanBudgetExhausted = true;
+                break;
             }
 
             const RunReplayPredictionFrame& frame = frames[frameSlot];
@@ -1217,35 +1347,41 @@ void DrawReplayPredictionAffectedBodyTrails(
                 tracer.AddReplayPathSegment( trail.previous, body->position, r, g, b );
             }
 
+            if ( ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
+            {
+                trail.lastMotionFrame = frame.frameIndex;
+            }
             trail.previous = body->position;
-            trail.markerPosition = body->position;
-            trail.markerOrientation = body->orientation;
-            trail.markerOrientation.Normalise();
             trail.modelIndex = body->modelIndex;
-            trail.hasMarkerPose = true;
         }
     }
 
+    // Why: no budget check here — marker emission is bounded and cheap, and
+    // "once rendered, a causal box never leaves" outranks the budget. Only the
+    // frame scans above may be cut short.
     for ( std::size_t trailIndex = 0; trailIndex < trailCount; ++trailIndex )
     {
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-        {
-            return;
-        }
-
         const ReplayPredictionAffectedBodyTrail& trail = trails[trailIndex];
-        if ( !trail.hasMarkerPose )
-        {
-            continue;
-        }
-
         if ( const ColliderRecord* collider = ReplayColliderRecordForModelIndex( &colliderStore, trail.modelIndex ) )
         {
-            const int visualDepth = 1 + static_cast<int>( (std::min)( trailIndex / 24u, static_cast<std::size_t>( 6 ) ) );
-            tracer.AddReplayFutureTargetMarker( trail.markerPosition,
-                                                trail.markerOrientation,
-                                                collider->shape,
-                                                visualDepth );
+            tracer.AddReplayCausalEntryMarker( trail.entryPosition, trail.entryOrientation, collider->shape );
+            // Why: grey exists only for stories that end at rest inside the
+            // completed horizon — see DrawReplayPredictionCausalMarkers.
+            if ( !bufferComplete || revealFrame < trail.lastMotionFrame + REPLAY_PREDICTION_REST_GRACE_FRAMES )
+            {
+                continue;
+            }
+            Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+            Quaternion restOrientation = IDENTITY_QUATERNION;
+            if ( ReplayPredictionBodyRestingPose( frames,
+                                                  frameCount,
+                                                  trail.id,
+                                                  trail.modelIndex,
+                                                  restPosition,
+                                                  restOrientation ) )
+            {
+                tracer.AddReplayCausalRestMarker( restPosition, restOrientation, collider->shape );
+            }
         }
     }
 }

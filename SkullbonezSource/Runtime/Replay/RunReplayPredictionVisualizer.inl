@@ -16,10 +16,16 @@ Glossary:
   Future node tree: Bounded graph of bodies that the selected replay path is
     predicted to affect after the root body hits something. Nodes can come from
     solver contacts or first-movement fallback while contact data is still sparse.
+  Causal markers: The two-box story of each affected body — a yellow outline fixed at its
+    in-place prediction-start pose (perfect wall formation) and a grey outline drawn only at
+    its final resting pose when the completed prediction actually ends with it at rest.
+    Bodies still moving at the horizon end get a travel line and no grey box. Once shown,
+    neither box ever leaves until the prediction is rebuilt.
   Mutation window: Period where live physics stores temporarily contain prediction state.
   Reveal cursor: Wall-clock playhead that caps which prediction frames may draw this render
     frame. It makes the causal tree unfold over real time — root line first, child lines when
-    their causing frame is revealed — and loops once the prediction buffer is complete.
+    their causing frame is revealed. Monotonic per prediction: it plays once, holds at the
+    horizon, and resets only when the prediction is rebuilt.
   Stable overlay pass: Short pre-step draw that keeps current world-space lines visible while
     heavy prediction jobs continue building fresher samples.
   Visualizer budget: Millisecond cap applied to each bounded prediction or overlay work slice.
@@ -381,6 +387,9 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
     const ReplayFrameIndex lastFrame = activePredictionFrames[activePredictionFrameCount - 1].frameIndex;
     const ReplayFrameIndex revealFrame =
         ReplayPredictionRevealFrameIndex( replayRuntime.Prediction(), lastFrame );
+    // Why: while the job is still building there is no authoritative ending,
+    // so no grey resting box may be derived from the growing prefix.
+    const bool bufferComplete = !usingBuildFrames;
 
     if ( !replayRuntime.PathVisualizer().hasTarget || replayRuntime.PathVisualizer().targetId.value == 0 )
     {
@@ -403,6 +412,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawRoot" );
         bool hasPrevious = false;
         Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        ReplayFrameIndex rootLastMotionFrame = 0;
         std::size_t ordinal = 0;
         for ( std::size_t frameIndex = 0; frameIndex < activePredictionFrameCount; ++frameIndex )
         {
@@ -440,6 +450,34 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
             }
             previous = body->position;
             hasPrevious = true;
+            if ( ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
+            {
+                rootLastMotionFrame = frame.frameIndex;
+            }
+        }
+
+        // Why: the root gets no yellow entry box — the white selection marker
+        // already anchors where its story starts. Grey follows the same rule
+        // as every child: only a completed prediction that actually ends at
+        // rest may place a resting box, and only after the reveal cursor has
+        // watched the root stop moving.
+        if ( bufferComplete && revealFrame >= rootLastMotionFrame + REPLAY_PREDICTION_REST_GRACE_FRAMES )
+        {
+            Vector3 rootRestPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+            Quaternion rootRestOrientation = IDENTITY_QUATERNION;
+            if ( ReplayPredictionBodyRestingPose( activePredictionFrames,
+                                                  activePredictionFrameCount,
+                                                  replayRuntime.PathVisualizer().targetId,
+                                                  replayRuntime.PathVisualizer().targetModelIndex,
+                                                  rootRestPosition,
+                                                  rootRestOrientation ) )
+            {
+                if ( const ColliderRecord* collider = ReplayColliderRecordForModelIndex(
+                         &colliderStore, replayRuntime.PathVisualizer().targetModelIndex ) )
+                {
+                    tracer.AddReplayCausalRestMarker( rootRestPosition, rootRestOrientation, collider->shape );
+                }
+            }
         }
     }
     const auto buildBudgetStart = std::chrono::steady_clock::now();
@@ -487,8 +525,14 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
             childDraw.nodes[i].node = replayRuntime.Prediction().futureNodes[i];
         }
 
+        // Why: budget exhaustion may stop line SCANNING, never the marker pass
+        // below — bailing out before markers made causal boxes flicker off for
+        // a frame whenever the child scan ran long.
+        bool childScanBudgetExhausted = false;
         std::size_t ordinal = 0;
-        for ( std::size_t frameIndex = 0; frameIndex < activePredictionFrameCount; ++frameIndex )
+        for ( std::size_t frameIndex = 0;
+              frameIndex < activePredictionFrameCount && !childScanBudgetExhausted;
+              ++frameIndex )
         {
             const RunReplayPredictionFrame& frame = activePredictionFrames[frameIndex];
             if ( frame.frameIndex > revealFrame )
@@ -497,7 +541,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
             }
             if ( ReplayPredictionBudgetExpired( childDrawBudgetStart, budgetMilliseconds ) )
             {
-                return true;
+                break;
             }
 
             const std::size_t currentOrdinal = ordinal++;
@@ -520,7 +564,8 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
             {
                 if ( ReplayPredictionBudgetExpired( childDrawBudgetStart, budgetMilliseconds ) )
                 {
-                    return true;
+                    childScanBudgetExhausted = true;
+                    break;
                 }
 
                 ReplayPathChildDrawState& drawState = childDraw.nodes[i];
@@ -558,9 +603,20 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                         continue;
                     }
                     drawState.active = true;
-                    drawState.previous = body->position;
+                    // Concept: entry is the body's IN-PLACE pose from
+                    // prediction frame 0 — the wall exactly as the live scene
+                    // knows it, never a sampled pose from after the impulse
+                    // arrived. Anchoring the trail start there makes lines
+                    // grow straight out of the yellow formation box.
+                    const RunReplayPredictionBodySample* initialSample = FindReplayPredictionBodyByIdWithHint(
+                        activePredictionFrames[0], drawState.node.id, body->modelIndex );
+                    drawState.hasEntryPose = true;
+                    drawState.entryModelIndex = body->modelIndex;
+                    drawState.entryPosition = initialSample ? initialSample->position : body->position;
+                    drawState.entryOrientation = initialSample ? initialSample->orientation : body->orientation;
+                    drawState.previous = drawState.entryPosition;
                     drawState.hasPrevious = true;
-                    CaptureReplayChildMarkerPose( drawState, body->position, body->orientation, body->modelIndex );
+                    drawState.lastMotionFrame = frame.frameIndex;
                     continue;
                 }
 
@@ -576,14 +632,20 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                 }
                 if ( frame.frameIndex >= drawState.node.firstFrame && drawState.active )
                 {
-                    CaptureReplayChildMarkerPose( drawState, body->position, body->orientation, body->modelIndex );
+                    if ( ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
+                    {
+                        drawState.lastMotionFrame = frame.frameIndex;
+                    }
                     drawState.previous = body->position;
                     drawState.hasPrevious = true;
                 }
             }
         }
 
-        DrawReplayChildFinalMarkers( childDraw );
+        DrawReplayPredictionCausalMarkers( childDraw,
+                                           revealFrame,
+                                           bufferComplete ? &activePredictionFrames : nullptr,
+                                           bufferComplete ? activePredictionFrameCount : 0 );
 
     }
 
@@ -593,6 +655,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         DrawReplayPredictionAffectedBodyTrails( activePredictionFrames,
                                                 activePredictionFrameCount,
                                                 revealFrame,
+                                                bufferComplete,
                                                 replayRuntime.PathVisualizer().targetId,
                                                 replayRuntime.PathVisualizer().targetModelIndex,
                                                 replayRuntime.Prediction().futureNodes,
