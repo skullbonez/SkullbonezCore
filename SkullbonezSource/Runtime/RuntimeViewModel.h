@@ -90,6 +90,8 @@ class RuntimeViewModelBuilder
 {
   public:
     static RuntimeViewModel Build( const EngineContext& context );
+    static RuntimeViewModel Build( const EngineContext& context,
+                                   const Runtime::Audio::ContactAudioService& contactAudio );
 };
 } // namespace Basics
 } // namespace SkullbonezCore

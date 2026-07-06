@@ -25,15 +25,78 @@ Related:
 
 #include "CaptureController.h"
 #include "EngineContext.h"
+#include "RunState.h"
 #include "Scene/SceneController.h"
 #include "../Physics/PhysicsEngine.h"
 
+#include <algorithm>
 #include <cassert>
 
 namespace SkullbonezCore
 {
 namespace Basics
 {
+namespace
+{
+const char* ContactAudioFlashModeLabel( ContactAudioFlashMode mode )
+{
+    switch ( mode )
+    {
+    case ContactAudioFlashMode::Off:
+        return "Flash: Off";
+    case ContactAudioFlashMode::Emitted:
+        return "Flash: Emitted";
+    case ContactAudioFlashMode::Candidates:
+        return "Flash: Candidates";
+    case ContactAudioFlashMode::Rejected:
+        return "Flash: Rejected";
+    default:
+        return "Flash: Emitted";
+    }
+}
+
+
+void FillContactAudioSnapshot( RuntimeContactAudioSnapshot& audio,
+                               const Runtime::Audio::ContactAudioService& contactAudio,
+                               const RunRuntimeSettings& runtimeSettings )
+{
+    audio.enabled = contactAudio.IsEnabled();
+    audio.available = contactAudio.IsAvailable();
+    audio.debugCounters = runtimeSettings.contactAudioDebugCounters;
+    audio.flashMode = static_cast<int>( runtimeSettings.contactAudioFlashMode );
+    audio.flashModeLabel = ContactAudioFlashModeLabel( runtimeSettings.contactAudioFlashMode );
+    audio.masterGain = contactAudio.MasterGain();
+    audio.maxDistanceScale = contactAudio.MaxDistanceScale();
+    audio.minClosingSpeed = contactAudio.MinClosingSpeed();
+    audio.minImpactScore = contactAudio.MinImpactScore();
+    audio.impactScoreRangeSeconds = contactAudio.ImpactScoreRangeSeconds();
+    audio.simpleMode = contactAudio.SimpleModeEnabled();
+    audio.simpleMinLinearEnergy = contactAudio.SimpleMinLinearEnergy();
+    audio.simpleMinLinearDeltaSpeed = contactAudio.SimpleMinLinearDeltaSpeed();
+    audio.simpleLinearEnergyRange = contactAudio.SimpleLinearEnergyRange();
+    audio.burstVoicesPerWindow = contactAudio.BurstVoicesPerWindow();
+    audio.rollingLevelDb = contactAudio.RollingLevelDb();
+    audio.rollingMaxDistance = contactAudio.RollingMaxDistance();
+    audio.rollingMinSlipSpeed = contactAudio.RollingMinSlipSpeed();
+    audio.rollingVoicesPerWindow = contactAudio.RollingVoicesPerWindow();
+    audio.stats = contactAudio.Stats();
+    audio.soundSetCount = (std::min)( contactAudio.SoundSetCount(), RUNTIME_CONTACT_AUDIO_SET_MAX );
+    audio.soundSampleCount = (std::min)( contactAudio.SoundSampleCount(), RUNTIME_CONTACT_AUDIO_SAMPLE_MAX );
+
+    // Lifetime: sample paths and set tuning strings remain borrowed from the
+    // audio service. The view model is frame-local UI data, not an asset owner.
+    for ( int setIndex = 0; setIndex < audio.soundSetCount; ++setIndex )
+    {
+        contactAudio.GetSoundSetTuning( setIndex, audio.soundSets[setIndex] );
+    }
+    for ( int sampleIndex = 0; sampleIndex < audio.soundSampleCount; ++sampleIndex )
+    {
+        audio.soundSamplePaths[sampleIndex] = contactAudio.SoundSamplePath( sampleIndex );
+    }
+}
+} // namespace
+
+
 RuntimeViewModel RuntimeViewModelBuilder::Build( const EngineContext& context )
 {
     RuntimeViewModel view;
@@ -64,6 +127,20 @@ RuntimeViewModel RuntimeViewModelBuilder::Build( const EngineContext& context )
     // model-order compatibility count for this presentation value.
     view.modelCount = bindings.physics ? bindings.physics->BodyStore().Count() : 0;
     view.timeScale = scene.timeScale;
+    return view;
+}
+
+
+RuntimeViewModel RuntimeViewModelBuilder::Build( const EngineContext& context,
+                                                 const Runtime::Audio::ContactAudioService& contactAudio )
+{
+    RuntimeViewModel view = Build( context );
+    if ( !context.IsBound() )
+    {
+        return view;
+    }
+
+    FillContactAudioSnapshot( view.contactAudio, contactAudio, *context.Bindings().runtimeSettings );
     return view;
 }
 } // namespace Basics

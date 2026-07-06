@@ -60,23 +60,6 @@ constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
 constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
 
-const char* ContactAudioFlashModeLabel( ContactAudioFlashMode mode )
-{
-    switch ( mode )
-    {
-    case ContactAudioFlashMode::Off:
-        return "Flash: Off";
-    case ContactAudioFlashMode::Emitted:
-        return "Flash: Emitted";
-    case ContactAudioFlashMode::Candidates:
-        return "Flash: Candidates";
-    case ContactAudioFlashMode::Rejected:
-        return "Flash: Rejected";
-    default:
-        return "Flash: Emitted";
-    }
-}
-
 void HashReplayInt( uint64_t& hash, int32_t value )
 {
     const uint32_t bits = static_cast<uint32_t>( value );
@@ -248,38 +231,7 @@ void Run::BindEngineContext()
 
 void Run::RefreshRuntimeViewModel()
 {
-    m_runtimeViewModel = RuntimeViewModelBuilder::Build( m_engineContext );
-    RuntimeContactAudioSnapshot& audio = m_runtimeViewModel.contactAudio;
-    audio.enabled = m_contactAudio.IsEnabled();
-    audio.available = m_contactAudio.IsAvailable();
-    audio.debugCounters = m_runtimeSettings.contactAudioDebugCounters;
-    audio.flashMode = static_cast<int>( m_runtimeSettings.contactAudioFlashMode );
-    audio.flashModeLabel = ContactAudioFlashModeLabel( m_runtimeSettings.contactAudioFlashMode );
-    audio.masterGain = m_contactAudio.MasterGain();
-    audio.maxDistanceScale = m_contactAudio.MaxDistanceScale();
-    audio.minClosingSpeed = m_contactAudio.MinClosingSpeed();
-    audio.minImpactScore = m_contactAudio.MinImpactScore();
-    audio.impactScoreRangeSeconds = m_contactAudio.ImpactScoreRangeSeconds();
-    audio.simpleMode = m_contactAudio.SimpleModeEnabled();
-    audio.simpleMinLinearEnergy = m_contactAudio.SimpleMinLinearEnergy();
-    audio.simpleMinLinearDeltaSpeed = m_contactAudio.SimpleMinLinearDeltaSpeed();
-    audio.simpleLinearEnergyRange = m_contactAudio.SimpleLinearEnergyRange();
-    audio.burstVoicesPerWindow = m_contactAudio.BurstVoicesPerWindow();
-    audio.rollingLevelDb = m_contactAudio.RollingLevelDb();
-    audio.rollingMaxDistance = m_contactAudio.RollingMaxDistance();
-    audio.rollingMinSlipSpeed = m_contactAudio.RollingMinSlipSpeed();
-    audio.rollingVoicesPerWindow = m_contactAudio.RollingVoicesPerWindow();
-    audio.stats = m_contactAudio.Stats();
-    audio.soundSetCount = (std::min)( m_contactAudio.SoundSetCount(), RUNTIME_CONTACT_AUDIO_SET_MAX );
-    audio.soundSampleCount = (std::min)( m_contactAudio.SoundSampleCount(), RUNTIME_CONTACT_AUDIO_SAMPLE_MAX );
-    for ( int setIndex = 0; setIndex < audio.soundSetCount; ++setIndex )
-    {
-        m_contactAudio.GetSoundSetTuning( setIndex, audio.soundSets[setIndex] );
-    }
-    for ( int sampleIndex = 0; sampleIndex < audio.soundSampleCount; ++sampleIndex )
-    {
-        audio.soundSamplePaths[sampleIndex] = m_contactAudio.SoundSamplePath( sampleIndex );
-    }
+    m_runtimeViewModel = RuntimeViewModelBuilder::Build( m_engineContext, m_contactAudio );
 }
 
 
