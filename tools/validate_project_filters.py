@@ -238,6 +238,7 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayOverlayLayout",
     "ReplayOverlayRenderer",
     "ReplayRecorder",
+    "ReplayRestoreService",
     "ReplayRuntime",
     "ReplaySolverSnapshot",
     "ReplayV2Artifact",

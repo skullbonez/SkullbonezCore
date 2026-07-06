@@ -787,22 +787,7 @@ void Run::CancelReplayToolDragState()
 
 RuntimeInteractionTransition Run::EnterInteractionForCameraMode( RunCameraMode mode )
 {
-    mode = NormalizeCameraModeForCurrentScene( mode );
-    switch ( mode )
-    {
-    case RunCameraMode::Demo:
-    case RunCameraMode::Scene:
-        return m_interaction.EnterLive();
-    case RunCameraMode::Inspect:
-    case RunCameraMode::Attach:
-        return m_interaction.EnterInspect();
-    case RunCameraMode::Launcher:
-        return m_interaction.EnterLauncher();
-    case RunCameraMode::Manipulator:
-        return m_interaction.EnterManipulator();
-    default:
-        return m_interaction.EnterLive();
-    }
+    return m_interaction.EnterCameraMode( NormalizeCameraModeForCurrentScene( mode ) );
 }
 
 

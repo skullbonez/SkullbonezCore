@@ -28,6 +28,8 @@ Related:
 */
 #pragma once
 
+#include "RuntimeCameraMode.h"
+
 namespace SkullbonezCore
 {
 namespace Basics
@@ -219,6 +221,7 @@ class RuntimeInteractionController
     RuntimeInteractionTransition EnterReplay();
     RuntimeInteractionTransition EnterLauncher();
     RuntimeInteractionTransition EnterManipulator();
+    RuntimeInteractionTransition EnterCameraMode( RunCameraMode mode );
     RuntimeInteractionTransition SetWorldInteractionOwner( WorldInteractionOwner owner, InteractionExitReason reason );
     RuntimeInteractionTransition SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace workspace,
                                                                       WorldInteractionOwner owner,
