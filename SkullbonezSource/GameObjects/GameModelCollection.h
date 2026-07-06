@@ -38,10 +38,10 @@ Glossary:
   commit or PR.
 
 Invariants:
-  - m_gameModels is the stable scene-order owner; collaborators mirror or view
-    that order rather than replacing it.
+  - SceneEntityStore is the stable scene-order owner; collaborators mirror or
+    view that order rather than replacing it.
   - SceneObjectGroupStore is a same-length scene metadata store keyed by
-    m_gameModels slot. GameModel does not own runtime grouping fields;
+    scene entity slot. GameModel does not own runtime grouping fields;
     PhysicsScene owns body descriptor rows for topology repair.
   - Replay identity lives in PhysicsBodyStore rows after creation. Collection
     code receives scene-owned ids at creation and does not allocate them.
@@ -167,6 +167,28 @@ class GameModelCollection
         int partIndex = -1;
     };
 
+    // Scene entities preserve authored model-slot order while later owners
+    // consume explicit physics/render/group stores. GameModel remains the cold
+    // presentation record until all save/editor material callers have narrower
+    // inputs.
+    class SceneEntityStore
+    {
+      public:
+        void Reserve( std::size_t capacity );
+        void Clear();
+        void Append( GameModel model );
+        bool TrimToCount( int count );
+        int Count() const;
+        std::size_t Capacity() const;
+        uint64_t CapacityBytes() const;
+        const std::vector<GameModel>& Records() const;
+        GameModel& MutableAt( int index );
+        const GameModel* TryGet( int index ) const;
+
+      private:
+        std::vector<GameModel> m_records;
+    };
+
     // Scene-object groups are cold scene identity metadata, not per-frame model
     // data. Keep their dense storage behind query methods so editor/replay code
     // can ask by scene slot without reopening GameModel fields.
@@ -185,7 +207,7 @@ class GameModelCollection
         std::vector<SceneObjectGroupRecord> m_records;
     };
 
-    std::vector<GameModel> m_gameModels;
+    SceneEntityStore m_sceneEntities;
     SceneObjectGroupStore m_sceneObjectGroupStore;
     Physics::PhysicsEngine m_physicsEngine;
     Threading::WorkerPool* m_workerPool = nullptr;               // Borrowed startup worker pool for render/physics parallel helpers.

@@ -199,7 +199,7 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
     // Invariant: Editable scene saves emit state-form objects whose positions,
     // velocities, sleeping flags, and materials can round-trip through
     // TestSceneParser without reinterpreting authored placement offsets.
-    const std::vector<GameModel>& m_gameModels = collection.Models();
+    const std::vector<GameModel>& sceneModels = collection.Models();
     const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
     const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
 
@@ -254,11 +254,11 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
     scene["objects"] = Json::array();
     Json objectMaterials = Json::array();
 
-    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
+    for ( int i = 0; i < static_cast<int>( sceneModels.size() ); ++i )
     {
         // Concept: Shape variants map to saved scene state records. These are
         // live simulation snapshots, not original authored spawn commands.
-        const char* name = m_gameModels[i].GetName();
+        const char* name = sceneModels[i].GetName();
         char safeName[64];
         if ( !name[0] )
         {
@@ -266,9 +266,9 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
             name = safeName;
         }
 
-        // Invariant: the vector index is only the compatibility row key here.
-        // Live physics values must come from the stores so saving does not need
-        // the post-step GameModel mirror to be fresh.
+        // Invariant: scene entity index is only the saved row key here. Live
+        // physics values must come from the stores so saving does not need the
+        // post-step GameModel presentation record to be fresh.
         const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( i );
         const ColliderRecord* collider =
             body ? colliderStore.RecordForHandle( colliderStore.HandleForBodyHandle( body->handle ) ) : nullptr;
@@ -363,11 +363,11 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
             {
                 hullState["sleeping"] = true;
             }
-            AddSceneObjectGroupJson( hullState, collection, m_gameModels, i );
+            AddSceneObjectGroupJson( hullState, collection, sceneModels, i );
             scene["objects"].push_back( hullState );
         }
 
-        const SkullbonezCore::Rendering::RenderMaterial& material = m_gameModels[i].GetRenderMaterial();
+        const SkullbonezCore::Rendering::RenderMaterial& material = sceneModels[i].GetRenderMaterial();
         if ( collection.GroupKindAt( i ) != GameModelCollectionKind::SimpleRagdoll &&
              ShouldSaveRenderMaterial( material ) )
         {
@@ -389,14 +389,14 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
         {
             const int bodyAIndex = joint.BodyAIndex( bodyStore );
             const int bodyBIndex = joint.BodyBIndex( bodyStore );
-            if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= static_cast<int>( m_gameModels.size() ) ||
-                 bodyBIndex >= static_cast<int>( m_gameModels.size() ) )
+            if ( bodyAIndex < 0 || bodyBIndex < 0 || bodyAIndex >= static_cast<int>( sceneModels.size() ) ||
+                 bodyBIndex >= static_cast<int>( sceneModels.size() ) )
             {
                 continue;
             }
             Json jointJson = {
-                { "bodyA", m_gameModels[static_cast<size_t>( bodyAIndex )].GetName() },
-                { "bodyB", m_gameModels[static_cast<size_t>( bodyBIndex )].GetName() },
+                { "bodyA", sceneModels[static_cast<size_t>( bodyAIndex )].GetName() },
+                { "bodyB", sceneModels[static_cast<size_t>( bodyBIndex )].GetName() },
                 { "localAnchorA", Vec3Json( joint.localAnchorA ) },
                 { "localAnchorB", Vec3Json( joint.localAnchorB ) },
                 { "slack", joint.slack },
