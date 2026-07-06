@@ -103,7 +103,7 @@ SkullbonezCore::Environment::CameraMovementSettings BuildCameraMovementSettings(
 RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
 {
     RuntimeRenderHostBindings bindings;
-    bindings.backend.active = &m_renderBackendView;
+    bindings.backend = m_renderBackendView;
     bindings.runtime.systems = &m_systems;
     bindings.runtime.config = &m_config;
     bindings.runtime.launchOptions = &m_launchOptions;

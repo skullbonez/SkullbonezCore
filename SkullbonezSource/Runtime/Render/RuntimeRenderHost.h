@@ -148,14 +148,9 @@ struct RuntimeRenderBackendView
     Rendering::IRenderRayTracing* rayTracingBackend = nullptr; // Optional DXR facet borrowed from the active renderer.
 };
 
-struct RenderBackendView
-{
-    RuntimeRenderBackendView* active = nullptr;                // Run-owned mutable view observed by the long-lived host.
-};
-
 struct RuntimeRenderHostBindings
 {
-    RenderBackendView backend;
+    RuntimeRenderBackendView backend;                          // Stable backend capability pointers captured at Run startup.
     RenderRuntimeView runtime;
     RenderWorldView world;
     RenderSceneView scene;
@@ -202,7 +197,7 @@ class RuntimeRenderHost
 {
   public:
     RuntimeRenderHost( RuntimeRenderHostBindings bindings, RuntimeRenderHostCallbacks callbacks )
-        : m_renderBackend( *bindings.backend.active ), m_systems( *bindings.runtime.systems ),
+        : m_renderBackend( bindings.backend ), m_systems( *bindings.runtime.systems ),
           m_debug( *bindings.diagnostics.debug ), m_timers( *bindings.diagnostics.timers ),
           m_config( *bindings.runtime.config ), m_launchOptions( *bindings.runtime.launchOptions ),
           m_runtimeSettings( *bindings.runtime.runtimeSettings ),
@@ -328,7 +323,7 @@ class RuntimeRenderHost
 
     bool BuildReplayFocusModelMask( const RenderFrameContext& frame ) const;
 
-    RuntimeRenderBackendView& m_renderBackend;
+    RuntimeRenderBackendView m_renderBackend;
     RunSubsystemState& m_systems;
     RunDebugState& m_debug;
     RunTimerState& m_timers;
