@@ -117,7 +117,7 @@ MOUSE_PICKUP_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Editor/RunMousePickup
 RUNTIME_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.cpp")
 RUNTIME_TOOLS_HEADER = Path("SkullbonezSource/Runtime/Tools/RuntimeTools.h")
 RUN_REPLAY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayTools.cpp")
-REPLAY_VELOCITY_EDIT_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl")
+REPLAY_VELOCITY_EDIT_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp")
 REPLAY_QUERY_TOOLS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayQueryTools.inl")
 REPLAY_PREDICTION_HELPERS_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionHelpers.inl")
 REPLAY_PREDICTION_VISUALIZER_SOURCE = Path("SkullbonezSource/Runtime/Replay/RunReplayPredictionVisualizer.inl")
@@ -13477,7 +13477,7 @@ def run_self_tests() -> list[str]:
         modelCollection.GetPhysicsEngine().SetBodyVelocity( modelAccess, body, linearVelocity, angularVelocity, true );
     }
     """
-    expect_error('old SetBodyVelocity model-access call synthetic surface was not rejected', check_physics_velocity_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), old_velocity_model_access_call, ), 'velocity model-access call is blocked')
+    expect_error('old SetBodyVelocity model-access call synthetic surface was not rejected', check_physics_velocity_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), old_velocity_model_access_call, ), 'velocity model-access call is blocked')
 
     allowed_velocity_handle_command = """
     PhysicsBodyHandle GameModelCollectionPhysicsAdapter::BodyHandleForVelocityCommand( int modelIndex,
@@ -13496,7 +13496,7 @@ def run_self_tests() -> list[str]:
         return m_bodyStore.SetBodyVelocity( body, linearVelocity, angularVelocity );
     }
     """
-    expect_clean('body-only velocity command synthetic surface was rejected', check_physics_velocity_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), allowed_velocity_handle_command, ))
+    expect_clean('body-only velocity command synthetic surface was rejected', check_physics_velocity_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), allowed_velocity_handle_command, ))
 
     commented_velocity_model_access = """
     void DocumentOldVelocityCommand()
@@ -13506,7 +13506,7 @@ def run_self_tests() -> list[str]:
         modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
     }
     """
-    expect_clean('comment-only velocity model-access synthetic text was rejected', check_physics_velocity_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), commented_velocity_model_access, ))
+    expect_clean('comment-only velocity model-access synthetic text was rejected', check_physics_velocity_model_access_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), commented_velocity_model_access, ))
 
     old_wake_body_model_mirror = """
     void PhysicsScene::WakeBody( PhysicsModelAccess& modelAccess, PhysicsBodyHandle body )
@@ -14879,7 +14879,7 @@ def run_self_tests() -> list[str]:
         modelCollection.WakeModel( modelIndex );
     }
     """
-    expect_error('old replay velocity model-state command synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), old_replay_velocity_model_state_command, ), 'replay velocity model-state physics command is blocked')
+    expect_error('old replay velocity model-state command synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), old_replay_velocity_model_state_command, ), 'replay velocity model-state physics command is blocked')
 
     old_replay_velocity_adapter_command = """
     void ApplyReplayVelocityEditToModel( GameModelCollection& modelCollection )
@@ -14889,7 +14889,7 @@ def run_self_tests() -> list[str]:
         modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
     }
     """
-    expect_error('old replay velocity adapter lookup synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), old_replay_velocity_adapter_command, ), 'replay velocity adapter lookup is blocked')
+    expect_error('old replay velocity adapter lookup synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), old_replay_velocity_adapter_command, ), 'replay velocity adapter lookup is blocked')
 
     allowed_replay_velocity_handle_command = """
     void ApplyReplayVelocityEditToBody( GameModelCollection& modelCollection )
@@ -14898,7 +14898,7 @@ def run_self_tests() -> list[str]:
         modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
     }
     """
-    expect_clean('store-handle replay velocity command synthetic surface was rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), allowed_replay_velocity_handle_command, ))
+    expect_clean('store-handle replay velocity command synthetic surface was rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), allowed_replay_velocity_handle_command, ))
 
     old_replay_velocity_model_body_reads = """
     void RenderReplayVelocityEditOverlay( const GameModel& model )
@@ -14912,7 +14912,7 @@ def run_self_tests() -> list[str]:
         const Vector3 angular = model.GetAngularVelocity();
     }
     """
-    expect_error('old replay velocity GameModel body read synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), old_replay_velocity_model_body_reads, ), 'replay velocity GameModel body read is blocked')
+    expect_error('old replay velocity GameModel body read synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), old_replay_velocity_model_body_reads, ), 'replay velocity GameModel body read is blocked')
 
     allowed_replay_velocity_store_body_reads = """
     void RenderReplayVelocityEditOverlay( const PhysicsBodyRecord& body, const ColliderRecord& collider )
@@ -14927,7 +14927,7 @@ def run_self_tests() -> list[str]:
         tracer.AddReplayVelocityGizmo( origin, body.orientation, collider.shape, collider.boundingRadius, linear, angular, -1, -1, -1, false );
     }
     """
-    expect_clean('store-backed replay velocity body read synthetic surface was rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), allowed_replay_velocity_store_body_reads, ))
+    expect_clean('store-backed replay velocity body read synthetic surface was rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), allowed_replay_velocity_store_body_reads, ))
 
     commented_replay_velocity_model_state_command = """
     void DocumentOldReplayVelocityCommand()
@@ -14938,7 +14938,7 @@ def run_self_tests() -> list[str]:
         modelCollection.GetPhysicsEngine().SetBodyVelocity( body, linearVelocity, angularVelocity, true );
     }
     """
-    expect_clean('comment-only replay velocity model-state command synthetic text was rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), commented_replay_velocity_model_state_command, ))
+    expect_clean('comment-only replay velocity model-state command synthetic text was rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), commented_replay_velocity_model_state_command, ))
 
     old_replay_velocity_model_identity_lookup = """
     int ReplayRuntime::ResolveVelocityEditModelIndex( const std::vector<GameObjects::GameModel>& models ) const
@@ -14962,7 +14962,7 @@ def run_self_tests() -> list[str]:
         return modelIndex >= 0;
     }
     """
-    expect_error('old replay velocity collection Models lookup synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl"), old_replay_velocity_collection_models_lookup, ), 'replay velocity collection Models lookup is blocked')
+    expect_error('old replay velocity collection Models lookup synthetic surface was not rejected', check_replay_velocity_model_state_physics_command_guardrails_text( Path("SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp"), old_replay_velocity_collection_models_lookup, ), 'replay velocity collection Models lookup is blocked')
 
     allowed_replay_velocity_body_handle_lookup = """
     PhysicsBodyHandle ReplayRuntime::ResolveVelocityEditBodyHandle( const PhysicsBodyStore& bodyStore ) const

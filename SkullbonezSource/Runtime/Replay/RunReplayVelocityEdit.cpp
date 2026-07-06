@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.inl
+File: SkullbonezSource/Runtime/Replay/RunReplayVelocityEdit.cpp
 Purpose:
   Implements replay velocity-edit picking, dragging, mutation, and overlay drawing.
 
@@ -19,13 +19,218 @@ Invariants:
   - Edited velocities are clamped before waking or mutating the physics body.
   - Hit testing, drag-start values, and gizmo drawing must read store rows, not
     the post-step GameModel body mirror.
-  - This file must only be included from RunReplayTools.cpp after cause-tree input handling.
+  - Velocity-edit helper functions are file-local to this translation unit.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
   - SkullbonezSource/Runtime/Replay/RunReplayTools.cpp
   - Agentic/Reference/comment-style-guide.md
 */
+#include "../RunInternal.h"
+
+#include "ReplayInteractionController.h"
+#include "ReplayOverlayLayout.h"
+#include "../../Physics/ColliderStore.h"
+#include "../../Physics/PhysicsBodyStore.h"
+#include "../../UI/UIInput.h"
+
+#include <algorithm>
+#include <cfloat>
+#include <cmath>
+
+using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Math::CollisionDetection;
+using namespace SkullbonezCore::Math::Orientation;
+using namespace SkullbonezCore::Physics;
+using namespace SkullbonezCore::Basics::RunInternal;
+using namespace SkullbonezCore::Basics::ReplayOverlay;
+
+namespace
+{
+bool IsReplayToolOwner( WorldInteractionOwner owner )
+{
+    return owner == WorldInteractionOwner::ReplayScrub || owner == WorldInteractionOwner::ReplayVelocityEdit ||
+           owner == WorldInteractionOwner::ReplayPrediction || owner == WorldInteractionOwner::ReplayBranchTarget ||
+           owner == WorldInteractionOwner::ReplayCauseTree;
+}
+
+
+Vector3 EditorAxisVector( int axis )
+{
+    switch ( axis )
+    {
+    case 0:
+        return Vector3( 1.0f, 0.0f, 0.0f );
+    case 1:
+        return Vector3( 0.0f, 1.0f, 0.0f );
+    case 2:
+        return Vector3( 0.0f, 0.0f, 1.0f );
+    default:
+        return SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    }
+}
+
+
+float ReplayVelocityLinearBaseLength( float modelRadius )
+{
+    return (std::max)( 10.0f, modelRadius + 7.0f );
+}
+
+
+float ReplayVelocityLinearVisualAxisT( float modelRadius, float velocityComponent )
+{
+    const float sign = velocityComponent < 0.0f ? -1.0f : 1.0f;
+    const float t = std::clamp( fabsf( velocityComponent ) / REPLAY_VELOCITY_EDIT_LINEAR_MAX, 0.0f, 1.0f );
+    return sign * ( ReplayVelocityLinearBaseLength( modelRadius ) + t * REPLAY_VELOCITY_EDIT_LINEAR_EXTRA );
+}
+
+
+float ReplayVelocityLinearUnitsPerWorld()
+{
+    return REPLAY_VELOCITY_EDIT_LINEAR_MAX / REPLAY_VELOCITY_EDIT_LINEAR_EXTRA;
+}
+
+
+float ReplayVelocityAngularBaseRadius( float modelRadius )
+{
+    return (std::max)( 11.0f, modelRadius + 6.0f );
+}
+
+
+float ReplayVelocityAngularVisualRadius( float modelRadius, float angularComponent )
+{
+    const float t = std::clamp( fabsf( angularComponent ) / REPLAY_VELOCITY_EDIT_ANGULAR_MAX, 0.0f, 1.0f );
+    return ReplayVelocityAngularBaseRadius( modelRadius ) + t * (std::max)( 5.0f, modelRadius * 0.85f );
+}
+
+
+float ReplayVelocityAxisComponent( const Vector3& value, int axis )
+{
+    if ( axis == 0 )
+    {
+        return value.x;
+    }
+    if ( axis == 1 )
+    {
+        return value.y;
+    }
+    return value.z;
+}
+
+
+void ReplayVelocitySetAxisComponent( Vector3& value, int axis, float component )
+{
+    if ( axis == 0 )
+    {
+        value.x = component;
+    }
+    else if ( axis == 1 )
+    {
+        value.y = component;
+    }
+    else
+    {
+        value.z = component;
+    }
+}
+
+
+Vector3 EditorRotationRingBasisA( int axis )
+{
+    switch ( axis )
+    {
+    case 0:
+        return Vector3( 0.0f, 1.0f, 0.0f );
+    case 1:
+        return Vector3( 0.0f, 0.0f, 1.0f );
+    case 2:
+        return Vector3( 1.0f, 0.0f, 0.0f );
+    default:
+        return Vector3( 1.0f, 0.0f, 0.0f );
+    }
+}
+
+
+Vector3 EditorRotationRingBasisB( int axis )
+{
+    switch ( axis )
+    {
+    case 0:
+        return Vector3( 0.0f, 0.0f, 1.0f );
+    case 1:
+        return Vector3( 1.0f, 0.0f, 0.0f );
+    case 2:
+        return Vector3( 0.0f, 1.0f, 0.0f );
+    default:
+        return Vector3( 0.0f, 1.0f, 0.0f );
+    }
+}
+
+
+float WrapEditorAngleDelta( float delta )
+{
+    while ( delta > _PI )
+    {
+        delta -= 2.0f * _PI;
+    }
+    while ( delta < -_PI )
+    {
+        delta += 2.0f * _PI;
+    }
+    return delta;
+}
+
+
+float DistanceRayToSegmentSquared( const Vector3& rayOrigin,
+                                   const Vector3& rayDirection,
+                                   const Vector3& segmentA,
+                                   const Vector3& segmentB )
+{
+    const Vector3 segment = segmentB - segmentA;
+    const float segmentLenSq = segment * segment;
+    if ( segmentLenSq <= TOLERANCE * TOLERANCE )
+    {
+        const Vector3 toPoint = segmentA - rayOrigin;
+        const float rayT = (std::max)( 0.0f, toPoint * rayDirection );
+        return VectorMagSquared( rayOrigin + rayDirection * rayT - segmentA );
+    }
+
+    const Vector3 w0 = rayOrigin - segmentA;
+    const float a = rayDirection * rayDirection;
+    const float b = rayDirection * segment;
+    const float c = segmentLenSq;
+    const float d = rayDirection * w0;
+    const float e = segment * w0;
+    const float denom = a * c - b * b;
+
+    float rayT = 0.0f;
+    float segmentT = 0.0f;
+    if ( fabsf( denom ) > 1e-5f )
+    {
+        rayT = ( b * e - c * d ) / denom;
+        segmentT = ( a * e - b * d ) / denom;
+    }
+
+    if ( rayT < 0.0f )
+    {
+        rayT = 0.0f;
+        segmentT = std::clamp( e / c, 0.0f, 1.0f );
+    }
+    else if ( segmentT < 0.0f )
+    {
+        segmentT = 0.0f;
+        rayT = (std::max)( 0.0f, -d / a );
+    }
+    else if ( segmentT > 1.0f )
+    {
+        segmentT = 1.0f;
+        rayT = (std::max)( 0.0f, ( b - d ) / a );
+    }
+
+    const Vector3 rayPoint = rayOrigin + rayDirection * rayT;
+    const Vector3 segmentPoint = segmentA + segment * segmentT;
+    return VectorMagSquared( rayPoint - segmentPoint );
+}
 
 struct ReplayVelocityBodyView
 {
@@ -221,6 +426,7 @@ bool TryReplayVelocityAngularRayAngle( const ReplayVelocityBodyView& body,
     outAngle = atan2f( radial * basisB, radial * basisA );
     return true;
 }
+} // namespace
 
 
 bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
