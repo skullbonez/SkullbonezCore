@@ -151,7 +151,10 @@ class RuntimeRenderer
                                          bool freezeTime,
                                          float frozenTime,
                                          float liveWaterTime );
-    GraphPassResult ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget );
+    TornadoVisualSnapshot BuildTornadoVisualSnapshot() const;
+    GraphPassResult ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContext& frame,
+                                                            bool useCinematicTarget,
+                                                            const TornadoVisualSnapshot& snapshot );
     DebugOverlaySnapshot BuildDebugOverlaySnapshot( const RenderFrameContext& frame ) const;
     bool ExecuteReplayGhostsThroughRenderGraph( const RenderFrameContext& frame,
                                                 bool useCinematicTarget,

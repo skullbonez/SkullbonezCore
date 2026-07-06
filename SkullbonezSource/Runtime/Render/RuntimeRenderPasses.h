@@ -106,6 +106,8 @@ class EngineConfig;
 struct CinematicScenePassResources;
 struct FullscreenPassResources;
 struct ReflectionPassResources;
+struct ReplayPresentationSample;
+struct ReplaySolverFrameSample;
 struct ShadowPassResources;
 struct SkyPassResources;
 struct TonemapPassResources;
@@ -113,6 +115,8 @@ struct VolumetricLightPassResources;
 class ReplayRuntime;
 class RuntimeRenderHost;
 struct RuntimeRenderModelFrameView;
+struct RunReplayPredictionFrame;
+struct TornadoVisualSettings;
 struct RenderHelperContext;
 
 // Concept: these private pass contracts are the extraction boundary.
@@ -343,11 +347,27 @@ struct WaterPassDebugInfo
     int styleWaterMode = -1;
 };
 
+struct TornadoVisualSnapshot
+{
+    // Frame-level tornado art inputs. Live runtime state chooses the visual
+    // style and time source before the graph callback; the pass only expands
+    // that snapshot into transient ribbon/dust vertices.
+    const TornadoVisualSettings* visual = nullptr;
+    const Physics::TornadoSystemConfig* tornadoSystem = nullptr;
+    const Physics::TornadoFieldConfig* tornadoField = nullptr;
+    const ReplayPresentationSample* replaySample = nullptr;
+    const ReplaySolverFrameSample* solverSample = nullptr;
+    const RunReplayPredictionFrame* predictionFrame = nullptr;
+    bool replayLiveAdvanceHeld = false;
+    double simulationSourceSeconds = 0.0;
+};
+
 struct TornadoVisualPassInputs
 {
     // Production tornado art uses the final world view/depth after opaque
     // objects, terrain, and water. Physics field state is read-only shape input.
     const RenderFrameContext& frame;
+    const TornadoVisualSnapshot& snapshot;
 };
 
 struct DebugOverlaySnapshot
@@ -653,16 +673,18 @@ class WaterPass
 class TornadoVisualPass
 {
   public:
-    explicit TornadoVisualPass( RuntimeRenderHost& host ) : m_host( host )
+    explicit TornadoVisualPass( std::unique_ptr<Geometry::Terrain>& terrain ) : m_terrain( terrain )
     {
     }
 
-    void EnsureGpuResources( const RenderResourceContext& resources );
+    void EnsureGpuResources( const RenderResourceContext& resources, const TornadoVisualSnapshot& snapshot );
     void ReleaseGpuResources();
     bool Render( const TornadoVisualPassInputs& inputs );
 
   private:
-    RuntimeRenderHost& m_host;
+    // Lifetime: aliases RunSubsystemState::terrain because scene loads may
+    // replace the terrain object after RuntimeRenderer construction.
+    std::unique_ptr<Geometry::Terrain>& m_terrain;
     std::vector<float> m_vertices;
     std::vector<Physics::TornadoActiveVortex> m_activeVisualVortices;
     float m_liveVisualTimeSeconds = 0.0f;

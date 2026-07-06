@@ -192,6 +192,7 @@ struct TornadoVisualGraphCallbackData
 {
     TornadoVisualPass* tornadoVisualPass = nullptr;
     const RenderFrameContext* frame = nullptr;
+    const TornadoVisualSnapshot* snapshot = nullptr;
     bool rendered = false;
 };
 
@@ -286,11 +287,11 @@ void ExecuteTornadoVisualGraphCallback( const SkullbonezCore::Rendering::RenderG
                                         void* userData )
 {
     auto* data = static_cast<TornadoVisualGraphCallbackData*>( userData );
-    if ( !data || !data->tornadoVisualPass || !data->frame )
+    if ( !data || !data->tornadoVisualPass || !data->frame || !data->snapshot )
     {
         throw std::runtime_error( "TornadoVisualPass graph callback missing execution data" );
     }
-    data->rendered = data->tornadoVisualPass->Render( { *data->frame } );
+    data->rendered = data->tornadoVisualPass->Render( { *data->frame, *data->snapshot } );
 }
 
 void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
@@ -939,7 +940,9 @@ bool RuntimeRenderer::ExecuteWaterThroughRenderGraph( const RenderFrameContext& 
 
 
 RuntimeRenderer::GraphPassResult
-RuntimeRenderer::ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget )
+RuntimeRenderer::ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContext& frame,
+                                                         bool useCinematicTarget,
+                                                         const TornadoVisualSnapshot& snapshot )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const Rendering::RenderGraphResourceHandle colorTarget =
@@ -958,6 +961,7 @@ RuntimeRenderer::ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContex
     TornadoVisualGraphCallbackData callbackData;
     callbackData.tornadoVisualPass = &m_tornadoVisualPass;
     callbackData.frame = &frame;
+    callbackData.snapshot = &snapshot;
     graph.SetPassCallback( tornadoPass,
                            ExecuteTornadoVisualGraphCallback,
                            &callbackData,
@@ -976,6 +980,26 @@ RuntimeRenderer::ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContex
     result.rendered = callbackData.rendered;
     result.callbackOwned = executed.executedPassCount == 1u;
     return result;
+}
+
+
+TornadoVisualSnapshot RuntimeRenderer::BuildTornadoVisualSnapshot() const
+{
+    const ReplayPresentationSample* replaySample = m_host.CurrentReplayScrubSample();
+    const ReplaySolverFrameSample* solverSample = replaySample ? nullptr : m_host.CurrentReplaySolverScrubSample();
+    const RunReplayPredictionFrame* predictionFrame =
+        ( replaySample || solverSample ) ? nullptr : m_host.CurrentReplayPredictionScrubFrame();
+
+    TornadoVisualSnapshot snapshot;
+    snapshot.visual = &m_host.m_runtimeSettings.tornadoVisual;
+    snapshot.tornadoSystem = &m_host.m_runtimeSettings.tornadoSystem;
+    snapshot.tornadoField = &m_host.m_runtimeSettings.tornadoField;
+    snapshot.replaySample = replaySample;
+    snapshot.solverSample = solverSample;
+    snapshot.predictionFrame = predictionFrame;
+    snapshot.replayLiveAdvanceHeld = m_host.ReplayLiveAdvanceHeld();
+    snapshot.simulationSourceSeconds = m_host.m_timers.simulationTimer.GetTimeSinceLastStart();
+    return snapshot;
 }
 
 
@@ -1332,7 +1356,7 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderHost& host )
                         LogRenderResourceLifecycleFromHost,
                         &host ),
       m_objectPass( host.m_collisionVisualizer, host.m_config ), m_terrainPass( host.m_systems.terrain, host.m_config ),
-      m_waterPass( host.m_cWorldEnvironment, host.m_config ), m_tornadoVisualPass( host ),
+      m_waterPass( host.m_cWorldEnvironment, host.m_config ), m_tornadoVisualPass( host.m_systems.terrain ),
       m_debugOverlayPass( host.m_broadphaseVisualizer,
                           host.m_physicsDebugVisualizer,
                           host.m_systems.terrain,
@@ -1427,6 +1451,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     // Build the shared pass contract once, after camera update and before any
     // pass can bind targets. All extracted passes consume this same frame view.
     RenderFrameContext frame = BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
+    const TornadoVisualSnapshot tornadoVisual = BuildTornadoVisualSnapshot();
 
     // These passes currently borrow subsystem-owned mesh/material resources,
     // but keeping the ensure calls in the frame story gives future extraction
@@ -1437,7 +1462,7 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
         m_objectPass.EnsureGpuResources( resourceContext );
         m_terrainPass.EnsureGpuResources( resourceContext );
         m_waterPass.EnsureGpuResources( resourceContext );
-        m_tornadoVisualPass.EnsureGpuResources( resourceContext );
+        m_tornadoVisualPass.EnsureGpuResources( resourceContext, tornadoVisual );
         m_debugOverlayPass.EnsureGpuResources( resourceContext );
     }
 
@@ -1580,7 +1605,8 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
                                         host.m_debug.frozenWaterTime,
                                         static_cast<float>( host.m_timers.simulationTimer.GetTimeSinceLastStart() ) );
 
-    const GraphPassResult tornadoVisualGraph = ExecuteTornadoVisualThroughRenderGraph( frame, useCinematicTarget );
+    const GraphPassResult tornadoVisualGraph =
+        ExecuteTornadoVisualThroughRenderGraph( frame, useCinematicTarget, tornadoVisual );
 
     if ( debugTransparentBodyPass )
     {

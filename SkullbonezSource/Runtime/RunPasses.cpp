@@ -1394,18 +1394,19 @@ void WaterPass::ReleaseGpuResources()
 }
 
 
-void TornadoVisualPass::EnsureGpuResources( const RenderResourceContext& /*resources*/ )
+void TornadoVisualPass::EnsureGpuResources( const RenderResourceContext& /*resources*/,
+                                            const TornadoVisualSnapshot& snapshot )
 {
-    const TornadoVisualSettings& visual = m_host.m_runtimeSettings.tornadoVisual;
+    assert( snapshot.visual && snapshot.tornadoSystem && "TornadoVisualPass requires tornado settings snapshot" );
+    const TornadoVisualSettings& visual = *snapshot.visual;
     const int ribbonCount = std::clamp( visual.ribbonCount, 0, 16 );
     const int ribbonSegments = std::clamp( visual.ribbonSegments, 2, 96 );
     const int particleCount = std::clamp( visual.particleCount, 0, 256 );
     constexpr int dustBands = 3;
     constexpr int dustSegments = 56;
-    const int authoredVortexCount =
-        m_host.m_runtimeSettings.tornadoSystem.enabled
-            ? (std::max)( 1, static_cast<int>( m_host.m_runtimeSettings.tornadoSystem.vortices.size() ) )
-            : 1;
+    const int authoredVortexCount = snapshot.tornadoSystem->enabled
+                                        ? (std::max)( 1, static_cast<int>( snapshot.tornadoSystem->vortices.size() ) )
+                                        : 1;
     const int vertexCount =
         authoredVortexCount * ( ribbonCount * ribbonSegments * 6 + dustBands * dustSegments * 6 + particleCount * 6 );
     const std::size_t floatCapacity =
@@ -1431,7 +1432,10 @@ void TornadoVisualPass::ReleaseGpuResources()
 
 bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
 {
-    const TornadoVisualSettings& visual = m_host.m_runtimeSettings.tornadoVisual;
+    const TornadoVisualSnapshot& snapshot = inputs.snapshot;
+    assert( snapshot.visual && snapshot.tornadoSystem && snapshot.tornadoField &&
+            "TornadoVisualPass requires tornado settings snapshot" );
+    const TornadoVisualSettings& visual = *snapshot.visual;
     if ( !visual.enabled || !IsGfxReady() )
     {
         return false;
@@ -1448,20 +1452,20 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
     }
 
     const float twoPi = 6.28318530718f;
-    const auto* replaySample = m_host.CurrentReplayScrubSample();
-    const auto* solverSample = replaySample ? nullptr : m_host.CurrentReplaySolverScrubSample();
-    const auto* predictionFrame =
-        ( replaySample || solverSample ) ? nullptr : m_host.CurrentReplayPredictionScrubFrame();
+    const ReplayPresentationSample* replaySample = snapshot.replaySample;
+    const ReplaySolverFrameSample* solverSample = replaySample ? nullptr : snapshot.solverSample;
+    const RunReplayPredictionFrame* predictionFrame =
+        ( replaySample || solverSample ) ? nullptr : snapshot.predictionFrame;
     const bool useReplayTime = replaySample != nullptr || solverSample != nullptr || predictionFrame != nullptr;
-    const bool useTornadoSystem =
-        m_host.m_runtimeSettings.tornadoSystem.enabled && !m_host.m_runtimeSettings.tornadoSystem.vortices.empty();
-    const double sourceSeconds = m_host.m_timers.simulationTimer.GetTimeSinceLastStart();
+    const Physics::TornadoSystemConfig& tornadoSystem = *snapshot.tornadoSystem;
+    const bool useTornadoSystem = tornadoSystem.enabled && !tornadoSystem.vortices.empty();
+    const double sourceSeconds = snapshot.simulationSourceSeconds;
     if ( !m_hasLiveVisualTime || sourceSeconds < m_lastLiveVisualSourceSeconds )
     {
         m_liveVisualTimeSeconds = static_cast<float>( sourceSeconds );
         m_hasLiveVisualTime = true;
     }
-    else if ( !useReplayTime && !m_host.ReplayLiveAdvanceHeld() )
+    else if ( !useReplayTime && !snapshot.replayLiveAdvanceHeld )
     {
         m_liveVisualTimeSeconds += static_cast<float>( sourceSeconds - m_lastLiveVisualSourceSeconds );
     }
@@ -1490,13 +1494,11 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
     m_activeVisualVortices.clear();
     if ( useTornadoSystem )
     {
-        Physics::TornadoSystem::BuildActiveVortices( m_host.m_runtimeSettings.tornadoSystem,
-                                                     time,
-                                                     m_activeVisualVortices );
+        Physics::TornadoSystem::BuildActiveVortices( tornadoSystem, time, m_activeVisualVortices );
     }
     else
     {
-        const Physics::TornadoFieldConfig& field = m_host.m_runtimeSettings.tornadoField;
+        const Physics::TornadoFieldConfig& field = *snapshot.tornadoField;
         if ( field.enabled && field.radius > 1.0f && field.height > 1.0f )
         {
             Physics::TornadoActiveVortex active;
@@ -1520,9 +1522,9 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
     const Vector3 billboardUp = NormalizeOr( CrossProduct( cameraRight, cameraForward ), cameraUp );
     const auto terrainHeightFor = [&]( const Vector3& position )
     {
-        if ( m_host.m_systems.terrain && m_host.m_systems.terrain->IsInBounds( position.x, position.z ) )
+        if ( m_terrain && m_terrain->IsInBounds( position.x, position.z ) )
         {
-            return m_host.m_systems.terrain->GetTerrainHeightAt( position.x, position.z );
+            return m_terrain->GetTerrainHeightAt( position.x, position.z );
         }
         return position.y - 64.0f;
     };
