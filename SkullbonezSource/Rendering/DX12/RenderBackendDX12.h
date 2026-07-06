@@ -50,6 +50,7 @@ Related:
 
 #include "../IRenderBackend.h"
 #include "../IRenderRayTracing.h"
+#include "../RenderRasterBindingContract.h"
 #include "RenderGraphTransientDX12.h"
 #include "RenderDeviceDX12.h"
 #include "MeshDX12.h"
@@ -237,27 +238,11 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS; // must be >= Profiler::MAX_MARKERS
     static const int TIMER_HEAP_SIZE = DX12_TIMER_HEAP_SIZE;       // begin + end per marker
 
-    // Ordinary raster binding ABI:
-    //
-    // This is the public shader/resource layout for the current graphics root
-    // signature. Keep BindTexture(handle, slot) mapped directly to SRV register
-    // t<slot> until a concrete material/pass contract requires a new root
-    // signature. Material-table work updates this block, HLSL
-    // registers, and shader contract docs together.
-    static constexpr UINT ROOT_PARAMETER_FRAME_CONSTANTS = 0;      // CBV b0
-    static constexpr UINT ROOT_PARAMETER_FIRST_TEXTURE = 1;        // t0 descriptor table
-    static constexpr UINT SHADER_REGISTER_FRAME_CONSTANTS = 0;
-    static constexpr UINT SHADER_REGISTER_FIRST_TEXTURE = 0;
-    static constexpr UINT SAMPLER_REGISTER_LINEAR_WRAP = 0;        // s0
-    static constexpr UINT SAMPLER_REGISTER_LINEAR_CLAMP = 1;       // s1
-    static constexpr UINT SAMPLER_REGISTER_SHADOW_POINT_CLAMP = 3; // s3
-    static constexpr int TEXTURE_SLOT_COUNT = 5;                   // SRV slots t0..t4
-    static constexpr UINT ORDINARY_RASTER_ROOT_PARAMETER_COUNT = ROOT_PARAMETER_FIRST_TEXTURE + TEXTURE_SLOT_COUNT;
+    // Ordinary raster binding ABI lives in RenderRasterBindingContract.h so
+    // runtime passes and the DX12 backend consume one shader/root-signature map.
     static constexpr size_t MAX_CACHED_GRAPHICS_PSOS = 96;
     static constexpr size_t MAX_GRID_LINE_PSOS = 4;
     static constexpr size_t MAX_LIVE_BARRIER_RECORDS = 4096;
-    static_assert( TEXTURE_SLOT_COUNT == 5,
-                   "Ordinary raster ABI exposes SRV slots t0..t4, including t4 for the object material table." );
 
     // CPU-side registries. These are not GPU resources by themselves; they are
     // lookup tables the backend uses to find cached GPU objects and descriptor

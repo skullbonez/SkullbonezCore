@@ -147,6 +147,7 @@ RENDERING_PREFIXES = (
     "IShader",
     "PrimitiveMeshBuilder",
     "RenderGraph",
+    "RenderRasterBindingContract",
     "RenderPipeline",
     "RenderInstanceStore",
     "RenderSceneSnapshot",

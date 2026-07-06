@@ -49,6 +49,7 @@ Related:
 #include "../Rendering/GameModelRenderer.h"
 #include "../Rendering/RenderGraph.h"
 #include "../Rendering/RenderInstanceStore.h"
+#include "../Rendering/RenderRasterBindingContract.h"
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -58,7 +59,7 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
-constexpr int RENDER_TEXTURE_SLOT_COUNT = 5;
+constexpr int RENDER_TEXTURE_SLOT_COUNT = SkullbonezCore::Rendering::TEXTURE_SLOT_COUNT;
 constexpr unsigned int RENDER_TEXTURE_SLOT_0 = 1u << 0;
 constexpr unsigned int RENDER_TEXTURE_SLOT_1 = 1u << 1;
 constexpr unsigned int RENDER_TEXTURE_SLOT_2 = 1u << 2;

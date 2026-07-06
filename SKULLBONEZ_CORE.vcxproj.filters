@@ -1028,6 +1028,9 @@
     <ClInclude Include="SkullbonezSource\Rendering\RenderPipeline.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderRasterBindingContract.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\RenderSceneSnapshot.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
