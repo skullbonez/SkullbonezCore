@@ -32,6 +32,7 @@ Related:
 #include "RunInternal.h"
 #include "Allocation/RuntimeReserveAllocator.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
+#include "Replay/ReplayOverlayRenderer.h"
 #include "Replay/ReplayRuntime.h"
 #include "../Core/WorkerPool.h"
 #include "../UI/UIDraw.h"
@@ -57,6 +58,28 @@ MainMemoryStats BuildMainMemoryOverlayStats( const DiagnosticsRuntime& diagnosti
     stats.reconciledTotalBytes = stats.trackedEngineBytes;
     stats.reconciliationDeltaBytes = 0;
     return stats;
+}
+
+ReplayOverlay::ReplayOverlayRenderContext BuildReplayOverlayRenderContext( const UiTextPassInputs& inputs )
+{
+    assert( inputs.uiRender.IsReady() );
+    const ReplayOverlayFrameState& overlay = inputs.replayOverlay;
+    return { *inputs.uiRender.commands,
+             inputs.replayRuntime,
+             inputs.models.presentationRecords,
+             inputs.models.bodyStore,
+             overlay.editorModeEnabled,
+             overlay.uiVisible,
+             overlay.uiMinimized,
+             overlay.scenePhysicsEnabled,
+             overlay.screenW,
+             overlay.screenH,
+             overlay.nowSeconds };
+}
+
+void RenderReplayScrubberOverlayFromInputs( const UiTextPassInputs& inputs )
+{
+    ReplayOverlay::RenderReplayScrubberOverlay( BuildReplayOverlayRenderContext( inputs ) );
 }
 } // namespace
 
@@ -846,7 +869,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         PROFILE_END( "Frame/UI/PostFlushText" );
         if ( m_host.m_UI.IsVisible() )
         {
-            m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
+            RenderReplayScrubberOverlayFromInputs( inputs );
             return;
         }
     }
@@ -854,7 +877,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     // --- Overlay: None ---
     if ( m_host.m_debug.overlayMode == OverlayMode::None )
     {
-        m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
+        RenderReplayScrubberOverlayFromInputs( inputs );
         {
             DRAW_CALL_TRACE_SCOPE( "HUD" );
             Text2d::FlushText( renderCommands );
@@ -900,7 +923,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                                    0.85f,
                                    "Scene Energy: %.6f",
                                    sceneEnergyForDisplay );
-        m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
+        RenderReplayScrubberOverlayFromInputs( inputs );
         {
             DRAW_CALL_TRACE_SCOPE( "SceneStats" );
             Text2d::FlushText( renderCommands );
@@ -921,7 +944,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
         const bool absolute = ( m_host.m_debug.overlayMode == OverlayMode::BarsAbsolute );
         profiler.RenderBarOverlay( renderCommands, panX, panY, panW, panH, absolute );
-        m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
+        RenderReplayScrubberOverlayFromInputs( inputs );
         {
             DRAW_CALL_TRACE_SCOPE( "ProfilerBars" );
             Text2d::FlushText( renderCommands );
@@ -1013,7 +1036,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             Text2d::Render2dTextColor( col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
         }
 
-        m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
+        RenderReplayScrubberOverlayFromInputs( inputs );
         {
             DRAW_CALL_TRACE_SCOPE( "Keys" );
             Text2d::FlushText( renderCommands );
@@ -1039,7 +1062,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     }
 #endif
 
-    m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
+    RenderReplayScrubberOverlayFromInputs( inputs );
     {
         DRAW_CALL_TRACE_SCOPE( "ProfilerOverlay" );
         Text2d::FlushText( renderCommands );

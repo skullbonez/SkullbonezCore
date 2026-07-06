@@ -162,7 +162,8 @@ struct UiTextGraphCallbackData
     const SkullbonezCore::UI::UIRenderContext* uiRender = nullptr;
     const RuntimeRenderModelFrameView* models = nullptr;
     DiagnosticsRuntime* diagnosticsRuntime = nullptr;
-    const ReplayRuntime* replayRuntime = nullptr;
+    ReplayRuntime* replayRuntime = nullptr;
+    const ReplayOverlayFrameState* replayOverlay = nullptr;
     const CinematicRenderConfig* cinematic = nullptr;
     bool cinematicRendering = false;
     SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = nullptr;
@@ -315,7 +316,7 @@ void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 {
     auto* data = static_cast<UiTextGraphCallbackData*>( userData );
     if ( !data || !data->uiTextPass || !data->renderDiagnostics || !data->uiRender || !data->models ||
-         !data->diagnosticsRuntime || !data->replayRuntime || !data->cinematic )
+         !data->diagnosticsRuntime || !data->replayRuntime || !data->replayOverlay || !data->cinematic )
     {
         throw std::runtime_error( "UiTextPass graph callback missing execution data" );
     }
@@ -324,6 +325,7 @@ void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
                                 *data->models,
                                 *data->diagnosticsRuntime,
                                 *data->replayRuntime,
+                                *data->replayOverlay,
                                 *data->cinematic,
                                 data->cinematicRendering,
                                 data->renderRayTracing,
@@ -1024,7 +1026,8 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
                                                        const UI::UIRenderContext& uiRender,
                                                        const RuntimeRenderModelFrameView& models,
                                                        DiagnosticsRuntime& diagnosticsRuntime,
-                                                       const ReplayRuntime& replayRuntime,
+                                                       ReplayRuntime& replayRuntime,
+                                                       const ReplayOverlayFrameState& replayOverlay,
                                                        const CinematicRenderConfig& cinematic,
                                                        bool cinematicRendering,
                                                        Rendering::IRenderRayTracing* renderRayTracing,
@@ -1046,6 +1049,7 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
     callbackData.models = &models;
     callbackData.diagnosticsRuntime = &diagnosticsRuntime;
     callbackData.replayRuntime = &replayRuntime;
+    callbackData.replayOverlay = &replayOverlay;
     callbackData.cinematic = &cinematic;
     callbackData.cinematicRendering = cinematicRendering;
     callbackData.renderRayTracing = renderRayTracing;
@@ -1508,7 +1512,8 @@ void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnos
                                     const UI::UIRenderContext& uiRender,
                                     const RuntimeRenderModelFrameView& models,
                                     DiagnosticsRuntime& diagnosticsRuntime,
-                                    const ReplayRuntime& replayRuntime,
+                                    ReplayRuntime& replayRuntime,
+                                    const ReplayOverlayFrameState& replayOverlay,
                                     const CinematicRenderConfig& cinematic,
                                     bool cinematicRendering,
                                     double dSecondsPerFrame )
@@ -1518,6 +1523,7 @@ void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnos
                                            models,
                                            diagnosticsRuntime,
                                            replayRuntime,
+                                           replayOverlay,
                                            cinematic,
                                            cinematicRendering,
                                            m_uiTextRayTracing,

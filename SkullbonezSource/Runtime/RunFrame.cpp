@@ -632,6 +632,15 @@ void Run::Execute()
                 const CinematicRenderConfig& uiCinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
                 const bool uiCinematicRendering =
                     RuntimeCinematicRenderingEnabled( SceneState(), m_config, m_launchOptions, m_debug, true );
+                const ReplayOverlayFrameState replayOverlay{
+                    m_runtimeTools.Editor().editorModeEnabled,
+                    m_UI.IsVisible(),
+                    m_UI.IsMinimized(),
+                    SceneState().isScenePhysics,
+                    RuntimeWindowScreenWidth( m_systems, m_config ),
+                    RuntimeWindowScreenHeight( m_systems, m_config ),
+                    m_timers.simulationTimer.GetTotalTime(),
+                };
                 const int uiDrawCallStart = frameRenderDiagnostics.GetFrameDrawCallCount();
                 PROFILE_BEGIN( "Frame/UI" );
                 {
@@ -643,6 +652,7 @@ void Run::Execute()
                                              renderModels,
                                              m_diagnosticsRuntime,
                                              m_replayRuntime,
+                                             replayOverlay,
                                              uiCinematic,
                                              uiCinematicRendering,
                                              secondsPerFrame );

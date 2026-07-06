@@ -93,10 +93,6 @@ struct RunTimerState;
 struct RuntimeRenderModelFrameView;
 class ReplayRuntime;
 struct RuntimeViewModel;
-namespace ReplayOverlay
-{
-struct ReplayOverlayRenderContext;
-}
 
 // Concept: Render passes borrow grouped views from the runtime shell. The groups
 // make new dependencies choose an owning view instead of growing one flat bag.
@@ -318,9 +314,6 @@ class RuntimeRenderHost
         return m_runtimeTools.LauncherFireModeLabel();
     }
 
-    void RenderReplayScrubberOverlay( const UI::UIRenderContext& uiRender,
-                                      const RuntimeRenderModelFrameView& models ) const;
-
     int CurrentSceneBrowserIndex() const;
 
     uint32_t CameraModeEnabledMask() const
@@ -366,12 +359,6 @@ class RuntimeRenderHost
     RunSceneBrowserState& m_sceneBrowser;
 
   private:
-    ReplayOverlay::ReplayOverlayRenderContext
-    BuildReplayOverlayRenderContext( const UI::UIRenderContext& uiRender,
-                                     const RuntimeRenderModelFrameView& models ) const;
-    void RenderReplayCauseTreeOverlay( const UI::UIRenderContext& uiRender,
-                                       const RuntimeRenderModelFrameView& models ) const;
-
     RuntimeRenderHostCallbacks m_callbacks;
 };
 

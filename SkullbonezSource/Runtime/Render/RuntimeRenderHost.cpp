@@ -40,7 +40,6 @@ Related:
 
 #include <cassert>
 #include "../Diagnostics/DiagnosticsRuntime.h"
-#include "../Replay/ReplayOverlayRenderer.h"
 #include "../RunState.h"
 #include "../Scene/SceneRuntimeLoad.h"
 #include "../Window.h"
@@ -109,24 +108,6 @@ const RunSceneState& RuntimeRenderHost::SceneState() const
     return m_sceneController.State();
 }
 
-ReplayOverlay::ReplayOverlayRenderContext
-RuntimeRenderHost::BuildReplayOverlayRenderContext( const UI::UIRenderContext& uiRender,
-                                                    const RuntimeRenderModelFrameView& models ) const
-{
-    assert( uiRender.IsReady() );
-    return { *uiRender.commands,
-             m_replayRuntime,
-             models.presentationRecords,
-             models.bodyStore,
-             m_editor.editorModeEnabled,
-             m_UI.IsVisible(),
-             m_UI.IsMinimized(),
-             SceneState().isScenePhysics,
-             WindowScreenWidth(),
-             WindowScreenHeight(),
-             m_timers.simulationTimer.GetTotalTime() };
-}
-
 bool RuntimeRenderHost::BuildReplayFocusModelMask( const RenderFrameContext& frame ) const
 {
     if ( !frame.bodyStore )
@@ -134,18 +115,6 @@ bool RuntimeRenderHost::BuildReplayFocusModelMask( const RenderFrameContext& fra
         return false;
     }
     return m_replayRuntime.BuildFocusModelMask( *frame.bodyStore, frame.modelCount );
-}
-
-void RuntimeRenderHost::RenderReplayScrubberOverlay( const UI::UIRenderContext& uiRender,
-                                                     const RuntimeRenderModelFrameView& models ) const
-{
-    ReplayOverlay::RenderReplayScrubberOverlay( BuildReplayOverlayRenderContext( uiRender, models ) );
-}
-
-void RuntimeRenderHost::RenderReplayCauseTreeOverlay( const UI::UIRenderContext& uiRender,
-                                                      const RuntimeRenderModelFrameView& models ) const
-{
-    ReplayOverlay::RenderReplayCauseTreeOverlay( BuildReplayOverlayRenderContext( uiRender, models ) );
 }
 
 int RuntimeRenderHost::CurrentSceneBrowserIndex() const

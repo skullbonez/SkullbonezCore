@@ -261,6 +261,20 @@ struct WaterPassInputs
     float frozenTime;                       // Simulation time captured when water animation was frozen.
 };
 
+struct ReplayOverlayFrameState
+{
+    // Replay overlay draw code needs UI/window policy, not the full runtime host.
+    // Run samples these values once for the late UI frame so scrubber rendering
+    // cannot observe a different scene/UI state from the rest of the pass.
+    bool editorModeEnabled = false;
+    bool uiVisible = false;
+    bool uiMinimized = false;
+    bool scenePhysicsEnabled = false;
+    int screenW = 1;
+    int screenH = 1;
+    double nowSeconds = 0.0;
+};
+
 struct UiTextPassInputs
 {
     // UI/text can run even when text-only mode skips RuntimeRenderer::RenderFrame(),
@@ -269,7 +283,8 @@ struct UiTextPassInputs
     const UI::UIRenderContext& uiRender;
     const RuntimeRenderModelFrameView& models;
     DiagnosticsRuntime& diagnosticsRuntime;
-    const ReplayRuntime& replayRuntime;
+    ReplayRuntime& replayRuntime;
+    const ReplayOverlayFrameState& replayOverlay;
     // Lifetime: selected by Run for this UI frame. UI text can render without
     // world passes, so it receives its own snapshot instead of reopening host state.
     const CinematicRenderConfig& cinematic;
