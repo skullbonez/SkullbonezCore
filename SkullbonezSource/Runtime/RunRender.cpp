@@ -106,10 +106,13 @@ struct ReflectionGraphCallbackData
     const RenderFrameContext* frame = nullptr;
     const CinematicRenderConfig* cinematic = nullptr;
     const SkullbonezCore::Rendering::ShadowFrameData* objectShadow = nullptr;
+    bool waterRayTracingReflection = false;
+    bool waterNoReflection = false;
     bool collisionStateColorsVisible = false;
     bool transparentBodyPass = false;
     float collisionVisualizerAlphaOverride = -1.0f;
     float bodyAlpha = 1.0f;
+    float simulationTimeSeconds = 0.0f;
     ReflectionPassOutput output;
 };
 
@@ -222,10 +225,13 @@ void ExecuteReflectionGraphCallback( const SkullbonezCore::Rendering::RenderGrap
     data->output = data->reflectionPass->Render( { *data->frame,
                                                    data->cinematic,
                                                    data->objectShadow,
+                                                   data->waterRayTracingReflection,
+                                                   data->waterNoReflection,
                                                    data->collisionStateColorsVisible,
                                                    data->transparentBodyPass,
                                                    data->collisionVisualizerAlphaOverride,
-                                                   data->bodyAlpha },
+                                                   data->bodyAlpha,
+                                                   data->simulationTimeSeconds },
                                                  *data->skyPass );
 }
 
@@ -529,7 +535,7 @@ void AddFrameTargetWrites( SkullbonezCore::Rendering::RenderGraph& graph, uint32
 }
 } // namespace
 
-void LogShadowResourceLifecycleFromHost( void* user, const char* phase, const char* step )
+void LogRenderResourceLifecycleFromHost( void* user, const char* phase, const char* step )
 {
     auto* host = static_cast<RuntimeRenderHost*>( user );
     if ( host )
@@ -611,13 +617,16 @@ RuntimeRenderer::ExecuteReflectionThroughRenderGraph( const RenderFrameContext& 
                                                       bool collisionStateColorsVisible,
                                                       bool debugTransparentBodyPass,
                                                       float collisionVisualizerAlphaOverride,
-                                                      float bodyAlpha )
+                                                      float bodyAlpha,
+                                                      bool waterRayTracingReflection,
+                                                      bool waterNoReflection,
+                                                      float simulationTimeSeconds )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const bool useDxrCandidate = frame.renderDiagnostics && frame.renderRayTracing &&
                                  frame.renderDiagnostics->GetCapabilities().supportsDxrReflection &&
-                                 m_host.m_debug.isWaterRTReflect && !m_host.m_debug.isWaterNoReflect &&
-                                 !collisionStateColorsVisible && !debugTransparentBodyPass;
+                                 waterRayTracingReflection && !waterNoReflection && !collisionStateColorsVisible &&
+                                 !debugTransparentBodyPass;
 
     Rendering::RenderGraphResourceHandle objectShadowResource;
     if ( objectShadow && objectShadow->valid )
@@ -661,10 +670,13 @@ RuntimeRenderer::ExecuteReflectionThroughRenderGraph( const RenderFrameContext& 
     callbackData.frame = &frame;
     callbackData.cinematic = activeCinematic;
     callbackData.objectShadow = objectShadow;
+    callbackData.waterRayTracingReflection = waterRayTracingReflection;
+    callbackData.waterNoReflection = waterNoReflection;
     callbackData.collisionStateColorsVisible = collisionStateColorsVisible;
     callbackData.transparentBodyPass = debugTransparentBodyPass;
     callbackData.collisionVisualizerAlphaOverride = collisionVisualizerAlphaOverride;
     callbackData.bodyAlpha = bodyAlpha;
+    callbackData.simulationTimeSeconds = simulationTimeSeconds;
     graph.SetPassCallback( reflectionPass,
                            ExecuteReflectionGraphCallback,
                            &callbackData,
@@ -1257,11 +1269,17 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderHost& host )
       m_shadowPass( host.m_systems.renderPasses.shadows,
                     host.m_systems.terrain,
                     host.m_config,
-                    LogShadowResourceLifecycleFromHost,
+                    LogRenderResourceLifecycleFromHost,
                     &host ),
-      m_reflectionPass( host ), m_objectPass( host.m_collisionVisualizer, host.m_config ),
-      m_terrainPass( host.m_systems.terrain, host.m_config ), m_waterPass( host.m_cWorldEnvironment, host.m_config ),
-      m_tornadoVisualPass( host ), m_debugOverlayPass( host ),
+      m_reflectionPass( host.m_systems.renderPasses.reflection,
+                        host.m_collisionVisualizer,
+                        host.m_config,
+                        host.m_dxrReflectionTransforms.data(),
+                        static_cast<int>( host.m_dxrReflectionTransforms.size() / 16 ),
+                        LogRenderResourceLifecycleFromHost,
+                        &host ),
+      m_objectPass( host.m_collisionVisualizer, host.m_config ), m_terrainPass( host.m_systems.terrain, host.m_config ),
+      m_waterPass( host.m_cWorldEnvironment, host.m_config ), m_tornadoVisualPass( host ), m_debugOverlayPass( host ),
       m_volumetricPass( host.m_systems.renderPasses.cinematicScene,
                         host.m_systems.renderPasses.volumetricLight,
                         host.m_systems.renderPasses.fullscreen,
@@ -1450,7 +1468,10 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
                                                  collisionStateColorsVisible,
                                                  debugTransparentBodyPass,
                                                  collisionVisualizerAlphaOverride,
-                                                 bodyRenderAlpha );
+                                                 bodyRenderAlpha,
+                                                 host.m_debug.isWaterRTReflect,
+                                                 host.m_debug.isWaterNoReflect,
+                                                 static_cast<float>( host.m_timers.simulationTimer.GetTotalTime() ) );
         reflection = reflectionGraph.output;
         reflectionCallbackOwned = reflectionGraph.callbackOwned;
     }

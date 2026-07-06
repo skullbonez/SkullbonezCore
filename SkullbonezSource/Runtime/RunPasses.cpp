@@ -526,40 +526,47 @@ bool SceneTargetPass::IsReady() const
 
 void ReflectionPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
-    ReflectionPassResources& reflection = m_host.m_systems.renderPasses.reflection;
     // Why: the reflection texture is intentionally supersampled relative to the
     // window. Water can then sample it at grazing angles without making the
     // mirrored scene look blocky.
     const int fboW = resources.windowWidth * 2;
     const int fboH = resources.windowHeight * 2;
     const bool needsReflectionTarget =
-        !reflection.target || reflection.target->GetWidth() != fboW || reflection.target->GetHeight() != fboH ||
-        reflection.target->GetColorFormat() != SkullbonezCore::Rendering::FramebufferColorFormat::RGBA8;
+        !m_resources.target || m_resources.target->GetWidth() != fboW || m_resources.target->GetHeight() != fboH ||
+        m_resources.target->GetColorFormat() != SkullbonezCore::Rendering::FramebufferColorFormat::RGBA8;
 
     if ( needsReflectionTarget )
     {
-        m_host.LogRenderResourceLifecycleStep( "window_resize", "reflection_target_recreate_if_needed" );
-        if ( reflection.target )
+        LogResourceLifecycleStep( "window_resize", "reflection_target_recreate_if_needed" );
+        if ( m_resources.target )
         {
-            reflection.target->ResetResources();
+            m_resources.target->ResetResources();
         }
-        reflection.target.reset();
-        reflection.target = RenderResources( resources ).CreateFramebuffer( fboW, fboH );
+        m_resources.target.reset();
+        m_resources.target = RenderResources( resources ).CreateFramebuffer( fboW, fboH );
     }
 }
 
 
 void ReflectionPass::ReleaseGpuResources()
 {
-    ReflectionPassResources& reflection = m_host.m_systems.renderPasses.reflection;
-    m_host.LogRenderResourceLifecycleStep( "reflection_reset", "reflection_target" );
+    LogResourceLifecycleStep( "reflection_reset", "reflection_target" );
     // Lifetime: ResetResources gives the backend a chance to release device
     // objects before the unique_ptr destructor drops the renderer-neutral shell.
-    if ( reflection.target )
+    if ( m_resources.target )
     {
-        reflection.target->ResetResources();
+        m_resources.target->ResetResources();
     }
-    reflection.target.reset();
+    m_resources.target.reset();
+}
+
+
+void ReflectionPass::LogResourceLifecycleStep( const char* phase, const char* step ) const
+{
+    if ( m_lifecycleLog )
+    {
+        m_lifecycleLog( m_lifecycleLogUser, phase, step );
+    }
 }
 
 
@@ -1064,7 +1071,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
     const auto renderCapabilities = RenderDiagnostics( inputs.frame ).GetCapabilities();
     Rendering::IRenderRayTracing* rayTracing = inputs.frame.renderRayTracing;
     const bool useDxrReflection = renderCapabilities.supportsDxrReflection && rayTracing &&
-                                  m_host.m_debug.isWaterRTReflect && !m_host.m_debug.isWaterNoReflect &&
+                                  inputs.waterRayTracingReflection && !inputs.waterNoReflection &&
                                   !inputs.collisionStateColorsVisible && !inputs.transparentBodyPass;
     output.usedDxr = useDxrReflection;
 
@@ -1073,22 +1080,21 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         // Lifetime: the DX12 backend owns the raytracing acceleration
         // structures. The prepared render store streams current per-model
         // transforms into the TLAS before one reflection ray per texture pixel.
-        const int ballCount =
-            inputs.frame.renderInstances
-                ? CopyDxrRenderInstanceMatrices( *inputs.frame.renderInstances,
-                                                 m_host.m_dxrReflectionTransforms.data(),
-                                                 static_cast<int>( m_host.m_dxrReflectionTransforms.size() / 16 ) )
-                : 0;
+        const int ballCount = inputs.frame.renderInstances && m_dxrReflectionTransforms
+                                  ? CopyDxrRenderInstanceMatrices( *inputs.frame.renderInstances,
+                                                                   m_dxrReflectionTransforms,
+                                                                   m_dxrReflectionTransformCapacity )
+                                  : 0;
 
         // Terrain/sphere BLAS objects are owned by the DX12 backend, so the
         // runtime supplies only per-instance sphere transforms here.
-        rayTracing->BuildTLAS( m_host.m_dxrReflectionTransforms.data(), ballCount, 0, 0 );
+        rayTracing->BuildTLAS( m_dxrReflectionTransforms, ballCount, 0, 0 );
 
         // Ray generation reconstructs world-space rays from screen pixels, so
         // it needs the inverse of the main camera view-projection matrix.
         Matrix4 invVP = inputs.frame.viewProjection.Inverse();
         float cameraPos[3] = { inputs.frame.eye.x, inputs.frame.eye.y, inputs.frame.eye.z };
-        float simTime = static_cast<float>( m_host.m_timers.simulationTimer.GetTotalTime() );
+        float simTime = inputs.simulationTimeSeconds;
 
         Textures::TextureCollection& textures = RenderTextures( inputs.frame );
         uint32_t sphereHandle = textures.GetTextureHandle( TEXTURE_BOUNDING_SPHERE );
@@ -1104,8 +1110,8 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
                                             inputs.frame.waterY,
                                             simTime,
                                             inputs.frame.lightPosition,
-                                            m_host.WindowScreenWidth() * 2,
-                                            m_host.WindowScreenHeight() * 2,
+                                            inputs.frame.windowWidth * 2,
+                                            inputs.frame.windowHeight * 2,
                                             sphereHandle,
                                             terrainHandle,
                                             skyUpHandle,
@@ -1122,12 +1128,8 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         // Invariant: the planar path binds only its own reflection target and
         // restores the viewport to the window size before water renders.
         Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
-        ReflectionPassResources& reflectionResources = m_host.m_systems.renderPasses.reflection;
-        reflectionResources.target->Bind();
-        renderCommands.SetViewport( 0,
-                                    0,
-                                    reflectionResources.target->GetWidth(),
-                                    reflectionResources.target->GetHeight() );
+        m_resources.target->Bind();
+        renderCommands.SetViewport( 0, 0, m_resources.target->GetWidth(), m_resources.target->GetHeight() );
         renderCommands.Clear( true, true );
 
         // Skybox reflected (XZ follows eye; Y anchored at runtime config).
@@ -1147,7 +1149,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         DRAW_CALL_TRACE_SCOPE( "Frame/Render/Reflection/Balls" );
         renderCommands.SetClipPlane( 0, true );
         RenderHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
-        m_host.m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
+        m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
         if ( inputs.collisionStateColorsVisible )
         {
             // Pass contract: collision-state solids are vertex-colored and do
@@ -1156,14 +1158,14 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             if ( HasCollisionVisualizerFrameView( inputs.frame ) )
             {
                 const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.frame );
-                m_host.m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
-                m_host.m_collisionVisualizer.Render( RenderAssets( inputs.frame ),
-                                                     RenderResources( inputs.frame ),
-                                                     frameView,
-                                                     inputs.frame.reflectionView,
-                                                     inputs.frame.projection,
-                                                     inputs.frame.lightPosition );
-                m_host.m_collisionVisualizer.SetAlphaOverride( -1.0f );
+                m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
+                m_collisionVisualizer.Render( RenderAssets( inputs.frame ),
+                                              RenderResources( inputs.frame ),
+                                              frameView,
+                                              inputs.frame.reflectionView,
+                                              inputs.frame.projection,
+                                              inputs.frame.lightPosition );
+                m_collisionVisualizer.SetAlphaOverride( -1.0f );
             }
         }
         else
@@ -1177,7 +1179,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             RenderTextures( inputs.frame ).SelectTexture( TEXTURE_BOUNDING_SPHERE );
             if ( inputs.frame.renderInstances && inputs.frame.colliders )
             {
-                GameObjects::GameModelRenderer::RenderModels( RenderHelperServices( inputs.frame, m_host.m_config ),
+                GameObjects::GameModelRenderer::RenderModels( RenderHelperServices( inputs.frame, m_config ),
                                                               *inputs.frame.renderInstances,
                                                               *inputs.frame.colliders,
                                                               inputs.frame.renderCollisionVolumes,
@@ -1191,12 +1193,12 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         }
         renderCommands.SetClipPlane( 0, false );
         RenderHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
-        m_host.m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
+        m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
 
-        reflectionResources.target->Unbind();
-        renderCommands.SetViewport( 0, 0, m_host.WindowScreenWidth(), m_host.WindowScreenHeight() );
-        output.reflectionTextureHandle = reflectionResources.target->GetColorTextureHandle();
+        m_resources.target->Unbind();
+        renderCommands.SetViewport( 0, 0, inputs.frame.windowWidth, inputs.frame.windowHeight );
+        output.reflectionTextureHandle = m_resources.target->GetColorTextureHandle();
         output.reflectionSampleViewProjection = inputs.frame.reflectionViewProjection;
     }
     PROFILE_GPU_END( "Frame/Render/Reflection" );

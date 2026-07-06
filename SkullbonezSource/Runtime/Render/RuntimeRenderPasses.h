@@ -4,8 +4,8 @@ Purpose:
   Declares the named runtime render pass contracts.
 
 Mental model:
-  Runtime render passes are small frame-order units that borrow the explicit
-  RuntimeRenderHost service view. The declarations live outside Run so pass
+  Runtime render passes are small frame-order units with explicit constructor
+  owners and frame input structs. The declarations live outside Run so pass
   ownership stays with RuntimeRenderer instead of growing Run.h.
 
 Glossary:
@@ -21,7 +21,8 @@ Glossary:
 
 Invariants:
   - Pass input/output structs borrow data for one frame only.
-  - Pass constructors receive RuntimeRenderHost so non-render dependencies stay named.
+  - Pass constructors receive named long-lived owners; only migration-bound passes
+    still borrow RuntimeRenderHost directly.
   - Pass order is owned by RuntimeRenderer::RenderFrame.
 
 Related:
@@ -102,6 +103,7 @@ class DiagnosticsRuntime;
 class EngineConfig;
 struct CinematicScenePassResources;
 struct FullscreenPassResources;
+struct ReflectionPassResources;
 struct ShadowPassResources;
 struct SkyPassResources;
 struct TonemapPassResources;
@@ -251,12 +253,15 @@ struct ReflectionPassInputs
     const RenderFrameContext& frame;
     const CinematicRenderConfig* cinematic;
     const Rendering::ShadowFrameData* objectShadow;
+    bool waterRayTracingReflection;         // Frame snapshot of the debug water reflection mode.
+    bool waterNoReflection;                 // Frame snapshot of the water reflection disable switch.
     bool collisionStateColorsVisible;       // Reflection must match the selected body visualization mode.
     // Disables DXR reflection because the mirrored raster path can honor
     // debug alpha and collision-state rendering.
     bool transparentBodyPass;
     float collisionVisualizerAlphaOverride; // Forwarded to reflected collision-state geometry.
     float bodyAlpha;                        // Forwarded to reflected production body rendering.
+    float simulationTimeSeconds;            // Timer sample consumed by the DXR reflection shader.
 };
 
 struct ReflectionPassOutput
@@ -512,7 +517,17 @@ class ShadowPass
 class ReflectionPass
 {
   public:
-    explicit ReflectionPass( RuntimeRenderHost& host ) : m_host( host )
+    ReflectionPass( ReflectionPassResources& resources,
+                    Physics::CollisionVisualizer& collisionVisualizer,
+                    const EngineConfig& config,
+                    float* dxrReflectionTransforms,
+                    int dxrReflectionTransformCapacity,
+                    RenderResourceLifecycleLogFn lifecycleLog,
+                    void* lifecycleLogUser )
+        : m_resources( resources ), m_collisionVisualizer( collisionVisualizer ), m_config( config ),
+          m_dxrReflectionTransforms( dxrReflectionTransforms ),
+          m_dxrReflectionTransformCapacity( dxrReflectionTransformCapacity ), m_lifecycleLog( lifecycleLog ),
+          m_lifecycleLogUser( lifecycleLogUser )
     {
     }
 
@@ -521,7 +536,15 @@ class ReflectionPass
     ReflectionPassOutput Render( const ReflectionPassInputs& inputs, SkyPass& skyPass );
 
   private:
-    RuntimeRenderHost& m_host;
+    void LogResourceLifecycleStep( const char* phase, const char* step ) const;
+
+    ReflectionPassResources& m_resources;
+    Physics::CollisionVisualizer& m_collisionVisualizer;
+    const EngineConfig& m_config;
+    float* m_dxrReflectionTransforms = nullptr;
+    int m_dxrReflectionTransformCapacity = 0;
+    RenderResourceLifecycleLogFn m_lifecycleLog = nullptr;
+    void* m_lifecycleLogUser = nullptr;
 };
 
 /* -- ObjectPass

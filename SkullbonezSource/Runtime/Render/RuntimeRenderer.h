@@ -5,8 +5,8 @@ Purpose:
 
 Mental model:
   RuntimeRenderer is the Phase 2 ownership shell around the existing pass graph.
-  It owns pass objects and the frame pass order, while the passes borrow named
-  services through RuntimeRenderHost.
+  It owns pass objects and the frame pass order. Remaining migration passes
+  borrow RuntimeRenderHost, while extracted passes take explicit resource owners.
 
 Glossary:
   RuntimeRenderer: Owner of pass instances and the frame pass order.
@@ -121,7 +121,10 @@ class RuntimeRenderer
                                                                bool collisionStateColorsVisible,
                                                                bool debugTransparentBodyPass,
                                                                float collisionVisualizerAlphaOverride,
-                                                               float bodyAlpha );
+                                                               float bodyAlpha,
+                                                               bool waterRayTracingReflection,
+                                                               bool waterNoReflection,
+                                                               float simulationTimeSeconds );
     bool ExecuteSceneTargetBeginThroughRenderGraph( const RenderFrameContext& frame );
     bool ExecuteObjectThroughRenderGraph( const RenderFrameContext& frame,
                                           ObjectPassMode mode,
