@@ -679,11 +679,11 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     }
     ID3D12Device* GetDevice() const
     {
-        return m_device;
+        return m_renderDevice.Device();
     }
     ID3D12GraphicsCommandList* GetCommandList() const
     {
-        return m_commandList;
+        return m_renderDevice.CommandList();
     }
 
     void PrepareDraw( VertexFormat12 format,
