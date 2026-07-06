@@ -1422,6 +1422,18 @@ GRAPH_OWNED_RENDER_PASS_DIRECT_CALL_PATTERN = re.compile(
 GRAPH_OWNED_RENDER_PASS_MANUAL_BARRIER_PATTERN = re.compile(
     r"\b(?:ResourceBarrier\s*\(|D3D12_RESOURCE_BARRIER\b|ExecuteGraph(?:Transition|UavBarrier)\s*\()"
 )
+GRAPH_OWNED_RENDER_PASS_DECLARATION_ONLY_PATTERN = re.compile(
+    r"\b(?:RenderGraphBarrierPolicy::DiagnosticOnly|RenderGraphPassExecutionOwner::DeclarationOnly)\b"
+)
+GRAPH_OWNED_RENDER_PASS_ADD_PASS_PATTERN = re.compile(
+    r"\bgraph\s*\.\s*AddPass\s*\((?:(?!;).)*?\);",
+    re.S,
+)
+GRAPH_OWNED_RENDER_PASS_ADD_PASS_ASSIGNMENT_PATTERN = re.compile(
+    r"\b(?:(?:const\s+)?uint32_t\s+)?([A-Za-z_]\w*)\s*=\s*graph\s*\.\s*AddPass\s*\((?:(?!;).)*?\);",
+    re.S,
+)
+GRAPH_OWNED_RENDER_PASS_EXECUTE_CALLBACKS_PATTERN = re.compile(r"\bgraph\s*\.\s*ExecuteCallbacks\s*\(")
 GRAPH_OWNED_RENDER_PASS_MANUAL_BARRIER_SOURCES = (
     RUN_RENDER_SOURCE,
     RUN_PASSES_SOURCE,
@@ -7412,6 +7424,69 @@ def check_graph_owned_render_pass_scheduling(repo: Path) -> list[BoundaryError]:
     return check_graph_owned_render_pass_scheduling_text(path, path.read_text(encoding="utf-8"))
 
 
+def check_graph_owned_render_pass_execution_ownership_text(path: Path, text: str) -> list[BoundaryError]:
+    stripped = strip_cpp_comments_and_string_literals(text)
+    errors: list[BoundaryError] = []
+    for match in GRAPH_OWNED_RENDER_PASS_DECLARATION_ONLY_PATTERN.finditer(stripped):
+        token = match.group(0)
+        if token.endswith("DiagnosticOnly"):
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "graph-owned render pass diagnostic-only policy is blocked",
+                    "Use RenderGraphBarrierPolicy::HandoffValidated for migrated runtime pass declarations.",
+                )
+            )
+        else:
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, match.start()),
+                    "graph-owned render pass declaration-only ownership is blocked",
+                    "Use graph.SetPassCallback so migrated runtime pass execution is callback-owned before ExecuteCallbacks.",
+                )
+            )
+
+    for match in GRAPH_OWNED_RENDER_PASS_ADD_PASS_PATTERN.finditer(stripped):
+        if "RenderGraphBarrierPolicy::HandoffValidated" in match.group(0):
+            continue
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "graph-owned render pass AddPass must use HandoffValidated policy",
+                "Name the handoff barrier policy on each migrated RunRender graph pass instead of relying on defaults.",
+            )
+        )
+
+    for match in GRAPH_OWNED_RENDER_PASS_ADD_PASS_ASSIGNMENT_PATTERN.finditer(stripped):
+        pass_variable = match.group(1)
+        remaining = stripped[match.end() :]
+        execute_match = GRAPH_OWNED_RENDER_PASS_EXECUTE_CALLBACKS_PATTERN.search(remaining)
+        if execute_match is None:
+            callback_scope = remaining
+        else:
+            callback_scope = remaining[: execute_match.start()]
+        callback_pattern = re.compile(r"\bgraph\s*\.\s*SetPassCallback\s*\(\s*" + re.escape(pass_variable) + r"\b")
+        if callback_pattern.search(callback_scope):
+            continue
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, match.start()),
+                "graph-owned render pass AddPass must set callback ownership",
+                "Install graph.SetPassCallback for the pass before ExecuteCallbacks so migrated execution cannot remain declaration-only.",
+            )
+        )
+    return errors
+
+
+def check_graph_owned_render_pass_execution_ownership(repo: Path) -> list[BoundaryError]:
+    path = repo / RUN_RENDER_SOURCE
+    return check_graph_owned_render_pass_execution_ownership_text(path, path.read_text(encoding="utf-8"))
+
+
 def check_graph_owned_render_pass_manual_barriers_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments_and_string_literals(text)
     errors: list[BoundaryError] = []
@@ -9201,6 +9276,59 @@ def run_self_tests() -> list[str]:
     }
     """
     expect_clean('allowed graph-owned pass helper scheduling synthetic surface failed', check_graph_owned_render_pass_scheduling_text( Path("synthetic/RunRender.cpp"), allowed_graph_owned_pass_scheduling, ))
+
+    allowed_graph_owned_pass_execution_ownership = """
+    void ExecuteUiTextThroughRenderGraph()
+    {
+        const uint32_t uiTextPass = graph.AddPass( "UiTextPass",
+                                                   Rendering::RenderGraphQueueType::Graphics,
+                                                   Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+        graph.SetPassCallback( uiTextPass, ExecuteUiTextGraphCallback, &callbackData, true, "Frame/UI" );
+        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
+        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
+    }
+    """
+    expect_clean('allowed graph-owned pass execution ownership synthetic surface failed', check_graph_owned_render_pass_execution_ownership_text( Path("synthetic/RunRender.cpp"), allowed_graph_owned_pass_execution_ownership, ))
+
+    old_diagnostic_graph_owned_pass = """
+    void ExecuteUiTextThroughRenderGraph()
+    {
+        const uint32_t uiTextPass = graph.AddPass( "UiTextPass",
+                                                   Rendering::RenderGraphQueueType::Graphics,
+                                                   Rendering::RenderGraphBarrierPolicy::DiagnosticOnly );
+        graph.SetPassCallback( uiTextPass, ExecuteUiTextGraphCallback, &callbackData, true, "Frame/UI" );
+    }
+    """
+    expect_error('diagnostic-only graph-owned pass synthetic surface was not rejected', check_graph_owned_render_pass_execution_ownership_text( Path("synthetic/RunRender.cpp"), old_diagnostic_graph_owned_pass, ), 'graph-owned render pass diagnostic-only policy is blocked')
+
+    old_declaration_only_graph_owned_pass = """
+    void ExecuteUiTextThroughRenderGraph()
+    {
+        RenderGraphPassExecutionOwner owner = RenderGraphPassExecutionOwner::DeclarationOnly;
+    }
+    """
+    expect_error('declaration-only graph-owned pass synthetic surface was not rejected', check_graph_owned_render_pass_execution_ownership_text( Path("synthetic/RunRender.cpp"), old_declaration_only_graph_owned_pass, ), 'graph-owned render pass declaration-only ownership is blocked')
+
+    old_default_policy_graph_owned_pass = """
+    void ExecuteUiTextThroughRenderGraph()
+    {
+        const uint32_t uiTextPass = graph.AddPass( "UiTextPass", Rendering::RenderGraphQueueType::Graphics );
+        graph.SetPassCallback( uiTextPass, ExecuteUiTextGraphCallback, &callbackData, true, "Frame/UI" );
+        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
+    }
+    """
+    expect_error('default-policy graph-owned pass synthetic surface was not rejected', check_graph_owned_render_pass_execution_ownership_text( Path("synthetic/RunRender.cpp"), old_default_policy_graph_owned_pass, ), 'graph-owned render pass AddPass must use HandoffValidated policy')
+
+    old_callbackless_graph_owned_pass = """
+    void ExecuteUiTextThroughRenderGraph()
+    {
+        const uint32_t uiTextPass = graph.AddPass( "UiTextPass",
+                                                   Rendering::RenderGraphQueueType::Graphics,
+                                                   Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
+    }
+    """
+    expect_error('callbackless graph-owned pass synthetic surface was not rejected', check_graph_owned_render_pass_execution_ownership_text( Path("synthetic/RunRender.cpp"), old_callbackless_graph_owned_pass, ), 'graph-owned render pass AddPass must set callback ownership')
 
     old_direct_graph_owned_pass_scheduling = """
     void RuntimeRenderer::RenderFrame()
@@ -15746,6 +15874,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_render_pass_host_field_access_count(repo))
     errors.extend(check_runtime_render_pass_wide_backend_guardrails(repo))
     errors.extend(check_graph_owned_render_pass_scheduling(repo))
+    errors.extend(check_graph_owned_render_pass_execution_ownership(repo))
     errors.extend(check_graph_owned_render_pass_manual_barriers(repo))
     errors.extend(check_render_graph_unknown_access(repo))
     errors.extend(check_global_service_access_guardrails(repo))
