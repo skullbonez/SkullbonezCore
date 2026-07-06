@@ -50,6 +50,24 @@ namespace Basics
 class RuntimeRenderer
 {
   public:
+    struct BackendResourceReleaseContext
+    {
+        const char* phaseName = nullptr;
+        Rendering::IRenderBackend* backend = nullptr;
+        Rendering::IRenderResourceFactory* renderResources = nullptr;
+        GameObjects::GameModelCollection& models;
+        UI::InGameUI& ui;
+        RuntimeTools& tools;
+    };
+
+    struct RegisteredResourceRebuildContext
+    {
+        Rendering::IRenderResourceFactory* renderResources = nullptr;
+        Assets::AssetSystem& assets;
+        Textures::TextureCollection& textures;
+        const EngineConfig& config;
+    };
+
     RuntimeRenderer( const RuntimeRendererBindings& bindings,
                      RenderResourceLifecycleLogFn lifecycleLog,
                      RenderEditorOverlayFn editorOverlay,
@@ -60,6 +78,8 @@ class RuntimeRenderer
     RuntimeRenderModelFrameView BuildModelFrameView( GameObjects::GameModelCollection& models ) const;
     void RenderFrame( const RuntimeRenderInputs& renderInputs );
     void ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources );
+    void ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context );
+    void RebuildRegisteredRenderResources( const RegisteredResourceRebuildContext& context );
 
     void EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
                                 const Assets::AssetSystem& assets,

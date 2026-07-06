@@ -295,111 +295,17 @@ Run::~Run()
 
 void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
 {
-    enum class BackendResourceStep
-    {
-        WorldEnvironment,
-        HelperResources,
-        GameModelResources,
-        CollisionVisualizer,
-        UIResources,
-        RenderPassResources,
-        ProfilerQueries,
-        TextureCollection,
-        CameraCollection,
-        SkyBox,
-        LauncherLaser
-    };
-
-    struct BackendResourcePhase
-    {
-        const char* name;
-        BackendResourceStep step;
-        bool flushAfter;
-    };
-
-    const BackendResourcePhase releaseSteps[] = {
-        { "world_environment", BackendResourceStep::WorldEnvironment, true },
-        { "helper_resources", BackendResourceStep::HelperResources, false },
-        { "game_model_resources", BackendResourceStep::GameModelResources, false },
-        { "collision_visualizer", BackendResourceStep::CollisionVisualizer, false },
-        { "ui_resources", BackendResourceStep::UIResources, false },
-        { "render_pass_resources", BackendResourceStep::RenderPassResources, false },
-        { "profiler_queries", BackendResourceStep::ProfilerQueries, false },
-        { "texture_collection", BackendResourceStep::TextureCollection, false },
-        { "camera_collection", BackendResourceStep::CameraCollection, false },
-        { "skybox", BackendResourceStep::SkyBox, false },
-        { "launcher_laser", BackendResourceStep::LauncherLaser, false },
-    };
-
     SkullbonezCore::Rendering::IRenderBackend* releaseBackend = m_renderBackendView.renderBackend;
     SkullbonezCore::Rendering::IRenderResourceFactory* releaseRenderResources =
         releaseBackend ? static_cast<SkullbonezCore::Rendering::IRenderResourceFactory*>( releaseBackend ) : nullptr;
 
-    for ( const BackendResourcePhase& phase : releaseSteps )
-    {
-        LogRenderResourceLifecycleStep( phaseName, phase.name );
-        switch ( phase.step )
-        {
-        case BackendResourceStep::WorldEnvironment:
-            m_cWorldEnvironment.ReleaseRenderResources();
-            break;
-        case BackendResourceStep::HelperResources:
-            RenderHelper::ResetRenderResources( releaseRenderResources );
-            break;
-        case BackendResourceStep::GameModelResources:
-            m_cGameModelCollection.ResetRenderResources();
-            break;
-        case BackendResourceStep::CollisionVisualizer:
-            m_collisionVisualizer.ResetResources();
-            break;
-        case BackendResourceStep::UIResources:
-            m_UI.ResetResources( releaseRenderResources );
-            break;
-        case BackendResourceStep::RenderPassResources:
-            // Lifetime: shutdown can run after a failed backend init. Pass
-            // resources still need their CPU-side handles reset, but dynamic
-            // buffer destruction can only call into a live backend.
-            m_renderer.ReleaseBackendOwnedResources( releaseRenderResources );
-            break;
-        case BackendResourceStep::ProfilerQueries:
-#if defined( SKULLBONEZ_PROFILE_ENABLED )
-            RuntimeDiagnostics::InvalidateProfilerGpuQueries();
-#endif
-            break;
-        case BackendResourceStep::TextureCollection:
-            if ( m_systems.textures )
-            {
-                m_systems.textures->DeleteAllTextures();
-                m_systems.textures->BindAssetSystem( nullptr );
-                m_systems.textures->BindRenderContexts( nullptr, nullptr );
-            }
-            break;
-        case BackendResourceStep::CameraCollection:
-            if ( m_systems.cameras )
-            {
-                m_systems.cameras->Reset();
-                m_systems.cameras->SetTerrain( nullptr );
-            }
-            break;
-        case BackendResourceStep::SkyBox:
-            if ( m_systems.skyBox )
-            {
-                m_systems.skyBox->ReleaseRenderResources();
-                m_systems.skyBoxOwner.reset();
-                m_systems.skyBox = nullptr;
-            }
-            break;
-        case BackendResourceStep::LauncherLaser:
-            m_runtimeTools.Laser().ResetResources( releaseRenderResources );
-            break;
-        }
-
-        if ( phase.flushAfter && releaseBackend )
-        {
-            LogRenderResourceLifecycleStep( phaseName, "flush_after_world_environment" );
-            releaseBackend->FlushGPU();
-        }
-    }
+    m_renderer.ReleaseBackendOwnedRuntimeResources(
+        RuntimeRenderer::BackendResourceReleaseContext{ phaseName,
+                                                        releaseBackend,
+                                                        releaseRenderResources,
+                                                        m_cGameModelCollection,
+                                                        m_UI,
+                                                        m_runtimeTools } );
 }
 
 

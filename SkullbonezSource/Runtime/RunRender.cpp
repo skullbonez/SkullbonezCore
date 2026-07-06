@@ -1713,6 +1713,164 @@ void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::IRenderResourceFa
 }
 
 
+void RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context )
+{
+    enum class BackendResourceStep
+    {
+        WorldEnvironment,
+        HelperResources,
+        GameModelResources,
+        CollisionVisualizer,
+        UIResources,
+        RenderPassResources,
+        ProfilerQueries,
+        TextureCollection,
+        CameraCollection,
+        SkyBox,
+        LauncherLaser
+    };
+
+    struct BackendResourcePhase
+    {
+        const char* name;
+        BackendResourceStep step;
+        bool flushAfter;
+    };
+
+    const BackendResourcePhase releaseSteps[] = {
+        { "world_environment", BackendResourceStep::WorldEnvironment, true },
+        { "helper_resources", BackendResourceStep::HelperResources, false },
+        { "game_model_resources", BackendResourceStep::GameModelResources, false },
+        { "collision_visualizer", BackendResourceStep::CollisionVisualizer, false },
+        { "ui_resources", BackendResourceStep::UIResources, false },
+        { "render_pass_resources", BackendResourceStep::RenderPassResources, false },
+        { "profiler_queries", BackendResourceStep::ProfilerQueries, false },
+        { "texture_collection", BackendResourceStep::TextureCollection, false },
+        { "camera_collection", BackendResourceStep::CameraCollection, false },
+        { "skybox", BackendResourceStep::SkyBox, false },
+        { "launcher_laser", BackendResourceStep::LauncherLaser, false },
+    };
+
+    const auto logLifecycleStep = [&]( const char* step )
+    {
+        if ( m_lifecycleLog )
+        {
+            m_lifecycleLog( m_callbackUser, context.phaseName, step );
+        }
+    };
+
+    // Lifetime: RuntimeRenderer owns the ordered teardown recipe because pass
+    // resources and their consumers must release before backend-owned caches.
+    for ( const BackendResourcePhase& phase : releaseSteps )
+    {
+        logLifecycleStep( phase.name );
+        switch ( phase.step )
+        {
+        case BackendResourceStep::WorldEnvironment:
+            m_world.ReleaseRenderResources();
+            break;
+        case BackendResourceStep::HelperResources:
+            RenderHelper::ResetRenderResources( context.renderResources );
+            break;
+        case BackendResourceStep::GameModelResources:
+            context.models.ResetRenderResources();
+            break;
+        case BackendResourceStep::CollisionVisualizer:
+            m_collisionVisualizer.ResetResources();
+            break;
+        case BackendResourceStep::UIResources:
+            context.ui.ResetResources( context.renderResources );
+            break;
+        case BackendResourceStep::RenderPassResources:
+            ReleaseBackendOwnedResources( context.renderResources );
+            break;
+        case BackendResourceStep::ProfilerQueries:
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+            RuntimeDiagnostics::InvalidateProfilerGpuQueries();
+#endif
+            break;
+        case BackendResourceStep::TextureCollection:
+            if ( m_systems.textures )
+            {
+                m_systems.textures->DeleteAllTextures();
+                m_systems.textures->BindAssetSystem( nullptr );
+                m_systems.textures->BindRenderContexts( nullptr, nullptr );
+            }
+            break;
+        case BackendResourceStep::CameraCollection:
+            if ( m_systems.cameras )
+            {
+                m_systems.cameras->Reset();
+                m_systems.cameras->SetTerrain( nullptr );
+            }
+            break;
+        case BackendResourceStep::SkyBox:
+            if ( m_systems.skyBox )
+            {
+                m_systems.skyBox->ReleaseRenderResources();
+                m_systems.skyBoxOwner.reset();
+                m_systems.skyBox = nullptr;
+            }
+            break;
+        case BackendResourceStep::LauncherLaser:
+            context.tools.Laser().ResetResources( context.renderResources );
+            break;
+        }
+
+        if ( phase.flushAfter && context.backend )
+        {
+            logLifecycleStep( "flush_after_world_environment" );
+            context.backend->FlushGPU();
+        }
+    }
+}
+
+
+void RuntimeRenderer::RebuildRegisteredRenderResources( const RegisteredResourceRebuildContext& context )
+{
+    enum class RebuildStep
+    {
+        ResetHelperCache,
+        RegisterBuiltInSources,
+        RebuildTextures
+    };
+
+    struct RebuildPhase
+    {
+        const char* name;
+        RebuildStep step;
+    };
+
+    const RebuildPhase rebuildSteps[] = {
+        { "reset_helper_cache", RebuildStep::ResetHelperCache },
+        { "register_builtin_source_records", RebuildStep::RegisterBuiltInSources },
+        { "rebuild_textures_from_source_assets", RebuildStep::RebuildTextures },
+    };
+
+    for ( const RebuildPhase& phase : rebuildSteps )
+    {
+        if ( m_lifecycleLog )
+        {
+            m_lifecycleLog( m_callbackUser, "backend_rebuild", phase.name );
+        }
+
+        switch ( phase.step )
+        {
+        case RebuildStep::ResetHelperCache:
+            RenderHelper::ResetRenderResources( context.renderResources );
+            break;
+        case RebuildStep::RegisterBuiltInSources:
+            context.assets.RegisterBuiltInSourceAssets( context.config );
+            break;
+        case RebuildStep::RebuildTextures:
+            // Recreate backend texture handles from stable source asset records.
+            context.textures.RebuildTexturesFromSourceAssets();
+            break;
+        }
+    }
+}
+
+
 void RuntimeRenderer::EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
                                              const Assets::AssetSystem& assets,
                                              int screenW,
@@ -1889,42 +2047,11 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
 
 void Run::RebuildRegisteredRenderResources()
 {
-    enum class RebuildStep
-    {
-        ResetHelperCache,
-        RegisterBuiltInSources,
-        RebuildTextures
-    };
-
-    struct RebuildPhase
-    {
-        const char* name;
-        RebuildStep step;
-    };
-
-    const RebuildPhase rebuildSteps[] = {
-        { "reset_helper_cache", RebuildStep::ResetHelperCache },
-        { "register_builtin_source_records", RebuildStep::RegisterBuiltInSources },
-        { "rebuild_textures_from_source_assets", RebuildStep::RebuildTextures },
-    };
-
-    for ( const RebuildPhase& phase : rebuildSteps )
-    {
-        LogRenderResourceLifecycleStep( "backend_rebuild", phase.name );
-        switch ( phase.step )
-        {
-        case RebuildStep::ResetHelperCache:
-            RenderHelper::ResetRenderResources( m_renderBackendView.renderResources );
-            break;
-        case RebuildStep::RegisterBuiltInSources:
-            RegisterBuiltInAssets();
-            break;
-        case RebuildStep::RebuildTextures:
-            // Recreate backend texture handles from stable source asset records.
-            m_systems.textures->RebuildTexturesFromSourceAssets();
-            break;
-        }
-    }
+    m_renderer.RebuildRegisteredRenderResources(
+        RuntimeRenderer::RegisteredResourceRebuildContext{ m_renderBackendView.renderResources,
+                                                           m_systems.assets,
+                                                           *m_systems.textures,
+                                                           m_config } );
 }
 
 
