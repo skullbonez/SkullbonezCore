@@ -87,6 +87,11 @@ class CameraCollection;
 class WorldEnvironment;
 } // namespace SkullbonezCore::Environment
 
+namespace SkullbonezCore::Rendering
+{
+class IRenderCommandContext;
+} // namespace SkullbonezCore::Rendering
+
 namespace SkullbonezCore::Basics
 {
 struct RunDebugState;
@@ -362,7 +367,8 @@ class RunEditorTracer
                                  int hotAngularAxis,
                                  int activeAxis,
                                  bool activeAngular );
-    void Render( const Math::Transformation::Matrix4& viewProjection );
+    void Render( const Math::Transformation::Matrix4& viewProjection,
+                 Rendering::IRenderCommandContext& renderCommands );
 };
 
 class RuntimeTools

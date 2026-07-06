@@ -732,9 +732,9 @@ void RunEditorTracer::AddReplayVelocityGizmo( const Vector3& origin,
 }
 
 
-void RunEditorTracer::Render( const Matrix4& viewProjection )
+void RunEditorTracer::Render( const Matrix4& viewProjection, Rendering::IRenderCommandContext& renderCommands )
 {
-    if ( ( m_lineData.empty() && m_priorityLineData.empty() ) || !IsGfxReady() )
+    if ( m_lineData.empty() && m_priorityLineData.empty() )
     {
         return;
     }
@@ -744,14 +744,14 @@ void RunEditorTracer::Render( const Matrix4& viewProjection )
     std::size_t floatCount = m_lineData.size();
     if ( !m_priorityLineData.empty() )
     {
-        // Why: runtime-boundary guardrails allow this tracer one renderer call.
         // Build one pre-reserved stream so ordinary paths and priority causal
-        // markers keep independent caps without adding another Gfx() access.
+        // markers keep independent caps while the caller-owned render context
+        // performs the single debug-line draw.
         m_renderLineData.clear();
         m_renderLineData.insert( m_renderLineData.end(), m_lineData.begin(), m_lineData.end() );
         m_renderLineData.insert( m_renderLineData.end(), m_priorityLineData.begin(), m_priorityLineData.end() );
         lineData = m_renderLineData.data();
         floatCount = m_renderLineData.size();
     }
-    Gfx().DrawLinesColored( lineData, static_cast<int>( floatCount / 6 ), viewProjection.Data() );
+    renderCommands.DrawLinesColored( lineData, static_cast<int>( floatCount / 6 ), viewProjection.Data() );
 }

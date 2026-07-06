@@ -150,6 +150,7 @@ enum class ObjectPassMode
 using RenderResourceLifecycleLogFn = void ( * )( void* user, const char* phase, const char* step );
 using RenderEditorOverlayFn = void ( * )( void* user,
                                           Rendering::IRenderResourceFactory& renderResources,
+                                          Rendering::IRenderCommandContext& renderCommands,
                                           const Math::Transformation::Matrix4& viewProjection,
                                           const Math::Vector::Vector3& cameraEye,
                                           const Math::Vector::Vector3& cameraUp );

@@ -147,6 +147,7 @@ Run::Run( Window& window,
           },
           []( void* user,
               SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
+              SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
               const Math::Transformation::Matrix4& viewProjection,
               const Math::Vector::Vector3& cameraEye,
               const Math::Vector::Vector3& cameraUp )
@@ -186,12 +187,13 @@ Run::Run( Window& window,
               run->RenderReplayPathVisualizer( tracer );
               run->RenderReplayCauseFocusOverlay( tracer );
               run->RenderReplayVelocityEditOverlay( tracer );
-              tracer.Render( viewProjection );
+              tracer.Render( viewProjection, renderCommands );
               run->m_runtimeTools.Laser().Render( viewProjection,
                                                   cameraEye,
                                                   cameraUp,
                                                   run->m_systems.assets,
-                                                  renderResources );
+                                                  renderResources,
+                                                  renderCommands );
           },
           this )
 {
@@ -437,7 +439,7 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
             }
             break;
         case BackendResourceStep::LauncherLaser:
-            m_runtimeTools.Laser().ResetResources();
+            m_runtimeTools.Laser().ResetResources( releaseRenderResources );
             break;
         }
 

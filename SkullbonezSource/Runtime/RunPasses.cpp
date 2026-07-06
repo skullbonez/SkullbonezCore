@@ -1766,6 +1766,7 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     {
         m_renderEditorOverlay( m_renderEditorOverlayUser,
                                RenderResources( inputs.frame ),
+                               RenderCommands( inputs.frame ),
                                inputs.frame.viewProjection,
                                inputs.frame.eye,
                                inputs.frame.up );
