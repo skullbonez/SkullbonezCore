@@ -27,6 +27,9 @@
 #     shrink as passes receive frame snapshots and narrow services.
 #   Service-global census: Counted access to process-global service helpers and
 #     singleton `Instance()` calls while explicit context rows remove them.
+#   Render-backend aggregate census: Counted use of IRenderBackend and
+#     RenderBackendDX12::Get helper backdoors while narrow render capabilities
+#     replace the wide facade.
 #
 # Invariants:
 #   - New deleted-artifact guards belong in DELETED_MIGRATION_ARTIFACT_PATTERNS.
@@ -37,6 +40,8 @@
 #     browsing is blocked while the plan rows remove old accesses.
 #   - Service-global budget records current explicit-service debt; stale
 #     per-file allowance must not approve net-new global lookups.
+#   - Render-backend aggregate budget records current Plan 05 debt; new aggregate
+#     dependencies must choose a narrow render capability or lower the ratchet.
 #   - Checker self-tests run before repo scans.
 #   - Comment-only historical mentions of deleted names are allowed; live code is
 #     scanned after comments and string literals are stripped where needed.
@@ -1436,6 +1441,59 @@ RENDER_GRAPH_UNKNOWN_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
         # state until graph transient/import ownership replaces this legacy edge.
         ( RUN_RENDER_SOURCE, "CinematicSceneDepth" ): 1,
         ( RENDER_PIPELINE_SOURCE, "CinematicSceneDepth" ): 1,
+    }
+)
+RENDER_BACKEND_AGGREGATE_DEPENDENCY_PATTERNS: tuple[tuple[str, re.Pattern[str], str, str], ...] = (
+    (
+        "IRenderBackend",
+        re.compile(r"\bIRenderBackend\b|#\s*include\s+[<\"][^>\"]*IRenderBackend\.h[>\"]"),
+        "render backend aggregate dependency is count-guarded",
+        "Pass IRenderCommandContext, IRenderResourceFactory, IRenderDiagnostics, capture, or IRenderRayTracing instead of adding another IRenderBackend dependency.",
+    ),
+    (
+        "RenderBackendDX12::Get()",
+        re.compile(r"\bRenderBackendDX12\s*::\s*Get\s*\("),
+        "RenderBackendDX12::Get dependency is count-guarded",
+        "Pass a DX12 resource/context owner instead of using the static backend helper backdoor.",
+    ),
+)
+# RGRAPH-030: include-aware tracked-source census on 2026-07-07.
+# These budgets are not approval for growth; per-file rows classify remaining
+# render-backend aggregate debt while Plan 05 drains it.
+MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 43
+MAX_RENDER_BACKEND_DX12_GET_CENSUS = 9
+RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
+    {
+        ( Path(path), label ): count
+        for path, label, count in (
+            ( "SkullbonezSource/Core/Profiler.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Physics/Debug/BroadphaseVisualizer.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Physics/Debug/CollisionVisualizer.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Physics/Debug/PhysicsDebugVisualizer.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Rendering/DX12/FramebufferDX12.cpp", "RenderBackendDX12::Get()", 4 ),
+            ( "SkullbonezSource/Rendering/DX12/MeshDX12.cpp", "RenderBackendDX12::Get()", 3 ),
+            ( "SkullbonezSource/Rendering/DX12/RenderBackendDX12.h", "IRenderBackend", 2 ),
+            ( "SkullbonezSource/Rendering/DX12/ShaderDX12.cpp", "RenderBackendDX12::Get()", 2 ),
+            ( "SkullbonezSource/Rendering/GameModelRenderer.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.cpp", "IRenderBackend", 4 ),
+            ( "SkullbonezSource/Rendering/IRenderBackend.h", "IRenderBackend", 4 ),
+            ( "SkullbonezSource/Runtime/Init.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Runtime/Render/RuntimeRenderHost.h", "IRenderBackend", 2 ),
+            ( "SkullbonezSource/Runtime/Run.cpp", "IRenderBackend", 3 ),
+            ( "SkullbonezSource/Runtime/RunFrame.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Runtime/RunInput.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Runtime/RunInternal.h", "IRenderBackend", 2 ),
+            ( "SkullbonezSource/Runtime/RunRender.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "IRenderBackend", 4 ),
+            ( "SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h", "IRenderBackend", 2 ),
+            ( "SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h", "IRenderBackend", 2 ),
+            ( "SkullbonezSource/Runtime/Window.cpp", "IRenderBackend", 2 ),
+            ( "SkullbonezSource/Runtime/Window.h", "IRenderBackend", 3 ),
+            ( "SkullbonezSource/UI/UI.cpp", "IRenderBackend", 1 ),
+            ( "SkullbonezSource/UI/UITabProfiler.cpp", "IRenderBackend", 1 ),
+        )
     }
 )
 GLOBAL_SERVICE_ACCESS_PATTERNS: tuple[tuple[str, re.Pattern[str], str, str], ...] = (
@@ -7251,6 +7309,89 @@ def check_runtime_render_pass_wide_backend_guardrails(repo: Path) -> list[Bounda
     return errors
 
 
+def render_backend_aggregate_dependency_matches(stripped: str) -> list[tuple[int, str, str, str]]:
+    matches: list[tuple[int, str, str, str]] = []
+    for label, pattern, message, detail in RENDER_BACKEND_AGGREGATE_DEPENDENCY_PATTERNS:
+        for match in pattern.finditer(stripped):
+            matches.append(( match.start(), label, message, detail ))
+    return sorted(matches)
+
+
+def check_render_backend_aggregate_dependency_guardrails_text(
+    path: Path,
+    text: str,
+    relative_path: Path | None = None,
+    allowlist: Counter[tuple[Path, str]] | None = None,
+) -> list[BoundaryError]:
+    key_path = relative_path or path
+    allowed = RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST if allowlist is None else allowlist
+    # Preserve include paths while stripping comments so #include "IRenderBackend.h"
+    # is counted as a dependency instead of hidden behind string-literal stripping.
+    stripped = strip_cpp_comments(text)
+    seen: Counter[tuple[Path, str]] = Counter()
+    errors: list[BoundaryError] = []
+
+    for offset, label, message, detail in render_backend_aggregate_dependency_matches(stripped):
+        key = ( key_path, label )
+        seen[key] += 1
+        if seen[key] > allowed.get(key, 0):
+            errors.append(BoundaryError(path, line_for_offset(stripped, offset), message, detail))
+
+    return errors
+
+
+def check_render_backend_aggregate_dependency_count_entries(
+    entries: list[tuple[Path, str]],
+    max_irender_backend: int = MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS,
+    max_render_backend_dx12_get: int = MAX_RENDER_BACKEND_DX12_GET_CENSUS,
+) -> list[BoundaryError]:
+    budgets = {
+        "IRenderBackend": max_irender_backend,
+        "RenderBackendDX12::Get()": max_render_backend_dx12_get,
+    }
+    totals: Counter[str] = Counter()
+    first_over_budget: dict[str, tuple[Path, str, tuple[int, str, str, str]]] = {}
+
+    for path, text in entries:
+        stripped = strip_cpp_comments(text)
+        for match_info in render_backend_aggregate_dependency_matches(stripped):
+            offset, label, _message, _detail = match_info
+            if label not in first_over_budget and totals[label] + 1 > budgets[label]:
+                first_over_budget[label] = ( path, stripped, match_info )
+            totals[label] += 1
+
+    errors: list[BoundaryError] = []
+    for label, ( path, stripped, ( offset, _label, _message, detail ) ) in first_over_budget.items():
+        errors.append(
+            BoundaryError(
+                path,
+                line_for_offset(stripped, offset),
+                "render backend aggregate dependency census exceeds ratchet",
+                f"Found {totals[label]} {label}; maximum {budgets[label]}. {detail}",
+            )
+        )
+    return errors
+
+
+def check_render_backend_aggregate_dependency_guardrails(repo: Path) -> list[BoundaryError]:
+    errors: list[BoundaryError] = []
+    entries: list[tuple[Path, str]] = []
+    for path in sorted((repo / SOURCE_ROOT).rglob("*")):
+        if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
+            continue
+        text = path.read_text(encoding="utf-8")
+        entries.append(( path, text ))
+        errors.extend(
+            check_render_backend_aggregate_dependency_guardrails_text(
+                path,
+                text,
+                path.relative_to(repo),
+            )
+        )
+    errors.extend(check_render_backend_aggregate_dependency_count_entries(entries))
+    return errors
+
+
 def check_graph_owned_render_pass_scheduling_text(path: Path, text: str) -> list[BoundaryError]:
     stripped = strip_cpp_comments(text)
     errors: list[BoundaryError] = []
@@ -8979,6 +9120,68 @@ def run_self_tests() -> list[str]:
     }
     """
     expect_error('runtime render pass wide backend include synthetic surface was not rejected', check_runtime_render_pass_wide_backend_guardrails_text( Path("synthetic/RunPasses.cpp"), old_runtime_pass_wide_backend_include, ), 'runtime render pass wide backend access is blocked')
+
+    allowed_render_backend_dependency_path = Path("synthetic/AllowedRenderBackend.cpp")
+    allowed_render_backend_dependency_allowlist: Counter[tuple[Path, str]] = Counter(
+        {
+            ( allowed_render_backend_dependency_path, "IRenderBackend" ): 1,
+            ( allowed_render_backend_dependency_path, "RenderBackendDX12::Get()" ): 1,
+        }
+    )
+    allowed_render_backend_dependency = """
+    #include "../Rendering/IRenderBackend.h"
+    auto* backend = RenderBackendDX12::Get();
+    """
+    expect_clean(
+        'allowed render backend aggregate dependency synthetic surface failed',
+        check_render_backend_aggregate_dependency_guardrails_text(
+            allowed_render_backend_dependency_path,
+            allowed_render_backend_dependency,
+            allowlist=allowed_render_backend_dependency_allowlist,
+        ),
+    )
+
+    duplicate_render_backend_dependency = allowed_render_backend_dependency + "\nIRenderBackend* second = nullptr;"
+    expect_error(
+        'duplicate IRenderBackend synthetic dependency was not rejected',
+        check_render_backend_aggregate_dependency_guardrails_text(
+            allowed_render_backend_dependency_path,
+            duplicate_render_backend_dependency,
+            allowlist=allowed_render_backend_dependency_allowlist,
+        ),
+        'render backend aggregate dependency is count-guarded',
+    )
+
+    duplicate_render_backend_get = allowed_render_backend_dependency + "\nauto* second = RenderBackendDX12::Get();"
+    expect_error(
+        'duplicate RenderBackendDX12::Get synthetic dependency was not rejected',
+        check_render_backend_aggregate_dependency_guardrails_text(
+            allowed_render_backend_dependency_path,
+            duplicate_render_backend_get,
+            allowlist=allowed_render_backend_dependency_allowlist,
+        ),
+        'RenderBackendDX12::Get dependency is count-guarded',
+    )
+
+    expect_error(
+        'new-file IRenderBackend synthetic dependency was not rejected',
+        check_render_backend_aggregate_dependency_guardrails_text(
+            Path("synthetic/NewRenderBackendUser.cpp"),
+            "void Draw( IRenderBackend& backend );",
+            allowlist=Counter(),
+        ),
+        'render backend aggregate dependency is count-guarded',
+    )
+
+    expect_error(
+        'render backend aggregate census synthetic surface was not rejected',
+        check_render_backend_aggregate_dependency_count_entries(
+            [( allowed_render_backend_dependency_path, "IRenderBackend* a; IRenderBackend* b;" )],
+            max_irender_backend=1,
+            max_render_backend_dx12_get=0,
+        ),
+        'render backend aggregate dependency census exceeds ratchet',
+    )
 
     allowed_graph_owned_pass_scheduling = """
     void RuntimeRenderer::RenderFrame()
@@ -15539,6 +15742,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_direct_gfx_raytracing_guardrails(repo))
     errors.extend(check_irender_backend_raytracing_declarations(repo))
     errors.extend(check_irender_backend_aggregate_contract(repo))
+    errors.extend(check_render_backend_aggregate_dependency_guardrails(repo))
     errors.extend(check_render_pass_host_field_access_count(repo))
     errors.extend(check_runtime_render_pass_wide_backend_guardrails(repo))
     errors.extend(check_graph_owned_render_pass_scheduling(repo))
