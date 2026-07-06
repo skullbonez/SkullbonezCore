@@ -446,6 +446,26 @@ class ReplayRuntime
         bool timelineStarted = false;
     };
 
+    // Concept: replay interaction ticks pass raw button/key snapshots to
+    // ReplayRuntime, which owns edge memory for scrubber and cause-tree controls.
+    struct PointerButtonEdges
+    {
+        bool leftPressed = false;
+        bool leftReleased = false;
+    };
+
+    struct ScrubberInputFrame
+    {
+        bool leftPressed = false;
+        bool leftReleased = false;
+        bool restorePressed = false;
+    };
+
+    struct ScrubberUnavailableResult
+    {
+        bool exitInspectionCamera = false;
+    };
+
     ReplayRuntime();
 
     ReplayRecorder& Presentation();
@@ -493,6 +513,10 @@ class ReplayRuntime
     void SyncActiveTrackPosition();
     void SetAllTrackPositions( float position );
     bool ResetScrubberState();
+    ScrubberInputFrame BeginScrubberInputFrame( bool leftDown, bool restoreDown );
+    ScrubberUnavailableResult ResetUnavailableScrubberSurface( bool loadedPresentation, bool leftDown );
+    PointerButtonEdges BeginCauseTreeInputFrame( bool leftDown );
+    void ClearCauseTreeFocusSelection();
     bool SetLiveAdvanceHeld( bool held );
     // Concept: Render/input code asks replay-owned state for intent-level
     // predicates instead of reading scrubber, path, focus, or velocity structs.

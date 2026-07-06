@@ -27,10 +27,9 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
     // Concept: Cause-tree input owns the explanatory replay window state while
     // delegating body/sample interpretation to ReplayRuntime queries.
     const bool leftDown = Input::IsLeftMouseDown();
-    const bool leftPressed = leftDown && !m_replayRuntime.CauseTree().leftWasDown;
-    const bool leftReleased = !leftDown && m_replayRuntime.CauseTree().leftWasDown;
-    m_replayRuntime.CauseTree().leftWasDown = leftDown;
-    m_replayRuntime.CauseTree().hoveredRow = -1;
+    const ReplayRuntime::PointerButtonEdges inputEdges = m_replayRuntime.BeginCauseTreeInputFrame( leftDown );
+    const bool leftPressed = inputEdges.leftPressed;
+    const bool leftReleased = inputEdges.leftReleased;
 
     const auto activateReplayCameraForCauseRow = [&]( const RunReplayCauseTreeRow& row, int rowIndex )
     {
@@ -46,16 +45,19 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         switch ( row.kind )
         {
         case RunReplayCauseTreeRowKind::Body:
-            if ( !m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
-                                                                bodyStore,
-                                                                colliderStore,
-                                                                targetPosition,
-                                                                &targetRadius ) )
+        {
+            const bool bodyResolved = m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
+                                                                                    bodyStore,
+                                                                                    colliderStore,
+                                                                                    targetPosition,
+                                                                                    &targetRadius );
+            if ( !bodyResolved )
             {
                 return;
             }
             focusKind = RunReplayCameraFocusKind::Body;
             break;
+        }
         case RunReplayCauseTreeRowKind::Manifold:
             m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
                                                           bodyStore,
@@ -278,9 +280,8 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         }
         else if ( leftPressed )
         {
-            m_replayRuntime.ClearCameraFocusForRestore();
+            m_replayRuntime.ClearCauseTreeFocusSelection();
             ExitReplayInspectionCamera();
-            m_replayRuntime.ClearPathVisualizerState();
         }
     }
 

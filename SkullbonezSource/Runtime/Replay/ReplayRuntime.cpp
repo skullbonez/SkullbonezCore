@@ -830,6 +830,62 @@ bool ReplayRuntime::ResetScrubberState()
     return shouldExitInspectionCamera;
 }
 
+
+ReplayRuntime::ScrubberInputFrame ReplayRuntime::BeginScrubberInputFrame( bool leftDown, bool restoreDown )
+{
+    ScrubberInputFrame frame;
+    m_scrubber.restoreConsumedThisFrame = false;
+    frame.leftPressed = leftDown && !m_scrubber.leftWasDown;
+    frame.leftReleased = !leftDown && m_scrubber.leftWasDown;
+    m_scrubber.leftWasDown = leftDown;
+    frame.restorePressed = restoreDown && !m_scrubber.restoreWasDown;
+    m_scrubber.restoreWasDown = restoreDown;
+    return frame;
+}
+
+
+ReplayRuntime::ScrubberUnavailableResult ReplayRuntime::ResetUnavailableScrubberSurface( bool loadedPresentation,
+                                                                                         bool leftDown )
+{
+    ScrubberUnavailableResult result;
+    if ( !loadedPresentation )
+    {
+        result.exitInspectionCamera = ResetScrubberState();
+    }
+    m_prediction.checkboxHovered = false;
+    m_prediction.ragdollVisualsHovered = false;
+    m_prediction.decreaseHovered = false;
+    m_prediction.increaseHovered = false;
+    m_prediction.horizonHovered = false;
+    m_prediction.horizonDragging = false;
+    m_velocityEdit.toggleHovered = false;
+    m_scrubber.branchHovered = false;
+    m_scrubber.loadHovered = false;
+    m_scrubber.leftWasDown = leftDown;
+    m_scrubber.fadeUpdatedAt = 0.0;
+    m_scrubber.visibleAlpha = 0.0f;
+    return result;
+}
+
+
+ReplayRuntime::PointerButtonEdges ReplayRuntime::BeginCauseTreeInputFrame( bool leftDown )
+{
+    PointerButtonEdges edges;
+    edges.leftPressed = leftDown && !m_causeTree.leftWasDown;
+    edges.leftReleased = !leftDown && m_causeTree.leftWasDown;
+    m_causeTree.leftWasDown = leftDown;
+    m_causeTree.hoveredRow = -1;
+    return edges;
+}
+
+
+void ReplayRuntime::ClearCauseTreeFocusSelection()
+{
+    ClearCameraFocusForRestore();
+    ClearPathVisualizerState();
+}
+
+
 bool ReplayRuntime::SetLiveAdvanceHeld( bool held )
 {
     if ( m_scrubber.liveAdvanceHeld == held )

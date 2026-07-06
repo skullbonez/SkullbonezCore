@@ -253,14 +253,13 @@ bool Run::RestoreReplayScrubberSelectionAsLive( double now,
 bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 {
     PROFILE_SCOPED( "Frame/Replay/ScrubberInput" );
-    m_replayRuntime.Scrubber().restoreConsumedThisFrame = false;
     const bool leftDown = Input::IsLeftMouseDown();
-    const bool leftPressed = leftDown && !m_replayRuntime.Scrubber().leftWasDown;
-    const bool leftReleased = !leftDown && m_replayRuntime.Scrubber().leftWasDown;
-    m_replayRuntime.Scrubber().leftWasDown = leftDown;
     const bool restoreDown = Input::IsKeyDown( VK_RETURN );
-    const bool restorePressed = restoreDown && !m_replayRuntime.Scrubber().restoreWasDown;
-    m_replayRuntime.Scrubber().restoreWasDown = restoreDown;
+    const ReplayRuntime::ScrubberInputFrame inputFrame =
+        m_replayRuntime.BeginScrubberInputFrame( leftDown, restoreDown );
+    const bool leftPressed = inputFrame.leftPressed;
+    const bool leftReleased = inputFrame.leftReleased;
+    const bool restorePressed = inputFrame.restorePressed;
 
     const bool scrubberAllowed = !m_runtimeTools.Editor().editorModeEnabled && m_UI.IsVisible() && m_UI.IsMinimized();
     const bool loadedPresentation = m_replayRuntime.HasLoadedPresentation();
@@ -273,25 +272,12 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
     if ( !scrubberAllowed || !replaySurfaceAvailable || screenW <= 0 || screenH <= 0 )
     {
         CancelReplayToolDragState();
-        if ( !loadedPresentation )
+        const ReplayRuntime::ScrubberUnavailableResult unavailable =
+            m_replayRuntime.ResetUnavailableScrubberSurface( loadedPresentation, leftDown );
+        if ( unavailable.exitInspectionCamera )
         {
-            if ( m_replayRuntime.ResetScrubberState() )
-            {
-                ExitReplayInspectionCamera();
-            }
+            ExitReplayInspectionCamera();
         }
-        m_replayRuntime.Prediction().checkboxHovered = false;
-        m_replayRuntime.Prediction().ragdollVisualsHovered = false;
-        m_replayRuntime.Prediction().decreaseHovered = false;
-        m_replayRuntime.Prediction().increaseHovered = false;
-        m_replayRuntime.Prediction().horizonHovered = false;
-        m_replayRuntime.Prediction().horizonDragging = false;
-        m_replayRuntime.VelocityEdit().toggleHovered = false;
-        m_replayRuntime.Scrubber().branchHovered = false;
-        m_replayRuntime.Scrubber().loadHovered = false;
-        m_replayRuntime.Scrubber().leftWasDown = leftDown;
-        m_replayRuntime.Scrubber().fadeUpdatedAt = 0.0;
-        m_replayRuntime.Scrubber().visibleAlpha = 0.0f;
         return false;
     }
 
@@ -438,8 +424,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
           m_replayRuntime.Prediction().horizonDragging || m_replayRuntime.Scrubber().historicalSamplePaused ||
           m_replayRuntime.Scrubber().liveAdvanceHeld );
     m_replayRuntime.Scrubber().pauseHovered = solverToolsEnabled && overPauseButton && solverControlVisible;
-    m_replayRuntime.VelocityEdit().toggleHovered =
-        solverToolsEnabled && overVelocityEditToggle && solverControlVisible;
+    m_replayRuntime.VelocityEdit().toggleHovered = solverToolsEnabled && overVelocityEditToggle && solverControlVisible;
     m_replayRuntime.Prediction().checkboxHovered =
         predictionToolsEnabled && overPredictToggle && predictionControlVisible;
     m_replayRuntime.Prediction().ragdollVisualsHovered =
@@ -654,8 +639,8 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         consumesMouse = true;
     }
     else if ( ( loadedPresentation || solverToolsEnabled ) && leftPressed && canTakeMouse && !overBranchButton &&
-              !overPauseButton && !overPredictUi &&
-              !overLoadButton && ( inHotZone || overPanel || m_replayRuntime.Scrubber().historicalSamplePaused ) )
+              !overPauseButton && !overPredictUi && !overLoadButton &&
+              ( inHotZone || overPanel || m_replayRuntime.Scrubber().historicalSamplePaused ) )
     {
         EnterInteractiveSceneRun();
         BeginReplayToolGesture( RuntimeInteractionGestureKind::ReplayScrubDrag,
@@ -744,8 +729,7 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
         fadeUpdatedAt = now;
         const double fadeSeconds =
             scrubberTargetVisible ? REPLAY_SCRUBBER_FADE_IN_SECONDS : REPLAY_SCRUBBER_FADE_OUT_SECONDS;
-        const float alphaStep =
-            fadeSeconds > 0.0 ? static_cast<float>( deltaSeconds / fadeSeconds ) : 1.0f;
+        const float alphaStep = fadeSeconds > 0.0 ? static_cast<float>( deltaSeconds / fadeSeconds ) : 1.0f;
         visibleAlpha = std::clamp( visibleAlpha + ( scrubberTargetVisible ? alphaStep : -alphaStep ), 0.0f, 1.0f );
         m_replayRuntime.Scrubber().visible = scrubberTargetVisible || visibleAlpha > REPLAY_SCRUBBER_FADE_EPSILON;
     }
