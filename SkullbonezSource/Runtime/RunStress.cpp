@@ -472,14 +472,15 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
             return true;
         case SceneRuntimeControlActionType::ApplyCinematicModeFromBrowserIndex:
             EnterInteractiveSceneRun();
-            return ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext{ m_launchOptions,
-                                                                                 SceneState(),
-                                                                                 m_sceneController.Browser(),
-                                                                                 m_cGameModelCollection,
-                                                                                 m_systems.assets,
-                                                                                 m_renderHost.ActiveCinematicConfig(),
-                                                                                 m_defaultCinematicRender },
-                                                       action.index );
+            return ApplyCinematicModeFromBrowserIndex(
+                SceneRuntimeStyleContext{ m_launchOptions,
+                                          SceneState(),
+                                          m_sceneController.Browser(),
+                                          m_cGameModelCollection,
+                                          m_systems.assets,
+                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
+                                          m_defaultCinematicRender },
+                action.index );
         case SceneRuntimeControlActionType::None:
             return false;
         }
@@ -552,7 +553,7 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         {
         case 0:
         {
-            CinematicRenderConfig& cinematic = m_renderHost.ActiveCinematicConfig();
+            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
             cinematic.enabled = !cinematic.enabled;
             m_launchOptions.hasCinematicRenderingOverride = false;
             if ( SceneState().isSceneMode )
@@ -566,7 +567,7 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         }
         case 1:
         {
-            CinematicRenderConfig& cinematic = m_renderHost.ActiveCinematicConfig();
+            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
             const UICinematicFeature feature = static_cast<UICinematicFeature>(
                 NextGraphicsStressInt( stress, static_cast<int>( UICinematicFeature::Count ) ) );
             if ( feature == UICinematicFeature::Shadows )
@@ -578,7 +579,7 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
         }
         case 2:
         {
-            CinematicRenderConfig& cinematic = m_renderHost.ActiveCinematicConfig();
+            CinematicRenderConfig& cinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
             const UICinematicParam param = static_cast<UICinematicParam>(
                 NextGraphicsStressInt( stress, static_cast<int>( UICinematicParam::Count ) ) );
             ApplyCinematicUIParam( cinematic, SceneState(), param, RandomCinematicParamValue( stress, param ) );
@@ -590,14 +591,15 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
             const int browserIndex = ( browserCount > 0 && NextGraphicsStressInt( stress, 5 ) != 0 )
                                          ? NextGraphicsStressInt( stress, browserCount )
                                          : -1;
-            (void)ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext{ m_launchOptions,
-                                                                                SceneState(),
-                                                                                m_sceneController.Browser(),
-                                                                                m_cGameModelCollection,
-                                                                                m_systems.assets,
-                                                                                m_renderHost.ActiveCinematicConfig(),
-                                                                                m_defaultCinematicRender },
-                                                      browserIndex );
+            (void)ApplyCinematicModeFromBrowserIndex(
+                SceneRuntimeStyleContext{ m_launchOptions,
+                                          SceneState(),
+                                          m_sceneController.Browser(),
+                                          m_cGameModelCollection,
+                                          m_systems.assets,
+                                          RuntimeActiveCinematicConfig( SceneState(), m_config ),
+                                          m_defaultCinematicRender },
+                browserIndex );
             break;
         }
         case 4:

@@ -973,7 +973,8 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
 
 void SkyPass::RenderCinematicSky( const RenderFrameContext& frame, const Math::Transformation::Matrix4& view )
 {
-    const CinematicRenderConfig& cinematic = m_host.ActiveCinematicConfig();
+    assert( frame.cinematic && "Cinematic sky requires a frame cinematic snapshot" );
+    const CinematicRenderConfig& cinematic = *frame.cinematic;
     SkyPassResources& sky = m_host.m_systems.renderPasses.sky;
     FullscreenPassResources& fullscreen = m_host.m_systems.renderPasses.fullscreen;
     if ( !cinematic.skyAtmosphereEnabled || !sky.atmosphereShader || fullscreen.quadVB == 0 )
@@ -1907,12 +1908,12 @@ void VolumetricPass::ReleaseGpuResources()
 
 bool VolumetricPass::CanRender( const RenderFrameContext& frame ) const
 {
-    const CinematicRenderConfig& cinematic = m_host.ActiveCinematicConfig();
+    const CinematicRenderConfig* cinematic = frame.cinematic;
     const CinematicScenePassResources& scene = m_host.m_systems.renderPasses.cinematicScene;
     const VolumetricLightPassResources& volumetric = m_host.m_systems.renderPasses.volumetricLight;
     const FullscreenPassResources& fullscreen = m_host.m_systems.renderPasses.fullscreen;
-    return frame.cinematicEnabled && cinematic.volumetricLightingEnabled && scene.hdrTarget && volumetric.target &&
-           volumetric.shader && fullscreen.quadVB != 0;
+    return frame.cinematicEnabled && cinematic && cinematic->volumetricLightingEnabled && scene.hdrTarget &&
+           volumetric.target && volumetric.shader && fullscreen.quadVB != 0;
 }
 
 
@@ -1923,7 +1924,8 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
         return false;
     }
 
-    const CinematicRenderConfig& cinematic = m_host.ActiveCinematicConfig();
+    assert( frame.cinematic && "Volumetric pass requires a frame cinematic snapshot" );
+    const CinematicRenderConfig& cinematic = *frame.cinematic;
     CinematicScenePassResources& scene = m_host.m_systems.renderPasses.cinematicScene;
     VolumetricLightPassResources& volumetric = m_host.m_systems.renderPasses.volumetricLight;
     FullscreenPassResources& fullscreen = m_host.m_systems.renderPasses.fullscreen;
@@ -2075,7 +2077,8 @@ void TonemapPass::Render( const RenderFrameContext& frame,
         }
         DRAW_CALL_TRACE_SCOPE( "Draw" );
         tonemap.shader->Use();
-        const CinematicRenderConfig& cinematic = m_host.ActiveCinematicConfig();
+        assert( frame.cinematic && "Tonemap pass requires a frame cinematic snapshot" );
+        const CinematicRenderConfig& cinematic = *frame.cinematic;
         BindTonemapPassParams( *tonemap.shader,
                                frame.eye,
                                frame.viewProjection,

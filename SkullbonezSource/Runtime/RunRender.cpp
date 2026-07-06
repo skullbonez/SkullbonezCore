@@ -163,6 +163,8 @@ struct UiTextGraphCallbackData
     const RuntimeRenderModelFrameView* models = nullptr;
     DiagnosticsRuntime* diagnosticsRuntime = nullptr;
     const ReplayRuntime* replayRuntime = nullptr;
+    const CinematicRenderConfig* cinematic = nullptr;
+    bool cinematicRendering = false;
     SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = nullptr;
     double secondsPerFrame = 0.0;
 };
@@ -313,7 +315,7 @@ void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 {
     auto* data = static_cast<UiTextGraphCallbackData*>( userData );
     if ( !data || !data->uiTextPass || !data->renderDiagnostics || !data->uiRender || !data->models ||
-         !data->diagnosticsRuntime || !data->replayRuntime )
+         !data->diagnosticsRuntime || !data->replayRuntime || !data->cinematic )
     {
         throw std::runtime_error( "UiTextPass graph callback missing execution data" );
     }
@@ -322,6 +324,8 @@ void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
                                 *data->models,
                                 *data->diagnosticsRuntime,
                                 *data->replayRuntime,
+                                *data->cinematic,
+                                data->cinematicRendering,
                                 data->renderRayTracing,
                                 data->secondsPerFrame } );
 }
@@ -395,6 +399,8 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                               SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
                                               SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics,
                                               SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing,
+                                              const CinematicRenderConfig& cinematic,
+                                              bool cinematicEnabled,
                                               bool renderReady )
 {
     return RuntimeRenderInputs{ RuntimeRenderServices{ systems.assets,
@@ -406,6 +412,8 @@ RuntimeRenderInputs BuildRuntimeRenderInputs( RunSubsystemState& systems,
                                                        *systems.window,
                                                        ui,
                                                        systems.skyBox,
+                                                       cinematic,
+                                                       cinematicEnabled,
                                                        renderCommands,
                                                        renderResources,
                                                        renderDiagnostics,
@@ -1017,6 +1025,8 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
                                                        const RuntimeRenderModelFrameView& models,
                                                        DiagnosticsRuntime& diagnosticsRuntime,
                                                        const ReplayRuntime& replayRuntime,
+                                                       const CinematicRenderConfig& cinematic,
+                                                       bool cinematicRendering,
                                                        Rendering::IRenderRayTracing* renderRayTracing,
                                                        double secondsPerFrame )
 {
@@ -1036,6 +1046,8 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
     callbackData.models = &models;
     callbackData.diagnosticsRuntime = &diagnosticsRuntime;
     callbackData.replayRuntime = &replayRuntime;
+    callbackData.cinematic = &cinematic;
+    callbackData.cinematicRendering = cinematicRendering;
     callbackData.renderRayTracing = renderRayTracing;
     callbackData.secondsPerFrame = secondsPerFrame;
     graph.SetPassCallback( uiTextPass, ExecuteUiTextGraphCallback, &callbackData, true, "Frame/UI" );
@@ -1178,8 +1190,8 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     RuntimeRenderHost& host = m_host;
     const RuntimeRenderServices& services = renderInputs.services;
     m_uiTextRayTracing = services.renderRayTracing;
-    const bool cinematicRender = host.IsCinematicRenderingEnabled();
-    const CinematicRenderConfig& renderConfig = host.ActiveCinematicConfig();
+    const bool cinematicRender = services.cinematicEnabled;
+    const CinematicRenderConfig& renderConfig = services.cinematic;
     const OrdinaryRenderConfig& ordinaryRender = Cfg().ordinaryRender;
     CinematicRenderConfig ordinaryShadowConfig = renderConfig;
     ordinaryShadowConfig.shadowsEnabled = ordinaryRender.shadowsEnabled;
@@ -1497,6 +1509,8 @@ void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnos
                                     const RuntimeRenderModelFrameView& models,
                                     DiagnosticsRuntime& diagnosticsRuntime,
                                     const ReplayRuntime& replayRuntime,
+                                    const CinematicRenderConfig& cinematic,
+                                    bool cinematicRendering,
                                     double dSecondsPerFrame )
 {
     (void)ExecuteUiTextThroughRenderGraph( renderDiagnostics,
@@ -1504,6 +1518,8 @@ void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnos
                                            models,
                                            diagnosticsRuntime,
                                            replayRuntime,
+                                           cinematic,
+                                           cinematicRendering,
                                            m_uiTextRayTracing,
                                            dSecondsPerFrame );
 }
@@ -1622,6 +1638,9 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     PROFILE_END( "Frame/Render/PrepareModels" );
     applyReplayRenderStateForFrame();
 
+    const CinematicRenderConfig& activeCinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
+    const bool cinematicRender =
+        RuntimeCinematicRenderingEnabled( SceneState(), m_config, m_launchOptions, m_debug, renderReady );
     m_renderer.RenderFrame( BuildRuntimeRenderInputs( m_systems,
                                                       renderModels,
                                                       m_cWorldEnvironment,
@@ -1630,6 +1649,8 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
                                                       renderResources,
                                                       renderDiagnostics,
                                                       renderRayTracing,
+                                                      activeCinematic,
+                                                      cinematicRender,
                                                       renderReady ) );
     restoreReplayRenderStateForFrame();
 }

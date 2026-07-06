@@ -223,10 +223,6 @@ class RuntimeRenderHost
     {
     }
 
-    CinematicRenderConfig& ActiveCinematicConfig() const;
-
-    bool IsCinematicRenderingEnabled() const;
-
     bool IsLauncherCameraMode() const;
 
     int WindowScreenWidth() const;

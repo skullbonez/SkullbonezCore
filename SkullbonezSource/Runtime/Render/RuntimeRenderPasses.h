@@ -270,6 +270,10 @@ struct UiTextPassInputs
     const RuntimeRenderModelFrameView& models;
     DiagnosticsRuntime& diagnosticsRuntime;
     const ReplayRuntime& replayRuntime;
+    // Lifetime: selected by Run for this UI frame. UI text can render without
+    // world passes, so it receives its own snapshot instead of reopening host state.
+    const CinematicRenderConfig& cinematic;
+    bool cinematicRendering = false;
     Rendering::IRenderRayTracing* renderRayTracing;
     double secondsPerFrame = 0.0;
 };

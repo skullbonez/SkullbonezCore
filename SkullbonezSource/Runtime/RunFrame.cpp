@@ -629,6 +629,9 @@ void Run::Execute()
 
             if ( m_renderer.ShouldRenderUiText() )
             {
+                const CinematicRenderConfig& uiCinematic = RuntimeActiveCinematicConfig( SceneState(), m_config );
+                const bool uiCinematicRendering =
+                    RuntimeCinematicRenderingEnabled( SceneState(), m_config, m_launchOptions, m_debug, true );
                 const int uiDrawCallStart = frameRenderDiagnostics.GetFrameDrawCallCount();
                 PROFILE_BEGIN( "Frame/UI" );
                 {
@@ -640,6 +643,8 @@ void Run::Execute()
                                              renderModels,
                                              m_diagnosticsRuntime,
                                              m_replayRuntime,
+                                             uiCinematic,
+                                             uiCinematicRendering,
                                              secondsPerFrame );
                 }
                 PROFILE_END( "Frame/UI" );

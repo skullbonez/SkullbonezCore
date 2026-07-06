@@ -52,20 +52,6 @@ Related:
 
 using namespace SkullbonezCore::Basics;
 
-CinematicRenderConfig& RuntimeRenderHost::ActiveCinematicConfig() const
-{
-    return RunInternal::RuntimeActiveCinematicConfig( m_sceneController.State(), m_config );
-}
-
-bool RuntimeRenderHost::IsCinematicRenderingEnabled() const
-{
-    return RunInternal::RuntimeCinematicRenderingEnabled( m_sceneController.State(),
-                                                          m_config,
-                                                          m_launchOptions,
-                                                          m_debug,
-                                                          ActiveRenderBackend() != nullptr );
-}
-
 bool RuntimeRenderHost::IsLauncherCameraMode() const
 {
     return m_camera.mode == RunCameraMode::Launcher;

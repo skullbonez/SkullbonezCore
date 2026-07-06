@@ -61,6 +61,8 @@ class RuntimeRenderer
                        const RuntimeRenderModelFrameView& models,
                        DiagnosticsRuntime& diagnosticsRuntime,
                        const ReplayRuntime& replayRuntime,
+                       const CinematicRenderConfig& cinematic,
+                       bool cinematicRendering,
                        double dSecondsPerFrame );
 
   private:
@@ -153,6 +155,8 @@ class RuntimeRenderer
                                           const RuntimeRenderModelFrameView& models,
                                           DiagnosticsRuntime& diagnosticsRuntime,
                                           const ReplayRuntime& replayRuntime,
+                                          const CinematicRenderConfig& cinematic,
+                                          bool cinematicRendering,
                                           Rendering::IRenderRayTracing* renderRayTracing,
                                           double secondsPerFrame );
 

@@ -735,9 +735,9 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.editorObjectType = m_host.m_editor.objectType;
         UIData.canSaveSceneDefaults = view.sceneMode && m_host.m_sceneController.HasCurrentEntry() &&
                                       !m_host.m_sceneController.CurrentPath()->empty();
-        UIData.cinematicRendering = m_host.IsCinematicRenderingEnabled();
+        UIData.cinematicRendering = inputs.cinematicRendering;
         UIData.ordinaryRender = liveConfig.ordinaryRender;
-        UIData.cinematic = m_host.ActiveCinematicConfig();
+        UIData.cinematic = inputs.cinematic;
         {
             auto addPreview = [&]( const char* label,
                                    uint32_t textureHandle,
