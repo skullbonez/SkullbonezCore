@@ -62,14 +62,14 @@ constexpr const char* REPLAY_PREDICTION_RESERVE_OWNER = "replay_prediction_worki
 constexpr int REPLAY_PREDICTION_FRAME_CAPACITY =
     static_cast<int>( REPLAY_PREDICTION_MAX_SECONDS / PHYSICS_FIXED_DT ) + 2;
 constexpr int REPLAY_PREDICTION_PATH_BUDGET = 100;
-constexpr int REPLAY_PREDICTION_RESERVE_HARD_CAPACITY =
-    REPLAY_PREDICTION_FRAME_CAPACITY * MAX_GAME_MODELS * REPLAY_PREDICTION_PATH_BUDGET;
+constexpr int REPLAY_PREDICTION_RESERVE_HARD_BYTES = 256 * 1024 * 1024;
 constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN = 512u;
 constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX = 2048u;
 constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK = 4096u;
 // Runtime allocation policy: prediction scratch can grow as the user explores
-// larger retained paths. The registered hard cap is the budget; growth count is
-// telemetry so interactive replay does not trip a per-run count fuse.
+// larger retained paths. The registered hard cap is a real byte ceiling, not a
+// theoretical element-count product; growth count is telemetry so interactive
+// replay does not trip a per-run count fuse.
 constexpr int REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT =
     RuntimeAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 
@@ -81,11 +81,44 @@ RuntimeAllocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner()
               RuntimeAllocation::RuntimeReserveSubsystem::Replay,
               RuntimeAllocation::RuntimeReservePhase::Replay,
               0,
-              REPLAY_PREDICTION_RESERVE_HARD_CAPACITY,
+              REPLAY_PREDICTION_RESERVE_HARD_BYTES,
               REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT,
               true,
-              "replay prediction supports large retained path visualization under a hard replay budget" } );
+              "replay prediction supports large retained path visualization under a hard byte budget" } );
     return owner;
+}
+
+template<typename T>
+bool ReplayPredictionCapacityBytes( std::size_t capacity, uint64_t& outBytes )
+{
+    constexpr uint64_t elementBytes = static_cast<uint64_t>( sizeof( T ) );
+    const uint64_t maxCapacity = (std::numeric_limits<uint64_t>::max)() / elementBytes;
+    if ( capacity > maxCapacity )
+    {
+        return false;
+    }
+    outBytes = static_cast<uint64_t>( capacity ) * elementBytes;
+    return true;
+}
+
+template<typename T>
+bool ReplayPredictionFramePayloadBytes( std::size_t frameCount,
+                                        std::size_t capacityPerFrame,
+                                        uint64_t& outBytes )
+{
+    uint64_t bytesPerFrame = 0;
+    if ( !ReplayPredictionCapacityBytes<T>( capacityPerFrame, bytesPerFrame ) )
+    {
+        return false;
+    }
+    const uint64_t maxValue = (std::numeric_limits<uint64_t>::max)();
+    const uint64_t maxFrameCount = bytesPerFrame > 0 ? maxValue / bytesPerFrame : maxValue;
+    if ( frameCount > maxFrameCount )
+    {
+        return false;
+    }
+    outBytes = static_cast<uint64_t>( frameCount ) * bytesPerFrame;
+    return true;
 }
 
 std::size_t RoundUpReplayPredictionCapacity( std::size_t requestedCapacity, std::size_t chunk )
@@ -124,7 +157,11 @@ bool ReserveReplayPredictionVector( std::vector<T>& values,
     {
         return true;
     }
-    if ( requestedCapacity > static_cast<std::size_t>( REPLAY_PREDICTION_RESERVE_HARD_CAPACITY ) )
+    uint64_t oldBytes = 0;
+    uint64_t requestedBytes = 0;
+    if ( !ReplayPredictionCapacityBytes<T>( values.capacity(), oldBytes ) ||
+         !ReplayPredictionCapacityBytes<T>( requestedCapacity, requestedBytes ) ||
+         requestedBytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) )
     {
         return false;
     }
@@ -134,9 +171,9 @@ bool ReserveReplayPredictionVector( std::vector<T>& values,
                                                                      targetName,
                                                                      RuntimeAllocation::RuntimeReservePhase::Replay,
                                                                      frameNumber,
-                                                                     static_cast<int>( values.capacity() ),
-                                                                     static_cast<int>( requestedCapacity ),
-                                                                     static_cast<int>( sizeof( T ) ) };
+                                                                     static_cast<int>( oldBytes ),
+                                                                     static_cast<int>( requestedBytes ),
+                                                                     1 };
     const RuntimeAllocation::RuntimeReserveGrowthResult result =
         RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
     if ( !result.granted )
@@ -150,7 +187,7 @@ bool ReserveReplayPredictionVector( std::vector<T>& values,
     RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
                                                               RuntimeAllocation::RuntimeReservePhase::Replay,
                                                               result );
-    values.reserve( static_cast<std::size_t>( result.grantedCapacity ) );
+    values.reserve( requestedCapacity );
     return requestedCapacity <= values.capacity();
 }
 
@@ -170,17 +207,27 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<RunReplayPrediction
         return true;
     }
 
-    std::size_t oldCapacity = 0;
+    uint64_t oldBytes = 0;
     for ( std::size_t i = 0; i < requestedFrameCount; ++i )
     {
-        oldCapacity += ( frames[i].*member ).capacity();
+        uint64_t frameBytes = 0;
+        if ( !ReplayPredictionCapacityBytes<T>( ( frames[i].*member ).capacity(), frameBytes ) ||
+             oldBytes > (std::numeric_limits<uint64_t>::max)() - frameBytes )
+        {
+            return false;
+        }
+        oldBytes += frameBytes;
     }
-    const std::size_t requestedCapacity = requestedFrameCount * requestedCapacityPerFrame;
-    if ( requestedCapacity <= oldCapacity )
+    uint64_t requestedBytes = 0;
+    if ( !ReplayPredictionFramePayloadBytes<T>( requestedFrameCount, requestedCapacityPerFrame, requestedBytes ) )
+    {
+        return false;
+    }
+    if ( requestedBytes <= oldBytes )
     {
         return true;
     }
-    if ( requestedCapacity > static_cast<std::size_t>( REPLAY_PREDICTION_RESERVE_HARD_CAPACITY ) )
+    if ( requestedBytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) )
     {
         return false;
     }
@@ -190,9 +237,9 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<RunReplayPrediction
                                                                      targetName,
                                                                      RuntimeAllocation::RuntimeReservePhase::Replay,
                                                                      frameNumber,
-                                                                     static_cast<int>( oldCapacity ),
-                                                                     static_cast<int>( requestedCapacity ),
-                                                                     static_cast<int>( sizeof( T ) ) };
+                                                                     static_cast<int>( oldBytes ),
+                                                                     static_cast<int>( requestedBytes ),
+                                                                     1 };
     const RuntimeAllocation::RuntimeReserveGrowthResult result =
         RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
     if ( !result.granted )
@@ -1440,14 +1487,18 @@ bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
     {
         // Why: debug contacts feed the optional future-contact tree; the root
         // trajectory line only needs body samples. If a dense contact frame asks
-        // for more replay scratch, grow it here. If the replay reserve refuses,
-        // keep the frame and drop contacts rather than cancelling prediction.
+        // for more replay scratch, batch the reserve across every prediction
+        // frame so the byte cap covers the whole debug-contact payload set. If
+        // the replay reserve refuses, keep the frame and drop contacts rather
+        // than cancelling prediction.
         const std::size_t requestedDebugContactCapacity =
             ReplayPredictionNextDebugContactCapacity( frame.debugContacts.capacity(), debugContacts.size() );
-        if ( !ReserveReplayPredictionVector( frame.debugContacts,
-                                             requestedDebugContactCapacity,
-                                             static_cast<int>( frameIndex ),
-                                             "RunReplayPredictionFrame::debugContacts" ) )
+        if ( !ReserveReplayPredictionFramePayloadVectors( prediction.buildFrames,
+                                                          prediction.buildFrames.size(),
+                                                          requestedDebugContactCapacity,
+                                                          static_cast<int>( frameIndex ),
+                                                          "RunReplayPredictionFrame::debugContacts",
+                                                          &RunReplayPredictionFrame::debugContacts ) )
         {
             frame.debugContacts.clear();
             prediction.buildFrameCount = (std::max)( prediction.buildFrameCount, frameSlot + 1 );

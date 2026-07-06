@@ -66,10 +66,10 @@ bool g_rawMouseHasAbsolutePosition = false;
 long g_rawMouseLastAbsoluteX = 0;
 long g_rawMouseLastAbsoluteY = 0;
 // Scripted input override, not a callback accumulator. RunInteractionAutomation
-// writes it through SetAutomationState()/ClearAutomationState(); mouse polling
-// reads it before touching Win32 so deterministic UI/click validation can avoid
-// the physical cursor.
-Input::AutomationState g_automationState;
+// writes it through SetAutomationState()/ClearAutomationState(); mouse and
+// selected key polling read it before touching Win32 so deterministic UI/click
+// validation can avoid the physical devices.
+Input::AutomationState s_automationState;
 
 constexpr int RAW_MOUSE_ABSOLUTE_RANGE = 65535;
 
@@ -193,6 +193,11 @@ bool Input::IsSystemCursorVisibleRequested()
 
 bool Input::IsKeyDown( int virtualKey )
 {
+    if ( s_automationState.enabled && s_automationState.keyDown && s_automationState.keyVirtualKey == virtualKey )
+    {
+        return true;
+    }
+
     if ( !IsAppFocused() )
     {
         return false;
@@ -383,9 +388,9 @@ POINT Input::GetMouseCoordinates()
 
 POINT Input::GetClientMouseCoordinates()
 {
-    if ( g_automationState.enabled && g_automationState.hasMouseClientPosition )
+    if ( s_automationState.enabled && s_automationState.hasMouseClientPosition )
     {
-        return g_automationState.mouseClientPosition;
+        return s_automationState.mouseClientPosition;
     }
 
     POINT mousePos = GetMouseCoordinates();
@@ -421,9 +426,9 @@ void Input::SetMouseCoordinates( const POINT& pNewCoordinates )
 
 bool Input::IsLeftMouseDown()
 {
-    if ( g_automationState.enabled )
+    if ( s_automationState.enabled )
     {
-        return g_automationState.leftMouseDown;
+        return s_automationState.leftMouseDown;
     }
 
     if ( !IsAppFocused() )
@@ -437,9 +442,9 @@ bool Input::IsLeftMouseDown()
 
 bool Input::IsRightMouseDown()
 {
-    if ( g_automationState.enabled )
+    if ( s_automationState.enabled )
     {
-        return g_automationState.rightMouseDown;
+        return s_automationState.rightMouseDown;
     }
 
     if ( !IsAppFocused() )
@@ -515,11 +520,11 @@ void Input::CentreMouseCoordinates()
 
 void Input::SetAutomationState( const AutomationState& state )
 {
-    g_automationState = state;
+    s_automationState = state;
 }
 
 
 void Input::ClearAutomationState()
 {
-    g_automationState = AutomationState{};
+    s_automationState = AutomationState{};
 }

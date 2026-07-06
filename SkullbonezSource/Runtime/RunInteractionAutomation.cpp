@@ -36,6 +36,7 @@ Related:
 #include "../../ThirdPtySource/nlohmann/json.hpp"
 #pragma warning( pop )
 
+#include <algorithm>
 #include <sstream>
 
 using namespace SkullbonezCore::Basics;
@@ -305,6 +306,36 @@ bool TryParseOwner( const std::string& value, WorldInteractionOwner& outOwner )
     return false;
 }
 
+const char* ReplayTrackName( RunReplayTrack track )
+{
+    return track == RunReplayTrack::Solver ? "Solver" : "Presentation";
+}
+
+bool TryParseVirtualKey( const std::string& value, int& outVirtualKey )
+{
+    if ( value == "F5" )
+    {
+        outVirtualKey = VK_F5;
+        return true;
+    }
+    if ( value == "F6" )
+    {
+        outVirtualKey = VK_F6;
+        return true;
+    }
+    if ( value == "Enter" || value == "Return" )
+    {
+        outVirtualKey = VK_RETURN;
+        return true;
+    }
+    if ( value == "Tab" )
+    {
+        outVirtualKey = VK_TAB;
+        return true;
+    }
+    return false;
+}
+
 const char* ActionTypeName( RunInteractionAutomationActionType type )
 {
     switch ( type )
@@ -315,10 +346,14 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "clickObject";
     case RunInteractionAutomationActionType::ClickReplayControl:
         return "clickReplayControl";
+    case RunInteractionAutomationActionType::ScrubReplaySolverTrack:
+        return "scrubReplaySolverTrack";
     case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
         return "setReplayPredictionEnabled";
     case RunInteractionAutomationActionType::ShowReplayScrubber:
         return "showReplayScrubber";
+    case RunInteractionAutomationActionType::PressKey:
+        return "pressKey";
     case RunInteractionAutomationActionType::AssertState:
         return "assert";
     case RunInteractionAutomationActionType::Screenshot:
@@ -351,6 +386,12 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "predictionTargetDisplacementMin";
     case RunInteractionAutomationAssertKind::GizmoVisible:
         return "gizmoVisible";
+    case RunInteractionAutomationAssertKind::ReplayActiveTrack:
+        return "replayActiveTrack";
+    case RunInteractionAutomationAssertKind::ReplayHistoricalSamplePaused:
+        return "replayHistoricalSamplePaused";
+    case RunInteractionAutomationAssertKind::MemoryOverlayEnabled:
+        return "memoryOverlayEnabled";
     }
     return "unknown";
 }
@@ -411,6 +452,22 @@ void AppendReportAction( RunInteractionAutomationState& state,
     state.actionReports.push_back( report );
 }
 
+void InjectAutomationLeftMousePress( RunInteractionAutomationState& state,
+                                     RunInteractionAutomationAction& action,
+                                     int frame,
+                                     const SkullbonezCore::UI::UIRect& rect )
+{
+    POINT mouse = {};
+    mouse.x = static_cast<LONG>( rect.x + rect.w * 0.5f );
+    mouse.y = static_cast<LONG>( rect.y + rect.h * 0.5f );
+    state.mouseClientPosition = mouse;
+    state.hasMouseClientPosition = true;
+    state.leftMouseDown = true;
+    state.releaseLeftFrame = frame + 1;
+    action.mouse = mouse;
+    action.hasMouse = true;
+}
+
 void FailAutomation( RunInteractionAutomationState& state, const char* message )
 {
     state.failed = true;
@@ -461,6 +518,14 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         return true;
     }
 
+    if ( entry.contains( "scrubReplaySolverTrack" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::ScrubReplaySolverTrack;
+        outAction.numberValue = std::clamp( entry["scrubReplaySolverTrack"].get<float>(), 0.0f, 1.0f );
+        CopyText( outAction.text, sizeof( outAction.text ), "solver" );
+        return true;
+    }
+
     if ( entry.contains( "setReplayPredictionEnabled" ) )
     {
         outAction.type = RunInteractionAutomationActionType::SetReplayPredictionEnabled;
@@ -472,6 +537,19 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
     {
         outAction.type = RunInteractionAutomationActionType::ShowReplayScrubber;
         outAction.boolValue = ReadBool( entry["showReplayScrubber"] );
+        return true;
+    }
+
+    if ( entry.contains( "pressKey" ) )
+    {
+        outAction.type = RunInteractionAutomationActionType::PressKey;
+        const std::string keyName = entry["pressKey"].get<std::string>();
+        if ( !TryParseVirtualKey( keyName, outAction.keyVirtualKey ) )
+        {
+            outError = "unknown pressKey value: " + keyName;
+            return false;
+        }
+        CopyText( outAction.text, sizeof( outAction.text ), keyName );
         return true;
     }
 
@@ -556,6 +634,21 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         else if ( name == "gizmoVisible" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::GizmoVisible;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "replayActiveTrack" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayActiveTrack;
+            CopyText( outAction.text, sizeof( outAction.text ), member.value().get<std::string>() );
+        }
+        else if ( name == "replayHistoricalSamplePaused" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ReplayHistoricalSamplePaused;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "memoryOverlayEnabled" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::MemoryOverlayEnabled;
             outAction.boolValue = ReadBool( member.value() );
         }
         else
@@ -707,8 +800,11 @@ void Run::ClearInteractionAutomationInput()
 {
     m_interactionAutomation.leftMouseDown = false;
     m_interactionAutomation.rightMouseDown = false;
+    m_interactionAutomation.keyVirtualKey = 0;
+    m_interactionAutomation.keyDown = false;
     m_interactionAutomation.releaseLeftFrame = -1;
     m_interactionAutomation.releaseRightFrame = -1;
+    m_interactionAutomation.releaseKeyFrame = -1;
     Input::ClearAutomationState();
 }
 
@@ -735,6 +831,12 @@ void Run::TickInteractionAutomationBeforeInput()
     {
         state.rightMouseDown = false;
         state.releaseRightFrame = -1;
+    }
+    if ( state.releaseKeyFrame == frame )
+    {
+        state.keyVirtualKey = 0;
+        state.keyDown = false;
+        state.releaseKeyFrame = -1;
     }
 
     for ( RunInteractionAutomationAction& action : state.actions )
@@ -773,6 +875,16 @@ void Run::TickInteractionAutomationBeforeInput()
                                 nullptr,
                                 true,
                                 action.boolValue ? "prediction enabled" : "prediction disabled" );
+            action.processed = true;
+            break;
+        case RunInteractionAutomationActionType::PressKey:
+            // Why: key automation should still enter through Input and
+            // RuntimeInputContext edge detection. This only supplies the
+            // virtual-key state that a real keyboard would have provided.
+            state.keyVirtualKey = action.keyVirtualKey;
+            state.keyDown = true;
+            state.releaseKeyFrame = frame + 1;
+            AppendReportAction( state, frame, action.type, action.text, nullptr, true, "key press injected" );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ClickReplayControl:
@@ -909,6 +1021,45 @@ void Run::TickInteractionAutomationBeforeInput()
                                         "replay velocity control unavailable" );
                 }
             }
+            else if ( strcmp( action.text, "branch" ) == 0 )
+            {
+                const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
+                const int screenH = RuntimeWindowScreenHeight( m_systems, m_config );
+                const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
+                const bool branchTargetAvailable = m_replayRuntime.Scrubber().historicalSamplePaused &&
+                                                   m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver &&
+                                                   solverReplayStats.enabled && solverReplayStats.sampleCount >= 2 &&
+                                                   m_replayRuntime.CurrentSolverScrubSample() != nullptr;
+                if ( screenW > 0 && screenH > 0 && branchTargetAvailable )
+                {
+                    // Why: branch-restore proof clicks the visible Branch
+                    // rectangle after a scripted scrub, so
+                    // TickReplayScrubberInput remains the owner of the restore.
+                    const UI::UIRect branchButton = ReplayScrubberBranchButtonRect( screenW, screenH );
+                    InjectAutomationLeftMousePress( state, action, frame, branchButton );
+                    m_replayRuntime.Scrubber().visible = true;
+                    m_replayRuntime.Scrubber().visibleUntil =
+                        m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+                    AppendReportAction( state,
+                                        frame,
+                                        action.type,
+                                        action.text,
+                                        &action.mouse,
+                                        true,
+                                        "mouse press injected at branch restore button" );
+                }
+                else
+                {
+                    FailAutomation( state, "replay branch control unavailable" );
+                    AppendReportAction( state,
+                                        frame,
+                                        action.type,
+                                        action.text,
+                                        nullptr,
+                                        false,
+                                        "replay branch control unavailable" );
+                }
+            }
             else
             {
                 FailAutomation( state, "unsupported replay control in interaction script" );
@@ -922,6 +1073,47 @@ void Run::TickInteractionAutomationBeforeInput()
             }
             action.processed = true;
             break;
+        case RunInteractionAutomationActionType::ScrubReplaySolverTrack:
+        {
+            const int screenW = RuntimeWindowScreenWidth( m_systems, m_config );
+            const int screenH = RuntimeWindowScreenHeight( m_systems, m_config );
+            const ReplayRecorderStats solverReplayStats = m_replayRuntime.Solver().GetStats();
+            const bool solverToolsEnabled = solverReplayStats.enabled && solverReplayStats.sampleCount >= 2;
+            if ( screenW > 0 && screenH > 0 && solverToolsEnabled )
+            {
+                // Why: replay branch tests need a historical solver selection,
+                // but the selection still comes from the scrubber track hitbox
+                // and normal drag/release handling.
+                const UI::UIRect track = ReplayScrubberTrackRect( screenW, screenH, RunReplayTrack::Solver );
+                UI::UIRect target = track;
+                target.x = track.x + track.w * std::clamp( action.numberValue, 0.0f, 1.0f );
+                target.w = 1.0f;
+                InjectAutomationLeftMousePress( state, action, frame, target );
+                m_replayRuntime.Scrubber().visible = true;
+                m_replayRuntime.Scrubber().visibleUntil =
+                    m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+                AppendReportAction( state,
+                                    frame,
+                                    action.type,
+                                    action.text,
+                                    &action.mouse,
+                                    true,
+                                    "mouse press injected at solver replay track" );
+            }
+            else
+            {
+                FailAutomation( state, "replay solver scrub track unavailable" );
+                AppendReportAction( state,
+                                    frame,
+                                    action.type,
+                                    action.text,
+                                    nullptr,
+                                    false,
+                                    "replay solver scrub track unavailable" );
+            }
+            action.processed = true;
+            break;
+        }
         case RunInteractionAutomationActionType::ClickObject:
         {
             POINT mouse = {};
@@ -969,6 +1161,8 @@ void Run::TickInteractionAutomationBeforeInput()
     inputState.mouseClientPosition = state.mouseClientPosition;
     inputState.leftMouseDown = state.leftMouseDown;
     inputState.rightMouseDown = state.rightMouseDown;
+    inputState.keyVirtualKey = state.keyVirtualKey;
+    inputState.keyDown = state.keyDown;
     Input::SetAutomationState( inputState );
 }
 
@@ -1104,6 +1298,27 @@ void Run::TickInteractionAutomationAfterRender()
             passed = visible == action.boolValue;
             break;
         }
+        case RunInteractionAutomationAssertKind::ReplayActiveTrack:
+            expected = action.text;
+            actual = ReplayTrackName( m_replayRuntime.Scrubber().activeTrack );
+            passed = actual == expected;
+            break;
+        case RunInteractionAutomationAssertKind::ReplayHistoricalSamplePaused:
+        {
+            const bool paused = m_replayRuntime.Scrubber().historicalSamplePaused;
+            expected = BoolString( action.boolValue );
+            actual = BoolString( paused );
+            passed = paused == action.boolValue;
+            break;
+        }
+        case RunInteractionAutomationAssertKind::MemoryOverlayEnabled:
+        {
+            const bool enabled = m_UI.IsMemoryOverlayEnabled();
+            expected = BoolString( action.boolValue );
+            actual = BoolString( enabled );
+            passed = enabled == action.boolValue;
+            break;
+        }
         }
 
         strcpy_s( assertion.expected, sizeof( assertion.expected ), expected.c_str() );
@@ -1228,6 +1443,7 @@ void Run::WriteInteractionAutomationReport()
               { "selectedObject", selectedName },
               { "selectedModelIndex", selectedIndex },
               { "gizmoVisible", gizmoVisible },
+              { "memoryOverlayEnabled", m_UI.IsMemoryOverlayEnabled() },
               { "replayPredictionEnabled", m_replayRuntime.Prediction().enabled },
               { "replayPathTarget",
                 m_replayRuntime.PathVisualizer().hasTarget ? m_replayRuntime.PathVisualizer().targetName : "" },
@@ -1243,8 +1459,7 @@ void Run::WriteInteractionAutomationReport()
               { "predictionFutureNodeCount", static_cast<int>( m_replayRuntime.Prediction().futureNodes.size() ) },
               { "predictionFutureNodeBuildFrameCount",
                 static_cast<int>( m_replayRuntime.Prediction().futureNodesBuiltFrameCount ) },
-              { "replayActiveTrack",
-                m_replayRuntime.Scrubber().activeTrack == RunReplayTrack::Solver ? "Solver" : "Presentation" },
+              { "replayActiveTrack", ReplayTrackName( m_replayRuntime.Scrubber().activeTrack ) },
               { "replayHistoricalSamplePaused", m_replayRuntime.Scrubber().historicalSamplePaused },
               { "replaySolverTrackPosition", replaySolverTrackPosition },
               { "replaySolverPresentTrackPosition", replaySolverPresentTrackPosition },

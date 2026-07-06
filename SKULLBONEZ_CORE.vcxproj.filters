@@ -1483,6 +1483,12 @@
     <None Include="SkullbonezData\interaction\inspect_gizmo_click.json">
       <Filter>Scene Files</Filter>
     </None>
+    <None Include="SkullbonezData\interaction\memory_overlay_f6_toggle.json">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\interaction\replay_branch_restore_live_edge.json">
+      <Filter>Scene Files</Filter>
+    </None>
     <None Include="SkullbonezData\interaction\replay_prediction_click.json">
       <Filter>Scene Files</Filter>
     </None>

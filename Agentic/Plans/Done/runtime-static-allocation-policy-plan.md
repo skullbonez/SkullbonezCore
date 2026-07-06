@@ -307,6 +307,80 @@ Final strict-slice validation on 2026-07-06:
   exit 0 (`Agentic\Temp\allocation_guard_interaction_plan2_final.log`, elapsed
   ~2s).
 
+### 2026-07-06 Post-Duck Evidence Correction
+
+The branch review found that the earlier replay prediction reserve summary was
+honest about registered growth but not about units: `RuntimeReserveAllocator`
+enforces the capacity unit supplied by the caller, and
+`replay_prediction_working_set` was passing element counts. The correction makes
+the prediction owner register and request bytes:
+
+- `RunReplayPredictionHelpers.inl` now uses
+  `REPLAY_PREDICTION_RESERVE_HARD_BYTES = 256 * 1024 * 1024`.
+- Prediction vector growth requests pass byte counts with `elementSizeBytes=1`.
+- Per-frame prediction payload reserves batch aggregate frame payload bytes,
+  including dynamic `RunReplayPredictionFrame::debugContacts` growth, before
+  reserving the element counts on the actual vectors.
+
+Targeted final-build proof:
+
+```text
+Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\replay_prediction_click.json --interaction-report TestOutput\interaction\replay_prediction_click_report.json --frames 150 --replay on --replay-seconds 2 --fixed-step --vsync off --allocation-guard gameplay
+[runtime-reserve] owner=replay_prediction_working_set ... hard_capacity=268435456 high_water_capacity=98344960 replay_grows=8 failed_grows=0
+[allocation-guard] PASS: no steady gameplay allocations or reserve policy violations recorded by the guard.
+```
+
+```text
+Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json --interaction-script SkullbonezData\interaction\prediction_ragdoll_wall_200_predict.json --interaction-report TestOutput\interaction\prediction_ragdoll_wall_200_predict_report.json --frames 220 --replay on --replay-seconds 2 --fixed-step --vsync off --allocation-guard gameplay
+[interaction] Report written: TestOutput\interaction\prediction_ragdoll_wall_200_predict_report.json ok=1
+[runtime-reserve] owner=replay_prediction_working_set ... hard_capacity=268435456 high_water_capacity=18237996 replay_grows=7 failed_grows=0
+[allocation-guard] PASS: no steady gameplay allocations or reserve policy violations recorded by the guard.
+```
+
+The F6 memory overlay and branch-restore claims now have tracked interaction
+scripts instead of relying on untracked temp logs:
+
+```text
+Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_inspect_gizmo_harness.scene.json --interaction-script SkullbonezData\interaction\memory_overlay_f6_toggle.json --interaction-report TestOutput\interaction\memory_overlay_f6_toggle_report.json --frames 90 --vsync off --allocation-guard gameplay
+[interaction] Report written: TestOutput\interaction\memory_overlay_f6_toggle_report.json ok=1
+[allocation-guard] PASS: no steady gameplay allocations or reserve policy violations recorded by the guard.
+```
+
+`memory_overlay_f6_toggle_report.json` asserts
+`memoryOverlayEnabled expected=true actual=true passed=true` and captures
+`TestOutput/interaction/memory_overlay_f6_toggle.bmp`.
+
+```text
+Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\replay_branch_restore_live_edge.json --interaction-report TestOutput\interaction\replay_branch_restore_live_edge_report.json --frames 140 --replay on --replay-seconds 2 --fixed-step --vsync off
+[replay] Solver restore applied: restored hash match
+[interaction] Report written: TestOutput\interaction\replay_branch_restore_live_edge_report.json ok=1
+```
+
+`replay_branch_restore_live_edge_report.json` proves the UI branch path: it
+scrubs the solver track to history, clicks the Branch button, then asserts
+`replayActiveTrack=Solver`, `replayHistoricalSamplePaused=false`, and
+`replaySolverTrackAtPresent=true`, with screenshot
+`TestOutput/interaction/replay_branch_restore_live_edge.bmp`.
+
+Final post-duck validation on 2026-07-06:
+
+- `tools\validate_build.bat Profile` passed with 0 warnings/errors
+  (`Agentic\Temp\fix_all_above_profile_build.log`).
+- `tools\validate_format.bat` passed after formatting the touched interaction
+  automation source and input header
+  (`Agentic\Temp\fix_all_above_validate_format.log`).
+- `python tools\check_runtime_boundaries.py` passed with 0 errors after the
+  automation input state was kept in `Input.cpp` file-local `s_` state rather
+  than growing the counted mutable `g_` surface.
+- `tools\validate_perf.bat` passed with clean allocation-guard evidence for
+  `perf_1000`, `gameplay_violations=0`, `policy_violations=0`, no DX12 or
+  physics-bench perf regressions, and Profile/Debug builds with 0 warnings/
+  errors (`Agentic\Temp\fix_all_above_validate_perf.log`).
+- `tools\validate_full.bat` passed the broad default gate, including project
+  filters, runtime boundaries, formatting, DX12 InfoQueue 0, DX12 screenshots
+  matching committed baselines, and byte-exact `physics_regression_solver.csv`
+  (`Agentic\Temp\fix_all_above_validate_full.log`).
+
 ### 2026-07-06 Store Dynamic Container Correction
 
 Post-completion review caught that `PhysicsBodyStore` and `ColliderStore` still
