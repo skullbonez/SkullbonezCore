@@ -20,7 +20,8 @@ Glossary:
   Body descriptor: PhysicsScene-owned authoring value that can rebuild a live
     PhysicsBodyStore row without reading GameModel physics fields.
   Render instance store: Renderer-facing snapshot built once before frame passes
-    so draw code can read physics-owned transforms without GameModel pose copies.
+    so draw code can read physics-owned transforms and render-owned presentation
+    rows without GameModel pose copies.
   Topology drift: A body/collider/model count mismatch that means stores must
     import explicit construction descriptors before stepping.
   Scene-object group: Cold metadata that maps multi-part authored objects, such
@@ -47,6 +48,8 @@ Invariants:
   - Collider shape/material data is imported into ColliderStore at create,
     edit, config, or topology-repair boundaries; the collection does not keep a
     second collider-authoring cache.
+  - Render presentation records live in RenderInstanceStore. Collection only
+    supplies model-owned material/name/highlight values at the cold refresh edge.
   - Replay body ids are derived from scene object ids at creation and stored on
     PhysicsBodyStore rows so diagnostics can identify bodies without reopening
     GameModel.
@@ -173,9 +176,6 @@ class GameModelCollection
     int m_activeGameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY; // Configured model cap used by append/reserve guards.
     bool m_renderCollisionVolumes = false;                       // Cached render debug toggle copied from EngineConfig.
     bool m_shadowParallelPrep = false;                           // Cached worker-prep toggle copied from EngineConfig.
-    std::vector<Rendering::RenderInstancePresentationRecord>
-        m_renderPresentationRecords;                             // Render-facing material/highlight values keyed by model slot.
-
     void ReserveForActiveGameModelCapacity();
     SceneObjectGroupRecord BuildSceneObjectGroupForAppend( const GameModel& gameModel,
                                                            int newModelIndex,
@@ -329,7 +329,7 @@ class GameModelCollection
     const Rendering::RenderInstanceStore& RenderInstances() const;
     const std::vector<Rendering::RenderInstancePresentationRecord>& RenderPresentationRecords() const
     {
-        return m_renderPresentationRecords;
+        return m_physicsEngine.RenderPresentationRecords();
     }
     const char* DisplayNameAt( int modelIndex ) const;
     int FindModelIndexByDisplayName( const char* name ) const;

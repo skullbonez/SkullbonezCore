@@ -365,6 +365,39 @@ bool PhysicsScene::PrepareRenderStoreRefresh( int expectedModelCount )
 }
 
 
+void PhysicsScene::ReserveRenderPresentationCapacity( std::size_t capacity )
+{
+    m_renderInstanceStore.ReservePresentationCapacity( capacity );
+}
+
+
+bool PhysicsScene::ResizeRenderPresentationRecords( int presentationCount )
+{
+    return m_renderInstanceStore.ResizePresentationRecords( presentationCount );
+}
+
+
+SkullbonezCore::Rendering::RenderInstancePresentationRecord*
+PhysicsScene::MutableRenderPresentationRecordForModelIndex( int modelIndex )
+{
+    return m_renderInstanceStore.MutablePresentationRecordForModelIndex( modelIndex );
+}
+
+
+const std::vector<SkullbonezCore::Rendering::RenderInstancePresentationRecord>&
+PhysicsScene::RenderPresentationRecords() const
+{
+    return m_renderInstanceStore.PresentationRecords();
+}
+
+
+bool PhysicsScene::RefreshRenderInstancesFromPresentation()
+{
+    m_renderInstanceStore.Refresh( m_bodyStore, m_colliderStore );
+    return m_renderInstanceStore.Count() == m_bodyStore.Count();
+}
+
+
 SkullbonezCore::Rendering::RenderInstanceStore& PhysicsScene::MutableRenderInstances()
 {
     return m_renderInstanceStore;

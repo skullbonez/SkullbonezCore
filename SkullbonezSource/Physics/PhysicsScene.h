@@ -124,10 +124,15 @@ class PhysicsScene
     // Rebinds existing collider rows against the already-current body store.
     // Count drift must be fixed by the creator/editor path that owns shape data.
     bool RefreshColliderSnapshot();
-    // Prepares body/collider rows for the owner-side render projection refresh.
-    // The collection owner fills material/highlight facts after this returns.
+    // Prepares body/collider rows for the render-store projection refresh. The
+    // collection owner fills render presentation rows after this returns.
     bool PrepareRenderStoreRefresh( int expectedModelCount );
-    // Mutable only for the cold collection-owned render projection edge.
+    void ReserveRenderPresentationCapacity( std::size_t capacity );
+    bool ResizeRenderPresentationRecords( int presentationCount );
+    Rendering::RenderInstancePresentationRecord* MutableRenderPresentationRecordForModelIndex( int modelIndex );
+    const std::vector<Rendering::RenderInstancePresentationRecord>& RenderPresentationRecords() const;
+    bool RefreshRenderInstancesFromPresentation();
+    // Mutable only for replay/render presentation pose overrides.
     Rendering::RenderInstanceStore& MutableRenderInstances();
     void RunPhysics( float fChangeInTime,
                      const Basics::EngineConfig& config,

@@ -91,15 +91,56 @@ RenderInstanceShapeKind ShapeKindFromCollider( ColliderShapeKind shapeKind )
 
 RenderInstanceStore::RenderInstanceStore()
 {
+    m_presentationRecords.reserve( MAX_GAME_MODELS );
     m_instances.reserve( MAX_GAME_MODELS );
     m_modelInstanceHandles.reserve( MAX_GAME_MODELS );
 }
 
 
+void RenderInstanceStore::ReservePresentationCapacity( std::size_t capacity )
+{
+    m_presentationRecords.reserve( capacity );
+}
+
+
+bool RenderInstanceStore::ResizePresentationRecords( int presentationCount )
+{
+    if ( presentationCount < 0 )
+    {
+        return false;
+    }
+    m_presentationRecords.resize( static_cast<std::size_t>( presentationCount ) );
+    return true;
+}
+
+
+RenderInstancePresentationRecord* RenderInstanceStore::MutablePresentationRecordForModelIndex( int modelIndex )
+{
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_presentationRecords.size() ) )
+    {
+        return nullptr;
+    }
+    return &m_presentationRecords[static_cast<std::size_t>( modelIndex )];
+}
+
+
+const std::vector<RenderInstancePresentationRecord>& RenderInstanceStore::PresentationRecords() const
+{
+    return m_presentationRecords;
+}
+
+
 void RenderInstanceStore::Clear()
 {
+    m_presentationRecords.clear();
     m_instances.clear();
     m_modelInstanceHandles.clear();
+}
+
+
+void RenderInstanceStore::Refresh( const PhysicsBodyStore& bodyStore, const ColliderStore& colliderStore )
+{
+    Refresh( m_presentationRecords, bodyStore, colliderStore );
 }
 
 

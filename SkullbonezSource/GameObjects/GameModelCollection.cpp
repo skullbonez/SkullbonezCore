@@ -18,7 +18,7 @@ Glossary:
   Body descriptor: PhysicsScene-owned authoring value that can rebuild a live
     PhysicsBodyStore row without reading GameModel physics fields.
   Render instance store: Renderer-facing snapshot built from physics-owned pose
-    and model-owned material/presentation state before frame passes.
+    and render-owned presentation rows before frame passes.
   Collider descriptor: Value packet containing shape/material facts that
     PhysicsScene turns into a live ColliderStore row.
   Topology drift: A body/collider/model count mismatch that means stores must
@@ -43,6 +43,8 @@ Invariants:
     code must not rebuild model-derived pose streams.
   - Owner-side release paths repair topology once before resolving body handles
     from PhysicsBodyStore.
+  - Render presentation records live in RenderInstanceStore. Collection only
+    supplies model-owned material/name/highlight values at the cold refresh edge.
 
 Related:
   - SkullbonezSource/GameObjects/GameModelCollection.h
@@ -134,7 +136,7 @@ void GameModelCollection::ReserveForActiveGameModelCapacity()
     m_gameModels.reserve( capacity );
     m_sceneObjectGroups.reserve( capacity );
     m_physicsEngine.ReserveAuthoredBodyCapacity( capacity );
-    m_renderPresentationRecords.reserve( capacity );
+    m_physicsEngine.ReserveRenderPresentationCapacity( capacity );
 }
 
 
@@ -382,7 +384,6 @@ void GameModelCollection::Clear()
 {
     m_gameModels.clear();
     m_sceneObjectGroups.clear();
-    m_renderPresentationRecords.clear();
     m_physicsEngine.Clear();
 }
 
@@ -1159,25 +1160,32 @@ void GameModelCollection::RefreshRenderInstances()
     {
         return;
     }
-    // Owner boundary: model material and presentation highlight values still
-    // live in GameModelCollection. Physics prepares body/collider rows; this
-    // cold projection edge packages the remaining render-facing facts once.
-    Rendering::RenderInstanceStore& renderInstanceStore = m_physicsEngine.MutableRenderInstances();
-    const PhysicsBodyStore& bodyStore = m_physicsEngine.BodyStore();
-    const ColliderStore& colliderStore = m_physicsEngine.Colliders();
-    m_renderPresentationRecords.resize( static_cast<std::size_t>( modelCount ) );
+    if ( !m_physicsEngine.ResizeRenderPresentationRecords( modelCount ) )
+    {
+        return;
+    }
+    // Owner boundary: model material and highlight values still live in
+    // GameModelCollection, but the render-facing presentation rows belong to
+    // RenderInstanceStore before physics/store projection creates draw records.
     for ( int i = 0; i < modelCount; ++i )
     {
         const GameModel& model = m_gameModels[static_cast<std::size_t>( i )];
-        Rendering::RenderInstancePresentationRecord& presentation =
-            m_renderPresentationRecords[static_cast<std::size_t>( i )];
-        presentation.material = model.GetRenderMaterial();
-        strncpy_s( presentation.displayName, sizeof( presentation.displayName ), model.GetName(), _TRUNCATE );
-        presentation.simpleRagdollPart = IsSimpleRagdollPart( i );
-        presentation.fixedContactAlpha = model.GetFixedContactHighlightAlpha();
-        presentation.audioContactAlpha = model.GetAudioContactHighlightAlpha();
+        Rendering::RenderInstancePresentationRecord* presentation =
+            m_physicsEngine.MutableRenderPresentationRecordForModelIndex( i );
+        if ( !presentation )
+        {
+            return;
+        }
+        presentation->material = model.GetRenderMaterial();
+        strncpy_s( presentation->displayName, sizeof( presentation->displayName ), model.GetName(), _TRUNCATE );
+        presentation->simpleRagdollPart = IsSimpleRagdollPart( i );
+        presentation->fixedContactAlpha = model.GetFixedContactHighlightAlpha();
+        presentation->audioContactAlpha = model.GetAudioContactHighlightAlpha();
     }
-    renderInstanceStore.Refresh( m_renderPresentationRecords, bodyStore, colliderStore );
+    if ( !m_physicsEngine.RefreshRenderInstancesFromPresentation() )
+    {
+        return;
+    }
 #ifdef _DEBUG
     m_physicsEngine.ValidateRenderStore( modelCount );
 #endif

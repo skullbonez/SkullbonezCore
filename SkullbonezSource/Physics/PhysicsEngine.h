@@ -111,9 +111,14 @@ class PhysicsEngine
     // rows are a topology bug, not a cue to rebuild shape facts from authoring
     // storage.
     bool RefreshColliderSnapshot();
-    // Prepares body/collider rows for the owner-side render projection refresh.
-    // The collection owner fills material/highlight facts after this returns.
+    // Prepares body/collider rows for the render-store projection refresh. The
+    // collection owner fills render presentation rows after this returns.
     bool PrepareRenderStoreRefresh( int expectedModelCount );
+    void ReserveRenderPresentationCapacity( std::size_t capacity );
+    bool ResizeRenderPresentationRecords( int presentationCount );
+    Rendering::RenderInstancePresentationRecord* MutableRenderPresentationRecordForModelIndex( int modelIndex );
+    const std::vector<Rendering::RenderInstancePresentationRecord>& RenderPresentationRecords() const;
+    bool RefreshRenderInstancesFromPresentation();
     // Applies a one-frame draw-pose override to the prepared render snapshot.
     // Replay uses this after normal projection refresh so historical/future
     // poses affect pixels without mutating body rows or authoring descriptors.
@@ -121,7 +126,7 @@ class PhysicsEngine
                                      uint32_t replayBodyId,
                                      const Math::Vector::Vector3& position,
                                      const Math::Orientation::Quaternion& orientation );
-    // Mutable only for the cold collection-owned render projection edge.
+    // Mutable only for replay/render presentation pose overrides.
     Rendering::RenderInstanceStore& MutableRenderInstances();
     // Steps the owned stores. Model-order descriptor import lives with
     // the collection owner so the solver path does not rebuild authoring values.

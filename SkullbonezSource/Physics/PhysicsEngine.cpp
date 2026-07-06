@@ -188,6 +188,38 @@ bool PhysicsEngine::PrepareRenderStoreRefresh( int expectedModelCount )
 }
 
 
+void PhysicsEngine::ReserveRenderPresentationCapacity( std::size_t capacity )
+{
+    m_scene.ReserveRenderPresentationCapacity( capacity );
+}
+
+
+bool PhysicsEngine::ResizeRenderPresentationRecords( int presentationCount )
+{
+    return m_scene.ResizeRenderPresentationRecords( presentationCount );
+}
+
+
+SkullbonezCore::Rendering::RenderInstancePresentationRecord*
+PhysicsEngine::MutableRenderPresentationRecordForModelIndex( int modelIndex )
+{
+    return m_scene.MutableRenderPresentationRecordForModelIndex( modelIndex );
+}
+
+
+const std::vector<SkullbonezCore::Rendering::RenderInstancePresentationRecord>&
+PhysicsEngine::RenderPresentationRecords() const
+{
+    return m_scene.RenderPresentationRecords();
+}
+
+
+bool PhysicsEngine::RefreshRenderInstancesFromPresentation()
+{
+    return m_scene.RefreshRenderInstancesFromPresentation();
+}
+
+
 bool PhysicsEngine::OverrideRenderInstancePose( int modelIndex,
                                                 uint32_t replayBodyId,
                                                 const Math::Vector::Vector3& position,
