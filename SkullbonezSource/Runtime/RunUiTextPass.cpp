@@ -30,6 +30,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RunInternal.h"
+#include "Allocation/RuntimeReserveAllocator.h"
 #include "../Core/WorkerPool.h"
 #include "../UI/UIDraw.h"
 #include "../UI/UIStyle.h"
@@ -78,7 +79,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     m_host.m_timers.timeSinceLastRender += static_cast<float>( m_host.m_timers.updateTimer.GetElapsedTime() );
     m_host.m_timers.updateTimer.StartTimer();
 
-    const double currentSceneEnergy = m_host.m_cGameModelCollection.GetSceneKineticEnergy();
+    const double currentSceneEnergy = inputs.models.sceneKineticEnergy;
     m_host.m_timers.sceneEnergyAccumulator += currentSceneEnergy;
     ++m_host.m_timers.sceneEnergySampleCount;
 
@@ -536,9 +537,29 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.currentSceneIndex = view.sceneIndex;
         UIData.sceneCount = view.sceneCount;
         UIData.now = m_host.m_timers.simulationTimer.GetTotalTime();
-        if ( m_host.m_UI.GetActiveTab() == InGameUITab::Profiler )
+        const bool memoryTabActive = m_host.m_UI.IsVisible() && !m_host.m_UI.IsMinimized() &&
+                                     m_host.m_UI.GetActiveTab() == InGameUITab::Memory;
+        const bool memoryOverlayEnabled = m_host.m_UI.IsMemoryOverlayEnabled();
+        if ( memoryTabActive )
         {
-            UIData.mainMemory = m_host.RefreshMainMemoryStats( UIData.now );
+            UIData.mainMemory = m_host.RefreshMainMemoryStats( UIData.now, inputs.models.gameObjectMemory );
+        }
+        else if ( memoryOverlayEnabled )
+        {
+            // Why: F6 stays event/counter driven. Merely leaving the overlay up
+            // must not start a process-memory or replay-memory sampling heartbeat.
+            UIData.mainMemory = m_host.BuildMainMemoryOverlayStats( inputs.models.gameObjectMemory );
+        }
+        if ( memoryTabActive || memoryOverlayEnabled )
+        {
+            UIData.reserveGrowthEventTotalCount =
+                SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::GrowthEventCount();
+            UIData.reserveGrowthEventDroppedCount =
+                SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::GrowthEventDroppedCount();
+            UIData.reserveGrowthEventCount =
+                SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::CopyRecentGrowthEvents(
+                    UIData.reserveGrowthEvents,
+                    SkullbonezCore::UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX );
         }
         UIData.sceneMode = view.sceneMode;
         UIData.scenePhysicsEnabled = view.scenePhysics;
@@ -796,7 +817,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         PROFILE_END( "Frame/UI/PostFlushText" );
         if ( m_host.m_UI.IsVisible() )
         {
-            m_host.RenderReplayScrubberOverlay( inputs.uiRender );
+            m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
             return;
         }
     }
@@ -804,7 +825,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     // --- Overlay: None ---
     if ( m_host.m_debug.overlayMode == OverlayMode::None )
     {
-        m_host.RenderReplayScrubberOverlay( inputs.uiRender );
+        m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
         {
             DRAW_CALL_TRACE_SCOPE( "HUD" );
             Text2d::FlushText( renderCommands );
@@ -850,7 +871,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                                    0.85f,
                                    "Scene Energy: %.6f",
                                    sceneEnergyForDisplay );
-        m_host.RenderReplayScrubberOverlay( inputs.uiRender );
+        m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
         {
             DRAW_CALL_TRACE_SCOPE( "SceneStats" );
             Text2d::FlushText( renderCommands );
@@ -871,7 +892,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
         const bool absolute = ( m_host.m_debug.overlayMode == OverlayMode::BarsAbsolute );
         profiler.RenderBarOverlay( renderCommands, panX, panY, panW, panH, absolute );
-        m_host.RenderReplayScrubberOverlay( inputs.uiRender );
+        m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
         {
             DRAW_CALL_TRACE_SCOPE( "ProfilerBars" );
             Text2d::FlushText( renderCommands );
@@ -886,7 +907,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float titleSz = 0.013f;
         const float entrySz = 0.011f;
         const float lineH = 0.020f;
-        const int nRows = 14;
+        const int nRows = 15;
         const float panPad = 0.012f;
         const float titleGap = 0.016f; // space between title baseline and first entry
         const float keyW = 0.058f;     // key-name column width
@@ -934,6 +955,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             { "Space", "Play paused scene" },
             { "R/Bksp", "Reset scene" },
             { "F3", "Screenshot" },
+            { "F5", "CPU histogram" },
         };
         static const KeyEntry kRight[nRows] = {
             { "Esc", "Min/expand UI" },
@@ -950,6 +972,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             { "O", "Terrain probe" },
             { "PgUp/Dn", "Water height" },
             { "F7/F8", "Pipeline stage" },
+            { "F6", "Memory waterline" },
         };
 
         for ( int i = 0; i < nRows; ++i )
@@ -961,7 +984,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             Text2d::Render2dTextColor( col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
         }
 
-        m_host.RenderReplayScrubberOverlay( inputs.uiRender );
+        m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
         {
             DRAW_CALL_TRACE_SCOPE( "Keys" );
             Text2d::FlushText( renderCommands );
@@ -987,7 +1010,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     }
 #endif
 
-    m_host.RenderReplayScrubberOverlay( inputs.uiRender );
+    m_host.RenderReplayScrubberOverlay( inputs.uiRender, inputs.models );
     {
         DRAW_CALL_TRACE_SCOPE( "ProfilerOverlay" );
         Text2d::FlushText( renderCommands );

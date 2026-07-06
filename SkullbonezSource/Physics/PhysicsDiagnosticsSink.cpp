@@ -68,8 +68,8 @@ bool SkullbonezCore::Physics::TryBuildPhysicsDiagnosticsModelRecord( int index,
     outRecord.inverseMass = bodyRecord.invMass;
 
     // Why: regression CSV diagnostics are emitted after the solver, so body and
-    // shape state must come from the stores just written by the step. GameModel
-    // is allowed to contribute only the cold presentation name.
+    // shape state must come from the stores just written by the step. The
+    // scene/model edge contributes only the cold presentation name.
     std::visit(
         [&]( const auto& shape )
         {

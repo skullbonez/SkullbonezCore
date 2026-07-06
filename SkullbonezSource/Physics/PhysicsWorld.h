@@ -38,6 +38,7 @@ Related:
 #include <utility>
 #include <vector>
 
+#include "ColliderStore.h"
 #include "PersistentContactSolver.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsDiagnosticsSink.h"
@@ -104,8 +105,8 @@ class PhysicsWorld
     // supported and quiet can stop integrating until something wakes them. The
     // "supported" and "inhibited" arrays are rebuilt each frame from contacts.
     // PhysicsBodyStore owns the persisted sleep flag; m_sleepState is the
-    // solver's model-indexed compatibility mirror for existing diagnostics and
-    // sleep algorithms. A fully submerged sleeping sphere also gets a one-way
+    // solver's model-indexed working copy for existing diagnostics and sleep
+    // algorithms. A fully submerged sleeping sphere also gets a one-way
     // lock so water-floor balls behave like static rocks instead of rejoining
     // buoyancy/contact churn.
     std::vector<uint8_t> m_sleepSupportedThisFrame;
@@ -118,9 +119,9 @@ class PhysicsWorld
     std::vector<int>
         m_tornadoFixedTreeReleaseWakeBodies; // Reused tornado release wake list; avoids reload/allocation churn.
 
-    // Debug visualization state. These arrays intentionally mirror model index
-    // order so render/debug code can look up one byte/id per GameModel without
-    // doing map lookups in the overlay path.
+    // Debug visualization state. These arrays intentionally mirror scene/model
+    // slot order so render/debug code can look up one byte/id without map
+    // lookups in the overlay path.
     std::vector<uint8_t> m_collisionVisualContacts;
     std::vector<int> m_sleepIslandVisualId;
     std::vector<int> m_sleepIslandAssignedVisualId;
@@ -249,7 +250,8 @@ class PhysicsWorld
     struct ObjectNarrowphaseIsland
     {
         int minPairIndex = 0;
-        std::vector<int> pairIndices;
+        size_t firstPairOffset = 0;
+        size_t pairCount = 0;
     };
 
     // Persistent rows and diagnostics produced during the current fixed tick.
@@ -268,9 +270,13 @@ class PhysicsWorld
     std::vector<TerrainDetectionCandidate> m_terrainDetectionCandidates;
     std::vector<ObjectNarrowphaseEvent> m_objectNarrowphaseEvents;
     std::vector<ObjectNarrowphaseIsland> m_objectNarrowphaseIslands;
+    std::vector<int> m_objectNarrowphaseIslandPairIndices;
+    std::vector<size_t> m_objectNarrowphaseIslandWriteOffsets;
     std::vector<int> m_objectNarrowphaseParent;
     std::vector<uint8_t> m_objectNarrowphaseRank;
     std::vector<int> m_objectNarrowphaseRootToIsland;
+    std::vector<uint8_t> m_restingWakeVisitedScratch;
+    std::vector<int> m_restingWakeQueueScratch;
     std::vector<PointJointConstraint> m_pointJointConstraints;
     std::vector<int64_t> m_collisionCellKeys;
     std::array<uint8_t, MAX_GAME_MODELS> m_terrainRestApplied = {};
@@ -328,18 +334,18 @@ class PhysicsWorld
                             float dt,
                             const Basics::EngineConfig& runtimeConfig,
                             Threading::WorkerPool& workerPool );
-    void PropagateSleepSupport( const std::vector<PhysicsBodyRecord>& bodyRecords );
+    void PropagateSleepSupport( const PhysicsBodyRecordList& bodyRecords );
     void AppendPointJointSupportEdges( const PhysicsBodyStore& bodyStore, int modelCount );
     void ForgetPersistentContactCacheForBody( int bodyIndex );
     void WakeModel( int bodyCount,
-                    const std::vector<PhysicsBodyRecord>& bodyRecords,
+                    const PhysicsBodyRecordList& bodyRecords,
                     PhysicsBodyStore* bodyStore,
                     const ColliderStore* colliderStore,
                     const PhysicsWorldForces* worldForces,
                     int index );
-    void SeedModelAsleep( int bodyCount, const std::vector<PhysicsBodyRecord>& bodyRecords, int index );
+    void SeedModelAsleep( int bodyCount, const PhysicsBodyRecordList& bodyRecords, int index );
     bool WakeDynamicBodyState( int bodyCount,
-                               const std::vector<PhysicsBodyRecord>& bodyRecords,
+                               const PhysicsBodyRecordList& bodyRecords,
                                PhysicsBodyStore* bodyStore,
                                int index,
                                float dt,
@@ -347,7 +353,7 @@ class PhysicsWorld
                                const PhysicsWorldForces* worldForces = nullptr,
                                const ColliderStore* colliderStore = nullptr );
     void WakeSleepVisualIsland( int bodyCount,
-                                const std::vector<PhysicsBodyRecord>& bodyRecords,
+                                const PhysicsBodyRecordList& bodyRecords,
                                 PhysicsBodyStore* bodyStore,
                                 int index,
                                 float dt,
@@ -355,7 +361,7 @@ class PhysicsWorld
                                 const PhysicsWorldForces* worldForces = nullptr,
                                 const ColliderStore* colliderStore = nullptr );
     void WakePointJointIsland( int bodyCount,
-                               const std::vector<PhysicsBodyRecord>& bodyRecords,
+                               const PhysicsBodyRecordList& bodyRecords,
                                PhysicsBodyStore* bodyStore,
                                int index,
                                float dt,
@@ -363,7 +369,7 @@ class PhysicsWorld
                                const PhysicsWorldForces* worldForces = nullptr,
                                const ColliderStore* colliderStore = nullptr );
     void WakeRestingContactIsland( int bodyCount,
-                                   const std::vector<PhysicsBodyRecord>& bodyRecords,
+                                   const PhysicsBodyRecordList& bodyRecords,
                                    PhysicsBodyStore* bodyStore,
                                    int index,
                                    float dt,
@@ -403,7 +409,7 @@ class PhysicsWorld
                               const char* const* diagnosticNames,
                               int diagnosticNameCount );
     // Wake and seed decisions read physics-owned fixed/sleep state before the
-    // scene edge performs any compatibility writeback/cache invalidation.
+    // scene edge performs any owner-side cache invalidation.
     void WakeModel( PhysicsBodyStore& bodyStore, int index );
     void WakeModel( PhysicsBodyStore& bodyStore,
                     const ColliderStore& colliderStore,
@@ -433,7 +439,7 @@ class PhysicsWorld
     const std::vector<uint8_t>& GetCollisionVisualContacts() const;
     const std::vector<int>& GetFixedContactHighlightBodies() const;
     // Returns solver-emitted fixed-tree releases from the latest step. The
-    // scene edge applies them before diagnostics and compatibility writeback.
+    // scene edge applies them before diagnostics and owner-side projection.
     const std::vector<PhysicsFixedTreeReleaseEvent>& GetFixedTreeReleaseEvents() const;
     const std::vector<uint8_t>& GetSleepStates() const;
     const std::vector<int>& GetSleepIslandVisualIds() const;
@@ -488,8 +494,8 @@ struct PersistentContactSolverContext
     std::array<uint8_t, MAX_GAME_MODELS>& terrainRestApplied;
     std::vector<uint8_t>& sleepSupportedThisFrame;
     PersistentContactSolverSideEffects& sideEffects;
-    std::vector<PhysicsBodyRecord>& bodyRecords;
-    const std::vector<ColliderRecord>& colliderRecords;
+    PhysicsBodyRecordList& bodyRecords;
+    const ColliderRecordList& colliderRecords;
     int bodyStoreCount = 0;
     int pipelineRecordCapacity = 0;
     const Basics::EngineConfig& config;

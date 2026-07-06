@@ -94,6 +94,7 @@ PHYSICS_PREFIXES = (
     "PhysicsDiagnosticsModel",
     "PhysicsDiagnosticsSink",
     "PhysicsEngine",
+    "PhysicsFixedList",
     "PhysicsHandles",
     "PhysicsMass",
     "PhysicsModelAccess",
@@ -226,6 +227,11 @@ RUNTIME_AUDIO_PREFIXES = (
     "ContactAudioService",
 )
 
+RUNTIME_ALLOCATION_PREFIXES = (
+    "RuntimeAllocationTracker",
+    "RuntimeReserveAllocator",
+)
+
 RUNTIME_REPLAY_PREFIXES = (
     "ReplayExporter",
     "ReplayOverlayLayout",
@@ -293,6 +299,7 @@ CORE_PREFIXES = (
 AREA_PREFIXES = (
     ("Rendering\\DX12", DX12_RENDERING_PREFIXES),
     ("Runtime\\Scene", RUNTIME_SCENE_PREFIXES),
+    ("Runtime\\Allocation", RUNTIME_ALLOCATION_PREFIXES),
     ("Runtime\\Audio", RUNTIME_AUDIO_PREFIXES),
     ("Runtime\\Replay", RUNTIME_REPLAY_PREFIXES),
     ("Runtime\\Render", RUNTIME_RENDER_PREFIXES),

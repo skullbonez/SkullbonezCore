@@ -12,7 +12,9 @@ Glossary:
   CSV (Comma-Separated Values): Text table format used for perf and physics
   regression output.
   NDJSON (Newline-Delimited JSON): One JSON object per line, used by SkullScope
-  traces so tools can stream bounded queries.
+    traces so tools can stream bounded queries.
+  Private working set: Resident process pages not shared with other processes;
+    matching it requires a page-level OS query.
   SkullScope: Queryable physics diagnostics trace workflow used instead of
     loading raw traces into model context.
   Contact-audio frame aggregate: One diagnostic row summarizing how many raw
@@ -97,7 +99,9 @@ struct RuntimePerfTickContext
 class RuntimeDiagnostics
 {
   public:
-    static MainMemoryProcessStats SampleProcessMemory();
+    // Samples cheap process counters; includePrivateWorkingSet adds a
+    // full resident-page walk for diagnostics that need Task Manager parity.
+    static MainMemoryProcessStats SampleProcessMemory( bool includePrivateWorkingSet );
     static void ClosePerfLog( RunPerfLogState& perfLog );
     static void ClosePerfLogWithMemoryCheckpoint( RunPerfLogState& perfLog, int pass, const char* checkpoint );
     static void LogPerfMemory( RunPerfLogState& perfLog, int pass, const char* checkpoint );

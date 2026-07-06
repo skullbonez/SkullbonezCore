@@ -4,9 +4,9 @@ Purpose:
   Owns deterministic body-order mutable physics state during simulation.
 
 Mental model:
-  GameModelCollection is still the compatibility adapter for legacy scenes, but
-  physics-facing body data now has an explicit owner. Compatibility refreshes
-  preserve model order; standalone creation owns dense body rows directly.
+  Physics-facing body data has an explicit owner. Scene/model authoring code
+  submits descriptor values at creation and topology-repair boundaries, while
+  standalone creation owns dense body rows directly.
 
 Glossary:
   Body: Simulated object state consumed by the physics step.
@@ -20,14 +20,14 @@ Glossary:
     release higher parts in the same tree group.
 
 Invariants:
-  - Compatibility body records stay in GameModelCollection physics model order.
+  - Runtime body records stay in scene/model slot order.
   - Standalone-created records stay dense; handles map allocator slots to the
     current dense row.
   - Public body handles are allocator-owned identities; model-order arrays use
     explicit maps instead of encoding model index inside the handle.
-  - Store refreshes load compatibility GameModel authoring state into the
-    physics-owned body records before a step or explicit editor/replay commit.
-  - Steady-frame pose, velocity, and sleep state do not copy back to GameModel;
+  - Store refreshes load descriptor rows into physics-owned body records before
+    a step or explicit editor/replay commit.
+  - Steady-frame pose, velocity, and sleep state do not copy back to authoring data;
     readers must use the body, collider, render, or diagnostics stores.
 
 Related:
@@ -41,8 +41,10 @@ Related:
 #include <vector>
 
 #include "PhysicsHandles.h"
+#include "PhysicsFixedList.h"
 #include "../Maths/Quaternion.h"
 #include "../Maths/Vector3.h"
+#include "../Core/Common.h"
 
 namespace SkullbonezCore
 {
@@ -51,30 +53,26 @@ namespace Geometry
 class Terrain;
 }
 
-namespace GameObjects
-{
-class GameModel;
-}
-
 namespace Physics
 {
 class ColliderStore;
+struct PhysicsBodyCreateDesc;
 struct PhysicsWorldForces;
 
 // Describes one fixed-tree release source. Solver and tornado code pass this
 // value to the store so released parts inherit deterministic seed velocities.
 struct PhysicsFixedTreeReleaseEvent
 {
-    int sourceIndex = -1;                              // Body row whose release triggers same-tree propagation.
+    int sourceIndex = -1;                                                                      // Body row whose release triggers same-tree propagation.
     Math::Vector::Vector3 seedLinearVelocity = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 seedAngularVelocity = Math::Vector::ZERO_VECTOR;
 };
 
 struct PhysicsBodyRecord
 {
-    PhysicsBodyHandle handle;                          // Stable body handle resolved through the store maps.
-    PhysicsSceneObjectId sceneObjectId;                // Scene-local id supplied once by the creation owner.
-    uint32_t replayBodyId = 0;                         // Legacy replay id derived from sceneObjectId for traces/replay.
+    PhysicsBodyHandle handle;                                                                  // Stable body handle resolved through the store maps.
+    PhysicsSceneObjectId sceneObjectId;                                                        // Scene-local id supplied once by the creation owner.
+    uint32_t replayBodyId = 0;                                                                 // Legacy replay id derived from sceneObjectId for traces/replay.
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
@@ -83,33 +81,33 @@ struct PhysicsBodyRecord
     Math::Vector::Vector3 invRotationalInertia = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 pendingImpulse = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 pendingImpulseApplicationPoint = Math::Vector::ZERO_VECTOR;
-    Geometry::Terrain* terrain = nullptr;              // Borrowed terrain pointer copied from the compatibility model.
-    float mass = 0.0f;                                 // Authoring mass; fixed bodies still report mass.
-    float invMass = 0.0f;                              // Solver inverse mass; fixed bodies use zero.
-    float boundingRadius = 0.0f;                       // Conservative radius for body-level release/spin policy.
-    float volume = 0.0f;                               // Cached body volume used by buoyancy force math.
-    float projectedSurfaceArea = 0.0f;                 // Cached drag area used by world-force integration.
-    float dragCoefficient = 0.0f;                      // Cached drag coefficient used by world-force integration.
-    float submergedVolumePercent = 0.0f;               // Targeted water snapshot for underwater sleep gates.
-    float contactReleaseImpulseThreshold = 1.0f;       // Minimum contact impulse before authored fixed props release.
-    float angularVelocityLimit = 5.0f;                 // Per-body spin cap applied before force integration.
-    float contactEpsilon = 0.05f;                      // Terrain proximity tolerance used by buoyancy support damping.
-    int fixedTreeReleaseRootIndex = -1;                // Authored release group root; -1 means no fixed-tree group.
-    bool isFixed = false;                              // True for immovable collision bodies.
-    bool isSleeping = false;                           // Physics-owned sleep flag mirrored to diagnostics by model index.
-    bool usesWorldInertia = false;                     // Non-sphere bodies rotate inertia through orientation.
-    bool releasesFromFixedOnContact = false;           // Authored fixed prop can become dynamic after strong contact.
-    bool hasPendingImpulse = false;                    // One-shot impulse waiting for the next body integration pass.
+    Geometry::Terrain* terrain = nullptr;                                                      // Borrowed terrain pointer supplied by the authoring descriptor.
+    float mass = 0.0f;                                                                         // Authoring mass; fixed bodies still report mass.
+    float invMass = 0.0f;                                                                      // Solver inverse mass; fixed bodies use zero.
+    float boundingRadius = 0.0f;                                                               // Conservative radius for body-level release/spin policy.
+    float volume = 0.0f;                                                                       // Cached body volume used by buoyancy force math.
+    float projectedSurfaceArea = 0.0f;                                                         // Cached drag area used by world-force integration.
+    float dragCoefficient = 0.0f;                                                              // Cached drag coefficient used by world-force integration.
+    float submergedVolumePercent = 0.0f;                                                       // Targeted water snapshot for underwater sleep gates.
+    float contactReleaseImpulseThreshold = 1.0f;                                               // Minimum contact impulse before authored fixed props release.
+    float angularVelocityLimit = 5.0f;                                                         // Per-body spin cap applied before force integration.
+    float contactEpsilon = 0.05f;                                                              // Terrain proximity tolerance used by buoyancy support damping.
+    int fixedTreeReleaseRootIndex = -1;                                                        // Authored release group root; -1 means no fixed-tree group.
+    bool isFixed = false;                                                                      // True for immovable collision bodies.
+    bool isSleeping = false;                                                                   // Physics-owned sleep flag mirrored to diagnostics by model index.
+    bool usesWorldInertia = false;                                                             // Non-sphere bodies rotate inertia through orientation.
+    bool releasesFromFixedOnContact = false;                                                   // Authored fixed prop can become dynamic after strong contact.
+    bool hasPendingImpulse = false;                                                            // One-shot impulse waiting for the next body integration pass.
 };
 
-// Construction edge: GameModelCollection still owns model-order append, while
-// scene/editor creation owns identity and shape facts. This converts the
-// just-appended model to a value record so PhysicsEngine receives data, not a
-// GameModel reference. Delete this when creation writes PhysicsBodyCreateDesc
-// records directly.
-PhysicsBodyRecord MakeBodyRecordFromAuthoredModel( GameObjects::GameModel& model,
-                                                   PhysicsSceneObjectId sceneObjectId,
-                                                   int fixedTreeReleaseRootIndex );
+using PhysicsBodyRecordList = PhysicsFixedList<PhysicsBodyRecord, MAX_GAME_MODELS>;
+using PhysicsBodyHandleList = PhysicsFixedList<PhysicsBodyHandle, MAX_GAME_MODELS>;
+using PhysicsHandleGenerationList = PhysicsFixedList<uint32_t, MAX_GAME_MODELS>;
+using PhysicsHandleFlagList = PhysicsFixedList<uint8_t, MAX_GAME_MODELS>;
+using PhysicsHandleModelIndexList = PhysicsFixedList<int, MAX_GAME_MODELS>;
+using PhysicsHandleReplayIdList = PhysicsFixedList<uint32_t, MAX_GAME_MODELS>;
+using PhysicsHandleSlotList = PhysicsFixedList<uint32_t, MAX_GAME_MODELS>;
+using PhysicsHandleAssignmentMask = PhysicsFixedList<uint8_t, MAX_GAME_MODELS>;
 
 class PhysicsBodyStore
 {
@@ -117,23 +115,24 @@ class PhysicsBodyStore
     PhysicsBodyStore();
 
     void Clear();
-    // Cold topology repair imports mutable model authoring data. Replay ids and
-    // fixed-tree roots are scratch streams produced by the collection owner; they
-    // are not persistent collection authority inside PhysicsBodyStore.
-    void LoadFromModels( std::vector<GameObjects::GameModel>& models,
-                         const std::vector<uint32_t>& replayBodyIds,
-                         const std::vector<int>& fixedTreeReleaseRootIndices,
-                         const std::vector<uint8_t>& sleepStates );
-    // Creates a physics-owned body row without consulting GameModel. The store
+    // Cold topology repair imports descriptor rows produced by the collection
+    // owner. The store preserves handle-keyed one-shot state while replacing
+    // model-order records from those explicit values.
+    void LoadFromDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs,
+                              const std::vector<uint8_t>& sleepStates );
+    // Creates a physics-owned body row from descriptor data. The store
     // assigns the handle and keeps the row dense; callers supply authored state.
     PhysicsBodyHandle CreateBodyRecord( const PhysicsBodyRecord& record );
+    // Imports a body descriptor at a cold creation boundary. The descriptor is
+    // the scene/editor-facing contract; body rows remain hot simulation data.
+    PhysicsBodyHandle CreateBodyRecord( const PhysicsBodyCreateDesc& desc, bool sleepEnabled );
     // Retires a handle-owned body row and closes the dense record array by
     // moving the last live row into the hole. Existing handles remain stable
     // because handle slots map to current row indices.
     bool DestroyBodyRecord( PhysicsBodyHandle handle );
     void ClearPendingImpulses();
     // Shrinks the model-order body array for replay restore without reloading
-    // from GameModel. Returns false when the requested count is outside the
+    // from authoring records. Returns false when the requested count is outside the
     // current store range.
     bool TrimToCount( int bodyCount );
     // Restores sampled replay values into the authoritative body record. The
@@ -149,13 +148,11 @@ class PhysicsBodyStore
                                  float inverseMass,
                                  const Math::Vector::Vector3& rotationalInertia,
                                  const Math::Vector::Vector3& inverseRotationalInertia );
-    void CaptureMutableStateFromModelAt( std::vector<GameObjects::GameModel>& models,
-                                         int modelIndex,
-                                         int fixedTreeReleaseRootIndex );
+    void RefreshRecordFromDescriptorAt( const PhysicsBodyCreateDesc& desc, int modelIndex );
     void CopySleepStatesFrom( const std::vector<uint8_t>& sleepStates );
     void CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) const;
-    // Converts an authored fixed body record into a dynamic body without
-    // reloading through GameModel. Release-on-impact paths call this while they
+    // Converts an authored fixed body record into a dynamic body without a
+    // descriptor reload. Release-on-impact paths call this while they
     // already own the live store row.
     static void ReleaseFixedRecord( PhysicsBodyRecord& record,
                                     const Math::Vector::Vector3& seedLinearVelocity,
@@ -174,8 +171,8 @@ class PhysicsBodyStore
     PhysicsBodyHandle HandleForReplayBodyId( uint32_t replayBodyId, int modelIndexHint = -1 ) const;
     int ModelIndexForHandle( PhysicsBodyHandle handle ) const;
     bool Contains( PhysicsBodyHandle handle ) const;
-    const std::vector<PhysicsBodyRecord>& Records() const;
-    std::vector<PhysicsBodyRecord>& MutableRecords();
+    const PhysicsBodyRecordList& Records() const;
+    PhysicsBodyRecordList& MutableRecords();
     PhysicsBodyRecord* MutableRecordForHandle( PhysicsBodyHandle handle );
     const PhysicsBodyRecord* RecordForHandle( PhysicsBodyHandle handle ) const;
     PhysicsBodyRecord* MutableRecordForModelIndex( int modelIndex );
@@ -208,17 +205,21 @@ class PhysicsBodyStore
                       float deltaSeconds );
 
   private:
-    PhysicsBodyHandle
-    ResolveHandleForModelIndex( int modelIndex, uint32_t replayBodyId, std::vector<uint8_t>& assignedHandleSlots );
-    void RetireUnassignedHandles( const std::vector<uint8_t>& assignedHandleSlots );
+    PhysicsBodyHandle ResolveHandleForModelIndex( int modelIndex,
+                                                  uint32_t replayBodyId,
+                                                  PhysicsHandleAssignmentMask& assignedHandleSlots );
+    void RetireUnassignedHandles( const PhysicsHandleAssignmentMask& assignedHandleSlots );
 
-    std::vector<PhysicsBodyRecord> m_bodies;           // Body records in GameModelCollection index order.
-    std::vector<PhysicsBodyHandle> m_modelBodyHandles; // Model index to store-owned body handle map.
-    std::vector<uint32_t> m_handleGenerations;         // Handle-slot generation counters.
-    std::vector<uint8_t> m_handleAlive;                // Live handle slot flags.
-    std::vector<int> m_handleModelIndices;             // Handle slot to current model index, or -1.
-    std::vector<uint32_t> m_handleReplayBodyIds;       // Replay id paired with each live handle slot.
-    std::vector<uint32_t> m_freeHandleSlots;           // Retired slots available for deterministic reuse.
+    PhysicsBodyRecordList m_bodies{ "PhysicsBodyStore.bodies" };                               // Body records in scene/model slot order.
+    PhysicsBodyHandleList m_modelBodyHandles{ "PhysicsBodyStore.modelBodyHandles" };           // Model index to body handle map.
+    PhysicsHandleGenerationList m_handleGenerations{ "PhysicsBodyStore.handleGenerations" };   // Handle-slot generations.
+    PhysicsHandleFlagList m_handleAlive{ "PhysicsBodyStore.handleAlive" };                     // Live handle slot flags.
+    PhysicsHandleModelIndexList m_handleModelIndices{ "PhysicsBodyStore.handleModelIndices" }; // Slot to model index.
+    PhysicsHandleReplayIdList m_handleReplayBodyIds{ "PhysicsBodyStore.handleReplayBodyIds" }; // Slot replay ids.
+    PhysicsHandleSlotList m_freeHandleSlots{ "PhysicsBodyStore.freeHandleSlots" };             // Retired reusable slots.
+    // Runtime allocation policy: topology repair reuses this handle-slot mask
+    // instead of constructing a heap-backed standard-library container.
+    PhysicsHandleAssignmentMask m_assignedHandleScratch{ "PhysicsBodyStore.assignedHandleScratch" };
 };
 } // namespace Physics
 } // namespace SkullbonezCore

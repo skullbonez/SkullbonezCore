@@ -11,7 +11,8 @@ Mental model:
 
 Glossary:
   Scrubber: UI control that maps mouse position to retained replay frames.
-  Cause tree: Contact graph that explains how one body influenced others.
+  Cause tree: Contact, solver, and predicted-motion graph that explains how one
+    body influenced others.
   Path visualizer: Overlay that draws past/future body trajectories and contact
     handoffs.
   Replay target marker: Overlay outline/ring drawn around the replay-selected
@@ -20,8 +21,8 @@ Glossary:
     frame.
   Prediction physics tick: Replay-owned fixed step that temporarily advances
     PhysicsBodyStore and then restores the live store snapshot.
-  Future node: Body discovered by following contacts outward from a selected
-    root body.
+  Future node: Body discovered by following contacts or predicted movement
+    outward from a selected root body.
   ReplayBodyId: Stable runtime id used across retained samples even when vector
     indices are only local hints.
   Solver snapshot: Physics cache state that must be restored to make the next
@@ -45,6 +46,8 @@ Related:
 #include "../InputController.h"
 #include "ReplayOverlayLayout.h"
 #include "../RuntimePickService.h"
+#include "../Allocation/RuntimeAllocationTracker.h"
+#include "../Allocation/RuntimeReserveAllocator.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsMass.h"
@@ -58,8 +61,10 @@ Related:
 #include <cfloat>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 
 #include <commdlg.h>
 
@@ -77,6 +82,7 @@ using SkullbonezCore::Assets::EditorHullAsset;
 using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
+namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
@@ -263,6 +269,8 @@ void StepReplayPredictionPhysicsTick( SkullbonezCore::GameObjects::GameModelColl
                                       const PhysicsWorldForces& worldForces,
                                       SkullbonezCore::Threading::WorkerPool& workerPool )
 {
+    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+        RuntimeAllocation::RuntimeAllocationPhase::Replay );
     const int modelCount = modelCollection.ModelCount();
     // Invariant: prediction steps mutate PhysicsBodyStore, then restore live
     // state from captured store records. Model topology repair remains the
@@ -422,15 +430,37 @@ bool IntersectRaySphere( const Vector3& rayOrigin,
     return true;
 }
 
-constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 64;
-constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 12;
+// Why: the 200-brick prediction scene needs more than the old 100-node cap to
+// show the full contact spread instead of clipping the visual explanation.
+constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 240;
+constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 100;
 constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
+// Why: sleeping or contact-propagated bodies can wake without translating. Child
+// prediction outlines wait for real linear speed so the wall blooms outward
+// only when bricks are actually about to move.
+constexpr float REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ = 8.0f * 8.0f;
 
 // Invariant: Worker dispatch is only worth it for large body snapshots. Small
 // scenes stay serial so replay overlays do not pay thread wakeup cost to copy a
 // few kilobytes.
 constexpr int REPLAY_PREDICTION_PARALLEL_BODY_MIN = 2048;
+
+// Concept: the prediction overlay is a play-once causal animation, not a
+// static plot. A wall-clock reveal cursor sweeps the predicted frames so the
+// root line grows first and each child line starts only when its causing frame
+// is revealed; after the sweep the finished tree holds until the prediction is
+// rebuilt. Rate is predicted seconds revealed per real second; 1.0 means the
+// future unfolds at the same pace it would actually happen.
+constexpr double REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND = 1.0;
+// Why: "at rest" for the causal overlay is decided from the END of the
+// completed prediction, never from a momentary pause. A body rests only when
+// the final frame shows no visible motion and it has not drifted across the
+// final grace window; otherwise it has no resting pose and gets no grey box.
+constexpr double REPLAY_PREDICTION_REST_GRACE_SECONDS = 0.4;
+constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES =
+    static_cast<ReplayFrameIndex>( REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
+constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
 
 // Hazard: prediction temporarily swaps live model/solver state. Keep a small
 // reserve so we do not enter a mutation section after spending the whole visual
@@ -476,6 +506,15 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
                                       tracer,
                                       visualizerStart,
                                       REPLAY_PREDICTION_MAX_WORK_MILLISECONDS );
+    const RunReplayPredictionState& prediction = m_replayRuntime.Prediction();
+    if ( !prediction.enabled && prediction.frames.size() >= 2 && m_replayRuntime.PathVisualizer().hasTarget &&
+         prediction.targetId.value == m_replayRuntime.PathVisualizer().targetId.value )
+    {
+        // Why: Play disables prediction but keeps the committed path preview.
+        // Letting the retained visualizer continue here would rebuild child
+        // paths from the advancing live timeline and make frozen lines drift.
+        return;
+    }
     if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
     {
         return;
@@ -493,6 +532,13 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
 
     if ( m_replayRuntime.PathVisualizer().targets.empty() && m_replayRuntime.PathVisualizer().targetId.value != 0 )
     {
+        if ( !ReserveReplayPredictionVector( m_replayRuntime.PathVisualizer().targets,
+                                             REPLAY_PATH_MAX_ROOT_TARGETS,
+                                             SceneState().currentFrame,
+                                             "RunReplayPathVisualizer::targets" ) )
+        {
+            return;
+        }
         RunReplayPathTarget target;
         target.id = m_replayRuntime.PathVisualizer().targetId;
         target.modelIndex = m_replayRuntime.PathVisualizer().targetModelIndex;
@@ -599,10 +645,7 @@ void Run::RenderReplayPathVisualizer( RunEditorTracer& tracer )
         {
             PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/DrawChildren" );
             m_replayRuntime.Solver().ForEachSampleChronological( DrawReplayChildPaths, &childDraw );
-            AddReplayFutureContactMarkers( targetVisualizer,
-                                           tracer,
-                                           visualizerStart,
-                                           REPLAY_PREDICTION_MAX_WORK_MILLISECONDS );
+            DrawReplayChildFinalMarkers( childDraw );
         }
         if ( ReplayPredictionBudgetExpired( visualizerStart, REPLAY_PREDICTION_MAX_WORK_MILLISECONDS ) )
         {
@@ -665,7 +708,8 @@ void Run::RenderReplayCauseFocusOverlay( RunEditorTracer& tracer )
     }
 
     if ( m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::Manifold ||
-         m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::PredictionContact )
+         m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::PredictionContact ||
+         m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::PredictionMotion )
     {
         if ( m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::Manifold )
         {

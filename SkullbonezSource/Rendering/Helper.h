@@ -204,6 +204,8 @@ class RenderHelper
         Rendering::IRenderResourceFactory* renderResources );                      // Invalidate cached backend-owned meshes and shaders
     static void EnsureSphereMesh( const RenderHelperContext& context );            // Create the shared sphere mesh before DXR BLAS
                                                                         // construction needs its vertex data.
+    static void EnsureShadowDepthPrimitiveResources(
+        const RenderHelperContext& context );                                      // Prewarm primitive shadow meshes and the shared depth shader.
 
     // DXR reflection reuses the same sphere vertex buffer as raster rendering.
     // The backend asks for the instanced mesh handle so it can find the static

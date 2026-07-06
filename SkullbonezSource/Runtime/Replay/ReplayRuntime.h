@@ -12,8 +12,8 @@ Glossary:
   Presentation track: Render-facing replay samples used for visual scrubbing.
   Solver track: Physics-facing samples and snapshots used for deterministic
     inspection and rollback.
-  Cause tree: Replay contact graph used by the tool UI to explain which body or
-    contact caused another replay body to matter.
+  Cause tree: Replay graph used by the tool UI to explain which contact or
+    predicted movement caused another replay body to matter.
   Body store: Physics-owned live body records used for pose and velocity
     authority while legacy GameModel mirrors are retired.
   Collider store: Physics-owned shape, material, and radius records paired with
@@ -48,18 +48,17 @@ Related:
 #include "../../Core/Common.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsHandles.h"
+#include "../../Rendering/RenderInstanceStore.h"
+
+#include <array>
+#include <chrono>
 
 namespace SkullbonezCore
 {
-namespace GameObjects
-{
-class GameModel;
-class GameModelCollection;
-} // namespace GameObjects
-
 namespace Physics
 {
 class ColliderStore;
+class PhysicsEngine;
 class PhysicsBodyStore;
 } // namespace Physics
 
@@ -68,6 +67,9 @@ namespace Basics
 struct ReplayV2SaveResult;
 
 inline constexpr std::size_t REPLAY_PREDICTION_GHOST_MAX_FRAMES = 24;
+inline constexpr std::size_t REPLAY_CAUSE_TREE_CONTACT_CAPACITY = static_cast<std::size_t>( MAX_GAME_MODELS ) * 4u;
+inline constexpr std::size_t REPLAY_CAUSE_TREE_ROW_CAPACITY =
+    1u + static_cast<std::size_t>( MAX_GAME_MODELS ) + REPLAY_CAUSE_TREE_CONTACT_CAPACITY * 3u;
 
 enum class RunReplayTrack
 {
@@ -116,6 +118,7 @@ struct RunReplayPathTraceNode
     Math::Vector::Vector3 contactPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 contactNormal = Math::Vector::ZERO_VECTOR;
     int depth = 0;
+    bool contactDerived = true;     // False when prediction inferred the child from pose divergence.
 };
 
 struct RunReplayPathTarget
@@ -131,7 +134,8 @@ enum class RunReplayCameraFocusKind
     Body,
     Manifold,
     SolverRow,
-    PredictionContact
+    PredictionContact,
+    PredictionMotion
 };
 
 enum class RunReplayCauseTreeRowKind
@@ -139,7 +143,8 @@ enum class RunReplayCauseTreeRowKind
     Body,
     Manifold,
     SolverRow,
-    PredictionContact
+    PredictionContact,
+    PredictionMotion
 };
 
 struct RunReplayCameraState
@@ -203,6 +208,9 @@ struct RunReplayCauseTreeRow
 
 struct RunReplayCauseTreeState
 {
+    // Runtime allocation policy: replay cause rows are rebuilt during input and
+    // render, so the vector reserves its full replay/physics budget at startup
+    // and builders fail closed instead of growing on a frame.
     std::vector<RunReplayCauseTreeRow> rows;
     int hoveredRow = -1;
     int selectedRow = -1;
@@ -256,6 +264,7 @@ struct RunReplayPredictionBodySample
     int modelIndex = -1;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR; // m/s-equivalent simulation units.
 };
 
 struct RunReplayPredictionFrame
@@ -302,11 +311,15 @@ struct RunReplayPredictionState
     std::vector<RunReplayPredictionBodyBackup> predictionBodies;
     std::vector<RunReplayPredictionBodyBackup> liveRestoreBodies;
     std::vector<RunReplayPredictionFrame> frames;
+    // Runtime allocation policy: prediction buildFrames can be pre-sized for a
+    // whole horizon while only buildFrameCount rows are populated. Render reads
+    // frames, not the pre-sized build vector, until completion swaps them.
     std::vector<RunReplayPredictionFrame> buildFrames;
-    // Renderable future-contact topology. Build work publishes coherent prefixes
+    std::size_t buildFrameCount = 0;
+    // Renderable future-impact topology. Build work publishes coherent prefixes
     // here so the draw path never reads the scratch vector while it is mid-frame.
     std::vector<RunReplayPathTraceNode> futureNodes;
-    // Scratch future-contact topology advanced under the visualizer budget.
+    // Scratch future-impact topology advanced under the visualizer budget.
     std::vector<RunReplayPathTraceNode> futureNodeBuildScratch;
     // Incremental tree cursors. Prediction can contain thousands of frames, so
     // futureNodeBuildScratch is built over multiple render frames and copied to
@@ -317,6 +330,13 @@ struct RunReplayPredictionState
     bool futureNodesBuiltRagdollVisuals = false;
     bool futureNodesBuiltFromBuildFrames = false;
     bool futureNodesCacheValid = false;
+    // Concept: reveal anchor — wall-clock start of the causal-unfold animation.
+    // The overlay clamps drawn prediction frames to a cursor derived from this
+    // anchor so the tree unfolds over real time instead of popping in whole.
+    // Overlay-only pacing state: it never feeds physics, replay samples, or
+    // solver restores, so steady_clock here cannot affect determinism.
+    std::chrono::steady_clock::time_point revealAnchor = {};
+    bool revealAnchorValid = false;
 };
 
 struct RunReplayVelocityEditState
@@ -378,6 +398,8 @@ class ReplayRuntime
         ReplayRecorderStats solverStats;
         ReplayEventRecorderStats eventStats;
     };
+
+    ReplayRuntime();
 
     ReplayRecorder& Presentation();
     const ReplayRecorder& Presentation() const;
@@ -444,7 +466,10 @@ class ReplayRuntime
     bool ArmLoadedPresentationScrubber( float normalized, double now );
     void ClearCameraFocusForRestore();
 
-    RecordingConfigResult ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath );
+    // Configures bounded recorder storage. runtimeBodyCapacity must be the
+    // scene/run body cap known before capture so replay frames do not allocate.
+    RecordingConfigResult
+    ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath, int runtimeBodyCapacity );
     void FlushHashLogs();
     void ResetBranch();
     void ResetTimeline( const char* sceneLabel );
@@ -455,12 +480,10 @@ class ReplayRuntime
     ReplayEventRecorderStats EventStats() const;
     ReplayFrameIndex NextEventFrameIndex() const;
     void CaptureFrame( ReplayCaptureInput input );
-    bool ApplyPresentationSampleForRender( GameObjects::GameModelCollection& models,
+    bool ApplyPresentationSampleForRender( Physics::PhysicsEngine& physicsEngine,
                                            const ReplayPresentationSample& sample );
-    bool ApplySolverSampleForRender( GameObjects::GameModelCollection& models, const ReplaySolverFrameSample& sample );
-    bool ApplyPredictionFrameForRender( GameObjects::GameModelCollection& models,
-                                        const RunReplayPredictionFrame& frame );
-    void ClearRenderPoseOverrides( GameObjects::GameModelCollection& models );
+    bool ApplySolverSampleForRender( Physics::PhysicsEngine& physicsEngine, const ReplaySolverFrameSample& sample );
+    bool ApplyPredictionFrameForRender( Physics::PhysicsEngine& physicsEngine, const RunReplayPredictionFrame& frame );
     bool HasLoadedPresentation() const;
     const ReplayPresentationSample* LoadedPresentationSampleAtNormalized( float normalized ) const;
     const ReplayPresentationSample* LoadedPresentationLatestSample() const;
@@ -478,10 +501,11 @@ class ReplayRuntime
     // Resolves the current velocity-edit target to live physics authority. The
     // stored model index is a staleable hint, not identity.
     Physics::PhysicsBodyHandle ResolveVelocityEditBodyHandle( const Physics::PhysicsBodyStore& bodyStore ) const;
-    bool BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models,
+    bool BuildCauseTreeRows( const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
                              const Physics::PhysicsBodyStore& bodyStore );
-    bool BuildPredictionGhostDrawRequests( const GameObjects::GameModelCollection& collection,
-                                           const Physics::PhysicsBodyStore& bodyStore );
+    bool BuildPredictionGhostDrawRequests(
+        const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
+        const Physics::PhysicsBodyStore& bodyStore );
     const std::vector<ReplayPredictionGhostDrawRequest>& PredictionGhostDrawRequests() const;
     bool BuildFocusModelMask( const Physics::PhysicsBodyStore& bodyStore, int modelCount );
     std::vector<uint8_t>& FocusModelMask();
@@ -549,6 +573,10 @@ class ReplayRuntime
     std::vector<ReplayPredictionGhostDrawRequest> m_predictionGhostDrawRequests;
     std::vector<uint8_t> m_focusModelMask;
     ReplayLauncherVisualSample m_launcherVisualBackup;
+    // Invariant: replay render pose matching is a per-frame mark table capped by
+    // the live model budget. It must not allocate while scrub/prediction views
+    // are applied during rendering.
+    std::array<uint8_t, MAX_GAME_MODELS> m_renderPoseBodyMatched = {};
     bool m_launcherVisualBackupActive = false;
 };
 } // namespace Basics

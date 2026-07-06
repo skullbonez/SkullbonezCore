@@ -16,6 +16,8 @@ Glossary:
   WM_INPUT: Win32 message carrying high-resolution mouse movement.
   Callback bridge: The process-local state that lets Win32 callbacks enqueue
     mouse data until the frame loop consumes it.
+  Automation override: Scripted input snapshot used by interaction validation
+    while the normal runtime input controller still owns command edges.
   Input event buffer: Snapshot of callback-fed mouse accumulators for the bound
     native window.
   Validation gate: Repository script that proves a class of changes before
@@ -125,6 +127,8 @@ class Input
         POINT mouseClientPosition = {};
         bool leftMouseDown = false;
         bool rightMouseDown = false;
+        int keyVirtualKey = 0;                           // Optional one-key automation override.
+        bool keyDown = false;
     };
 
     struct InputEventBuffer

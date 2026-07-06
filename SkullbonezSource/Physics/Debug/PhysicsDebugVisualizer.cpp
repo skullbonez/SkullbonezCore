@@ -29,14 +29,13 @@ Related:
 #include <algorithm>
 #include <cmath>
 #include <variant>
+#include "../ColliderStore.h"
 #include "../CollisionShape.h"
-#include "../../GameObjects/GameModel.h"
-#include "../../GameObjects/GameModelCollection.h"
+#include "../PhysicsBodyStore.h"
 #include "../../Rendering/IRenderBackend.h"
 #include "../../Maths/Quaternion.h"
 #include "../../World/Terrain.h"
 
-using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
@@ -49,18 +48,18 @@ namespace
 {
 constexpr int PIPELINE_STAGE_COUNT = static_cast<int>( PhysicsPipelineStage::Count );
 
-float ShapeAxisLength( GameModel& model, int axis )
+float ShapeAxisLength( const ColliderRecord& collider, int axis )
 {
     // Scale local-axis arrows to the shape. Boxes use their true half-extent on
     // the selected axis; spheres use bounding radius for all axes.
-    const CollisionShape& shape = model.GetCollisionShape();
+    const CollisionShape& shape = collider.shape;
     if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
     {
         const Vector3& he = box->GetHalfExtents();
         float extent = axis == 0 ? he.x : ( axis == 1 ? he.y : he.z );
         return (std::max)( 1.0f, extent * 1.35f );
     }
-    return (std::max)( 1.0f, model.GetBoundingRadius() * 1.35f );
+    return (std::max)( 1.0f, collider.boundingRadius * 1.35f );
 }
 
 void PipelineStageColor( PhysicsPipelineStage stage, float& r, float& g, float& b )
@@ -294,14 +293,19 @@ void PhysicsDebugVisualizer::EmitRingXZ( const Vector3& center,
     }
 }
 
-void PhysicsDebugVisualizer::EmitObjectAxes( GameModelCollection& models )
+void PhysicsDebugVisualizer::EmitObjectAxes( const PhysicsDebugFrameView& view )
 {
-    int count = models.GetModelCount();
+    const auto& bodies = view.bodies.Records();
+    const auto& colliders = view.colliders.Records();
+    const int count =
+        (std::min)( view.modelCount,
+                    (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
     for ( int i = 0; i < count; ++i )
     {
-        GameModel& model = models.GetModelAtIndex( i );
-        Vector3 center = model.GetPosition();
-        Quaternion orientation = model.GetOrientation();
+        const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( i )];
+        const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
+        Vector3 center = body.position;
+        Quaternion orientation = body.orientation;
         RotationMatrix rot = orientation.GetOrientationMatrix();
         Vector3 axes[3] = {
             rot * Vector3( 1.0f, 0.0f, 0.0f ),
@@ -309,27 +313,32 @@ void PhysicsDebugVisualizer::EmitObjectAxes( GameModelCollection& models )
             rot * Vector3( 0.0f, 0.0f, 1.0f ),
         };
 
-        EmitArrow( center, center + axes[0] * ShapeAxisLength( model, 0 ), 1.0f, 0.05f, 0.04f );
-        EmitArrow( center, center + axes[1] * ShapeAxisLength( model, 1 ), 0.05f, 0.9f, 0.12f );
-        EmitArrow( center, center + axes[2] * ShapeAxisLength( model, 2 ), 0.08f, 0.35f, 1.0f );
+        EmitArrow( center, center + axes[0] * ShapeAxisLength( collider, 0 ), 1.0f, 0.05f, 0.04f );
+        EmitArrow( center, center + axes[1] * ShapeAxisLength( collider, 1 ), 0.05f, 0.9f, 0.12f );
+        EmitArrow( center, center + axes[2] * ShapeAxisLength( collider, 2 ), 0.08f, 0.35f, 1.0f );
     }
 }
 
-void PhysicsDebugVisualizer::EmitConvexHullWireframes( GameModelCollection& models )
+void PhysicsDebugVisualizer::EmitConvexHullWireframes( const PhysicsDebugFrameView& view )
 {
-    int count = models.GetModelCount();
+    const auto& bodies = view.bodies.Records();
+    const auto& colliders = view.colliders.Records();
+    const int count =
+        (std::min)( view.modelCount,
+                    (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
     for ( int i = 0; i < count; ++i )
     {
-        GameModel& model = models.GetModelAtIndex( i );
-        const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &model.GetCollisionShape() );
+        const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( i )];
+        const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
+        const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
         if ( !hull )
         {
             continue;
         }
 
-        Quaternion orientation = model.GetOrientation();
+        Quaternion orientation = body.orientation;
         RotationMatrix rot = orientation.GetOrientationMatrix();
-        const Vector3 center = model.GetPosition() + rot * hull->GetPosition();
+        const Vector3 center = body.position + rot * hull->GetPosition();
         for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
         {
             const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
@@ -340,7 +349,7 @@ void PhysicsDebugVisualizer::EmitConvexHullWireframes( GameModelCollection& mode
     }
 }
 
-void PhysicsDebugVisualizer::EmitContacts( GameModelCollection& models )
+void PhysicsDebugVisualizer::EmitContacts( const PhysicsDebugFrameView& view )
 {
     // Yellow cross = contact point. Cyan arrow = normal push direction. Orange
     // lines = the two sideways friction axes. A gray body-to-body line helps
@@ -356,30 +365,36 @@ void PhysicsDebugVisualizer::EmitContacts( GameModelCollection& models )
         EmitArrow( contact.point, contact.point + contact.normal * normalLen, 0.0f, 0.9f * fade, 1.0f * fade );
         EmitLine( contact.point, contact.point + contact.tangent1 * 1.25f, 1.0f * fade, 0.45f * fade, 0.05f * fade );
         EmitLine( contact.point, contact.point + contact.tangent2 * 1.25f, 1.0f * fade, 0.45f * fade, 0.05f * fade );
-        if ( contact.bodyA >= 0 && contact.bodyB >= 0 && contact.bodyA < models.GetModelCount() &&
-             contact.bodyB < models.GetModelCount() )
+        const auto& bodies = view.bodies.Records();
+        if ( contact.bodyA >= 0 && contact.bodyB >= 0 && contact.bodyA < static_cast<int>( bodies.size() ) &&
+             contact.bodyB < static_cast<int>( bodies.size() ) )
         {
-            Vector3 a = models.GetModelAtIndex( contact.bodyA ).GetPosition();
-            Vector3 b = models.GetModelAtIndex( contact.bodyB ).GetPosition();
+            Vector3 a = bodies[static_cast<std::size_t>( contact.bodyA )].position;
+            Vector3 b = bodies[static_cast<std::size_t>( contact.bodyB )].position;
             EmitLine( a, b, 0.45f * fade, 0.45f * fade, 0.45f * fade );
         }
     }
 }
 
-void PhysicsDebugVisualizer::EmitSleepState( GameModelCollection& models )
+void PhysicsDebugVisualizer::EmitSleepState( const PhysicsDebugFrameView& view )
 {
     // Purple marks sleeping bodies, green marks credible support, and orange
     // marks sleep inhibition. This helps distinguish "touching" from "allowed
     // to sleep," which are intentionally different policies.
-    const std::vector<uint8_t>& sleepStates = models.GetSleepStates();
-    const std::vector<uint8_t>& supportedStates = models.GetSleepSupportedStates();
-    const std::vector<uint8_t>& inhibitedStates = models.GetSleepInhibitedStates();
-    int count = models.GetModelCount();
+    const std::vector<uint8_t>& sleepStates = view.sleepStates;
+    const std::vector<uint8_t>& supportedStates = view.sleepSupportedStates;
+    const std::vector<uint8_t>& inhibitedStates = view.sleepInhibitedStates;
+    const auto& bodies = view.bodies.Records();
+    const auto& colliders = view.colliders.Records();
+    const int count =
+        (std::min)( view.modelCount,
+                    (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
     for ( int i = 0; i < count; ++i )
     {
-        GameModel& model = models.GetModelAtIndex( i );
-        Vector3 center = model.GetPosition();
-        float radius = (std::max)( 1.0f, model.GetBoundingRadius() * 1.15f );
+        const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( i )];
+        const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
+        Vector3 center = body.position;
+        float radius = (std::max)( 1.0f, collider.boundingRadius * 1.15f );
         bool sleeping = i < static_cast<int>( sleepStates.size() ) && sleepStates[i] != 0;
         bool supported = i < static_cast<int>( supportedStates.size() ) && supportedStates[i] != 0;
         bool inhibited = i < static_cast<int>( inhibitedStates.size() ) && inhibitedStates[i] != 0;
@@ -405,9 +420,9 @@ void PhysicsDebugVisualizer::EmitSleepState( GameModelCollection& models )
     }
 }
 
-void PhysicsDebugVisualizer::EmitPipelineStage( GameModelCollection& models )
+void PhysicsDebugVisualizer::EmitPipelineStage( const PhysicsDebugFrameView& view )
 {
-    const std::vector<PhysicsPipelineRecord>& records = models.GetPhysicsPipelineTrace();
+    const std::vector<PhysicsPipelineRecord>& records = view.pipelineTrace;
     if ( records.empty() || PIPELINE_STAGE_COUNT <= 0 )
     {
         return;
@@ -425,6 +440,7 @@ void PhysicsDebugVisualizer::EmitPipelineStage( GameModelCollection& models )
     PipelineStageColor( selectedStage, r, g, b );
 
     int emitted = 0;
+    const auto& bodies = view.bodies.Records();
     for ( const PhysicsPipelineRecord& record : records )
     {
         if ( record.stage != selectedStage )
@@ -432,19 +448,19 @@ void PhysicsDebugVisualizer::EmitPipelineStage( GameModelCollection& models )
             continue;
         }
 
-        const bool hasA = record.bodyA >= 0 && record.bodyA < models.GetModelCount();
-        const bool hasB = record.bodyB >= 0 && record.bodyB < models.GetModelCount();
+        const bool hasA = record.bodyA >= 0 && record.bodyA < static_cast<int>( bodies.size() );
+        const bool hasB = record.bodyB >= 0 && record.bodyB < static_cast<int>( bodies.size() );
         if ( hasA && hasB )
         {
-            Vector3 a = models.GetModelAtIndex( record.bodyA ).GetPosition();
-            Vector3 bPos = models.GetModelAtIndex( record.bodyB ).GetPosition();
+            Vector3 a = bodies[static_cast<std::size_t>( record.bodyA )].position;
+            Vector3 bPos = bodies[static_cast<std::size_t>( record.bodyB )].position;
             EmitLine( a, bPos, r * 0.55f, g * 0.55f, b * 0.55f );
         }
 
         Vector3 p = record.point;
         if ( hasA && VectorMagSquared( p ) <= TOLERANCE * TOLERANCE )
         {
-            p = models.GetModelAtIndex( record.bodyA ).GetPosition();
+            p = bodies[static_cast<std::size_t>( record.bodyA )].position;
         }
         const float scale = 0.24f + (std::min)( fabsf( record.scalarA ), 4.0f ) * 0.05f;
         EmitCross( p, scale, r, g, b );
@@ -463,23 +479,28 @@ void PhysicsDebugVisualizer::EmitPipelineStage( GameModelCollection& models )
     }
 }
 
-void PhysicsDebugVisualizer::EmitTerrainContactProbe( GameModelCollection& models, Geometry::Terrain* terrain )
+void PhysicsDebugVisualizer::EmitTerrainContactProbe( const PhysicsDebugFrameView& view, Geometry::Terrain* terrain )
 {
     if ( !terrain )
     {
         return;
     }
 
-    const int count = models.GetModelCount();
+    const auto& bodies = view.bodies.Records();
+    const auto& colliders = view.colliders.Records();
+    const int count =
+        (std::min)( view.modelCount,
+                    (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
     for ( int i = 0; i < count; ++i )
     {
-        GameModel& model = models.GetModelAtIndex( i );
-        if ( !std::holds_alternative<BoundingSphere>( model.GetCollisionShape() ) )
+        const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( i )];
+        const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
+        if ( !std::holds_alternative<BoundingSphere>( collider.shape ) )
         {
             continue;
         }
 
-        const Vector3 center = model.GetPosition();
+        const Vector3 center = body.position;
         if ( !terrain->IsInBounds( center.x, center.z ) )
         {
             continue;
@@ -495,7 +516,7 @@ void PhysicsDebugVisualizer::EmitTerrainContactProbe( GameModelCollection& model
         }
 
         const Triangle polygon = terrain->LocatePolygon( center.x, center.z );
-        const float radius = (std::max)( 1.0f, model.GetBoundingRadius() );
+        const float radius = (std::max)( 1.0f, collider.boundingRadius );
         const float surfaceLift = std::clamp( radius * 0.035f, 0.12f, 0.65f );
         const Vector3 lift = terrainPlane.m_normal * surfaceLift;
         const Vector3 a = polygon.v1 + lift;
@@ -525,7 +546,7 @@ void PhysicsDebugVisualizer::SetPipelineStageCursor( int cursor )
     m_pipelineStageCursor = cursor;
 }
 
-void PhysicsDebugVisualizer::Update( float dt, GameModelCollection& models )
+void PhysicsDebugVisualizer::Update( float dt, const PhysicsDebugFrameView& view )
 {
     // The C-key mode is bitmask based: axes, contacts, and sleep state can be
     // shown independently or together.  If contacts are disabled, discard the
@@ -536,7 +557,7 @@ void PhysicsDebugVisualizer::Update( float dt, GameModelCollection& models )
         return;
     }
 
-    const std::vector<PhysicsDebugContact>& contacts = models.GetPhysicsDebugContacts();
+    const std::vector<PhysicsDebugContact>& contacts = view.debugContacts;
     if ( m_contactLingerSeconds <= 0.0f )
     {
         m_trackedContacts.clear();
@@ -579,9 +600,11 @@ void PhysicsDebugVisualizer::Update( float dt, GameModelCollection& models )
     }
 }
 
-void PhysicsDebugVisualizer::Render( GameModelCollection& models, const Matrix4& viewProj, Geometry::Terrain* terrain )
+void PhysicsDebugVisualizer::Render( const PhysicsDebugFrameView& view,
+                                     const Matrix4& viewProj,
+                                     Geometry::Terrain* terrain )
 {
-    if ( m_flags == PHYSICS_DEBUG_NONE || models.GetModelCount() <= 0 || !Gfx().GetCapabilities().supportsDebugLines )
+    if ( m_flags == PHYSICS_DEBUG_NONE || view.modelCount <= 0 || !Gfx().GetCapabilities().supportsDebugLines )
     {
         return;
     }
@@ -592,24 +615,24 @@ void PhysicsDebugVisualizer::Render( GameModelCollection& models, const Matrix4&
     // leave on while investigating solver state in large scenes.
     if ( ( m_flags & PHYSICS_DEBUG_AXES ) != 0 )
     {
-        EmitObjectAxes( models );
-        EmitConvexHullWireframes( models );
+        EmitObjectAxes( view );
+        EmitConvexHullWireframes( view );
     }
     if ( ( m_flags & PHYSICS_DEBUG_CONTACTS ) != 0 )
     {
-        EmitContacts( models );
+        EmitContacts( view );
     }
     if ( ( m_flags & PHYSICS_DEBUG_SLEEP ) != 0 )
     {
-        EmitSleepState( models );
+        EmitSleepState( view );
     }
     if ( ( m_flags & PHYSICS_DEBUG_PIPELINE ) != 0 )
     {
-        EmitPipelineStage( models );
+        EmitPipelineStage( view );
     }
     if ( ( m_flags & PHYSICS_DEBUG_TERRAIN_CONTACT ) != 0 )
     {
-        EmitTerrainContactProbe( models, terrain );
+        EmitTerrainContactProbe( view, terrain );
     }
 
     if ( !m_lineData.empty() )

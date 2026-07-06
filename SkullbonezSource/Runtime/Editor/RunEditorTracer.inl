@@ -14,6 +14,8 @@ Glossary:
     collision-shape values supplied by the owning tool.
   Replay target marker: Replay overlay outline/ring drawn from explicit
     body-store pose and collider-store shape/radius values.
+  Replay future marker: Shape-accurate downstream collision outline drawn at
+    the latest visible predicted/retained pose, never from a broadphase radius substitute.
   Placement ghost: Preview outline drawn before an editor placement commit; it
     must match the primitive bodies that placement will actually spawn.
 
@@ -27,9 +29,19 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 
+namespace
+{
+constexpr std::size_t RUN_EDITOR_TRACER_LINE_FLOAT_CAPACITY = 262144;
+constexpr std::size_t RUN_EDITOR_TRACER_FLOATS_PER_LINE = 12;
+} // namespace
+
+
 RunEditorTracer::RunEditorTracer()
 {
-    m_lineData.reserve( 4096 );
+    // Runtime allocation policy: overlay line storage is paid once during tool
+    // construction. EmitLine refuses overflow so replay prediction, gizmos, and
+    // target markers cannot grow this vector while render builds the frame.
+    m_lineData.reserve( RUN_EDITOR_TRACER_LINE_FLOAT_CAPACITY );
 }
 
 
@@ -41,6 +53,10 @@ void RunEditorTracer::Clear()
 
 void RunEditorTracer::EmitLine( const Vector3& a, const Vector3& b, float r, float g, float bl )
 {
+    if ( m_lineData.size() + RUN_EDITOR_TRACER_FLOATS_PER_LINE > m_lineData.capacity() )
+    {
+        return;
+    }
     m_lineData.insert( m_lineData.end(), { a.x, a.y, a.z, r, g, bl, b.x, b.y, b.z, r, g, bl } );
 }
 
@@ -163,6 +179,50 @@ void RunEditorTracer::EmitBox( const Vector3& center,
     for ( const auto& edge : kEdges )
     {
         EmitLine( corners[edge[0]], corners[edge[1]], r, g, bl );
+    }
+}
+
+
+void RunEditorTracer::EmitShapeOutline( const Vector3& position,
+                                        const Quaternion& orientation,
+                                        const CollisionShape& shape,
+                                        float r,
+                                        float g,
+                                        float b )
+{
+    Quaternion outlineOrientation = orientation;
+    const RotationMatrix rot = outlineOrientation.GetOrientationMatrix();
+
+    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
+    {
+        EmitSphere( position + rot * sphere->GetPosition(), sphere->GetBoundingRadius(), r, g, b );
+        return;
+    }
+    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
+    {
+        const Vector3& he = box->GetHalfExtents();
+        const Vector3 center = position + rot * box->GetPosition();
+        EmitBox( center,
+                 rot * Vector3( he.x, 0.0f, 0.0f ),
+                 rot * Vector3( 0.0f, he.y, 0.0f ),
+                 rot * Vector3( 0.0f, 0.0f, he.z ),
+                 r,
+                 g,
+                 b );
+        return;
+    }
+    if ( const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape ) )
+    {
+        const Vector3 hullCenter = position + rot * hull->GetPosition();
+        for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
+        {
+            const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
+            EmitLine( hullCenter + rot * hull->GetVertex( edge.vertexA ),
+                      hullCenter + rot * hull->GetVertex( edge.vertexB ),
+                      r,
+                      g,
+                      b );
+        }
     }
 }
 
@@ -386,15 +446,34 @@ void RunEditorTracer::AddReplayImpulseVector( const Vector3& point, const Vector
 }
 
 
-void RunEditorTracer::AddReplayFutureTargetMarker( const Vector3& center, float radius, int depth )
+void RunEditorTracer::AddReplayFutureTargetMarker( const Vector3& position,
+                                                   const Quaternion& orientation,
+                                                   const CollisionShape& shape,
+                                                   int depth )
 {
     const float depthFade = std::clamp( static_cast<float>( depth - 1 ) * 0.10f, 0.0f, 0.34f );
     const float r = std::clamp( 0.98f - depthFade * 0.55f, 0.52f, 1.0f );
     const float g = std::clamp( 0.72f - depthFade * 0.22f, 0.42f, 0.82f );
     const float b = std::clamp( 0.22f - depthFade * 0.12f, 0.10f, 0.32f );
-    radius = (std::max)( 0.75f, radius );
-    EmitRing( center, 1, radius, r, g, b );
-    EmitRing( center, 0, radius * 0.72f, r * 0.84f, g * 0.88f, b );
+    EmitShapeOutline( position, orientation, shape, r, g, b );
+}
+
+
+void RunEditorTracer::AddReplayCausalEntryMarker( const Vector3& position,
+                                                  const Quaternion& orientation,
+                                                  const CollisionShape& shape )
+{
+    // Why: entry and rest form a fixed two-color vocabulary. Yellow always
+    // means "joined the causal tree here", so no depth fade is applied.
+    EmitShapeOutline( position, orientation, shape, 1.0f, 0.85f, 0.25f );
+}
+
+
+void RunEditorTracer::AddReplayCausalRestMarker( const Vector3& position,
+                                                 const Quaternion& orientation,
+                                                 const CollisionShape& shape )
+{
+    EmitShapeOutline( position, orientation, shape, 0.58f, 0.58f, 0.62f );
 }
 
 
@@ -428,43 +507,10 @@ void RunEditorTracer::AddSelectionOutline( const Vector3& position,
                                            const Quaternion& orientation,
                                            const CollisionShape& shape )
 {
-    Quaternion outlineOrientation = orientation;
-    const RotationMatrix rot = outlineOrientation.GetOrientationMatrix();
     constexpr float outlineR = 1.0f;
     constexpr float outlineG = 1.0f;
     constexpr float outlineB = 0.55f;
-
-    if ( const BoundingSphere* sphere = std::get_if<BoundingSphere>( &shape ) )
-    {
-        EmitSphere( position + rot * sphere->GetPosition(), sphere->GetBoundingRadius(), outlineR, outlineG, outlineB );
-        return;
-    }
-    if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
-    {
-        const Vector3& he = box->GetHalfExtents();
-        const Vector3 center = position + rot * box->GetPosition();
-        EmitBox( center,
-                 rot * Vector3( he.x, 0.0f, 0.0f ),
-                 rot * Vector3( 0.0f, he.y, 0.0f ),
-                 rot * Vector3( 0.0f, 0.0f, he.z ),
-                 outlineR,
-                 outlineG,
-                 outlineB );
-        return;
-    }
-    if ( const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &shape ) )
-    {
-        const Vector3 hullCenter = position + rot * hull->GetPosition();
-        for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
-        {
-            const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
-            EmitLine( hullCenter + rot * hull->GetVertex( edge.vertexA ),
-                      hullCenter + rot * hull->GetVertex( edge.vertexB ),
-                      outlineR,
-                      outlineG,
-                      outlineB );
-        }
-    }
+    EmitShapeOutline( position, orientation, shape, outlineR, outlineG, outlineB );
 }
 
 

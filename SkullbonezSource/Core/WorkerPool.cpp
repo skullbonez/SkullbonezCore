@@ -30,7 +30,6 @@ Related:
 
 #include <algorithm>
 #include <atomic>
-#include <memory>
 #include <stdexcept>
 #include <utility>
 
@@ -42,56 +41,10 @@ namespace
 {
 thread_local bool g_isWorkerThread = false;
 thread_local int g_workerThreadIndex = -1;
-
-struct ParallelForChunksState
-{
-    ParallelForChunksState( int taskCount, const WorkerPool::ChunkFunction& function )
-        : fence( taskCount ), fn( function )
-    {
-    }
-
-    void CaptureCurrentException()
-    {
-        std::lock_guard<std::mutex> lock( exceptionMutex );
-        if ( !firstException )
-        {
-            firstException = std::current_exception();
-        }
-    }
-
-    Fence fence;
-    WorkerPool::ChunkFunction fn;
-    std::mutex exceptionMutex;
-    std::exception_ptr firstException;
-};
-
-class FenceSignalGuard
-{
-  public:
-    explicit FenceSignalGuard( Fence& targetFence ) : m_fence( targetFence ), m_active( true )
-    {
-    }
-
-    ~FenceSignalGuard()
-    {
-        // Invariant: every queued chunk must release the join fence even when
-        // user work throws; exception propagation happens after the wait.
-        if ( m_active )
-        {
-            m_fence.Signal();
-        }
-    }
-
-    FenceSignalGuard( const FenceSignalGuard& ) = delete;
-    FenceSignalGuard& operator=( const FenceSignalGuard& ) = delete;
-
-  private:
-    Fence& m_fence;
-    bool m_active;
-};
 } // namespace
 
-WorkerPool::WorkerPool() : m_stopping( false ), m_minParallelItems( 32 )
+WorkerPool::WorkerPool()
+    : m_parallelTaskHead( 0 ), m_parallelTaskCount( 0 ), m_stopping( false ), m_minParallelItems( 32 )
 {
 }
 
@@ -195,6 +148,8 @@ void WorkerPool::Shutdown()
     {
         std::lock_guard<std::mutex> lock( m_mutex );
         m_tasks.clear();
+        m_parallelTaskHead = 0;
+        m_parallelTaskCount = 0;
         m_stopping = false;
     }
 }
@@ -238,82 +193,21 @@ void WorkerPool::ParallelFor( int begin,
         return;
     }
 
-    const IndexFunction fnCopy = fn;
-    const char* markerPath = workerMarkerPath ? workerMarkerPath : "Frame/Workers/ParallelFor";
-    const uint32_t markerHash = workerMarkerPath ? workerMarkerHash : HashStr( "Frame/Workers/ParallelFor" );
-    const auto runChunk = [fnCopy, markerPath, markerHash]( int, int chunkBegin, int chunkEnd )
-    {
-#if defined( SKULLBONEZ_PROFILE_ENABLED )
-        ::SkullbonezCore::Basics::WorkerProfilerScope workerScope( markerPath, markerHash );
-#else
-        static_cast<void>( markerPath );
-        static_cast<void>( markerHash );
-#endif
-        for ( int index = chunkBegin; index < chunkEnd; ++index )
-        {
-            fnCopy( index );
-        }
-    };
-
-    if ( ShouldRunInline( itemCount, minParallelItems ) )
-    {
-        runChunk( 0, begin, end );
-        return;
-    }
-
-    const std::vector<WorkerChunkRange> chunks = MakeChunks( begin, end, minParallelItems );
-    ParallelForChunks( chunks, runChunk );
+    ParallelForNoAlloc( begin, end, fn, minParallelItems, workerMarkerPath, workerMarkerHash );
 }
 
 
 void WorkerPool::ParallelForChunks( const std::vector<WorkerChunkRange>& chunks, const ChunkFunction& fn )
 {
-    if ( chunks.empty() || !fn )
-    {
-        return;
-    }
+    ParallelForChunks( chunks.data(), static_cast<int>( chunks.size() ), fn );
+}
 
-    if ( GetThreadCount() == 0 || IsCurrentThreadWorker() )
-    {
-        for ( const WorkerChunkRange& chunk : chunks )
-        {
-            fn( chunk.chunkIndex, chunk.begin, chunk.end );
-        }
-        return;
-    }
 
-    const std::shared_ptr<ParallelForChunksState> state =
-        std::make_shared<ParallelForChunksState>( static_cast<int>( chunks.size() ), fn );
-
-    for ( const WorkerChunkRange& chunk : chunks )
+void WorkerPool::ParallelForChunks( const WorkerChunkRange* chunks, int chunkCount, const ChunkFunction& fn )
+{
+    if ( fn )
     {
-        try
-        {
-            Submit(
-                [state, chunk]()
-                {
-                    FenceSignalGuard signalGuard( state->fence );
-                    try
-                    {
-                        state->fn( chunk.chunkIndex, chunk.begin, chunk.end );
-                    }
-                    catch ( ... )
-                    {
-                        state->CaptureCurrentException();
-                    }
-                } );
-        }
-        catch ( ... )
-        {
-            state->CaptureCurrentException();
-            state->fence.Signal();
-        }
-    }
-
-    state->fence.Wait();
-    if ( state->firstException )
-    {
-        std::rethrow_exception( state->firstException );
+        ParallelForChunksNoAlloc( chunks, chunkCount, fn );
     }
 }
 
@@ -321,21 +215,41 @@ void WorkerPool::ParallelForChunks( const std::vector<WorkerChunkRange>& chunks,
 std::vector<WorkerChunkRange> WorkerPool::MakeChunks( int begin, int end, int minParallelItems ) const
 {
     std::vector<WorkerChunkRange> chunks;
-    const int itemCount = end - begin;
-    if ( itemCount <= 0 )
+    WorkerChunkRange fixedChunks[WORKER_PARALLEL_TASK_CAPACITY];
+    const int chunkCount = BuildChunks( begin, end, minParallelItems, fixedChunks, WORKER_PARALLEL_TASK_CAPACITY );
+    chunks.reserve( static_cast<size_t>( chunkCount ) );
+    for ( int index = 0; index < chunkCount; ++index )
     {
-        return chunks;
+        chunks.push_back( fixedChunks[index] );
+    }
+    return chunks;
+}
+
+
+int WorkerPool::BuildChunks( int begin,
+                             int end,
+                             int minParallelItems,
+                             WorkerChunkRange* outChunks,
+                             int outCapacity ) const
+{
+    const int itemCount = end - begin;
+    if ( itemCount <= 0 || !outChunks || outCapacity <= 0 )
+    {
+        return 0;
     }
 
     if ( ShouldRunInline( itemCount, minParallelItems ) )
     {
-        chunks.push_back( { 0, begin, end } );
-        return chunks;
+        outChunks[0] = { 0, begin, end };
+        return 1;
     }
 
     const int workerCount = (std::max)( 1, GetThreadCount() );
     const int chunkCount = (std::max)( 1, (std::min)( workerCount, itemCount ) );
-    chunks.reserve( static_cast<size_t>( chunkCount ) );
+    if ( chunkCount > outCapacity )
+    {
+        throw std::runtime_error( "WorkerPool parallel chunk capacity exceeded." );
+    }
 
     const int baseChunkSize = itemCount / chunkCount;
     const int remainder = itemCount % chunkCount;
@@ -344,11 +258,43 @@ std::vector<WorkerChunkRange> WorkerPool::MakeChunks( int begin, int end, int mi
     {
         const int chunkSize = baseChunkSize + ( chunkIndex < remainder ? 1 : 0 );
         const int chunkEnd = cursor + chunkSize;
-        chunks.push_back( { chunkIndex, cursor, chunkEnd } );
+        outChunks[chunkIndex] = { chunkIndex, cursor, chunkEnd };
         cursor = chunkEnd;
     }
 
-    return chunks;
+    return chunkCount;
+}
+
+
+void WorkerPool::SubmitParallelChunk( void* dispatchState,
+                                      ParallelTaskDispatcher dispatch,
+                                      const WorkerChunkRange& chunk )
+{
+    if ( GetThreadCount() == 0 )
+    {
+        if ( dispatch )
+        {
+            dispatch( dispatchState, chunk );
+        }
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock( m_mutex );
+        if ( m_stopping )
+        {
+            throw std::runtime_error( "WorkerPool::SubmitParallelChunk called while shutting down." );
+        }
+        if ( m_parallelTaskCount >= WORKER_PARALLEL_TASK_CAPACITY )
+        {
+            throw std::runtime_error( "WorkerPool fixed parallel task queue exhausted." );
+        }
+
+        const int tail = ( m_parallelTaskHead + m_parallelTaskCount ) % WORKER_PARALLEL_TASK_CAPACITY;
+        m_parallelTasks[tail] = { dispatchState, dispatch, chunk };
+        ++m_parallelTaskCount;
+    }
+    m_workAvailable.notify_one();
 }
 
 
@@ -385,22 +331,44 @@ void WorkerPool::WorkerLoop( int workerIndex )
     while ( true )
     {
         Task task;
+        ParallelTaskRecord parallelTask = {};
+        bool hasParallelTask = false;
         {
             std::unique_lock<std::mutex> lock( m_mutex );
-            m_workAvailable.wait( lock, [&]() { return m_stopping || !m_tasks.empty(); } );
+            m_workAvailable.wait( lock, [&]() { return m_stopping || !m_tasks.empty() || m_parallelTaskCount > 0; } );
 
-            if ( m_stopping && m_tasks.empty() )
+            if ( m_stopping && m_tasks.empty() && m_parallelTaskCount == 0 )
             {
                 break;
             }
 
-            task = std::move( m_tasks.front() );
-            m_tasks.pop_front();
+            if ( m_parallelTaskCount > 0 )
+            {
+                parallelTask = m_parallelTasks[m_parallelTaskHead];
+                m_parallelTaskHead = ( m_parallelTaskHead + 1 ) % WORKER_PARALLEL_TASK_CAPACITY;
+                --m_parallelTaskCount;
+                hasParallelTask = true;
+            }
+            else
+            {
+                task = std::move( m_tasks.front() );
+                m_tasks.pop_front();
+            }
         }
 
         try
         {
-            task();
+            if ( hasParallelTask )
+            {
+                if ( parallelTask.dispatch )
+                {
+                    parallelTask.dispatch( parallelTask.dispatchState, parallelTask.chunk );
+                }
+            }
+            else
+            {
+                task();
+            }
         }
         catch ( const std::exception& e )
         {

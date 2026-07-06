@@ -519,6 +519,26 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
                 }
             }
         }
+
+        // Concept: velocity edit owns replay body targeting. A click on the
+        // body itself should select the replay path target for the velocity
+        // gizmo, not fall through to normal editor/world selection and clear it.
+        (void)TryPickReplayPathTargetFromMouse( false, false );
+        if ( m_replayRuntime.PathVisualizer().hasTarget )
+        {
+            EnterInteractiveSceneRun();
+            if ( m_replayRuntime.SetLiveAdvanceHeld( true ) && m_replayRuntime.ShouldUseInspectionCamera() )
+            {
+                EnterReplayInspectionCamera();
+            }
+            SetWorldInteractionOwnerAfterInteractionTransition( WorldInteractionOwner::ReplayVelocityEdit,
+                                                                InteractionExitReason::EnterReplay );
+            m_replayRuntime.Prediction().enabled = true;
+            m_replayRuntime.Scrubber().visibleUntil =
+                m_timers.simulationTimer.GetTotalTime() + REPLAY_SCRUBBER_VISIBLE_SECONDS;
+            m_replayRuntime.Scrubber().visible = true;
+        }
+        return true;
     }
 
     return m_replayRuntime.VelocityEdit().hotLinearAxis >= 0 || m_replayRuntime.VelocityEdit().hotAngularAxis >= 0;

@@ -45,7 +45,8 @@ class GameModelCollection;
 namespace Physics
 {
 class PhysicsEngine;
-}
+struct RagdollBuildOptions;
+} // namespace Physics
 namespace Geometry
 {
 class Terrain;
@@ -95,9 +96,20 @@ struct SceneAuthoredModelContext
     std::vector<RunRequiredBroadphaseXCellsState>& requiredBroadphaseXCells;
 };
 
+struct SceneSimpleRagdollAppendContext
+{
+    RunSceneState& sceneState;
+    Environment::WorldEnvironment& world;
+    Geometry::Terrain* terrain;
+    GameObjects::GameModelCollection& models;
+    Physics::PhysicsEngine& physics;
+};
+
 class SceneAuthoredSetup
 {
   public:
+    static void AppendSimpleRagdoll( SceneSimpleRagdollAppendContext context,
+                                     const Physics::RagdollBuildOptions& options );
     static void SetUpCameras( SceneAuthoredCameraContext context, const TestScene& scene );
     static void SetUpGameModels( SceneAuthoredModelContext context, const TestScene& scene );
     static void SetUpRequiredContacts( SceneAuthoredModelContext context, const TestScene& scene );

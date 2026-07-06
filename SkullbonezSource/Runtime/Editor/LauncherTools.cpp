@@ -117,7 +117,7 @@ bool RuntimeTools::PickLauncherReproTarget( GameModelCollection& collection,
     // table for the eventual snapshot row.
     const ColliderStore& colliderStore = collection.GetColliderStore();
     const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
-    const std::vector<ColliderRecord>& colliders = colliderStore.Records();
+    const auto& colliders = colliderStore.Records();
     for ( const ColliderRecord& collider : colliders )
     {
         const PhysicsBodyRecord* body = LauncherReproBodyForCollider( bodyStore, collider );

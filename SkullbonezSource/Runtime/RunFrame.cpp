@@ -16,7 +16,7 @@ Glossary:
   Contact-audio simple mode: Presentation-only path that emits from body linear
     velocity changes rather than solver contact rows.
   Fixed-step edge: Runtime-owned code that repairs model/body topology before
-    PhysicsEngine::Step and applies presentation-only mirror work after it.
+    PhysicsEngine::Step and applies presentation-only refresh work after it.
   PhysicsBodyStore: Physics-owned body rows for live pose, velocity, fixed
     state, and replay identity.
   ColliderStore: Physics-owned collider rows for exact shape variants, material
@@ -41,6 +41,7 @@ Related:
 #include "CaptureSystem.h"
 #include "Editor/EditorTools.h"
 #include "Replay/ReplayV2Artifact.h"
+#include "Allocation/RuntimeAllocationTracker.h"
 #include "RuntimeTuning.h"
 #include "Scene/SceneRuntimeStyle.h"
 
@@ -64,6 +65,7 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
 using SkullbonezCore::Math::Vector::Vector3;
+namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
@@ -102,10 +104,6 @@ bool TryPrepareReplayProbeRenderPosition( SkullbonezCore::GameObjects::GameModel
                                           int modelIndex,
                                           Vector3& outPosition )
 {
-    // Why: replay scrub now queues render-instance poses without mutating the
-    // live GameModel mirror. Probes consume the queued pose exactly where the
-    // renderer will consume it, then compare the prepared draw transform.
-    collection.PrepareRenderInstances();
     const auto& instances = collection.RenderInstances().Records();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( instances.size() ) )
     {
@@ -114,6 +112,23 @@ bool TryPrepareReplayProbeRenderPosition( SkullbonezCore::GameObjects::GameModel
 
     outPosition = RenderProbeMatrixTranslation( instances[static_cast<std::size_t>( modelIndex )].modelMatrix );
     return true;
+}
+
+bool ApplyReplayProbePresentationSampleForRender( SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                                  ReplayRuntime& replayRuntime,
+                                                  const ReplayPresentationSample& sample )
+{
+    // Why: probes consume replay scrub poses exactly where the renderer consumes
+    // them: after the live render snapshot refresh and before draw submission.
+    // This proves presentation overrides do not mutate live body rows.
+    collection.PrepareRenderInstances();
+    PhysicsEngine& physics = collection.GetPhysicsEngine();
+    return replayRuntime.ApplyPresentationSampleForRender( physics, sample );
+}
+
+void RestoreReplayProbeRenderInstances( SkullbonezCore::GameObjects::GameModelCollection& collection )
+{
+    collection.PrepareRenderInstances();
 }
 
 const PhysicsBodyRecord*
@@ -130,9 +145,9 @@ TryGetReplayProbeBodyRecord( const SkullbonezCore::GameObjects::GameModelCollect
 }
 
 
-// Why: editor transform replay still mutates the authoring GameModel, but the
-// shape it scales from is already owned by ColliderStore. Reading the store row
-// here avoids treating the compatibility model mirror as collision authority.
+// Why: editor transform replay still mutates authoring data, but the shape it
+// scales from is already owned by ColliderStore. Reading the store row here
+// avoids treating presentation data as collision authority.
 const ColliderRecord*
 TryGetEditorTransformColliderRecord( const SkullbonezCore::GameObjects::GameModelCollection& collection,
                                      PhysicsColliderHandle colliderHandle,
@@ -188,10 +203,10 @@ void StepRuntimePhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& m
                              SkullbonezCore::Threading::WorkerPool& workerPool )
 {
     const int modelCount = modelCollection.ModelCount();
-    // Invariant: PhysicsBodyStore is the per-tick body authority. GameModel is
-    // imported only when model/body/collider topology changes; same-count
-    // editor or replay mutations must commit explicitly before this step reads
-    // store rows.
+    // Invariant: PhysicsBodyStore is the per-tick body authority. Descriptor
+    // sidecars are imported only when model/body/collider topology changes;
+    // same-count editor or replay mutations must commit explicitly before this
+    // step reads store rows.
     modelCollection.RepairPhysicsBodyAndColliderTopology();
     modelCollection.TickContactHighlights( modelCount, fixedDt );
 
@@ -503,6 +518,8 @@ void Run::Execute()
         }
         else
         {
+            RuntimeAllocation::RuntimeAllocationScope frameAllocationScope(
+                RuntimeAllocation::RuntimeAllocationPhase::SteadyGameplay );
             double secondsPerFrame = m_timers.frameTimer.GetElapsedTime();
             secondsPerFrame = std::clamp( secondsPerFrame, 0.0, 0.05 );
 
@@ -533,7 +550,11 @@ void Run::Execute()
             PROFILE_END( "Frame/Input" );
 
             m_cGameModelCollection.BeginCollisionVisualFrame();
-            TickPhysics( secondsPerFrame );
+            {
+                RuntimeAllocation::RuntimeAllocationScope allocationScope(
+                    RuntimeAllocation::RuntimeAllocationPhase::Physics );
+                TickPhysics( secondsPerFrame );
+            }
 
             PROFILE_BEGIN( "Frame/PostPhysics" );
 
@@ -559,14 +580,16 @@ void Run::Execute()
 
             PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
             m_collisionVisualizer.SetEnabled( m_debug.isCollisionVisualizer );
-            m_collisionVisualizer.Update( static_cast<float>( secondsPerFrame ), m_cGameModelCollection );
+            m_cGameModelCollection.UpdateCollisionVisualizer( m_collisionVisualizer,
+                                                              static_cast<float>( secondsPerFrame ) );
             PROFILE_END( "Frame/PostPhysics/CollisionVisualizer" );
 
             PROFILE_BEGIN( "Frame/PostPhysics/PhysicsDebugVisualizer" );
             m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
             m_physicsDebugVisualizer.SetContactLingerSeconds( m_debug.physicsDebugContactLinger );
             m_physicsDebugVisualizer.SetPipelineStageCursor( m_debug.physicsDebugPipelineStageCursor );
-            m_physicsDebugVisualizer.Update( static_cast<float>( secondsPerFrame ), m_cGameModelCollection );
+            m_cGameModelCollection.UpdatePhysicsDebugVisualizer( m_physicsDebugVisualizer,
+                                                                 static_cast<float>( secondsPerFrame ) );
             UpdateRequiredSceneContacts();
             PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
@@ -585,14 +608,22 @@ void Run::Execute()
             if ( m_runtimeSettings.isPipelineSyncEnabled )
             {
                 PROFILE_BEGIN( "Frame/PipelineSync" );
-                renderLifecycle.Finish();
+                {
+                    RuntimeAllocation::RuntimeAllocationScope allocationScope(
+                        RuntimeAllocation::RuntimeAllocationPhase::Render );
+                    renderLifecycle.Finish();
+                }
                 PROFILE_END( "Frame/PipelineSync" );
             }
 
+            RuntimeRenderModelFrameView renderModels = BuildRuntimeRenderModelFrameView();
+
             PROFILE_BEGIN( "Frame/Render" );
             {
+                RuntimeAllocation::RuntimeAllocationScope allocationScope(
+                    RuntimeAllocation::RuntimeAllocationPhase::Render );
                 DRAW_CALL_TRACE_SCOPE( "Frame/Render" );
-                Render();
+                Render( renderModels );
             }
             PROFILE_END( "Frame/Render" );
 
@@ -601,8 +632,10 @@ void Run::Execute()
                 const int uiDrawCallStart = frameRenderDiagnostics.GetFrameDrawCallCount();
                 PROFILE_BEGIN( "Frame/UI" );
                 {
+                    RuntimeAllocation::RuntimeAllocationScope allocationScope(
+                        RuntimeAllocation::RuntimeAllocationPhase::Render );
                     DRAW_CALL_TRACE_SCOPE( "Frame/UI" );
-                    m_renderer.RenderUiText( frameRenderDiagnostics, uiRender, secondsPerFrame );
+                    m_renderer.RenderUiText( frameRenderDiagnostics, uiRender, renderModels, secondsPerFrame );
                 }
                 PROFILE_END( "Frame/UI" );
                 const int uiDrawCallEnd = frameRenderDiagnostics.GetFrameDrawCallCount();
@@ -614,16 +647,24 @@ void Run::Execute()
             }
 
             PROFILE_BEGIN( "Frame/PostDraw/LiveStyleCapture" );
-            TickLiveStyleControlCapture();
+            {
+                RuntimeAllocation::RuntimeAllocationScope allocationScope(
+                    RuntimeAllocation::RuntimeAllocationPhase::Capture );
+                TickLiveStyleControlCapture();
+            }
             PROFILE_END( "Frame/PostDraw/LiveStyleCapture" );
 
             PROFILE_BEGIN( "Frame/PostDraw/InteractionAutomation" );
             TickInteractionAutomationAfterRender();
             PROFILE_END( "Frame/PostDraw/InteractionAutomation" );
 
-            if ( TickScreenshots() )
             {
-                continue;
+                RuntimeAllocation::RuntimeAllocationScope allocationScope(
+                    RuntimeAllocation::RuntimeAllocationPhase::Capture );
+                if ( TickScreenshots() )
+                {
+                    continue;
+                }
             }
 
             PROFILE_BEGIN( "Frame/PostDraw/AutoCycle" );
@@ -635,7 +676,11 @@ void Run::Execute()
                 static_cast<float>( std::clamp( m_timers.workTimer.GetElapsedTime(), 0.0, 0.25 ) * 1000.0 );
 
             PROFILE_BEGIN( "Frame/VsyncWait" );
-            renderLifecycle.Present();
+            {
+                RuntimeAllocation::RuntimeAllocationScope allocationScope(
+                    RuntimeAllocation::RuntimeAllocationPhase::Render );
+                renderLifecycle.Present();
+            }
             PROFILE_END( "Frame/VsyncWait" );
 
             m_timers.frameTimer.StopTimer();
@@ -787,12 +832,12 @@ void Run::AfterPhysicsStep()
             m_systems.cameras ? m_systems.cameras->GetRenderCameraTranslation() : Math::Vector::ZERO_VECTOR;
         m_contactAudio.BeginPhysicsStep( PHYSICS_FIXED_DT, listenerPosition );
 
-        const std::vector<GameObjects::GameModel>& models = m_cGameModelCollection.Models();
+        const auto& colliderRecords = m_cGameModelCollection.GetPhysicsEngine().Colliders().Records();
         auto materialForBody = [&]( int bodyIndex ) -> uint32_t
         {
-            if ( bodyIndex >= 0 && bodyIndex < static_cast<int>( models.size() ) )
+            if ( bodyIndex >= 0 && bodyIndex < static_cast<int>( colliderRecords.size() ) )
             {
-                return models[static_cast<std::size_t>( bodyIndex )].GetContactMaterialId();
+                return colliderRecords[static_cast<std::size_t>( bodyIndex )].contactMaterialId;
             }
             return HashStr( "default" );
         };
@@ -801,11 +846,11 @@ void Run::AfterPhysicsStep()
         {
             // Why: Simple Mode answers the practical sound question directly:
             // did a dynamic body experience enough mass-scaled linear velocity
-            // change to be heard? Motion comes from the authoritative body store;
-            // GameModel is still sampled only for authored audio material.
+            // change to be heard? Motion comes from PhysicsBodyStore and contact
+            // material comes from the paired ColliderStore row.
             const auto& bodyRecords = m_cGameModelCollection.GetPhysicsEngine().BodyStore().Records();
-            const int simpleBodyCount =
-                static_cast<int>( bodyRecords.size() < models.size() ? bodyRecords.size() : models.size() );
+            const int simpleBodyCount = static_cast<int>(
+                bodyRecords.size() < colliderRecords.size() ? bodyRecords.size() : colliderRecords.size() );
             m_contactAudio.BeginSimpleLinearStep( simpleBodyCount );
             for ( int bodyIndex = 0; bodyIndex < simpleBodyCount; ++bodyIndex )
             {
@@ -814,12 +859,12 @@ void Run::AfterPhysicsStep()
                 {
                     continue;
                 }
-                const GameObjects::GameModel& model = models[static_cast<std::size_t>( bodyIndex )];
-                m_contactAudio.SubmitLinearMotion( bodyIndex,
-                                                   model.GetContactMaterialId(),
-                                                   body.position,
-                                                   body.linearVelocity,
-                                                   body.mass );
+                m_contactAudio.SubmitLinearMotion(
+                    bodyIndex,
+                    colliderRecords[static_cast<std::size_t>( bodyIndex )].contactMaterialId,
+                    body.position,
+                    body.linearVelocity,
+                    body.mass );
             }
         }
         else
@@ -918,9 +963,9 @@ void Run::AfterPhysicsStep()
     }
     if ( m_replayRuntime.IsCaptureEnabled() )
     {
+        RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Replay );
         PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
-        ReplayLauncherVisualSample launcherVisual;
-        m_runtimeTools.BuildReplayLauncherVisualSample( launcherVisual );
+        m_runtimeTools.BuildReplayLauncherVisualSample( m_replayLauncherVisualScratch );
 
         ReplayCaptureInput input;
         input.sceneFrame = SceneState().currentFrame;
@@ -936,7 +981,7 @@ void Run::AfterPhysicsStep()
         input.models = &m_cGameModelCollection;
         input.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
         input.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
-        input.launcherVisual = &launcherVisual;
+        input.launcherVisual = &m_replayLauncherVisualScratch;
         m_replayRuntime.CaptureFrame( input );
         CompareLatestReplaySamples( m_replayRuntime, m_solverReplayMismatch );
 #ifdef _DEBUG
@@ -1018,7 +1063,7 @@ void Run::TickReplayScrubProbe()
 
     // Why: scrub probes prove presentation overrides do not mutate live
     // simulation state. Read that state from PhysicsBodyStore so the proof does
-    // not depend on the temporary GameModel body mirror.
+    // not depend on temporary presentation rows.
     const Math::Vector::Vector3 preApplyPosition = probedBody->position;
     const float preLiveDeltaSquared = distanceSquared( preApplyPosition, liveBody->position );
     if ( preLiveDeltaSquared > m_replayScrubProbe.minDistanceSquared )
@@ -1027,7 +1072,8 @@ void Run::TickReplayScrubProbe()
             "replay scrub probe live body did not match the current replay sample before applying scrub state" );
     }
 
-    const bool applied = m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, *selected );
+    const bool applied =
+        ApplyReplayProbePresentationSampleForRender( m_cGameModelCollection, m_replayRuntime, *selected );
     if ( !applied )
     {
         throw std::runtime_error( "replay scrub probe failed to apply the selected presentation sample" );
@@ -1035,31 +1081,31 @@ void Run::TickReplayScrubProbe()
     const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
     if ( !appliedBody )
     {
-        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
         throw std::runtime_error( "replay scrub probe lost the selected live body after applying scrub state" );
     }
     const Math::Vector::Vector3 liveAfterApplyPosition = appliedBody->position;
     const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
     if ( livePreservedDeltaSquared > m_replayScrubProbe.minDistanceSquared )
     {
-        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
         throw std::runtime_error( "replay scrub probe mutated the live body while applying scrub state" );
     }
 
     Math::Vector::Vector3 appliedRenderPosition;
     if ( !TryPrepareReplayProbeRenderPosition( m_cGameModelCollection, probedModelIndex, appliedRenderPosition ) )
     {
-        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
         throw std::runtime_error( "replay scrub probe lost the selected render instance after applying scrub state" );
     }
     const float appliedDeltaSquared = distanceSquared( appliedRenderPosition, selectedBody->position );
     if ( appliedDeltaSquared > m_replayScrubProbe.minDistanceSquared )
     {
-        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
         throw std::runtime_error( "replay scrub probe did not move the render instance to the selected replay sample" );
     }
 
-    m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+    RestoreReplayProbeRenderInstances( m_cGameModelCollection );
     const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
     if ( !restoredBody )
     {
@@ -1204,7 +1250,6 @@ void Run::TickReplaySaveProbe()
                                                     placementResult.terrainPoint,
                                                     placementResult.placementScale,
                                                     placementResult.placementYawRadians );
-            GameModel& placedModel = m_cGameModelCollection.GetModelAtIndex( modelCountBeforePlace );
             const PhysicsBodyRecord* placedBodyBeforeEdit =
                 m_cGameModelCollection.GetPhysicsBodyStore().RecordForHandle( placementResult.placedBody );
             if ( !placedBodyBeforeEdit )
@@ -1213,11 +1258,14 @@ void Run::TickReplaySaveProbe()
             }
             // Why: placement has already registered a PhysicsBodyHandle. Use the
             // authoritative body row as the starting transform, then commit the
-            // edited authoring model back into the stores below.
-            placedModel.SetPosition( placedBodyBeforeEdit->position + Vector3( 4.0f, 0.0f, 0.0f ) );
+            // edited descriptor back into the stores below.
+            SkullbonezCore::GameObjects::PhysicsBodyStateEdit placedBodyEdit;
+            placedBodyEdit.hasPosition = true;
+            placedBodyEdit.position = placedBodyBeforeEdit->position + Vector3( 4.0f, 0.0f, 0.0f );
             Quaternion placedOrientation = placedBodyBeforeEdit->orientation;
             placedOrientation.RotateAboutAxis( Vector3( 0.0f, 1.0f, 0.0f ), 0.25f );
-            placedModel.SetOrientation( placedOrientation );
+            placedBodyEdit.hasOrientation = true;
+            placedBodyEdit.orientation = placedOrientation;
             const ColliderRecord* placedColliderBeforeEdit =
                 TryGetEditorTransformColliderRecord( m_cGameModelCollection,
                                                      placementResult.placedCollider,
@@ -1231,19 +1279,22 @@ void Run::TickReplaySaveProbe()
             constexpr int PROBE_SCALE_AXIS = 0;
             constexpr float PROBE_SCALE_FACTOR = 1.5f;
             CollisionShape placedShapeAfterScale;
-            if ( !placedModel.ScaleCollisionShapeAxisFromBase( placedShapeBeforeScale,
-                                                               PROBE_SCALE_AXIS,
-                                                               PROBE_SCALE_FACTOR,
-                                                               &placedShapeAfterScale ) )
+            if ( !ScaleShapeAxisFromBase( placedShapeBeforeScale,
+                                          PROBE_SCALE_AXIS,
+                                          PROBE_SCALE_FACTOR,
+                                          placedShapeAfterScale ) )
             {
                 throw std::runtime_error( "replay save probe failed to apply editor transform scale" );
             }
-            placedModel.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
-            placedModel.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+            placedBodyEdit.hasLinearVelocity = true;
+            placedBodyEdit.linearVelocity = Vector3( 0.0f, 0.0f, 0.0f );
+            placedBodyEdit.hasAngularVelocity = true;
+            placedBodyEdit.angularVelocity = Vector3( 0.0f, 0.0f, 0.0f );
             // Invariant: the replay probe exercises the same explicit collider
             // edit command as the editor instead of relying on a model recapture.
-            m_cGameModelCollection.CommitEditedModelColliderState(
+            m_cGameModelCollection.ApplyPhysicsBodyColliderEdit(
                 modelCountBeforePlace,
+                placedBodyEdit,
                 MakeColliderCreateDesc( std::move( placedShapeAfterScale ),
                                         placedColliderBeforeEdit->restitution,
                                         placedColliderBeforeEdit->contactMaterialId ) );
@@ -1282,7 +1333,6 @@ void Run::TickReplaySaveProbe()
                 m_cGameModelCollection.GetModelCount() );
             if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
                                                  SceneState(),
-                                                 m_cWorldEnvironment,
                                                  m_systems.terrain.get(),
                                                  ActiveGameModelCapacity(),
                                                  rayOrigin,
@@ -1380,7 +1430,8 @@ void Run::TickReplaySaveProbe()
         throw std::runtime_error( "replay save probe live body did not match the loaded v2 live sample" );
     }
 
-    const bool applied = m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, selected );
+    const bool applied =
+        ApplyReplayProbePresentationSampleForRender( m_cGameModelCollection, m_replayRuntime, selected );
     if ( !applied )
     {
         throw std::runtime_error( "replay save probe failed to apply the loaded v2 presentation sample" );
@@ -1388,31 +1439,31 @@ void Run::TickReplaySaveProbe()
     const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
     if ( !appliedBody )
     {
-        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
         throw std::runtime_error( "replay save probe lost the selected live body after applying the v2 sample" );
     }
     const Math::Vector::Vector3 liveAfterApplyPosition = appliedBody->position;
     const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
     if ( livePreservedDeltaSquared > 0.0001f )
     {
-        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
         throw std::runtime_error( "replay save probe mutated the live body while applying the v2 sample" );
     }
 
     Math::Vector::Vector3 appliedRenderPosition;
     if ( !TryPrepareReplayProbeRenderPosition( m_cGameModelCollection, probedModelIndex, appliedRenderPosition ) )
     {
-        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
         throw std::runtime_error( "replay save probe lost the selected render instance after applying the v2 sample" );
     }
     const float appliedDeltaSquared = distanceSquared( appliedRenderPosition, selectedBody->position );
     if ( appliedDeltaSquared > 0.0001f )
     {
-        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
         throw std::runtime_error( "replay save probe did not move the render instance to the loaded v2 sample" );
     }
 
-    m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+    RestoreReplayProbeRenderInstances( m_cGameModelCollection );
     const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
     if ( !restoredBody )
     {
@@ -1531,7 +1582,8 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
     }
 
     const Math::Vector::Vector3 preApplyPosition = probedBody->position;
-    const bool applied = m_replayRuntime.ApplyPresentationSampleForRender( m_cGameModelCollection, *selected );
+    const bool applied =
+        ApplyReplayProbePresentationSampleForRender( m_cGameModelCollection, m_replayRuntime, *selected );
     if ( !applied )
     {
         throw std::runtime_error( "replay load probe failed to apply the selected loaded v2 sample" );
@@ -1540,32 +1592,32 @@ void Run::VerifyLoadedReplayPresentationProbe( float normalized )
     const PhysicsBodyRecord* appliedBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
     if ( !appliedBody )
     {
-        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
         throw std::runtime_error( "replay load probe lost the selected body after applying the v2 sample" );
     }
     const Math::Vector::Vector3 liveAfterApplyPosition = appliedBody->position;
     const float livePreservedDeltaSquared = distanceSquared( liveAfterApplyPosition, preApplyPosition );
     if ( livePreservedDeltaSquared > 0.0001f )
     {
-        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
         throw std::runtime_error( "replay load probe mutated the live body while applying the v2 sample" );
     }
 
     Math::Vector::Vector3 appliedRenderPosition;
     if ( !TryPrepareReplayProbeRenderPosition( m_cGameModelCollection, probedModelIndex, appliedRenderPosition ) )
     {
-        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
         throw std::runtime_error( "replay load probe lost the selected render instance after applying the v2 sample" );
     }
     const float appliedDeltaSquared = distanceSquared( appliedRenderPosition, selectedBody->position );
     if ( appliedDeltaSquared > 0.0001f )
     {
-        m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+        RestoreReplayProbeRenderInstances( m_cGameModelCollection );
         throw std::runtime_error(
             "replay load probe did not move the render instance to the selected loaded v2 sample" );
     }
 
-    m_replayRuntime.ClearRenderPoseOverrides( m_cGameModelCollection );
+    RestoreReplayProbeRenderInstances( m_cGameModelCollection );
     const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( m_cGameModelCollection, probedModelIndex );
     if ( !restoredBody )
     {
@@ -1808,7 +1860,6 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
             m_runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value2 );
             if ( m_runtimeTools.FireLauncherRay( m_cGameModelCollection,
                                                  SceneState(),
-                                                 m_cWorldEnvironment,
                                                  m_systems.terrain.get(),
                                                  ActiveGameModelCapacity(),
                                                  rayOrigin,
@@ -1936,14 +1987,16 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 return false;
             }
 
-            GameModel& model = m_cGameModelCollection.GetModelAtIndex( event.value0 );
+            SkullbonezCore::GameObjects::PhysicsBodyStateEdit bodyEdit;
             if ( event.flags & REPLAY_EDITOR_TRANSFORM_TRANSLATE )
             {
-                model.SetPosition( position );
+                bodyEdit.hasPosition = true;
+                bodyEdit.position = position;
             }
             if ( event.flags & REPLAY_EDITOR_TRANSFORM_ROTATE )
             {
-                model.SetOrientation( orientation );
+                bodyEdit.hasOrientation = true;
+                bodyEdit.orientation = orientation;
             }
             PhysicsColliderCreateDesc editedColliderDesc;
             bool hasEditedColliderDesc = false;
@@ -1961,7 +2014,7 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 }
                 const CollisionShape baseShape = colliderBeforeScale->shape;
                 CollisionShape scaledShape;
-                if ( !model.ScaleCollisionShapeAxisFromBase( baseShape, event.value3, scaleFactor, &scaledShape ) )
+                if ( !ScaleShapeAxisFromBase( baseShape, event.value3, scaleFactor, scaledShape ) )
                 {
                     WriteReplayProbeReason( eventOutReason,
                                             eventReasonSize,
@@ -1970,25 +2023,29 @@ bool Run::RestoreReplayV2ArtifactTargetState( const char* path,
                 }
                 // Invariant: restore reuses the previous collider material and
                 // replaces only the decoded scale shape, keeping replay payload
-                // semantics independent from GameModel mirror recapture.
+                // semantics independent from legacy model-side recapture.
                 editedColliderDesc = MakeColliderCreateDesc( std::move( scaledShape ),
                                                              colliderBeforeScale->restitution,
                                                              colliderBeforeScale->contactMaterialId );
                 hasEditedColliderDesc = true;
             }
-            model.SetLinearVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
-            model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+            bodyEdit.hasLinearVelocity = true;
+            bodyEdit.linearVelocity = Vector3( 0.0f, 0.0f, 0.0f );
+            bodyEdit.hasAngularVelocity = true;
+            bodyEdit.angularVelocity = Vector3( 0.0f, 0.0f, 0.0f );
             if ( hasEditedColliderDesc )
             {
-                m_cGameModelCollection.CommitEditedModelColliderState( event.value0, std::move( editedColliderDesc ) );
+                m_cGameModelCollection.ApplyPhysicsBodyColliderEdit( event.value0,
+                                                                     bodyEdit,
+                                                                     std::move( editedColliderDesc ) );
             }
             else
             {
-                m_cGameModelCollection.CommitEditedModelBodyState( event.value0 );
+                m_cGameModelCollection.ApplyPhysicsBodyEdit( event.value0, bodyEdit );
             }
             // Why: the edited-state commit has already refreshed the
             // edited body row. The wake decision should read the committed
-            // PhysicsBodyStore record, not the compatibility GameModel mirror.
+            // PhysicsBodyStore record, not presentation/authored pose data.
             PhysicsEngine& physics = m_cGameModelCollection.GetPhysicsEngine();
             const PhysicsBodyStore& bodyStore = physics.BodyStore();
             const PhysicsBodyHandle body = bodyStore.HandleForModelIndex( event.value0 );

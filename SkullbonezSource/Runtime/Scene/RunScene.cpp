@@ -29,6 +29,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../RunInternal.h"
+#include "../Allocation/RuntimeAllocationTracker.h"
 #include "../RuntimeTuning.h"
 #include "SceneRuntimeLoad.h"
 #include "SceneRuntimeReset.h"
@@ -52,6 +53,7 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Assets::ResolveEditorHullAssetPath;
 using namespace SkullbonezCore::Basics::RunInternal;
+namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
@@ -436,8 +438,8 @@ void Run::UpdateRequiredSceneContacts()
 
     const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
     const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
-    const std::vector<PhysicsBodyRecord>& bodyRecords = bodyStore.Records();
-    const std::vector<ColliderRecord>& colliderRecords = colliderStore.Records();
+    const auto& bodyRecords = bodyStore.Records();
+    const auto& colliderRecords = colliderStore.Records();
     const int contactModelCount =
         (std::min)( bodyStore.Count(), static_cast<int>( (std::min)( bodyRecords.size(), colliderRecords.size() ) ) );
     for ( RunRequiredContactState& required : m_requiredSceneContacts )
@@ -585,6 +587,7 @@ bool Run::RequiredSceneBroadphaseXCellsComplete() const
 
 void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
+    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::SceneLoad );
     SceneController& runtime = m_sceneController;
     SceneRuntimeResetContext resetContext{ m_runtimeSettings,
                                            m_debug,

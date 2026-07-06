@@ -16,7 +16,7 @@ Glossary:
 
 Invariants:
   - RenderPipeline consumes RenderSceneSnapshot by const reference and never
-    reaches into GameModelCollection or Run.
+    reaches into runtime owner collections or Run.
   - The graph dump mirrors the live pass order in RunRender.cpp until command
     callbacks move into the graph.
 

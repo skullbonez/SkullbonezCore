@@ -97,6 +97,7 @@ enum class RuntimeInputAction
     ToggleBroadphaseOverlay,
     ToggleUIVisibility,
     TogglePerformanceHistogram,
+    ToggleMemoryOverlay,
     NavigateScenePrevious,
     NavigateSceneNext,
     DismissOrExitUI,

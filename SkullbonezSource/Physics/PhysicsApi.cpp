@@ -5,10 +5,10 @@ Purpose:
 
 Mental model:
   PhysicsStandaloneWorld is the first isolated owner for public physics handles.
-  It does not route through Run, renderer setup, scene parsing, GameModel, or
-  GameModelCollection. The world is intentionally small: it proves deterministic
-  create/update/delete/query/step ownership while collision and solver authority
-  move away from the compatibility path.
+  It does not route through Run, renderer setup, scene parsing, or runtime
+  collection owners. The world is intentionally small: it proves deterministic
+  create/update/delete/query/step ownership while collision and solver
+  authority stay on store-backed records.
 
 Glossary:
   Activation command: Handle-based request to wake a body, seed it asleep, or
@@ -437,7 +437,7 @@ void PhysicsStandaloneWorld::Clear()
 
 PhysicsBodyHandle PhysicsStandaloneWorld::CreateBody( const PhysicsBodyCreateDesc& desc )
 {
-    const PhysicsBodyHandle body = m_bodyStore.CreateBodyRecord( MakeBodyRecord( desc ) );
+    const PhysicsBodyHandle body = m_bodyStore.CreateBodyRecord( desc, m_sleepEnabled );
     InvalidateBodyViews();
     ClearContacts();
     return body;
@@ -601,6 +601,13 @@ bool PhysicsStandaloneWorld::UpdateCollider( const PhysicsColliderUpdateDesc& de
         collider->restitution = desc.restitution;
         collider->friction = desc.friction;
         collider->contactMaterialId = desc.contactMaterialId;
+        if ( desc.contactMaterialName[0] != '\0' )
+        {
+            strncpy_s( collider->contactMaterialName,
+                       sizeof( collider->contactMaterialName ),
+                       desc.contactMaterialName,
+                       _TRUNCATE );
+        }
     }
     if ( updatesBroadphase )
     {
@@ -774,7 +781,7 @@ void PhysicsStandaloneWorld::ClearIslands()
 
 void PhysicsStandaloneWorld::GenerateStandaloneContacts()
 {
-    const std::vector<ColliderRecord>& colliders = m_colliderStore.Records();
+    const auto& colliders = m_colliderStore.Records();
     for ( std::size_t a = 0; a < colliders.size(); ++a )
     {
         const ColliderRecord& colliderA = colliders[a];
@@ -951,7 +958,7 @@ void PhysicsStandaloneWorld::GenerateStandaloneIslands()
 {
     ClearIslands();
 
-    const std::vector<PhysicsBodyRecord>& bodies = m_bodyStore.Records();
+    const auto& bodies = m_bodyStore.Records();
     if ( bodies.empty() )
     {
         return;
@@ -1190,7 +1197,7 @@ PhysicsStandaloneWorld::QueryBroadphaseCells( const PhysicsBroadphaseCellQueryDe
 {
     m_broadphaseQueryScratch.clear();
 
-    const std::vector<PhysicsBodyRecord>& bodies = m_bodyStore.Records();
+    const auto& bodies = m_bodyStore.Records();
     for ( const PhysicsBodyRecord& body : bodies )
     {
         if ( !BodyPassesQueryFilters( body, desc.includeFixedBodies, desc.includeSleepingBodies, m_sleepEnabled ) )
@@ -1348,32 +1355,6 @@ bool PhysicsStandaloneWorld::IsAlive( PhysicsConstraintHandle constraint ) const
 }
 
 
-PhysicsBodyRecord PhysicsStandaloneWorld::MakeBodyRecord( const PhysicsBodyCreateDesc& desc ) const
-{
-    PhysicsBodyRecord record;
-    record.sceneObjectId = desc.sceneObjectId;
-    record.position = desc.position;
-    record.orientation = desc.orientation;
-    record.linearVelocity = desc.linearVelocity;
-    record.angularVelocity = desc.angularVelocity;
-    record.rotationalInertia = desc.rotationalInertia;
-    record.invRotationalInertia = desc.motionKind == PhysicsBodyMotionKind::Fixed
-                                      ? Vector3( 0.0f, 0.0f, 0.0f )
-                                      : InvertNonZeroComponents( desc.rotationalInertia );
-    record.mass = desc.mass;
-    record.invMass = ComputeInverseMass( desc.motionKind, desc.mass );
-    record.boundingRadius = ConservativeShapeRadius( desc.shape );
-    record.volume = desc.volume;
-    record.projectedSurfaceArea = desc.projectedSurfaceArea;
-    record.dragCoefficient = desc.dragCoefficient;
-    record.contactReleaseImpulseThreshold = desc.contactReleaseImpulseThreshold;
-    record.isFixed = desc.motionKind == PhysicsBodyMotionKind::Fixed;
-    record.isSleeping = m_sleepEnabled && desc.startsAsleep;
-    record.releasesFromFixedOnContact = desc.releasesFromFixedOnContact;
-    return record;
-}
-
-
 PhysicsBodyRecord* PhysicsStandaloneWorld::MutableBodyRecord( PhysicsBodyHandle body )
 {
     return m_bodyStore.MutableRecordForHandle( body );
@@ -1446,6 +1427,7 @@ ColliderRecord PhysicsStandaloneWorld::MakeColliderRecord( const PhysicsCollider
     record.restitution = desc.restitution;
     record.friction = desc.friction;
     record.contactMaterialId = desc.contactMaterialId;
+    strncpy_s( record.contactMaterialName, sizeof( record.contactMaterialName ), desc.contactMaterialName, _TRUNCATE );
     record.projectedSurfaceArea = desc.projectedSurfaceArea;
     record.dragCoefficient = desc.dragCoefficient;
     return record;
@@ -1873,7 +1855,8 @@ PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke(
     }
 
     // Why: keep the existing lifecycle/raycast sample stable while proving that
-    // standalone contact rows come from collider records, not a staged model mirror.
+    // standalone contact rows come from collider records, not staged model-side
+    // collision state.
     PhysicsStandaloneWorld contactWorld;
     PhysicsBodyCreateDesc fixedContactBodyDesc;
     fixedContactBodyDesc.sceneObjectId = PhysicsSceneObjectId{ 31u };

@@ -32,6 +32,7 @@ Related:
 #include "RuntimeRenderHost.h"
 #include "RuntimeRenderInputs.h"
 #include "RuntimeRenderPasses.h"
+#include "../../Rendering/RenderGraph.h"
 
 #include <cstdint>
 #include <vector>
@@ -57,9 +58,21 @@ class RuntimeRenderer
     void SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing );
     void RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,
                        const UI::UIRenderContext& uiRender,
+                       const RuntimeRenderModelFrameView& models,
                        double dSecondsPerFrame );
 
   private:
+    // Concept: callback-owned results record which render passes executed
+    // through the temporary RenderGraph callback path this frame.
+    //
+    // Why: diagnostics still compare direct pass execution with callback-owned
+    // graph execution while the graph API carries C-style userData. RuntimeRenderer
+    // owns these flags because pass scheduling is its responsibility.
+    //
+    // Deletion condition: remove these flags with the callback payload structs
+    // when render passes become typed graph nodes. Checker budget: callback
+    // accounting stays renderer-local and may not add concrete scene-container
+    // or Run borrows to Runtime/Render contracts.
     struct CinematicPostGraphResult
     {
         bool volumetricReady = false;         // Volumetric target was produced and can be sampled by tonemap.
@@ -90,6 +103,8 @@ class RuntimeRenderer
                                                 const CinematicRenderConfig& renderConfig ) const;
     RenderResourceContext BuildRenderResourceContext( const RuntimeRenderInputs& renderInputs,
                                                       bool cinematicRender ) const;
+    Rendering::RenderGraph& BeginRenderPassGraph();
+    const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
     ShadowGraphResult ExecuteShadowThroughRenderGraph( const RenderFrameContext& frame,
                                                        const CinematicRenderConfig* activeShadowConfig );
     bool ExecuteSkyboxThroughRenderGraph( const RenderFrameContext& frame );
@@ -133,6 +148,7 @@ class RuntimeRenderer
     CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const RenderFrameContext& frame );
     bool ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
                                           const UI::UIRenderContext& uiRender,
+                                          const RuntimeRenderModelFrameView& models,
                                           Rendering::IRenderRayTracing* renderRayTracing,
                                           double secondsPerFrame );
 
@@ -150,6 +166,11 @@ class RuntimeRenderer
     VolumetricPass m_volumetricPass;          // Half-resolution cinematic light-shaft pass.
     TonemapPass m_tonemapPass;                // HDR-to-backbuffer resolve pass.
     UiTextPass m_uiTextPass;                  // HUD/UI/text pass.
+    // Runtime allocation policy: graph wrapper passes reuse this owner scratch
+    // storage. Pass labels are borrowed literals and per-pass reads/writes are
+    // bounded, so steady render frames do not create per-wrapper graph heaps.
+    Rendering::RenderGraph m_renderPassGraphScratch;
+    Rendering::RenderGraphCompileResult m_renderPassCompileScratch;
     // Lifetime: borrowed only for the next UI pass after world rendering, then
     // refreshed or cleared before backend release and text-only frames.
     Rendering::IRenderRayTracing* m_uiTextRayTracing = nullptr;

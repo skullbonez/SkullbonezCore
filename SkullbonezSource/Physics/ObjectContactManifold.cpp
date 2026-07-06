@@ -19,9 +19,9 @@ Glossary:
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
   Contact body view: Pose-only body input used by narrowphase so contact
-  geometry can be built from PhysicsBodyRecord state instead of GameModel.
+  geometry can be built from PhysicsBodyRecord state.
   Collider shape snapshot: Exact shape value copied into ColliderStore and read
-    by narrowphase instead of asking GameModel during contact generation.
+    by narrowphase during contact generation.
   Contact sweep: Conservative object/object time-of-impact query that advances
   fast bodies to a candidate contact before exact manifolds solve the response.
 

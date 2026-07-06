@@ -26,12 +26,13 @@ Related:
   - Agentic/Plans/run-composition-root-shrink-plan.md
 */
 #include "RuntimeRenderHost.h"
+#include "RuntimeRenderInputs.h"
 #include "RuntimeRenderPasses.h"
 
 #include "../../Assets/TextureCollection.h"
 #include "../../Core/Profiler.h"
-#include "../../GameObjects/GameModelCollection.h"
 #include "../../Physics/ColliderStore.h"
+#include "../../Physics/PhysicsBodyStore.h"
 #include "../../Rendering/Helper.h"
 #include "../../Rendering/IRenderBackend.h"
 #include "../../Rendering/RenderInstanceStore.h"
@@ -144,13 +145,14 @@ const RunSceneState& RuntimeRenderHost::SceneState() const
 }
 
 ReplayOverlay::ReplayOverlayRenderContext
-RuntimeRenderHost::BuildReplayOverlayRenderContext( const UI::UIRenderContext& uiRender ) const
+RuntimeRenderHost::BuildReplayOverlayRenderContext( const UI::UIRenderContext& uiRender,
+                                                    const RuntimeRenderModelFrameView& models ) const
 {
     assert( uiRender.IsReady() );
     return { *uiRender.commands,
              m_replayRuntime,
-             m_cGameModelCollection.Models(),
-             m_cGameModelCollection.GetPhysicsBodyStore(),
+             models.presentationRecords,
+             models.bodyStore,
              m_editor.editorModeEnabled,
              m_UI.IsVisible(),
              m_UI.IsMinimized(),
@@ -160,20 +162,25 @@ RuntimeRenderHost::BuildReplayOverlayRenderContext( const UI::UIRenderContext& u
              m_timers.simulationTimer.GetTotalTime() };
 }
 
-bool RuntimeRenderHost::BuildReplayFocusModelMask() const
+bool RuntimeRenderHost::BuildReplayFocusModelMask( const RenderFrameContext& frame ) const
 {
-    const auto& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
-    return m_replayRuntime.BuildFocusModelMask( bodyStore, m_cGameModelCollection.GetModelCount() );
+    if ( !frame.bodyStore )
+    {
+        return false;
+    }
+    return m_replayRuntime.BuildFocusModelMask( *frame.bodyStore, frame.modelCount );
 }
 
-void RuntimeRenderHost::RenderReplayScrubberOverlay( const UI::UIRenderContext& uiRender ) const
+void RuntimeRenderHost::RenderReplayScrubberOverlay( const UI::UIRenderContext& uiRender,
+                                                     const RuntimeRenderModelFrameView& models ) const
 {
-    ReplayOverlay::RenderReplayScrubberOverlay( BuildReplayOverlayRenderContext( uiRender ) );
+    ReplayOverlay::RenderReplayScrubberOverlay( BuildReplayOverlayRenderContext( uiRender, models ) );
 }
 
-void RuntimeRenderHost::RenderReplayCauseTreeOverlay( const UI::UIRenderContext& uiRender ) const
+void RuntimeRenderHost::RenderReplayCauseTreeOverlay( const UI::UIRenderContext& uiRender,
+                                                      const RuntimeRenderModelFrameView& models ) const
 {
-    ReplayOverlay::RenderReplayCauseTreeOverlay( BuildReplayOverlayRenderContext( uiRender ) );
+    ReplayOverlay::RenderReplayCauseTreeOverlay( BuildReplayOverlayRenderContext( uiRender, models ) );
 }
 
 int RuntimeRenderHost::CurrentSceneBrowserIndex() const
@@ -181,19 +188,38 @@ int RuntimeRenderHost::CurrentSceneBrowserIndex() const
     return SkullbonezCore::Basics::CurrentSceneBrowserIndex( m_sceneController, m_sceneBrowser );
 }
 
-bool RuntimeRenderHost::ToolHasSelectionOverlayWork() const
+bool RuntimeRenderHost::ToolHasSelectionOverlayWork( int modelCount ) const
 {
-    return m_runtimeTools.HasSelectionOverlayWork( m_cGameModelCollection.GetModelCount(), m_camera.mode );
+    return m_runtimeTools.HasSelectionOverlayWork( modelCount, m_camera.mode );
 }
 
-bool RuntimeRenderHost::ToolHasMousePickupOverlayWork() const
+bool RuntimeRenderHost::ToolHasMousePickupOverlayWork( int modelCount ) const
 {
-    return m_runtimeTools.HasMousePickupOverlayWork( m_cGameModelCollection.GetModelCount() );
+    return m_runtimeTools.HasMousePickupOverlayWork( modelCount );
 }
 
-MainMemoryStats RuntimeRenderHost::RefreshMainMemoryStats( double nowSeconds ) const
+MainMemoryStats RuntimeRenderHost::RefreshMainMemoryStats( double nowSeconds,
+                                                           const MainMemoryGameObjectStats& gameObjects ) const
 {
-    return m_diagnosticsRuntime.RefreshMainMemoryStats( m_replayRuntime, m_cGameModelCollection, nowSeconds, false );
+    // Why: the Memory tab can refresh process counters, but it must still avoid
+    // the private-working-set page walk during normal UI drawing.
+    return m_diagnosticsRuntime.RefreshMainMemoryStats( m_replayRuntime, gameObjects, nowSeconds, false, false );
+}
+
+MainMemoryStats RuntimeRenderHost::BuildMainMemoryOverlayStats( const MainMemoryGameObjectStats& gameObjects ) const
+{
+    // Concept: F6 is an allocator-growth overlay, not a memory profiler sample.
+    // It can show the last cached replay totals and current model-store capacity,
+    // but process reconciliation belongs to explicit diagnostics refreshes.
+    MainMemoryStats stats = m_diagnosticsRuntime.MainMemoryStatsSnapshot();
+    stats.process = MainMemoryProcessStats{};
+    stats.gameObjects = gameObjects;
+    stats.trackedEngineBytes = stats.replay.totalBytes + stats.gameObjects.totalBytes + stats.otherTrackedBytes;
+    stats.unattributedProcessBytes = 0;
+    stats.trackedOvershootBytes = 0;
+    stats.reconciledTotalBytes = stats.trackedEngineBytes;
+    stats.reconciliationDeltaBytes = 0;
+    return stats;
 }
 
 void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
@@ -201,8 +227,8 @@ void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& 
                                                       const Rendering::ShadowFrameData* shadow ) const
 {
     PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
-    if ( !m_replayRuntime.BuildPredictionGhostDrawRequests( m_cGameModelCollection,
-                                                            m_cGameModelCollection.GetPhysicsEngine().BodyStore() ) )
+    if ( !frame.presentationRecords || !frame.bodyStore ||
+         !m_replayRuntime.BuildPredictionGhostDrawRequests( *frame.presentationRecords, *frame.bodyStore ) )
     {
         return;
     }
@@ -210,9 +236,12 @@ void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& 
     // Why: ghost drawing is a render projection path. Shape and material come
     // from the prepared store snapshots so replay visualization does not need
     // the GameModel collider mirror to stay fresh after physics steps.
-    const std::vector<Physics::ColliderRecord>& colliders = m_cGameModelCollection.GetColliderStore().Records();
-    const std::vector<Rendering::RenderInstanceRecord>& renderInstances =
-        m_cGameModelCollection.RenderInstances().Records();
+    if ( !frame.colliders || !frame.renderInstances )
+    {
+        return;
+    }
+    const auto& colliders = frame.colliders->Records();
+    const std::vector<Rendering::RenderInstanceRecord>& renderInstances = frame.renderInstances->Records();
 
     SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
     assert( frame.renderResources && frame.renderCommands && frame.assets );

@@ -5,9 +5,9 @@ Purpose:
 
 Mental model:
   Runtime, scene, tools, replay, rendering, and diagnostics should identify
-  physics-owned objects by handles instead of owning solver arrays or
-  GameModelCollection storage. Generations make stale handles explicit once the
-  authoritative physics facade starts allocating and recycling ids.
+  physics-owned objects by handles instead of owning solver arrays or collection
+  storage. Generations make stale handles explicit once the authoritative
+  physics facade starts allocating and recycling ids.
 
 Glossary:
   Handle: Index plus generation pair used as opaque identity for physics-owned

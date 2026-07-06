@@ -30,6 +30,10 @@ Related:
 */
 #pragma once
 
+#include <vector>
+
+#include "../../Core/MainMemoryStats.h"
+
 namespace SkullbonezCore
 {
 namespace Textures
@@ -42,10 +46,14 @@ namespace Assets
 class AssetSystem;
 }
 
-namespace GameObjects
+namespace Physics
 {
-class GameModelCollection;
-}
+class ColliderStore;
+class PhysicsEngine;
+class PhysicsBodyStore;
+struct PhysicsDebugContact;
+struct PhysicsPipelineRecord;
+} // namespace Physics
 
 namespace Environment
 {
@@ -65,7 +73,14 @@ class IRenderCommandContext;
 class IRenderDiagnostics;
 class IRenderRayTracing;
 class IRenderResourceFactory;
+class RenderInstanceStore;
+struct RenderInstancePresentationRecord;
 } // namespace Rendering
+
+namespace Threading
+{
+class WorkerPool;
+}
 
 namespace UI
 {
@@ -76,11 +91,34 @@ namespace Basics
 {
 class Window;
 
+struct RuntimeRenderModelFrameView
+{
+    const Rendering::RenderInstanceStore& renderInstances;
+    const Physics::ColliderStore& colliders;
+    const Physics::PhysicsBodyStore& bodyStore;
+    Physics::PhysicsEngine& physicsEngine;
+    const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords;
+    const std::vector<uint8_t>& collisionVisualContacts;
+    const std::vector<uint8_t>& sleepStates;
+    const std::vector<int>& sleepIslandVisualIds;
+    const std::vector<uint8_t>& sleepSupportedStates;
+    const std::vector<uint8_t>& sleepInhibitedStates;
+    const std::vector<Physics::PhysicsDebugContact>& physicsDebugContacts;
+    const std::vector<Physics::PhysicsPipelineRecord>& physicsPipelineTrace;
+    Threading::WorkerPool* renderWorkerPool;
+    int modelCount = 0;
+    bool renderCollisionVolumes = false;
+    bool shadowParallelPrep = false;
+    double sceneKineticEnergy = 0.0;
+    float tornadoElapsedSeconds = 0.0f;
+    MainMemoryGameObjectStats gameObjectMemory;
+};
+
 struct RuntimeRenderServices
 {
     Assets::AssetSystem& assets;
     Textures::TextureCollection& textures;
-    GameObjects::GameModelCollection& models;
+    RuntimeRenderModelFrameView models;
     Environment::WorldEnvironment& world;
     Geometry::Terrain* terrain;
     Environment::CameraCollection& cameras;

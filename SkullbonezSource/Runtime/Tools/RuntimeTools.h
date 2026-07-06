@@ -234,6 +234,12 @@ class RunEditorTracer
                   float r,
                   float g,
                   float bl );
+    void EmitShapeOutline( const Math::Vector::Vector3& position,
+                           const Math::Orientation::Quaternion& orientation,
+                           const Math::CollisionDetection::CollisionShape& shape,
+                           float r,
+                           float g,
+                           float b );
 
   public:
     RunEditorTracer();
@@ -262,10 +268,28 @@ class RunEditorTracer
                                  float r,
                                  float g,
                                  float b );
-    void AddReplayFutureTargetMarker( const Math::Vector::Vector3& center, float radius, int depth );
+    // Draws the downstream replay collision marker from the exact collider
+    // shape at the predicted contact frame. Callers pass explicit pose/shape so
+    // future-node overlays never fall back to broadphase radius rings.
+    void AddReplayFutureTargetMarker( const Math::Vector::Vector3& position,
+                                      const Math::Orientation::Quaternion& orientation,
+                                      const Math::CollisionDetection::CollisionShape& shape,
+                                      int depth );
+    // Draws the yellow causal-entry outline: a predicted body's in-place pose
+    // at the prediction start (perfect formation for a wall brick). Pose comes
+    // from prediction samples, never from live model state.
+    void AddReplayCausalEntryMarker( const Math::Vector::Vector3& position,
+                                     const Math::Orientation::Quaternion& orientation,
+                                     const Math::CollisionDetection::CollisionShape& shape );
+    // Draws the grey causal-rest outline: a predicted body's final resting
+    // pose. Callers place it only when the completed prediction ends with the
+    // body at rest; bodies still moving at the horizon get no grey box.
+    void AddReplayCausalRestMarker( const Math::Vector::Vector3& position,
+                                    const Math::Orientation::Quaternion& orientation,
+                                    const Math::CollisionDetection::CollisionShape& shape );
     // Draws a replay target marker from explicit store values. Replay may still
-    // resolve identity by model order, but marker geometry must not read the
-    // post-step GameModel body mirror.
+    // resolve identity by model order, but marker geometry must not read legacy
+    // model-side body state.
     void AddReplayTargetMarker( const Math::Vector::Vector3& position,
                                 const Math::Orientation::Quaternion& orientation,
                                 const Math::CollisionDetection::CollisionShape& shape,
@@ -276,8 +300,8 @@ class RunEditorTracer
                                         float radius,
                                         bool activeFollow );
     // Draws a shape-accurate outline from explicit pose/shape values. Replay
-    // velocity edit uses this so overlay drawing does not need the post-step
-    // GameModel body mirror.
+    // velocity edit uses this so overlay drawing does not need legacy model-side
+    // body state.
     void AddSelectionOutline( const Math::Vector::Vector3& position,
                               const Math::Orientation::Quaternion& orientation,
                               const Math::CollisionDetection::CollisionShape& shape );
@@ -335,7 +359,6 @@ class RuntimeTools
                                     Math::Vector::Vector3& outCameraUp ) const;
     bool FireLauncherRay( GameObjects::GameModelCollection& collection,
                           RunSceneState& scene,
-                          Environment::WorldEnvironment& world,
                           Geometry::Terrain* terrain,
                           int activeModelCapacity,
                           const Math::Vector::Vector3& rayOrigin,
@@ -348,7 +371,6 @@ class RuntimeTools
                             const Math::Vector::Vector3& cameraUp );
     bool FireLauncherProjectile( GameObjects::GameModelCollection& collection,
                                  RunSceneState& scene,
-                                 Environment::WorldEnvironment& world,
                                  Geometry::Terrain* terrain,
                                  int activeModelCapacity,
                                  const Math::Vector::Vector3& rayOrigin,

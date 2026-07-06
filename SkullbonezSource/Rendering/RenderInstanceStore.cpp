@@ -6,9 +6,8 @@ Purpose:
 Mental model:
   Refresh copies renderer-facing values after gameplay/physics have committed.
   Body pose and shape come from physics stores; material and contact flash alpha
-  still come from GameModel presentation state. It does not allocate GPU
-  resources; it records the CPU-side draw intent that a future render snapshot
-  can consume.
+  come from explicit presentation records. It does not allocate GPU resources;
+  it records the CPU-side draw intent that a future render snapshot can consume.
 
 Glossary:
   Render instance: One draw-facing object record with transform and material
@@ -16,12 +15,12 @@ Glossary:
   Material intent: Engine-level material choice before a renderer maps it to
     shaders, textures, or descriptor rows.
   Replay body id: Stable per-scene id shared with physics/replay records.
-  Contact highlight: Render-only feedback alpha copied from GameModel after
-    gameplay/physics presentation state has advanced.
+  Contact highlight: Render-only feedback alpha copied from presentation state
+    after gameplay/physics feedback has advanced.
 
 Invariants:
-  - Records stay in GameModelCollection model order and compatibility handles
-    mirror model indices.
+  - Records stay in scene model order and render handles mirror model indices
+    until render owns a separate allocation id.
   - Refresh snapshots CPU draw intent only; it does not create or destroy GPU
     resources.
 
@@ -34,12 +33,10 @@ Related:
 #include <cstddef>
 
 #include "../Core/Common.h"
-#include "../GameObjects/GameModel.h"
 #include "../Maths/Matrix4.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
 
-using SkullbonezCore::GameObjects::GameModel;
 using SkullbonezCore::Math::CollisionDetection::GetShapeModelMatrix;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
@@ -50,6 +47,7 @@ using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Rendering::RenderInstanceHandle;
+using SkullbonezCore::Rendering::RenderInstancePresentationRecord;
 using SkullbonezCore::Rendering::RenderInstanceRecord;
 using SkullbonezCore::Rendering::RenderInstanceShapeKind;
 using SkullbonezCore::Rendering::RenderInstanceStore;
@@ -105,56 +103,58 @@ void RenderInstanceStore::Clear()
 }
 
 
-void RenderInstanceStore::Refresh( std::vector<GameModel>& models,
+void RenderInstanceStore::Refresh( const std::vector<RenderInstancePresentationRecord>& presentation,
                                    const PhysicsBodyStore& bodyStore,
                                    const ColliderStore& colliderStore )
 {
-    Refresh( models.empty() ? nullptr : models.data(), static_cast<int>( models.size() ), bodyStore, colliderStore );
+    Refresh( presentation.empty() ? nullptr : presentation.data(),
+             static_cast<int>( presentation.size() ),
+             bodyStore,
+             colliderStore );
 }
 
 
-void RenderInstanceStore::Refresh( GameModel* models,
-                                   int modelCount,
+void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* presentation,
+                                   int presentationCount,
                                    const PhysicsBodyStore& bodyStore,
                                    const ColliderStore& colliderStore )
 {
-    if ( bodyStore.Count() != modelCount || colliderStore.Count() != modelCount )
+    if ( bodyStore.Count() != presentationCount || colliderStore.Count() != presentationCount )
     {
-        assert( bodyStore.Count() == modelCount );
-        assert( colliderStore.Count() == modelCount );
-        // Hazard: rebuilding from GameModel here would hide a broken store
-        // refresh and resurrect the post-solve mirror as transform authority.
-        // Fail closed so Debug catches the topology bug and release builds do
-        // not draw stale model-owned poses.
+        assert( bodyStore.Count() == presentationCount );
+        assert( colliderStore.Count() == presentationCount );
+        // Hazard: rebuilding presentation state here would hide a broken owner
+        // refresh. Fail closed so Debug catches the topology bug and release
+        // builds do not draw stale model-owned poses.
         Clear();
         return;
     }
-    assert( models != nullptr || modelCount == 0 );
+    assert( presentation != nullptr || presentationCount == 0 );
 
-    const std::vector<PhysicsBodyRecord>& bodies = bodyStore.Records();
-    const std::vector<ColliderRecord>& colliders = colliderStore.Records();
+    const auto& bodies = bodyStore.Records();
+    const auto& colliders = colliderStore.Records();
 
     // Invariant: render instance handles intentionally mirror model slots until
-    // a future renderer-facing allocation owner replaces compatibility ids.
-    m_instances.resize( static_cast<std::size_t>( modelCount ) );
-    m_modelInstanceHandles.resize( static_cast<std::size_t>( modelCount ) );
-    for ( int i = 0; i < modelCount; ++i )
+    // a future renderer-facing allocation owner replaces them with render ids.
+    m_instances.resize( static_cast<std::size_t>( presentationCount ) );
+    m_modelInstanceHandles.resize( static_cast<std::size_t>( presentationCount ) );
+    for ( int i = 0; i < presentationCount; ++i )
     {
-        GameModel& model = models[i];
         const std::size_t index = static_cast<std::size_t>( i );
         const PhysicsBodyRecord& body = bodies[index];
         const ColliderRecord& collider = colliders[index];
+        const RenderInstancePresentationRecord& presentationRecord = presentation[index];
         RenderInstanceRecord& record = m_instances[index];
         const uint32_t modelIndex = static_cast<uint32_t>( i );
-        record.handle = MakeCompatibilityRenderInstanceHandle( modelIndex );
+        record.handle = MakeRenderInstanceHandleForModelIndex( modelIndex );
         record.replayBodyId = body.replayBodyId;
         record.modelMatrix = BuildPhysicsModelMatrix( body, collider );
-        record.material = model.GetRenderMaterial();
+        record.material = presentationRecord.material;
         record.boundingRadius = collider.boundingRadius;
         record.shapeKind = ShapeKindFromCollider( collider.shapeKind );
         record.isFixed = body.isFixed;
-        record.fixedContactAlpha = model.GetFixedContactHighlightAlpha();
-        record.audioContactAlpha = model.GetAudioContactHighlightAlpha();
+        record.fixedContactAlpha = presentationRecord.fixedContactAlpha;
+        record.audioContactAlpha = presentationRecord.audioContactAlpha;
         m_modelInstanceHandles[index] = record.handle;
     }
 }
@@ -171,7 +171,7 @@ bool RenderInstanceStore::OverridePose( int modelIndex,
         return false;
     }
 
-    const std::vector<ColliderRecord>& colliders = colliderStore.Records();
+    const auto& colliders = colliderStore.Records();
     if ( modelIndex >= static_cast<int>( colliders.size() ) )
     {
         return false;
@@ -233,7 +233,7 @@ int RenderInstanceStore::ModelIndexForHandle( RenderInstanceHandle handle ) cons
 
 bool RenderInstanceStore::Contains( RenderInstanceHandle handle ) const
 {
-    if ( !handle.IsValid() || handle.generation != RENDER_INSTANCE_COMPATIBILITY_HANDLE_GENERATION )
+    if ( !handle.IsValid() || handle.generation != RENDER_INSTANCE_INITIAL_HANDLE_GENERATION )
     {
         return false;
     }

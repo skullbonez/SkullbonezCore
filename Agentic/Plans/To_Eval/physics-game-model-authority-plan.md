@@ -1281,7 +1281,13 @@ Rendering should consume render projection stores, not production physics/game-o
 - [ ] Make `RenderInstanceStore` the authoritative owner of visible render instance records.
 - [ ] Add or reuse an update path that projects final body/entity transforms into render instances after simulation.
 - [ ] Route render material, mesh, visibility, and transform updates through render instance handles.
-- [ ] Migrate the main runtime renderer to consume `RenderInstanceStore` directly.
+- [x] Migrate the main runtime renderer to consume `RenderInstanceStore` directly.
+  - [x] 2026-07-05 `RuntimeRenderHost` and `RuntimeRenderer` now consume a
+    `RuntimeRenderModelFrameView` built from `RenderInstanceStore`,
+    `ColliderStore`, and `RenderPresentationRecords()`. Production render
+    surfaces under `Runtime/Render`, `Rendering`, `RunPasses.cpp`,
+    `RunUiTextPass.cpp`, and replay overlay/runtime render helpers no longer
+    accept concrete `GameModelCollection&`.
 - [ ] Migrate shadow, reflection, debug, terrain/object, and DXR paths only when their dependencies are understood.
 - [ ] Keep editor-only wrappers separate from production render submission.
 - [x] 2026-07-04: Removed `GameModelCollection : Rendering::IRenderSceneView`
@@ -1362,7 +1368,7 @@ Only remove compatibility after callers have moved and validation has covered th
 - [x] Delete `GameModelCollection::PhysicsModels()` after production physics no longer uses it. The vector compatibility seam remains under explicit `*PhysicsModelsForCompatibility()` accessors.
 - [x] Delete `GameModelCollectionPhysicsAdapter` after model-index command
   callers moved to append-time handles or owner-side `PhysicsBodyStore` lookup.
-- [ ] Delete compatibility writeback from body store to `GameModel` after final reader migrates.
+- [x] Delete compatibility writeback from body store to `GameModel` after final reader migrates.
   - [x] 2026-07-03 persistent contact solver writeback is no longer a solver
     callback or virtual sink; the remaining model mirror update is an owner-side
     post-solve application step. Full deletion is still pending final reader
@@ -1372,20 +1378,38 @@ Only remove compatibility after callers have moved and validation has covered th
     internally, `GameModelCollection::WriteBackPhysicsBody` and
     `PhysicsBodyStore::WriteBackToModelAt` are deleted, and the checker rejects
     those per-body writeback names plus the released-row output-vector shape.
+  - [x] 2026-07-05 deleted the final bulk post-step body-state projection into
+    `GameModel`. Physics body pose, velocity, fixed state, sleep state, and
+    collider shape/material authority now stay in `PhysicsBodyStore`,
+    `ColliderStore`, and the collection's descriptor sidecars.
 - [x] Delete `GameModel::SetInitialOrientation()` after authored scene setup
   became the sole owner of scene Euler-degree startup conversion.
 - [x] Delete `GameModel` replay-id mirror after body creation/import and
   compatibility refreshes consume collection/body-store replay identity instead.
-    The explicit bulk step compatibility writeback remains pending final reader
-    migration.
+    The explicit bulk step compatibility writeback was deleted in the
+    2026-07-05 endgame slice after final readers moved to store rows.
 - [x] Move fixed-tree release root metadata import out of `PhysicsBodyStore`.
   The remaining `GameModel` grouping fields are converted to an explicit scalar
   by `GameModelCollection` during cold append/topology repair until scene/entity
   metadata owns the grouping directly.
-- [ ] Delete compatibility collider fields from `GameModel` after final reader migrates.
-- [ ] Delete production render reliance on concrete `GameModelCollection` after
+- [x] Delete compatibility collider fields from `GameModel` after final reader migrates.
+  - [x] 2026-07-05 `GameModel` retains presentation/contact metadata only.
+    Collider shape, restitution, contact material id, radius, mass, inertia, and
+    body motion state moved to `PhysicsBodyCreateDesc`, `ColliderStore`, and
+    collection-owned descriptor sidecars.
+- [x] Delete production render reliance on concrete `GameModelCollection` after
   render callers migrate to `RenderInstanceStore`.
-- [ ] Remove temporary allowlists that permitted compatibility reads or writes.
+  - [x] 2026-07-05 Plan 1 A5 moved production render submission to
+    `RuntimeRenderModelFrameView` and store/presentation-record inputs. Runtime
+    frame/editor code may still use `GameModelCollection` as the scene
+    presentation owner, but render modules no longer borrow the concrete
+    collection as their scene view.
+- [x] Remove temporary allowlists that permitted compatibility reads or writes.
+  - [x] 2026-07-05 source no longer exposes the deleted compatibility shapes;
+    `tools/check_runtime_boundaries.py` keeps textual tombstones for deleted
+    `LoadFromModels`, `RefreshBodyFromModel`, `MakeBodyRecordFromAuthoredModel`,
+    store-to-model writeback, GameModel physics payload, constructor, and API
+    spellings.
 - [x] Add search guardrails for banned production calls, including `MakePhysicsModelView`, `PhysicsModelView`, and any remaining direct production `GameModelCollection::PhysicsModels()` usage.
   - [x] 2026-07-03 added a guardrail that rejects model/event/world callback
     references inside `PersistentContactSolverContext` and blocks the deleted
@@ -1393,8 +1417,11 @@ Only remove compatibility after callers have moved and validation has covered th
   - [x] 2026-07-03 added guardrails that block the deleted
     `PhysicsBodyEventSink` type and reject classes deriving from
     `PhysicsModelAccess`/`PhysicsBodyEventSink`.
-- [ ] Update comments and learning headers in every touched source-bearing file.
-- [ ] Run `Agentic/Skills/comment-style-audit/skill.md` over every touched source-bearing file before reporting done.
+- [x] Update comments and learning headers in every touched source-bearing file.
+- [x] Run `Agentic/Skills/comment-style-audit/skill.md` over every touched source-bearing file before reporting done.
+  - [x] 2026-07-05 subagent comment audit checked 65/65 touched
+    source-bearing files with 0 deferrals; `git diff --check` passed for the
+    touched paths.
 
 Searches to run before declaring compatibility gone:
 
@@ -1418,7 +1445,12 @@ Repository validation scripts are PR/commit gates. Do not run them repeatedly wh
     `TestOutput\agent_validate_dx12_renderer_render_scene_view.log`, DX12
     InfoQueue errors were 0, and screenshots matched committed baselines.
 - [x] Storage/hot-loop changes that may affect per-frame allocations or broadphase cost: run `tools\validate_perf.bat`.
-- [ ] Runtime lifecycle, scene/replay, or mixed broad-scope changes: run `tools\validate_full.bat`.
+- [x] Runtime lifecycle, scene/replay, or mixed broad-scope changes: run `tools\validate_full.bat`.
+  - [x] 2026-07-05/06 `tools\validate_full.bat` passed; project filters and
+    runtime boundaries reported 0 errors, Profile/Debug builds were clean,
+    DX12 InfoQueue errors were 0, DX12 screenshots matched committed baselines,
+    standalone/runtime physics smoke passed, and `physics_regression_solver.csv`
+    was a byte-exact 20,001-line match.
 - [x] Tooling script changes: run `tools\validate_fast.bat`, then run the changed script.
   - [x] 2026-07-04 `tools\validate_fast.bat` passed; log mirrored to
     `TestOutput\agent_validate_fast_render_scene_view.log`. The changed
@@ -1440,13 +1472,13 @@ Validation evidence checklist:
 
 - [ ] Body state authority lives in `PhysicsBodyStore`.
 - [ ] Collider authority lives in `ColliderStore`.
-- [ ] Render projection authority lives in `RenderInstanceStore`.
+- [x] Render projection authority lives in `RenderInstanceStore`.
 - [x] `MakePhysicsModelView()` is deleted and not replaced by another per-frame model-vector adapter.
 - [x] `PhysicsModelView` is deleted.
 - [ ] Scene/entity metadata is separate from simulation body state.
 - [ ] New production APIs use stable handles rather than model vector indices.
 - [ ] Production physics stepping no longer requires `GameModelCollection&`.
-- [ ] Production rendering no longer requires `GameModelCollection` as the scene view.
+- [x] Production rendering no longer requires `GameModelCollection` as the scene view.
 - [ ] Replay capture and diagnostics use stable entity/body identity.
 - [ ] Temporary compatibility layers are either removed or explicitly documented with a removal phase.
 - [x] All touched source-bearing files pass the repository comment quality gate.

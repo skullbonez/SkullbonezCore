@@ -27,11 +27,13 @@ Related:
 #include "SceneRuntimeStyle.h"
 #include "../../GameObjects/GameModel.h"
 #include "../../GameObjects/GameModelCollection.h"
+#include "../../Physics/ColliderStore.h"
 #include "../../Scene/TestScene.h"
 
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <vector>
 
 namespace SkullbonezCore
 {
@@ -41,6 +43,7 @@ namespace
 {
 using SkullbonezCore::GameObjects::GameModel;
 using SkullbonezCore::GameObjects::GameModelCollection;
+using SkullbonezCore::Physics::ColliderShapeKind;
 
 const char* FileNameFromPath( const char* path )
 {
@@ -66,57 +69,21 @@ bool IsCineScenePath( const std::string& path )
            strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
 }
 
-bool SceneNameEndsWithPartSuffix( const char* name, const char* suffix )
-{
-    if ( !name || !suffix )
-    {
-        return false;
-    }
-    const size_t nameLength = strlen( name );
-    const size_t suffixLength = strlen( suffix );
-    if ( nameLength <= suffixLength || name[nameLength - suffixLength - 1] != '_' )
-    {
-        return false;
-    }
-    return strcmp( name + nameLength - suffixLength, suffix ) == 0;
-}
-
-bool IsSimpleRagdollPartName( const char* name )
-{
-    static const char* partSuffixes[] = {
-        "torso",
-        "head",
-        "upper_arm_l",
-        "lower_arm_l",
-        "upper_arm_r",
-        "lower_arm_r",
-        "upper_leg_l",
-        "lower_leg_l",
-        "upper_leg_r",
-        "lower_leg_r",
-    };
-    for ( const char* suffix : partSuffixes )
-    {
-        if ( SceneNameEndsWithPartSuffix( name, suffix ) )
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
 bool IsBroadMaterialTarget( const char* target )
 {
     return strcmp( target, "all" ) == 0 || strcmp( target, "balls" ) == 0 || strcmp( target, "boxes" ) == 0 ||
            strcmp( target, "hulls" ) == 0 || strcmp( target, "convex_hulls" ) == 0;
 }
 
-bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const GameModel& model )
+bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material,
+                                 const char* displayName,
+                                 bool simpleRagdollPart,
+                                 ColliderShapeKind shapeKind )
 {
     // Invariant: Simple ragdoll parts keep their authored body materials; broad
     // style targets apply to ordinary scene bodies only. Exact and prefix
     // targets still opt a named ragdoll into scene-local showcase material.
-    if ( IsSimpleRagdollPartName( model.GetName() ) && IsBroadMaterialTarget( material.target ) )
+    if ( simpleRagdollPart && IsBroadMaterialTarget( material.target ) )
     {
         return false;
     }
@@ -126,22 +93,22 @@ bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, co
     }
     if ( strcmp( material.target, "balls" ) == 0 )
     {
-        return model.IsSphere();
+        return shapeKind == ColliderShapeKind::Sphere;
     }
     if ( strcmp( material.target, "boxes" ) == 0 )
     {
-        return model.IsBox();
+        return shapeKind == ColliderShapeKind::Box;
     }
     if ( strcmp( material.target, "hulls" ) == 0 || strcmp( material.target, "convex_hulls" ) == 0 )
     {
-        return model.IsConvexHull();
+        return shapeKind == ColliderShapeKind::ConvexHull;
     }
     if ( strncmp( material.target, "prefix:", 7 ) == 0 )
     {
         const char* prefix = material.target + 7;
-        return prefix[0] != '\0' && strncmp( model.GetName(), prefix, strlen( prefix ) ) == 0;
+        return prefix[0] != '\0' && strncmp( displayName, prefix, strlen( prefix ) ) == 0;
     }
-    return strcmp( material.target, model.GetName() ) == 0;
+    return strcmp( material.target, displayName ) == 0;
 }
 
 void ResetObjectMaterials( GameModelCollection& models )
@@ -149,7 +116,7 @@ void ResetObjectMaterials( GameModelCollection& models )
     for ( int modelIndex = 0; modelIndex < models.GetModelCount(); ++modelIndex )
     {
         GameModel& model = models.GetModelAtIndex( modelIndex );
-        if ( !IsSimpleRagdollPartName( model.GetName() ) )
+        if ( !models.IsSimpleRagdollPart( modelIndex ) )
         {
             model.SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
         }
@@ -159,13 +126,20 @@ void ResetObjectMaterials( GameModelCollection& models )
 void ApplyObjectMaterials( GameModelCollection& models, const TestScene& styleScene )
 {
     ResetObjectMaterials( models );
+    const auto& colliders = models.GetColliderStore().Records();
     for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
     {
         const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );
         for ( int modelIndex = 0; modelIndex < models.GetModelCount(); ++modelIndex )
         {
+            const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() )
+                                                    ? colliders[static_cast<std::size_t>( modelIndex )].shapeKind
+                                                    : ColliderShapeKind::Sphere;
             GameModel& model = models.GetModelAtIndex( modelIndex );
-            if ( SceneMaterialTargetMatches( material, model ) )
+            if ( SceneMaterialTargetMatches( material,
+                                             models.DisplayNameAt( modelIndex ),
+                                             models.IsSimpleRagdollPart( modelIndex ),
+                                             shapeKind ) )
             {
                 model.SetRenderMaterial( material.material );
             }

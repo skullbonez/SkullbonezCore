@@ -283,6 +283,8 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
         const auto& shape = collider->shape;
         const float mass = body->mass;
         const float rest = collider->restitution;
+        const char* contactMaterial =
+            collider->contactMaterialName[0] != '\0' ? collider->contactMaterialName : "default";
         const bool fixed = body->isFixed;
         const bool sleeping = body->isSleeping;
 
@@ -299,7 +301,7 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
                 { "radius", sphere.GetRadius() },
                 { "mass", mass },
                 { "restitution", rest },
-                { "contactMaterial", m_gameModels[i].GetContactMaterialName() },
+                { "contactMaterial", contactMaterial },
                 { "inertia", Vec3Json( ri ) },
                 { "fixed", fixed },
             } );
@@ -322,7 +324,7 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
                 { "halfExtents", Vec3Json( halfExtents ) },
                 { "mass", mass },
                 { "restitution", rest },
-                { "contactMaterial", m_gameModels[i].GetContactMaterialName() },
+                { "contactMaterial", contactMaterial },
                 { "inertia", Vec3Json( ri ) },
                 { "fixed", fixed },
             } );
@@ -347,7 +349,7 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
                 { "orientation", OrientationJson( body->orientation ) },
                 { "mass", mass },
                 { "restitution", rest },
-                { "contactMaterial", m_gameModels[i].GetContactMaterialName() },
+                { "contactMaterial", contactMaterial },
                 { "inertia", Vec3Json( ri ) },
                 { "fixed", fixed },
             };

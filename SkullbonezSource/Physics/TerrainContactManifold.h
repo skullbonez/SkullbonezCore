@@ -5,8 +5,8 @@ Purpose:
 
 Mental model:
   Terrain contact is a value report. The sweep helper finds when a body reaches
-  the heightfield, and the manifold helper turns that hit into solver rows without
-  borrowing or mutating GameModel state.
+  the heightfield, and the manifold helper turns that hit into solver rows from
+  body/collider records.
 
 Glossary:
   Terrain sweep: Continuous collision query against the terrain plane under a body.
@@ -48,7 +48,7 @@ namespace Physics
 struct TerrainContactBodyView
 {
     // Terrain contact needs pose, velocity, shape policy, and a borrowed
-    // heightfield. It deliberately does not expose the full compatibility model.
+    // heightfield. It deliberately does not expose the full legacy model.
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
     Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;

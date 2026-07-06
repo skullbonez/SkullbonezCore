@@ -19,6 +19,8 @@ Glossary:
     handles for live motion and keeps model-order facts only as UI fallback.
   Borrowed subsystem pointer: Non-owning pointer to state owned elsewhere in
     the Run composition root.
+  Interaction automation: CLI-driven validation state that injects bounded
+    input snapshots, then verifies runtime-owned state through JSON reports.
 
 Invariants:
   - Owning state should use value members or smart pointers; raw pointers here
@@ -44,6 +46,7 @@ Related:
 #include "../World/SkyBox.h"
 #include "CameraCollection.h"
 #include "Input.h"
+#include "Allocation/RuntimeAllocationTracker.h"
 #include "Render/RuntimeRenderResources.h"
 #include "RuntimeCameraMode.h"
 #include "Scene/SceneGeneratedSetup.h"
@@ -300,6 +303,9 @@ struct RunLaunchOptions
     int graphicsStressActions = 12;                            // CLI --graphics-stress-actions
     int graphicsStressSceneIntervalFrames = 45;                // CLI --graphics-stress-scene-interval
     int graphicsStressMemoryIntervalFrames = 1800;             // CLI --graphics-stress-memory-interval
+    Runtime::Allocation::RuntimeAllocationGuardMode allocationGuardMode =
+        Runtime::Allocation::RuntimeAllocationGuardMode::Off;  // CLI --allocation-guard tracking mode for runtime heap
+                                                              // evidence.
     GeneratedObjectTypeOverride generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     bool hasPhysicsDebugFlagsOverride = false;
     uint32_t physicsDebugFlagsOverride = Physics::PHYSICS_DEBUG_NONE;
@@ -360,8 +366,10 @@ enum class RunInteractionAutomationActionType
     SetCameraMode,
     ClickObject,
     ClickReplayControl,
+    ScrubReplaySolverTrack,
     SetReplayPredictionEnabled,
     ShowReplayScrubber,
+    PressKey,
     AssertState,
     Screenshot
 };
@@ -380,8 +388,13 @@ enum class RunInteractionAutomationAssertKind
     ReplayPredictionEnabled,
     ReplayPathTarget,
     PredictionPathVisible,
+    ReplaySolverTrackAtPresent,
+    PredictionScrubFrameActive,
     PredictionTargetDisplacementMin,
-    GizmoVisible
+    GizmoVisible,
+    ReplayActiveTrack,
+    ReplayHistoricalSamplePaused,
+    MemoryOverlayEnabled
 };
 
 struct RunInteractionAutomationAction
@@ -391,6 +404,7 @@ struct RunInteractionAutomationAction
     RunInteractionAutomationButton button = RunInteractionAutomationButton::Left;
     RunInteractionAutomationAssertKind assertKind = RunInteractionAutomationAssertKind::SelectedObject;
     RunCameraMode cameraMode = RunCameraMode::Inspect;
+    int keyVirtualKey = 0;
     bool boolValue = false;
     float numberValue = 0.0f;
     char text[128] = {};
@@ -438,8 +452,11 @@ struct RunInteractionAutomationState
     bool hasMouseClientPosition = false;
     bool leftMouseDown = false;
     bool rightMouseDown = false;
+    int keyVirtualKey = 0;
+    bool keyDown = false;
     int releaseLeftFrame = -1;
     int releaseRightFrame = -1;
+    int releaseKeyFrame = -1;
 };
 
 struct RunReplayMismatchState

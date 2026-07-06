@@ -40,11 +40,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace GameObjects
-{
-class GameModel;
-class GameModelCollection;
-} // namespace GameObjects
 namespace Assets
 {
 class AssetSystem;
@@ -52,6 +47,7 @@ class AssetSystem;
 namespace Rendering
 {
 class IRenderResourceFactory;
+class RenderInstanceStore;
 } // namespace Rendering
 
 namespace Math
@@ -64,6 +60,20 @@ class ConvexHullShape;
 
 namespace Physics
 {
+class ColliderStore;
+class PhysicsBodyStore;
+
+struct CollisionVisualizerFrameView
+{
+    const PhysicsBodyStore& bodies;
+    const ColliderStore& colliders;
+    const Rendering::RenderInstanceStore& renderInstances;
+    const std::vector<uint8_t>& collisionContacts;
+    const std::vector<uint8_t>& sleepStates;
+    const std::vector<int>& sleepIslandVisualIds;
+    int modelCount = 0;
+};
+
 /* -- Collision Visualizer
 ---------------------------------------------------------------------------------------------------------------------------------------
 
@@ -111,15 +121,15 @@ class CollisionVisualizer
     void BuildBoxMesh();
     void EnsureResources( Assets::AssetSystem& assets, Rendering::IRenderResourceFactory& renderResources );
     void AppendInstance( std::vector<float>& out, const Math::Transformation::Matrix4& model, const Color& color );
-    Color ComputeModelColor( int modelIndex, GameObjects::GameModelCollection& models ) const;
-    void BuildSleepGroupSizes( GameObjects::GameModelCollection& models );
+    Color ComputeModelColor( int modelIndex, const CollisionVisualizerFrameView& view ) const;
+    void BuildSleepGroupSizes( const CollisionVisualizerFrameView& view );
     void DrawInstances( uint32_t mesh, int vertexCount, const std::vector<float>& instanceData );
     void DrawHullInstance( const Math::CollisionDetection::ConvexHullShape& hull,
                            const Math::Transformation::Matrix4& model,
                            const Color& color );
 
   public:
-    CollisionVisualizer() = default;
+    CollisionVisualizer();
     ~CollisionVisualizer();
 
     void SetEnabled( bool enabled )
@@ -137,11 +147,11 @@ class CollisionVisualizer
     void SetClipPlane( float x, float y, float z, float w );
     void SetAlphaOverride( float alpha );
     void ResetResources();
-    void Update( float dt, GameObjects::GameModelCollection& models );
+    void Update( float dt, const CollisionVisualizerFrameView& view );
     void Render( Assets::AssetSystem& assets,
                  Rendering::IRenderResourceFactory& renderResources,
-                 GameObjects::GameModelCollection& models,
-                 const Math::Transformation::Matrix4& view,
+                 const CollisionVisualizerFrameView& view,
+                 const Math::Transformation::Matrix4& cameraView,
                  const Math::Transformation::Matrix4& proj,
                  const float lightPos[4] );
 };

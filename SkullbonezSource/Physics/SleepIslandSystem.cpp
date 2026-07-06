@@ -21,7 +21,7 @@ Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
   - Support propagation reads fixed-body state from body records, not directly
-    from compatibility GameModel storage.
+    from legacy model storage.
 
 Related:
   - SkullbonezSource/Physics/SleepIslandSystem.h
@@ -37,7 +37,7 @@ using namespace SkullbonezCore::Physics;
 
 
 void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& context,
-                                          const std::vector<PhysicsBodyRecord>& bodyRecords )
+                                          const PhysicsBodyRecordList& bodyRecords )
 {
     // Concept: support propagates upward through a stack.
     //

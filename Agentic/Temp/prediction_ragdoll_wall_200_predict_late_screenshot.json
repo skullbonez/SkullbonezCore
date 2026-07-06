@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 45, "showReplayScrubber": true },
+    { "frame": 60, "clickReplayControl": "predict" },
+    { "frame": 78, "clickObject": "prediction_striker_ball", "button": "left" },
+    { "frame": 105, "assert": { "replayPredictionEnabled": true } },
+    { "frame": 105, "assert": { "replayPathTarget": "prediction_striker_ball" } },
+    { "frame": 165, "assert": { "predictionPathVisible": true } },
+    { "frame": 1500, "assert": { "predictionPathVisible": true } },
+    { "frame": 1500, "assert": { "replaySolverTrackAtPresent": true } },
+    { "frame": 1500, "assert": { "predictionScrubFrameActive": false } },
+    { "frame": 1500, "screenshot": "TestOutput\\interaction\\prediction_ragdoll_wall_200_shape_paths.bmp" }
+  ]
+}

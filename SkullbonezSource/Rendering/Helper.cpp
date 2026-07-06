@@ -557,6 +557,31 @@ void RenderHelper::EnsureSphereMesh( const RenderHelperContext& context )
 }
 
 
+void RenderHelper::EnsureShadowDepthPrimitiveResources( const RenderHelperContext& context )
+{
+    // Runtime allocation policy: the first shadowed frame must not compile the
+    // shared depth shader or create primitive buffers. Build the primitive meshes
+    // under backend init while command/resource services are explicitly borrowed.
+    if ( sphereInstMesh == 0 )
+    {
+        BuildSphereMesh( context, 25, 25 );
+    }
+    if ( lowPolySphereInstMesh == 0 )
+    {
+        BuildLowPolySphereMesh( context, 12, 7 );
+    }
+    if ( boxInstMesh == 0 )
+    {
+        BuildBoxMesh( context );
+    }
+    if ( pineInstMesh == 0 )
+    {
+        BuildPineMesh( context );
+    }
+    EnsureShadowDepthShader( context );
+}
+
+
 void RenderHelper::BuildSphereMesh( const RenderHelperContext& context, int slices, int stacks )
 {
     std::vector<float> verts;

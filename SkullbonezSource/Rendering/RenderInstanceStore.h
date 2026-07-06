@@ -23,7 +23,7 @@ Glossary:
   Replay body id: Stable per-scene id shared with physics/replay records.
 
 Invariants:
-  - Instance order mirrors GameModelCollection so draw order stays stable.
+  - Instance order mirrors scene/model slot order so draw order stays stable.
   - Store refreshes do not touch GPU resources or renderer lifetime.
 
 Related:
@@ -52,11 +52,6 @@ class Vector3;
 }
 } // namespace Math
 
-namespace GameObjects
-{
-class GameModel;
-}
-
 namespace Physics
 {
 class ColliderStore;
@@ -66,7 +61,7 @@ class PhysicsBodyStore;
 namespace Rendering
 {
 inline constexpr uint32_t INVALID_RENDER_INSTANCE_HANDLE_INDEX = 0xffffffffu;
-inline constexpr uint32_t RENDER_INSTANCE_COMPATIBILITY_HANDLE_GENERATION = 1u;
+inline constexpr uint32_t RENDER_INSTANCE_INITIAL_HANDLE_GENERATION = 1u;
 
 struct RenderInstanceHandle
 {
@@ -79,11 +74,11 @@ struct RenderInstanceHandle
     }
 };
 
-inline RenderInstanceHandle MakeCompatibilityRenderInstanceHandle( uint32_t modelIndex )
+inline RenderInstanceHandle MakeRenderInstanceHandleForModelIndex( uint32_t modelIndex )
 {
     RenderInstanceHandle handle;
     handle.index = modelIndex;
-    handle.generation = RENDER_INSTANCE_COMPATIBILITY_HANDLE_GENERATION;
+    handle.generation = RENDER_INSTANCE_INITIAL_HANDLE_GENERATION;
     return handle;
 }
 
@@ -106,7 +101,7 @@ enum class RenderInstanceShapeKind : uint8_t
 
 struct RenderInstanceRecord
 {
-    RenderInstanceHandle handle;                                         // Stable render handle paired with the legacy model slot.
+    RenderInstanceHandle handle;                                         // Stable render handle paired with the model slot.
     uint32_t replayBodyId = 0;                                           // Stable replay-facing body id paired with this instance.
     Math::Transformation::Matrix4 modelMatrix;                           // World transform used by object rendering.
     RenderMaterial material;                                             // Backend-neutral material intent.
@@ -117,21 +112,30 @@ struct RenderInstanceRecord
     float audioContactAlpha = 0.0f;                                      // Render-only white audio-emitter feedback strength.
 };
 
+struct RenderInstancePresentationRecord
+{
+    RenderMaterial material;                                             // Backend-neutral material intent.
+    char displayName[64] = {};                                           // Presentation/debug label paired with the model slot.
+    bool simpleRagdollPart = false;                                      // Replay ghost filter metadata copied from scene grouping.
+    float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
+    float audioContactAlpha = 0.0f;                                      // Render-only white audio-emitter feedback strength.
+};
+
 class RenderInstanceStore
 {
   public:
     RenderInstanceStore();
 
     void Clear();
-    void Refresh( std::vector<GameObjects::GameModel>& models,
+    void Refresh( const std::vector<RenderInstancePresentationRecord>& presentation,
                   const Physics::PhysicsBodyStore& bodyStore,
                   const Physics::ColliderStore& colliderStore );
-    void Refresh( GameObjects::GameModel* models,
-                  int modelCount,
+    void Refresh( const RenderInstancePresentationRecord* presentation,
+                  int presentationCount,
                   const Physics::PhysicsBodyStore& bodyStore,
                   const Physics::ColliderStore& colliderStore );
     // Applies a one-frame presentation pose, such as replay scrub/prediction,
-    // without writing that pose into PhysicsBodyStore or GameModel.
+    // without writing that pose into PhysicsBodyStore or authoring storage.
     bool OverridePose( int modelIndex,
                        uint32_t replayBodyId,
                        const Math::Vector::Vector3& position,
@@ -147,8 +151,8 @@ class RenderInstanceStore
     const std::vector<RenderInstanceRecord>& Records() const;
 
   private:
-    std::vector<RenderInstanceRecord> m_instances;                       // Render records in GameModelCollection index order.
-    std::vector<RenderInstanceHandle> m_modelInstanceHandles;            // Legacy model index to render handle map.
+    std::vector<RenderInstanceRecord> m_instances;                       // Render records in scene/model slot order.
+    std::vector<RenderInstanceHandle> m_modelInstanceHandles;            // Model index to render handle map.
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

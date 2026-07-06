@@ -8,7 +8,12 @@ Mental model:
   samples and prediction samples share body-id lookup, path-budget, and contact-tree helpers.
 
 Glossary:
-  Future node: Body discovered by following retained or predicted contacts away from a target.
+  Causal markers: Yellow outline fixed at a body's in-place prediction-start
+    pose plus a grey outline drawn only at its final resting pose when the
+    completed prediction ends at rest — the two-box story of each body. Once
+    shown, neither box ever leaves until the prediction is rebuilt.
+  Future node: Body discovered by following predicted contact records or, while
+    those records are still sparse, by pose divergence away from a target.
   Prediction frame: Temporary replay frame captured while fast-forwarding live physics.
   Body record: Physics-owned row holding pose, velocity, mass, inertia, and
     fixed/dynamic state for one replay body.
@@ -58,11 +63,251 @@ bool ReplayPredictionMutationReserveSpent( const std::chrono::steady_clock::time
     return ReplayPredictionBudgetExpired( start, budgetMilliseconds - REPLAY_PREDICTION_MUTATION_RESERVE_MILLISECONDS );
 }
 
+// Concept: reveal cursor — the wall-clock playhead of the causal-unfold animation.
+//
+// Every prediction draw pass clamps to the frame this returns, so the pace of
+// the visible tree comes from real time, not from how fast the build job
+// happened to finish. While the job is still building, the cursor also clamps
+// to the populated prefix and re-anchors at that edge, so a slow build paces
+// the unfold without banking "reveal debt" that would snap the animation
+// forward the moment the job completes.
+// Invariant: the cursor is MONOTONIC per prediction. It plays 0 -> horizon
+// exactly once and then holds there, so every revealed line and causal box
+// stays on screen; only a rebuild (new future) resets it via the anchor.
+ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction,
+                                                   ReplayFrameIndex lastAvailableFrame )
+{
+    const auto now = std::chrono::steady_clock::now();
+    if ( !prediction.revealAnchorValid )
+    {
+        prediction.revealAnchor = now;
+        prediction.revealAnchorValid = true;
+        return 0;
+    }
+
+    const double availableSeconds = static_cast<double>( lastAvailableFrame ) * PHYSICS_FIXED_DT;
+    const double elapsedSeconds =
+        (std::max)( 0.0, std::chrono::duration<double>( now - prediction.revealAnchor ).count() );
+    double revealSeconds = elapsedSeconds * REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND;
+    if ( prediction.building && revealSeconds > availableSeconds )
+    {
+        revealSeconds = availableSeconds;
+        prediction.revealAnchor =
+            now - std::chrono::duration_cast<std::chrono::steady_clock::duration>( std::chrono::duration<double>(
+                      availableSeconds / REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND ) );
+    }
+
+    const double revealFrame = revealSeconds / static_cast<double>( PHYSICS_FIXED_DT );
+    return (std::min)( lastAvailableFrame, static_cast<ReplayFrameIndex>( revealFrame ) );
+}
+
+constexpr const char* REPLAY_PREDICTION_RESERVE_OWNER = "replay_prediction_working_set";
+constexpr int REPLAY_PREDICTION_FRAME_CAPACITY =
+    static_cast<int>( REPLAY_PREDICTION_MAX_SECONDS / PHYSICS_FIXED_DT ) + 2;
+constexpr int REPLAY_PREDICTION_PATH_BUDGET = 100;
+constexpr int REPLAY_PREDICTION_RESERVE_HARD_BYTES = 256 * 1024 * 1024;
+constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN = 512u;
+constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX = 2048u;
+constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK = 4096u;
+// Runtime allocation policy: prediction scratch can grow as the user explores
+// larger retained paths. The registered hard cap is a real byte ceiling, not a
+// theoretical element-count product; growth count is telemetry so interactive
+// replay does not trip a per-run count fuse.
+constexpr int REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT =
+    RuntimeAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
+
+RuntimeAllocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner()
+{
+    static const RuntimeAllocation::RuntimeReserveOwnerHandle owner =
+        RuntimeAllocation::RuntimeReserveAllocator::RegisterOwner(
+            { REPLAY_PREDICTION_RESERVE_OWNER,
+              RuntimeAllocation::RuntimeReserveSubsystem::Replay,
+              RuntimeAllocation::RuntimeReservePhase::Replay,
+              0,
+              REPLAY_PREDICTION_RESERVE_HARD_BYTES,
+              REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT,
+              true,
+              "replay prediction supports large retained path visualization under a hard byte budget" } );
+    return owner;
+}
+
+template<typename T>
+bool ReplayPredictionCapacityBytes( std::size_t capacity, uint64_t& outBytes )
+{
+    constexpr uint64_t elementBytes = static_cast<uint64_t>( sizeof( T ) );
+    const uint64_t maxCapacity = (std::numeric_limits<uint64_t>::max)() / elementBytes;
+    if ( capacity > maxCapacity )
+    {
+        return false;
+    }
+    outBytes = static_cast<uint64_t>( capacity ) * elementBytes;
+    return true;
+}
+
+template<typename T>
+bool ReplayPredictionFramePayloadBytes( std::size_t frameCount,
+                                        std::size_t capacityPerFrame,
+                                        uint64_t& outBytes )
+{
+    uint64_t bytesPerFrame = 0;
+    if ( !ReplayPredictionCapacityBytes<T>( capacityPerFrame, bytesPerFrame ) )
+    {
+        return false;
+    }
+    const uint64_t maxValue = (std::numeric_limits<uint64_t>::max)();
+    const uint64_t maxFrameCount = bytesPerFrame > 0 ? maxValue / bytesPerFrame : maxValue;
+    if ( frameCount > maxFrameCount )
+    {
+        return false;
+    }
+    outBytes = static_cast<uint64_t>( frameCount ) * bytesPerFrame;
+    return true;
+}
+
+std::size_t RoundUpReplayPredictionCapacity( std::size_t requestedCapacity, std::size_t chunk )
+{
+    if ( chunk == 0 || requestedCapacity == 0 )
+    {
+        return requestedCapacity;
+    }
+    const std::size_t remainder = requestedCapacity % chunk;
+    return remainder == 0 ? requestedCapacity : requestedCapacity + ( chunk - remainder );
+}
+
+std::size_t ReplayPredictionInitialDebugContactCapacity( int modelCount )
+{
+    const std::size_t modelScaled = static_cast<std::size_t>( (std::max)( modelCount, 1 ) ) * 8u;
+    return std::clamp( modelScaled,
+                       REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN,
+                       REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX );
+}
+
+std::size_t ReplayPredictionNextDebugContactCapacity( std::size_t currentCapacity, std::size_t requiredCapacity )
+{
+    const std::size_t chunked =
+        RoundUpReplayPredictionCapacity( requiredCapacity, REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK );
+    const std::size_t doubled = currentCapacity > 0 ? currentCapacity * 2u : REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN;
+    return (std::max)( chunked, doubled );
+}
+
+template<typename T>
+bool ReserveReplayPredictionVector( std::vector<T>& values,
+                                    std::size_t requestedCapacity,
+                                    int frameNumber,
+                                    const char* targetName )
+{
+    if ( requestedCapacity <= values.capacity() )
+    {
+        return true;
+    }
+    uint64_t oldBytes = 0;
+    uint64_t requestedBytes = 0;
+    if ( !ReplayPredictionCapacityBytes<T>( values.capacity(), oldBytes ) ||
+         !ReplayPredictionCapacityBytes<T>( requestedCapacity, requestedBytes ) ||
+         requestedBytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) )
+    {
+        return false;
+    }
+
+    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
+    const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_PREDICTION_RESERVE_OWNER,
+                                                                     targetName,
+                                                                     RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                                     frameNumber,
+                                                                     static_cast<int>( oldBytes ),
+                                                                     static_cast<int>( requestedBytes ),
+                                                                     1 };
+    const RuntimeAllocation::RuntimeReserveGrowthResult result =
+        RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+    if ( !result.granted )
+    {
+        return false;
+    }
+
+    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+        RuntimeAllocation::RuntimeAllocationPhase::Replay );
+    RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+    RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
+                                                              RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                              result );
+    values.reserve( requestedCapacity );
+    return requestedCapacity <= values.capacity();
+}
+
+template<typename T>
+bool ReserveReplayPredictionFramePayloadVectors( std::vector<RunReplayPredictionFrame>& frames,
+                                                 std::size_t requestedFrameCount,
+                                                 std::size_t requestedCapacityPerFrame,
+                                                 int frameNumber,
+                                                 const char* targetName,
+                                                 std::vector<T> RunReplayPredictionFrame::*member )
+{
+    // Runtime allocation policy: prediction captures many future frames. Batch
+    // the per-frame payload reserves under one replay approval so validation
+    // sees one setup event instead of one growth request per future frame.
+    if ( requestedCapacityPerFrame == 0 )
+    {
+        return true;
+    }
+
+    uint64_t oldBytes = 0;
+    for ( std::size_t i = 0; i < requestedFrameCount; ++i )
+    {
+        uint64_t frameBytes = 0;
+        if ( !ReplayPredictionCapacityBytes<T>( ( frames[i].*member ).capacity(), frameBytes ) ||
+             oldBytes > (std::numeric_limits<uint64_t>::max)() - frameBytes )
+        {
+            return false;
+        }
+        oldBytes += frameBytes;
+    }
+    uint64_t requestedBytes = 0;
+    if ( !ReplayPredictionFramePayloadBytes<T>( requestedFrameCount, requestedCapacityPerFrame, requestedBytes ) )
+    {
+        return false;
+    }
+    if ( requestedBytes <= oldBytes )
+    {
+        return true;
+    }
+    if ( requestedBytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) )
+    {
+        return false;
+    }
+
+    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
+    const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_PREDICTION_RESERVE_OWNER,
+                                                                     targetName,
+                                                                     RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                                     frameNumber,
+                                                                     static_cast<int>( oldBytes ),
+                                                                     static_cast<int>( requestedBytes ),
+                                                                     1 };
+    const RuntimeAllocation::RuntimeReserveGrowthResult result =
+        RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+    if ( !result.granted )
+    {
+        return false;
+    }
+
+    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+        RuntimeAllocation::RuntimeAllocationPhase::Replay );
+    RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+    RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
+                                                              RuntimeAllocation::RuntimeReservePhase::Replay,
+                                                              result );
+    for ( std::size_t i = 0; i < requestedFrameCount; ++i )
+    {
+        ( frames[i].*member ).reserve( requestedCapacityPerFrame );
+    }
+    return true;
+}
+
 // Concept: future-node building is an incremental cache.
 //
 // Prediction can hold thousands of future frames. Clearing and rebuilding the
-// contact tree every render frame makes the path visualizer scale with the full
-// horizon. These cursors let each frame continue where the last frame stopped.
+// future-impact tree every render frame makes the path visualizer scale with the
+// full horizon. These cursors let each frame continue where the last frame stopped.
 void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction )
 {
     prediction.futureNodes.clear();
@@ -210,6 +455,13 @@ Vector3 ReplayNormalizeOr( Vector3 value, const Vector3& fallback )
     return value;
 }
 
+Quaternion ReplaySolverBodyOrientation( const ReplaySolverBodySample& body )
+{
+    Quaternion orientation( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
+    orientation.Normalise();
+    return orientation;
+}
+
 const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
 {
     if ( modelIndex >= 0 && modelIndex < static_cast<int>( sample.bodies.size() ) )
@@ -242,6 +494,55 @@ FindReplayPredictionBodyByIdWithHint( const RunReplayPredictionFrame& frame, Rep
         }
     }
     return FindReplayPredictionBodyById( frame, id );
+}
+
+bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySample& body )
+{
+    return VectorMagSquared( body.linearVelocity ) >= REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ;
+}
+
+// Concept: rest is decided by how the story ends, never by a momentary pause.
+//
+// A body has a resting pose only when the COMPLETED prediction ends with it
+// visibly still and it has not drifted across the final grace window. Bodies
+// still moving at the horizon end return false: they get a travel line and no
+// grey box, because any resting pose we could draw for them would be a guess.
+// Invariant: callers must pass a completed frame buffer; a growing build
+// prefix has no authoritative final frame.
+bool ReplayPredictionBodyRestingPose( const std::vector<RunReplayPredictionFrame>& frames,
+                                      std::size_t frameCount,
+                                      ReplayBodyId id,
+                                      int modelIndexHint,
+                                      Vector3& outPosition,
+                                      Quaternion& outOrientation )
+{
+    frameCount = (std::min)( frameCount, frames.size() );
+    if ( frameCount < 2 || id.value == 0 )
+    {
+        return false;
+    }
+
+    const RunReplayPredictionBodySample* finalBody =
+        FindReplayPredictionBodyByIdWithHint( frames[frameCount - 1], id, modelIndexHint );
+    if ( !finalBody || ReplayPredictionBodyHasVisibleLinearMotion( *finalBody ) )
+    {
+        return false;
+    }
+
+    const std::size_t graceSlots =
+        (std::min)( static_cast<std::size_t>( REPLAY_PREDICTION_REST_GRACE_FRAMES ), frameCount - 1 );
+    const RunReplayPredictionBodySample* graceBody =
+        FindReplayPredictionBodyByIdWithHint( frames[frameCount - 1 - graceSlots], id, modelIndexHint );
+    if ( !graceBody || ReplayPredictionBodyHasVisibleLinearMotion( *graceBody ) ||
+         VectorMagSquared( finalBody->position - graceBody->position ) >
+             REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ )
+    {
+        return false;
+    }
+
+    outPosition = finalBody->position;
+    outOrientation = finalBody->orientation;
+    return true;
 }
 
 bool ReplayContactHasModelIndex( const ReplaySolverPersistentContactSample& contact, int modelIndex )
@@ -613,11 +914,24 @@ void DrawReplayRootPath( const ReplaySolverFrameSample& sample, void* userData )
 struct ReplayPathChildDrawState
 {
     RunReplayPathTraceNode node;
+    bool active = false;
     bool hasIncomingPrevious = false;
     bool hasPrevious = false;
-    bool markerDrawn = false;
+    bool hasMarkerPose = false;
+    int markerModelIndex = -1;
     Vector3 incomingPrevious = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Vector3 markerPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Quaternion markerOrientation = IDENTITY_QUATERNION;
+    // Concept: the two-box causal story. Entry is the body's IN-PLACE pose
+    // from prediction frame 0 — the wall exactly as the live scene knows it.
+    // It is drawn yellow the moment the body visibly moves and never slides.
+    // lastMotionFrame times when the grey resting box may pop in.
+    bool hasEntryPose = false;
+    int entryModelIndex = -1;
+    ReplayFrameIndex lastMotionFrame = 0;
+    Vector3 entryPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Quaternion entryOrientation = IDENTITY_QUATERNION;
 };
 
 struct ReplayPathChildDrawContext
@@ -646,17 +960,124 @@ bool ReplayPathChildDrawBudgetExpired( ReplayPathChildDrawContext& context )
     return context.budgetExpired;
 }
 
-float ReplayFutureMarkerRadiusForModelIndex( const ColliderStore* colliderStore, int modelIndex )
+// Why: downstream replay markers should show the collider's real authored
+// shape, not the broadphase radius used for cheap collision culling.
+const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* colliderStore, int modelIndex )
 {
-    if ( colliderStore )
+    if ( !colliderStore )
     {
-        float radius = 1.0f;
-        if ( TryReplayColliderRadiusForModelIndex( *colliderStore, modelIndex, radius ) )
+        return nullptr;
+    }
+
+    const PhysicsColliderHandle colliderHandle = colliderStore->HandleForModelIndex( modelIndex );
+    const ColliderRecord* collider = colliderStore->RecordForHandle( colliderHandle );
+    if ( !collider || colliderStore->ModelIndexForHandle( colliderHandle ) != modelIndex )
+    {
+        return nullptr;
+    }
+    return collider;
+}
+
+void CaptureReplayChildMarkerPose( ReplayPathChildDrawState& drawState,
+                                   const Vector3& position,
+                                   const Quaternion& orientation,
+                                   int modelIndex )
+{
+    drawState.markerPosition = position;
+    drawState.markerOrientation = orientation;
+    drawState.markerModelIndex = modelIndex;
+    drawState.hasMarkerPose = true;
+}
+
+void DrawReplayChildFinalMarkers( ReplayPathChildDrawContext& context )
+{
+    // Why: downstream body markers summarize where each transferred body ends
+    // up in the visible prefix. Stamping contact-time poses made boxes look cut
+    // short while their gray future trails continued past the outline.
+    for ( std::size_t i = 0; i < context.nodeCount; ++i )
+    {
+        if ( ReplayPathChildDrawBudgetExpired( context ) )
         {
-            return radius * 1.18f;
+            return;
+        }
+
+        const ReplayPathChildDrawState& drawState = context.nodes[i];
+        if ( !drawState.hasMarkerPose )
+        {
+            continue;
+        }
+
+        if ( const ColliderRecord* collider =
+                 ReplayColliderRecordForModelIndex( context.colliderStore, drawState.markerModelIndex ) )
+        {
+            context.tracer->AddReplayFutureTargetMarker( drawState.markerPosition,
+                                                         drawState.markerOrientation,
+                                                         collider->shape,
+                                                         drawState.node.depth );
         }
     }
-    return 1.25f;
+}
+
+// Concept: causal markers are the two-box story of each affected body.
+//
+// Yellow is fixed at the body's last still pose before it visibly moved — for
+// a wall brick, its perfect-formation pose. Grey pops in ONLY at the body's
+// final resting pose, and only when the completed prediction actually ends
+// with it at rest; a body still moving at the horizon end gets a travel line
+// and nothing else. Neither box ever slides.
+void DrawReplayPredictionCausalMarkers( ReplayPathChildDrawContext& context,
+                                        ReplayFrameIndex revealFrame,
+                                        const std::vector<RunReplayPredictionFrame>* completeFrames,
+                                        std::size_t completeFrameCount )
+{
+    for ( std::size_t i = 0; i < context.nodeCount; ++i )
+    {
+        if ( ReplayPathChildDrawBudgetExpired( context ) )
+        {
+            return;
+        }
+
+        const ReplayPathChildDrawState& drawState = context.nodes[i];
+        if ( drawState.hasEntryPose )
+        {
+            if ( const ColliderRecord* collider =
+                     ReplayColliderRecordForModelIndex( context.colliderStore, drawState.entryModelIndex ) )
+            {
+                context.tracer->AddReplayCausalEntryMarker( drawState.entryPosition,
+                                                            drawState.entryOrientation,
+                                                            collider->shape );
+            }
+        }
+
+        // Why: completeFrames is null while the job is still building — a
+        // growing prefix has no authoritative ending, so no grey box may
+        // exist yet. The reveal timing check keeps the grey pop causal: it
+        // appears only after the cursor has watched the body stop.
+        if ( !drawState.active || !completeFrames )
+        {
+            continue;
+        }
+        if ( revealFrame < drawState.lastMotionFrame + REPLAY_PREDICTION_REST_GRACE_FRAMES )
+        {
+            continue;
+        }
+        Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        Quaternion restOrientation = IDENTITY_QUATERNION;
+        if ( !ReplayPredictionBodyRestingPose( *completeFrames,
+                                               completeFrameCount,
+                                               drawState.node.id,
+                                               drawState.node.modelIndex,
+                                               restPosition,
+                                               restOrientation ) )
+        {
+            continue;
+        }
+        if ( const ColliderRecord* collider =
+                 ReplayColliderRecordForModelIndex( context.colliderStore, drawState.node.modelIndex ) )
+        {
+            context.tracer->AddReplayCausalRestMarker( restPosition, restOrientation, collider->shape );
+        }
+    }
 }
 
 void ReplayChildIncomingColor( int depth, float t, float& r, float& g, float& b )
@@ -677,19 +1098,22 @@ void ReplayChildFutureColor( int depth, float t, float& r, float& g, float& b )
 }
 
 void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredictionFrame>& frames,
+                                             std::size_t frameCount,
+                                             ReplayFrameIndex revealFrame,
                                              const SkullbonezCore::GameObjects::GameModelCollection& collection,
                                              RunEditorTracer& tracer,
                                              const std::chrono::steady_clock::time_point& budgetStart,
                                              double budgetMilliseconds )
 {
     const int modelCount = collection.GetModelCount();
-    if ( frames.size() < 2 || modelCount <= 0 )
+    frameCount = (std::min)( frameCount, frames.size() );
+    if ( frameCount < 2 || modelCount <= 0 )
     {
         return;
     }
 
-    const ReplayFrameIndex lastFrame = frames.back().frameIndex;
-    const std::size_t sampleStride = ReplayPathStrideForSampleCount( frames.size() );
+    const ReplayFrameIndex lastFrame = frames[frameCount - 1].frameIndex;
+    const std::size_t sampleStride = ReplayPathStrideForSampleCount( frameCount );
     for ( int modelIndex = 0; modelIndex < modelCount; ++modelIndex )
     {
         if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
@@ -705,15 +1129,23 @@ void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredicti
         bool hasPrevious = false;
         Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
         std::size_t ordinal = 0;
-        for ( const RunReplayPredictionFrame& frame : frames )
+        for ( std::size_t frameIndex = 0; frameIndex < frameCount; ++frameIndex )
         {
+            const RunReplayPredictionFrame& frame = frames[frameIndex];
+            if ( frame.frameIndex > revealFrame )
+            {
+                break;
+            }
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
                 return;
             }
 
+            // Why: the reveal-edge frame must always draw, or trail tips would
+            // advance in visible stride-sized jumps instead of growing smoothly.
             const std::size_t currentOrdinal = ordinal++;
-            if ( frame.frameIndex != lastFrame && !ShouldDrawReplayPathSample( currentOrdinal, sampleStride ) )
+            if ( frame.frameIndex != lastFrame && frame.frameIndex != revealFrame &&
+                 !ShouldDrawReplayPathSample( currentOrdinal, sampleStride ) )
             {
                 continue;
             }
@@ -731,6 +1163,225 @@ void DrawReplayPredictionRagdollTorsoTrails( const std::vector<RunReplayPredicti
             }
             previous = body->position;
             hasPrevious = true;
+        }
+    }
+}
+
+struct ReplayPredictionAffectedBodyTrail
+{
+    ReplayBodyId id;
+    int modelIndex = -1;
+    std::size_t firstFrameSlot = 0;
+    ReplayFrameIndex firstFrame = 0;
+    // Concept: same two-box causal story as ReplayPathChildDrawState. Entry is
+    // the body's in-place pose from prediction frame 0 (yellow, fixed);
+    // lastMotionFrame times when the grey resting box may pop in. The grey
+    // pose itself always comes from the completed buffer's final frame.
+    ReplayFrameIndex lastMotionFrame = 0;
+    Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Vector3 entryPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    Quaternion entryOrientation = IDENTITY_QUATERNION;
+};
+
+bool ReplayPredictionIdInFutureNodes( const std::vector<RunReplayPathTraceNode>& nodes, ReplayBodyId id )
+{
+    for ( const RunReplayPathTraceNode& node : nodes )
+    {
+        if ( node.id.value == id.value )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+void ReplayAffectedBodyTrailColor( std::size_t trailOrdinal, float t, float& r, float& g, float& b )
+{
+    const float laneOffset = std::clamp( static_cast<float>( trailOrdinal % 6u ) * 0.025f, 0.0f, 0.125f );
+    r = std::clamp( 1.00f - t * 0.32f - laneOffset * 0.40f, 0.55f, 1.00f );
+    g = std::clamp( 0.58f + t * 0.28f + laneOffset, 0.48f, 0.94f );
+    b = std::clamp( 0.14f + t * 0.42f + laneOffset * 0.50f, 0.10f, 0.72f );
+}
+
+void DrawReplayPredictionAffectedBodyTrails(
+    const std::vector<RunReplayPredictionFrame>& frames,
+    std::size_t frameCount,
+    ReplayFrameIndex revealFrame,
+    bool bufferComplete,
+    ReplayBodyId rootId,
+    int rootModelIndex,
+    const std::vector<RunReplayPathTraceNode>& futureNodes,
+    const SkullbonezCore::GameObjects::GameModelCollection& collection,
+    const ColliderStore& colliderStore,
+    RunEditorTracer& tracer,
+    const std::chrono::steady_clock::time_point& budgetStart,
+    double budgetMilliseconds )
+{
+    frameCount = (std::min)( frameCount, frames.size() );
+    if ( frameCount < 2 || rootId.value == 0 )
+    {
+        return;
+    }
+
+    // Concept: affected-body trails are visual evidence, not contact authority.
+    //
+    // The future-node cache feeds both the cause window and child path renderer.
+    // This pass exists only as a visual fallback while that cache has not yet
+    // published a body; it skips ids already represented by either contact- or
+    // motion-derived nodes.
+    std::array<ReplayPredictionAffectedBodyTrail, REPLAY_PATH_MAX_FUTURE_NODES> trails = {};
+    std::size_t trailCount = 0;
+    // Why: budget exhaustion may stop SCANNING, never marker drawing. Bailing
+    // out of the whole pass made yellow boxes flicker under load; instead the
+    // scan stops early and whatever trails exist still get their markers.
+    bool scanBudgetExhausted = false;
+    const RunReplayPredictionFrame& firstFrame = frames.front();
+    for ( const RunReplayPredictionBodySample& initialBody : firstFrame.bodies )
+    {
+        if ( scanBudgetExhausted || trailCount >= REPLAY_PATH_MAX_FUTURE_NODES )
+        {
+            break;
+        }
+        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+        {
+            scanBudgetExhausted = true;
+            break;
+        }
+        if ( initialBody.id.value == 0 || initialBody.id.value == rootId.value ||
+             initialBody.modelIndex == rootModelIndex ||
+             ReplayPredictionIdInFutureNodes( futureNodes, initialBody.id ) )
+        {
+            continue;
+        }
+        if ( ReplayModelIndexIsRagdollPart( collection, initialBody.modelIndex ) )
+        {
+            continue;
+        }
+
+        for ( std::size_t frameSlot = 1; frameSlot < frameCount; ++frameSlot )
+        {
+            // Why: a body whose first movement lies past the reveal cursor is
+            // not part of the story yet. Skipping it here keeps its trail and
+            // outline from pre-spawning ahead of the causal unfold.
+            if ( frames[frameSlot].frameIndex > revealFrame )
+            {
+                break;
+            }
+            if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+            {
+                scanBudgetExhausted = true;
+                break;
+            }
+
+            const RunReplayPredictionBodySample* body =
+                FindReplayPredictionBodyByIdWithHint( frames[frameSlot], initialBody.id, initialBody.modelIndex );
+            if ( !body )
+            {
+                continue;
+            }
+            if ( !ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
+            {
+                continue;
+            }
+
+            // Why: entry is the body's IN-PLACE pose from prediction frame 0 —
+            // the wall exactly as the live scene knows it. Never a sampled
+            // pose from after the impulse arrived.
+            ReplayPredictionAffectedBodyTrail& trail = trails[trailCount++];
+            trail.id = initialBody.id;
+            trail.modelIndex = body->modelIndex;
+            trail.firstFrameSlot = frameSlot;
+            trail.firstFrame = frames[frameSlot].frameIndex;
+            trail.lastMotionFrame = frames[frameSlot].frameIndex;
+            trail.previous = initialBody.position;
+            trail.entryPosition = initialBody.position;
+            trail.entryOrientation = initialBody.orientation;
+            trail.entryOrientation.Normalise();
+            break;
+        }
+    }
+
+    if ( trailCount == 0 )
+    {
+        return;
+    }
+
+    const ReplayFrameIndex lastFrame = frames[frameCount - 1].frameIndex;
+    const std::size_t sampleStride = ReplayPathStrideForSampleCount( frameCount );
+    for ( std::size_t trailIndex = 0; trailIndex < trailCount && !scanBudgetExhausted; ++trailIndex )
+    {
+        ReplayPredictionAffectedBodyTrail& trail = trails[trailIndex];
+        for ( std::size_t frameSlot = trail.firstFrameSlot + 1; frameSlot < frameCount; ++frameSlot )
+        {
+            if ( frames[frameSlot].frameIndex > revealFrame )
+            {
+                break;
+            }
+            if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+            {
+                scanBudgetExhausted = true;
+                break;
+            }
+
+            const RunReplayPredictionFrame& frame = frames[frameSlot];
+            if ( frame.frameIndex != lastFrame && frame.frameIndex != revealFrame &&
+                 !ShouldDrawReplayPathSample( frameSlot, sampleStride ) )
+            {
+                continue;
+            }
+
+            const RunReplayPredictionBodySample* body =
+                FindReplayPredictionBodyByIdWithHint( frame, trail.id, trail.modelIndex );
+            if ( !body )
+            {
+                continue;
+            }
+
+            if ( VectorMagSquared( body->position - trail.previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
+            {
+                const float t = ReplayPathFrameT( frame.frameIndex, trail.firstFrame, lastFrame );
+                float r = 1.0f;
+                float g = 0.65f;
+                float b = 0.18f;
+                ReplayAffectedBodyTrailColor( trailIndex, t, r, g, b );
+                tracer.AddReplayPathSegment( trail.previous, body->position, r, g, b );
+            }
+
+            if ( ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
+            {
+                trail.lastMotionFrame = frame.frameIndex;
+            }
+            trail.previous = body->position;
+            trail.modelIndex = body->modelIndex;
+        }
+    }
+
+    // Why: no budget check here — marker emission is bounded and cheap, and
+    // "once rendered, a causal box never leaves" outranks the budget. Only the
+    // frame scans above may be cut short.
+    for ( std::size_t trailIndex = 0; trailIndex < trailCount; ++trailIndex )
+    {
+        const ReplayPredictionAffectedBodyTrail& trail = trails[trailIndex];
+        if ( const ColliderRecord* collider = ReplayColliderRecordForModelIndex( &colliderStore, trail.modelIndex ) )
+        {
+            tracer.AddReplayCausalEntryMarker( trail.entryPosition, trail.entryOrientation, collider->shape );
+            // Why: grey exists only for stories that end at rest inside the
+            // completed horizon — see DrawReplayPredictionCausalMarkers.
+            if ( !bufferComplete || revealFrame < trail.lastMotionFrame + REPLAY_PREDICTION_REST_GRACE_FRAMES )
+            {
+                continue;
+            }
+            Vector3 restPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+            Quaternion restOrientation = IDENTITY_QUATERNION;
+            if ( ReplayPredictionBodyRestingPose( frames,
+                                                  frameCount,
+                                                  trail.id,
+                                                  trail.modelIndex,
+                                                  restPosition,
+                                                  restOrientation ) )
+            {
+                tracer.AddReplayCausalRestMarker( restPosition, restOrientation, collider->shape );
+            }
         }
     }
 }
@@ -778,13 +1429,6 @@ void DrawReplayChildPaths( const ReplaySolverFrameSample& sample, void* userData
 
         if ( sample.frameIndex <= drawState.node.firstFrame )
         {
-            if ( !drawState.markerDrawn )
-            {
-                const float radius =
-                    ReplayFutureMarkerRadiusForModelIndex( context.colliderStore, body->modelIndex );
-                context.tracer->AddReplayFutureTargetMarker( body->position, radius, drawState.node.depth );
-                drawState.markerDrawn = true;
-            }
             if ( drawState.hasIncomingPrevious &&
                  VectorMagSquared( body->position - drawState.incomingPrevious ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
             {
@@ -811,34 +1455,13 @@ void DrawReplayChildPaths( const ReplaySolverFrameSample& sample, void* userData
         }
         if ( sample.frameIndex >= drawState.node.firstFrame )
         {
+            CaptureReplayChildMarkerPose( drawState,
+                                          body->position,
+                                          ReplaySolverBodyOrientation( *body ),
+                                          body->modelIndex );
             drawState.previous = body->position;
             drawState.hasPrevious = true;
         }
-    }
-}
-
-void AddReplayFutureContactMarkers( const RunReplayPathVisualizerState& visualizer,
-                                    RunEditorTracer& tracer,
-                                    const std::chrono::steady_clock::time_point& budgetStart,
-                                    double budgetMilliseconds )
-{
-    for ( const RunReplayPathTraceNode& node : visualizer.futureNodes )
-    {
-        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
-        {
-            return;
-        }
-
-        float r = 0.58f;
-        float g = 0.62f;
-        float b = 0.70f;
-        if ( node.depth <= 1 )
-        {
-            r = 0.72f;
-            g = 0.78f;
-            b = 0.86f;
-        }
-        tracer.AddReplayContactMarker( node.contactPoint, node.contactNormal, r, g, b );
     }
 }
 
@@ -879,16 +1502,16 @@ bool TryGetReplayPredictionFutureDepth( const ReplayPredictionFutureContext& con
     return false;
 }
 
-bool ReplayPredictionFutureNodeExists( const std::vector<RunReplayPathTraceNode>& nodes, ReplayBodyId id )
+RunReplayPathTraceNode* FindReplayPredictionFutureNode( std::vector<RunReplayPathTraceNode>& nodes, ReplayBodyId id )
 {
-    for ( const RunReplayPathTraceNode& node : nodes )
+    for ( RunReplayPathTraceNode& node : nodes )
     {
         if ( node.id.value == id.value )
         {
-            return true;
+            return &node;
         }
     }
-    return false;
+    return nullptr;
 }
 
 void AddReplayPredictionFutureNode( ReplayPredictionFutureContext& context,
@@ -899,11 +1522,30 @@ void AddReplayPredictionFutureNode( ReplayPredictionFutureContext& context,
                                     ReplayFrameIndex firstFrame,
                                     const Vector3& contactPoint,
                                     const Vector3& contactNormal,
-                                    int depth )
+                                    int depth,
+                                    bool contactDerived )
 {
-    if ( id.value == 0 || id.value == context.rootId.value || !context.nodes ||
-         ReplayPredictionFutureNodeExists( *context.nodes, id ) ||
-         context.nodes->size() >= REPLAY_PATH_MAX_FUTURE_NODES )
+    if ( id.value == 0 || id.value == context.rootId.value || !context.nodes )
+    {
+        return;
+    }
+
+    if ( RunReplayPathTraceNode* existing = FindReplayPredictionFutureNode( *context.nodes, id ) )
+    {
+        if ( contactDerived && !existing->contactDerived )
+        {
+            existing->parentId = parentId;
+            existing->parentModelIndex = parentModelIndex;
+            existing->modelIndex = modelIndex;
+            existing->firstFrame = firstFrame;
+            existing->contactPoint = contactPoint;
+            existing->contactNormal = contactNormal;
+            existing->depth = depth;
+            existing->contactDerived = true;
+        }
+        return;
+    }
+    if ( context.nodes->size() >= REPLAY_PATH_MAX_FUTURE_NODES )
     {
         return;
     }
@@ -917,6 +1559,7 @@ void AddReplayPredictionFutureNode( ReplayPredictionFutureContext& context,
     node.contactPoint = contactPoint;
     node.contactNormal = contactNormal;
     node.depth = depth;
+    node.contactDerived = contactDerived;
     context.nodes->push_back( node );
 }
 
@@ -963,7 +1606,8 @@ bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
                                            frame.frameIndex,
                                            contact.point,
                                            contact.normal,
-                                           depthA + 1 );
+                                           depthA + 1,
+                                           true );
         }
         else if ( activeB && !activeA && ( context.includeRagdollVisuals || !ragdollA ) )
         {
@@ -975,7 +1619,8 @@ bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
                                            frame.frameIndex,
                                            contact.point,
                                            contact.normal * -1.0f,
-                                           depthB + 1 );
+                                           depthB + 1,
+                                           true );
         }
         outNextContactIndex = contactIndex + 1;
     }
@@ -983,16 +1628,96 @@ bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
     return true;
 }
 
+bool BuildReplayPredictionAffectedFutureNodes( const std::vector<RunReplayPredictionFrame>& frames,
+                                               std::size_t frameCount,
+                                               ReplayPredictionFutureContext& context,
+                                               const std::chrono::steady_clock::time_point& budgetStart,
+                                               double budgetMilliseconds )
+{
+    frameCount = (std::min)( frameCount, frames.size() );
+    if ( frameCount < 2 || context.rootId.value == 0 || !context.nodes )
+    {
+        return true;
+    }
+
+    const RunReplayPredictionFrame& firstFrame = frames.front();
+    const RunReplayPredictionBodySample* rootBody = FindReplayPredictionBodyById( firstFrame, context.rootId );
+    const int rootModelIndex = rootBody ? rootBody->modelIndex : -1;
+
+    // Concept: motion-derived future nodes populate the cause window while the
+    // contact graph is still sparse. A later contact-derived node replaces this
+    // fallback, so the tree becomes more causal as solver contact data arrives.
+    for ( const RunReplayPredictionBodySample& initialBody : firstFrame.bodies )
+    {
+        if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+        {
+            return false;
+        }
+        if ( context.nodes->size() >= REPLAY_PATH_MAX_FUTURE_NODES )
+        {
+            return true;
+        }
+        if ( initialBody.id.value == 0 || initialBody.id.value == context.rootId.value ||
+             ( rootModelIndex >= 0 && initialBody.modelIndex == rootModelIndex ) )
+        {
+            continue;
+        }
+        if ( context.collection && ReplayModelIndexIsRagdollPart( *context.collection, initialBody.modelIndex ) )
+        {
+            continue;
+        }
+
+        for ( std::size_t frameSlot = 1; frameSlot < frameCount; ++frameSlot )
+        {
+            if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
+            {
+                return false;
+            }
+
+            const RunReplayPredictionBodySample* body =
+                FindReplayPredictionBodyByIdWithHint( frames[frameSlot], initialBody.id, initialBody.modelIndex );
+            if ( !body )
+            {
+                continue;
+            }
+
+            if ( !ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
+            {
+                continue;
+            }
+
+            AddReplayPredictionFutureNode( context,
+                                           context.rootId,
+                                           rootModelIndex,
+                                           initialBody.id,
+                                           body->modelIndex,
+                                           frames[frameSlot].frameIndex,
+                                           body->position,
+                                           ReplayNormalizeOr( body->linearVelocity, Vector3( 0.0f, 1.0f, 0.0f ) ),
+                                           1,
+                                           false );
+            break;
+        }
+    }
+    return true;
+}
+
 void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction,
                                             const std::vector<RunReplayPredictionFrame>& frames,
+                                            std::size_t frameCount,
                                             bool usingBuildFrames,
                                             const SkullbonezCore::GameObjects::GameModelCollection& collection,
                                             ReplayBodyId rootId,
                                             const std::chrono::steady_clock::time_point& budgetStart,
                                             double budgetMilliseconds )
 {
+    // Invariant: frameCount is the populated prefix of frames. buildFrames is
+    // pre-sized for the whole prediction horizon, so using frames.size() while
+    // building would scan empty rows and mark the future-node cache complete
+    // before contacts have been captured.
+    frameCount = (std::min)( frameCount, frames.size() );
     const bool completingBuildFrames = !usingBuildFrames && prediction.futureNodesBuiltFromBuildFrames &&
-                                       prediction.futureNodesBuiltFrameCount <= frames.size();
+                                       prediction.futureNodesBuiltFrameCount <= frameCount;
     const bool sourceMismatch =
         prediction.futureNodesBuiltFromBuildFrames != usingBuildFrames && !completingBuildFrames;
     // Invariant: these inputs define the meaning of the cached tree. Any change
@@ -1001,7 +1726,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
     const bool cacheMismatch = !prediction.futureNodesCacheValid ||
                                prediction.futureNodesBuiltTargetId.value != rootId.value ||
                                prediction.futureNodesBuiltRagdollVisuals != prediction.ragdollVisualsEnabled ||
-                               sourceMismatch || prediction.futureNodesBuiltFrameCount > frames.size();
+                               sourceMismatch || prediction.futureNodesBuiltFrameCount > frameCount;
     if ( cacheMismatch )
     {
         ClearReplayPredictionFutureNodeCache( prediction );
@@ -1015,7 +1740,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
         prediction.futureNodesBuiltFromBuildFrames = false;
     }
 
-    if ( rootId.value == 0 || frames.empty() || !prediction.futureNodesCacheValid )
+    if ( rootId.value == 0 || frameCount == 0 || !prediction.futureNodesCacheValid )
     {
         return;
     }
@@ -1030,7 +1755,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 
     if ( prediction.futureNodeBuildScratch.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
     {
-        prediction.futureNodesBuiltFrameCount = frames.size();
+        prediction.futureNodesBuiltFrameCount = frameCount;
         prediction.futureNodesBuiltContactIndex = 0;
         publishScratch();
         return;
@@ -1043,7 +1768,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
     futureContext.rootId = rootId;
     futureContext.includeRagdollVisuals = prediction.ragdollVisualsEnabled;
 
-    while ( prediction.futureNodesBuiltFrameCount < frames.size() )
+    while ( prediction.futureNodesBuiltFrameCount < frameCount )
     {
         const std::size_t frameIndex = prediction.futureNodesBuiltFrameCount;
         std::size_t nextContactIndex = prediction.futureNodesBuiltContactIndex;
@@ -1063,7 +1788,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 
         if ( prediction.futureNodeBuildScratch.size() >= REPLAY_PATH_MAX_FUTURE_NODES )
         {
-            prediction.futureNodesBuiltFrameCount = frames.size();
+            prediction.futureNodesBuiltFrameCount = frameCount;
             prediction.futureNodesBuiltContactIndex = 0;
             break;
         }
@@ -1075,6 +1800,17 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
         }
     }
 
+    if ( prediction.futureNodeBuildScratch.size() < REPLAY_PATH_MAX_FUTURE_NODES &&
+         !BuildReplayPredictionAffectedFutureNodes( frames,
+                                                    frameCount,
+                                                    futureContext,
+                                                    budgetStart,
+                                                    budgetMilliseconds ) )
+    {
+        publishScratch();
+        return;
+    }
+
     publishScratch();
 }
 
@@ -1084,17 +1820,26 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureBodyState" );
     const int modelCount = modelCollection.GetModelCount();
-    const std::vector<PhysicsBodyRecord>& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
+    const auto& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
         return false;
     }
 
     outBodies.clear();
+    if ( !ReserveReplayPredictionVector( outBodies,
+                                         static_cast<std::size_t>( modelCount ),
+                                         0,
+                                         "RunReplayPredictionBodyBackup[]" ) )
+    {
+        return false;
+    }
     outBodies.resize( static_cast<std::size_t>( modelCount ) );
 
     const auto captureBody = [&]( int i )
     {
+        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+            RuntimeAllocation::RuntimeAllocationPhase::Replay );
         const GameModel* model = modelCollection.TryGetModel( i );
         if ( !model )
         {
@@ -1123,7 +1868,7 @@ bool CaptureReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelCol
     // backups remains serial because it mutates live GameModel state.
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
-        workerPool.ParallelFor( 0,
+        workerPool.ParallelForNoAlloc( 0,
                                 modelCount,
                                 captureBody,
                                 REPLAY_PREDICTION_PARALLEL_BODY_MIN,
@@ -1172,34 +1917,48 @@ bool ApplyReplayPredictionBodyState( SkullbonezCore::GameObjects::GameModelColle
 }
 
 
-void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
+bool CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
                                    SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
                                    SkullbonezCore::Threading::WorkerPool& workerPool,
                                    ReplayFrameIndex frameIndex )
 {
     PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
     const int modelCount = modelCollection.GetModelCount();
-    const std::vector<PhysicsBodyRecord>& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
+    const auto& bodyRecords = modelCollection.GetPhysicsEngine().BodyStore().Records();
     if ( static_cast<int>( bodyRecords.size() ) < modelCount )
     {
-        return;
+        return false;
     }
 
-    RunReplayPredictionFrame frame;
+    RunReplayPredictionState& prediction = replayRuntime.Prediction();
+    const std::size_t frameSlot = static_cast<std::size_t>( frameIndex );
+    if ( frameSlot >= prediction.buildFrames.size() )
+    {
+        return false;
+    }
+
+    RunReplayPredictionFrame& frame = prediction.buildFrames[frameSlot];
     frame.frameIndex = frameIndex;
-    frame.simulationSeconds = replayRuntime.Prediction().sourceSimulationSeconds +
+    frame.simulationSeconds = prediction.sourceSimulationSeconds +
                               static_cast<double>( frameIndex ) * static_cast<double>( PHYSICS_FIXED_DT );
     frame.tornadoSystemElapsedSeconds = modelCollection.GetTornadoSystemElapsedSeconds();
+    if ( static_cast<std::size_t>( modelCount ) > frame.bodies.capacity() )
+    {
+        return false;
+    }
     frame.bodies.resize( static_cast<std::size_t>( modelCount ) );
 
     const auto captureBody = [&]( int i )
     {
+        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
+            RuntimeAllocation::RuntimeAllocationPhase::Replay );
         const PhysicsBodyRecord& source = bodyRecords[static_cast<std::size_t>( i )];
         RunReplayPredictionBodySample body;
         body.id.value = source.replayBodyId;
         body.modelIndex = i;
         body.position = source.position;
         body.orientation = source.orientation;
+        body.linearVelocity = source.linearVelocity;
         frame.bodies[static_cast<std::size_t>( i )] = body;
     };
 
@@ -1208,7 +1967,7 @@ void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
     // this loop could read the same values back into prediction samples.
     if ( modelCount >= REPLAY_PREDICTION_PARALLEL_BODY_MIN )
     {
-        workerPool.ParallelFor( 0,
+        workerPool.ParallelForNoAlloc( 0,
                                 modelCount,
                                 captureBody,
                                 REPLAY_PREDICTION_PARALLEL_BODY_MIN,
@@ -1222,6 +1981,30 @@ void CaptureReplayPredictionFrame( ReplayRuntime& replayRuntime,
             captureBody( i );
         }
     }
-    frame.debugContacts = modelCollection.GetPhysicsDebugContacts();
-    replayRuntime.Prediction().buildFrames.push_back( std::move( frame ) );
+    const std::vector<PhysicsDebugContact>& debugContacts = modelCollection.GetPhysicsDebugContacts();
+    if ( debugContacts.size() > frame.debugContacts.capacity() )
+    {
+        // Why: debug contacts feed the optional future-impact tree; the root
+        // trajectory line only needs body samples. If a dense contact frame asks
+        // for more replay scratch, batch the reserve across every prediction
+        // frame so the byte cap covers the whole debug-contact payload set. If
+        // the replay reserve refuses, keep the frame and drop contacts rather
+        // than cancelling prediction.
+        const std::size_t requestedDebugContactCapacity =
+            ReplayPredictionNextDebugContactCapacity( frame.debugContacts.capacity(), debugContacts.size() );
+        if ( !ReserveReplayPredictionFramePayloadVectors( prediction.buildFrames,
+                                                          prediction.buildFrames.size(),
+                                                          requestedDebugContactCapacity,
+                                                          static_cast<int>( frameIndex ),
+                                                          "RunReplayPredictionFrame::debugContacts",
+                                                          &RunReplayPredictionFrame::debugContacts ) )
+        {
+            frame.debugContacts.clear();
+            prediction.buildFrameCount = (std::max)( prediction.buildFrameCount, frameSlot + 1 );
+            return true;
+        }
+    }
+    frame.debugContacts = debugContacts;
+    prediction.buildFrameCount = (std::max)( prediction.buildFrameCount, frameSlot + 1 );
+    return true;
 }

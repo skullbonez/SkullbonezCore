@@ -68,8 +68,9 @@ namespace CollisionDetection
       Projected area:     A = π * r²  (circular cross-section)
 
     Orientation:  spheres have no preferred axis, so only the world-space centre
-    position matters for all physics queries.  The rotation matrix from the owning
-    RigidBody is passed to GetModelMatrix() only to orient the visual mesh.
+    position matters for all physics queries.  The render path may still pass an
+    orientation matrix to GetModelMatrix() to keep visual meshes aligned with the
+    body row.
 
     Local-space offset (m_position):
       Centre of the sphere relative to the owning body's origin.  Usually (0,0,0),

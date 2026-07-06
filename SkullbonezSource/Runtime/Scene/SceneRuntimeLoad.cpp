@@ -74,6 +74,29 @@ std::string NormalizeScenePath( const std::string& path )
     return normalized;
 }
 
+char NormalizedScenePathChar( char value )
+{
+    return value == '\\' ? '/' : value;
+}
+
+bool ScenePathEqualsNormalizedPath( const std::string& normalizedPath, const std::string& candidatePath )
+{
+    if ( normalizedPath.size() != candidatePath.size() )
+    {
+        return false;
+    }
+
+    for ( size_t i = 0; i < normalizedPath.size(); ++i )
+    {
+        if ( normalizedPath[i] != NormalizedScenePathChar( candidatePath[i] ) )
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool IsSceneJsonFile( const std::filesystem::path& path )
 {
     const std::string name = path.filename().string();
@@ -82,10 +105,9 @@ bool IsSceneJsonFile( const std::filesystem::path& path )
 
 int SceneBrowserIndexForPath( const RunSceneBrowserState& sceneBrowser, const std::string& scenePath )
 {
-    const std::string normalizedScenePath = NormalizeScenePath( scenePath );
     for ( int i = 0; i < static_cast<int>( sceneBrowser.paths.size() ); ++i )
     {
-        if ( NormalizeScenePath( sceneBrowser.paths[i] ) == normalizedScenePath )
+        if ( ScenePathEqualsNormalizedPath( sceneBrowser.paths[i], scenePath ) )
         {
             return i;
         }

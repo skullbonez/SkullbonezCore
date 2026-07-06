@@ -662,7 +662,7 @@ bridges tiny, named, and fenced.
 - `Agentic/Plans/IN PROGRESS/carmack-render-backend-capability-plan.md` owns renderer
   capability access and `Gfx()` migration in renderer-facing code. This plan
   owns the broader service-lifetime and callback-bridge rules.
-- `Agentic/Plans/runtime-static-allocation-policy-plan.md` owns dynamic
+- `Agentic/Plans/Done/runtime-static-allocation-policy-plan.md` owns dynamic
   allocation policy for any new context storage introduced during this cleanup.
 
 ## Implementation Checklist

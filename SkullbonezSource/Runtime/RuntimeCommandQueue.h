@@ -26,7 +26,6 @@ Related:
 #pragma once
 
 #include <cstddef>
-#include <deque>
 #include <string>
 
 namespace SkullbonezCore
@@ -48,14 +47,50 @@ enum class RuntimeCommandType
     SaveSkyDefaults
 };
 
+constexpr int RUNTIME_COMMAND_TEXT_CAPACITY = 256;
+constexpr int RUNTIME_COMMAND_QUEUE_CAPACITY = 64;
+
+struct RuntimeCommandText
+{
+    RuntimeCommandText() = default;
+    RuntimeCommandText( const char* value )
+    {
+        Assign( value );
+    }
+    RuntimeCommandText( const std::string& value )
+    {
+        Assign( value.c_str() );
+    }
+
+    RuntimeCommandText& operator=( const char* value )
+    {
+        Assign( value );
+        return *this;
+    }
+    RuntimeCommandText& operator=( const std::string& value )
+    {
+        Assign( value.c_str() );
+        return *this;
+    }
+
+    void Assign( const char* value );
+    const char* c_str() const;
+    bool empty() const;
+    void clear();
+
+    // Runtime command text is a bounded payload; long tool/UI labels truncate
+    // instead of allocating so the queue stays frame-stable.
+    char text[RUNTIME_COMMAND_TEXT_CAPACITY] = {};
+};
+
 struct RuntimeCommand
 {
-    RuntimeCommandType type = RuntimeCommandType::None; // Command intent
-    int index = -1;                                     // Optional scene/model index payload
-    std::string text;                                   // Optional path/name payload
-    bool preserveUIState = true;                        // Reset/load policy for scene commands
-    bool suppressExitOnComplete = true;                 // Reset/load policy for scene commands
-    bool preserveRuntimeState = true;                   // Reset/load policy for scene commands
+    RuntimeCommandType type = RuntimeCommandType::None;        // Command intent
+    int index = -1;                                            // Optional scene/model index payload
+    RuntimeCommandText text;                                   // Optional fixed-size path/name payload
+    bool preserveUIState = true;                               // Reset/load policy for scene commands
+    bool suppressExitOnComplete = true;                        // Reset/load policy for scene commands
+    bool preserveRuntimeState = true;                          // Reset/load policy for scene commands
 };
 
 class RuntimeCommandQueue
@@ -68,7 +103,9 @@ class RuntimeCommandQueue
     std::size_t Size() const;
 
   private:
-    std::deque<RuntimeCommand> m_commands;              // FIFO command list
+    RuntimeCommand m_commands[RUNTIME_COMMAND_QUEUE_CAPACITY]; // Fixed FIFO command ring
+    int m_head = 0;                                            // Oldest queued command
+    int m_count = 0;                                           // Number of valid ring entries
 };
 } // namespace Basics
 } // namespace SkullbonezCore

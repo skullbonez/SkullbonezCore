@@ -45,8 +45,7 @@ namespace
 
 constexpr float PROFILER_UI_TIMELINE_BUDGET_MS = 16.67f;
 constexpr float PROFILER_WORKER_BLOCK_H = 96.0f;
-constexpr float PROFILER_MEMORY_BLOCK_H = 158.0f;
-constexpr float PROFILER_TABLE_OFFSET_H = PROFILER_WORKER_BLOCK_H + PROFILER_MEMORY_BLOCK_H;
+constexpr float PROFILER_TABLE_OFFSET_H = PROFILER_WORKER_BLOCK_H;
 constexpr float PROFILER_WORKER_TOGGLE_Y = 12.0f;
 constexpr float PROFILER_WORKER_SLIDER_Y = 52.0f;
 constexpr float PROFILER_CORE_CHART_H = 142.0f;
@@ -1939,125 +1938,6 @@ void DrawPerformanceHistogram( UIProfilerTabState& state, const UIDrawContext& d
     }
 }
 
-void FormatMemoryMiB( uint64_t bytes, char* out, std::size_t outSize )
-{
-    const double mib = static_cast<double>( bytes ) / ( 1024.0 * 1024.0 );
-    if ( mib >= 1024.0 )
-    {
-        snprintf( out, outSize, "%.2f GiB", mib / 1024.0 );
-    }
-    else if ( mib >= 100.0 )
-    {
-        snprintf( out, outSize, "%.0f MiB", mib );
-    }
-    else
-    {
-        snprintf( out, outSize, "%.2f MiB", mib );
-    }
-}
-
-
-void DrawMemoryRow( const UIDrawContext& draw,
-                    float x,
-                    float y,
-                    float labelW,
-                    const char* label,
-                    uint64_t bytes,
-                    float r,
-                    float g,
-                    float b )
-{
-    char value[32] = {};
-    FormatMemoryMiB( bytes, value, sizeof( value ) );
-    draw.Text( x, y, 9.6f, 0.68f, 0.78f, 0.82f, label );
-    draw.Text( x + labelW, y, 9.6f, r, g, b, value );
-}
-
-
-void DrawMainMemoryPanel( const UIDrawContext& draw,
-                          const InGameUIFrameData& data,
-                          float contentX,
-                          float contentY,
-                          float contentW,
-                          float contentH )
-{
-    const MainMemoryStats& memory = data.mainMemory;
-    const float panelX = contentX;
-    const float panelY = contentY + PROFILER_WORKER_BLOCK_H;
-    const float panelW = contentW;
-    const float panelH = PROFILER_MEMORY_BLOCK_H - 12.0f;
-    if ( panelY + panelH > contentY + contentH )
-    {
-        return;
-    }
-    const float labelW = (std::min)( 118.0f, panelW * 0.34f );
-    const float x = panelX + 14.0f;
-    const float subX = panelX + (std::max)( 214.0f, panelW * 0.52f );
-    char text[128] = {};
-    char a[32] = {};
-    char b[32] = {};
-    char c[32] = {};
-
-    draw.Rect( panelX, panelY, panelW, panelH, 0.018f, 0.030f, 0.038f, 0.58f );
-    draw.Outline( panelX, panelY, panelW, panelH, 0.18f, 0.30f, 0.34f, 0.62f );
-    draw.Rect( panelX, panelY + 27.0f, panelW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
-    draw.Text( x, panelY + 9.0f, 10.4f, 0.68f, 0.78f, 0.82f, "Main Memory" );
-    snprintf( text, sizeof( text ), "%s", memory.process.taskManagerMetricName );
-    draw.Text( panelX + panelW - 118.0f, panelY + 9.0f, 9.2f, 0.54f, 0.66f, 0.70f, text );
-
-    const float row0 = panelY + 36.0f;
-    if ( memory.process.available )
-    {
-        DrawMemoryRow( draw, x, row0, labelW, "TaskMgr", memory.process.taskManagerBytes, 0.90f, 0.96f, 0.98f );
-    }
-    else
-    {
-        draw.Text( x, row0, 9.6f, 0.68f, 0.78f, 0.82f, "TaskMgr" );
-        draw.Text( x + labelW, row0, 9.6f, 0.90f, 0.52f, 0.38f, "n/a" );
-    }
-
-    DrawMemoryRow( draw, x, row0 + 18.0f, labelW, "Replay", memory.replay.totalBytes, 0.42f, 0.86f, 0.94f );
-    FormatMemoryMiB( memory.replay.presentationBytes, a, sizeof( a ) );
-    FormatMemoryMiB( memory.replay.solverBytes, b, sizeof( b ) );
-    FormatMemoryMiB( memory.replay.predictionBytes, c, sizeof( c ) );
-    snprintf( text, sizeof( text ), "P %s  S %s  Pred %s", a, b, c );
-    draw.Text( subX, row0 + 18.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
-
-    DrawMemoryRow( draw, x, row0 + 36.0f, labelW, "Objects", memory.gameObjects.totalBytes, 0.70f, 0.90f, 0.54f );
-    const uint64_t gameObjectStoreBytes = memory.gameObjects.physicsStoreBytes + memory.gameObjects.colliderStoreBytes +
-                                          memory.gameObjects.renderStoreBytes;
-    FormatMemoryMiB( memory.gameObjects.modelVectorBytes, a, sizeof( a ) );
-    FormatMemoryMiB( gameObjectStoreBytes, b, sizeof( b ) );
-    FormatMemoryMiB( memory.gameObjects.physicsWorldBytes, c, sizeof( c ) );
-    snprintf( text, sizeof( text ), "Models %s  Stores %s  World %s", a, b, c );
-    draw.Text( subX, row0 + 36.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
-
-    DrawMemoryRow( draw, x, row0 + 54.0f, labelW, "Unattrib", memory.unattributedProcessBytes, 0.82f, 0.74f, 0.55f );
-    FormatMemoryMiB( memory.trackedEngineBytes, a, sizeof( a ) );
-    FormatMemoryMiB( memory.reconciledTotalBytes, b, sizeof( b ) );
-    snprintf( text, sizeof( text ), "Tracked %s  Sum %s", a, b );
-    draw.Text( subX, row0 + 54.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
-
-    if ( memory.trackedOvershootBytes > 0 )
-    {
-        FormatMemoryMiB( memory.trackedOvershootBytes, a, sizeof( a ) );
-        snprintf( text, sizeof( text ), "Tracked exceeds process by %s", a );
-        draw.Text( x, row0 + 76.0f, 9.2f, 0.95f, 0.58f, 0.38f, text );
-    }
-    else
-    {
-        snprintf( text,
-                  sizeof( text ),
-                  "models %llu/%llu  replay %llu/%llu samples",
-                  static_cast<unsigned long long>( memory.gameObjects.modelCount ),
-                  static_cast<unsigned long long>( memory.gameObjects.modelCapacity ),
-                  static_cast<unsigned long long>( memory.replay.presentationSamples ),
-                  static_cast<unsigned long long>( memory.replay.solverSamples ) );
-        draw.Text( x, row0 + 76.0f, 8.8f, 0.48f, 0.60f, 0.64f, text );
-    }
-}
-
-
 void Draw( UIProfilerTabState& state,
            const UIDrawContext& draw,
            const InGameUIFrameData& data,
@@ -2090,8 +1970,6 @@ void Draw( UIProfilerTabState& state,
                                        0.0f,
                                        static_cast<float>( workerMax ) );
     }
-
-    DrawMainMemoryPanel( draw, data, contentX, contentY, contentW, contentH );
 
     const float tableX = contentX;
     const float tableY = contentY + PROFILER_TABLE_OFFSET_H;

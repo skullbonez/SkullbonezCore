@@ -38,6 +38,7 @@ Related:
 #include "../Core/Common.h"
 #include "Audio/ContactAudioService.h"
 #include "Run.h"
+#include "Allocation/RuntimeAllocationTracker.h"
 #include "../Rendering/Text.h"
 #include "Window.h"
 #include "Input.h"
@@ -84,6 +85,7 @@ using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Threading;
+namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 
 namespace
@@ -621,7 +623,7 @@ struct PhysicsRuntimeHandleSmokeResult
 PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
 {
     // Why: this smoke proves runtime-created bodies keep their returned physics
-    // handles aligned with body/collider/render mirrors without opening the
+    // handles aligned with body/collider stores and render snapshots without opening the
     // window or renderer. WinMain runs the normal command-line/config bootstrap
     // before this helper so collection capacity uses the same config snapshot
     // as a regular runtime launch.
@@ -631,24 +633,31 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
 
     for ( int i = 0; i < 2; ++i )
     {
-        SkullbonezCore::GameObjects::GameModel model(
-            world.get(),
-            SkullbonezCore::Math::Vector::Vector3( static_cast<float>( i ) * 2.0f, 4.0f, 0.0f ),
-            SkullbonezCore::Math::Vector::Vector3( 1.0f, 1.0f, 1.0f ),
-            2.0f + static_cast<float>( i ) );
-        model.AddBoundingSphere( 0.75f );
+        SkullbonezCore::GameObjects::GameModel model;
         char name[32] = {};
         sprintf_s( name, sizeof( name ), "runtime_smoke_%d", i );
         model.SetName( name );
         PhysicsSceneObjectId sceneObjectId;
         sceneObjectId.value = static_cast<uint32_t>( i + 1 );
+        const SkullbonezCore::Math::CollisionDetection::BoundingSphere shape(
+            0.75f,
+            SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
         createdBodies[i] = collection->AddGameModel(
             std::move( model ),
-            MakeColliderCreateDesc( SkullbonezCore::Math::CollisionDetection::BoundingSphere(
-                                        0.75f,
-                                        SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) ),
-                                    0.0f,
-                                    HashStr( "default" ) ),
+            MakePhysicsBodyCreateDesc(
+                sceneObjectId,
+                shape,
+                SkullbonezCore::Math::Vector::Vector3( static_cast<float>( i ) * 2.0f, 4.0f, 0.0f ),
+                SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
+                SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ),
+                SkullbonezCore::Math::Vector::Vector3( 1.0f, 1.0f, 1.0f ),
+                2.0f + static_cast<float>( i ),
+                0.0f,
+                PhysicsBodyMotionKind::Dynamic,
+                nullptr,
+                name ),
+            MakeColliderCreateDesc( shape, 0.0f, HashStr( "default" ) ),
             sceneObjectId );
     }
 
@@ -669,11 +678,8 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const size_t initialColliderCount = colliderStore.Count();
     const ColliderRecord initialCollider = colliderStore.Records()[0];
 
-    SkullbonezCore::GameObjects::GameModel& editedModel = collection->GetModelAtIndex( 0 );
     const SkullbonezCore::Math::Vector::Vector3 editedHalfExtents( 0.25f, 1.25f, 0.5f );
     constexpr float EDITED_RESTITUTION = 0.42f;
-    editedModel.AddBoundingBox( editedHalfExtents );
-    editedModel.SetCoefficientRestitution( EDITED_RESTITUTION );
     collection->CommitEditedModelColliderState(
         0,
         MakeColliderCreateDesc( SkullbonezCore::Math::CollisionDetection::BoundingBox(
@@ -715,25 +721,26 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     constexpr uint32_t REORDER_BODY_A_REPLAY_ID = 100u;
     constexpr uint32_t REORDER_BODY_B_REPLAY_ID = 101u;
     PhysicsBodyStore reorderBodyStore;
-    std::vector<SkullbonezCore::GameObjects::GameModel> reorderModels;
-    std::vector<uint32_t> reorderReplayBodyIds;
-    std::vector<int> reorderFixedTreeReleaseRoots;
+    std::vector<PhysicsBodyCreateDesc> reorderBodyDescs;
     for ( int i = 0; i < 2; ++i )
     {
-        SkullbonezCore::GameObjects::GameModel model(
-            world.get(),
-            SkullbonezCore::Math::Vector::Vector3( static_cast<float>( i ) * 3.0f, 5.0f, 0.0f ),
-            SkullbonezCore::Math::Vector::Vector3( 1.0f, 1.0f, 1.0f ),
-            3.0f + static_cast<float>( i ) );
-        model.AddBoundingSphere( 0.5f );
-        reorderModels.push_back( std::move( model ) );
-        reorderReplayBodyIds.push_back( REORDER_BODY_A_REPLAY_ID + static_cast<uint32_t>( i ) );
-        reorderFixedTreeReleaseRoots.push_back( -1 );
+        PhysicsBodyCreateDesc desc;
+        desc.sceneObjectId =
+            MakePhysicsSceneObjectIdFromReplayBodyId( REORDER_BODY_A_REPLAY_ID + static_cast<uint32_t>( i ) );
+        desc.shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere(
+            0.5f,
+            SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
+        desc.position = SkullbonezCore::Math::Vector::Vector3( static_cast<float>( i ) * 3.0f, 5.0f, 0.0f );
+        desc.rotationalInertia = SkullbonezCore::Math::Vector::Vector3( 1.0f, 1.0f, 1.0f );
+        desc.mass = 3.0f + static_cast<float>( i );
+        desc.boundingRadius = SkullbonezCore::Math::CollisionDetection::GetShapeBoundingRadius( desc.shape );
+        desc.volume = SkullbonezCore::Math::CollisionDetection::GetShapeVolume( desc.shape );
+        desc.projectedSurfaceArea =
+            SkullbonezCore::Math::CollisionDetection::GetShapeProjectedSurfaceArea( desc.shape );
+        desc.dragCoefficient = SkullbonezCore::Math::CollisionDetection::GetShapeDragCoefficient( desc.shape );
+        reorderBodyDescs.push_back( desc );
     }
-    reorderBodyStore.LoadFromModels( reorderModels,
-                                     reorderReplayBodyIds,
-                                     reorderFixedTreeReleaseRoots,
-                                     std::vector<uint8_t>{} );
+    reorderBodyStore.LoadFromDescriptors( reorderBodyDescs, std::vector<uint8_t>{} );
     const PhysicsBodyHandle reorderedOriginalBody = reorderBodyStore.HandleForModelIndex( 0 );
     const uint32_t reorderBodyAReplayId = REORDER_BODY_A_REPLAY_ID;
     const uint32_t reorderBodyBReplayId = REORDER_BODY_B_REPLAY_ID;
@@ -742,12 +749,9 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const bool seededReorderState =
         reorderBodyStore.SetPendingBodyImpulse( reorderedOriginalBody, pendingImpulse, pendingImpulsePoint ) &&
         reorderBodyStore.SeedBodyAsleep( reorderedOriginalBody );
-    reorderReplayBodyIds[0] = reorderBodyBReplayId;
-    reorderReplayBodyIds[1] = reorderBodyAReplayId;
-    reorderBodyStore.LoadFromModels( reorderModels,
-                                     reorderReplayBodyIds,
-                                     reorderFixedTreeReleaseRoots,
-                                     std::vector<uint8_t>{} );
+    reorderBodyDescs[0].sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( reorderBodyBReplayId );
+    reorderBodyDescs[1].sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( reorderBodyAReplayId );
+    reorderBodyStore.LoadFromDescriptors( reorderBodyDescs, std::vector<uint8_t>{} );
     const int reorderedBodyAIndex = reorderBodyStore.ModelIndexForHandle( reorderedOriginalBody );
     const PhysicsBodyRecord* reorderedBodyARecord =
         reorderedBodyAIndex >= 0 ? reorderBodyStore.RecordForModelIndex( reorderedBodyAIndex ) : nullptr;
@@ -787,8 +791,8 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
     }
 
     // Why: this option runs before WorkerPool, Window, renderer, Run, or scene
-    // setup so it proves the public physics API and runtime handle mirror can be
-    // constructed without renderer/window services.
+    // setup so it proves the public physics API and runtime handle alignment can
+    // be constructed without renderer/window services.
     const PhysicsStandaloneSmokeResult result = RunPhysicsStandaloneSmoke();
     PhysicsRuntimeHandleSmokeResult runtimeMirror;
     try
@@ -923,6 +927,8 @@ struct ParsedArgs
     int graphicsStressActions = 12;
     int graphicsStressSceneIntervalFrames = 45;
     int graphicsStressMemoryIntervalFrames = 1800;
+    RuntimeAllocation::RuntimeAllocationGuardMode allocationGuardMode =
+        RuntimeAllocation::RuntimeAllocationGuardMode::Off;
     bool replayRecording = true;
     bool replayExplicit = false;
     int replaySeconds = REPLAY_PAST_BUFFER_SECONDS;
@@ -1232,6 +1238,27 @@ bool ParseOptionalOnOffValue( const char* value, bool& out )
         return true;
     }
     return ParseOnOffValue( value, out );
+}
+
+
+bool ParseAllocationGuardModeValue( const char* value, RuntimeAllocation::RuntimeAllocationGuardMode& out )
+{
+    if ( IsOptionValueMissing( value ) || _stricmp( value, "measure" ) == 0 )
+    {
+        out = RuntimeAllocation::RuntimeAllocationGuardMode::Measure;
+        return true;
+    }
+    if ( _stricmp( value, "off" ) == 0 || _stricmp( value, "none" ) == 0 )
+    {
+        out = RuntimeAllocation::RuntimeAllocationGuardMode::Off;
+        return true;
+    }
+    if ( _stricmp( value, "gameplay" ) == 0 || _stricmp( value, "warn" ) == 0 || _stricmp( value, "warnings" ) == 0 )
+    {
+        out = RuntimeAllocation::RuntimeAllocationGuardMode::Gameplay;
+        return true;
+    }
+    return false;
 }
 
 
@@ -2112,6 +2139,21 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               fprintf( stdout, "[frames] Exit after %d frames.\n", args.frameCountOverride );
               return true;
           } },
+        { "--allocation-guard",
+          "--allocation_guard",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              RuntimeAllocation::RuntimeAllocationGuardMode mode = RuntimeAllocation::RuntimeAllocationGuardMode::Off;
+              if ( !ParseAllocationGuardModeValue( value, mode ) )
+              {
+                  return FailCommandLineParse( "--allocation-guard expects off|measure|gameplay." );
+              }
+              args.allocationGuardMode = mode;
+              fprintf( stdout,
+                       "[allocation-guard] Requested mode: %s\n",
+                       RuntimeAllocation::RuntimeAllocationGuardModeName( mode ) );
+              return true;
+          } },
         { "--live-style-control", "--style-harness", ApplyLiveStyleControlDir },
         { "--live_style_control", "--style_harness", ApplyLiveStyleControlDir },
         { "--scene-snapshot-out", "--scene_snapshot_out", ApplySceneSnapshotOutPath },
@@ -2873,6 +2915,7 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
 
 RuntimeRenderBackendView InitRenderBackend( Window* window )
 {
+    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
     auto backend = std::make_unique<RenderBackendDX12>();
     // Lifetime: SetGfxBackend takes ownership. The raytracing accessor and
     // render host keep borrowed aliases that expire before DestroyGfxBackend.
@@ -2901,6 +2944,7 @@ int RunApp( Window* window,
     {
         std::unique_ptr<Run> cRun =
             std::make_unique<Run>( *window, std::move( args.sceneList ), cfg, workerPool, renderBackendView );
+        cRun->SetAllocationGuardMode( args.allocationGuardMode );
         if ( args.timeScaleOverride > 0.0f )
         {
             cRun->SetTimeScaleOverride( args.timeScaleOverride );
@@ -3209,6 +3253,14 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         CoUninitialize();
         return 1;
     }
+    RuntimeAllocation::SetRuntimeAllocationGuardMode( args.allocationGuardMode );
+    if ( RuntimeAllocation::RuntimeAllocationGuardEnabled() )
+    {
+        fprintf( stdout,
+                 "[allocation-guard] Enabled mode=%s. Startup, scene, backend, gameplay, replay, capture, and shutdown "
+                 "allocations will be summarized at process end.\n",
+                 RuntimeAllocation::RuntimeAllocationGuardModeName( args.allocationGuardMode ) );
+    }
 
     EngineConfig& cfg = Cfg();
     int contactAudioSmokeExitCode = 0;
@@ -3244,13 +3296,26 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 
     const int runExitCode = RunApp( window, args, cfg, workerPool, renderBackendView );
 
-    workerPool.Shutdown();
-    CleanupWindow( window, hInstance );
+    {
+        RuntimeAllocation::RuntimeAllocationScope allocationScope(
+            RuntimeAllocation::RuntimeAllocationPhase::Shutdown );
+        workerPool.Shutdown();
+        CleanupWindow( window, hInstance );
+    }
+    RuntimeAllocation::PrintRuntimeAllocationSummary( stdout );
+    int finalExitCode = runExitCode;
+    if ( RuntimeAllocation::GetRuntimeAllocationGuardMode() ==
+             RuntimeAllocation::RuntimeAllocationGuardMode::Gameplay &&
+         RuntimeAllocation::RuntimeAllocationGuardHasGameplayViolations() && finalExitCode == 0 )
+    {
+        fprintf( stdout, "[allocation-guard] FAIL: gameplay allocation guard detected policy violations.\n" );
+        finalExitCode = 9;
+    }
 
     CoUninitialize();
 
     // Write memory leaks to output window
     // _CrtDumpMemoryLeaks();
 
-    return runExitCode;
+    return finalExitCode;
 }

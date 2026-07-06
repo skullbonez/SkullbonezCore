@@ -93,6 +93,7 @@ class ShaderDX12 : public IShader
 #endif
 
     void ReflectCB( ID3DBlob* blob );
+    const UniformInfo* FindUniformInfo( const char* name ) const;
 #ifdef _DEBUG
     void ResetContractActivation() const;
     void MarkContractUniformSet( const char* name, const char* setterName ) const;

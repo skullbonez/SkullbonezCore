@@ -61,7 +61,6 @@ Related:
 #include <dxgi1_5.h>
 #include <array>
 #include <cstddef>
-#include <unordered_map>
 #include <vector>
 
 
@@ -143,6 +142,18 @@ struct PSOKey12
     INT polyOffsetDepthBias;
     float polyOffsetSlopeScaledDepthBias;
     DXGI_FORMAT rtvFormat;
+};
+
+struct CachedPSODX12
+{
+    size_t hash = 0;
+    ID3D12PipelineState* pso = nullptr;
+};
+
+struct GridLinePSODX12
+{
+    DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+    ID3D12PipelineState* pso = nullptr;
 };
 
 inline constexpr int DX12_TIMER_HEAP_MARKERS = 128;
@@ -243,13 +254,20 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     static constexpr UINT SAMPLER_REGISTER_SHADOW_POINT_CLAMP = 3; // s3
     static constexpr int TEXTURE_SLOT_COUNT = 5;                   // SRV slots t0..t4
     static constexpr UINT ORDINARY_RASTER_ROOT_PARAMETER_COUNT = ROOT_PARAMETER_FIRST_TEXTURE + TEXTURE_SLOT_COUNT;
+    static constexpr size_t MAX_CACHED_GRAPHICS_PSOS = 96;
+    static constexpr size_t MAX_GRID_LINE_PSOS = 4;
+    static constexpr size_t MAX_LIVE_BARRIER_RECORDS = 4096;
     static_assert( TEXTURE_SLOT_COUNT == 5,
                    "Ordinary raster ABI exposes SRV slots t0..t4, including t4 for the object material table." );
 
     // CPU-side registries. These are not GPU resources by themselves; they are
     // lookup tables the backend uses to find cached GPU objects and descriptor
     // rows while translating engine draw calls into command-list operations.
-    std::unordered_map<size_t, ID3D12PipelineState*> m_psoCache;
+    // Runtime allocation policy: PSO discovery is bounded. A cache miss may
+    // compile a GPU object during warm-up, but inserting it never grows a heap
+    // container and cap exhaustion fails with the missing pipeline shape.
+    std::array<CachedPSODX12, MAX_CACHED_GRAPHICS_PSOS> m_psoCache = {};
+    size_t m_psoCacheCount = 0;
     std::vector<TextureEntryDX12> m_textures;                      // Texture registry (1-based, index 0 unused)
     std::vector<DynamicVBDX12> m_dynamicVBs;
     std::vector<InstancedMeshDX12> m_instancedMeshes;
@@ -380,8 +398,8 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     float m_clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
     float m_clearDepth = 1.0f;
     bool m_psoDirty = true;
-    std::vector<LiveBarrierRecordDX12> m_liveBarrierRecords;
-    std::vector<LiveUavBarrierRecordDX12> m_liveUavBarrierRecords;
+    RenderGraphFixedList<LiveBarrierRecordDX12, MAX_LIVE_BARRIER_RECORDS> m_liveBarrierRecords;
+    RenderGraphFixedList<LiveUavBarrierRecordDX12, MAX_LIVE_BARRIER_RECORDS> m_liveUavBarrierRecords;
     // Lifetime: resource owners transfer COM references here when a framebuffer
     // or texture is invalidated before the GPU has necessarily consumed the
     // command stream that mentioned it.
@@ -410,9 +428,12 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX };
     UINT m_nullTextureSRVIndex = UINT_MAX;                         // Static null Texture2D SRV copied into cleared texture slots.
 
-    // Grid line overlay (lazy-init in DrawLinesColored)
+    // Runtime allocation policy: debug-line shader and PSOs are warmed during
+    // backend setup for every engine RTV format, so overlay draws do not compile
+    // shaders or grow GPU object caches inside the render phase.
     std::unique_ptr<IShader> m_gridLineShader;
-    std::unordered_map<DXGI_FORMAT, ID3D12PipelineState*> m_gridLinePSOs;
+    std::array<GridLinePSODX12, MAX_GRID_LINE_PSOS> m_gridLinePSOs = {};
+    size_t m_gridLinePSOCount = 0;
     int m_gridLineVBCapacity = 0;
     std::unique_ptr<IShader> m_transientColorShader;
 
@@ -486,6 +507,7 @@ class RenderBackendDX12 : public IRenderBackend, public IRenderRayTracing
     size_t HashPSOKey( const PSOKey12& key );
     ID3D12PipelineState*
     CreatePSO( VertexFormat12 format, bool instanced, const InstancedMeshDX12* im, const DynamicVBDX12* dvb );
+    ID3D12PipelineState* EnsureGridLinePipeline( DXGI_FORMAT rtvFormat );
     void CheckDXRSupport();
     void CreateRTRootSignature();
     void CreateRTPipeline();

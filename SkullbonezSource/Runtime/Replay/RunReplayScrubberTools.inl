@@ -11,6 +11,8 @@ Mental model:
 Glossary:
   Scrubber: UI control that selects retained replay frames.
   Live restore: Applying a retained replay sample back into the current scene.
+  Branch restore: Applying a historical replay sample as the new live timeline
+    while preserving parent/source branch provenance.
   Inspection camera: Temporary replay-focused camera state for selected samples.
 
 Invariants:
@@ -222,6 +224,17 @@ bool Run::RestoreReplayScrubberSelectionAsLive( double now,
     {
         sprintf_s( reason, sizeof( reason ), "no historical replay branch target selected" );
         fprintf( stderr, "[replay] Branch restore failed: %s\n", reason );
+    }
+
+    if ( restored )
+    {
+        // Why: a branch restore makes the selected historical frame the new live
+        // timeline. Keep the visible scrubber at the live edge instead of
+        // leaving it on the parent timeline's old historical position.
+        m_replayRuntime.Scrubber().activeTrack = RunReplayTrack::Solver;
+        m_replayRuntime.Scrubber().historicalSamplePaused = false;
+        m_replayRuntime.Scrubber().branchHovered = false;
+        m_replayRuntime.SetAllTrackPositions( 1.0f );
     }
 
     m_replayRuntime.Scrubber().restoreConsumedThisFrame = true;
@@ -466,9 +479,38 @@ bool Run::TickReplayScrubberInput( HWND hwnd, bool uiBlocksMouse )
 
     auto setReplayLiveAdvanceHeld = [&]( bool held )
     {
+        const float previousPredictionPresentT = m_replayRuntime.SolverPresentTrackPosition();
         if ( !m_replayRuntime.SetLiveAdvanceHeld( held ) )
         {
             return;
+        }
+
+        if ( !held )
+        {
+            // Why: live play should freeze the last committed path preview.
+            // Prediction can still be rebuilt explicitly, but the play button
+            // must not let automatic refresh chase the moving live frame.
+            RunReplayPredictionState& prediction = m_replayRuntime.Prediction();
+            if ( prediction.building && prediction.buildFrameCount >= 2 &&
+                 prediction.buildFrameCount <= prediction.buildFrames.size() &&
+                 ( prediction.frames.empty() || prediction.buildFrameCount >= prediction.frames.size() ) )
+            {
+                // Why: the overlay may be drawing a build prefix before the
+                // full horizon finishes. Promote that visible prefix so Play
+                // freezes the lines the user saw instead of clearing them.
+                prediction.frames.swap( prediction.buildFrames );
+                prediction.frames.resize( prediction.buildFrameCount );
+                prediction.buildFrameCount = 0;
+            }
+            m_replayRuntime.Prediction().enabled = false;
+            m_replayRuntime.Prediction().horizonDragging = false;
+            m_replayRuntime.CancelPredictionJob( false );
+            const float currentPosition = m_replayRuntime.TrackPosition( RunReplayTrack::Solver );
+            if ( ReplayRuntime::TrackPositionIsFuture( currentPosition, previousPredictionPresentT ) )
+            {
+                m_replayRuntime.SetTrackPosition( RunReplayTrack::Solver, 1.0f );
+                m_replayRuntime.Scrubber().historicalSamplePaused = false;
+            }
         }
 
         if ( held )

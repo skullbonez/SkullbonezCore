@@ -37,10 +37,9 @@ Related:
 #include "ReplayExporter.h"
 #include "ReplayOverlayLayout.h"
 #include "ReplayV2Artifact.h"
-#include "../../GameObjects/GameModel.h"
-#include "../../GameObjects/GameModelCollection.h"
 #include "../../Core/Profiler.h"
 #include "../../Physics/ColliderStore.h"
+#include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsBodyStore.h"
 
 #include <algorithm>
@@ -66,7 +65,6 @@ constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
 constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
 
-using GameObjects::GameModel;
 using Math::Vector::Vector3;
 using Math::Vector::VectorMagSquared;
 using Physics::ColliderRecord;
@@ -186,6 +184,7 @@ const std::vector<RunReplayPredictionFrame>&
 ReplayRuntimeActivePredictionFrames( const RunReplayPredictionState& prediction )
 {
     if ( prediction.building && prediction.buildFrames.size() >= 2 &&
+         prediction.buildFrameCount >= prediction.buildFrames.size() &&
          ( prediction.frames.empty() || prediction.buildFrames.size() >= prediction.frames.size() ) )
     {
         return prediction.buildFrames;
@@ -261,11 +260,17 @@ uint64_t PredictionFrameMemoryBytes( const RunReplayPredictionFrame& frame )
     return VectorCapacityBytes( frame.bodies ) + VectorCapacityBytes( frame.debugContacts );
 }
 
-bool ReplayRuntimeModelIsRagdollPart( const GameObjects::GameModelCollection& collection, int modelIndex )
+bool ReplayRuntimeModelIsRagdollPart(
+    const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
+    int modelIndex )
 {
     // SimpleRagdoll children share replay visuals with their collection root.
     // This helper keeps that policy local to replay loading/restoration paths.
-    return collection.IsSimpleRagdollPart( modelIndex );
+    if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
+    {
+        return false;
+    }
+    return presentationRecords[static_cast<std::size_t>( modelIndex )].simpleRagdollPart;
 }
 
 
@@ -305,6 +310,28 @@ const PhysicsBodyRecord* ReplayRuntimeBodyRecordForModelIndex( const PhysicsBody
         return nullptr;
     }
     return record;
+}
+
+
+bool ReplayRuntimeQueueRenderPoseOverride( Physics::PhysicsEngine& physicsEngine,
+                                           int modelIndex,
+                                           uint32_t replayBodyId,
+                                           const Vector3& position,
+                                           const Math::Orientation::Quaternion& orientation )
+{
+    return physicsEngine.OverrideRenderInstancePose( modelIndex, replayBodyId, position, orientation );
+}
+
+
+bool ReplayRuntimePrepareBodyMatchedMask( std::array<uint8_t, MAX_GAME_MODELS>& mask, int modelCount )
+{
+    if ( modelCount < 0 || modelCount > MAX_GAME_MODELS )
+    {
+        return false;
+    }
+
+    std::fill( mask.begin(), mask.begin() + modelCount, uint8_t{ 0 } );
+    return true;
 }
 
 
@@ -349,7 +376,7 @@ float ReplayRuntimeColliderRadiusForModelIndex( const ColliderStore& colliderSto
         return ReplayRuntimeColliderRadius( *collider );
     }
 
-    const std::vector<ColliderRecord>& colliders = colliderStore.Records();
+    const auto& colliders = colliderStore.Records();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( colliders.size() ) )
     {
         return 1.0f;
@@ -521,6 +548,17 @@ std::string SolverReplayHashLogPath( const std::string& presentationPath )
 }
 } // namespace
 
+
+ReplayRuntime::ReplayRuntime()
+{
+    m_causeTree.rows.reserve( REPLAY_CAUSE_TREE_ROW_CAPACITY );
+    // Runtime allocation policy: focus masks are rewritten during replay render
+    // passes, so the byte vector owns its full model-capacity storage up front.
+    m_focusModelMask.reserve( MAX_GAME_MODELS );
+    m_renderPoseBodyMatched.fill( uint8_t{ 0 } );
+}
+
+
 ReplayRecorder& ReplayRuntime::Presentation()
 {
     return m_presentation;
@@ -640,6 +678,7 @@ void ReplayRuntime::CancelPredictionJob( bool clearSamples )
     m_prediction.predictionWorld = ReplaySolverWorldSnapshot();
     m_prediction.liveRestoreWorld = ReplaySolverWorldSnapshot();
     m_prediction.buildFrames.clear();
+    m_prediction.buildFrameCount = 0;
     if ( clearSamples )
     {
         m_prediction.frames.clear();
@@ -948,13 +987,16 @@ void ReplayRuntime::ClearCameraFocusForRestore()
     m_camera.ownsSimulationPause = false;
 }
 
-ReplayRuntime::RecordingConfigResult
-ReplayRuntime::ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath )
+ReplayRuntime::RecordingConfigResult ReplayRuntime::ConfigureRecording( bool enabled,
+                                                                        int retentionSeconds,
+                                                                        const char* hashLogPath,
+                                                                        int runtimeBodyCapacity )
 {
     ReplayRecorderConfig replayConfig;
     replayConfig.enabled = enabled || ( hashLogPath && hashLogPath[0] != '\0' );
     replayConfig.retentionSeconds = (std::max)( 1, retentionSeconds );
     replayConfig.checkpointIntervalFrames = 30;
+    replayConfig.runtimeBodyCapacity = runtimeBodyCapacity;
     if ( hashLogPath && hashLogPath[0] != '\0' )
     {
         replayConfig.hashLogPath = hashLogPath;
@@ -1060,15 +1102,18 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input )
 // Concept: render replay poses are temporary render-instance overrides.
 //
 // Scrubbing should affect only the pixels drawn for this frame. The helpers
-// below queue replay or prediction poses for the next render-instance refresh;
-// live GameModel body mirrors are not mutated and therefore need no restore.
-bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelCollection& collection,
+// below apply replay or prediction poses to a freshly prepared render-instance
+// snapshot; live physics rows and authored presentation metadata are not
+// mutated and therefore need no restore.
+bool ReplayRuntime::ApplyPresentationSampleForRender( Physics::PhysicsEngine& physicsEngine,
                                                       const ReplayPresentationSample& sample )
 {
-    const int modelCount = collection.GetModelCount();
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
-    collection.ClearReplayRenderPoseOverrides();
-    std::vector<uint8_t> bodyMatched( static_cast<std::size_t>( modelCount ), 0 );
+    const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
+    const int modelCount = physicsEngine.RenderInstances().Count();
+    if ( !ReplayRuntimePrepareBodyMatchedMask( m_renderPoseBodyMatched, modelCount ) )
+    {
+        return false;
+    }
     bool queuedAny = false;
 
     for ( const ReplayBodyPresentationSample& body : sample.bodies )
@@ -1084,12 +1129,13 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
                                                    body.orientation[2],
                                                    body.orientation[3] );
         orientation.Normalise();
-        if ( collection.TryQueueReplayRenderPoseOverride( resolvedModelIndex,
-                                                          body.id.value,
-                                                          body.position,
-                                                          orientation ) )
+        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+                                                   resolvedModelIndex,
+                                                   body.id.value,
+                                                   body.position,
+                                                   orientation ) )
         {
-            bodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
+            m_renderPoseBodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
             queuedAny = true;
         }
     }
@@ -1098,7 +1144,7 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
     for ( int i = 0; i < modelCount; ++i )
     {
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
-        if ( bodyMatched[bodyIndex] )
+        if ( m_renderPoseBodyMatched[bodyIndex] )
         {
             continue;
         }
@@ -1112,10 +1158,11 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
         // Why: loaded artifacts may not contain every live body. Move unmatched
         // bodies out of view instead of letting unrelated live geometry appear
         // inside the scrubbed replay frame.
-        if ( collection.TryQueueReplayRenderPoseOverride( i,
-                                                          bodyRecord->replayBodyId,
-                                                          hiddenReplayPosition,
-                                                          Math::Orientation::IDENTITY_QUATERNION ) )
+        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+                                                   i,
+                                                   bodyRecord->replayBodyId,
+                                                   hiddenReplayPosition,
+                                                   Math::Orientation::IDENTITY_QUATERNION ) )
         {
             queuedAny = true;
         }
@@ -1123,13 +1170,15 @@ bool ReplayRuntime::ApplyPresentationSampleForRender( GameObjects::GameModelColl
     return queuedAny;
 }
 
-bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection& collection,
+bool ReplayRuntime::ApplySolverSampleForRender( Physics::PhysicsEngine& physicsEngine,
                                                 const ReplaySolverFrameSample& sample )
 {
-    const int modelCount = collection.GetModelCount();
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
-    collection.ClearReplayRenderPoseOverrides();
-    std::vector<uint8_t> bodyMatched( static_cast<std::size_t>( modelCount ), 0 );
+    const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
+    const int modelCount = physicsEngine.RenderInstances().Count();
+    if ( !ReplayRuntimePrepareBodyMatchedMask( m_renderPoseBodyMatched, modelCount ) )
+    {
+        return false;
+    }
     bool queuedAny = false;
 
     for ( const ReplaySolverBodySample& body : sample.bodies )
@@ -1145,12 +1194,13 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
                                                    body.orientation[2],
                                                    body.orientation[3] );
         orientation.Normalise();
-        if ( collection.TryQueueReplayRenderPoseOverride( resolvedModelIndex,
-                                                          body.id.value,
-                                                          body.position,
-                                                          orientation ) )
+        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+                                                   resolvedModelIndex,
+                                                   body.id.value,
+                                                   body.position,
+                                                   orientation ) )
         {
-            bodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
+            m_renderPoseBodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
             queuedAny = true;
         }
     }
@@ -1159,7 +1209,7 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
     for ( int i = 0; i < modelCount; ++i )
     {
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
-        if ( bodyMatched[bodyIndex] )
+        if ( m_renderPoseBodyMatched[bodyIndex] )
         {
             continue;
         }
@@ -1170,10 +1220,11 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
             continue;
         }
 
-        if ( collection.TryQueueReplayRenderPoseOverride( i,
-                                                          bodyRecord->replayBodyId,
-                                                          hiddenReplayPosition,
-                                                          Math::Orientation::IDENTITY_QUATERNION ) )
+        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+                                                   i,
+                                                   bodyRecord->replayBodyId,
+                                                   hiddenReplayPosition,
+                                                   Math::Orientation::IDENTITY_QUATERNION ) )
         {
             queuedAny = true;
         }
@@ -1181,13 +1232,15 @@ bool ReplayRuntime::ApplySolverSampleForRender( GameObjects::GameModelCollection
     return queuedAny;
 }
 
-bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollection& collection,
+bool ReplayRuntime::ApplyPredictionFrameForRender( Physics::PhysicsEngine& physicsEngine,
                                                    const RunReplayPredictionFrame& frame )
 {
-    const int modelCount = collection.GetModelCount();
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
-    collection.ClearReplayRenderPoseOverrides();
-    std::vector<uint8_t> bodyMatched( static_cast<std::size_t>( modelCount ), 0 );
+    const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
+    const int modelCount = physicsEngine.RenderInstances().Count();
+    if ( !ReplayRuntimePrepareBodyMatchedMask( m_renderPoseBodyMatched, modelCount ) )
+    {
+        return false;
+    }
     bool queuedAny = false;
 
     for ( const RunReplayPredictionBodySample& body : frame.bodies )
@@ -1200,12 +1253,13 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollect
 
         Math::Orientation::Quaternion orientation = body.orientation;
         orientation.Normalise();
-        if ( collection.TryQueueReplayRenderPoseOverride( resolvedModelIndex,
-                                                          body.id.value,
-                                                          body.position,
-                                                          orientation ) )
+        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+                                                   resolvedModelIndex,
+                                                   body.id.value,
+                                                   body.position,
+                                                   orientation ) )
         {
-            bodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
+            m_renderPoseBodyMatched[static_cast<std::size_t>( resolvedModelIndex )] = 1;
             queuedAny = true;
         }
     }
@@ -1214,7 +1268,7 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollect
     for ( int i = 0; i < modelCount; ++i )
     {
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
-        if ( bodyMatched[bodyIndex] )
+        if ( m_renderPoseBodyMatched[bodyIndex] )
         {
             continue;
         }
@@ -1225,25 +1279,17 @@ bool ReplayRuntime::ApplyPredictionFrameForRender( GameObjects::GameModelCollect
             continue;
         }
 
-        if ( collection.TryQueueReplayRenderPoseOverride( i,
-                                                          bodyRecord->replayBodyId,
-                                                          hiddenReplayPosition,
-                                                          Math::Orientation::IDENTITY_QUATERNION ) )
+        if ( ReplayRuntimeQueueRenderPoseOverride( physicsEngine,
+                                                   i,
+                                                   bodyRecord->replayBodyId,
+                                                   hiddenReplayPosition,
+                                                   Math::Orientation::IDENTITY_QUATERNION ) )
         {
             queuedAny = true;
         }
     }
     return queuedAny;
 }
-
-void ReplayRuntime::ClearRenderPoseOverrides( GameObjects::GameModelCollection& collection )
-{
-    // Lifetime: queued overrides are single-frame render state. They are usually
-    // consumed by GameModelCollection::PrepareRenderInstances(); early render
-    // exits clear them here so stale replay poses cannot leak into a later frame.
-    collection.ClearReplayRenderPoseOverrides();
-}
-
 
 bool ReplayRuntime::HasLoadedPresentation() const
 {
@@ -1419,7 +1465,7 @@ bool ReplayRuntime::ResolveCauseTreeBodyPosition( ReplayBodyId id,
         }
     }
 
-    const std::vector<PhysicsBodyRecord>& bodies = bodyStore.Records();
+    const auto& bodies = bodyStore.Records();
     for ( int i = 0; i < static_cast<int>( bodies.size() ); ++i )
     {
         const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( i )];
@@ -1449,8 +1495,9 @@ PhysicsBodyHandle ReplayRuntime::ResolveVelocityEditBodyHandle( const PhysicsBod
 }
 
 
-bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel>& models,
-                                        const PhysicsBodyStore& bodyStore )
+bool ReplayRuntime::BuildCauseTreeRows(
+    const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
+    const PhysicsBodyStore& bodyStore )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/BuildRows" );
     m_causeTree.rows.clear();
@@ -1460,7 +1507,12 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
         return false;
     }
 
-    const bool usePrediction = m_prediction.enabled && ActivePredictionFrames().size() >= 2 &&
+    // Why: ActivePredictionFrames() waits for a coherent full buffer, while the
+    // prediction overlay exposes a populated build prefix so long jobs are
+    // visible immediately. The cause tree must use the same readiness rule.
+    const bool predictionPrefixVisible =
+        ActivePredictionFrames().size() >= 2 || m_prediction.buildFrameCount >= 2 || !m_prediction.futureNodes.empty();
+    const bool usePrediction = m_prediction.enabled && predictionPrefixVisible &&
                                m_prediction.targetId.value == m_pathVisualizer.targetId.value;
     const std::vector<RunReplayPathTraceNode>& nodes =
         usePrediction ? m_prediction.futureNodes : m_pathVisualizer.futureNodes;
@@ -1468,13 +1520,25 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
     const std::size_t solverContactCount =
         solverSample ? solverSample->worldSnapshot.persistentContacts.size() : static_cast<std::size_t>( 0 );
     const std::size_t estimatedRows = 1 + nodes.size() + solverContactCount * 3;
-    if ( m_causeTree.rows.capacity() < estimatedRows )
+    if ( estimatedRows > m_causeTree.rows.capacity() )
     {
-        // Why: the renderer calls this every frame while the window is visible.
-        // Reserve for the current graph shape so row rebuilds do not turn the
-        // inspection overlay into an allocation-heavy hot path.
-        m_causeTree.rows.reserve( estimatedRows );
+        // Hazard: this path runs from input/render. If a future scene exceeds
+        // the preallocated explanation budget, hide the overlay for the frame
+        // instead of growing row storage on the hot path.
+        m_causeTree.selectedRow = -1;
+        return false;
     }
+    bool rowOverflow = false;
+    auto appendCauseTreeRow = [&]( const RunReplayCauseTreeRow& row ) -> bool
+    {
+        if ( m_causeTree.rows.size() >= m_causeTree.rows.capacity() )
+        {
+            rowOverflow = true;
+            return false;
+        }
+        m_causeTree.rows.push_back( row );
+        return true;
+    };
 
     // Invariant: cause-tree rows keep model indices only for UI row selection
     // and solver-artifact contact matching. ReplayBodyId identity resolves
@@ -1528,9 +1592,9 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
             strncpy_s( out, outSize, fallback, _TRUNCATE );
             return;
         }
-        if ( modelIndex >= 0 && modelIndex < static_cast<int>( models.size() ) )
+        if ( modelIndex >= 0 && modelIndex < static_cast<int>( presentationRecords.size() ) )
         {
-            const char* modelName = models[static_cast<std::size_t>( modelIndex )].GetName();
+            const char* modelName = presentationRecords[static_cast<std::size_t>( modelIndex )].displayName;
             if ( modelName && modelName[0] != '\0' )
             {
                 strncpy_s( out, outSize, modelName, _TRUNCATE );
@@ -1563,7 +1627,8 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
                     continue;
                 }
                 RunReplayCauseTreeRow contactRow;
-                contactRow.kind = RunReplayCauseTreeRowKind::PredictionContact;
+                contactRow.kind = node.contactDerived ? RunReplayCauseTreeRowKind::PredictionContact
+                                                       : RunReplayCauseTreeRowKind::PredictionMotion;
                 contactRow.id = bodyRow.id;
                 contactRow.parentId = node.parentId;
                 contactRow.firstFrame = node.firstFrame;
@@ -1573,15 +1638,32 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
                 contactRow.prediction = true;
                 contactRow.point = node.contactPoint;
                 contactRow.normal = ReplayNormalizeOr( node.contactNormal, Vector3( 0.0f, 1.0f, 0.0f ) );
-                sprintf_s( contactRow.name, sizeof( contactRow.name ), "Predicted contact" );
-                sprintf_s( contactRow.detail,
-                           sizeof( contactRow.detail ),
-                           "first frame %llu  normal %.2f %.2f %.2f",
-                           static_cast<unsigned long long>( node.firstFrame ),
-                           contactRow.normal.x,
-                           contactRow.normal.y,
-                           contactRow.normal.z );
-                m_causeTree.rows.push_back( contactRow );
+                if ( node.contactDerived )
+                {
+                    sprintf_s( contactRow.name, sizeof( contactRow.name ), "Predicted contact" );
+                    sprintf_s( contactRow.detail,
+                               sizeof( contactRow.detail ),
+                               "first frame %llu  normal %.2f %.2f %.2f",
+                               static_cast<unsigned long long>( node.firstFrame ),
+                               contactRow.normal.x,
+                               contactRow.normal.y,
+                               contactRow.normal.z );
+                }
+                else
+                {
+                    sprintf_s( contactRow.name, sizeof( contactRow.name ), "Predicted movement" );
+                    sprintf_s( contactRow.detail,
+                               sizeof( contactRow.detail ),
+                               "first affected frame %llu  direction %.2f %.2f %.2f",
+                               static_cast<unsigned long long>( node.firstFrame ),
+                               contactRow.normal.x,
+                               contactRow.normal.y,
+                               contactRow.normal.z );
+                }
+                if ( !appendCauseTreeRow( contactRow ) )
+                {
+                    return;
+                }
             }
             return;
         }
@@ -1596,8 +1678,8 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
             int otherModelIndex = -1;
             bool terrain = false;
         };
-        std::vector<ManifoldGroup> groups;
-        groups.reserve( solverSample->worldSnapshot.persistentContacts.size() );
+        std::array<ManifoldGroup, REPLAY_CAUSE_TREE_CONTACT_CAPACITY> groups = {};
+        std::size_t groupCount = 0;
         for ( const ReplaySolverPersistentContactSample& contact : solverSample->worldSnapshot.persistentContacts )
         {
             if ( !ReplayContactHasModelIndex( contact, bodyRow.modelIndex ) )
@@ -1607,8 +1689,9 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
             const int otherModelIndex = ReplayContactOtherModelIndex( contact, bodyRow.modelIndex );
             const bool terrain = contact.isTerrain || otherModelIndex < 0;
             bool exists = false;
-            for ( const ManifoldGroup& group : groups )
+            for ( std::size_t groupIndex = 0; groupIndex < groupCount; ++groupIndex )
             {
+                const ManifoldGroup& group = groups[groupIndex];
                 if ( group.otherModelIndex == otherModelIndex && group.terrain == terrain )
                 {
                     exists = true;
@@ -1617,12 +1700,19 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
             }
             if ( !exists )
             {
-                groups.push_back( { otherModelIndex, terrain } );
+                if ( groupCount >= groups.size() )
+                {
+                    rowOverflow = true;
+                    return;
+                }
+                groups[groupCount] = { otherModelIndex, terrain };
+                ++groupCount;
             }
         }
 
-        for ( const ManifoldGroup& group : groups )
+        for ( std::size_t groupIndex = 0; groupIndex < groupCount; ++groupIndex )
         {
+            const ManifoldGroup& group = groups[groupIndex];
             Vector3 centroid = SkullbonezCore::Math::Vector::ZERO_VECTOR;
             Vector3 normalSum = SkullbonezCore::Math::Vector::ZERO_VECTOR;
             float maxPenetration = 0.0f;
@@ -1693,7 +1783,10 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
                        pointCount,
                        pointCount == 1 ? "" : "s",
                        maxPenetration );
-            m_causeTree.rows.push_back( manifoldRow );
+            if ( !appendCauseTreeRow( manifoldRow ) )
+            {
+                return;
+            }
 
             for ( int i = 0; i < static_cast<int>( solverSample->worldSnapshot.persistentContacts.size() ); ++i )
             {
@@ -1755,7 +1848,10 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
                            contact.warmStarted ? "warm" : "cold",
                            solverRow.pipelineIndex >= 0 ? "  " : "",
                            traceStage );
-                m_causeTree.rows.push_back( solverRow );
+                if ( !appendCauseTreeRow( solverRow ) )
+                {
+                    return;
+                }
             }
         }
     };
@@ -1781,7 +1877,14 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
         row.modelIndex = modelIndexForId( id, modelIndex );
         row.prediction = usePrediction;
         writeName( id, row.modelIndex, fallbackName, row.name, sizeof( row.name ) );
-        if ( row.modelIndex >= 0 && solverSample )
+        if ( usePrediction && firstFrame > 0 )
+        {
+            sprintf_s( row.detail,
+                       sizeof( row.detail ),
+                       "first affected frame %llu",
+                       static_cast<unsigned long long>( firstFrame ) );
+        }
+        else if ( row.modelIndex >= 0 && solverSample )
         {
             if ( const ReplaySolverBodySample* body = FindReplayBodyByModelIndex( *solverSample, row.modelIndex ) )
             {
@@ -1800,17 +1903,25 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
                        "first affected frame %llu",
                        static_cast<unsigned long long>( firstFrame ) );
         }
-        m_causeTree.rows.push_back( row );
+        if ( !appendCauseTreeRow( row ) )
+        {
+            return false;
+        }
         appendSolverRowsForBody( m_causeTree.rows.back() );
-        return true;
+        return !rowOverflow;
     };
 
-    addBodyRow( m_pathVisualizer.targetId,
-                ReplayBodyId{},
-                0,
-                0,
-                m_pathVisualizer.targetModelIndex,
-                m_pathVisualizer.targetName );
+    if ( !addBodyRow( m_pathVisualizer.targetId,
+                      ReplayBodyId{},
+                      0,
+                      0,
+                      m_pathVisualizer.targetModelIndex,
+                      m_pathVisualizer.targetName ) )
+    {
+        m_causeTree.rows.clear();
+        m_causeTree.selectedRow = -1;
+        return false;
+    }
 
     auto addChildren = [&]( auto&& self, ReplayBodyId parentId, int fallbackDepth ) -> void
     {
@@ -1833,6 +1944,12 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
         }
     };
     addChildren( addChildren, m_pathVisualizer.targetId, 1 );
+    if ( rowOverflow )
+    {
+        m_causeTree.rows.clear();
+        m_causeTree.selectedRow = -1;
+        return false;
+    }
 
     m_causeTree.selectedRow = -1;
     if ( m_camera.focusKind != RunReplayCameraFocusKind::None )
@@ -1866,11 +1983,11 @@ bool ReplayRuntime::BuildCauseTreeRows( const std::vector<GameObjects::GameModel
 }
 
 
-bool ReplayRuntime::BuildPredictionGhostDrawRequests( const GameObjects::GameModelCollection& collection,
-                                                      const PhysicsBodyStore& bodyStore )
+bool ReplayRuntime::BuildPredictionGhostDrawRequests(
+    const std::vector<Rendering::RenderInstancePresentationRecord>& presentationRecords,
+    const PhysicsBodyStore& bodyStore )
 {
     m_predictionGhostDrawRequests.clear();
-    const std::vector<GameObjects::GameModel>& models = collection.Models();
     const std::vector<RunReplayPredictionFrame>& frames = ActivePredictionFrames();
     if ( !m_prediction.enabled || !m_prediction.ragdollVisualsEnabled || frames.size() < 2 )
     {
@@ -1878,9 +1995,9 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests( const GameObjects::GameMod
     }
 
     bool hasRagdollPart = false;
-    for ( int i = 0; i < collection.GetModelCount(); ++i )
+    for ( int i = 0; i < static_cast<int>( presentationRecords.size() ); ++i )
     {
-        if ( ReplayRuntimeModelIsRagdollPart( collection, i ) )
+        if ( ReplayRuntimeModelIsRagdollPart( presentationRecords, i ) )
         {
             hasRagdollPart = true;
             break;
@@ -1900,7 +2017,7 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests( const GameObjects::GameMod
     // render. Sample at a bounded stride so ragdoll prediction stays readable
     // and cheap even when the future buffer contains many physics frames.
     m_predictionGhostDrawRequests.reserve( (std::min)( frames.size(), REPLAY_PREDICTION_GHOST_MAX_FRAMES + 1 ) *
-                                           models.size() );
+                                           presentationRecords.size() );
 
     auto appendGhostFrame = [&]( std::size_t index )
     {
@@ -1924,13 +2041,13 @@ bool ReplayRuntime::BuildPredictionGhostDrawRequests( const GameObjects::GameMod
             if ( !ReplayRuntimeResolveReplayBody( bodyStore,
                                                   body.id,
                                                   body.modelIndex,
-                                                  static_cast<int>( models.size() ),
+                                                  static_cast<int>( presentationRecords.size() ),
                                                   resolvedModelIndex ) )
             {
                 continue;
             }
 
-            if ( !ReplayRuntimeModelIsRagdollPart( collection, resolvedModelIndex ) )
+            if ( !ReplayRuntimeModelIsRagdollPart( presentationRecords, resolvedModelIndex ) )
             {
                 continue;
             }
@@ -1971,7 +2088,8 @@ const std::vector<ReplayPredictionGhostDrawRequest>& ReplayRuntime::PredictionGh
 bool ReplayRuntime::BuildFocusModelMask( const PhysicsBodyStore& bodyStore, int modelCount )
 {
     PROFILE_SCOPED( "Frame/Replay/FocusMask" );
-    if ( !m_pathVisualizer.hasTarget || m_pathVisualizer.targetId.value == 0 || modelCount <= 0 )
+    if ( !m_pathVisualizer.hasTarget || m_pathVisualizer.targetId.value == 0 || modelCount <= 0 ||
+         modelCount > MAX_GAME_MODELS )
     {
         m_focusModelMask.clear();
         return false;
