@@ -41,6 +41,7 @@ Related:
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <limits>
 #include <stdexcept>
 #include <type_traits>
@@ -970,8 +971,42 @@ static uint32_t NextReplayBodyIdAfter( const PhysicsBodyRecordList& bodies )
 }
 
 
+void ReportReplayBodyIdReloadCapacityExceeded( int requested, std::size_t capacity, int currentCount )
+{
+    std::fprintf( stderr,
+                  "FATAL: PhysicsBodyStore replay body id reload capacity exceeded owner=%s requested=%d "
+                  "capacity=%zu count=%d phase=%s.\n",
+                  "PhysicsBodyStore.replayBodyIds",
+                  requested,
+                  capacity,
+                  currentCount,
+                  "descriptor-reload" );
+    std::fprintf( stdout,
+                  "FATAL: PhysicsBodyStore replay body id reload capacity exceeded owner=%s requested=%d "
+                  "capacity=%zu count=%d phase=%s.\n",
+                  "PhysicsBodyStore.replayBodyIds",
+                  requested,
+                  capacity,
+                  currentCount,
+                  "descriptor-reload" );
+    std::fflush( stderr );
+    std::fflush( stdout );
+}
+
+
 std::vector<uint32_t> PhysicsBodyStore::BuildReplayBodyIdsForReload( int sceneEntityCount ) const
 {
+    const std::size_t capacity = m_bodies.capacity();
+    // Hazard: descriptor repair receives a scene-row count from the caller. Keep
+    // the cap check in the body-store owner so invalid topology reports the
+    // store, requested count, fixed capacity, live count, and cold repair phase.
+    if ( sceneEntityCount < 0 || static_cast<std::size_t>( sceneEntityCount ) > capacity )
+    {
+        ReportReplayBodyIdReloadCapacityExceeded( sceneEntityCount, capacity, Count() );
+        assert( false && "PhysicsBodyStore replay body id reload capacity exceeded" );
+        throw std::runtime_error( "PhysicsBodyStore replay body id reload capacity exceeded." );
+    }
+
     std::vector<uint32_t> replayBodyIds;
     replayBodyIds.reserve( static_cast<std::size_t>( sceneEntityCount ) );
     uint32_t nextReplayBodyId = NextReplayBodyIdAfter( m_bodies );
