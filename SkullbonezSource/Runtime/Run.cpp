@@ -327,9 +327,9 @@ Run::~Run()
     // Hazard: backend resources can still be referenced by queued GPU work.
     // Flush before releasing the runtime's owning pointers so teardown cannot
     // free memory while the device is still reading it.
-    if ( IsGfxReady() )
+    if ( m_renderBackendView.renderBackend )
     {
-        Gfx().FlushGPU();
+        m_renderBackendView.renderBackend->FlushGPU();
     }
 
     // Lifetime: clean up backend-owned render resources while the current
@@ -378,11 +378,9 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
         { "launcher_laser", BackendResourceStep::LauncherLaser, false },
     };
 
-    SkullbonezCore::Rendering::IRenderResourceFactory* releaseRenderResources = nullptr;
-    if ( IsGfxReady() )
-    {
-        releaseRenderResources = &static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( Gfx() );
-    }
+    SkullbonezCore::Rendering::IRenderBackend* releaseBackend = m_renderBackendView.renderBackend;
+    SkullbonezCore::Rendering::IRenderResourceFactory* releaseRenderResources =
+        releaseBackend ? static_cast<SkullbonezCore::Rendering::IRenderResourceFactory*>( releaseBackend ) : nullptr;
 
     for ( const BackendResourcePhase& phase : releaseSteps )
     {
@@ -443,10 +441,10 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
             break;
         }
 
-        if ( phase.flushAfter && IsGfxReady() )
+        if ( phase.flushAfter && releaseBackend )
         {
             LogRenderResourceLifecycleStep( phaseName, "flush_after_world_environment" );
-            Gfx().FlushGPU();
+            releaseBackend->FlushGPU();
         }
     }
 }
@@ -595,9 +593,10 @@ void Run::DumpTextureAssets( FILE* out ) const
 
 void Run::LogRenderResourceLifecycleStep( const char* phase, const char* step ) const
 {
-    const bool gfxReady = IsGfxReady();
-    const int backendWidth = gfxReady ? Gfx().GetWidth() : 0;
-    const int backendHeight = gfxReady ? Gfx().GetHeight() : 0;
+    const SkullbonezCore::Rendering::IRenderBackend* renderBackend = m_renderBackendView.renderBackend;
+    const bool gfxReady = renderBackend != nullptr;
+    const int backendWidth = renderBackend ? renderBackend->GetWidth() : 0;
+    const int backendHeight = renderBackend ? renderBackend->GetHeight() : 0;
     Log().WriteEventf( "render_resource_lifecycle phase=%s step=%s gfx_ready=%d backend_width=%d backend_height=%d "
                        "scene_index=%d load=%d",
                        phase ? phase : "unknown",
@@ -1324,7 +1323,8 @@ void Run::Initialise()
 {
     assert( m_systems.window );
 
-    IRenderBackend& renderBackend = Gfx();
+    assert( m_renderBackendView.renderBackend && "Run requires a render backend before Initialise()" );
+    IRenderBackend& renderBackend = *m_renderBackendView.renderBackend;
     auto& renderResources = static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( renderBackend );
     auto& renderCommands = static_cast<SkullbonezCore::Rendering::IRenderCommandContext&>( renderBackend );
 
@@ -1457,20 +1457,20 @@ void Run::LogSceneFinished( const char* reason )
         scenePath = currentScenePath->c_str();
     }
 
-    m_diagnosticsRuntime.LogSceneFinished( SceneState(),
-                                           scenePath,
-                                           IsGfxReady() ? Gfx().GetRendererName() : "unknown",
-                                           reason );
+    const char* rendererName =
+        m_renderBackendView.renderBackend ? m_renderBackendView.renderBackend->GetRendererName() : "unknown";
+    m_diagnosticsRuntime.LogSceneFinished( SceneState(), scenePath, rendererName, reason );
 }
 
 
 void Run::BeginPhysicsDiagnosticsRun( const char* scenePath )
 {
-    m_diagnosticsRuntime.BeginPhysicsDiagnosticsRun( m_cGameModelCollection,
-                                                     SceneState(),
-                                                     m_config,
-                                                     scenePath,
-                                                     IsGfxReady() ? Gfx().GetRendererName() : "unknown" );
+    m_diagnosticsRuntime.BeginPhysicsDiagnosticsRun(
+        m_cGameModelCollection,
+        SceneState(),
+        m_config,
+        scenePath,
+        m_renderBackendView.renderBackend ? m_renderBackendView.renderBackend->GetRendererName() : "unknown" );
 }
 
 
