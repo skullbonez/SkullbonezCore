@@ -3288,6 +3288,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     }
 
     Window* window = Window::Instance();
+    window->SetProjectionFrustum( cfg.frustumNear, cfg.frustumFar );
     window->CreateAppWindow( hInstance, cfg.window.fullscreen );
     window->m_sDevice = GetDC( window->m_sWindow );
 

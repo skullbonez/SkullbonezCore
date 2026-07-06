@@ -45,6 +45,8 @@ Window::Window()
 {
     m_sWindow = 0;
     m_sDevice = 0;
+    m_projectionNearPlane = 1.0f;
+    m_projectionFarPlane = 5500.0f;
 }
 
 
@@ -84,6 +86,13 @@ void Window::SetWindowDimensions( const RECT dimensions )
 }
 
 
+void Window::SetProjectionFrustum( float nearPlane, float farPlane )
+{
+    m_projectionNearPlane = nearPlane;
+    m_projectionFarPlane = farPlane;
+}
+
+
 void Window::HandleScreenResize()
 {
     int w = m_sWindowDimensions.x;
@@ -104,9 +113,13 @@ void Window::HandleScreenResize()
 
     // DX12 clip-space depth is [0,1], so the perspective matrix must use the
     // matching projection convention after every resize.
+    // Invariant: Window owns the projection depth range after startup; resize
+    // must not reopen global config while handling OS messages.
     float aspect = static_cast<float>( w ) / static_cast<float>( h );
-    projectionMatrix =
-        Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f, aspect, Cfg().frustumNear, Cfg().frustumFar );
+    projectionMatrix = Math::Transformation::Matrix4::PerspectiveZeroToOne( 45.0f,
+                                                                            aspect,
+                                                                            m_projectionNearPlane,
+                                                                            m_projectionFarPlane );
 }
 
 

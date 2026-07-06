@@ -12,13 +12,16 @@ Glossary:
   HWND (Window Handle): Win32 identifier for the native application window.
   HDC (Handle to Device Context): Win32 drawing context associated with the
   window.
+  Projection frustum: Camera depth range used when rebuilding the perspective
+  matrix after a client-size change.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
 Invariants:
   - m_sWindowDimensions stores client width/height, not monitor or full window
     bounds.
-  - projectionMatrix must be rebuilt whenever the client size changes.
+  - projectionMatrix must be rebuilt from cached depth settings whenever the
+    client size changes.
 
 Related:
   - SkullbonezSource/Runtime/Window.cpp
@@ -46,6 +49,9 @@ class Window
   private:
     inline static Window* pInstance = nullptr;
 
+    float m_projectionNearPlane;                                 // Near depth plane used by the cached perspective projection.
+    float m_projectionFarPlane;                                  // Far depth plane used by the cached perspective projection.
+
     Window();                                                    // Private singleton construction; use Instance().
     ~Window();                                                   // Static singleton lifetime; destructor currently has no native teardown.
 
@@ -61,6 +67,8 @@ class Window
     static void Destroy();                                       // Clears the singleton pointer; static Window storage remains alive.
     void HandleScreenResize();                                   // Resize the active renderer and projection when the client area changes
     void SetTitleText( const char* cText );                      // Updates the native title bar without touching renderer text.
+    void SetProjectionFrustum( float nearPlane,
+                               float farPlane );                 // Stores projection depth planes used by later resize messages.
     const Math::Transformation::Matrix4& GetProjectionMatrix() const
     {
         return projectionMatrix;
