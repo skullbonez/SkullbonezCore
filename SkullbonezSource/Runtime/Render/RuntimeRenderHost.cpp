@@ -29,25 +29,16 @@ Related:
 #include "RuntimeRenderInputs.h"
 #include "RuntimeRenderPasses.h"
 
-#include "../../Assets/TextureCollection.h"
 #include "../../Core/Profiler.h"
-#include "../../Physics/ColliderStore.h"
-#include "../../Physics/PhysicsBodyStore.h"
-#include "../../Rendering/Helper.h"
 #include "../../Rendering/IRenderBackend.h"
-#include "../../Rendering/RenderInstanceStore.h"
 #include "../RunInternal.h"
 
-#include <cassert>
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../RunState.h"
 #include "../Scene/SceneRuntimeLoad.h"
 #include "../Window.h"
 
-#include <cstddef>
 #include <stdexcept>
-#include <variant>
-#include <vector>
 
 using namespace SkullbonezCore::Basics;
 
@@ -130,66 +121,4 @@ bool RuntimeRenderHost::ToolHasSelectionOverlayWork( int modelCount ) const
 bool RuntimeRenderHost::ToolHasMousePickupOverlayWork( int modelCount ) const
 {
     return m_runtimeTools.HasMousePickupOverlayWork( modelCount );
-}
-
-void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
-                                                      const CinematicRenderConfig* cinematic,
-                                                      const Rendering::ShadowFrameData* shadow ) const
-{
-    PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
-    if ( !frame.presentationRecords || !frame.bodyStore ||
-         !m_replayRuntime.BuildPredictionGhostDrawRequests( *frame.presentationRecords, *frame.bodyStore ) )
-    {
-        return;
-    }
-
-    // Why: ghost drawing is a render projection path. Shape and material come
-    // from the prepared store snapshots so replay visualization does not need
-    // the GameModel collider mirror to stay fresh after physics steps.
-    if ( !frame.colliders || !frame.renderInstances )
-    {
-        return;
-    }
-    const auto& colliders = frame.colliders->Records();
-    const std::vector<Rendering::RenderInstanceRecord>& renderInstances = frame.renderInstances->Records();
-
-    assert( frame.textures && "RenderFrameContext requires a texture collection" );
-    frame.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-    assert( frame.renderResources && frame.renderCommands && frame.assets );
-    const RenderHelperContext helperContext{ *frame.renderResources, *frame.renderCommands, *frame.assets, m_config };
-    RenderHelper::DrawBoxBatchBegin( helperContext,
-                                     frame.baseView,
-                                     frame.projection,
-                                     frame.lightPosition,
-                                     true,
-                                     cinematic,
-                                     shadow,
-                                     1.0f );
-
-    for ( const ReplayPredictionGhostDrawRequest& request : m_replayRuntime.PredictionGhostDrawRequests() )
-    {
-        if ( request.modelIndex < 0 || request.modelIndex >= static_cast<int>( colliders.size() ) ||
-             request.modelIndex >= static_cast<int>( renderInstances.size() ) )
-        {
-            continue;
-        }
-
-        const std::size_t modelIndex = static_cast<std::size_t>( request.modelIndex );
-        const Physics::ColliderRecord& collider = colliders[modelIndex];
-        const Math::CollisionDetection::BoundingBox* box =
-            std::get_if<Math::CollisionDetection::BoundingBox>( &collider.shape );
-        if ( !box )
-        {
-            continue;
-        }
-
-        Rendering::RenderMaterial material = renderInstances[modelIndex].material;
-        material.baseColor[3] = request.alpha;
-        const Math::Transformation::Matrix4 modelMatrix =
-            box->GetModelMatrix( request.position,
-                                 Math::Transformation::Matrix4::FromQuaternion( request.orientation ) );
-        RenderHelper::DrawBoxBatchModel( modelMatrix, material );
-    }
-
-    RenderHelper::DrawBoxBatchEnd( helperContext );
 }

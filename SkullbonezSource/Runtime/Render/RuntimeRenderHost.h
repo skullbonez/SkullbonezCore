@@ -328,10 +328,6 @@ class RuntimeRenderHost
 
     bool BuildReplayFocusModelMask( const RenderFrameContext& frame ) const;
 
-    void RenderReplayPredictionGhosts( const RenderFrameContext& frame,
-                                       const CinematicRenderConfig* cinematic,
-                                       const Rendering::ShadowFrameData* shadow ) const;
-
     RuntimeRenderBackendView& m_renderBackend;
     RunSubsystemState& m_systems;
     RunDebugState& m_debug;

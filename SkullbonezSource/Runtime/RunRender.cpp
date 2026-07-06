@@ -40,12 +40,19 @@ Related:
 #include "RunInternal.h"
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "RuntimeTuning.h"
+#include "../Assets/TextureCollection.h"
+#include "../Physics/ColliderStore.h"
+#include "../Rendering/Helper.h"
 #include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/RenderInstanceStore.h"
 #include "../Rendering/RenderGraph.h"
 #include "../Rendering/RenderPipeline.h"
 
+#include <cstddef>
 #include <fstream>
 #include <stdexcept>
+#include <variant>
+#include <vector>
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -53,6 +60,9 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
+namespace Math = SkullbonezCore::Math;
+namespace Physics = SkullbonezCore::Physics;
+namespace Rendering = SkullbonezCore::Rendering;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
@@ -179,8 +189,9 @@ struct TornadoVisualGraphCallbackData
 
 struct ReplayGhostGraphCallbackData
 {
-    RuntimeRenderHost* host = nullptr;
+    ReplayRuntime* replayRuntime = nullptr;
     const RenderFrameContext* frame = nullptr;
+    const EngineConfig* config = nullptr;
     const CinematicRenderConfig* cinematic = nullptr;
     const SkullbonezCore::Rendering::ShadowFrameData* shadow = nullptr;
 };
@@ -280,15 +291,79 @@ void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGr
     data->debugOverlayPass->Render( { *data->frame } );
 }
 
+void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
+                                   const RenderFrameContext& frame,
+                                   const EngineConfig& config,
+                                   const CinematicRenderConfig* cinematic,
+                                   const Rendering::ShadowFrameData* shadow )
+{
+    PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
+    if ( !frame.presentationRecords || !frame.bodyStore ||
+         !replayRuntime.BuildPredictionGhostDrawRequests( *frame.presentationRecords, *frame.bodyStore ) )
+    {
+        return;
+    }
+
+    // Why: ghost drawing is a render projection path. Shape and material come
+    // from the prepared store snapshots so replay visualization does not need
+    // the GameModel collider mirror to stay fresh after physics steps.
+    if ( !frame.colliders || !frame.renderInstances )
+    {
+        return;
+    }
+    const auto& colliders = frame.colliders->Records();
+    const std::vector<Rendering::RenderInstanceRecord>& renderInstances = frame.renderInstances->Records();
+
+    assert( frame.textures && "RenderFrameContext requires a texture collection" );
+    frame.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+    assert( frame.renderResources && frame.renderCommands && frame.assets );
+    const RenderHelperContext helperContext{ *frame.renderResources, *frame.renderCommands, *frame.assets, config };
+    RenderHelper::DrawBoxBatchBegin( helperContext,
+                                     frame.baseView,
+                                     frame.projection,
+                                     frame.lightPosition,
+                                     true,
+                                     cinematic,
+                                     shadow,
+                                     1.0f );
+
+    for ( const ReplayPredictionGhostDrawRequest& request : replayRuntime.PredictionGhostDrawRequests() )
+    {
+        if ( request.modelIndex < 0 || request.modelIndex >= static_cast<int>( colliders.size() ) ||
+             request.modelIndex >= static_cast<int>( renderInstances.size() ) )
+        {
+            continue;
+        }
+
+        const std::size_t modelIndex = static_cast<std::size_t>( request.modelIndex );
+        const Physics::ColliderRecord& collider = colliders[modelIndex];
+        const Math::CollisionDetection::BoundingBox* box =
+            std::get_if<Math::CollisionDetection::BoundingBox>( &collider.shape );
+        if ( !box )
+        {
+            continue;
+        }
+
+        Rendering::RenderMaterial material = renderInstances[modelIndex].material;
+        material.baseColor[3] = request.alpha;
+        const Math::Transformation::Matrix4 modelMatrix =
+            box->GetModelMatrix( request.position,
+                                 Math::Transformation::Matrix4::FromQuaternion( request.orientation ) );
+        RenderHelper::DrawBoxBatchModel( modelMatrix, material );
+    }
+
+    RenderHelper::DrawBoxBatchEnd( helperContext );
+}
+
 void ExecuteReplayGhostGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
                                       void* userData )
 {
     auto* data = static_cast<ReplayGhostGraphCallbackData*>( userData );
-    if ( !data || !data->host || !data->frame )
+    if ( !data || !data->replayRuntime || !data->frame || !data->config )
     {
         throw std::runtime_error( "ReplayPredictionGhostPass graph callback missing execution data" );
     }
-    data->host->RenderReplayPredictionGhosts( *data->frame, data->cinematic, data->shadow );
+    RenderReplayPredictionGhosts( *data->replayRuntime, *data->frame, *data->config, data->cinematic, data->shadow );
 }
 
 void ExecuteSceneTargetGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
@@ -861,8 +936,9 @@ bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph( const RenderFrameCo
     AddFrameTargetWrites( graph, replayPass, useCinematicTarget );
 
     ReplayGhostGraphCallbackData callbackData;
-    callbackData.host = &m_host;
+    callbackData.replayRuntime = &m_host.m_replayRuntime;
     callbackData.frame = &frame;
+    callbackData.config = &m_host.m_config;
     callbackData.cinematic = activeCinematic;
     callbackData.shadow = objectShadow;
     graph.SetPassCallback( replayPass,
