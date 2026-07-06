@@ -117,6 +117,8 @@ struct RunRuntimeSettings
     Physics::TornadoFieldConfig tornadoField;                  // Live vortex force/debug vector field controlled by CLI/UI
     Physics::TornadoSystemConfig tornadoSystem;                // Scene-authored multi-vortex schedule and motion.
     TornadoVisualSettings tornadoVisual;                       // Render-only tornado art tuning outside deterministic physics state.
+
+    void ApplyStartupConfig( const EngineConfig& config );     // Copies config-owned live toggles at process startup.
 };
 
 struct RunTimerState
@@ -161,6 +163,11 @@ struct RunSubsystemState
     Threading::WorkerPool* workerPool = nullptr;               // Borrowed worker service initialised and shut down by Runtime/Init.cpp.
     Window* window = nullptr;
     Geometry::SkyBox* skyBox = nullptr;                        // Borrowed alias of skyBoxOwner after Initialise wires services.
+
+    void BindStartupServices(
+        Window& windowOwner,
+        Threading::WorkerPool& workerPoolOwner,
+        const EngineConfig& configOwner );                     // Binds process-start services and config-derived camera policy.
 };
 
 struct RunCameraState
@@ -352,6 +359,8 @@ struct RunStartupState
 {
     int gameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY;
     int workerThreads = -1;
+
+    void ApplyStartupConfig( const EngineConfig& config );     // Captures startup-only capacity/thread policy from config.
 };
 
 struct RunInputLatchState

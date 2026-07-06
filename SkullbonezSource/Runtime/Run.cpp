@@ -66,6 +66,35 @@ SkullbonezCore::Environment::CameraMovementSettings BuildCameraMovementSettings(
 } // namespace
 
 
+void RunSubsystemState::BindStartupServices( Window& windowOwner,
+                                             Threading::WorkerPool& workerPoolOwner,
+                                             const EngineConfig& configOwner )
+{
+    // Lifetime: these are process-start borrows. Runtime/Init owns the native
+    // window and worker pool, while Run owns the config reference passed into
+    // the constructor.
+    window = &windowOwner;
+    workerPool = &workerPoolOwner;
+    config = &configOwner;
+    cameraCollection.ApplyMovementSettings( BuildCameraMovementSettings( configOwner ) );
+}
+
+
+void RunRuntimeSettings::ApplyStartupConfig( const EngineConfig& config )
+{
+    isVsyncEnabled = config.runtimeRender.vsyncEnabled;
+    isPipelineSyncEnabled = config.runtimeRender.forcePipelineSync;
+    contactAudioDebugCounters = config.contactAudio.debugCounters;
+}
+
+
+void RunStartupState::ApplyStartupConfig( const EngineConfig& config )
+{
+    gameModelCapacity = std::clamp( config.gameModelCapacity, 1, MAX_GAME_MODELS );
+    workerThreads = config.workerThreads;
+}
+
+
 RuntimeRendererBindings Run::BuildRuntimeRendererBindings()
 {
     RuntimeRendererBindings bindings;
@@ -163,22 +192,16 @@ Run::Run( Window& window,
           },
           this )
 {
-    m_systems.window = &window;
-    m_systems.workerPool = &workerPool;
+    const EngineConfig& cfg = m_config;
+    m_systems.BindStartupServices( window, workerPool, cfg );
     BindEngineContext();
     RefreshRuntimeViewModel();
     RefreshSceneBrowserList( m_sceneController.Browser() );
-    const EngineConfig& cfg = m_config;
-    m_systems.config = &cfg;
-    m_systems.cameraCollection.ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
     m_cGameModelCollection.BindWorkerPool( workerPool );
     m_cGameModelCollection.ApplyRuntimeConfig( cfg );
-    m_runtimeSettings.isVsyncEnabled = cfg.runtimeRender.vsyncEnabled;
-    m_runtimeSettings.isPipelineSyncEnabled = cfg.runtimeRender.forcePipelineSync;
-    m_runtimeSettings.contactAudioDebugCounters = cfg.contactAudio.debugCounters;
+    m_runtimeSettings.ApplyStartupConfig( cfg );
     m_defaultCinematicRender = cfg.cinematicRender;
-    m_startup.gameModelCapacity = std::clamp( cfg.gameModelCapacity, 1, MAX_GAME_MODELS );
-    m_startup.workerThreads = cfg.workerThreads;
+    m_startup.ApplyStartupConfig( cfg );
 }
 
 
