@@ -114,8 +114,6 @@ class EngineContext
     void Bind( const EngineContextBindings& bindings );
     bool IsBound() const;
 
-    const EngineContextBindings& Bindings() const;
-    EngineContextBindings& Bindings();
     EngineServices Services();
 
   private:

@@ -46,27 +46,12 @@ bool EngineContext::IsBound() const
 }
 
 
-const EngineContextBindings& EngineContext::Bindings() const
-{
-    // Invariant: callers that dereference the context require the full
-    // Run-owned system graph, not a partially populated service locator.
-    assert( IsBound() && "EngineContext bindings accessed before full Bind()" );
-    return m_bindings;
-}
-
-
-EngineContextBindings& EngineContext::Bindings()
-{
-    // Invariant: mutation is reserved for narrow extraction seams that still
-    // require the complete bound runtime graph.
-    assert( IsBound() && "EngineContext bindings accessed before full Bind()" );
-    return m_bindings;
-}
-
-
 EngineServices EngineContext::Services()
 {
-    RunSubsystemState& systems = *Bindings().systems;
+    // Invariant: service export still requires the full bound graph, but the
+    // broad binding packet is no longer exposed to feature code.
+    assert( IsBound() && "EngineServices requested before full Bind()" );
+    RunSubsystemState& systems = *m_bindings.systems;
     EngineServices services{ &systems.assets,
                              systems.textures,
                              systems.cameras,

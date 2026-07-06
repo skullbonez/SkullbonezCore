@@ -156,7 +156,7 @@ class Run
     RunSceneState& SceneState();                                           // Mutable scene-run state owned by SceneController
     const RunSceneState& SceneState() const;                               // Read-only scene-run state owned by SceneController
     void BindEngineContext();                                              // Binds runtime-owned systems into EngineContext
-    void RefreshRuntimeViewModel();                                        // Rebuilds scalar presentation state from EngineContext
+    void RefreshRuntimeViewModel();                                        // Rebuilds scalar presentation state from narrow owner borrows
     void RelativeUpdateCamera( uint32_t hash );                            // Keeps non-selected relative cameras inside terrain height limits.
     void UpdateLogic( float simulationDt, float cameraDt );                // simulationDt drives physics; cameraDt is unscaled wall time.
     void TakeInput();                                                      // Applies focused input to camera, UI, scene cycling, diagnostics, and editor tools.

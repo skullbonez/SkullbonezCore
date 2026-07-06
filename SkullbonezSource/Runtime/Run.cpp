@@ -237,7 +237,12 @@ void Run::BindEngineContext()
 
 void Run::RefreshRuntimeViewModel()
 {
-    m_runtimeViewModel = RuntimeViewModelBuilder::Build( m_engineContext, m_contactAudio );
+    m_runtimeViewModel =
+        RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ m_sceneController,
+                                                                 m_diagnosticsRuntime.Capture(),
+                                                                 m_runtimeSettings,
+                                                                 m_cGameModelCollection.GetPhysicsEngine() },
+                                        m_contactAudio );
 }
 
 
