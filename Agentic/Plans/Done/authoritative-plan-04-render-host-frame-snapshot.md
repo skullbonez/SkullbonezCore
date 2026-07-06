@@ -2,7 +2,7 @@
 
 Date: 2026-07-06
 Status: Active authoritative plan
-CSV: `Agentic/Plans/In_Progress/authoritative-plan-04-render-host-frame-snapshot.csv`
+CSV: `Agentic/Plans/Done/authoritative-plan-04-render-host-frame-snapshot.csv`
 Impact area: runtime renderer, render passes, replay overlays, debug overlays, UI text
 Validation for this documentation-only change: none required
 
@@ -41,4 +41,3 @@ camera, runtime settings, and world internals through one host reference.
 Render pass dependency changes require `tools\validate_dx12_renderer.bat`.
 Changes that alter runtime lifecycle or scene loading require
 `tools\validate_full.bat`.
-

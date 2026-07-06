@@ -2,7 +2,7 @@
 
 Date: 2026-07-06
 Status: Active authoritative plan
-CSV: `Agentic/Plans/In_Progress/authoritative-plan-02-physics-store-authority.csv`
+CSV: `Agentic/Plans/Done/authoritative-plan-02-physics-store-authority.csv`
 Impact area: physics, GameModelCollection, scene identity, replay restore, editor/tools, render projection
 Validation for this documentation-only change: none required
 
@@ -43,4 +43,3 @@ data source of truth.
 Physics authority slices require `tools\validate_physics.bat`. Storage layout,
 hot-path, or allocation-sensitive changes also require `tools\validate_perf.bat`.
 Broad runtime integration uses `tools\validate_full.bat`.
-

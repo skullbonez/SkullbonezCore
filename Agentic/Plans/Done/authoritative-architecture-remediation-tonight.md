@@ -18,7 +18,7 @@ five `authoritative-plan-0*.csv` files only; the closed physics-standalone
 queue (165/165) stays closed.
 
 Unattended execution is governed by
-`Agentic/Plans/In_Progress/overnight-run-protocol.md`: pre-flight green
+`Agentic/Plans/Done/overnight-run-protocol.md`: pre-flight green
 baseline, commit-per-cluster, two-strikes-then-block failure rule, the
 `overnight` safe/defer column in each CSV, and the FILL filler queue.
 
@@ -68,4 +68,3 @@ subsystems that already exist or are named here.
   frame snapshots and narrow render/world services.
 - `IRenderBackend` is no longer the normal draw dependency; DX12 graph/pass
   ownership is split into capability-specific APIs.
-

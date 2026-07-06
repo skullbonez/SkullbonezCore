@@ -25,7 +25,7 @@ Related source-of-truth plans:
 
 Companion agent queue:
 
-- `Agentic/Plans/In_Progress/physics-standalone-agent-workqueue.csv`
+- `Agentic/Plans/Done/Inventories/physics-standalone-agent-workqueue.csv`
 
 ## Overnight Agent Protocol
 
@@ -50,7 +50,7 @@ overview and rationale; the CSV is the resumable work queue.
 Suggested one-row loader:
 
 ```powershell
-Import-Csv Agentic\Plans\In_Progress\physics-standalone-agent-workqueue.csv |
+Import-Csv Agentic\Plans\Done\Inventories\physics-standalone-agent-workqueue.csv |
     Where-Object { $_.status -eq 'todo' } |
     Sort-Object {[int]$_.order} |
     Select-Object -First 1

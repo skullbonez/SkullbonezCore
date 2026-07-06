@@ -58,7 +58,7 @@ mechanics.
 
 ## Current Evidence
 
-- `Agentic/Plans/In_Progress/carmack-global-service-579-hit-remediation-checklist.md`
+- `Agentic/Plans/Done/Inventories/carmack-global-service-579-hit-remediation-checklist.md`
   is complete, but several rows were closed by re-homing globals into explicit
   compatibility or future-owner buckets. That was the correct audit close, not
   the end of the cleanup.
@@ -224,7 +224,7 @@ Tasks:
 3. Compare the decisions against:
    - `Agentic/Plans/To_Eval/global-service-context-plan.md`
    - `Agentic/Plans/To_Eval/game-model-data-boundary-plan.md`
-   - `Agentic/Plans/In_Progress/carmack-global-service-579-hit-remediation-checklist.md`
+   - `Agentic/Plans/Done/Inventories/carmack-global-service-579-hit-remediation-checklist.md`
    - `Agentic/Reports/2026-06-29/carmack-phase-2-global-service-lifetime/global-service-hit-decision-table-final.md`
 4. Reject any "rename only" proposal when the old data flow remains unclear.
 

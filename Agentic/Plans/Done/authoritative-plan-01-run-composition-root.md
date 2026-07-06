@@ -2,7 +2,7 @@
 
 Date: 2026-07-06
 Status: Active authoritative plan
-CSV: `Agentic/Plans/In_Progress/authoritative-plan-01-run-composition-root.csv`
+CSV: `Agentic/Plans/Done/authoritative-plan-01-run-composition-root.csv`
 Impact area: runtime architecture, scene lifecycle, input, replay, diagnostics, render lifecycle
 Validation for this documentation-only change: none required
 
@@ -45,4 +45,3 @@ Implementation slices touching runtime lifecycle default to
 `tools\validate_full.bat`. Narrow input-only or diagnostics-only slices may use
 `tools\validate_fast.bat` only when launch, scene, physics, and DX12 output
 cannot change.
-

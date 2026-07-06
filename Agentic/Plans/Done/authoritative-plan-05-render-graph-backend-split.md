@@ -2,7 +2,7 @@
 
 Date: 2026-07-06
 Status: Active authoritative plan
-CSV: `Agentic/Plans/In_Progress/authoritative-plan-05-render-graph-backend-split.csv`
+CSV: `Agentic/Plans/Done/authoritative-plan-05-render-graph-backend-split.csv`
 Impact area: DX12 backend, render interfaces, render graph, resource lifetime, pass execution
 Validation for this documentation-only change: none required
 
@@ -45,4 +45,3 @@ time.
 Renderer/backend/graph slices require `tools\validate_dx12_renderer.bat`.
 Binding or hot-path changes that can affect frame cost also require
 `tools\validate_perf.bat`.
-

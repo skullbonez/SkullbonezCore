@@ -8,13 +8,13 @@ audits when it is still useful.
 | Field | Value |
 |-------|-------|
 | Branch | `nightrunner-7th-july` in worktree `C:\SkullbonezCore`. |
-| Active objective | Unattended 2026-07-07 overnight run claimed at 00:04 +10:00: drain all five authoritative `Agentic/Plans/In_Progress/` CSVs in order 04 -> 03 -> 05 -> 02 -> 01, including explicit user-approved `overnight=defer` rows. |
-| Last documentation milestone | 2026-07-07 overnight run claim recorded before pre-flight builds and baseline validation. |
-| Last source/data milestone | No 2026-07-07 implementation slice has started yet; pre-flight baseline validation is next. |
-| Pending work | Run Debug/Profile pre-flight builds, run initial `tools\validate_full.bat`, then execute FILL-001/FILL-002 and the five authoritative plans sequentially. |
-| Concurrent work warning | No concurrent dirty source work observed at the last status check. Still run `git status --short --branch` before editing. |
-| Blockers | None at 2026-07-07 run start. |
-| Validation | 2026-07-07 pre-flight validation pending: `tools\validate_build.bat Debug`, `tools\validate_build.bat Profile`, then `tools\validate_full.bat`. |
+| Active objective | 2026-07-07 overnight run complete: all five authoritative CSVs drained in order 04 -> 03 -> 05 -> 02 -> 01, including user-approved `overnight=defer` rows. |
+| Last documentation milestone | End-state housekeeping complete: plan files, CSVs, protocol, architecture note, and `Inventories/` moved to `Agentic/Plans/Done/`; blocker ledger left as the single `Agentic/Plans/In_Progress/` file. |
+| Last source/data milestone | Final implementation commit before housekeeping: `fc15d9de refactor: split replay velocity edit unit`; final row totals are 129 done and 31 blocked. |
+| Pending work | Address the 31 blocked rows in `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; no pending rows remain in the five authoritative CSVs. |
+| Concurrent work warning | Pre-existing `fable_plans/` dirty files remained user-owned and were not staged or modified by this run. Still run `git status --short --branch` before editing. |
+| Blockers | `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; Plan03 6 blocked, Plan05 9 blocked, Plan02 12 blocked, Plan01 4 blocked, Plan04 0 blocked. |
+| Validation | Final `tools\validate_full.bat` passed on 2026-07-07 at 09:36 +10:00 in 40.653s: project filters 0 errors, runtime boundaries 0 errors, Profile/Debug 0 warnings/errors, DX12 validation errors 0, screenshots matched baselines, physics regression byte-exact. |
 
 ## Active Notes
 
@@ -51,6 +51,7 @@ audits when it is still useful.
 | Physics/GameModel authority | Active follow-up | `Agentic/Plans/To_Eval/physics-game-model-authority-plan.md`; 2026-07-05 endgame slice deleted the remaining physics-side GameModel compatibility import/writeback/API surface, removed render-host concrete collection reliance from production render surfaces, tightened tombstone guardrails, and moved the focused endgame plan to Done. |
 | Runtime static allocation policy | Complete; post-duck correction validated | Plan moved to `Agentic/Plans/Done/runtime-static-allocation-policy-plan.md`; post-duck source/data update converts replay prediction growth accounting to bytes, adds tracked F6/branch interaction proofs, and passed targeted proof plus `validate_perf`/`validate_full`. |
 | Architecture pass follow-up | Active reference | `Agentic/Plans/architecture_pass_2026-06-02.md` remains the broad checkpoint for runtime, physics data, assets, parser, water, and render graph boundaries. |
+| 2026-07-07 overnight remediation | Complete with blockers | Handoff: `Agentic/Reports/2026-07-07/overnight-run-handoff.md`; blockers: `Agentic/Plans/In_Progress/overnight-blockers-2026-07-07.md`; authoritative CSVs live under `Agentic/Plans/Done/`. |
 
 ## Known Bugs
 

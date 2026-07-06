@@ -2,7 +2,7 @@
 
 Date: 2026-07-06
 Status: Active authoritative plan
-CSV: `Agentic/Plans/In_Progress/authoritative-plan-03-explicit-service-contexts.csv`
+CSV: `Agentic/Plans/Done/authoritative-plan-03-explicit-service-contexts.csv`
 Impact area: global services, renderer access, config, window, profiler, worker pool, UI diagnostics
 Validation for this documentation-only change: none required
 
@@ -52,4 +52,3 @@ Depends on touched area. Broad context movement defaults to
 `tools\validate_full.bat`; renderer service migration needs
 `tools\validate_dx12_renderer.bat`; profiler marker changes also need
 `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers`.
-
