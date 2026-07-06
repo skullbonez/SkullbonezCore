@@ -12,6 +12,8 @@ Glossary:
   HWND (Window Handle): Win32 identifier for the native application window.
   HDC (Handle to Device Context): Win32 drawing context associated with the
   window.
+  Resize backend: Borrowed renderer capability used only to resize swap-chain
+  and depth resources when Win32 reports a new client size.
   Projection frustum: Camera depth range used when rebuilding the perspective
   matrix after a client-size change.
   Validation gate: Repository script that proves a class of changes before
@@ -20,6 +22,8 @@ Glossary:
 Invariants:
   - m_sWindowDimensions stores client width/height, not monitor or full window
     bounds.
+  - m_resizeRenderBackend is borrowed from startup and must be cleared before
+    the render backend is destroyed.
   - projectionMatrix must be rebuilt from cached depth settings whenever the
     client size changes.
 
@@ -36,6 +40,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Rendering
+{
+class IRenderBackend;
+}
 namespace Basics
 {
 /* -- Skullbonez Window
@@ -53,6 +61,7 @@ class Window
     float m_projectionFarPlane;                                  // Far depth plane used by the cached perspective projection.
     int m_startupWindowWidth = 1800;                             // Configured initial window width supplied by startup.
     int m_startupWindowHeight = 1000;                            // Configured initial window height supplied by startup.
+    Rendering::IRenderBackend* m_resizeRenderBackend = nullptr;  // Borrowed renderer used by Win32 resize messages.
 
     Window();                                                    // Private singleton construction; use Instance().
     ~Window();                                                   // Static singleton lifetime; destructor currently has no native teardown.
@@ -72,6 +81,8 @@ class Window
     void SetProjectionFrustum( float nearPlane,
                                float farPlane );                 // Stores projection depth planes used by later resize messages.
     void SetStartupWindowSize( int width, int height );          // Stores config-owned initial window/fullscreen dimensions.
+    void SetResizeRenderBackend(
+        Rendering::IRenderBackend* renderBackend );              // Borrows or clears the renderer used by resize callbacks.
     const Math::Transformation::Matrix4& GetProjectionMatrix() const
     {
         return projectionMatrix;
