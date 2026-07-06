@@ -266,7 +266,9 @@ void ReplayVelocitySetAxisComponent( Vector3& value, int axis, float component )
 }
 
 
-void StepReplayPredictionPhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+bool StepReplayPredictionPhysicsTick( SkullbonezCore::GameObjects::GameModelCollection& modelCollection,
+                                      PhysicsEngine& physicsEngine,
+                                      int bodyCount,
                                       float fixedDt,
                                       const EngineConfig& config,
                                       const PhysicsWorldForces& worldForces,
@@ -274,14 +276,17 @@ void StepReplayPredictionPhysicsTick( SkullbonezCore::GameObjects::GameModelColl
 {
     RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
         RuntimeAllocation::RuntimeAllocationPhase::Replay );
-    const int modelCount = modelCollection.ModelCount();
+    if ( bodyCount < 0 || physicsEngine.BodyStore().Count() != bodyCount ||
+         physicsEngine.Colliders().Count() != bodyCount )
+    {
+        return false;
+    }
     // Invariant: prediction steps mutate PhysicsBodyStore, then restore live
-    // state from captured store records. Model topology repair remains the
-    // owner-side edge before the store-owned step reads body/collider rows.
-    modelCollection.RepairPhysicsBodyAndColliderTopology();
-    modelCollection.TickContactHighlights( modelCount, fixedDt );
+    // state from captured store records. The caller supplies the prepared
+    // body-store count so this tick cannot quietly re-enter collection topology
+    // repair while mutating prediction state.
+    modelCollection.TickContactHighlights( bodyCount, fixedDt );
 
-    PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
     const char* const* diagnosticNames = nullptr;
     int diagnosticNameCount = 0;
 #ifdef _DEBUG
@@ -290,7 +295,7 @@ void StepReplayPredictionPhysicsTick( SkullbonezCore::GameObjects::GameModelColl
     {
         // Lifetime: diagnostics names are borrowed only through the immediate
         // Step call, matching the runtime fixed-step edge.
-        modelCollection.FillPhysicsDiagnosticsNames( physicsEngine.BodyStore().Count(), physicsDiagnosticsModelNames );
+        modelCollection.FillPhysicsDiagnosticsNames( bodyCount, physicsDiagnosticsModelNames );
         diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
         diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
     }
@@ -304,6 +309,7 @@ void StepReplayPredictionPhysicsTick( SkullbonezCore::GameObjects::GameModelColl
     // Invariant: prediction samples read PhysicsBodyStore records directly.
     // Do not project temporary preview poses into GameModel mirrors; the
     // captured restore state owns the live model pose after prediction exits.
+    return true;
 }
 
 

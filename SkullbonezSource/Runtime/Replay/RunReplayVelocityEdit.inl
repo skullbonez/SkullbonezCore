@@ -42,20 +42,14 @@ struct ReplayVelocityBodyView
 
 
 static bool TryResolveReplayVelocityBodyView( const ReplayRuntime& replayRuntime,
-                                              SkullbonezCore::GameObjects::GameModelCollection& collection,
+                                              const PhysicsBodyStore& bodyStore,
+                                              const ColliderStore& colliderStore,
                                               ReplayVelocityBodyView& outView )
 {
     outView = ReplayVelocityBodyView{};
-    if ( !collection.RepairPhysicsBodyAndColliderTopology() )
-    {
-        return false;
-    }
-
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
-    const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
     const PhysicsBodyHandle bodyHandle = replayRuntime.ResolveVelocityEditBodyHandle( bodyStore );
     const int modelIndex = bodyStore.ModelIndexForHandle( bodyHandle );
-    if ( modelIndex < 0 || modelIndex >= collection.GetModelCount() )
+    if ( modelIndex < 0 || modelIndex >= bodyStore.Count() )
     {
         return false;
     }
@@ -315,14 +309,25 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
         return m_replayRuntime.VelocityEdit().dragging;
     }
 
+    // Why: velocity edit resolves replay identity through store-owned handles.
+    // Run owns the cold repair edge before the resolver reads body/collider rows.
+    const bool velocityStoresReady = m_cGameModelCollection.RepairPhysicsBodyAndColliderTopology();
+    PhysicsEngine& velocityPhysics = m_cGameModelCollection.GetPhysicsEngine();
+    const auto tryResolveVelocityBody = [&]( ReplayVelocityBodyView& outBody )
+    {
+        return velocityStoresReady && TryResolveReplayVelocityBodyView( m_replayRuntime,
+                                                                        velocityPhysics.BodyStore(),
+                                                                        velocityPhysics.Colliders(),
+                                                                        outBody );
+    };
+
     const auto applyReplayVelocityEditDrag = [&]( const Vector3& dragRayOrigin, const Vector3& dragRayDirection )
     {
         // Hazard: a drag can outlive its target if the scene reloads or the
         // edited body is removed. All capture and active-axis state must unwind
         // before any velocity math touches the model collection.
         ReplayVelocityBodyView body;
-        if ( !TryResolveReplayVelocityBodyView( m_replayRuntime, m_cGameModelCollection, body ) ||
-             m_replayRuntime.VelocityEdit().activeAxis < 0 )
+        if ( !tryResolveVelocityBody( body ) || m_replayRuntime.VelocityEdit().activeAxis < 0 )
         {
             EndReplayToolGesture( RuntimeInteractionGestureKind::ReplayVelocityDrag );
             m_replayRuntime.VelocityEdit().dragging = false;
@@ -411,8 +416,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
     }
 
     ReplayVelocityBodyView hotBody;
-    const bool hasHotBody =
-        !uiBlocksMouse && TryResolveReplayVelocityBodyView( m_replayRuntime, m_cGameModelCollection, hotBody );
+    const bool hasHotBody = !uiBlocksMouse && tryResolveVelocityBody( hotBody );
     m_replayRuntime.VelocityEdit().hotAngularAxis =
         hasHotBody ? HitReplayVelocityAngularAxis( hotBody, rayOrigin, rayDirection ) : -1;
     m_replayRuntime.VelocityEdit().hotLinearAxis =
@@ -424,7 +428,7 @@ bool Run::TickReplayVelocityEditInput( HWND hwnd, bool uiBlocksMouse )
     {
         const POINT mouse = Input::GetClientMouseCoordinates();
         ReplayVelocityBodyView body;
-        if ( TryResolveReplayVelocityBodyView( m_replayRuntime, m_cGameModelCollection, body ) && !body.fixed )
+        if ( tryResolveVelocityBody( body ) && !body.fixed )
         {
             if ( m_replayRuntime.VelocityEdit().hotAngularAxis >= 0 )
             {
@@ -554,8 +558,16 @@ void Run::RenderReplayVelocityEditOverlay( RunEditorTracer& tracer )
     }
 
     ReplayVelocityBodyView body;
-    if ( !TryResolveReplayVelocityBodyView( m_replayRuntime, m_cGameModelCollection, body ) || body.fixed ||
-         !body.shape )
+    if ( !m_cGameModelCollection.RepairPhysicsBodyAndColliderTopology() )
+    {
+        return;
+    }
+    PhysicsEngine& velocityPhysics = m_cGameModelCollection.GetPhysicsEngine();
+    if ( !TryResolveReplayVelocityBodyView( m_replayRuntime,
+                                            velocityPhysics.BodyStore(),
+                                            velocityPhysics.Colliders(),
+                                            body ) ||
+         body.fixed || !body.shape )
     {
         return;
     }

@@ -88,7 +88,13 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
     }
     replayRuntime.Prediction().lastBuildTime = simulationTotalSeconds;
 
-    const int modelCount = modelCollection.GetModelCount();
+    if ( !modelCollection.RepairPhysicsBodyAndColliderTopology() )
+    {
+        replayRuntime.Prediction().dirty = true;
+        return false;
+    }
+    PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
+    const int modelCount = physicsEngine.BodyStore().Count();
     if ( replayRuntime.PathVisualizer().hasTarget && replayRuntime.PathVisualizer().targetId.value != 0 )
     {
         int targetIndex = -1;
@@ -97,7 +103,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
             replayRuntime.Prediction().dirty = true;
             return false;
         }
-        const PhysicsBodyStore& bodyStore = modelCollection.GetPhysicsBodyStore();
+        const PhysicsBodyStore& bodyStore = physicsEngine.BodyStore();
         if ( !TryResolveReplayBodyModelIndex( bodyStore,
                                               replayRuntime.PathVisualizer().targetId,
                                               replayRuntime.PathVisualizer().targetModelIndex,
@@ -171,8 +177,7 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
         return false;
     }
 
-    modelCollection.GetPhysicsEngine().CaptureReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld,
-                                                                    modelCollection.GetModelCount() );
+    physicsEngine.CaptureReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld, modelCount );
 
     if ( !CaptureReplayPredictionFrame( replayRuntime, modelCollection, workerPool, 0 ) )
     {
@@ -217,15 +222,16 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         replayRuntime.Prediction().dirty = true;
         return false;
     }
-    modelCollection.GetPhysicsEngine().CaptureReplaySolverSnapshot( replayRuntime.Prediction().liveRestoreWorld,
-                                                                    modelCollection.GetModelCount() );
+    PhysicsEngine& physicsEngine = modelCollection.GetPhysicsEngine();
+    const int liveBodyCount = physicsEngine.BodyStore().Count();
+    physicsEngine.CaptureReplaySolverSnapshot( replayRuntime.Prediction().liveRestoreWorld, liveBodyCount );
     if ( ReplayPredictionMutationReserveSpent( budgetStart, budgetMilliseconds ) )
     {
         return false;
     }
 
 #ifdef _DEBUG
-    const bool previousDiagnosticsSuppressed = modelCollection.GetPhysicsEngine().SetDiagnosticsSuppressed( true );
+    const bool previousDiagnosticsSuppressed = physicsEngine.SetDiagnosticsSuppressed( true );
 #endif
 
     bool jobApplied = false;
@@ -237,8 +243,8 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         PROFILE_SCOPED( "Frame/Replay/Prediction/ApplyJobState" );
         jobApplied =
             ApplyReplayPredictionBodyState( modelCollection, replayRuntime.Prediction().predictionBodies ) &&
-            modelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld,
-                                                                            modelCollection.GetModelCount() );
+            physicsEngine.RestoreReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld,
+                                                       physicsEngine.BodyStore().Count() );
     }
 
     if ( jobApplied )
@@ -257,11 +263,19 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
 
                 {
                     PROFILE_SCOPED( "Frame/Replay/Prediction/StepPhysics" );
-                    StepReplayPredictionPhysicsTick( modelCollection,
-                                                     PHYSICS_FIXED_DT,
-                                                     config,
-                                                     worldForces,
-                                                     workerPool );
+                    const int predictionBodyCount = physicsEngine.BodyStore().Count();
+                    if ( !StepReplayPredictionPhysicsTick( modelCollection,
+                                                           physicsEngine,
+                                                           predictionBodyCount,
+                                                           PHYSICS_FIXED_DT,
+                                                           config,
+                                                           worldForces,
+                                                           workerPool ) )
+                    {
+                        predictionStepFailed = true;
+                        replayRuntime.Prediction().dirty = true;
+                        break;
+                    }
                 }
                 if ( !CaptureReplayPredictionFrame(
                          replayRuntime,
@@ -294,15 +308,14 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
                                                                  replayRuntime.Prediction().predictionBodies );
             if ( jobStateCaptured )
             {
-                modelCollection.GetPhysicsEngine().CaptureReplaySolverSnapshot(
-                    replayRuntime.Prediction().predictionWorld,
-                    modelCollection.GetModelCount() );
+                physicsEngine.CaptureReplaySolverSnapshot( replayRuntime.Prediction().predictionWorld,
+                                                           physicsEngine.BodyStore().Count() );
             }
         }
     }
 
 #ifdef _DEBUG
-    modelCollection.GetPhysicsEngine().SetDiagnosticsSuppressed( previousDiagnosticsSuppressed );
+    physicsEngine.SetDiagnosticsSuppressed( previousDiagnosticsSuppressed );
 #endif
 
     bool liveRestored = false;
@@ -310,8 +323,7 @@ bool StepReplayPredictionJob( ReplayRuntime& replayRuntime,
         PROFILE_SCOPED( "Frame/Replay/Prediction/RestoreLive" );
         liveRestored =
             ApplyReplayPredictionBodyState( modelCollection, replayRuntime.Prediction().liveRestoreBodies ) &&
-            modelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot( replayRuntime.Prediction().liveRestoreWorld,
-                                                                            modelCollection.GetModelCount() );
+            physicsEngine.RestoreReplaySolverSnapshot( replayRuntime.Prediction().liveRestoreWorld, liveBodyCount );
     }
 
     if ( !jobApplied || predictionStepFailed || !jobStateCaptured || !liveRestored )
