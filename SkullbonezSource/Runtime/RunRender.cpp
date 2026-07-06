@@ -1224,7 +1224,11 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( const Runtime
 
 
 RuntimeRenderer::RuntimeRenderer( RuntimeRenderHost& host )
-    : m_host( host ), m_fullscreenQuadPass( host.m_systems.renderPasses.fullscreen ), m_skyPass( host ),
+    : m_host( host ), m_fullscreenQuadPass( host.m_systems.renderPasses.fullscreen ),
+      m_skyPass( host.m_systems.renderPasses.sky,
+                 host.m_systems.renderPasses.fullscreen,
+                 host.m_systems.skyBox,
+                 host.m_config ),
       m_sceneTargetPass( host ), m_shadowPass( host ), m_reflectionPass( host ), m_objectPass( host ),
       m_terrainPass( host ), m_waterPass( host ), m_tornadoVisualPass( host ), m_debugOverlayPass( host ),
       m_volumetricPass( host ), m_tonemapPass( host ), m_uiTextPass( host )

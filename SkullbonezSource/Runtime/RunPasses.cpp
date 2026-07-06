@@ -464,19 +464,19 @@ void SkyPass::EnsureGpuResources( const RenderResourceContext& resources )
         return;
     }
 
-    SkyPassResources& sky = m_host.m_systems.renderPasses.sky;
-    if ( !sky.atmosphereShader )
+    if ( !m_skyResources.atmosphereShader )
     {
         // Procedural sky shader: draws generated sunset/cloud color when the
         // cinematic config opts out of the authored cube-map skybox.
-        sky.atmosphereShader = resources.assets.CreateShader( RenderResources( resources ), "shader.sky_atmosphere" );
+        m_skyResources.atmosphereShader =
+            resources.assets.CreateShader( RenderResources( resources ), "shader.sky_atmosphere" );
     }
 }
 
 
 void SkyPass::ReleaseGpuResources()
 {
-    m_host.m_systems.renderPasses.sky.atmosphereShader.reset();
+    m_skyResources.atmosphereShader.reset();
 }
 
 
@@ -973,9 +973,7 @@ void SkyPass::RenderCinematicSky( const RenderFrameContext& frame, const Math::T
 {
     assert( frame.cinematic && "Cinematic sky requires a frame cinematic snapshot" );
     const CinematicRenderConfig& cinematic = *frame.cinematic;
-    SkyPassResources& sky = m_host.m_systems.renderPasses.sky;
-    FullscreenPassResources& fullscreen = m_host.m_systems.renderPasses.fullscreen;
-    if ( !cinematic.skyAtmosphereEnabled || !sky.atmosphereShader || fullscreen.quadVB == 0 )
+    if ( !cinematic.skyAtmosphereEnabled || !m_skyResources.atmosphereShader || m_fullscreenResources.quadVB == 0 )
     {
         return;
     }
@@ -993,9 +991,9 @@ void SkyPass::RenderCinematicSky( const RenderFrameContext& frame, const Math::T
     // SRV slots before the fullscreen draw so stale pass inputs cannot be
     // recopied by the backend while the sky shader is active.
     ClearAllRenderTextureSlots( renderCommands );
-    sky.atmosphereShader->Use();
-    BindSkyPassParams( *sky.atmosphereShader, view, frame.projection, cinematic );
-    DrawFullscreenQuad( renderCommands, fullscreen.quadVB );
+    m_skyResources.atmosphereShader->Use();
+    BindSkyPassParams( *m_skyResources.atmosphereShader, view, frame.projection, cinematic );
+    DrawFullscreenQuad( renderCommands, m_fullscreenResources.quadVB );
 
     renderCommands.SetDepthTest( depthWasEnabled );
     renderCommands.SetDepthWrite( depthWasEnabled );
@@ -1015,12 +1013,13 @@ void SkyPass::Render( const RenderFrameContext& frame, const Math::Transformatio
 
     // The cube-map sky follows camera X/Z so the box feels infinitely far away,
     // while its Y stays authored by config to preserve the long-standing horizon.
-    Matrix4 skyView = view * Matrix4::Translate( frame.eye.x, m_host.m_config.skyboxRenderHeight, frame.eye.z ) *
-                      Matrix4::Scale( m_host.m_config.skyboxScale );
+    Matrix4 skyView = view * Matrix4::Translate( frame.eye.x, m_config.skyboxRenderHeight, frame.eye.z ) *
+                      Matrix4::Scale( m_config.skyboxScale );
     // Pass contract: cube-map skybox faces sample only slot 0. Slots owned by
     // water, post, or shadows must not leak into these six mesh draws.
     ClearRenderTextureSlotsExcept( RenderCommands( frame ), RENDER_TEXTURE_SLOT_0 );
-    m_host.m_systems.skyBox->Render( skyView, frame.projection );
+    assert( m_skyBox && "SkyPass requires RunSubsystemState::skyBox after initialise" );
+    m_skyBox->Render( skyView, frame.projection );
 }
 
 

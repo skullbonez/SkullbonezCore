@@ -83,10 +83,17 @@ namespace UI
 struct UIRenderContext;
 } // namespace UI
 
+namespace Geometry
+{
+class SkyBox;
+} // namespace Geometry
+
 namespace Basics
 {
 class DiagnosticsRuntime;
+class EngineConfig;
 struct FullscreenPassResources;
+struct SkyPassResources;
 class ReplayRuntime;
 class RuntimeRenderHost;
 struct RuntimeRenderModelFrameView;
@@ -95,9 +102,8 @@ struct RenderHelperContext;
 // Concept: these private pass contracts are the extraction boundary.
 //
 // RuntimeRenderer::RenderFrame() owns pass order, and each pass receives a named
-// input bundle and returns only the data later passes need. References and
-// pointers here are borrowed for one frame; long-lived GPU resources live in
-// RunRenderPassResources instead.
+// input bundle or explicit long-lived resources. Frame references are rebuilt
+// each pass, while GPU resources stay in RunRenderPassResources.
 enum class SkyPassMode
 {
     CubemapOnly,                            // Force the authored cube-map skybox path.
@@ -373,7 +379,12 @@ class FullscreenQuadPass
 class SkyPass
 {
   public:
-    explicit SkyPass( RuntimeRenderHost& host ) : m_host( host )
+    SkyPass( SkyPassResources& skyResources,
+             FullscreenPassResources& fullscreenResources,
+             Geometry::SkyBox*& skyBox,
+             const EngineConfig& config )
+        : m_skyResources( skyResources ), m_fullscreenResources( fullscreenResources ), m_skyBox( skyBox ),
+          m_config( config )
     {
     }
 
@@ -384,7 +395,12 @@ class SkyPass
   private:
     void RenderCinematicSky( const RenderFrameContext& frame, const Math::Transformation::Matrix4& view );
 
-    RuntimeRenderHost& m_host;
+    SkyPassResources& m_skyResources;
+    FullscreenPassResources& m_fullscreenResources;
+    // Lifetime: this aliases RunSubsystemState::skyBox because RuntimeRenderer
+    // is constructed before Initialise wires the owned SkyBox pointer.
+    Geometry::SkyBox*& m_skyBox;
+    const EngineConfig& m_config;
 };
 
 /* -- SceneTargetPass
