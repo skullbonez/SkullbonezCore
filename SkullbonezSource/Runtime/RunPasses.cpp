@@ -971,6 +971,9 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
 void SkyPass::RenderCinematicSky( const RenderFrameContext& frame, const Math::Transformation::Matrix4& view )
 {
     assert( frame.cinematic && "Cinematic sky requires a frame cinematic snapshot" );
+    // Invariant: the active cinematic choice is a frame snapshot, while the
+    // generated-sky shader and fullscreen vertex buffer are pass resources.
+    // This path should not reach back through RuntimeRenderHost for either.
     const CinematicRenderConfig& cinematic = *frame.cinematic;
     if ( !cinematic.skyAtmosphereEnabled || !m_skyResources.atmosphereShader || m_fullscreenResources.quadVB == 0 )
     {
