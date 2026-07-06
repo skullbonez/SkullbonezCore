@@ -23,12 +23,16 @@
 #   Inheritance budget: Approved list of stable runtime-polymorphism boundaries.
 #   Throw-site census: Textual count of source `throw` tokens used as a ratchet
 #     against adding new exception paths without an owning cleanup row.
+#   Host-field census: Counted `m_host.m_` render-pass references that should
+#     shrink as passes receive frame snapshots and narrow services.
 #
 # Invariants:
 #   - New deleted-artifact guards belong in DELETED_MIGRATION_ARTIFACT_PATTERNS.
 #   - New inheritance needs an approved stable-boundary row with owner evidence.
 #   - Throw-site budget is the current tracked-source census, not an approval to
 #     add more exception paths.
+#   - Host-field budget records current render-pass debt; new direct host field
+#     browsing is blocked while the plan rows remove old accesses.
 #   - Checker self-tests run before repo scans.
 #   - Comment-only historical mentions of deleted names are allowed; live code is
 #     scanned after comments and string literals are stripped where needed.
@@ -82,6 +86,7 @@ RUN_INPUT_SOURCE = Path("SkullbonezSource/Runtime/RunInput.cpp")
 RUNTIME_INTERACTION_COMMANDS_HEADER = Path("SkullbonezSource/Runtime/RuntimeInteractionCommands.h")
 RUNTIME_PICK_SERVICE_SOURCE = Path("SkullbonezSource/Runtime/RuntimePickService.cpp")
 RUN_PASSES_SOURCE = Path("SkullbonezSource/Runtime/RunPasses.cpp")
+RUNTIME_RENDER_PASSES_HEADER = Path("SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h")
 RUN_UI_TEXT_PASS_SOURCE = Path("SkullbonezSource/Runtime/RunUiTextPass.cpp")
 RUN_SCENE_SOURCE = Path("SkullbonezSource/Runtime/Scene/RunScene.cpp")
 SCENE_AUTHORED_SETUP_SOURCE = Path("SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp")
@@ -1553,6 +1558,12 @@ RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
 )
 MAX_SOURCE_THROW_TOKENS = 355
 THROW_TOKEN_PATTERN = re.compile(r"\bthrow\b")
+MAX_RENDER_PASS_HOST_FIELD_ACCESSES = 109
+RENDER_PASS_HOST_FIELD_PATTERN = re.compile(r"\bm_host\.m_[A-Za-z_]\w*")
+RENDER_PASS_HOST_FIELD_SOURCES = (
+    RUN_PASSES_SOURCE,
+    RUNTIME_RENDER_PASSES_HEADER,
+)
 
 
 def normalize_boundary_line(line: str) -> str:
@@ -2762,6 +2773,45 @@ def check_throw_site_count(repo: Path) -> list[BoundaryError]:
             continue
         entries.append(( path, path.read_text(encoding="utf-8") ))
     return check_throw_site_count_entries(entries)
+
+
+def check_render_pass_host_field_access_count_entries(
+    entries: list[tuple[Path, str]],
+    max_allowed: int = MAX_RENDER_PASS_HOST_FIELD_ACCESSES,
+) -> list[BoundaryError]:
+    total_count = 0
+    first_over_budget: tuple[Path, str, int] | None = None
+    for path, text in entries:
+        stripped = strip_cpp_comments_and_string_literals(text)
+        matches = list(RENDER_PASS_HOST_FIELD_PATTERN.finditer(stripped))
+        if not matches:
+            continue
+        if first_over_budget is None and total_count + len(matches) > max_allowed:
+            first_extra_index = max_allowed - total_count
+            first_over_budget = ( path, stripped, matches[first_extra_index].start() )
+        total_count += len(matches)
+
+    if total_count <= max_allowed:
+        return []
+
+    assert first_over_budget is not None
+    path, stripped, offset = first_over_budget
+    return [
+        BoundaryError(
+            path,
+            line_for_offset(stripped, offset),
+            "render pass host-field access exceeds ratchet",
+            f"Found {total_count}; maximum is {max_allowed}. Move new pass data through RenderFrameContext or typed pass inputs.",
+        )
+    ]
+
+
+def check_render_pass_host_field_access_count(repo: Path) -> list[BoundaryError]:
+    entries = [
+        ( repo / relative_path, ( repo / relative_path ).read_text(encoding="utf-8") )
+        for relative_path in RENDER_PASS_HOST_FIELD_SOURCES
+    ]
+    return check_render_pass_host_field_access_count_entries(entries)
 
 
 def check_text_rules(path: Path, text: str, rules: tuple[tuple[str, str, str], ...]) -> list[BoundaryError]:
@@ -9106,6 +9156,31 @@ def run_self_tests() -> list[str]:
         check_throw_site_count_entries(throw_ratchet_grown_entries, max_allowed=1),
         "source throw-site count exceeds ratchet",
     )
+    host_field_clean_entries = [
+        (
+            Path("synthetic/RunPasses.cpp"),
+            "void ExistingPass::Render() { (void)m_host.m_systems.renderPasses.fullscreen; }\n",
+        ),
+    ]
+    expect_clean(
+        "budget-matched render pass host-field synthetic surface was rejected",
+        check_render_pass_host_field_access_count_entries(host_field_clean_entries, max_allowed=1),
+    )
+    host_field_grown_entries = [
+        (
+            Path("synthetic/RunPasses.cpp"),
+            "void ExistingPass::Render() { (void)m_host.m_systems.renderPasses.fullscreen; }\n",
+        ),
+        (
+            Path("synthetic/NewPass.cpp"),
+            "void NewPass::Render() { (void)m_host.m_debug.isTerrainHidden; }\n",
+        ),
+    ]
+    expect_error(
+        "grown render pass host-field synthetic surface was not rejected",
+        check_render_pass_host_field_access_count_entries(host_field_grown_entries, max_allowed=1),
+        "render pass host-field access exceeds ratchet",
+    )
 
     pointer_return_run_header = allowed_run_header.replace(
         "void Render();",
@@ -15424,6 +15499,7 @@ def validate_runtime_boundaries(repo: Path) -> list[BoundaryError]:
     errors.extend(check_direct_gfx_raytracing_guardrails(repo))
     errors.extend(check_irender_backend_raytracing_declarations(repo))
     errors.extend(check_irender_backend_aggregate_contract(repo))
+    errors.extend(check_render_pass_host_field_access_count(repo))
     errors.extend(check_runtime_render_pass_wide_backend_guardrails(repo))
     errors.extend(check_graph_owned_render_pass_scheduling(repo))
     errors.extend(check_graph_owned_render_pass_manual_barriers(repo))
