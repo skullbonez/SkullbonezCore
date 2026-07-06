@@ -13,9 +13,13 @@ Glossary:
   Build frames: In-progress prediction samples accumulated while a prediction job is still
     stepping. Future contact topology may be derived from them only through the committed
     future-node cache, never by exposing a half-built scratch vector to drawing.
-  Future node tree: Contact-derived graph of bodies that the selected replay path is predicted
-    to affect after the root body hits something.
+  Future node tree: Bounded graph of bodies that the selected replay path is
+    predicted to affect after the root body hits something. Nodes can come from
+    solver contacts or first-movement fallback while contact data is still sparse.
   Mutation window: Period where live physics stores temporarily contain prediction state.
+  Reveal cursor: Wall-clock playhead that caps which prediction frames may draw this render
+    frame. It makes the causal tree unfold over real time — root line first, child lines when
+    their causing frame is revealed — and loops once the prediction buffer is complete.
   Stable overlay pass: Short pre-step draw that keeps current world-space lines visible while
     heavy prediction jobs continue building fresher samples.
   Visualizer budget: Millisecond cap applied to each bounded prediction or overlay work slice.
@@ -53,6 +57,11 @@ bool BeginReplayPredictionJob( ReplayRuntime& replayRuntime,
 
     replayRuntime.CancelPredictionJob( true );
     replayRuntime.ClearPredictionFutureNodeCache();
+    // Why: a new job means a new future. Restart the reveal cursor so the
+    // causal tree unfolds from the root again instead of resuming mid-sweep
+    // over samples that no longer exist.
+    replayRuntime.Prediction().revealAnchor = std::chrono::steady_clock::now();
+    replayRuntime.Prediction().revealAnchorValid = true;
     replayRuntime.Prediction().targetId = replayRuntime.PathVisualizer().targetId;
     replayRuntime.Prediction().dirty = false;
 
@@ -365,6 +374,14 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         return false;
     }
 
+    // Concept: every pass below draws only frames at or before the reveal
+    // cursor. That single clamp is what turns a finished prediction buffer into
+    // an unfolding animation: the root line grows first, and each child starts
+    // drawing when the cursor passes the frame where its cause happened.
+    const ReplayFrameIndex lastFrame = activePredictionFrames[activePredictionFrameCount - 1].frameIndex;
+    const ReplayFrameIndex revealFrame =
+        ReplayPredictionRevealFrameIndex( replayRuntime.Prediction(), lastFrame );
+
     if ( !replayRuntime.PathVisualizer().hasTarget || replayRuntime.PathVisualizer().targetId.value == 0 )
     {
         replayRuntime.ClearPredictionFutureNodeCache();
@@ -372,6 +389,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         {
             DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
                                                     activePredictionFrameCount,
+                                                    revealFrame,
                                                     modelCollection,
                                                     tracer,
                                                     budgetStart,
@@ -380,7 +398,6 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         return true;
     }
 
-    const ReplayFrameIndex lastFrame = activePredictionFrames[activePredictionFrameCount - 1].frameIndex;
     const std::size_t sampleStride = ReplayPathStrideForSampleCount( activePredictionFrameCount );
     {
         PROFILE_SCOPED( "Frame/Replay/Prediction/DrawRoot" );
@@ -390,13 +407,20 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         for ( std::size_t frameIndex = 0; frameIndex < activePredictionFrameCount; ++frameIndex )
         {
             const RunReplayPredictionFrame& frame = activePredictionFrames[frameIndex];
+            if ( frame.frameIndex > revealFrame )
+            {
+                break;
+            }
             if ( ReplayPredictionBudgetExpired( budgetStart, budgetMilliseconds ) )
             {
                 break;
             }
 
+            // Why: the reveal-edge frame always draws so the line tip grows
+            // smoothly instead of jumping ahead one stride at a time.
             const std::size_t currentOrdinal = ordinal++;
-            if ( frame.frameIndex != lastFrame && !ShouldDrawReplayPathSample( currentOrdinal, sampleStride ) )
+            if ( frame.frameIndex != lastFrame && frame.frameIndex != revealFrame &&
+                 !ShouldDrawReplayPathSample( currentOrdinal, sampleStride ) )
             {
                 continue;
             }
@@ -467,13 +491,18 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
         for ( std::size_t frameIndex = 0; frameIndex < activePredictionFrameCount; ++frameIndex )
         {
             const RunReplayPredictionFrame& frame = activePredictionFrames[frameIndex];
+            if ( frame.frameIndex > revealFrame )
+            {
+                break;
+            }
             if ( ReplayPredictionBudgetExpired( childDrawBudgetStart, budgetMilliseconds ) )
             {
                 return true;
             }
 
             const std::size_t currentOrdinal = ordinal++;
-            bool importantChildFrame = frame.frameIndex == 0 || frame.frameIndex == lastFrame;
+            bool importantChildFrame =
+                frame.frameIndex == 0 || frame.frameIndex == lastFrame || frame.frameIndex == revealFrame;
             for ( std::size_t i = 0; i < childDraw.nodeCount; ++i )
             {
                 if ( frame.frameIndex == childDraw.nodes[i].node.firstFrame )
@@ -519,6 +548,22 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                     drawState.hasIncomingPrevious = true;
                 }
 
+                if ( frame.frameIndex >= drawState.node.firstFrame && !drawState.active )
+                {
+                    // Why: contact propagation can wake a wall without giving
+                    // every brick visible translation. Delay outlines and child
+                    // trails until the sampled body has meaningful linear speed.
+                    if ( !ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
+                    {
+                        continue;
+                    }
+                    drawState.active = true;
+                    drawState.previous = body->position;
+                    drawState.hasPrevious = true;
+                    CaptureReplayChildMarkerPose( drawState, body->position, body->orientation, body->modelIndex );
+                    continue;
+                }
+
                 if ( frame.frameIndex >= drawState.node.firstFrame && drawState.hasPrevious &&
                      VectorMagSquared( body->position - drawState.previous ) > REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ )
                 {
@@ -529,7 +574,7 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
                     ReplayChildFutureColor( drawState.node.depth, t, r, g, b );
                     tracer.AddReplayPathSegment( drawState.previous, body->position, r, g, b );
                 }
-                if ( frame.frameIndex >= drawState.node.firstFrame )
+                if ( frame.frameIndex >= drawState.node.firstFrame && drawState.active )
                 {
                     CaptureReplayChildMarkerPose( drawState, body->position, body->orientation, body->modelIndex );
                     drawState.previous = body->position;
@@ -542,11 +587,28 @@ bool DrawReplayPredictionOverlay( ReplayRuntime& replayRuntime,
 
     }
 
+    if ( !ReplayPredictionBudgetExpired( childDrawBudgetStart, budgetMilliseconds ) )
+    {
+        PROFILE_SCOPED( "Frame/Replay/Prediction/DrawAffectedBodies" );
+        DrawReplayPredictionAffectedBodyTrails( activePredictionFrames,
+                                                activePredictionFrameCount,
+                                                revealFrame,
+                                                replayRuntime.PathVisualizer().targetId,
+                                                replayRuntime.PathVisualizer().targetModelIndex,
+                                                replayRuntime.Prediction().futureNodes,
+                                                modelCollection,
+                                                colliderStore,
+                                                tracer,
+                                                childDrawBudgetStart,
+                                                budgetMilliseconds );
+    }
+
     if ( replayRuntime.Prediction().ragdollVisualsEnabled &&
          !ReplayPredictionBudgetExpired( childDrawBudgetStart, budgetMilliseconds ) )
     {
         DrawReplayPredictionRagdollTorsoTrails( activePredictionFrames,
                                                 activePredictionFrameCount,
+                                                revealFrame,
                                                 modelCollection,
                                                 tracer,
                                                 childDrawBudgetStart,

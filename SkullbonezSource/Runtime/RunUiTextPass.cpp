@@ -537,9 +537,21 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.currentSceneIndex = view.sceneIndex;
         UIData.sceneCount = view.sceneCount;
         UIData.now = m_host.m_timers.simulationTimer.GetTotalTime();
-        if ( m_host.m_UI.GetActiveTab() == InGameUITab::Memory || m_host.m_UI.IsMemoryOverlayEnabled() )
+        const bool memoryTabActive = m_host.m_UI.IsVisible() && !m_host.m_UI.IsMinimized() &&
+                                     m_host.m_UI.GetActiveTab() == InGameUITab::Memory;
+        const bool memoryOverlayEnabled = m_host.m_UI.IsMemoryOverlayEnabled();
+        if ( memoryTabActive )
         {
             UIData.mainMemory = m_host.RefreshMainMemoryStats( UIData.now, inputs.models.gameObjectMemory );
+        }
+        else if ( memoryOverlayEnabled )
+        {
+            // Why: F6 stays event/counter driven. Merely leaving the overlay up
+            // must not start a process-memory or replay-memory sampling heartbeat.
+            UIData.mainMemory = m_host.BuildMainMemoryOverlayStats( inputs.models.gameObjectMemory );
+        }
+        if ( memoryTabActive || memoryOverlayEnabled )
+        {
             UIData.reserveGrowthEventTotalCount =
                 SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::GrowthEventCount();
             UIData.reserveGrowthEventDroppedCount =

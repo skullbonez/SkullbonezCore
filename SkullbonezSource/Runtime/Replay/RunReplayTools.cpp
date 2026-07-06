@@ -11,7 +11,8 @@ Mental model:
 
 Glossary:
   Scrubber: UI control that maps mouse position to retained replay frames.
-  Cause tree: Contact graph that explains how one body influenced others.
+  Cause tree: Contact, solver, and predicted-motion graph that explains how one
+    body influenced others.
   Path visualizer: Overlay that draws past/future body trajectories and contact
     handoffs.
   Replay target marker: Overlay outline/ring drawn around the replay-selected
@@ -20,8 +21,8 @@ Glossary:
     frame.
   Prediction physics tick: Replay-owned fixed step that temporarily advances
     PhysicsBodyStore and then restores the live store snapshot.
-  Future node: Body discovered by following contacts outward from a selected
-    root body.
+  Future node: Body discovered by following contacts or predicted movement
+    outward from a selected root body.
   ReplayBodyId: Stable runtime id used across retained samples even when vector
     indices are only local hints.
   Solver snapshot: Physics cache state that must be restored to make the next
@@ -429,15 +430,31 @@ bool IntersectRaySphere( const Vector3& rayOrigin,
     return true;
 }
 
-constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 100;
+// Why: the 200-brick prediction scene needs more than the old 100-node cap to
+// show the full contact spread instead of clipping the visual explanation.
+constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = 240;
 constexpr std::size_t REPLAY_PATH_MAX_ROOT_TARGETS = 100;
 constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
+// Why: sleeping or contact-propagated bodies can wake without translating. Child
+// prediction outlines wait for real linear speed so the wall blooms outward
+// only when bricks are actually about to move.
+constexpr float REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ = 8.0f * 8.0f;
 
 // Invariant: Worker dispatch is only worth it for large body snapshots. Small
 // scenes stay serial so replay overlays do not pay thread wakeup cost to copy a
 // few kilobytes.
 constexpr int REPLAY_PREDICTION_PARALLEL_BODY_MIN = 2048;
+
+// Concept: the prediction overlay is a looping causal animation, not a static
+// plot. A wall-clock reveal cursor sweeps the predicted frames so the root line
+// grows first and each child line starts only when its causing frame is
+// revealed. Rate is predicted seconds revealed per real second; 1.0 means the
+// future unfolds at the same pace it would actually happen.
+constexpr double REPLAY_PREDICTION_REVEAL_SECONDS_PER_SECOND = 1.0;
+// Why: after the full horizon is revealed, hold the complete tree briefly so
+// the final outcome stays readable before the unfold loops back to the root.
+constexpr double REPLAY_PREDICTION_REVEAL_HOLD_SECONDS = 1.2;
 
 // Hazard: prediction temporarily swaps live model/solver state. Keep a small
 // reserve so we do not enter a mutation section after spending the whole visual
@@ -685,7 +702,8 @@ void Run::RenderReplayCauseFocusOverlay( RunEditorTracer& tracer )
     }
 
     if ( m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::Manifold ||
-         m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::PredictionContact )
+         m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::PredictionContact ||
+         m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::PredictionMotion )
     {
         if ( m_replayRuntime.Camera().focusKind == RunReplayCameraFocusKind::Manifold )
         {

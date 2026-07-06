@@ -345,7 +345,13 @@ class RuntimeRenderHost
         return m_callbacks.cameraModeLabel( m_callbacks.user, mode );
     }
 
+    // Refreshes the full Memory tab snapshot. This is diagnostics work, not the
+    // F6 overlay path.
     MainMemoryStats RefreshMainMemoryStats( double nowSeconds, const MainMemoryGameObjectStats& gameObjects ) const;
+
+    // Builds the F6 overlay snapshot from cached diagnostics and current tracked
+    // model capacity without sampling process or replay memory.
+    MainMemoryStats BuildMainMemoryOverlayStats( const MainMemoryGameObjectStats& gameObjects ) const;
 
     bool BuildReplayFocusModelMask( const RenderFrameContext& frame ) const;
 

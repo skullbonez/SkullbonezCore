@@ -4,12 +4,13 @@ Purpose:
   Contains replay cause-tree window input and focus behavior.
 
 Mental model:
-  The cause tree is an explanatory replay UI over retained solver contacts. It
-  owns window drag/resize/row hover state and asks ReplayRuntime to resolve body
-  positions for camera focus.
+  The cause tree is an explanatory replay UI over retained solver contacts and
+  predicted movement. It owns window drag/resize/row hover state and asks
+  ReplayRuntime to resolve body positions for camera focus.
 
 Glossary:
-  Cause tree: Contact and solver-row graph explaining replay body influence.
+  Cause tree: Contact, solver-row, and predicted-motion graph explaining replay
+    body influence.
   Focus row: Cause-tree row selected for replay inspection camera targeting.
 
 Invariants:
@@ -76,6 +77,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
             focusKind = RunReplayCameraFocusKind::SolverRow;
             break;
         case RunReplayCauseTreeRowKind::PredictionContact:
+        case RunReplayCauseTreeRowKind::PredictionMotion:
             m_replayRuntime.ResolveCauseTreeBodyPosition( row.id,
                                                           bodyStore,
                                                           colliderStore,
@@ -83,7 +85,9 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
                                                           &targetRadius );
             targetPosition = row.point;
             targetRadius = (std::max)( targetRadius * 0.45f, 1.5f );
-            focusKind = RunReplayCameraFocusKind::PredictionContact;
+            focusKind = row.kind == RunReplayCauseTreeRowKind::PredictionContact
+                            ? RunReplayCameraFocusKind::PredictionContact
+                            : RunReplayCameraFocusKind::PredictionMotion;
             break;
         default:
             return;

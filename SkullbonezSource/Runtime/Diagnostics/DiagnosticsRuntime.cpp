@@ -15,11 +15,14 @@ Glossary:
     for by replay or model collection snapshots.
   SkullScope: Queryable physics diagnostics trace owned by RuntimeDiagnostics.
   JSON (JavaScript Object Notation): Text artifact format used for memory dumps.
+  Private working set: Resident process pages not shared with other processes;
+    matching it requires a page-level OS query.
 
 Invariants:
   - DiagnosticsRuntime is a boundary; artifact schema and heavy logging formats
     stay in RuntimeDiagnostics or CaptureController unless this file owns them.
-  - Memory sampling is cached for UI reads and forced only for explicit dumps.
+  - Memory sampling is cached for diagnostics reads; deep process samples are
+    reserved for explicit dumps and stress/perf evidence.
   - Debug-only physics diagnostics stay behind _DEBUG.
 
 Related:
@@ -201,22 +204,25 @@ void DiagnosticsRuntime::TickPerfLog( const RuntimePerfTickContext& context )
 const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,
                                                                    const GameObjects::GameModelCollection& models,
                                                                    double nowSeconds,
-                                                                   bool force )
+                                                                   bool force,
+                                                                   bool includePrivateWorkingSet )
 {
     SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope allocationScope(
         SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase::Diagnostics );
-    return RefreshMainMemoryStats( replay, models.CollectMemoryStats(), nowSeconds, force );
+    return RefreshMainMemoryStats( replay, models.CollectMemoryStats(), nowSeconds, force, includePrivateWorkingSet );
 }
 
 
 const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayRuntime& replay,
                                                                    const MainMemoryGameObjectStats& gameObjects,
                                                                    double nowSeconds,
-                                                                   bool force )
+                                                                   bool force,
+                                                                   bool includePrivateWorkingSet )
 {
     const bool sampleDue = m_lastMainMemorySampleSeconds < 0.0 ||
                            nowSeconds - m_lastMainMemorySampleSeconds >= MAIN_MEMORY_SAMPLE_INTERVAL_SECONDS;
-    if ( !force && !sampleDue )
+    const bool deepSampleDue = includePrivateWorkingSet && !m_lastMainMemorySampleUsedPrivateWorkingSetQuery;
+    if ( !force && !sampleDue && !deepSampleDue )
     {
         return m_mainMemoryStats;
     }
@@ -224,12 +230,12 @@ const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayR
     SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope allocationScope(
         SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase::Diagnostics );
 
-    // Concept: The UI wants cheap repeated reads, while shutdown dumps need a
-    // fresh sample. Build one reconciled snapshot, then cache it with the sample
-    // timestamp.
+    // Concept: The Memory tab wants cheap repeated reads, while shutdown dumps and
+    // stress logs need the deep private-working-set query. Build one reconciled
+    // snapshot, then cache both the timestamp and the sampling mode.
     MainMemoryStats stats;
     stats.sampleTimeSeconds = nowSeconds;
-    stats.process = RuntimeDiagnostics::SampleProcessMemory();
+    stats.process = RuntimeDiagnostics::SampleProcessMemory( includePrivateWorkingSet );
     stats.replay = replay.CollectMemoryStats();
     stats.gameObjects = gameObjects;
     stats.trackedEngineBytes = stats.replay.totalBytes + stats.gameObjects.totalBytes + stats.otherTrackedBytes;
@@ -260,6 +266,7 @@ const MainMemoryStats& DiagnosticsRuntime::RefreshMainMemoryStats( const ReplayR
 
     m_mainMemoryStats = stats;
     m_lastMainMemorySampleSeconds = nowSeconds;
+    m_lastMainMemorySampleUsedPrivateWorkingSetQuery = includePrivateWorkingSet;
     return m_mainMemoryStats;
 }
 
@@ -304,7 +311,7 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const ReplayRuntime& replay,
         return false;
     }
 
-    const MainMemoryStats& stats = RefreshMainMemoryStats( replay, models, nowSeconds, true );
+    const MainMemoryStats& stats = RefreshMainMemoryStats( replay, models, nowSeconds, true, true );
     FILE* file = nullptr;
     if ( fopen_s( &file, m_mainMemoryDumpPath, "wb" ) != 0 || !file )
     {

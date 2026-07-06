@@ -1507,7 +1507,12 @@ bool ReplayRuntime::BuildCauseTreeRows(
         return false;
     }
 
-    const bool usePrediction = m_prediction.enabled && ActivePredictionFrames().size() >= 2 &&
+    // Why: ActivePredictionFrames() waits for a coherent full buffer, while the
+    // prediction overlay exposes a populated build prefix so long jobs are
+    // visible immediately. The cause tree must use the same readiness rule.
+    const bool predictionPrefixVisible =
+        ActivePredictionFrames().size() >= 2 || m_prediction.buildFrameCount >= 2 || !m_prediction.futureNodes.empty();
+    const bool usePrediction = m_prediction.enabled && predictionPrefixVisible &&
                                m_prediction.targetId.value == m_pathVisualizer.targetId.value;
     const std::vector<RunReplayPathTraceNode>& nodes =
         usePrediction ? m_prediction.futureNodes : m_pathVisualizer.futureNodes;
@@ -1622,7 +1627,8 @@ bool ReplayRuntime::BuildCauseTreeRows(
                     continue;
                 }
                 RunReplayCauseTreeRow contactRow;
-                contactRow.kind = RunReplayCauseTreeRowKind::PredictionContact;
+                contactRow.kind = node.contactDerived ? RunReplayCauseTreeRowKind::PredictionContact
+                                                       : RunReplayCauseTreeRowKind::PredictionMotion;
                 contactRow.id = bodyRow.id;
                 contactRow.parentId = node.parentId;
                 contactRow.firstFrame = node.firstFrame;
@@ -1632,14 +1638,28 @@ bool ReplayRuntime::BuildCauseTreeRows(
                 contactRow.prediction = true;
                 contactRow.point = node.contactPoint;
                 contactRow.normal = ReplayNormalizeOr( node.contactNormal, Vector3( 0.0f, 1.0f, 0.0f ) );
-                sprintf_s( contactRow.name, sizeof( contactRow.name ), "Predicted contact" );
-                sprintf_s( contactRow.detail,
-                           sizeof( contactRow.detail ),
-                           "first frame %llu  normal %.2f %.2f %.2f",
-                           static_cast<unsigned long long>( node.firstFrame ),
-                           contactRow.normal.x,
-                           contactRow.normal.y,
-                           contactRow.normal.z );
+                if ( node.contactDerived )
+                {
+                    sprintf_s( contactRow.name, sizeof( contactRow.name ), "Predicted contact" );
+                    sprintf_s( contactRow.detail,
+                               sizeof( contactRow.detail ),
+                               "first frame %llu  normal %.2f %.2f %.2f",
+                               static_cast<unsigned long long>( node.firstFrame ),
+                               contactRow.normal.x,
+                               contactRow.normal.y,
+                               contactRow.normal.z );
+                }
+                else
+                {
+                    sprintf_s( contactRow.name, sizeof( contactRow.name ), "Predicted movement" );
+                    sprintf_s( contactRow.detail,
+                               sizeof( contactRow.detail ),
+                               "first affected frame %llu  direction %.2f %.2f %.2f",
+                               static_cast<unsigned long long>( node.firstFrame ),
+                               contactRow.normal.x,
+                               contactRow.normal.y,
+                               contactRow.normal.z );
+                }
                 if ( !appendCauseTreeRow( contactRow ) )
                 {
                     return;
@@ -1857,7 +1877,14 @@ bool ReplayRuntime::BuildCauseTreeRows(
         row.modelIndex = modelIndexForId( id, modelIndex );
         row.prediction = usePrediction;
         writeName( id, row.modelIndex, fallbackName, row.name, sizeof( row.name ) );
-        if ( row.modelIndex >= 0 && solverSample )
+        if ( usePrediction && firstFrame > 0 )
+        {
+            sprintf_s( row.detail,
+                       sizeof( row.detail ),
+                       "first affected frame %llu",
+                       static_cast<unsigned long long>( firstFrame ) );
+        }
+        else if ( row.modelIndex >= 0 && solverSample )
         {
             if ( const ReplaySolverBodySample* body = FindReplayBodyByModelIndex( *solverSample, row.modelIndex ) )
             {

@@ -15,13 +15,15 @@ Glossary:
   SkullScope: Queryable physics diagnostics trace workflow used instead of
   loading raw traces into model context.
   Side-channel log: Artifact written for diagnostics without changing runtime
-  behavior.
+    behavior.
+  Private working set: Resident process pages not shared with other processes;
+    matching it requires a page-level OS query.
 
 Invariants:
   - Diagnostics may sample and flush artifacts, but must not mutate simulation
     or render ownership.
-  - Large process-memory sampling is batched so diagnostics do not allocate or
-    block unpredictably inside a validation frame.
+  - Private working-set sampling is a deep diagnostics path. UI/render callers
+    must stay on cheap process counters.
 
 Related:
   - SkullbonezSource/Runtime/RuntimeDiagnostics.h
@@ -230,7 +232,7 @@ void RuntimeDiagnostics::ClosePerfLogWithMemoryCheckpoint( RunPerfLogState& perf
     ClosePerfLog( perfLog );
 }
 
-MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMemory()
+MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMemory( bool includePrivateWorkingSet )
 {
     MainMemoryProcessStats stats;
 
@@ -244,14 +246,22 @@ MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMemory()
         stats.workingSetBytes = static_cast<uint64_t>( pmc.WorkingSetSize );
         stats.privateCommitBytes = static_cast<uint64_t>( pmc.PrivateUsage );
         stats.pagefileUsageBytes = static_cast<uint64_t>( pmc.PagefileUsage );
-        if ( TrySamplePrivateWorkingSetBytes( process, stats.privateWorkingSetBytes ) )
+        if ( includePrivateWorkingSet && TrySamplePrivateWorkingSetBytes( process, stats.privateWorkingSetBytes ) )
         {
             strcpy_s( stats.taskManagerMetricName, sizeof( stats.taskManagerMetricName ), "private_working_set" );
             stats.taskManagerBytes = stats.privateWorkingSetBytes;
         }
-        else
+        else if ( includePrivateWorkingSet )
         {
             strcpy_s( stats.taskManagerMetricName, sizeof( stats.taskManagerMetricName ), "working_set_fallback" );
+            stats.taskManagerBytes = stats.workingSetBytes;
+        }
+        else
+        {
+            // Why: F6 memory UI runs on the render thread. GetProcessMemoryInfo
+            // is a bounded counter query, while private working set requires an
+            // address-space walk over committed pages and can stall a frame.
+            strcpy_s( stats.taskManagerMetricName, sizeof( stats.taskManagerMetricName ), "working_set_fast" );
             stats.taskManagerBytes = stats.workingSetBytes;
         }
     }
@@ -266,7 +276,7 @@ void RuntimeDiagnostics::LogPerfMemory( RunPerfLogState& perfLog, int pass, cons
         return;
     }
 
-    const MainMemoryProcessStats stats = SampleProcessMemory();
+    const MainMemoryProcessStats stats = SampleProcessMemory( true );
     if ( stats.available )
     {
         const double taskManagerMb = static_cast<double>( stats.taskManagerBytes ) / ( 1024.0 * 1024.0 );

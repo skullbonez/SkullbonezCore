@@ -5,15 +5,15 @@ Purpose:
 
 Mental model:
   The memory tab is a read-only view over cached runtime diagnostics. Runtime
-  owns sampling process, replay, model, and reserve-growth data; UI only formats
-  the frame snapshot it was handed.
+  owns any process sampling; the F6 overlay reads tracked/cached counters and
+  reserve-growth events without initiating diagnostics work.
 
 Glossary:
   Reserve growth event: A replay-approved vector reserve bump with a named owner,
     target structure, frame, capacity delta, and byte size.
   Main memory: Coarsely reconciled process, replay, and game-object memory stats.
-  Memory waterline: Compact F6 overlay that tracks the current process-memory
-    level while keeping allocator events pinned instead of time-scrolling them.
+  Memory waterline: Compact F6 overlay that tracks known engine memory and
+    pinned reserve-growth events without polling process memory.
 
 Invariants:
   - Drawing the tab must not allocate or resample memory directly.

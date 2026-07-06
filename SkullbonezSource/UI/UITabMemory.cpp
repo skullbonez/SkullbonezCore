@@ -4,16 +4,15 @@ Purpose:
   Draws the in-engine memory diagnostics tab.
 
 Mental model:
-  Runtime refreshes memory data before UI drawing when the Memory tab or F6
-  overlay is active. This file renders that snapshot into compact rows or a
-  small waterline overlay so replay reserve growth can be audited without
-  opening the stdout log.
+  Runtime refreshes memory data for the Memory tab, while the F6 overlay renders
+  tracked/cached counters and reserve-growth events without sampling process
+  memory. This file formats those snapshots without owning any sampling policy.
 
 Glossary:
   Allocation size: Bytes newly reserved by a successful growth request.
   Capacity span: Old, requested, and granted element capacities for the target.
-  Memory waterline: Compact overlay that tracks the current process-memory
-    level while keeping allocator events pinned instead of time-scrolling them.
+  Memory waterline: Compact overlay that tracks known engine memory and pinned
+    reserve-growth events without polling process memory.
 
 Invariants:
   - Formatting uses stack buffers only; memory diagnostics must not allocate.

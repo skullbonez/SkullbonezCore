@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 45, "showReplayScrubber": true },
+    { "frame": 60, "clickReplayControl": "velocity" },
+    { "frame": 78, "clickObject": "prediction_striker_ball", "button": "left" },
+    { "frame": 110, "assert": { "replayPathTarget": "prediction_striker_ball" } },
+    { "frame": 110, "assert": { "replayPredictionEnabled": true } },
+    { "frame": 120, "screenshot": "TestOutput\\interaction\\prediction_ragdoll_wall_200_velocity_pick.bmp" }
+  ]
+}

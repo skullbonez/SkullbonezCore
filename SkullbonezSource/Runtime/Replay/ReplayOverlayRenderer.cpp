@@ -11,8 +11,8 @@ Glossary:
   UI (User Interface): Runtime controls and overlays drawn over the 3D scene.
   Scrubber: Replay timeline UI for retained samples, loaded artifacts, and
     future prediction frames.
-  Cause tree: Contact/solver explanation view rooted at the selected replay
-    body.
+  Cause tree: Contact, solver, and predicted-motion explanation view rooted at
+    the selected replay body.
   Presentation sample: Render-only replay pose used for visual scrub previews.
   Solver sample: Replay frame with solver snapshot data used for restore and
     inspection.
@@ -857,6 +857,9 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
         case RunReplayCauseTreeRowKind::PredictionContact:
             strncpy_s( prefix, sizeof( prefix ), "CONTACT", _TRUNCATE );
             break;
+        case RunReplayCauseTreeRowKind::PredictionMotion:
+            strncpy_s( prefix, sizeof( prefix ), "MOTION", _TRUNCATE );
+            break;
         }
 
         char label[144] = {};
@@ -888,6 +891,12 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
             markerR = 0.38f;
             markerG = 1.0f;
             markerB = 0.58f;
+        }
+        else if ( row.kind == RunReplayCauseTreeRowKind::PredictionMotion )
+        {
+            markerR = 1.0f;
+            markerG = 0.72f;
+            markerB = 0.20f;
         }
 
         const float markerX = rowRect.x + 8.0f + indent;

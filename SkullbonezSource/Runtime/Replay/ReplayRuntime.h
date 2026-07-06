@@ -12,8 +12,8 @@ Glossary:
   Presentation track: Render-facing replay samples used for visual scrubbing.
   Solver track: Physics-facing samples and snapshots used for deterministic
     inspection and rollback.
-  Cause tree: Replay contact graph used by the tool UI to explain which body or
-    contact caused another replay body to matter.
+  Cause tree: Replay graph used by the tool UI to explain which contact or
+    predicted movement caused another replay body to matter.
   Body store: Physics-owned live body records used for pose and velocity
     authority while legacy GameModel mirrors are retired.
   Collider store: Physics-owned shape, material, and radius records paired with
@@ -51,6 +51,7 @@ Related:
 #include "../../Rendering/RenderInstanceStore.h"
 
 #include <array>
+#include <chrono>
 
 namespace SkullbonezCore
 {
@@ -117,6 +118,7 @@ struct RunReplayPathTraceNode
     Math::Vector::Vector3 contactPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 contactNormal = Math::Vector::ZERO_VECTOR;
     int depth = 0;
+    bool contactDerived = true;     // False when prediction inferred the child from pose divergence.
 };
 
 struct RunReplayPathTarget
@@ -132,7 +134,8 @@ enum class RunReplayCameraFocusKind
     Body,
     Manifold,
     SolverRow,
-    PredictionContact
+    PredictionContact,
+    PredictionMotion
 };
 
 enum class RunReplayCauseTreeRowKind
@@ -140,7 +143,8 @@ enum class RunReplayCauseTreeRowKind
     Body,
     Manifold,
     SolverRow,
-    PredictionContact
+    PredictionContact,
+    PredictionMotion
 };
 
 struct RunReplayCameraState
@@ -260,6 +264,7 @@ struct RunReplayPredictionBodySample
     int modelIndex = -1;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
+    Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR; // m/s-equivalent simulation units.
 };
 
 struct RunReplayPredictionFrame
@@ -311,10 +316,10 @@ struct RunReplayPredictionState
     // frames, not the pre-sized build vector, until completion swaps them.
     std::vector<RunReplayPredictionFrame> buildFrames;
     std::size_t buildFrameCount = 0;
-    // Renderable future-contact topology. Build work publishes coherent prefixes
+    // Renderable future-impact topology. Build work publishes coherent prefixes
     // here so the draw path never reads the scratch vector while it is mid-frame.
     std::vector<RunReplayPathTraceNode> futureNodes;
-    // Scratch future-contact topology advanced under the visualizer budget.
+    // Scratch future-impact topology advanced under the visualizer budget.
     std::vector<RunReplayPathTraceNode> futureNodeBuildScratch;
     // Incremental tree cursors. Prediction can contain thousands of frames, so
     // futureNodeBuildScratch is built over multiple render frames and copied to
@@ -325,6 +330,13 @@ struct RunReplayPredictionState
     bool futureNodesBuiltRagdollVisuals = false;
     bool futureNodesBuiltFromBuildFrames = false;
     bool futureNodesCacheValid = false;
+    // Concept: reveal anchor — wall-clock start of the causal-unfold animation.
+    // The overlay clamps drawn prediction frames to a cursor derived from this
+    // anchor so the tree unfolds over real time instead of popping in whole.
+    // Overlay-only pacing state: it never feeds physics, replay samples, or
+    // solver restores, so steady_clock here cannot affect determinism.
+    std::chrono::steady_clock::time_point revealAnchor = {};
+    bool revealAnchorValid = false;
 };
 
 struct RunReplayVelocityEditState

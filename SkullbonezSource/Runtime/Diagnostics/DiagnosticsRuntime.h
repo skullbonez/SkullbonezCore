@@ -12,6 +12,8 @@ Glossary:
   Capture controller: Screenshot trigger and automation state.
   Diagnostics controller: Perf CSV and queryable physics diagnostic state.
   Artifact path: Validation-facing output path that must stay stable.
+  Private working set: Resident process pages not shared with other processes;
+    matching it requires a page-level OS query.
 
 Invariants:
   - Artifact formatting stays in RuntimeDiagnostics and CaptureSystem.
@@ -57,11 +59,13 @@ class DiagnosticsRuntime
     const MainMemoryStats& RefreshMainMemoryStats( const ReplayRuntime& replay,
                                                    const GameObjects::GameModelCollection& models,
                                                    double nowSeconds,
-                                                   bool force );
+                                                   bool force,
+                                                   bool includePrivateWorkingSet = true );
     const MainMemoryStats& RefreshMainMemoryStats( const ReplayRuntime& replay,
                                                    const MainMemoryGameObjectStats& gameObjects,
                                                    double nowSeconds,
-                                                   bool force );
+                                                   bool force,
+                                                   bool includePrivateWorkingSet = true );
     const MainMemoryStats& MainMemoryStatsSnapshot() const;
     void SetMainMemoryDumpPath( const char* path );
     const char* MainMemoryDumpPath() const;
@@ -149,6 +153,8 @@ class DiagnosticsRuntime
     DiagnosticsController m_diagnostics;            // Perf/test logs and queryable physics diagnostic trace
     MainMemoryStats m_mainMemoryStats;              // Cached process/replay/model memory snapshot for UI and dumps.
     double m_lastMainMemorySampleSeconds = -1000.0; // Coarse sampling guard so UI draw does not rescan every frame.
+    // Cache-mode guard: a deep diagnostics caller cannot reuse a recent fast UI sample.
+    bool m_lastMainMemorySampleUsedPrivateWorkingSetQuery = false;
     char m_mainMemoryDumpPath[260] = {};            // CLI --memory-dump output path; empty disables shutdown dump.
     UIStressState m_uiStress;                       // Deterministic UI stress run state
 };
