@@ -15,8 +15,8 @@ Glossary:
     descriptors create PhysicsBodyStore rows.
   Contact policy: Terrain and contact thresholds owned by PhysicsScene so
     existing and newly added models receive the same physics policy.
-  Body descriptor: Value packet containing authoring body facts that
-    PhysicsScene turns into a live PhysicsBodyStore row.
+  Body descriptor: PhysicsScene-owned authoring value that can rebuild a live
+    PhysicsBodyStore row without reading GameModel physics fields.
   Render instance store: Renderer-facing snapshot built from physics-owned pose
     and model-owned material/presentation state before frame passes.
   Collider descriptor: Value packet containing shape/material facts that
@@ -37,7 +37,8 @@ Invariants:
     render batches, and scene snapshots. Replay ids live in PhysicsBodyStore
     rows after append.
   - Scene-object group records are a same-length sidecar keyed by model slot;
-    GameModel does not carry runtime grouping fields.
+    GameModel does not carry runtime grouping fields. PhysicsScene owns the
+    same-order authored body descriptors.
   - Render prep imports store-backed snapshots once before frame passes; render
     code must not rebuild model-derived pose streams.
   - Owner-side release paths repair topology once before resolving body handles
@@ -132,7 +133,7 @@ void GameModelCollection::ReserveForActiveGameModelCapacity()
     const std::size_t capacity = static_cast<std::size_t>( m_activeGameModelCapacity );
     m_gameModels.reserve( capacity );
     m_sceneObjectGroups.reserve( capacity );
-    m_authoredBodyDescs.reserve( capacity );
+    m_physicsEngine.ReserveAuthoredBodyCapacity( capacity );
     m_renderPresentationRecords.reserve( capacity );
 }
 
@@ -209,7 +210,8 @@ GameModelCollection::BuildReplayBodyIdsForReload( const SkullbonezCore::Physics:
         }
         // Why: body topology repair is cold. Existing rows preserve their
         // PhysicsBodyStore-owned replay id; only genuinely missing rows allocate
-        // a fresh local scratch id rather than keeping collection authority.
+        // a fresh local scratch id until PHYS-006/013 move this to the body
+        // store repair owner.
         if ( replayBodyId == 0 )
         {
             if ( nextReplayBodyId == ( std::numeric_limits<uint32_t>::max )() )
@@ -236,30 +238,26 @@ std::vector<int> GameModelCollection::BuildFixedTreeReleaseRootsForReload() cons
 }
 
 
-std::vector<PhysicsBodyCreateDesc>
-GameModelCollection::BuildBodyCreateDescsForReload( const SkullbonezCore::Physics::PhysicsBodyStore& bodyStore )
+std::vector<const char*> GameModelCollection::BuildDiagnosticNamesForReload() const
 {
-    std::vector<uint32_t> replayBodyIds = BuildReplayBodyIdsForReload( bodyStore );
-    std::vector<int> fixedTreeReleaseRoots = BuildFixedTreeReleaseRootsForReload();
-    assert( replayBodyIds.size() == m_authoredBodyDescs.size() );
-    assert( fixedTreeReleaseRoots.size() == m_authoredBodyDescs.size() );
-
-    std::vector<PhysicsBodyCreateDesc> bodyDescs;
-    bodyDescs.reserve( m_authoredBodyDescs.size() );
-    for ( int i = 0; i < static_cast<int>( m_authoredBodyDescs.size() ); ++i )
+    std::vector<const char*> diagnosticNames;
+    diagnosticNames.reserve( m_gameModels.size() );
+    for ( const GameModel& model : m_gameModels )
     {
-        PhysicsBodyCreateDesc desc = m_authoredBodyDescs[static_cast<std::size_t>( i )];
-        desc.sceneObjectId = SkullbonezCore::Physics::MakePhysicsSceneObjectIdFromReplayBodyId(
-            replayBodyIds[static_cast<std::size_t>( i )] );
-        desc.fixedTreeReleaseRootIndex = fixedTreeReleaseRoots[static_cast<std::size_t>( i )];
-        if ( i < static_cast<int>( m_gameModels.size() ) )
-        {
-            desc.diagnosticName = m_gameModels[static_cast<std::size_t>( i )].GetName();
-        }
-        m_physicsEngine.ApplyAuthoredBodyPolicy( desc );
-        bodyDescs.push_back( desc );
+        diagnosticNames.push_back( model.GetName() );
     }
-    return bodyDescs;
+    return diagnosticNames;
+}
+
+
+bool GameModelCollection::RefreshPhysicsBodyStoreFromAuthoredDescriptors()
+{
+    const std::vector<uint32_t> replayBodyIds = BuildReplayBodyIdsForReload( m_physicsEngine.BodyStore() );
+    const std::vector<int> fixedTreeReleaseRoots = BuildFixedTreeReleaseRootsForReload();
+    const std::vector<const char*> diagnosticNames = BuildDiagnosticNamesForReload();
+    return m_physicsEngine.RefreshBodyStoreFromAuthoredDescriptors( replayBodyIds,
+                                                                    fixedTreeReleaseRoots,
+                                                                    diagnosticNames );
 }
 
 
@@ -283,12 +281,6 @@ void GameModelCollection::ApplyRuntimeConfig( const Basics::EngineConfig& config
     m_renderCollisionVolumes = config.runtimeRender.renderCollisionVolumes;
     m_shadowParallelPrep = config.shadowParallelPrep;
     m_physicsEngine.ApplyRuntimeConfig( config );
-    for ( int i = 0; i < static_cast<int>( m_authoredBodyDescs.size() ); ++i )
-    {
-        // Why: descriptor sidecars remain in collection until PHYS-003/014, but
-        // the runtime config values copied onto them belong to PhysicsScene.
-        m_physicsEngine.ApplyAuthoredBodyPolicy( m_authoredBodyDescs[static_cast<std::size_t>( i )] );
-    }
 }
 
 
@@ -358,10 +350,8 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
     bodyDesc.fixedTreeReleaseRootIndex =
         groupRecord.kind == GameModelCollectionKind::ReleasableTree ? groupRecord.rootModelIndex : -1;
     bodyDesc.diagnosticName = gameModel.GetName();
-    m_physicsEngine.ApplyAuthoredBodyPolicy( bodyDesc );
     m_gameModels.push_back( std::move( gameModel ) );
     m_sceneObjectGroups.push_back( groupRecord );
-    m_authoredBodyDescs.push_back( bodyDesc );
     const PhysicsBodyHandle bodyHandle = m_physicsEngine.RegisterAuthoredBody( bodyDesc );
     const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForHandle( bodyHandle );
     assert( bodyRecord != nullptr );
@@ -392,7 +382,6 @@ void GameModelCollection::Clear()
 {
     m_gameModels.clear();
     m_sceneObjectGroups.clear();
-    m_authoredBodyDescs.clear();
     m_renderPresentationRecords.clear();
     m_physicsEngine.Clear();
 }
@@ -870,9 +859,9 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
         return false;
     }
 
-    if ( index < static_cast<int>( m_authoredBodyDescs.size() ) )
+    PhysicsBodyCreateDesc desc;
+    if ( m_physicsEngine.TryGetAuthoredBodyDescriptor( index, desc ) )
     {
-        PhysicsBodyCreateDesc& desc = m_authoredBodyDescs[static_cast<std::size_t>( index )];
         desc.sceneObjectId = bodyRecord->sceneObjectId;
         desc.position = position;
         desc.orientation = orientation;
@@ -883,7 +872,10 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
         desc.motionKind = fixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
         desc.diagnosticName = m_gameModels[static_cast<std::size_t>( index )].GetName();
         desc.fixedTreeReleaseRootIndex = FixedTreeReleaseRootForModelIndex( index );
-        m_physicsEngine.ApplyAuthoredBodyPolicy( desc );
+        if ( !m_physicsEngine.UpdateAuthoredBodyDescriptor( index, desc, GetModelCount() ) )
+        {
+            return false;
+        }
     }
     return true;
 }
@@ -999,13 +991,15 @@ bool GameModelCollection::TrimModelsForReplayRestore( int modelCount )
     {
         return false;
     }
+    if ( !m_physicsEngine.TrimAuthoredBodyDescriptorsToCount( modelCount ) )
+    {
+        return false;
+    }
     if ( targetCount < m_gameModels.size() )
     {
         m_gameModels.erase( m_gameModels.begin() + static_cast<std::ptrdiff_t>( targetCount ), m_gameModels.end() );
         m_sceneObjectGroups.erase( m_sceneObjectGroups.begin() + static_cast<std::ptrdiff_t>( targetCount ),
                                    m_sceneObjectGroups.end() );
-        m_authoredBodyDescs.erase( m_authoredBodyDescs.begin() + static_cast<std::ptrdiff_t>( targetCount ),
-                                   m_authoredBodyDescs.end() );
     }
     return true;
 }
@@ -1061,8 +1055,7 @@ bool GameModelCollection::RepairPhysicsBodyTopology()
         // Invariant: topology repair imports construction rows only. Same-count
         // state edits are physics-store authority and must not be overwritten by
         // a convenience read that rebuilds descriptor rows.
-        std::vector<PhysicsBodyCreateDesc> bodyDescs = BuildBodyCreateDescsForReload( m_physicsEngine.BodyStore() );
-        m_physicsEngine.RefreshBodyStore( bodyDescs );
+        (void)RefreshPhysicsBodyStoreFromAuthoredDescriptors();
     }
     return m_physicsEngine.BodyStore().Count() == ModelCount();
 }
@@ -1081,8 +1074,7 @@ bool GameModelCollection::RepairPhysicsBodyAndColliderTopology()
         // shape facts from GameModel.
         if ( bodyTopologyChanged )
         {
-            std::vector<PhysicsBodyCreateDesc> bodyDescs = BuildBodyCreateDescsForReload( m_physicsEngine.BodyStore() );
-            m_physicsEngine.RefreshBodyStore( bodyDescs );
+            (void)RefreshPhysicsBodyStoreFromAuthoredDescriptors();
         }
         const bool colliderBindingsReady = m_physicsEngine.RefreshColliderSnapshot();
         return m_physicsEngine.BodyStore().Count() == modelCount && m_physicsEngine.Colliders().Count() == modelCount &&
@@ -1221,15 +1213,17 @@ bool GameModelCollection::ApplyPhysicsBodyEdit( int modelIndex, const PhysicsBod
 
     // Invariant: cold editor/replay commands provide the changed body values.
     // Unchanged fields come from PhysicsBodyStore, not the presentation row.
-    if ( static_cast<int>( m_authoredBodyDescs.size() ) != modelCount )
+    if ( m_physicsEngine.AuthoredBodyDescriptorCount() != modelCount )
     {
         return false;
     }
 
     if ( m_physicsEngine.BodyStore().Count() != modelCount )
     {
-        std::vector<PhysicsBodyCreateDesc> bodyDescs = BuildBodyCreateDescsForReload( m_physicsEngine.BodyStore() );
-        m_physicsEngine.RefreshBodyStore( bodyDescs );
+        if ( !RefreshPhysicsBodyStoreFromAuthoredDescriptors() )
+        {
+            return false;
+        }
     }
 
     const PhysicsBodyRecord* bodyRecord = m_physicsEngine.BodyStore().RecordForModelIndex( modelIndex );
@@ -1238,14 +1232,21 @@ bool GameModelCollection::ApplyPhysicsBodyEdit( int modelIndex, const PhysicsBod
         return false;
     }
 
-    PhysicsBodyCreateDesc bodyDesc = m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )];
+    PhysicsBodyCreateDesc bodyDesc;
+    if ( !m_physicsEngine.TryGetAuthoredBodyDescriptor( modelIndex, bodyDesc ) )
+    {
+        return false;
+    }
     RefreshBodyDescFromStoreBodyState( *bodyRecord, edit, bodyDesc, FixedTreeReleaseRootForModelIndex( modelIndex ) );
-    m_physicsEngine.ApplyAuthoredBodyPolicy( bodyDesc );
-    m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )] = bodyDesc;
+    if ( !m_physicsEngine.UpdateAuthoredBodyDescriptor( modelIndex, bodyDesc, modelCount ) )
+    {
+        return false;
+    }
     m_physicsEngine.RefreshBodyFromDescriptor( bodyDesc, modelIndex, modelCount );
 
-    // Why: body edits now stop at PhysicsBodyStore/m_authoredBodyDescs. Render,
-    // replay, snapshots, and editor wake checks read those stores directly.
+    // Why: body edits now stop at PhysicsBodyStore and PhysicsScene authored
+    // descriptors. Render, replay, snapshots, and editor wake checks read those
+    // stores directly.
     return true;
 }
 
@@ -1264,15 +1265,17 @@ bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
     // body row first, then replace exactly one collider row by stable handle.
     // Count drift still goes through topology repair because missing rows cannot
     // be patched by a single descriptor.
-    if ( static_cast<int>( m_authoredBodyDescs.size() ) != modelCount )
+    if ( m_physicsEngine.AuthoredBodyDescriptorCount() != modelCount )
     {
         return false;
     }
 
     if ( m_physicsEngine.BodyStore().Count() != modelCount )
     {
-        std::vector<PhysicsBodyCreateDesc> bodyDescs = BuildBodyCreateDescsForReload( m_physicsEngine.BodyStore() );
-        m_physicsEngine.RefreshBodyStore( bodyDescs );
+        if ( !RefreshPhysicsBodyStoreFromAuthoredDescriptors() )
+        {
+            return false;
+        }
     }
 
     const PhysicsBodyRecord* existingBody = m_physicsEngine.BodyStore().RecordForModelIndex( modelIndex );
@@ -1280,7 +1283,11 @@ bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
     {
         return false;
     }
-    PhysicsBodyCreateDesc bodyDesc = m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )];
+    PhysicsBodyCreateDesc bodyDesc;
+    if ( !m_physicsEngine.TryGetAuthoredBodyDescriptor( modelIndex, bodyDesc ) )
+    {
+        return false;
+    }
     RefreshBodyDescFromStoreBodyState( *existingBody, edit, bodyDesc, FixedTreeReleaseRootForModelIndex( modelIndex ) );
     bodyDesc.shape = colliderDesc.shape;
     bodyDesc.boundingRadius = Math::CollisionDetection::GetShapeBoundingRadius( bodyDesc.shape );
@@ -1288,8 +1295,10 @@ bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
     bodyDesc.projectedSurfaceArea = Math::CollisionDetection::GetShapeProjectedSurfaceArea( bodyDesc.shape );
     bodyDesc.dragCoefficient = Math::CollisionDetection::GetShapeDragCoefficient( bodyDesc.shape );
     bodyDesc.usesWorldInertia = !std::holds_alternative<BoundingSphere>( bodyDesc.shape );
-    m_physicsEngine.ApplyAuthoredBodyPolicy( bodyDesc );
-    m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )] = bodyDesc;
+    if ( !m_physicsEngine.UpdateAuthoredBodyDescriptor( modelIndex, bodyDesc, modelCount ) )
+    {
+        return false;
+    }
     m_physicsEngine.RefreshBodyFromDescriptor( bodyDesc, modelIndex, modelCount );
 
     const bool colliderBindingsReady = m_physicsEngine.RefreshColliderSnapshot();
@@ -1316,7 +1325,7 @@ bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
     (void)m_physicsEngine.UpdateAuthoredCollider( collider, colliderDesc );
 
     // Why: shape/body edits now stop at ColliderStore/PhysicsBodyStore plus the
-    // descriptor sidecar. GameModel keeps presentation metadata only.
+    // PhysicsScene descriptor store. GameModel keeps presentation metadata only.
     return true;
 }
 

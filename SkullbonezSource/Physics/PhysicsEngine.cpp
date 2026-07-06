@@ -56,9 +56,47 @@ void PhysicsEngine::ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc
 }
 
 
+void PhysicsEngine::ReserveAuthoredBodyCapacity( std::size_t capacity )
+{
+    m_scene.ReserveAuthoredBodyCapacity( capacity );
+}
+
+
+int PhysicsEngine::AuthoredBodyDescriptorCount() const
+{
+    return m_scene.AuthoredBodyDescriptorCount();
+}
+
+
+bool PhysicsEngine::TryGetAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& outDesc ) const
+{
+    return m_scene.TryGetAuthoredBodyDescriptor( modelIndex, outDesc );
+}
+
+
+bool PhysicsEngine::UpdateAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& desc, int expectedModelCount )
+{
+    return m_scene.UpdateAuthoredBodyDescriptor( modelIndex, desc, expectedModelCount );
+}
+
+
+bool PhysicsEngine::TrimAuthoredBodyDescriptorsToCount( int bodyCount )
+{
+    return m_scene.TrimAuthoredBodyDescriptorsToCount( bodyCount );
+}
+
+
 void PhysicsEngine::Clear()
 {
     m_scene.Clear();
+}
+
+
+bool PhysicsEngine::RefreshBodyStoreFromAuthoredDescriptors( const std::vector<uint32_t>& replayBodyIds,
+                                                             const std::vector<int>& fixedTreeReleaseRoots,
+                                                             const std::vector<const char*>& diagnosticNames )
+{
+    return m_scene.RefreshBodyStoreFromAuthoredDescriptors( replayBodyIds, fixedTreeReleaseRoots, diagnosticNames );
 }
 
 

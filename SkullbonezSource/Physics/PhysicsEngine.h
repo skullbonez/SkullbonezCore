@@ -29,6 +29,8 @@ Related:
 */
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <vector>
 
 #include "PhysicsScene.h"
@@ -65,7 +67,15 @@ class PhysicsEngine
     // descriptors before they become store rows.
     void ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const;
     void ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc ) const;
+    void ReserveAuthoredBodyCapacity( std::size_t capacity );
+    int AuthoredBodyDescriptorCount() const;
+    bool TryGetAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& outDesc ) const;
+    bool UpdateAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& desc, int expectedModelCount );
+    bool TrimAuthoredBodyDescriptorsToCount( int bodyCount );
     void Clear();
+    bool RefreshBodyStoreFromAuthoredDescriptors( const std::vector<uint32_t>& replayBodyIds,
+                                                  const std::vector<int>& fixedTreeReleaseRoots,
+                                                  const std::vector<const char*>& diagnosticNames );
     void RefreshBodyStore( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
     // Owner passes the expected count so single-row descriptor commits cannot
     // paper over topology drift.

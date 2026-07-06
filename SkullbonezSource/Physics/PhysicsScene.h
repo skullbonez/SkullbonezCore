@@ -34,6 +34,8 @@ Related:
 */
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <vector>
 
 #include "ColliderStore.h"
@@ -75,7 +77,18 @@ class PhysicsScene
     // storage may still live outside PhysicsScene, but policy values do not.
     void ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const;
     void ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc ) const;
+    // Caller contract: authored body descriptors are cold scene-authoring rows
+    // keyed by model order. Collection may supply replay/grouping scalars, but
+    // it must not keep a competing body descriptor sidecar.
+    void ReserveAuthoredBodyCapacity( std::size_t capacity );
+    int AuthoredBodyDescriptorCount() const;
+    bool TryGetAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& outDesc ) const;
+    bool UpdateAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& desc, int expectedModelCount );
+    bool TrimAuthoredBodyDescriptorsToCount( int bodyCount );
     void Clear();
+    bool RefreshBodyStoreFromAuthoredDescriptors( const std::vector<uint32_t>& replayBodyIds,
+                                                  const std::vector<int>& fixedTreeReleaseRoots,
+                                                  const std::vector<const char*>& diagnosticNames );
     void RefreshBodyStore( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
     // Owner passes the expected count so one-row descriptor commits stay a
     // same-topology edit and cannot hide missing body rows.
@@ -203,16 +216,17 @@ class PhysicsScene
     void ValidateRenderStoreMappings( int modelCount ) const;
 #endif
 
-    PhysicsWorld m_world;                                 // Deterministic solver and debug state over body-store records.
-    PhysicsBodyStore m_bodyStore;                         // Mutable body state in model/replay order.
-    ColliderStore m_colliderStore;                        // Collider snapshot in model/replay order.
-    Rendering::RenderInstanceStore m_renderInstanceStore; // Render snapshot in model/replay order.
-    PhysicsMaterial m_physicsMaterial;                    // Runtime material policy copied into body/collider descriptors.
-    BodySimulationLimits m_bodySimulationLimits;          // Runtime body caps copied at authoring/import boundaries.
-    ContactPolicy m_contactPolicy;                        // Runtime contact thresholds copied at authoring/import boundaries.
-    PhysicsWorldForces m_lastWorldForces;                 // Last real step boundary forces used by explicit wake commands.
-    bool m_hasLastWorldForces = false;                    // False until the first physics step supplies world forces.
-    std::vector<int> m_fixedTreeReleaseWakeBodies;        // Reused scene-edge wake list; avoids release-time allocation churn.
+    PhysicsWorld m_world;                                   // Deterministic solver and debug state over body-store records.
+    std::vector<PhysicsBodyCreateDesc> m_authoredBodyDescs; // Cold body authoring descriptors keyed by scene/model order.
+    PhysicsBodyStore m_bodyStore;                           // Mutable body state in model/replay order.
+    ColliderStore m_colliderStore;                          // Collider snapshot in model/replay order.
+    Rendering::RenderInstanceStore m_renderInstanceStore;   // Render snapshot in model/replay order.
+    PhysicsMaterial m_physicsMaterial;                      // Runtime material policy copied into body/collider descriptors.
+    BodySimulationLimits m_bodySimulationLimits;            // Runtime body caps copied at authoring/import boundaries.
+    ContactPolicy m_contactPolicy;                          // Runtime contact thresholds copied at authoring/import boundaries.
+    PhysicsWorldForces m_lastWorldForces;                   // Last real step boundary forces used by explicit wake commands.
+    bool m_hasLastWorldForces = false;                      // False until the first physics step supplies world forces.
+    std::vector<int> m_fixedTreeReleaseWakeBodies;          // Reused scene-edge wake list; avoids release-time allocation churn.
 };
 } // namespace Physics
 } // namespace SkullbonezCore

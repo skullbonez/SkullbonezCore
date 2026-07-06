@@ -17,8 +17,8 @@ Glossary:
     descriptors create PhysicsBodyStore rows.
   Contact policy: Terrain and contact thresholds owned by PhysicsScene so
     existing and newly added models receive the same physics policy.
-  Body descriptor: Value packet containing authoring body facts that
-    PhysicsScene turns into a live PhysicsBodyStore row.
+  Body descriptor: PhysicsScene-owned authoring value that can rebuild a live
+    PhysicsBodyStore row without reading GameModel physics fields.
   Render instance store: Renderer-facing snapshot built once before frame passes
     so draw code can read physics-owned transforms without GameModel pose copies.
   Topology drift: A body/collider/model count mismatch that means stores must
@@ -39,10 +39,9 @@ Glossary:
 Invariants:
   - m_gameModels is the stable scene-order owner; collaborators mirror or view
     that order rather than replacing it.
-  - m_sceneObjectGroups and m_authoredBodyDescs are same-length sidecars keyed
-    by m_gameModels slot. GameModel does not own runtime grouping fields, and
-    body-store topology repair reloads from descriptor rows rather than model
-    physics fields.
+  - m_sceneObjectGroups is a same-length sidecar keyed by m_gameModels slot.
+    GameModel does not own runtime grouping fields; PhysicsScene owns body
+    descriptor rows for topology repair.
   - Replay identity lives in PhysicsBodyStore rows after creation. Collection
     code receives scene-owned ids at creation and does not allocate them.
   - Collider shape/material data is imported into ColliderStore at create,
@@ -169,9 +168,6 @@ class GameModelCollection
     // of GameModel preserves the model vector for authored presentation data
     // while collection-order systems still get O(1) group lookup by model slot.
     std::vector<SceneObjectGroupRecord> m_sceneObjectGroups;
-    // Same-length authoring rows for body-store topology repair. Editor/replay
-    // commits update these before refreshing PhysicsBodyStore rows.
-    std::vector<Physics::PhysicsBodyCreateDesc> m_authoredBodyDescs;
     Physics::PhysicsEngine m_physicsEngine;
     Threading::WorkerPool* m_workerPool = nullptr;               // Borrowed startup worker pool for render/physics parallel helpers.
     int m_activeGameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY; // Configured model cap used by append/reserve guards.
@@ -189,8 +185,8 @@ class GameModelCollection
     // Owner boundary: fixed-tree grouping is collection metadata. Body-store
     // import receives only the scalar root, never collection-kind accessors.
     std::vector<int> BuildFixedTreeReleaseRootsForReload() const;
-    std::vector<Physics::PhysicsBodyCreateDesc>
-    BuildBodyCreateDescsForReload( const Physics::PhysicsBodyStore& bodyStore );
+    std::vector<const char*> BuildDiagnosticNamesForReload() const;
+    bool RefreshPhysicsBodyStoreFromAuthoredDescriptors();
     int FixedTreeReleaseRootForModelIndex( int modelIndex ) const;
     void RefreshRenderInstances();
     Physics::PhysicsBodyHandle AppendGameModelAndPhysicsRows( GameModel gameModel,

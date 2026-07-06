@@ -118,6 +118,10 @@ void PhysicsScene::ApplyRuntimeConfig( const Basics::EngineConfig& config )
     m_contactPolicy = ContactPolicy::FromConfig( config );
     m_world.ApplyRuntimeConfig( config );
     m_colliderStore.ApplyPhysicsMaterial( m_physicsMaterial );
+    for ( PhysicsBodyCreateDesc& desc : m_authoredBodyDescs )
+    {
+        ApplyAuthoredBodyPolicy( desc );
+    }
 }
 
 
@@ -145,12 +149,94 @@ void PhysicsScene::ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc 
 }
 
 
+void PhysicsScene::ReserveAuthoredBodyCapacity( std::size_t capacity )
+{
+    m_authoredBodyDescs.reserve( capacity );
+}
+
+
+int PhysicsScene::AuthoredBodyDescriptorCount() const
+{
+    return static_cast<int>( m_authoredBodyDescs.size() );
+}
+
+
+bool PhysicsScene::TryGetAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& outDesc ) const
+{
+    if ( modelIndex < 0 || modelIndex >= AuthoredBodyDescriptorCount() )
+    {
+        return false;
+    }
+    outDesc = m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )];
+    return true;
+}
+
+
+bool PhysicsScene::UpdateAuthoredBodyDescriptor( int modelIndex, PhysicsBodyCreateDesc& desc, int expectedModelCount )
+{
+    if ( modelIndex < 0 || modelIndex >= expectedModelCount || expectedModelCount != AuthoredBodyDescriptorCount() )
+    {
+        return false;
+    }
+    ApplyAuthoredBodyPolicy( desc );
+    m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )] = desc;
+    return true;
+}
+
+
+bool PhysicsScene::TrimAuthoredBodyDescriptorsToCount( int bodyCount )
+{
+    if ( bodyCount < 0 )
+    {
+        return false;
+    }
+    const std::size_t targetCount = static_cast<std::size_t>( bodyCount );
+    if ( targetCount > m_authoredBodyDescs.size() )
+    {
+        return false;
+    }
+    m_authoredBodyDescs.erase( m_authoredBodyDescs.begin() + static_cast<std::ptrdiff_t>( targetCount ),
+                               m_authoredBodyDescs.end() );
+    return AuthoredBodyDescriptorCount() == bodyCount;
+}
+
+
 void PhysicsScene::Clear()
 {
     m_world.Clear();
+    m_authoredBodyDescs.clear();
     m_bodyStore.Clear();
     m_colliderStore.Clear();
     m_renderInstanceStore.Clear();
+}
+
+
+bool PhysicsScene::RefreshBodyStoreFromAuthoredDescriptors( const std::vector<uint32_t>& replayBodyIds,
+                                                            const std::vector<int>& fixedTreeReleaseRoots,
+                                                            const std::vector<const char*>& diagnosticNames )
+{
+    const std::size_t descriptorCount = m_authoredBodyDescs.size();
+    if ( replayBodyIds.size() != descriptorCount || fixedTreeReleaseRoots.size() != descriptorCount ||
+         diagnosticNames.size() != descriptorCount )
+    {
+        return false;
+    }
+
+    std::vector<PhysicsBodyCreateDesc> bodyDescs;
+    bodyDescs.reserve( descriptorCount );
+
+    for ( int i = 0; i < static_cast<int>( descriptorCount ); ++i )
+    {
+        PhysicsBodyCreateDesc desc = m_authoredBodyDescs[static_cast<std::size_t>( i )];
+        desc.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( replayBodyIds[static_cast<std::size_t>( i )] );
+        desc.fixedTreeReleaseRootIndex = fixedTreeReleaseRoots[static_cast<std::size_t>( i )];
+        desc.diagnosticName = diagnosticNames[static_cast<std::size_t>( i )];
+        ApplyAuthoredBodyPolicy( desc );
+        bodyDescs.push_back( desc );
+    }
+
+    RefreshBodyStore( bodyDescs );
+    return m_bodyStore.Count() == AuthoredBodyDescriptorCount();
 }
 
 
@@ -179,7 +265,10 @@ void PhysicsScene::RefreshBodyFromDescriptor( const PhysicsBodyCreateDesc& desc,
 
 PhysicsBodyHandle PhysicsScene::RegisterAuthoredBody( const PhysicsBodyCreateDesc& desc )
 {
-    return m_bodyStore.CreateBodyRecord( desc, m_world.IsPhysicsSleepEnabled() );
+    PhysicsBodyCreateDesc authoredDesc = desc;
+    ApplyAuthoredBodyPolicy( authoredDesc );
+    m_authoredBodyDescs.push_back( authoredDesc );
+    return m_bodyStore.CreateBodyRecord( authoredDesc, m_world.IsPhysicsSleepEnabled() );
 }
 
 
