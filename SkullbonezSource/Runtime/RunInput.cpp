@@ -2260,7 +2260,10 @@ void Run::TakeInput()
                 if ( !m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
                 {
                     if ( m_renderBackendView.renderBackend &&
-                         m_renderBackendView.renderBackend->GetCapabilities().supportsDxrReflection )
+                         static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>(
+                             *m_renderBackendView.renderBackend )
+                             .GetCapabilities()
+                             .supportsDxrReflection )
                     {
                         m_debug.isWaterRTReflect = true;
                     }

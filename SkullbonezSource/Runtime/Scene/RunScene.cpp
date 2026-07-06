@@ -1146,8 +1146,11 @@ void Run::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplet
     // Force sphere mesh creation (normally lazy-init on first render)
     SkullbonezCore::Rendering::IRenderRayTracing* rayTracing = m_renderBackendView.rayTracingBackend;
     SkullbonezCore::Rendering::IRenderBackend* renderBackend = m_renderBackendView.renderBackend;
-    const bool hasRayTracingReflection =
-        renderBackend && renderBackend->GetCapabilities().supportsDxrReflection && rayTracing;
+    const bool hasRayTracingReflection = renderBackend &&
+                                         static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( *renderBackend )
+                                             .GetCapabilities()
+                                             .supportsDxrReflection &&
+                                         rayTracing;
     if ( hasRayTracingReflection && RenderHelper::GetSphereInstMeshHandle() == 0 )
     {
         auto& renderResources = static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( *renderBackend );
