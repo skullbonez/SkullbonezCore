@@ -635,7 +635,12 @@ void Run::Execute()
                     RuntimeAllocation::RuntimeAllocationScope allocationScope(
                         RuntimeAllocation::RuntimeAllocationPhase::Render );
                     DRAW_CALL_TRACE_SCOPE( "Frame/UI" );
-                    m_renderer.RenderUiText( frameRenderDiagnostics, uiRender, renderModels, secondsPerFrame );
+                    m_renderer.RenderUiText( frameRenderDiagnostics,
+                                             uiRender,
+                                             renderModels,
+                                             m_diagnosticsRuntime,
+                                             m_replayRuntime,
+                                             secondsPerFrame );
                 }
                 PROFILE_END( "Frame/UI" );
                 const int uiDrawCallEnd = frameRenderDiagnostics.GetFrameDrawCallCount();

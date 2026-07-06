@@ -120,7 +120,6 @@ RuntimeRenderHostBindings Run::BuildRuntimeRenderHostBindings()
     bindings.ui.runtimeInput = &m_runtimeInput;
     bindings.ui.camera = &m_camera;
     bindings.ui.runtimeViewModel = &m_runtimeViewModel;
-    bindings.diagnostics.diagnosticsRuntime = &m_diagnosticsRuntime;
     bindings.diagnostics.debug = &m_debug;
     bindings.diagnostics.timers = &m_timers;
     return bindings;

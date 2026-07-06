@@ -80,6 +80,8 @@ struct UIRenderContext;
 
 namespace Basics
 {
+class DiagnosticsRuntime;
+class ReplayRuntime;
 class RuntimeRenderHost;
 struct RuntimeRenderModelFrameView;
 struct RenderHelperContext;
@@ -258,6 +260,8 @@ struct UiTextPassInputs
     Rendering::IRenderDiagnostics& renderDiagnostics;
     const UI::UIRenderContext& uiRender;
     const RuntimeRenderModelFrameView& models;
+    DiagnosticsRuntime& diagnosticsRuntime;
+    const ReplayRuntime& replayRuntime;
     Rendering::IRenderRayTracing* renderRayTracing;
     double secondsPerFrame = 0.0;
 };

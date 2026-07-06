@@ -31,12 +31,34 @@ Related:
 */
 #include "RunInternal.h"
 #include "Allocation/RuntimeReserveAllocator.h"
+#include "Diagnostics/DiagnosticsRuntime.h"
+#include "Replay/ReplayRuntime.h"
 #include "../Core/WorkerPool.h"
 #include "../UI/UIDraw.h"
 #include "../UI/UIStyle.h"
 
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Basics::RunInternal;
+
+namespace
+{
+MainMemoryStats BuildMainMemoryOverlayStats( const DiagnosticsRuntime& diagnosticsRuntime,
+                                             const MainMemoryGameObjectStats& gameObjects )
+{
+    // Concept: F6 is an allocator-growth overlay, not a memory profiler sample.
+    // It can show the last cached replay totals and current model-store capacity,
+    // but process reconciliation belongs to explicit diagnostics refreshes.
+    MainMemoryStats stats = diagnosticsRuntime.MainMemoryStatsSnapshot();
+    stats.process = MainMemoryProcessStats{};
+    stats.gameObjects = gameObjects;
+    stats.trackedEngineBytes = stats.replay.totalBytes + stats.gameObjects.totalBytes + stats.otherTrackedBytes;
+    stats.unattributedProcessBytes = 0;
+    stats.trackedOvershootBytes = 0;
+    stats.reconciledTotalBytes = stats.trackedEngineBytes;
+    stats.reconciliationDeltaBytes = 0;
+    return stats;
+}
+} // namespace
 
 void UiTextPass::EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources,
                                      const Assets::AssetSystem& assets,
@@ -542,13 +564,20 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const bool memoryOverlayEnabled = m_host.m_UI.IsMemoryOverlayEnabled();
         if ( memoryTabActive )
         {
-            UIData.mainMemory = m_host.RefreshMainMemoryStats( UIData.now, inputs.models.gameObjectMemory );
+            // Why: memory sampling belongs to DiagnosticsRuntime; the render host
+            // only decides whether the UI pass needs to draw.
+            UIData.mainMemory = inputs.diagnosticsRuntime.RefreshMainMemoryStats( inputs.replayRuntime,
+                                                                                  inputs.models.gameObjectMemory,
+                                                                                  UIData.now,
+                                                                                  false,
+                                                                                  false );
         }
         else if ( memoryOverlayEnabled )
         {
             // Why: F6 stays event/counter driven. Merely leaving the overlay up
             // must not start a process-memory or replay-memory sampling heartbeat.
-            UIData.mainMemory = m_host.BuildMainMemoryOverlayStats( inputs.models.gameObjectMemory );
+            UIData.mainMemory =
+                BuildMainMemoryOverlayStats( inputs.diagnosticsRuntime, inputs.models.gameObjectMemory );
         }
         if ( memoryTabActive || memoryOverlayEnabled )
         {

@@ -36,7 +36,6 @@ Related:
 #pragma once
 
 #include "../../Core/Common.h"
-#include "../../Core/MainMemoryStats.h"
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
 #include "../../Rendering/Shadow.h"
@@ -72,7 +71,6 @@ class InGameUI;
 namespace Basics
 {
 class LauncherLaser;
-class DiagnosticsRuntime;
 class RuntimeInputContext;
 class SceneController;
 enum class RunCameraMode;
@@ -144,7 +142,6 @@ struct RenderUiView
 
 struct RenderDiagnosticsView
 {
-    DiagnosticsRuntime* diagnosticsRuntime = nullptr;
     RunDebugState* debug = nullptr;
     RunTimerState* timers = nullptr;
 };
@@ -222,8 +219,7 @@ class RuntimeRenderHost
           m_replayRuntime( *bindings.replayOverlay.replayRuntime ), m_launcherLaser( m_runtimeTools.Laser() ),
           m_UI( *bindings.ui.ui ), m_runtimeInput( *bindings.ui.runtimeInput ), m_camera( *bindings.ui.camera ),
           m_runtimeViewModel( *bindings.ui.runtimeViewModel ), m_sceneController( *bindings.scene.sceneController ),
-          m_sceneBrowser( *bindings.scene.sceneBrowser ),
-          m_diagnosticsRuntime( *bindings.diagnostics.diagnosticsRuntime ), m_callbacks( callbacks )
+          m_sceneBrowser( *bindings.scene.sceneBrowser ), m_callbacks( callbacks )
     {
     }
 
@@ -345,14 +341,6 @@ class RuntimeRenderHost
         return m_callbacks.cameraModeLabel( m_callbacks.user, mode );
     }
 
-    // Refreshes the full Memory tab snapshot. This is diagnostics work, not the
-    // F6 overlay path.
-    MainMemoryStats RefreshMainMemoryStats( double nowSeconds, const MainMemoryGameObjectStats& gameObjects ) const;
-
-    // Builds the F6 overlay snapshot from cached diagnostics and current tracked
-    // model capacity without sampling process or replay memory.
-    MainMemoryStats BuildMainMemoryOverlayStats( const MainMemoryGameObjectStats& gameObjects ) const;
-
     bool BuildReplayFocusModelMask( const RenderFrameContext& frame ) const;
 
     void RenderReplayPredictionGhosts( const RenderFrameContext& frame,
@@ -384,7 +372,6 @@ class RuntimeRenderHost
     RuntimeViewModel& m_runtimeViewModel;
     SceneController& m_sceneController;
     RunSceneBrowserState& m_sceneBrowser;
-    DiagnosticsRuntime& m_diagnosticsRuntime;
 
   private:
     ReplayOverlay::ReplayOverlayRenderContext

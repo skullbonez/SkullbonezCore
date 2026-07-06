@@ -161,6 +161,8 @@ struct UiTextGraphCallbackData
     SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
     const SkullbonezCore::UI::UIRenderContext* uiRender = nullptr;
     const RuntimeRenderModelFrameView* models = nullptr;
+    DiagnosticsRuntime* diagnosticsRuntime = nullptr;
+    const ReplayRuntime* replayRuntime = nullptr;
     SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = nullptr;
     double secondsPerFrame = 0.0;
 };
@@ -310,12 +312,18 @@ void ExecuteSkyboxGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
 {
     auto* data = static_cast<UiTextGraphCallbackData*>( userData );
-    if ( !data || !data->uiTextPass || !data->renderDiagnostics || !data->uiRender || !data->models )
+    if ( !data || !data->uiTextPass || !data->renderDiagnostics || !data->uiRender || !data->models ||
+         !data->diagnosticsRuntime || !data->replayRuntime )
     {
         throw std::runtime_error( "UiTextPass graph callback missing execution data" );
     }
-    data->uiTextPass->Render(
-        { *data->renderDiagnostics, *data->uiRender, *data->models, data->renderRayTracing, data->secondsPerFrame } );
+    data->uiTextPass->Render( { *data->renderDiagnostics,
+                                *data->uiRender,
+                                *data->models,
+                                *data->diagnosticsRuntime,
+                                *data->replayRuntime,
+                                data->renderRayTracing,
+                                data->secondsPerFrame } );
 }
 
 void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
@@ -1007,6 +1015,8 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
 bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
                                                        const UI::UIRenderContext& uiRender,
                                                        const RuntimeRenderModelFrameView& models,
+                                                       DiagnosticsRuntime& diagnosticsRuntime,
+                                                       const ReplayRuntime& replayRuntime,
                                                        Rendering::IRenderRayTracing* renderRayTracing,
                                                        double secondsPerFrame )
 {
@@ -1024,6 +1034,8 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnos
     callbackData.renderDiagnostics = &renderDiagnostics;
     callbackData.uiRender = &uiRender;
     callbackData.models = &models;
+    callbackData.diagnosticsRuntime = &diagnosticsRuntime;
+    callbackData.replayRuntime = &replayRuntime;
     callbackData.renderRayTracing = renderRayTracing;
     callbackData.secondsPerFrame = secondsPerFrame;
     graph.SetPassCallback( uiTextPass, ExecuteUiTextGraphCallback, &callbackData, true, "Frame/UI" );
@@ -1482,9 +1494,17 @@ void RuntimeRenderer::SetUiTextRayTracingCapability( Rendering::IRenderRayTracin
 void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,
                                     const UI::UIRenderContext& uiRender,
                                     const RuntimeRenderModelFrameView& models,
+                                    DiagnosticsRuntime& diagnosticsRuntime,
+                                    const ReplayRuntime& replayRuntime,
                                     double dSecondsPerFrame )
 {
-    (void)ExecuteUiTextThroughRenderGraph( renderDiagnostics, uiRender, models, m_uiTextRayTracing, dSecondsPerFrame );
+    (void)ExecuteUiTextThroughRenderGraph( renderDiagnostics,
+                                           uiRender,
+                                           models,
+                                           diagnosticsRuntime,
+                                           replayRuntime,
+                                           m_uiTextRayTracing,
+                                           dSecondsPerFrame );
 }
 
 

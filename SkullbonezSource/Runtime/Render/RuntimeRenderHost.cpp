@@ -198,30 +198,6 @@ bool RuntimeRenderHost::ToolHasMousePickupOverlayWork( int modelCount ) const
     return m_runtimeTools.HasMousePickupOverlayWork( modelCount );
 }
 
-MainMemoryStats RuntimeRenderHost::RefreshMainMemoryStats( double nowSeconds,
-                                                           const MainMemoryGameObjectStats& gameObjects ) const
-{
-    // Why: the Memory tab can refresh process counters, but it must still avoid
-    // the private-working-set page walk during normal UI drawing.
-    return m_diagnosticsRuntime.RefreshMainMemoryStats( m_replayRuntime, gameObjects, nowSeconds, false, false );
-}
-
-MainMemoryStats RuntimeRenderHost::BuildMainMemoryOverlayStats( const MainMemoryGameObjectStats& gameObjects ) const
-{
-    // Concept: F6 is an allocator-growth overlay, not a memory profiler sample.
-    // It can show the last cached replay totals and current model-store capacity,
-    // but process reconciliation belongs to explicit diagnostics refreshes.
-    MainMemoryStats stats = m_diagnosticsRuntime.MainMemoryStatsSnapshot();
-    stats.process = MainMemoryProcessStats{};
-    stats.gameObjects = gameObjects;
-    stats.trackedEngineBytes = stats.replay.totalBytes + stats.gameObjects.totalBytes + stats.otherTrackedBytes;
-    stats.unattributedProcessBytes = 0;
-    stats.trackedOvershootBytes = 0;
-    stats.reconciledTotalBytes = stats.trackedEngineBytes;
-    stats.reconciliationDeltaBytes = 0;
-    return stats;
-}
-
 void RuntimeRenderHost::RenderReplayPredictionGhosts( const RenderFrameContext& frame,
                                                       const CinematicRenderConfig* cinematic,
                                                       const Rendering::ShadowFrameData* shadow ) const

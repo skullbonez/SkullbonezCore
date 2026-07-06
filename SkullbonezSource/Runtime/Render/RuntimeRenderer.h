@@ -59,6 +59,8 @@ class RuntimeRenderer
     void RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,
                        const UI::UIRenderContext& uiRender,
                        const RuntimeRenderModelFrameView& models,
+                       DiagnosticsRuntime& diagnosticsRuntime,
+                       const ReplayRuntime& replayRuntime,
                        double dSecondsPerFrame );
 
   private:
@@ -149,6 +151,8 @@ class RuntimeRenderer
     bool ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
                                           const UI::UIRenderContext& uiRender,
                                           const RuntimeRenderModelFrameView& models,
+                                          DiagnosticsRuntime& diagnosticsRuntime,
+                                          const ReplayRuntime& replayRuntime,
                                           Rendering::IRenderRayTracing* renderRayTracing,
                                           double secondsPerFrame );
 
