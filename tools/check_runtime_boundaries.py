@@ -25,6 +25,8 @@
 #     against adding new exception paths without an owning cleanup row.
 #   Host-field census: Counted `m_host.m_` render-pass references that should
 #     shrink as passes receive frame snapshots and narrow services.
+#   Service-global census: Counted access to process-global service helpers and
+#     singleton `Instance()` calls while explicit context rows remove them.
 #
 # Invariants:
 #   - New deleted-artifact guards belong in DELETED_MIGRATION_ARTIFACT_PATTERNS.
@@ -33,6 +35,8 @@
 #     add more exception paths.
 #   - Host-field budget records current render-pass debt; new direct host field
 #     browsing is blocked while the plan rows remove old accesses.
+#   - Service-global budget records current explicit-service debt; stale
+#     per-file allowance must not approve net-new global lookups.
 #   - Checker self-tests run before repo scans.
 #   - Comment-only historical mentions of deleted names are allowed; live code is
 #     scanned after comments and string literals are stripped where needed.
@@ -1549,6 +1553,10 @@ NAMED_GLOBAL_SERVICE_INSTANCE_CLASSES = {
 }
 PROCESS_GLOBAL_POINTER_PATTERN = re.compile(r"\bpInstance\b")
 MUTABLE_PROCESS_GLOBAL_PATTERN = re.compile(r"\bg_[A-Za-z_]\w*\b")
+# SVC-035: current tracked-source global-service census on 2026-07-07.
+# Per-file rows classify remaining debt; this total blocks stale row slack from
+# approving growth while later rows drain the explicit-service surface.
+MAX_GLOBAL_SERVICE_ACCESS_CENSUS = 241
 MAX_RUN_PRIVATE_METHOD_DECLARATIONS = 129
 RUN_PRIVATE_METHOD_DECLARATION_PATTERN = re.compile(
     r"(?m)^\s*(?:static\s+)?(?:[A-Za-z_][\w:<>,~]*\s*(?:[&*]\s*)?\s+)+"
@@ -1700,16 +1708,14 @@ GLOBAL_SERVICE_ACCESS_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
             ( "SkullbonezSource/Runtime/Init.cpp", "Window::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "WorkerPool::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/Init.cpp", "g_*", 6 ),
-            ( "SkullbonezSource/Runtime/Input.cpp", "g_*", 43 ),
+            ( "SkullbonezSource/Runtime/Input.cpp", "g_*", 33 ),
             ( "SkullbonezSource/Runtime/Run.cpp", "Gfx()", 8 ),
             ( "SkullbonezSource/Runtime/Run.cpp", "IsGfxReady()", 6 ),
             ( "SkullbonezSource/Runtime/Run.cpp", "Profiler::Instance()", 1 ),
             ( "SkullbonezSource/Runtime/RunFrame.cpp", "Gfx()", 1 ),
             ( "SkullbonezSource/Runtime/RunFrame.cpp", "Profiler::Instance()", 3 ),
-            ( "SkullbonezSource/Runtime/RunInteractionAutomation.cpp", "Cfg()", 2 ),
             ( "SkullbonezSource/Runtime/RunInput.cpp", "IsGfxReady()", 1 ),
             ( "SkullbonezSource/Runtime/RunPasses.cpp", "IsGfxReady()", 1 ),
-            ( "SkullbonezSource/Runtime/RunRender.cpp", "Cfg()", 3 ),
             ( "SkullbonezSource/Runtime/RunRender.cpp", "Gfx()", 1 ),
             ( "SkullbonezSource/Runtime/RunRender.cpp", "GfxRayTracing()", 1 ),
             ( "SkullbonezSource/Runtime/RunRender.cpp", "IsGfxReady()", 1 ),
@@ -7435,9 +7441,30 @@ def check_global_service_access_guardrails_text(
     key_path = relative_path or path
     allowed = GLOBAL_SERVICE_ACCESS_ALLOWLIST if allowlist is None else allowlist
     stripped = strip_cpp_comments_and_string_literals(text)
-    matches: list[tuple[int, str, str, str]] = []
     seen: Counter[tuple[Path, str]] = Counter()
     errors: list[BoundaryError] = []
+
+    for offset, label, message, detail in global_service_access_matches(stripped):
+        key = ( key_path, label )
+        seen[key] += 1
+        if label in GLOBAL_RENDERER_SERVICE_LABELS and key_path not in GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS:
+            errors.append(
+                BoundaryError(
+                    path,
+                    line_for_offset(stripped, offset),
+                    "global renderer service access is outside approved compatibility files",
+                    "Borrow a renderer capability/context, or first classify this file as explicit renderer-service debt in the Carmack global/backend plans.",
+                )
+            )
+            continue
+        if seen[key] > allowed.get(key, 0):
+            errors.append(BoundaryError(path, line_for_offset(stripped, offset), message, detail))
+
+    return errors
+
+
+def global_service_access_matches(stripped: str) -> list[tuple[int, str, str, str]]:
+    matches: list[tuple[int, str, str, str]] = []
 
     for label, pattern, message, detail in GLOBAL_SERVICE_ACCESS_PATTERNS:
         for match in pattern.finditer(stripped):
@@ -7476,37 +7503,54 @@ def check_global_service_access_guardrails_text(
             )
         )
 
-    for offset, label, message, detail in sorted(matches):
-        key = ( key_path, label )
-        seen[key] += 1
-        if label in GLOBAL_RENDERER_SERVICE_LABELS and key_path not in GLOBAL_RENDERER_SERVICE_ACCESS_CLASSIFICATIONS:
-            errors.append(
-                BoundaryError(
-                    path,
-                    line_for_offset(stripped, offset),
-                    "global renderer service access is outside approved compatibility files",
-                    "Borrow a renderer capability/context, or first classify this file as explicit renderer-service debt in the Carmack global/backend plans.",
-                )
-            )
-            continue
-        if seen[key] > allowed.get(key, 0):
-            errors.append(BoundaryError(path, line_for_offset(stripped, offset), message, detail))
+    return sorted(matches)
 
-    return errors
+
+def check_global_service_access_count_entries(
+    entries: list[tuple[Path, str]],
+    max_allowed: int = MAX_GLOBAL_SERVICE_ACCESS_CENSUS,
+) -> list[BoundaryError]:
+    total_count = 0
+    first_over_budget: tuple[Path, str, tuple[int, str, str, str]] | None = None
+    for path, text in entries:
+        stripped = strip_cpp_comments_and_string_literals(text)
+        matches = global_service_access_matches(stripped)
+        if first_over_budget is None and total_count + len(matches) > max_allowed:
+            first_extra_index = max_allowed - total_count
+            first_over_budget = ( path, stripped, matches[first_extra_index] )
+        total_count += len(matches)
+
+    if total_count <= max_allowed:
+        return []
+
+    assert first_over_budget is not None
+    path, stripped, ( offset, _label, _message, detail ) = first_over_budget
+    return [
+        BoundaryError(
+            path,
+            line_for_offset(stripped, offset),
+            "global service access census exceeds ratchet",
+            f"Found {total_count}; maximum {max_allowed}. {detail}",
+        )
+    ]
 
 
 def check_global_service_access_guardrails(repo: Path) -> list[BoundaryError]:
     errors: list[BoundaryError] = []
+    entries: list[tuple[Path, str]] = []
     for path in sorted((repo / Path("SkullbonezSource")).rglob("*")):
         if path.suffix not in { ".cpp", ".h", ".hpp", ".inl" }:
             continue
+        text = path.read_text(encoding="utf-8")
+        entries.append(( path, text ))
         errors.extend(
             check_global_service_access_guardrails_text(
                 path,
-                path.read_text(encoding="utf-8"),
+                text,
                 path.relative_to(repo),
             )
         )
+    errors.extend(check_global_service_access_count_entries(entries))
     return errors
 
 
@@ -9132,6 +9176,23 @@ def run_self_tests() -> list[str]:
     }
     '''
     expect_clean('diagnostic string/comment global service synthetic surface was rejected', check_global_service_access_guardrails_text( Path("SkullbonezSource/Runtime/DiagnosticStrings.cpp"), diagnostic_text_only_global, relative_path=Path("SkullbonezSource/Runtime/DiagnosticStrings.cpp"), ))
+
+    global_service_census_clean_entries = [
+        ( Path("synthetic/Bootstrap.cpp"), "void Bootstrap() { Gfx().Present(); }\n" ),
+    ]
+    expect_clean(
+        "budget-matched global service census synthetic surface was rejected",
+        check_global_service_access_count_entries(global_service_census_clean_entries, max_allowed=1),
+    )
+
+    global_service_census_grown_entries = [
+        ( Path("synthetic/Bootstrap.cpp"), "void Bootstrap() { Gfx().Present(); }\nvoid Added() { Cfg().workerThreads; }\n" ),
+    ]
+    expect_error(
+        "grown global service census synthetic surface was not rejected",
+        check_global_service_access_count_entries(global_service_census_grown_entries, max_allowed=1),
+        "global service access census exceeds ratchet",
+    )
 
     grown_run_header = allowed_run_header.replace("void Render();", "void Render();\n        void NewHelper();")
     expect_error(
