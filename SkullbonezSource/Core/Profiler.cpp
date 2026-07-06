@@ -435,6 +435,12 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPla
 
 void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
 {
+    // Owner: RenderDiagnostics through Profiler. Reason: platform GPU markers
+    // and GPU timers share Profiler's nesting stack until scope construction can
+    // receive an explicit render-diagnostics capability. Deletion condition:
+    // remove this renderer reach when GpuProfilerScope is constructed with that
+    // capability. Checker budget: Core/Profiler.cpp keeps its current renderer
+    // service allowance only for this marker/timer block.
     if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
     {
         return;

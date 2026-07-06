@@ -410,7 +410,7 @@ void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
             break;
         case BackendResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-            Profiler::Instance().InvalidateGpuQueries();
+            RuntimeDiagnostics::InvalidateProfilerGpuQueries();
 #endif
             break;
         case BackendResourceStep::TextureCollection:

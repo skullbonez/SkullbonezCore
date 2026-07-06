@@ -752,32 +752,10 @@ void Run::Execute()
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
             {
-                using SkullbonezCore::Basics::Profiler;
-                static constexpr uint32_t kPhysicsHash = ::HashStr( "Frame/Physics" );
-                static constexpr uint32_t kRenderHash = ::HashStr( "Frame/Render" );
-                m_timers.physicsTime = Profiler::Instance().LastFrameMsByHash( kPhysicsHash ) * 0.001f;
-                m_timers.renderTime = Profiler::Instance().LastFrameMsByHash( kRenderHash ) * 0.001f;
-                static constexpr uint32_t kRenderGpuHashes[] = {
-                    ::HashStr( "Frame/Shadows/ShadowMap" ),
-                    ::HashStr( "Frame/Render/Skybox" ),
-                    ::HashStr( "Frame/Render/Reflection" ),
-                    ::HashStr( "Frame/Render/CinematicSky" ),
-                    ::HashStr( "Frame/Render/Balls" ),
-                    ::HashStr( "Frame/Render/Terrain" ),
-                    ::HashStr( "Frame/Render/Water" ),
-                    ::HashStr( "Frame/Render/TornadoVisual" ),
-                    ::HashStr( "Frame/Render/TransparentBalls" ),
-                    ::HashStr( "Frame/Render/DebugOverlay" ),
-                    ::HashStr( "Frame/Render/VolumetricLight" ),
-                    ::HashStr( "Frame/Render/Tonemap" ),
-                    ::HashStr( "Frame/UI/Draw" ),
-                };
-                float gpuMs = 0.0f;
-                for ( uint32_t h : kRenderGpuHashes )
-                {
-                    gpuMs += Profiler::Instance().LastGpuFrameMsByHash( h );
-                }
-                m_timers.gpuFrameWorkMs = gpuMs;
+                const RuntimeProfilerFrameTimes profilerTimes = RuntimeDiagnostics::SampleProfilerFrameTimes();
+                m_timers.physicsTime = profilerTimes.physicsTimeSeconds;
+                m_timers.renderTime = profilerTimes.renderTimeSeconds;
+                m_timers.gpuFrameWorkMs = profilerTimes.gpuFrameWorkMs;
             }
 #endif
 
