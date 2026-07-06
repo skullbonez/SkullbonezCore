@@ -29,6 +29,7 @@ Related:
 #include "RunInternal.h"
 #include "Editor/EditorOverlayTools.h"
 #include "Replay/ReplayOverlayLayout.h"
+#include "Replay/ReplayRestoreService.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
 #include "Allocation/RuntimeAllocationTracker.h"
@@ -694,122 +695,16 @@ void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
 
 bool Run::ApplyReplaySolverSampleState( const ReplaySolverFrameSample& sample, char* outReason, std::size_t reasonSize )
 {
-    auto writeReason = [outReason, reasonSize]( const char* message )
-    {
-        if ( outReason && reasonSize > 0 )
-        {
-            strncpy_s( outReason, reasonSize, message ? message : "restore failed", _TRUNCATE );
-        }
-    };
-
-    if ( sample.worldSnapshot.version < 1 || sample.worldSnapshot.version > 2 )
-    {
-        writeReason( "unsupported snapshot version" );
-        return false;
-    }
-
-    if ( sample.worldSnapshot.modelCount != static_cast<int>( sample.bodies.size() ) )
-    {
-        writeReason( "snapshot body count mismatch" );
-        return false;
-    }
-
-    const int liveModelCount = m_cGameModelCollection.SceneEntityCount();
-    if ( sample.bodies.size() > static_cast<std::size_t>( liveModelCount ) )
-    {
-        writeReason( "selected frame needs unavailable bodies" );
-        return false;
-    }
-
-    const int restoreModelCount = static_cast<int>( sample.bodies.size() );
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-    for ( const ReplaySolverBodySample& body : sample.bodies )
-    {
-        if ( body.modelIndex < 0 || body.modelIndex >= liveModelCount || body.modelIndex >= restoreModelCount )
-        {
-            writeReason( "selected frame has invalid body index" );
-            return false;
-        }
-
-        // Invariant: replay restore identity belongs to the live body row.
-        // Authoring/presentation data is secondary after the restore writes
-        // store-owned pose, velocity, and fixed state.
-        const PhysicsBodyRecord* liveBody = bodyStore.RecordForModelIndex( body.modelIndex );
-        if ( !liveBody || liveBody->replayBodyId != body.id.value )
-        {
-            writeReason( "selected frame body ids no longer match" );
-            return false;
-        }
-    }
-
-    if ( !m_cGameModelCollection.TrimModelsForReplayRestore( restoreModelCount ) )
-    {
-        writeReason( "failed to trim live model list" );
-        return false;
-    }
-    SceneState().ResetSceneObjectIdCursor( m_cGameModelCollection.GetPhysicsEngine().BodyStore() );
-
-    for ( const ReplaySolverBodySample& body : sample.bodies )
-    {
-        Math::Orientation::Quaternion orientation( body.orientation[0],
-                                                   body.orientation[1],
-                                                   body.orientation[2],
-                                                   body.orientation[3] );
-        if ( !m_cGameModelCollection.TryRestoreReplayBodyState( body.modelIndex,
-                                                                body.id.value,
-                                                                body.fixed,
-                                                                body.position,
-                                                                orientation,
-                                                                body.linearVelocity,
-                                                                body.angularVelocity,
-                                                                body.mass,
-                                                                body.inverseMass,
-                                                                body.rotationalInertia,
-                                                                body.inverseRotationalInertia ) )
-        {
-            writeReason( "failed to restore replay body state" );
-            return false;
-        }
-    }
-    m_cGameModelCollection.GetPhysicsEngine().ClearPendingBodyImpulses();
-
-    if ( !m_cGameModelCollection.GetPhysicsEngine().RestoreReplaySolverSnapshot(
-             sample.worldSnapshot,
-             m_cGameModelCollection.SceneEntityCount() ) )
-    {
-        writeReason( "failed to restore solver world snapshot" );
-        return false;
-    }
-
-    m_cWorldEnvironment.SetGravity( sample.world.gravity );
-    m_cWorldEnvironment.SetFluidSurfaceHeight( sample.world.fluidHeight );
-    m_cWorldEnvironment.SetFluidDensity( sample.world.fluidDensity );
-    m_debug.isWaterHidden = sample.world.waterHidden;
-    m_debug.isTerrainHidden = sample.world.terrainHidden;
-    SceneState().isFixedStep = sample.world.fixedStep;
-    SceneState().isScenePhysics = sample.world.scenePhysicsEnabled;
-    SceneState().isSceneText = sample.world.sceneTextEnabled;
-    SceneState().modelCount = m_cGameModelCollection.SceneEntityCount();
-    m_runtimeSettings.isPhysicsSleepEnabled = sample.worldSnapshot.sleepEnabled;
-    m_runtimeSettings.tornadoField = sample.worldSnapshot.tornadoConfig;
-    m_runtimeSettings.tornadoSystem = sample.worldSnapshot.tornadoSystemConfig;
-    if ( m_runtimeSettings.tornadoVisual.autoEnableWithTornado )
-    {
-        m_runtimeSettings.tornadoVisual.enabled =
-            m_runtimeSettings.tornadoField.enabled || m_runtimeSettings.tornadoSystem.enabled;
-    }
-
-    if ( m_systems.cameras )
-    {
-        m_systems.cameras->CancelTween();
-        m_systems.cameras->SetPrimaryPosition( sample.camera.eye );
-        m_systems.cameras->SetViewCoordinates( sample.camera.view );
-        m_systems.cameras->SetCamera();
-    }
-
-    m_runtimeTools.RestoreReplayLauncherVisualSample( sample.launcherVisual );
-    writeReason( "applied" );
-    return true;
+    return ReplayRestoreService::ApplySolverSampleState( ReplaySolverSampleRestoreContext{ m_cGameModelCollection,
+                                                                                           m_cWorldEnvironment,
+                                                                                           SceneState(),
+                                                                                           m_runtimeSettings,
+                                                                                           m_debug,
+                                                                                           m_systems.cameras,
+                                                                                           m_runtimeTools },
+                                                         sample,
+                                                         outReason,
+                                                         reasonSize );
 }
 
 bool Run::CaptureCurrentReplaySolverHash( const ReplaySolverFrameSample& reference,
