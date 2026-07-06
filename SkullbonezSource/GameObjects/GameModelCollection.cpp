@@ -625,9 +625,9 @@ Vector3 GameModelCollection::GetModelPosition( int index )
 
     // Why: object-follow cameras should read the same store-owned pose that
     // physics, diagnostics, replay capture, and render snapshots consume. A
-    // topology mismatch is repaired by GetPhysicsBodyStore(); same-count edits
-    // must already have entered the store through explicit command/commit paths.
-    const PhysicsBodyStore& bodyStore = GetPhysicsBodyStore();
+    // topology mismatch must be repaired by the owning runtime/editor boundary
+    // before this read; same-count edits enter through explicit commit paths.
+    const PhysicsBodyStore& bodyStore = GetPhysicsEngine().BodyStore();
     const PhysicsBodyRecord* record = bodyStore.RecordForModelIndex( index );
     if ( !record )
     {
@@ -1029,25 +1029,6 @@ const SkullbonezCore::Physics::PhysicsEngine& GameModelCollection::GetPhysicsEng
 }
 
 
-const SkullbonezCore::Physics::PhysicsBodyStore& GameModelCollection::GetPhysicsBodyStore()
-{
-    RepairPhysicsBodyTopology();
-    return m_physicsEngine.BodyStore();
-}
-
-
-const SkullbonezCore::Physics::ColliderStore& GameModelCollection::GetColliderStore()
-{
-    // Invariant: convenience reads repair topology only. Shape/material edits
-    // commit through CommitEditedModelColliderState() so picks, saves, and
-    // queries do not rebuild collider metadata just to inspect it.
-    const bool repaired = RepairPhysicsBodyAndColliderTopology();
-    assert( repaired );
-    (void)repaired;
-    return m_physicsEngine.Colliders();
-}
-
-
 bool GameModelCollection::RepairPhysicsBodyTopology()
 {
     if ( m_physicsEngine.BodyStore().Count() != ModelCount() )
@@ -1141,7 +1122,7 @@ double GameModelCollection::GetSceneKineticEnergy()
     constexpr double REST_LINEAR_SPEED_SQ = 0.5 * 0.5;
     constexpr double REST_ANGULAR_SPEED_SQ = 0.3 * 0.3;
     double totalEnergy = 0.0;
-    const PhysicsBodyStore& bodyStore = GetPhysicsBodyStore();
+    const PhysicsBodyStore& bodyStore = GetPhysicsEngine().BodyStore();
     const auto& bodies = bodyStore.Records();
     for ( const PhysicsBodyRecord& body : bodies )
     {

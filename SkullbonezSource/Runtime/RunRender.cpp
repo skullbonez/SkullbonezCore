@@ -1765,7 +1765,7 @@ RuntimeRenderModelFrameView Run::BuildRuntimeRenderModelFrameView()
     PhysicsEngine& physics = m_cGameModelCollection.GetPhysicsEngine();
     return RuntimeRenderModelFrameView{ m_cGameModelCollection.RenderInstances(),
                                         m_cGameModelCollection.Colliders(),
-                                        m_cGameModelCollection.GetPhysicsBodyStore(),
+                                        m_cGameModelCollection.GetPhysicsEngine().BodyStore(),
                                         physics,
                                         m_cGameModelCollection.RenderPresentationRecords(),
                                         m_cGameModelCollection.GetCollisionVisualContacts(),

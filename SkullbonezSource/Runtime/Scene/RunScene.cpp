@@ -438,8 +438,8 @@ void Run::UpdateRequiredSceneContacts()
         return;
     }
 
-    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
-    const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
+    const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
     const auto& bodyRecords = bodyStore.Records();
     const auto& colliderRecords = colliderStore.Records();
     const int contactModelCount =

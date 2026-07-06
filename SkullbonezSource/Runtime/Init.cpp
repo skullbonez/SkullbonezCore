@@ -671,8 +671,8 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     jointDesc.localAnchorB = SkullbonezCore::Math::Vector::Vector3( -0.25f, 0.0f, 0.0f );
     const PhysicsConstraintHandle jointHandle = collection->GetPhysicsEngine().CreatePointJoint( jointDesc );
 
-    const PhysicsBodyStore& bodyStore = collection->GetPhysicsBodyStore();
-    const ColliderStore& colliderStore = collection->GetColliderStore();
+    const PhysicsBodyStore& bodyStore = collection->GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = collection->GetPhysicsEngine().Colliders();
     const RenderInstanceStore& renderStore = collection->GetRenderInstanceStore();
     const std::vector<PointJointConstraint>& pointJoints = collection->GetPointJointConstraints();
     const size_t initialColliderCount = colliderStore.Count();
@@ -687,7 +687,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                     SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) ),
                                 EDITED_RESTITUTION,
                                 HashStr( "default" ) ) );
-    const ColliderStore& refreshedColliderStore = collection->GetColliderStore();
+    const ColliderStore& refreshedColliderStore = collection->GetPhysicsEngine().Colliders();
     const ColliderRecord& refreshedCollider = refreshedColliderStore.Records()[0];
     const float expectedBoxRadius = sqrtf( 0.25f * 0.25f + 1.25f * 1.25f + 0.5f * 0.5f );
     // Invariant: same-count authoring edits must be visible through the explicit

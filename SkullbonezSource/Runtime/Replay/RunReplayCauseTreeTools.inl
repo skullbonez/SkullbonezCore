@@ -38,11 +38,11 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         Vector3 targetPosition = row.point;
         float targetRadius = 2.0f;
         RunReplayCameraFocusKind focusKind = RunReplayCameraFocusKind::Body;
-        // Lifetime: GetColliderStore repairs both body and collider topology on
-        // count drift. Take that broader repair first, then borrow the body
-        // store so the references stay valid for this focus action.
-        const auto& colliderStore = m_cGameModelCollection.GetColliderStore();
-        const auto& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+        // Lifetime: replay focus borrows already-prepared physics store views
+        // for one UI action. Topology repair belongs to the runtime/frame
+        // boundary, not this read-only cause-tree lookup.
+        const auto& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
+        const auto& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
         switch ( row.kind )
         {
         case RunReplayCauseTreeRowKind::Body:
@@ -167,7 +167,7 @@ bool Run::TickReplayCauseTreeInput( HWND hwnd, bool uiBlocksMouse, int wheelDelt
         return false;
     }
 
-    const auto& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
+    const auto& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
     if ( !m_replayRuntime.BuildCauseTreeRows( m_cGameModelCollection.RenderPresentationRecords(), bodyStore ) )
     {
         endCauseTreeDragIfReleased();

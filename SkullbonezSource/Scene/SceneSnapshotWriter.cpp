@@ -200,8 +200,8 @@ bool SceneSnapshotWriter::Save( GameModelCollection& collection,
     // velocities, sleeping flags, and materials can round-trip through
     // TestSceneParser without reinterpreting authored placement offsets.
     const std::vector<GameModel>& m_gameModels = collection.Models();
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
-    const ColliderStore& colliderStore = collection.GetColliderStore();
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
 
     std::ofstream output;
     if ( !RuntimeFileWriter::OpenTextFile( path, output ) )

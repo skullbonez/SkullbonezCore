@@ -1295,7 +1295,7 @@ void Run::TickReplaySaveProbe()
                                                     placementResult.placementScale,
                                                     placementResult.placementYawRadians );
             const PhysicsBodyRecord* placedBodyBeforeEdit =
-                m_cGameModelCollection.GetPhysicsBodyStore().RecordForHandle( placementResult.placedBody );
+                m_cGameModelCollection.GetPhysicsEngine().BodyStore().RecordForHandle( placementResult.placedBody );
             if ( !placedBodyBeforeEdit )
             {
                 throw std::runtime_error( "replay save probe failed to resolve placed body record" );
@@ -1343,7 +1343,7 @@ void Run::TickReplaySaveProbe()
                                         placedColliderBeforeEdit->restitution,
                                         placedColliderBeforeEdit->contactMaterialId ) );
             const PhysicsBodyRecord* placedBodyAfterEdit =
-                m_cGameModelCollection.GetPhysicsBodyStore().RecordForModelIndex( modelCountBeforePlace );
+                m_cGameModelCollection.GetPhysicsEngine().BodyStore().RecordForModelIndex( modelCountBeforePlace );
             if ( !placedBodyAfterEdit || placedBodyAfterEdit->replayBodyId == 0 )
             {
                 throw std::runtime_error( "replay save probe failed to capture edited body record" );

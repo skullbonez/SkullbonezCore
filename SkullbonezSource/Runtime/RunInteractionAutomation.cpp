@@ -763,7 +763,7 @@ bool Run::TrySetInteractionAutomationReplayPathTarget( const char* name )
         return false;
     }
 
-    const auto* body = m_cGameModelCollection.GetPhysicsBodyStore().RecordForModelIndex( modelIndex );
+    const auto* body = m_cGameModelCollection.GetPhysicsEngine().BodyStore().RecordForModelIndex( modelIndex );
     if ( !body || body->replayBodyId == 0 )
     {
         return false;
@@ -813,8 +813,8 @@ bool Run::TryProjectInteractionAutomationModel( const char* name, POINT& outMous
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.bodyStore = &m_cGameModelCollection.GetPhysicsBodyStore();
-                    request.colliderStore = &m_cGameModelCollection.GetColliderStore();
+                    request.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+                    request.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
                     request.rayOrigin = rayOrigin;
                     request.rayDirection = rayDirection;
 

@@ -174,8 +174,8 @@ bool TryAttachCameraTargetHandlesFromModelIndex( SkullbonezCore::GameObjects::Ga
                                                  int modelIndex,
                                                  AttachedCameraTarget& target )
 {
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
-    const ColliderStore& colliderStore = collection.GetColliderStore();
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
     const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
     const ColliderRecord* collider =
         body ? colliderStore.RecordForHandle( colliderStore.HandleForBodyHandle( body->handle ) ) : nullptr;
@@ -196,8 +196,8 @@ bool TryResolveAttachedCameraTargetIdentity( SkullbonezCore::GameObjects::GameMo
                                              int& outModelIndex )
 {
     outModelIndex = -1;
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
-    const ColliderStore& colliderStore = collection.GetColliderStore();
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
 
     if ( target.body.IsValid() )
     {
@@ -290,8 +290,8 @@ bool TryResolveAttachedCameraPhysicsTarget( SkullbonezCore::GameObjects::GameMod
         *outModelIndex = modelIndex;
     }
 
-    const PhysicsBodyStore& bodyStore = collection.GetPhysicsBodyStore();
-    const ColliderStore& colliderStore = collection.GetColliderStore();
+    const PhysicsBodyStore& bodyStore = collection.GetPhysicsEngine().BodyStore();
+    const ColliderStore& colliderStore = collection.GetPhysicsEngine().Colliders();
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( target.body );
     const ColliderRecord* collider = colliderStore.RecordForHandle( target.collider );
     if ( !body || !collider || collider->body != body->handle )
@@ -1025,8 +1025,8 @@ bool Run::ExecuteRuntimeInteractionCommand( const RuntimeInteractionCommand& com
         {
             // Invariant: positive selection commands prove identity with
             // handles. The model index only checks the paired UI row.
-            const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsBodyStore();
-            const ColliderStore& colliderStore = m_cGameModelCollection.GetColliderStore();
+            const PhysicsBodyStore& bodyStore = m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+            const ColliderStore& colliderStore = m_cGameModelCollection.GetPhysicsEngine().Colliders();
             selectedBody = command.body;
             selectedCollider = command.collider;
             const PhysicsBodyRecord* body = bodyStore.RecordForHandle( selectedBody );
@@ -1389,7 +1389,7 @@ void Run::SeedAttachedCameraTargetFromSelection()
 
     int seedIndex = -1;
     const RunReplayPathVisualizerState& path = m_replayRuntime.PathVisualizer();
-    const int modelCount = m_cGameModelCollection.GetPhysicsBodyStore().Count();
+    const int modelCount = m_cGameModelCollection.GetPhysicsEngine().BodyStore().Count();
     if ( path.hasTarget && path.targetModelIndex >= 0 && path.targetModelIndex < modelCount )
     {
         seedIndex = path.targetModelIndex;
@@ -1421,8 +1421,8 @@ bool Run::TryPickAttachedCameraTargetFromMouse()
     {
         RuntimePickRequest request;
         request.purpose = RuntimePickPurpose::AttachCameraTarget;
-        request.bodyStore = &m_cGameModelCollection.GetPhysicsBodyStore();
-        request.colliderStore = &m_cGameModelCollection.GetColliderStore();
+        request.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
+        request.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
         request.rayOrigin = rayOrigin;
         request.rayDirection = rayDirection;
 

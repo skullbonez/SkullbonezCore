@@ -187,6 +187,10 @@ class GameModelCollection
     std::vector<int> BuildFixedTreeReleaseRootsForReload() const;
     std::vector<const char*> BuildDiagnosticNamesForReload() const;
     bool RefreshPhysicsBodyStoreFromAuthoredDescriptors();
+    // Private body-only repair is reserved for collection-owned projection
+    // phases. Public tool/runtime reads must use an explicit owner boundary
+    // before borrowing PhysicsEngine store views.
+    bool RepairPhysicsBodyTopology();
     int FixedTreeReleaseRootForModelIndex( int modelIndex ) const;
     void RefreshRenderInstances();
     Physics::PhysicsBodyHandle AppendGameModelAndPhysicsRows( GameModel gameModel,
@@ -310,16 +314,12 @@ class GameModelCollection
     bool TrimModelsForReplayRestore( int modelCount );
     void CaptureReplaySolverWorldSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot ) const;
     bool RestoreReplaySolverWorldSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot );
+    // PhysicsEngine owns body/collider store views. Callers that can observe
+    // topology drift must first run the explicit topology-repair command below.
     Physics::PhysicsEngine& GetPhysicsEngine();
     const Physics::PhysicsEngine& GetPhysicsEngine() const;
-    const Physics::PhysicsBodyStore& GetPhysicsBodyStore();
-    const Physics::ColliderStore& GetColliderStore();
-    // Repairs model/body count drift at the model-owner edge. Same-count body
-    // edits remain PhysicsBodyStore authority and must commit through explicit
-    // commands instead of reopening a model refresh.
-    bool RepairPhysicsBodyTopology();
-    // Repairs model/body/collider count drift before tool or picker code asks
-    // for body handles and collider bounds.
+    // Explicit cold owner boundary before tool or picker code asks for body
+    // handles and collider bounds. Read-only store accessors do not repair.
     bool RepairPhysicsBodyAndColliderTopology();
     // Current prepared collider snapshot. Hot render passes use this after
     // PrepareRenderInstances() instead of invoking topology repair mid-submit.
