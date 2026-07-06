@@ -38,7 +38,24 @@ class IRenderCommandContext;
 namespace SkullbonezCore::Physics
 {
 class PhysicsBodyStore;
+struct PhysicsWorldForces;
+} // namespace SkullbonezCore::Physics
+
+namespace SkullbonezCore::GameObjects
+{
+class GameModelCollection;
 }
+
+namespace SkullbonezCore::Threading
+{
+class WorkerPool;
+}
+
+namespace SkullbonezCore::Basics
+{
+class EngineConfig;
+class RunEditorTracer;
+} // namespace SkullbonezCore::Basics
 
 namespace SkullbonezCore::Basics::ReplayOverlay
 {
@@ -59,6 +76,24 @@ struct ReplayOverlayRenderContext
     double nowSeconds = 0.0;
 };
 
+struct ReplayPathVisualizerRenderContext
+{
+    // Lifetime: every reference is a frame-local borrow from Run's render-tool
+    // pass. The visualizer may update replay-owned caches, but must not retain
+    // owner references after returning.
+    ReplayRuntime& replayRuntime;
+    SkullbonezCore::GameObjects::GameModelCollection& models;
+    const EngineConfig& config;
+    const SkullbonezCore::Physics::PhysicsWorldForces& worldForces;
+    SkullbonezCore::Threading::WorkerPool& workerPool;
+    RunEditorTracer& tracer;
+    bool scenePhysicsEnabled = false;
+    int sceneCurrentFrame = 0;
+    double simulationTimeSinceLastStart = 0.0;
+    double simulationTotalTime = 0.0;
+};
+
 void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context );
 void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context );
+void RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context );
 } // namespace SkullbonezCore::Basics::ReplayOverlay
