@@ -47,8 +47,10 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
+class BroadphaseVisualizer;
 class CollisionVisualizer;
 class ColliderStore;
+class PhysicsDebugVisualizer;
 class PhysicsEngine;
 class PhysicsBodyStore;
 struct PhysicsDebugContact;
@@ -131,6 +133,11 @@ enum class ObjectPassMode
 };
 
 using RenderResourceLifecycleLogFn = void ( * )( void* user, const char* phase, const char* step );
+using RenderEditorOverlayFn = void ( * )( void* user,
+                                          Rendering::IRenderResourceFactory& renderResources,
+                                          const Math::Transformation::Matrix4& viewProjection,
+                                          const Math::Vector::Vector3& cameraEye,
+                                          const Math::Vector::Vector3& cameraUp );
 
 struct RenderFrameContext
 {
@@ -343,12 +350,26 @@ struct TornadoVisualPassInputs
     const RenderFrameContext& frame;
 };
 
+struct DebugOverlaySnapshot
+{
+    // Frame-level overlay decisions sampled before graph callback execution.
+    // The pass may draw multiple overlay families, but it should not reopen
+    // broad runtime debug/tool/replay state while drawing them.
+    bool broadphaseOverlayVisible = false;
+    bool tornadoVectorsVisible = false;     // Includes per-vortex flags once another overlay wakes the pass.
+    bool tornadoOverlayWorkVisible = false; // Legacy pass wake-up predicate from global tornado vector toggles.
+    bool editorOverlayWorkVisible = false;
+    uint32_t physicsDebugFlags = 0u;
+    int physicsDebugPipelineStageCursor = 0;
+};
+
 struct DebugOverlayPassInputs
 {
     // Debug overlays draw after production geometry and use the final world
     // view-projection. They do not participate in material or pass-resource
     // ownership.
     const RenderFrameContext& frame;
+    const DebugOverlaySnapshot& snapshot;
 };
 
 struct ShadowPassInputs
@@ -659,7 +680,14 @@ class TornadoVisualPass
 class DebugOverlayPass
 {
   public:
-    explicit DebugOverlayPass( RuntimeRenderHost& host ) : m_host( host )
+    DebugOverlayPass( Physics::BroadphaseVisualizer& broadphaseVisualizer,
+                      Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
+                      std::unique_ptr<Geometry::Terrain>& terrain,
+                      RenderEditorOverlayFn renderEditorOverlay,
+                      void* renderEditorOverlayUser )
+        : m_broadphaseVisualizer( broadphaseVisualizer ), m_physicsDebugVisualizer( physicsDebugVisualizer ),
+          m_terrain( terrain ), m_renderEditorOverlay( renderEditorOverlay ),
+          m_renderEditorOverlayUser( renderEditorOverlayUser )
     {
     }
 
@@ -670,7 +698,13 @@ class DebugOverlayPass
   private:
     bool HasOverlayWork( const DebugOverlayPassInputs& inputs ) const;
 
-    RuntimeRenderHost& m_host;
+    Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
+    Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
+    // Lifetime: aliases RunSubsystemState::terrain because scene loads may
+    // replace the terrain object after RuntimeRenderer construction.
+    std::unique_ptr<Geometry::Terrain>& m_terrain;
+    RenderEditorOverlayFn m_renderEditorOverlay = nullptr;
+    void* m_renderEditorOverlayUser = nullptr;
 };
 
 /* -- VolumetricPass

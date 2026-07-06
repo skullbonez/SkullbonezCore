@@ -157,6 +157,7 @@ struct DebugOverlayGraphCallbackData
 {
     DebugOverlayPass* debugOverlayPass = nullptr;
     const RenderFrameContext* frame = nullptr;
+    const DebugOverlaySnapshot* snapshot = nullptr;
 };
 
 struct SceneTargetGraphCallbackData
@@ -296,11 +297,11 @@ void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGr
                                        void* userData )
 {
     auto* data = static_cast<DebugOverlayGraphCallbackData*>( userData );
-    if ( !data || !data->debugOverlayPass || !data->frame )
+    if ( !data || !data->debugOverlayPass || !data->frame || !data->snapshot )
     {
         throw std::runtime_error( "DebugOverlayPass graph callback missing execution data" );
     }
-    data->debugOverlayPass->Render( { *data->frame } );
+    data->debugOverlayPass->Render( { *data->frame, *data->snapshot } );
 }
 
 void RenderReplayPredictionGhosts( ReplayRuntime& replayRuntime,
@@ -532,6 +533,35 @@ void AddFrameTargetWrites( SkullbonezCore::Rendering::RenderGraph& graph, uint32
         AddFrameDepthTarget( graph, useCinematicTarget );
     graph.AddWrite( pass, colorTarget, SkullbonezCore::Rendering::RenderGraphResourceAccess::RenderTarget );
     graph.AddWrite( pass, depthTarget, SkullbonezCore::Rendering::RenderGraphResourceAccess::DepthWrite );
+}
+
+bool TornadoSystemVectorsVisible( const Physics::TornadoSystemConfig& config )
+{
+    if ( config.visualizeVelocityField )
+    {
+        return true;
+    }
+    for ( const Physics::TornadoVortexConfig& vortex : config.vortices )
+    {
+        if ( vortex.field.visualizeVelocityField )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+void RenderEditorOverlayFromHost( void* user,
+                                  SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
+                                  const Math::Transformation::Matrix4& viewProjection,
+                                  const Math::Vector::Vector3& cameraEye,
+                                  const Math::Vector::Vector3& cameraUp )
+{
+    auto* host = static_cast<RuntimeRenderHost*>( user );
+    if ( host )
+    {
+        host->RenderEditorOverlay( renderResources, viewProjection, cameraEye, cameraUp );
+    }
 }
 } // namespace
 
@@ -998,6 +1028,7 @@ bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph( const RenderFrameCo
 bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame, bool useCinematicTarget )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
+    const DebugOverlaySnapshot snapshot = BuildDebugOverlaySnapshot( frame );
     const Rendering::RenderGraphResourceHandle colorTarget =
         graph.AddExternalResource( useCinematicTarget ? "CinematicSceneColor" : "SwapchainBackbuffer",
                                    Rendering::RenderGraphResourceAccess::RenderTarget );
@@ -1014,6 +1045,7 @@ bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameCo
     DebugOverlayGraphCallbackData callbackData;
     callbackData.debugOverlayPass = &m_debugOverlayPass;
     callbackData.frame = &frame;
+    callbackData.snapshot = &snapshot;
     graph.SetPassCallback( debugPass,
                            ExecuteDebugOverlayGraphCallback,
                            &callbackData,
@@ -1028,6 +1060,27 @@ bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameCo
     const Rendering::RenderGraphCallbackExecutionResult executed =
         graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
     return executed.executedPassCount == 1u;
+}
+
+
+DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RenderFrameContext& frame ) const
+{
+    DebugOverlaySnapshot snapshot;
+    snapshot.broadphaseOverlayVisible = m_host.m_debug.isBroadphaseOverlay;
+    snapshot.tornadoVectorsVisible = m_host.m_runtimeSettings.tornadoField.visualizeVelocityField ||
+                                     TornadoSystemVectorsVisible( m_host.m_runtimeSettings.tornadoSystem );
+    snapshot.tornadoOverlayWorkVisible = m_host.m_runtimeSettings.tornadoField.visualizeVelocityField ||
+                                         m_host.m_runtimeSettings.tornadoSystem.visualizeVelocityField;
+    snapshot.physicsDebugFlags = m_host.m_debug.physicsDebugFlags;
+    snapshot.physicsDebugPipelineStageCursor = m_host.m_debug.physicsDebugPipelineStageCursor;
+
+    const float rayLinger = (std::max)( 0.0f, m_host.m_debug.physicsDebugContactLinger );
+    snapshot.editorOverlayWorkVisible =
+        m_host.ToolHasLingeredRayCastLine( rayLinger ) || m_host.ToolHasSelectionOverlayWork( frame.modelCount ) ||
+        m_host.ToolHasMousePickupOverlayWork( frame.modelCount ) || m_host.ReplayPathVisualizerHasTarget() ||
+        m_host.ReplayHasCameraFocus() || ( m_host.ReplayVelocityEditActive() && !m_host.m_editor.editorModeEnabled ) ||
+        m_host.ToolHasLauncherShots();
+    return snapshot;
 }
 
 
@@ -1279,7 +1332,12 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderHost& host )
                         LogRenderResourceLifecycleFromHost,
                         &host ),
       m_objectPass( host.m_collisionVisualizer, host.m_config ), m_terrainPass( host.m_systems.terrain, host.m_config ),
-      m_waterPass( host.m_cWorldEnvironment, host.m_config ), m_tornadoVisualPass( host ), m_debugOverlayPass( host ),
+      m_waterPass( host.m_cWorldEnvironment, host.m_config ), m_tornadoVisualPass( host ),
+      m_debugOverlayPass( host.m_broadphaseVisualizer,
+                          host.m_physicsDebugVisualizer,
+                          host.m_systems.terrain,
+                          RenderEditorOverlayFromHost,
+                          &host ),
       m_volumetricPass( host.m_systems.renderPasses.cinematicScene,
                         host.m_systems.renderPasses.volumetricLight,
                         host.m_systems.renderPasses.fullscreen,

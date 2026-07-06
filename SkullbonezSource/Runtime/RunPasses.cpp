@@ -1725,38 +1725,22 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay" );
     }
     DRAW_CALL_TRACE_SCOPE( "Frame/Render/DebugOverlay" );
-    if ( m_host.m_debug.isBroadphaseOverlay )
+    const DebugOverlaySnapshot& snapshot = inputs.snapshot;
+    if ( snapshot.broadphaseOverlayVisible )
     {
         if ( detailMarkers )
         {
             PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay/Broadphase" );
         }
         DRAW_CALL_TRACE_SCOPE( "Broadphase" );
-        m_host.m_broadphaseVisualizer.Render( inputs.frame.viewProjection );
+        m_broadphaseVisualizer.Render( inputs.frame.viewProjection );
         if ( detailMarkers )
         {
             PROFILE_GPU_END( "Frame/Render/DebugOverlay/Broadphase" );
         }
     }
 
-    const auto tornadoSystemVectorsVisible = []( const Physics::TornadoSystemConfig& config )
-    {
-        if ( config.visualizeVelocityField )
-        {
-            return true;
-        }
-        for ( const Physics::TornadoVortexConfig& vortex : config.vortices )
-        {
-            if ( vortex.field.visualizeVelocityField )
-            {
-                return true;
-            }
-        }
-        return false;
-    };
-    const bool tornadoVectorsVisible = m_host.m_runtimeSettings.tornadoField.visualizeVelocityField ||
-                                       tornadoSystemVectorsVisible( m_host.m_runtimeSettings.tornadoSystem );
-    if ( tornadoVectorsVisible && inputs.frame.physicsEngine )
+    if ( snapshot.tornadoVectorsVisible && inputs.frame.physicsEngine )
     {
         if ( detailMarkers )
         {
@@ -1770,26 +1754,29 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         }
     }
 
-    m_host.RenderEditorOverlay( RenderResources( inputs.frame ),
-                                inputs.frame.viewProjection,
-                                inputs.frame.eye,
-                                inputs.frame.up );
+    assert( m_renderEditorOverlay && "DebugOverlayPass requires an editor overlay callback" );
+    if ( m_renderEditorOverlay )
+    {
+        m_renderEditorOverlay( m_renderEditorOverlayUser,
+                               RenderResources( inputs.frame ),
+                               inputs.frame.viewProjection,
+                               inputs.frame.eye,
+                               inputs.frame.up );
+    }
 
-    if ( m_host.m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE )
+    if ( snapshot.physicsDebugFlags != PHYSICS_DEBUG_NONE )
     {
         if ( detailMarkers )
         {
             PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay/PhysicsDebug" );
         }
         DRAW_CALL_TRACE_SCOPE( "PhysicsDebug" );
-        m_host.m_physicsDebugVisualizer.SetFlags( m_host.m_debug.physicsDebugFlags );
-        m_host.m_physicsDebugVisualizer.SetPipelineStageCursor( m_host.m_debug.physicsDebugPipelineStageCursor );
+        m_physicsDebugVisualizer.SetFlags( snapshot.physicsDebugFlags );
+        m_physicsDebugVisualizer.SetPipelineStageCursor( snapshot.physicsDebugPipelineStageCursor );
         if ( HasPhysicsDebugFrameView( inputs.frame ) )
         {
             const PhysicsDebugFrameView frameView = BuildPhysicsDebugFrameView( inputs.frame );
-            m_host.m_physicsDebugVisualizer.Render( frameView,
-                                                    inputs.frame.viewProjection,
-                                                    m_host.m_systems.terrain.get() );
+            m_physicsDebugVisualizer.Render( frameView, inputs.frame.viewProjection, m_terrain.get() );
         }
         if ( detailMarkers )
         {
@@ -1805,45 +1792,21 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
 
 bool DebugOverlayPass::HasOverlayWork( const DebugOverlayPassInputs& inputs ) const
 {
-    if ( m_host.m_debug.isBroadphaseOverlay )
+    const DebugOverlaySnapshot& snapshot = inputs.snapshot;
+    if ( snapshot.broadphaseOverlayVisible )
     {
         return true;
     }
-    if ( ( m_host.m_runtimeSettings.tornadoField.visualizeVelocityField ||
-           m_host.m_runtimeSettings.tornadoSystem.visualizeVelocityField ) &&
-         inputs.frame.physicsEngine )
+    if ( snapshot.tornadoOverlayWorkVisible && inputs.frame.physicsEngine )
     {
         return true;
     }
-    if ( m_host.m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE )
-    {
-        return true;
-    }
-
-    const float rayLinger = (std::max)( 0.0f, m_host.m_debug.physicsDebugContactLinger );
-    if ( m_host.ToolHasLingeredRayCastLine( rayLinger ) )
+    if ( snapshot.physicsDebugFlags != PHYSICS_DEBUG_NONE )
     {
         return true;
     }
 
-    if ( m_host.ToolHasSelectionOverlayWork( inputs.frame.modelCount ) )
-    {
-        return true;
-    }
-    if ( m_host.ToolHasMousePickupOverlayWork( inputs.frame.modelCount ) )
-    {
-        return true;
-    }
-
-    if ( m_host.ReplayPathVisualizerHasTarget() || m_host.ReplayHasCameraFocus() )
-    {
-        return true;
-    }
-    if ( m_host.ReplayVelocityEditActive() && !m_host.m_editor.editorModeEnabled )
-    {
-        return true;
-    }
-    return m_host.ToolHasLauncherShots();
+    return snapshot.editorOverlayWorkVisible;
 }
 
 
