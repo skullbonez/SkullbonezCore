@@ -2156,6 +2156,8 @@ void Run::TakeInput()
                       m_sceneController.CurrentPath(),
                       m_launchOptions,
                       m_runtimeSettings,
+                      m_config.contactEpsilon,
+                      m_config.frictionCoeff,
                       m_debug,
                       m_renderBackendView.renderBackend ? m_renderBackendView.renderBackend->GetRendererName()
                                                         : "DirectX 12",

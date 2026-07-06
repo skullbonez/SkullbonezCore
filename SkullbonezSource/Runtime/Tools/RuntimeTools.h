@@ -135,6 +135,8 @@ struct LauncherReproSnapshotContext
     const std::string* currentScenePath;
     const RunLaunchOptions& launchOptions;
     const RunRuntimeSettings& runtimeSettings;
+    float contactEpsilon;                                                   // Physics contact tolerance captured from Run config for repro output.
+    float frictionCoeff;                                                    // Physics friction setting captured from Run config for repro output.
     const RunDebugState& debug;
     const char* rendererName;
     double simulationSeconds;
