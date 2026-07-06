@@ -9,11 +9,11 @@ Mental model:
   when that state changes.
 
 Glossary:
-  Physics material: Per-object friction and drag coefficients cached by the
-    collection before models are added or reconfigured.
-  Body simulation limit: Scalar cap cached by the collection before authored
+  Physics material: Per-object friction and drag coefficients owned by
+    PhysicsScene and copied into authored descriptor rows at cold boundaries.
+  Body simulation limit: Scalar cap owned by PhysicsScene before authored
     descriptors create PhysicsBodyStore rows.
-  Contact policy: Terrain and contact thresholds cached by the collection so
+  Contact policy: Terrain and contact thresholds owned by PhysicsScene so
     existing and newly added models receive the same physics policy.
   Body descriptor: Value packet containing authoring body facts that
     PhysicsScene turns into a live PhysicsBodyStore row.
@@ -77,10 +77,8 @@ using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
-using SkullbonezCore::Physics::BodySimulationLimits;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
-using SkullbonezCore::Physics::ContactPolicy;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
@@ -88,7 +86,6 @@ using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
-using SkullbonezCore::Physics::PhysicsMaterial;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Rendering::ShadowFrameData;
 
@@ -99,31 +96,6 @@ template <typename T> uint64_t VectorCapacityBytes( const T& values )
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
 }
 
-
-void ApplyCollectionPhysicsMaterialToColliderDesc( PhysicsColliderCreateDesc& desc, const PhysicsMaterial& material )
-{
-    desc.friction = material.frictionCoefficient;
-    if ( BoundingSphere* sphere = std::get_if<BoundingSphere>( &desc.shape ) )
-    {
-        sphere->SetDragCoefficient( material.sphereDragCoefficient );
-        desc.dragCoefficient = material.sphereDragCoefficient;
-    }
-}
-
-void ApplyCollectionPhysicsPolicyToBodyDesc( PhysicsBodyCreateDesc& desc,
-                                             const PhysicsMaterial& material,
-                                             const BodySimulationLimits& limits,
-                                             const ContactPolicy& policy )
-{
-    desc.friction = material.frictionCoefficient;
-    desc.angularVelocityLimit = limits.angularVelocityLimit;
-    desc.contactEpsilon = policy.contactEpsilon;
-    if ( BoundingSphere* sphere = std::get_if<BoundingSphere>( &desc.shape ) )
-    {
-        sphere->SetDragCoefficient( material.sphereDragCoefficient );
-        desc.dragCoefficient = material.sphereDragCoefficient;
-    }
-}
 
 void RefreshBodyDescFromStoreBodyState( const PhysicsBodyRecord& record,
                                         const PhysicsBodyStateEdit& edit,
@@ -284,7 +256,7 @@ GameModelCollection::BuildBodyCreateDescsForReload( const SkullbonezCore::Physic
         {
             desc.diagnosticName = m_gameModels[static_cast<std::size_t>( i )].GetName();
         }
-        ApplyCollectionPhysicsPolicyToBodyDesc( desc, m_physicsMaterial, m_bodySimulationLimits, m_contactPolicy );
+        m_physicsEngine.ApplyAuthoredBodyPolicy( desc );
         bodyDescs.push_back( desc );
     }
     return bodyDescs;
@@ -308,28 +280,14 @@ void GameModelCollection::ApplyRuntimeConfig( const Basics::EngineConfig& config
 {
     m_activeGameModelCapacity = ActiveGameModelCapacity( config );
     ReserveForActiveGameModelCapacity();
-    m_physicsMaterial = Physics::PhysicsMaterial::FromConfig( config );
-    m_bodySimulationLimits = Physics::BodySimulationLimits::FromConfig( config );
-    m_contactPolicy = Physics::ContactPolicy::FromConfig( config );
     m_renderCollisionVolumes = config.runtimeRender.renderCollisionVolumes;
     m_shadowParallelPrep = config.shadowParallelPrep;
     m_physicsEngine.ApplyRuntimeConfig( config );
-    const bool colliderRowsReady =
-        m_physicsEngine.BodyStore().Count() == ModelCount() && m_physicsEngine.Colliders().Count() == ModelCount();
     for ( int i = 0; i < static_cast<int>( m_authoredBodyDescs.size() ); ++i )
     {
-        ApplyCollectionPhysicsPolicyToBodyDesc( m_authoredBodyDescs[static_cast<std::size_t>( i )],
-                                                m_physicsMaterial,
-                                                m_bodySimulationLimits,
-                                                m_contactPolicy );
-    }
-    if ( colliderRowsReady )
-    {
-        m_physicsEngine.ApplyColliderMaterial( m_physicsMaterial );
-    }
-    if ( !colliderRowsReady )
-    {
-        RepairPhysicsBodyAndColliderTopology();
+        // Why: descriptor sidecars remain in collection until PHYS-003/014, but
+        // the runtime config values copied onto them belong to PhysicsScene.
+        m_physicsEngine.ApplyAuthoredBodyPolicy( m_authoredBodyDescs[static_cast<std::size_t>( i )] );
     }
 }
 
@@ -400,7 +358,7 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
     bodyDesc.fixedTreeReleaseRootIndex =
         groupRecord.kind == GameModelCollectionKind::ReleasableTree ? groupRecord.rootModelIndex : -1;
     bodyDesc.diagnosticName = gameModel.GetName();
-    ApplyCollectionPhysicsPolicyToBodyDesc( bodyDesc, m_physicsMaterial, m_bodySimulationLimits, m_contactPolicy );
+    m_physicsEngine.ApplyAuthoredBodyPolicy( bodyDesc );
     m_gameModels.push_back( std::move( gameModel ) );
     m_sceneObjectGroups.push_back( groupRecord );
     m_authoredBodyDescs.push_back( bodyDesc );
@@ -419,7 +377,7 @@ PhysicsBodyHandle GameModelCollection::AppendGameModelAndPhysicsRows( GameModel 
     PhysicsColliderCreateDesc authoredCollider = std::move( colliderDesc );
     authoredCollider.body = bodyRecord->handle;
     authoredCollider.sceneObjectId = bodyRecord->sceneObjectId;
-    ApplyCollectionPhysicsMaterialToColliderDesc( authoredCollider, m_physicsMaterial );
+    m_physicsEngine.ApplyAuthoredColliderPolicy( authoredCollider );
     const auto colliderHandle = m_physicsEngine.RegisterAuthoredCollider( authoredCollider );
     assert( colliderHandle.IsValid() );
     if ( !colliderHandle.IsValid() )
@@ -925,7 +883,7 @@ bool GameModelCollection::TryRestoreReplayBodyState( int index,
         desc.motionKind = fixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
         desc.diagnosticName = m_gameModels[static_cast<std::size_t>( index )].GetName();
         desc.fixedTreeReleaseRootIndex = FixedTreeReleaseRootForModelIndex( index );
-        ApplyCollectionPhysicsPolicyToBodyDesc( desc, m_physicsMaterial, m_bodySimulationLimits, m_contactPolicy );
+        m_physicsEngine.ApplyAuthoredBodyPolicy( desc );
     }
     return true;
 }
@@ -1282,7 +1240,7 @@ bool GameModelCollection::ApplyPhysicsBodyEdit( int modelIndex, const PhysicsBod
 
     PhysicsBodyCreateDesc bodyDesc = m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )];
     RefreshBodyDescFromStoreBodyState( *bodyRecord, edit, bodyDesc, FixedTreeReleaseRootForModelIndex( modelIndex ) );
-    ApplyCollectionPhysicsPolicyToBodyDesc( bodyDesc, m_physicsMaterial, m_bodySimulationLimits, m_contactPolicy );
+    m_physicsEngine.ApplyAuthoredBodyPolicy( bodyDesc );
     m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )] = bodyDesc;
     m_physicsEngine.RefreshBodyFromDescriptor( bodyDesc, modelIndex, modelCount );
 
@@ -1330,7 +1288,7 @@ bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
     bodyDesc.projectedSurfaceArea = Math::CollisionDetection::GetShapeProjectedSurfaceArea( bodyDesc.shape );
     bodyDesc.dragCoefficient = Math::CollisionDetection::GetShapeDragCoefficient( bodyDesc.shape );
     bodyDesc.usesWorldInertia = !std::holds_alternative<BoundingSphere>( bodyDesc.shape );
-    ApplyCollectionPhysicsPolicyToBodyDesc( bodyDesc, m_physicsMaterial, m_bodySimulationLimits, m_contactPolicy );
+    m_physicsEngine.ApplyAuthoredBodyPolicy( bodyDesc );
     m_authoredBodyDescs[static_cast<std::size_t>( modelIndex )] = bodyDesc;
     m_physicsEngine.RefreshBodyFromDescriptor( bodyDesc, modelIndex, modelCount );
 
@@ -1344,7 +1302,7 @@ bool GameModelCollection::ApplyPhysicsBodyColliderEdit( int modelIndex,
 
     colliderDesc.body = bodyRecord->handle;
     colliderDesc.sceneObjectId = bodyRecord->sceneObjectId;
-    ApplyCollectionPhysicsMaterialToColliderDesc( colliderDesc, m_physicsMaterial );
+    m_physicsEngine.ApplyAuthoredColliderPolicy( colliderDesc );
     const PhysicsColliderHandle collider = m_physicsEngine.Colliders().HandleForBodyHandle( bodyRecord->handle );
     const ColliderRecord* existingCollider = m_physicsEngine.Colliders().RecordForHandle( collider );
     if ( colliderDesc.contactMaterialName[0] == '\0' && existingCollider &&

@@ -38,18 +38,21 @@ using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsEngine;
-using SkullbonezCore::Physics::PhysicsMaterial;
-
-
 void PhysicsEngine::ApplyRuntimeConfig( const Basics::EngineConfig& config )
 {
     m_scene.ApplyRuntimeConfig( config );
 }
 
 
-void PhysicsEngine::ApplyColliderMaterial( const PhysicsMaterial& material )
+void PhysicsEngine::ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const
 {
-    m_scene.ApplyColliderMaterial( material );
+    m_scene.ApplyAuthoredBodyPolicy( desc );
+}
+
+
+void PhysicsEngine::ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc ) const
+{
+    m_scene.ApplyAuthoredColliderPolicy( desc );
 }
 
 

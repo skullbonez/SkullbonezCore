@@ -13,6 +13,8 @@ Glossary:
   Store: Ordered snapshot for one concern, such as bodies, colliders, or render
     instances.
   Physics material: Runtime policy for collider friction and sphere drag.
+  Body simulation limit: Scalar cap applied to body descriptors before store import.
+  Contact policy: Terrain/contact thresholds copied into authored body descriptors.
   Fixed-tree release: Store-owned command that turns authored fixed props into
     dynamic bodies and wakes same-tree parts after an accepted impulse.
   Sleep: Solver optimization that stops integrating stable bodies until an
@@ -36,6 +38,7 @@ Related:
 
 #include "ColliderStore.h"
 #include "PhysicsBodyStore.h"
+#include "PhysicsObjectPolicy.h"
 #include "PhysicsWorld.h"
 #include "PhysicsWorldForces.h"
 #include "../Rendering/RenderInstanceStore.h"
@@ -68,9 +71,10 @@ class PhysicsScene
     PhysicsScene();
 
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
-    // Applies collection-wide material config to live collider rows without
-    // reopening authoring storage.
-    void ApplyColliderMaterial( const PhysicsMaterial& material );
+    // Stamps current runtime policy onto cold authoring descriptors. Descriptor
+    // storage may still live outside PhysicsScene, but policy values do not.
+    void ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const;
+    void ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc ) const;
     void Clear();
     void RefreshBodyStore( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
     // Owner passes the expected count so one-row descriptor commits stay a
@@ -203,6 +207,9 @@ class PhysicsScene
     PhysicsBodyStore m_bodyStore;                         // Mutable body state in model/replay order.
     ColliderStore m_colliderStore;                        // Collider snapshot in model/replay order.
     Rendering::RenderInstanceStore m_renderInstanceStore; // Render snapshot in model/replay order.
+    PhysicsMaterial m_physicsMaterial;                    // Runtime material policy copied into body/collider descriptors.
+    BodySimulationLimits m_bodySimulationLimits;          // Runtime body caps copied at authoring/import boundaries.
+    ContactPolicy m_contactPolicy;                        // Runtime contact thresholds copied at authoring/import boundaries.
     PhysicsWorldForces m_lastWorldForces;                 // Last real step boundary forces used by explicit wake commands.
     bool m_hasLastWorldForces = false;                    // False until the first physics step supplies world forces.
     std::vector<int> m_fixedTreeReleaseWakeBodies;        // Reused scene-edge wake list; avoids release-time allocation churn.

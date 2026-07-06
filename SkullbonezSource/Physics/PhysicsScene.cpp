@@ -49,10 +49,13 @@ Related:
 
 using SkullbonezCore::Basics::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
+using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
+using SkullbonezCore::Physics::BodySimulationLimits;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::ContactPolicy;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
@@ -110,13 +113,35 @@ PhysicsScene::PhysicsScene()
 
 void PhysicsScene::ApplyRuntimeConfig( const Basics::EngineConfig& config )
 {
+    m_physicsMaterial = PhysicsMaterial::FromConfig( config );
+    m_bodySimulationLimits = BodySimulationLimits::FromConfig( config );
+    m_contactPolicy = ContactPolicy::FromConfig( config );
     m_world.ApplyRuntimeConfig( config );
+    m_colliderStore.ApplyPhysicsMaterial( m_physicsMaterial );
 }
 
 
-void PhysicsScene::ApplyColliderMaterial( const PhysicsMaterial& material )
+void PhysicsScene::ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const
 {
-    m_colliderStore.ApplyPhysicsMaterial( material );
+    desc.friction = m_physicsMaterial.frictionCoefficient;
+    desc.angularVelocityLimit = m_bodySimulationLimits.angularVelocityLimit;
+    desc.contactEpsilon = m_contactPolicy.contactEpsilon;
+    if ( BoundingSphere* sphere = std::get_if<BoundingSphere>( &desc.shape ) )
+    {
+        sphere->SetDragCoefficient( m_physicsMaterial.sphereDragCoefficient );
+        desc.dragCoefficient = m_physicsMaterial.sphereDragCoefficient;
+    }
+}
+
+
+void PhysicsScene::ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc ) const
+{
+    desc.friction = m_physicsMaterial.frictionCoefficient;
+    if ( BoundingSphere* sphere = std::get_if<BoundingSphere>( &desc.shape ) )
+    {
+        sphere->SetDragCoefficient( m_physicsMaterial.sphereDragCoefficient );
+        desc.dragCoefficient = m_physicsMaterial.sphereDragCoefficient;
+    }
 }
 
 

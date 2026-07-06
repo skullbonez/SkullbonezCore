@@ -11,11 +11,11 @@ Mental model:
 Glossary:
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
   output and local queries.
-  Physics material: Per-object friction and drag coefficients cached by the
-    collection before models are added or reconfigured.
-  Body simulation limit: Scalar cap cached by the collection before authored
+  Physics material: Per-object friction and drag coefficients owned by
+    PhysicsScene and copied into authored descriptor rows at cold boundaries.
+  Body simulation limit: Scalar cap owned by PhysicsScene before authored
     descriptors create PhysicsBodyStore rows.
-  Contact policy: Terrain and contact thresholds cached by the collection so
+  Contact policy: Terrain and contact thresholds owned by PhysicsScene so
     existing and newly added models receive the same physics policy.
   Body descriptor: Value packet containing authoring body facts that
     PhysicsScene turns into a live PhysicsBodyStore row.
@@ -66,7 +66,6 @@ Related:
 #include "../Maths/Matrix4.h"
 #include "../Physics/PhysicsApi.h"
 #include "../Physics/PhysicsEngine.h"
-#include "../Physics/PhysicsObjectPolicy.h"
 #include "../Rendering/RenderInstanceStore.h"
 #include "../Rendering/Shadow.h"
 #include "../Maths/Vector3.h"
@@ -174,11 +173,6 @@ class GameModelCollection
     // commits update these before refreshing PhysicsBodyStore rows.
     std::vector<Physics::PhysicsBodyCreateDesc> m_authoredBodyDescs;
     Physics::PhysicsEngine m_physicsEngine;
-    // Cached physics policy applied to existing and newly added models whenever
-    // runtime config changes.
-    Physics::PhysicsMaterial m_physicsMaterial;
-    Physics::BodySimulationLimits m_bodySimulationLimits;
-    Physics::ContactPolicy m_contactPolicy;
     Threading::WorkerPool* m_workerPool = nullptr;               // Borrowed startup worker pool for render/physics parallel helpers.
     int m_activeGameModelCapacity = DEFAULT_GAME_MODEL_CAPACITY; // Configured model cap used by append/reserve guards.
     bool m_renderCollisionVolumes = false;                       // Cached render debug toggle copied from EngineConfig.

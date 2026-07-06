@@ -61,9 +61,10 @@ class PhysicsEngine
     PhysicsEngine() = default;
 
     void ApplyRuntimeConfig( const Basics::EngineConfig& config );
-    // Applies config material policy to live collider rows without rebuilding
-    // shape descriptors from model-order storage.
-    void ApplyColliderMaterial( const PhysicsMaterial& material );
+    // Stamps the PhysicsScene-owned runtime policy onto cold authoring
+    // descriptors before they become store rows.
+    void ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const;
+    void ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc ) const;
     void Clear();
     void RefreshBodyStore( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
     // Owner passes the expected count so single-row descriptor commits cannot
