@@ -131,6 +131,7 @@ struct TerrainGraphCallbackData
     const RenderFrameContext* frame = nullptr;
     const CinematicRenderConfig* cinematic = nullptr;
     const SkullbonezCore::Rendering::ShadowFrameData* shadow = nullptr;
+    bool terrainHidden = false;
 };
 
 struct WaterGraphCallbackData
@@ -249,7 +250,7 @@ void ExecuteTerrainGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
     {
         throw std::runtime_error( "TerrainPass graph callback missing execution data" );
     }
-    data->terrainPass->Render( { *data->frame, data->cinematic, data->shadow } );
+    data->terrainPass->Render( { *data->frame, data->cinematic, data->shadow, data->terrainHidden } );
 }
 
 void ExecuteWaterGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
@@ -767,7 +768,8 @@ bool RuntimeRenderer::ExecuteObjectThroughRenderGraph( const RenderFrameContext&
 bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph( const RenderFrameContext& frame,
                                                         bool useCinematicTarget,
                                                         const CinematicRenderConfig* activeCinematic,
-                                                        const Rendering::ShadowFrameData* terrainShadow )
+                                                        const Rendering::ShadowFrameData* terrainShadow,
+                                                        bool terrainHidden )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     Rendering::RenderGraphResourceHandle terrainShadowResource;
@@ -791,10 +793,11 @@ bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph( const RenderFrameContext
     callbackData.frame = &frame;
     callbackData.cinematic = activeCinematic;
     callbackData.shadow = terrainShadow;
+    callbackData.terrainHidden = terrainHidden;
     graph.SetPassCallback( terrainPass, ExecuteTerrainGraphCallback, &callbackData, true, "Frame/Render/Terrain" );
 
-    // Invariant: terrain visibility/debug decisions remain inside TerrainPass,
-    // while the graph now owns its frame target and shadow-map declaration.
+    // Invariant: terrain visibility is snapshotted before graph execution, while
+    // the graph owns its frame target and shadow-map declaration.
     CompileRenderPassGraph( graph );
     graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
     const Rendering::RenderGraphCallbackExecutionResult executed =
@@ -1230,11 +1233,12 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderHost& host )
                  host.m_systems.skyBox,
                  host.m_config ),
       m_sceneTargetPass( host.m_systems.renderPasses.cinematicScene ), m_shadowPass( host ), m_reflectionPass( host ),
-      m_objectPass( host ), m_terrainPass( host ), m_waterPass( host ), m_tornadoVisualPass( host ),
-      m_debugOverlayPass( host ), m_volumetricPass( host.m_systems.renderPasses.cinematicScene,
-                                                    host.m_systems.renderPasses.volumetricLight,
-                                                    host.m_systems.renderPasses.fullscreen,
-                                                    host.m_config ),
+      m_objectPass( host ), m_terrainPass( host.m_systems.terrain, host.m_config ), m_waterPass( host ),
+      m_tornadoVisualPass( host ), m_debugOverlayPass( host ),
+      m_volumetricPass( host.m_systems.renderPasses.cinematicScene,
+                        host.m_systems.renderPasses.volumetricLight,
+                        host.m_systems.renderPasses.fullscreen,
+                        host.m_config ),
       m_tonemapPass( host.m_systems.renderPasses.cinematicScene,
                      host.m_systems.renderPasses.volumetricLight,
                      host.m_systems.renderPasses.tonemap,
@@ -1447,8 +1451,11 @@ void RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 
     // Terrain receives the broad shadow frame and provides the main world depth
     // that cinematic post passes read later.
-    const bool terrainCallbackOwned =
-        ExecuteTerrainThroughRenderGraph( frame, useCinematicTarget, activeCinematic, terrainShadowFrame );
+    const bool terrainCallbackOwned = ExecuteTerrainThroughRenderGraph( frame,
+                                                                        useCinematicTarget,
+                                                                        activeCinematic,
+                                                                        terrainShadowFrame,
+                                                                        host.m_debug.isTerrainHidden );
 
     // Water is deliberately downstream of ReflectionPass; it samples the
     // reflection texture but never rebuilds it.

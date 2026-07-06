@@ -39,6 +39,7 @@ Related:
 #include "../../Rendering/Shadow.h"
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 namespace SkullbonezCore
@@ -86,6 +87,7 @@ struct UIRenderContext;
 namespace Geometry
 {
 class SkyBox;
+class Terrain;
 } // namespace Geometry
 
 namespace Basics
@@ -229,6 +231,7 @@ struct TerrainPassInputs
     const RenderFrameContext& frame;
     const CinematicRenderConfig* cinematic;
     const Rendering::ShadowFrameData* shadow;
+    bool terrainHidden;                     // Frame snapshot of the debug/scene visibility flag.
 };
 
 struct ReflectionPassInputs
@@ -525,7 +528,8 @@ class ObjectPass
 class TerrainPass
 {
   public:
-    explicit TerrainPass( RuntimeRenderHost& host ) : m_host( host )
+    TerrainPass( std::unique_ptr<Geometry::Terrain>& terrain, const EngineConfig& config )
+        : m_terrain( terrain ), m_config( config )
     {
     }
 
@@ -534,7 +538,10 @@ class TerrainPass
     void Render( const TerrainPassInputs& inputs );
 
   private:
-    RuntimeRenderHost& m_host;
+    // Lifetime: aliases RunSubsystemState::terrain because terrain is scene-owned
+    // and may be replaced after RuntimeRenderer construction.
+    std::unique_ptr<Geometry::Terrain>& m_terrain;
+    const EngineConfig& m_config;
 };
 
 /* -- WaterPass

@@ -1268,7 +1268,7 @@ void ObjectPass::ReleaseGpuResources()
 
 void TerrainPass::Render( const TerrainPassInputs& inputs )
 {
-    if ( m_host.m_debug.isTerrainHidden )
+    if ( inputs.terrainHidden || !m_terrain )
     {
         return;
     }
@@ -1282,12 +1282,12 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
         renderCommands,
         RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
     RenderTextures( inputs.frame ).SelectTexture( TEXTURE_GROUND );
-    m_host.m_systems.terrain->Render( inputs.frame.baseView,
-                                      inputs.frame.projection,
-                                      renderCommands,
-                                      inputs.frame.lightPosition,
-                                      inputs.cinematic,
-                                      inputs.shadow );
+    m_terrain->Render( inputs.frame.baseView,
+                       inputs.frame.projection,
+                       renderCommands,
+                       inputs.frame.lightPosition,
+                       inputs.cinematic,
+                       inputs.shadow );
     PROFILE_GPU_END( "Frame/Render/Terrain" );
 }
 
@@ -1296,20 +1296,18 @@ void TerrainPass::EnsureGpuResources( const RenderResourceContext& resources )
 {
     // Terrain mesh/material resources live on Terrain; this pass owns ordering
     // and the receiver texture-slot contract.
-    if ( m_host.m_systems.terrain )
+    if ( m_terrain )
     {
-        m_host.m_systems.terrain->EnsureRenderResources( m_host.m_config,
-                                                         resources.assets,
-                                                         RenderResources( resources ) );
+        m_terrain->EnsureRenderResources( m_config, resources.assets, RenderResources( resources ) );
     }
 }
 
 
 void TerrainPass::ReleaseGpuResources()
 {
-    if ( m_host.m_systems.terrain )
+    if ( m_terrain )
     {
-        m_host.m_systems.terrain->ReleaseRenderResources();
+        m_terrain->ReleaseRenderResources();
     }
 }
 
