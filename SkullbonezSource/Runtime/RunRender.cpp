@@ -1817,10 +1817,10 @@ void RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResource
             break;
         }
 
-        if ( phase.flushAfter && context.backend )
+        if ( phase.flushAfter && context.deviceLifecycle )
         {
             logLifecycleStep( "flush_after_world_environment" );
-            context.backend->FlushGPU();
+            context.deviceLifecycle->FlushGPU();
         }
     }
 }

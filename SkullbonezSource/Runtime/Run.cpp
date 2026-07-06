@@ -51,24 +51,7 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
-constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
-constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
 constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
-constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
-constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
-
-void HashReplayInt( uint64_t& hash, int32_t value )
-{
-    const uint32_t bits = static_cast<uint32_t>( value );
-    for ( int shift = 0; shift < 32; shift += 8 )
-    {
-        hash ^= static_cast<uint64_t>( ( bits >> shift ) & 0xFFu );
-        hash *= REPLAY_EVENT_FNV_PRIME;
-    }
-}
 
 SkullbonezCore::Environment::CameraMovementSettings BuildCameraMovementSettings( const EngineConfig& cfg )
 {
@@ -295,13 +278,12 @@ Run::~Run()
 
 void Run::ReleaseBackendOwnedRenderResources( const char* phaseName )
 {
-    SkullbonezCore::Rendering::IRenderBackend* releaseBackend = m_renderBackendView.renderBackend;
-    SkullbonezCore::Rendering::IRenderResourceFactory* releaseRenderResources =
-        releaseBackend ? static_cast<SkullbonezCore::Rendering::IRenderResourceFactory*>( releaseBackend ) : nullptr;
+    SkullbonezCore::Rendering::IRenderDeviceLifecycle* releaseDeviceLifecycle = m_renderBackendView.deviceLifecycle;
+    SkullbonezCore::Rendering::IRenderResourceFactory* releaseRenderResources = m_renderBackendView.renderResources;
 
     m_renderer.ReleaseBackendOwnedRuntimeResources(
         RuntimeRenderer::BackendResourceReleaseContext{ phaseName,
-                                                        releaseBackend,
+                                                        releaseDeviceLifecycle,
                                                         releaseRenderResources,
                                                         m_cGameModelCollection,
                                                         m_UI,
@@ -641,66 +623,42 @@ bool Run::LoadReplayPresentationArtifact( const char* path, bool activateScrubbe
 
 void Run::ResetReplayTimelineForActiveScene( bool preserveBranchMetadata )
 {
-    if ( !preserveBranchMetadata )
-    {
-        m_replayRuntime.ResetBranch();
-    }
     CancelReplayToolDragState();
-    if ( m_replayRuntime.Scrubber().liveAdvanceHeld )
-    {
-        m_replayRuntime.SetLiveAdvanceHeld( false );
-    }
-    if ( m_replayRuntime.ResetScrubberState() )
+
+    const std::string* scenePath = m_sceneController.CurrentPath();
+    const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
+    ReplayRuntime::SceneTimelineResetInput replayReset;
+    replayReset.sceneLabel = sceneLabel;
+    replayReset.preserveBranchMetadata = preserveBranchMetadata;
+    replayReset.isSceneMode = SceneState().isSceneMode;
+    replayReset.modelCount = SceneState().modelCount;
+    replayReset.solverBallCount = SceneState().solverBallCount;
+    replayReset.solverBoxCount = SceneState().solverBoxCount;
+    replayReset.rngSeed = SceneState().rngSeed;
+    replayReset.gameModelCapacity = m_startup.gameModelCapacity;
+    replayReset.generatedObjectTypeOverride = static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride );
+    replayReset.hasUiModelCountOverride = m_sceneController.UIOverrides().modelCountOverride >= 0;
+    replayReset.hasUiSolverCountOverride = m_sceneController.UIOverrides().solverBallCountOverride >= 0 ||
+                                           m_sceneController.UIOverrides().solverBoxCountOverride >= 0;
+
+    const ReplayRuntime::SceneTimelineResetResult replayResetBegin =
+        m_replayRuntime.BeginSceneTimelineReset( replayReset );
+    if ( replayResetBegin.exitInspectionCamera )
     {
         ExitReplayInspectionCamera();
     }
-    m_replayRuntime.LoadedPresentation() = RunLoadedReplayPresentationState{};
-    m_replayRuntime.ClearCameraFocusForRestore();
-    ExitReplayInspectionCamera();
-    m_replayRuntime.ClearPathVisualizerState();
-    m_replayRuntime.VelocityEdit() = RunReplayVelocityEditState{};
-    if ( !m_replayRuntime.IsPresentationEnabled() )
+
+    const ReplayRuntime::SceneTimelineResetResult replayResetFinish =
+        m_replayRuntime.FinishSceneTimelineReset( replayReset );
+    if ( replayResetFinish.exitInspectionCamera )
+    {
+        ExitReplayInspectionCamera();
+    }
+    if ( !replayResetFinish.timelineStarted )
     {
         return;
     }
 
-    const std::string* scenePath = m_sceneController.CurrentPath();
-    const char* sceneLabel = scenePath && !scenePath->empty() ? scenePath->c_str() : "generated";
-    m_replayRuntime.ResetTimeline( sceneLabel );
-    m_replayRuntime.RecordEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
-    if ( !( SceneState().isSceneMode && SceneState().solverBallCount <= 0 && SceneState().solverBoxCount <= 0 ) )
-    {
-        uint32_t flags = 0;
-        flags |= ( SceneState().solverBallCount > 0 || SceneState().solverBoxCount > 0 )
-                     ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS
-                     : 0u;
-        flags |= m_sceneController.UIOverrides().modelCountOverride >= 0 ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
-        flags |= ( m_sceneController.UIOverrides().solverBallCountOverride >= 0 ||
-                   m_sceneController.UIOverrides().solverBoxCountOverride >= 0 )
-                     ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS
-                     : 0u;
-        flags |= ( static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride )
-                   << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
-                 REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
-
-        uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
-        HashReplayInt( hash, SceneState().modelCount );
-        HashReplayInt( hash, SceneState().solverBallCount );
-        HashReplayInt( hash, SceneState().solverBoxCount );
-        HashReplayInt( hash, static_cast<int32_t>( SceneState().rngSeed ) );
-        HashReplayInt( hash, static_cast<int32_t>( m_startup.gameModelCapacity ) );
-        HashReplayInt( hash, static_cast<int32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-
-        m_replayRuntime.RecordEvent( ReplayEventKind::GeneratedSceneConfig,
-                                     0,
-                                     flags,
-                                     SceneState().modelCount,
-                                     SceneState().solverBallCount,
-                                     SceneState().solverBoxCount,
-                                     static_cast<int32_t>( SceneState().rngSeed ),
-                                     hash,
-                                     "generated_scene_config" );
-    }
     m_solverReplayMismatch.reports = 0;
     m_solverReplayMismatch.suppressed = false;
 }

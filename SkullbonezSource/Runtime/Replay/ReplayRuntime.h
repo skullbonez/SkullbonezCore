@@ -420,6 +420,32 @@ class ReplayRuntime
         ReplayEventRecorderStats eventStats;
     };
 
+    // Concept: scene load/reset code sends replay-owned timeline facts here so
+    // ReplayRuntime can clear scrubber, branch, loaded-artifact, path, velocity,
+    // and event recorder state without Run reopening each owned struct.
+    struct SceneTimelineResetInput
+    {
+        const char* sceneLabel = nullptr;
+        bool preserveBranchMetadata = false;
+        bool isSceneMode = false;
+        int modelCount = 0;
+        int solverBallCount = 0;
+        int solverBoxCount = 0;
+        uint32_t rngSeed = 0;
+        int gameModelCapacity = 0;
+        uint32_t generatedObjectTypeOverride = 0;
+        bool hasUiModelCountOverride = false;
+        bool hasUiSolverCountOverride = false;
+    };
+
+    // Run still owns process/UI side effects such as leaving inspection camera;
+    // the replay command reports those actions instead of calling back into Run.
+    struct SceneTimelineResetResult
+    {
+        bool exitInspectionCamera = false;
+        bool timelineStarted = false;
+    };
+
     ReplayRuntime();
 
     ReplayRecorder& Presentation();
@@ -494,6 +520,8 @@ class ReplayRuntime
     void FlushHashLogs();
     void ResetBranch();
     void ResetTimeline( const char* sceneLabel );
+    SceneTimelineResetResult BeginSceneTimelineReset( const SceneTimelineResetInput& input );
+    SceneTimelineResetResult FinishSceneTimelineReset( const SceneTimelineResetInput& input );
     bool IsPresentationEnabled() const;
     bool IsCaptureEnabled() const;
     ReplayRecorderStats PresentationStats() const;

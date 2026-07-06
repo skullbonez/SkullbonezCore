@@ -62,6 +62,11 @@ constexpr uint32_t REPLAY_EDITOR_PLACE_TERRAIN_ALIGN = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_TRANSLATE = 1u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_ROTATE = 2u;
 constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS = 1u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_UI_MODEL_COUNT = 2u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS = 4u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT = 8u;
+constexpr uint32_t REPLAY_GENERATED_SCENE_OVERRIDE_MASK = 3u << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT;
 constexpr uint64_t REPLAY_EVENT_FNV_OFFSET = 14695981039346656037ull;
 constexpr uint64_t REPLAY_EVENT_FNV_PRIME = 1099511628211ull;
 
@@ -1038,6 +1043,76 @@ void ReplayRuntime::ResetTimeline( const char* sceneLabel )
     m_solver.ResetTimeline( sceneLabel );
     m_events.ResetTimeline( sceneLabel );
 }
+
+
+ReplayRuntime::SceneTimelineResetResult ReplayRuntime::BeginSceneTimelineReset( const SceneTimelineResetInput& input )
+{
+    SceneTimelineResetResult result;
+    if ( !input.preserveBranchMetadata )
+    {
+        ResetBranch();
+    }
+    if ( m_scrubber.liveAdvanceHeld )
+    {
+        SetLiveAdvanceHeld( false );
+    }
+    if ( ResetScrubberState() )
+    {
+        result.exitInspectionCamera = true;
+    }
+    return result;
+}
+
+
+ReplayRuntime::SceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset( const SceneTimelineResetInput& input )
+{
+    SceneTimelineResetResult result;
+    m_loadedPresentation = RunLoadedReplayPresentationState{};
+    ClearCameraFocusForRestore();
+    result.exitInspectionCamera = true;
+    ClearPathVisualizerState();
+    m_velocityEdit = RunReplayVelocityEditState{};
+    if ( !IsPresentationEnabled() )
+    {
+        return result;
+    }
+
+    const char* sceneLabel = input.sceneLabel && input.sceneLabel[0] != '\0' ? input.sceneLabel : "generated";
+    ResetTimeline( sceneLabel );
+    RecordEvent( ReplayEventKind::TimelineStart, 0, 0, 0, 0, 0, 0, 0, sceneLabel );
+    result.timelineStarted = true;
+
+    if ( !( input.isSceneMode && input.solverBallCount <= 0 && input.solverBoxCount <= 0 ) )
+    {
+        uint32_t flags = 0;
+        flags |=
+            ( input.solverBallCount > 0 || input.solverBoxCount > 0 ) ? REPLAY_GENERATED_SCENE_EXACT_SOLVER_COUNTS : 0u;
+        flags |= input.hasUiModelCountOverride ? REPLAY_GENERATED_SCENE_UI_MODEL_COUNT : 0u;
+        flags |= input.hasUiSolverCountOverride ? REPLAY_GENERATED_SCENE_UI_SOLVER_COUNTS : 0u;
+        flags |= ( input.generatedObjectTypeOverride << REPLAY_GENERATED_SCENE_OVERRIDE_SHIFT ) &
+                 REPLAY_GENERATED_SCENE_OVERRIDE_MASK;
+
+        uint64_t hash = REPLAY_EVENT_FNV_OFFSET;
+        ReplayRuntimeHashInt( hash, input.modelCount );
+        ReplayRuntimeHashInt( hash, input.solverBallCount );
+        ReplayRuntimeHashInt( hash, input.solverBoxCount );
+        ReplayRuntimeHashInt( hash, static_cast<int32_t>( input.rngSeed ) );
+        ReplayRuntimeHashInt( hash, input.gameModelCapacity );
+        ReplayRuntimeHashInt( hash, static_cast<int32_t>( input.generatedObjectTypeOverride ) );
+
+        RecordEvent( ReplayEventKind::GeneratedSceneConfig,
+                     0,
+                     flags,
+                     input.modelCount,
+                     input.solverBallCount,
+                     input.solverBoxCount,
+                     static_cast<int32_t>( input.rngSeed ),
+                     hash,
+                     "generated_scene_config" );
+    }
+    return result;
+}
+
 
 bool ReplayRuntime::IsPresentationEnabled() const
 {

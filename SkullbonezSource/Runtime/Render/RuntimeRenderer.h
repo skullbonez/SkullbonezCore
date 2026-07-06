@@ -53,7 +53,7 @@ class RuntimeRenderer
     struct BackendResourceReleaseContext
     {
         const char* phaseName = nullptr;
-        Rendering::IRenderBackend* backend = nullptr;
+        Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr;
         Rendering::IRenderResourceFactory* renderResources = nullptr;
         GameObjects::GameModelCollection& models;
         UI::InGameUI& ui;
