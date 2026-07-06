@@ -11,6 +11,17 @@ For the five scopes below, this plan set supersedes older architecture plans,
 cleanup plans, and roadmap notes. Older plans remain useful history, but they
 are no longer the source of truth for what to run tonight.
 
+The files under `In_Progress/Inventories/` (the carmack 579-hit checklist and
+the physics-standalone checklist/workqueue) are inventories feeding plans 02
+and 03 — reference material, **not** tonight's workqueue. The workqueue is the
+five `authoritative-plan-0*.csv` files only; the closed physics-standalone
+queue (165/165) stays closed.
+
+Unattended execution is governed by
+`Agentic/Plans/In_Progress/overnight-run-protocol.md`: pre-flight green
+baseline, commit-per-cluster, two-strikes-then-block failure rule, the
+`overnight` safe/defer column in each CSV, and the FILL filler queue.
+
 The objective is not to make `Run` stop constructing the engine tree. The
 objective is to move behavioral authority and data ownership behind the
 subsystems that already exist or are named here.
@@ -28,8 +39,14 @@ subsystems that already exist or are named here.
 ## Tonight Run Rules
 
 1. Do not start by deleting code. Start by adding or tightening the smallest
-   static guardrail that prevents new violations in the selected scope.
-2. Pick one plan and one CSV row cluster. Do not mix all five at once.
+   static guardrail that prevents new violations in the selected scope. Every
+   guardrail records the current census as a stored budget number and ships a
+   self-test — a ratchet without a baseline number is lint, not a ratchet.
+2. Pick one plan and one CSV row cluster. Do not mix all five at once. For
+   unattended runs, **exactly one plan owns the whole night** — plans 01, 03,
+   and 04 overlap on `Run`/render-host code and will self-conflict if
+   interleaved. Only FILL rows from the overnight protocol may be taken
+   outside the chosen plan.
 3. Preserve behavior while moving authority. A clean boundary that changes
    physics or render output is not clean.
 4. Do not introduce new generic `Runtime`, `Bridge`, `Compatibility`, or

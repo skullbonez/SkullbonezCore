@@ -9,7 +9,8 @@ metadata.
 
 The active implementation queue is closed:
 `PHY-1076` completed the last planned implementation row in
-`Agentic/Plans/In_Progress/physics-standalone-agent-workqueue.csv`, and
+`Agentic/Plans/In_Progress/Inventories/physics-standalone-agent-workqueue.csv`
+(moved into `Inventories/` on 2026-07-06), and
 `PHY-9903` records this final handoff. The queue is now 165/165 rows done.
 
 The latest slice moved authored releasable-tree grouping out of
@@ -37,7 +38,7 @@ per small change.
 Say this:
 
 ```text
-Continue the active goal on codex/physics-store-authority from Agentic/Reports/2026-07-05/physics-store-authority-handover.md. Follow AGENTS.md and the orchestrator skill. Start after PHY-1076, inspect Agentic/SessionState.md and Agentic/Plans/In_Progress/physics-standalone-agent-workqueue.csv, then continue with the remaining non-presentation model-index fallback audit plus final GameModel body/collider reader audit. Do not rubber duck until a major checkpoint. Keep validate_physics as an intermittent gate.
+Continue the active goal on codex/physics-store-authority from Agentic/Reports/2026-07-05/physics-store-authority-handover.md. Follow AGENTS.md and the orchestrator skill. Start after PHY-1076, inspect Agentic/SessionState.md and Agentic/Plans/In_Progress/Inventories/physics-standalone-agent-workqueue.csv, then continue with the remaining non-presentation model-index fallback audit plus final GameModel body/collider reader audit. Do not rubber duck until a major checkpoint. Keep validate_physics as an intermittent gate.
 ```
 
 If you only want the next mechanical step, say:

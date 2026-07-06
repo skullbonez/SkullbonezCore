@@ -24,11 +24,19 @@ explicit services, snapshots, or owner commands.
 ## First-Night Slice
 
 1. Add a service-context boundary checker mode that can ratchet new `Gfx()`,
-   `Cfg()`, and `::Instance()` calls by directory.
-2. Start with one clear owner: `LauncherLaser` and editor tracer draw paths
-   should consume `IRenderCommandContext`/debug-line capability instead of
-   calling `Gfx()`.
+   `Cfg()`, and `::Instance()` calls by directory, with the current census
+   stored as the budget and a checker self-test (SVC-035).
+2. Start with the diagnostics/UI snapshot cluster: SVC-022 (diagnostics CSV
+   through injected profiler capability), SVC-032/SVC-033 (UI profiler tab
+   from diagnostics snapshots), SVC-034 (classify LockOrderValidator as an
+   allowed diagnostics singleton). These are `validate_fast` rows with no
+   render-path overlap.
 3. Update CSV rows as each call site is migrated.
+
+Ownership note: the `LauncherLaser`/editor-tracer/debug-line overlay cluster
+(SVC-024..SVC-028) is shared ground with plan 04's first slice. That on-ramp
+belongs to **plan 04**; take those SVC rows only in a night that plan 04 owns,
+or after plan 04's overlay migration has landed.
 
 ## Definition Of Done
 
