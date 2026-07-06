@@ -1579,14 +1579,16 @@ float PhysicsWorld::GetTornadoSystemElapsedSeconds() const
 }
 
 
-void PhysicsWorld::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj )
+void PhysicsWorld::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
+                                              Rendering::IRenderCommandContext& renderCommands,
+                                              bool supportsDebugLines )
 {
     if ( m_tornadoSystem.IsEnabled() )
     {
-        m_tornadoSystem.RenderVectors( viewProj );
+        m_tornadoSystem.RenderVectors( viewProj, renderCommands, supportsDebugLines );
         return;
     }
-    m_tornadoField.RenderVectors( viewProj );
+    m_tornadoField.RenderVectors( viewProj, renderCommands, supportsDebugLines );
 }
 
 

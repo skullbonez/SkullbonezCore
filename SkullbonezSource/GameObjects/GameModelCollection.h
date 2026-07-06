@@ -103,6 +103,7 @@ struct PhysicsColliderCreateDesc;
 
 namespace Rendering
 {
+class IRenderCommandContext;
 class IRenderResourceFactory;
 } // namespace Rendering
 
@@ -397,7 +398,9 @@ class GameModelCollection
     void RenderPhysicsDebug( Physics::PhysicsDebugVisualizer& visualizer,
                              const Math::Transformation::Matrix4& viewProjection,
                              Geometry::Terrain* terrain );
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
+    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
+                                    Rendering::IRenderCommandContext& renderCommands,
+                                    bool supportsDebugLines );
 
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const
     {

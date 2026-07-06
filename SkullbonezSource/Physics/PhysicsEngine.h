@@ -45,6 +45,11 @@ namespace Threading
 class WorkerPool;
 } // namespace Threading
 
+namespace Rendering
+{
+class IRenderCommandContext;
+} // namespace Rendering
+
 namespace Physics
 {
 struct PhysicsColliderCreateDesc;
@@ -155,7 +160,11 @@ class PhysicsEngine
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
+    // Debug overlay edge: caller owns renderer readiness/capabilities; physics
+    // only contributes tornado vector geometry.
+    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
+                                    Rendering::IRenderCommandContext& renderCommands,
+                                    bool supportsDebugLines );
     void CaptureReplaySolverSnapshot( Basics::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const Basics::ReplaySolverWorldSnapshot& snapshot, int modelCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;

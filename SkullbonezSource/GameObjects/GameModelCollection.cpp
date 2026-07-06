@@ -1492,9 +1492,11 @@ void GameModelCollection::SetTornadoSystemConfig( const Physics::TornadoSystemCo
 }
 
 
-void GameModelCollection::RenderTornadoFieldVectors( const Matrix4& viewProj )
+void GameModelCollection::RenderTornadoFieldVectors( const Matrix4& viewProj,
+                                                     Rendering::IRenderCommandContext& renderCommands,
+                                                     bool supportsDebugLines )
 {
-    m_physicsEngine.RenderTornadoFieldVectors( viewProj );
+    m_physicsEngine.RenderTornadoFieldVectors( viewProj, renderCommands, supportsDebugLines );
 }
 
 

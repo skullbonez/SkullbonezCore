@@ -1749,7 +1749,12 @@ void DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
             PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay/TornadoField" );
         }
         DRAW_CALL_TRACE_SCOPE( "TornadoField" );
-        inputs.frame.physicsEngine->RenderTornadoFieldVectors( inputs.frame.viewProjection );
+        // Pass contract: physics generates tornado vector geometry, but
+        // renderer capability/readiness remains owned by the debug overlay pass.
+        const bool supportsDebugLines = RenderDiagnostics( inputs.frame ).GetCapabilities().supportsDebugLines;
+        inputs.frame.physicsEngine->RenderTornadoFieldVectors( inputs.frame.viewProjection,
+                                                               RenderCommands( inputs.frame ),
+                                                               supportsDebugLines );
         if ( detailMarkers )
         {
             PROFILE_GPU_END( "Frame/Render/DebugOverlay/TornadoField" );

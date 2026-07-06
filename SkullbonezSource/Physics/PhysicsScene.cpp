@@ -590,9 +590,11 @@ float PhysicsScene::GetTornadoSystemElapsedSeconds() const
 }
 
 
-void PhysicsScene::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj )
+void PhysicsScene::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
+                                              Rendering::IRenderCommandContext& renderCommands,
+                                              bool supportsDebugLines )
 {
-    m_world.RenderTornadoFieldVectors( viewProj );
+    m_world.RenderTornadoFieldVectors( viewProj, renderCommands, supportsDebugLines );
 }
 
 

@@ -298,9 +298,11 @@ float PhysicsEngine::GetTornadoSystemElapsedSeconds() const
 }
 
 
-void PhysicsEngine::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj )
+void PhysicsEngine::RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj,
+                                               Rendering::IRenderCommandContext& renderCommands,
+                                               bool supportsDebugLines )
 {
-    m_scene.RenderTornadoFieldVectors( viewProj );
+    m_scene.RenderTornadoFieldVectors( viewProj, renderCommands, supportsDebugLines );
 }
 
 

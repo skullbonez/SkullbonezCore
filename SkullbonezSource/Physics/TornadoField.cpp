@@ -26,8 +26,8 @@ Related:
 */
 #include "TornadoField.h"
 #include "../Core/Common.h"
-#include "../Rendering/IRenderBackend.h"
 #include "../Core/Profiler.h"
+#include "../Rendering/IRenderCommandContext.h"
 #include <algorithm>
 #include <cmath>
 
@@ -36,7 +36,6 @@ using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
-using SkullbonezCore::Rendering::Gfx;
 namespace Vector = SkullbonezCore::Math::Vector;
 
 
@@ -309,7 +308,9 @@ Vector3 TornadoSystem::SampleAcceleration( const Vector3& position ) const
 }
 
 
-void TornadoSystem::RenderVectors( const Matrix4& viewProj )
+void TornadoSystem::RenderVectors( const Matrix4& viewProj,
+                                   SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                   bool supportsDebugLines )
 {
     for ( const TornadoActiveVortex& vortex : m_activeVortices )
     {
@@ -318,14 +319,16 @@ void TornadoSystem::RenderVectors( const Matrix4& viewProj )
             continue;
         }
         m_debugField.SetConfig( vortex.field );
-        m_debugField.RenderVectors( viewProj );
+        m_debugField.RenderVectors( viewProj, renderCommands, supportsDebugLines );
     }
 }
 
 
-void TornadoField::RenderVectors( const Matrix4& viewProj )
+void TornadoField::RenderVectors( const Matrix4& viewProj,
+                                  SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                  bool supportsDebugLines )
 {
-    if ( !m_config.visualizeVelocityField || !Gfx().GetCapabilities().supportsDebugLines )
+    if ( !m_config.visualizeVelocityField || !supportsDebugLines )
     {
         return;
     }
@@ -408,6 +411,6 @@ void TornadoField::RenderVectors( const Matrix4& viewProj )
     if ( !m_lineData.empty() )
     {
         const int vertCount = static_cast<int>( m_lineData.size() / 6 );
-        Gfx().DrawLinesColored( m_lineData.data(), vertCount, viewProj.Data() );
+        renderCommands.DrawLinesColored( m_lineData.data(), vertCount, viewProj.Data() );
     }
 }
