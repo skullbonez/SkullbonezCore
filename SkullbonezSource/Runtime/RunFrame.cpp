@@ -283,6 +283,211 @@ void CompareLatestReplaySamples( ReplayRuntime& replayRuntime, RunReplayMismatch
     }
 }
 
+struct SimulationPostStepPipelineContext
+{
+    SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio;
+    RunRuntimeSettings& runtimeSettings;
+    RunTimerState& timers;
+    DiagnosticsRuntime& diagnosticsRuntime;
+    RunSceneState& scene;
+    RunDebugState& debug;
+    RunSubsystemState& systems;
+    RuntimeTools& runtimeTools;
+    ReplayRuntime& replayRuntime;
+    ReplayLauncherVisualSample& replayLauncherVisualScratch;
+    RunReplayMismatchState& solverReplayMismatch;
+    SkullbonezCore::Environment::WorldEnvironment& world;
+    SkullbonezCore::GameObjects::GameModelCollection& models;
+};
+
+struct SimulationPostStepPipelineResult
+{
+    bool replayCaptured = false;
+};
+
+class SimulationPostStepPipeline
+{
+  public:
+    static SimulationPostStepPipelineResult Run( SimulationPostStepPipelineContext& context )
+    {
+        SimulationPostStepPipelineResult result;
+        if ( context.contactAudio.IsEnabled() )
+        {
+            RunContactAudio( context );
+        }
+        if ( context.replayRuntime.IsCaptureEnabled() )
+        {
+            CaptureReplayFrame( context );
+            result.replayCaptured = true;
+        }
+        return result;
+    }
+
+  private:
+    static void RunContactAudio( SimulationPostStepPipelineContext& context )
+    {
+        PROFILE_SCOPED( "Frame/Physics/Step/ContactAudio" );
+
+        const Vector3 listenerPosition = context.systems.cameras ? context.systems.cameras->GetRenderCameraTranslation()
+                                                                 : SkullbonezCore::Math::Vector::ZERO_VECTOR;
+        context.contactAudio.BeginPhysicsStep( PHYSICS_FIXED_DT, listenerPosition );
+
+        const auto& colliderRecords = context.models.GetPhysicsEngine().Colliders().Records();
+        auto materialForBody = [&]( int bodyIndex ) -> uint32_t
+        {
+            if ( bodyIndex >= 0 && bodyIndex < static_cast<int>( colliderRecords.size() ) )
+            {
+                return colliderRecords[static_cast<std::size_t>( bodyIndex )].contactMaterialId;
+            }
+            return HashStr( "default" );
+        };
+
+        if ( context.contactAudio.SimpleModeEnabled() )
+        {
+            // Why: Simple Mode answers the practical sound question directly:
+            // did a dynamic body experience enough mass-scaled linear velocity
+            // change to be heard? Motion comes from PhysicsBodyStore and contact
+            // material comes from the paired ColliderStore row.
+            const auto& bodyRecords = context.models.GetPhysicsEngine().BodyStore().Records();
+            const int simpleBodyCount = static_cast<int>(
+                bodyRecords.size() < colliderRecords.size() ? bodyRecords.size() : colliderRecords.size() );
+            context.contactAudio.BeginSimpleLinearStep( simpleBodyCount );
+            for ( int bodyIndex = 0; bodyIndex < simpleBodyCount; ++bodyIndex )
+            {
+                const PhysicsBodyRecord& body = bodyRecords[static_cast<std::size_t>( bodyIndex )];
+                if ( body.isFixed )
+                {
+                    continue;
+                }
+                context.contactAudio.SubmitLinearMotion(
+                    bodyIndex,
+                    colliderRecords[static_cast<std::size_t>( bodyIndex )].contactMaterialId,
+                    body.position,
+                    body.linearVelocity,
+                    body.mass );
+            }
+        }
+        else
+        {
+            // Why: PhysicsDebugContact rows are emitted after accumulated normal
+            // impulses are known. Audio can consume those facts without entering
+            // solver math or changing deterministic physics state.
+            const std::vector<PhysicsDebugContact>& contacts = context.models.GetPhysicsDebugContacts();
+            for ( const PhysicsDebugContact& contact : contacts )
+            {
+                if ( contact.bodyA < 0 || contact.normalImpulse <= 0.0f )
+                {
+                    continue;
+                }
+
+                SkullbonezCore::Runtime::Audio::ContactAudioEvent event;
+                event.bodyA = contact.bodyA;
+                event.bodyB = contact.bodyB;
+                event.featureId = contact.featureId;
+                event.materialA = materialForBody( contact.bodyA );
+                event.materialB = materialForBody( contact.bodyB );
+                event.point = contact.point;
+                event.normal = contact.normal;
+                event.normalImpulse = contact.normalImpulse;
+                // Why: sound uses pre-solve relative motion so stationary wall bricks
+                // receiving propagated constraint force do not all become emitters.
+                event.normalClosingSpeed = contact.preSolveClosingSpeed;
+                event.tangentSlipSpeed = contact.preSolveSlipSpeed;
+                event.isTerrain = contact.bodyB < 0;
+                event.hasMotionData = true;
+                context.contactAudio.SubmitContact( event );
+            }
+        }
+
+        context.contactAudio.EndPhysicsStep();
+#ifdef _DEBUG
+        if ( context.diagnosticsRuntime.PhysicsDiagnosticsEnabled() )
+        {
+            RuntimeDiagnostics::LogContactAudioStepStats( context.diagnosticsRuntime.PhysicsDiagnostics(),
+                                                          context.scene,
+                                                          context.contactAudio.StepStats() );
+            const int decisionCount = context.contactAudio.DecisionCount();
+            for ( int i = 0; i < decisionCount; ++i )
+            {
+                SkullbonezCore::Runtime::Audio::ContactAudioDecision decision;
+                if ( context.contactAudio.GetDecision( i, decision ) )
+                {
+                    RuntimeDiagnostics::LogContactAudioDecision( context.diagnosticsRuntime.PhysicsDiagnostics(),
+                                                                 context.scene,
+                                                                 decision );
+                }
+            }
+        }
+#endif
+        if ( context.runtimeSettings.contactAudioFlashMode != ContactAudioFlashMode::Off )
+        {
+            // Why: Sound-tab diagnostics can visualize emitted sounds, all
+            // candidates, or rejected candidates without touching physics state.
+            constexpr float CONTACT_AUDIO_FLASH_SECONDS = 0.1f;
+            const int decisionCount = context.contactAudio.DecisionCount();
+            for ( int i = 0; i < decisionCount; ++i )
+            {
+                SkullbonezCore::Runtime::Audio::ContactAudioDecision decision;
+                if ( !context.contactAudio.GetDecision( i, decision ) ||
+                     !ShouldFlashContactAudioDecision( context.runtimeSettings.contactAudioFlashMode, decision ) )
+                {
+                    continue;
+                }
+
+                context.models.NotifyAudioContact( decision.event.bodyA, CONTACT_AUDIO_FLASH_SECONDS );
+                context.models.NotifyAudioContact( decision.event.bodyB, CONTACT_AUDIO_FLASH_SECONDS );
+            }
+        }
+        if ( context.runtimeSettings.contactAudioDebugCounters )
+        {
+            context.timers.contactAudioStatsLogTime += PHYSICS_FIXED_DT;
+            if ( context.timers.contactAudioStatsLogTime >= 1.0f )
+            {
+                const SkullbonezCore::Runtime::Audio::ContactAudioStats& stats = context.contactAudio.Stats();
+                printf( "[audio] contact stats facts=%u patches=%u merged=%u threshold=%u cooldown=%u "
+                        "submitted=%u rolling=%u/%u budget=%u dropped=%u\n",
+                        stats.eventsSeen,
+                        stats.patchCandidates,
+                        stats.mergedCandidates,
+                        stats.rejectedByThreshold,
+                        stats.rejectedByCooldown,
+                        stats.submittedVoices,
+                        stats.rollingSubmittedVoices,
+                        stats.rollingCandidates,
+                        stats.candidateOverflows + stats.burstWindowSkippedCandidates + stats.budgetRejectedCandidates,
+                        stats.droppedVoices );
+                context.contactAudio.ResetFrameStats();
+                context.timers.contactAudioStatsLogTime = 0.0f;
+            }
+        }
+    }
+
+    static void CaptureReplayFrame( SimulationPostStepPipelineContext& context )
+    {
+        RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Replay );
+        PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
+        context.runtimeTools.BuildReplayLauncherVisualSample( context.replayLauncherVisualScratch );
+
+        ReplayCaptureInput input;
+        input.sceneFrame = context.scene.currentFrame;
+        input.simulationSeconds = context.timers.simulationTimer.GetTimeSinceLastStart();
+        input.physicsDt = PHYSICS_FIXED_DT;
+        input.fixedStep = context.scene.isFixedStep;
+        input.scenePhysicsEnabled = context.scene.isScenePhysics;
+        input.sceneTextEnabled = context.scene.isSceneText;
+        input.waterHidden = context.debug.isWaterHidden;
+        input.terrainHidden = context.debug.isTerrainHidden;
+        input.cameras = context.systems.cameras;
+        input.world = &context.world;
+        input.models = &context.models;
+        input.bodyStore = &context.models.GetPhysicsEngine().BodyStore();
+        input.colliderStore = &context.models.GetPhysicsEngine().Colliders();
+        input.launcherVisual = &context.replayLauncherVisualScratch;
+        context.replayRuntime.CaptureFrame( input );
+        CompareLatestReplaySamples( context.replayRuntime, context.solverReplayMismatch );
+    }
+};
+
 SceneGeneratedModelContext BuildSceneGeneratedModelContext( RunSceneState& scene,
                                                             const EngineConfig& config,
                                                             SkullbonezCore::Environment::WorldEnvironment& world,
@@ -868,172 +1073,28 @@ void Run::TickPhysics( double secondsPerFrame )
 void Run::AfterPhysicsStep()
 {
     RestoreMousePickupAngularVelocity();
-    if ( m_contactAudio.IsEnabled() )
-    {
-        PROFILE_SCOPED( "Frame/Physics/Step/ContactAudio" );
-
-        const Vector3 listenerPosition =
-            m_systems.cameras ? m_systems.cameras->GetRenderCameraTranslation() : Math::Vector::ZERO_VECTOR;
-        m_contactAudio.BeginPhysicsStep( PHYSICS_FIXED_DT, listenerPosition );
-
-        const auto& colliderRecords = m_cGameModelCollection.GetPhysicsEngine().Colliders().Records();
-        auto materialForBody = [&]( int bodyIndex ) -> uint32_t
-        {
-            if ( bodyIndex >= 0 && bodyIndex < static_cast<int>( colliderRecords.size() ) )
-            {
-                return colliderRecords[static_cast<std::size_t>( bodyIndex )].contactMaterialId;
-            }
-            return HashStr( "default" );
-        };
-
-        if ( m_contactAudio.SimpleModeEnabled() )
-        {
-            // Why: Simple Mode answers the practical sound question directly:
-            // did a dynamic body experience enough mass-scaled linear velocity
-            // change to be heard? Motion comes from PhysicsBodyStore and contact
-            // material comes from the paired ColliderStore row.
-            const auto& bodyRecords = m_cGameModelCollection.GetPhysicsEngine().BodyStore().Records();
-            const int simpleBodyCount = static_cast<int>(
-                bodyRecords.size() < colliderRecords.size() ? bodyRecords.size() : colliderRecords.size() );
-            m_contactAudio.BeginSimpleLinearStep( simpleBodyCount );
-            for ( int bodyIndex = 0; bodyIndex < simpleBodyCount; ++bodyIndex )
-            {
-                const PhysicsBodyRecord& body = bodyRecords[static_cast<std::size_t>( bodyIndex )];
-                if ( body.isFixed )
-                {
-                    continue;
-                }
-                m_contactAudio.SubmitLinearMotion(
-                    bodyIndex,
-                    colliderRecords[static_cast<std::size_t>( bodyIndex )].contactMaterialId,
-                    body.position,
-                    body.linearVelocity,
-                    body.mass );
-            }
-        }
-        else
-        {
-            // Why: PhysicsDebugContact rows are emitted after accumulated normal
-            // impulses are known. Audio can consume those facts without entering
-            // solver math or changing deterministic physics state.
-            const std::vector<PhysicsDebugContact>& contacts = m_cGameModelCollection.GetPhysicsDebugContacts();
-            for ( const PhysicsDebugContact& contact : contacts )
-            {
-                if ( contact.bodyA < 0 || contact.normalImpulse <= 0.0f )
-                {
-                    continue;
-                }
-
-                Runtime::Audio::ContactAudioEvent event;
-                event.bodyA = contact.bodyA;
-                event.bodyB = contact.bodyB;
-                event.featureId = contact.featureId;
-                event.materialA = materialForBody( contact.bodyA );
-                event.materialB = materialForBody( contact.bodyB );
-                event.point = contact.point;
-                event.normal = contact.normal;
-                event.normalImpulse = contact.normalImpulse;
-                // Why: sound uses pre-solve relative motion so stationary wall bricks
-                // receiving propagated constraint force do not all become emitters.
-                event.normalClosingSpeed = contact.preSolveClosingSpeed;
-                event.tangentSlipSpeed = contact.preSolveSlipSpeed;
-                event.isTerrain = contact.bodyB < 0;
-                event.hasMotionData = true;
-                m_contactAudio.SubmitContact( event );
-            }
-        }
-
-        m_contactAudio.EndPhysicsStep();
+    SimulationPostStepPipelineContext context{ m_contactAudio,
+                                               m_runtimeSettings,
+                                               m_timers,
+                                               m_diagnosticsRuntime,
+                                               SceneState(),
+                                               m_debug,
+                                               m_systems,
+                                               m_runtimeTools,
+                                               m_replayRuntime,
+                                               m_replayLauncherVisualScratch,
+                                               m_solverReplayMismatch,
+                                               m_cWorldEnvironment,
+                                               m_cGameModelCollection };
+    const SimulationPostStepPipelineResult result = SimulationPostStepPipeline::Run( context );
 #ifdef _DEBUG
-        if ( m_diagnosticsRuntime.PhysicsDiagnosticsEnabled() )
-        {
-            RuntimeDiagnostics::LogContactAudioStepStats( m_diagnosticsRuntime.PhysicsDiagnostics(),
-                                                          SceneState(),
-                                                          m_contactAudio.StepStats() );
-            const int decisionCount = m_contactAudio.DecisionCount();
-            for ( int i = 0; i < decisionCount; ++i )
-            {
-                Runtime::Audio::ContactAudioDecision decision;
-                if ( m_contactAudio.GetDecision( i, decision ) )
-                {
-                    RuntimeDiagnostics::LogContactAudioDecision( m_diagnosticsRuntime.PhysicsDiagnostics(),
-                                                                 SceneState(),
-                                                                 decision );
-                }
-            }
-        }
-#endif
-        if ( m_runtimeSettings.contactAudioFlashMode != ContactAudioFlashMode::Off )
-        {
-            // Why: Sound-tab diagnostics can visualize emitted sounds, all
-            // candidates, or rejected candidates without touching physics state.
-            constexpr float CONTACT_AUDIO_FLASH_SECONDS = 0.1f;
-            const int decisionCount = m_contactAudio.DecisionCount();
-            for ( int i = 0; i < decisionCount; ++i )
-            {
-                Runtime::Audio::ContactAudioDecision decision;
-                if ( !m_contactAudio.GetDecision( i, decision ) ||
-                     !ShouldFlashContactAudioDecision( m_runtimeSettings.contactAudioFlashMode, decision ) )
-                {
-                    continue;
-                }
-
-                m_cGameModelCollection.NotifyAudioContact( decision.event.bodyA, CONTACT_AUDIO_FLASH_SECONDS );
-                m_cGameModelCollection.NotifyAudioContact( decision.event.bodyB, CONTACT_AUDIO_FLASH_SECONDS );
-            }
-        }
-        if ( m_runtimeSettings.contactAudioDebugCounters )
-        {
-            m_timers.contactAudioStatsLogTime += PHYSICS_FIXED_DT;
-            if ( m_timers.contactAudioStatsLogTime >= 1.0f )
-            {
-                const Runtime::Audio::ContactAudioStats& stats = m_contactAudio.Stats();
-                printf( "[audio] contact stats facts=%u patches=%u merged=%u threshold=%u cooldown=%u "
-                        "submitted=%u rolling=%u/%u budget=%u dropped=%u\n",
-                        stats.eventsSeen,
-                        stats.patchCandidates,
-                        stats.mergedCandidates,
-                        stats.rejectedByThreshold,
-                        stats.rejectedByCooldown,
-                        stats.submittedVoices,
-                        stats.rollingSubmittedVoices,
-                        stats.rollingCandidates,
-                        stats.candidateOverflows + stats.burstWindowSkippedCandidates + stats.budgetRejectedCandidates,
-                        stats.droppedVoices );
-                m_contactAudio.ResetFrameStats();
-                m_timers.contactAudioStatsLogTime = 0.0f;
-            }
-        }
-    }
-    if ( m_replayRuntime.IsCaptureEnabled() )
+    if ( result.replayCaptured )
     {
-        RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Replay );
-        PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
-        m_runtimeTools.BuildReplayLauncherVisualSample( m_replayLauncherVisualScratch );
-
-        ReplayCaptureInput input;
-        input.sceneFrame = SceneState().currentFrame;
-        input.simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
-        input.physicsDt = PHYSICS_FIXED_DT;
-        input.fixedStep = SceneState().isFixedStep;
-        input.scenePhysicsEnabled = SceneState().isScenePhysics;
-        input.sceneTextEnabled = SceneState().isSceneText;
-        input.waterHidden = m_debug.isWaterHidden;
-        input.terrainHidden = m_debug.isTerrainHidden;
-        input.cameras = m_systems.cameras;
-        input.world = &m_cWorldEnvironment;
-        input.models = &m_cGameModelCollection;
-        input.bodyStore = &m_cGameModelCollection.GetPhysicsEngine().BodyStore();
-        input.colliderStore = &m_cGameModelCollection.GetPhysicsEngine().Colliders();
-        input.launcherVisual = &m_replayLauncherVisualScratch;
-        m_replayRuntime.CaptureFrame( input );
-        CompareLatestReplaySamples( m_replayRuntime, m_solverReplayMismatch );
-#ifdef _DEBUG
         TickReplayScrubProbe();
         TickReplayRestoreProbe();
         TickReplaySaveProbe();
-#endif
     }
+#endif
 }
 
 
