@@ -1848,7 +1848,8 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
 
     const auto restoreReplayRenderStateForFrame = [&]() { restoreReplayLauncherVisualForRender(); };
 
-    const bool renderReady = IsGfxReady();
+    SkullbonezCore::Rendering::IRenderBackend* renderBackend = m_renderBackendView.renderBackend;
+    const bool renderReady = renderBackend != nullptr;
     if ( !renderReady )
     {
         restoreReplayRenderStateForFrame();
@@ -1856,17 +1857,15 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     }
 
     // Invariant: render inputs only borrow command capabilities after the
-    // process-bound backend is ready. The captured flag records that guard for
-    // frame decisions without making the command context nullable.
-    IRenderBackend& renderBackend = Gfx();
+    // startup-owned backend view is ready. The captured flag records that guard
+    // for frame decisions without making the command context nullable.
     SkullbonezCore::Rendering::IRenderCommandContext& renderCommands =
-        static_cast<SkullbonezCore::Rendering::IRenderCommandContext&>( renderBackend );
+        static_cast<SkullbonezCore::Rendering::IRenderCommandContext&>( *renderBackend );
     SkullbonezCore::Rendering::IRenderResourceFactory& renderResources =
-        static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( renderBackend );
+        static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( *renderBackend );
     SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics =
-        static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( renderBackend );
-    SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing =
-        IsGfxRayTracingReady() ? &GfxRayTracing() : nullptr;
+        static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( *renderBackend );
+    SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = m_renderBackendView.rayTracingBackend;
     m_renderer.SetUiTextRayTracingCapability( renderRayTracing );
     PROFILE_BEGIN( "Frame/Render/PrepareModels" );
     m_cGameModelCollection.PrepareRenderInstances();

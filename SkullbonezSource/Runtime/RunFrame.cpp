@@ -527,10 +527,14 @@ void Run::Execute()
             m_timers.frameTimer.StartTimer();
             PROFILE_FRAME_BEGIN();
             m_timers.workTimer.StartTimer();
-            // Lifetime: borrow the active renderer once for this frame turn.
-            // Narrow facets keep reset, GPU-drain, UI accounting, and present
-            // from each resampling the process-global renderer service.
-            IRenderBackend& frameRenderBackend = Gfx();
+            // Lifetime: borrow the startup-owned renderer once for this frame
+            // turn. Narrow facets keep reset, GPU-drain, UI accounting, and
+            // present from each reaching through the process-global service.
+            if ( !m_renderBackendView.renderBackend )
+            {
+                throw std::runtime_error( "Run::Execute requires a render backend" );
+            }
+            IRenderBackend& frameRenderBackend = *m_renderBackendView.renderBackend;
             SkullbonezCore::Rendering::IRenderDiagnostics& frameRenderDiagnostics =
                 static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( frameRenderBackend );
             SkullbonezCore::Rendering::IRenderDeviceLifecycle& renderLifecycle =
