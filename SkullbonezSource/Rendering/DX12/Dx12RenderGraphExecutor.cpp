@@ -258,6 +258,24 @@ Dx12RenderGraphUavBarrierResult EmitDx12RenderGraphUavBarrier( const Dx12RenderG
 }
 
 
+Dx12RenderGraphUavBarrierRecord ExecuteDx12RenderGraphUavBarrier( const char* sourcePrefix,
+                                                                  const char* passName,
+                                                                  const char* resourceName,
+                                                                  const Dx12RenderGraphUavBarrierDesc& desc )
+{
+    Dx12RenderGraphUavBarrierRecord record;
+    MakeBarrierSource( record.source, sourcePrefix, passName );
+    CopyLabel( record.resourceName, resourceName );
+    record.nativeResource = desc.resource;
+
+    const Dx12RenderGraphUavBarrierResult result = EmitDx12RenderGraphUavBarrier( desc );
+    record.hasNativeResource = result.hasNativeResource;
+    record.missingCommandList = result.missingCommandList;
+    record.emitted = result.emitted;
+    return record;
+}
+
+
 Dx12RenderGraphExecutionResult ExecuteDx12RenderGraphTransitions( const RenderGraph& graph,
                                                                   const RenderGraphCompileResult& compiled,
                                                                   const Dx12RenderGraphExecutionDesc& desc )

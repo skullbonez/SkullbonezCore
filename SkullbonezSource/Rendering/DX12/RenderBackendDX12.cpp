@@ -587,18 +587,14 @@ void RenderBackendDX12::ExecuteGraphUavBarrier( const char* passName,
     Dx12RenderGraphUavBarrierDesc desc;
     desc.commandList = m_commandList;
     desc.resource = resource;
-    const Dx12RenderGraphUavBarrierResult result = EmitDx12RenderGraphUavBarrier( desc );
-    if ( !result.hasNativeResource || result.missingCommandList || !result.emitted )
+    const Dx12RenderGraphUavBarrierRecord record =
+        ExecuteDx12RenderGraphUavBarrier( "GraphOwned", passName, resourceName, desc );
+    if ( !record.hasNativeResource || record.missingCommandList || !record.emitted )
     {
         throw std::runtime_error( "DX12 graph-owned UAV barrier did not emit exactly one concrete barrier" );
     }
 
-    char source[64] = {};
-    snprintf( source,
-              sizeof( source ),
-              "GraphOwned:%s",
-              ( passName && passName[0] != '\0' ) ? passName : "UnnamedPass" );
-    RecordLiveUavBarrier( source, resourceName, resource );
+    RecordLiveUavBarrier( record.source, record.resourceName, resource );
 }
 
 

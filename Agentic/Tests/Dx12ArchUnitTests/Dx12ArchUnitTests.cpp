@@ -669,6 +669,23 @@ void TestDx12UavBarrierRequiresCommandListForEmit()
     EXPECT_TRUE( !result.emitted );
 }
 
+void TestDx12UavBarrierExecutionProducesRecord()
+{
+    Dx12RenderGraphUavBarrierDesc desc;
+    desc.commandList = nullptr;
+    desc.resource = reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x5100u ) );
+
+    const Dx12RenderGraphUavBarrierRecord record =
+        ExecuteDx12RenderGraphUavBarrier( "GraphOwned", "DispatchReflection", "Reflection", desc );
+
+    EXPECT_EQ( record.source, std::string( "GraphOwned:DispatchReflection" ) );
+    EXPECT_EQ( record.resourceName, std::string( "Reflection" ) );
+    EXPECT_TRUE( record.nativeResource == desc.resource );
+    EXPECT_TRUE( record.hasNativeResource );
+    EXPECT_TRUE( record.missingCommandList );
+    EXPECT_TRUE( !record.emitted );
+}
+
 void TestDx12GraphTransientPoolSlotReuseAllowsSameCompileAlias()
 {
     RenderGraphTransientResourceDesc desc;
@@ -730,6 +747,7 @@ const TestCase kTests[] = {
     { "DX12 single transition requires command list for emit", TestDx12SingleTransitionRequiresCommandListForEmit },
     { "DX12 single transition execution produces record", TestDx12SingleTransitionExecutionProducesRecord },
     { "DX12 UAV barrier requires command list for emit", TestDx12UavBarrierRequiresCommandListForEmit },
+    { "DX12 UAV barrier execution produces record", TestDx12UavBarrierExecutionProducesRecord },
     { "DX12 graph transient pool-slot reuse allows same-compile alias",
       TestDx12GraphTransientPoolSlotReuseAllowsSameCompileAlias },
 };
