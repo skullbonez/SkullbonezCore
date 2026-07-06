@@ -1865,28 +1865,28 @@ void VolumetricPass::EnsureGpuResources( const RenderResourceContext& resources 
     const int h = resources.windowHeight;
     const int volW = (std::max)( 1, w / 2 );
     const int volH = (std::max)( 1, h / 2 );
-    VolumetricLightPassResources& volumetric = m_host.m_systems.renderPasses.volumetricLight;
     const bool needsVolumetricTarget =
-        !volumetric.target || volumetric.target->GetWidth() != volW || volumetric.target->GetHeight() != volH ||
-        volumetric.target->GetColorFormat() != SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F;
+        !m_volumetricResources.target || m_volumetricResources.target->GetWidth() != volW ||
+        m_volumetricResources.target->GetHeight() != volH ||
+        m_volumetricResources.target->GetColorFormat() != SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F;
     if ( needsVolumetricTarget )
     {
         // Light shafts are soft, so this pass intentionally renders at half
         // resolution before TonemapPass composites the result over the scene.
-        if ( volumetric.target )
+        if ( m_volumetricResources.target )
         {
-            volumetric.target->ResetResources();
+            m_volumetricResources.target->ResetResources();
         }
-        volumetric.target.reset();
-        volumetric.target =
+        m_volumetricResources.target.reset();
+        m_volumetricResources.target =
             RenderResources( resources )
                 .CreateFramebuffer( volW, volH, SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F );
     }
-    if ( !volumetric.shader )
+    if ( !m_volumetricResources.shader )
     {
         // Half-resolution pass: creates warm light shafts that tonemap can add
         // without making every world shader understand volumetric lighting.
-        volumetric.shader =
+        m_volumetricResources.shader =
             resources.assets.CreateShader( RenderResources( resources ), "shader.post_volumetric_light" );
     }
 }
@@ -1894,24 +1894,20 @@ void VolumetricPass::EnsureGpuResources( const RenderResourceContext& resources 
 
 void VolumetricPass::ReleaseGpuResources()
 {
-    VolumetricLightPassResources& volumetric = m_host.m_systems.renderPasses.volumetricLight;
-    if ( volumetric.target )
+    if ( m_volumetricResources.target )
     {
-        volumetric.target->ResetResources();
+        m_volumetricResources.target->ResetResources();
     }
-    volumetric.target.reset();
-    volumetric.shader.reset();
+    m_volumetricResources.target.reset();
+    m_volumetricResources.shader.reset();
 }
 
 
 bool VolumetricPass::CanRender( const RenderFrameContext& frame ) const
 {
     const CinematicRenderConfig* cinematic = frame.cinematic;
-    const CinematicScenePassResources& scene = m_host.m_systems.renderPasses.cinematicScene;
-    const VolumetricLightPassResources& volumetric = m_host.m_systems.renderPasses.volumetricLight;
-    const FullscreenPassResources& fullscreen = m_host.m_systems.renderPasses.fullscreen;
-    return frame.cinematicEnabled && cinematic && cinematic->volumetricLightingEnabled && scene.hdrTarget &&
-           volumetric.target && volumetric.shader && fullscreen.quadVB != 0;
+    return frame.cinematicEnabled && cinematic && cinematic->volumetricLightingEnabled && m_sceneResources.hdrTarget &&
+           m_volumetricResources.target && m_volumetricResources.shader && m_fullscreenResources.quadVB != 0;
 }
 
 
@@ -1924,9 +1920,6 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
 
     assert( frame.cinematic && "Volumetric pass requires a frame cinematic snapshot" );
     const CinematicRenderConfig& cinematic = *frame.cinematic;
-    CinematicScenePassResources& scene = m_host.m_systems.renderPasses.cinematicScene;
-    VolumetricLightPassResources& volumetric = m_host.m_systems.renderPasses.volumetricLight;
-    FullscreenPassResources& fullscreen = m_host.m_systems.renderPasses.fullscreen;
 
     const bool detailMarkers = PlatformProfiler::AreDetailedRangesEnabled();
     if ( detailMarkers )
@@ -1937,7 +1930,7 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
     // Invariant: unbind the full-size scene target before sampling it. The
     // volumetric pass reads scene color/depth and writes a separate soft light
     // texture, so read and write targets must be different resources.
-    scene.hdrTarget->Unbind();
+    m_sceneResources.hdrTarget->Unbind();
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
     const bool useGraphOutput = graphOutput && graphOutput->IsValid() && graphOutput->renderTarget;
     // Why: Phase 5 moves the live volumetric output into the render graph, but
@@ -1949,8 +1942,11 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
     }
     else
     {
-        volumetric.target->Bind();
-        renderCommands.SetViewport( 0, 0, volumetric.target->GetWidth(), volumetric.target->GetHeight() );
+        m_volumetricResources.target->Bind();
+        renderCommands.SetViewport( 0,
+                                    0,
+                                    m_volumetricResources.target->GetWidth(),
+                                    m_volumetricResources.target->GetHeight() );
     }
 
     // This is another screen-space effect, so depth testing and blending are
@@ -1967,22 +1963,22 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
             PROFILE_GPU_BEGIN( "Frame/Render/VolumetricLight/Draw" );
         }
         DRAW_CALL_TRACE_SCOPE( "Draw" );
-        volumetric.shader->Use();
-        BindVolumetricPassParams( *volumetric.shader,
+        m_volumetricResources.shader->Use();
+        BindVolumetricPassParams( *m_volumetricResources.shader,
                                   frame.eye,
                                   frame.viewProjection,
                                   cinematic,
-                                  m_host.m_config.frustumNear,
-                                  m_host.m_config.frustumFar );
+                                  m_config.frustumNear,
+                                  m_config.frustumFar );
         // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
         // depth. The shader uses depth to tell sky pixels from solid geometry so
         // rays pass through sky and fade when they cross hills/balls.
         BindRenderTextureSlots( renderCommands,
-                                scene.hdrTarget->GetColorTextureHandle(),
-                                scene.hdrTarget->GetDepthTextureHandle(),
+                                m_sceneResources.hdrTarget->GetColorTextureHandle(),
+                                m_sceneResources.hdrTarget->GetDepthTextureHandle(),
                                 0,
                                 0 );
-        DrawFullscreenQuad( renderCommands, fullscreen.quadVB );
+        DrawFullscreenQuad( renderCommands, m_fullscreenResources.quadVB );
         if ( detailMarkers )
         {
             PROFILE_GPU_END( "Frame/Render/VolumetricLight/Draw" );
@@ -1998,9 +1994,9 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
     }
     else
     {
-        volumetric.target->Unbind();
+        m_volumetricResources.target->Unbind();
     }
-    renderCommands.SetViewport( 0, 0, m_host.WindowScreenWidth(), m_host.WindowScreenHeight() );
+    renderCommands.SetViewport( 0, 0, frame.windowWidth, frame.windowHeight );
     if ( detailMarkers )
     {
         PROFILE_GPU_END( "Frame/Render/VolumetricLight" );
@@ -2016,19 +2012,19 @@ void TonemapPass::EnsureGpuResources( const RenderResourceContext& resources )
         return;
     }
 
-    TonemapPassResources& tonemap = m_host.m_systems.renderPasses.tonemap;
-    if ( !tonemap.shader )
+    if ( !m_tonemapResources.shader )
     {
         // Final full-screen shader: combines HDR scene color, depth fog, bloom,
         // grade, vignette, and optional volumetric light into the backbuffer.
-        tonemap.shader = resources.assets.CreateShader( RenderResources( resources ), "shader.post_tonemap" );
+        m_tonemapResources.shader =
+            resources.assets.CreateShader( RenderResources( resources ), "shader.post_tonemap" );
     }
 }
 
 
 void TonemapPass::ReleaseGpuResources()
 {
-    m_host.m_systems.renderPasses.tonemap.shader.reset();
+    m_tonemapResources.shader.reset();
 }
 
 
@@ -2037,11 +2033,7 @@ void TonemapPass::Render( const RenderFrameContext& frame,
                           bool volumetricReady,
                           const Rendering::RenderGraphTextureBinding* graphVolumetric )
 {
-    CinematicScenePassResources& scene = m_host.m_systems.renderPasses.cinematicScene;
-    VolumetricLightPassResources& volumetric = m_host.m_systems.renderPasses.volumetricLight;
-    TonemapPassResources& tonemap = m_host.m_systems.renderPasses.tonemap;
-    FullscreenPassResources& fullscreen = m_host.m_systems.renderPasses.fullscreen;
-    if ( !scene.hdrTarget || !tonemap.shader || fullscreen.quadVB == 0 )
+    if ( !m_sceneResources.hdrTarget || !m_tonemapResources.shader || m_fullscreenResources.quadVB == 0 )
     {
         return;
     }
@@ -2054,10 +2046,10 @@ void TonemapPass::Render( const RenderFrameContext& frame,
     DRAW_CALL_TRACE_SCOPE( "Frame/Render/Tonemap" );
     if ( !sceneAlreadyUnbound )
     {
-        scene.hdrTarget->Unbind();
+        m_sceneResources.hdrTarget->Unbind();
     }
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
-    renderCommands.SetViewport( 0, 0, m_host.WindowScreenWidth(), m_host.WindowScreenHeight() );
+    renderCommands.SetViewport( 0, 0, frame.windowWidth, frame.windowHeight );
 
     const bool depthWasEnabled = renderCommands.IsDepthTestEnabled();
     const bool blendWasEnabled = renderCommands.IsBlendEnabled();
@@ -2074,31 +2066,32 @@ void TonemapPass::Render( const RenderFrameContext& frame,
             PROFILE_GPU_BEGIN( "Frame/Render/Tonemap/Draw" );
         }
         DRAW_CALL_TRACE_SCOPE( "Draw" );
-        tonemap.shader->Use();
+        m_tonemapResources.shader->Use();
         assert( frame.cinematic && "Tonemap pass requires a frame cinematic snapshot" );
         const CinematicRenderConfig& cinematic = *frame.cinematic;
-        BindTonemapPassParams( *tonemap.shader,
+        BindTonemapPassParams( *m_tonemapResources.shader,
                                frame.eye,
                                frame.viewProjection,
                                cinematic,
-                               m_host.m_config.frustumNear,
-                               m_host.m_config.frustumFar,
+                               m_config.frustumNear,
+                               m_config.frustumFar,
                                volumetricReady );
         const bool useGraphVolumetric =
             volumetricReady && graphVolumetric && graphVolumetric->IsValid() && graphVolumetric->shaderResource;
-        const uint32_t volumetricTexture =
-            useGraphVolumetric ? graphVolumetric->textureHandle
-                               : ( volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle()
-                                                                        : scene.hdrTarget->GetColorTextureHandle() );
+        const uint32_t volumetricTexture = useGraphVolumetric
+                                               ? graphVolumetric->textureHandle
+                                               : ( volumetricReady && m_volumetricResources.target
+                                                       ? m_volumetricResources.target->GetColorTextureHandle()
+                                                       : m_sceneResources.hdrTarget->GetColorTextureHandle() );
         // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth buffer,
         // and slot 2 is either the volumetric-light texture or a harmless fallback
         // when that pass is disabled.
         BindRenderTextureSlots( renderCommands,
-                                scene.hdrTarget->GetColorTextureHandle(),
-                                scene.hdrTarget->GetDepthTextureHandle(),
+                                m_sceneResources.hdrTarget->GetColorTextureHandle(),
+                                m_sceneResources.hdrTarget->GetDepthTextureHandle(),
                                 volumetricTexture,
                                 0 );
-        DrawFullscreenQuad( renderCommands, fullscreen.quadVB );
+        DrawFullscreenQuad( renderCommands, m_fullscreenResources.quadVB );
         if ( detailMarkers )
         {
             PROFILE_GPU_END( "Frame/Render/Tonemap/Draw" );

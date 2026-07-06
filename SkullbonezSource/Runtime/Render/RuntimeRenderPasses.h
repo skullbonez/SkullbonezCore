@@ -95,6 +95,8 @@ class EngineConfig;
 struct CinematicScenePassResources;
 struct FullscreenPassResources;
 struct SkyPassResources;
+struct TonemapPassResources;
+struct VolumetricLightPassResources;
 class ReplayRuntime;
 class RuntimeRenderHost;
 struct RuntimeRenderModelFrameView;
@@ -620,7 +622,12 @@ class DebugOverlayPass
 class VolumetricPass
 {
   public:
-    explicit VolumetricPass( RuntimeRenderHost& host ) : m_host( host )
+    VolumetricPass( CinematicScenePassResources& sceneResources,
+                    VolumetricLightPassResources& volumetricResources,
+                    FullscreenPassResources& fullscreenResources,
+                    const EngineConfig& config )
+        : m_sceneResources( sceneResources ), m_volumetricResources( volumetricResources ),
+          m_fullscreenResources( fullscreenResources ), m_config( config )
     {
     }
 
@@ -630,7 +637,10 @@ class VolumetricPass
     bool Render( const RenderFrameContext& frame, const Rendering::RenderGraphTextureBinding* graphOutput = nullptr );
 
   private:
-    RuntimeRenderHost& m_host;
+    CinematicScenePassResources& m_sceneResources;
+    VolumetricLightPassResources& m_volumetricResources;
+    FullscreenPassResources& m_fullscreenResources;
+    const EngineConfig& m_config;
 };
 
 /* -- TonemapPass
@@ -643,7 +653,13 @@ class VolumetricPass
 class TonemapPass
 {
   public:
-    explicit TonemapPass( RuntimeRenderHost& host ) : m_host( host )
+    TonemapPass( CinematicScenePassResources& sceneResources,
+                 VolumetricLightPassResources& volumetricResources,
+                 TonemapPassResources& tonemapResources,
+                 FullscreenPassResources& fullscreenResources,
+                 const EngineConfig& config )
+        : m_sceneResources( sceneResources ), m_volumetricResources( volumetricResources ),
+          m_tonemapResources( tonemapResources ), m_fullscreenResources( fullscreenResources ), m_config( config )
     {
     }
 
@@ -655,7 +671,11 @@ class TonemapPass
                  const Rendering::RenderGraphTextureBinding* graphVolumetric = nullptr );
 
   private:
-    RuntimeRenderHost& m_host;
+    CinematicScenePassResources& m_sceneResources;
+    VolumetricLightPassResources& m_volumetricResources;
+    TonemapPassResources& m_tonemapResources;
+    FullscreenPassResources& m_fullscreenResources;
+    const EngineConfig& m_config;
 };
 
 /* -- UiTextPass
