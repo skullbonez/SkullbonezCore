@@ -298,11 +298,9 @@ void Run::RunUIStressActions()
             break;
         case 8:
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
-            if ( m_renderBackendView.renderBackend )
+            if ( m_renderBackendView.deviceLifecycle )
             {
-                auto& renderLifecycle = static_cast<SkullbonezCore::Rendering::IRenderDeviceLifecycle&>(
-                    *m_renderBackendView.renderBackend );
-                renderLifecycle.SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+                m_renderBackendView.deviceLifecycle->SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
             }
             break;
         case 9:

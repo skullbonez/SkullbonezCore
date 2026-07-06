@@ -52,6 +52,10 @@ class PhysicsDebugVisualizer;
 namespace Rendering
 {
 class IRenderBackend;
+class IRenderCaptureBackend;
+class IRenderCommandContext;
+class IRenderDeviceLifecycle;
+class IRenderDiagnostics;
 class IRenderResourceFactory;
 class IRenderRayTracing;
 } // namespace Rendering
@@ -135,8 +139,13 @@ struct RenderDiagnosticsView
 
 struct RuntimeRenderBackendView
 {
-    Rendering::IRenderBackend* renderBackend = nullptr;        // Active renderer borrow; null when no backend is ready.
-    Rendering::IRenderRayTracing* rayTracingBackend = nullptr; // Optional DXR facet borrowed from the active renderer.
+    Rendering::IRenderBackend* renderBackend = nullptr;           // Compatibility aggregate borrow for legacy runtime callers.
+    Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr; // Startup/present/resize/drain capability.
+    Rendering::IRenderCommandContext* renderCommands = nullptr;   // Per-frame draw-state and submission capability.
+    Rendering::IRenderResourceFactory* renderResources = nullptr; // Resource creation/rebuild capability.
+    Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;   // Capability, draw-trace, timer, and memory snapshots.
+    Rendering::IRenderCaptureBackend* captureBackend = nullptr;   // Screenshot/readback capability.
+    Rendering::IRenderRayTracing* rayTracingBackend = nullptr;    // Optional DXR facet borrowed from the active renderer.
 };
 
 // Concept: RuntimeRendererBindings is the startup borrow set for pass owners.
@@ -147,7 +156,7 @@ struct RuntimeRenderBackendView
 // by Run startup code and must not grow per-frame draw decisions.
 struct RuntimeRendererBindings
 {
-    RuntimeRenderBackendView backend;                          // Stable backend capability pointers captured at Run startup.
+    RuntimeRenderBackendView backend;                             // Stable backend capability pointers captured at Run startup.
     RenderRuntimeView runtime;
     RenderWorldView world;
     RenderSceneView scene;

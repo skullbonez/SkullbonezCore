@@ -1472,7 +1472,7 @@ RENDER_BACKEND_AGGREGATE_DEPENDENCY_PATTERNS: tuple[tuple[str, re.Pattern[str], 
 # RGRAPH-030: include-aware tracked-source census on 2026-07-07.
 # These budgets are not approval for growth; per-file rows classify remaining
 # render-backend aggregate debt while Plan 05 drains it.
-MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 43
+MAX_IRENDER_BACKEND_DEPENDENCY_CENSUS = 39
 MAX_RENDER_BACKEND_DX12_GET_CENSUS = 0
 RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST: Counter[tuple[Path, str]] = Counter(
     {
@@ -1489,10 +1489,7 @@ RENDER_BACKEND_AGGREGATE_DEPENDENCY_ALLOWLIST: Counter[tuple[Path, str]] = Count
             ( "SkullbonezSource/Runtime/Init.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Runtime/Render/RuntimeRenderHost.h", "IRenderBackend", 2 ),
             ( "SkullbonezSource/Runtime/Run.cpp", "IRenderBackend", 3 ),
-            ( "SkullbonezSource/Runtime/RunFrame.cpp", "IRenderBackend", 1 ),
-            ( "SkullbonezSource/Runtime/RunInput.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Runtime/RunInternal.h", "IRenderBackend", 2 ),
-            ( "SkullbonezSource/Runtime/RunRender.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Runtime/Scene/RunScene.cpp", "IRenderBackend", 4 ),
             ( "SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.cpp", "IRenderBackend", 1 ),
             ( "SkullbonezSource/Runtime/Scene/SceneRuntimeGeneratedControls.h", "IRenderBackend", 2 ),
@@ -2613,7 +2610,12 @@ ALLOWED_RENDER_HOST_BINDINGS = {
 # legitimate top-level binding root.
 ALLOWED_RENDER_HOST_VIEW_FIELDS = {
     "RuntimeRenderBackendView": {
+        "captureBackend",
+        "deviceLifecycle",
         "renderBackend",
+        "renderCommands",
+        "renderDiagnostics",
+        "renderResources",
         "rayTracingBackend",
     },
     "RenderBackendView": {

@@ -43,7 +43,6 @@ Related:
 #include "Scene/SceneRuntimeGeneratedControls.h"
 #include "Scene/SceneRuntimeLoad.h"
 #include "Scene/SceneRuntimeStyle.h"
-#include "../Rendering/IRenderBackend.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
 #include "../UI/UIInput.h"
@@ -2159,8 +2158,8 @@ void Run::TakeInput()
                       m_config.contactEpsilon,
                       m_config.frictionCoeff,
                       m_debug,
-                      m_renderBackendView.renderBackend ? m_renderBackendView.renderBackend->GetRendererName()
-                                                        : "DirectX 12",
+                      m_renderBackendView.renderDiagnostics ? m_renderBackendView.renderDiagnostics->GetRendererName()
+                                                            : "DirectX 12",
                       simulationSeconds } );
                 const char* snapshotMessage = "Failed to write repro snapshot";
                 if ( snapshotStatus == LauncherReproSnapshotStatus::Wrote )
@@ -2259,11 +2258,8 @@ void Run::TakeInput()
             {
                 if ( !m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
                 {
-                    if ( m_renderBackendView.renderBackend &&
-                         static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>(
-                             *m_renderBackendView.renderBackend )
-                             .GetCapabilities()
-                             .supportsDxrReflection )
+                    if ( m_renderBackendView.renderDiagnostics &&
+                         m_renderBackendView.renderDiagnostics->GetCapabilities().supportsDxrReflection )
                     {
                         m_debug.isWaterRTReflect = true;
                     }
@@ -2633,9 +2629,9 @@ void Run::TakeInput()
         if ( uiCommands.renderer.toggleVsync )
         {
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
-            if ( m_renderBackendView.renderBackend )
+            if ( m_renderBackendView.deviceLifecycle )
             {
-                m_renderBackendView.renderBackend->SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+                m_renderBackendView.deviceLifecycle->SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
             }
             UpdateRuntimeInputModeAfterAction( RuntimeInputAction::ToggleVsync, RuntimeInputActionSource::UI );
         }
@@ -2883,7 +2879,11 @@ void Run::TakeInput()
         }
         if ( uiCommands.sceneOptions.toggleShadows )
         {
-            if ( RuntimeCinematicRenderingEnabled( SceneState(), m_config, m_launchOptions, m_debug, IsGfxReady() ) )
+            if ( RuntimeCinematicRenderingEnabled( SceneState(),
+                                                   m_config,
+                                                   m_launchOptions,
+                                                   m_debug,
+                                                   m_renderBackendView.deviceLifecycle != nullptr ) )
             {
                 const bool shadowsActive = RuntimeActiveCinematicConfig( SceneState(), m_config ).shadowsEnabled;
                 m_launchOptions.hasCinematicShadowsOverride = false;

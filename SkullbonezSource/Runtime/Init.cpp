@@ -2961,12 +2961,17 @@ RuntimeRenderBackendView InitRenderBackend( Window* window )
 {
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
     auto backend = std::make_unique<RenderBackendDX12>();
-    // Lifetime: SetGfxBackend takes ownership. Runtime render code keeps a
-    // borrowed raytracing facet in RuntimeRenderBackendView instead of reopening
-    // DXR through the global renderer accessor.
+    // Lifetime: SetGfxBackend takes ownership. Runtime render code keeps
+    // borrowed capability facets in RuntimeRenderBackendView instead of
+    // reopening renderer services through the global accessor.
     RenderBackendDX12* renderBackend = backend.get();
     RuntimeRenderBackendView renderBackendView;
     renderBackendView.renderBackend = renderBackend;
+    renderBackendView.deviceLifecycle = renderBackend;
+    renderBackendView.renderCommands = renderBackend;
+    renderBackendView.renderResources = renderBackend;
+    renderBackendView.renderDiagnostics = renderBackend;
+    renderBackendView.captureBackend = renderBackend;
     renderBackendView.rayTracingBackend = renderBackend;
     backend->Init( window->m_sWindow, window->m_sDevice, window->m_sWindowDimensions.x, window->m_sWindowDimensions.y );
     SetGfxBackend( std::move( backend ) );

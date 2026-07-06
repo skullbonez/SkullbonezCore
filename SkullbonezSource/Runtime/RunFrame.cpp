@@ -530,19 +530,17 @@ void Run::Execute()
             // Lifetime: borrow the startup-owned renderer once for this frame
             // turn. Narrow facets keep reset, GPU-drain, UI accounting, and
             // present from each reaching through the process-global service.
-            if ( !m_renderBackendView.renderBackend )
+            if ( !m_renderBackendView.deviceLifecycle || !m_renderBackendView.renderDiagnostics ||
+                 !m_renderBackendView.renderResources || !m_renderBackendView.renderCommands )
             {
                 throw std::runtime_error( "Run::Execute requires a render backend" );
             }
-            IRenderBackend& frameRenderBackend = *m_renderBackendView.renderBackend;
             SkullbonezCore::Rendering::IRenderDiagnostics& frameRenderDiagnostics =
-                static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( frameRenderBackend );
-            SkullbonezCore::Rendering::IRenderDeviceLifecycle& renderLifecycle =
-                static_cast<SkullbonezCore::Rendering::IRenderDeviceLifecycle&>( frameRenderBackend );
+                *m_renderBackendView.renderDiagnostics;
+            SkullbonezCore::Rendering::IRenderDeviceLifecycle& renderLifecycle = *m_renderBackendView.deviceLifecycle;
             SkullbonezCore::Rendering::IRenderResourceFactory& frameRenderResources =
-                static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( frameRenderBackend );
-            SkullbonezCore::Rendering::IRenderCommandContext& frameRenderCommands =
-                static_cast<SkullbonezCore::Rendering::IRenderCommandContext&>( frameRenderBackend );
+                *m_renderBackendView.renderResources;
+            SkullbonezCore::Rendering::IRenderCommandContext& frameRenderCommands = *m_renderBackendView.renderCommands;
             const SkullbonezCore::UI::UIRenderContext uiRender = { &m_systems.assets,
                                                                    &frameRenderResources,
                                                                    &frameRenderCommands };

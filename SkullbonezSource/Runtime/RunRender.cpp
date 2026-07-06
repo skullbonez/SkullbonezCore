@@ -1848,8 +1848,10 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
 
     const auto restoreReplayRenderStateForFrame = [&]() { restoreReplayLauncherVisualForRender(); };
 
-    SkullbonezCore::Rendering::IRenderBackend* renderBackend = m_renderBackendView.renderBackend;
-    const bool renderReady = renderBackend != nullptr;
+    SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = m_renderBackendView.renderCommands;
+    SkullbonezCore::Rendering::IRenderResourceFactory* renderResources = m_renderBackendView.renderResources;
+    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = m_renderBackendView.renderDiagnostics;
+    const bool renderReady = renderCommands != nullptr && renderResources != nullptr && renderDiagnostics != nullptr;
     if ( !renderReady )
     {
         restoreReplayRenderStateForFrame();
@@ -1859,12 +1861,6 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
     // Invariant: render inputs only borrow command capabilities after the
     // startup-owned backend view is ready. The captured flag records that guard
     // for frame decisions without making the command context nullable.
-    SkullbonezCore::Rendering::IRenderCommandContext& renderCommands =
-        static_cast<SkullbonezCore::Rendering::IRenderCommandContext&>( *renderBackend );
-    SkullbonezCore::Rendering::IRenderResourceFactory& renderResources =
-        static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>( *renderBackend );
-    SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics =
-        static_cast<SkullbonezCore::Rendering::IRenderDiagnostics&>( *renderBackend );
     SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = m_renderBackendView.rayTracingBackend;
     m_renderer.SetUiTextRayTracingCapability( renderRayTracing );
     PROFILE_BEGIN( "Frame/Render/PrepareModels" );
@@ -1879,9 +1875,9 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels )
                                                       renderModels,
                                                       m_cWorldEnvironment,
                                                       m_UI,
-                                                      renderCommands,
-                                                      renderResources,
-                                                      renderDiagnostics,
+                                                      *renderCommands,
+                                                      *renderResources,
+                                                      *renderDiagnostics,
                                                       renderRayTracing,
                                                       activeCinematic,
                                                       cinematicRender,
@@ -1917,10 +1913,7 @@ void Run::RebuildRegisteredRenderResources()
         switch ( phase.step )
         {
         case RebuildStep::ResetHelperCache:
-            RenderHelper::ResetRenderResources( m_renderBackendView.renderBackend
-                                                    ? &static_cast<SkullbonezCore::Rendering::IRenderResourceFactory&>(
-                                                          *m_renderBackendView.renderBackend )
-                                                    : nullptr );
+            RenderHelper::ResetRenderResources( m_renderBackendView.renderResources );
             break;
         case RebuildStep::RegisterBuiltInSources:
             RegisterBuiltInAssets();
