@@ -230,7 +230,7 @@ void Run::RunUIStressActions()
                                                     m_cGameModelCollection,
                                                     m_simulation,
                                                     m_runtimeTools,
-                                                    IsGfxReady() ? &Gfx() : nullptr,
+                                                    m_renderBackendView.renderBackend,
                                                     m_launchOptions.generatedObjectTypeOverride,
                                                     m_startup.gameModelCapacity };
     };
@@ -298,7 +298,12 @@ void Run::RunUIStressActions()
             break;
         case 8:
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
-            Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+            if ( m_renderBackendView.renderBackend )
+            {
+                auto& renderLifecycle = static_cast<SkullbonezCore::Rendering::IRenderDeviceLifecycle&>(
+                    *m_renderBackendView.renderBackend );
+                renderLifecycle.SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+            }
             break;
         case 9:
             if ( allowRuntimeChurn )
@@ -436,7 +441,7 @@ void Run::RunGraphicsStressActions( const Rendering::IRenderDiagnostics& renderD
     // Keep every mutation reproducible from the launch seed so a crash line in
     // latest_stdout.txt can be replayed exactly under cdb.
     RunGraphicsStressState& stress = m_graphicsStress;
-    if ( !stress.enabled || !m_systems.window || !IsGfxReady() )
+    if ( !stress.enabled || !m_systems.window )
     {
         return;
     }
